@@ -432,44 +432,33 @@ body.protect .card-pic img, body.protect .g-main img, body.protect .g-thumb img,
 .live-embed { background: #fff; border: 1px solid var(--line); border-radius: var(--radius); padding: 8px; overflow: hidden; }
 .live-embed iframe { width: 100%; min-height: 600px; border: 0; }
 
-/* floating score bar */
-.score-ticker { position: fixed; left: 0; right: 0; bottom: 0; z-index: 45; display: flex; align-items: stretch; gap: 0; background: var(--ink); color: #fff; box-shadow: 0 -6px 20px rgba(8,20,45,.25); min-height: 104px; }
-.score-ticker[hidden] { display: none; }
-.tk-label { flex: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 6px 12px; background: #E0262B; color: #fff; text-decoration: none; font-weight: 700; font-size: .78rem; line-height: 1.2; text-align: center; max-width: 86px; }
-.tk-label .live-dot { background: #fff; margin: 0; }
-.tk-track { flex: 1; min-width: 0; display: flex; gap: 8px; overflow-x: auto; padding: 8px; scroll-snap-type: x mandatory; scrollbar-width: thin; }
-.tk-card { flex: none; width: 250px; scroll-snap-align: start; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.14); border-radius: 10px; padding: 6px 10px; color: #fff; text-decoration: none; display: grid; gap: 2px; font-size: .82rem; line-height: 1.35; }
-.tk-card:hover { background: rgba(255,255,255,.14); }
-.tk-card.is-in { border-color: rgba(224,38,43,.8); }
-.tk-head { font-size: .7rem; color: #B9C6DC; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.tk-team { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; align-items: center; gap: 6px; }
-.tk-team img, .tk-team .ph { width: 18px; height: 18px; border-radius: 50%; object-fit: contain; background: rgba(255,255,255,.85); }
-.tk-team .tn { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
-.tk-team .sc { font-variant-numeric: tabular-nums; font-weight: 700; white-space: nowrap; }
-.tk-team.win .tn, .tk-team.win .sc { color: #6EE7A0; }
-.tk-team.bat .tn::after { content: ' 🏏'; font-size: .85em; }
-.tk-status { font-size: .72rem; line-height: 1.3; color: #FFD58A; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
-.tk-status .badge-live, .tk-status .tk-done { margin-right: 4px; vertical-align: 1px; }
-.tk-status .badge-live { font-size: .62rem; padding: 1px 6px; }
-.tk-done { background: rgba(255,255,255,.18); color: #fff; padding: 0 6px; border-radius: 5px; font-weight: 700; }
-.tk-soon { color: #B9C6DC; }
-.tk-x { flex: none; width: 36px; background: transparent; border: 0; border-left: 1px solid rgba(255,255,255,.14); color: #fff; font-size: 1rem; cursor: pointer; }
-.tk-x:hover { background: rgba(255,255,255,.1); }
-body.ticker-on { padding-bottom: 108px; }
-body.ticker-on .float-chat { bottom: 122px; }
-body.ticker-on .float-chat.ms.second { bottom: 186px; }
-body.ticker-on .sticky-buy { bottom: 104px; }
-@media (max-width: 640px) {
-  .score-ticker { min-height: 100px; }
-  .tk-card { width: 210px; }
-  .tk-label { padding: 6px 8px; max-width: 64px; font-size: .7rem; }
-  .tk-x { width: 30px; }
-  body.ticker-on { padding-bottom: 104px; }
-  body.ticker-on .float-chat { bottom: 112px; }
-  body.ticker-on .float-chat.ms.second { bottom: 168px; }
-  body.ticker-on .sticky-buy { bottom: 100px; }
-  body.ticker-on.has-sticky-buy .float-chat { bottom: 174px; }
-  body.ticker-on.has-sticky-buy .float-chat.ms.second { bottom: 230px; }
+/* small score box under the "লাইভ স্কোর" header button */
+.live-nav { position: relative; }
+.live-mini { position: absolute; top: calc(100% + 6px); left: 50%; transform: translateX(-50%); width: 230px; z-index: 35; display: grid; gap: 6px; }
+.live-mini[hidden], .live-mini-m[hidden], .live-nav.drop-open .live-mini { display: none; }
+.lm-match { position: relative; display: grid; gap: 2px; background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 7px 10px; color: var(--ink); text-decoration: none; font-size: .8rem; line-height: 1.35; box-shadow: 0 10px 24px rgba(8,40,90,.14); }
+.lm-match:hover { border-color: var(--blue); }
+.lm-match.is-in { border-color: #F2B8B9; }
+.lm-head { display: flex; align-items: center; gap: 5px; font-size: .68rem; color: var(--muted); white-space: nowrap; overflow: hidden; padding-right: 14px; }
+.lm-head .lm-lg { overflow: hidden; text-overflow: ellipsis; }
+.lm-head .badge-live { font-size: .6rem; padding: 1px 6px; }
+.lm-tag { flex: none; background: var(--bin); color: var(--ink-2); font-weight: 700; padding: 0 6px; border-radius: 5px; font-size: .62rem; }
+.lm-team { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; align-items: center; gap: 6px; }
+.lm-team img, .lm-team .ph { width: 16px; height: 16px; border-radius: 50%; object-fit: contain; background: var(--paper); }
+.lm-team .tn { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.lm-team .sc { font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.lm-team.win .tn, .lm-team.win .sc { color: var(--green); }
+.lm-team.bat .tn::after { content: ' 🏏'; font-size: .85em; }
+.lm-status { font-size: .7rem; color: #B4261F; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.lm-dots { position: absolute; right: 8px; bottom: 6px; font-size: .62rem; color: var(--muted); }
+.lm-x { position: absolute; top: -8px; right: -8px; width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--line); background: #fff; color: var(--muted); font-size: .7rem; line-height: 1; cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,.12); z-index: 1; }
+.live-mini-m { display: none; }
+@media (max-width: 760px) {
+  .live-mini { display: none !important; }
+  .live-mini-m { display: flex; position: relative; gap: 8px; overflow-x: auto; padding: 8px 16px; background: #fff; border-bottom: 1px solid var(--line); scrollbar-width: none; }
+  .live-mini-m .lm-match { flex: 1 0 230px; max-width: 320px; box-shadow: none; background: var(--paper); }
+  .live-mini-m .lm-x { position: static; flex: none; align-self: center; order: 9; }
+}
 }
 
 /* ---------- responsive ---------- */
