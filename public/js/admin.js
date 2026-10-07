@@ -202,7 +202,7 @@
           return fetch('/admin/api/media', {
             method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ data: full.data, thumb: th.data, width: full.width, height: full.height,
-              phash: fp ? fp.h : undefined, phash_m: fp ? fp.m : undefined }),
+              phash: fp ? fp.h : undefined, phash_m: fp ? fp.m : undefined, import: opts.import ? 1 : undefined }),
           }).then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || 'আপলোড হয়নি'); return j; }); });
         });
       });
@@ -721,4 +721,293 @@
     };
     el.addEventListener('input', f); f();
   });
+  // ---------- product import (পণ্য আমদানি) ----------
+  var imp = $('[data-import]');
+  if (imp) (function () {
+    var canOverride = imp.getAttribute('data-can-override') === '1';
+    var st = { items: [], running: false, paused: false, stop: false, k: { added: 0, updated: 0, exists: 0, duplicate: 0, error: 0 }, done: 0, total: 0 };
+    var readStatus = $('[data-imp-read-status]');
+    var step = function (n) { $all('[data-imp-step]', imp).forEach(function (s) { s.hidden = Number(s.getAttribute('data-imp-step')) > n; }); };
+    var say = function (text, bad) { readStatus.hidden = !text; readStatus.innerHTML = text || ''; readStatus.classList.toggle('warn', !!bad); };
+    var postJSON = function (url, body) {
+      return fetch(url, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify(body) })
+        .then(function (r) {
+          return r.json().catch(function () { return { error: r.status === 413 ? 'ফাইলটি অনেক বড়।' : 'সার্ভার থেকে উত্তর আসেনি (' + r.status + ')।' } })
+            .then(function (j) { if (!r.ok) throw new Error(j.error || 'সমস্যা হয়েছে'); return j; });
+        });
+    };
+    var sleep = function (ms) { return new Promise(function (r) { setTimeout(r, ms); }); };
+
+    // tabs
+    $all('[data-imp-tab]', imp).forEach(function (t) {
+      t.addEventListener('click', function () {
+        $all('[data-imp-tab]', imp).forEach(function (x) { x.classList.toggle('on', x === t); });
+        $all('[data-imp-pane]', imp).forEach(function (p) { p.hidden = p.getAttribute('data-imp-pane') !== t.getAttribute('data-imp-tab'); });
+        say('');
+      });
+    });
+
+    // ----- step 1: read -----
+    var fileInput = $('[data-imp-file]', imp);
+    var fileBtn = $('[data-imp-read="file"]', imp);
+    var drop = $('[data-imp-drop]', imp);
+    var pickedFile = null;
+    var setFile = function (f) {
+      pickedFile = f || null;
+      $('[data-imp-filename]', imp).textContent = f ? '✅ ' + f.name + ' (' + bn(Math.max(1, Math.round(f.size / 1024))) + ' KB)' : '';
+      fileBtn.disabled = !f;
+    };
+    fileInput.addEventListener('change', function () { setFile(fileInput.files[0]); });
+    ['dragover', 'dragenter'].forEach(function (ev) { drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.add('over'); }); });
+    ['dragleave', 'drop'].forEach(function (ev) { drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.remove('over'); }); });
+    drop.addEventListener('drop', function (e) { if (e.dataTransfer && e.dataTransfer.files[0]) setFile(e.dataTransfer.files[0]); });
+
+    var found = [];
+    var notes = [];
+    var addResult = function (j) {
+      (j.items || []).forEach(function (it) { found.push(it); });
+      (j.notes || []).forEach(function (n) { if (notes.indexOf(n) < 0) notes.push(n); });
+      if (j.unknownColumns) notes.push('⚠️ ফাইলের কলামের নাম চেনা যায়নি। প্রথম লাইনে title / name / পণ্যের নাম, price / দাম, image_link / ছবি — এমন নাম দিন (নমুনা ফাইল দেখুন)।');
+    };
+    var busy = function (on) { $all('[data-imp-read]', imp).forEach(function (b) { b.disabled = on || (b === fileBtn && !pickedFile); }); };
+
+    // Visit a list of pages (category pages, sitemaps, product pages) a few at a time.
+    var crawl = function (start) {
+      var queue = start.slice();
+      var seen = {};
+      queue.forEach(function (l) { seen[l.url] = 1; });
+      var pages = 0, failed = 0;
+      st.stop = false;
+      var show = function () {
+        say('⏳ পেজ পড়া হচ্ছে… ' + bn(pages) + ' / ' + bn(pages + queue.length) + ' — পণ্য পাওয়া গেছে ' + bn(found.length) + 'টি' + (failed ? ' (পড়া যায়নি ' + bn(failed) + 'টি)' : '') + ' <button type="button" class="link-btn" data-imp-crawl-stop>থামান</button>');
+      };
+      var worker = function () {
+        if (st.stop || !queue.length) return Promise.resolve();
+        var l = queue.shift();
+        return postJSON('/admin/api/import/read', { url: l.url, single: true }).then(function (j) {
+          addResult(j);
+          (j.links || []).forEach(function (x) { if (!seen[x.url] && pages + queue.length < 6000) { seen[x.url] = 1; queue.push(x); } });
+          if (j.next && !seen[j.next]) { seen[j.next] = 1; queue.push({ url: j.next, kind: 'list' }); }
+        }, function () { failed++; }).then(function () { pages++; show(); return worker(); });
+      };
+      show();
+      return Promise.all([worker(), worker(), worker()]);
+    };
+    imp.addEventListener('click', function (e) { if (e.target.closest('[data-imp-crawl-stop]')) st.stop = true; });
+
+    var finishRead = function () {
+      busy(false);
+      // the same product twice in one source: keep the first
+      var seenRef = {}, seenName = {}, clean = [], twice = 0;
+      found.forEach(function (it) {
+        var nk = (it.title || '').toLowerCase().replace(/\s+/g, ' ').trim() + '|' + (it.price || '');
+        if (seenRef[it.ref] || seenName[nk]) { twice++; return; }
+        seenRef[it.ref] = 1; seenName[nk] = 1; clean.push(it);
+      });
+      if (twice) notes.push(bn(twice) + 'টি পণ্য একই তালিকায় দুইবার ছিল — একবারই নেওয়া হবে।');
+      // A picture used by many different products is a logo / banner, not a product photo — leave it out
+      // (otherwise every product after the first would look like a duplicate).
+      var useCount = {};
+      clean.forEach(function (it) { it.images.forEach(function (u) { useCount[u] = (useCount[u] || 0) + 1; }); });
+      var shared = Object.keys(useCount).filter(function (u) { return useCount[u] >= 3 && useCount[u] >= clean.length * 0.05; });
+      if (shared.length) {
+        clean.forEach(function (it) { it.images = it.images.filter(function (u) { return shared.indexOf(u) < 0; }); });
+        notes.push(bn(shared.length) + 'টি ছবি অনেকগুলো পণ্যে একই ছিল (যেমন লোগো/ব্যানার) — ওগুলো বাদ দিয়ে শুধু পণ্যের নিজের ছবি নেওয়া হবে।');
+      }
+      st.items = clean;
+      if (!clean.length) { say('কোনো পণ্য পাওয়া যায়নি। ' + (notes.length ? notes.join(' ') : 'লিংক/ফাইলটি ঠিক আছে কি না দেখুন, অথবা অন্য পদ্ধতি চেষ্টা করুন।'), true); return; }
+      say('');
+      preview();
+    };
+    var startRead = function (kind) {
+      found = []; notes = [];
+      busy(true);
+      var go;
+      if (kind === 'file') {
+        if (!pickedFile) { busy(false); return; }
+        if (pickedFile.size > 3 * 1024 * 1024) { busy(false); say('ফাইলটি ৩ MB-এর বেশি বড়। ফাইলটি দুই ভাগ করে আলাদা আলাদা দিন।', true); return; }
+        say('⏳ ফাইল পড়া হচ্ছে…');
+        var binary = /\.(xlsx|xls)$/i.test(pickedFile.name) || /spreadsheet|excel/.test(pickedFile.type);
+        go = new Promise(function (resolve, reject) {
+          var r = new FileReader();
+          r.onerror = function () { reject(new Error('ফাইলটি খোলা যায়নি।')); };
+          r.onload = function () {
+            resolve(binary ? { name: pickedFile.name, base64: String(r.result).split(',')[1] || '' } : { name: pickedFile.name, text: String(r.result) });
+          };
+          if (binary) r.readAsDataURL(pickedFile); else r.readAsText(pickedFile, 'utf-8');
+        }).then(function (file) { return postJSON('/admin/api/import/read', { file: file }); })
+          .then(function (j) { addResult(j); if ((j.links || []).length) return crawl(j.links); });
+      } else if (kind === 'many') {
+        var lines = ($('[data-imp-links]', imp).value || '').split(/\s+/).filter(function (x) { return /^https?:\/\/\S+\.\S+/i.test(x); });
+        if (!lines.length) { busy(false); say('অন্তত একটা লিংক দিন (https:// দিয়ে শুরু)।', true); return; }
+        go = crawl(lines.slice(0, 3000).map(function (u) { return { url: u, kind: 'page' }; }));
+      } else {
+        var url = ($('[data-imp-url]', imp).value || '').trim();
+        if (!url) { busy(false); say('লিংক দিন।', true); return; }
+        say('⏳ লিংক খোলা হচ্ছে… (বড় ফিড হলে ১০-২০ সেকেন্ড লাগতে পারে)');
+        go = postJSON('/admin/api/import/read', { url: url }).then(function (j) {
+          addResult(j);
+          var more = (j.links || []).slice();
+          if (j.next) more.push({ url: j.next, kind: 'list' });
+          if (more.length) return crawl(more);
+        });
+      }
+      go.then(finishRead, function (err) { busy(false); say('❌ ' + esc(err.message), true); });
+    };
+    $all('[data-imp-read]', imp).forEach(function (b) { b.addEventListener('click', function () { startRead(b.getAttribute('data-imp-read')); }); });
+    $('[data-imp-url]', imp).addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); startRead('link'); } });
+
+    // ----- step 2: preview -----
+    var preview = function () {
+      var items = st.items;
+      var noPrice = 0, noImg = 0, noBrand = 0, had = 0;
+      items.forEach(function (it) { if (!(it.price > 0)) noPrice++; if (!it.images.length) noImg++; if (!it.brand) noBrand++; if (it.exists) had++; });
+      $('[data-imp-found]', imp).textContent = bn(items.length) + 'টি পণ্য';
+      $('[data-imp-notes]', imp).innerHTML = notes.map(function (n) { return '<p class="small muted">ℹ️ ' + esc(n) + '</p>'; }).join('');
+      var chip = function (cls, text) { return '<span class="imp-chip ' + cls + '">' + text + '</span>'; };
+      $('[data-imp-check]', imp).innerHTML =
+        chip('good', '✅ নাম আছে: ' + bn(items.length)) +
+        chip(noPrice ? 'bad' : 'good', (noPrice ? '⛔ দাম নেই: ' + bn(noPrice) + ' (এগুলো বাদ যাবে)' : '✅ সবগুলোর দাম আছে')) +
+        chip(noImg ? 'warn' : 'good', (noImg ? '⚠️ ছবি নেই: ' + bn(noImg) : '✅ সবগুলোর ছবি আছে')) +
+        chip(noBrand ? 'warn' : 'good', (noBrand ? 'ব্র্যান্ড নেই: ' + bn(noBrand) + ' (ঐচ্ছিক)' : '✅ সবগুলোর ব্র্যান্ড আছে')) +
+        (had ? chip('', '↩️ আগে আনা হয়েছে: ' + bn(had)) : '');
+      var LIMIT = 150;
+      $('[data-imp-rows]', imp).innerHTML = items.slice(0, LIMIT).map(function (it) {
+        var problems = [];
+        if (!(it.price > 0)) problems.push('<span class="bad">দাম নেই — বাদ যাবে</span>');
+        if (!it.images.length) problems.push('<span class="warn">ছবি নেই</span>');
+        if (it.exists) problems.push('<span class="muted">আগে আনা হয়েছে (SKU ' + esc(it.exists.sku || '—') + ')</span>');
+        return '<tr><td class="thumb">' + (it.images[0] ? '<img src="' + esc(it.images[0]) + '" alt="" loading="lazy" referrerpolicy="no-referrer">' : '<span>📦</span>') + '</td>' +
+          '<td><b>' + esc(it.title) + '</b>' + (it.link ? '<br><a class="small muted" href="' + esc(it.link) + '" target="_blank" rel="noopener noreferrer">আসল পেজ ↗</a>' : '') + '</td>' +
+          '<td class="small">' + (it.brand ? esc(it.brand) : '<span class="muted">—</span>') + '</td>' +
+          '<td class="num">' + (it.price > 0 ? money(it.price) : '—') + (it.old_price > it.price ? '<br><s class="small muted">' + money(it.old_price) + '</s>' : '') + '</td>' +
+          '<td class="num">' + bn(it.images.length) + '</td>' +
+          '<td class="small">' + esc(it.category || '—') + '</td>' +
+          '<td class="num">' + (it.stock !== null && it.stock !== undefined ? bn(it.stock) : it.in_stock === false ? '০' : '<span class="muted">—</span>') + '</td>' +
+          '<td class="small">' + (problems.join('<br>') || '<span class="good">ঠিক আছে</span>') + '</td></tr>';
+      }).join('');
+      $('[data-imp-more]', imp).textContent = items.length > LIMIT ? 'প্রথম ' + bn(LIMIT) + 'টি দেখানো হলো — আমদানির সময় সব ' + bn(items.length) + 'টিই আনা হবে।' : '';
+      step(2);
+      $('[data-imp-step="2"]', imp).scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+    $('[data-imp-reset]', imp).addEventListener('click', function () { st.items = []; step(1); say(''); });
+
+    // ----- step 3: import -----
+    var opts = function () {
+      var v = function (n) { var el = imp.querySelector('[name="' + n + '"]'); return el ? (el.type === 'checkbox' ? el.checked : el.value) : ''; };
+      return { cat_mode: v('imp_cat_mode'), category_id: v('imp_cat_id'), create_category: v('imp_create_cat'), default_stock: v('imp_stock'),
+        existing: v('imp_existing'), active: v('imp_active'), hide_no_image: v('imp_hide_noimg') };
+    };
+    var paint = function () {
+      Object.keys(st.k).forEach(function (k) { var el = $('[data-imp-k="' + k + '"]', imp); if (el) el.textContent = bn(st.k[k]); });
+      $('[data-imp-bar]', imp).style.width = (st.total ? Math.round(st.done * 100 / st.total) : 0) + '%';
+      $('[data-imp-count]', imp).textContent = bn(st.done) + ' / ' + bn(st.total) + ' টি পণ্য দেখা হয়েছে';
+    };
+    var logList = $('[data-imp-log]', imp);
+    var log = function (li) { $('[data-imp-log-title]', imp).hidden = false; logList.appendChild(li); };
+    var thumbHtml = function (it) { return it.images && it.images[0] ? '<img src="' + esc(it.images[0]) + '" alt="" loading="lazy" referrerpolicy="no-referrer">' : '<span>📦</span>'; };
+
+    // bring each picture through our server, resize + fingerprint it in the browser, upload it
+    var copyImages = function (it) {
+      var ids = [];
+      var list = (it.images || []).slice(0, 6);
+      var one = function (i) {
+        if (i >= list.length) return Promise.resolve();
+        return fetch('/admin/api/import/image?u=' + encodeURIComponent(list[i]), { credentials: 'same-origin' }).then(function (r) {
+          if (!r.ok) throw new Error('no image');
+          return r.blob();
+        }).then(function (blob) { return upload(blob, { max: 1200, import: true }); })
+          .then(function (j) { ids[i] = j.id; }, function () { /* this picture is skipped */ })
+          .then(function () { return one(i + 1); });
+      };
+      return one(0).then(function () { return ids.filter(Boolean); });
+    };
+    var saveChain = Promise.resolve();
+    var save = function (it, ids, allow) {
+      var job = saveChain.then(function () {
+        return postJSON('/admin/api/import/save', { item: it, images: ids, options: opts(), allow_duplicate: allow ? 1 : 0 });
+      });
+      saveChain = job.catch(function () {});
+      return job;
+    };
+    var handle = function (it, ids, r) {
+      if (r.result === 'duplicate') {
+        st.k.duplicate++;
+        var li = document.createElement('li');
+        li.className = 'dup-item is-block';
+        li.innerHTML = '<span class="dup-thumb">' + thumbHtml(it) + '</span><div class="dup-info"><b>' + esc(it.title) + '</b>' +
+          '<span class="dup-why">⛔ দোকানে আগে থেকেই আছে: ' + (r.matches || []).map(function (m) {
+            return '<a href="/admin/products/' + m.id + '" target="_blank" rel="noopener">' + esc(m.name) + (m.sku ? ' (SKU ' + esc(m.sku) + ')' : '') + '</a> — ' + esc((m.reasons || []).join(' · '));
+          }).join('<br>') + '</span></div>' +
+          (canOverride ? '<button type="button" class="btn btn-ghost btn-sm" data-imp-force>তবুও যোগ করুন</button>' : '');
+        var btn = $('[data-imp-force]', li);
+        if (btn) btn.addEventListener('click', function () {
+          btn.disabled = true; btn.textContent = '⏳';
+          save(it, r.images || ids, true).then(function (r2) {
+            if (r2.result === 'added') { st.k.duplicate--; st.k.added++; paint(); li.classList.remove('is-block'); btn.outerHTML = '<a class="btn btn-ghost btn-sm" href="/admin/products/' + r2.id + '" target="_blank">✅ যোগ হয়েছে (SKU ' + esc(r2.sku) + ')</a>'; }
+            else { btn.disabled = false; btn.textContent = 'তবুও যোগ করুন'; toast(r2.message || 'যোগ করা যায়নি'); }
+          }, function (e) { btn.disabled = false; btn.textContent = 'তবুও যোগ করুন'; toast(e.message); });
+        });
+        log(li);
+      } else if (r.result === 'error') {
+        st.k.error++;
+        var le = document.createElement('li');
+        le.className = 'dup-item is-warn';
+        le.innerHTML = '<span class="dup-thumb">' + thumbHtml(it) + '</span><div class="dup-info"><b>' + esc(it.title || '(নাম নেই)') + '</b><span class="dup-why">⚠️ ' + esc(r.message || 'সমস্যা') + '</span></div>';
+        log(le);
+      } else if (st.k[r.result] !== undefined) st.k[r.result]++;
+    };
+    var processOne = function (it) {
+      if (!(it.price > 0)) return Promise.resolve(handle(it, [], { result: 'error', message: 'দাম নেই — বাদ দেওয়া হলো' }));
+      var o = opts();
+      if (it.exists && o.existing === 'skip') return Promise.resolve(handle(it, [], { result: 'exists' }));
+      var pics = it.exists ? Promise.resolve([]) : copyImages(it);
+      return pics.then(function (ids) {
+        if (it.images.length && !ids.length && !it.exists) it._noPics = true;
+        return save(it, ids).then(function (r) { handle(it, ids, r); }, function (e) {
+          // one retry after a short wait (network blip)
+          return sleep(2500).then(function () { return save(it, ids); }).then(function (r) { handle(it, ids, r); },
+            function () { handle(it, ids, { result: 'error', message: e.message || 'সেভ হয়নি' }); });
+        });
+      });
+    };
+    var pauseBtn = $('[data-imp-pause]', imp);
+    pauseBtn.addEventListener('click', function () {
+      st.paused = !st.paused;
+      pauseBtn.textContent = st.paused ? '▶ আবার চালু করুন' : '⏸ থামান';
+      $('[data-imp-warn]', imp).textContent = st.paused ? '⏸ থামানো আছে। "আবার চালু করুন" চাপলে যেখানে থেমেছিল সেখান থেকে চলবে।' : '⏳ কাজ চলার সময় এই পেজটা বন্ধ করবেন না।';
+    });
+    var warnLeave = function (e) { if (st.running) { e.preventDefault(); e.returnValue = ''; return ''; } };
+    window.addEventListener('beforeunload', warnLeave);
+
+    $('[data-imp-start]', imp).addEventListener('click', function () {
+      if (st.running) return;
+      var o = opts();
+      if (o.cat_mode === 'one' && !o.category_id && !confirm('কোনো ক্যাটাগরি বাছা হয়নি — সব পণ্য ক্যাটাগরি ছাড়া আসবে। চালিয়ে যাবেন?')) return;
+      st.running = true; st.paused = false; st.done = 0; st.total = st.items.length;
+      Object.keys(st.k).forEach(function (k) { st.k[k] = 0; });
+      logList.innerHTML = ''; $('[data-imp-log-title]', imp).hidden = true;
+      $('[data-imp-done]', imp).hidden = true; pauseBtn.hidden = false;
+      $all('[data-imp-step="1"], [data-imp-step="2"]', imp).forEach(function (s) { s.hidden = true; });
+      $('[data-imp-step="3"]', imp).hidden = false;
+      paint();
+      var next = 0;
+      var worker = function () {
+        if (next >= st.items.length) return Promise.resolve();
+        if (st.paused) return sleep(500).then(worker);
+        var it = st.items[next++];
+        return processOne(it).catch(function (e) { handle(it, [], { result: 'error', message: e.message }); })
+          .then(function () { st.done++; paint(); return worker(); });
+      };
+      Promise.all([worker(), worker(), worker()]).then(function () {
+        st.running = false;
+        pauseBtn.hidden = true;
+        $('[data-imp-done]', imp).hidden = false;
+        var noPics = st.items.filter(function (x) { return x._noPics; }).length;
+        $('[data-imp-warn]', imp).innerHTML = '✅ আমদানি শেষ! ' + bn(st.k.added) + 'টি নতুন পণ্য যোগ হয়েছে' + (st.k.updated ? ', ' + bn(st.k.updated) + 'টি আপডেট হয়েছে' : '') + '।' +
+          (noPics ? '<br>⚠️ ' + bn(noPics) + 'টি পণ্যের ছবি ওই সাইট থেকে আনা যায়নি — পণ্যগুলো খুলে হাতে ছবি দিন।' : '');
+        toast('আমদানি শেষ');
+      });
+    });
+  })();
 })();

@@ -445,3 +445,31 @@ textarea.editor { min-height: 300px; line-height: 1.6; }
 @media (max-width: 600px) { .dup-item { flex-wrap: wrap; } .dup-item form { width: 100%; } }
 .small-rule-hint { margin: 6px 0 0; padding: 8px 10px; border-radius: 8px; background: #EEF5FF; border: 1px solid #C9DDF7; font-size: .9rem; }
 .small-rule-table td, .small-rule-table th { padding: 6px 10px; }
+
+/* ---------- product import (পণ্য আমদানি) ---------- */
+.imp-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+.imp-tab { font: inherit; font-weight: 600; padding: 8px 14px; border: 2px solid var(--line); border-radius: 999px; background: #fff; color: var(--ink); cursor: pointer; }
+.imp-tab.on { border-color: var(--blue); background: var(--blue); color: #fff; }
+.imp-hints { margin: 4px 0 12px; padding-left: 18px; }
+.imp-hints li { margin-bottom: 3px; }
+.imp-drop { display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; padding: 26px 16px; border: 2px dashed var(--line); border-radius: var(--radius); background: var(--paper); cursor: pointer; margin-bottom: 10px; }
+.imp-drop.over, .imp-drop:hover { border-color: var(--blue); background: #F2F7FF; }
+.imp-drop-icon { font-size: 2rem; }
+.imp-status { margin: 12px 0 0; padding: 10px 12px; border-radius: 8px; background: #F2F7FF; }
+.imp-status.warn { background: #FFF3F2; color: var(--red); }
+.imp-check { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 12px; }
+.imp-chip { font-size: .85rem; font-weight: 600; padding: 4px 10px; border-radius: 999px; background: var(--paper); border: 1px solid var(--line); }
+.imp-chip.good { background: #EEFBF3; border-color: #BFE8CF; color: #126B3A; }
+.imp-chip.warn { background: #FFF8E6; border-color: #F3D98B; color: #7A5600; }
+.imp-chip.bad { background: #FFF0EF; border-color: #F5C2BE; color: #A3231A; }
+.imp-preview { max-height: 520px; overflow: auto; margin-bottom: 6px; }
+.imp-preview .bad { color: var(--red); font-weight: 600; }
+.imp-preview .good { color: var(--green); }
+.imp-options { margin-top: 6px; }
+.imp-options .check { display: flex; margin: 6px 0; }
+.imp-warn { padding: 10px 12px; border-radius: 8px; background: #FFF8E6; }
+.imp-bar { height: 14px; border-radius: 999px; background: var(--paper); overflow: hidden; border: 1px solid var(--line); }
+.imp-bar span { display: block; height: 100%; width: 0; background: var(--green); transition: width .3s; }
+.imp-count { font-weight: 700; margin: 8px 0 12px; }
+.imp-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 12px; }
+.imp-log .dup-item .btn { margin-left: auto; align-self: center; }
