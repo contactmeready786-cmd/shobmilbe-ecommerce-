@@ -546,3 +546,13 @@ body.protect .card-pic img, body.protect .g-main img, body.protect .g-thumb img,
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; animation: none !important; }
 }
+
+/* WhatsApp button on product pages + "max pieces" note */
+.btn-wa { background: #25D366; border-color: #25D366; color: #fff; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+.btn-wa:hover { background: #1EBE5A; border-color: #1EBE5A; color: #fff; }
+.btn-wa svg { flex: 0 0 auto; }
+.btn-wa-ic { padding: 8px 12px; }
+.qty-limit { margin: -8px 0 16px; padding: 10px 12px; border-radius: 10px; background: #FFF6E5; border: 1px solid #F3D9A4; color: #6B4500; font-size: .92rem; }
+.qty-limit a { font-weight: 700; white-space: nowrap; }
+.toast a[href^="tel:"], .toast a[href*="wa.me"] { white-space: nowrap; }
+@media (max-width: 640px) { .buy-box .btn-wa.btn-lg { flex: 1 1 100%; } }

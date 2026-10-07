@@ -25,8 +25,8 @@
       window.dataLayer.push({ ecommerce: null });
       window.dataLayer.push({ event: event, ecommerce: { currency: 'BDT', value: value, items: items, transaction_id: d.code || undefined }, search_term: d.q || undefined });
     } catch (e) { /* ignore */ }
-    var fbMap = { view_item: 'ViewContent', add_to_cart: 'AddToCart', begin_checkout: 'InitiateCheckout', purchase: 'Purchase', search: 'Search' };
-    var ttMap = { view_item: 'ViewContent', add_to_cart: 'AddToCart', begin_checkout: 'InitiateCheckout', purchase: 'CompletePayment', search: 'Search' };
+    var fbMap = { view_item: 'ViewContent', add_to_cart: 'AddToCart', begin_checkout: 'InitiateCheckout', purchase: 'Purchase', search: 'Search', contact: 'Contact' };
+    var ttMap = { view_item: 'ViewContent', add_to_cart: 'AddToCart', begin_checkout: 'InitiateCheckout', purchase: 'CompletePayment', search: 'Search', contact: 'Contact' };
     var ids = items.map(function (i) { return i.item_id; });
     try {
       if (window.fbq && fbMap[event]) {
@@ -157,10 +157,27 @@
   }
   function write(cart) { store(KEY, JSON.stringify(cart)); updateCount(); }
   function count(cart) { return Object.keys(cart).reduce(function (s, k) { return s + cart[k]; }, 0); }
+  // Most pieces of one product a customer can order online (Admin → সেটিংস).
+  var MAXQ = Math.max(1, Number(SM.maxQty) || 10);
+  function limitText() {
+    var how = [];
+    if (SM.phone) how.push('<a href="tel:' + esc(SM.phone) + '">📞 কল করুন</a>');
+    if (SM.wa) how.push('<a href="https://wa.me/' + esc(SM.wa) + '" target="_blank" rel="noopener">💬 WhatsApp</a>');
+    return 'একটি পণ্য সর্বোচ্চ ' + bn(MAXQ) + 'টি অর্ডার করা যাবে। ' + bn(MAXQ) + 'টির বেশি দরকার হলে সরাসরি আমাদের সাথে যোগাযোগ করুন' +
+      (how.length ? ' — ' + how.join(' · ') : '।');
+  }
+  function showLimit() {
+    var box = $('[data-qty-limit]');
+    if (box) { box.innerHTML = '⚠️ ' + limitText(); box.hidden = false; return; } // product page: message under the buttons
+    toast('<span>⚠️ ' + limitText() + '</span>', 6000);
+  }
+  // returns false when the limit stopped some of the pieces
   function add(id, qty) {
     var cart = read();
-    cart[id] = Math.min((cart[id] || 0) + qty, 99);
+    var want = (cart[id] || 0) + qty;
+    cart[id] = Math.min(want, MAXQ);
     write(cart);
+    return want <= MAXQ;
   }
   function updateCount(bump) {
     var n = count(read());
@@ -172,13 +189,13 @@
   }
 
   var toastTimer;
-  function toast(htmlText) {
+  function toast(htmlText, ms) {
     var t = $('[data-toast]');
     if (!t) return;
     t.innerHTML = htmlText;
     t.classList.add('show');
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(function () { t.classList.remove('show'); }, 3200);
+    toastTimer = setTimeout(function () { t.classList.remove('show'); }, ms || 3200);
   }
 
   document.addEventListener('click', function (e) {
@@ -189,10 +206,13 @@
       var input = $('[data-qty] input');
       qty = Math.max(1, parseInt(input && input.value, 10) || 1);
     }
-    add(btn.getAttribute('data-add'), qty);
-    track('add_to_cart', { items: [{ id: btn.getAttribute('data-add'), name: btn.getAttribute('data-name'), price: Number(btn.getAttribute('data-price')) || 0, qty: qty }] });
+    var inCart = read()[btn.getAttribute('data-add')] || 0;
+    if (inCart >= MAXQ && !btn.hasAttribute('data-buy-now')) { showLimit(); return; }
+    var whole = add(btn.getAttribute('data-add'), qty);
+    track('add_to_cart', { items: [{ id: btn.getAttribute('data-add'), name: btn.getAttribute('data-name'), price: Number(btn.getAttribute('data-price')) || 0, qty: Math.min(qty, MAXQ - inCart) || qty }] });
     if (btn.hasAttribute('data-buy-now')) { location.href = '/checkout'; return; }
     updateCount(true);
+    if (!whole) { showLimit(); return; }
     toast('<span>✅ "' + esc(btn.getAttribute('data-name')) + '" কার্টে যোগ হয়েছে</span><a href="/cart">কার্ট দেখুন</a>');
   });
 
@@ -201,9 +221,25 @@
     box.addEventListener('click', function (e) {
       var b = e.target.closest('[data-step]');
       if (!b) return;
-      var max = parseInt(input.max, 10) || 99;
-      input.value = Math.min(max, Math.max(1, (parseInt(input.value, 10) || 1) + parseInt(b.getAttribute('data-step'), 10)));
+      var max = parseInt(input.max, 10) || MAXQ;
+      var next = (parseInt(input.value, 10) || 1) + parseInt(b.getAttribute('data-step'), 10);
+      // tried to go above the limit (not just above the stock): explain how to order more
+      if (next > max && max >= MAXQ) showLimit();
+      input.value = Math.min(max, Math.max(1, next));
     });
+    input.addEventListener('change', function () {
+      var max = parseInt(input.max, 10) || MAXQ;
+      var v = parseInt(input.value, 10) || 1;
+      if (v > max && max >= MAXQ) showLimit();
+      input.value = Math.min(max, Math.max(1, v));
+    });
+  });
+  // WhatsApp button on the product page: message carries the product name, price and this page's link
+  document.addEventListener('click', function (e) {
+    var w = e.target.closest && e.target.closest('[data-wa-text]');
+    if (!w) return;
+    w.href = 'https://wa.me/' + w.getAttribute('data-wa') + '?text=' + encodeURIComponent(w.getAttribute('data-wa-text') + '\n' + location.href.split('#')[0]);
+    track('contact', { method: 'whatsapp' });
   });
   $all('[data-autosubmit]').forEach(function (el) { el.addEventListener('change', function () { el.form.submit(); }); });
 
@@ -367,8 +403,12 @@
       .then(function (r) { return r.json(); })
       .then(function (data) {
         var known = {};
-        var lines = data.products.map(function (p) { known[p.id] = true; return { product: p, qty: cart[p.id] }; });
         var changed = false;
+        var lines = data.products.map(function (p) {
+          known[p.id] = true;
+          if (cart[p.id] > MAXQ) { cart[p.id] = MAXQ; changed = true; }
+          return { product: p, qty: cart[p.id] };
+        });
         ids.forEach(function (id) { if (!known[id]) { delete cart[id]; changed = true; } });
         if (changed) write(cart);
         return { cart: cart, lines: lines };
@@ -397,7 +437,7 @@
           '<div><h3><a href="/p/' + esc(p.slug) + '">' + esc(p.name) + '</a></h3>' +
           '<div class="cart-line-controls">' +
           '<div class="qty sm" data-line="' + p.id + '"><button type="button" data-d="-1" aria-label="কমান">−</button>' +
-          '<input type="number" min="1" max="99" value="' + l.qty + '" aria-label="পরিমাণ"><button type="button" data-d="1" aria-label="বাড়ান">+</button></div>' +
+          '<input type="number" min="1" max="' + MAXQ + '" value="' + l.qty + '" aria-label="পরিমাণ"><button type="button" data-d="1" aria-label="বাড়ান">+</button></div>' +
           '<button class="link-btn danger" data-remove="' + p.id + '">সরান</button>' +
           '<span class="muted small">' + money(p.price) + ' করে</span></div>' +
           (over ? '<p class="cart-warn">' + (p.stock > 0 ? 'স্টকে আছে মাত্র ' + bn(p.stock) + 'টি' : 'এখন স্টকে নেই') + '</p>' : '') +
@@ -424,7 +464,9 @@
       var step = e.target.closest('[data-d]');
       if (step) {
         var id = step.parentNode.getAttribute('data-line');
-        cart[id] = Math.min(99, Math.max(1, (cart[id] || 1) + parseInt(step.getAttribute('data-d'), 10)));
+        var want = (cart[id] || 1) + parseInt(step.getAttribute('data-d'), 10);
+        if (want > MAXQ) { showLimit(); return; }
+        cart[id] = Math.max(1, want);
         write(cart); renderCart();
       }
     });
@@ -432,7 +474,9 @@
       var box = e.target.closest('[data-line]');
       if (!box) return;
       var cart = read();
-      cart[box.getAttribute('data-line')] = Math.min(99, Math.max(1, parseInt(e.target.value, 10) || 1));
+      var v = parseInt(e.target.value, 10) || 1;
+      if (v > MAXQ) showLimit();
+      cart[box.getAttribute('data-line')] = Math.min(MAXQ, Math.max(1, v));
       write(cart); renderCart();
     });
   }
