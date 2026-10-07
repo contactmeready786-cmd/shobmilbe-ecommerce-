@@ -290,7 +290,11 @@
   var sticky = $('[data-sticky-buy]');
   var buyBox = $('.buy-box');
   if (sticky && buyBox && 'IntersectionObserver' in window) {
-    new IntersectionObserver(function (en) { sticky.classList.toggle('show', !en[0].isIntersecting && en[0].boundingClientRect.top < 0); }).observe(buyBox);
+    new IntersectionObserver(function (en) {
+      var on = !en[0].isIntersecting && en[0].boundingClientRect.top < 0;
+      sticky.classList.toggle('show', on);
+      document.body.classList.toggle('has-sticky-buy', on);
+    }).observe(buyBox);
   }
 
   // ---------- popup offer (once a day) ----------
@@ -662,6 +666,83 @@
     document.addEventListener('visibilitychange', function () { if (!document.hidden) load(); else clearTimeout(timer); });
     try { last = JSON.parse(($('[data-live-initial]') || {}).textContent || 'null'); } catch (_) { last = null; }
     if (last) { render(); timer = setTimeout(load, every); } else { load(); }
+  }
+
+  // ---------- floating score bar (bottom of every page) ----------
+  var tk = $('[data-ticker]');
+  if (tk) {
+    var tkTrack = $('[data-ticker-track]');
+    var tkSports = tk.getAttribute('data-ticker').split(',').filter(Boolean);
+    var tkEvery = Math.max(10, Number(tk.getAttribute('data-refresh')) || 20) * 1000;
+    var tkTimer = null;
+    var tkClosed = false;
+    try { tkClosed = sessionStorage.getItem('sm-ticker-off') === '1'; } catch (_) { tkClosed = false; }
+    function tkHide() { tk.hidden = true; document.body.classList.remove('ticker-on'); }
+    function tkWhen(d) {
+      var h = 0, mi = '00', today = false;
+      try {
+        new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Dhaka', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(new Date(d))
+          .forEach(function (p) { if (p.type === 'hour') h = Number(p.value); if (p.type === 'minute') mi = p.value; });
+        var o = { timeZone: 'Asia/Dhaka', year: 'numeric', month: 'numeric', day: 'numeric' };
+        today = new Date(d).toLocaleDateString('en-GB', o) === new Date().toLocaleDateString('en-GB', o);
+      } catch (_) { return ''; }
+      var part = h < 4 ? 'রাত' : h < 12 ? 'সকাল' : h < 16 ? 'দুপুর' : h < 18 ? 'বিকাল' : h < 20 ? 'সন্ধ্যা' : 'রাত';
+      return (today ? 'আজ ' : 'আগামীকাল ') + part + ' ' + bn((h % 12) || 12) + ':' + bn(mi);
+    }
+    function tkTeam(t, showScore) {
+      var logo = t.logo ? '<img src="' + esc(t.logo) + '" alt="" loading="lazy" onerror="this.outerHTML=\'<span class=ph></span>\'">' : '<span class="ph"></span>';
+      return '<span class="tk-team' + (t.winner ? ' win' : '') + (t.batting ? ' bat' : '') + '">' + logo +
+        '<span class="tn" title="' + esc(t.name) + '">' + esc(t.name) + '</span><b class="sc">' + (showScore ? esc(t.score || '') : '') + '</b></span>';
+    }
+    function tkCard(m) {
+      var sp = m.sport;
+      var status;
+      if (m.state === 'in') {
+        status = '<span class="badge-live">লাইভ</span> ' + esc(sp === 'cricket' ? (m.summary || m.session || m.detail || '') : (m.clock || m.detail || ''));
+      } else if (m.state === 'pre') {
+        status = '<span class="tk-soon">' + esc(tkWhen(m.date)) + '</span>';
+      } else {
+        status = '<span class="tk-done">শেষ</span> ' + esc(sp === 'cricket' ? (m.summary || '') : (m.detail || ''));
+      }
+      var head = (sp === 'cricket' ? '🏏 ' : '⚽ ') + esc(m.league || '') + (sp === 'cricket' && m.title ? ' · ' + esc(m.title) : '');
+      return '<a class="tk-card is-' + m.state + '" href="/live/' + sp + '">' +
+        '<span class="tk-head">' + head + '</span>' +
+        m.teams.slice(0, 2).map(function (t) { return tkTeam(t, m.state !== 'pre' || sp === 'cricket'); }).join('') +
+        '<span class="tk-status">' + status + '</span></a>';
+    }
+    function tkRender(all) {
+      var now = Date.now();
+      var liveNow = all.filter(function (m) { return m.state === 'in'; });
+      var pick = liveNow;
+      if (!pick.length) {
+        // nothing live: show matches that just finished or start soon (12 hours either side)
+        pick = all.filter(function (m) { return Math.abs(new Date(m.date).getTime() - now) < 432e5; });
+      }
+      pick = pick.sort(function (a, b) { return (b.fav - a.fav) || ((a.state === 'in' ? 0 : 1) - (b.state === 'in' ? 0 : 1)); }).slice(0, 12);
+      if (!pick.length) return tkHide();
+      tkTrack.innerHTML = pick.map(tkCard).join('');
+      tk.hidden = false;
+      document.body.classList.add('ticker-on');
+    }
+    function tkLoad() {
+      clearTimeout(tkTimer);
+      if (tkClosed) return;
+      Promise.all(tkSports.map(function (sp) {
+        return fetch('/api/live/' + sp, { headers: { Accept: 'application/json' } })
+          .then(function (r) { if (!r.ok) throw r; return r.json(); })
+          .then(function (d) { return (d.matches || []).map(function (m) { m.sport = sp; return m; }); })
+          .catch(function () { return []; });
+      })).then(function (lists) { tkRender([].concat.apply([], lists)); })
+        .then(function () { if (!document.hidden && !tkClosed) tkTimer = setTimeout(tkLoad, tkEvery); });
+    }
+    $('[data-ticker-close]').addEventListener('click', function () {
+      tkClosed = true;
+      try { sessionStorage.setItem('sm-ticker-off', '1'); } catch (_) { /* private mode */ }
+      clearTimeout(tkTimer);
+      tkHide();
+    });
+    document.addEventListener('visibilitychange', function () { if (!document.hidden) tkLoad(); else clearTimeout(tkTimer); });
+    if (!tkClosed) tkLoad();
   }
 
   updateCount();
