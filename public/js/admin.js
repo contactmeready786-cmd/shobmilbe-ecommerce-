@@ -25,6 +25,45 @@
     else if (e.target.closest('[data-side-close]')) document.body.classList.remove('side-open');
   });
 
+  // ---------- side menu groups: remember which ones are open ----------
+  (function () {
+    var KEY = 'sm_side_open';
+    var groups = $all('[data-side-group]');
+    if (!groups.length) return;
+    var saved = [];
+    try { saved = JSON.parse(localStorage.getItem(KEY) || '[]') || []; } catch (e) { saved = []; }
+    groups.forEach(function (g) { if (saved.indexOf(g.getAttribute('data-side-group')) > -1) g.open = true; });
+    groups.forEach(function (g) {
+      g.addEventListener('toggle', function () {
+        var open = groups.filter(function (x) { return x.open; }).map(function (x) { return x.getAttribute('data-side-group'); });
+        try { localStorage.setItem(KEY, JSON.stringify(open)); } catch (e) { /* ignore */ }
+      });
+    });
+    var on = $('.side a.on');
+    if (on && on.scrollIntoView) on.scrollIntoView({ block: 'nearest' });
+  })();
+
+  // ---------- on/off switches save right away ----------
+  document.addEventListener('change', function (e) {
+    var sw = e.target.closest && e.target.closest('[data-autosubmit]');
+    if (!sw || !sw.form) return;
+    sw.form.submit();
+  });
+
+  // ---------- table rows that open a details page ----------
+  document.addEventListener('click', function (e) {
+    var row = e.target.closest && e.target.closest('tr[data-href]');
+    if (!row || e.target.closest('a, button, input, select, label')) return;
+    location.href = row.getAttribute('data-href');
+  });
+  // ---------- pages that refresh themselves (live visitors) ----------
+  var auto = $('[data-autoreload]');
+  if (auto) {
+    setInterval(function () {
+      if (document.visibilityState === 'visible') location.reload();
+    }, (Number(auto.getAttribute('data-autoreload')) || 30) * 1000);
+  }
+
   // ---------- confirmations ----------
   $all('form[data-confirm]').forEach(function (f) {
     f.addEventListener('submit', function (e) { if (!confirm(f.getAttribute('data-confirm'))) e.preventDefault(); });
@@ -106,52 +145,83 @@
     if (clear) clear.addEventListener('click', function () { value.value = ''; preview.innerHTML = '<span class="muted small">ছবি নেই</span>'; clear.hidden = true; });
   });
 
-  // product gallery (many images, reorder)
-  var gallery = $('[data-gallery]');
-  if (gallery) {
-    var gValue = $('[data-gallery-value]');
-    var gFile = $('[data-gallery-file]', gallery);
-    var addBtn = $('[data-gallery-add]', gallery);
-    var syncG = function () {
-      var ids = $all('figure[data-img]', gallery).map(function (f) { return f.getAttribute('data-img'); });
-      gValue.value = ids.join(',');
-      addBtn.hidden = ids.length >= 8;
+  // product images: fixed numbered slots (slot 1 = main image)
+  var slotsBox = $('[data-slots]');
+  if (slotsBox) {
+    var slotsValue = $('[data-slots-value]');
+    var slots = $all('[data-slot]', slotsBox);
+    var saveBtn = $('[data-save]');
+    var busy = 0;
+    var label = function (i) { return i === 0 ? 'মূল ছবি' : 'ছবি ' + bn(i + 1); };
+    var paint = function (slot, id, src) {
+      var i = Number(slot.getAttribute('data-slot'));
+      var add = $('.slot-add', slot);
+      var file = $('[data-slot-file]', slot);
+      slot.setAttribute('data-img', id || '');
+      slot.classList.toggle('filled', !!id);
+      slot.classList.remove('busy');
+      // keep the file input, replace what is shown
+      $all('img, .slot-plus, .slot-hint, .slot-wait', add).forEach(function (n) { n.remove(); });
+      if (id) {
+        var img = document.createElement('img');
+        img.src = src || ('/media/' + id + '/t'); img.alt = label(i);
+        add.insertBefore(img, file);
+      } else {
+        add.insertAdjacentHTML('afterbegin', '<span class="slot-plus" aria-hidden="true">＋</span><span class="slot-hint">ছবি যোগ করুন</span>');
+      }
+      $('.g-tools', slot).hidden = !id;
     };
-    var figure = function (id, src) {
-      var f = document.createElement('figure');
-      f.setAttribute('data-img', id);
-      f.innerHTML = '<img src="' + src + '" alt=""><div class="g-tools"><button type="button" data-move="-1" aria-label="আগে">◀</button><button type="button" data-move="1" aria-label="পরে">▶</button><button type="button" data-del aria-label="মুছুন">✕</button></div>';
-      return f;
+    var sync = function () {
+      slotsValue.value = slots.map(function (sl) { return sl.getAttribute('data-img'); }).filter(Boolean).join(',');
+      if (saveBtn) saveBtn.disabled = busy > 0;
     };
-    gFile.addEventListener('change', function () {
-      var files = Array.prototype.slice.call(gFile.files, 0, 8 - $all('figure[data-img]', gallery).length);
-      var save = $('[data-save]');
-      if (save) save.disabled = true;
-      var chain = Promise.resolve();
-      files.forEach(function (f) {
-        chain = chain.then(function () {
-          var ph = document.createElement('figure');
-          ph.className = 'uploading'; ph.innerHTML = '<span>আপলোড…</span>';
-          gallery.insertBefore(ph, addBtn);
-          return upload(f, { max: 1200 }).then(function (j) {
-            gallery.replaceChild(figure(j.id, j.thumb), ph);
-          }).catch(function (e) { ph.remove(); toast(e.message); });
+    var putFile = function (slot, f) {
+      if (!f) return;
+      if (!/^image\//.test(f.type)) { toast('শুধু ছবি (JPG, PNG, WEBP) দিন।'); return; }
+      var add = $('.slot-add', slot);
+      $all('img, .slot-plus, .slot-hint, .slot-wait', add).forEach(function (n) { n.remove(); });
+      add.insertAdjacentHTML('afterbegin', '<span class="slot-wait">আপলোড হচ্ছে…</span>');
+      slot.classList.add('busy');
+      busy++; sync();
+      var prev = slot.getAttribute('data-img');
+      upload(f, { max: 1200 }).then(function (j) { paint(slot, j.id, j.thumb); })
+        .catch(function (e) { paint(slot, prev); toast(e.message); })
+        .then(function () { busy--; sync(); });
+    };
+    slots.forEach(function (slot) {
+      var file = $('[data-slot-file]', slot);
+      file.addEventListener('change', function () {
+        var files = Array.prototype.slice.call(file.files || []);
+        file.value = '';
+        if (!files.length) return;
+        putFile(slot, files[0]);
+        // several photos picked at once: fill the next empty slots too
+        var start = slots.indexOf(slot);
+        files.slice(1).forEach(function (f) {
+          var next = slots.filter(function (s2, k) { return k > start && !s2.getAttribute('data-img') && !s2.classList.contains('busy'); })[0];
+          if (next) putFile(next, f);
         });
       });
-      chain.then(function () { syncG(); gFile.value = ''; if (save) save.disabled = false; });
     });
-    gallery.addEventListener('click', function (e) {
-      var fig = e.target.closest('figure[data-img]');
-      if (!fig) return;
-      if (e.target.closest('[data-del]')) { fig.remove(); syncG(); return; }
-      var mv = e.target.closest('[data-move]');
+    slotsBox.addEventListener('click', function (e) {
+      var slot = e.target.closest('[data-slot]');
+      if (!slot || slot.classList.contains('busy')) return;
+      if (e.target.closest('[data-slot-del]')) { paint(slot, ''); sync(); return; }
+      if (e.target.closest('[data-slot-change]')) { $('[data-slot-file]', slot).click(); return; }
+      var mv = e.target.closest('[data-slot-move]');
       if (mv) {
-        if (mv.getAttribute('data-move') === '-1' && fig.previousElementSibling) gallery.insertBefore(fig, fig.previousElementSibling);
-        else if (mv.getAttribute('data-move') === '1' && fig.nextElementSibling && fig.nextElementSibling.hasAttribute('data-img')) gallery.insertBefore(fig.nextElementSibling, fig);
-        syncG();
+        var i = slots.indexOf(slot);
+        var j = i + Number(mv.getAttribute('data-slot-move'));
+        if (j < 0 || j >= slots.length || slots[j].classList.contains('busy')) return;
+        var a = slot.getAttribute('data-img');
+        var bId = slots[j].getAttribute('data-img');
+        var aSrc = a ? $('img', slot).src : '';
+        var bSrc = bId ? $('img', slots[j]).src : '';
+        paint(slot, bId, bSrc); paint(slots[j], a, aSrc);
+        sync();
       }
     });
-    syncG();
+    sync();
   }
 
   // ---------- product form helpers ----------

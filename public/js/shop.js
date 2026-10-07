@@ -42,7 +42,91 @@
         window.ttq.track(ttMap[event], td, d.code ? { event_id: d.code } : undefined);
       }
     } catch (e) { /* ignore */ }
+    visitEvent(event, d, items, value);
   }
+
+  // ---------- visitor analytics (our own: Admin → মার্কেটিং → ভিজিটর অ্যানালিটিক্স) ----------
+  var VA = { on: !!SM.va && !!window.JSON, pv: 0, active: 0, since: 0, scroll: 0, beats: 0 };
+  function rid() {
+    var a = [];
+    var c = window.crypto || window.msCrypto;
+    if (c && c.getRandomValues) { var u = new Uint8Array(10); c.getRandomValues(u); for (var i = 0; i < 10; i++) a.push(u[i]); }
+    else for (var j = 0; j < 10; j++) a.push(Math.floor(Math.random() * 256));
+    return a.map(function (b) { return ('0' + b.toString(16)).slice(-2); }).join('');
+  }
+  function vaSend(data, beacon) {
+    if (!VA.on) return Promise.resolve({});
+    data.vid = VA.vid; data.sid = VA.sid;
+    var body = JSON.stringify(data);
+    try {
+      if (beacon && navigator.sendBeacon && navigator.sendBeacon('/api/v', new Blob([body], { type: 'text/plain' }))) return Promise.resolve({});
+      return fetch('/api/v', { method: 'POST', body: body, keepalive: true, credentials: 'same-origin', headers: { 'Content-Type': 'text/plain' } })
+        .then(function (r) { return r.json(); }).catch(function () { return {}; });
+    } catch (e) { return Promise.resolve({}); }
+  }
+  function vaTouch() { try { localStorage.setItem('sm_sess', JSON.stringify({ id: VA.sid, t: Date.now() })); } catch (e) { /* ignore */ } }
+  function vaActive() { return Math.round((VA.active + (VA.since ? Date.now() - VA.since : 0)) / 1000); }
+  function vaFlush(kind) {
+    if (!VA.pv) return;
+    vaSend({ t: kind, pv: VA.pv, d: vaActive(), s: VA.scroll }, kind === 'end');
+    vaTouch();
+  }
+  function visitEvent(event, d, items, value) {
+    if (!VA.on || !VA.sid) return;
+    var label = '';
+    var ref = '';
+    if (event === 'add_to_cart' && items[0]) { label = items[0].item_name || ''; ref = items[0].item_id; }
+    else if (event === 'begin_checkout') label = items.length + ' items';
+    else if (event === 'purchase') { label = d.code || ''; ref = d.code || ''; }
+    else if (event === 'search') label = d.q || '';
+    else if (event === 'contact') label = d.label || '';
+    else return;
+    vaSend({ t: 'ev', e: event, lb: label, ref: ref, v: Math.round(value || 0), p: location.pathname + location.search });
+  }
+  if (VA.on) {
+    VA.vid = store('sm_vid');
+    if (!/^[a-f0-9]{20}$/.test(VA.vid || '')) { VA.vid = rid(); store('sm_vid', VA.vid); }
+    var sess = null;
+    try { sess = JSON.parse(localStorage.getItem('sm_sess') || 'null'); } catch (e) { sess = null; }
+    // A visit (session) ends after 30 minutes without activity, or when an ad link brings the visitor back.
+    var fromAd = /[?&](utm_source|fbclid|gclid|ttclid)=/.test(location.search);
+    VA.sid = sess && /^[a-f0-9]{20}$/.test(sess.id || '') && Date.now() - sess.t < 30 * 60 * 1000 && !fromAd ? sess.id : rid();
+    vaTouch();
+    if (document.visibilityState !== 'hidden') VA.since = Date.now();
+    vaSend({ t: 'pv', p: location.pathname + location.search, u: location.href, ti: document.title, r: document.referrer || '',
+      w: (window.screen ? screen.width + 'x' + screen.height : ''), l: (navigator.language || '').slice(0, 12) }).then(function (j) {
+      if (j && j.off) { VA.on = false; return; }
+      VA.pv = (j && j.pv) || 0;
+    });
+    var onScroll = function () {
+      var h = document.documentElement.scrollHeight - window.innerHeight;
+      var pct = h > 0 ? Math.round((100 * (window.scrollY || window.pageYOffset)) / h) : 100;
+      if (pct > VA.scroll) VA.scroll = Math.min(100, pct);
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'hidden') {
+        if (VA.since) { VA.active += Date.now() - VA.since; VA.since = 0; }
+        vaFlush('end');
+      } else if (!VA.since) { VA.since = Date.now(); vaTouch(); }
+    });
+    window.addEventListener('pagehide', function () {
+      if (VA.since) { VA.active += Date.now() - VA.since; VA.since = 0; }
+      vaFlush('end');
+    });
+    // While the page is open and visible, tell the server every 30 seconds (keeps "live now" correct).
+    setInterval(function () {
+      if (document.visibilityState === 'visible' && VA.pv && VA.beats < 60) { VA.beats++; vaFlush('hb'); }
+    }, 30000);
+    document.addEventListener('click', function (e) {
+      var a = e.target.closest && e.target.closest('a[href]');
+      if (!a) return;
+      var href = a.getAttribute('href') || '';
+      var kind = /^tel:/.test(href) ? 'ফোন কল' : /wa\.me|whatsapp/i.test(href) ? 'WhatsApp' : /m\.me|messenger/i.test(href) ? 'Messenger' : '';
+      if (kind) visitEvent('contact', { label: kind }, [], 0);
+    });
+  }
+
   if (SM.track) {
     var t = SM.track;
     if (t.event === 'view_item') track('view_item', { items: [{ id: t.id, name: t.name, price: t.price, qty: 1, category: t.category }] });
