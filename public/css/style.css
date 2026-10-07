@@ -637,19 +637,20 @@ body.protect .card-pic img, body.protect .g-main img, body.protect .g-thumb img,
   .sec-sub { font-size: .82rem; }
 }
 
-/* ---------- main categories always in one line (computers) ---------- */
-.cat-menu { flex-wrap: nowrap; justify-content: space-between; gap: 0 2px; }
+/* ---------- main categories always in one line, with icons and drop-downs ---------- */
+.cat-menu { flex-wrap: nowrap; justify-content: space-between; gap: 0 2px; width: 100%; }
 .cat-strip .cat-menu > .cm-item > a { padding: 5px clamp(5px, .8vw, 11px); font-size: clamp(.8rem, .6rem + .3vw, .92rem); }
-@media (max-width: 1180px) { .cat-menu > .cm-item > a .cm-ic { display: none; } }
-@media (max-width: 1000px) {
-  /* tablets: the line scrolls sideways; the category page shows its sub-categories */
-  .cat-strip .wrap { overflow-x: auto; scrollbar-width: none; }
-  .cat-strip .wrap::-webkit-scrollbar { display: none; }
-  .cat-menu { justify-content: flex-start; }
-  .cat-menu .cm-sub { display: none !important; }
-  .cat-menu > .has-sub > a::after { content: none; }
+.cm-ic { display: inline-block; }
+/* smaller screens: icon above the name, each category gets an equal share of the line */
+@media (max-width: 1180px) {
+  .cat-menu { gap: 0; }
+  .cat-menu > .cm-item { flex: 1 1 0; min-width: 0; }
+  .cat-strip .cat-menu > .cm-item > a { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 1px;
+    padding: 5px 2px 4px; border-radius: 10px; font-size: .74rem; line-height: 1.2; text-align: center; white-space: normal; height: 100%; }
+  .cat-menu > .cm-item > a .cm-ic { font-size: 1.15rem; line-height: 1.2; }
+  .cat-menu > .has-sub > a::after { font-size: .6rem; margin-top: -1px; }
+  .cm-sub { min-width: 220px; }
 }
-
 /* ---------- "লাইভ স্কোর" button (no drop-down) ---------- */
 .header-nav a.live-link { display: inline-flex; align-items: center; }
 @media (max-width: 760px) { .header-nav a.live-link { display: inline-flex; padding: 6px 8px; font-size: .9rem; } }

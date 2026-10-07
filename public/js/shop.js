@@ -900,7 +900,7 @@
     var touch = window.matchMedia && window.matchMedia('(hover: none)').matches;
     catMenu.addEventListener('click', function (e) {
       var a = e.target.closest('.has-sub > a');
-      if (!a || !touch || window.innerWidth <= 1000) return; // tablets: the tap opens the category page
+      if (!a || !touch) return;
       var li = a.parentNode;
       if (li.classList.contains('open')) return; // second tap: open the category page
       e.preventDefault();
