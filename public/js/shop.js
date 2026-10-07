@@ -258,13 +258,59 @@
         var f = $('iframe', vid);
         if (!f.src) f.src = f.getAttribute('data-src');
         vid.hidden = false;
-        if (main) main.hidden = true;
+        gal.classList.add('playing');
       } else if (main) {
         if (vid) { vid.hidden = true; var fr = $('iframe', vid); fr.removeAttribute('src'); }
-        main.hidden = false;
+        gal.classList.remove('playing');
         main.src = th.getAttribute('data-g-img');
       }
     });
+    // big red "ভিডিও দেখুন" button under the photos = same as tapping the video thumbnail
+    var vbtn = $('[data-g-yt-btn]', gal);
+    var vthumb = $('[data-g-yt]', gal);
+    if (vbtn && vthumb) vbtn.addEventListener('click', function () { vthumb.click(); var gm0 = $('.g-main', gal); if (gm0 && gm0.scrollIntoView) gm0.scrollIntoView({ behavior: 'smooth', block: 'center' }); });
+
+    // full-screen photo viewer
+    var lb = $('[data-lightbox]');
+    if (lb && main) {
+      var lbImg = $('[data-lb-img]', lb);
+      var lbCount = $('[data-lb-count]', lb);
+      var photos = $all('[data-g-img]', gal).map(function (b) { return b.getAttribute('data-g-img'); });
+      var li = 0;
+      var lbShow = function (i) {
+        li = (i + photos.length) % photos.length;
+        lbImg.src = photos[li];
+        if (lbCount) lbCount.textContent = photos.length > 1 ? bn(li + 1) + ' / ' + bn(photos.length) : '';
+      };
+      var lbOpen = function () {
+        var cur = photos.indexOf(main.getAttribute('src'));
+        lbShow(cur < 0 ? 0 : cur);
+        lb.hidden = false;
+        document.body.classList.add('lb-open');
+      };
+      var lbClose = function () { lb.hidden = true; document.body.classList.remove('lb-open'); };
+      main.addEventListener('click', lbOpen);
+      var zb = $('[data-g-zoom]', gal);
+      if (zb) zb.addEventListener('click', lbOpen);
+      lb.addEventListener('click', function (e) {
+        var st = e.target.closest('[data-lb-step]');
+        if (st) return lbShow(li + Number(st.getAttribute('data-lb-step')));
+        if (e.target.closest('[data-lb-close]') || e.target === lb) lbClose();
+      });
+      document.addEventListener('keydown', function (e) {
+        if (lb.hidden) return;
+        if (e.key === 'Escape') lbClose();
+        if (e.key === 'ArrowRight') lbShow(li + 1);
+        if (e.key === 'ArrowLeft') lbShow(li - 1);
+      });
+      var lx = null;
+      lb.addEventListener('touchstart', function (e) { lx = e.touches[0].clientX; }, { passive: true });
+      lb.addEventListener('touchend', function (e) {
+        if (lx === null) return;
+        var dx = e.changedTouches[0].clientX - lx; lx = null;
+        if (Math.abs(dx) > 40 && photos.length > 1) lbShow(li + (dx < 0 ? 1 : -1));
+      });
+    }
     // swipe between photos on phones
     var gx = null;
     var gm = $('.g-main', gal);
@@ -279,6 +325,14 @@
       if (next) next.click();
     });
   }
+  // ---------- YouTube video: loads only when tapped ----------
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('[data-yt-lite] .yt-play');
+    if (!b) return;
+    var box = b.closest('[data-yt-lite]');
+    var id = box.getAttribute('data-yt-lite');
+    box.innerHTML = '<iframe src="https://www.youtube-nocookie.com/embed/' + encodeURIComponent(id) + '?autoplay=1&rel=0&playsinline=1" title="পণ্যের ভিডিও" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe>';
+  });
   $all('[data-tabs]').forEach(function (box) {
     box.addEventListener('click', function (e) {
       var tb = e.target.closest('[data-tab]');

@@ -245,7 +245,7 @@
     var yt = $('[data-yt]', pform);
     if (yt) {
       yt.addEventListener('input', function () {
-        var m = yt.value.match(/(?:youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/|live\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/);
+        var m = /youtu\.?be|youtube/i.test(yt.value) ? yt.value.match(/(?:[?&;]v=|youtu\.be\/|\/(?:embed|shorts|live|v|e)\/)([A-Za-z0-9_-]{11})(?![A-Za-z0-9_-])/i) : null;
         $('[data-yt-preview]').innerHTML = m ? '<img src="https://i.ytimg.com/vi/' + m[1] + '/hqdefault.jpg" alt="">' : '';
       });
     }
