@@ -670,8 +670,7 @@
     var lmSports = miniBoxes[0].getAttribute('data-live-mini').split(',').filter(Boolean);
     var lmEvery = Math.max(10, Number(miniBoxes[0].getAttribute('data-refresh')) || 20) * 1000;
     var lmTimer = null, lmRotate = null, lmIndex = 0, lmPicks = [];
-    var lmClosed = false;
-    try { lmClosed = sessionStorage.getItem('sm-mini-off') === '1'; } catch (_) { lmClosed = false; }
+    var lmClosed = false; // ✕ hides the box only until the page is reloaded
     function lmHide() { miniBoxes.forEach(function (b) { b.hidden = true; }); }
     function lmTime(d) {
       var h = 0, mi = '00';
@@ -734,8 +733,7 @@
     document.addEventListener('click', function (e) {
       if (!e.target.closest || !e.target.closest('[data-mini-close]')) return;
       e.preventDefault();
-      lmClosed = true;
-      try { sessionStorage.setItem('sm-mini-off', '1'); } catch (_) { /* private mode */ }
+      lmClosed = true; // not remembered: after a reload the box shows again
       clearTimeout(lmTimer); clearInterval(lmRotate); lmHide();
     });
     // hide the box while the button's own menu (ক্রিকেট স্কোর / ফুটবল স্কোর) is open
