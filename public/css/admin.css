@@ -422,3 +422,24 @@ textarea.editor { min-height: 300px; line-height: 1.6; }
 .sec-key { display: inline-block; margin-top: 4px; padding: 6px 10px; background: var(--ink); color: #fff; border-radius: 8px; font-size: .95rem; word-break: break-all; user-select: all; }
 .sec-log { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; font-size: .9rem; }
 .sec-log li { padding-bottom: 8px; border-bottom: 1px dashed var(--line); }
+
+/* ---------- duplicate product guard ---------- */
+.dup-box { border-left: 4px solid var(--line); }
+.dup-box h2 { margin-bottom: 6px; }
+.dup-box.checking { opacity: .85; }
+.dup-box.is-warn, .dup-group.is-warn { border-left-color: #F5A524; background: #FFFBF1; }
+.dup-box.is-block, .dup-group.is-block { border-left: 4px solid #D63939; background: #FFF5F5; }
+.dup-group { border-left: 4px solid var(--line); margin-bottom: 12px; }
+.dup-head { font-weight: 600; margin: 0 0 8px; }
+.dup-list { list-style: none; margin: 0 0 10px; padding: 0; display: grid; gap: 8px; }
+.dup-item { display: flex; align-items: center; gap: 10px; background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 8px; }
+.dup-item.is-block { border-color: #F3B7B7; }
+.dup-thumb { flex: 0 0 52px; width: 52px; height: 52px; border-radius: 8px; overflow: hidden; background: #F4F6FA; display: grid; place-items: center; font-size: 1.5rem; }
+.dup-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.dup-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.dup-info b { overflow-wrap: anywhere; }
+.dup-why { font-size: .88rem; color: #8A2A2A; }
+.dup-group.is-warn .dup-why, .dup-item:not(.is-block) .dup-why { color: #8A5300; }
+.dup-allow { margin-top: 8px; }
+.dup-item form { margin: 0; }
+@media (max-width: 600px) { .dup-item { flex-wrap: wrap; } .dup-item form { width: 100%; } }

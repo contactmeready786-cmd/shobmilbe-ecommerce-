@@ -80,6 +80,85 @@
     navigator.clipboard.writeText(c.textContent.trim()).then(function () { toast('কপি হয়েছে'); });
   });
 
+  // ---------- picture fingerprint (finds the same photo even if resized, re-saved, bordered or mirrored) ----------
+  // Always made from the small 420px copy, so new uploads and old pictures are measured the same way.
+  function fingerprint(img) {
+    try {
+      var W = img.naturalWidth || img.width, H = img.naturalHeight || img.height;
+      if (!W || !H) return null;
+      // 1) find the real picture inside plain (white/single colour) borders, pixel-exact
+      var sc = Math.min(1, 480 / Math.max(W, H));
+      var w0 = Math.max(1, Math.round(W * sc)), h0 = Math.max(1, Math.round(H * sc));
+      var c = document.createElement('canvas'); c.width = w0; c.height = h0;
+      var x = c.getContext('2d', { willReadFrequently: true });
+      x.fillStyle = '#fff'; x.fillRect(0, 0, w0, h0); x.drawImage(img, 0, 0, w0, h0);
+      var d = x.getImageData(0, 0, w0, h0).data;
+      var bg = [0, 0, 0];
+      [0, w0 - 1, w0 * (h0 - 1), w0 * h0 - 1].forEach(function (k) { bg[0] += d[k * 4] / 4; bg[1] += d[k * 4 + 1] / 4; bg[2] += d[k * 4 + 2] / 4; });
+      var minX = w0, minY = h0, maxX = -1, maxY = -1;
+      for (var yy = 0; yy < h0; yy++) {
+        for (var xx = 0; xx < w0; xx++) {
+          var k = (yy * w0 + xx) * 4;
+          if (Math.abs(d[k] - bg[0]) + Math.abs(d[k + 1] - bg[1]) + Math.abs(d[k + 2] - bg[2]) > 60) {
+            if (xx < minX) minX = xx; if (xx > maxX) maxX = xx; if (yy < minY) minY = yy; if (yy > maxY) maxY = yy;
+          }
+        }
+      }
+      if (maxX < 0 || maxX - minX < 4 || maxY - minY < 4) return { h: '', m: '' }; // plain picture: nothing to compare
+      var sx = minX / sc, sy = minY / sc, sw = (maxX + 1 - minX) / sc, sh = (maxY + 1 - minY) / sc;
+      // 2) shrink to 32 x 32 grey squares (each the average of 4 x 4 pixels)
+      var c2 = document.createElement('canvas'); c2.width = 128; c2.height = 128;
+      var x2 = c2.getContext('2d', { willReadFrequently: true });
+      x2.imageSmoothingQuality = 'high';
+      x2.fillStyle = '#fff'; x2.fillRect(0, 0, 128, 128); x2.drawImage(img, sx, sy, sw, sh, 0, 0, 128, 128);
+      var p = x2.getImageData(0, 0, 128, 128).data;
+      var N = 32, K = 16, G = [], lo = 1e9, hi = -1e9;
+      for (var r = 0; r < N; r++) {
+        for (var cc = 0; cc < N; cc++) {
+          var sum = 0;
+          for (var by = 0; by < 4; by++) for (var bx = 0; bx < 4; bx++) {
+            var q = ((r * 4 + by) * 128 + cc * 4 + bx) * 4;
+            sum += p[q] * 0.299 + p[q + 1] * 0.587 + p[q + 2] * 0.114;
+          }
+          var v = sum / 16; G.push(v); if (v < lo) lo = v; if (v > hi) hi = v;
+        }
+      }
+      if (hi - lo < 10) return { h: '', m: '' };
+      // 3) the picture's 16 x 16 coarsest patterns (DCT, like JPEG uses).
+      //    Each of the 256 bits: is this pattern stronger than the middle value?
+      var cos = [];
+      for (var kk = 0; kk < K; kk++) { cos.push([]); for (var n = 0; n < N; n++) cos[kk].push(Math.cos(((2 * n + 1) * kk * Math.PI) / (2 * N))); }
+      var rowT = [];
+      for (var r1 = 0; r1 < N; r1++) for (var u = 0; u < K; u++) {
+        var t = 0; for (var n1 = 0; n1 < N; n1++) t += G[r1 * N + n1] * cos[u][n1];
+        rowT[r1 * K + u] = t;
+      }
+      var D = [];
+      for (var vv = 0; vv < K; vv++) for (var u2 = 0; u2 < K; u2++) {
+        var t2 = 0; for (var r2 = 0; r2 < N; r2++) t2 += rowT[r2 * K + u2] * cos[vv][r2];
+        D.push(t2);
+      }
+      var M = D.map(function (val, i) { return (i % K) % 2 ? -val : val; }); // mirror image: odd left-right patterns flip sign
+      var bitsOf = function (arr) {
+        var rest = arr.slice(1).sort(function (a2, b2) { return a2 - b2; });
+        var med = rest[Math.floor(rest.length / 2)];
+        var o = '';
+        for (var i = 0; i < arr.length; i++) o += i === 0 ? '0' : arr[i] > med ? '1' : '0';
+        return o;
+      };
+      var hex = function (bb) { var o = ''; for (var i = 0; i < bb.length; i += 4) o += parseInt(bb.slice(i, i + 4), 2).toString(16); return o; };
+      return { h: hex(bitsOf(D)), m: hex(bitsOf(M)) };
+    } catch (e) { return null; }
+  }
+  function loadImage(src) {
+    return new Promise(function (resolve, reject) {
+      var im = new Image();
+      im.onload = function () { resolve(im); };
+      im.onerror = function () { reject(new Error('bad image')); };
+      im.src = src;
+    });
+  }
+
   // ---------- image resizing & upload ----------
   function resize(file, max, quality, square) {
     return new Promise(function (resolve, reject) {
@@ -115,10 +194,13 @@
       return full;
     }).then(function (full) {
       return resize(file, opts.thumb || 420, 0.78).then(function (th) {
-        return fetch('/admin/api/media', {
-          method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ data: full.data, thumb: th.png ? th.data : th.data, width: full.width, height: full.height }),
-        }).then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || 'আপলোড হয়নি'); return j; }); });
+        return loadImage(th.data).then(fingerprint, function () { return null; }).then(function (fp) {
+          return fetch('/admin/api/media', {
+            method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ data: full.data, thumb: th.data, width: full.width, height: full.height,
+              phash: fp ? fp.h : undefined, phash_m: fp ? fp.m : undefined }),
+          }).then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || 'আপলোড হয়নি'); return j; }); });
+        });
       });
     });
   }
@@ -172,9 +254,12 @@
       }
       $('.g-tools', slot).hidden = !id;
     };
+    var lastImgs = null;
     var sync = function () {
       slotsValue.value = slots.map(function (sl) { return sl.getAttribute('data-img'); }).filter(Boolean).join(',');
       if (saveBtn) saveBtn.disabled = busy > 0;
+      if (busy === 0 && lastImgs !== null && lastImgs !== slotsValue.value) document.dispatchEvent(new Event('sm:images'));
+      if (busy === 0) lastImgs = slotsValue.value;
     };
     var putFile = function (slot, f) {
       if (!f) return;
@@ -224,6 +309,97 @@
     });
     sync();
   }
+
+  // ---------- duplicate product check (live, while the form is filled) ----------
+  (function () {
+  var dupBox = $('[data-dup-box]');
+  if (dupBox && pformEl()) {
+    var form = pformEl();
+    var out = $('[data-dup-result]', dupBox);
+    var allowRow = $('[data-dup-allow]', dupBox);
+    var noperm = $('[data-dup-noperm]', dupBox);
+    var allowInput = allowRow ? $('input[name="allow_duplicate"]', allowRow) : null;
+    var field = function (n) { var el = form.elements[n]; return el ? el.value : ''; };
+    var seq = 0, timer = null, lastKey = '';
+    var check = function () {
+      var data = {
+        id: dupBox.getAttribute('data-dup-id') || '', name: field('name').trim(), description: field('description'),
+        images: (field('images') || '').split(',').filter(Boolean), product_type: field('product_type'), youtube_url: field('youtube_url'),
+      };
+      if (!data.name && !data.images.length) return;
+      var key = JSON.stringify([data.name, data.images, data.description.length, data.youtube_url]);
+      if (key === lastKey) return;
+      lastKey = key;
+      var my = ++seq;
+      dupBox.classList.add('checking');
+      out.innerHTML = '<p class="muted small">🔍 যাচাই হচ্ছে — দোকানে একই পণ্য আছে কি না দেখা হচ্ছে…</p>';
+      fetch('/admin/api/products/dup-check', {
+        method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data),
+      }).then(function (r) { return r.json(); }).then(function (j) {
+        if (my !== seq) return;
+        dupBox.classList.remove('checking', 'is-block', 'is-warn');
+        if (j.error) { out.innerHTML = '<p class="warn small">' + esc(j.error) + '</p>'; return; }
+        var waiting = j.imagesWaiting ? '<p class="small muted">' + bn(j.imagesWaiting) + 'টি ছবির ছাপ এখনো তৈরি হয়নি, তাই শুধু হুবহু একই ফাইল ধরা যাবে।</p>' : '';
+        if (!j.matches || !j.matches.length) {
+          out.innerHTML = '<p class="good small">✅ একই রকম কোনো পণ্য পাওয়া যায়নি' + (data.images.length ? ' (নাম আর ' + bn(data.images.length) + 'টি ছবি মিলিয়ে দেখা হয়েছে)' : ' (নাম মিলিয়ে দেখা হয়েছে — ছবি দিলে ছবিও মেলানো হবে)') + '।</p>' + waiting;
+        } else if (j.blocked) {
+          dupBox.classList.add('is-block');
+          out.innerHTML = '<p class="dup-head">⛔ এই পণ্যটি দোকানে আগে থেকেই আছে বলে মনে হচ্ছে। এভাবে সেভ দিলে আটকে যাবে:</p>' + j.html + waiting;
+        } else {
+          dupBox.classList.add('is-warn');
+          out.innerHTML = '<p class="dup-head">⚠️ কাছাকাছি কিছু পণ্য আছে। একবার দেখে নিন (সেভ আটকাবে না):</p>' + j.html + waiting;
+        }
+        if (allowRow) allowRow.hidden = !(j.blocked || (allowInput && allowInput.checked));
+        if (noperm) noperm.hidden = !j.blocked;
+      }).catch(function () {
+        if (my !== seq) return;
+        dupBox.classList.remove('checking');
+        lastKey = '';
+        out.innerHTML = '<p class="muted small">এখন যাচাই করা গেল না (ইন্টারনেট?) — সেভ দেওয়ার সময় আবার যাচাই হবে।</p>';
+      });
+    };
+    var later = function (ms) { clearTimeout(timer); timer = setTimeout(check, ms); };
+    if (form.elements.name) {
+      form.elements.name.addEventListener('input', function () { later(900); });
+      form.elements.name.addEventListener('blur', function () { later(50); });
+    }
+    if (form.elements.description) form.elements.description.addEventListener('change', function () { later(50); });
+    if (form.elements.youtube_url) form.elements.youtube_url.addEventListener('change', function () { later(50); });
+    document.addEventListener('sm:images', function () { later(200); });
+    // editing an existing product: check once when the page opens (unless the page already shows a result)
+    if (!$('.dup-list', dupBox) && dupBox.getAttribute('data-dup-id')) later(400);
+  }
+  })();
+  function pformEl() { return $('[data-product-form]'); }
+
+  // ---------- fingerprints for older product pictures (runs quietly on product pages) ----------
+  if (/^\/admin\/products/.test(location.pathname)) (function () {
+    var fpStatus = $('[data-fp-status]');
+    var made = 0, rounds = 0;
+    var round = function () {
+      if (rounds++ > 40) return;
+      getJSON('/admin/api/media/fingerprints').then(function (j) {
+        var ids = j.ids || [];
+        if (!ids.length) {
+          if (fpStatus && made) { fpStatus.hidden = false; fpStatus.innerHTML = '✅ পুরোনো ' + bn(made) + 'টি ছবির ছাপ তৈরি হয়েছে। <a href="">পেজটা আবার লোড করুন</a> — ছবি দিয়েও ডুপ্লিকেট খোঁজা হবে।'; }
+          return;
+        }
+        if (fpStatus) { fpStatus.hidden = false; fpStatus.textContent = '⏳ পুরোনো ছবির ছাপ তৈরি হচ্ছে… (' + bn(made) + 'টি হয়েছে) — এই পেজটা খোলা রাখুন।'; }
+        return Promise.all(ids.map(function (id) {
+          return loadImage('/media/' + id + '/t').then(function (im) {
+            var fp = fingerprint(im);
+            return { id: id, phash: fp ? fp.h : '', phash_m: fp ? fp.m : '' };
+          }, function () { return { id: id, phash: '', phash_m: '' }; });
+        })).then(function (items) {
+          made += items.length;
+          return fetch('/admin/api/media/fingerprints', {
+            method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ items: items }),
+          });
+        }).then(function () { setTimeout(round, 300); });
+      }).catch(function () { /* try again next time a product page opens */ });
+    };
+    setTimeout(round, 1500);
+  })();
 
   // ---------- product form helpers ----------
   var pform = $('[data-product-form]');
