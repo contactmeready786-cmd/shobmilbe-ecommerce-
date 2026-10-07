@@ -1028,4 +1028,138 @@
       });
     });
   })();
+  // ---------- watermark (ওয়াটারমার্ক) ----------
+  // Finds the product on its (white) background and blends the mark into the product itself:
+  // on light parts it darkens a little, on dark parts it lightens a little, and on the plain
+  // background it is much fainter — so it looks printed on the product.
+  var WM_ALPHA = { soft: 0.12, normal: 0.2, clear: 0.32 };
+  var WM_SIZE = { s: 0.28, m: 0.4, l: 0.55 };
+  function drawWatermark(img, cfg, logo) {
+    var W = img.naturalWidth || img.width, H = img.naturalHeight || img.height;
+    var c = document.createElement('canvas'); c.width = W; c.height = H;
+    var x = c.getContext('2d', { willReadFrequently: true });
+    x.fillStyle = '#fff'; x.fillRect(0, 0, W, H); x.drawImage(img, 0, 0, W, H);
+    // 1) where is the product?
+    var sc = Math.min(1, 220 / Math.max(W, H)), sw = Math.max(1, Math.round(W * sc)), sh = Math.max(1, Math.round(H * sc));
+    var s = document.createElement('canvas'); s.width = sw; s.height = sh;
+    var sx = s.getContext('2d', { willReadFrequently: true }); sx.drawImage(c, 0, 0, sw, sh);
+    var d = sx.getImageData(0, 0, sw, sh).data, bg = [0, 0, 0];
+    [0, sw - 1, sw * (sh - 1), sw * sh - 1].forEach(function (k) { bg[0] += d[k * 4] / 4; bg[1] += d[k * 4 + 1] / 4; bg[2] += d[k * 4 + 2] / 4; });
+    var isProd = function (r, g, b) { return Math.abs(r - bg[0]) + Math.abs(g - bg[1]) + Math.abs(b - bg[2]) > 54; };
+    var cols = new Array(sw).fill(0), rows = new Array(sh).fill(0);
+    for (var yy = 0; yy < sh; yy++) for (var xx = 0; xx < sw; xx++) { var k = (yy * sw + xx) * 4; if (isProd(d[k], d[k + 1], d[k + 2])) { cols[xx]++; rows[yy]++; } }
+    var edge = function (arr, min) { var a = 0, b = arr.length - 1; while (a < b && arr[a] < min) a++; while (b > a && arr[b] < min) b--; return [a, b]; };
+    var cx2 = edge(cols, Math.max(1, sh * 0.02)), ry2 = edge(rows, Math.max(1, sw * 0.02));
+    var box = { x: cx2[0] / sc, y: ry2[0] / sc, w: (cx2[1] - cx2[0] + 1) / sc, h: (ry2[1] - ry2[0] + 1) / sc };
+    if (box.w < W * 0.12 || box.h < H * 0.12) box = { x: 0, y: 0, w: W, h: H };
+    if (cfg.place === 'center') box = { x: 0, y: 0, w: W, h: H };
+    // 2) draw the mark (white on transparent) at the right size
+    var mw = Math.max(60, Math.min(box.w * (WM_SIZE[cfg.size] || 0.4), W * 0.7)), mh;
+    var m = document.createElement('canvas'), mx;
+    var useLogo = cfg.type === 'logo' && logo;
+    if (useLogo) {
+      var lw = logo.naturalWidth || logo.width, lh = logo.naturalHeight || logo.height;
+      mh = mw * lh / lw;
+      if (mh > box.h * 0.4) { mh = box.h * 0.4; mw = mh * lw / lh; }
+    } else {
+      var text = String(cfg.text || '').trim() || 'shobmilbe.com';
+      var font = function (px) { return '800 ' + px + 'px "Noto Sans Bengali", "Hind Siliguri", system-ui, sans-serif'; };
+      var t = document.createElement('canvas').getContext('2d'); t.font = font(100);
+      var fs = 100 * mw / Math.max(1, t.measureText(text).width);
+      fs = Math.max(12, Math.min(fs, box.h * 0.2, H * 0.12));
+      t.font = font(fs); mw = Math.ceil(t.measureText(text).width) + 4; mh = Math.ceil(fs * 1.35);
+    }
+    mw = Math.round(mw); mh = Math.round(mh);
+    m.width = mw; m.height = mh; mx = m.getContext('2d', { willReadFrequently: true });
+    if (useLogo) mx.drawImage(logo, 0, 0, mw, mh);
+    else { mx.font = font(fs); mx.fillStyle = '#fff'; mx.textBaseline = 'middle'; mx.textAlign = 'center'; mx.fillText(text, mw / 2, mh / 2); }
+    var md = mx.getImageData(0, 0, mw, mh).data;
+    // a logo on a plain (non-transparent) background: only its darker drawing counts
+    var opaque = useLogo && md[3] > 250 && md[(mw - 1) * 4 + 3] > 250 && md[(mw * mh - 1) * 4 + 3] > 250;
+    // 3) where it goes
+    var cx, cy;
+    if (cfg.place === 'corner') { cx = box.x + box.w - mw / 2 - box.w * 0.06; cy = box.y + box.h - mh / 2 - box.h * 0.07; }
+    else { cx = box.x + box.w / 2; cy = box.y + box.h * (cfg.place === 'center' ? 0.5 : 0.6); }
+    var ox = Math.round(Math.max(0, Math.min(W - mw, cx - mw / 2))), oy = Math.round(Math.max(0, Math.min(H - mh, cy - mh / 2)));
+    var rw = Math.min(mw, W - ox), rh = Math.min(mh, H - oy);
+    var area = x.getImageData(ox, oy, rw, rh), p = area.data, a = WM_ALPHA[cfg.strength] || 0.2;
+    for (var j = 0; j < rh; j++) for (var i = 0; i < rw; i++) {
+      var mk = (j * mw + i) * 4, pk = (j * rw + i) * 4;
+      var cov = md[mk + 3] / 255;
+      if (opaque) cov = 1 - (md[mk] * 0.3 + md[mk + 1] * 0.59 + md[mk + 2] * 0.11) / 255;
+      if (cov <= 0) continue;
+      var r = p[pk], g = p[pk + 1], b = p[pk + 2];
+      var k2 = cov * a * (isProd(r, g, b) ? 1 : 0.35);
+      var lum = r * 0.3 + g * 0.59 + b * 0.11;
+      if (lum > 140) { p[pk] = r * (1 - k2 * 0.85); p[pk + 1] = g * (1 - k2 * 0.85); p[pk + 2] = b * (1 - k2 * 0.85); }
+      else { p[pk] = r + (255 - r) * k2; p[pk + 1] = g + (255 - g) * k2; p[pk + 2] = b + (255 - b) * k2; }
+    }
+    x.putImageData(area, ox, oy);
+    return c;
+  }
+  var wmLogos = {};
+  function wmLogo(cfg) {
+    if (cfg.type !== 'logo' || !cfg.logo) return Promise.resolve(null);
+    if (!wmLogos[cfg.logo]) wmLogos[cfg.logo] = loadImage('/media/' + cfg.logo).catch(function () { return null; });
+    return wmLogos[cfg.logo];
+  }
+  function fontsReady() { return document.fonts && document.fonts.ready ? document.fonts.ready.catch(function () {}) : Promise.resolve(); }
+
+  // settings page: live sample
+  var wmForm = $('[data-wm-form]');
+  if (wmForm) (function () {
+    var cv = $('[data-wm-preview]'), src = null;
+    var current = function () {
+      var v = function (n) { var el = wmForm.elements[n]; return el ? el.value : ''; };
+      var type = (wmForm.querySelector('[name=wm_type]:checked') || {}).value || 'domain';
+      return { type: type, text: type === 'text' ? v('wm_text') : $('[data-wm-domain]').value, logo: Number(v('wm_logo_id')) || Number($('[data-wm-store-logo]').value) || null,
+        strength: v('wm_strength'), size: v('wm_size'), place: v('wm_place') };
+    };
+    var render = function () {
+      $all('[data-wm-show]', wmForm).forEach(function (el) { el.hidden = el.getAttribute('data-wm-show') !== current().type; });
+      if (!cv) return;
+      var cfg = current();
+      Promise.all([src || (src = loadImage(cv.getAttribute('data-src'))), wmLogo(cfg), fontsReady()]).then(function (r) {
+        var out = drawWatermark(r[0], cfg, r[1]);
+        cv.width = out.width; cv.height = out.height; cv.getContext('2d').drawImage(out, 0, 0);
+      }).catch(function () {});
+    };
+    wmForm.addEventListener('input', render);
+    wmForm.addEventListener('change', function () { setTimeout(render, 50); });
+    // the logo picker fills a hidden box without an input event
+    var lv = wmForm.querySelector('[name=wm_logo_id]');
+    if (lv) { var last = lv.value; setInterval(function () { if (lv.value !== last) { last = lv.value; render(); } }, 700); }
+    if (cv) cv.addEventListener('click', function () { cv.parentNode.classList.toggle('big'); });
+    render();
+  })();
+
+  // every admin page: quietly mark product pictures that are new or were made with older settings
+  if (/^\/admin/.test(location.pathname)) (function () {
+    var prog = $('[data-wm-progress]');
+    var done = prog ? Number(prog.getAttribute('data-done')) : 0, total = prog ? Number(prog.getAttribute('data-total')) : 0, rounds = 0;
+    var round = function () {
+      if (rounds++ > 300) return;
+      getJSON('/admin/api/watermark/pending').then(function (j) {
+        var ids = j.ids || [];
+        if (!ids.length) { if (prog && j.cfg && rounds > 1) prog.textContent = '✅ সব ছবিতে ওয়াটারমার্ক বসেছে (' + bn(total) + 'টি)।'; return; }
+        var cfg = j.cfg;
+        return Promise.all([wmLogo(cfg), fontsReady()]).then(function (r) {
+          var logo = r[0], seq = Promise.resolve();
+          ids.forEach(function (id) {
+            seq = seq.then(function () {
+              return loadImage('/media/' + id).then(function (im) {
+                var data = drawWatermark(im, cfg, logo).toDataURL('image/jpeg', 0.9);
+                return fetch('/admin/api/watermark/' + id, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ver: cfg.ver, data: data }) });
+              }, function () {
+                // a picture that can't be read: note it, so it is not tried again and again
+                return fetch('/admin/api/watermark/' + id, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ver: cfg.ver, skip: 1 }) });
+              }).then(function () { done++; if (prog) prog.textContent = '⏳ ' + bn(Math.min(done, total)) + ' / ' + bn(total) + ' টি ছবিতে ওয়াটারমার্ক বসেছে — পেজটা খোলা রাখুন।'; });
+            });
+          });
+          return seq;
+        }).then(function () { setTimeout(round, 200); });
+      }).catch(function () { /* try again next time an admin page opens */ });
+    };
+    setTimeout(round, prog ? 300 : 2500);
+  })();
 })();

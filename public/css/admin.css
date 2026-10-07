@@ -483,3 +483,13 @@ textarea.editor { min-height: 300px; line-height: 1.6; }
 /* hidden product row: fade only the product info, keep the switch and buttons clear */
 .table tr.row-off { opacity: 1; }
 .table tr.row-off > td:not(.prod-actions):not(:has(.prod-toggle)) { opacity: .5; }
+
+/* watermark page */
+.wm-types { display: grid; gap: 8px; margin-bottom: 12px; }
+.wm-type { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 2px solid var(--line); border-radius: 10px; cursor: pointer; background: #fff; }
+.wm-type:has(input:checked) { border-color: var(--blue); background: #F2F7FF; }
+.wm-type span { display: grid; gap: 2px; }
+.wm-type small { color: var(--muted); }
+.wm-preview { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: #fff; cursor: zoom-in; max-width: 420px; }
+.wm-preview.big { max-width: none; cursor: zoom-out; }
+.wm-preview canvas { display: block; width: 100%; height: auto; }
