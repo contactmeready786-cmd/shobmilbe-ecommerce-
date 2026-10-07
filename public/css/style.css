@@ -243,7 +243,9 @@ body.lb-open { overflow: hidden; }
 .g-thumb.on { border-color: var(--blue); box-shadow: 0 0 0 2px var(--blue-l); }
 .g-empty { background: var(--paper); border-style: dashed; cursor: default; }
 .g-thumb .play { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 1.4rem; background: rgba(0,0,0,.35); }
-.pdp-info h1 { font-size: clamp(1.4rem, 1.1rem + 1.2vw, 2rem); margin-bottom: 6px; }
+/* product page title: fixed, compact size (same on every screen; long names wrap neatly) */
+.pdp-info h1 { font-size: 20px; line-height: 1.4; font-weight: 700; margin-bottom: 6px; overflow-wrap: anywhere; }
+@media (max-width: 600px) { .pdp-info h1 { font-size: 18px; } }
 .pdp-meta { font-size: .9rem; color: var(--muted); }
 .price-row.big .price { font-size: 2.1rem; }
 .stock { font-weight: 600; margin: 0 0 12px; }
