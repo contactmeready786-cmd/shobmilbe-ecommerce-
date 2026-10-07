@@ -15,7 +15,7 @@ if (fs.existsSync(envFile)) {
 
 const { handler } = require('./lib/app');
 const PUBLIC = path.join(__dirname, 'public');
-const TYPES = { '.css': 'text/css', '.js': 'text/javascript', '.svg': 'image/svg+xml', '.png': 'image/png', '.txt': 'text/plain', '.ico': 'image/x-icon' };
+const TYPES = { '.css': 'text/css', '.js': 'text/javascript', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.json': 'application/json', '.txt': 'text/plain', '.ico': 'image/x-icon' };
 
 http.createServer((req, res) => {
   const urlPath = decodeURIComponent(req.url.split('?')[0]);
