@@ -404,3 +404,9 @@ textarea.editor { min-height: 300px; line-height: 1.6; }
 .lv-now h3 { font-size: 1rem; margin: 16px 0 6px; }
 .lv-table td { vertical-align: top; }
 .lv-soon-list, .lv-top { margin: 0; padding-left: 20px; display: grid; gap: 4px; font-size: .92rem; }
+
+/* on/off switch boxes for store links */
+.nav-sw-group { margin: 12px 0 6px; font-weight: 700; font-size: .9rem; color: var(--ink-2); }
+.nav-sw-group:first-of-type { margin-top: 4px; }
+.inline-switch { display: inline-flex; align-items: center; gap: 8px; margin: 0; }
+.inline-switch .ok { color: var(--green); font-weight: 600; }
