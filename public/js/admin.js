@@ -55,6 +55,24 @@
     f.submit();
   });
 
+  // ---------- product list: show / hide switch (saves right away, no page reload) ----------
+  document.addEventListener('change', function (e) {
+    var t = e.target.closest && e.target.closest('[data-prod-toggle]');
+    if (!t) return;
+    var f = t.form, txt = $('[data-prod-toggle-text]', f), row = f.closest('tr');
+    var on = t.checked;
+    t.disabled = true;
+    var body = new URLSearchParams(); if (on) body.set('active', '1');
+    fetch(f.action, { method: 'POST', credentials: 'same-origin', headers: { Accept: 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' }, body: body.toString() })
+      .then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || 'সেভ হয়নি'); return j; }); })
+      .then(function () {
+        if (txt) txt.textContent = on ? 'চালু' : 'বন্ধ';
+        if (row) row.classList.toggle('row-off', !on);
+        toast(on ? 'পণ্যটি দোকানে আবার দেখাচ্ছে' : 'পণ্যটি দোকান থেকে লুকানো হয়েছে');
+      }, function (err) { t.checked = !on; toast(err.message); })
+      .then(function () { t.disabled = false; });
+  });
+
   // ---------- table rows that open a details page ----------
   document.addEventListener('click', function (e) {
     var row = e.target.closest && e.target.closest('tr[data-href]');

@@ -473,3 +473,13 @@ textarea.editor { min-height: 300px; line-height: 1.6; }
 .imp-count { font-weight: 700; margin: 8px 0 12px; }
 .imp-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 12px; }
 .imp-log .dup-item .btn { margin-left: auto; align-self: center; }
+
+/* product list: show/hide switch + edit/delete buttons */
+.prod-toggle { display: flex; align-items: center; gap: 6px; margin: 0; white-space: nowrap; }
+.prod-toggle .switch { position: relative; }
+.prod-actions { white-space: nowrap; }
+.prod-actions form { display: inline; margin: 0; }
+.prod-actions .btn { margin: 2px 0; }
+/* hidden product row: fade only the product info, keep the switch and buttons clear */
+.table tr.row-off { opacity: 1; }
+.table tr.row-off > td:not(.prod-actions):not(:has(.prod-toggle)) { opacity: .5; }
