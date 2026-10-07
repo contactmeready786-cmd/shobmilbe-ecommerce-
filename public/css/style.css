@@ -250,8 +250,11 @@ body.lb-open { overflow: hidden; }
 .stock.ok { color: var(--green); }
 .stock.low { color: var(--amber-d); }
 .stock.out { color: var(--red); }
-.pdp-short { background: #fff; border-left: 4px solid var(--amber); padding: 10px 14px; border-radius: 0 10px 10px 0; margin-bottom: 16px; }
-.pdp-short p:last-child { margin: 0; }
+.pdp-short { background: #fff; border: 1px solid var(--line); border-left: 4px solid var(--amber); padding: 10px 14px; border-radius: 0 10px 10px 0; margin-bottom: 16px; }
+.pdp-label { margin: 0 0 4px; font-size: .78rem; font-weight: 700; color: var(--amber-d); letter-spacing: .02em; }
+.pdp-more { display: inline-block; margin-top: 6px; font-size: .9rem; font-weight: 600; }
+#details { scroll-margin-top: 110px; }
+.pdp-short p:last-of-type { margin-bottom: 0; }
 .bundle-box { background: var(--blue-l); border-radius: 10px; padding: 10px 14px; margin-bottom: 16px; }
 .bundle-box ul { margin: 6px 0; padding-left: 20px; }
 .bundle-box p { margin: 0; }
