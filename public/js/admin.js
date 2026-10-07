@@ -46,8 +46,9 @@
   // ---------- on/off switches save right away ----------
   document.addEventListener('change', function (e) {
     var sw = e.target.closest && e.target.closest('[data-autosubmit]');
-    if (!sw || !sw.form) return;
-    sw.form.submit();
+    var f = sw && (sw.form || sw.closest('form'));
+    if (!f) return;
+    f.submit();
   });
 
   // ---------- table rows that open a details page ----------
