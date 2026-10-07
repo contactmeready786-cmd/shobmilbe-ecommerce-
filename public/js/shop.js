@@ -901,4 +901,30 @@
   }
 
   updateCount();
+  // ---------- category menu: keep drop-downs on screen; on touch screens first tap opens, second tap goes ----------
+  var catMenu = $('[data-cat-menu]');
+  if (catMenu) {
+    var place = function (li) {
+      var sub = li.querySelector(':scope > .cm-sub');
+      if (!sub) return;
+      sub.classList.remove('flip');
+      var r = sub.getBoundingClientRect();
+      if (r.width && r.right > window.innerWidth - 8) sub.classList.add('flip');
+    };
+    $all('.cm-item.has-sub', catMenu).forEach(function (li) {
+      li.addEventListener('mouseenter', function () { place(li); });
+      li.addEventListener('focusin', function () { place(li); });
+    });
+    var touch = window.matchMedia && window.matchMedia('(hover: none)').matches;
+    catMenu.addEventListener('click', function (e) {
+      var a = e.target.closest('.has-sub > a');
+      if (!a || !touch) return;
+      var li = a.parentNode;
+      if (li.classList.contains('open')) return; // second tap: open the category page
+      e.preventDefault();
+      $all('.cm-item.open', catMenu).forEach(function (x) { if (!x.contains(li)) x.classList.remove('open'); });
+      li.classList.add('open'); place(li);
+    });
+    document.addEventListener('click', function (e) { if (!catMenu.contains(e.target)) $all('.cm-item.open', catMenu).forEach(function (x) { x.classList.remove('open'); }); });
+  }
 })();

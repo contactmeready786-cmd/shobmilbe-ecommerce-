@@ -493,3 +493,11 @@ textarea.editor { min-height: 300px; line-height: 1.6; }
 .wm-preview { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: #fff; cursor: zoom-in; max-width: 420px; }
 .wm-preview.big { max-width: none; cursor: zoom-out; }
 .wm-preview canvas { display: block; width: 100%; height: auto; }
+/* category tree on the categories page */
+.cat-tree { grid-template-columns: 1fr !important; }
+.cat-tree .cat-card.depth-1 { margin-left: 22px; border-left: 3px solid var(--blue); }
+.cat-tree .cat-card.depth-2 { margin-left: 44px; border-left: 3px solid #8FB6EA; }
+.cat-tree .cat-card.depth-3 { margin-left: 66px; border-left: 3px solid #C7DAF5; }
+.cat-parent { display: flex; flex-direction: column; gap: 3px; margin-top: 6px; }
+.cat-parent select { font: inherit; padding: 5px 6px; border: 1px solid var(--line); border-radius: 6px; }
+.auto-groups { columns: 2; font-size: .9rem; } @media (max-width: 700px) { .auto-groups { columns: 1; } }

@@ -55,6 +55,13 @@
     f.submit();
   });
 
+  // ---------- "select all" box for row checkboxes ----------
+  document.addEventListener('change', function (e) {
+    var all = e.target.closest && e.target.closest('[data-check-all]');
+    if (!all) return;
+    $all('[data-check-row]', all.form || document).forEach(function (c) { c.checked = all.checked; });
+  });
+
   // ---------- product list: show / hide switch (saves right away, no page reload) ----------
   document.addEventListener('change', function (e) {
     var t = e.target.closest && e.target.closest('[data-prod-toggle]');

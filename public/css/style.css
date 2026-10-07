@@ -563,3 +563,28 @@ body.protect .card-pic img, body.protect .g-main img, body.protect .g-thumb img,
 .per-pc { font-size: .8rem; color: var(--muted); margin-left: -3px; }
 .min-pc { margin: -4px 0 8px; font-size: .78rem; color: #8A5300; font-weight: 600; }
 .small-rule { margin: 0 0 12px; padding: 10px 12px; border-radius: 10px; background: #EEF5FF; border: 1px solid #C9DDF7; font-size: .93rem; line-height: 1.6; }
+
+/* ---------- category menu with sub-categories (top bar, computers) ---------- */
+.cat-strip { position: relative; z-index: 40; }
+.cat-strip .wrap { overflow: visible; }
+.cat-menu { display: flex; flex-wrap: wrap; gap: 2px 4px; list-style: none; margin: 0; padding: 0; }
+.cm-item { position: relative; }
+.cat-menu > .cm-item > a { display: inline-flex; align-items: center; gap: 4px; }
+.cat-menu > .has-sub > a::after { content: '▾'; font-size: .72em; opacity: .7; }
+.cm-sub { display: none; position: absolute; top: 100%; left: 0; min-width: 240px; max-width: 320px; list-style: none; margin: 0; padding: 6px;
+  background: #fff; border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 14px 34px rgba(16,30,60,.16); z-index: 70; }
+.cm-sub .cm-sub { top: -7px; left: calc(100% - 4px); }
+.cm-item:hover > .cm-sub, .cm-item:focus-within > .cm-sub, .cm-item.open > .cm-sub { display: block; }
+.cm-sub.flip { left: auto; right: 0; }
+.cm-sub .cm-sub.flip { right: calc(100% - 4px); }
+.cat-strip .cm-sub a { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px; white-space: normal; font-size: .9rem; line-height: 1.35; }
+.cm-sub .has-sub > a::after { content: '›'; font-size: 1.1em; opacity: .6; }
+.cm-sub .cm-item:hover > a { background: var(--blue-l); color: var(--blue); }
+
+/* phone menu: categories fold open */
+.drawer-cats details.dc > summary { list-style: none; cursor: pointer; display: flex; justify-content: space-between; align-items: center; padding: 10px 8px; border-bottom: 1px solid var(--bin); font-weight: 600; color: var(--ink); }
+.drawer-cats details.dc > summary::-webkit-details-marker { display: none; }
+.drawer-cats details.dc > summary::after { content: '▾'; font-size: .8em; opacity: .6; transition: transform .15s; }
+.drawer-cats details.dc[open] > summary::after { transform: rotate(180deg); }
+.drawer-cats .dc-in { padding-left: 12px; border-left: 2px solid var(--blue-l); margin-left: 6px; }
+.drawer-cats .dc-in a, .drawer-cats .dc-in summary { font-weight: 500; font-size: .95rem; }
