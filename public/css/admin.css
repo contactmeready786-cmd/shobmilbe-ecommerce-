@@ -382,3 +382,25 @@ textarea.editor { min-height: 300px; line-height: 1.6; }
 .feed-steps, .feed-issues { margin-top: 12px; border-top: 1px solid var(--bin); padding-top: 10px; }
 .feed-steps summary, .feed-issues summary { cursor: pointer; font-weight: 600; }
 .feed-steps ol, .feed-issues ul { margin: 8px 0 0; padding-left: 20px; display: grid; gap: 6px; }
+
+/* live scores admin: green lights, popularity, clicks */
+.lv-light { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #1DB954; box-shadow: 0 0 0 0 rgba(29,185,84,.6); animation: lvpulse 1.6s infinite; vertical-align: middle; margin-right: 4px; }
+@keyframes lvpulse { 0% { box-shadow: 0 0 0 0 rgba(29,185,84,.55); } 70% { box-shadow: 0 0 0 7px rgba(29,185,84,0); } 100% { box-shadow: 0 0 0 0 rgba(29,185,84,0); } }
+.lv-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)); gap: 8px; margin: 10px 0; }
+.lv-item { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: #fff; cursor: pointer; }
+.lv-item:hover { border-color: var(--blue); }
+.lv-item.is-live { border-color: #1DB954; background: #F0FBF4; }
+.lv-item input { width: 18px; height: 18px; margin-top: 3px; accent-color: var(--blue); flex: none; }
+.lv-main { display: grid; gap: 3px; min-width: 0; }
+.lv-meta { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; font-size: .8rem; }
+.lv-stars { color: #E8A100; letter-spacing: 1px; font-size: .85rem; }
+.lv-stars i { color: #C9D2DF; font-style: normal; }
+.lv-on { color: #138A3F; font-weight: 700; display: inline-flex; align-items: center; }
+.lv-soon { color: #8A5300; }
+.lv-off { color: var(--muted); }
+.lv-clicks { color: var(--blue-d); font-weight: 600; }
+.lv-games { display: grid; gap: 1px; font-size: .78rem; color: var(--ink-2); }
+.lv-games span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lv-now h3 { font-size: 1rem; margin: 16px 0 6px; }
+.lv-table td { vertical-align: top; }
+.lv-soon-list, .lv-top { margin: 0; padding-left: 20px; display: grid; gap: 4px; font-size: .92rem; }

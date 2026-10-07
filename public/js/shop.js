@@ -614,7 +614,7 @@
         if (m.goals && m.goals.length) foot += '<div class="goals">⚽ ' + m.goals.map(function (g) { return esc(g.who) + ' ' + esc(g.min); }).join(', ') + '</div>';
       }
       var teams = m.teams.map(function (t) { return sport === 'cricket' ? t : { name: t.name, logo: t.logo, winner: t.winner, score: m.state === 'pre' ? '' : t.score }; });
-      return '<article class="match ' + sport + ' is-' + m.state + (m.fav ? ' is-fav' : '') + '">' +
+      return '<article class="match ' + sport + ' is-' + m.state + (m.fav ? ' is-fav' : '') + '" data-live-click="' + sport + '|' + esc(m.cat || '') + '|' + esc(m.id) + '">' +
         '<div class="match-top"><span class="title">' + esc(sport === 'cricket' ? (inFavGroup ? m.league + (m.title ? ' · ' + m.title : '') : m.title) : (inFavGroup ? m.league : '')) + '</span>' + badge(m) + '</div>' +
         teams.map(teamRow).join('') + foot + '</article>';
     }
@@ -664,6 +664,22 @@
     if (last) { render(); timer = setTimeout(load, every); } else { load(); }
   }
 
+  // ---------- count which matches visitors tap (admin sees the most-watched competitions) ----------
+  var liveClicked = {};
+  document.addEventListener('click', function (e) {
+    var el = e.target.closest && e.target.closest('[data-live-click]');
+    if (!el || e.target.closest('[data-mini-close]')) return;
+    var parts = el.getAttribute('data-live-click').split('|');
+    var once = parts.join('|');
+    if (!parts[1] || liveClicked[once]) return; // one count per match per page visit
+    liveClicked[once] = 1;
+    var body = JSON.stringify({ sport: parts[0], cat: parts[1] });
+    try {
+      if (navigator.sendBeacon) navigator.sendBeacon('/api/live/click', new Blob([body], { type: 'application/json' }));
+      else fetch('/api/live/click', { method: 'POST', body: body, keepalive: true, headers: { 'Content-Type': 'application/json' } });
+    } catch (_) { /* never block the visitor */ }
+  });
+
   // ---------- small score box under the "লাইভ স্কোর" button ----------
   var miniBoxes = $all('[data-live-mini]');
   if (miniBoxes.length) {
@@ -702,7 +718,7 @@
       var tag = m.state === 'in' ? '<span class="badge-live">লাইভ</span>' : m.state === 'pre' ? '<span class="lm-tag">' + esc(lmTime(m.date)) + '</span>' : '<span class="lm-tag">শেষ</span>';
       var status = sp === 'cricket' ? (m.summary || (m.state === 'in' ? m.session : '') || '') : (m.state === 'in' ? (m.clock || m.detail || '') : (m.state === 'post' ? m.detail || '' : ''));
       var showScore = m.state !== 'pre' || sp === 'cricket';
-      return '<a class="lm-match is-' + m.state + '" href="/live/' + sp + '">' +
+      return '<a class="lm-match is-' + m.state + '" href="/live/' + sp + '" data-live-click="' + sp + '|' + esc(m.cat || '') + '">' +
         '<span class="lm-head">' + tag + ' ' + (sp === 'cricket' ? '🏏' : '⚽') + ' <span class="lm-lg">' + esc(m.league || '') + (sp === 'cricket' && m.title ? ' · ' + esc(m.title) : '') + '</span></span>' +
         m.teams.slice(0, 2).map(function (t) { return lmTeam(t, showScore); }).join('') +
         (status ? '<span class="lm-status">' + esc(status) + '</span>' : '') +
