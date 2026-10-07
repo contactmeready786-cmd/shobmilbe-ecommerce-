@@ -526,3 +526,13 @@ textarea.editor { min-height: 300px; line-height: 1.6; }
 .rs-shops { margin: 4px 0 0; }
 .rs-miss td { background: #FFF5F4; }
 @media (max-width: 900px) { .rs-card { grid-template-columns: 70px 1fr; } .rs-rank { display: none; } .rs-pic { width: 70px; height: 70px; } .rs-nums { grid-template-columns: 1fr 1fr; } }
+
+/* recycle bin */
+.trash-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 10px; }
+.trash-danger { margin-top: 18px; }
+.trash-danger .panel { border-top: 4px solid var(--red); }
+.table.kv th { width: 220px; white-space: normal; vertical-align: top; }
+.trash-long { white-space: pre-wrap; font-size: .85rem; max-height: 320px; overflow: auto; }
+.trash-pics { display: flex; flex-wrap: wrap; gap: 8px; }
+.trash-pics img { width: 90px; height: 90px; object-fit: cover; border-radius: 8px; border: 1px solid var(--line); }
+.trash-one { margin-top: 12px; gap: 10px; }
