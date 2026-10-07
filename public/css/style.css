@@ -78,7 +78,30 @@ code { background: var(--bin); padding: 1px 6px; border-radius: 5px; font-size: 
 .link-btn.danger { color: var(--red); }
 
 /* ---------- header ---------- */
-.notice { background: var(--ink); color: #fff; text-align: center; font-size: .9rem; padding: 7px 16px; }
+.notice { background: var(--ink); color: #fff; text-align: center; font-size: .9rem; padding: 6px 0; }
+.notice.notice-empty:not(.has-live) { display: none; }
+/* the thin top bar: notice text, and the running match next to it */
+.notice-row { display: flex; align-items: center; justify-content: center; gap: 6px 18px; flex-wrap: wrap; min-height: 22px; }
+.live-tick { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; color: #fff; text-decoration: none; font-size: .82rem; line-height: 1.3;
+  background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.18); border-radius: 999px; padding: 2px 12px; white-space: nowrap; overflow: hidden; }
+.live-tick[hidden] { display: none; }
+.live-tick:hover { background: rgba(255,255,255,.18); }
+.lt-live { color: #FF6B6B; font-weight: 800; font-size: .74rem; animation: lt-blink 1.4s ease-in-out infinite; }
+@keyframes lt-blink { 50% { opacity: .45; } }
+.lt-tag { background: rgba(255,255,255,.16); border-radius: 5px; padding: 0 6px; font-size: .72rem; font-weight: 700; }
+.lt-team { font-weight: 700; }
+.lt-team.win { color: #7EE2A8; }
+.lt-sc { font-variant-numeric: tabular-nums; color: #FFD27A; font-weight: 700; }
+.lt-vs { opacity: .6; font-size: .75rem; }
+.lt-st { opacity: .8; overflow: hidden; text-overflow: ellipsis; max-width: 260px; }
+.lt-n { opacity: .55; font-size: .7rem; }
+@media (prefers-reduced-motion: reduce) { .lt-live { animation: none; } }
+@media (max-width: 760px) {
+  .notice { font-size: .8rem; padding: 4px 0; }
+  .notice-row { gap: 3px 10px; }
+  .live-tick { font-size: .76rem; padding: 1px 10px; }
+  .lt-st { max-width: 120px; }
+}
 .site-header { background: var(--white); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 20; }
 .header-row { display: flex; align-items: center; gap: 18px; min-height: 66px; }
 .menu-btn { display: none; background: none; border: 0; padding: 6px; color: var(--ink); cursor: pointer; }

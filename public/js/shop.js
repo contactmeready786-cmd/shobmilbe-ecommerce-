@@ -820,14 +820,13 @@
     } catch (_) { /* never block the visitor */ }
   });
 
-  // ---------- small score box under the "লাইভ স্কোর" button ----------
-  var miniBoxes = $all('[data-live-mini]');
-  if (miniBoxes.length) {
-    var lmSports = miniBoxes[0].getAttribute('data-live-mini').split(',').filter(Boolean);
-    var lmEvery = Math.max(10, Number(miniBoxes[0].getAttribute('data-refresh')) || 20) * 1000;
-    var lmTimer = null, lmRotate = null, lmIndex = 0, lmPicks = [];
-    var lmClosed = false; // ✕ hides the box only until the page is reloaded
-    function lmHide() { miniBoxes.forEach(function (b) { b.hidden = true; }); }
+  // ---------- live score in the thin top bar (next to the notice text) ----------
+  var tick = $('[data-live-mini]');
+  if (tick) {
+    var lmSports = tick.getAttribute('data-live-mini').split(',').filter(Boolean);
+    var lmEvery = Math.max(10, Number(tick.getAttribute('data-refresh')) || 20) * 1000;
+    var lmTimer = null, lmIndex = 0, lmItems = [];
+    var bar = tick.closest('[data-notice]');
     function lmTime(d) {
       var h = 0, mi = '00';
       try {
@@ -837,67 +836,50 @@
       var part = h < 4 ? 'রাত' : h < 12 ? 'সকাল' : h < 16 ? 'দুপুর' : h < 18 ? 'বিকাল' : h < 20 ? 'সন্ধ্যা' : 'রাত';
       return part + ' ' + bn((h % 12) || 12) + ':' + bn(mi);
     }
-    // For each sport: the running matches (Bangladesh first). If none is running, one that just ended or starts soon.
+    // running matches first (Bangladesh first); if none, one that just ended or starts within 3 hours
     function lmPick(sp, list) {
       var now = Date.now();
       var on = list.filter(function (m) { return m.state === 'in'; });
-      if (!on.length) {
-        on = list.filter(function (m) { return Math.abs(new Date(m.date).getTime() - now) < 108e5; }).slice(0, 1);
-      }
+      if (!on.length) on = list.filter(function (m) { return Math.abs(new Date(m.date).getTime() - now) < 108e5; }).slice(0, 1);
       on.sort(function (a, b) { return b.fav - a.fav; });
-      return { sport: sp, items: on.slice(0, 6) };
+      return on.slice(0, 6).map(function (m) { m.sport = sp; return m; });
     }
     function lmTeam(t, showScore) {
-      var logo = t.logo ? '<img src="' + esc(t.logo) + '" alt="" loading="lazy" onerror="this.outerHTML=\'<span class=ph></span>\'">' : '<span class="ph"></span>';
-      return '<span class="lm-team' + (t.winner ? ' win' : '') + (t.batting ? ' bat' : '') + '">' + logo +
-        '<span class="tn" title="' + esc(t.name) + '">' + esc(t.name) + '</span><b class="sc">' + (showScore ? esc(t.score || '') : '') + '</b></span>';
-    }
-    function lmCard(g) {
-      var m = g.items[lmIndex % g.items.length];
-      var sp = g.sport;
-      var tag = m.state === 'in' ? '<span class="badge-live">লাইভ</span>' : m.state === 'pre' ? '<span class="lm-tag">' + esc(lmTime(m.date)) + '</span>' : '<span class="lm-tag">শেষ</span>';
-      var status = sp === 'cricket' ? (m.summary || (m.state === 'in' ? m.session : '') || '') : (m.state === 'in' ? (m.clock || m.detail || '') : (m.state === 'post' ? m.detail || '' : ''));
-      var showScore = m.state !== 'pre' || sp === 'cricket';
-      return '<a class="lm-match is-' + m.state + '" href="/live/' + sp + '" data-live-click="' + sp + '|' + esc(m.cat || '') + '">' +
-        '<span class="lm-head">' + tag + ' ' + (sp === 'cricket' ? '🏏' : '⚽') + ' <span class="lm-lg">' + esc(m.league || '') + (sp === 'cricket' && m.title ? ' · ' + esc(m.title) : '') + '</span></span>' +
-        m.teams.slice(0, 2).map(function (t) { return lmTeam(t, showScore); }).join('') +
-        (status ? '<span class="lm-status">' + esc(status) + '</span>' : '') +
-        (g.items.length > 1 ? '<span class="lm-dots">' + bn(lmIndex % g.items.length + 1) + '/' + bn(g.items.length) + '</span>' : '') + '</a>';
+      var n = t.short || t.name || '';
+      return '<b class="lt-team' + (t.winner ? ' win' : '') + '" title="' + esc(t.name) + '">' + esc(n) + (t.batting ? '*' : '') + '</b>' +
+        (showScore && t.score ? ' <span class="lt-sc">' + esc(t.score) + '</span>' : '');
     }
     function lmDraw() {
-      var groups = lmPicks.filter(function (g) { return g.items.length; });
-      if (!groups.length || lmClosed) return lmHide();
-      var inner = groups.map(lmCard).join('') + '<button type="button" class="lm-x" data-mini-close aria-label="স্কোর বক্স বন্ধ করুন" title="বন্ধ করুন">✕</button>';
-      miniBoxes.forEach(function (b) { b.innerHTML = inner; b.hidden = false; });
+      if (!lmItems.length) { tick.hidden = true; if (bar) bar.classList.remove('has-live'); return; }
+      var m = lmItems[lmIndex % lmItems.length];
+      var sp = m.sport;
+      var tag = m.state === 'in' ? '<span class="lt-live">● লাইভ</span>' : m.state === 'pre' ? '<span class="lt-tag">' + esc(lmTime(m.date)) + '</span>' : '<span class="lt-tag">শেষ</span>';
+      var status = sp === 'cricket' ? (m.summary || (m.state === 'in' ? m.session : '') || '') : (m.state === 'in' ? (m.clock || m.detail || '') : (m.state === 'post' ? m.detail || '' : ''));
+      var showScore = m.state !== 'pre' || sp === 'cricket';
+      var t = m.teams || [];
+      tick.href = '/live/' + sp;
+      tick.setAttribute('data-live-click', sp + '|' + (m.cat || ''));
+      tick.innerHTML = tag + ' <span class="lt-ic">' + (sp === 'cricket' ? '🏏' : '⚽') + '</span> ' +
+        (t[0] ? lmTeam(t[0], showScore) : '') + ' <span class="lt-vs">vs</span> ' + (t[1] ? lmTeam(t[1], showScore) : '') +
+        (status ? ' <span class="lt-st">· ' + esc(status) + '</span>' : '') +
+        (lmItems.length > 1 ? ' <span class="lt-n">' + bn(lmIndex % lmItems.length + 1) + '/' + bn(lmItems.length) + '</span>' : '');
+      tick.hidden = false;
+      if (bar) bar.classList.add('has-live');
     }
     function lmLoad() {
       clearTimeout(lmTimer);
-      if (lmClosed) return;
       Promise.all(lmSports.map(function (sp) {
         return fetch('/api/live/' + sp, { headers: { Accept: 'application/json' } })
           .then(function (r) { if (!r.ok) throw r; return r.json(); })
           .then(function (d) { return lmPick(sp, d.matches || []); })
-          .catch(function () { return { sport: sp, items: [] }; });
-      })).then(function (g) { lmPicks = g; lmDraw(); })
-        .then(function () { if (!document.hidden && !lmClosed) lmTimer = setTimeout(lmLoad, lmEvery); });
+          .catch(function () { return []; });
+      })).then(function (g) { lmItems = [].concat.apply([], g); lmDraw(); })
+        .then(function () { if (!document.hidden) lmTimer = setTimeout(lmLoad, lmEvery); });
     }
-    // more than one match running in a sport: show them one after another every 6 seconds
-    lmRotate = setInterval(function () {
-      if (document.hidden || lmClosed) return;
-      if (lmPicks.some(function (g) { return g.items.length > 1; })) { lmIndex++; lmDraw(); }
-    }, 6000);
-    document.addEventListener('click', function (e) {
-      if (!e.target.closest || !e.target.closest('[data-mini-close]')) return;
-      e.preventDefault();
-      lmClosed = true; // not remembered: after a reload the box shows again
-      clearTimeout(lmTimer); clearInterval(lmRotate); lmHide();
-    });
-    // hide the box while the button's own menu (ক্রিকেট স্কোর / ফুটবল স্কোর) is open
-    $all('.live-nav [data-nav-drop]').forEach(function (d) {
-      d.addEventListener('toggle', function () { d.parentNode.classList.toggle('drop-open', d.open); });
-    });
+    // several matches: one after another every 6 seconds
+    setInterval(function () { if (!document.hidden && lmItems.length > 1) { lmIndex++; lmDraw(); } }, 6000);
     document.addEventListener('visibilitychange', function () { if (!document.hidden) lmLoad(); else clearTimeout(lmTimer); });
-    if (!lmClosed) lmLoad();
+    lmLoad();
   }
 
   updateCount();
