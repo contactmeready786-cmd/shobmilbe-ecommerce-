@@ -636,3 +636,48 @@ body.protect .card-pic img, body.protect .g-main img, body.protect .g-thumb img,
   .section-head h2 { font-size: 1.2rem; }
   .sec-sub { font-size: .82rem; }
 }
+
+/* ---------- main categories always in one line (computers) ---------- */
+.cat-menu { flex-wrap: nowrap; justify-content: space-between; gap: 0 2px; }
+.cat-strip .cat-menu > .cm-item > a { padding: 5px clamp(5px, .8vw, 11px); font-size: clamp(.8rem, .6rem + .3vw, .92rem); }
+@media (max-width: 1180px) { .cat-menu > .cm-item > a .cm-ic { display: none; } }
+@media (max-width: 1000px) {
+  /* tablets: the line scrolls sideways; the category page shows its sub-categories */
+  .cat-strip .wrap { overflow-x: auto; scrollbar-width: none; }
+  .cat-strip .wrap::-webkit-scrollbar { display: none; }
+  .cat-menu { justify-content: flex-start; }
+  .cat-menu .cm-sub { display: none !important; }
+  .cat-menu > .has-sub > a::after { content: none; }
+}
+
+/* ---------- "লাইভ স্কোর" button (no drop-down) ---------- */
+.header-nav a.live-link { display: inline-flex; align-items: center; }
+@media (max-width: 760px) { .header-nav a.live-link { display: inline-flex; padding: 6px 8px; font-size: .9rem; } }
+
+/* ---------- the shop's promises: small, one row ---------- */
+.trust-row { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.trust-row li, .trust-row .tr-link { display: flex; align-items: center; gap: 8px; min-width: 0; color: inherit; text-decoration: none; }
+.trust-row .tr-ic { flex: none; width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; font-size: 1.05rem; }
+.trust-row b { display: block; font-size: .86rem; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.trust-row small { display: block; font-size: .74rem; line-height: 1.25; opacity: .8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* inside the blue banner */
+.hero-trust { margin-top: 22px; max-width: 860px; }
+.hero-trust li { background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.16); border-radius: 12px; padding: 7px 10px; }
+.hero-trust .tr-ic { background: rgba(255,255,255,.14); }
+/* thin strip under banner pictures */
+.trust-strip { margin-top: 12px; background: #fff; border: 1px solid var(--line); border-radius: var(--radius); padding: 8px; }
+.trust-strip li { padding: 2px 6px; }
+.trust-strip li + li { border-left: 1px solid var(--line); }
+.trust-strip .tr-ic { background: var(--blue-l); }
+.trust-strip small { color: var(--muted); opacity: 1; }
+@media (max-width: 900px) {
+  .trust-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .trust-strip li + li { border-left: 0; }
+}
+@media (max-width: 760px) {
+  .hero { padding: 26px 0 28px; }
+  .hero-trust { margin-top: 16px; gap: 6px; }
+  .hero-trust li { padding: 6px 8px; }
+  .trust-row .tr-ic { width: 28px; height: 28px; font-size: .9rem; border-radius: 8px; }
+  .trust-row b { font-size: .78rem; } .trust-row small { font-size: .68rem; }
+}
