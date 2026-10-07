@@ -557,5 +557,112 @@
     });
   }
 
+  // ---------- header dropdown (live scores) ----------
+  document.addEventListener('click', function (e) {
+    $all('[data-nav-drop][open]').forEach(function (d) { if (!d.contains(e.target)) d.removeAttribute('open'); });
+  });
+
+  // ---------- live scores ----------
+  var liveBox = $('[data-live]');
+  if (liveBox) {
+    var sport = liveBox.getAttribute('data-live');
+    var every = Math.max(10, Number(liveBox.getAttribute('data-refresh')) || 20) * 1000;
+    var filter = 'all';
+    var last = null;
+    var timer = null;
+    var TIME = { timeZone: 'Asia/Dhaka', hour: 'numeric', minute: '2-digit' };
+    var DAY = { timeZone: 'Asia/Dhaka', weekday: 'short', day: 'numeric', month: 'short' };
+    function fmt(d, o) { try { return new Date(d).toLocaleString('bn-BD', o); } catch (_) { return ''; } }
+    function sameDay(a, b) { return fmt(a, { timeZone: 'Asia/Dhaka', year: 'numeric', month: 'numeric', day: 'numeric' }) === fmt(b, { timeZone: 'Asia/Dhaka', year: 'numeric', month: 'numeric', day: 'numeric' }); }
+    // Bangladesh-style time: "রাত ৮:৩০", "বিকাল ৪:০০"
+    function bnTime(d) {
+      var h = 0, mi = '00';
+      try {
+        new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Dhaka', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(new Date(d))
+          .forEach(function (p) { if (p.type === 'hour') h = Number(p.value); if (p.type === 'minute') mi = p.value; });
+      } catch (_) { return fmt(d, TIME); }
+      var part = h < 4 ? 'রাত' : h < 12 ? 'সকাল' : h < 16 ? 'দুপুর' : h < 18 ? 'বিকাল' : h < 20 ? 'সন্ধ্যা' : 'রাত';
+      return part + ' ' + bn((h % 12) || 12) + ':' + bn(mi);
+    }
+    function when(d) {
+      var now = new Date();
+      var tmr = new Date(now.getTime() + 864e5);
+      var day = sameDay(d, now) ? 'আজ' : sameDay(d, tmr) ? 'আগামীকাল' : fmt(d, DAY);
+      return day + ', ' + bnTime(d);
+    }
+    function badge(m) {
+      if (m.state === 'in') return '<span class="badge-live">লাইভ</span>';
+      if (m.state === 'pre') return '<span class="badge-pre">' + esc(when(m.date)) + '</span>';
+      return '<span class="badge-post">শেষ</span>';
+    }
+    function teamRow(t) {
+      var logo = t.logo ? '<img src="' + esc(t.logo) + '" alt="" loading="lazy" onerror="this.outerHTML=\'<span class=ph></span>\'">' : '<span class="ph"></span>';
+      return '<div class="team-row' + (t.winner ? ' win' : '') + (t.batting ? ' bat' : '') + '">' + logo +
+        '<span class="tn" title="' + esc(t.name) + '">' + esc(t.name) + '</span><span class="sc">' + esc(t.score) + '</span></div>';
+    }
+    function card(m, inFavGroup) {
+      var foot = '';
+      if (sport === 'cricket') {
+        var line = m.summary || (m.state === 'pre' ? '' : m.description);
+        foot = line ? '<div class="match-foot">' + esc(line) + (m.session && m.state === 'in' ? ' · ' + esc(m.session) : '') + '</div>' : '';
+      } else {
+        var bits = [];
+        if (m.state === 'in' && m.clock) bits.push('<span class="clock">' + esc(m.clock) + '</span>');
+        if (m.state === 'in' && /half/i.test(m.description + ' ' + m.detail)) bits.push('বিরতি');
+        if (m.venue) bits.push(esc(m.venue));
+        foot = bits.length ? '<div class="match-foot">' + bits.join(' · ') + '</div>' : '';
+        if (m.goals && m.goals.length) foot += '<div class="goals">⚽ ' + m.goals.map(function (g) { return esc(g.who) + ' ' + esc(g.min); }).join(', ') + '</div>';
+      }
+      var teams = m.teams.map(function (t) { return sport === 'cricket' ? t : { name: t.name, logo: t.logo, winner: t.winner, score: m.state === 'pre' ? '' : t.score }; });
+      return '<article class="match ' + sport + ' is-' + m.state + (m.fav ? ' is-fav' : '') + '">' +
+        '<div class="match-top"><span class="title">' + esc(sport === 'cricket' ? (inFavGroup ? m.league + (m.title ? ' · ' + m.title : '') : m.title) : (inFavGroup ? m.league : '')) + '</span>' + badge(m) + '</div>' +
+        teams.map(teamRow).join('') + foot + '</article>';
+    }
+    function render() {
+      if (!last) return;
+      var list = (last.matches || []).filter(function (m) { return filter === 'all' || m.state === filter; });
+      var liveN = (last.matches || []).filter(function (m) { return m.state === 'in'; }).length;
+      var cnt = $('[data-live-count]');
+      if (cnt) cnt.textContent = liveN ? '(' + bn(liveN) + ')' : '';
+      if (!list.length) {
+        liveBox.innerHTML = '<p class="live-empty muted">' + (filter === 'in' ? 'এই মুহূর্তে কোনো খেলা চলছে না।' : 'এখন দেখানোর মতো কোনো খেলা নেই। একটু পরে আবার দেখুন।') + '</p>';
+      } else {
+        // Bangladesh / favourite matches first, then group the rest by tournament
+        var groups = [];
+        var byName = {};
+        list.forEach(function (m) {
+          var g = m.fav ? '⭐ বাংলাদেশ ও প্রিয় দল' : m.league;
+          if (!byName[g]) { byName[g] = { name: g, fav: !!m.fav, items: [] }; groups.push(byName[g]); }
+          byName[g].items.push(m);
+        });
+        liveBox.innerHTML = groups.map(function (g) {
+          return '<section class="live-group"><h2>' + esc(g.name) + '</h2><div class="live-cards">' + g.items.map(function (m) { return card(m, g.fav); }).join('') + '</div></section>';
+        }).join('');
+      }
+      var up = $('[data-live-updated]');
+      if (up) up.textContent = 'সর্বশেষ আপডেট: ' + bnTime(last.updated) + ':' + bn(('0' + new Date(last.updated).getSeconds()).slice(-2)) + (last.stale ? ' (পুরনো)' : '');
+    }
+    function load() {
+      clearTimeout(timer);
+      fetch('/api/live/' + sport, { headers: { Accept: 'application/json' } })
+        .then(function (r) { if (!r.ok) throw r; return r.json(); })
+        .then(function (d) { last = d; render(); })
+        .catch(function () {
+          if (!last) liveBox.innerHTML = '<p class="live-empty muted">স্কোর আনা যাচ্ছে না। ইন্টারনেট সংযোগ দেখুন, কিছুক্ষণ পর নিজে থেকেই আবার চেষ্টা করবে।</p>';
+        })
+        .then(function () { if (!document.hidden) timer = setTimeout(load, every); });
+    }
+    $all('[data-live-filter]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        filter = b.getAttribute('data-live-filter');
+        $all('[data-live-filter]').forEach(function (x) { x.classList.toggle('on', x === b); });
+        render();
+      });
+    });
+    document.addEventListener('visibilitychange', function () { if (!document.hidden) load(); else clearTimeout(timer); });
+    try { last = JSON.parse(($('[data-live-initial]') || {}).textContent || 'null'); } catch (_) { last = null; }
+    if (last) { render(); timer = setTimeout(load, every); } else { load(); }
+  }
+
   updateCount();
 })();

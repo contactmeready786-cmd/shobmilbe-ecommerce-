@@ -376,3 +376,9 @@ textarea.editor { min-height: 300px; line-height: 1.6; }
   .dl { grid-template-columns: 1fr; gap: 2px; }
   .dl dd { margin-bottom: 8px; }
 }
+
+/* product feeds */
+.feed-card .feed-url { display: block; padding: 10px 12px; border-radius: 8px; font-size: .82rem; line-height: 1.5; word-break: break-all; margin-top: 6px; }
+.feed-steps, .feed-issues { margin-top: 12px; border-top: 1px solid var(--bin); padding-top: 10px; }
+.feed-steps summary, .feed-issues summary { cursor: pointer; font-weight: 600; }
+.feed-steps ol, .feed-issues ul { margin: 8px 0 0; padding-left: 20px; display: grid; gap: 6px; }
