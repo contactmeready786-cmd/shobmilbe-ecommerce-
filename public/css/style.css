@@ -637,19 +637,15 @@ body.protect .card-pic img, body.protect .g-main img, body.protect .g-thumb img,
   .sec-sub { font-size: .82rem; }
 }
 
-/* ---------- main categories always in one line, with icons and drop-downs ---------- */
-.cat-menu { flex-wrap: nowrap; justify-content: space-between; gap: 0 2px; width: 100%; }
-.cat-strip .cat-menu > .cm-item > a { padding: 5px clamp(5px, .8vw, 11px); font-size: clamp(.8rem, .6rem + .3vw, .92rem); }
-.cm-ic { display: inline-block; }
-/* smaller screens: icon above the name, each category gets an equal share of the line */
-@media (max-width: 1180px) {
-  .cat-menu { gap: 0; }
-  .cat-menu > .cm-item { flex: 1 1 0; min-width: 0; }
-  .cat-strip .cat-menu > .cm-item > a { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 1px;
-    padding: 5px 2px 4px; border-radius: 10px; font-size: .74rem; line-height: 1.2; text-align: center; white-space: normal; height: 100%; }
-  .cat-menu > .cm-item > a .cm-ic { font-size: 1.15rem; line-height: 1.2; }
-  .cat-menu > .has-sub > a::after { font-size: .6rem; margin-top: -1px; }
-  .cm-sub { min-width: 220px; }
+/* ---------- main categories: one slim line — small icon + name, drop-downs on every size ---------- */
+.cat-menu { flex-wrap: nowrap; justify-content: space-between; gap: 0; width: 100%; }
+.cat-strip .cat-menu > .cm-item > a { padding: 5px clamp(4px, .7vw, 11px); font-size: clamp(.74rem, .45rem + .42vw, .92rem); gap: 3px; }
+.cm-ic { display: inline-block; font-size: .95em; }
+.cat-menu > .has-sub > a::after { margin-left: 1px; }
+@media (max-width: 900px) {
+  /* small tablets: the same slim line, a little tighter */
+  .cat-strip .cat-menu > .cm-item > a { padding: 4px 3px; font-size: .72rem; gap: 2px; }
+  .cat-menu > .has-sub > a::after { font-size: .55rem; }
 }
 /* ---------- "লাইভ স্কোর" button (no drop-down) ---------- */
 .header-nav a.live-link { display: inline-flex; align-items: center; }
