@@ -1,0 +1,21 @@
+# Market research runs round the clock: every hour this wakes the shop up so it reads
+# the next few competitor shops (Admin → মার্কেট রিসার্চ). It sends no secrets and changes nothing else.
+name: market-research
+on:
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch: {}
+jobs:
+  tick:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Read competitor shops
+        env:
+          SITE: ${{ vars.SITE_URL || 'https://shobmilbe-ecommerce.vercel.app' }}
+        run: |
+          for i in 1 2 3 4 5 6; do
+            curl -s -m 30 "$SITE/api/research/tick" || true
+            echo
+            sleep 95
+          done

@@ -927,4 +927,25 @@
     });
     document.addEventListener('click', function (e) { if (!catMenu.contains(e.target)) $all('.cm-item.open', catMenu).forEach(function (x) { x.classList.remove('open'); }); });
   }
+  // ---------- home page rows: arrows, and the "নতুন এসেছে" row moves on by itself ----------
+  $all('.rail-sec').forEach(function (sec) {
+    var rail = $('[data-rail]', sec), prev = $('[data-rail-prev]', sec), next = $('[data-rail-next]', sec);
+    if (!rail) return;
+    var step = function () { var c = rail.querySelector('.card'); return c ? c.getBoundingClientRect().width + 14 : rail.clientWidth; };
+    var atEnd = function () { return rail.scrollLeft + rail.clientWidth >= rail.scrollWidth - 4; };
+    var paint = function () { if (prev) prev.disabled = rail.scrollLeft <= 2; if (next) next.disabled = atEnd(); };
+    if (prev) prev.addEventListener('click', function () { rail.scrollBy({ left: -rail.clientWidth, behavior: 'smooth' }); });
+    if (next) next.addEventListener('click', function () { rail.scrollBy({ left: rail.clientWidth, behavior: 'smooth' }); });
+    rail.addEventListener('scroll', function () { clearTimeout(rail._t); rail._t = setTimeout(paint, 80); }, { passive: true });
+    paint();
+    if (!rail.hasAttribute('data-rail-auto') || (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches)) return;
+    var hold = false, seen = true;
+    ['mouseenter', 'touchstart', 'focusin'].forEach(function (e) { rail.addEventListener(e, function () { hold = true; }, { passive: true }); });
+    ['mouseleave', 'touchend', 'focusout'].forEach(function (e) { rail.addEventListener(e, function () { setTimeout(function () { hold = false; }, 2500); }, { passive: true }); });
+    if ('IntersectionObserver' in window) new IntersectionObserver(function (en) { seen = en[0].isIntersecting; }).observe(rail);
+    setInterval(function () {
+      if (hold || !seen || document.hidden || rail.scrollWidth <= rail.clientWidth + 4) return;
+      if (atEnd()) rail.scrollTo({ left: 0, behavior: 'smooth' }); else rail.scrollBy({ left: step(), behavior: 'smooth' });
+    }, 3500);
+  });
 })();

@@ -588,3 +588,28 @@ body.protect .card-pic img, body.protect .g-main img, body.protect .g-thumb img,
 .drawer-cats details.dc[open] > summary::after { transform: rotate(180deg); }
 .drawer-cats .dc-in { padding-left: 12px; border-left: 2px solid var(--blue-l); margin-left: 6px; }
 .drawer-cats .dc-in a, .drawer-cats .dc-in summary { font-weight: 500; font-size: .95rem; }
+
+/* ---------- home page: rows that slide sideways ---------- */
+.rail-sec .section-head { align-items: flex-end; margin-bottom: 10px; }
+.sec-sub { margin: 2px 0 0; color: var(--muted); font-size: .9rem; }
+.rail-head-r { display: flex; align-items: center; gap: 8px; }
+.rail-btn { width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--line); background: #fff; color: var(--ink); font-size: 1.3rem; line-height: 1; cursor: pointer; display: inline-grid; place-items: center; }
+.rail-btn:hover { border-color: var(--blue); color: var(--blue); }
+.rail-btn:disabled { opacity: .35; cursor: default; }
+.rail { --gap: 14px; --n: 4; display: grid; grid-auto-flow: column; grid-auto-columns: calc((100% - (var(--n) - 1) * var(--gap)) / var(--n)); gap: var(--gap);
+  overflow-x: auto; scroll-snap-type: x mandatory; scroll-behavior: smooth; scrollbar-width: none; padding: 2px 2px 8px; overscroll-behavior-x: contain; }
+.rail::-webkit-scrollbar { display: none; }
+.rail > .card { scroll-snap-align: start; }
+.cols-5 .rail { --n: 5; } .cols-3 .rail { --n: 3; }
+.rail-chips { margin: -2px 0 10px; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+.rail-chips .chip { font-size: .85rem; padding: 4px 12px; }
+.badge-tag { position: absolute; bottom: 8px; left: 8px; background: var(--blue); color: #fff; font-weight: 700; font-size: .72rem; padding: 2px 8px; border-radius: 6px; }
+.trust { margin-top: 18px; }
+@media (max-width: 1100px) { .rail, .cols-5 .rail { --n: 4; } }
+@media (max-width: 900px) { .rail, .cols-5 .rail, .cols-4 .rail { --n: 3; } }
+@media (max-width: 760px) {
+  .rail, .cols-3 .rail, .cols-4 .rail, .cols-5 .rail { --n: 2.25; --gap: 10px; }
+  .rail-btn { display: none; }
+  .section-head h2 { font-size: 1.2rem; }
+  .sec-sub { font-size: .82rem; }
+}

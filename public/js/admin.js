@@ -1169,4 +1169,25 @@
     };
     setTimeout(round, prog ? 300 : 2500);
   })();
+  // ---------- market research: "এখনই আপডেট করুন" reads every shop once, one per call ----------
+  var rsBtn = $('[data-rs-run]');
+  if (rsBtn) rsBtn.addEventListener('click', function () {
+    var msg = $('[data-rs-msg]'), done = 0, max = 30, seen = {};
+    rsBtn.disabled = true;
+    var step = function () {
+      return fetch('/admin/api/research/run', { method: 'POST', credentials: 'same-origin', headers: { Accept: 'application/json' } })
+        .then(function (r) { return r.json(); }).then(function (j) {
+          if (j.idle || !j.source || seen[j.source] || ++done > max) return false;
+          seen[j.source] = 1;
+          msg.textContent = '⏳ ' + j.source + (j.error ? ' — ' + j.error : ' — ' + bn(j.items || 0) + 'টি পণ্য পড়া হলো');
+          return true;
+        });
+    };
+    var loop = function () { return step().then(function (more) { if (more) return loop(); }); };
+    loop().then(function () { msg.textContent = '✅ আপডেট শেষ — পেজ আবার লোড হচ্ছে…'; setTimeout(function () { location.reload(); }, 900); },
+      function () { msg.textContent = 'আপডেট করা যায়নি, একটু পরে চেষ্টা করুন।'; rsBtn.disabled = false; });
+  });
+  // import page opened from market research with a product link
+  var impUrl = $('[data-imp-url]');
+  if (impUrl) { var pre = new URLSearchParams(location.search).get('url'); if (pre && /^https?:\/\//.test(pre)) impUrl.value = pre; }
 })();
