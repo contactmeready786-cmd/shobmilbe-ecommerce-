@@ -556,3 +556,8 @@ body.protect .card-pic img, body.protect .g-main img, body.protect .g-thumb img,
 .qty-limit a { font-weight: 700; white-space: nowrap; }
 .toast a[href^="tel:"], .toast a[href*="wa.me"] { white-space: nowrap; }
 .buy-box .btn-wa.btn-lg, .buy-box .btn-wa { flex: 0 0 auto; padding-left: 16px; padding-right: 16px; }
+
+/* cheap parts (৳0.25-৳5): "per piece" and minimum labels */
+.per-pc { font-size: .8rem; color: var(--muted); margin-left: -3px; }
+.min-pc { margin: -4px 0 8px; font-size: .78rem; color: #8A5300; font-weight: 600; }
+.small-rule { margin: 0 0 12px; padding: 10px 12px; border-radius: 10px; background: #EEF5FF; border: 1px solid #C9DDF7; font-size: .93rem; line-height: 1.6; }

@@ -5,7 +5,11 @@
   var KEY = 'sm_cart';
   var BN = '০১২৩৪৫৬৭৮৯';
   function bn(n) { return String(n).replace(/\d/g, function (d) { return BN[d]; }); }
-  function money(n) { return '৳' + bn(Math.round(Number(n || 0)).toLocaleString('en-IN')); }
+  function money(n) {
+    var v = Math.round(Number(n || 0) * 100) / 100, a = Math.abs(v);
+    var t = Math.abs(a - Math.round(a)) < 0.005 ? Math.round(a).toLocaleString('en-IN') : a.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return (v < 0 ? '-' : '') + '৳' + bn(t);
+  }
   function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
@@ -157,27 +161,43 @@
   }
   function write(cart) { store(KEY, JSON.stringify(cart)); updateCount(); }
   function count(cart) { return Object.keys(cart).reduce(function (s, k) { return s + cart[k]; }, 0); }
-  // Most pieces of one product a customer can order online (Admin → সেটিংস).
+  // How many pieces of one product a customer may order (same formula as the server, Admin → সেটিংস):
+  // normally 1 to SM.maxQty; cheap parts (price up to rule.cap, e.g. ৳5) need at least rule.minVal worth (e.g. ৳10).
   var MAXQ = Math.max(1, Number(SM.maxQty) || 10);
-  function limitText() {
+  var RULE = SM.rule || { on: true, cap: 5, minVal: 10, maxVal: 100 };
+  function rule(price) {
+    var p = Number(price) || 0;
+    if (!RULE.on || p <= 0 || p > RULE.cap + 1e-9) return { min: 1, max: MAXQ, small: false };
+    var min = Math.max(1, Math.ceil(RULE.minVal / p - 1e-9));
+    return { min: min, max: Math.max(MAXQ, min, Math.floor(RULE.maxVal / p + 1e-9)), small: min > 1 };
+  }
+  var PRICES = {}; // product id -> price, so the cart knows each product's rule
+  function contactLinks() {
     var how = [];
     if (SM.phone) how.push('<a href="tel:' + esc(SM.phone) + '">📞 কল করুন</a>');
     if (SM.wa) how.push('<a href="https://wa.me/' + esc(SM.wa) + '" target="_blank" rel="noopener">💬 WhatsApp</a>');
-    return 'একটি পণ্য সর্বোচ্চ ' + bn(MAXQ) + 'টি অর্ডার করা যাবে। ' + bn(MAXQ) + 'টির বেশি দরকার হলে সরাসরি আমাদের সাথে যোগাযোগ করুন' +
-      (how.length ? ' — ' + how.join(' · ') : '।');
+    return how.length ? ' — ' + how.join(' · ') : '।';
   }
-  function showLimit() {
+  function limitText(max) {
+    return 'এই পণ্যটি একসাথে সর্বোচ্চ ' + bn(max) + 'টি অর্ডার করা যাবে। এর বেশি দরকার হলে সরাসরি আমাদের সাথে যোগাযোগ করুন' + contactLinks();
+  }
+  function minText(r, price) {
+    return 'এটি কম দামের পণ্য — কমপক্ষে ' + bn(r.min) + 'টি নিতে হবে (' + money(r.min * price) + ')। না চাইলে "সরান" চাপুন।';
+  }
+  function say(text) {
     var box = $('[data-qty-limit]');
-    if (box) { box.innerHTML = '⚠️ ' + limitText(); box.hidden = false; return; } // product page: message under the buttons
-    toast('<span>⚠️ ' + limitText() + '</span>', 6000);
+    if (box) { box.innerHTML = '⚠️ ' + text; box.hidden = false; return; } // product page: message under the buttons
+    toast('<span>⚠️ ' + text + '</span>', 6500);
   }
-  // returns false when the limit stopped some of the pieces
-  function add(id, qty) {
+  // Adds pieces, keeping the product between its minimum and maximum. Returns what happened.
+  function add(id, qty, price) {
     var cart = read();
+    var r = rule(price);
     var want = (cart[id] || 0) + qty;
-    cart[id] = Math.min(want, MAXQ);
+    var got = Math.min(Math.max(want, r.min), r.max);
+    cart[id] = got;
     write(cart);
-    return want <= MAXQ;
+    return { raised: want < r.min, capped: want > r.max, qty: got, rule: r };
   }
   function updateCount(bump) {
     var n = count(read());
@@ -206,33 +226,41 @@
       var input = $('[data-qty] input');
       qty = Math.max(1, parseInt(input && input.value, 10) || 1);
     }
-    var inCart = read()[btn.getAttribute('data-add')] || 0;
-    if (inCart >= MAXQ && !btn.hasAttribute('data-buy-now')) { showLimit(); return; }
-    var whole = add(btn.getAttribute('data-add'), qty);
-    track('add_to_cart', { items: [{ id: btn.getAttribute('data-add'), name: btn.getAttribute('data-name'), price: Number(btn.getAttribute('data-price')) || 0, qty: Math.min(qty, MAXQ - inCart) || qty }] });
+    var id = btn.getAttribute('data-add');
+    var price = Number(btn.getAttribute('data-price')) || 0;
+    var inCart = read()[id] || 0;
+    var r0 = rule(price);
+    if (inCart >= r0.max && !btn.hasAttribute('data-buy-now')) { say(limitText(r0.max)); return; }
+    var res = add(id, qty, price);
+    track('add_to_cart', { items: [{ id: id, name: btn.getAttribute('data-name'), price: price, qty: Math.max(1, res.qty - inCart) }] });
     if (btn.hasAttribute('data-buy-now')) { location.href = '/checkout'; return; }
     updateCount(true);
-    if (!whole) { showLimit(); return; }
+    if (res.capped) { say(limitText(res.rule.max)); return; }
+    if (res.raised) {
+      toast('<span>✅ "' + esc(btn.getAttribute('data-name')) + '" — কম দামের পণ্য, তাই কমপক্ষে ' + bn(res.rule.min) + 'টি (' + money(res.rule.min * price) + ') কার্টে যোগ হয়েছে</span><a href="/cart">কার্ট দেখুন</a>', 5000);
+      return;
+    }
     toast('<span>✅ "' + esc(btn.getAttribute('data-name')) + '" কার্টে যোগ হয়েছে</span><a href="/cart">কার্ট দেখুন</a>');
   });
 
   $all('[data-qty]').forEach(function (box) {
     var input = $('input', box);
+    var addBtn = $('[data-add][data-with-qty]');
+    var price = addBtn ? Number(addBtn.getAttribute('data-price')) || 0 : 0;
+    var r = rule(price);
+    var fix = function (v) {
+      var max = parseInt(input.max, 10) || r.max;
+      var min = parseInt(input.min, 10) || 1;
+      if (v > max && max >= r.max) say(limitText(r.max));
+      else if (v < min && r.small) say('কম দামের পণ্য — কমপক্ষে ' + bn(min) + 'টি নিতে হবে (' + money(min * price) + ')।');
+      input.value = Math.min(max, Math.max(min, v));
+    };
     box.addEventListener('click', function (e) {
       var b = e.target.closest('[data-step]');
       if (!b) return;
-      var max = parseInt(input.max, 10) || MAXQ;
-      var next = (parseInt(input.value, 10) || 1) + parseInt(b.getAttribute('data-step'), 10);
-      // tried to go above the limit (not just above the stock): explain how to order more
-      if (next > max && max >= MAXQ) showLimit();
-      input.value = Math.min(max, Math.max(1, next));
+      fix((parseInt(input.value, 10) || 1) + parseInt(b.getAttribute('data-step'), 10));
     });
-    input.addEventListener('change', function () {
-      var max = parseInt(input.max, 10) || MAXQ;
-      var v = parseInt(input.value, 10) || 1;
-      if (v > max && max >= MAXQ) showLimit();
-      input.value = Math.min(max, Math.max(1, v));
-    });
+    input.addEventListener('change', function () { fix(parseInt(input.value, 10) || 1); });
   });
   // WhatsApp button on the product page: message carries the product name, price and this page's link
   document.addEventListener('click', function (e) {
@@ -406,7 +434,10 @@
         var changed = false;
         var lines = data.products.map(function (p) {
           known[p.id] = true;
-          if (cart[p.id] > MAXQ) { cart[p.id] = MAXQ; changed = true; }
+          PRICES[p.id] = p.price;
+          var r = rule(p.price);
+          var fixed = Math.min(Math.max(cart[p.id], r.min), r.max);
+          if (fixed !== cart[p.id]) { cart[p.id] = fixed; changed = true; }
           return { product: p, qty: cart[p.id] };
         });
         ids.forEach(function (id) { if (!known[id]) { delete cart[id]; changed = true; } });
@@ -437,9 +468,10 @@
           '<div><h3><a href="/p/' + esc(p.slug) + '">' + esc(p.name) + '</a></h3>' +
           '<div class="cart-line-controls">' +
           '<div class="qty sm" data-line="' + p.id + '"><button type="button" data-d="-1" aria-label="কমান">−</button>' +
-          '<input type="number" min="1" max="' + MAXQ + '" value="' + l.qty + '" aria-label="পরিমাণ"><button type="button" data-d="1" aria-label="বাড়ান">+</button></div>' +
+          '<input type="number" min="' + rule(p.price).min + '" max="' + rule(p.price).max + '" value="' + l.qty + '" aria-label="পরিমাণ"><button type="button" data-d="1" aria-label="বাড়ান">+</button></div>' +
           '<button class="link-btn danger" data-remove="' + p.id + '">সরান</button>' +
           '<span class="muted small">' + money(p.price) + ' করে</span></div>' +
+          (rule(p.price).small ? '<p class="muted small">🔩 কম দামের পণ্য: কমপক্ষে ' + bn(rule(p.price).min) + 'টি (' + money(rule(p.price).min * p.price) + ')</p>' : '') +
           (over ? '<p class="cart-warn">' + (p.stock > 0 ? 'স্টকে আছে মাত্র ' + bn(p.stock) + 'টি' : 'এখন স্টকে নেই') + '</p>' : '') +
           '</div><div class="line-total">' + money(p.price * l.qty) + '</div></li>';
       }).join('');
@@ -464,9 +496,12 @@
       var step = e.target.closest('[data-d]');
       if (step) {
         var id = step.parentNode.getAttribute('data-line');
+        var pr = PRICES[id] || 0;
+        var r = rule(pr);
         var want = (cart[id] || 1) + parseInt(step.getAttribute('data-d'), 10);
-        if (want > MAXQ) { showLimit(); return; }
-        cart[id] = Math.max(1, want);
+        if (want > r.max) { say(limitText(r.max)); return; }
+        if (want < r.min) { say(r.small ? minText(r, pr) : 'কমপক্ষে ১টি থাকতে হবে। না চাইলে "সরান" চাপুন।'); return; }
+        cart[id] = want;
         write(cart); renderCart();
       }
     });
@@ -474,9 +509,13 @@
       var box = e.target.closest('[data-line]');
       if (!box) return;
       var cart = read();
+      var lid = box.getAttribute('data-line');
+      var pr = PRICES[lid] || 0;
+      var r = rule(pr);
       var v = parseInt(e.target.value, 10) || 1;
-      if (v > MAXQ) showLimit();
-      cart[box.getAttribute('data-line')] = Math.min(MAXQ, Math.max(1, v));
+      if (v > r.max) say(limitText(r.max));
+      else if (v < r.min) say(minText(r, pr));
+      cart[lid] = Math.min(r.max, Math.max(r.min, v));
       write(cart); renderCart();
     });
   }
@@ -549,7 +588,9 @@
         discount = Math.min(subtotal, state.coupon.discount || 0);
         if (state.coupon.freeDelivery) delivery = 0;
       }
-      return { subtotal: subtotal, delivery: delivery, discount: discount, total: subtotal - discount + (delivery || 0) };
+      var exact = Math.round((subtotal - discount + (delivery || 0)) * 100) / 100;
+      var total = Math.max(0, Math.round(exact)); // whole taka, same as the server
+      return { subtotal: Math.round(subtotal * 100) / 100, delivery: delivery, discount: discount, total: total, roundOff: delivery === null ? 0 : Math.round((total - exact) * 100) / 100 };
     }
     function renderSummary() {
       if (!state.lines.length) {
@@ -566,6 +607,7 @@
         '<div><span>পণ্যের দাম</span><span>' + money(t.subtotal) + '</span></div>' +
         (t.discount ? '<div class="good"><span>কুপন ছাড় (' + esc(state.couponCode) + ')</span><span>− ' + money(t.discount) + '</span></div>' : '') +
         '<div><span>ডেলিভারি চার্জ</span><span>' + (t.delivery === null ? 'এলাকা বাছুন' : t.delivery ? money(t.delivery) : 'ফ্রি') + '</span></div>' +
+        (t.roundOff ? '<div><span>রাউন্ড ফিগার</span><span>' + (t.roundOff > 0 ? '+ ' : '− ') + money(Math.abs(t.roundOff)) + '</span></div>' : '') +
         '<div class="grand"><span>মোট</span><span>' + money(t.total) + '</span></div></div>' +
         '<p class="small center"><a href="/cart">কার্ট এডিট করুন</a></p>';
       var z = zone();

@@ -3,7 +3,11 @@
   'use strict';
   var BN = '০১২৩৪৫৬৭৮৯';
   function bn(n) { return String(n).replace(/\d/g, function (d) { return BN[d]; }); }
-  function money(n) { return '৳' + bn(Math.round(Number(n || 0)).toLocaleString('en-IN')); }
+  function money(n) {
+    var v = Math.round(Number(n || 0) * 100) / 100, a = Math.abs(v);
+    var t = Math.abs(a - Math.round(a)) < 0.005 ? Math.round(a).toLocaleString('en-IN') : a.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return (v < 0 ? '-' : '') + '৳' + bn(t);
+  }
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function $(s, r) { return (r || document).querySelector(s); }
   function $all(s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); }
@@ -416,6 +420,21 @@
       marginBox.innerHTML = 'প্রতি পিসে লাভ: <b class="' + (m < 0 ? 'warn' : 'good') + '">' + money(m) + '</b> (' + bn(((m / p) * 100).toFixed(1)) + '%)';
     };
     if (price) price.addEventListener('input', calc);
+    // cheap parts: show how many a customer must buy at this price (Admin → সেটিংস → কম দামের পণ্যের নিয়ম)
+    var ruleBox = $('[data-small-rule]', pform);
+    if (ruleBox && price) {
+      var R = {}; try { R = JSON.parse(ruleBox.getAttribute('data-small-rule')); } catch (e) { R = {}; }
+      var showRule = function () {
+        var p = Number(price.value) || 0;
+        if (!R.on || p <= 0 || p > R.cap + 1e-9) { ruleBox.hidden = true; return; }
+        var min = Math.max(1, Math.ceil(R.minVal / p - 1e-9));
+        var max = Math.max(R.maxQty, min, Math.floor(R.maxVal / p + 1e-9));
+        ruleBox.hidden = false;
+        ruleBox.innerHTML = '🔩 কম দামের পণ্য: দোকানে দাম দেখাবে <b>' + money(p) + ' / পিস</b>, কিন্তু কাস্টমারকে কমপক্ষে <b>' + bn(min) + 'টি</b> (' + money(min * p) + ') নিতে হবে। সর্বোচ্চ ' + bn(max) + 'টি। <a href="/admin/settings#small-items">নিয়ম বদলান</a>';
+      };
+      price.addEventListener('input', showRule);
+      showRule();
+    }
     if (cost) cost.addEventListener('input', calc);
     calc();
     var yt = $('[data-yt]', pform);
@@ -471,7 +490,7 @@
         sub += p * q;
       });
       none.hidden = !!$('[data-row]', rows);
-      $('[data-grand]', oform).textContent = money(sub - (Number(discountIn.value) || 0) + (Number(deliveryIn.value) || 0));
+      $('[data-grand]', oform).textContent = money(Math.max(0, Math.round(sub - (Number(discountIn.value) || 0) + (Number(deliveryIn.value) || 0)))); // whole taka, like the server
     };
     picker($('[data-product-search]', oform), $('[data-product-results]', oform), function (p) {
       var exist = $all('input[name="item_id[]"]', rows).filter(function (i) { return i.value === String(p.id); })[0];
@@ -479,7 +498,7 @@
       var tr = document.createElement('tr');
       tr.setAttribute('data-row', '');
       tr.innerHTML = '<td>' + esc(p.name) + (p.sku ? '<br><span class="small muted">' + esc(p.sku) + '</span>' : '') + '<br><span class="small muted">স্টক ' + bn(p.stock) + '</span><input type="hidden" name="item_id[]" value="' + p.id + '"></td>' +
-        '<td class="num"><input type="number" name="item_price[]" value="' + p.price + '" min="0" class="w-num" data-price></td>' +
+        '<td class="num"><input type="number" name="item_price[]" value="' + p.price + '" min="0" step="0.01" class="w-num" data-price></td>' +
         '<td class="num"><input type="number" name="item_qty[]" value="1" min="1" class="w-num" data-qty></td>' +
         '<td class="num" data-line-total></td><td><button type="button" class="link-btn danger" data-remove-row aria-label="সরান">✕</button></td>';
       rows.appendChild(tr);

@@ -443,3 +443,5 @@ textarea.editor { min-height: 300px; line-height: 1.6; }
 .dup-allow { margin-top: 8px; }
 .dup-item form { margin: 0; }
 @media (max-width: 600px) { .dup-item { flex-wrap: wrap; } .dup-item form { width: 100%; } }
+.small-rule-hint { margin: 6px 0 0; padding: 8px 10px; border-radius: 8px; background: #EEF5FF; border: 1px solid #C9DDF7; font-size: .9rem; }
+.small-rule-table td, .small-rule-table th { padding: 6px 10px; }
