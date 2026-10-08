@@ -551,3 +551,11 @@ textarea.editor { min-height: 300px; line-height: 1.6; }
 .gr-wk.is-done, .gr-wk:has(input:checked) { background: #F4FBF6; border-color: #CBEBD6; }
 .gr-wk input { margin-top: 4px; width: 18px; height: 18px; }
 .gr-tips { padding-left: 20px; display: grid; gap: 8px; }
+
+/* more pictures from the old site */
+.mp-test { margin-top: 10px; }
+.mp-pics { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+.mp-pics img { width: 86px; height: 86px; object-fit: contain; background: #fff; border: 1px solid var(--line); border-radius: 8px; }
+.mp-pics img.is-main { border: 2px solid var(--green); }
+.mp-row .dup-why { color: var(--muted, #666); }
+.mp-row.is-ok .dup-why { color: #1B7F3B; }

@@ -1190,4 +1190,131 @@
   // import page opened from market research with a product link
   var impUrl = $('[data-imp-url]');
   if (impUrl) { var pre = new URLSearchParams(location.search).get('url'); if (pre && /^https?:\/\//.test(pre)) impUrl.value = pre; }
+
+  // ---------- more pictures from the old site (each product's own page) ----------
+  var mp = $('[data-morepics]');
+  if (mp) (function () {
+    var post = function (url, body) {
+      return fetch(url, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify(body) })
+        .then(function (r) {
+          return r.json().catch(function () { return { error: 'সার্ভার থেকে উত্তর আসেনি (' + r.status + ')।' }; })
+            .then(function (j) { if (!r.ok) throw new Error(j.error || 'সমস্যা হয়েছে'); return j; });
+        });
+    };
+    var wait = function (ms) { return new Promise(function (r) { setTimeout(r, ms); }); };
+    var status = $('[data-mp-status]', mp);
+    var say = function (t, bad) { status.hidden = !t; status.innerHTML = t || ''; status.classList.toggle('warn', !!bad); };
+    var st = { list: [], max: 6, running: false, paused: false, done: 0, k: { done: 0, pics: 0, none: 0, error: 0 } };
+    var paint = function () {
+      Object.keys(st.k).forEach(function (k) { var el = $('[data-mp-k="' + k + '"]', mp); if (el) el.textContent = bn(st.k[k]); });
+      $('[data-mp-bar]', mp).style.width = (st.list.length ? Math.round(st.done * 100 / st.list.length) : 0) + '%';
+      $('[data-mp-count]', mp).textContent = bn(st.done) + ' / ' + bn(st.list.length) + ' টি পণ্য দেখা হয়েছে';
+    };
+    var logList = $('[data-mp-log]', mp);
+    var log = function (p, cls, text) {
+      $('[data-mp-log-title]', mp).hidden = false;
+      var li = document.createElement('li');
+      li.className = 'dup-item mp-row ' + cls;
+      li.innerHTML = '<span class="dup-thumb">' + (p.thumb ? '<img src="' + esc(p.thumb) + '" alt="">' : '<span>📦</span>') + '</span>' +
+        '<div class="dup-info"><a href="/admin/products/' + p.id + '" target="_blank" rel="noopener"><b>' + esc(p.name) + '</b></a>' +
+        (p.sku ? ' <span class="small muted">SKU ' + esc(bn(p.sku)) + '</span>' : '') + '<span class="dup-why">' + text + '</span></div>';
+      if (cls === 'is-ok') logList.insertBefore(li, logList.firstChild); else logList.appendChild(li);
+    };
+
+    // 1. which products
+    $('[data-mp-plan]', mp).addEventListener('click', function () {
+      var btn = this;
+      var url = ($('[data-mp-feed]', mp).value || '').trim();
+      if (!url) { say('ফিড লিংক দিন।', true); return; }
+      btn.disabled = true; say('⏳ ফিড পড়া হচ্ছে…');
+      post('/admin/api/morepics/plan', { url: url, max: $('[data-mp-max]', mp).value }).then(function (j) {
+        btn.disabled = false;
+        st.list = j.products; st.max = j.max;
+        say('✅ ফিডে ' + bn(j.feedItems) + 'টি পণ্য — এর মধ্যে দোকানে আছে ' + bn(j.matched) + 'টি' +
+          (j.full ? ', এগুলোর ' + bn(j.full) + 'টিতে আগে থেকেই যথেষ্ট ছবি আছে' : '') +
+          (j.notInShop ? ' (' + bn(j.notInShop) + 'টি এই দোকানে নেই — মুছে ফেলা বা আমদানি হয়নি)' : '') + '।');
+        $('[data-mp-found]', mp).textContent = bn(st.list.length) + 'টি পণ্যে ছবি খোঁজা হবে';
+        $('[data-mp-step="2"]', mp).hidden = false;
+        $('[data-mp-start]', mp).disabled = !st.list.length;
+        st.done = 0; paint();
+      }, function (e) { btn.disabled = false; say('⚠️ ' + esc(e.message), true); });
+    });
+
+    // bring one picture through our server, resize + fingerprint it here, upload it
+    var copyPic = function (u) {
+      return fetch('/admin/api/import/image?u=' + encodeURIComponent(u), { credentials: 'same-origin' }).then(function (r) {
+        if (!r.ok) throw new Error('no image');
+        return r.blob();
+      }).then(function (blob) { return upload(blob, { max: 1200, import: true }); });
+    };
+    var one = function (p) {
+      return post('/admin/api/morepics/find', { link: p.link, main: p.main }).then(function (f) {
+        if (f.error) { st.k.error++; log(p, 'is-warn', '⚠️ ' + esc(f.error)); return; }
+        if (!f.confirmed) { st.k.error++; log(p, 'is-warn', '⚠️ ' + esc(f.note)); return; }
+        var need = Math.max(0, st.max - p.pics);
+        var pics = (f.images || []).slice(0, need + 3); // a few spare in case some are the same photo
+        if (!pics.length) { st.k.none++; return; }
+        var ids = [];
+        var chain = pics.reduce(function (c, u) {
+          return c.then(function () { return copyPic(u).then(function (j) { ids.push(j.id); }, function () { /* skipped */ }); });
+        }, Promise.resolve());
+        return chain.then(function () {
+          if (!ids.length) { st.k.error++; log(p, 'is-warn', '⚠️ ছবিগুলো আনা যায়নি'); return; }
+          return post('/admin/api/morepics/attach', { product_id: p.id, ids: ids, max: st.max }).then(function (r) {
+            if (r.added) {
+              st.k.done++; st.k.pics += r.added;
+              log(p, 'is-ok', '✅ ' + bn(r.added) + 'টি নতুন ছবি — এখন মোট ' + bn(r.total) + 'টি');
+            } else st.k.none++;
+          });
+        });
+      });
+    };
+    var pauseBtn = $('[data-mp-pause]', mp);
+    pauseBtn.addEventListener('click', function () {
+      st.paused = !st.paused;
+      pauseBtn.textContent = st.paused ? '▶ আবার চালু করুন' : '⏸ থামান';
+    });
+    window.addEventListener('beforeunload', function (e) { if (st.running) { e.preventDefault(); e.returnValue = ''; return ''; } });
+    $('[data-mp-start]', mp).addEventListener('click', function () {
+      if (st.running || !st.list.length) return;
+      st.running = true; st.paused = false; st.done = 0;
+      Object.keys(st.k).forEach(function (k) { st.k[k] = 0; });
+      logList.innerHTML = ''; $('[data-mp-log-title]', mp).hidden = true;
+      this.hidden = true; pauseBtn.hidden = false; $('[data-mp-done]', mp).hidden = true;
+      $('[data-mp-step="1"]', mp).hidden = true;
+      paint();
+      var next = 0;
+      var worker = function () {
+        if (next >= st.list.length) return Promise.resolve();
+        if (st.paused) return wait(500).then(worker);
+        var p = st.list[next++];
+        return one(p).catch(function (e) {
+          // one retry after a short wait (network blip)
+          return wait(2500).then(function () { return one(p); }).catch(function () { st.k.error++; log(p, 'is-warn', '⚠️ ' + esc(e.message || 'সমস্যা')); });
+        }).then(function () { st.done++; paint(); return worker(); });
+      };
+      Promise.all([worker(), worker()]).then(function () {
+        st.running = false; pauseBtn.hidden = true;
+        $('[data-mp-done]', mp).hidden = false;
+        $('[data-mp-warn]', mp).textContent = '✅ শেষ! ' + bn(st.k.done) + 'টি পণ্যে মোট ' + bn(st.k.pics) + 'টি নতুন ছবি বসেছে।' +
+          (st.k.none ? ' ' + bn(st.k.none) + 'টি পণ্যের পুরোনো পেজেও বাড়তি ছবি নেই — এগুলোতে চাইলে নিজে ছবি দিন।' : '');
+      });
+    });
+
+    // test with one product page (nothing saved)
+    $('[data-mp-test]', mp).addEventListener('click', function () {
+      var btn = this, out = $('[data-mp-test-out]', mp);
+      var link = ($('[data-mp-test-url]', mp).value || '').trim();
+      if (!link) return;
+      btn.disabled = true; out.innerHTML = '<p class="small muted">⏳ পেজ পড়া হচ্ছে…</p>';
+      post('/admin/api/morepics/find', { link: link }).then(function (f) {
+        btn.disabled = false;
+        if (f.error) { out.innerHTML = '<p class="warn">⚠️ ' + esc(f.error) + '</p>'; return; }
+        var imgs = f.images || [];
+        out.innerHTML = '<p><b>' + (imgs.length ? '✅ ' + bn(imgs.length) + 'টি ছবি পাওয়া গেছে' : 'এই পেজে বাড়তি কোনো ছবি পাওয়া যায়নি') + '</b>' +
+          (imgs.length ? ' <span class="small muted">(মূল ছবিসহ — আসল কাজের সময় মূল ছবি বাদ দিয়ে বাকিগুলো বসবে)</span>' : '') + '</p>' +
+          '<div class="mp-pics">' + imgs.map(function (u) { return '<img src="/admin/api/import/image?u=' + encodeURIComponent(u) + '" alt="" loading="lazy">'; }).join('') + '</div>';
+      }, function (e) { btn.disabled = false; out.innerHTML = '<p class="warn">⚠️ ' + esc(e.message) + '</p>'; });
+    });
+  })();
 })();
