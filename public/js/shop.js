@@ -29,6 +29,12 @@
       window.dataLayer.push({ ecommerce: null });
       window.dataLayer.push({ event: event, ecommerce: { currency: 'BDT', value: value, items: items, transaction_id: d.code || undefined }, search_term: d.q || undefined });
     } catch (e) { /* ignore */ }
+    // GA4 added directly (Measurement ID, not through GTM) only listens to gtag() calls — send the same event there too
+    try {
+      if (SM.g4 && typeof window.gtag === 'function') {
+        window.gtag('event', event, { currency: 'BDT', value: value, items: items, transaction_id: d.code || undefined, search_term: d.q || undefined });
+      }
+    } catch (e) { /* ignore */ }
     var fbMap = { view_item: 'ViewContent', add_to_cart: 'AddToCart', begin_checkout: 'InitiateCheckout', purchase: 'Purchase', search: 'Search', contact: 'Contact' };
     var ttMap = { view_item: 'ViewContent', add_to_cart: 'AddToCart', begin_checkout: 'InitiateCheckout', purchase: 'CompletePayment', search: 'Search', contact: 'Contact' };
     var ids = items.map(function (i) { return i.item_id; });
