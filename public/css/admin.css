@@ -617,3 +617,28 @@ details.panel[open] > summary { margin-bottom: 12px; }
 .i18n-table .i18n-src { max-width: 420px; word-break: break-word; }
 .i18n-table textarea { width: 100%; min-width: 220px; font: inherit; font-size: .92rem; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; resize: vertical; }
 .i18n-table .prod-actions form { display: inline; }
+
+/* ---------- পণ্যের হিসাব (মোট / চালু / বন্ধ / স্টক আউট / স্টক কম) ---------- */
+.stat-chips { margin: 4px 0 14px; }
+.stat-chips .chip { font-weight: 600; }
+.stat-chips .chip b { font-family: var(--display); }
+.stat-chips .chip-active b { background: var(--green-l); color: var(--green); }
+.stat-chips .chip-hidden b { background: #F1F3F5; color: #495057; }
+.stat-chips .chip-out b { background: var(--red-l); color: var(--red); }
+.stat-chips .chip-low b { background: var(--amber-l); color: #8A5300; }
+.stat-chips .chip.on b { background: rgba(255,255,255,.22); color: #fff; }
+
+/* ---------- ইনভেন্টরি: আলাদা কলাম, +/− বাটন ---------- */
+.inv-table td { vertical-align: middle; }
+.inv-table .inv-name { min-width: 180px; max-width: 320px; }
+.inv-table td.bad { color: var(--red); }
+.stepper { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.stepper .w-num { width: 70px; text-align: center; }
+.step-btn { width: 32px; height: 32px; border: 2px solid var(--line); background: #fff; border-radius: 8px; font: inherit; font-size: 1.15rem; font-weight: 700; line-height: 1; cursor: pointer; color: var(--ink); }
+.step-btn:hover { border-color: var(--blue); color: var(--blue); }
+.step-btn[data-step="-1"]:hover { border-color: var(--red); color: var(--red); }
+.stepper .w-num.changed-up { border-color: var(--green); background: var(--green-l); }
+.stepper .w-num.changed-down { border-color: var(--red); background: var(--red-l); }
+.inv-save { padding: 12px 16px 0; display: flex; gap: 8px; flex-wrap: wrap; }
+.inv-save input { flex: 1 1 220px; max-width: 360px; font: inherit; padding: 8px 12px; border: 2px solid var(--line); border-radius: 8px; }
+.inv-help { padding: 0 16px 12px; }

@@ -94,6 +94,25 @@
     }, (Number(auto.getAttribute('data-autoreload')) || 30) * 1000);
   }
 
+  // ---------- inventory: + / − buttons beside the stock change box ----------
+  function markStep(inp) {
+    var v = Number(inp.value) || 0;
+    inp.classList.toggle('changed-up', v > 0);
+    inp.classList.toggle('changed-down', v < 0);
+  }
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('[data-step]');
+    if (!b) return;
+    var inp = $('[data-step-input]', b.closest('.stepper'));
+    if (!inp) return;
+    var v = (Number(inp.value) || 0) + Number(b.getAttribute('data-step'));
+    inp.value = v === 0 ? '' : v;
+    markStep(inp);
+  });
+  document.addEventListener('input', function (e) {
+    if (e.target.matches && e.target.matches('[data-step-input]')) markStep(e.target);
+  });
+
   // ---------- confirmations ----------
   $all('form[data-confirm]').forEach(function (f) {
     f.addEventListener('submit', function (e) { if (!confirm(f.getAttribute('data-confirm'))) e.preventDefault(); });
