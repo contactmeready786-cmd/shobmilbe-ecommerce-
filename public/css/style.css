@@ -697,7 +697,7 @@ body.protect .card-pic img, body.protect .g-main img, body.protect .g-thumb img,
 @media (max-width: 760px) {
   /* phone: notice text on the left, switch on the right of the same line */
   .notice.has-lang .notice-row { padding: 0; justify-content: flex-start; flex-wrap: nowrap; gap: 8px; }
-  .notice.has-lang .notice-text { flex: 1; min-width: 0; text-align: left; line-height: 1.35; font-size: .76rem; }
+  .notice.has-lang .notice-text { flex: 1; text-align: left; }
   .notice.has-lang .live-tick { flex: 0 1 auto; min-width: 0; }
   .notice-empty.has-lang .notice-row { justify-content: flex-end; }
   .lang-sw { position: static; transform: none; flex: none; margin-left: auto; }
@@ -710,4 +710,20 @@ body.protect .card-pic img, body.protect .g-main img, body.protect .g-thumb img,
 @media (max-width: 960px) and (min-width: 761px) {
   html[lang="en"] .cart-word { display: none; }
 }
-@media (max-width: 760px) { html[lang="en"] .notice.has-lang .notice-text { font-size: .7rem; } }
+
+/* ---------- the top bar is always ONE thin line (any notice length, any language, any screen) ----------
+   A notice too long for the line glides slowly sideways instead of breaking into two lines. */
+.notice { padding: 0; font-size: .82rem; line-height: 1; }
+.notice .notice-row { height: 28px; min-height: 0; flex-wrap: nowrap; overflow: hidden; gap: 14px; }
+.notice-text { display: block; min-width: 0; max-width: 100%; overflow: hidden; white-space: nowrap; }
+.nt-in { display: inline-block; white-space: nowrap; }
+.notice-text.is-long { flex: 1; text-align: left; -webkit-mask-image: linear-gradient(90deg, transparent, #000 12px, #000 calc(100% - 12px), transparent); mask-image: linear-gradient(90deg, transparent, #000 12px, #000 calc(100% - 12px), transparent); }
+.notice-text.is-long .nt-in { padding: 0 12px; animation: nt-glide var(--nt-time, 12s) ease-in-out infinite alternate; }
+@keyframes nt-glide { 0%, 15% { transform: translateX(0); } 85%, 100% { transform: translateX(var(--nt-move, 0px)); } }
+.notice-text.is-long:hover .nt-in { animation-play-state: paused; }
+.notice .live-tick { flex: 0 1 auto; min-width: 0; }
+@media (prefers-reduced-motion: reduce) { .notice-text.is-long .nt-in { animation: none; } .notice-text.is-long { text-overflow: ellipsis; } }
+@media (max-width: 760px) {
+  .notice { font-size: .74rem; }
+  .notice .notice-row { height: 26px; gap: 8px; }
+}

@@ -936,4 +936,25 @@
       if (atEnd()) rail.scrollTo({ left: 0, behavior: 'smooth' }); else rail.scrollBy({ left: step(), behavior: 'smooth' });
     }, 3500);
   });
+
+  // ---------- top bar stays one thin line: a notice that doesn't fit glides sideways ----------
+  var nt = $('[data-notice-text]');
+  if (nt) {
+    var ntIn = nt.firstElementChild;
+    var ntFit = function () {
+      nt.classList.remove('is-long');
+      var over = ntIn.scrollWidth - nt.clientWidth;
+      if (over > 2) {
+        nt.classList.add('is-long');
+        over = ntIn.scrollWidth - nt.clientWidth; // measured again with the side fade padding
+        nt.style.setProperty('--nt-move', -over + 'px');
+        nt.style.setProperty('--nt-time', Math.min(30, Math.max(6, over / 18)).toFixed(1) + 's');
+      }
+    };
+    ntFit();
+    window.addEventListener('resize', ntFit);
+    document.addEventListener('sm:lang', function () { setTimeout(ntFit, 30); });
+    if (window.MutationObserver) new MutationObserver(function () { setTimeout(ntFit, 30); }).observe(ntIn, { childList: true, characterData: true, subtree: true });
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(ntFit);
+  }
 })();
