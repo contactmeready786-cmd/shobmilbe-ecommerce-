@@ -652,6 +652,39 @@
       }
     });
     form.addEventListener('input', function (e) { e.target.classList.remove('invalid'); });
+
+    // Incomplete order: once a full mobile number is typed, what's filled in so far is kept for the shop
+    // (the notice under the phone box says so), so they can call if the order isn't finished.
+    var draft = { on: form.hasAttribute('data-draft'), id: '', last: '', timer: 0 };
+    if (draft.on) {
+      draft.id = store('sm_draft') || '';
+      if (!/^[a-f0-9]{20}$/.test(draft.id)) { draft.id = rid(); store('sm_draft', draft.id); }
+    }
+    function saveDraft() {
+      if (!draft.on || !state.lines.length) return;
+      var phone = form.elements.phone.value.replace(/[০-৯]/g, function (c) { return '০১২৩৪৫৬৭৮৯'.indexOf(c); }).replace(/\D/g, '').replace(/^88/, '');
+      if (!/^01[3-9]\d{8}$/.test(phone)) return;
+      var d = {
+        id: draft.id, vid: VA.vid || '', sid: VA.sid || '', name: form.elements.name.value.trim(), phone: phone,
+        district: form.elements.district.value, thana: form.elements.thana.value, address: form.elements.address.value.trim(), note: form.elements.note.value.trim(),
+        items: state.lines.map(function (l) { return { id: l.product.id, qty: l.qty }; }),
+      };
+      var body = JSON.stringify(d);
+      if (body === draft.last) return;
+      draft.last = body;
+      try {
+        if (navigator.sendBeacon && document.visibilityState === 'hidden') navigator.sendBeacon('/api/checkout-draft', new Blob([body], { type: 'application/json' }));
+        else fetch('/api/checkout-draft', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: body, keepalive: true })
+          .then(function (r) { return r.json(); }).then(function (j) { if (j && j.off) draft.on = false; }).catch(function () {});
+      } catch (e) { /* ignore */ }
+    }
+    if (draft.on) {
+      var later = function () { clearTimeout(draft.timer); draft.timer = setTimeout(saveDraft, 1500); };
+      form.addEventListener('input', later);
+      form.addEventListener('change', later);
+      document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'hidden') { clearTimeout(draft.timer); saveDraft(); } });
+      setTimeout(saveDraft, 4000); // a returning customer's number is already filled in
+    }
     var checked = form.querySelector('input[name=payment]:checked');
     if (checked && checked.getAttribute('data-manual') === '1') { manualBox.hidden = false; $('[data-pay-number]', form).textContent = checked.getAttribute('data-number'); }
 
@@ -703,6 +736,7 @@
         .then(function (res) {
           if (!res.ok) throw res.body;
           store('sm_customer', JSON.stringify({ name: data.name, phone: data.phone, address: data.address, district: data.district, thana: data.thana }));
+          draft.on = false; clearTimeout(draft.timer); store('sm_draft', '');
           write({});
           location.href = res.body.redirect || ('/order/' + res.body.code + '?new=1');
         })
