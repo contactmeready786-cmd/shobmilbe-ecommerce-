@@ -601,3 +601,13 @@ textarea.editor { min-height: 300px; line-height: 1.6; }
 .ll-codebox { border-top: 4px solid var(--green); }
 .ll-code { font-size: 2rem; font-weight: 800; letter-spacing: .12em; margin: 4px 0; font-variant-numeric: tabular-nums; }
 .ll-mode > span > .pill { justify-self: start; }
+
+/* phone notifications + recovery codes */
+.push-box { border-top: 4px solid var(--green); }
+.push-box .btn-lg { margin: 6px 0; }
+details.panel > summary { cursor: pointer; padding: 2px 0; }
+details.panel[open] > summary { margin-bottom: 12px; }
+.rc-fresh { border: 2px dashed var(--green); background: #F4FBF6; }
+.rc-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 8px; padding-left: 22px; margin: 12px 0; }
+.rc-list code { font-size: 1.25rem; font-weight: 800; letter-spacing: .08em; }
+@media print { .side, .topbar, .admin-main > *:not(.rc-fresh) { display: none !important; } .rc-fresh button { display: none; } }
