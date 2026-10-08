@@ -399,6 +399,7 @@
         }
         if (allowRow) allowRow.hidden = !(j.blocked || (allowInput && allowInput.checked));
         if (noperm) noperm.hidden = !j.blocked;
+        var cancel = $('[data-dup-cancel]', dupBox); if (cancel) cancel.hidden = !j.blocked;
       }).catch(function () {
         if (my !== seq) return;
         dupBox.classList.remove('checking');
@@ -414,6 +415,41 @@
     if (form.elements.description) form.elements.description.addEventListener('change', function () { later(50); });
     if (form.elements.youtube_url) form.elements.youtube_url.addEventListener('change', function () { later(50); });
     document.addEventListener('sm:images', function () { later(200); });
+    // "বন্ধ করুন / চালু করুন" and "মুছুন" beside a product found as a duplicate
+    dupBox.addEventListener('click', function (e) {
+      var b = e.target.closest && e.target.closest('[data-dup-act]');
+      if (!b) return;
+      var box = b.closest('[data-dup-acts]'), id = box.getAttribute('data-id'), name = box.getAttribute('data-name');
+      var item = box.closest('.dup-item');
+      var act = b.getAttribute('data-dup-act');
+      var body = new URLSearchParams();
+      var url = '/admin/products/' + id + (act === 'delete' ? '/delete' : '/active');
+      if (act === 'delete') {
+        if (!confirm('"' + name + '" পণ্যটি মুছবেন? দোকান থেকে সরে যাবে, রিসাইকেল বিনে থাকবে। শুধু লুকাতে চাইলে "বন্ধ করুন" চাপুন।')) return;
+        body.set('back', '/admin/products');
+      } else if (!b.getAttribute('data-on')) body.set('active', '1');
+      $all('button', box).forEach(function (x) { x.disabled = true; });
+      fetch(url, { method: 'POST', credentials: 'same-origin', headers: { Accept: 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' }, body: body.toString() })
+        .then(function (r) { if (!r.ok) throw new Error('সেভ হয়নি, আবার চেষ্টা করুন'); })
+        .then(function () {
+          if (act === 'delete') {
+            if (id === dupBox.getAttribute('data-dup-id')) { location.href = '/admin/products?msg=deleted'; return; }
+            item.classList.add('dup-gone');
+            box.innerHTML = '<span class="small">🗑️ মুছে ফেলা হয়েছে (রিসাইকেল বিনে)</span>';
+            toast('পণ্যটি মুছে ফেলা হয়েছে');
+            lastKey = ''; later(300); // check again: the block may be gone now
+            return;
+          }
+          var on = !b.getAttribute('data-on');
+          b.setAttribute('data-on', on ? '1' : '');
+          b.textContent = on ? '🚫 বন্ধ করুন' : '✅ চালু করুন';
+          item.classList.toggle('dup-off', !on);
+          toast(on ? 'পণ্যটি দোকানে আবার দেখাচ্ছে' : 'পণ্যটি দোকান থেকে লুকানো হয়েছে');
+        })
+        .catch(function (err) { toast(err.message); })
+        .then(function () { $all('button', box).forEach(function (x) { x.disabled = false; }); });
+    });
+
     // editing an existing product: check once when the page opens (unless the page already shows a result)
     if (!$('.dup-list', dupBox) && dupBox.getAttribute('data-dup-id')) later(400);
   }
