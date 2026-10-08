@@ -559,3 +559,45 @@ textarea.editor { min-height: 300px; line-height: 1.6; }
 .mp-pics img.is-main { border: 2px solid var(--green); }
 .mp-row .dup-why { color: var(--muted, #666); }
 .mp-row.is-ok .dup-why { color: #1B7F3B; }
+
+/* owner login lock (fingerprint / passkey / face) */
+.ll-verify h2 { font-size: 1.05rem; margin: 14px 0 6px; }
+.ll-part { margin-top: 6px; }
+.ll-more { margin: 14px 0 6px; }
+.ll-more summary { cursor: pointer; color: var(--blue); font-size: .92rem; }
+.ll-cam { display: grid; gap: 10px; justify-items: center; margin: 8px 0; }
+.ll-cam .btn { width: 100%; }
+.ll-cam-box { position: relative; width: min(260px, 70vw); aspect-ratio: 1; border-radius: 50%; overflow: hidden; background: #0F172A; }
+.ll-cam-box video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); display: block; }
+.ll-cam-idle { position: absolute; inset: 0; display: grid; place-items: center; font-size: 3rem; color: #fff; opacity: .7; }
+.ll-ring { position: absolute; inset: 0; border-radius: 50%; border: 5px solid rgba(255,255,255,.35); pointer-events: none; transition: border-color .2s; }
+.ll-ring[data-state="ok"] { border-color: #22C55E; }
+.ll-ring[data-state="warn"] { border-color: var(--amber); }
+.ll-say { margin: 0; min-height: 1.6em; font-size: 1.08rem; font-weight: 700; text-align: center; color: var(--ink); }
+.ll-say.is-bad { color: #A15C00; }
+.ll-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+.ll-steps:empty { display: none; }
+.ll-steps li { font-size: .82rem; padding: 3px 9px; border-radius: 999px; background: var(--paper); border: 1px solid var(--line); color: var(--muted); }
+.ll-steps li.is-now { background: var(--blue-l); border-color: var(--blue); color: var(--blue-d); font-weight: 700; }
+.ll-steps li.is-done { background: var(--green-l); border-color: #BFE5CC; color: var(--green); }
+[data-ll-msg].is-bad, [data-ll-face-note].is-bad, [data-ll-pk-note].is-bad { color: var(--red); }
+.ll-table { overflow-x: auto; margin-bottom: 10px; }
+.ll-add { display: grid; gap: 8px; max-width: 420px; margin: 10px 0; }
+.ll-add .btn { justify-self: start; }
+.ll-faces { display: flex; flex-wrap: wrap; gap: 12px; margin: 10px 0; }
+.ll-face { margin: 0; display: grid; gap: 6px; justify-items: center; width: 130px; text-align: center; }
+.ll-face img { width: 120px; height: 120px; object-fit: cover; border-radius: 50%; border: 3px solid var(--line); background: var(--paper); }
+.ll-btns { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+.ll-btns label.btn { cursor: pointer; }
+[data-ll-face-panel] { max-width: 380px; margin-top: 8px; }
+.ll-modes { display: grid; gap: 10px; }
+.ll-mode { display: flex; gap: 10px; align-items: flex-start; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: #fff; cursor: pointer; }
+.ll-mode > span { display: grid; gap: 3px; }
+.ll-mode input { margin-top: 5px; width: 18px; height: 18px; flex: none; }
+.ll-mode.is-on, .ll-mode:has(input:checked) { border-color: var(--green); background: #F4FBF6; }
+.ll-mode.is-off:not(.is-on) { opacity: .75; cursor: default; }
+.ll-need { color: #8A5300; }
+.ll-modes .btn { justify-self: start; }
+.ll-codebox { border-top: 4px solid var(--green); }
+.ll-code { font-size: 2rem; font-weight: 800; letter-spacing: .12em; margin: 4px 0; font-variant-numeric: tabular-nums; }
+.ll-mode > span > .pill { justify-self: start; }
