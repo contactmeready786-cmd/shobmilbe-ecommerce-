@@ -650,3 +650,13 @@ details.panel[open] > summary { margin-bottom: 12px; }
 .dup-item.dup-gone { opacity: .5; background: #F6F7F9; }
 .dup-cancel { margin: 6px 0 0; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 @media (max-width: 600px) { .dup-acts, .dup-row-acts { width: 100%; margin-left: 0; } }
+
+/* ---------- অ্যাডমিন: বাংলা / English সুইচ (উপরের বারে) ---------- */
+.admin .admin-lang-sw { position: static; transform: none; color: var(--ink); font-size: .72rem; margin-right: 4px; flex: none; }
+.admin .admin-lang-sw .ls-track { background: #CDD5E0; }
+.admin .admin-lang-sw.is-en .ls-track { background: var(--blue); }
+.admin .admin-lang-sw:focus-visible { outline-color: var(--blue); }
+.bare-lang { position: fixed; top: 12px; right: 16px; z-index: 5; }
+html.admin-i18n-busy body { cursor: progress; }
+/* English words are longer: let menu labels wrap instead of overflowing */
+html[data-admin-lang="en"] .side a, html[data-admin-lang="en"] .side summary { white-space: normal; }
