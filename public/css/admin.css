@@ -536,3 +536,18 @@ textarea.editor { min-height: 300px; line-height: 1.6; }
 .trash-pics { display: flex; flex-wrap: wrap; gap: 8px; }
 .trash-pics img { width: 90px; height: 90px; object-fit: cover; border-radius: 8px; border: 1px solid var(--line); }
 .trash-one { margin-top: 12px; gap: 10px; }
+
+/* growth guide */
+.gr-today, .gr-check { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.gr-today li, .gr-check li { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: #fff; }
+.gr-today .gr-ic, .gr-ok { flex: none; font-size: 1.15rem; line-height: 1.3; }
+.gr-today small, .gr-check small, .gr-wk small { display: block; color: var(--muted); font-size: .84rem; margin-top: 2px; }
+.gr-check li.is-done { background: #F4FBF6; border-color: #CBEBD6; }
+.gr-check .gr-how { color: var(--ink-2); background: #FFF8E6; border-radius: 6px; padding: 5px 8px; margin-top: 6px; }
+.gr-bar { height: 10px; background: var(--paper); border-radius: 999px; overflow: hidden; margin: 4px 0 6px; border: 1px solid var(--line); }
+.gr-bar span { display: block; height: 100%; background: var(--green); }
+.gr-week { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 8px; }
+.gr-wk { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; cursor: pointer; background: #fff; }
+.gr-wk.is-done, .gr-wk:has(input:checked) { background: #F4FBF6; border-color: #CBEBD6; }
+.gr-wk input { margin-top: 4px; width: 18px; height: 18px; }
+.gr-tips { padding-left: 20px; display: grid; gap: 8px; }
