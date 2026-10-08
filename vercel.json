@@ -20,5 +20,24 @@
       "path": "/api/research/tick",
       "schedule": "7 3 * * *"
     }
+  ],
+  "headers": [
+    {
+      "source": "/(css|js|vendor)/(.*)",
+      "headers": [
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Strict-Transport-Security",
+          "value": "max-age=63072000; includeSubDomains"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "SAMEORIGIN"
+        }
+      ]
+    }
   ]
 }
