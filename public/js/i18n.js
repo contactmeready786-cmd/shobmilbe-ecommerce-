@@ -53,7 +53,7 @@
     'প্রাইভেসি পলিসি': 'Privacy Policy',
     'শর্তাবলি': 'Terms & Conditions',
     'ইলেকট্রনিক্স কম্পোনেন্ট থেকে প্রতিদিনের দরকারি জিনিস, সবই এক জায়গায়।': 'From electronic components to everyday essentials — everything in one place.',
-    '🚚 সারা বাংলাদেশে হোম ডেলিভারি, পণ্য হাতে পেয়ে টাকা দিন': '🚚 Home delivery all over Bangladesh — pay when you receive your order',
+    '🚚 সারা বাংলাদেশে হোম ডেলিভারি, পণ্য হাতে পেয়ে টাকা দিন': '🚚 Delivery all over Bangladesh · Cash on delivery',
     'দরকারি সব পার্টস, এক দোকানে': 'All the parts you need, in one shop',
 
     // product cards & lists
@@ -701,10 +701,9 @@
   }
 
   function paintSwitch() {
-    document.querySelectorAll('[data-lang-switch] [data-lang]').forEach(function (b) {
-      var on = b.getAttribute('data-lang') === lang;
-      b.setAttribute('aria-pressed', on ? 'true' : 'false');
-      b.classList.toggle('on', on);
+    document.querySelectorAll('[data-lang-switch]').forEach(function (b) {
+      b.setAttribute('aria-checked', lang === 'en' ? 'true' : 'false');
+      b.classList.toggle('is-en', lang === 'en');
     });
   }
   function setLang(l, save) {
@@ -733,11 +732,14 @@
     document.dispatchEvent(new CustomEvent('sm:lang', { detail: { lang: l } }));
   }
 
+  // tap the switch = flip; tap the word "বাং" or "EN" = that language
   document.addEventListener('click', function (e) {
-    var b = e.target.closest && e.target.closest('[data-lang-switch] [data-lang]');
-    if (!b) return;
+    var sw = e.target.closest && e.target.closest('[data-lang-switch]');
+    if (!sw) return;
     e.preventDefault();
-    setLang(b.getAttribute('data-lang'), true);
+    var side = e.target.closest('[data-lang]');
+    if (side && !sw.contains(side)) side = null; // <html> carries data-lang too
+    setLang(side ? side.getAttribute('data-lang') : (lang === 'en' ? 'bn' : 'en'), true);
   });
 
   var start = document.documentElement.getAttribute('data-lang') || CFG.def || 'bn';

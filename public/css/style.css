@@ -679,26 +679,28 @@ body.protect .card-pic img, body.protect .g-main img, body.protect .g-thumb img,
   .trust-row b { font-size: .78rem; } .trust-row small { font-size: .68rem; }
 }
 
-/* ---------- বাংলা / English switch (right end of the thin dark top bar) ---------- */
+/* ---------- বাংলা / English switch: a small on/off switch at the right end of the thin top bar ---------- */
 .notice.has-lang, .notice.notice-empty.has-lang { display: block; }
 .notice.has-lang .wrap { position: relative; }
-.notice.has-lang .notice-row { padding-left: 150px; padding-right: 150px; }
-.lang-sw { position: absolute; right: 16px; top: 50%; transform: translateY(-50%); display: inline-flex; align-items: center; padding: 2px; background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.22); border-radius: 999px; }
-.lang-sw button { font: inherit; font-size: .74rem; font-weight: 700; line-height: 1; padding: 4px 10px; border: 0; border-radius: 999px; background: transparent; color: rgba(255,255,255,.75); cursor: pointer; transition: background .15s, color .15s; white-space: nowrap; }
-.lang-sw button:hover { color: #fff; }
-.lang-sw button[aria-pressed="true"] { background: #fff; color: var(--ink); }
-.lang-sw button:focus-visible { outline: 2px solid var(--amber); outline-offset: 1px; }
-.lang-sw .ls-short { display: none; }
+.notice.has-lang .notice-row { padding-left: 90px; padding-right: 90px; }
+.lang-sw { position: absolute; right: 16px; top: 50%; transform: translateY(-50%); display: inline-flex; align-items: center; gap: 5px;
+  padding: 2px 0; margin: 0; border: 0; background: none; color: #fff; font: inherit; font-size: .7rem; font-weight: 700; line-height: 1; cursor: pointer; }
+.ls-l { opacity: .5; transition: opacity .15s; }
+.lang-sw:not(.is-en) .ls-bn, .lang-sw.is-en .ls-en { opacity: 1; }
+.ls-track { position: relative; width: 26px; height: 14px; border-radius: 999px; background: rgba(255,255,255,.28); transition: background .2s; flex: none; }
+.ls-knob { position: absolute; top: 2px; left: 2px; width: 10px; height: 10px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.3); transition: transform .2s; }
+.lang-sw.is-en .ls-track { background: var(--amber); }
+.lang-sw.is-en .ls-knob { transform: translateX(12px); }
+.lang-sw:hover .ls-l { opacity: .85; }
+.lang-sw:focus-visible { outline: 2px solid var(--amber); outline-offset: 3px; border-radius: 4px; }
+@media (prefers-reduced-motion: reduce) { .ls-track, .ls-knob { transition: none; } }
 @media (max-width: 760px) {
   /* phone: notice text on the left, switch on the right of the same line */
   .notice.has-lang .notice-row { padding: 0; justify-content: flex-start; flex-wrap: nowrap; gap: 8px; }
-  .notice.has-lang .notice-text { flex: 1; min-width: 0; text-align: left; line-height: 1.35; }
+  .notice.has-lang .notice-text { flex: 1; min-width: 0; text-align: left; line-height: 1.35; font-size: .76rem; }
   .notice.has-lang .live-tick { flex: 0 1 auto; min-width: 0; }
   .notice-empty.has-lang .notice-row { justify-content: flex-end; }
   .lang-sw { position: static; transform: none; flex: none; margin-left: auto; }
-  .lang-sw button { padding: 4px 8px; font-size: .72rem; }
-  .lang-sw .ls-long { display: none; }
-  .lang-sw .ls-short { display: inline; }
 }
 /* English menu words are longer: keep the header on one line on tablets */
 @media (max-width: 1100px) and (min-width: 761px) {
@@ -708,3 +710,4 @@ body.protect .card-pic img, body.protect .g-main img, body.protect .g-thumb img,
 @media (max-width: 960px) and (min-width: 761px) {
   html[lang="en"] .cart-word { display: none; }
 }
+@media (max-width: 760px) { html[lang="en"] .notice.has-lang .notice-text { font-size: .7rem; } }
