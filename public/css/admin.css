@@ -611,3 +611,9 @@ details.panel[open] > summary { margin-bottom: 12px; }
 .rc-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 8px; padding-left: 22px; margin: 12px 0; }
 .rc-list code { font-size: 1.25rem; font-weight: 800; letter-spacing: .08em; }
 @media print { .side, .topbar, .admin-main > *:not(.rc-fresh) { display: none !important; } .rc-fresh button { display: none; } }
+
+/* ---------- ভাষা (বাংলা / English) ---------- */
+.i18n-table td { vertical-align: top; }
+.i18n-table .i18n-src { max-width: 420px; word-break: break-word; }
+.i18n-table textarea { width: 100%; min-width: 220px; font: inherit; font-size: .92rem; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; resize: vertical; }
+.i18n-table .prod-actions form { display: inline; }

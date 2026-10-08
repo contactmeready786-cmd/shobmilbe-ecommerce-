@@ -678,3 +678,18 @@ body.protect .card-pic img, body.protect .g-main img, body.protect .g-thumb img,
   .trust-row .tr-ic { width: 28px; height: 28px; font-size: .9rem; border-radius: 8px; }
   .trust-row b { font-size: .78rem; } .trust-row small { font-size: .68rem; }
 }
+
+/* ---------- বাংলা / English switch (next to the cart) ---------- */
+.lang-sw { display: inline-flex; align-items: center; padding: 3px; margin: 0 4px; background: var(--paper); border: 1px solid var(--line); border-radius: 999px; flex: none; }
+.lang-sw button { font: inherit; font-size: .8rem; font-weight: 700; line-height: 1; padding: 6px 11px; border: 0; border-radius: 999px; background: transparent; color: var(--muted); cursor: pointer; transition: background .15s, color .15s; white-space: nowrap; }
+.lang-sw button:hover { color: var(--blue); }
+.lang-sw button[aria-pressed="true"] { background: var(--blue); color: #fff; box-shadow: 0 1px 3px rgba(8, 102, 214, .35); }
+.lang-sw button:focus-visible { outline: 2px solid var(--amber); outline-offset: 1px; }
+.lang-sw .ls-short { display: none; }
+@media (max-width: 760px) {
+  .lang-sw { margin: 0 2px; }
+  .lang-sw button { padding: 6px 9px; font-size: .76rem; }
+  .lang-sw .ls-long { display: none; }
+  .lang-sw .ls-short { display: inline; }
+}
+html[lang="en"] body { letter-spacing: 0; }

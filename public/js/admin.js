@@ -1317,4 +1317,24 @@
       }, function (e) { btn.disabled = false; out.innerHTML = '<p class="warn">⚠️ ' + esc(e.message) + '</p>'; });
     });
   })();
+
+  // ---------- ভাষা (বাংলা / English): "এখনই সব অনুবাদ করে রাখুন" — one batch per call until nothing is left ----------
+  var i18nBtn = $('[data-i18n-fill]');
+  if (i18nBtn) i18nBtn.addEventListener('click', function () {
+    var prog = $('[data-i18n-progress]'), rounds = 0;
+    i18nBtn.disabled = true;
+    var step = function () {
+      return fetch('/admin/design/language/fill', { method: 'POST', credentials: 'same-origin', headers: { Accept: 'application/json' } })
+        .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(function (j) {
+          var done = j.total - j.left;
+          prog.textContent = '⏳ ' + bn(done) + ' / ' + bn(j.total) + ' টি লেখা অনুবাদ হয়েছে…';
+          if (j.error && !j.done) throw new Error(j.error);
+          return j.left > 0 && j.done > 0 && ++rounds < 200;
+        });
+    };
+    var loop = function () { return step().then(function (more) { if (more) return loop(); }); };
+    loop().then(function () { prog.textContent = '✅ সব অনুবাদ হয়ে গেছে — পেজ আবার লোড হচ্ছে…'; setTimeout(function () { location.reload(); }, 900); },
+      function (e) { prog.textContent = '⚠️ ' + (e && e.message ? e.message : 'অনুবাদ করা যায়নি') + ' — একটু পরে আবার চেষ্টা করুন।'; i18nBtn.disabled = false; });
+  });
 })();
