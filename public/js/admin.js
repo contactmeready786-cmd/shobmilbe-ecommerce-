@@ -87,6 +87,24 @@
     location.href = row.getAttribute('data-href');
   });
   // ---------- pages that refresh themselves (live visitors) ----------
+  // A part marked data-live-refresh is fetched again every few seconds and swapped in place (no page flash).
+  var liveBox = $('[data-live-refresh]');
+  if (liveBox) {
+    var busy = false;
+    setInterval(function () {
+      if (busy || document.visibilityState !== 'visible') return;
+      busy = true;
+      fetch(location.href, { credentials: 'same-origin', headers: { 'X-Live': '1' } }).then(function (r) { return r.ok ? r.text() : ''; }).then(function (t) {
+        if (!t) return;
+        var doc = new DOMParser().parseFromString(t, 'text/html');
+        ['[data-live-refresh]', '.va-tabs'].forEach(function (sel) {
+          var fresh = doc.querySelector(sel);
+          var cur = document.querySelector(sel);
+          if (fresh && cur && fresh.innerHTML !== cur.innerHTML) cur.innerHTML = fresh.innerHTML;
+        });
+      }).catch(function () {}).then(function () { busy = false; });
+    }, (Number(liveBox.getAttribute('data-live-refresh')) || 5) * 1000);
+  }
   var auto = $('[data-autoreload]');
   if (auto) {
     setInterval(function () {

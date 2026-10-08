@@ -74,6 +74,7 @@
         .then(function (r) { return r.json(); }).catch(function () { return {}; });
     } catch (e) { return Promise.resolve({}); }
   }
+  function vaTz() { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch (e) { return ''; } }
   function vaTouch() { try { localStorage.setItem('sm_sess', JSON.stringify({ id: VA.sid, t: Date.now() })); } catch (e) { /* ignore */ } }
   function vaActive() { return Math.round((VA.active + (VA.since ? Date.now() - VA.since : 0)) / 1000); }
   function vaFlush(kind) {
@@ -104,9 +105,20 @@
     vaTouch();
     if (document.visibilityState !== 'hidden') VA.since = Date.now();
     vaSend({ t: 'pv', p: location.pathname + location.search, u: location.href, ti: document.title, r: document.referrer || '',
-      w: (window.screen ? screen.width + 'x' + screen.height : ''), l: (navigator.language || '').slice(0, 12) }).then(function (j) {
+      w: (window.screen ? screen.width + 'x' + screen.height : ''), l: (navigator.language || '').slice(0, 12),
+      tz: vaTz(), dpr: Math.round((window.devicePixelRatio || 1) * 100) / 100 }).then(function (j) {
       if (j && j.off) { VA.on = false; return; }
       VA.pv = (j && j.pv) || 0;
+      // New Chrome on Android hides the phone model; it tells it only when asked (no permission needed).
+      var uad = navigator.userAgentData;
+      var sent = VA.sid;
+      try { sent = sessionStorage.getItem('sm_dev'); } catch (e) { /* ignore */ }
+      if (VA.pv && sent !== VA.sid && uad && uad.mobile && uad.getHighEntropyValues) {
+        uad.getHighEntropyValues(['model', 'platformVersion']).then(function (h) {
+          try { sessionStorage.setItem('sm_dev', VA.sid); } catch (e) { /* ignore */ }
+          if (h && (h.model || h.platformVersion)) vaSend({ t: 'dev', m: h.model || '', pv: h.platformVersion || '', pf: h.platform || uad.platform || '' });
+        }).catch(function () {});
+      }
     });
     var onScroll = function () {
       var h = document.documentElement.scrollHeight - window.innerHeight;
