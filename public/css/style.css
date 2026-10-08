@@ -679,17 +679,32 @@ body.protect .card-pic img, body.protect .g-main img, body.protect .g-thumb img,
   .trust-row b { font-size: .78rem; } .trust-row small { font-size: .68rem; }
 }
 
-/* ---------- বাংলা / English switch (next to the cart) ---------- */
-.lang-sw { display: inline-flex; align-items: center; padding: 3px; margin: 0 4px; background: var(--paper); border: 1px solid var(--line); border-radius: 999px; flex: none; }
-.lang-sw button { font: inherit; font-size: .8rem; font-weight: 700; line-height: 1; padding: 6px 11px; border: 0; border-radius: 999px; background: transparent; color: var(--muted); cursor: pointer; transition: background .15s, color .15s; white-space: nowrap; }
-.lang-sw button:hover { color: var(--blue); }
-.lang-sw button[aria-pressed="true"] { background: var(--blue); color: #fff; box-shadow: 0 1px 3px rgba(8, 102, 214, .35); }
+/* ---------- বাংলা / English switch (right end of the thin dark top bar) ---------- */
+.notice.has-lang, .notice.notice-empty.has-lang { display: block; }
+.notice.has-lang .wrap { position: relative; }
+.notice.has-lang .notice-row { padding-left: 150px; padding-right: 150px; }
+.lang-sw { position: absolute; right: 16px; top: 50%; transform: translateY(-50%); display: inline-flex; align-items: center; padding: 2px; background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.22); border-radius: 999px; }
+.lang-sw button { font: inherit; font-size: .74rem; font-weight: 700; line-height: 1; padding: 4px 10px; border: 0; border-radius: 999px; background: transparent; color: rgba(255,255,255,.75); cursor: pointer; transition: background .15s, color .15s; white-space: nowrap; }
+.lang-sw button:hover { color: #fff; }
+.lang-sw button[aria-pressed="true"] { background: #fff; color: var(--ink); }
 .lang-sw button:focus-visible { outline: 2px solid var(--amber); outline-offset: 1px; }
 .lang-sw .ls-short { display: none; }
 @media (max-width: 760px) {
-  .lang-sw { margin: 0 2px; }
-  .lang-sw button { padding: 6px 9px; font-size: .76rem; }
+  /* phone: notice text on the left, switch on the right of the same line */
+  .notice.has-lang .notice-row { padding: 0; justify-content: flex-start; flex-wrap: nowrap; gap: 8px; }
+  .notice.has-lang .notice-text { flex: 1; min-width: 0; text-align: left; line-height: 1.35; }
+  .notice.has-lang .live-tick { flex: 0 1 auto; min-width: 0; }
+  .notice-empty.has-lang .notice-row { justify-content: flex-end; }
+  .lang-sw { position: static; transform: none; flex: none; margin-left: auto; }
+  .lang-sw button { padding: 4px 8px; font-size: .72rem; }
   .lang-sw .ls-long { display: none; }
   .lang-sw .ls-short { display: inline; }
 }
-html[lang="en"] body { letter-spacing: 0; }
+/* English menu words are longer: keep the header on one line on tablets */
+@media (max-width: 1100px) and (min-width: 761px) {
+  html[lang="en"] .header-row { gap: 12px; }
+  html[lang="en"] .header-nav a { padding: 8px 7px; font-size: .92rem; }
+}
+@media (max-width: 960px) and (min-width: 761px) {
+  html[lang="en"] .cart-word { display: none; }
+}
