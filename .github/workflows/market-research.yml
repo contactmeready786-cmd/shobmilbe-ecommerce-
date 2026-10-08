@@ -8,14 +8,14 @@ on:
 jobs:
   tick:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 15
     steps:
       - name: Read competitor shops
         env:
           SITE: ${{ vars.SITE_URL || 'https://shobmilbe-ecommerce.vercel.app' }}
         run: |
-          for i in 1 2 3 4 5 6; do
+          for i in 1 2 3 4 5 6 7 8 9 10 11; do
             curl -s -m 30 "$SITE/api/research/tick" || true
             echo
-            sleep 95
+            sleep 58
           done
