@@ -35,8 +35,8 @@
         window.gtag('event', event, { currency: 'BDT', value: value, items: items, transaction_id: d.code || undefined, search_term: d.q || undefined });
       }
     } catch (e) { /* ignore */ }
-    var fbMap = { view_item: 'ViewContent', add_to_cart: 'AddToCart', begin_checkout: 'InitiateCheckout', purchase: 'Purchase', search: 'Search', contact: 'Contact' };
-    var ttMap = { view_item: 'ViewContent', add_to_cart: 'AddToCart', begin_checkout: 'InitiateCheckout', purchase: 'CompletePayment', search: 'Search', contact: 'Contact' };
+    var fbMap = { view_item: 'ViewContent', add_to_cart: 'AddToCart', begin_checkout: 'InitiateCheckout', purchase: 'Purchase', search: 'Search', contact: 'Contact', add_to_wishlist: 'AddToWishlist' };
+    var ttMap = { view_item: 'ViewContent', add_to_cart: 'AddToCart', begin_checkout: 'InitiateCheckout', purchase: 'CompletePayment', search: 'Search', contact: 'Contact', add_to_wishlist: 'AddToWishlist' };
     var ids = items.map(function (i) { return i.item_id; });
     try {
       if (window.fbq && fbMap[event]) {
@@ -460,9 +460,41 @@
         });
         ids.forEach(function (id) { if (!known[id]) { delete cart[id]; changed = true; } });
         if (changed) write(cart);
-        return { cart: cart, lines: lines };
+        lines.forEach(function (l) { l.price = l.product.price; });
+        if (!lines.length) return { cart: cart, lines: lines, gifts: [] };
+        // the server works out the real price of each line: flash sale, cheaper price for more pieces, free gifts
+        return fetch('/api/quote', { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({ items: lines.map(function (l) { return { id: l.product.id, qty: l.qty }; }) }) })
+          .then(function (r) { return r.json(); })
+          .then(function (qt) {
+            var byId = {};
+            (qt.lines || []).forEach(function (x) { byId[x.id] = x; });
+            lines.forEach(function (l) {
+              var x = byId[l.product.id];
+              if (!x) return;
+              l.price = Number(x.price);
+              l.kind = x.kind || '';
+              l.note = x.note || '';
+              l.base = Number(x.base);
+              l.tiers = x.tiers || [];
+            });
+            return { cart: cart, lines: lines, gifts: qt.gifts || [] };
+          })
+          .catch(function () { return { cart: cart, lines: lines, gifts: [] }; });
       });
   }
+  // "10+ pieces ৳4 each" — the next cheaper step for this line, if any
+  function nextTier(l) {
+    var t = (l.tiers || []).filter(function (x) { return x.min_qty > l.qty && x.price < l.price; })[0];
+    return t ? 'আরও ' + bn(t.min_qty - l.qty) + 'টি নিলে প্রতিটা ' + money(t.price) + ' করে পড়বে' : '';
+  }
+  function giftRows(gifts, cls) {
+    return (gifts || []).map(function (g) {
+      return '<' + cls + ' class="cart-line gift-line">' + thumb(g) + '<div><b>' + esc(g.name) + '</b><br><span class="small good">' + esc(g.note) + '</span><br><span class="muted small">' +
+        bn(g.qty) + 'টি' + (g.price > 0 ? ' × ' + money(g.price) : '') + '</span></div><div class="line-total">' + (g.price > 0 ? money(g.price * g.qty) : '<span class="good">ফ্রি</span>') + '</div></' + cls + '>';
+    }).join('');
+  }
+  function giftTotal(gifts) { return (gifts || []).reduce(function (s, g) { return s + g.price * g.qty; }, 0); }
   function thumb(p) {
     return '<span class="cart-thumb">' + (p.image ? '<img src="' + esc(p.image) + '" alt="">' : esc(p.emoji || '📦')) + '</span>';
   }
@@ -481,18 +513,23 @@
         var p = l.product;
         var over = l.qty > p.stock;
         if (over) problem = true;
-        subtotal += p.price * l.qty;
+        subtotal += l.price * l.qty;
+        var hint = nextTier(l);
         return '<li class="cart-line">' + thumb(p) +
           '<div><h3><a href="/p/' + esc(p.slug) + '">' + esc(p.name) + '</a></h3>' +
+          (l.note ? '<p class="small good line-note">' + esc(l.note) + '</p>' : '') +
           '<div class="cart-line-controls">' +
           '<div class="qty sm" data-line="' + p.id + '"><button type="button" data-d="-1" aria-label="কমান">−</button>' +
           '<input type="number" min="' + rule(p.price).min + '" max="' + rule(p.price).max + '" value="' + l.qty + '" aria-label="পরিমাণ"><button type="button" data-d="1" aria-label="বাড়ান">+</button></div>' +
           '<button class="link-btn danger" data-remove="' + p.id + '">সরান</button>' +
-          '<span class="muted small">' + money(p.price) + ' করে</span></div>' +
+          '<span class="muted small">' + (l.base && l.price < l.base ? '<s>' + money(l.base) + '</s> ' : '') + money(l.price) + ' করে</span></div>' +
+          (hint ? '<p class="small tier-hint">💡 ' + hint + '</p>' : '') +
           (rule(p.price).small ? '<p class="muted small">🔩 কম দামের পণ্য: কমপক্ষে ' + bn(rule(p.price).min) + 'টি (' + money(rule(p.price).min * p.price) + ')</p>' : '') +
           (over ? '<p class="cart-warn">' + (p.stock > 0 ? 'স্টকে আছে মাত্র ' + bn(p.stock) + 'টি' : 'এখন স্টকে নেই') + '</p>' : '') +
-          '</div><div class="line-total">' + money(p.price * l.qty) + '</div></li>';
-      }).join('');
+          '</div><div class="line-total">' + money(l.price * l.qty) + '</div></li>';
+      }).join('') + giftRows(res.gifts, 'li');
+      subtotal += giftTotal(res.gifts);
+      subtotal = Math.round(subtotal * 100) / 100;
       var freeMin = parseInt(cartRoot.getAttribute('data-free-min'), 10) || 0;
       cartRoot.innerHTML = '<div class="panel"><ul class="cart-lines">' + items + '</ul>' +
         '<div class="totals"><div class="grand"><span>পণ্যের মোট দাম</span><span>' + money(subtotal) + '</span></div></div>' +
@@ -568,7 +605,16 @@
     var submit = $('[data-submit]', form);
     var zoneNote = $('[data-zone-note]', form);
     var manualBox = $('[data-manual-box]', form);
-    var state = { lines: [], coupon: null, couponCode: '' };
+    var state = { lines: [], gifts: [], coupon: null, couponCode: '', pts: null, usePoints: false };
+    // loyalty points: same rule as the server (at least `min` points, at most maxPct % of the goods)
+    function pointsFor(goods) {
+      var P = state.pts;
+      if (!P || !P.on || !P.points) return { points: 0, discount: 0 };
+      var cap = Math.floor((Math.max(0, goods) * P.maxPct) / 100 / P.value);
+      var n = Math.min(P.points, cap);
+      if (n < P.min) return { points: 0, discount: 0 };
+      return { points: n, discount: Math.round(n * P.value * 100) / 100 };
+    }
     var fee = {
       dhaka: parseInt(checkout.getAttribute('data-dhaka'), 10) || 0,
       outside: parseInt(checkout.getAttribute('data-outside'), 10) || 0,
@@ -612,7 +658,7 @@
       return Math.max(0, Math.ceil(g / 1000 - 1e-9) - fee.freeKg) * fee.perKg;
     }
     function totals() {
-      var subtotal = state.lines.reduce(function (s, l) { return s + l.product.price * l.qty; }, 0);
+      var subtotal = state.lines.reduce(function (s, l) { return s + l.price * l.qty; }, 0) + giftTotal(state.gifts);
       var z = zone();
       var delivery = z ? z.fee + weightExtra() : null;
       if (fee.freeMin > 0 && subtotal >= fee.freeMin) delivery = 0;
@@ -621,9 +667,11 @@
         discount = Math.min(subtotal, state.coupon.discount || 0);
         if (state.coupon.freeDelivery) delivery = 0;
       }
-      var exact = Math.round((subtotal - discount + (delivery || 0)) * 100) / 100;
+      var pts = pointsFor(subtotal - discount);
+      var exact = Math.round((subtotal - discount - (state.usePoints ? pts.discount : 0) + (delivery || 0)) * 100) / 100;
       var total = Math.max(0, Math.round(exact)); // whole taka, same as the server
-      return { subtotal: Math.round(subtotal * 100) / 100, delivery: delivery, discount: discount, total: total, roundOff: delivery === null ? 0 : Math.round((total - exact) * 100) / 100 };
+      return { subtotal: Math.round(subtotal * 100) / 100, delivery: delivery, discount: discount, points: state.usePoints ? pts : null, canPoints: pts,
+        total: total, roundOff: delivery === null ? 0 : Math.round((total - exact) * 100) / 100 };
     }
     function renderSummary() {
       if (!state.lines.length) {
@@ -633,12 +681,13 @@
       }
       var t = totals();
       var rows = state.lines.map(function (l) {
-        return '<div class="cart-line">' + thumb(l.product) + '<div><b>' + esc(l.product.name) + '</b><br><span class="muted small">' +
-          bn(l.qty) + ' × ' + money(l.product.price) + '</span></div><div class="line-total">' + money(l.product.price * l.qty) + '</div></div>';
-      }).join('');
+        return '<div class="cart-line">' + thumb(l.product) + '<div><b>' + esc(l.product.name) + '</b><br>' + (l.note ? '<span class="small good">' + esc(l.note) + '</span><br>' : '') + '<span class="muted small">' +
+          bn(l.qty) + ' × ' + money(l.price) + '</span></div><div class="line-total">' + money(l.price * l.qty) + '</div></div>';
+      }).join('') + giftRows(state.gifts, 'div');
       summary.innerHTML = rows + '<div class="totals">' +
         '<div><span>পণ্যের দাম</span><span>' + money(t.subtotal) + '</span></div>' +
         (t.discount ? '<div class="good"><span>কুপন ছাড় (' + esc(state.couponCode) + ')</span><span>− ' + money(t.discount) + '</span></div>' : '') +
+        (t.points && t.points.points ? '<div class="good"><span>পয়েন্ট ছাড় (' + bn(t.points.points) + ' পয়েন্ট)</span><span>− ' + money(t.points.discount) + '</span></div>' : '') +
         '<div><span>ডেলিভারি চার্জ</span><span>' + (t.delivery === null ? 'এলাকা বাছুন' : t.delivery ? money(t.delivery) : 'ফ্রি') + '</span></div>' +
         (t.roundOff ? '<div><span>রাউন্ড ফিগার</span><span>' + (t.roundOff > 0 ? '+ ' : '− ') + money(Math.abs(t.roundOff)) + '</span></div>' : '') +
         '<div class="grand"><span>মোট</span><span>' + money(t.total) + '</span></div></div>' +
@@ -652,13 +701,54 @@
       if (advAmt) advAmt.textContent = t.delivery === null ? 'এলাকা বাছুন' : money(t.delivery || 0);
       submit.disabled = false;
       submit.textContent = 'অর্ডার কনফার্ম করুন · ' + money(t.total);
+      renderPoints(t);
+    }
+    var ptsBox = $('[data-points]');
+    function renderPoints(t) {
+      if (!ptsBox) return;
+      var P = state.pts;
+      if (!P || !P.on) { ptsBox.hidden = true; return; }
+      ptsBox.hidden = false;
+      var earn = P.earnPer ? Math.floor(Math.max(0, t.subtotal - t.discount - (t.points ? t.points.discount : 0)) / P.earnPer) : 0;
+      $('[data-points-earn]', ptsBox).textContent = earn > 0 ? '🎁 এই অর্ডার ডেলিভারি হলে পাবেন আরও ' + bn(earn) + ' পয়েন্ট।' : '';
+      var use = $('[data-points-use]', ptsBox);
+      if (!P.points) { $('[data-points-text]', ptsBox).textContent = '⭐ প্রতি ' + money(P.earnPer) + ' কেনাকাটায় ১ পয়েন্ট — পরের অর্ডারে টাকার মতো খরচ করা যায়।'; use.hidden = true; return; }
+      $('[data-points-text]', ptsBox).innerHTML = '⭐ আপনার <b>' + bn(P.points) + '</b> পয়েন্ট আছে (' + money(P.points * P.value) + ')।';
+      var can = t.canPoints;
+      use.hidden = !can.points;
+      if (!can.points) {
+        state.usePoints = false;
+        $('[data-points-text]', ptsBox).innerHTML += ' <span class="small muted">কমপক্ষে ' + bn(P.min) + ' পয়েন্ট হলে খরচ করা যায়।</span>';
+      } else {
+        $('[data-points-label]', ptsBox).textContent = bn(can.points) + ' পয়েন্ট খরচ করে ' + money(can.discount) + ' ছাড় নিন';
+      }
+    }
+    function loadPoints() {
+      if (!ptsBox) return;
+      var ph = form.elements.phone.value.replace(/[০-৯]/g, function (c) { return '০১২৩৪৫৬৭৮৯'.indexOf(c); }).replace(/\D/g, '').replace(/^88/, '');
+      if (!/^01[3-9]\d{8}$/.test(ph)) { if (state.pts) { state.pts.points = 0; } renderSummary(); return; }
+      if (state.ptsPhone === ph) return;
+      state.ptsPhone = ph;
+      fetch('/api/points', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone: ph }) })
+        .then(function (r) { return r.json(); }).then(function (j) { state.pts = j; state.usePoints = false; var cb = form.elements.use_points; if (cb) cb.checked = false; renderSummary(); })
+        .catch(function () {});
+    }
+    if (ptsBox) {
+      state.pts = { on: true, points: 0 };
+      fetch('/api/points', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) })
+        .then(function (r) { return r.json(); }).then(function (j) { if (!j.on) { state.pts = null; ptsBox.hidden = true; } }).catch(function () {});
+      form.elements.phone.addEventListener('change', loadPoints);
+      form.elements.phone.addEventListener('blur', loadPoints);
+      ptsBox.addEventListener('change', function (e) { if (e.target.name === 'use_points') { state.usePoints = e.target.checked; renderSummary(); } });
+      setTimeout(loadPoints, 1200);
     }
     loadCart().then(function (res) {
       state.lines = res.lines;
+      state.gifts = res.gifts || [];
       renderSummary();
       if (res.lines.length && !store('sm_ic_' + Object.keys(res.cart).join('-'))) {
         store('sm_ic_' + Object.keys(res.cart).join('-'), '1');
-        track('begin_checkout', { items: res.lines.map(function (l) { return { id: l.product.id, name: l.product.name, price: l.product.price, qty: l.qty }; }) });
+        track('begin_checkout', { items: res.lines.map(function (l) { return { id: l.product.id, name: l.product.name, price: l.price, qty: l.qty }; }) });
       }
     }).catch(function () { summary.innerHTML = '<p class="form-error">কার্ট লোড করা যায়নি। পেজটি রিফ্রেশ করুন।</p>'; });
     form.addEventListener('change', function (e) {
@@ -752,6 +842,7 @@
         payment: pay ? pay.value : 'cod', coupon: state.couponCode,
         trx: form.elements.trx ? form.elements.trx.value.trim() : '', payment_number: form.elements.payment_number ? form.elements.payment_number.value.trim() : '',
         items: state.lines.map(function (l) { return { id: l.product.id, qty: l.qty }; }),
+        use_points: state.usePoints ? '1' : '',
       };
       if (data.name.length < 2) return showError('আপনার নাম লিখুন।', 'name');
       if (!data.phone) return showError('মোবাইল নম্বর লিখুন।', 'phone');
@@ -1031,5 +1122,96 @@
     document.addEventListener('sm:lang', function () { setTimeout(ntFit, 30); });
     if (window.MutationObserver) new MutationObserver(function () { setTimeout(ntFit, 30); }).observe(ntIn, { childList: true, characterData: true, subtree: true });
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(ntFit);
+  }
+
+  // ---------- ♡ wishlist (kept in this browser only) ----------
+  var WKEY = 'sm_wish';
+  function wishes() { try { var w = JSON.parse(store(WKEY) || '[]'); return Array.isArray(w) ? w.map(String) : []; } catch (e) { return []; } }
+  function paintWish() {
+    var w = wishes();
+    $all('[data-wish]').forEach(function (b) {
+      var on = w.indexOf(b.getAttribute('data-wish')) > -1;
+      b.classList.toggle('on', on);
+      b.textContent = on ? '♥' : '♡';
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+  }
+  paintWish();
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-wish]');
+    if (!b) return;
+    e.preventDefault();
+    var id = b.getAttribute('data-wish');
+    var w = wishes();
+    var i = w.indexOf(id);
+    var on = i < 0;
+    if (on) w.unshift(id); else w.splice(i, 1);
+    store(WKEY, JSON.stringify(w.slice(0, 60)));
+    paintWish();
+    toast(on ? '<span>♥ পছন্দের তালিকায় রাখা হয়েছে</span><a href="/wishlist">তালিকা দেখুন</a>' : '<span>পছন্দের তালিকা থেকে সরানো হয়েছে</span>', 2500);
+    try { fetch('/api/wish', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: Number(id), on: on }), keepalive: true }); } catch (err) { /* ignore */ }
+    if (on) track('add_to_wishlist', { items: [{ id: id, name: b.getAttribute('aria-label') || '', price: 0, qty: 1 }] });
+  });
+  var wp = $('[data-wish-load]');
+  if (wp) location.replace('/wishlist?ids=' + encodeURIComponent(wishes().join(',')));
+
+  // ---------- flash sale countdown ----------
+  var cds = $all('[data-countdown]');
+  if (cds.length) {
+    var tick = function () {
+      cds.forEach(function (el) {
+        var left = Math.max(0, Math.floor((new Date(el.getAttribute('data-countdown')).getTime() - Date.now()) / 1000));
+        if (!left) { el.textContent = 'শেষ'; return; }
+        var d = Math.floor(left / 86400); var h = Math.floor((left % 86400) / 3600); var m = Math.floor((left % 3600) / 60); var sec = left % 60;
+        var pad = function (n) { return bn(n < 10 ? '0' + n : String(n)); };
+        el.textContent = (d ? bn(d) + ' দিন ' : '') + pad(h) + ':' + pad(m) + ':' + pad(sec);
+      });
+    };
+    tick();
+    setInterval(tick, 1000);
+  }
+
+  // ---------- review form ----------
+  var rf = $('[data-review-form]');
+  if (rf) {
+    rf.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var msg = $('[data-review-msg]', rf);
+      var btn = $('button', rf);
+      var r = rf.querySelector('input[name=rating]:checked');
+      var d = { product: Number(rf.getAttribute('data-product')), rating: r ? Number(r.value) : 5, name: rf.elements.name.value.trim(),
+        phone: rf.elements.phone.value.trim(), body: rf.elements.body.value.trim(), website: rf.elements.website.value };
+      if (d.name.length < 2) { msg.textContent = 'আপনার নাম লিখুন।'; return; }
+      if (d.body.length < 5) { msg.textContent = 'আপনার মতামত একটু লিখুন।'; return; }
+      btn.disabled = true;
+      msg.textContent = 'পাঠানো হচ্ছে…';
+      fetch('/api/review', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d) })
+        .then(function (res) { return res.json().then(function (j) { return { ok: res.ok, j: j }; }); })
+        .then(function (x) {
+          msg.textContent = x.ok ? x.j.message : x.j.error || 'পাঠানো যায়নি।';
+          msg.className = 'small ' + (x.ok ? 'good' : 'warn');
+          if (x.ok) { rf.reset(); } else { btn.disabled = false; }
+        }).catch(function () { msg.textContent = 'পাঠানো যায়নি, আবার চেষ্টা করুন।'; btn.disabled = false; });
+    });
+  }
+
+  // ---------- cart: "these go with it" ----------
+  var sug = $('[data-cart-suggest]');
+  function loadSuggest() {
+    if (!sug) return;
+    var ids = Object.keys(read());
+    if (!ids.length) { sug.hidden = true; return; }
+    fetch('/api/suggest?ids=' + ids.join(','), { headers: { Accept: 'application/json' } }).then(function (r) { return r.json(); }).then(function (j) {
+      var list = (j.products || []).filter(function (p) { return !read()[p.id]; });
+      sug.hidden = !list.length;
+      $('[data-suggest-list]', sug).innerHTML = list.map(function (p) {
+        return '<li>' + thumb(p) + '<a href="/p/' + esc(p.slug) + '">' + esc(p.name) + '</a><b>' + money(p.price) + '</b>' +
+          '<button type="button" class="btn btn-sm btn-ghost" data-add="' + p.id + '" data-name="' + esc(p.name) + '" data-price="' + p.price + '" data-suggest-add>+ কার্টে</button></li>';
+      }).join('');
+    }).catch(function () { sug.hidden = true; });
+  }
+  if (sug) {
+    loadSuggest();
+    sug.addEventListener('click', function (e) { if (e.target.closest('[data-suggest-add]')) setTimeout(function () { renderCart(); loadSuggest(); }, 50); });
   }
 })();

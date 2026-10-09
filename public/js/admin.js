@@ -591,11 +591,14 @@
       $('[data-grand]', oform).textContent = money(Math.max(0, Math.round(sub - (Number(discountIn.value) || 0) + (Number(deliveryIn.value) || 0)))); // whole taka, like the server
     };
     picker($('[data-product-search]', oform), $('[data-product-results]', oform), function (p) {
-      var exist = $all('input[name="item_id[]"]', rows).filter(function (i) { return i.value === String(p.id); })[0];
+      var exist = $all('input[name="item_id[]"]', rows).filter(function (i) {
+        var k = $('input[name="item_kind[]"]', i.closest('tr'));
+        return i.value === String(p.id) && !(k && k.value === 'gift');
+      })[0];
       if (exist) { var q = $('[data-qty]', exist.closest('tr')); q.value = Number(q.value) + 1; totalO(); return; }
       var tr = document.createElement('tr');
       tr.setAttribute('data-row', '');
-      tr.innerHTML = '<td>' + esc(p.name) + (p.sku ? '<br><span class="small muted">' + esc(p.sku) + '</span>' : '') + '<br><span class="small muted">স্টক ' + bn(p.stock) + '</span><input type="hidden" name="item_id[]" value="' + p.id + '"></td>' +
+      tr.innerHTML = '<td>' + esc(p.name) + (p.sku ? '<br><span class="small muted">' + esc(p.sku) + '</span>' : '') + '<br><span class="small muted">স্টক ' + bn(p.stock) + '</span><input type="hidden" name="item_id[]" value="' + p.id + '"><input type="hidden" name="item_kind[]" value=""><input type="hidden" name="item_note[]" value=""></td>' +
         '<td class="num"><input type="number" name="item_price[]" value="' + p.price + '" min="0" step="0.01" class="w-num" data-price></td>' +
         '<td class="num"><input type="number" name="item_qty[]" value="1" min="1" class="w-num" data-qty></td>' +
         '<td class="num" data-line-total></td><td><button type="button" class="link-btn danger" data-remove-row aria-label="সরান">✕</button></td>';
