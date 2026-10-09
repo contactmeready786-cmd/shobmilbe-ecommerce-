@@ -1,0 +1,7 @@
+name: Database move status
+on: workflow_dispatch
+jobs:
+  status:
+    runs-on: ubuntu-latest
+    steps:
+      - run: curl -s -m 30 https://shobmilbe-ecommerce.vercel.app/__dbmove; echo
