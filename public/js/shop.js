@@ -485,7 +485,8 @@
   }
   // "10+ pieces ৳4 each" — the next cheaper step for this line, if any
   function nextTier(l) {
-    var t = (l.tiers || []).filter(function (x) { return x.min_qty > l.qty && x.price < l.price; })[0];
+    var max = rule(l.product.price).max;
+    var t = (l.tiers || []).filter(function (x) { return x.min_qty > l.qty && x.min_qty <= max && x.price < l.price; })[0];
     return t ? 'আরও ' + bn(t.min_qty - l.qty) + 'টি নিলে প্রতিটা ' + money(t.price) + ' করে পড়বে' : '';
   }
   function giftRows(gifts, cls) {
