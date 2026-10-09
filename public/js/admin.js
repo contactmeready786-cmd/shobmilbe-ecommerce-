@@ -766,6 +766,36 @@
     });
   }
 
+  // ---------- product list: tick many products, then one action for all ----------
+  var pb = $('[data-pbulk]');
+  if (pb) {
+    var pbRows = function () { return $all('[data-pbulk-row]'); };
+    var pbUpd = function () {
+      var n = pbRows().filter(function (c) { return c.checked; }).length;
+      pb.hidden = n === 0;
+      $('[data-pbulk-count]', pb).textContent = bn(n);
+    };
+    var pbAll = $('[data-pbulk-all]');
+    if (pbAll) pbAll.addEventListener('change', function () { pbRows().forEach(function (c) { c.checked = pbAll.checked; }); pbUpd(); });
+    document.addEventListener('change', function (e) { if (e.target.closest && e.target.closest('[data-pbulk-row]')) pbUpd(); });
+    var act = $('[data-pbulk-action]', pb);
+    var showFor = function () {
+      $all('[data-pbulk-for]', pb).forEach(function (el) {
+        var on = el.getAttribute('data-pbulk-for').split(' ').indexOf(act.value) >= 0;
+        el.hidden = !on;
+        $all('input,select', el).forEach(function (i) { i.disabled = !on; });
+      });
+    };
+    act.addEventListener('change', showFor); showFor();
+    var clr = $('[data-pbulk-clear]', pb);
+    if (clr) clr.addEventListener('click', function () { pbRows().forEach(function (c) { c.checked = false; }); if (pbAll) pbAll.checked = false; pbUpd(); });
+    pb.addEventListener('submit', function (e) {
+      var n = pbRows().filter(function (c) { return c.checked; }).length;
+      var label = act.options[act.selectedIndex] ? act.options[act.selectedIndex].text : '';
+      if (!confirm(bn(n) + 'টি পণ্যে "' + label + '" করবেন?' + (act.value === 'delete' ? ' (রিসাইকেল বিনে থাকবে)' : ''))) e.preventDefault();
+    });
+  }
+
   // ---------- repeat rows (links, verification files) ----------
   document.addEventListener('click', function (e) {
     var b = e.target.closest('[data-repeat-add]');
