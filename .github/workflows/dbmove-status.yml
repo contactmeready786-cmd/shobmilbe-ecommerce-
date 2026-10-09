@@ -13,3 +13,5 @@ jobs:
           echo "::notice title=report::$Q"
           C=$(curl -s -m 30 -o /dev/null -w "%{http_code} %{redirect_url}" https://shobmilbe-ecommerce.vercel.app/)
           echo "::notice title=home::$C"
+          T=$(curl -s -m 60 https://shobmilbe-ecommerce.vercel.app/api/backup/tick | head -c 300)
+          echo "::notice title=backup::$T"
