@@ -180,14 +180,21 @@
   function write(cart) { store(KEY, JSON.stringify(cart)); updateCount(); }
   function count(cart) { return Object.keys(cart).reduce(function (s, k) { return s + cart[k]; }, 0); }
   // How many pieces of one product a customer may order (same formula as the server, Admin → সেটিংস):
-  // normally 1 to SM.maxQty; cheap parts (price up to rule.cap, e.g. ৳5) need at least rule.minVal worth (e.g. ৳10).
+  // every product from 1 piece; cheap parts (price up to rule.cap, e.g. ৳5) up to rule.maxVal worth.
+  // The shop's minimum is on the whole order instead (SM.minOrder, e.g. ৳10 of goods in total).
   var MAXQ = Math.max(1, Number(SM.maxQty) || 10);
-  var RULE = SM.rule || { on: true, cap: 5, minVal: 10, maxVal: 100 };
+  var RULE = SM.rule || { on: true, cap: 5, maxVal: 100 };
+  var MIN_ORDER = Math.max(0, Number(SM.minOrder) || 0);
   function rule(price) {
     var p = Number(price) || 0;
     if (!RULE.on || p <= 0 || p > RULE.cap + 1e-9) return { min: 1, max: MAXQ, small: false };
-    var min = Math.max(1, Math.ceil(RULE.minVal / p - 1e-9));
-    return { min: min, max: Math.max(MAXQ, min, Math.floor(RULE.maxVal / p + 1e-9)), small: min > 1 };
+    return { min: 1, max: Math.max(MAXQ, Math.floor(RULE.maxVal / p + 1e-9)), small: false };
+  }
+  // "add ৳3 more" — the whole order must reach the shop's minimum (goods only, without delivery)
+  function minShort(subtotal) { return MIN_ORDER > 0 && subtotal + 1e-9 < MIN_ORDER ? Math.round((MIN_ORDER - subtotal) * 100) / 100 : 0; }
+  function minNote(subtotal) {
+    var need = minShort(subtotal);
+    return need ? 'অর্ডার করতে মোট কমপক্ষে ' + money(MIN_ORDER) + ' এর পণ্য নিতে হবে (ডেলিভারি চার্জ বাদে)। এখন আছে ' + money(subtotal) + ' — আরও ' + money(need) + ' এর পণ্য যোগ করুন।' : '';
   }
   var PRICES = {}; // product id -> price, so the cart knows each product's rule
   function contactLinks() {
@@ -537,7 +544,8 @@
         (freeMin > 0 ? '<p class="muted small">' + (subtotal >= freeMin ? '🎉 আপনি ফ্রি ডেলিভারি পাচ্ছেন!' : 'আরও ' + money(freeMin - subtotal) + ' কিনলে ডেলিভারি ফ্রি।') + '</p>' : '') +
         '<p class="muted small">ডেলিভারি চার্জ পরের ধাপে এলাকা অনুযায়ী যোগ হবে।</p>' +
         (problem ? '<p class="form-error">কিছু পণ্যের পরিমাণ স্টকের চেয়ে বেশি। পরিমাণ কমিয়ে নিন।</p>' : '') +
-        '<a class="btn btn-amber btn-lg btn-block" href="/checkout">অর্ডার করতে এগিয়ে যান</a>' +
+        (minShort(subtotal) ? '<p class="min-order-note">🔩 ' + minNote(subtotal) + '</p><a class="btn btn-ghost btn-lg btn-block" href="/products">আরও পণ্য যোগ করুন</a>'
+          : '<a class="btn btn-amber btn-lg btn-block" href="/checkout">অর্ডার করতে এগিয়ে যান</a>') +
         '<p class="center small"><a href="/products">আরও পণ্য দেখুন</a></p></div>';
     }).catch(function () {
       cartRoot.innerHTML = '<p class="form-error">কার্ট লোড করা যায়নি। ইন্টারনেট সংযোগ দেখে পেজটি রিফ্রেশ করুন।</p>';
@@ -570,7 +578,7 @@
       var r = rule(pr);
       var v = parseInt(e.target.value, 10) || 1;
       if (v > r.max) say(limitText(r.max));
-      else if (v < r.min) say(minText(r, pr));
+      else if (v < r.min) say('কমপক্ষে ১টি থাকতে হবে। না চাইলে "সরান" চাপুন।');
       cart[lid] = Math.min(r.max, Math.max(r.min, v));
       write(cart); renderCart();
     });
@@ -700,8 +708,13 @@
       if (amt) amt.textContent = money(t.total);
       var advAmt = $('[data-adv-amount]', form);
       if (advAmt) advAmt.textContent = t.delivery === null ? 'এলাকা বাছুন' : money(t.delivery || 0);
-      submit.disabled = false;
-      submit.textContent = 'অর্ডার কনফার্ম করুন · ' + money(t.total);
+      var short = minShort(t.subtotal);
+      var mBox = $('[data-min-note]', checkout);
+      if (!mBox) { mBox = document.createElement('p'); mBox.className = 'min-order-note'; mBox.setAttribute('data-min-note', ''); summary.parentNode.insertBefore(mBox, summary.nextSibling); }
+      mBox.hidden = !short;
+      mBox.innerHTML = short ? '🔩 ' + esc(minNote(t.subtotal)) + ' <a href="/products">পণ্য দেখুন →</a>' : '';
+      submit.disabled = !!short;
+      submit.textContent = short ? 'আরও ' + money(short) + ' এর পণ্য লাগবে' : 'অর্ডার কনফার্ম করুন · ' + money(t.total);
       renderPoints(t);
     }
     var ptsBox = $('[data-points]');
@@ -845,6 +858,7 @@
         items: state.lines.map(function (l) { return { id: l.product.id, qty: l.qty }; }),
         use_points: state.usePoints ? '1' : '',
       };
+      if (minShort(totals().subtotal)) return showError(minNote(totals().subtotal));
       if (data.name.length < 2) return showError('আপনার নাম লিখুন।', 'name');
       if (!data.phone) return showError('মোবাইল নম্বর লিখুন।', 'phone');
       if (!data.district) return showError('জেলা বাছুন।', 'district');
@@ -1172,17 +1186,15 @@
     setInterval(tick, 1000);
   }
 
-  // ---------- review form ----------
-  var rf = $('[data-review-form]');
-  if (rf) {
+  // ---------- review forms (order page, after delivery) ----------
+  $all('[data-review-form]').forEach(function (rf) {
     rf.addEventListener('submit', function (e) {
       e.preventDefault();
       var msg = $('[data-review-msg]', rf);
       var btn = $('button', rf);
       var r = rf.querySelector('input[name=rating]:checked');
-      var d = { product: Number(rf.getAttribute('data-product')), rating: r ? Number(r.value) : 5, name: rf.elements.name.value.trim(),
-        phone: rf.elements.phone.value.trim(), body: rf.elements.body.value.trim(), website: rf.elements.website.value };
-      if (d.name.length < 2) { msg.textContent = 'আপনার নাম লিখুন।'; return; }
+      var d = { code: rf.getAttribute('data-code'), product: Number(rf.getAttribute('data-product')), rating: r ? Number(r.value) : 5,
+        name: rf.elements.name.value.trim(), body: rf.elements.body.value.trim(), website: rf.elements.website.value };
       if (d.body.length < 5) { msg.textContent = 'আপনার মতামত একটু লিখুন।'; return; }
       btn.disabled = true;
       msg.textContent = 'পাঠানো হচ্ছে…';
@@ -1191,10 +1203,16 @@
         .then(function (x) {
           msg.textContent = x.ok ? x.j.message : x.j.error || 'পাঠানো যায়নি।';
           msg.className = 'small ' + (x.ok ? 'good' : 'warn');
-          if (x.ok) { rf.reset(); } else { btn.disabled = false; }
+          if (x.ok) {
+            $all('fieldset, label, button', rf).forEach(function (el) { el.hidden = true; });
+            var det = rf.closest('details');
+            var sm = det && det.querySelector('summary');
+            if (sm) sm.hidden = true;
+            if (det) det.open = true;
+          } else { btn.disabled = false; }
         }).catch(function () { msg.textContent = 'পাঠানো যায়নি, আবার চেষ্টা করুন।'; btn.disabled = false; });
     });
-  }
+  });
 
   // ---------- cart: "these go with it" ----------
   var sug = $('[data-cart-suggest]');

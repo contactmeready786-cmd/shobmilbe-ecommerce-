@@ -796,3 +796,10 @@ body.protect .card-pic img, body.protect .g-main img, body.protect .g-thumb img,
 .loyalty-note p { margin: 0 0 4px; }
 @media (max-width: 760px) { .reviews-grid { grid-template-columns: 1fr; } }
 @media (max-width: 520px) { .suggest-list li { grid-template-columns: 48px 1fr; } .suggest-list b, .suggest-list button { grid-column: 2; justify-self: start; } }
+.min-order-note { background: var(--amber-l); border: 1px solid #F6DFA4; color: #6B4A00; border-radius: 10px; padding: 8px 12px; margin: 10px 0; font-size: .93rem; }
+.order-reviews .order-review-list { list-style: none; padding: 0; margin: 0; }
+.order-review-list > li { border-bottom: 1px solid var(--bin); padding: 10px 0; }
+.order-review-list > li p { margin: 0 0 6px; }
+.order-review-list details > summary { list-style: none; display: inline-block; }
+.order-review-list details > summary::-webkit-details-marker { display: none; }
+.review-who { margin-top: 10px; }
