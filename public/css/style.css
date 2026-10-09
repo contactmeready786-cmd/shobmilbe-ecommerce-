@@ -802,3 +802,5 @@ body.protect .card-pic img, body.protect .g-main img, body.protect .g-thumb img,
 .order-review-list > li p { margin: 0 0 6px; }
 .order-review-list details > summary { list-style: none; display: inline-block; }
 .order-review-list details > summary::-webkit-details-marker { display: none; }
+.search-off { flex: 1; }
+@media (max-width: 760px) { .search-off { display: none; } }

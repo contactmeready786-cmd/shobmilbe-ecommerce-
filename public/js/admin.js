@@ -75,9 +75,22 @@
       .then(function () {
         if (txt) txt.textContent = on ? 'চালু' : 'বন্ধ';
         if (row) row.classList.toggle('row-off', !on);
-        toast(on ? 'পণ্যটি দোকানে আবার দেখাচ্ছে' : 'পণ্যটি দোকান থেকে লুকানো হয়েছে');
+        toast(on ? (f.getAttribute('data-on') || 'পণ্যটি দোকানে আবার দেখাচ্ছে') : (f.getAttribute('data-off') || 'পণ্যটি দোকান থেকে লুকানো হয়েছে'));
+        var li = f.closest('.ui-row'); if (li) li.classList.toggle('row-off', !on);
       }, function (err) { t.checked = !on; toast(err.message); })
       .then(function () { t.disabled = false; });
+  });
+
+  // ---------- shop texts (দোকানে কী দেখাবে): save without leaving the page ----------
+  $all('[data-ui-text]').forEach(function (f) {
+    f.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var btn = $('button', f); btn.disabled = true;
+      fetch(f.action, { method: 'POST', credentials: 'same-origin', headers: { Accept: 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams(new FormData(f)).toString() })
+        .then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || 'সেভ হয়নি'); return j; }); })
+        .then(function () { toast('✅ লেখা সেভ হয়েছে'); }, function (err) { toast(err.message); })
+        .then(function () { btn.disabled = false; });
+    });
   });
 
   // ---------- table rows that open a details page ----------
@@ -462,7 +475,8 @@
           b.setAttribute('data-on', on ? '1' : '');
           b.textContent = on ? '🚫 বন্ধ করুন' : '✅ চালু করুন';
           item.classList.toggle('dup-off', !on);
-          toast(on ? 'পণ্যটি দোকানে আবার দেখাচ্ছে' : 'পণ্যটি দোকান থেকে লুকানো হয়েছে');
+          toast(on ? (f.getAttribute('data-on') || 'পণ্যটি দোকানে আবার দেখাচ্ছে') : (f.getAttribute('data-off') || 'পণ্যটি দোকান থেকে লুকানো হয়েছে'));
+        var li = f.closest('.ui-row'); if (li) li.classList.toggle('row-off', !on);
         })
         .catch(function (err) { toast(err.message); })
         .then(function () { $all('button', box).forEach(function (x) { x.disabled = false; }); });

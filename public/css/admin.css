@@ -724,3 +724,19 @@ td.pick input, th.pick input { width: 18px; height: 18px; accent-color: var(--bl
 .steps { padding-left: 1.3em; }
 .steps li { margin-bottom: 6px; }
 @media (max-width: 900px) { .two-col.wide-left { grid-template-columns: 1fr; } }
+
+/* ---------- দোকানে কী দেখাবে ---------- */
+.ui-jump { margin-bottom: 12px; }
+.ui-groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 14px; align-items: start; }
+.ui-group { scroll-margin-top: 70px; }
+.ui-list { list-style: none; margin: 0; padding: 0; }
+.ui-row { border-bottom: 1px solid var(--line); padding: 10px 0; }
+.ui-row:last-child { border-bottom: 0; }
+.ui-row.row-off .ui-row-text b { color: var(--muted); }
+.ui-row-main { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.ui-row-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ui-row-main .prod-toggle { flex: 0 0 auto; }
+.ui-text { margin: 8px 0 0; padding: 8px 10px; background: var(--paper, #F3F6FA); border-radius: 8px; display: flex; flex-direction: column; gap: 4px; }
+.ui-text-row { display: flex; gap: 6px; }
+.ui-text-row input { flex: 1; min-width: 0; }
+@media (max-width: 520px) { .ui-groups { grid-template-columns: 1fr; } }

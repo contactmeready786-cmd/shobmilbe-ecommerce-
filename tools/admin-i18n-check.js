@@ -11,7 +11,7 @@ const files = [
   'lib/views/admin.js', 'lib/views/invoice.js', 'public/js/admin.js', 'public/js/loginlock.js',
   'lib/models/catalog.js', 'lib/models/orders.js', 'lib/models/finance.js', 'lib/models/trash.js', 'lib/models/duplicates.js',
   'lib/models/staff.js', 'lib/models/customers.js', 'lib/models/loginlock.js', 'lib/models/content.js',
-  'lib/services/research.js', 'lib/services/courier.js', 'lib/services/importer.js', 'lib/security.js', 'lib/util.js',
+  'lib/services/research.js', 'lib/services/uiswitch.js', 'lib/services/sms.js', 'lib/services/courier.js', 'lib/services/importer.js', 'lib/security.js', 'lib/util.js',
 ];
 const BN_LETTER = /[ঀ-৥ৰ-৿]/;
 const set = new Map();
