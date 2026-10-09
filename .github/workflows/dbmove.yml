@@ -8,17 +8,18 @@ on:
 jobs:
   move:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 340
     steps:
       - name: Copy everything, step by step
         run: |
           SITE="https://shobmilbe-ecommerce.vercel.app"
           sleep 90   # let the latest deployment go live
-          for i in $(seq 1 1500); do
+          for i in $(seq 1 4000); do
             R=$(curl -s -m 30 -X POST "$SITE/__dbmove" || echo '{"error":"no answer"}')
             echo "$i $R"
             case "$R" in
               *'"done":true'*) echo "FINISHED"; exit 0;;
+              *'"busy":true'*) sleep 5;;
               *'"needKeys":true'*) echo "WAITING FOR IMAGEKIT KEYS"; sleep 30;;
               *'"error"'*) sleep 10;;
               '<'*) echo "SITE NOT IN MOVE MODE (already done or not on Supabase)"; exit 0;;
