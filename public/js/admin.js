@@ -610,7 +610,9 @@
       var setFee = function () {
         if (!g.district.value) return;
         var inCity = g.district.value === 'Dhaka' && city.indexOf(g.thana.value) > -1;
-        deliveryIn.value = inCity ? oform.getAttribute('data-dhaka') : oform.getAttribute('data-outside');
+        var zones = []; try { zones = JSON.parse(oform.getAttribute('data-zones') || '[]'); } catch (e) { /* none */ }
+        var zone = inCity ? null : zones.filter(function (z) { return (z.districts || []).indexOf(g.district.value) > -1; })[0];
+        deliveryIn.value = inCity ? oform.getAttribute('data-dhaka') : zone ? zone.fee : oform.getAttribute('data-outside');
         totalO();
       };
       g.district.addEventListener('change', setFee);

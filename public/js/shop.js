@@ -574,6 +574,9 @@
       outside: parseInt(checkout.getAttribute('data-outside'), 10) || 0,
       freeMin: parseInt(checkout.getAttribute('data-free-min'), 10) || 0,
       city: JSON.parse(checkout.getAttribute('data-city') || '[]'),
+      zones: JSON.parse(checkout.getAttribute('data-zones') || '[]'),
+      perKg: parseFloat(checkout.getAttribute('data-per-kg')) || 0,
+      freeKg: parseFloat(checkout.getAttribute('data-free-kg')) || 1,
     };
     var geoReady = function () {
       var g = fillGeo(form);
@@ -590,16 +593,28 @@
     };
     if (window.BD_GEO) geoReady(); else window.addEventListener('load', geoReady);
 
+    // same rules as the server: Dhaka city → the owner's own zones → outside Dhaka; heavy parcels pay per extra kg
     function zone() {
       var d = form.elements.district.value;
       var t = form.elements.thana.value;
       if (!d) return null;
-      return d === 'Dhaka' && fee.city.indexOf(t) > -1 ? 'dhaka' : (d === 'Dhaka' && !t ? null : 'outside');
+      if (d === 'Dhaka' && fee.city.indexOf(t) > -1) return { key: 'dhaka', name: 'ঢাকা সিটির ভেতরে', fee: fee.dhaka };
+      if (d === 'Dhaka' && !t) return null;
+      for (var i = 0; i < fee.zones.length; i++) {
+        if ((fee.zones[i].districts || []).indexOf(d) > -1) return { key: 'zone', name: fee.zones[i].name, fee: Number(fee.zones[i].fee) || 0 };
+      }
+      return { key: 'outside', name: 'ঢাকা সিটির বাইরে', fee: fee.outside };
+    }
+    function weightExtra() {
+      if (!fee.perKg) return 0;
+      var g = state.lines.reduce(function (s, l) { return s + (l.product.weight || 0) * l.qty; }, 0);
+      if (!g) return 0;
+      return Math.max(0, Math.ceil(g / 1000 - 1e-9) - fee.freeKg) * fee.perKg;
     }
     function totals() {
       var subtotal = state.lines.reduce(function (s, l) { return s + l.product.price * l.qty; }, 0);
       var z = zone();
-      var delivery = z ? (z === 'dhaka' ? fee.dhaka : fee.outside) : null;
+      var delivery = z ? z.fee + weightExtra() : null;
       if (fee.freeMin > 0 && subtotal >= fee.freeMin) delivery = 0;
       var discount = 0;
       if (state.coupon) {
@@ -629,9 +644,12 @@
         '<div class="grand"><span>মোট</span><span>' + money(t.total) + '</span></div></div>' +
         '<p class="small center"><a href="/cart">কার্ট এডিট করুন</a></p>';
       var z = zone();
-      zoneNote.textContent = z === 'dhaka' ? '✓ ঢাকা সিটির ভেতরে — ডেলিভারি চার্জ ' + money(fee.dhaka) : z === 'outside' ? 'ঢাকা সিটির বাইরে — ডেলিভারি চার্জ ' + money(fee.outside) : '';
+      var wx = weightExtra();
+      zoneNote.textContent = z ? (z.key === 'dhaka' ? '✓ ' : '') + z.name + ' — ডেলিভারি চার্জ ' + money(z.fee) + (wx ? ' + ভারী পার্সেলের জন্য ' + money(wx) : '') : '';
       var amt = $('[data-pay-amount]', form);
       if (amt) amt.textContent = money(t.total);
+      var advAmt = $('[data-adv-amount]', form);
+      if (advAmt) advAmt.textContent = t.delivery === null ? 'এলাকা বাছুন' : money(t.delivery || 0);
       submit.disabled = false;
       submit.textContent = 'অর্ডার কনফার্ম করুন · ' + money(t.total);
     }
@@ -645,11 +663,7 @@
     }).catch(function () { summary.innerHTML = '<p class="form-error">কার্ট লোড করা যায়নি। পেজটি রিফ্রেশ করুন।</p>'; });
     form.addEventListener('change', function (e) {
       if (e.target.name === 'district' || e.target.name === 'thana') renderSummary();
-      if (e.target.name === 'payment') {
-        var manual = e.target.getAttribute('data-manual') === '1';
-        manualBox.hidden = !manual;
-        if (manual) $('[data-pay-number]', form).textContent = e.target.getAttribute('data-number');
-      }
+      if (e.target.name === 'payment') syncPay();
     });
     form.addEventListener('input', function (e) { e.target.classList.remove('invalid'); });
 
@@ -685,8 +699,23 @@
       document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'hidden') { clearTimeout(draft.timer); saveDraft(); } });
       setTimeout(saveDraft, 4000); // a returning customer's number is already filled in
     }
-    var checked = form.querySelector('input[name=payment]:checked');
-    if (checked && checked.getAttribute('data-manual') === '1') { manualBox.hidden = false; $('[data-pay-number]', form).textContent = checked.getAttribute('data-number'); }
+    // Send Money box: for a Send Money method (whole amount), or cash on delivery with "delivery charge first"
+    function syncPay() {
+      var c = form.querySelector('input[name=payment]:checked');
+      var manual = !!c && c.getAttribute('data-manual') === '1';
+      var adv = !!c && !!c.getAttribute('data-advance');
+      manualBox.hidden = !(manual || adv);
+      $('[data-manual-text]', form).hidden = !manual;
+      $('[data-adv-text]', form).hidden = !adv;
+      if (manual) $('[data-pay-number]', form).textContent = c.getAttribute('data-number');
+      if (adv) {
+        $('[data-adv-number]', form).textContent = c.getAttribute('data-number');
+        $('[data-adv-label]', form).textContent = c.getAttribute('data-number-label') || '';
+        var t = totals();
+        $('[data-adv-amount]', form).textContent = t.delivery === null ? 'এলাকা বাছুন' : money(t.delivery || 0);
+      }
+    }
+    syncPay();
 
     // coupon
     var cBox = $('[data-coupon]', checkout);
@@ -695,7 +724,7 @@
       var code = $('#coupon', cBox).value.trim();
       if (!code) { state.coupon = null; state.couponCode = ''; cMsg.textContent = ''; renderSummary(); return; }
       cMsg.textContent = 'যাচাই হচ্ছে…';
-      fetch('/api/coupon', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: code, subtotal: totals().subtotal, phone: form.elements.phone.value }) })
+      fetch('/api/coupon', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: code, subtotal: totals().subtotal, phone: form.elements.phone.value, items: state.lines.map(function (l) { return { id: l.product.id, qty: l.qty }; }) }) })
         .then(function (r) { return r.json(); })
         .then(function (j) {
           cMsg.textContent = j.message;
