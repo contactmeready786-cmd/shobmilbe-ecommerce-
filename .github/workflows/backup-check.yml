@@ -1,0 +1,12 @@
+name: Backup setup check
+on: workflow_dispatch
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          BACKUP_PASSWORD: ${{ secrets.BACKUP_PASSWORD }}
+        run: |
+          H=$(echo "$DATABASE_URL" | sed -E 's#^[a-z]+://[^@]*@([^:/?]+).*#\1#' | sed -E 's/^[^.]*\.//')
+          echo "::notice title=backup::db=${DATABASE_URL:+set} host=${H:-none} password=${BACKUP_PASSWORD:+set}"
