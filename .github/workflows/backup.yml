@@ -1,0 +1,47 @@
+# Nightly full database backup (with pictures), locked with a password.
+# Set up once (GitHub → this repo → Settings → Secrets and variables → Actions → New repository secret):
+#   DATABASE_URL     = the same value as in Vercel (Settings → Environment Variables)
+#   BACKUP_PASSWORD  = a long password you keep safe (needed to restore; without it the backup can't be opened)
+# Each night's file is kept for 30 days under Actions → backup → (a run) → Artifacts.
+name: backup
+on:
+  schedule:
+    - cron: "11 21 * * *" # 03:11 Dhaka time
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check secrets
+        id: check
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          BACKUP_PASSWORD: ${{ secrets.BACKUP_PASSWORD }}
+        run: |
+          if [ -z "$DATABASE_URL" ] || [ -z "$BACKUP_PASSWORD" ]; then
+            echo "Backup is not set up yet: add the DATABASE_URL and BACKUP_PASSWORD secrets (see the top of this file)."
+            echo "ready=no" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=yes" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Make the backup
+        if: steps.check.outputs.ready == 'yes'
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          BACKUP_PASSWORD: ${{ secrets.BACKUP_PASSWORD }}
+        run: node tools/backup.js backups
+      - name: Keep it for 30 days
+        if: steps.check.outputs.ready == 'yes'
+        uses: actions/upload-artifact@v4
+        with:
+          name: shobmilbe-backup-${{ github.run_id }}
+          path: backups/*.smbk
+          retention-days: 30
+          if-no-files-found: error
