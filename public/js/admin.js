@@ -234,7 +234,8 @@
       var im = new Image();
       im.onload = function () { resolve(im); };
       im.onerror = function () { reject(new Error('bad image')); };
-      im.src = src;
+      // pictures on ImageKit are fetched through this site, so the browser may read their pixels (fingerprint, watermark)
+      im.src = /^\/media\//.test(src) ? src + (src.indexOf('?') < 0 ? '?' : '&') + 'raw=1' : src;
     });
   }
 
@@ -282,7 +283,7 @@
           return fetch('/admin/api/media', {
             method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ data: full.data, thumb: th.data, width: full.width, height: full.height,
-              phash: fp ? fp.h : undefined, phash_m: fp ? fp.m : undefined, import: opts.import ? 1 : undefined }),
+              phash: fp ? fp.h : undefined, phash_m: fp ? fp.m : undefined, import: opts.import ? 1 : undefined, private: opts.private ? 1 : undefined }),
           }).then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || 'আপলোড হয়নি'); return j; }); });
         });
       });
@@ -304,7 +305,7 @@
     if (file) file.addEventListener('change', function () {
       if (!file.files[0]) return;
       busy(true, 'ছবি আপলোড হচ্ছে…');
-      upload(file.files[0], { max: 600, thumb: 160, square: true })
+      upload(file.files[0], { max: 600, thumb: 160, square: true, private: true })
         .then(function (j) { return save(j.id); })
         .then(function () { busy(true, '✅ ছবি সেভ হয়েছে'); location.reload(); }, fail)
         .then(function () { file.value = ''; });
