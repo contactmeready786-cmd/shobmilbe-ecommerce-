@@ -1,0 +1,27 @@
+# One-time: drives the Neon → Supabase move on the live site until it is finished
+# (so nobody has to keep a browser page open). Safe to run again: once the move is done it does nothing.
+name: Database move (Neon → Supabase)
+on:
+  workflow_dispatch:
+  push:
+    paths: ['.github/workflows/dbmove.yml']
+jobs:
+  move:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Copy everything, step by step
+        run: |
+          SITE="https://shobmilbe-ecommerce.vercel.app"
+          sleep 90   # let the latest deployment go live
+          for i in $(seq 1 1500); do
+            R=$(curl -s -m 30 -X POST "$SITE/__dbmove" || echo '{"error":"no answer"}')
+            echo "$i $R"
+            case "$R" in
+              *'"done":true'*) echo "FINISHED"; exit 0;;
+              *'"needKeys":true'*) echo "WAITING FOR IMAGEKIT KEYS"; sleep 30;;
+              *'"error"'*) sleep 10;;
+              '<'*) echo "SITE NOT IN MOVE MODE (already done or not on Supabase)"; exit 0;;
+            esac
+          done
+          exit 1
