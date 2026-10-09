@@ -247,17 +247,22 @@
         var img = new Image();
         img.onerror = function () { reject(new Error('bad image')); };
         img.onload = function () {
-          var scale = Math.min(1, max / Math.max(img.width, img.height));
-          var w = Math.round(img.width * scale);
-          var h = Math.round(img.height * scale);
+          // square: the middle of the picture, cut to a square (profile pictures)
+          var side = Math.min(img.width, img.height);
+          var sx = square ? Math.round((img.width - side) / 2) : 0;
+          var sy = square ? Math.round((img.height - side) / 2) : 0;
+          var sw = square ? side : img.width;
+          var sh = square ? side : img.height;
+          var scale = Math.min(1, max / Math.max(sw, sh));
+          var w = Math.round(sw * scale);
+          var h = Math.round(sh * scale);
           var canvas = document.createElement('canvas');
           canvas.width = w; canvas.height = h;
           var ctx = canvas.getContext('2d');
-          var png = file.type === 'image/png' || file.type === 'image/webp';
+          var png = !square && (file.type === 'image/png' || file.type === 'image/webp');
           if (!png) { ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, w, h); }
-          ctx.drawImage(img, 0, 0, w, h);
+          ctx.drawImage(img, sx, sy, sw, sh, 0, 0, w, h);
           resolve({ data: png ? canvas.toDataURL('image/png') : canvas.toDataURL('image/jpeg', quality), width: w, height: h, png: png });
-          void square;
         };
         img.src = reader.result;
       };
@@ -267,12 +272,12 @@
   function upload(file, opts) {
     opts = opts || {};
     var max = opts.max || 1200;
-    return resize(file, max, 0.82).then(function (full) {
+    return resize(file, max, 0.82, opts.square).then(function (full) {
       // Big PNGs (photos saved as PNG) become JPEG to stay small.
-      if (full.png && full.data.length > 900000) return resize(new File([file], 'x.jpg', { type: 'image/jpeg' }), max, 0.82);
+      if (full.png && full.data.length > 900000) return resize(new File([file], 'x.jpg', { type: 'image/jpeg' }), max, 0.82, opts.square);
       return full;
     }).then(function (full) {
-      return resize(file, opts.thumb || 420, 0.78).then(function (th) {
+      return resize(file, opts.thumb || 420, 0.78, opts.square).then(function (th) {
         return loadImage(th.data).then(fingerprint, function () { return null; }).then(function (fp) {
           return fetch('/admin/api/media', {
             method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
@@ -283,6 +288,33 @@
       });
     });
   }
+
+  // profile picture (owner and staff): uploads and saves at once; "মুছুন" removes it
+  $all('[data-avatar-pick]').forEach(function (box) {
+    var file = $('[data-avatar-file]', box);
+    var del = $('[data-avatar-remove]', box);
+    var msg = $('[data-avatar-msg]', box);
+    var action = box.getAttribute('data-action');
+    var save = function (id) {
+      return fetch(action, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify({ photo_id: id }) })
+        .then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || 'সেভ হয়নি'); return j; }); });
+    };
+    var busy = function (on, text) { box.classList.toggle('busy', on); if (msg) { msg.textContent = text || ''; msg.className = 'small muted'; } };
+    var fail = function (e) { box.classList.remove('busy'); if (msg) { msg.textContent = e.message; msg.className = 'small warn'; } };
+    if (file) file.addEventListener('change', function () {
+      if (!file.files[0]) return;
+      busy(true, 'ছবি আপলোড হচ্ছে…');
+      upload(file.files[0], { max: 600, thumb: 160, square: true })
+        .then(function (j) { return save(j.id); })
+        .then(function () { busy(true, '✅ ছবি সেভ হয়েছে'); location.reload(); }, fail)
+        .then(function () { file.value = ''; });
+    });
+    if (del) del.addEventListener('click', function () {
+      if (!confirm('প্রোফাইল ছবি মুছে ফেলবেন?')) return;
+      busy(true, 'মুছছে…');
+      save('').then(function () { location.reload(); }, fail);
+    });
+  });
 
   // single image pickers
   $all('[data-image-pick]').forEach(function (box) {
@@ -1326,20 +1358,21 @@
     var wait = function (ms) { return new Promise(function (r) { setTimeout(r, ms); }); };
     var status = $('[data-mp-status]', mp);
     var say = function (t, bad) { status.hidden = !t; status.innerHTML = t || ''; status.classList.toggle('warn', !!bad); };
-    var st = { list: [], max: 6, running: false, paused: false, done: 0, k: { done: 0, pics: 0, none: 0, error: 0 } };
+    var st = { list: [], max: 12, running: false, paused: false, done: 0, k: { added: 0, done: 0, pics: 0, none: 0, error: 0 } };
     var paint = function () {
       Object.keys(st.k).forEach(function (k) { var el = $('[data-mp-k="' + k + '"]', mp); if (el) el.textContent = bn(st.k[k]); });
       $('[data-mp-bar]', mp).style.width = (st.list.length ? Math.round(st.done * 100 / st.list.length) : 0) + '%';
-      $('[data-mp-count]', mp).textContent = bn(st.done) + ' / ' + bn(st.list.length) + ' টি পণ্য দেখা হয়েছে';
+      $('[data-mp-count]', mp).textContent = bn(st.done) + ' / ' + bn(st.list.length) + ' টি কাজ শেষ';
     };
     var logList = $('[data-mp-log]', mp);
     var log = function (p, cls, text) {
       $('[data-mp-log-title]', mp).hidden = false;
       var li = document.createElement('li');
       li.className = 'dup-item mp-row ' + cls;
+      var name = p.id ? '<a href="/admin/products/' + p.id + '" target="_blank" rel="noopener"><b>' + esc(p.name) + '</b></a>'
+        : (p.link ? '<a href="' + esc(p.link) + '" target="_blank" rel="noopener noreferrer"><b>' + esc(p.name || p.link) + '</b></a>' : '<b>' + esc(p.name) + '</b>');
       li.innerHTML = '<span class="dup-thumb">' + (p.thumb ? '<img src="' + esc(p.thumb) + '" alt="">' : '<span>📦</span>') + '</span>' +
-        '<div class="dup-info"><a href="/admin/products/' + p.id + '" target="_blank" rel="noopener"><b>' + esc(p.name) + '</b></a>' +
-        (p.sku ? ' <span class="small muted">SKU ' + esc(bn(p.sku)) + '</span>' : '') + '<span class="dup-why">' + text + '</span></div>';
+        '<div class="dup-info">' + name + (p.sku ? ' <span class="small muted">SKU ' + esc(bn(p.sku)) + '</span>' : '') + '<span class="dup-why">' + text + '</span></div>';
       if (cls === 'is-ok') logList.insertBefore(li, logList.firstChild); else logList.appendChild(li);
     };
 
@@ -1347,15 +1380,28 @@
     $('[data-mp-plan]', mp).addEventListener('click', function () {
       var btn = this;
       var url = ($('[data-mp-feed]', mp).value || '').trim();
+      var addNew = !!($('[name=mp_new]', mp) || {}).checked;
       if (!url) { say('ফিড লিংক দিন।', true); return; }
-      btn.disabled = true; say('⏳ ফিড পড়া হচ্ছে…');
+      btn.disabled = true; say('⏳ ফিড আর পুরোনো সাইটের পণ্যের তালিকা পড়া হচ্ছে… (এক মিনিট লাগতে পারে)');
       post('/admin/api/morepics/plan', { url: url, max: $('[data-mp-max]', mp).value }).then(function (j) {
         btn.disabled = false;
-        st.list = j.products; st.max = j.max;
-        say('✅ ফিডে ' + bn(j.feedItems) + 'টি পণ্য — এর মধ্যে দোকানে আছে ' + bn(j.matched) + 'টি' +
-          (j.full ? ', এগুলোর ' + bn(j.full) + 'টিতে আগে থেকেই যথেষ্ট ছবি আছে' : '') +
-          (j.notInShop ? ' (' + bn(j.notInShop) + 'টি এই দোকানে নেই — মুছে ফেলা বা আমদানি হয়নি)' : '') + '।');
-        $('[data-mp-found]', mp).textContent = bn(st.list.length) + 'টি পণ্যে ছবি খোঁজা হবে';
+        st.max = j.max;
+        // new products first (the most important), then pages only the sitemap knows, then more pictures
+        st.list = (addNew ? (j.missing || []).map(function (it) { return { kind: 'new', item: it }; })
+          .concat((j.extra || []).map(function (u) { return { kind: 'link', link: u }; })) : [])
+          .concat(j.products.map(function (p) { return { kind: 'pics', p: p }; }));
+        var t = '✅ পুরোনো সাইটে মোট <b>' + bn(j.oldTotal) + 'টি</b> পণ্য পাওয়া গেছে (ফিডে ' + bn(j.feedItems) + 'টি' +
+          (j.extra && j.extra.length ? ', ফিডের বাইরে সাইটে আরও ' + bn(j.extra.length) + 'টি' : '') + ')।<br>' +
+          'এই দোকানে আছে ' + bn(j.matched) + 'টি' + (j.full ? ' (' + bn(j.full) + 'টিতে আগে থেকেই সব ছবি আছে)' : '') + '। ' +
+          ((j.missing || []).length ? '<b>' + bn(j.missing.length) + 'টি নেই</b> — ' + (addNew ? 'এগুলো যোগ করা হবে।' : 'এগুলো যোগ করতে উপরের টিক দিন।') : 'ফিডের সব পণ্যই দোকানে আছে।') +
+          (j.extra && j.extra.length ? ' ফিডের বাইরের ' + bn(j.extra.length) + 'টি পেজ খুলে দেখা হবে — দোকানে না থাকলে যোগ হবে।' : '') +
+          (!j.sitemapRead ? '<br><span class="small">(পুরোনো সাইটের sitemap পড়া যায়নি — শুধু ফিডের পণ্য ধরা হয়েছে।)</span>' : '') +
+          ((j.inTrash || []).length ? '<br>🗑️ ' + bn(j.inTrash.length) + 'টি পণ্য আপনি মুছে ফেলেছিলেন (রিসাইকেল বিনে আছে), তাই আবার আনা হবে না — চাইলে <a href="/admin/trash">রিসাইকেল বিন</a> থেকে ফেরত আনুন।' : '');
+        say(t);
+        var tl = $('[data-mp-trash]', mp);
+        tl.innerHTML = (j.inTrash || []).map(function (x) { return '<li>🗑️ ' + esc(x.title) + '</li>'; }).join('');
+        tl.hidden = !(j.inTrash || []).length;
+        $('[data-mp-found]', mp).textContent = bn(st.list.length) + 'টি কাজ';
         $('[data-mp-step="2"]', mp).hidden = false;
         $('[data-mp-start]', mp).disabled = !st.list.length;
         st.done = 0; paint();
@@ -1369,18 +1415,25 @@
         return r.blob();
       }).then(function (blob) { return upload(blob, { max: 1200, import: true }); });
     };
+    var copyAll = function (urls) {
+      var ids = [];
+      return urls.reduce(function (c, u) {
+        return c.then(function () { return copyPic(u).then(function (j) { ids.push(j.id); }, function () { /* skipped */ }); });
+      }, Promise.resolve()).then(function () { return ids; });
+    };
+    // the same picture written two ways (…/a.webp and …/a.webp?w=600) counts once
+    var uniq = function (list) {
+      var seen = {};
+      return list.filter(function (u) { var k = String(u || '').split('?')[0].toLowerCase(); if (!u || seen[k]) return false; seen[k] = 1; return true; });
+    };
+    // more pictures for a product already in the shop
     var one = function (p) {
       return post('/admin/api/morepics/find', { link: p.link, main: p.main }).then(function (f) {
         if (f.error) { st.k.error++; log(p, 'is-warn', '⚠️ ' + esc(f.error)); return; }
         if (!f.confirmed) { st.k.error++; log(p, 'is-warn', '⚠️ ' + esc(f.note)); return; }
-        var need = Math.max(0, st.max - p.pics);
-        var pics = (f.images || []).slice(0, need + 3); // a few spare in case some are the same photo
+        var pics = uniq(f.images || []).slice(0, st.max + 3); // the whole old gallery (a few spare in case some are the same photo)
         if (!pics.length) { st.k.none++; return; }
-        var ids = [];
-        var chain = pics.reduce(function (c, u) {
-          return c.then(function () { return copyPic(u).then(function (j) { ids.push(j.id); }, function () { /* skipped */ }); });
-        }, Promise.resolve());
-        return chain.then(function () {
+        return copyAll(pics).then(function (ids) {
           if (!ids.length) { st.k.error++; log(p, 'is-warn', '⚠️ ছবিগুলো আনা যায়নি'); return; }
           return post('/admin/api/morepics/attach', { product_id: p.id, ids: ids, max: st.max }).then(function (r) {
             if (r.added) {
@@ -1391,6 +1444,54 @@
         });
       });
     };
+    // a product the shop doesn't have yet: saved with its main picture, then the rest of its gallery is added
+    // the same careful way as for the old products (same photo never twice, never another product's)
+    var addNew = function (it) {
+      var row = { name: it.title, link: it.link };
+      var feedPics = uniq(it.images || []);
+      var gallery = it.link ? post('/admin/api/morepics/find', { link: it.link, main: feedPics[0] || '' }).catch(function () { return {}; }) : Promise.resolve({});
+      return gallery.then(function (f) {
+        var found = f.confirmed ? uniq(f.images || []) : [];
+        var mainUrl = feedPics[0] || found[0] || '';
+        var rest = uniq(found.concat(feedPics.slice(1))).filter(function (u) { return u.split('?')[0] !== mainUrl.split('?')[0]; });
+        return copyAll(mainUrl ? [mainUrl] : []).then(function (mainIds) {
+          return post('/admin/api/import/save', { item: it, images: mainIds, allow_duplicate: 1,
+            options: { active: true, hide_no_image: true, cat_mode: 'auto', default_stock: 10, existing: 'skip' } }).then(function (r) {
+            if (r.result === 'exists') { st.k.none++; return; }
+            if (r.result === 'duplicate') {
+              st.k.error++;
+              log(row, 'is-warn', '⚠️ দোকানে একই রকম পণ্য আছে, তাই যোগ হয়নি' + (r.matches && r.matches[0] ? ' (মিলেছে: <a href="/admin/products/' + r.matches[0].id + '" target="_blank">' + esc(r.matches[0].name) + '</a>)' : '') + ' — দরকার হলে নিজে যোগ করুন');
+              return;
+            }
+            if (r.result !== 'added') { st.k.error++; log(row, 'is-warn', '⚠️ ' + esc(r.message || 'যোগ হয়নি')); return; }
+            st.k.added++;
+            row.id = r.id; row.sku = r.sku;
+            var more = rest.length ? copyAll(rest.slice(0, st.max + 3)).then(function (ids) {
+              return ids.length ? post('/admin/api/morepics/attach', { product_id: r.id, ids: ids, max: st.max }) : { added: 0, total: mainIds.length };
+            }) : Promise.resolve({ added: 0, total: mainIds.length });
+            return more.then(function (a) {
+              var total = a.total || mainIds.length;
+              st.k.pics += total;
+              log(row, 'is-ok', '🆕 নতুন পণ্য যোগ হয়েছে — ' + bn(total) + 'টি ছবিসহ' + (total || r.active ? '' : ' (ছবি না থাকায় দোকানে লুকানো)'));
+            });
+          });
+        });
+      });
+    };
+    // a page only the old site's sitemap knows: read it, then add it or fill its pictures
+    var fromLink = function (t) {
+      return post('/admin/api/morepics/page', { link: t.link }).then(function (r) {
+        if (r.error) { st.k.error++; log({ name: t.link, link: t.link }, 'is-warn', '⚠️ ' + esc(r.error)); return; }
+        if (r.trashed) { st.k.none++; log({ name: r.item.title, link: t.link }, 'is-skip', '🗑️ রিসাইকেল বিনে আছে — আনা হয়নি'); return; }
+        if (r.exists) {
+          if (r.exists.pics >= st.max) { st.k.none++; return; }
+          return one({ id: r.exists.id, name: r.exists.name, sku: r.exists.sku, thumb: r.exists.thumb, pics: r.exists.pics, link: r.item.link || t.link, main: (r.item.images || [])[0] || '' });
+        }
+        return addNew(r.item);
+      });
+    };
+    var run = function (t) { return t.kind === 'new' ? addNew(t.item) : t.kind === 'link' ? fromLink(t) : one(t.p); };
+    var label = function (t) { return t.kind === 'pics' ? t.p : t.kind === 'new' ? { name: t.item.title, link: t.item.link } : { name: t.link, link: t.link }; };
     var pauseBtn = $('[data-mp-pause]', mp);
     pauseBtn.addEventListener('click', function () {
       st.paused = !st.paused;
@@ -1409,17 +1510,17 @@
       var worker = function () {
         if (next >= st.list.length) return Promise.resolve();
         if (st.paused) return wait(500).then(worker);
-        var p = st.list[next++];
-        return one(p).catch(function (e) {
+        var t = st.list[next++];
+        return run(t).catch(function (e) {
           // one retry after a short wait (network blip)
-          return wait(2500).then(function () { return one(p); }).catch(function () { st.k.error++; log(p, 'is-warn', '⚠️ ' + esc(e.message || 'সমস্যা')); });
+          return wait(2500).then(function () { return run(t); }).catch(function () { st.k.error++; log(label(t), 'is-warn', '⚠️ ' + esc(e.message || 'সমস্যা')); });
         }).then(function () { st.done++; paint(); return worker(); });
       };
       Promise.all([worker(), worker()]).then(function () {
         st.running = false; pauseBtn.hidden = true;
         $('[data-mp-done]', mp).hidden = false;
-        $('[data-mp-warn]', mp).textContent = '✅ শেষ! ' + bn(st.k.done) + 'টি পণ্যে মোট ' + bn(st.k.pics) + 'টি নতুন ছবি বসেছে।' +
-          (st.k.none ? ' ' + bn(st.k.none) + 'টি পণ্যের পুরোনো পেজেও বাড়তি ছবি নেই — এগুলোতে চাইলে নিজে ছবি দিন।' : '');
+        $('[data-mp-warn]', mp).textContent = '✅ শেষ! ' + (st.k.added ? bn(st.k.added) + 'টি নতুন পণ্য যোগ হয়েছে। ' : '') + (st.k.done ? bn(st.k.done) + 'টি আগের পণ্যে নতুন ছবি বসেছে। ' : '') + 'মোট ' + bn(st.k.pics) + 'টি ছবি এসেছে।' +
+          (st.k.none ? ' ' + bn(st.k.none) + 'টি পণ্যে আগে থেকেই পুরোনো সাইটের সব ছবি ছিল (নতুন কিছু লাগেনি)।' : '') + (st.k.error ? ' ' + bn(st.k.error) + 'টিতে সমস্যা — নিচের তালিকায় দেখুন, পরে আবার চালালে বাকিগুলো হবে।' : '');
       });
     });
 
