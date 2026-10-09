@@ -318,6 +318,34 @@
   });
 
   // single image pickers
+  // After a picture is added or removed: say so clearly, and point at the form's save button.
+  function pickStatus(box, what) {
+    var st = $('[data-pick-status]', box);
+    if (st) {
+      st.className = 'pick-status ' + (what === 'added' ? 'is-added' : 'is-removed');
+      st.textContent = what === 'added' ? '✅ ছবি যোগ হয়েছে — সাইটে দেখাতে নিচের "সেভ করুন" চাপুন' : '🗑️ ছবি সরানো হবে — নিশ্চিত করতে "সেভ করুন" চাপুন';
+    }
+    var form = box.closest('form');
+    if (!form) return;
+    var save = $('.form-actions button, button[type="submit"], .btn-lg', form);
+    if (save) { save.classList.add('needs-save'); if (!save.getAttribute('data-orig')) { save.setAttribute('data-orig', save.textContent); } save.textContent = '💾 সেভ করুন (পরিবর্তন সেভ হয়নি)'; }
+    form.setAttribute('data-dirty', '1');
+  }
+  window.addEventListener('beforeunload', function (e) {
+    if (document.querySelector('form[data-dirty="1"]:not([data-submitting])')) { e.preventDefault(); e.returnValue = ''; }
+  });
+  document.addEventListener('submit', function (e) { if (e.target && e.target.setAttribute) e.target.setAttribute('data-submitting', '1'); }, true);
+
+  // owner-only secrets (e.g. the backup password): hidden until "দেখুন" is pressed
+  $all('[data-reveal-btn]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var c = b.parentNode.querySelector('[data-reveal]'); if (!c) return;
+      var shown = c.getAttribute('data-shown') === '1';
+      c.textContent = shown ? '••••••••••••••••' : c.getAttribute('data-reveal');
+      c.setAttribute('data-shown', shown ? '0' : '1'); b.textContent = shown ? '👁️ দেখুন' : '🙈 লুকান';
+    });
+  });
+
   $all('[data-image-pick]').forEach(function (box) {
     var file = $('[data-pick-file]', box);
     var value = $('[data-pick-value]', box);
@@ -333,11 +361,12 @@
         value.value = j.id;
         preview.innerHTML = '<img src="' + j.thumb + '" alt="">';
         if (clear) clear.hidden = false;
+        pickStatus(box, 'added');
       }).catch(function (e) {
         preview.innerHTML = '<span class="warn small">' + esc(e.message) + '</span>';
       }).then(function () { btns.forEach(function (b) { b.disabled = false; }); file.value = ''; });
     });
-    if (clear) clear.addEventListener('click', function () { value.value = ''; preview.innerHTML = '<span class="muted small">ছবি নেই</span>'; clear.hidden = true; });
+    if (clear) clear.addEventListener('click', function () { value.value = ''; preview.innerHTML = '<span class="muted small">ছবি নেই</span>'; clear.hidden = true; pickStatus(box, 'removed'); });
   });
 
   // product images: fixed numbered slots (slot 1 = main image)
