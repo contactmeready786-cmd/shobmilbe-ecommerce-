@@ -804,3 +804,9 @@ body.protect .card-pic img, body.protect .g-main img, body.protect .g-thumb img,
 .order-review-list details > summary::-webkit-details-marker { display: none; }
 .search-off { flex: 1; }
 @media (max-width: 760px) { .search-off { display: none; } }
+.pdp-warranty { display: inline-flex; align-items: center; gap: 6px; margin: 4px 0 8px; padding: 4px 12px; border-radius: 999px; background: #ecfdf5; color: #047857; font-weight: 600; font-size: .9rem; border: 1px solid #a7f3d0; }
+/* 🎞️ running slider: pictures move in from the right */
+.slider.fx-slide .slide { opacity: 1; transform: translateX(100%); transition: transform .75s cubic-bezier(.4, 0, .2, 1); }
+.slider.fx-slide .slide.on { transform: translateX(0); }
+.slider.fx-slide .slide.out { transform: translateX(-100%); }
+.slider.fx-slide .slides { background: #0f172a; }

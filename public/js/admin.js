@@ -87,6 +87,26 @@
     if (t) { t.value = b.getAttribute('data-ac-preset'); if (t.form) markChanged(t.form); t.focus(); }
   });
 
+  // ---------- product warranty: "নিজে লিখুন" shows a text box ----------
+  document.addEventListener('change', function (e) {
+    var sel = e.target.closest && e.target.closest('[data-warranty-sel]');
+    if (!sel) return;
+    var box = $('[data-warranty-custom]', sel.closest('[data-warranty]'));
+    if (box) { box.hidden = sel.value !== 'custom'; if (!box.hidden) { var i = $('input', box); if (i) i.focus(); } }
+  });
+
+  // ---------- running slider: live preview on its admin page ----------
+  $all('[data-sl-preview]').forEach(function (box) {
+    var track = $('.sl-track', box), n = track ? track.children.length : 0, k = 0;
+    if (n < 2) return;
+    var ms = (Number(box.getAttribute('data-interval')) || 4) * 1000;
+    setInterval(function () {
+      k = (k + 1) % n;
+      if (box.classList.contains('fx-fade')) $all('img', track).forEach(function (im, j) { im.style.opacity = j === k ? '1' : '0'; });
+      else track.style.transform = 'translateX(-' + (k * 100) + '%)';
+    }, ms);
+  });
+
   // ---------- side menu (phones) ----------
   document.addEventListener('click', function (e) {
     if (e.target.closest('[data-side-open]')) document.body.classList.add('side-open');

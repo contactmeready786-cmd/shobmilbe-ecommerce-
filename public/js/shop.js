@@ -315,20 +315,34 @@
     if (slides.length < 2) return;
     var i = 0;
     var timer;
+    var slideFx = sl.classList.contains('fx-slide');
+    var ms = Math.max(1, Number(sl.getAttribute('data-interval')) || 4) * 1000;
     function go(n) {
-      slides[i].classList.remove('on'); if (dots[i]) dots[i].classList.remove('on');
-      i = (n + slides.length) % slides.length;
+      var old = slides[i];
+      var next = (n + slides.length) % slides.length;
+      if (next === i) return;
+      if (dots[i]) dots[i].classList.remove('on');
+      if (slideFx) {
+        // the new picture comes in from the right, the old one moves out to the left
+        var nx = slides[next];
+        nx.style.transition = 'none'; nx.classList.remove('out'); void nx.offsetWidth; nx.style.transition = '';
+        old.classList.remove('on'); old.classList.add('out');
+        setTimeout(function () { old.style.transition = 'none'; old.classList.remove('out'); void old.offsetWidth; old.style.transition = ''; }, 800);
+      } else old.classList.remove('on');
+      i = next;
       slides[i].classList.add('on'); if (dots[i]) dots[i].classList.add('on');
     }
-    function auto() { clearInterval(timer); timer = setInterval(function () { go(i + 1); }, 5000); }
+    function auto() { clearInterval(timer); timer = setInterval(function () { if (!document.hidden) go(i + 1); }, ms); }
     dots.forEach(function (d) { d.addEventListener('click', function () { go(Number(d.getAttribute('data-dot'))); auto(); }); });
+    sl.addEventListener('mouseenter', function () { clearInterval(timer); });
+    sl.addEventListener('mouseleave', auto);
     var x0 = null;
-    sl.addEventListener('touchstart', function (e) { x0 = e.touches[0].clientX; }, { passive: true });
+    sl.addEventListener('touchstart', function (e) { x0 = e.touches[0].clientX; clearInterval(timer); }, { passive: true });
     sl.addEventListener('touchend', function (e) {
       if (x0 === null) return;
       var dx = e.changedTouches[0].clientX - x0;
-      if (Math.abs(dx) > 40) { go(i + (dx < 0 ? 1 : -1)); auto(); }
-      x0 = null;
+      if (Math.abs(dx) > 40) go(i + (dx < 0 ? 1 : -1));
+      x0 = null; auto();
     });
     auto();
   });
