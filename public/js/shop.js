@@ -651,7 +651,8 @@
       var g = fillGeo(form);
       if (!g) return;
       try {
-        var saved = JSON.parse(store('sm_customer') || 'null');
+        // logged-in customers already have their saved address filled in by the page
+        var saved = form.hasAttribute('data-account') ? null : JSON.parse(store('sm_customer') || 'null');
         if (saved) {
           ['name', 'phone', 'address'].forEach(function (k) { if (saved[k] && !form.elements[k].value) form.elements[k].value = saved[k]; });
           if (saved.district) { g.district.value = saved.district; g.district.dispatchEvent(new Event('change')); }
@@ -693,8 +694,9 @@
       var pts = pointsFor(subtotal - discount);
       var exact = Math.round((subtotal - discount - (state.usePoints ? pts.discount : 0) + (delivery || 0)) * 100) / 100;
       var total = Math.max(0, Math.round(exact)); // whole taka, same as the server
+      var gift = state.gift ? Math.min(state.gift.balance, total) : 0;
       return { subtotal: Math.round(subtotal * 100) / 100, delivery: delivery, discount: discount, points: state.usePoints ? pts : null, canPoints: pts,
-        total: total, roundOff: delivery === null ? 0 : Math.round((total - exact) * 100) / 100 };
+        total: total, roundOff: delivery === null ? 0 : Math.round((total - exact) * 100) / 100, gift: gift, due: Math.round((total - gift) * 100) / 100 };
     }
     function renderSummary() {
       if (!state.lines.length) {
@@ -709,17 +711,18 @@
       }).join('') + giftRows(state.gifts, 'div');
       summary.innerHTML = rows + '<div class="totals">' +
         '<div><span>পণ্যের দাম</span><span>' + money(t.subtotal) + '</span></div>' +
-        (t.discount ? '<div class="good"><span>কুপন ছাড় (' + esc(state.couponCode) + ')</span><span>− ' + money(t.discount) + '</span></div>' : '') +
+        (t.discount ? '<div class="good"><span>' + (state.coupon && state.coupon.referral ? 'রেফারেল ছাড়' : 'কুপন ছাড়') + ' (' + esc(state.couponCode) + ')</span><span>− ' + money(t.discount) + '</span></div>' : '') +
         (t.points && t.points.points ? '<div class="good"><span>পয়েন্ট ছাড় (' + bn(t.points.points) + ' পয়েন্ট)</span><span>− ' + money(t.points.discount) + '</span></div>' : '') +
         '<div><span>ডেলিভারি চার্জ</span><span>' + (t.delivery === null ? 'এলাকা বাছুন' : t.delivery ? money(t.delivery) : 'ফ্রি') + '</span></div>' +
         (t.roundOff ? '<div><span>রাউন্ড ফিগার</span><span>' + (t.roundOff > 0 ? '+ ' : '− ') + money(Math.abs(t.roundOff)) + '</span></div>' : '') +
-        '<div class="grand"><span>মোট</span><span>' + money(t.total) + '</span></div></div>' +
+        '<div class="grand"><span>মোট</span><span>' + money(t.total) + '</span></div>' +
+        (t.gift ? '<div class="good"><span>💳 গিফট কার্ড থেকে</span><span>− ' + money(t.gift) + '</span></div><div class="grand"><span>বাকি দিতে হবে</span><span>' + money(t.due) + '</span></div>' : '') + '</div>' +
         '<p class="small center"><a href="/cart">কার্ট এডিট করুন</a></p>';
       var z = zone();
       var wx = weightExtra();
       zoneNote.textContent = z ? (z.key === 'dhaka' ? '✓ ' : '') + z.name + ' — ডেলিভারি চার্জ ' + money(z.fee) + (wx ? ' + ভারী পার্সেলের জন্য ' + money(wx) : '') : '';
       var amt = $('[data-pay-amount]', form);
-      if (amt) amt.textContent = money(t.total);
+      if (amt) amt.textContent = money(t.gift ? t.due : t.total);
       var advAmt = $('[data-adv-amount]', form);
       if (advAmt) advAmt.textContent = t.delivery === null ? 'এলাকা বাছুন' : money(t.delivery || 0);
       var short = minShort(t.subtotal);
@@ -728,7 +731,7 @@
       mBox.hidden = !short;
       mBox.innerHTML = short ? '🔩 ' + esc(minNote(t.subtotal)) + ' <a href="/products">পণ্য দেখুন →</a>' : '';
       submit.disabled = !!short;
-      submit.textContent = short ? 'আরও ' + money(short) + ' এর পণ্য লাগবে' : 'অর্ডার কনফার্ম করুন · ' + money(t.total);
+      submit.textContent = short ? 'আরও ' + money(short) + ' এর পণ্য লাগবে' : 'অর্ডার কনফার্ম করুন · ' + money(t.gift ? t.due : t.total);
       renderPoints(t);
     }
     var ptsBox = $('[data-points]');
@@ -853,6 +856,41 @@
         }).catch(function () { cMsg.textContent = 'যাচাই করা যায়নি, আবার চেষ্টা করুন।'; });
     });
 
+    // a friend's referral link (?ref=…) filled the box: check it once the cart is loaded
+    var autoC = $('#coupon[data-auto-apply]', cBox);
+    if (autoC) setTimeout(function () { if (form.elements.phone.value) $('[data-apply-coupon]', cBox).click(); else { cMsg.textContent = 'বন্ধুর রেফারেল কোড বসানো আছে — মোবাইল নম্বর লিখে "প্রয়োগ" চাপুন।'; } }, 1500);
+    // 💳 gift card
+    var gBox = $('[data-gift]', checkout);
+    if (gBox) {
+      var gMsg = $('[data-gift-msg]', gBox);
+      $('[data-apply-gift]', gBox).addEventListener('click', function () {
+        var code = $('#giftcode', gBox).value.trim();
+        if (!code) { state.gift = null; gMsg.textContent = ''; renderSummary(); return; }
+        gMsg.textContent = 'যাচাই হচ্ছে…';
+        fetch('/api/giftcard', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: code }) })
+          .then(function (r) { return r.json(); })
+          .then(function (j) {
+            state.gift = j.ok ? { code: j.code, balance: Number(j.balance) } : null;
+            gMsg.className = 'small ' + (j.ok ? 'good' : 'warn');
+            gMsg.textContent = j.ok ? j.message + ' — এই অর্ডারে কাটা হবে।' : j.message;
+            renderSummary();
+          }).catch(function () { gMsg.textContent = 'যাচাই করা যায়নি, আবার চেষ্টা করুন।'; });
+      });
+    }
+    // 📍 a saved address (logged-in customers)
+    var sAddr = $('[data-saved-addr]', form);
+    if (sAddr) sAddr.addEventListener('change', function () {
+      var opt = sAddr.options[sAddr.selectedIndex];
+      var a = null; try { a = JSON.parse(opt.getAttribute('data-a') || 'null'); } catch (e) { a = null; }
+      if (!a) { ['address'].forEach(function (k) { form.elements[k].value = ''; }); form.elements.address.focus(); return; }
+      form.elements.name.value = a.name || form.elements.name.value; form.elements.phone.value = a.phone || form.elements.phone.value;
+      form.elements.address.value = a.address || '';
+      var dS = form.elements.district, tS = form.elements.thana;
+      dS.value = a.district; dS.dispatchEvent(new Event('change', { bubbles: true }));
+      tS.value = a.thana; tS.dispatchEvent(new Event('change', { bubbles: true }));
+      loadPoints();
+    });
+
     function showError(msg, field) {
       errorBox.textContent = msg;
       errorBox.hidden = false;
@@ -870,7 +908,7 @@
         payment: pay ? pay.value : 'cod', coupon: state.couponCode,
         trx: form.elements.trx ? form.elements.trx.value.trim() : '', payment_number: form.elements.payment_number ? form.elements.payment_number.value.trim() : '',
         items: state.lines.map(function (l) { return { id: l.product.id, qty: l.qty }; }),
-        use_points: state.usePoints ? '1' : '',
+        use_points: state.usePoints ? '1' : '', gift_code: state.gift ? state.gift.code : '',
       };
       if (minShort(totals().subtotal)) return showError(minNote(totals().subtotal));
       if (data.name.length < 2) return showError('আপনার নাম লিখুন।', 'name');
@@ -1384,4 +1422,57 @@
     rl.unshift(hereId);
     store(RKEY, JSON.stringify(rl.slice(0, 20)));
   }
+
+  // ---------- 👤 account: address forms, "order again", confirm, referral link ----------
+  $all('[data-geo-form]').forEach(function (f) { if (window.BD_GEO) fillGeo(f); else window.addEventListener('load', function () { fillGeo(f); }); });
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-reorder]');
+    if (!b) return;
+    var items = []; try { items = JSON.parse(b.getAttribute('data-reorder') || '[]'); } catch (err) { items = []; }
+    items.forEach(function (it) { add(String(it.id), Math.max(1, Number(it.qty) || 1), 0); });
+    location.href = '/cart';
+  });
+  $all('form[data-confirm-shop]').forEach(function (f) { f.addEventListener('submit', function (e) { if (!confirm(f.getAttribute('data-confirm-shop'))) e.preventDefault(); }); });
+  $all('[data-select-all]').forEach(function (i) { i.addEventListener('focus', function () { i.select(); }); });
+
+  // ---------- ↩️ return request: photos made small in the browser (max 4) ----------
+  var rp = $('[data-return-photos]');
+  if (rp) {
+    var rData = $('[data-return-photo-data]'), rThumbs = $('[data-return-thumbs]'), shots = [];
+    var shrink = function (file) {
+      return new Promise(function (ok) {
+        var img = new Image(), url = URL.createObjectURL(file);
+        img.onload = function () {
+          var k = Math.min(1, 1280 / Math.max(img.width, img.height)), c = document.createElement('canvas');
+          c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+          c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+          URL.revokeObjectURL(url); ok(c.toDataURL('image/jpeg', 0.8));
+        };
+        img.onerror = function () { URL.revokeObjectURL(url); ok(null); };
+        img.src = url;
+      });
+    };
+    rp.addEventListener('change', function () {
+      var files = Array.prototype.slice.call(rp.files || []).slice(0, 4 - shots.length);
+      Promise.all(files.map(shrink)).then(function (list) {
+        shots = shots.concat(list.filter(Boolean)).slice(0, 4);
+        rData.value = JSON.stringify(shots);
+        rThumbs.innerHTML = shots.map(function (d) { return '<img src="' + d + '" alt="">'; }).join('');
+        rp.value = '';
+      });
+    });
+  }
+
+  // ---------- 🎁 gift card balance check ----------
+  var gc = $('[data-gift-check]');
+  if (gc) gc.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var out = $('[data-gift-check-msg]');
+    out.textContent = 'দেখা হচ্ছে…';
+    fetch('/api/giftcard', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: gc.elements.code.value }) })
+      .then(function (r) { return r.json(); }).then(function (j) { out.textContent = j.message; out.className = 'small ' + (j.ok ? 'good' : 'warn'); })
+      .catch(function () { out.textContent = 'দেখা যায়নি।'; });
+  });
+  var gcc = $('[data-gift-custom]');
+  if (gcc) gcc.addEventListener('focus', function () { var r = $('input[name=amount][value=custom]'); if (r) r.checked = true; });
 })();

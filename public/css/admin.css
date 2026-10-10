@@ -1080,3 +1080,16 @@ tr.row-edit td { background: #eff6ff; }
 .var-pic-row { display: flex; flex-wrap: wrap; gap: 8px; }
 .var-pic-row figure { margin: 0; text-align: center; }
 .var-pic-row img { width: 64px; height: 64px; object-fit: cover; border-radius: 8px; border: 1px solid var(--line); }
+
+/* ---------- returns / questions / gift cards ---------- */
+.ret-photos { display: flex; gap: 8px; flex-wrap: wrap; }
+.ret-photos img { width: 120px; height: 120px; object-fit: cover; border-radius: 10px; border: 1px solid var(--line); }
+.qa-admin .qa-item { position: relative; }
+.qa-head { display: flex; gap: 10px; align-items: center; margin-bottom: 8px; }
+.qa-head .thumb img, .qa-head .thumb span { width: 44px; height: 44px; object-fit: cover; border-radius: 8px; display: grid; place-items: center; }
+.qa-head .pill { margin-left: auto; }
+.qa-del { position: absolute; right: 14px; bottom: 14px; }
+.pill-warn { background: #FFF4DC; color: #8A5A00; }
+.pill-ok { background: var(--green-l, #E5F5EC); color: #0d5c35; }
+.pill-blue { background: #E6F0FC; color: #0B57B5; }
+.panel-inner { background: var(--paper, #F3F6FA); padding: 10px 12px; border-radius: 10px; }
