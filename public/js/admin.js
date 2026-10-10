@@ -57,6 +57,36 @@
     });
   })();
 
+
+  // ---------- DNS record form: show only the boxes the chosen type needs ----------
+  var dnsForm = $('[data-dns-form]');
+  if (dnsForm) (function () {
+    var sel = $('[data-dns-type]', dnsForm), help = $('[data-dns-help]', dnsForm), texts = {};
+    try { texts = JSON.parse(dnsForm.getAttribute('data-help') || '{}'); } catch (_) {}
+    var paint = function () {
+      var t = sel.value;
+      $all('[data-dns-show]', dnsForm).forEach(function (el) {
+        var on = el.getAttribute('data-dns-show').split(' ').indexOf(t) !== -1;
+        el.hidden = !on;
+        $all('input, textarea, select', el).forEach(function (i) { i.disabled = !on; });
+      });
+      if (help) help.textContent = texts[t] || '';
+      var c = dnsForm.elements.content;
+      if (c) c.placeholder = t === 'A' ? '76.76.21.21' : t === 'AAAA' ? '2001:db8::1' : t === 'CNAME' ? 'cname.vercel-dns.com' : t === 'MX' ? 'mail.example.com' : t === 'TXT' ? 'google-site-verification=…' : t === 'NS' ? 'ns1.example.com' : t === 'CAA' ? '0 issue "letsencrypt.org"' : '';
+      if (t === 'SRV' && dnsForm.elements.name && dnsForm.elements.name.value === '@') dnsForm.elements.name.value = '_sip._tcp';
+    };
+    sel.addEventListener('change', paint);
+    paint();
+  })();
+
+  // ---------- অটো কল: sample messages fill the message box ----------
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('[data-ac-preset]');
+    if (!b) return;
+    var t = $('[data-ac-msg]');
+    if (t) { t.value = b.getAttribute('data-ac-preset'); if (t.form) markChanged(t.form); t.focus(); }
+  });
+
   // ---------- side menu (phones) ----------
   document.addEventListener('click', function (e) {
     if (e.target.closest('[data-side-open]')) document.body.classList.add('side-open');
@@ -1098,7 +1128,8 @@
     var box = $('[data-repeat="' + b.getAttribute('data-repeat-add') + '"]');
     var last = box.lastElementChild;
     var copy = last.cloneNode(true);
-    $all('input', copy).forEach(function (i) { i.value = ''; });
+    $all('input, textarea', copy).forEach(function (i) { i.value = ''; });
+    $all('select', copy).forEach(function (sel) { sel.selectedIndex = 0; });
     box.appendChild(copy);
   });
 

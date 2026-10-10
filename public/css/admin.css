@@ -970,3 +970,50 @@ tr.row-off .inv-act { background: #f6f7f9; }
 #restock h2 { padding: 14px 16px 0; }
 #restock .form-actions { padding: 10px 16px 14px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
 .item-rows .btn-danger, .bundle-rows .btn { white-space: nowrap; }
+
+/* ---------- DNS records page ---------- */
+.dns-zone-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.dns-zone-row form { margin: 0; }
+.dns-preset-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.dns-preset-row form { margin: 0; }
+@media (min-width: 1000px) { .dns-cols { grid-template-columns: 1.7fr 1fr; } }
+.dns-table td { vertical-align: top; }
+.dns-table .dns-name { max-width: 180px; word-break: break-all; }
+.dns-table .dns-content { max-width: 300px; }
+.dns-table .dns-content code { word-break: break-all; font-size: 12px; white-space: normal; }
+.dns-type { display: inline-block; min-width: 46px; text-align: center; padding: 2px 6px; border-radius: 6px; font: 700 11.5px/1.6 ui-monospace, monospace; background: #eef2ff; color: #3730a3; }
+.dns-type.t-TXT { background: #ecfdf5; color: #047857; } .dns-type.t-CNAME { background: #fff7ed; color: #c2410c; } .dns-type.t-MX { background: #fdf2f8; color: #be185d; }
+.dns-proxy { margin: 0; }
+.proxy-btn { border: 1px solid var(--line); background: #fff; border-radius: 999px; padding: 3px 10px; font-size: 12px; cursor: pointer; white-space: nowrap; }
+.proxy-btn.on { background: #fff7ed; border-color: #fdba74; color: #c2410c; }
+.dns-table .prod-actions { display: flex; gap: 6px; }
+.dns-table .prod-actions form { margin: 0; }
+tr.row-edit td { background: #eff6ff; }
+.dns-form [hidden] { display: none !important; }
+.dns-type-help { margin: -4px 0 4px; }
+.dns-sec { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; align-items: end; }
+.dns-sec .field { margin: 0; }
+
+/* ---------- tracking page: what is set up, at a glance ---------- */
+.trk-status { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 14px; }
+.trk-chip { padding: 5px 10px; border-radius: 999px; border: 1px solid var(--line); background: #fff; font-size: 12.5px; text-decoration: none; color: var(--ink-2, #334155); }
+.trk-chip.on { background: #f0fdf4; border-color: #bbf7d0; color: #166534; }
+.sc-row { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; margin-bottom: 10px; background: #fbfcfe; display: block; }
+.sc-row .field-row { margin-bottom: 4px; }
+#fb, #tt, #gg, #scripts { scroll-margin-top: 80px; }
+
+/* ---------- 📞 auto call ---------- */
+.ac-presets { margin: -4px 0 8px; }
+.ac-hook { word-break: break-all; display: inline-block; padding: 6px 8px; }
+.ac-test { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.ac-test input { max-width: 220px; padding: 8px 12px; border: 2px solid var(--line); border-radius: 8px; font: inherit; }
+.ac-box { padding: 10px 16px; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; }
+.ac-box h2 { margin: 0; font-size: 1rem; }
+.ac-box p { margin: 0; }
+.ac-box form { margin: 0 0 0 auto; }
+/* VAT paperwork shortcuts */
+.vat-docs { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-bottom: 14px; }
+.vat-doc { display: grid; gap: 2px; padding: 10px 14px; border: 1px solid var(--line); border-radius: 12px; background: #fff; text-decoration: none; color: inherit; border-left: 4px solid #2563eb; }
+.vat-doc b { font-size: 15px; } .vat-doc span { font-size: 12.5px; color: var(--muted, #6b7280); }
+.vat-doc:hover { background: #f5f9ff; }
+.vat-return td:first-child { width: 60px; }
