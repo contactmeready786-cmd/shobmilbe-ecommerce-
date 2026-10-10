@@ -1,0 +1,135 @@
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.13/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preAdminReleaseBuild UP-TO-DATE
+> Task :app:mergeAdminReleaseJniLibFolders
+> Task :app:mergeAdminReleaseNativeLibs NO-SOURCE
+> Task :app:stripAdminReleaseDebugSymbols NO-SOURCE
+> Task :app:extractAdminReleaseNativeSymbolTables NO-SOURCE
+> Task :app:mergeAdminReleaseNativeDebugMetadata NO-SOURCE
+> Task :app:mergeAdminReleaseArtProfile
+> Task :app:desugarAdminReleaseFileDependencies
+> Task :app:generateAdminReleaseBuildConfig
+> Task :app:javaPreCompileAdminRelease
+> Task :app:checkAdminReleaseAarMetadata
+> Task :app:generateAdminReleaseResValues
+> Task :app:mapAdminReleaseSourceSetPaths
+> Task :app:generateAdminReleaseResources
+> Task :app:packageAdminReleaseResources
+> Task :app:createAdminReleaseCompatibleScreenManifests
+> Task :app:extractDeepLinksAdminRelease
+> Task :app:mergeAdminReleaseResources
+> Task :app:parseAdminReleaseLocalResources
+> Task :app:processAdminReleaseMainManifest
+> Task :app:processAdminReleaseManifest
+> Task :app:mergeAdminReleaseStartupProfile
+> Task :app:processAdminReleaseManifestForPackage
+> Task :app:checkAdminReleaseDuplicateClasses
+> Task :app:processAdminReleaseResources
+> Task :app:mergeExtDexAdminRelease
+> Task :app:compileAdminReleaseJavaWithJavac
+> Task :app:dexBuilderAdminRelease
+> Task :app:mergeAdminReleaseGlobalSynthetics
+> Task :app:mergeAdminReleaseShaders
+> Task :app:compileAdminReleaseShaders NO-SOURCE
+> Task :app:generateAdminReleaseAssets UP-TO-DATE
+> Task :app:mergeAdminReleaseAssets
+> Task :app:compressAdminReleaseAssets
+> Task :app:extractAdminReleaseVersionControlInfo
+> Task :app:processAdminReleaseJavaRes NO-SOURCE
+> Task :app:collectAdminReleaseDependencies
+> Task :app:mergeAdminReleaseJavaResource
+> Task :app:sdkAdminReleaseDependencyData
+> Task :app:writeAdminReleaseAppMetadata
+> Task :app:mergeDexAdminRelease
+> Task :app:writeAdminReleaseSigningConfigVersions
+> Task :app:compileAdminReleaseArtProfile
+> Task :app:preCustomerReleaseBuild UP-TO-DATE
+> Task :app:mergeCustomerReleaseJniLibFolders
+> Task :app:mergeCustomerReleaseNativeLibs NO-SOURCE
+> Task :app:stripCustomerReleaseDebugSymbols NO-SOURCE
+> Task :app:extractCustomerReleaseNativeSymbolTables NO-SOURCE
+> Task :app:mergeCustomerReleaseNativeDebugMetadata NO-SOURCE
+> Task :app:mergeCustomerReleaseArtProfile
+> Task :app:desugarCustomerReleaseFileDependencies
+> Task :app:generateCustomerReleaseBuildConfig
+> Task :app:javaPreCompileCustomerRelease
+> Task :app:optimizeAdminReleaseResources
+> Task :app:checkCustomerReleaseAarMetadata
+> Task :app:generateCustomerReleaseResValues
+> Task :app:mapCustomerReleaseSourceSetPaths
+> Task :app:generateCustomerReleaseResources
+> Task :app:packageAdminRelease
+> Task :app:createAdminReleaseApkListingFileRedirect
+> Task :app:assembleAdminRelease
+> Task :app:packageCustomerReleaseResources
+> Task :app:createCustomerReleaseCompatibleScreenManifests
+> Task :app:extractDeepLinksCustomerRelease
+> Task :app:parseCustomerReleaseLocalResources
+> Task :app:mergeCustomerReleaseResources
+> Task :app:processCustomerReleaseMainManifest
+> Task :app:processCustomerReleaseManifest
+> Task :app:processCustomerReleaseManifestForPackage
+> Task :app:checkCustomerReleaseDuplicateClasses
+> Task :app:mergeCustomerReleaseStartupProfile
+> Task :app:processCustomerReleaseResources
+> Task :app:mergeExtDexCustomerRelease
+
+> Task :app:compileCustomerReleaseJavaWithJavac
+Note: /home/runner/work/shobmilbe-ecommerce-/shobmilbe-ecommerce-/android/app/src/customer/java/com/shobmilbe/app/MainActivity.java uses or overrides a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+
+> Task :app:dexBuilderCustomerRelease
+> Task :app:mergeCustomerReleaseGlobalSynthetics
+> Task :app:mergeCustomerReleaseShaders
+> Task :app:compileCustomerReleaseShaders NO-SOURCE
+> Task :app:generateCustomerReleaseAssets UP-TO-DATE
+> Task :app:mergeCustomerReleaseAssets
+> Task :app:compressCustomerReleaseAssets
+> Task :app:extractCustomerReleaseVersionControlInfo
+> Task :app:processCustomerReleaseJavaRes NO-SOURCE
+> Task :app:collectCustomerReleaseDependencies
+> Task :app:sdkCustomerReleaseDependencyData
+> Task :app:writeCustomerReleaseAppMetadata
+> Task :app:writeCustomerReleaseSigningConfigVersions
+> Task :app:processApplicationManifestAdminReleaseForBundle
+> Task :app:optimizeCustomerReleaseResources
+> Task :app:configureAdminReleaseDependencies
+> Task :app:parseAdminReleaseIntegrityConfig
+> Task :app:mergeCustomerReleaseJavaResource
+> Task :app:processApplicationManifestCustomerReleaseForBundle
+> Task :app:configureCustomerReleaseDependencies
+> Task :app:parseCustomerReleaseIntegrityConfig
+> Task :app:bundleAdminReleaseResources
+> Task :app:buildAdminReleasePreBundle
+> Task :app:bundleCustomerReleaseResources
+> Task :app:packageAdminReleaseBundle
+> Task :app:signAdminReleaseBundle
+> Task :app:produceAdminReleaseBundleIdeListingFile
+> Task :app:createAdminReleaseBundleListingFileRedirect
+> Task :app:bundleAdminRelease
+> Task :app:mergeDexCustomerRelease
+> Task :app:buildCustomerReleasePreBundle
+> Task :app:compileCustomerReleaseArtProfile
+> Task :app:packageCustomerReleaseBundle
+> Task :app:packageCustomerRelease
+> Task :app:createCustomerReleaseApkListingFileRedirect
+> Task :app:assembleCustomerRelease
+> Task :app:assembleRelease
+> Task :app:signCustomerReleaseBundle
+> Task :app:produceCustomerReleaseBundleIdeListingFile
+> Task :app:createCustomerReleaseBundleListingFileRedirect
+> Task :app:bundleCustomerRelease
+> Task :app:bundleRelease
+gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/__run-1791645156132.json
+
+[Incubating] Problems report is available at: file:///home/runner/work/shobmilbe-ecommerce-/shobmilbe-ecommerce-/android/build/reports/problems/problems-report.html
+
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
+
+You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+
+For more on this, please refer to https://docs.gradle.org/8.13/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+
+BUILD SUCCESSFUL in 30s
+94 actionable tasks: 94 executed
