@@ -17,11 +17,16 @@ android {
         versionName project.property('appVersionName')
         manifestPlaceholders = [host: host]
         resValue 'string', 'asset_statements', assetStatements
+        buildConfigField 'String', 'SITE_HOST', '"' + host + '"'
+    }
+
+    buildFeatures {
+        buildConfig true
     }
 
     flavorDimensions = ['role']
     productFlavors {
-        // Customer shop app — goes to Google Play.
+        // Customer shop app — goes to Google Play. Has its own built-in browser so it is ALWAYS mobile view.
         customer {
             dimension 'role'
             applicationId 'com.shobmilbe.app'
@@ -53,5 +58,9 @@ android {
 }
 
 dependencies {
-    implementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.5.0'
+    // Admin app: runs inside the phone's Chrome (passkeys, fingerprint, camera scan)
+    adminImplementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.5.0'
+    // Customer app: its own built-in browser, always mobile view
+    customerImplementation 'androidx.core:core:1.13.1'
+    customerImplementation 'androidx.work:work-runtime:2.9.1'
 }

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="ShopTheme" parent="@android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@drawable/splash_screen</item>
+        <item name="android:colorPrimary">@color/primary</item>
+        <item name="android:colorAccent">@color/primary</item>
+        <item name="android:statusBarColor">@android:color/white</item>
+        <item name="android:navigationBarColor">@android:color/white</item>
+    </style>
+    <string name="offers_channel">অফার ও ছাড়</string>
+    <string name="offline_title">ইন্টারনেট সংযোগ নেই</string>
+    <string name="open_failed">এই লিংকটা খোলার মতো অ্যাপ ফোনে নেই</string>
+</resources>
