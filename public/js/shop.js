@@ -158,6 +158,29 @@
     } else if (t.event === 'search') track('search', { q: t.q });
   }
 
+  // ---------- phone stuck in Chrome's "Desktop site" mode (app or browser) → show how to fix ----------
+  (function () {
+    try {
+      var sw = Math.min(screen.width || 0, screen.height || 0);
+      var phone = sw > 0 && sw <= 600 && (navigator.maxTouchPoints || 0) > 0;
+      if (!phone || window.innerWidth < 900) return;
+      try { var until = Number(localStorage.getItem('sm_dsk_hint') || 0); if (until > Date.now()) return; } catch (e) {}
+      var k = window.innerWidth / (screen.width || sw); // page is shrunk by this much → enlarge the notice back
+      var box = document.createElement('div');
+      box.className = 'dsk-hint';
+      box.style.fontSize = Math.round(15 * k) + 'px';
+      box.innerHTML = '<b>আপনার ফোনের Chrome-এ "ডেস্কটপ সাইট" চালু আছে, তাই সব ছোট দেখাচ্ছে।</b>' +
+        '<span>ঠিক করতে: ফোনের <b>Chrome</b> অ্যাপ খুলুন → উপরে ডানে <b>⋮</b> → <b>ডেস্কটপ সাইট</b>-এর টিক তুলে দিন। ' +
+        'না পেলে: Chrome → ⋮ → Settings → Site settings → Desktop site → বন্ধ করুন। তারপর এই অ্যাপ/পেজটা বন্ধ করে আবার খুলুন।</span>' +
+        '<button type="button">বুঝেছি</button>';
+      box.querySelector('button').addEventListener('click', function () {
+        box.remove();
+        try { localStorage.setItem('sm_dsk_hint', String(Date.now() + 3 * 864e5)); } catch (e) {}
+      });
+      (document.body || document.documentElement).appendChild(box);
+    } catch (e) {}
+  })();
+
   // ---------- copy protection ----------
   if (SM.protect) {
     var editable = function (el) { return el && el.closest && el.closest('input, textarea, select, [contenteditable]'); };

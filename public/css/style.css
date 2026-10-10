@@ -908,3 +908,7 @@ body.protect .card-pic img, body.protect .g-main img, body.protect .g-thumb img,
 .pdp-tools { margin: 6px 0 0; font-size: .9rem; }
 .pdp-tools .compare-btn { color: var(--blue); }
 .pdp-tools .compare-btn.on { font-weight: 700; }
+/* notice for phones stuck in Chrome "Desktop site" mode (size set from JS so it reads normally) */
+.dsk-hint { position: fixed; left: 2%; right: 2%; bottom: 2%; z-index: 120; background: #14213d; color: #fff; border-radius: .8em; padding: .9em 1em; box-shadow: 0 .4em 1.6em rgba(0,0,0,.3); line-height: 1.5; display: flex; flex-direction: column; gap: .5em; }
+.dsk-hint span { opacity: .92; }
+.dsk-hint button { align-self: flex-end; background: #f5a524; color: #14213d; border: 0; border-radius: .5em; padding: .45em 1.2em; font: inherit; font-weight: 700; cursor: pointer; }
