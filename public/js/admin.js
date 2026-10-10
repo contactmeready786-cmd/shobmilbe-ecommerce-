@@ -107,6 +107,145 @@
     }, ms);
   });
 
+  // ---------- ইনভয়েস ও চেকলিস্ট: the sample beside the form follows every change at once ----------
+  var docForm = $('[data-doc-form]');
+  if (docForm) (function () {
+    var frame = $('[data-doc-preview]'), t = null, n = 0;
+    var fit = function () { try { var d = frame.contentDocument; if (d && d.body) frame.style.height = Math.max(400, d.documentElement.scrollHeight + 10) + 'px'; } catch (_) {} };
+    frame.addEventListener('load', fit);
+    var redraw = function () {
+      var my = ++n;
+      var body = new URLSearchParams(new FormData(docForm)); body.delete('reset');
+      fetch(location.pathname + '/preview', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: body.toString() })
+        .then(function (r) { return r.ok ? r.text() : null; }).then(function (h) { if (h && my === n) frame.srcdoc = h; }).catch(function () {});
+    };
+    docForm.addEventListener('input', function () { clearTimeout(t); t = setTimeout(redraw, 450); });
+    docForm.addEventListener('change', function () { clearTimeout(t); t = setTimeout(redraw, 150); });
+  })();
+
+
+  // ---------- 📦 কুরিয়ারে হ্যান্ডওভার: scan → check → hand over ----------
+  var ho = $('[data-handover]');
+  if (ho) (function () {
+    var input = $('[data-ho-input]', ho), msg = $('[data-ho-msg]', ho), box = $('[data-ho-order]', ho);
+    var verifyEl = $('[data-ho-verify]', ho), autoEl = $('[data-ho-auto]', ho);
+    var current = null, counts = {};
+    try { verifyEl.checked = localStorage.getItem('sm_ho_verify') === '1'; autoEl.checked = localStorage.getItem('sm_ho_auto') === '1'; } catch (_) {}
+    verifyEl.addEventListener('change', function () { try { localStorage.setItem('sm_ho_verify', verifyEl.checked ? '1' : '0'); } catch (_) {} if (current) draw(); });
+    autoEl.addEventListener('change', function () { try { localStorage.setItem('sm_ho_auto', autoEl.checked ? '1' : '0'); } catch (_) {} });
+    var beep = function (ok) { if (window.SMScan) window.SMScan.beep(ok); };
+    var say = function (t, kind) { msg.textContent = t || ''; msg.className = 'ho-msg ' + (kind || ''); };
+    var post = function (url, data) {
+      return fetch(url, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify(data) })
+        .then(function (r) { return r.json().then(function (j) { j.status = r.status; return j; }); });
+    };
+    var allPacked = function () { return current && current.items.every(function (it) { return (counts[it.product_id] || 0) >= it.qty; }); };
+    function draw() {
+      if (!current) { box.innerHTML = ''; return; }
+      var o = current, verify = verifyEl.checked;
+      var done = allPacked();
+      box.innerHTML = '<div class="ho-card ' + (o.ready ? '' : 'not-ready') + '">' +
+        '<div class="ho-head"><div><b class="ho-code">' + esc(o.code) + '</b> <span class="pill">' + esc(o.status_text) + '</span><br><b>' + esc(o.customer) + '</b> · ' + esc(o.phone) +
+        '<br><span class="small muted">' + esc(o.address) + (o.area ? ', ' + esc(o.area) : '') + '</span></div>' +
+        '<div class="ho-due"><span>নিতে হবে</span><b>' + money(o.due) + '</b>' + (o.courier ? '<small>' + esc(o.courier) + (o.consignment ? ' · ' + esc(o.consignment) : '') + '</small>' : '') + '</div></div>' +
+        '<ul class="ho-items">' + o.items.map(function (it) {
+          var c = counts[it.product_id] || 0, ok = c >= it.qty, over = c > it.qty;
+          return '<li class="' + (verify ? (over ? 'over' : ok ? 'ok' : '') : '') + '">' + (it.image ? '<img src="' + esc(it.image) + '" alt="">' : '<span class="ho-pe">📦</span>') +
+            '<span class="ho-n"><b>' + esc(it.name) + '</b><small>' + (it.barcode ? esc(it.barcode) : 'বারকোড নেই') + (it.sku ? ' · SKU ' + esc(it.sku) : '') + '</small></span>' +
+            '<span class="ho-q">' + (verify ? bn(c) + ' / ' : '× ') + bn(it.qty) + (verify ? (over ? ' ⚠️' : ok ? ' ✅' : '') : '') + '</span></li>';
+        }).join('') + '</ul>' +
+        (verify && !done ? '<p class="ho-hint">👉 বক্সের প্রতিটা পণ্যের বারকোড স্ক্যান করুন</p>' : '') +
+        '<div class="ho-actions">' + (o.status === 'shipped' ? '<p class="ho-msg ok">✅ এটা আগেই কুরিয়ারে দেওয়া হয়েছে।</p>' :
+          '<button type="button" class="btn btn-lg ' + (verify && !done ? 'btn-ghost' : '') + '" data-ho-hand>' + (verify && !done ? 'যাচাই ছাড়াই হ্যান্ডওভার' : '✅ কুরিয়ারে হ্যান্ডওভার') + '</button>') +
+        '<a class="btn btn-ghost" href="/admin/orders/' + o.id + '" target="_blank">অর্ডার খুলুন</a><button type="button" class="link-btn" data-ho-clear>পরেরটা স্ক্যান করুন</button></div></div>';
+    }
+    function hand(force) {
+      if (!current) return;
+      post('/admin/api/handover', { code: current.code, force: !!force, verified: verifyEl.checked && allPacked() }).then(function (j) {
+        if (j.ok) { beep(true); say(j.message, 'ok'); addToday(current); current = null; counts = {}; draw(); input.value = ''; input.focus(); return; }
+        if (j.pending && confirm(j.error)) return hand(true);
+        beep(false); say(j.error || 'হলো না', 'bad');
+      }).catch(function () { beep(false); say('সংযোগে সমস্যা — আবার চেষ্টা করুন', 'bad'); });
+    }
+    function addToday(o) {
+      var t = $('[data-ho-today]'); if (!t) return;
+      var tb = $('tbody', t);
+      if (!tb) { t.innerHTML = '<table class="table compact"><thead><tr><th>সময়</th><th>অর্ডার</th><th>কাস্টমার</th><th class="num">নিতে হবে</th><th>কে দিল</th><th></th></tr></thead><tbody></tbody></table>'; tb = $('tbody', t); }
+      var tr = document.createElement('tr');
+      tr.innerHTML = '<td class="small">এইমাত্র</td><td><a href="/admin/orders/' + o.id + '"><b>' + esc(o.code) + '</b></a></td><td>' + esc(o.customer) + '</td><td class="num">' + money(o.due) + '</td><td class="small">আপনি</td><td><button type="button" class="link-btn small" data-ho-undo="' + esc(o.code) + '">↩️ ভুল হয়েছে</button></td>';
+      tb.insertBefore(tr, tb.firstChild);
+    }
+    function scan(code) {
+      code = String(code || '').trim();
+      if (!code) return;
+      // a product barcode while an order is open → packing check
+      if (current) {
+        var up = code.toUpperCase();
+        var line = current.items.filter(function (it) { return it.barcode && it.barcode.toUpperCase() === up; })[0];
+        if (line) {
+          counts[line.product_id] = (counts[line.product_id] || 0) + 1;
+          var over = counts[line.product_id] > line.qty;
+          beep(!over); say(over ? '⚠️ "' + line.name + '" বেশি হয়ে গেছে (' + bn(counts[line.product_id]) + ' / ' + bn(line.qty) + ')' : '✔ ' + line.name, over ? 'bad' : 'ok');
+          if (!verifyEl.checked) { verifyEl.checked = true; }
+          draw();
+          if (allPacked()) { say('✅ সব পণ্য মিলেছে — এখন হ্যান্ডওভার চাপুন', 'ok'); if (autoEl.checked) hand(false); }
+          return;
+        }
+        if (up === current.code.toUpperCase()) { if (!verifyEl.checked || allPacked()) hand(false); return; }
+      }
+      say('খোঁজা হচ্ছে…', '');
+      getJSON('/admin/api/handover?code=' + encodeURIComponent(code)).then(function (j) {
+        if (!j.ok && j.product && current) { beep(false); say('❌ "' + j.product.name + '" এই অর্ডারে নেই! বক্স থেকে সরান।', 'bad'); return; }
+        if (!j.ok) { beep(false); say(j.error, 'bad'); return; }
+        current = j.order; counts = {};
+        beep(true); draw();
+        if (current.status === 'shipped') { say('এটা আগেই কুরিয়ারে দেওয়া হয়েছে।', 'bad'); return; }
+        if (!current.ready) { say('⚠️ এই অর্ডারের অবস্থা "' + current.status_text + '"', 'bad'); return; }
+        if (autoEl.checked && !verifyEl.checked) hand(false);
+        else say(verifyEl.checked ? 'এখন বক্সের প্রতিটা পণ্যের বারকোড স্ক্যান করুন' : 'ঠিক থাকলে "কুরিয়ারে হ্যান্ডওভার" চাপুন', '');
+      }, function (e) { beep(false); say(current ? '❌ "' + code + '" — এই অর্ডারের কোনো পণ্যের সাথে মেলেনি' : (e.message || 'পাওয়া যায়নি'), 'bad'); });
+    }
+    input.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); var v = input.value; input.value = ''; scan(v); } });
+    $('[data-ho-go]', ho).addEventListener('click', function () { var v = input.value; input.value = ''; scan(v); input.focus(); });
+    ho.addEventListener('click', function (e) {
+      if (e.target.closest('[data-ho-hand]')) {
+        if (verifyEl.checked && !allPacked() && !confirm('সব পণ্যের বারকোড এখনো মেলেনি। তবুও হ্যান্ডওভার করবেন?')) return;
+        hand(false);
+      }
+      if (e.target.closest('[data-ho-clear]')) { current = null; counts = {}; draw(); say(''); input.focus(); }
+    });
+    document.addEventListener('click', function (e) {
+      var u = e.target.closest && e.target.closest('[data-ho-undo]');
+      if (!u || !confirm(u.getAttribute('data-ho-undo') + ' — হ্যান্ডওভার বাতিল করে আবার "প্যাকিং চলছে" করবেন?')) return;
+      post('/admin/api/handover/undo', { code: u.getAttribute('data-ho-undo') }).then(function (j) { say(j.message || j.error, j.ok ? 'ok' : 'bad'); if (j.ok) { var tr = u.closest('tr'); if (tr) tr.remove(); } });
+    });
+    // camera
+    var camBox = $('[data-ho-cambox]', ho), stopCam = null;
+    $('[data-ho-cam]', ho).addEventListener('click', function () {
+      if (!window.SMScan) { say('স্ক্যানার লোড হয়নি — পেজ রিলোড দিন', 'bad'); return; }
+      camBox.hidden = false;
+      stopCam = window.SMScan.start($('video', camBox), function (code) { scan(code); }, function (err) { say(err, 'bad'); camBox.hidden = true; });
+    });
+    $('[data-ho-camoff]', ho).addEventListener('click', function () { if (stopCam) stopCam(); stopCam = null; camBox.hidden = true; input.focus(); });
+    // the barcode gun types fast and presses Enter: keep the box ready
+    document.addEventListener('keydown', function (e) { if (document.activeElement === document.body && /^[\w-]$/.test(e.key)) input.focus(); });
+  })();
+
+  // ---------- 📷 scan a product barcode into a search box (inventory, products) ----------
+  $all('[data-scan-into]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var target = $(btn.getAttribute('data-scan-into'));
+      var load = window.SMScan ? Promise.resolve() : new Promise(function (ok, no) { var sc = document.createElement('script'); sc.src = '/js/scan.js'; sc.onload = ok; sc.onerror = no; document.head.appendChild(sc); });
+      load.then(function () {
+        var m = document.createElement('div'); m.className = 'cam-modal';
+        m.innerHTML = '<div class="cam-card"><h3>📷 বারকোড স্ক্যান করুন</h3><div class="cam-view ho-cam-wide"><video playsinline muted></video><div class="ho-aim"></div></div><p class="small muted">বারকোড লাল দাগ বরাবর ধরুন</p><button type="button" class="btn btn-ghost">বাতিল</button></div>';
+        document.body.appendChild(m);
+        var stop = window.SMScan.start($('video', m), function (code) { window.SMScan.beep(true); stop(); m.remove(); if (target) { target.value = code; if (target.form) target.form.submit(); } }, function (err) { alert(err); stop(); m.remove(); });
+        $('button', m).addEventListener('click', function () { stop(); m.remove(); });
+      });
+    });
+  });
+
   // ---------- side menu (phones) ----------
   document.addEventListener('click', function (e) {
     if (e.target.closest('[data-side-open]')) document.body.classList.add('side-open');
