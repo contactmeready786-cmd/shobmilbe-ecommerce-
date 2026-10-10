@@ -373,28 +373,105 @@
     var vthumb = $('[data-g-yt]', gal);
     if (vbtn && vthumb) vbtn.addEventListener('click', function () { vthumb.click(); var gm0 = $('.g-main', gal); if (gm0 && gm0.scrollIntoView) gm0.scrollIntoView({ behavior: 'smooth', block: 'center' }); });
 
-    // full-screen photo viewer
+    var gm = $('.g-main', gal);
+    // computer with a mouse (not a phone/tablet)
+    var fine = !!(window.matchMedia && window.matchMedia('(hover: hover) and (pointer: fine)').matches);
+
+    // ---- computer: mouse over the big picture = zoom right inside the box ----
+    if (main && gm && fine) {
+      var hz = function (e) {
+        if (gal.classList.contains('playing') || (e.target.closest && e.target.closest('[data-g-zoom]'))) { gm.classList.remove('hz'); return; }
+        var r = gm.getBoundingClientRect();
+        var x = Math.max(0, Math.min(100, ((e.clientX - r.left) / r.width) * 100));
+        var y = Math.max(0, Math.min(100, ((e.clientY - r.top) / r.height) * 100));
+        main.style.transformOrigin = x + '% ' + y + '%';
+        gm.classList.add('hz');
+      };
+      gm.addEventListener('mouseenter', hz);
+      gm.addEventListener('mousemove', hz);
+      gm.addEventListener('mouseleave', function () { gm.classList.remove('hz'); });
+    }
+
+    // ---- full-screen photo viewer (phone: pinch / double-tap zoom; computer: click / wheel zoom) ----
     var lb = $('[data-lightbox]');
     if (lb && main) {
       var lbImg = $('[data-lb-img]', lb);
       var lbCount = $('[data-lb-count]', lb);
+      var lbHint = $('[data-lb-hint]', lb);
       var photos = $all('[data-g-img]', gal).map(function (b) { return b.getAttribute('data-g-img'); });
       var li = 0;
+      var z = 1, tx = 0, ty = 0;
+      var lbApply = function () {
+        lbImg.style.transform = 'translate(' + tx + 'px,' + ty + 'px) scale(' + z + ')';
+        lb.classList.toggle('zoomed', z > 1);
+      };
+      var lbReset = function () { z = 1; tx = 0; ty = 0; lbApply(); };
+      var clampPan = function () {
+        if (z <= 1.01) { z = 1; tx = 0; ty = 0; return; }
+        var w = lbImg.offsetWidth * (z - 1) / 2, h = lbImg.offsetHeight * (z - 1) / 2;
+        tx = Math.max(-w, Math.min(w, tx)); ty = Math.max(-h, Math.min(h, ty));
+      };
+      // zoom keeping the spot under the finger / mouse in place
+      var zoomAt = function (nz, cx, cy) {
+        nz = Math.max(1, Math.min(4, nz));
+        var r = lbImg.getBoundingClientRect();
+        var k = nz / z;
+        tx += (cx - (r.left + r.width / 2)) * (1 - k);
+        ty += (cy - (r.top + r.height / 2)) * (1 - k);
+        z = nz; clampPan(); lbApply();
+      };
       var lbShow = function (i) {
         li = (i + photos.length) % photos.length;
+        lbReset();
         lbImg.src = photos[li];
         if (lbCount) lbCount.textContent = photos.length > 1 ? bn(li + 1) + ' / ' + bn(photos.length) : '';
       };
+      var hintT = null;
       var lbOpen = function () {
         var cur = photos.indexOf(main.getAttribute('src'));
         lbShow(cur < 0 ? 0 : cur);
         lb.hidden = false;
         document.body.classList.add('lb-open');
+        if (lbHint) {
+          lbHint.textContent = fine ? 'ক্লিক করুন বা মাউসের চাকা ঘুরিয়ে জুম করুন' : 'দুই আঙুলে টেনে বা দুবার ট্যাপ করে জুম করুন';
+          lbHint.classList.add('show');
+          clearTimeout(hintT); hintT = setTimeout(function () { lbHint.classList.remove('show'); }, 3000);
+        }
       };
-      var lbClose = function () { lb.hidden = true; document.body.classList.remove('lb-open'); };
-      main.addEventListener('click', lbOpen);
+      var lbClose = function () { lb.hidden = true; lbReset(); document.body.classList.remove('lb-open'); };
+      if (gm) gm.addEventListener('click', function (e) {
+        if (gal.classList.contains('playing') || (e.target.closest && e.target.closest('[data-g-zoom]'))) return;
+        gm.classList.remove('hz');
+        lbOpen();
+      });
       var zb = $('[data-g-zoom]', gal);
       if (zb) zb.addEventListener('click', lbOpen);
+
+      // computer: click = zoom in / out, mouse wheel = zoom, drag = move around
+      var drag = null, dragged = false;
+      lbImg.addEventListener('click', function (e) {
+        if (!fine) return;
+        if (dragged) { dragged = false; return; }
+        if (z > 1) lbReset(); else zoomAt(2.5, e.clientX, e.clientY);
+      });
+      lb.addEventListener('wheel', function (e) {
+        if (lb.hidden) return;
+        e.preventDefault();
+        zoomAt(z * (e.deltaY < 0 ? 1.25 : 0.8), e.clientX, e.clientY);
+      }, { passive: false });
+      lbImg.addEventListener('mousedown', function (e) {
+        if (z <= 1 || e.button !== 0) return;
+        e.preventDefault();
+        drag = { x: e.clientX, y: e.clientY, tx: tx, ty: ty }; dragged = false;
+        lb.classList.add('dragging');
+      });
+      window.addEventListener('mousemove', function (e) {
+        if (!drag) return;
+        var dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+        if (Math.abs(dx) + Math.abs(dy) > 4) dragged = true;
+        tx = drag.tx + dx; ty = drag.ty + dy; clampPan(); lbApply();
+      });
+      window.addEventListener('mouseup', function () { if (drag) { drag = null; lb.classList.remove('dragging'); } });
       lb.addEventListener('click', function (e) {
         var st = e.target.closest('[data-lb-step]');
         if (st) return lbShow(li + Number(st.getAttribute('data-lb-step')));
@@ -406,18 +483,54 @@
         if (e.key === 'ArrowRight') lbShow(li + 1);
         if (e.key === 'ArrowLeft') lbShow(li - 1);
       });
-      var lx = null;
-      lb.addEventListener('touchstart', function (e) { lx = e.touches[0].clientX; }, { passive: true });
+      // phone: two fingers = pinch zoom, double tap = zoom, one finger = move (zoomed) or swipe to next photo
+      var dist = function (a, b) { return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY) || 1; };
+      var pinch = null, pan = null, multi = false, lastTap = 0;
+      var startPan = function (t) { pan = { x: t.clientX, y: t.clientY, tx: tx, ty: ty }; };
+      lb.addEventListener('touchstart', function (e) {
+        if (e.target.closest && e.target.closest('button')) return;
+        if (e.touches.length >= 2) {
+          multi = true; pan = null;
+          pinch = { d: dist(e.touches[0], e.touches[1]), z: z };
+          lb.classList.add('dragging');
+        } else if (e.touches.length === 1) {
+          startPan(e.touches[0]);
+          if (z > 1) lb.classList.add('dragging');
+        }
+      }, { passive: true });
+      lb.addEventListener('touchmove', function (e) {
+        if (pinch && e.touches.length >= 2) {
+          e.preventDefault();
+          var a = e.touches[0], b = e.touches[1];
+          zoomAt(pinch.z * dist(a, b) / pinch.d, (a.clientX + b.clientX) / 2, (a.clientY + b.clientY) / 2);
+        } else if (pan && e.touches.length === 1 && z > 1) {
+          e.preventDefault();
+          var t = e.touches[0];
+          tx = pan.tx + (t.clientX - pan.x); ty = pan.ty + (t.clientY - pan.y);
+          clampPan(); lbApply();
+        }
+      }, { passive: false });
       lb.addEventListener('touchend', function (e) {
-        if (lx === null) return;
-        var dx = e.changedTouches[0].clientX - lx; lx = null;
-        if (Math.abs(dx) > 40 && photos.length > 1) lbShow(li + (dx < 0 ? 1 : -1));
+        if (e.touches.length) { pinch = null; if (e.touches.length === 1) startPan(e.touches[0]); return; }
+        lb.classList.remove('dragging');
+        var was = pan, wasMulti = multi;
+        pinch = null; pan = null; multi = false;
+        if (!was || wasMulti) return;
+        var t = e.changedTouches[0], dx = t.clientX - was.x, dy = t.clientY - was.y;
+        if (z <= 1 && Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) && photos.length > 1) { lbShow(li + (dx < 0 ? 1 : -1)); return; }
+        if (Math.abs(dx) < 10 && Math.abs(dy) < 10 && e.target === lbImg) {
+          var now = Date.now();
+          if (now - lastTap < 320) {
+            e.preventDefault();
+            if (z > 1) lbReset(); else zoomAt(2.5, t.clientX, t.clientY);
+            lastTap = 0;
+          } else lastTap = now;
+        }
       });
     }
     // swipe between photos on phones
     var gx = null;
-    var gm = $('.g-main', gal);
-    gm.addEventListener('touchstart', function (e) { gx = e.touches[0].clientX; }, { passive: true });
+    if (gm) gm.addEventListener('touchstart', function (e) { gx = e.touches[0].clientX; }, { passive: true });
     gm.addEventListener('touchend', function (e) {
       if (gx === null) return;
       var dx = e.changedTouches[0].clientX - gx; gx = null;

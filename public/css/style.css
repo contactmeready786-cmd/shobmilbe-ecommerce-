@@ -235,6 +235,10 @@ select { font: inherit; padding: 8px 12px; border: 2px solid var(--line); border
 /* photo box: square, but never taller than the screen allows, so the small photos below stay in view */
 .g-main { position: relative; background: #fff; border-radius: 14px; aspect-ratio: 1; width: min(100%, calc(100vh - 320px)); min-width: min(100%, 300px); margin: 0 auto; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1px solid var(--line); }
 .g-main img { width: 100%; height: 100%; object-fit: contain; padding: 10px; cursor: zoom-in; }
+/* computer: mouse over the big picture zooms it inside the box */
+.g-main img { transition: transform .18s ease-out; will-change: transform; }
+.g-main.hz img { transform: scale(2.4); cursor: crosshair; }
+.g-main.hz .g-zoom, .g-main.hz .badge-off { opacity: 0; pointer-events: none; }
 .gallery.playing .g-main img, .gallery.playing .g-zoom { visibility: hidden; }
 .g-zoom { position: absolute; right: 8px; bottom: 8px; background: rgba(20,33,61,.72); color: #fff; border: 0; border-radius: 8px; padding: 4px 10px; font-size: .78rem; cursor: pointer; opacity: .85; }
 .g-zoom:hover { opacity: 1; }
@@ -251,6 +255,14 @@ select { font: inherit; padding: 8px 12px; border: 2px solid var(--line); border
 .lightbox { position: fixed; inset: 0; z-index: 90; background: rgba(8,14,28,.94); display: flex; align-items: center; justify-content: center; padding: 50px 56px; }
 .lightbox[hidden] { display: none; }
 .lightbox img { max-width: 100%; max-height: 100%; object-fit: contain; background: #fff; border-radius: 10px; }
+/* full-screen viewer zoom (pinch / double tap on phone, click / wheel on computer) */
+.lightbox { overflow: hidden; touch-action: none; overscroll-behavior: contain; }
+.lightbox img { transition: transform .18s ease-out; transform-origin: 50% 50%; will-change: transform; cursor: zoom-in; -webkit-user-select: none; user-select: none; }
+.lightbox.zoomed img { cursor: grab; }
+.lightbox.dragging img { transition: none; cursor: grabbing; }
+.lightbox.zoomed .lb-nav { opacity: .35; }
+.lb-hint { position: absolute; bottom: 44px; left: 50%; transform: translateX(-50%); background: rgba(255,255,255,.16); color: #fff; font-size: .82rem; padding: 6px 14px; border-radius: 20px; white-space: nowrap; opacity: 0; transition: opacity .4s; pointer-events: none; }
+.lb-hint.show { opacity: 1; }
 .lb-x { position: absolute; top: 12px; right: 14px; width: 42px; height: 42px; border-radius: 50%; border: 0; background: rgba(255,255,255,.15); color: #fff; font-size: 1.2rem; cursor: pointer; }
 .lb-nav { position: absolute; top: 50%; transform: translateY(-50%); width: 44px; height: 64px; border: 0; border-radius: 10px; background: rgba(255,255,255,.15); color: #fff; font-size: 2rem; cursor: pointer; }
 .lb-nav.prev { left: 8px; } .lb-nav.next { right: 8px; }
