@@ -1994,4 +1994,18 @@
     loop().then(function () { prog.textContent = '✅ সব অনুবাদ হয়ে গেছে — পেজ আবার লোড হচ্ছে…'; setTimeout(function () { location.reload(); }, 900); },
       function (e) { prog.textContent = '⚠️ ' + (e && e.message ? e.message : 'অনুবাদ করা যায়নি') + ' — একটু পরে আবার চেষ্টা করুন।'; i18nBtn.disabled = false; });
   });
+
+  // ---------- 🎨 variants page: on/off switch per row, add a row ----------
+  var vform = $('[data-var-form]');
+  if (vform) {
+    vform.addEventListener('change', function (e) {
+      var sw = e.target.closest('[data-var-active]');
+      if (!sw) return;
+      var row = sw.closest('tr'); var hv = row && $('[data-var-active-val]', row);
+      if (hv) hv.value = sw.checked ? '1' : '0';
+      if (row) row.classList.toggle('row-off', !sw.checked);
+    });
+    var vadd = $('[data-var-add]'), vtpl = $('[data-var-template]'), vbody = $('[data-var-body]');
+    if (vadd && vtpl && vbody) vadd.addEventListener('click', function () { vbody.appendChild(vtpl.content.cloneNode(true)); var ins = $all('input[name=vlabel]', vbody); if (ins.length) ins[ins.length - 1].focus(); });
+  }
 })();

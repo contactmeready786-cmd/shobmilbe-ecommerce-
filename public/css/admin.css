@@ -1071,3 +1071,12 @@ tr.row-edit td { background: #eff6ff; }
 .ho-hint { margin: 4px 0; color: #1d4ed8; font-weight: 600; }
 .ho-actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
 .ho-input::placeholder { font-family: 'Noto Sans Bengali', sans-serif; letter-spacing: 0; font-size: 15px; font-weight: 400; }
+
+/* ---------- 🎨 variants ---------- */
+.var-table input, .var-table select { font: inherit; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; max-width: 100%; }
+.var-table .w-md { width: 160px; }
+.var-table .w-sm { width: 96px; }
+.var-table .w-num { width: 92px; }
+.var-pic-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.var-pic-row figure { margin: 0; text-align: center; }
+.var-pic-row img { width: 64px; height: 64px; object-fit: cover; border-radius: 8px; border: 1px solid var(--line); }

@@ -1185,10 +1185,11 @@
   if (wp) location.replace('/wishlist?ids=' + encodeURIComponent(wishes().join(',')));
 
   // ---------- flash sale countdown ----------
-  var cds = $all('[data-countdown]');
-  if (cds.length) {
+  // (looked up on every tick: product-page variants and the "recently viewed" row add countdowns later)
+  if ($all('[data-countdown]').length || $('[data-variants]') || $('[data-recent-box]')) {
     var tick = function () {
-      cds.forEach(function (el) {
+      $all('[data-countdown]').forEach(function (el) {
+        if (!el.getAttribute('data-countdown')) return;
         var left = Math.max(0, Math.floor((new Date(el.getAttribute('data-countdown')).getTime() - Date.now()) / 1000));
         if (!left) { el.textContent = 'শেষ'; return; }
         var d = Math.floor(left / 86400); var h = Math.floor((left % 86400) / 3600); var m = Math.floor((left % 3600) / 60); var sec = left % 60;
@@ -1246,5 +1247,141 @@
   if (sug) {
     loadSuggest();
     sug.addEventListener('click', function (e) { if (e.target.closest('[data-suggest-add]')) setTimeout(function () { renderCart(); loadSuggest(); }, 50); });
+  }
+
+  // ---------- product variants (size / colour / model) ----------
+  var vp = $('[data-variants]');
+  if (vp) {
+    var pickVar = function (b, scroll) {
+      $all('[data-var]', vp).forEach(function (x) { var on = x === b; x.classList.toggle('on', on); x.setAttribute('aria-checked', on ? 'true' : 'false'); });
+      var id = b.getAttribute('data-var'), price = Number(b.getAttribute('data-price')) || 0, old = Number(b.getAttribute('data-old')) || 0;
+      var stock = Number(b.getAttribute('data-stock')) || 0, low = Number(b.getAttribute('data-low')) || 0;
+      var nm = $('[data-var-name]', vp); if (nm) nm.textContent = b.getAttribute('data-label');
+      $all('[data-p-price]').forEach(function (el) { el.textContent = money(price); });
+      var po = $('[data-p-old]'), ps = $('[data-p-save]');
+      if (po) { po.hidden = !(old > price); po.textContent = old > price ? money(old) : ''; }
+      if (ps) { ps.hidden = !(old > price); ps.textContent = old > price ? money(old - price) + ' সাশ্রয়' : ''; }
+      var sku = $('[data-p-sku]'); if (sku && b.getAttribute('data-sku')) sku.textContent = b.getAttribute('data-sku');
+      var fl = $('[data-p-flash]');
+      if (fl) { var fe = b.getAttribute('data-flash'); fl.hidden = !fe; var cd = $('[data-countdown]', fl); if (cd) cd.setAttribute('data-countdown', fe || ''); }
+      var st = $('[data-p-stock]');
+      if (st) {
+        st.className = 'stock ' + (stock <= 0 ? 'out' : stock <= low ? 'low' : 'ok');
+        st.textContent = stock <= 0 ? 'স্টকে নেই' : stock <= low ? 'মাত্র ' + bn(stock) + 'টি বাকি আছে' : '✓ স্টকে আছে';
+        st.hidden = !(stock <= 0 || st.getAttribute('data-show'));
+      }
+      $all('[data-add][data-with-qty]').forEach(function (btn) {
+        btn.setAttribute('data-add', id); btn.setAttribute('data-name', b.getAttribute('data-name')); btn.setAttribute('data-price', String(price));
+        btn.disabled = stock <= 0;
+      });
+      var qi = $('[data-qty] input');
+      if (qi) { var mx = Math.max(1, Math.min(stock, rule(price).max)); qi.max = String(mx); qi.setAttribute('data-stock', String(stock)); if ((parseInt(qi.value, 10) || 1) > mx) qi.value = String(mx); }
+      var vo = $('[data-var-out]'); if (vo) vo.hidden = stock > 0;
+      var nf = $('[data-notify]');
+      if (nf) { nf.setAttribute('data-product', id); nf.hidden = stock > 0; var nm2 = $('[data-notify-msg]', nf); if (nm2) nm2.textContent = ''; }
+      var sb = $('[data-sticky-buy]'); if (sb) sb.hidden = stock <= 0;
+      var im = b.getAttribute('data-img'), main = $('[data-g-main]');
+      if (im && main) { main.src = im; $all('[data-g-img]').forEach(function (t) { t.classList.toggle('on', t.getAttribute('data-g-img') === im); }); }
+      try { history.replaceState(null, '', location.pathname + '?v=' + id + location.hash); } catch (e) { /* ignore */ }
+      void scroll;
+    };
+    vp.addEventListener('click', function (e) { var b = e.target.closest('[data-var]'); if (b) pickVar(b, true); });
+    var first = $('[data-var].on', vp); if (first) pickVar(first, false);
+  }
+
+  // ---------- 🔔 "tell me when it's back" ----------
+  $all('[data-notify]').forEach(function (f) {
+    f.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var msg = $('[data-notify-msg]', f), btn = $('button', f);
+      var phone = f.elements.phone.value.trim();
+      if (phone.replace(/\D/g, '').length < 11) { msg.textContent = 'সঠিক মোবাইল নম্বর দিন, যেমন 01712345678।'; msg.className = 'small warn'; return; }
+      btn.disabled = true; msg.textContent = 'পাঠানো হচ্ছে…'; msg.className = 'small';
+      fetch('/api/stock-alert', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ product: Number(f.getAttribute('data-product')), phone: phone, website: f.elements.website.value }) })
+        .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+        .then(function (x) { msg.textContent = x.ok ? x.j.message : (x.j.error || 'হয়নি, আবার চেষ্টা করুন।'); msg.className = 'small ' + (x.ok ? 'good' : 'warn'); btn.disabled = false; if (x.ok) track('lead', { method: 'restock' }); })
+        .catch(function () { msg.textContent = 'হয়নি, আবার চেষ্টা করুন।'; btn.disabled = false; });
+    });
+  });
+
+  // ---------- ❓ ask a question about a product ----------
+  $all('[data-qa-form]').forEach(function (f) {
+    f.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var msg = $('[data-qa-msg]', f), btn = $('button', f);
+      var d = { product: Number(f.getAttribute('data-product')), question: f.elements.question.value.trim(), name: f.elements.name.value.trim(), phone: f.elements.phone.value.trim(), website: f.elements.website.value };
+      if (d.question.length < 5) { msg.textContent = 'প্রশ্নটা একটু বিস্তারিত লিখুন।'; msg.className = 'small warn'; return; }
+      btn.disabled = true; msg.textContent = 'পাঠানো হচ্ছে…'; msg.className = 'small';
+      fetch('/api/question', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d) })
+        .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+        .then(function (x) {
+          msg.textContent = x.ok ? x.j.message : (x.j.error || 'পাঠানো যায়নি।'); msg.className = 'small ' + (x.ok ? 'good' : 'warn');
+          if (x.ok) { f.elements.question.value = ''; } btn.disabled = false;
+        }).catch(function () { msg.textContent = 'পাঠানো যায়নি, আবার চেষ্টা করুন।'; btn.disabled = false; });
+    });
+  });
+
+  // ---------- ⚖️ compare (up to 4 products, kept in this browser) ----------
+  var CKEY = 'sm_cmp';
+  function cmpList() { try { var c = JSON.parse(store(CKEY) || '[]'); return Array.isArray(c) ? c.map(String).slice(0, 4) : []; } catch (e) { return []; } }
+  function cmpSave(list) { store(CKEY, JSON.stringify(list.slice(0, 4))); paintCmp(); }
+  function paintCmp() {
+    var c = cmpList();
+    $all('[data-compare]').forEach(function (b) {
+      var on = c.indexOf(b.getAttribute('data-compare')) > -1;
+      b.classList.toggle('on', on); b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      b.textContent = on ? '⚖️ তুলনায় আছে' : '⚖️ তুলনা';
+    });
+    var bar = $('[data-compare-bar]');
+    if (!bar && c.length && !$('[data-compare-page]')) {
+      bar = document.createElement('div'); bar.className = 'compare-bar'; bar.setAttribute('data-compare-bar', ''); document.body.appendChild(bar);
+    }
+    if (bar) {
+      bar.hidden = !c.length || !!$('[data-compare-page]');
+      bar.innerHTML = '<span>⚖️ তুলনার তালিকায় ' + bn(c.length) + 'টি পণ্য</span><a class="btn btn-sm btn-amber" href="/compare?ids=' + c.join(',') + '">তুলনা দেখুন</a><button type="button" class="link-btn small" data-compare-clear>✕</button>';
+    }
+  }
+  paintCmp();
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-compare]');
+    if (b) {
+      var id = b.getAttribute('data-compare'), c = cmpList(), i = c.indexOf(id);
+      if (i > -1) c.splice(i, 1);
+      else {
+        if (c.length >= 4) { toast('<span>সর্বোচ্চ ৪টা পণ্য তুলনা করা যায় — আগে একটা সরান।</span><a href="/compare?ids=' + c.join(',') + '">তালিকা</a>', 4000); return; }
+        c.push(id);
+      }
+      cmpSave(c);
+      if (i < 0) toast('<span>⚖️ তুলনার তালিকায় যোগ হয়েছে' + (c.length < 2 ? ' — আরেকটা পণ্য যোগ করুন' : '') + '</span><a href="/compare?ids=' + c.join(',') + '">তুলনা দেখুন</a>', 3500);
+      return;
+    }
+    var rm = e.target.closest('[data-compare-remove]');
+    if (rm) { var c2 = cmpList().filter(function (x) { return x !== rm.getAttribute('data-compare-remove'); }); cmpSave(c2); location.replace('/compare?ids=' + c2.join(',')); return; }
+    if (e.target.closest('[data-compare-clear]')) { cmpSave([]); if ($('[data-compare-page]')) location.replace('/compare?ids='); }
+  });
+  if ($('[data-compare-load]')) location.replace('/compare?ids=' + encodeURIComponent(cmpList().join(',')));
+
+  // ---------- 🕘 recently viewed (kept in this browser) ----------
+  var RKEY = 'sm_recent';
+  function recentList() { try { var r = JSON.parse(store(RKEY) || '[]'); return Array.isArray(r) ? r.map(String) : []; } catch (e) { return []; } }
+  var here = $('[data-recent-id]');
+  var hereId = here ? here.getAttribute('data-recent-id') : '';
+  var rbox = $('[data-recent-box]');
+  if (rbox) {
+    var show = recentList().filter(function (x) { return x !== hereId; }).slice(0, 8);
+    if (show.length) {
+      fetch('/api/cards?ids=' + show.join(','), { headers: { Accept: 'application/json' } }).then(function (r) { return r.json(); }).then(function (j) {
+        if (!j.html) return;
+        $('[data-recent-list]', rbox).innerHTML = j.html;
+        rbox.hidden = false;
+        paintWish(); paintCmp();
+      }).catch(function () { /* ignore */ });
+    }
+    rbox.addEventListener('click', function (e) { if (e.target.closest('[data-recent-clear]')) { store(RKEY, '[]'); rbox.hidden = true; } });
+  }
+  if (hereId) {
+    var rl = recentList().filter(function (x) { return x !== hereId; });
+    rl.unshift(hereId);
+    store(RKEY, JSON.stringify(rl.slice(0, 20)));
   }
 })();

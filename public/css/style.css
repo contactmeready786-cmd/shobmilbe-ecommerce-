@@ -810,3 +810,49 @@ body.protect .card-pic img, body.protect .g-main img, body.protect .g-thumb img,
 .slider.fx-slide .slide.on { transform: translateX(0); }
 .slider.fx-slide .slide.out { transform: translateX(-100%); }
 .slider.fx-slide .slides { background: #0f172a; }
+
+/* ---------- variants (size / colour / model) ---------- */
+.var-pick { margin: 10px 0 12px; }
+.var-head { margin: 0 0 6px; font-size: .95rem; color: var(--ink-2); }
+.var-list { display: flex; flex-wrap: wrap; gap: 8px; }
+.var-opt { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 6px 12px; border: 2px solid var(--line); border-radius: 10px; background: var(--white); font: inherit; font-size: .92rem; cursor: pointer; color: var(--ink); }
+.var-opt img { width: 28px; height: 28px; object-fit: cover; border-radius: 6px; }
+.var-opt small { font-size: .72rem; color: var(--red); }
+.var-opt.on { border-color: var(--blue); background: var(--blue-l); font-weight: 600; }
+.var-opt.is-out { opacity: .6; text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--red) 60%, transparent); }
+.var-opt:hover { border-color: var(--blue); }
+.var-out { color: var(--red); font-size: .9rem; margin: 6px 0; }
+
+/* ---------- 🔔 tell me when it's back ---------- */
+.notify-box { margin: 10px 0; padding: 10px 12px; border: 1px dashed var(--blue); border-radius: 10px; background: var(--blue-l); }
+.notify-box p { margin: 0 0 8px; }
+.notify-box .coupon-row input { text-transform: none; }
+.notify-box [data-notify-msg] { margin: 6px 0 0; }
+
+/* ---------- ⚖️ compare ---------- */
+.compare-btn { flex: 0 0 auto; }
+.compare-btn.on { border-color: var(--blue); color: var(--blue); }
+.compare-bar { position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 40; display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: var(--ink); color: #fff; border-radius: 999px; box-shadow: 0 8px 24px rgba(20,33,61,.25); font-size: .9rem; max-width: calc(100vw - 24px); }
+.compare-bar .link-btn { color: #fff; }
+.compare-wrap { overflow-x: auto; }
+.compare-table { border-collapse: collapse; width: 100%; min-width: 520px; background: var(--white); border-radius: var(--radius); overflow: hidden; }
+.compare-table th, .compare-table td { border-bottom: 1px solid var(--line); padding: 10px; text-align: left; vertical-align: top; font-size: .92rem; }
+.compare-table thead th { vertical-align: bottom; width: 22%; }
+.compare-table tbody th { width: 120px; color: var(--muted); font-weight: 600; background: var(--paper); }
+.cmp-pic { display: block; width: 110px; height: 110px; margin-bottom: 6px; }
+.cmp-pic img, .cmp-pic .emoji { width: 100%; height: 100%; object-fit: contain; font-size: 3rem; display: grid; place-items: center; }
+.cmp-name { display: block; font-weight: 600; color: var(--ink); text-decoration: none; margin-bottom: 4px; line-height: 1.35; }
+
+/* ---------- 🕘 recently viewed / ⏱ card timer ---------- */
+.recent-box { margin-top: 24px; }
+.card-flash { margin: 0 0 6px; font-size: .78rem; color: var(--red); }
+
+/* ---------- ❓ questions & answers ---------- */
+.qa { margin-top: 28px; }
+.qa-grid { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 18px; align-items: start; }
+.qa-list { list-style: none; margin: 0; padding: 0; }
+.qa-list li { background: var(--white); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; }
+.qa-q { margin: 0 0 6px; }
+.qa-a { margin: 0; padding-left: 10px; border-left: 3px solid var(--green); color: var(--ink-2); }
+.qa-form h3 { margin-top: 0; }
+@media (max-width: 760px) { .qa-grid { grid-template-columns: 1fr; } }
