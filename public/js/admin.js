@@ -23,6 +23,40 @@
     });
   }
 
+
+  // ---------- 🔄 রিফ্রেশ: lists and reports get a button that loads this page's newest data ----------
+  // (a new order or a change from another device shows at once — no need to reload the whole browser)
+  var REFRESH_PAGES = /^\/admin(\/orders(\/incomplete)?|\/customers|\/products|\/inventory|\/purchases|\/suppliers|\/reports(\/[a-z-]+)?|\/marketing\/visitors(\/[a-z-]+)?|\/research|\/reach|\/growth|\/accounts(\/[a-z]+)?|\/reviews|\/blocklist)?\/?$/;
+  if (REFRESH_PAGES.test(location.pathname)) (function () {
+    var main = $('#main'); if (!main) return;
+    var head = $('.title-row', main) || $('h1', main);
+    if (!head) return;
+    var btn = document.createElement('button');
+    btn.type = 'button'; btn.className = 'btn btn-ghost btn-sm refresh-btn';
+    btn.title = 'এই পেজের সব তথ্য নতুন করে আনুন';
+    btn.innerHTML = '<span class="refresh-ic" aria-hidden="true">🔄</span> রিফ্রেশ';
+    btn.addEventListener('click', function () {
+      btn.disabled = true; btn.classList.add('spinning');
+      try { sessionStorage.setItem('sm_refresh_y', String(window.scrollY || 0)); } catch (_) {}
+      location.reload();
+    });
+    if (head.tagName === 'H1') { var row = document.createElement('div'); row.className = 'title-row'; head.parentNode.insertBefore(row, head); row.appendChild(head); head = row; }
+    var actions = head.querySelector('.title-actions, .btn-row, .actions');
+    var place = document.createElement('div'); place.className = 'refresh-wrap'; place.appendChild(btn);
+    var h1 = head.querySelector('h1');
+    if (h1 && h1.nextSibling) head.insertBefore(place, h1.nextSibling); else head.appendChild(place);
+    // after a refresh, come back to the same spot on the page
+    try { var y = sessionStorage.getItem('sm_refresh_y'); if (y) { sessionStorage.removeItem('sm_refresh_y'); window.scrollTo(0, Number(y) || 0); } } catch (_) {}
+    // a page shown again from the browser's memory (back button, phone woke up) may be old — load it fresh
+    window.addEventListener('pageshow', function (e) { if (e.persisted) location.reload(); });
+    var hiddenAt = 0;
+    document.addEventListener('visibilitychange', function () {
+      if (document.hidden) { hiddenAt = Date.now(); return; }
+      var busy = document.activeElement && /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName);
+      if (hiddenAt && Date.now() - hiddenAt > 120000 && !busy && !document.querySelector('[data-dirty], [data-changed]')) location.reload();
+    });
+  })();
+
   // ---------- side menu (phones) ----------
   document.addEventListener('click', function (e) {
     if (e.target.closest('[data-side-open]')) document.body.classList.add('side-open');
@@ -47,12 +81,61 @@
     if (on && on.scrollIntoView) on.scrollIntoView({ block: 'nearest' });
   })();
 
-  // ---------- on/off switches save right away ----------
-  document.addEventListener('change', function (e) {
-    var sw = e.target.closest && e.target.closest('[data-autosubmit]');
-    var f = sw && (sw.form || sw.closest('form'));
-    if (!f) return;
-    f.submit();
+  // ---------- 💾 every change waits for a clear "সেভ করুন" press ----------
+  // Switches and boxes no longer save on their own: the form's save button lights up, and a bar at the
+  // bottom of the screen reminds that something is changed but not saved yet. Nothing is lost by mistake.
+  function isSaveBtn(b) {
+    if (!b || b.disabled && !b.hasAttribute('data-auto-save-btn')) return false;
+    if (b.type === 'button' || b.type === 'reset' || b.name === 'delete' || b.classList.contains('danger') || b.classList.contains('btn-danger')) return false;
+    return /সেভ|save|আপডেট|সংরক্ষণ/i.test(b.textContent || b.value || '');
+  }
+  function saveBtnOf(f) {
+    var own = f.querySelector('[data-auto-save-btn]'); if (own) return own;
+    var list = $all('button, input[type="submit"]', f).filter(isSaveBtn);
+    if (!list.length && f.id) list = $all('button[form="' + f.id + '"], input[type="submit"][form="' + f.id + '"]').filter(isSaveBtn);
+    return list[0] || null;
+  }
+  // forms whose switches used to save by themselves get their own save button
+  $all('[data-autosubmit]').forEach(function (el) {
+    var f = el.form || el.closest('form');
+    if (!f || f.getAttribute('method') === 'get' || f.querySelector('[data-auto-save-btn]')) return;
+    var b = document.createElement('button');
+    b.type = 'submit'; b.className = 'btn btn-sm auto-save-btn'; b.setAttribute('data-auto-save-btn', '');
+    b.textContent = '💾 সেভ করুন'; b.disabled = true;
+    var wrap = document.createElement('div'); wrap.className = 'auto-save-row'; wrap.appendChild(b);
+    var note = document.createElement('span'); note.className = 'muted small auto-save-note'; note.textContent = 'বদল করার পর এই বাটন চাপলে তবেই সেভ হবে';
+    wrap.appendChild(note);
+    f.appendChild(wrap);
+  });
+  var saveBar = document.createElement('div');
+  saveBar.className = 'save-bar'; saveBar.setAttribute('role', 'status');
+  saveBar.innerHTML = '<span>⚠️ আপনি কিছু বদলেছেন — এখনো <b>সেভ হয়নি</b></span><button type="button" class="btn btn-sm" data-save-bar-go>💾 সেভ করুন</button>';
+  document.body.appendChild(saveBar);
+  var changedForm = null;
+  function markChanged(f) {
+    var b = saveBtnOf(f);
+    if (!b) return;
+    f.setAttribute('data-changed', '1');
+    if (b.hasAttribute('data-auto-save-btn')) { b.disabled = false; f.setAttribute('data-dirty', '1'); }
+    b.classList.add('needs-save');
+    changedForm = f;
+    saveBar.classList.add('show');
+  }
+  function watchChange(e) {
+    var t = e.target;
+    if (!e.isTrusted || !t || !t.closest || !t.closest('#main')) return;
+    if (t.closest('[data-prod-toggle], [data-check-row], [data-check-all], [data-no-dirty]') || t.type === 'search' || t.type === 'file') return;
+    var f = t.form || t.closest('form');
+    if (!f || (f.getAttribute('method') || 'get').toLowerCase() !== 'post' || f.hasAttribute('data-no-dirty') || f.hasAttribute('data-ui-text')) return;
+    markChanged(f);
+  }
+  document.addEventListener('change', watchChange);
+  document.addEventListener('input', function (e) { if (e.target && /INPUT|TEXTAREA/.test(e.target.tagName) && e.target.type !== 'checkbox' && e.target.type !== 'radio') watchChange(e); });
+  saveBar.querySelector('[data-save-bar-go]').addEventListener('click', function () {
+    var f = changedForm && document.body.contains(changedForm) ? changedForm : $('form[data-changed="1"]');
+    if (!f) { saveBar.classList.remove('show'); return; }
+    var b = saveBtnOf(f);
+    if (f.requestSubmit) f.requestSubmit(b && b.form === f ? b : undefined); else if (b) b.click(); else f.submit();
   });
 
   // ---------- "select all" box for row checkboxes ----------
@@ -139,6 +222,7 @@
     var v = (Number(inp.value) || 0) + Number(b.getAttribute('data-step'));
     inp.value = v === 0 ? '' : v;
     markStep(inp);
+    if (inp.form) markChanged(inp.form);
   });
   document.addEventListener('input', function (e) {
     if (e.target.matches && e.target.matches('[data-step-input]')) markStep(e.target);
@@ -290,7 +374,58 @@
     });
   }
 
-  // profile picture (owner and staff): uploads and saves at once; "মুছুন" removes it
+  function show(el, on) { if (el) el.hidden = !on; }
+  // 📸 take a photo with the device camera: live picture → "ছবি তুলুন" → look → "এই ছবি নিন" / "আবার তুলুন".
+  // Resolves with a JPEG File (or null if closed).
+  function cameraShot(title) {
+    return new Promise(function (resolve, reject) {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return reject(new Error('এই ব্রাউজারে ক্যামেরা চালানো যায় না — "ছবি দিন" দিয়ে ছবি বেছে নিন।'));
+      var m = document.createElement('div');
+      m.className = 'cam-modal';
+      m.innerHTML = '<div class="cam-card" role="dialog" aria-modal="true"><h3></h3><div class="cam-view"><video playsinline muted autoplay></video><img alt="" hidden></div>' +
+        '<p class="small muted" data-cam-say>⏳ ক্যামেরা চালু হচ্ছে…</p>' +
+        '<div class="cam-btns" data-cam-live><button type="button" class="btn" data-cam-snap disabled>📸 ছবি তুলুন</button><button type="button" class="btn btn-ghost" data-cam-close>বাতিল</button></div>' +
+        '<div class="cam-btns" data-cam-done hidden><button type="button" class="btn" data-cam-use>✅ এই ছবি নিন</button><button type="button" class="btn btn-ghost" data-cam-retake>🔁 আবার তুলুন</button></div></div>';
+      $('h3', m).textContent = title || '📸 ক্যামেরায় ছবি তুলুন';
+      document.body.appendChild(m);
+      var video = $('video', m), img = $('img', m), sayEl = $('[data-cam-say]', m), stream = null, blob = null;
+      var stop = function () { if (stream) stream.getTracks().forEach(function (t) { t.stop(); }); stream = null; };
+      var close = function (f) { stop(); m.remove(); resolve(f || null); };
+      var start = function () {
+        blob = null; show(img, false); show(video, true); show($('[data-cam-done]', m), false); show($('[data-cam-live]', m), true);
+        sayEl.textContent = '⏳ ক্যামেরা চালু হচ্ছে…';
+        navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 720 }, height: { ideal: 720 } }, audio: false }).then(function (s) {
+          stream = s; video.srcObject = s; return video.play().catch(function () {});
+        }).then(function () {
+          $('[data-cam-snap]', m).disabled = false;
+          sayEl.textContent = 'মুখ মাঝখানে রেখে "📸 ছবি তুলুন" চাপুন';
+        }, function (e) {
+          var n = e && e.name;
+          sayEl.textContent = n === 'NotAllowedError' ? '❌ ক্যামেরার অনুমতি দেওয়া হয়নি। ঠিকানার পাশের 🔒 চিহ্নে চাপ দিয়ে Camera "Allow" করুন।' : n === 'NotFoundError' ? '❌ কোনো ক্যামেরা পাওয়া যায়নি।' : '❌ ক্যামেরা চালু করা যায়নি।';
+        });
+      };
+      $('[data-cam-snap]', m).addEventListener('click', function () {
+        if (!stream || !video.videoWidth) return;
+        var side = Math.min(video.videoWidth, video.videoHeight), c = document.createElement('canvas');
+        c.width = c.height = Math.min(side, 720);
+        var g = c.getContext('2d');
+        g.translate(c.width, 0); g.scale(-1, 1); // same as the mirror view the person saw
+        g.drawImage(video, (video.videoWidth - side) / 2, (video.videoHeight - side) / 2, side, side, 0, 0, c.width, c.height);
+        c.toBlob(function (b) {
+          blob = b; img.src = URL.createObjectURL(b);
+          stop(); show(video, false); show(img, true);
+          show($('[data-cam-live]', m), false); show($('[data-cam-done]', m), true);
+          sayEl.textContent = 'ছবিটা ঠিক আছে?';
+        }, 'image/jpeg', 0.9);
+      });
+      $('[data-cam-retake]', m).addEventListener('click', start);
+      $('[data-cam-use]', m).addEventListener('click', function () { close(new File([blob], 'camera.jpg', { type: 'image/jpeg' })); });
+      $('[data-cam-close]', m).addEventListener('click', function () { close(null); });
+      m.addEventListener('click', function (e) { if (e.target === m) close(null); });
+      start();
+    });
+  }
+  // profile picture (owner and staff): pick or take a photo, then "সেভ করুন"; "মুছুন" removes it
   $all('[data-avatar-pick]').forEach(function (box) {
     var file = $('[data-avatar-file]', box);
     var del = $('[data-avatar-remove]', box);
@@ -302,14 +437,46 @@
     };
     var busy = function (on, text) { box.classList.toggle('busy', on); if (msg) { msg.textContent = text || ''; msg.className = 'small muted'; } };
     var fail = function (e) { box.classList.remove('busy'); if (msg) { msg.textContent = e.message; msg.className = 'small warn'; } };
+    // a chosen or camera picture is only shown first; "💾 সেভ করুন" saves it, "বাতিল" puts the old one back
+    var confirmRow = $('[data-avatar-confirm]', box), pending = null;
+    var avatarImg = function () { return box.querySelector('.avatar.avatar-xl'); };
+    var oldHTML = null;
+    var preview = function (f) {
+      pending = f;
+      var el = avatarImg();
+      if (el) {
+        if (oldHTML === null) oldHTML = el.outerHTML;
+        var url = URL.createObjectURL(f);
+        var sp = document.createElement('span'); sp.className = 'avatar has-photo avatar-xl avatar-preview';
+        var img = document.createElement('img'); img.src = url; img.alt = ''; sp.appendChild(img);
+        el.parentNode.replaceChild(sp, el);
+      }
+      show(confirmRow, true);
+      if (msg) { msg.textContent = '👀 নতুন ছবি দেখাচ্ছে — রাখতে "💾 সেভ করুন" চাপুন'; msg.className = 'small warn'; }
+    };
+    var cancel = function () {
+      pending = null; show(confirmRow, false);
+      var el = box.querySelector('.avatar-preview');
+      if (el && oldHTML !== null) { var t = document.createElement('div'); t.innerHTML = oldHTML; el.parentNode.replaceChild(t.firstChild, el); oldHTML = null; }
+      if (msg) { msg.textContent = 'বাতিল করা হয়েছে — আগের ছবিই আছে।'; msg.className = 'small muted'; }
+    };
     if (file) file.addEventListener('change', function () {
-      if (!file.files[0]) return;
-      busy(true, 'ছবি আপলোড হচ্ছে…');
-      upload(file.files[0], { max: 600, thumb: 160, square: true, private: true })
-        .then(function (j) { return save(j.id); })
-        .then(function () { busy(true, '✅ ছবি সেভ হয়েছে'); location.reload(); }, fail)
-        .then(function () { file.value = ''; });
+      if (file.files[0]) preview(file.files[0]);
+      file.value = '';
     });
+    var camBtn = $('[data-avatar-camera]', box);
+    if (camBtn) camBtn.addEventListener('click', function () { cameraShot().then(function (f) { if (f) preview(f); }, function (e) { fail(e); }); });
+    var saveBtn = $('[data-avatar-save]', box);
+    if (saveBtn) saveBtn.addEventListener('click', function () {
+      if (!pending) return;
+      saveBtn.disabled = true;
+      busy(true, 'ছবি আপলোড হচ্ছে…');
+      upload(pending, { max: 600, thumb: 160, square: true, private: true })
+        .then(function (j) { return save(j.id); })
+        .then(function () { busy(true, '✅ ছবি সেভ হয়েছে'); location.reload(); }, function (e) { saveBtn.disabled = false; fail(e); });
+    });
+    var cancelBtn = $('[data-avatar-cancel]', box);
+    if (cancelBtn) cancelBtn.addEventListener('click', cancel);
     if (del) del.addEventListener('click', function () {
       if (!confirm('প্রোফাইল ছবি মুছে ফেলবেন?')) return;
       busy(true, 'মুছছে…');
@@ -706,25 +873,48 @@
   if (bundle) {
     var brows = $('[data-bundle-rows]', bundle);
     var bsum = function () {
-      var sum = 0;
-      $all('[data-row]', brows).forEach(function (r) { sum += (Number(r.getAttribute('data-price')) || 0) * (Number($('[data-qty]', r).value) || 0); });
+      var sum = 0, rows = $all('[data-row]', brows);
+      rows.forEach(function (r) {
+        var line = (Number(r.getAttribute('data-price')) || 0) * (Number($('[data-qty]', r).value) || 0);
+        sum += line;
+        var lc = $('[data-line]', r); if (lc) lc.textContent = money(line);
+      });
+      var empty = $('[data-bundle-empty]', bundle); if (empty) empty.hidden = rows.length > 0;
       var priceIn = $('[data-price]');
       var p = Number(priceIn && priceIn.value) || 0;
       $('[data-bundle-sum]', bundle).innerHTML = sum ? 'আলাদা কিনলে মোট দাম: <b>' + money(sum) + '</b>' + (p ? (p < sum ? ' · প্যাকেজে কাস্টমারের সাশ্রয়: <b class="good">' + money(sum - p) + '</b>' : ' · <span class="warn">প্যাকেজের দাম আলাদা দামের চেয়ে বেশি!</span>') : '') : '';
     };
+    var changed = function () { var f = bundle.closest('form'); if (f) markChanged(f); };
     picker($('[data-bundle-search]', bundle), $('[data-bundle-results]', bundle), function (p) {
       if (p.type === 'bundle') { toast('বান্ডেলের ভেতরে আরেকটা বান্ডেল রাখা যায় না।'); return; }
-      if ($all('input[name="bundle_id[]"]', brows).some(function (i) { return i.value === String(p.id); })) return;
+      var have = $all('input[name="bundle_id[]"]', brows).filter(function (i) { return i.value === String(p.id); })[0];
+      if (have) { var q = $('[data-qty]', have.closest('tr')); q.value = (Number(q.value) || 0) + 1; bsum(); changed(); toast('আগে থেকেই আছে — পরিমাণ ১ বাড়ানো হলো'); return; }
       var tr = document.createElement('tr');
       tr.setAttribute('data-row', ''); tr.setAttribute('data-price', p.price);
-      tr.innerHTML = '<td>' + esc(p.name) + (p.sku ? '<br><span class="small muted">' + esc(p.sku) + '</span>' : '') + '<input type="hidden" name="bundle_id[]" value="' + p.id + '"></td>' +
-        '<td class="num">' + money(p.price) + '</td><td class="num"><input type="number" name="bundle_qty[]" value="1" min="1" class="w-num" data-qty></td>' +
-        '<td class="num">' + bn(p.stock) + '</td><td><button type="button" class="link-btn danger" data-remove-row>✕</button></td>';
-      brows.appendChild(tr); bsum();
+      tr.innerHTML = '<td class="b-img">' + (p.image ? '<img src="' + esc(p.image) + '" alt="">' : '<span class="pe">' + esc(p.emoji || '📦') + '</span>') + '</td>' +
+        '<td class="b-name"><b>' + esc(p.name) + '</b>' + (p.sku ? '<br><span class="small muted">SKU ' + esc(p.sku) + '</span>' : '') + '<input type="hidden" name="bundle_id[]" value="' + p.id + '"></td>' +
+        '<td class="num">' + money(p.price) + '</td>' +
+        '<td class="num"><span class="qty-step"><button type="button" class="qs-btn" data-bq="-1" aria-label="কমান">−</button><input type="number" name="bundle_qty[]" value="1" min="1" class="w-num" data-qty><button type="button" class="qs-btn" data-bq="1" aria-label="বাড়ান">+</button></span></td>' +
+        '<td class="num" data-line></td><td class="num">' + bn(p.stock) + '</td>' +
+        '<td class="b-act"><a class="btn btn-sm btn-ghost" href="/admin/products/' + p.id + '" target="_blank" rel="noopener">✏️ এডিট</a><button type="button" class="btn btn-sm btn-danger" data-remove-row>🗑️ মুছুন</button></td>';
+      brows.appendChild(tr); bsum(); changed();
     }, { all: true, type: 'single' });
     bundle.addEventListener('input', bsum);
     document.addEventListener('input', function (e) { if (e.target.hasAttribute('data-price')) bsum(); });
-    bundle.addEventListener('click', function (e) { var b = e.target.closest('[data-remove-row]'); if (b) { b.closest('tr').remove(); bsum(); } });
+    bundle.addEventListener('click', function (e) {
+      var st = e.target.closest('[data-bq]');
+      if (st) {
+        var q = $('[data-qty]', st.closest('td'));
+        q.value = Math.max(1, (Number(q.value) || 1) + Number(st.getAttribute('data-bq')));
+        bsum(); changed(); return;
+      }
+      var b = e.target.closest('[data-remove-row]');
+      if (b) {
+        var name = ($('.b-name b', b.closest('tr')) || {}).textContent || 'পণ্যটি';
+        if (!confirm('"' + name + '" বান্ডেল থেকে সরাবেন? (পণ্যটি দোকান থেকে মুছবে না)')) return;
+        b.closest('tr').remove(); bsum(); changed();
+      }
+    });
     bsum();
   }
 
@@ -743,18 +933,42 @@
       pnone.hidden = !!$('[data-row]', prow);
       $('[data-grand]', pur).textContent = money(sub - v('discount') + v('shipping') + v('other_cost') + v('vat'));
     };
-    picker($('[data-product-search]', pur), $('[data-product-results]', pur), function (p) {
+    var addRow = function (p) {
       if (p.type === 'bundle') { toast('বান্ডেল কেনা যায় না — ভেতরের পণ্যগুলো আলাদা করে যোগ করুন।'); return; }
+      if ($all('input[name="item_id[]"]', prow).some(function (i) { return i.value === String(p.id); })) { toast('এই পণ্য আগেই যোগ করা আছে'); return; }
       var tr = document.createElement('tr');
       tr.setAttribute('data-row', '');
-      tr.innerHTML = '<td>' + esc(p.name) + (p.sku ? '<br><span class="small muted">' + esc(p.sku) + '</span>' : '') + '<br><span class="small muted">এখন স্টক ' + bn(p.stock) + ' · বিক্রি দাম ' + money(p.price) + '</span><input type="hidden" name="item_id[]" value="' + p.id + '"></td>' +
+      tr.innerHTML = '<td>' + esc(p.name) + (p.sku ? '<br><span class="small muted">SKU ' + esc(p.sku) + '</span>' : '') + '<br><span class="small muted">এখন স্টক ' + bn(p.stock) + ' · বিক্রি দাম ' + money(p.price) + '</span><input type="hidden" name="item_id[]" value="' + p.id + '">' +
+        '<div class="pack-box" data-pack-box hidden><b class="small">📦 প্যাকেট হিসেবে কিনেছেন</b><div class="pack-grid">' +
+        '<label class="small">কয় প্যাকেট<input type="number" min="1" step="1" value="1" data-pk-n></label>' +
+        '<label class="small">প্রতি প্যাকেটে পিস<input type="number" min="1" step="1" placeholder="যেমন ১০০০" data-pk-per></label>' +
+        '<label class="small">প্রতি প্যাকেটের দাম ৳<input type="number" min="0" step="0.01" placeholder="যেমন ২০০" data-pk-price></label></div>' +
+        '<span class="small muted" data-pk-out>প্যাকেটের তথ্য দিলে পরিমাণ আর প্রতি পিসের দাম নিজে থেকে বসবে</span></div></td>' +
         '<td class="num"><input type="number" name="item_qty[]" value="1" min="1" class="w-num" data-qty required></td>' +
-        '<td class="num"><input type="number" name="item_cost[]" value="' + (p.cost || '') + '" min="0" step="0.01" class="w-num" data-cost required></td>' +
-        '<td class="num" data-line-total></td><td><button type="button" class="link-btn danger" data-remove-row>✕</button></td>';
+        '<td class="num"><input type="number" name="item_cost[]" value="' + (p.cost || '') + '" min="0" step="0.01" class="w-num" data-cost required><br><button type="button" class="link-btn small" data-pack-open>📦 প্যাকেট দামে</button></td>' +
+        '<td class="num" data-line-total></td><td><button type="button" class="btn btn-sm btn-danger" data-remove-row>🗑️ মুছুন</button></td>';
       prow.appendChild(tr); ptotal();
-    }, { all: true });
+    };
+    picker($('[data-product-search]', pur), $('[data-product-results]', pur), function (p) { addRow(p); markChanged(pur); }, { all: true });
+    try { JSON.parse(pur.getAttribute('data-prefill') || '[]').forEach(addRow); } catch (_) {}
+    // pack maths: 2 packets × 1000 pcs at ৳200 each → 2000 pcs at ৳0.20
+    pur.addEventListener('click', function (e) {
+      var o = e.target.closest('[data-pack-open]');
+      if (o) { var bx = $('[data-pack-box]', o.closest('tr')); bx.hidden = !bx.hidden; if (!bx.hidden) $('[data-pk-per]', bx).focus(); }
+    });
+    pur.addEventListener('input', function (e) {
+      if (!e.target.closest('[data-pack-box]')) return;
+      var tr = e.target.closest('tr'), n = Number($('[data-pk-n]', tr).value) || 0, per = Number($('[data-pk-per]', tr).value) || 0, price = Number($('[data-pk-price]', tr).value) || 0;
+      var out = $('[data-pk-out]', tr);
+      if (!n || !per) { out.textContent = 'প্যাকেটের তথ্য দিলে পরিমাণ আর প্রতি পিসের দাম নিজে থেকে বসবে'; return; }
+      var unit = Math.round((price / per) * 100) / 100;
+      $('[data-qty]', tr).value = n * per;
+      if (price) $('[data-cost]', tr).value = unit;
+      out.innerHTML = '➡ মোট <b>' + bn(n * per) + ' পিস</b>' + (price ? ', প্রতি পিস <b>' + money(unit) + '</b>' + (Math.abs(unit * per - price) > 0.009 ? ' (পয়সা গোল করা)' : '') : '');
+      ptotal();
+    });
     pur.addEventListener('input', ptotal);
-    pur.addEventListener('click', function (e) { var b = e.target.closest('[data-remove-row]'); if (b) { b.closest('tr').remove(); ptotal(); } });
+    pur.addEventListener('click', function (e) { var b = e.target.closest('[data-remove-row]'); if (b && confirm('এই পণ্যটি পারচেজ থেকে সরাবেন?')) { b.closest('tr').remove(); ptotal(); markChanged(pur); } });
     ptotal();
   }
 

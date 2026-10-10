@@ -492,6 +492,9 @@
       fcam.btn.textContent = label;
       fcam.say(''); say(fnote, '');
       if (fcam.stepsEl) fcam.stepsEl.innerHTML = '';
+      if (typeof camOff === 'function' && fcam.stream) camOff();
+      show($('[data-ll-snap-row]', panel), false); show($('[data-ll-shot]', panel), false); show(fcam.btn, true);
+      fcam.btn.textContent = label;
       panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
     };
     var camBtn = $('[data-ll-face-camera]', faceTools);
@@ -499,15 +502,73 @@
     var testBtn = $('[data-ll-face-test]', faceTools);
     if (testBtn) testBtn.addEventListener('click', function () { openPanel('test', '🧪 ক্যামেরা চালু করে পরীক্ষা শুরু করুন'); });
 
+    // ---- adding a face from the camera: live picture → "📸 ছবি তুলুন" → look at it → "✅ সেভ করুন" / "🔁 আবার তুলুন"
+    var snapRow = $('[data-ll-snap-row]', panel), snapBtn = $('[data-ll-snap]', panel), offBtn = $('[data-ll-cam-off]', panel);
+    var shotBox = $('[data-ll-shot]', panel), shotImg = $('[data-ll-shot-img]', panel);
+    var shotSave = $('[data-ll-shot-save]', panel), shotRetake = $('[data-ll-shot-retake]', panel);
+    var shot = null, hintTimer = null;
+    var stopHints = function () { clearTimeout(hintTimer); hintTimer = null; };
+    var hints = function () {
+      stopHints();
+      if (!fcam.stream || !window.faceapi || !modelsLoaded) { if (fcam.stream) hintTimer = setTimeout(hints, 500); return; }
+      window.faceapi.detectSingleFace(fcam.video, detOpts()).withFaceLandmarks().then(function (r) {
+        if (!fcam.stream) return;
+        if (!r) { fcam.ringState('warn'); fcam.say('মুখ গোল দাগের ভেতরে আনুন', true); return; }
+        var m = metrics(r, fcam.video);
+        if (m.size < 0.2) { fcam.ringState('warn'); fcam.say('ক্যামেরার একটু কাছে আসুন', true); return; }
+        if (Math.abs(m.yaw) > 0.22) { fcam.ringState('warn'); fcam.say('🙂 মাথা সোজা রাখুন', true); return; }
+        fcam.ringState('ok'); fcam.say('✅ ঠিক আছে — এখন "📸 ছবি তুলুন" চাপুন');
+      }).catch(function () {}).then(function () { if (fcam.stream) hintTimer = setTimeout(hints, 450); });
+    };
+    var modelsLoaded = false;
+    var camOn = function () {
+      show(shotBox, false); shot = null;
+      fcam.btn.disabled = true;
+      fcam.say('⏳ ক্যামেরা চালু হচ্ছে…');
+      // the face program loads in the background while the camera already shows the picture
+      loadModels().then(function () { modelsLoaded = true; }, function () {});
+      return fcam.start().then(function () {
+        show(fcam.btn, false); show(snapRow, true);
+        snapBtn.disabled = false;
+        fcam.say('🙂 সোজা ক্যামেরার দিকে তাকান, তারপর "📸 ছবি তুলুন" চাপুন');
+        hints();
+      }, function (e) { fcam.say(''); say(fnote, '❌ ' + e.message, true); show(fcam.btn, true); })
+        .then(function () { fcam.btn.disabled = false; });
+    };
+    var camOff = function () { stopHints(); fcam.stop(); fcam.say(''); show(snapRow, false); show(fcam.btn, true); fcam.btn.textContent = '📷 ক্যামেরা চালু করুন'; };
+    if (offBtn) offBtn.addEventListener('click', camOff);
+    if (snapBtn) snapBtn.addEventListener('click', function () {
+      if (!fcam.stream) return;
+      // freeze this exact moment
+      var v = fcam.video, c = document.createElement('canvas');
+      c.width = v.videoWidth; c.height = v.videoHeight;
+      c.getContext('2d').drawImage(v, 0, 0, c.width, c.height);
+      snapBtn.disabled = true;
+      fcam.say(modelsLoaded ? '⏳ ছবিতে মুখ খোঁজা হচ্ছে…' : '⏳ মুখ চেনার প্রোগ্রাম লোড হচ্ছে… (প্রথমবার ১০-৩০ সেকেন্ড লাগতে পারে)');
+      loadModels().then(function () {
+        modelsLoaded = true;
+        return window.faceapi.detectSingleFace(c, detOpts(416)).withFaceLandmarks().withFaceDescriptor();
+      }).then(function (r) {
+        if (!r) { fcam.say('❌ ছবিতে মুখ পাওয়া যায়নি — মুখ গোল দাগের ভেতরে রেখে আবার "📸 ছবি তুলুন" চাপুন', true); return; }
+        shot = { descriptor: Array.prototype.slice.call(r.descriptor), photo: snapshot(c, r.detection.box) };
+        shotImg.src = shot.photo;
+        stopHints(); fcam.stop(); show(snapRow, false); show(fcam.btn, false);
+        show(shotBox, true);
+        fcam.say('ছবিটা দেখুন — ঠিক থাকলে "✅ এই ছবি সেভ করুন", না হলে "🔁 আবার তুলুন"');
+      }, function (e) { fcam.say(''); say(fnote, '❌ ' + e.message, true); })
+        .then(function () { snapBtn.disabled = false; });
+    });
+    if (shotRetake) shotRetake.addEventListener('click', function () { show(shotBox, false); shot = null; camOn(); });
+    if (shotSave) shotSave.addEventListener('click', function () {
+      if (!shot) return;
+      shotSave.disabled = true;
+      saveFace(shot, 'camera').catch(function (e) { say(fnote, '❌ ' + e.message, true); shotSave.disabled = false; });
+    });
+
     fcam.btn.addEventListener('click', function () {
       say(fnote, '');
       if (action === 'enroll') {
-        fcam.btn.disabled = true;
-        fcam.say('⏳ মুখ চেনার প্রোগ্রাম লোড হচ্ছে… (প্রথমবার ১০-৩০ সেকেন্ড লাগতে পারে)');
-        loadModels().then(function () { return fcam.start(); }).then(function () { return captureFace(fcam); })
-          .then(function (f) { fcam.stop(); fcam.say(''); return saveFace(f, 'camera'); })
-          .catch(function (e) { fcam.stop(); fcam.say(''); say(fnote, '❌ ' + e.message, true); })
-          .then(function () { fcam.btn.disabled = false; });
+        camOn();
       } else if (action === 'test') {
         runFaceCheck(fcam, BASE + '/face/test-options', BASE + '/face/test').then(function (r) {
           fcam.say('');
