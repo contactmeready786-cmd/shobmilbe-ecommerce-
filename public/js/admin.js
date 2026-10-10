@@ -1770,32 +1770,6 @@
     };
     setTimeout(round, prog ? 300 : 2500);
   })();
-  // ---------- ⬜ সাদা ব্যাকগ্রাউন্ড: every admin page quietly puts waiting product pictures on pure white ----------
-  if (/^\/admin/.test(location.pathname)) (function () {
-    var msg = $('[data-wb-msg]'), btn = $('[data-wb-run]'), running = false, rounds = 0, made = 0;
-    var show = function (t) { if (msg) msg.textContent = t; };
-    var step = function () {
-      if (rounds++ > 500) { running = false; return; }
-      fetch('/admin/api/white-bg/run', { method: 'POST', credentials: 'same-origin', headers: { Accept: 'application/json' } })
-        .then(function (r) { return r.json(); })
-        .then(function (j) {
-          if (j.off) { running = false; return; }
-          made += (j.done || []).length;
-          if (!j.left || !(j.done || []).length) {
-            running = false;
-            if (msg) { show(j.left ? '⏳ ' + bn(j.left) + 'টি ছবি একটু পরে নিজে থেকে হবে (AI ব্যস্ত বা আবার চেষ্টার অপেক্ষায়)।' : '✅ সব ছবি সাদা ব্যাকগ্রাউন্ডে — পেজ আবার লোড হচ্ছে…'); if (made) setTimeout(function () { location.reload(); }, 1200); }
-            return;
-          }
-          show('⏳ ' + bn(j.white) + ' / ' + bn(j.total) + ' টি ছবি সাদা হয়েছে, বাকি ' + bn(j.left) + 'টি — পেজটা খোলা রাখুন।');
-          setTimeout(step, 150);
-        })
-        .catch(function () { running = false; show('একটু সমস্যা হলো — কিছুক্ষণ পর আবার চাপুন।'); if (btn) btn.disabled = false; });
-    };
-    var start = function () { if (running) return; running = true; rounds = 0; if (btn) btn.disabled = true; step(); };
-    if (btn) btn.addEventListener('click', start);
-    // on every admin page: start by itself after a short pause (only when the white page says something is left, or on other pages)
-    if (!msg || Number(msg.getAttribute('data-left')) > 0) setTimeout(start, msg ? 400 : 4000);
-  })();
   // ---------- market research: "এখনই আপডেট করুন" reads every shop once, one per call ----------
   var rsBtn = $('[data-rs-run]');
   if (rsBtn) rsBtn.addEventListener('click', function () {

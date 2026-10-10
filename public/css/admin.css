@@ -1141,7 +1141,3 @@ tr.row-edit td { background: #eff6ff; }
 .pre { white-space: pre-wrap; overflow-wrap: anywhere; }
 tr.row-late td { background: color-mix(in srgb, var(--red, #C42E2E) 7%, transparent); }
 .kit-note { display: block; width: 100%; margin-top: 4px; font: inherit; font-size: .85em; padding: 4px 6px; border: 1px solid var(--line); border-radius: 6px; }
-
-/* ⬜ সাদা ব্যাকগ্রাউন্ড: before / after pictures */
-.wb-table .wb-pic img { width: 64px; height: 64px; object-fit: contain; border-radius: 8px; border: 1px solid var(--line); background: repeating-conic-gradient(#e9edf3 0 25%, #fff 0 50%) 0 0 / 12px 12px; display: block; }
-.wb-table .prod-actions form { display: inline-block; margin: 2px 2px 2px 0; }

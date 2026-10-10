@@ -344,8 +344,8 @@ body.lb-open { overflow: hidden; }
 /* ---------- cart & checkout ---------- */
 .cart-lines { list-style: none; margin: 0; padding: 0; }
 .cart-line { display: grid; grid-template-columns: 72px 1fr auto; gap: 14px; align-items: center; padding: 14px 0; border-bottom: 1px solid var(--line); }
-.cart-thumb { width: 72px; height: 72px; border-radius: 10px; background: #fff; border: 1px solid var(--line); display: flex; align-items: center; justify-content: center; font-size: 2rem; overflow: hidden; }
-.cart-thumb img { width: 100%; height: 100%; object-fit: contain; }
+.cart-thumb { width: 72px; height: 72px; border-radius: 10px; background: var(--bin); display: flex; align-items: center; justify-content: center; font-size: 2rem; overflow: hidden; }
+.cart-thumb img { width: 100%; height: 100%; object-fit: cover; }
 .cart-line h3 { font-family: var(--body); font-size: 1rem; font-weight: 600; margin: 0 0 6px; }
 .cart-line h3 a { color: var(--ink); text-decoration: none; }
 .cart-line-controls { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
