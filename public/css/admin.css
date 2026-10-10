@@ -1140,3 +1140,4 @@ tr.row-edit td { background: #eff6ff; }
 /* 📮 complaints */
 .pre { white-space: pre-wrap; overflow-wrap: anywhere; }
 tr.row-late td { background: color-mix(in srgb, var(--red, #C42E2E) 7%, transparent); }
+.kit-note { display: block; width: 100%; margin-top: 4px; font: inherit; font-size: .85em; padding: 4px 6px; border: 1px solid var(--line); border-radius: 6px; }

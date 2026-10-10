@@ -1085,7 +1085,10 @@
         '<td class="num">' + money(p.price) + '</td>' +
         '<td class="num"><span class="qty-step"><button type="button" class="qs-btn" data-bq="-1" aria-label="কমান">−</button><input type="number" name="bundle_qty[]" value="1" min="1" class="w-num" data-qty><button type="button" class="qs-btn" data-bq="1" aria-label="বাড়ান">+</button></span></td>' +
         '<td class="num" data-line></td><td class="num">' + bn(p.stock) + '</td>' +
+        (bundle.hasAttribute('data-kit') ? '<td><label class="check"><input type="checkbox" name="kit_opt[]" value="' + p.id + '"> ঐচ্ছিক</label></td>' : '') +
         '<td class="b-act"><a class="btn btn-sm btn-ghost" href="/admin/products/' + p.id + '" target="_blank" rel="noopener">✏️ এডিট</a><button type="button" class="btn btn-sm btn-danger" data-remove-row>🗑️ মুছুন</button></td>';
+      // 🧰 a kit: each part may carry a short note
+      if (bundle.hasAttribute('data-kit')) $('.b-name', tr).insertAdjacentHTML('beforeend', '<input name="kit_note[]" value="" maxlength="120" placeholder="ছোট নোট (ঐচ্ছিক)" class="kit-note">');
       brows.appendChild(tr); bsum(); changed();
     }, { all: true, type: 'single' });
     bundle.addEventListener('input', bsum);

@@ -982,3 +982,54 @@ body.protect .card-pic img, body.protect .g-main img, body.protect .g-thumb img,
 .review-photos img { width: 84px; height: 84px; object-fit: cover; border-radius: 10px; border: 1px solid var(--line); }
 .thumb-x { position: relative; padding: 0; border: 0; background: none; cursor: pointer; }
 .thumb-x::after { content: '✕'; position: absolute; top: -6px; right: -6px; width: 20px; height: 20px; border-radius: 50%; background: var(--red); color: #fff; font-size: 12px; display: grid; place-items: center; }
+
+/* 🙋 customer's own order changes */
+.self-panel h2 { margin-top: 0; }
+.self-box { margin-top: 10px; }
+.self-box > summary { list-style: none; cursor: pointer; }
+.self-box > summary::-webkit-details-marker { display: none; }
+.self-box[open] > summary { margin-bottom: 10px; }
+.danger-text { color: var(--red); }
+.self-ok { background: var(--green-l); color: var(--green); padding: 10px 14px; border-radius: 8px; font-weight: 600; }
+
+/* tables in descriptions / size charts */
+.table-scroll { overflow-x: auto; margin: 10px 0; }
+.md-table { border-collapse: collapse; min-width: 260px; font-size: .92em; }
+.md-table th, .md-table td { border: 1px solid var(--line); padding: 6px 10px; text-align: center; white-space: nowrap; }
+.md-table th { background: var(--paper); font-weight: 700; }
+
+/* 📤 share, 🔔 price alert, 📏 size guide, 🧰 kits link */
+.share-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 10px 0; }
+.share-label { font-size: .9em; color: var(--muted); }
+.share-btn { width: 36px; height: 36px; border-radius: 50%; display: inline-grid; place-items: center; border: 1px solid var(--line); background: var(--white);
+  font-size: 17px; text-decoration: none; color: var(--ink); cursor: pointer; padding: 0; }
+.share-btn:hover { border-color: var(--blue); }
+.share-fb { background: #1877F2; color: #fff; border-color: #1877F2; font-weight: 800; font-family: Arial, sans-serif; }
+.price-alert, .size-guide { margin: 8px 0; }
+.price-alert > summary, .size-guide > summary { cursor: pointer; color: var(--blue-d); font-weight: 600; font-size: .95em; }
+.price-alert .notify-box { margin-top: 6px; }
+.kit-links { font-size: .93em; }
+.warranty-claim { background: var(--blue-l); border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; }
+.warranty-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+.warranty-list li { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+/* 🧰 project kits */
+.kit-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
+.kit-card { display: flex; gap: 12px; align-items: center; text-decoration: none; color: var(--ink); }
+.kit-card:hover { border-color: var(--blue); }
+.kit-pic { width: 72px; height: 72px; flex: none; border-radius: 10px; overflow: hidden; background: var(--paper); display: grid; place-items: center; font-size: 34px; }
+.kit-pic img { width: 100%; height: 100%; object-fit: cover; }
+.kit-body { display: grid; gap: 4px; }
+.kit-head { display: flex; gap: 16px; align-items: flex-start; margin-bottom: 14px; flex-wrap: wrap; }
+.kit-hero { width: 220px; max-width: 100%; border-radius: 12px; }
+.kit-emoji { font-size: 64px; }
+.kit-parts { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+.kit-part { display: grid; grid-template-columns: auto 52px 1fr auto; gap: 10px; align-items: center; padding: 8px; border: 1px solid var(--line); border-radius: 10px; }
+.kit-part .qty { grid-column: 3; justify-self: start; }
+.kit-line { grid-column: 4; grid-row: 1 / span 2; white-space: nowrap; }
+.kit-part.kit-off { opacity: .55; }
+.kit-part.is-out { opacity: .5; }
+.kit-tick input { width: 20px; height: 20px; }
+.kit-thumb { width: 52px; height: 52px; border-radius: 8px; overflow: hidden; background: var(--paper); display: grid; place-items: center; font-size: 24px; }
+.kit-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.kit-total { display: flex; justify-content: space-between; align-items: center; margin: 14px 0 10px; font-size: 1.1em; }

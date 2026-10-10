@@ -1925,4 +1925,128 @@
       el.hidden = false;
     } catch (e) { /* old browser: the delivery days above are enough */ }
   })();
+  // ---------- 🙋 order page: a new mobile number must pass the SMS code (when চেকআউট OTP is on) ----------
+  $all('[data-self-edit][data-otp-need]').forEach(function (f) {
+    var orig = f.getAttribute('data-phone'), ph = $('[data-self-phone]', f), box = $('[data-self-otp]', f);
+    var code = $('[data-self-code]', f), send = $('[data-self-send]', f), msg = $('[data-self-msg]', f), tok = $('[data-self-token]', f);
+    var okPhone = '', timer = 0;
+    var clean = function (v) { return String(v || '').replace(/[০-৯]/g, function (c) { return '০১২৩৪৫৬৭৮৯'.indexOf(c); }).replace(/\D/g, '').replace(/^880?(?=1)/, '0'); };
+    var say = function (t, k) { msg.textContent = t; msg.className = 'otp-msg small' + (k ? ' ' + k : ''); };
+    var post = function (w, b) { return fetch('/api/checkout-otp/' + w, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) }).then(function (r) { return r.json(); }); };
+    var sync = function () { var p = clean(ph.value); box.hidden = p === orig || p === okPhone; if (p !== okPhone) tok.value = ''; };
+    ph.addEventListener('input', sync);
+    send.addEventListener('click', function () {
+      var p = clean(ph.value);
+      if (!/^01[3-9]\d{8}$/.test(p)) { say('সঠিক মোবাইল নম্বর দিন।', 'bad'); return; }
+      send.disabled = true; say('পাঠানো হচ্ছে…');
+      post('send', { phone: p }).then(function (j) {
+        if (j.need === false) { okPhone = p; sync(); return; }
+        if (!j.sent) { send.disabled = false; say(j.error || 'কোড পাঠানো যায়নি।', 'bad'); return; }
+        say((j.message || 'কোড পাঠানো হয়েছে।') + ' কোডটা লিখুন।', 'ok'); code.focus();
+        var left = j.wait || 60; clearInterval(timer);
+        timer = setInterval(function () { left--; send.textContent = left > 0 ? 'আবার পাঠান (' + bn(left) + ')' : 'আবার পাঠান'; if (left <= 0) { clearInterval(timer); send.disabled = false; } }, 1000);
+      }).catch(function () { send.disabled = false; say('ইন্টারনেট সংযোগে সমস্যা।', 'bad'); });
+    });
+    code.addEventListener('input', function () {
+      var c = clean(code.value); if (c.length < 4) return;
+      var p = clean(ph.value);
+      post('verify', { phone: p, code: c }).then(function (j) {
+        if (j.ok) { tok.value = j.token || ''; okPhone = p; say('✅ নম্বর যাচাই হয়েছে', 'ok'); setTimeout(sync, 800); } else { code.value = ''; say(j.error || 'কোড মেলেনি।', 'bad'); }
+      });
+    });
+    f.addEventListener('submit', function (e) {
+      var p = clean(ph.value);
+      if (p !== orig && p !== okPhone && !tok.value) { e.preventDefault(); box.hidden = false; say('নতুন নম্বরটি আগে যাচাই করুন — "OTP পাঠান" চাপুন।', 'bad'); }
+    });
+  });
+  // ---------- 📤 share a product ----------
+  $all('[data-share]').forEach(function (box) {
+    var url = box.getAttribute('data-url') || (location.origin + location.pathname);
+    var title = box.getAttribute('data-title') || document.title, text = box.getAttribute('data-text') || title;
+    var u = encodeURIComponent(url), msg = $('[data-share-msg]', box);
+    var set = function (k, href) { var a = $('[data-share-to="' + k + '"]', box); if (a) a.href = href; };
+    set('fb', 'https://www.facebook.com/sharer/sharer.php?u=' + u);
+    set('ms', /Android|iPhone|iPad/i.test(navigator.userAgent) ? 'fb-messenger://share/?link=' + u : 'https://www.facebook.com/dialog/send?link=' + u + '&redirect_uri=' + u + '&app_id=');
+    set('wa', 'https://wa.me/?text=' + encodeURIComponent(text + ' ' + url));
+    if (!/Android|iPhone|iPad/i.test(navigator.userAgent)) { var ms = $('[data-share-to="ms"]', box); if (ms) ms.hidden = true; }
+    var nat = $('[data-share-native]', box);
+    if (nat && navigator.share) {
+      nat.hidden = false;
+      nat.addEventListener('click', function () { navigator.share({ title: title, text: text, url: url }).catch(function () {}); });
+    }
+    var cp = $('[data-share-copy]', box);
+    if (cp) cp.addEventListener('click', function () {
+      var done = function () { msg.textContent = '✓ লিংক কপি হয়েছে'; setTimeout(function () { msg.textContent = ''; }, 2500); };
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(url).then(done).catch(function () { prompt('লিংকটা কপি করুন:', url); });
+      else prompt('লিংকটা কপি করুন:', url);
+    });
+    box.addEventListener('click', function (e) { var a = e.target.closest('[data-share-to]'); if (a) track('share', { method: a.getAttribute('data-share-to') }); });
+  });
+
+  // ---------- 🔔 "দাম কমলে জানাও" ----------
+  $all('[data-price-alert]').forEach(function (f) {
+    f.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var msg = $('[data-notify-msg]', f), btn = $('button', f), phone = f.elements.phone.value.trim();
+      if (phone.replace(/\D/g, '').length < 11) { msg.textContent = 'সঠিক মোবাইল নম্বর দিন, যেমন 01712345678।'; msg.className = 'small warn'; return; }
+      btn.disabled = true; msg.textContent = 'পাঠানো হচ্ছে…'; msg.className = 'small';
+      fetch('/api/price-alert', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ product: Number(f.getAttribute('data-product')), phone: phone, website: f.elements.website.value }) })
+        .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+        .then(function (x) { msg.textContent = x.ok ? x.j.message : (x.j.error || 'হয়নি, আবার চেষ্টা করুন।'); msg.className = 'small ' + (x.ok ? 'good' : 'warn'); btn.disabled = false; })
+        .catch(function () { msg.textContent = 'হয়নি, আবার চেষ্টা করুন।'; msg.className = 'small warn'; btn.disabled = false; });
+    });
+  });
+  // ---------- ✨ "আপনার জন্য" (from what this browser looked at, has in the cart and ordered) ----------
+  var fy = $('[data-for-you]');
+  if (fy) {
+    var seen = []; try { seen = JSON.parse(store('sm_recent') || '[]') || []; } catch (e) { seen = []; }
+    var inCart = Object.keys(read());
+    fetch('/api/for-you?seen=' + seen.slice(0, 20).join(',') + '&cart=' + inCart.slice(0, 20).join(','), { headers: { Accept: 'application/json' }, credentials: 'same-origin' })
+      .then(function (r) { return r.json(); }).then(function (j) {
+        if (!j.html) return;
+        $('[data-for-you-list]', fy).innerHTML = j.html; fy.hidden = false;
+        if (typeof paintWish === 'function') paintWish();
+        if (typeof paintCmp === 'function') paintCmp();
+      }).catch(function () {});
+  }
+  // ---------- 🧰 project kit: tick the parts you need, change amounts, all into the cart at once ----------
+  var kp = $('[data-kit-page]');
+  if (kp) {
+    var kitRows = $all('[data-kit-item]', kp);
+    var kitSum = function () {
+      var t = 0;
+      kitRows.forEach(function (r) {
+        var on = $('[data-kit-on]', r).checked, q = Math.max(1, parseInt($('[data-kit-qty]', r).value, 10) || 1), line = (Number(r.getAttribute('data-price')) || 0) * q;
+        $('[data-kit-line]', r).textContent = on ? money(line) : '—';
+        r.classList.toggle('kit-off', !on);
+        if (on) t += line;
+      });
+      $('[data-kit-total]', kp).textContent = money(t);
+    };
+    kp.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-kd]');
+      if (!b) return;
+      var inp = $('[data-kit-qty]', b.closest('[data-kit-item]'));
+      var v = (parseInt(inp.value, 10) || 1) + Number(b.getAttribute('data-kd'));
+      inp.value = Math.min(Number(inp.max) || 999, Math.max(Number(inp.min) || 1, v));
+      kitSum();
+    });
+    kp.addEventListener('input', kitSum); kp.addEventListener('change', kitSum);
+    $('[data-kit-add]', kp).addEventListener('click', function () {
+      var cart = read(), n = 0, items = [];
+      kitRows.forEach(function (r) {
+        if (!$('[data-kit-on]', r).checked) return;
+        var id = r.getAttribute('data-id'), q = Math.max(1, parseInt($('[data-kit-qty]', r).value, 10) || 1);
+        cart[id] = (Number(cart[id]) || 0) + q; n += q;
+        items.push({ id: Number(id), qty: q, price: Number(r.getAttribute('data-price')) || 0 });
+      });
+      var msg = $('[data-kit-msg]', kp);
+      if (!n) { msg.textContent = 'অন্তত একটা পার্টস বাছাই করুন।'; return; }
+      write(cart);
+      track('add_to_cart', { items: items });
+      msg.textContent = '✅ ' + bn(items.length) + 'টি পার্টস কার্টে যোগ হয়েছে।';
+      setTimeout(function () { location.href = '/cart'; }, 600);
+    });
+    kitSum();
+  }
 })();
