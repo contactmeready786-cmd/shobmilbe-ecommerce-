@@ -1087,7 +1087,6 @@
         return otpPost('send', { phone: p }).then(function (j) {
           otp.busy = false;
           if (cleanPhone(form.elements.phone.value) !== p) { otpReset(); return false; }
-          if (j.skip) { otpMarkOk(p, j.skip, 'ℹ️ ' + (j.message || 'এখন কোড ছাড়াই অর্ডার করতে পারবেন।')); return true; }
           if (j.need === false) { otpMarkOk(p, '', '✅ নম্বর যাচাই করা আছে'); return true; }
           if (!j.sent) {
             otpSend.disabled = false; otpSend.textContent = 'OTP পাঠান';

@@ -198,7 +198,7 @@
     'ইন্টারনেট সংযোগে সমস্যা — আবার "OTP পাঠান" চাপুন।': 'Connection problem — tap "Send OTP" again.',
     'ইন্টারনেট সংযোগে সমস্যা — কোডটা আবার লিখুন।': 'Connection problem — enter the code again.',
     'আগে সঠিক মোবাইল নম্বর লিখুন, যেমন 01712345678।': 'First enter a valid mobile number, e.g. 01712345678.',
-    'ℹ️ এই মুহূর্তে SMS পাঠানো যাচ্ছে না — চিন্তা নেই, কোড ছাড়াই অর্ডার করতে পারবেন। আমরা কল করে কনফার্ম করব।': 'ℹ️ SMS can\'t be sent right now — no worries, you can order without a code. We\'ll call to confirm.',
+    'এই মুহূর্তে কোড পাঠানো যাচ্ছে না। একটু পরে আবার চেষ্টা করুন, অথবা আমাদের কল করে অর্ডার দিন।': 'The code can\'t be sent right now. Please try again shortly, or call us to place your order.',
     'এই নম্বরে কিছুক্ষণ আগেই কোড পাঠানো হয়েছে। SMS দেখুন, অথবা ১০ মিনিট পর আবার চান।': 'A code was just sent to this number. Check your SMS, or ask again in 10 minutes.',
     'আজ এই নম্বরে অনেকবার কোড পাঠানো হয়েছে। অর্ডার করতে আমাদের কল করুন।': 'Too many codes for this number today. Please call us to order.',
     'ডেলিভারির তথ্য': 'Delivery Information',
