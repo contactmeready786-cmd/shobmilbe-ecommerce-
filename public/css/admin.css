@@ -1136,3 +1136,7 @@ tr.row-edit td { background: #eff6ff; }
 .w-full { width: 100%; font: inherit; padding: 8px; border: 1px solid var(--line); border-radius: 8px; }
 .row-warn td { background: #FFF4F4; }
 @media print { .side, .admin-side, .topbar, .row-actions, .date-filter, .crumbs, .menu-btn { display: none !important; } .ledger { font-size: 12px; } }
+
+/* 📮 complaints */
+.pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+tr.row-late td { background: color-mix(in srgb, var(--red, #C42E2E) 7%, transparent); }

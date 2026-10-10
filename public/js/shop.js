@@ -646,7 +646,8 @@
       var problem = false;
       var items = lines.map(function (l) {
         var p = l.product;
-        var over = l.qty > p.stock;
+        var pre = !!p.preorder && l.qty > Math.max(0, p.stock); // ⏳ pre-order: the missing pieces are sent when they arrive
+        var over = l.qty > p.stock && !p.preorder;
         if (over) problem = true;
         subtotal += l.price * l.qty;
         var hint = nextTier(l);
@@ -661,6 +662,7 @@
           (hint ? '<p class="small tier-hint">💡 ' + hint + '</p>' : '') +
           (rule(p.price).small ? '<p class="muted small">🔩 কম দামের পণ্য: কমপক্ষে ' + bn(rule(p.price).min) + 'টি (' + money(rule(p.price).min * p.price) + ')</p>' : '') +
           (over ? '<p class="cart-warn">' + (p.stock > 0 ? 'স্টকে আছে মাত্র ' + bn(p.stock) + 'টি' : 'এখন স্টকে নেই') + '</p>' : '') +
+          (pre ? '<p class="small preorder-line">⏳ প্রি-অর্ডার: ' + (p.stock > 0 ? bn(p.stock) + 'টি এখনই, বাকি ' + bn(l.qty - p.stock) + 'টি' : 'এই পণ্য') + ' স্টকে এলেই পাঠানো হবে' + (p.preorder_days ? ' (আনুমানিক ' + bn(p.preorder_days) + ' দিন)' : '') + '।</p>' : '') +
           '</div><div class="line-total">' + money(l.price * l.qty) + '</div></li>';
       }).join('') + giftRows(res.gifts, 'li');
       subtotal += giftTotal(res.gifts);
@@ -734,6 +736,22 @@
 
   // ---------- checkout ----------
   var checkout = $('[data-checkout]');
+  // 📩 the link in the "your order isn't finished" SMS: the same products back in the cart, name / number filled in
+  var resumeId = (location.search.match(/[?&]resume=([a-f0-9]{20})(?:&|$)/) || [])[1];
+  if (checkout && resumeId) {
+    checkout.style.opacity = '.4';
+    fetch('/api/resume?id=' + resumeId, { headers: { Accept: 'application/json' } }).then(function (r) { return r.json(); }).then(function (j) {
+      if (j && j.ok && j.items && j.items.length) {
+        var c = {}; j.items.forEach(function (i) { c[i.id] = (c[i.id] || 0) + i.qty; });
+        store(KEY, JSON.stringify(c));
+        var old = {}; try { old = JSON.parse(store('sm_customer') || '{}') || {}; } catch (e) { old = {}; }
+        if (j.phone && old.phone !== j.phone) old = {}; // someone else's saved address must not be mixed in
+        old.name = old.name || j.name || ''; old.phone = j.phone || old.phone || '';
+        store('sm_customer', JSON.stringify(old));
+      }
+    }).catch(function () {}).then(function () { location.replace('/checkout'); });
+    checkout = null;
+  }
   if (checkout) {
     var form = document.getElementById('checkout-form');
     var summary = $('[data-summary]', checkout);
@@ -1191,6 +1209,9 @@
       if (!data.district) return showError('জেলা বাছুন।', 'district');
       if (!data.thana) return showError('থানা / উপজেলা বাছুন।', 'thana');
       if (data.address.length < 5) return showError('পূর্ণ ঠিকানা লিখুন, যাতে ডেলিভারিম্যান সহজে খুঁজে পান।', 'address');
+      var consentBox = $('[data-consent]', form);
+      if (consentBox && !consentBox.checked) return showError('অর্ডার করতে নিচের ঘরে টিক দিয়ে আপনার তথ্য ব্যবহারে সম্মতি দিন।', 'consent');
+      data.consent = consentBox ? (consentBox.checked ? '1' : '') : '1';
       if (otpBox) {
         var otpPhone = cleanPhone(data.phone);
         if (!phoneOk(otpPhone)) return showError('সঠিক মোবাইল নম্বর দিন, যেমন 01712345678।', 'phone');
@@ -1522,6 +1543,38 @@
   }
 
   // ---------- review forms (order page, after delivery) ----------
+  // 📸 photo picker for review forms (several on one page): photos made small in the browser, kept on the form
+  $all('[data-photo-pick]').forEach(function (pick) {
+    var holder = pick.closest('form'), thumbs = $('[data-photo-thumbs]', holder), max = Number(pick.getAttribute('data-photo-max')) || 3;
+    holder.__photos = [];
+    var shrink = function (file) {
+      return new Promise(function (ok) {
+        var img = new Image(), url = URL.createObjectURL(file);
+        img.onload = function () {
+          var k = Math.min(1, 1280 / Math.max(img.width, img.height)), c = document.createElement('canvas');
+          c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+          c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+          URL.revokeObjectURL(url); ok(c.toDataURL('image/jpeg', 0.8));
+        };
+        img.onerror = function () { URL.revokeObjectURL(url); ok(null); };
+        img.src = url;
+      });
+    };
+    pick.addEventListener('change', function () {
+      var files = Array.prototype.slice.call(pick.files || []).slice(0, max - holder.__photos.length);
+      Promise.all(files.map(shrink)).then(function (list) {
+        holder.__photos = holder.__photos.concat(list.filter(Boolean)).slice(0, max);
+        thumbs.innerHTML = holder.__photos.map(function (src, i) { return '<button type="button" class="thumb-x" data-photo-del="' + i + '" aria-label="ছবি সরান"><img src="' + src + '" alt=""></button>'; }).join('');
+        pick.value = '';
+      });
+    });
+    thumbs.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-photo-del]');
+      if (!b) return;
+      holder.__photos.splice(Number(b.getAttribute('data-photo-del')), 1);
+      thumbs.innerHTML = holder.__photos.map(function (src, i) { return '<button type="button" class="thumb-x" data-photo-del="' + i + '" aria-label="ছবি সরান"><img src="' + src + '" alt=""></button>'; }).join('');
+    });
+  });
   $all('[data-review-form]').forEach(function (rf) {
     rf.addEventListener('submit', function (e) {
       e.preventDefault();
@@ -1529,7 +1582,7 @@
       var btn = $('button', rf);
       var r = rf.querySelector('input[name=rating]:checked');
       var d = { code: rf.getAttribute('data-code'), product: Number(rf.getAttribute('data-product')), rating: r ? Number(r.value) : 5,
-        name: rf.elements.name.value.trim(), body: rf.elements.body.value.trim(), website: rf.elements.website.value };
+        name: rf.elements.name.value.trim(), body: rf.elements.body.value.trim(), website: rf.elements.website.value, photos: rf.__photos || [] };
       if (d.body.length < 5) { msg.textContent = 'আপনার মতামত একটু লিখুন।'; return; }
       btn.disabled = true;
       msg.textContent = 'পাঠানো হচ্ছে…';
@@ -1584,22 +1637,26 @@
       var sku = $('[data-p-sku]'); if (sku && b.getAttribute('data-sku')) sku.textContent = b.getAttribute('data-sku');
       var fl = $('[data-p-flash]');
       if (fl) { var fe = b.getAttribute('data-flash'); fl.hidden = !fe; var cd = $('[data-countdown]', fl); if (cd) cd.setAttribute('data-countdown', fe || ''); }
+      // ⏳ pre-order product: an out-of-stock option can still be ordered
+      var pre = !!$('[data-buy-box][data-preorder]');
       var st = $('[data-p-stock]');
       if (st) {
         st.className = 'stock ' + (stock <= 0 ? 'out' : stock <= low ? 'low' : 'ok');
-        st.textContent = stock <= 0 ? 'স্টকে নেই' : stock <= low ? 'মাত্র ' + bn(stock) + 'টি বাকি আছে' : '✓ স্টকে আছে';
+        st.textContent = stock <= 0 ? (pre ? 'স্টকে নেই — প্রি-অর্ডার চলছে' : 'স্টকে নেই') : stock <= low ? 'মাত্র ' + bn(stock) + 'টি বাকি আছে' : '✓ স্টকে আছে';
         st.hidden = !(stock <= 0 || st.getAttribute('data-show'));
       }
       $all('[data-add][data-with-qty]').forEach(function (btn) {
         btn.setAttribute('data-add', id); btn.setAttribute('data-name', b.getAttribute('data-name')); btn.setAttribute('data-price', String(price));
-        btn.disabled = stock <= 0;
+        btn.disabled = stock <= 0 && !pre;
+        if (pre && btn.getAttribute('data-label')) btn.textContent = stock <= 0 ? (btn.hasAttribute('data-buy-now') ? '⏳ এখনই প্রি-অর্ডার করুন' : '⏳ প্রি-অর্ডার (কার্টে যোগ)') : btn.getAttribute('data-label');
       });
+      var pn = $('[data-pre-note]'); if (pn) pn.hidden = !(pre && stock <= 0);
       var qi = $('[data-qty] input');
-      if (qi) { var mx = Math.max(1, Math.min(stock, rule(price).max)); qi.max = String(mx); qi.setAttribute('data-stock', String(stock)); if ((parseInt(qi.value, 10) || 1) > mx) qi.value = String(mx); }
-      var vo = $('[data-var-out]'); if (vo) vo.hidden = stock > 0;
+      if (qi) { var mx = Math.max(1, pre ? rule(price).max : Math.min(stock, rule(price).max)); qi.max = String(mx); qi.setAttribute('data-stock', String(stock)); if ((parseInt(qi.value, 10) || 1) > mx) qi.value = String(mx); }
+      var vo = $('[data-var-out]'); if (vo) vo.hidden = stock > 0 || pre;
       var nf = $('[data-notify]');
-      if (nf) { nf.setAttribute('data-product', id); nf.hidden = stock > 0; var nm2 = $('[data-notify-msg]', nf); if (nm2) nm2.textContent = ''; }
-      var sb = $('[data-sticky-buy]'); if (sb) sb.hidden = stock <= 0;
+      if (nf) { nf.setAttribute('data-product', id); nf.hidden = stock > 0 || pre; var nm2 = $('[data-notify-msg]', nf); if (nm2) nm2.textContent = ''; }
+      var sb = $('[data-sticky-buy]'); if (sb) sb.hidden = stock <= 0 && !pre;
       var im = b.getAttribute('data-img'), main = $('[data-g-main]');
       if (im && main) { main.src = im; $all('[data-g-img]').forEach(function (t) { t.classList.toggle('on', t.getAttribute('data-g-img') === im); }); }
       try { history.replaceState(null, '', location.pathname + '?v=' + id + location.hash); } catch (e) { /* ignore */ }
@@ -1788,4 +1845,84 @@
       });
     }, PU.delay * 1000);
   }
+  // ---------- 🔎 instant search results under the search box (spelling mistakes and Bangla words work) ----------
+  (function () {
+    var input = document.getElementById('q');
+    var form = input && input.closest('form.search');
+    if (!form) return;
+    var box = document.createElement('div');
+    box.className = 'search-drop'; box.hidden = true; box.setAttribute('role', 'listbox'); box.id = 'search-drop';
+    form.appendChild(box);
+    input.setAttribute('aria-controls', 'search-drop'); input.setAttribute('aria-autocomplete', 'list');
+    var timer = 0, last = '', seq = 0, cache = {};
+    function close() { box.hidden = true; }
+    function show(q, j) {
+      if (input.value.trim() !== q) return;
+      if (!j.products || !j.products.length) {
+        box.innerHTML = '<p class="sd-empty">"' + esc(q) + '" — কিছু পাওয়া যায়নি। অন্য নামে লিখে দেখুন।</p>';
+      } else {
+        box.innerHTML = j.products.map(function (p) {
+          return '<a class="sd-item" role="option" href="/p/' + encodeURIComponent(p.slug) + '">' +
+            (p.image ? '<img src="' + esc(p.image) + '" alt="" loading="lazy" draggable="false">' : '<span class="sd-emo">' + esc(p.emoji || '📦') + '</span>') +
+            '<span class="sd-name">' + esc(p.name) + (p.out ? ' <small class="sd-out">স্টকে নেই</small>' : '') + '</span><b class="sd-price">' + money(p.price) + '</b></a>';
+        }).join('') + (j.total > j.products.length ? '<a class="sd-all" href="/products?q=' + encodeURIComponent(q) + '">সব ' + bn(j.total) + 'টি ফলাফল দেখুন →</a>' : '');
+      }
+      box.hidden = false;
+    }
+    function run() {
+      var q = input.value.trim();
+      if (q.length < 2) { last = ''; close(); return; }
+      if (q === last && !box.hidden) return;
+      last = q;
+      if (cache[q]) { show(q, cache[q]); return; }
+      var my = ++seq;
+      fetch('/api/search-suggest?q=' + encodeURIComponent(q), { headers: { Accept: 'application/json' } })
+        .then(function (r) { return r.json(); })
+        .then(function (j) { cache[q] = j; if (my === seq) show(q, j); })
+        .catch(function () { /* the normal search still works */ });
+    }
+    input.addEventListener('input', function () { clearTimeout(timer); timer = setTimeout(run, 220); });
+    input.addEventListener('focus', function () { if (input.value.trim().length >= 2) run(); });
+    input.addEventListener('keydown', function (e) {
+      var items = $all('.sd-item, .sd-all', box);
+      if (e.key === 'Escape') { close(); return; }
+      if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && items.length && !box.hidden) {
+        e.preventDefault();
+        var i = items.indexOf(document.activeElement);
+        (items[e.key === 'ArrowDown' ? Math.min(items.length - 1, i + 1) : Math.max(0, i - 1)] || items[0]).focus();
+      }
+    });
+    box.addEventListener('keydown', function (e) {
+      var items = $all('.sd-item, .sd-all', box), i = items.indexOf(document.activeElement);
+      if (e.key === 'ArrowDown') { e.preventDefault(); if (items[i + 1]) items[i + 1].focus(); }
+      if (e.key === 'ArrowUp') { e.preventDefault(); if (i <= 0) input.focus(); else items[i - 1].focus(); }
+      if (e.key === 'Escape') { close(); input.focus(); }
+    });
+    document.addEventListener('click', function (e) { if (!form.contains(e.target)) close(); });
+  })();
+  // ---------- 🚚 "order now, it arrives on …" (Dhaka time; after the cut-off hour the count starts tomorrow) ----------
+  (function () {
+    var el = $('[data-del-eta]');
+    if (!el) return;
+    try {
+      var parts = {};
+      new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Dhaka', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', hourCycle: 'h23' })
+        .formatToParts(new Date()).forEach(function (p) { parts[p.type] = p.value; });
+      var late = Number(parts.hour) >= (Number(el.getAttribute('data-cutoff')) || 17);
+      var extra = Number(el.getAttribute('data-extra')) || 0;
+      var base = Date.UTC(Number(parts.year), Number(parts.month) - 1, Number(parts.day)) + ((late ? 1 : 0) + extra) * 864e5;
+      var fmt = function (ms, withMonth) { return new Date(ms).toLocaleDateString('bn-BD', withMonth ? { day: 'numeric', month: 'long', timeZone: 'UTC' } : { day: 'numeric', timeZone: 'UTC' }); };
+      var range = function (v) {
+        var m = String(v || '').match(/^(\d{1,2})(?:-(\d{1,2}))?$/);
+        if (!m) return '';
+        var a = base + Number(m[1]) * 864e5, b = base + Number(m[2] || m[1]) * 864e5;
+        if (a === b) return fmt(a, true);
+        return new Date(a).getUTCMonth() === new Date(b).getUTCMonth() ? fmt(a, false) + '–' + fmt(b, true) : fmt(a, true) + ' – ' + fmt(b, true);
+      };
+      var d = range(el.getAttribute('data-dhaka')), o = range(el.getAttribute('data-outside'));
+      if (!d && !o) return;
+      el.textContent = '📅 ' + (extra ? 'প্রি-অর্ডার — আজ অর্ডার করলে আনুমানিক পৌঁছাবে' : late ? 'এখন অর্ডার করলে পৌঁছাবে' : 'আজ অর্ডার করলে পৌঁছাবে') + ' — ঢাকায়: ' + d + ' · ঢাকার বাইরে: ' + o;
+      el.hidden = false;
+    } catch (e) { /* old browser: the delivery days above are enough */ }
+  })();
 })();
