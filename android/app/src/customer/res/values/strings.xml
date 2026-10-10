@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">সবমিলবে</string>
+    <string name="sc_track">অর্ডার ট্র্যাক</string>
+    <string name="sc_cart">কার্ট</string>
+    <string name="sc_account">আমার অ্যাকাউন্ট</string>
+    <color name="primary">#0866D6</color>
+</resources>

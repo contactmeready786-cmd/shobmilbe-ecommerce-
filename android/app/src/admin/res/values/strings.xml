@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">সবমিলবে অ্যাডমিন</string>
+    <string name="sc_handover">হ্যান্ডওভার স্ক্যান</string>
+    <string name="sc_handover_long">কুরিয়ারে হ্যান্ডওভার (স্ক্যান)</string>
+    <string name="sc_orders">অর্ডার</string>
+    <string name="sc_pos">POS বিক্রি</string>
+    <color name="primary">#14213D</color>
+</resources>

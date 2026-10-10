@@ -1,0 +1,57 @@
+plugins {
+    id 'com.android.application'
+}
+
+def host = project.property('siteHost')
+// Lets Chrome open the shop full-screen (no address bar) once the site lists this app.
+def assetStatements = '[{\\"relation\\": [\\"delegate_permission/common.handle_all_urls\\"], \\"target\\": {\\"namespace\\": \\"web\\", \\"site\\": \\"https://' + host + '\\"}}]'
+
+android {
+    namespace 'com.shobmilbe.app'
+    compileSdk 36
+
+    defaultConfig {
+        minSdk 21
+        targetSdk 36
+        versionCode project.property('appVersionCode').toInteger()
+        versionName project.property('appVersionName')
+        manifestPlaceholders = [host: host]
+        resValue 'string', 'asset_statements', assetStatements
+    }
+
+    flavorDimensions = ['role']
+    productFlavors {
+        // Customer shop app — goes to Google Play.
+        customer {
+            dimension 'role'
+            applicationId 'com.shobmilbe.app'
+            manifestPlaceholders = [launchPath: '/', linkPath: '/']
+        }
+        // Owner/staff app — installed directly from the APK, never on Play Store.
+        admin {
+            dimension 'role'
+            applicationId 'com.shobmilbe.admin'
+            manifestPlaceholders = [launchPath: '/admin', linkPath: '/admin']
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    lint {
+        checkReleaseBuilds false
+        abortOnError false
+    }
+}
+
+dependencies {
+    implementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.5.0'
+}

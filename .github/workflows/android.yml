@@ -1,0 +1,53 @@
+# Builds the two Android apps (customer + admin) from the android/ folder.
+# Output is UNSIGNED on purpose: this repo is public, so the private signing key never comes here.
+# The unsigned files + build log go to the "android-builds" branch; they are signed with the owner's key afterwards.
+name: android
+on:
+  push:
+    branches: [main]
+    paths: ['android/**', '.github/workflows/android.yml']
+  workflow_dispatch: {}
+permissions:
+  contents: write
+concurrency: android-build
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - name: Build
+        run: |
+          mkdir -p "$RUNNER_TEMP/out"
+          set +e
+          gradle -p android --no-daemon --stacktrace assembleRelease bundleRelease > "$RUNNER_TEMP/out/build.log" 2>&1
+          echo $? > "$RUNNER_TEMP/out/status"
+          tail -60 "$RUNNER_TEMP/out/build.log"
+          exit 0
+      - name: Collect files
+        run: |
+          O="$RUNNER_TEMP/out"
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          echo "$BT" > "$O/build-tools.txt"
+          for f in $(find android/app/build/outputs/apk -name '*-release-unsigned.apk'); do
+            n=$(basename "$f" -release-unsigned.apk)
+            "$BT/zipalign" -f 4 "$f" "$O/$n-aligned-unsigned.apk"
+          done
+          find android/app/build/outputs/bundle -name '*.aab' -exec cp {} "$O/" \;
+          cp "$BT/lib/apksigner.jar" "$O/" || true
+          echo "${GITHUB_SHA}" > "$O/source-commit.txt"
+          ls -la "$O"
+      - name: Publish to android-builds branch
+        run: |
+          cd "$RUNNER_TEMP/out"
+          git init -q -b android-builds
+          git -c user.name=ci -c user.email=ci@noreply add -A
+          git -c user.name=ci -c user.email=ci@noreply commit -q -m "Android build of ${GITHUB_SHA::7} (status $(cat status))"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" HEAD:android-builds

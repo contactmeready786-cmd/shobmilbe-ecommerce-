@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Long-press the app icon. If the site address changes, change it here too (and in gradle.properties). -->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut android:shortcutId="track" android:enabled="true" android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/sc_track" android:shortcutLongLabel="@string/sc_track">
+        <intent android:action="android.intent.action.VIEW"
+            android:targetPackage="com.shobmilbe.app"
+            android:targetClass="com.google.androidbrowserhelper.trusted.LauncherActivity"
+            android:data="https://shobmilbe-ecommerce.vercel.app/track" />
+    </shortcut>
+    <shortcut android:shortcutId="cart" android:enabled="true" android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/sc_cart" android:shortcutLongLabel="@string/sc_cart">
+        <intent android:action="android.intent.action.VIEW"
+            android:targetPackage="com.shobmilbe.app"
+            android:targetClass="com.google.androidbrowserhelper.trusted.LauncherActivity"
+            android:data="https://shobmilbe-ecommerce.vercel.app/cart" />
+    </shortcut>
+    <shortcut android:shortcutId="account" android:enabled="true" android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/sc_account" android:shortcutLongLabel="@string/sc_account">
+        <intent android:action="android.intent.action.VIEW"
+            android:targetPackage="com.shobmilbe.app"
+            android:targetClass="com.google.androidbrowserhelper.trusted.LauncherActivity"
+            android:data="https://shobmilbe-ecommerce.vercel.app/account" />
+    </shortcut>
+</shortcuts>
