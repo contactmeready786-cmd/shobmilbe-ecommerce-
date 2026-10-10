@@ -1224,12 +1224,22 @@
   document.addEventListener('click', function (e) {
     var b = e.target.closest('[data-fraud-check]');
     if (!b) return;
-    var out = b.parentNode.querySelector('[data-fraud-out]');
+    var out = b.closest('[data-fraud-out]') || b.parentNode.querySelector('[data-fraud-out]');
     out.textContent = 'চেক করা হচ্ছে…';
-    getJSON('/admin/api/fraud?phone=' + encodeURIComponent(b.getAttribute('data-fraud-check'))).then(function (j) {
+    getJSON('/admin/api/fraud?phone=' + encodeURIComponent(b.getAttribute('data-fraud-check')) + (b.hasAttribute('data-fresh') ? '&fresh=1' : '')).then(function (j) {
       if (!j.ok) { out.textContent = j.message || 'তথ্য পাওয়া যায়নি'; return; }
-      var ratio = j.total ? Math.round((j.success / j.total) * 100) : null;
-      out.innerHTML = 'Pathao রেকর্ড: মোট <b>' + bn(j.total) + '</b>টি পার্সেল, সফল <b>' + bn(j.success) + '</b>টি' + (ratio !== null ? ' (<b class="' + (ratio < 60 ? 'warn' : 'good') + '">' + bn(ratio) + '%</b>)' : '') + (j.rating ? ' · রেটিং: ' + esc(j.rating) : '');
+      var rows = [];
+      var o = j.own || {};
+      rows.push('<li>🏪 এই দোকানে: ডেলিভারি <b>' + bn(o.delivered || 0) + '</b> · বাতিল/ফেরত <b>' + bn(o.failed || 0) + '</b>' + (o.open ? ' · চলমান ' + bn(o.open) : '') + '</li>');
+      if (j.fraudbd && j.fraudbd.ok) (j.fraudbd.couriers || []).forEach(function (c) {
+        rows.push('<li>🚚 ' + esc(c.name) + ': ' + (c.type === 'rating' ? esc(c.message || c.rating || '—') : 'মোট <b>' + bn(c.total) + '</b> · সফল <b>' + bn(c.success) + '</b> · বাতিল <b>' + bn(c.cancel) + '</b>') + '</li>');
+      });
+      else if (j.fraudbd && !j.fraudbd.ok) rows.push('<li class="muted">FraudBD: ' + esc(j.fraudbd.message || '') + '</li>');
+      if (j.pathao && j.pathao.ok && !(j.fraudbd && j.fraudbd.ok)) rows.push('<li>🚚 Pathao: মোট <b>' + bn(j.pathao.total) + '</b> · সফল <b>' + bn(j.pathao.success) + '</b>' + (j.pathao.rating ? ' · ' + esc(j.pathao.rating) : '') + '</li>');
+      else if (j.pathao && !j.pathao.ok) rows.push('<li class="muted">Pathao: ' + esc(j.pathao.message || '') + '</li>');
+      if (!j.sources.fraudbd && !j.sources.pathao) rows.push('<li class="muted">অন্য দোকানের রেকর্ড দেখতে <a href="/admin/fraud">ফ্রড চেক সেটিংস</a> এ FraudBD API key দিন।</li>');
+      out.innerHTML = '<div class="risk risk-' + esc(j.level) + '"><b>' + esc(j.label) + '</b>' + (j.rate !== null ? ' — সব মিলিয়ে সফল <b>' + bn(j.rate) + '%</b> (' + bn(j.success) + '/' + bn(j.total) + ')' : '') +
+        '<span>' + esc(j.advice) + '</span></div><ul class="fraud-list">' + rows.join('') + '</ul>' + (j.cached_at ? '<p class="muted">আগের চেক থেকে (২৪ ঘণ্টার মধ্যে) — <button type="button" class="link-btn small" data-fraud-check="' + esc(j.phone) + '" data-fresh>আবার চেক করুন</button></p>' : '');
     }).catch(function (err) { out.textContent = err.message; });
   });
 

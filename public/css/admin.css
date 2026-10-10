@@ -1125,3 +1125,14 @@ tr.row-edit td { background: #eff6ff; }
 .pos-recent { list-style: none; padding: 0; margin: 0; }
 .pos-recent li { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 4px 0; border-bottom: 1px solid var(--line); }
 @media (max-width: 900px) { .pos { grid-template-columns: 1fr; } .pos-bill { position: static; } }
+
+/* ---------- 🛡️ fraud check / COD ---------- */
+.fraud-out .risk { margin-top: 8px; }
+.fraud-list { margin: 8px 0; padding-left: 18px; font-size: .9rem; }
+.risk-dot { font-size: .85rem; }
+.risk-dot.risk-high { color: #C42E2E; }
+.risk-dot.risk-medium { color: #8A5A00; }
+.cod-pay { border-top: 1px solid var(--line); margin-top: 12px; padding-top: 12px; }
+.w-full { width: 100%; font: inherit; padding: 8px; border: 1px solid var(--line); border-radius: 8px; }
+.row-warn td { background: #FFF4F4; }
+@media print { .side, .admin-side, .topbar, .row-actions, .date-filter, .crumbs, .menu-btn { display: none !important; } .ledger { font-size: 12px; } }
