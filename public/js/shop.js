@@ -1178,7 +1178,7 @@
     var lmSports = tick.getAttribute('data-live-mini').split(',').filter(Boolean);
     var lmEvery = Math.max(10, Number(tick.getAttribute('data-refresh')) || 20) * 1000;
     var lmTimer = null, lmIndex = 0, lmItems = [];
-    var bar = tick.closest('[data-notice]');
+    var lmBar = tick.closest('[data-notice]');
     function lmTime(d) {
       var h = 0, mi = '00';
       try {
@@ -1202,7 +1202,7 @@
         (showScore && t.score ? ' <span class="lt-sc">' + esc(t.score) + '</span>' : '');
     }
     function lmDraw() {
-      if (!lmItems.length) { tick.hidden = true; if (bar) bar.classList.remove('has-live'); return; }
+      if (!lmItems.length) { tick.hidden = true; if (lmBar) lmBar.classList.remove('has-live'); return; }
       var m = lmItems[lmIndex % lmItems.length];
       var sp = m.sport;
       var tag = m.state === 'in' ? '<span class="lt-live">● লাইভ</span>' : m.state === 'pre' ? '<span class="lt-tag">' + esc(lmTime(m.date)) + '</span>' : '<span class="lt-tag">শেষ</span>';
@@ -1216,7 +1216,7 @@
         (status ? ' <span class="lt-st">· ' + esc(status) + '</span>' : '') +
         (lmItems.length > 1 ? ' <span class="lt-n">' + bn(lmIndex % lmItems.length + 1) + '/' + bn(lmItems.length) + '</span>' : '');
       tick.hidden = false;
-      if (bar) bar.classList.add('has-live');
+      if (lmBar) lmBar.classList.add('has-live');
     }
     function lmLoad() {
       clearTimeout(lmTimer);
@@ -1338,7 +1338,7 @@
   // ---------- flash sale countdown ----------
   // (looked up on every tick: product-page variants and the "recently viewed" row add countdowns later)
   if ($all('[data-countdown]').length || $('[data-variants]') || $('[data-recent-box]')) {
-    var tick = function () {
+    var cdTick = function () { // own name: "tick" is the live-score bar at the top
       $all('[data-countdown]').forEach(function (el) {
         if (!el.getAttribute('data-countdown')) return;
         var left = Math.max(0, Math.floor((new Date(el.getAttribute('data-countdown')).getTime() - Date.now()) / 1000));
@@ -1348,8 +1348,8 @@
         el.textContent = (d ? bn(d) + ' দিন ' : '') + pad(h) + ':' + pad(m) + ':' + pad(sec);
       });
     };
-    tick();
-    setInterval(tick, 1000);
+    cdTick();
+    setInterval(cdTick, 1000);
   }
 
   // ---------- review forms (order page, after delivery) ----------
