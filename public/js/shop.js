@@ -1475,4 +1475,35 @@
   });
   var gcc = $('[data-gift-custom]');
   if (gcc) gcc.addEventListener('focus', function () { var r = $('input[name=amount][value=custom]'); if (r) r.checked = true; });
+
+  // ---------- 🔔 offer notifications (a small box once; the footer link any time) ----------
+  var PU = SM.push;
+  var pushOk = PU && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+  function b64(s) { s = s.replace(/-/g, '+').replace(/_/g, '/'); while (s.length % 4) s += '='; var b = atob(s), a = new Uint8Array(b.length); for (var i = 0; i < b.length; i++) a[i] = b.charCodeAt(i); return a; }
+  function pushOn(fromLink) {
+    if (!pushOk) { if (fromLink) toast('<span>এই ব্রাউজারে নোটিফিকেশন চলে না। ফোনে Chrome দিয়ে খুলুন।</span>', 4500); return; }
+    if (Notification.permission === 'denied') { toast('<span>এই ব্রাউজারে নোটিফিকেশন বন্ধ করা আছে। ঠিকানার পাশের 🔒 চিহ্ন → Notifications → Allow করুন।</span>', 6000); return; }
+    navigator.serviceWorker.register('/sw.js').then(function (reg) { return navigator.serviceWorker.ready.then(function () { return reg; }); })
+      .then(function (reg) { return reg.pushManager.getSubscription().then(function (old) { return old || reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64(PU.key) }); }); })
+      .then(function (sub) {
+        return fetch('/api/push/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sub: sub.toJSON(), device: /Android/.test(navigator.userAgent) ? 'Android' : /iPhone|iPad/.test(navigator.userAgent) ? 'iPhone' : 'Computer' }) });
+      })
+      .then(function (r) { if (!r.ok) throw new Error('save'); store('sm_push', 'on'); toast('<span>🔔 ঠিক আছে! নতুন অফার এলেই জানাব।</span>', 3500); track('lead', { method: 'push' }); })
+      .catch(function () { if (Notification.permission !== 'granted') store('sm_push', 'no'); else toast('<span>নোটিফিকেশন চালু করা গেল না, পরে আবার চেষ্টা করুন।</span>', 3500); });
+  }
+  document.addEventListener('click', function (e) { if (e.target.closest('[data-push-ask]')) { e.preventDefault(); pushOn(true); } });
+  if (pushOk && PU.ask && Notification.permission === 'default' && !store('sm_push') && !location.pathname.match(/^\/(checkout|order|account)/)) {
+    var seen = Number(store('sm_pv') || 0) + 1; store('sm_pv', String(seen));
+    if (seen >= 2) setTimeout(function () {
+      if (store('sm_push')) return;
+      var box = document.createElement('div');
+      box.className = 'push-ask';
+      box.innerHTML = '<p>🔔 ' + esc(PU.text) + '</p><div><button type="button" class="btn btn-sm" data-push-yes>হ্যাঁ, জানাবেন</button><button type="button" class="btn btn-sm btn-ghost" data-push-no>এখন না</button></div>';
+      document.body.appendChild(box);
+      box.addEventListener('click', function (e) {
+        if (e.target.closest('[data-push-yes]')) { box.remove(); pushOn(false); }
+        if (e.target.closest('[data-push-no]')) { box.remove(); store('sm_push', 'later:' + Date.now()); }
+      });
+    }, PU.delay * 1000);
+  }
 })();

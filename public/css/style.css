@@ -887,3 +887,9 @@ body.protect .card-pic img, body.protect .g-main img, body.protect .g-thumb img,
 .gift-amt input:checked + span { border-color: var(--blue); background: var(--blue-l); color: var(--blue); }
 .gift-amt input:focus-visible + span { outline: 3px solid var(--amber); }
 .gift-box { margin-top: 10px; }
+
+/* ---------- 🔔 offer notifications box ---------- */
+.push-ask { position: fixed; left: 14px; bottom: 14px; z-index: 45; max-width: 330px; background: var(--white); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 10px 30px rgba(20,33,61,.18); padding: 12px 14px; font-size: .92rem; }
+.push-ask p { margin: 0 0 8px; }
+.push-ask div { display: flex; gap: 8px; }
+@media (max-width: 520px) { .push-ask { left: 10px; right: 10px; max-width: none; bottom: 10px; } }
