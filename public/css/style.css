@@ -908,3 +908,20 @@ body.protect .card-pic img, body.protect .g-main img, body.protect .g-thumb img,
 .pdp-tools { margin: 6px 0 0; font-size: .9rem; }
 .pdp-tools .compare-btn { color: var(--blue); }
 .pdp-tools .compare-btn.on { font-weight: 700; }
+
+/* 🔐 checkout OTP: code box + "OTP পাঠান" under the mobile number */
+.otp-box { margin-top: 8px; padding: 10px 12px; border: 2px dashed var(--blue); border-radius: 10px; background: var(--blue-l); }
+.otp-label { display: block; font-weight: 700; font-size: .92em; margin-bottom: 6px; }
+.otp-row { display: flex; gap: 8px; align-items: stretch; }
+.otp-row input { flex: 1; min-width: 0; font: inherit; font-size: 1.25em; font-weight: 700; letter-spacing: .35em; text-align: center; padding: 6px 8px;
+  border: 2px solid var(--line); border-radius: 8px; background: var(--white); color: var(--ink); }
+.otp-row input:focus { border-color: var(--blue); outline: none; }
+.otp-row .otp-send { white-space: nowrap; min-width: 108px; }
+.otp-row .otp-send:disabled { opacity: .65; cursor: default; }
+.otp-msg { margin: 6px 0 0; min-height: 1em; }
+.otp-msg.ok { color: var(--green); font-weight: 600; }
+.otp-msg.bad { color: var(--red); font-weight: 600; }
+.otp-help { margin: 4px 0 0; }
+.otp-done { margin: 6px 0 0; padding: 6px 10px; border-radius: 8px; background: var(--green-l); color: var(--green); font-weight: 700; }
+.otp-box.shake { animation: otpShake .35s; }
+@keyframes otpShake { 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }

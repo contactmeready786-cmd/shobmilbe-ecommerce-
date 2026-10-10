@@ -1004,6 +1004,169 @@
       loadPoints();
     });
 
+    // ---------- 🔐 চেকআউট OTP: the mobile number is checked with an SMS code before the order goes in ----------
+    // The box shows only when this number still needs a code (not when the customer is logged in with it,
+    // or it was already checked in this browser). Typing the full code checks it at once — no extra button.
+    var otpBox = $('[data-otp]', form);
+    var otp = { okPhone: '', token: '', asked: '', sentTo: '', timer: 0, busy: false, after: false, len: 4, abort: null };
+    function cleanPhone(v) {
+      return String(v || '').replace(/[০-৯]/g, function (c) { return '০১২৩৪৫৬৭৮৯'.indexOf(c); }).replace(/\D/g, '').replace(/^880?(?=1)/, '0').replace(/^88(?=01)/, '');
+    }
+    function phoneOk(p) { return /^01[3-9]\d{8}$/.test(p); }
+    function otpReady(p) { return !otpBox || (otp.okPhone && otp.okPhone === p); }
+    if (otpBox) {
+      var otpCode = $('[data-otp-code]', otpBox);
+      var otpSend = $('[data-otp-send]', otpBox);
+      var otpMsgEl = $('[data-otp-msg]', otpBox);
+      var otpHelp = $('[data-otp-help]', otpBox);
+      var otpDone = $('[data-otp-done]', form);
+      var otpPost = function (what, body) {
+        return fetch('/api/checkout-otp/' + what, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), credentials: 'same-origin' })
+          .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { j.httpOk = r.ok; return j; }); });
+      };
+      var otpSay = function (t, kind) { otpMsgEl.textContent = t || ''; otpMsgEl.className = 'otp-msg small' + (kind ? ' ' + kind : ''); };
+      var otpShake = function () { otpBox.classList.remove('shake'); void otpBox.offsetWidth; otpBox.classList.add('shake'); };
+      var otpCountdown = function (sec) {
+        clearInterval(otp.timer);
+        var left = Math.max(1, sec | 0);
+        var tick = function () {
+          if (left <= 0) { clearInterval(otp.timer); otpSend.disabled = false; otpSend.textContent = 'আবার পাঠান'; if (otpHelp) otpHelp.hidden = false; return; }
+          otpSend.disabled = true; otpSend.textContent = 'আবার পাঠান (' + bn(left) + ')'; left--;
+        };
+        tick(); otp.timer = setInterval(tick, 1000);
+      };
+      // "verified" look: green line instead of the box
+      var otpMarkOk = function (p, token, text) {
+        otp.okPhone = p; otp.token = token || '';
+        clearInterval(otp.timer);
+        if (otp.abort) { try { otp.abort.abort(); } catch (e) { /* ignore */ } otp.abort = null; }
+        otpBox.hidden = true;
+        otpDone.textContent = text || '✅ নম্বর যাচাই হয়েছে';
+        otpDone.hidden = false;
+        form.elements.phone.classList.remove('invalid');
+        if (errorBox.textContent && /যাচাই|কোড|OTP/.test(errorBox.textContent)) errorBox.hidden = true;
+      };
+      var otpReset = function () {
+        otp.okPhone = ''; otp.token = ''; otp.sentTo = '';
+        clearInterval(otp.timer);
+        otpSend.disabled = false; otpSend.textContent = 'OTP পাঠান';
+        otpCode.value = ''; otpSay('');
+        if (otpHelp) otpHelp.hidden = true;
+        otpDone.hidden = true;
+      };
+      // does the typed number need a code?
+      var otpCheckPhone = function () {
+        var p = cleanPhone(form.elements.phone.value);
+        if (p === otp.asked) return;
+        otp.asked = p;
+        otpReset();
+        if (!phoneOk(p)) { otpBox.hidden = true; return; }
+        otpBox.hidden = false; // shown at once; hidden again if this number is already checked
+        otpPost('status', { phone: p }).then(function (j) {
+          if (cleanPhone(form.elements.phone.value) !== p) return;
+          if (j && j.need === false) otpMarkOk(p, '', '✅ নম্বর যাচাই করা আছে');
+        }).catch(function () { /* box stays: the code can still be asked for */ });
+      };
+      // Android Chrome: fill the code in by itself from the SMS (only when Admin adds the "@domain #code" line)
+      var otpWebOtp = function () {
+        if (!('OTPCredential' in window) || !window.AbortController) return;
+        try {
+          otp.abort = new AbortController();
+          navigator.credentials.get({ otp: { transport: ['sms'] }, signal: otp.abort.signal }).then(function (c) {
+            if (c && c.code && !otp.okPhone) { otpCode.value = c.code; otpVerify(); }
+          }).catch(function () { /* the customer types it */ });
+        } catch (e) { /* not supported */ }
+      };
+      var otpSendCode = function () {
+        var p = cleanPhone(form.elements.phone.value);
+        if (!phoneOk(p)) { showError('আগে সঠিক মোবাইল নম্বর লিখুন, যেমন 01712345678।', 'phone'); return Promise.resolve(false); }
+        if (otp.busy) return Promise.resolve(false);
+        otp.busy = true;
+        otpSend.disabled = true; otpSend.textContent = 'পাঠানো হচ্ছে…';
+        otpSay('');
+        return otpPost('send', { phone: p }).then(function (j) {
+          otp.busy = false;
+          if (cleanPhone(form.elements.phone.value) !== p) { otpReset(); return false; }
+          if (j.skip) { otpMarkOk(p, j.skip, 'ℹ️ ' + (j.message || 'এখন কোড ছাড়াই অর্ডার করতে পারবেন।')); return true; }
+          if (j.need === false) { otpMarkOk(p, '', '✅ নম্বর যাচাই করা আছে'); return true; }
+          if (!j.sent) {
+            otpSend.disabled = false; otpSend.textContent = 'OTP পাঠান';
+            otpSay(j.error || 'কোড পাঠানো যায়নি। আবার চেষ্টা করুন।', 'bad');
+            if (otpHelp) otpHelp.hidden = false;
+            return false;
+          }
+          otp.sentTo = p; otp.len = j.len || 4;
+          otpCode.maxLength = otp.len;
+          otpSay((j.message || 'কোড পাঠানো হয়েছে।') + ' কোডটা পাশের ঘরে লিখুন।', 'ok');
+          otpCountdown(j.wait || 60);
+          try { otpCode.focus({ preventScroll: true }); } catch (e) { otpCode.focus(); }
+          otpWebOtp();
+          return true;
+        }).catch(function () {
+          otp.busy = false;
+          otpSend.disabled = false; otpSend.textContent = 'OTP পাঠান';
+          otpSay('ইন্টারনেট সংযোগে সমস্যা — আবার "OTP পাঠান" চাপুন।', 'bad');
+          return false;
+        });
+      };
+      var otpVerify = function () {
+        var p = cleanPhone(form.elements.phone.value);
+        var code = cleanPhone(otpCode.value);
+        if (otp.busy || code.length !== otp.len || !phoneOk(p)) return;
+        otp.busy = true;
+        otpSay('যাচাই করা হচ্ছে…');
+        otpPost('verify', { phone: p, code: code }).then(function (j) {
+          otp.busy = false;
+          if (j.ok && j.token) {
+            otpMarkOk(p, j.token);
+            if (otp.after) { otp.after = false; if (form.requestSubmit) form.requestSubmit(submit); else submit.click(); }
+            return;
+          }
+          otp.after = false;
+          otpCode.value = '';
+          otpShake();
+          otpSay(j.error || 'কোডটা মেলেনি। আবার লিখুন।', 'bad');
+          if (j.expired) { clearInterval(otp.timer); otpSend.disabled = false; otpSend.textContent = 'আবার পাঠান'; }
+          otpCode.focus();
+        }).catch(function () {
+          otp.busy = false;
+          otpSay('ইন্টারনেট সংযোগে সমস্যা — কোডটা আবার লিখুন।', 'bad');
+        });
+      };
+      otpSend.addEventListener('click', otpSendCode);
+      otpCode.addEventListener('input', function () {
+        var c = cleanPhone(otpCode.value).slice(0, otp.len);
+        if (otpCode.value !== c) otpCode.value = c;
+        if (c.length === otp.len) otpVerify();
+      });
+      otpCode.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); otpVerify(); } });
+      var otpPhoneTimer = 0;
+      form.elements.phone.addEventListener('input', function () { clearTimeout(otpPhoneTimer); otpPhoneTimer = setTimeout(otpCheckPhone, 500); });
+      form.elements.phone.addEventListener('change', otpCheckPhone);
+      // a saved address / returning customer fills the number in by itself
+      form.addEventListener('change', function (e) { if (e.target && e.target.hasAttribute && e.target.hasAttribute('data-saved-addr')) setTimeout(otpCheckPhone, 50); });
+      setTimeout(otpCheckPhone, 300);
+      setTimeout(otpCheckPhone, 1500);
+      // at "অর্ডার কনফার্ম করুন" without a checked number: send / check the code, then the order goes by itself
+      otp.beforeSubmit = function (p) {
+        otpBox.hidden = false;
+        otpBox.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        otpShake();
+        var typed = cleanPhone(otpCode.value);
+        if (otp.sentTo === p && typed.length === otp.len) { otp.after = true; otpVerify(); return; }
+        if (otp.sentTo !== p) {
+          otpSendCode().then(function (ok) {
+            if (ok && otp.okPhone === p) { if (form.requestSubmit) form.requestSubmit(submit); else submit.click(); return; }
+            if (ok) { otp.after = true; showError('আপনার মোবাইলে একটা কোড পাঠানো হয়েছে — কোডটা লিখলেই অর্ডার চলে যাবে।'); }
+          });
+          return;
+        }
+        otp.after = true;
+        showError('মোবাইলে আসা কোডটা লিখুন — লিখলেই অর্ডার চলে যাবে।');
+        otpCode.focus();
+      };
+      otp.rejected = function () { otp.asked = ''; otpCheckPhone(); };
+    }
     function showError(msg, field) {
       errorBox.textContent = msg;
       errorBox.hidden = false;
@@ -1029,6 +1192,12 @@
       if (!data.district) return showError('জেলা বাছুন।', 'district');
       if (!data.thana) return showError('থানা / উপজেলা বাছুন।', 'thana');
       if (data.address.length < 5) return showError('পূর্ণ ঠিকানা লিখুন, যাতে ডেলিভারিম্যান সহজে খুঁজে পান।', 'address');
+      if (otpBox) {
+        var otpPhone = cleanPhone(data.phone);
+        if (!phoneOk(otpPhone)) return showError('সঠিক মোবাইল নম্বর দিন, যেমন 01712345678।', 'phone');
+        if (!otpReady(otpPhone)) { otp.beforeSubmit(otpPhone); return; }
+        data.otp_token = otp.token;
+      }
       submit.disabled = true;
       submit.textContent = 'অর্ডার পাঠানো হচ্ছে…';
       fetch('/api/orders', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) })
@@ -1043,6 +1212,7 @@
         .catch(function (err) {
           submit.disabled = false;
           renderSummary();
+          if (err && err.otp && otpBox) otp.rejected();
           showError((err && err.error) || 'অর্ডার পাঠানো যায়নি। ইন্টারনেট সংযোগ দেখে আবার চেষ্টা করুন।', err && err.field);
           loadCart().then(function (r) { state.lines = r.lines; renderSummary(); });
         });
