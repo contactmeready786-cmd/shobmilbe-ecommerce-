@@ -893,3 +893,6 @@ body.protect .card-pic img, body.protect .g-main img, body.protect .g-thumb img,
 .push-ask p { margin: 0 0 8px; }
 .push-ask div { display: flex; gap: 8px; }
 @media (max-width: 520px) { .push-ask { left: 10px; right: 10px; max-width: none; bottom: 10px; } }
+.pdp-tools { margin: 6px 0 0; font-size: .9rem; }
+.pdp-tools .compare-btn { color: var(--blue); }
+.pdp-tools .compare-btn.on { font-weight: 700; }
