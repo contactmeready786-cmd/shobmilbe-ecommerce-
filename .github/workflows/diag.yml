@@ -4,7 +4,9 @@ jobs:
   d:
     runs-on: ubuntu-latest
     steps:
-      - run: |
+      - shell: bash
+        run: |
+          exec > >(tee out.txt) 2>&1
           U=https://shobmilbe-ecommerce.vercel.app
           curl -sS -A "Mozilla/5.0 (Linux; Android 14) Mobile" "$U/" -o home.html -D h.txt; head -20 h.txt
           echo "== notice part"; grep -o '<div class="notice[^>]*>.\{0,900\}' home.html | head -c 1500; echo
@@ -18,3 +20,8 @@ jobs:
           console.log(vp.width,JSON.stringify(await p.evaluate(()=>{const t=document.querySelector('.live-tick');const n=document.querySelector('[data-notice]');return {tick:!!t,hidden:t&&t.hidden,w:t&&t.getBoundingClientRect().width,text:t&&t.textContent,noticeDisp:n&&getComputedStyle(n).display,noticeCls:n&&n.className}})),e.slice(0,10));}await b.close();})();
           JS
           NODE_PATH_G=$(npm root -g) node t.js
+          sleep 1
+          python3 - <<'PY'
+          d=open('out.txt').read()[-6000:].replace('%','%25').replace('\r','').replace('\n','%0A')
+          print('::warning title=diag::'+d)
+          PY
