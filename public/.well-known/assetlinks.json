@@ -1,10 +1,28 @@
 [
   {
-    "relation": ["delegate_permission/common.handle_all_urls"],
-    "target": { "namespace": "android_app", "package_name": "com.shobmilbe.app", "sha256_cert_fingerprints": ["64:95:B1:FA:61:DF:8E:42:5F:09:81:C1:CC:EF:BD:D9:F9:7D:77:B7:2D:6D:65:B2:E8:36:10:EB:8B:85:63:3E"] }
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.shobmilbe.app",
+      "sha256_cert_fingerprints": [
+        "FA:FE:C0:0D:6B:35:D5:64:45:14:00:5C:76:BD:4B:CF:16:B9:ED:FB:34:48:D6:E5:38:82:58:C6:5A:FC:4D:DA",
+        "64:95:B1:FA:61:DF:8E:42:5F:09:81:C1:CC:EF:BD:D9:F9:7D:77:B7:2D:6D:65:B2:E8:36:10:EB:8B:85:63:3E"
+      ]
+    }
   },
   {
-    "relation": ["delegate_permission/common.handle_all_urls"],
-    "target": { "namespace": "android_app", "package_name": "com.shobmilbe.admin", "sha256_cert_fingerprints": ["64:95:B1:FA:61:DF:8E:42:5F:09:81:C1:CC:EF:BD:D9:F9:7D:77:B7:2D:6D:65:B2:E8:36:10:EB:8B:85:63:3E"] }
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.shobmilbe.admin",
+      "sha256_cert_fingerprints": [
+        "FA:FE:C0:0D:6B:35:D5:64:45:14:00:5C:76:BD:4B:CF:16:B9:ED:FB:34:48:D6:E5:38:82:58:C6:5A:FC:4D:DA",
+        "64:95:B1:FA:61:DF:8E:42:5F:09:81:C1:CC:EF:BD:D9:F9:7D:77:B7:2D:6D:65:B2:E8:36:10:EB:8B:85:63:3E"
+      ]
+    }
   }
 ]

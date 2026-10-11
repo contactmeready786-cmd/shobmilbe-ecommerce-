@@ -24,6 +24,6 @@ GitHub-এ `android/` এ কিছু বদলালে `android` কাজট
 নিজের কম্পিউটারে: Android Studio দিয়ে `android` ফোল্ডার খুলুন → Build → Generate Signed App Bundle / APK → `customerRelease` বা `adminRelease`।
 
 ## সাইনিং কী (খুব জরুরি)
-`shobmilbe-upload.jks` আর তার পাসওয়ার্ড মালিকের কাছে আলাদাভাবে দেওয়া হয়েছে। হারালে অ্যাডমিন অ্যাপ আপডেট করা যাবে না (আর Play Store-এ নতুন আপলোড-কী চাইতে হবে)। Google Drive আর একটা পেনড্রাইভে কপি রাখুন। এর SHA-256 `public/.well-known/assetlinks.json` এ আছে।
+২০২৬-১০-১১ থেকে নতুন কী: `shobmilbe-release-2026.jks` (alias `shobmilbe`) আর তার পাসওয়ার্ড মালিকের কাছে আলাদাভাবে দেওয়া হয়েছে (পুরোনো `shobmilbe-upload.jks` হারিয়ে গেছে, তাই সংস্করণ ১.৩ থেকে নতুন কী)। হারালে অ্যাডমিন অ্যাপ আপডেট করা যাবে না (আর Play Store-এ নতুন আপলোড-কী চাইতে হবে)। Google Drive আর একটা পেনড্রাইভে কপি রাখুন। এর SHA-256 `public/.well-known/assetlinks.json` এ আছে।
 
 Play Store-এ প্রথম আপলোডের পর Play Console → Test and release → App integrity → **App signing key certificate** এর SHA-256 টাও `assetlinks.json` এ `com.shobmilbe.app` এর তালিকায় যোগ করতে হবে, নইলে Play থেকে নামানো অ্যাপে উপরে ঠিকানার বার দেখাবে।
