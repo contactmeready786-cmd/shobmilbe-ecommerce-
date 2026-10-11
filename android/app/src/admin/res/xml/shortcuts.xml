@@ -6,20 +6,20 @@
         <intent android:action="android.intent.action.VIEW"
             android:targetPackage="com.shobmilbe.admin"
             android:targetClass="com.google.androidbrowserhelper.trusted.LauncherActivity"
-            android:data="https://shobmilbe-ecommerce.vercel.app/admin/handover" />
+            android:data="https://shobmilbe.com/admin/handover" />
     </shortcut>
     <shortcut android:shortcutId="orders" android:enabled="true" android:icon="@mipmap/ic_launcher"
         android:shortcutShortLabel="@string/sc_orders" android:shortcutLongLabel="@string/sc_orders">
         <intent android:action="android.intent.action.VIEW"
             android:targetPackage="com.shobmilbe.admin"
             android:targetClass="com.google.androidbrowserhelper.trusted.LauncherActivity"
-            android:data="https://shobmilbe-ecommerce.vercel.app/admin/orders" />
+            android:data="https://shobmilbe.com/admin/orders" />
     </shortcut>
     <shortcut android:shortcutId="pos" android:enabled="true" android:icon="@mipmap/ic_launcher"
         android:shortcutShortLabel="@string/sc_pos" android:shortcutLongLabel="@string/sc_pos">
         <intent android:action="android.intent.action.VIEW"
             android:targetPackage="com.shobmilbe.admin"
             android:targetClass="com.google.androidbrowserhelper.trusted.LauncherActivity"
-            android:data="https://shobmilbe-ecommerce.vercel.app/admin/pos" />
+            android:data="https://shobmilbe.com/admin/pos" />
     </shortcut>
 </shortcuts>
