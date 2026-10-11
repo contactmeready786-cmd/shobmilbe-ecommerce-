@@ -1033,3 +1033,6 @@ body.protect .card-pic img, body.protect .g-main img, body.protect .g-thumb img,
 .kit-thumb { width: 52px; height: 52px; border-radius: 8px; overflow: hidden; background: var(--paper); display: grid; place-items: center; font-size: 24px; }
 .kit-thumb img { width: 100%; height: 100%; object-fit: cover; }
 .kit-total { display: flex; justify-content: space-between; align-items: center; margin: 14px 0 10px; font-size: 1.1em; }
+
+/* 📱 inside the Android app (it has its own bottom bar and notifications) */
+.in-app .header-nav .cart-link, .in-app .header-nav .acct-link, .in-app [data-push-ask], .in-app .push-ask { display: none !important; }

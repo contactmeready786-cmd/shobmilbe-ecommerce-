@@ -1,6 +1,8 @@
 // সবমিলবে — storefront: cart, checkout, gallery, tracking events, copy protection
 (function () {
   'use strict';
+  // inside the সবমিলবে Android app: the app has its own bottom bar (হোম, কার্ট, অ্যাকাউন্ট…), so the site hides its copies
+  if (/ShobmilbeApp\//.test(navigator.userAgent)) document.documentElement.classList.add('in-app');
   var SM = window.SM || {};
   var KEY = 'sm_cart';
   var BN = '০১২৩৪৫৬৭৮৯';

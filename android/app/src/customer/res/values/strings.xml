@@ -5,4 +5,25 @@
     <string name="sc_cart">কার্ট</string>
     <string name="sc_account">আমার অ্যাকাউন্ট</string>
     <color name="primary">#0866D6</color>
+
+    <!-- bottom bar -->
+    <string name="tab_home">হোম</string>
+    <string name="tab_category">ক্যাটাগরি</string>
+    <string name="tab_cart">কার্ট</string>
+    <string name="tab_inbox">ইনবক্স</string>
+    <string name="tab_account">অ্যাকাউন্ট</string>
+
+    <!-- inbox -->
+    <string name="inbox_title">ইনবক্স</string>
+    <string name="inbox_contact">আমাদের সাথে কথা বলুন</string>
+    <string name="inbox_whatsapp">WhatsApp</string>
+    <string name="inbox_messenger">Messenger</string>
+    <string name="inbox_call">কল করুন</string>
+    <string name="inbox_offers">অফার ও খবর</string>
+    <string name="inbox_empty">এখনো কোনো মেসেজ নেই। নতুন অফার এলে এখানে দেখাবে।</string>
+    <string name="inbox_loading">লোড হচ্ছে…</string>
+    <string name="inbox_failed">ইন্টারনেট সংযোগ দেখে আবার চেষ্টা করুন।</string>
+    <string name="inbox_retry">আবার চেষ্টা করুন</string>
+    <string name="inbox_open">দেখুন ›</string>
+    <string name="press_back_again">বের হতে আবার ফেরত বাটন চাপুন</string>
 </resources>

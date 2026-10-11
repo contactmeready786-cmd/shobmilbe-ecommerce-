@@ -63,4 +63,7 @@ dependencies {
     // Customer app: its own built-in browser, always mobile view
     customerImplementation 'androidx.core:core:1.13.1'
     customerImplementation 'androidx.work:work-runtime:2.9.1'
+    // Customer app: pull-down to refresh, and telling the shop page early that it is inside the app
+    customerImplementation 'androidx.swiperefreshlayout:swiperefreshlayout:1.1.0'
+    customerImplementation 'androidx.webkit:webkit:1.12.1'
 }
