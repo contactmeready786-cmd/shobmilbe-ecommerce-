@@ -303,11 +303,19 @@ public class MainActivity extends Activity {
     private String startUrl(Intent intent) {
         if (intent != null) {
             String extra = intent.getStringExtra("url");
-            if (extra != null && isShop(Uri.parse(extra))) return extra;
+            if (extra != null && isShop(Uri.parse(extra)) && !isAdminPage(Uri.parse(extra))) return extra;
             Uri d = intent.getData();
-            if (d != null && isShop(d)) return d.toString();
+            if (d != null && isShop(d) && !isAdminPage(d)) return d.toString();
         }
         return HOME;
+    }
+
+    /** The admin panel. The customer app NEVER opens it — that is only for the separate admin app. */
+    static boolean isAdminPage(Uri u) {
+        if (u == null || !isShop(u)) return false;
+        String p = u.getPath() == null ? "" : u.getPath().toLowerCase();
+        while (p.startsWith("//")) p = p.substring(1);
+        return p.equals("/admin") || p.startsWith("/admin/") || p.startsWith("/admin%") || p.startsWith("/admin.");
     }
 
     static boolean isShop(Uri u) {
@@ -577,6 +585,7 @@ public class MainActivity extends Activity {
             return true;
         }
         if (scheme.equals("http") || scheme.equals("https")) {
+            if (isAdminPage(u)) { blockAdmin(); return true; } // never in the customer app
             if (isShop(u)) return false;            // shop pages stay inside
             if (belongsToAnotherApp(u)) { openOutside(u); return true; }
             return false;                            // payment pages (bKash, SSLCommerz…) stay inside so the order finishes
@@ -623,6 +632,7 @@ public class MainActivity extends Activity {
 
         @Override
         public void onPageStarted(WebView view, String url, Bitmap favicon) {
+            if (url != null && isAdminPage(Uri.parse(url))) { view.stopLoading(); blockAdmin(); return; }
             if (url != null && url.startsWith("http")) failedUrl = null;
             bar.setProgress(5);
             bar.setVisibility(View.VISIBLE);
@@ -644,6 +654,7 @@ public class MainActivity extends Activity {
 
         @Override
         public void doUpdateVisitedHistory(WebView view, String url, boolean isReload) {
+            if (url != null && isAdminPage(Uri.parse(url))) { view.stopLoading(); blockAdmin(); return; }
             onPageChanged(url); // pages that change address without reloading
         }
 
@@ -657,6 +668,16 @@ public class MainActivity extends Activity {
         public void onReceivedError(WebView view, int errorCode, String description, String failingUrl) {
             if (Build.VERSION.SDK_INT < 23) showOffline(failingUrl);
         }
+    }
+
+    /** Someone tried to reach the admin panel from the customer app: back to the shop, and drop the history. */
+    private void blockAdmin() {
+        ui.post(() -> {
+            web.stopLoading();
+            selectTab(TAB_HOME);
+            web.loadUrl(HOME);
+            ui.postDelayed(() -> web.clearHistory(), 1500);
+        });
     }
 
     private void showOffline(String url) {
