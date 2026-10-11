@@ -1755,7 +1755,7 @@
           var logo = r[0], seq = Promise.resolve();
           ids.forEach(function (id) {
             seq = seq.then(function () {
-              return loadImage('/media/' + id).then(function (im) {
+              return loadImage('/media/' + id + '?fresh=' + Date.now()).then(function (im) { // always today's picture, never a copy the browser kept
                 var data = drawWatermark(im, cfg, logo).toDataURL('image/jpeg', 0.9);
                 return fetch('/admin/api/watermark/' + id, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ver: cfg.ver, data: data }) });
               }, function () {
