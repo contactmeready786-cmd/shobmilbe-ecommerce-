@@ -9,6 +9,14 @@
       "maxDuration": 60
     }
   },
+  "redirects": [
+    {
+      "source": "/((?!api/research/tick|api/backup/tick).*)",
+      "has": [{ "type": "host", "value": ".+\\.vercel\\.app" }],
+      "destination": "https://shobmilbe.com/$1",
+      "permanent": true
+    }
+  ],
   "rewrites": [
     {
       "source": "/(.*)",

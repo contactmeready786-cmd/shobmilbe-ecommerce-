@@ -12,7 +12,7 @@ jobs:
     steps:
       - name: Copy everything, step by step
         run: |
-          SITE="https://shobmilbe-ecommerce.vercel.app"
+          SITE="https://shobmilbe.com"
           sleep 90   # let the latest deployment go live
           for i in $(seq 1 4000); do
             R=$(curl -s -m 30 -X POST "$SITE/__dbmove" || echo '{"error":"no answer"}')
