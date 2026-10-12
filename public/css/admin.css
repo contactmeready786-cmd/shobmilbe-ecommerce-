@@ -1141,3 +1141,12 @@ tr.row-edit td { background: #eff6ff; }
 .pre { white-space: pre-wrap; overflow-wrap: anywhere; }
 tr.row-late td { background: color-mix(in srgb, var(--red, #C42E2E) 7%, transparent); }
 .kit-note { display: block; width: 100%; margin-top: 4px; font: inherit; font-size: .85em; padding: 4px 6px; border: 1px solid var(--line); border-radius: 6px; }
+
+/* 📊 Dashboard ↔ visitor analytics: two tabs like a browser's tabs */
+.home-tabs { display: flex; gap: 4px; align-items: flex-end; border-bottom: 2px solid var(--blue, #0866d6); margin: 0 0 16px; overflow-x: auto; scrollbar-width: none; }
+.home-tabs::-webkit-scrollbar { display: none; }
+.home-tab { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px; padding: 9px 18px; border: 1px solid var(--line, #dde3ec); border-bottom: 0;
+  border-radius: 10px 10px 0 0; background: var(--soft, #eef2f8); color: var(--ink, #1c2433); font-weight: 600; text-decoration: none; white-space: nowrap; }
+.home-tab:hover { background: #fff; }
+.home-tab.on { background: var(--blue, #0866d6); border-color: var(--blue, #0866d6); color: #fff; }
+@media (max-width: 600px) { .home-tab { padding: 8px 12px; font-size: .92rem; } }
