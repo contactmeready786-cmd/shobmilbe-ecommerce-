@@ -560,6 +560,11 @@ textarea.editor { min-height: 300px; line-height: 1.6; }
 .rs-find-table .rs-ours small { display: block; color: var(--muted); font-size: .78rem; }
 .rs-find-table tr.rs-have td { background: #F3FBF5; }
 .rs-find-table .warn { color: #B26A00; }
+.rs-sec { margin: 18px 0 8px; font-size: 1.05rem; }
+.rs-sec small { color: var(--muted); font-weight: 500; font-size: .82rem; }
+.rs-addshop { margin-top: 16px; }
+.rs-addshop h2 { font-size: 1rem; margin: 0 0 4px; }
+.rs-addshop input[type=url] { flex: 1 1 260px; min-width: 0; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; font: inherit; }
 @media (max-width: 900px) { .rs-card { grid-template-columns: 70px 1fr; } .rs-rank { display: none; } .rs-pic { width: 70px; height: 70px; } .rs-nums { grid-template-columns: 1fr 1fr; } }
 
 /* recycle bin */
