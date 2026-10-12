@@ -24,7 +24,7 @@
   // ---------- 🔥 Firebase phone OTP (when Admin → চেকআউট OTP sends codes through Firebase) ----------
   // Google sends the 6-digit SMS and checks it here; the site then checks Google's signed answer on the server.
   // The Firebase files load only when a code is asked for, so normal pages stay light.
-  var FB = { loading: null, auth: null, res: null, phone: '' };
+  var FB = { loading: null, auth: null, res: null, phone: '', token: '' };
   function fbLoad(conf) {
     if (FB.loading) return FB.loading;
     var v = '10.14.1';
@@ -52,7 +52,7 @@
       ver = new window.firebase.auth.RecaptchaVerifier(holder, { size: 'invisible' });
       return FB.auth.signInWithPhoneNumber('+88' + phone, ver);
     }).then(function (r) {
-      FB.res = r; FB.phone = phone;
+      FB.res = r; FB.phone = phone; FB.token = '';
       return true;
     }).catch(function (e) {
       try { if (ver) ver.clear(); } catch (x) { /* ignore */ }
@@ -61,16 +61,24 @@
     });
   }
   // the typed code → Google's signed note (ID token) for the server
+  // (a code Firebase already accepted can't be used again — so the answer is kept and reused if the site's check needs a retry)
   function fbCheck(phone, code) {
-    if (!FB.res || FB.phone !== phone) return Promise.reject({ code: 'auth/code-expired' });
+    if (FB.token && FB.phone === phone) return Promise.resolve(FB.token);
+    if (!FB.res || FB.phone !== phone) return Promise.reject({ code: 'auth/no-code-sent' });
     return FB.res.confirm(code).then(function (u) { return u.user.getIdToken(); }).then(function (t) {
-      FB.res = null;
+      FB.token = t;
       FB.auth.signOut().catch(function () {});
       return t;
     });
   }
   function fbErr(e) {
+    var x = fbErrMsg(e);
+    x.error += ' (' + (((e && e.code) || 'error').replace('auth/', '')) + ')';
+    return x;
+  }
+  function fbErrMsg(e) {
     var c = (e && e.code) || '';
+    if (c === 'auth/no-code-sent') return { error: 'আগে "OTP পাঠান" চাপুন, তারপর মোবাইলে আসা কোডটা লিখুন।', expired: true };
     if (c === 'auth/invalid-verification-code') return { error: 'কোডটা মেলেনি — SMS দেখে আবার লিখুন।' };
     if (c === 'auth/code-expired' || c === 'auth/missing-verification-id' || c === 'auth/session-expired') return { error: 'কোডের মেয়াদ শেষ হয়ে গেছে। "আবার পাঠান" চাপুন।', expired: true };
     if (c === 'auth/too-many-requests') return { error: 'অনেকবার চেষ্টা হয়েছে। কিছুক্ষণ পর আবার চেষ্টা করুন, অথবা আমাদের কল করুন।', expired: true };
