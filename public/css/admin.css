@@ -1173,3 +1173,5 @@ tr.row-late td { background: color-mix(in srgb, var(--red, #C42E2E) 7%, transpar
 .home-tab:hover { background: #fff; }
 .home-tab.on { background: var(--blue, #0866d6); border-color: var(--blue, #0866d6); color: #fff; }
 @media (max-width: 600px) { .home-tab { padding: 8px 12px; font-size: .92rem; } }
+.panel-sub { margin: 14px 0; padding: 10px 12px; border: 1px solid var(--line, #e5e7eb); border-radius: 10px; }
+.panel-sub > summary { margin-bottom: 6px; }
