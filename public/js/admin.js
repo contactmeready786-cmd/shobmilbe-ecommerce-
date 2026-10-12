@@ -1788,6 +1788,13 @@
     loop().then(function () { msg.textContent = '✅ আপডেট শেষ — পেজ আবার লোড হচ্ছে…'; setTimeout(function () { location.reload(); }, 900); },
       function () { msg.textContent = 'আপডেট করা যায়নি, একটু পরে চেষ্টা করুন।'; rsBtn.disabled = false; });
   });
+  // market research → search every shop by name: it takes a few seconds, say so
+  var rsFind = $('[data-rs-find]');
+  if (rsFind) rsFind.addEventListener('submit', function () {
+    var m = $('[data-rs-find-msg]', rsFind), b = $('button', rsFind);
+    if (m) m.textContent = '⏳ সব দোকানে খুঁজছি… (১০–২০ সেকেন্ড)';
+    if (b) setTimeout(function () { b.disabled = true; }, 0);
+  });
   // import page opened from market research with a product link
   var impUrl = $('[data-imp-url]');
   if (impUrl) { var pre = new URLSearchParams(location.search).get('url'); if (pre && /^https?:\/\//.test(pre)) impUrl.value = pre; }

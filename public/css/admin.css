@@ -542,6 +542,14 @@ textarea.editor { min-height: 300px; line-height: 1.6; }
 .rs-src { margin: 10px 0 2px; display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; font-size: .86rem; }
 .rs-shops { margin: 4px 0 0; }
 .rs-miss td { background: #FFF5F4; }
+.rs-find { margin: 6px 0 8px; align-items: center; }
+.rs-find input[type=search] { flex: 1 1 320px; min-width: 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; font-size: 1rem; }
+.rs-shopline span { display: inline-block; margin-right: 10px; }
+.rs-ours small, .rs-nums .rs-ours small { display: block; }
+.rs-find-table .rs-ours { min-width: 170px; }
+.rs-find-table .rs-ours small { display: block; color: var(--muted); font-size: .78rem; }
+.rs-find-table tr.rs-have td { background: #F3FBF5; }
+.rs-find-table .warn { color: #B26A00; }
 @media (max-width: 900px) { .rs-card { grid-template-columns: 70px 1fr; } .rs-rank { display: none; } .rs-pic { width: 70px; height: 70px; } .rs-nums { grid-template-columns: 1fr 1fr; } }
 
 /* recycle bin */
