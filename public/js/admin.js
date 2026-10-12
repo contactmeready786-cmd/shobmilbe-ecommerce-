@@ -246,11 +246,22 @@
     });
   });
 
-  // ---------- side menu (phones) ----------
+  // ---------- side menu: ☰ opens / closes it ----------
+  // phones: slides over the page; bigger screens: hides it so the page gets the whole width (remembered)
+  var narrow = function () { return window.matchMedia('(max-width: 900px)').matches; };
+  var setHidden = function (h) {
+    document.body.classList.toggle('side-hidden', h);
+    try { localStorage.setItem('sm_side_hidden', h ? '1' : '0'); } catch (_) {}
+  };
   document.addEventListener('click', function (e) {
-    if (e.target.closest('[data-side-open]')) document.body.classList.add('side-open');
+    if (e.target.closest('[data-side-toggle]')) {
+      if (narrow()) document.body.classList.toggle('side-open');
+      else setHidden(!document.body.classList.contains('side-hidden'));
+    } else if (e.target.closest('[data-side-open]')) document.body.classList.add('side-open');
     else if (e.target.closest('[data-side-close]')) document.body.classList.remove('side-open');
+    else if (narrow() && e.target.closest('.side a[href]')) document.body.classList.remove('side-open');
   });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') document.body.classList.remove('side-open'); });
 
   // ---------- side menu groups: remember which ones are open ----------
   (function () {
