@@ -1193,7 +1193,19 @@
           otpSay((j.message || 'কোড পাঠানো হয়েছে।') + ' কোডটা পাশের ঘরে লিখুন।', 'ok');
           otpCountdown(j.wait || 60);
           try { otpCode.focus({ preventScroll: true }); } catch (e) { otpCode.focus(); }
-          if (!otp.fb) otpWebOtp();
+          if (!otp.fb) {
+            otpWebOtp();
+            // 📱 75 seconds later, still no code typed: ask whether the SMS really left the shop's phone
+            clearTimeout(otp.watch);
+            otp.watch = setTimeout(function () {
+              if (otp.okPhone === p || otp.sentTo !== p) return;
+              otpPost('smscheck', { phone: p }).then(function (c) {
+                if (!c.stuck || otp.okPhone === p) return;
+                otpSay('দুঃখিত, SMS আসতে দেরি হচ্ছে। একটু পরে "আবার পাঠান" চাপুন, অথবা আমাদের কল করে অর্ডার দিন।', 'bad');
+                if (otpHelp) otpHelp.hidden = false;
+              }).catch(function () {});
+            }, 75000);
+          }
           return true;
         }).catch(function () {
           otp.busy = false;
