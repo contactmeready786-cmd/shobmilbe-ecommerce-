@@ -21,75 +21,6 @@
   function $all(sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); }
   function store(k, v) { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch (e) { return null; } return null; }
 
-  // ---------- 🔥 Firebase phone OTP (when Admin → চেকআউট OTP sends codes through Firebase) ----------
-  // Google sends the 6-digit SMS and checks it here; the site then checks Google's signed answer on the server.
-  // The Firebase files load only when a code is asked for, so normal pages stay light.
-  var FB = { loading: null, auth: null, res: null, phone: '', token: '' };
-  function fbLoad(conf) {
-    if (FB.loading) return FB.loading;
-    var v = '10.14.1';
-    var add = function (src) {
-      return new Promise(function (ok, no) { var el = document.createElement('script'); el.src = src; el.onload = ok; el.onerror = no; document.head.appendChild(el); });
-    };
-    FB.loading = add('https://www.gstatic.com/firebasejs/' + v + '/firebase-app-compat.js')
-      .then(function () { return add('https://www.gstatic.com/firebasejs/' + v + '/firebase-auth-compat.js'); })
-      .then(function () {
-        var fb = window.firebase;
-        var app = fb.apps.length ? fb.app() : fb.initializeApp({ apiKey: conf.apiKey, authDomain: conf.authDomain, projectId: conf.projectId, appId: conf.appId || undefined });
-        FB.auth = app.auth();
-        FB.auth.languageCode = 'bn';
-      });
-    FB.loading.catch(function () { FB.loading = null; });
-    return FB.loading;
-  }
-  // ask Google to send the code to 01XXXXXXXXX (an invisible "I'm not a robot" check runs first)
-  function fbSend(conf, phone) {
-    var holder = null, ver = null;
-    return fbLoad(conf).then(function () {
-      holder = document.createElement('div');
-      holder.className = 'fb-recaptcha';
-      document.body.appendChild(holder);
-      ver = new window.firebase.auth.RecaptchaVerifier(holder, { size: 'invisible' });
-      return FB.auth.signInWithPhoneNumber('+88' + phone, ver);
-    }).then(function (r) {
-      FB.res = r; FB.phone = phone; FB.token = '';
-      return true;
-    }).catch(function (e) {
-      try { if (ver) ver.clear(); } catch (x) { /* ignore */ }
-      if (holder && holder.parentNode) holder.parentNode.removeChild(holder);
-      throw e;
-    });
-  }
-  // the typed code → Google's signed note (ID token) for the server
-  // (a code Firebase already accepted can't be used again — so the answer is kept and reused if the site's check needs a retry)
-  function fbCheck(phone, code) {
-    if (FB.token && FB.phone === phone) return Promise.resolve(FB.token);
-    if (!FB.res || FB.phone !== phone) return Promise.reject({ code: 'auth/no-code-sent' });
-    return FB.res.confirm(code).then(function (u) { return u.user.getIdToken(); }).then(function (t) {
-      FB.token = t;
-      FB.auth.signOut().catch(function () {});
-      return t;
-    });
-  }
-  function fbErr(e) {
-    var x = fbErrMsg(e);
-    x.error += ' (' + (((e && e.code) || 'error').replace('auth/', '')) + ')';
-    return x;
-  }
-  function fbErrMsg(e) {
-    var c = (e && e.code) || '';
-    if (c === 'auth/no-code-sent') return { error: 'আগে "OTP পাঠান" চাপুন, তারপর মোবাইলে আসা কোডটা লিখুন।', expired: true };
-    if (c === 'auth/invalid-verification-code') return { error: 'কোডটা মেলেনি — SMS দেখে আবার লিখুন।' };
-    if (c === 'auth/code-expired' || c === 'auth/missing-verification-id' || c === 'auth/session-expired') return { error: 'কোডের মেয়াদ শেষ হয়ে গেছে। "আবার পাঠান" চাপুন।', expired: true };
-    if (c === 'auth/too-many-requests') return { error: 'অনেকবার চেষ্টা হয়েছে। কিছুক্ষণ পর আবার চেষ্টা করুন, অথবা আমাদের কল করুন।', expired: true };
-    if (c === 'auth/invalid-phone-number') return { error: 'সঠিক মোবাইল নম্বর দিন, যেমন 01712345678।' };
-    if (c === 'auth/network-request-failed') return { error: 'ইন্টারনেট সংযোগে সমস্যা — আবার চেষ্টা করুন।' };
-    return { error: 'এই মুহূর্তে কোড পাঠানো যাচ্ছে না। একটু পরে আবার চেষ্টা করুন, অথবা আমাদের কল করে অর্ডার দিন।', expired: true };
-  }
-  function fbFailed(phone, e) {
-    try { fetch('/api/checkout-otp/fbfail', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone: phone, why: (e && e.code) || 'error' }) }); } catch (x) { /* ignore */ }
-  }
-
   // ---------- tracking: one call sends to dataLayer (GTM/GA4), Facebook and TikTok ----------
   window.dataLayer = window.dataLayer || [];
   function track(event, d) {
@@ -1097,7 +1028,7 @@
     // The box shows only when this number still needs a code (not when the customer is logged in with it,
     // or it was already checked in this browser). Typing the full code checks it at once — no extra button.
     var otpBox = $('[data-otp]', form);
-    var otp = { okPhone: '', token: '', asked: '', sentTo: '', timer: 0, busy: false, after: false, len: 4, abort: null, fb: false };
+    var otp = { okPhone: '', token: '', asked: '', sentTo: '', timer: 0, busy: false, after: false, len: 4, abort: null };
     function cleanPhone(v) {
       return String(v || '').replace(/[০-৯]/g, function (c) { return '০১২৩৪৫৬৭৮৯'.indexOf(c); }).replace(/\D/g, '').replace(/^880?(?=1)/, '0').replace(/^88(?=01)/, '');
     }
@@ -1174,10 +1105,6 @@
         otpSend.disabled = true; otpSend.textContent = 'পাঠানো হচ্ছে…';
         otpSay('');
         return otpPost('send', { phone: p }).then(function (j) {
-          // 🔥 Firebase: the server said yes — now Google sends the SMS
-          if (!j.sent || !j.firebase) return j;
-          return fbSend(j.firebase, p).then(function () { return j; }, function (e) { fbFailed(p, e); var x = fbErr(e); return { sent: false, error: x.error }; });
-        }).then(function (j) {
           otp.busy = false;
           if (cleanPhone(form.elements.phone.value) !== p) { otpReset(); return false; }
           if (j.need === false) { otpMarkOk(p, '', '✅ নম্বর যাচাই করা আছে'); return true; }
@@ -1187,13 +1114,12 @@
             if (otpHelp) otpHelp.hidden = false;
             return false;
           }
-          otp.sentTo = p; otp.len = j.len || 4; otp.fb = !!j.firebase;
+          otp.sentTo = p; otp.len = j.len || 4;
           otpCode.maxLength = otp.len;
-          otpCode.placeholder = otp.len === 6 ? '••••••' : '••••';
           otpSay((j.message || 'কোড পাঠানো হয়েছে।') + ' কোডটা পাশের ঘরে লিখুন।', 'ok');
           otpCountdown(j.wait || 60);
           try { otpCode.focus({ preventScroll: true }); } catch (e) { otpCode.focus(); }
-          if (!otp.fb) {
+          {
             otpWebOtp();
             // 📱 75 seconds later, still no code typed: ask whether the SMS really left the shop's phone
             clearTimeout(otp.watch);
@@ -1220,10 +1146,7 @@
         if (otp.busy || code.length !== otp.len || !phoneOk(p)) return;
         otp.busy = true;
         otpSay('যাচাই করা হচ্ছে…');
-        var check = otp.fb
-          ? fbCheck(p, code).then(function (t) { return otpPost('fbverify', { phone: p, idToken: t }); }, fbErr)
-          : otpPost('verify', { phone: p, code: code });
-        check.then(function (j) {
+        otpPost('verify', { phone: p, code: code }).then(function (j) {
           otp.busy = false;
           if (j.ok && j.token) {
             otpMarkOk(p, j.token);
@@ -2020,7 +1943,7 @@
   $all('[data-self-edit][data-otp-need]').forEach(function (f) {
     var orig = f.getAttribute('data-phone'), ph = $('[data-self-phone]', f), box = $('[data-self-otp]', f);
     var code = $('[data-self-code]', f), send = $('[data-self-send]', f), msg = $('[data-self-msg]', f), tok = $('[data-self-token]', f);
-    var okPhone = '', timer = 0, len = 4, fbOn = false, busy = false;
+    var okPhone = '', timer = 0, len = 4, busy = false;
     var clean = function (v) { return String(v || '').replace(/[০-৯]/g, function (c) { return '০১২৩৪৫৬৭৮৯'.indexOf(c); }).replace(/\D/g, '').replace(/^880?(?=1)/, '0'); };
     var say = function (t, k) { msg.textContent = t; msg.className = 'otp-msg small' + (k ? ' ' + k : ''); };
     var post = function (w, b) { return fetch('/api/checkout-otp/' + w, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) }).then(function (r) { return r.json(); }); };
@@ -2031,12 +1954,9 @@
       if (!/^01[3-9]\d{8}$/.test(p)) { say('সঠিক মোবাইল নম্বর দিন।', 'bad'); return; }
       send.disabled = true; say('পাঠানো হচ্ছে…');
       post('send', { phone: p }).then(function (j) {
-        if (!j.sent || !j.firebase) return j;
-        return fbSend(j.firebase, p).then(function () { return j; }, function (e) { fbFailed(p, e); return { sent: false, error: fbErr(e).error }; });
-      }).then(function (j) {
         if (j.need === false) { okPhone = p; sync(); return; }
         if (!j.sent) { send.disabled = false; say(j.error || 'কোড পাঠানো যায়নি।', 'bad'); return; }
-        len = j.len || 4; fbOn = !!j.firebase; code.maxLength = len;
+        len = j.len || 4; code.maxLength = len;
         say((j.message || 'কোড পাঠানো হয়েছে।') + ' কোডটা লিখুন।', 'ok'); code.focus();
         var left = j.wait || 60; clearInterval(timer);
         timer = setInterval(function () { left--; send.textContent = left > 0 ? 'আবার পাঠান (' + bn(left) + ')' : 'আবার পাঠান'; if (left <= 0) { clearInterval(timer); send.disabled = false; } }, 1000);
@@ -2046,7 +1966,7 @@
       var c = clean(code.value); if (c.length < len || busy) return;
       var p = clean(ph.value);
       busy = true;
-      (fbOn ? fbCheck(p, c).then(function (t) { return post('fbverify', { phone: p, idToken: t }); }, fbErr) : post('verify', { phone: p, code: c })).then(function (j) {
+      post('verify', { phone: p, code: c }).then(function (j) {
         busy = false;
         if (j.ok) { tok.value = j.token || ''; okPhone = p; say('✅ নম্বর যাচাই হয়েছে', 'ok'); setTimeout(sync, 800); } else { code.value = ''; say(j.error || 'কোড মেলেনি।', 'bad'); if (j.expired) send.disabled = false; }
       }).catch(function () { busy = false; say('ইন্টারনেট সংযোগে সমস্যা — কোডটা আবার লিখুন।', 'bad'); });
