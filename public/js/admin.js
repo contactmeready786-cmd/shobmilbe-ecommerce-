@@ -1808,7 +1808,14 @@
   });
   // import page opened from market research with a product link
   var impUrl = $('[data-imp-url]');
-  if (impUrl) { var pre = new URLSearchParams(location.search).get('url'); if (pre && /^https?:\/\//.test(pre)) impUrl.value = pre; }
+  if (impUrl) {
+    var qs = new URLSearchParams(location.search), pre = qs.get('url');
+    if (pre && /^https?:\/\//.test(pre)) {
+      impUrl.value = pre;
+      // came from "➕ যোগ করুন": start reading straight away
+      if (qs.get('back')) { var rb = $('[data-imp-read="link"]'); if (rb) setTimeout(function () { rb.click(); }, 50); }
+    }
+  }
 
   // ---------- more pictures from the old site (each product's own page) ----------
   var mp = $('[data-morepics]');
