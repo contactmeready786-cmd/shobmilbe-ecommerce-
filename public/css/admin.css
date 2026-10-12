@@ -1093,6 +1093,11 @@ tr.row-edit td { background: #eff6ff; }
 .ho-q { font-weight: 800; white-space: nowrap; }
 .ho-hint { margin: 4px 0; color: #1d4ed8; font-weight: 600; }
 .ho-actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+/* ---------- ✓ করা আছে / ✕ দরকার নেই (setup lists) ---------- */
+.mark-form { display: inline; margin: 0 8px 0 0; } .mark-form .link-btn { padding: 0; }
+.sec-quiet { margin-top: 10px; } .sec-quiet summary { cursor: pointer; padding: 6px 0; }
+.sec-quiet .sec-list, .sec-quiet .gr-check { opacity: .8; }
+
 /* ---------- 📍 box + 📷 স্ক্যান করে স্টক ---------- */
 .loc-chip { display: inline-block; margin: 2px 0; padding: 1px 8px; border-radius: 999px; background: #fef3c7; color: #92400e; font-size: 12px; font-weight: 700; }
 .ss-modes { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
