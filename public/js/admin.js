@@ -151,7 +151,7 @@
         '<ul class="ho-items">' + o.items.map(function (it) {
           var c = counts[it.product_id] || 0, ok = c >= it.qty, over = c > it.qty;
           return '<li class="' + (verify ? (over ? 'over' : ok ? 'ok' : '') : '') + '">' + (it.image ? '<img src="' + esc(it.image) + '" alt="">' : '<span class="ho-pe">📦</span>') +
-            '<span class="ho-n"><b>' + esc(it.name) + '</b><small>' + (it.barcode ? esc(it.barcode) : 'বারকোড নেই') + (it.sku ? ' · SKU ' + esc(it.sku) : '') + '</small></span>' +
+            '<span class="ho-n"><b>' + esc(it.name) + '</b>' + (it.location ? '<span class="loc-chip">📍 ' + esc(it.location) + '</span>' : '') + '<small>' + (it.barcode ? esc(it.barcode) : 'বারকোড নেই') + (it.sku ? ' · SKU ' + esc(it.sku) : '') + '</small></span>' +
             '<span class="ho-q">' + (verify ? bn(c) + ' / ' : '× ') + bn(it.qty) + (verify ? (over ? ' ⚠️' : ok ? ' ✅' : '') : '') + '</span></li>';
         }).join('') + '</ul>' +
         (verify && !done ? '<p class="ho-hint">👉 বক্সের প্রতিটা পণ্যের বারকোড স্ক্যান করুন</p>' : '') +

@@ -1093,6 +1093,26 @@ tr.row-edit td { background: #eff6ff; }
 .ho-q { font-weight: 800; white-space: nowrap; }
 .ho-hint { margin: 4px 0; color: #1d4ed8; font-weight: 600; }
 .ho-actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+/* ---------- 📍 box + 📷 স্ক্যান করে স্টক ---------- */
+.loc-chip { display: inline-block; margin: 2px 0; padding: 1px 8px; border-radius: 999px; background: #fef3c7; color: #92400e; font-size: 12px; font-weight: 700; }
+.ss-modes { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
+.ss-mode { flex: 1 1 160px; font: 700 15px 'Noto Sans Bengali', sans-serif; padding: 10px 12px; border-radius: 12px; border: 2px solid var(--line); background: #fff; cursor: pointer; }
+.ss-mode.on { border-color: #2563eb; background: #eff6ff; color: #1d4ed8; }
+.ss-boxnow { font: inherit; padding: 4px 8px; border: 1px solid var(--line); border-radius: 8px; width: 140px; }
+.ss-head { display: flex; gap: 10px; align-items: center; }
+.ss-head img, .ss-head .ho-pe { width: 64px; height: 64px; border-radius: 10px; object-fit: contain; border: 1px solid var(--line); background: #fff; display: grid; place-items: center; font-size: 28px; }
+.ss-name { min-width: 0; } .ss-name b { display: block; font-size: 16px; } .ss-name small { color: #64748b; font-family: ui-monospace, monospace; }
+.ss-nums { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0; }
+.ss-nums span { flex: 1 1 90px; background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 6px 10px; font-size: 12px; color: #64748b; }
+.ss-nums b { display: block; font-size: 20px; color: #111; }
+.ss-form { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; }
+.ss-form label { display: flex; flex-direction: column; gap: 4px; font-weight: 700; font-size: 14px; }
+.ss-qty { flex: 1 1 160px; } .ss-loc { flex: 1 1 160px; }
+.ss-form input { font: 700 22px inherit; padding: 10px 12px; border: 2px solid #93c5fd; border-radius: 10px; width: 100%; }
+.ss-form .ss-loc input { font-size: 16px; border-width: 1px; border-color: var(--line); }
+.ss-boxes { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; margin-bottom: 12px; }
+.ss-box { display: flex; flex-direction: column; padding: 10px; border: 1px solid var(--line); border-radius: 10px; background: #fffbeb; text-decoration: none; color: inherit; }
+.ss-box.on { border-color: #f59e0b; box-shadow: 0 0 0 2px #fde68a; } .ss-box small { color: #64748b; }
 .ho-input::placeholder { font-family: 'Noto Sans Bengali', sans-serif; letter-spacing: 0; font-size: 15px; font-weight: 400; }
 
 /* ---------- 🎨 variants ---------- */
