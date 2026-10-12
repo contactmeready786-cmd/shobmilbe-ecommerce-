@@ -878,6 +878,8 @@ body.protect .card-pic img, body.protect .g-main img, body.protect .g-thumb img,
 .acct-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin: 10px 0 14px; }
 .acct-tabs a { padding: 8px 14px; border-radius: 999px; background: var(--white); border: 1px solid var(--line); color: var(--ink-2); text-decoration: none; font-weight: 600; font-size: .92rem; }
 .acct-tabs a.on { background: var(--blue); border-color: var(--blue); color: #fff; }
+.acct-login-tabs { flex-wrap: nowrap; background: var(--white); border: 1px solid var(--line); border-radius: 999px; padding: 4px; gap: 4px; }
+.acct-login-tabs a { flex: 1; text-align: center; border: 0; }
 .acct-orders, .acct-addr { list-style: none; margin: 0; padding: 0; }
 .acct-orders li { display: flex; justify-content: space-between; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
 .acct-order-act { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }

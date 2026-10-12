@@ -1084,7 +1084,7 @@
         otpBox.hidden = false; // shown at once; hidden again if this number is already checked
         otpPost('status', { phone: p }).then(function (j) {
           if (cleanPhone(form.elements.phone.value) !== p) return;
-          if (j && j.need === false) otpMarkOk(p, '', '✅ নম্বর যাচাই করা আছে');
+          if (j && j.need === false) otpMarkOk(p, '', /acct|account/.test(j.why || '') ? '✅ আপনি লগইন করা আছেন — কোড লাগবে না' : '✅ নম্বর যাচাই করা আছে');
         }).catch(function () { /* box stays: the code can still be asked for */ });
       };
       // Android Chrome: fill the code in by itself from the SMS (only when Admin adds the "@domain #code" line)
