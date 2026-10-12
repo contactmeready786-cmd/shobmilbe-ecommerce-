@@ -1803,7 +1803,7 @@
   var rsFind = $('[data-rs-find]');
   if (rsFind) rsFind.addEventListener('submit', function () {
     var m = $('[data-rs-find-msg]', rsFind), b = $('button', rsFind);
-    if (m) m.textContent = '⏳ সব দোকানে খুঁজছি… (১০–২০ সেকেন্ড)';
+    if (m) m.textContent = '⏳ সব দোকানে খুঁজছি… (২০–২৫ সেকেন্ড)';
     if (b) setTimeout(function () { b.disabled = true; }, 0);
   });
   // import page opened from market research with a product link
