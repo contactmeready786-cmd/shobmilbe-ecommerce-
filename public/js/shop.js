@@ -826,7 +826,7 @@
       }
       var pts = pointsFor(subtotal - discount);
       var exact = Math.round((subtotal - discount - (state.usePoints ? pts.discount : 0) + (delivery || 0)) * 100) / 100;
-      var total = Math.max(0, Math.round(exact)); // whole taka, same as the server
+      var total = Math.max(0, Math.floor(exact + 1e-9)); // whole taka, same as the server: paisa are a rounding discount
       var gift = state.gift ? Math.min(state.gift.balance, total) : 0;
       return { subtotal: Math.round(subtotal * 100) / 100, delivery: delivery, discount: discount, points: state.usePoints ? pts : null, canPoints: pts,
         total: total, roundOff: delivery === null ? 0 : Math.round((total - exact) * 100) / 100, gift: gift, due: Math.round((total - gift) * 100) / 100 };
@@ -847,7 +847,7 @@
         (t.discount ? '<div class="good"><span>' + (state.coupon && state.coupon.referral ? 'রেফারেল ছাড়' : 'কুপন ছাড়') + ' (' + esc(state.couponCode) + ')</span><span>− ' + money(t.discount) + '</span></div>' : '') +
         (t.points && t.points.points ? '<div class="good"><span>পয়েন্ট ছাড় (' + bn(t.points.points) + ' পয়েন্ট)</span><span>− ' + money(t.points.discount) + '</span></div>' : '') +
         '<div><span>ডেলিভারি চার্জ</span><span>' + (t.delivery === null ? 'এলাকা বাছুন' : t.delivery ? money(t.delivery) : 'ফ্রি') + '</span></div>' +
-        (t.roundOff ? '<div><span>রাউন্ড ফিগার</span><span>' + (t.roundOff > 0 ? '+ ' : '− ') + money(Math.abs(t.roundOff)) + '</span></div>' : '') +
+        (t.roundOff ? '<div' + (t.roundOff < 0 ? ' class="good"' : '') + '><span>' + (t.roundOff > 0 ? 'রাউন্ড ফিগার' : 'রাউন্ড ফিগারের জন্য ছাড়') + '</span><span>' + (t.roundOff > 0 ? '+ ' : '− ') + money(Math.abs(t.roundOff)) + '</span></div>' : '') +
         '<div class="grand"><span>মোট</span><span>' + money(t.total) + '</span></div>' +
         (t.gift ? '<div class="good"><span>💳 গিফট কার্ড থেকে</span><span>− ' + money(t.gift) + '</span></div><div class="grand"><span>বাকি দিতে হবে</span><span>' + money(t.due) + '</span></div>' : '') + '</div>' +
         '<p class="small center"><a href="/cart">কার্ট এডিট করুন</a></p>';

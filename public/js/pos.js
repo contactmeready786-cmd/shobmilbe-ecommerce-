@@ -21,7 +21,7 @@
   function totals() {
     var sub = lines.reduce(function (s, l) { return s + l.price * l.qty; }, 0);
     var disc = Math.min(sub, Math.max(0, Number($('[data-pos-disc]').value) || 0));
-    var total = Math.max(0, Math.round(sub - disc));
+    var total = Math.max(0, Math.floor(Math.round((sub - disc) * 100) / 100 + 1e-9)); // paisa dropped as a rounding discount
     return { sub: Math.round(sub * 100) / 100, disc: disc, total: total };
   }
   function render() {

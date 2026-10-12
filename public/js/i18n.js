@@ -419,6 +419,7 @@
     'ডেলিভারি চার্জ': 'Delivery Charge',
     'ফ্রি': 'Free',
     'রাউন্ড ফিগার': 'Rounding',
+    'রাউন্ড ফিগারের জন্য ছাড়': 'Rounding discount',
     'পরিশোধিত': 'Paid',
     'ডেলিভারির সময় দিতে হবে': 'Due on delivery',
     'ডেলিভারি ঠিকানা:': 'Delivery address:',
