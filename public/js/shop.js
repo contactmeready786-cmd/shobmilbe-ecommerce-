@@ -162,18 +162,33 @@
 
   // ---------- copy protection ----------
   if (SM.protect) {
-    var editable = function (el) { return el && el.closest && el.closest('input, textarea, select, [contenteditable]'); };
+    var TITLE = '.p-title, .card-title';
+    var elOf = function (n) { return n && n.nodeType === 3 ? n.parentNode : n; };
+    // owner's switch (Admin → স্টোর ডিজাইন): product names may be copied while it is on
+    var inTitle = function (n) { n = elOf(n); return !!(SM.copyTitle && n && n.closest && n.closest(TITLE)); };
+    var selInTitle = function () { var s = window.getSelection && window.getSelection(); return !!(s && s.rangeCount && !s.isCollapsed && inTitle(s.anchorNode) && inTitle(s.focusNode)); };
+    var editable = function (el) { el = elOf(el); return (el && el.closest && el.closest('input, textarea, select, [contenteditable]')) || inTitle(el); };
     document.addEventListener('contextmenu', function (e) { if (!editable(e.target)) e.preventDefault(); });
-    document.addEventListener('copy', function (e) { if (!editable(e.target)) e.preventDefault(); });
-    document.addEventListener('cut', function (e) { if (!editable(e.target)) e.preventDefault(); });
+    document.addEventListener('copy', function (e) { if (!editable(e.target) && !selInTitle()) e.preventDefault(); });
+    document.addEventListener('cut', function (e) { if (!editable(e.target) && !selInTitle()) e.preventDefault(); });
     document.addEventListener('dragstart', function (e) { if (e.target && e.target.tagName === 'IMG') e.preventDefault(); });
     document.addEventListener('selectstart', function (e) { if (!editable(e.target)) e.preventDefault(); });
     document.addEventListener('keydown', function (e) {
       var k = (e.key || '').toLowerCase();
-      if ((e.ctrlKey || e.metaKey) && ['c', 'x', 'a', 's', 'u', 'p'].indexOf(k) > -1 && !editable(e.target)) e.preventDefault();
+      if ((e.ctrlKey || e.metaKey) && ['c', 'x', 'a', 's', 'u', 'p'].indexOf(k) > -1 && !editable(e.target) && !(k === 'c' && selInTitle())) e.preventDefault();
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && ['i', 'j', 'c'].indexOf(k) > -1) e.preventDefault();
     });
   }
+
+  // 📋 "নাম কপি" button next to the product name (only while the owner's switch is on)
+  document.addEventListener('click', function (e) {
+    var b = e.target && e.target.closest && e.target.closest('[data-copy-title]');
+    if (!b) return;
+    var t = b.getAttribute('data-copy-title') || '';
+    var done = function () { var o = b.textContent; b.textContent = '✓ কপি হয়েছে'; setTimeout(function () { b.textContent = o; }, 1500); };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(done).catch(function () { prompt('নামটা কপি করুন:', t); });
+    else prompt('নামটা কপি করুন:', t);
+  });
 
   // ---------- cart storage ----------
   function read() {

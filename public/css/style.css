@@ -437,6 +437,8 @@ body.lb-open { overflow: hidden; }
 /* ---------- copy protection ---------- */
 body.protect { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 body.protect input, body.protect textarea, body.protect select { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }
+body.protect.copy-title .p-title, body.protect.copy-title .card-title, body.protect.copy-title .card-title a { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }
+.copy-title-btn { margin: -.25rem 0 .5rem; }
 body.protect img { -webkit-user-drag: none; user-drag: none; pointer-events: auto; }
 body.protect .card-pic img, body.protect .g-main img, body.protect .g-thumb img, body.protect .slide img, body.protect .cat-ic img, body.protect .promo img { pointer-events: none; }
 
