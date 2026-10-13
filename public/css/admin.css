@@ -1205,3 +1205,11 @@ tr.row-late td { background: color-mix(in srgb, var(--red, #C42E2E) 7%, transpar
 .ledger-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
 .ledger-sum td:first-child { color: var(--muted); }
 .row-cancelled td { text-decoration: line-through; opacity: .6; }
+
+/* 🔐 মোছার কোড box */
+.delcode-dlg { border: 0; border-radius: 14px; padding: 0; width: min(420px, calc(100vw - 32px)); background: var(--white); color: var(--ink); box-shadow: 0 20px 60px rgba(0,0,0,.3); }
+.delcode-dlg::backdrop { background: rgba(0,0,0,.45); }
+.delcode-box { padding: 18px 18px 14px; margin: 0; }
+.delcode-box h2 { margin: 0 0 8px; }
+.delcode-to { font-size: 1.05rem; margin: 2px 0 8px; word-break: break-all; }
+.delcode-input { font-size: 1.6rem !important; letter-spacing: .5em; text-align: center; font-variant-numeric: tabular-nums; }

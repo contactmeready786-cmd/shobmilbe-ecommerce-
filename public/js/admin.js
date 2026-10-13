@@ -436,6 +436,75 @@
     var b = e.target.closest('[data-confirm-btn]');
     if (b && !confirm(b.getAttribute('data-confirm-btn'))) e.preventDefault();
   });
+  // ---------- 🔐 মোছার কোড: deleting for good asks for the code e-mailed to the shop's Gmail ----------
+  // A form (or its submit button) with data-delcode="action" opens this box instead of sending; the code goes in a
+  // hidden del_code field and the form is sent with the button that was pressed. Restoring etc. never asks.
+  document.addEventListener('submit', function (e) {
+    var f = e.target;
+    if (e.defaultPrevented || !f || f.__delcodeOk) return;
+    var btn = e.submitter || null;
+    var host = btn && btn.hasAttribute('data-delcode') ? btn : (f.hasAttribute('data-delcode') ? f : null);
+    if (!host) return;
+    e.preventDefault();
+    openDelCode(f, btn, host);
+  });
+  function openDelCode(form, btn, host) {
+    var action = host.getAttribute('data-delcode');
+    var to = host.getAttribute('data-delcode-to') || '';
+    var what = host.getAttribute('data-delcode-what') || '';
+    var dlg = document.createElement('dialog');
+    dlg.className = 'delcode-dlg';
+    dlg.innerHTML = '<form method="dialog" class="form delcode-box">' +
+      '<h2>🔐 মোছার কোড</h2>' +
+      '<p class="small">স্থায়ীভাবে মোছার আগে একটা কোড লাগবে। কোড যাবে এই ইমেইলে:</p>' +
+      '<p class="delcode-to"><b>' + esc(to) + '</b></p>' +
+      (what ? '<p class="small muted">যা মুছবে: ' + esc(what) + '</p>' : '') +
+      '<p><button type="button" class="btn btn-sm" data-dc-send>📧 কোড পাঠান</button></p>' +
+      '<p class="small" data-dc-msg role="status"></p>' +
+      '<label class="field"><span class="label">ইমেইলে আসা ৬ সংখ্যার কোড</span>' +
+      '<input type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9০-৯]{6}" placeholder="••••••" class="delcode-input" data-dc-code></label>' +
+      '<div class="row-actions"><button type="button" class="btn btn-danger" data-dc-go disabled>🗑️ মুছে ফেলুন</button>' +
+      '<button type="button" class="btn btn-ghost" data-dc-cancel>বাতিল</button></div></form>';
+    document.body.appendChild(dlg);
+    var msg = $('[data-dc-msg]', dlg), code = $('[data-dc-code]', dlg), go = $('[data-dc-go]', dlg), send = $('[data-dc-send]', dlg);
+    var close = function () { try { dlg.close(); } catch (x) { /* old browser */ } dlg.remove(); };
+    var ready = function () { go.disabled = (code.value || '').replace(/[^\d০-৯]/g, '').length !== 6; };
+    code.addEventListener('input', ready);
+    $('[data-dc-cancel]', dlg).addEventListener('click', close);
+    dlg.addEventListener('cancel', function () { setTimeout(close, 0); });
+    send.addEventListener('click', function () {
+      send.disabled = true;
+      msg.className = 'small';
+      msg.textContent = 'পাঠানো হচ্ছে…';
+      fetch('/admin/api/delete-code', {
+        method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: action, detail: what }),
+      }).then(function (r) { return r.json(); }).then(function (j) {
+        if (j.error) { msg.className = 'small warn'; msg.textContent = j.error; send.disabled = false; return; }
+        msg.className = 'small good';
+        msg.textContent = '✅ কোড পাঠানো হয়েছে ' + (j.to || to) + ' ঠিকানায়। ' + bn(j.minutes || 10) + ' মিনিট চলবে। না এলে Spam ফোল্ডার দেখুন।';
+        send.textContent = '🔁 আবার কোড পাঠান';
+        setTimeout(function () { send.disabled = false; }, 45000);
+        code.focus();
+      }).catch(function () { msg.className = 'small warn'; msg.textContent = 'ইন্টারনেট সমস্যা — আবার চেষ্টা করুন।'; send.disabled = false; });
+    });
+    go.addEventListener('click', function () {
+      var hid = form.querySelector('input[name="del_code"]');
+      if (!hid) { hid = document.createElement('input'); hid.type = 'hidden'; hid.name = 'del_code'; form.appendChild(hid); }
+      hid.value = code.value;
+      // keep which button was pressed (e.g. form=purge), since form.submit() doesn't send it
+      if (btn && btn.name) {
+        var keep = document.createElement('input');
+        keep.type = 'hidden'; keep.name = btn.name; keep.value = btn.value; form.appendChild(keep);
+      }
+      form.__delcodeOk = true;
+      close();
+      HTMLFormElement.prototype.submit.call(form);
+    });
+    code.addEventListener('keydown', function (ev) { if (ev.key === 'Enter') { ev.preventDefault(); if (!go.disabled) go.click(); } });
+    if (dlg.showModal) dlg.showModal(); else dlg.setAttribute('open', '');
+  }
+
   // click-to-copy for codes
   document.addEventListener('click', function (e) {
     var c = e.target.closest('code.copy');
