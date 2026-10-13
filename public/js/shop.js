@@ -489,7 +489,47 @@
         tx = drag.tx + dx; ty = drag.ty + dy; clampPan(); lbApply();
       });
       window.addEventListener('mouseup', function () { if (drag) { drag = null; lb.classList.remove('dragging'); } });
+      // ⬇️ owner's switch (Admin → স্টোর ডিজাইন): save the photo on screen as a JPG — the original, without the watermark
+      var origs = $all('[data-g-img]', gal).map(function (b) { return b.getAttribute('data-g-orig') || b.getAttribute('data-g-img'); });
+      var lbDl = $('[data-lb-dl]', lb);
+      var dlPhoto = function () {
+        var src = origs[li];
+        if (!src || lbDl.disabled) return;
+        var label = lbDl.textContent;
+        lbDl.disabled = true; lbDl.textContent = '⏳ নামানো হচ্ছে...';
+        var done = function (ok) {
+          lbDl.disabled = false; lbDl.textContent = ok ? '✓ ডাউনলোড হয়েছে' : '⚠️ হয়নি, আবার চাপুন';
+          setTimeout(function () { lbDl.textContent = label; }, 1800);
+        };
+        var name = (lbDl.getAttribute('data-name') || 'product') + '-' + (li + 1) + '.jpg';
+        fetch(src + (src.indexOf('?') < 0 ? '?' : '&') + 'raw=1', { credentials: 'same-origin' })
+          .then(function (r) { if (!r.ok) throw new Error('http'); return r.blob(); })
+          .then(function (blob) {
+            return new Promise(function (ok, bad) {
+              var url = URL.createObjectURL(blob), im = new Image();
+              im.onload = function () {
+                var c = document.createElement('canvas');
+                c.width = im.naturalWidth; c.height = im.naturalHeight;
+                var g = c.getContext('2d');
+                g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); // transparent PNG → white, JPG has no see-through
+                g.drawImage(im, 0, 0);
+                URL.revokeObjectURL(url);
+                c.toBlob(function (b) { if (b) ok(b); else bad(new Error('jpg')); }, 'image/jpeg', 0.95);
+              };
+              im.onerror = function () { URL.revokeObjectURL(url); bad(new Error('img')); };
+              im.src = url;
+            });
+          })
+          .then(function (jpg) {
+            var u = URL.createObjectURL(jpg), a = document.createElement('a');
+            a.href = u; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+            setTimeout(function () { URL.revokeObjectURL(u); }, 4000);
+            done(true);
+          })
+          .catch(function () { done(false); });
+      };
       lb.addEventListener('click', function (e) {
+        if (lbDl && e.target.closest('[data-lb-dl]')) return dlPhoto();
         var st = e.target.closest('[data-lb-step]');
         if (st) return lbShow(li + Number(st.getAttribute('data-lb-step')));
         if (e.target.closest('[data-lb-close]') || e.target === lb) lbClose();

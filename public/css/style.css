@@ -263,6 +263,8 @@ select { font: inherit; padding: 8px 12px; border: 2px solid var(--line); border
 .lightbox.zoomed .lb-nav { opacity: .35; }
 .lb-hint { position: absolute; bottom: 44px; left: 50%; transform: translateX(-50%); background: rgba(255,255,255,.16); color: #fff; font-size: .82rem; padding: 6px 14px; border-radius: 20px; white-space: nowrap; opacity: 0; transition: opacity .4s; pointer-events: none; }
 .lb-hint.show { opacity: 1; }
+.lb-dl { position: absolute; top: 12px; left: 14px; z-index: 2; height: 42px; padding: 0 16px; border-radius: 21px; border: 0; background: #16a34a; color: #fff; font-size: .95rem; font-weight: 600; cursor: pointer; }
+.lb-dl[disabled] { opacity: .65; cursor: wait; }
 .lb-x { position: absolute; top: 12px; right: 14px; width: 42px; height: 42px; border-radius: 50%; border: 0; background: rgba(255,255,255,.15); color: #fff; font-size: 1.2rem; cursor: pointer; }
 .lb-nav { position: absolute; top: 50%; transform: translateY(-50%); width: 44px; height: 64px; border: 0; border-radius: 10px; background: rgba(255,255,255,.15); color: #fff; font-size: 2rem; cursor: pointer; }
 .lb-nav.prev { left: 8px; } .lb-nav.next { right: 8px; }
