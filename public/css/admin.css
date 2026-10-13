@@ -1213,3 +1213,13 @@ tr.row-late td { background: color-mix(in srgb, var(--red, #C42E2E) 7%, transpar
 .delcode-box h2 { margin: 0 0 8px; }
 .delcode-to { font-size: 1.05rem; margin: 2px 0 8px; word-break: break-all; }
 .delcode-input { font-size: 1.6rem !important; letter-spacing: .5em; text-align: center; font-variant-numeric: tabular-nums; }
+
+/* collapsible list (tap the bar to open / close) */
+details.panel.fold > summary { list-style: none; display: flex; align-items: center; gap: 10px; padding: 16px 18px; margin: -18px; border-radius: var(--radius, 10px); font-weight: 700; font-size: 1.02rem; user-select: none; }
+details.panel.fold > summary::-webkit-details-marker { display: none; }
+details.panel.fold > summary:hover { background: rgba(0,0,0,.04); }
+details.panel.fold > summary:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+details.panel.fold .fold-title { flex: 1; min-width: 0; }
+details.panel.fold .fold-arrow { font-size: 1.1rem; color: var(--muted, #6B7280); transition: transform .18s ease; }
+details.panel.fold[open] > summary { margin-bottom: 14px; border-bottom: 1px solid var(--line, rgba(0,0,0,.08)); border-radius: var(--radius, 10px) var(--radius, 10px) 0 0; }
+details.panel.fold[open] > summary .fold-arrow { transform: rotate(90deg); }
