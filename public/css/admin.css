@@ -605,31 +605,10 @@ textarea.editor { min-height: 300px; line-height: 1.6; }
 .ll-part { margin-top: 6px; }
 .ll-more { margin: 14px 0 6px; }
 .ll-more summary { cursor: pointer; color: var(--blue); font-size: .92rem; }
-.ll-cam { display: grid; gap: 10px; justify-items: center; margin: 8px 0; }
-.ll-cam .btn { width: 100%; }
-.ll-cam-box { position: relative; width: min(260px, 70vw); aspect-ratio: 1; border-radius: 50%; overflow: hidden; background: #0F172A; }
-.ll-cam-box video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); display: block; }
-.ll-cam-idle { position: absolute; inset: 0; display: grid; place-items: center; font-size: 3rem; color: #fff; opacity: .7; }
-.ll-ring { position: absolute; inset: 0; border-radius: 50%; border: 5px solid rgba(255,255,255,.35); pointer-events: none; transition: border-color .2s; }
-.ll-ring[data-state="ok"] { border-color: #22C55E; }
-.ll-ring[data-state="warn"] { border-color: var(--amber); }
-.ll-say { margin: 0; min-height: 1.6em; font-size: 1.08rem; font-weight: 700; text-align: center; color: var(--ink); }
-.ll-say.is-bad { color: #A15C00; }
-.ll-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
-.ll-steps:empty { display: none; }
-.ll-steps li { font-size: .82rem; padding: 3px 9px; border-radius: 999px; background: var(--paper); border: 1px solid var(--line); color: var(--muted); }
-.ll-steps li.is-now { background: var(--blue-l); border-color: var(--blue); color: var(--blue-d); font-weight: 700; }
-.ll-steps li.is-done { background: var(--green-l); border-color: #BFE5CC; color: var(--green); }
-[data-ll-msg].is-bad, [data-ll-face-note].is-bad, [data-ll-pk-note].is-bad { color: var(--red); }
+[data-ll-msg].is-bad, [data-ll-pk-note].is-bad { color: var(--red); }
 .ll-table { overflow-x: auto; margin-bottom: 10px; }
 .ll-add { display: grid; gap: 8px; max-width: 420px; margin: 10px 0; }
 .ll-add .btn { justify-self: start; }
-.ll-faces { display: flex; flex-wrap: wrap; gap: 12px; margin: 10px 0; }
-.ll-face { margin: 0; display: grid; gap: 6px; justify-items: center; width: 130px; text-align: center; }
-.ll-face img { width: 120px; height: 120px; object-fit: cover; border-radius: 50%; border: 3px solid var(--line); background: var(--paper); }
-.ll-btns { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
-.ll-btns label.btn { cursor: pointer; }
-[data-ll-face-panel] { max-width: 380px; margin-top: 8px; }
 .ll-modes { display: grid; gap: 10px; }
 .ll-mode { display: flex; gap: 10px; align-items: flex-start; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: #fff; cursor: pointer; }
 .ll-mode > span { display: grid; gap: 3px; }
@@ -869,13 +848,6 @@ td.pick input, th.pick input { width: 18px; height: 18px; accent-color: var(--bl
 .gr-guard-top .auto-save-row { margin: 0; padding: 0; border: 0; }
 .gr-guard-top .auto-save-note { display: none; }
 
-/* ---------- face photo: take, look, then save ---------- */
-.ll-snap-row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 10px; }
-.ll-snap-row [data-ll-snap] { min-width: 200px; }
-.ll-shot { display: grid; justify-items: center; gap: 10px; margin-top: 10px; }
-.ll-shot img { width: 220px; height: 220px; object-fit: cover; border-radius: 50%; border: 4px solid #16a34a; }
-.ll-shot-btns { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
-.ll-shot[hidden], .ll-snap-row[hidden] { display: none; }
 /* profile picture from the camera */
 .cam-modal { position: fixed; inset: 0; z-index: 200; background: rgba(15, 23, 42, .7); display: grid; place-items: center; padding: 16px; }
 .cam-modal[hidden] { display: none; }
