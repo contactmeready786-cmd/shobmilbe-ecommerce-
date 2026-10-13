@@ -1198,3 +1198,10 @@ tr.row-late td { background: color-mix(in srgb, var(--red, #C42E2E) 7%, transpar
 .home-tab:hover { background: #fff; }
 .home-tab.on { background: var(--blue, #0866d6); border-color: var(--blue, #0866d6); color: #fff; }
 @media (max-width: 600px) { .home-tab { padding: 8px 12px; font-size: .92rem; } }
+
+/* 📒 stock & buying price are shown, not typed, on the product form */
+.ro-value { display: block; font-size: 1.15rem; padding: 6px 0 2px; }
+.stock-acts { display: flex !important; flex-wrap: wrap; gap: 6px; margin-top: 6px !important; }
+.ledger-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.ledger-sum td:first-child { color: var(--muted); }
+.row-cancelled td { text-decoration: line-through; opacity: .6; }
