@@ -1029,6 +1029,13 @@ body.protect .card-pic img, body.protect .g-main img, body.protect .g-thumb img,
 .kit-head { display: flex; gap: 16px; align-items: flex-start; margin-bottom: 14px; flex-wrap: wrap; }
 .kit-hero { width: 220px; max-width: 100%; border-radius: 12px; }
 .kit-emoji { font-size: 64px; }
+.kit-meta { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 4px 0 8px; color: var(--muted, #5b6475); }
+.kit-steps { margin-top: 14px; }
+.kit-step-list { margin: 0; padding: 0; list-style: none; counter-reset: kstep; display: grid; gap: 10px; }
+.kit-step-list li { counter-increment: kstep; position: relative; padding: 2px 0 2px 42px; line-height: 1.6; }
+.kit-step-list li::before { content: counter(kstep); position: absolute; left: 0; top: 0; width: 30px; height: 30px; border-radius: 50%;
+  background: var(--brand, #14213D); color: #fff; display: grid; place-items: center; font-weight: 700; font-size: 14px; }
+.kit-step-list li:target { background: rgba(252, 163, 17, .12); border-radius: 8px; }
 .kit-parts { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
 .kit-part { display: grid; grid-template-columns: auto 52px 1fr auto; gap: 10px; align-items: center; padding: 8px; border: 1px solid var(--line); border-radius: 10px; }
 .kit-part .qty { grid-column: 3; justify-self: start; }
