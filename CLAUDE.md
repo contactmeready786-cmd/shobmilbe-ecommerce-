@@ -22,3 +22,5 @@ uses that one setup. Never add a second Gmail / App Password / SMS / API-key fie
 - Permanent deletes need the e-mailed delete code (`services/delcode.js`).
 - Admin menu: related small pages are tabs (`TABS` in admin/layout.js), not new menu lines.
 - The camera face check was removed on purpose; only the fingerprint / passkey login lock stays.
+- Automatic SEO (`services/autoseo.js`) only fills EMPTY fields, never overwrites or re-adds what the owner wrote or removed,
+  logs every change for undo; the auto description is made at page view and never saved over the owner's text.
