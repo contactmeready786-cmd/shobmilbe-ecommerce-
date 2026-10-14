@@ -364,6 +364,24 @@
       .then(function () { t.disabled = false; });
   });
 
+  // ---------- 🚩 অন্য দোকানের ছবি: "watermark / clean" saves at once, the card changes colour ----------
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('[data-srcpic] button[name="flag"]');
+    if (!b) return;
+    e.preventDefault();
+    var f = b.form, card = f.closest('.srcpic'), state = $('[data-srcpic-state]', f);
+    var body = new URLSearchParams(new FormData(f)); body.set('flag', b.value);
+    $all('button', f).forEach(function (x) { x.disabled = true; });
+    fetch(f.action, { method: 'POST', credentials: 'same-origin', headers: { Accept: 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' }, body: body.toString() })
+      .then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || 'সেভ হয়নি'); return j; }); })
+      .then(function (j) {
+        card.classList.toggle('is-flag', j.flag); card.classList.toggle('is-clean', !j.flag);
+        if (state) state.textContent = j.flag ? '🚩 চিহ্নিত' : '✅ পরিষ্কার';
+        var next = card.nextElementSibling; if (next && next.scrollIntoView) next.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, function (err) { toast(err.message); })
+      .then(function () { $all('button', f).forEach(function (x) { x.disabled = false; }); });
+  });
+
   // ---------- shop texts (দোকানে কী দেখাবে): save without leaving the page ----------
   $all('[data-ui-text]').forEach(function (f) {
     f.addEventListener('submit', function (e) {

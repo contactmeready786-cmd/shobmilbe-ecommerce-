@@ -1198,3 +1198,14 @@ details.panel.fold[open] > summary .fold-arrow { transform: rotate(90deg); }
 
 /* long words (API names, links, codes) wrap instead of pushing the page sideways on a phone */
 .admin-main li, .admin-main p, .admin-main code, .admin-main dd { overflow-wrap: anywhere; }
+
+/* 🚩 অন্য দোকানের ছবি */
+.srcpic-list { display: grid; gap: 12px; }
+.srcpic { border-left: 5px solid var(--line, #d5deea); scroll-margin-top: 70px; }
+.srcpic.is-flag { border-left-color: #c42e2e; background: #fdf1f1; }
+.srcpic.is-clean { border-left-color: #12804a; }
+.srcpic-head { margin-bottom: 8px; line-height: 1.5; }
+.srcpic-sku { font-size: 1.1em; margin-right: 6px; }
+.srcpic-pics { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.srcpic-pics img { width: 150px; height: 150px; object-fit: contain; background: #fff; border: 1px solid var(--line, #d5deea); border-radius: 8px; }
+@media (max-width: 600px) { .srcpic-pics img { width: calc(50vw - 40px); height: calc(50vw - 40px); } }
