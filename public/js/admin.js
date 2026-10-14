@@ -372,8 +372,9 @@
     var f = b.form, card = f.closest('.srcpic'), state = $('[data-srcpic-state]', f);
     var body = new URLSearchParams(new FormData(f)); body.set('flag', b.value);
     $all('button', f).forEach(function (x) { x.disabled = true; });
-    fetch(f.action, { method: 'POST', credentials: 'same-origin', headers: { Accept: 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' }, body: body.toString() })
-      .then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || 'সেভ হয়নি'); return j; }); })
+    // getAttribute: the form has a field named "action", which hides the form's own .action address
+    fetch(f.getAttribute('action'), { method: 'POST', credentials: 'same-origin', headers: { Accept: 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' }, body: body.toString() })
+      .then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || 'সেভ হয়নি'); return j; }, function () { throw new Error('সেভ হয়নি — পেজটা রিফ্রেশ করে আবার চেষ্টা করুন।'); }); })
       .then(function (j) {
         card.classList.toggle('is-flag', j.flag); card.classList.toggle('is-clean', !j.flag);
         if (state) state.textContent = j.flag ? '🚩 চিহ্নিত' : '✅ পরিষ্কার';
