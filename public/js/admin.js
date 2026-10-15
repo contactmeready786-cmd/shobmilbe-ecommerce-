@@ -2135,3 +2135,32 @@
     if (vadd && vtpl && vbody) vadd.addEventListener('click', function () { vbody.appendChild(vtpl.content.cloneNode(true)); var ins = $all('input[name=vlabel]', vbody); if (ins.length) ins[ins.length - 1].focus(); });
   }
 })();
+
+// 🖼️ Tap a small product picture in any admin list to see it big (the full-size picture, not the thumbnail).
+(function () {
+  var SMALL = '.table .thumb img, .inv-table .thumb img, .lines .li-pic img, .restock-table .thumb img, .review-admin .thumb img, .qa-head .thumb img, .bundle-rows .b-img img, .ho-items img, .picker-results img, .ss-head img';
+  function mark() { document.querySelectorAll(SMALL).forEach(function (im) { im.setAttribute('data-zoomable', ''); }); }
+  function close(box) { if (box && box.parentNode) box.parentNode.removeChild(box); document.removeEventListener('keydown', onKey); }
+  var open = null;
+  function onKey(e) { if (e.key === 'Escape') close(open); }
+  document.addEventListener('click', function (e) {
+    var im = e.target.closest && e.target.closest('img');
+    if (!im || !im.matches(SMALL)) return;
+    if (im.closest('a, button, label')) return; // picture is itself a link/button: keep its own job
+    e.preventDefault();
+    var src = (im.currentSrc || im.src).replace(/(\/media\/[^/?#]+)\/t(\b|$)/, '$1');
+    open = document.createElement('div');
+    open.className = 'pic-zoom';
+    open.setAttribute('role', 'dialog');
+    open.setAttribute('aria-modal', 'true');
+    var big = document.createElement('img'); big.alt = im.alt || ''; big.src = src;
+    big.onerror = function () { big.onerror = null; big.src = im.src; };
+    var x = document.createElement('button'); x.type = 'button'; x.setAttribute('aria-label', 'বন্ধ করুন'); x.textContent = '✕';
+    open.appendChild(big); open.appendChild(x);
+    open.addEventListener('click', function () { close(open); });
+    document.body.appendChild(open);
+    document.addEventListener('keydown', onKey);
+    x.focus();
+  });
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mark); else mark();
+})();
