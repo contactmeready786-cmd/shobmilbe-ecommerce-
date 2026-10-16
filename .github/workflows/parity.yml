@@ -1,0 +1,75 @@
+name: parity
+# Builds the Next.js version and compares every page with the current live code (main), page by page,
+# on a throw-away test database. Nothing here touches the real shop or its database.
+on:
+  push:
+    branches: [nextjs-migration]
+  workflow_dispatch: {}
+permissions:
+  contents: read
+concurrency:
+  group: parity-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  parity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: parity
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      PGHOST: 127.0.0.1
+      PGUSER: postgres
+      PGPASSWORD: parity
+      PGPORT: '5432'
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with: { path: new }
+      - uses: actions/checkout@v4
+        with: { path: old, ref: main }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+
+      - name: Install packages
+        working-directory: new
+        run: |
+          if [ -f package-lock.json ]; then npm ci; else npm install --no-audit --no-fund; fi
+          npm ls next react typescript --depth=0 || true
+      - name: Type check
+        working-directory: new
+        run: npx tsc --noEmit
+      - name: Build
+        working-directory: new
+        run: npx next build
+
+      - name: Test database (template)
+        working-directory: old
+        run: ../new/tools/parity/make-template.sh 3101 node server.js
+      - name: Crawl the current site (main)
+        working-directory: old
+        run: ../new/tools/parity/run.sh "$RUNNER_TEMP/old" 3102 node server.js
+      - name: Crawl the Next.js site
+        working-directory: new
+        run: tools/parity/run.sh "$RUNNER_TEMP/new" 3200 npx next start -p 3200
+      - name: Compare every page
+        working-directory: new
+        run: node tools/parity/compare.mjs "$RUNNER_TEMP/old" "$RUNNER_TEMP/new" --show 40 | tee "$RUNNER_TEMP/compare.txt"
+
+      - name: Save results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: parity-results
+          retention-days: 7
+          path: |
+            ${{ runner.temp }}/compare.txt
+            ${{ runner.temp }}/*.server.log
+            ${{ runner.temp }}/new/index.json
+            ${{ runner.temp }}/old/index.json
+            new/package-lock.json

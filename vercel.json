@@ -1,26 +1,20 @@
 {
-  "framework": null,
-  "outputDirectory": "public",
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs",
   "regions": [
     "sin1"
   ],
-  "functions": {
-    "api/index.js": {
-      "maxDuration": 60
-    }
-  },
   "redirects": [
     {
       "source": "/((?!api/research/tick|api/backup/tick).*)",
-      "has": [{ "type": "host", "value": ".+\\.vercel\\.app" }],
+      "has": [
+        {
+          "type": "host",
+          "value": ".+\\.vercel\\.app"
+        }
+      ],
       "destination": "https://shobmilbe.com/$1",
       "permanent": true
-    }
-  ],
-  "rewrites": [
-    {
-      "source": "/(.*)",
-      "destination": "/api/index?__p=$1"
     }
   ],
   "crons": [
@@ -51,5 +45,10 @@
         }
       ]
     }
-  ]
+  ],
+  "git": {
+    "deploymentEnabled": {
+      "nextjs-migration": false
+    }
+  }
 }

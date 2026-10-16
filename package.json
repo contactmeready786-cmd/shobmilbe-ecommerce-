@@ -1,12 +1,27 @@
 {
   "name": "shobmilbe-ecommerce",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "private": true,
-  "description": "সবমিলবে — online shop (Node.js, Postgres, Vercel)",
+  "description": "সবমিলবে — online shop (Next.js, TypeScript, Postgres, Vercel)",
   "scripts": {
-    "start": "node server.js"
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "legacy": "node server.js"
   },
   "engines": {
     "node": "22.x"
+  },
+  "dependencies": {
+    "next": "^16.0.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "typescript": "^5.9.0"
   }
 }
