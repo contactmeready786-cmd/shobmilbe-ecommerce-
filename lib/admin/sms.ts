@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // Admin → মার্কেটিং → কাস্টমারকে SMS: the SMS company and key, automatic order messages (each with a switch
 // and its own text), a test message, a message to many customers at once, and the list of everything sent.
 import { html, raw, bn, int, str, fmtDate, normalizePhone, validPhone } from '../util';
@@ -8,14 +7,15 @@ import * as SMS from '../services/sms';
 import { SEGMENTS } from '../models/customers';
 import * as $models_catalog from '../models/catalog';
 import * as $models_orders from '../models/orders';
+import type { AdminCtx, Body, Loose } from '../types';
 
 const BASE = '/admin/marketing/sms';
 const BATCH = 200; // customers per click (a click takes well under a minute)
 
-async function audience(b) {
+async function audience(b: Body) {
   // customers who said "no offer SMS" (at checkout, or the owner noted it here) never get a bulk message
   const w = ["c.phone ~ '^01[3-9][0-9]{8}$'", "NOT EXISTS (SELECT 1 FROM blocklist bl WHERE bl.value=c.phone)", 'c.promo_sms'];
-  const params = [];
+  const params: Loose[] = [];
   if (b.aud === 'group' && str(b.grp, 60)) { params.push(str(b.grp, 60)); w.push(`c.grp=$${params.length}`); }
   if (b.aud === 'tag' && str(b.tag, 40)) { params.push(`%${str(b.tag, 40)}%`); w.push(`c.tags ILIKE $${params.length}`); }
   if (b.aud === 'recent') { params.push(Math.max(1, Math.min(3650, int(b.days, 90)))); w.push(`EXISTS (SELECT 1 FROM orders o WHERE o.phone=c.phone AND o.status='delivered' AND o.created_at > now() - make_interval(days => $${params.length}))`); }
@@ -52,15 +52,15 @@ async function audience(b) {
 const AUD = [['buyers', 'যারা অন্তত একবার পণ্য পেয়েছেন'], ['inactive', '😴 অনেক দিন কেনেননি (নিচের "দিন" দেখে)'], ['recent', 'গত কিছু দিনে যারা কিনেছেন'],
   ['segment', 'তৈরি গ্রুপ (নতুন / আবার কিনেছেন / VIP / ঝুঁকিপূর্ণ…)'], ['spent', 'মোট এর বেশি টাকার কেনাকাটা করেছেন'], ['category', 'একটা ক্যাটাগরি থেকে কিনেছেন'],
   ['district', 'একটা জেলার কাস্টমার'], ['accounts', 'যারা অ্যাকাউন্টে লগইন করেছেন'], ['group', 'একটা গ্রুপ (হাতে দেওয়া)'], ['tag', 'একটা ট্যাগ'], ['all', 'সব কাস্টমার']];
-function audienceText(b, cats = []) {
+function audienceText(b: Body, cats: Loose = []) {
   const base = (AUD.find(([k]) => k === b.aud) || AUD[0])[1].replace(/\s*\(.*\)$/, '');
   const extra = b.aud === 'inactive' || b.aud === 'recent' ? ` — ${int(b.days, 90)} দিন` : b.aud === 'segment' && SEGMENTS[b.segment] ? ` — ${SEGMENTS[b.segment][0]}`
-    : b.aud === 'spent' ? ` — ৳${int(b.min_spent, 5000)}+` : b.aud === 'category' ? ` — ${(cats.find((c) => c.id === int(b.category)) || {}).name || ''}`
+    : b.aud === 'spent' ? ` — ৳${int(b.min_spent, 5000)}+` : b.aud === 'category' ? ` — ${(cats.find((c?: Loose) => c.id === int(b.category)) || {}).name || ''}`
       : b.aud === 'district' ? ` — ${str(b.district, 60)}` : b.aud === 'group' ? ` — ${str(b.grp, 60)}` : b.aud === 'tag' ? ` — ${str(b.tag, 40)}` : '';
   return (base + extra).slice(0, 200);
 }
 
-async function page(ctx, note = null) {
+async function page(ctx: AdminCtx, note: Loose = null) {
   const s = ctx.settings;
   const canSetup = ctx.can('settings');
   const r = SMS.ready(s);
@@ -73,9 +73,9 @@ async function page(ctx, note = null) {
     db.q('SELECT c.*, s.name AS staff_name FROM sms_campaigns c LEFT JOIN staff s ON s.id=c.staff_id ORDER BY c.updated_at DESC LIMIT 15'),
   ]);
   const [quota, optedOut] = await Promise.all([SMS.mktLeft(s), db.one('SELECT count(*)::int AS n FROM customers WHERE NOT promo_sms').catch(() => ({ n: 0 }))]);
-  const lim = (n) => (n === Infinity ? 'সীমা নেই' : bn(n));
-  const prov = SMS.PROVIDERS[s.sms_provider] ? s.sms_provider : 'bulksmsbd';
-  const tplBox = (ev, label) => html`<div class="sms-row">
+  const lim = (n?: Loose) => (n === Infinity ? 'সীমা নেই' : bn(n));
+  const prov: string = SMS.PROVIDERS[s.sms_provider as string] ? s.sms_provider as string : 'bulksmsbd';
+  const tplBox = (ev?: Loose, label?: Loose) => html`<div class="sms-row">
     ${ui.check(`sms_on_${ev}`, s[`sms_on_${ev}`] === '1', `${label} SMS পাঠাও`)}
     <textarea name="sms_tpl_${ev}" rows="2" maxlength="480" aria-label="${label} SMS এর লেখা">${s[`sms_tpl_${ev}`] || ''}</textarea>
     <p class="small muted">${bn(String(s[`sms_tpl_${ev}`] || '').length)} অক্ষর ≈ ${bn(SMS.parts(SMS.fill(s[`sms_tpl_${ev}`], { code: 'SM123456', total: 1250, customer_name: 'রহিম', points_earned: 0 }, s, s.site_url || '')))}টি SMS</p>
@@ -89,9 +89,9 @@ ${canSetup ? html`<form method="post" action="${BASE}" class="panel form sms-cle
 </form>` : ''}
 <div class="kpis">
   ${ui.kpi('অবস্থা', r.ok ? '✅ চালু' : '⚪ বন্ধ', r.ok ? SMS.PROVIDERS[prov].label : r.why)}
-  ${ui.kpi('গত ৩০ দিনে পাঠানো', bn(stats.ok30), stats.bad30 ? `${bn(stats.bad30)}টি যায়নি` : '', stats.bad30 ? 'kpi-alert' : '')}
+  ${ui.kpi('গত ৩০ দিনে পাঠানো', bn(stats!.ok30), stats!.bad30 ? `${bn(stats!.bad30)}টি যায়নি` : '', stats!.bad30 ? 'kpi-alert' : '')}
   ${ui.kpi('অফার SMS আজ বাকি', lim(quota.day), `এই মাসে বাকি: ${lim(quota.month)}`)}
-  ${ui.kpi('অফার SMS চান না', bn(optedOut.n), 'এদের কাছে একসাথে-পাঠানো SMS যায় না')}
+  ${ui.kpi('অফার SMS চান না', bn(optedOut!.n), 'এদের কাছে একসাথে-পাঠানো SMS যায় না')}
 </div>
 ${ui.helpBox('SMS কীভাবে চালু করবেন', html`<ol class="steps">
   <li>যেকোনো একটা SMS কোম্পানিতে অ্যাকাউন্ট খুলুন (যেমন BulkSMSBD, Alpha SMS বা Greenweb) আর কিছু টাকার SMS কিনুন — সাধারণত প্রতি SMS ২৫-৪০ পয়সা।</li>
@@ -194,11 +194,11 @@ ${camps.length ? html`<section class="panel table-wrap"><h2>📣 আগের �
   return ctx.page('কাস্টমারকে SMS', body, 'sms');
 }
 
-async function post(ctx) {
+async function post(ctx: AdminCtx) {
   const b = await ctx.body();
   if (b.action === 'setup') {
     if (!ctx.can('settings')) return ctx.back(BASE, 'noperm');
-    const v = { sms_on: b.sms_on ? '1' : '0', sms_provider: SMS.PROVIDERS[b.sms_provider] ? b.sms_provider : 'bulksmsbd',
+    const v: Record<string, Loose> = { sms_on: b.sms_on ? '1' : '0', sms_provider: SMS.PROVIDERS[b.sms_provider] ? b.sms_provider : 'bulksmsbd',
       sms_sender_id: str(b.sms_sender_id, 60),
       sms_mkt_day: String(Math.max(0, Math.min(100000, int(b.sms_mkt_day, 0)))), sms_mkt_month: String(Math.max(0, Math.min(1000000, int(b.sms_mkt_month, 0)))), sms_custom_url: /^https:\/\/[^\s]+$/i.test(str(b.sms_custom_url, 400)) ? str(b.sms_custom_url, 400) : '' };
     if (str(b.sms_api_key, 200)) v.sms_api_key = str(b.sms_api_key, 200);
@@ -217,7 +217,7 @@ async function post(ctx) {
     if (!ctx.can('settings') || ctx.settings.sms_log_clear_on !== '1') return ctx.back(BASE, 'noperm');
     const n = await db.one('WITH d AS (DELETE FROM sms_log RETURNING 1) SELECT count(*)::int AS n FROM d');
     await db.q('DELETE FROM checkout_otps WHERE used OR expires_at < now()');
-    await ctx.log('settings', 'marketing', null, `SMS ইতিহাস মোছা হয়েছে (${n.n}টি)`);
+    await ctx.log('settings', 'marketing', null, `SMS ইতিহাস মোছা হয়েছে (${n!.n}টি)`);
     return ctx.back(BASE, 'saved');
   }
   if (b.action === 'optout') {
@@ -230,7 +230,7 @@ async function post(ctx) {
     return ctx.back(`${BASE}?info=${encodeURIComponent(`✅ ${bn(r.length)}টি নম্বরে অফার SMS ${on ? 'চালু' : 'বন্ধ'} হলো।${miss ? ` ${bn(miss)}টি নম্বর কাস্টমার তালিকায় নেই।` : ''}`)}`);
   }
   if (b.action === 'templates') {
-    const v = {};
+    const v: Record<string, string> = {};
     for (const ev of Object.keys(SMS.ORDER_EVENTS)) { v[`sms_on_${ev}`] = b[`sms_on_${ev}`] ? '1' : '0'; v[`sms_tpl_${ev}`] = str(b[`sms_tpl_${ev}`], 480); }
     await db.setMany(v);
     await ctx.log('settings', 'marketing', null, 'অর্ডারের SMS এর লেখা/সুইচ বদল');
@@ -247,7 +247,7 @@ async function post(ctx) {
     const quota = await SMS.mktLeft(ctx.settings);
     if (b.go === '1' && quota.left <= 0) return ctx.fail(BASE, `অফার SMS-এর ${quota.day <= 0 ? 'আজকের' : 'এই মাসের'} সীমা শেষ (চেকআউট কোডের জন্য জায়গা রাখা হয়েছে)। সীমা বাড়াতে উপরের "অফার SMS — দিনে/মাসে সর্বোচ্চ" বদলান।`);
     const a = await audience(b);
-    const total = (await db.one(`SELECT count(*)::int AS n FROM customers c WHERE ${a.where}`, a.params)).n;
+    const total = (await db.one(`SELECT count(*)::int AS n FROM customers c WHERE ${a.where}`, a.params))!.n;
     // people who already got this exact text are skipped, so pressing again continues with the rest
     a.params.push(text);
     const rows = await db.q(`SELECT c.phone FROM customers c WHERE ${a.where}
@@ -276,6 +276,6 @@ async function post(ctx) {
 }
 
 export const routes = [
-    { method: 'GET', path: BASE, perm: 'marketing', handler: (ctx) => page(ctx) },
+    { method: 'GET', path: BASE, perm: 'marketing', handler: (ctx: AdminCtx) => page(ctx) },
     { method: 'POST', path: BASE, perm: 'marketing', handler: post },
   ];

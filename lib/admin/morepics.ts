@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // Everything from the old site (পুরোনো সাইট থেকে সব পণ্য ও ছবি).
 // • Products that never came over (missing from this shop) are added — from the old shop's feed, and
 //   from its sitemap for products the feed left out. A product deleted here (in the recycle bin) is not
@@ -32,10 +31,12 @@ import * as ui from './ui';
 import * as importer from '../services/importer';
 import { safeFetch, FetchError } from '../services/safefetch';
 import { readUrl } from './import';
+import type { AdminCtx, Body, Loose } from '../types';
+import type { Tx } from '../pg';
 
 const SAME_PHOTO = 24; // fingerprint distance: same photo ≈ 0-30, different photo ≈ 80+
 
-async function page(ctx) {
+async function page(ctx: AdminCtx) {
   const s = ctx.settings;
   const counts = await db.one(`SELECT (SELECT count(*)::int FROM products) AS total, count(*)::int AS imported,
       count(*) FILTER (WHERE (SELECT count(*) FROM media m WHERE m.owner_type='product' AND m.owner_id=p.id) <= 1)::int AS one_pic
@@ -47,9 +48,9 @@ ${ui.flash(ctx.flash)}
 <p class="muted">পুরোনো সাইটের <b>সব পণ্য</b> এই দোকানে আনে — যেগুলো এখনো আসেনি সেগুলো নতুন করে যোগ করে, আর প্রতিটা পণ্যে পুরোনো সাইটে <b>যতগুলো ছবি আছে ঠিক ততগুলো</b> বসিয়ে দেয়।
 শুধু <b>সেই পণ্যেরই আসল ছবি</b> নেওয়া হয় — অন্য পণ্যের ছবি (যেমন "সম্পর্কিত পণ্য") কখনো আসবে না। মূল ছবি যেমন আছে তেমনই প্রথমে থাকবে, নতুন ছবি তার পরে বসবে। একই ছবি দুইবার বসবে না, আর একই পণ্য দুইবার যোগ হবে না। যে পণ্য আপনি মুছে ফেলেছেন (রিসাইকেল বিনে আছে) সেটা আবার আনা হবে না।</p>
 <div class="kpis">
-  ${ui.kpi('দোকানে মোট পণ্য', ui.bn(counts.total))}
-  ${ui.kpi('পুরোনো সাইট থেকে আনা পণ্য', ui.bn(counts.imported))}
-  ${ui.kpi('এখনো ১টা বা ০টা ছবি', ui.bn(counts.one_pic))}
+  ${ui.kpi('দোকানে মোট পণ্য', ui.bn(counts!.total))}
+  ${ui.kpi('পুরোনো সাইট থেকে আনা পণ্য', ui.bn(counts!.imported))}
+  ${ui.kpi('এখনো ১টা বা ০টা ছবি', ui.bn(counts!.one_pic))}
 </div>
 
 <div data-morepics>
@@ -99,7 +100,7 @@ ${ui.flash(ctx.flash)}
 }
 
 // ---------------------------------------------------------------- 1. which products
-async function planApi(ctx) {
+async function planApi(ctx: AdminCtx) {
   if (!(await security.hit(db, 'mpplan:' + ctx.user.id, 60, 3600))) return ctx.json(ctx.res, 429, { error: 'এক ঘণ্টায় অনেকবার চেষ্টা হয়েছে, একটু পরে আবার চেষ্টা করুন।' });
   const b = await ctx.body();
   let u = str(b.url, 2000);
@@ -113,18 +114,18 @@ async function planApi(ctx) {
     return ctx.json(ctx.res, 400, { error: e instanceof FetchError ? e.message : 'লিংকটা পড়া যায়নি।' });
   }
   if (out.error) return ctx.json(ctx.res, 400, { error: out.error });
-  const items = importer.finish(out.items || [], out.finalUrl || u).filter((it) => it.link);
+  const items = importer.finish(out.items || [], out.finalUrl || u).filter((it?: Loose) => it.link);
   if (!items.length) return ctx.json(ctx.res, 400, { error: 'এই লিংকে কোনো পণ্য (পেজের লিংকসহ) পাওয়া যায়নি। যে Facebook ফিড লিংক দিয়ে আমদানি করেছিলেন সেটাই দিন।' });
   await db.setMany({ morepics_feed: u });
   await ctx.reloadSettings();
 
-  const byRef = new Map(items.map((it) => [it.ref, it]));
+  const byRef = new Map<Loose, Loose>(items.map((it?: Loose) => [it.ref, it]));
   const rows = await db.q(`SELECT p.id, p.name, p.sku, p.import_ref, p.image_id,
       (SELECT count(*)::int FROM media m WHERE m.owner_type='product' AND m.owner_id=p.id) AS pics
     FROM products p WHERE p.import_ref = ANY($1::text[]) ORDER BY p.id`, [[...byRef.keys()]]);
   const trashed = await trashedRefs();
   const inShop = new Set(rows.map((r) => r.import_ref));
-  const list = [];
+  const list: Loose[] = [];
   let full = 0;
   for (const r of rows) {
     const it = byRef.get(r.import_ref);
@@ -132,10 +133,10 @@ async function planApi(ctx) {
     list.push({ id: r.id, name: r.name, sku: r.sku, link: it.link, main: (it.images || [])[0] || '', pics: r.pics, thumb: r.image_id ? `/media/${r.image_id}/t` : '' });
   }
   // in the old shop's feed but not in this shop (never came over, or was stopped as a "duplicate") — brought in now
-  const missing = items.filter((it) => !inShop.has(it.ref) && !trashed.has(it.ref));
-  const inTrash = items.filter((it) => !inShop.has(it.ref) && trashed.has(it.ref)).map((it) => ({ title: it.title, link: it.link }));
+  const missing = items.filter((it?: Loose) => !inShop.has(it.ref) && !trashed.has(it.ref));
+  const inTrash = items.filter((it?: Loose) => !inShop.has(it.ref) && trashed.has(it.ref)).map((it?: Loose) => ({ title: it.title, link: it.link }));
   // the old site's own product list (sitemap): products the feed left out (e.g. hidden from the catalog)
-  const feedPaths = new Set(items.map((it) => pathKey(it.link)).filter(Boolean));
+  const feedPaths = new Set(items.map((it?: Loose) => pathKey(it.link)).filter(Boolean));
   let sitemap = { links: [], read: false };
   if (b.sitemap !== false) sitemap = await oldSiteLinks(items).catch(() => ({ links: [], read: false }));
   const extra = sitemap.links.filter((l) => !feedPaths.has(pathKey(l)));
@@ -147,7 +148,7 @@ async function planApi(ctx) {
 }
 
 // what the browser needs to bring one product over
-function slimItem(it) {
+function slimItem(it?: Loose) {
   return {
     ref: it.ref, id: it.id, title: it.title, price: it.price, old_price: it.old_price, cost_price: it.cost_price, brand: it.brand,
     category: it.category, stock: it.stock, in_stock: it.in_stock, link: it.link, images: (it.images || []).slice(0, 20),
@@ -155,7 +156,7 @@ function slimItem(it) {
   };
 }
 // /products/abc-123 (no site name, no ?utm…, no trailing slash) — the same product page however it is written
-function pathKey(link) {
+function pathKey(link?: Loose) {
   try { const u = new URL(link); return decodeURIComponent(u.pathname).replace(/\/+$/, '').toLowerCase(); } catch (_) { return ''; }
 }
 // products deleted in this shop (now in the recycle bin) — not brought back again by mistake
@@ -164,20 +165,20 @@ async function trashedRefs() {
   return new Set(r.map((x) => x.ref));
 }
 // Every product page the old site lists in its sitemap (follows a sitemap index one level down)
-async function oldSiteLinks(items) {
+async function oldSiteLinks(items?: Loose) {
   const count = new Map();
   for (const it of items) { try { const o = new URL(it.link).origin; count.set(o, (count.get(o) || 0) + 1); } catch (_) { /* skip */ } }
   const origin = [...count.entries()].sort((a, b) => b[1] - a[1]).map((x) => x[0])[0];
   if (!origin) return { links: [], read: false };
   const first = await readUrl(`${origin}/sitemap.xml`, { follow: false });
-  let links = (first.links || []).filter((l) => l.kind === 'page').map((l) => l.url);
-  const subs = (first.links || []).filter((l) => l.kind === 'sitemap').map((l) => l.url).slice(0, 20);
+  let links = (first.links || []).filter((l?: Loose) => l.kind === 'page').map((l?: Loose) => l.url);
+  const subs = (first.links || []).filter((l?: Loose) => l.kind === 'sitemap').map((l?: Loose) => l.url).slice(0, 20);
   for (const u of subs) {
     const sub = await readUrl(u, { follow: false }).catch(() => ({ links: [] }));
-    links = links.concat((sub.links || []).filter((l) => l.kind === 'page').map((l) => l.url));
+    links = links.concat((sub.links || []).filter((l?: Loose) => l.kind === 'page').map((l?: Loose) => l.url));
   }
   const seen = new Set();
-  links = links.filter((l) => {
+  links = links.filter((l?: Loose) => {
     const k = pathKey(l);
     if (!k || !importer.PRODUCT_PATH.test(k) || seen.has(k)) return false;
     seen.add(k); return true;
@@ -187,7 +188,7 @@ async function oldSiteLinks(items) {
 
 // ---------------------------------------------------------------- one old product page → the product itself
 // (for products that are on the old site but not in its feed)
-async function pageApi(ctx) {
+async function pageApi(ctx: AdminCtx) {
   if (!(await security.hit(db, 'mpfind:' + ctx.user.id, 3000, 3600))) return ctx.json(ctx.res, 429, { error: 'অনেক বেশি পেজ পড়া হয়েছে, একটু পরে চেষ্টা করুন।' });
   const b = await ctx.body();
   let link = str(b.link, 2000);
@@ -217,7 +218,7 @@ async function pageApi(ctx) {
 const STOREX_API = 'https://api-live.storex.com.bd/api/v4';
 const STOREX_CDN = 'https://media-cdn.storex.dev';
 const tenants = new Map();
-async function storexTenant(origin) {
+async function storexTenant(origin?: Loose) {
   if (tenants.has(origin)) return tenants.get(origin);
   const r = await safeFetch(STOREX_API + '/stores/store-id', { method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ siteUrl: origin }), accept: 'application/json', timeoutMs: 8000, maxBytes: 200000 });
@@ -227,7 +228,7 @@ async function storexTenant(origin) {
   return id;
 }
 // null = not a StoreX product page (fall back to reading the page); otherwise { images, confirmed }
-async function storexGallery(link, main) {
+async function storexGallery(link?: Loose, main?: Loose) {
   let u;
   try { u = new URL(link); } catch (_) { return null; }
   const m = u.pathname.match(/^\/products\/([^/?#]+)\/?$/);
@@ -239,18 +240,18 @@ async function storexGallery(link, main) {
   let d;
   try { d = JSON.parse(r.body.toString('utf8')).data; } catch (_) { return null; }
   if (!d || !Array.isArray(d.gallery) || !/^[a-z0-9]{6,60}$/i.test(String(d.gallery_folder || ''))) return null;
-  const files = d.gallery.filter((f) => typeof f === 'string' && /^[\w.%-]{3,200}\.(webp|jpe?g|png|gif)$/i.test(f));
-  const images = files.map((f) => `${STOREX_CDN}/${tenant}/images/products/${d.gallery_folder}/${f}`);
+  const files = d.gallery.filter((f?: Loose) => typeof f === 'string' && /^[\w.%-]{3,200}\.(webp|jpe?g|png|gif)$/i.test(f));
+  const images = files.map((f?: Loose) => `${STOREX_CDN}/${tenant}/images/products/${d.gallery_folder}/${f}`);
   // the product's own picture list — sure it's this product when its main picture is in the list
-  const name = (x) => decodeURIComponent(String(x || '').split('?')[0].split('/').pop() || '').toLowerCase();
+  const name = (x?: Loose) => decodeURIComponent(String(x || '').split('?')[0].split('/').pop() || '').toLowerCase();
   const mainName = name(main);
   const confirmed = !main || String(main).includes(d.gallery_folder)
-    || files.some((f) => f.toLowerCase() === mainName || mainName.includes(f.toLowerCase().replace(/\.[a-z]+$/, '')));
+    || files.some((f?: Loose) => f.toLowerCase() === mainName || mainName.includes(f.toLowerCase().replace(/\.[a-z]+$/, '')));
   return { images, confirmed, rule: 'storex' };
 }
 
 // ---------------------------------------------------------------- 2. one old product page
-async function findApi(ctx) {
+async function findApi(ctx: AdminCtx) {
   if (!(await security.hit(db, 'mpfind:' + ctx.user.id, 3000, 3600))) return ctx.json(ctx.res, 429, { error: 'অনেক বেশি পেজ পড়া হয়েছে, একটু পরে চেষ্টা করুন।' });
   const b = await ctx.body();
   let link = str(b.link, 2000);
@@ -275,7 +276,7 @@ async function findApi(ctx) {
 }
 
 // ---------------------------------------------------------------- 3. add to the product
-async function attachApi(ctx) {
+async function attachApi(ctx: AdminCtx) {
   const b = await ctx.body();
   const pid = int(b.product_id);
   const max = Math.min(catalog.MAX_PRODUCT_IMAGES, Math.max(2, int(b.max, catalog.MAX_PRODUCT_IMAGES)));
@@ -289,9 +290,9 @@ async function attachApi(ctx) {
     // only fresh uploads that belong to nobody yet
     const fresh = ids.length ? (await t.query(`SELECT id, sha, phash, phash_m FROM media WHERE id = ANY($1::int[]) AND owner_type IS NULL`, [ids])).rows : [];
     const byId = new Map(fresh.map((m) => [m.id, m]));
-    const same = (a, x) => {
+    const same = (a?: Loose, x?: Loose) => {
       if (a.sha && x.sha && a.sha === x.sha) return true;
-      const ok = (h) => typeof h === 'string' && /^[0-9a-f]{64}$/.test(h);
+      const ok = (h?: Loose) => typeof h === 'string' && /^[0-9a-f]{64}$/.test(h);
       if (!ok(a.phash) || !ok(x.phash)) return false;
       return hamming(a.phash, x.phash) <= SAME_PHOTO || (ok(a.phash_m) && hamming(a.phash_m, x.phash) <= SAME_PHOTO);
     };

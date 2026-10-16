@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 import { html, raw, money, bn, int, str, pageNum, list, youtubeId, pct, fmtDate, amount, qtyRule, shopPrice, priceProblem, PRICE_MIN, PRICE_MAX } from '../util';
 import * as catalog from '../models/catalog';
 import * as dupes from '../models/duplicates';
@@ -9,12 +8,14 @@ import * as $services_barcode from '../services/barcode';
 import * as $models_finance from '../models/finance';
 import * as $services_autocat from '../services/autocat';
 import * as $variants from './variants';
+import type { AdminCtx, Body, Id, Loose, Settings } from '../types';
+import type { Tx } from '../pg';
 
 const PER_PAGE = 40;
 const ICONS = ['📦', '📟', '🧩', '🔋', '🔥', '🔌', '👕', '👗', '👟', '👜', '⌚', '📱', '💻', '🎧', '🔊', '📷', '🎮', '💡', '🔧', '🛠️', '⚙️',
   '🧲', '🧪', '🏠', '🛋️', '🍳', '🧴', '💄', '🧸', '📚', '✏️', '⚽', '🚲', '🚗', '🌱', '🐾', '🍎', '☕', '🎁', '💍', '🕶️', '🧢', '🧥', '🩺', '🧼', '📡', '🔦', '🪛', '🧵'];
 
-async function listPage(ctx) {
+async function listPage(ctx: AdminCtx) {
   const page = pageNum(ctx.query);
   const categories = await catalog.listCategories();
   const f = {
@@ -35,15 +36,15 @@ async function listPage(ctx) {
   const seeCost = ctx.can('see_cost');
   const qsBase = new URLSearchParams();
   if (f.q) qsBase.set('q', f.q);
-  if (f.categoryId) qsBase.set('cat', f.categoryId);
-  if (f.brandId) qsBase.set('brand', f.brandId);
+  if (f.categoryId) qsBase.set('cat', String(f.categoryId));
+  if (f.brandId) qsBase.set('brand', String(f.brandId));
   if (f.type) qsBase.set('type', f.type);
   if (f.lowStock) qsBase.set('low', '1');
   if (f.status) qsBase.set('status', f.status);
   if (f.outStock) qsBase.set('out', '1');
   if (sort !== 'sku') qsBase.set('sort', sort);
   const isBundle = f.type === 'bundle';
-  const backUrl = '/admin/products' + (() => { const x = new URLSearchParams(qsBase); if (page > 1) x.set('page', page); if (isBundle) x.set('type', 'bundle'); const t = x.toString(); return t ? '?' + t : ''; })();
+  const backUrl = '/admin/products' + (() => { const x = new URLSearchParams(qsBase); if (page > 1) x.set('page', String(page)); if (isBundle) x.set('type', 'bundle'); const t = x.toString(); return t ? '?' + t : ''; })();
   const body = html`
 <div class="title-row"><h1>${isBundle ? 'বান্ডেল / প্যাকেজ' : 'পণ্য'} <small>${bn(total)}টি</small></h1>
   <div class="row-actions">
@@ -106,8 +107,8 @@ ${ui.pager(total, page, PER_PAGE, '/admin/products' + (qsBase.toString() ? '?' +
 }
 
 // ---------------------------------------------------------------- bulk edit (many products at once)
-const canBulk = (ctx) => ctx.can('products') || ctx.can('products_delete');
-function bulkBar(ctx, categories, brands = []) {
+const canBulk = (ctx: AdminCtx) => ctx.can('products') || ctx.can('products_delete');
+function bulkBar(ctx: AdminCtx, categories?: Loose, brands: Loose = []) {
   if (!canBulk(ctx)) return '';
   const edit = ctx.can('products');
   const acts = [
@@ -122,7 +123,7 @@ function bulkBar(ctx, categories, brands = []) {
     <b data-pbulk-count>০</b>টি পণ্য বাছাই করা:
     ${ui.select('action', [['', '— কী করবেন বাছুন —'], ...acts], '', { 'data-pbulk-action': true, required: true })}
     <span data-pbulk-for="category" hidden>${ui.select('category_id', [['', 'কোনো ক্যাটাগরি না'], ...ui.catOpts(categories)], '')}</span>
-    <span data-pbulk-for="brand" hidden>${ui.input('brand', '', { maxlength: 60, list: 'brand-list-bulk', placeholder: 'ব্র্যান্ডের নাম (খালি = ব্র্যান্ড সরান)' })}<datalist id="brand-list-bulk">${brands.map((x) => html`<option value="${x.name}">`)}</datalist></span>
+    <span data-pbulk-for="brand" hidden>${ui.input('brand', '', { maxlength: 60, list: 'brand-list-bulk', placeholder: 'ব্র্যান্ডের নাম (খালি = ব্র্যান্ড সরান)' })}<datalist id="brand-list-bulk">${brands.map((x?: Loose) => html`<option value="${x.name}">`)}</datalist></span>
     <span data-pbulk-for="price_pct" hidden>${ui.input('pct', '', { type: 'number', step: '0.1', min: -90, max: 500, placeholder: 'যেমন 10 বা -5', class: 'w-num' })} %</span>
     <span data-pbulk-for="price_add" hidden>৳ ${ui.input('add', '', { type: 'number', step: '0.01', placeholder: 'যেমন 20 বা -10', class: 'w-num' })}</span>
     <span data-pbulk-for="low_stock" hidden>${ui.input('low', '', { type: 'number', min: 0, placeholder: 'যেমন 5', class: 'w-num' })}</span>
@@ -132,14 +133,14 @@ function bulkBar(ctx, categories, brands = []) {
   </form>`;
 }
 // new price after a % or ৳ change: never below ৳0.01; whole taka once the price is ৳10 or more
-function bulkPrice(price, { pct, add }) {
+function bulkPrice(price: Loose, { pct, add }: Body) {
   let v = Number(price) || 0;
   if (pct) v *= 1 + pct / 100;
   if (add) v += add;
   v = Math.max(0.01, v);
   return shopPrice(v);
 }
-async function bulkAction(ctx) {
+async function bulkAction(ctx: AdminCtx) {
   const b = await ctx.body();
   const back = backTo(b);
   const ids = [...new Set(list(b.ids).map((x) => int(x)).filter((x) => x > 0))].slice(0, 500);
@@ -153,7 +154,7 @@ async function bulkAction(ctx) {
     return ctx.redirect(ctx.res, back + (back.includes('?') ? '&' : '?') + 'info=' + encodeURIComponent(`${bn(ids.length)}টি পণ্য মুছে রিসাইকেল বিনে রাখা হয়েছে।`));
   }
   if (!ctx.can('products')) return ctx.back(back.split('?')[0], 'noperm');
-  const simple = {
+  const simple: Record<string, Loose> = {
     on: ['active=true', 'দোকানে চালু'], off: ['active=false', 'দোকান থেকে বন্ধ'], new_on: ['is_new=true', '"নতুন" ট্যাগ দেওয়া'], new_off: ['is_new=false', '"নতুন" ট্যাগ তোলা'],
     featured_on: ['featured=true', 'জনপ্রিয়-তে দেখানো'], featured_off: ['featured=false', 'জনপ্রিয় থেকে সরানো'],
   };
@@ -198,9 +199,9 @@ async function bulkAction(ctx) {
 }
 
 // Small count chips above the list: total / on the shop / hidden / stock out / low stock. Each one is a filter.
-function statChips(st, f, isBundle) {
+function statChips(st: Loose, f: Body, isBundle?: Loose) {
   const base = isBundle ? '/admin/products?type=bundle' : '/admin/products';
-  const link = (extra) => base + (extra ? (base.includes('?') ? '&' : '?') + extra : '');
+  const link = (extra?: Loose) => base + (extra ? (base.includes('?') ? '&' : '?') + extra : '');
   const none = !f.status && !f.outStock && !f.lowStock;
   const word = isBundle ? 'বান্ডেল' : 'পণ্য';
   return html`<div class="chips status-chips stat-chips" aria-label="${word}ের হিসাব">
@@ -213,7 +214,7 @@ function statChips(st, f, isBundle) {
 }
 
 const MAX_IMAGES = catalog.MAX_PRODUCT_IMAGES;
-function imageSlot(i, id) {
+function imageSlot(i?: Loose, id?: Id) {
   const label = i === 0 ? 'মূল ছবি' : `ছবি ${bn(i + 1)}`;
   return html`<div class="slot ${id ? 'filled' : ''} ${i === 0 ? 'slot-main' : ''}" data-slot="${i}" data-img="${id || ''}">
     <span class="slot-no">${label}</span>
@@ -223,8 +224,8 @@ function imageSlot(i, id) {
 }
 
 // ---------------------------------------------------------------- duplicate guard
-function dupMatches(matches) {
-  return html`<ul class="dup-list">${matches.map((m) => html`<li class="dup-item ${m.level === 'block' ? 'is-block' : 'is-warn'}">
+function dupMatches(matches?: Loose) {
+  return html`<ul class="dup-list">${matches.map((m?: Loose) => html`<li class="dup-item ${m.level === 'block' ? 'is-block' : 'is-warn'}">
     <a class="dup-thumb" href="/admin/products/${m.id}" target="_blank" rel="noopener">${m.image ? html`<img src="${m.image}" alt="" loading="lazy">` : html`<span>${m.emoji || '📦'}</span>`}</a>
     <div class="dup-info">
       <a href="/admin/products/${m.id}" target="_blank" rel="noopener"><b>${m.name}</b></a>
@@ -235,13 +236,13 @@ function dupMatches(matches) {
   </li>`)}</ul>`;
 }
 // "বন্ধ করুন / চালু করুন" and "মুছুন" for a product shown as a duplicate (works without leaving the page).
-function dupActs(m) {
+function dupActs(m?: Loose) {
   return html`<div class="dup-acts" data-dup-acts data-id="${m.id}" data-name="${m.name || m.title || ''}">
     <button type="button" class="btn btn-sm btn-ghost" data-dup-act="toggle" data-on="${m.active ? '1' : ''}">${m.active ? '🚫 বন্ধ করুন' : '✅ চালু করুন'}</button>
     <button type="button" class="btn btn-sm btn-danger" data-dup-act="delete">🗑️ মুছুন</button>
   </div>`;
 }
-function dupPanel({ dup, canOverride, allow, id }) {
+function dupPanel({ dup, canOverride, allow, id }: Body) {
   const blocked = dup && dup.blocked;
   const showSwitch = blocked || allow;
   return html`<section class="panel dup-box ${blocked ? 'is-block' : dup && dup.matches.length ? 'is-warn' : ''}" data-dup-box data-dup-id="${id || ''}" data-can-override="${canOverride ? '1' : ''}">
@@ -256,11 +257,11 @@ function dupPanel({ dup, canOverride, allow, id }) {
     </div>` : html`<p class="small muted dup-noperm" data-dup-noperm ${blocked ? '' : raw('hidden')}>এটা সত্যিই আলাদা পণ্য হলে মালিককে বলুন — তিনি "তবুও প্রকাশ করুন" সুইচ চালু করতে পারবেন।</p>`}
   </section>`;
 }
-const canOverride = (ctx) => ctx.can('dup_override');
-const guardOn = (ctx) => ctx.settings.dup_guard !== '0';
+const canOverride = (ctx: AdminCtx) => ctx.can('dup_override');
+const guardOn = (ctx: AdminCtx) => ctx.settings.dup_guard !== '0';
 
 // Live check while the form is being filled (name typed, picture added).
-async function dupCheckApi(ctx) {
+async function dupCheckApi(ctx: AdminCtx) {
   if (!(await security.hit(db, 'dupchk:' + ctx.user.id, 900, 3600))) return ctx.json(ctx.res, 429, { error: 'অনেক বেশি যাচাই হয়েছে, একটু পরে চেষ্টা করুন।' });
   const b = await ctx.body();
   if (!str(b.name) && !(Array.isArray(b.images) && b.images.length)) return ctx.json(ctx.res, 200, { blocked: false, matches: [] });
@@ -271,7 +272,7 @@ async function dupCheckApi(ctx) {
 
 // On save. When editing, only NEW matches block — a product that already had a twin before this
 // feature existed can still have its price or stock changed.
-async function dupCheckOnSave(ctx, b, id) {
+async function dupCheckOnSave(ctx: AdminCtx, b: Body, id?: Id) {
   if (!guardOn(ctx) || b.allow_duplicate) return null;
   const now = await dupes.findDuplicates({ ...b, id }, ctx.settings);
   if (!now.blocked) return null;
@@ -286,10 +287,10 @@ async function dupCheckOnSave(ctx, b, id) {
   return now;
 }
 
-function specsBox(specs) {
+function specsBox(specs?: Loose) {
   const rows = (Array.isArray(specs) ? specs : []).filter((r) => Array.isArray(r) && r[0]);
   const blank = Math.max(2, 4 - rows.length);
-  const row = (k, v) => html`<div class="field-row spec-row">
+  const row = (k?: Loose, v?: Loose) => html`<div class="field-row spec-row">
     <input name="spec_key[]" value="${k}" maxlength="60" placeholder="যেমন: ভোল্টেজ" aria-label="বিষয়">
     <input name="spec_val[]" value="${v}" maxlength="300" placeholder="যেমন: 5V DC" aria-label="মান"></div>`;
   return html`<section class="panel">
@@ -301,7 +302,7 @@ function specsBox(specs) {
 }
 
 // 📒 Small "কেনা-বেচার হিসাব" box on the product form (owner only): last buys and what the sales earned.
-function ledgerBox(p, L) {
+function ledgerBox(p?: Loose, L?: Loose) {
   const s = L.sales;
   return html`<section class="panel">
     <h2>📒 কেনা-বেচার হিসাব</h2>
@@ -313,12 +314,12 @@ function ledgerBox(p, L) {
       <tr class="total"><td>লাভ (নিজে থেকে হিসাব)</td><td class="num ${s.profit < 0 ? 'warn' : 'good'}"><b>${money(s.profit)}</b></td></tr>
     </tbody></table>
     ${s.no_cost_qty ? html`<p class="small warn">${bn(s.no_cost_qty)}টি বিক্রির সময় কেনা দাম দেওয়া ছিল না — সেগুলোর লাভ বেশি দেখাচ্ছে।</p>` : ''}
-    ${L.buys.length ? html`<p class="small"><b>শেষ কেনা:</b></p><ul class="timeline">${L.buys.slice(0, 3).map((b) => html`<li>${bn(b.change)}টি × ${b.unit_cost !== null ? money(b.unit_cost) : '—'}${b.supplier_name ? ` · ${b.supplier_name}` : ''}${b.purchase_status === 'cancelled' ? ' (বাতিল)' : ''}<br><span class="small muted">${b.purchase_date ? fmtDate(b.purchase_date + 'T06:00:00Z', false) : fmtDate(b.created_at, false)} · ${b.reason === 'opening' ? 'শুরুর স্টক' : b.purchase_code || 'পারচেজ'}</span></li>`)}</ul>` : html`<p class="small muted">এখনো কোনো পারচেজ এন্ট্রি নেই।</p>`}
+    ${L.buys.length ? html`<p class="small"><b>শেষ কেনা:</b></p><ul class="timeline">${L.buys.slice(0, 3).map((b?: Loose) => html`<li>${bn(b.change)}টি × ${b.unit_cost !== null ? money(b.unit_cost) : '—'}${b.supplier_name ? ` · ${b.supplier_name}` : ''}${b.purchase_status === 'cancelled' ? ' (বাতিল)' : ''}<br><span class="small muted">${b.purchase_date ? fmtDate(b.purchase_date + 'T06:00:00Z', false) : fmtDate(b.created_at, false)} · ${b.reason === 'opening' ? 'শুরুর স্টক' : b.purchase_code || 'পারচেজ'}</span></li>`)}</ul>` : html`<p class="small muted">এখনো কোনো পারচেজ এন্ট্রি নেই।</p>`}
     <a class="btn btn-sm btn-ghost" href="/admin/products/${p.id}/ledger">সব হিসাব দেখুন →</a>
   </section>`;
 }
 
-function productForm({ product, categories, error, seeCost, dup, canOverride, guardOn = true, settings = {}, nextSku = '', brands = [], locations = [], suppliers = [], prices = [], canDelete = true, tiers = [], links = { related: [], cross: [], upsell: [] }, canStock = false, ledger = null }) {
+function productForm({ product, categories, error, seeCost, dup, canOverride, guardOn = true, settings = {}, nextSku = '', brands = [], locations = [], suppliers = [], prices = [], canDelete = true, tiers = [], links = { related: [], cross: [], upsell: [] }, canStock = false, ledger = null }: Body) {
   const p = product || { active: true, stock: 10, emoji: '📦', images: [], bundle: [], product_type: 'single', low_stock: 3, unit: 'পিস' };
   const isNew = !p.id;
   const bundle = p.product_type === 'bundle';
@@ -345,7 +346,7 @@ ${error ? html`<p class="flash flash-error">${error}</p>` : ''}
         </div>
         <div class="field-row">
           ${ui.field('ব্র্যান্ড (ঐচ্ছিক)', ui.input('brand', p.brand || '', { maxlength: 60, list: 'brand-list', autocomplete: 'off', placeholder: 'লিখুন বা তালিকা থেকে বাছুন' }), raw('নতুন নাম লিখলে নিজে থেকে নতুন ব্র্যান্ড তৈরি হবে। <a href="/admin/brands" target="_blank" rel="noopener">সব ব্র্যান্ড</a>'))}
-          <datalist id="brand-list">${brands.map((b) => html`<option value="${b.name}">`)}</datalist>
+          <datalist id="brand-list">${brands.map((b?: Loose) => html`<option value="${b.name}">`)}</datalist>
           ${ui.field('মডেল / পার্ট নম্বর (ঐচ্ছিক)', ui.input('model', p.model || '', { maxlength: 80, placeholder: 'যেমন: PAM8403, LM7805, DS18B20' }), 'কোম্পানির দেওয়া কোড। সার্চে আর Google-এ কাজে লাগে।')}
         </div>
         <div class="field-row warranty-row" data-warranty>
@@ -362,13 +363,13 @@ ${error ? html`<p class="flash flash-error">${error}</p>` : ''}
         <div class="field-row">
           ${ui.field('একক', ui.select('unit', [['পিস', 'পিস'], ['সেট', 'সেট'], ['প্যাক', 'প্যাক'], ['কেজি', 'কেজি'], ['গ্রাম', 'গ্রাম'], ['মিটার', 'মিটার'], ['জোড়া', 'জোড়া'], ['লিটার', 'লিটার']], p.unit || 'পিস'))}
           ${ui.field('📍 কোথায় রাখা', ui.input('location', p.location || '', { maxlength: 40, placeholder: 'যেমন: বক্স ৩', list: 'loc-list', autocomplete: 'off' }), 'কোন বক্স/তাকে আছে। শুধু অ্যাডমিনে দেখায় — প্যাক করার সময় খুঁজে পেতে।')}
-          <datalist id="loc-list">${locations.map((x) => html`<option value="${x.location}">`)}</datalist>
+          <datalist id="loc-list">${locations.map((x?: Loose) => html`<option value="${x.location}">`)}</datalist>
         </div>
       </section>
 
       ${!isNew && !bundle ? html`<section class="panel var-panel">
         <h2>🎨 ভ্যারিয়েন্ট (সাইজ / রং / মডেল)</h2>
-        ${p.variant_count > 0 || (p.variants || []).length ? html`<p>এই পণ্যের <b>${bn((p.variants || []).length || p.variant_count)}টি ভ্যারিয়েন্ট</b> আছে: ${(p.variants || []).map((v) => v.variant_label).join(', ')}। প্রতিটার দাম, স্টক আর SKU আলাদা — নিচের দাম আর স্টক ভ্যারিয়েন্ট থেকে নিজে থেকে হিসাব হয়।</p>`
+        ${p.variant_count > 0 || (p.variants || []).length ? html`<p>এই পণ্যের <b>${bn((p.variants || []).length || p.variant_count)}টি ভ্যারিয়েন্ট</b> আছে: ${(p.variants || []).map((v?: Loose) => v.variant_label).join(', ')}। প্রতিটার দাম, স্টক আর SKU আলাদা — নিচের দাম আর স্টক ভ্যারিয়েন্ট থেকে নিজে থেকে হিসাব হয়।</p>`
     : html`<p class="muted small">একই পণ্যের আলাদা সাইজ, রং বা মডেল থাকলে (যেমন ট্রিমার: কালো/নীল, রিমোট: Singer AC/Singer TV) প্রতিটা আলাদা দাম আর স্টকসহ যোগ করুন। কাস্টমার পণ্যের পেজে বাছাই করবে।</p>`}
         <a class="btn btn-sm" href="/admin/products/${p.id}/variants">${p.variant_count > 0 ? '✏️ ভ্যারিয়েন্ট এডিট করুন' : '+ ভ্যারিয়েন্ট যোগ করুন'}</a>
       </section>` : ''}
@@ -398,7 +399,7 @@ ${error ? html`<p class="flash flash-error">${error}</p>` : ''}
         ${ui.switchRow('preorder', !!p.preorder, '⏳ প্রি-অর্ডার নিন (স্টক শেষ হলেও)', 'চালু থাকলে স্টক শেষ হলেও কাস্টমার অর্ডার করতে পারবেন — পণ্যের পেজে "প্রি-অর্ডার" লেখা থাকবে। অর্ডারে কয়টা পরে পাঠাতে হবে লেখা থাকে; মাল কিনে পারচেজ এন্ট্রি দিলে আগে প্রি-অর্ডারগুলো মেটে।')}
         ${ui.field('মাল আসতে আনুমানিক কত দিন (কাস্টমারকে দেখাবে)', ui.input('preorder_days', p.preorder_days || '', { type: 'number', min: 0, max: 180, placeholder: 'যেমন 7' }))}
         ${p.damaged_stock ? html`<p class="small warn">নষ্ট/ভাঙা স্টক আলাদা রাখা আছে: <b>${bn(p.damaged_stock)}টি</b> (বিক্রি হবে না) — <a href="/admin/inventory?q=${encodeURIComponent(p.sku || p.name || '')}">ইনভেন্টরিতে দেখুন</a></p>` : ''}`}
-        ${suppliers.length ? ui.field('যে সাপ্লায়ার থেকে সাধারণত কেনা হয় (ঐচ্ছিক)', ui.select('supplier_id', [['', '— বাছাই করা নেই —'], ...suppliers.map((x) => [x.id, x.name + (x.company ? ` (${x.company})` : '')])], p.supplier_id || ''),
+        ${suppliers.length ? ui.field('যে সাপ্লায়ার থেকে সাধারণত কেনা হয় (ঐচ্ছিক)', ui.select('supplier_id', [['', '— বাছাই করা নেই —'], ...suppliers.map((x?: Loose) => [x.id, x.name + (x.company ? ` (${x.company})` : '')])], p.supplier_id || ''),
     'শুধু অ্যাডমিনে দেখা যায়, কাস্টমার কখনো দেখবে না। পারচেজের সময় কাজে লাগে।') : ''}
       </section>
 
@@ -409,7 +410,7 @@ ${error ? html`<p class="flash flash-error">${error}</p>` : ''}
           <ul class="picker-results" data-bundle-results hidden></ul>
         </div>
         <div class="table-wrap"><table class="table item-rows bundle-rows"><thead><tr><th>ছবি</th><th>পণ্য</th><th class="num">একক দাম</th><th class="num">পরিমাণ (কমান / বাড়ান)</th><th class="num">মোট</th><th class="num">স্টক</th><th>কাজ</th></tr></thead>
-          <tbody data-bundle-rows>${(p.bundle || []).map((b) => html`<tr data-row data-price="${b.price}">
+          <tbody data-bundle-rows>${(p.bundle || []).map((b?: Loose) => html`<tr data-row data-price="${b.price}">
             <td class="b-img">${b.image_id ? html`<img src="/media/${b.image_id}/t" alt="" loading="lazy">` : html`<span class="pe">${b.emoji || '📦'}</span>`}</td>
             <td class="b-name"><b>${b.name}</b>${b.sku ? html`<br><span class="small muted">SKU ${b.sku}</span>` : ''}<input type="hidden" name="bundle_id[]" value="${b.product_id}"></td>
             <td class="num">${money(b.price)}</td>
@@ -473,7 +474,7 @@ ${error ? html`<p class="flash flash-error">${error}</p>` : ''}
 
       ${!isNew && prices.length ? html`<section class="panel">
         <h2>দামের ইতিহাস</h2>
-        <ul class="timeline">${prices.map((h) => html`<li>${h.action === 'cost_change' ? '🔒 ' : ''}${h.detail.replace(/^[^:]*:\s*/, '')}<br><span class="small muted">${fmtDate(h.created_at)} · ${h.staff_name || 'সিস্টেম'}</span></li>`)}</ul>
+        <ul class="timeline">${prices.map((h?: Loose) => html`<li>${h.action === 'cost_change' ? '🔒 ' : ''}${h.detail.replace(/^[^:]*:\s*/, '')}<br><span class="small muted">${fmtDate(h.created_at)} · ${h.staff_name || 'সিস্টেম'}</span></li>`)}</ul>
         ${seeCost ? html`<p class="small muted">🔒 = কেনা দাম, শুধু আপনি দেখছেন। <a href="/admin/security/audit?action=price_change">সব দাম বদল →</a></p>` : ''}
       </section>` : ''}
     </div>
@@ -487,17 +488,17 @@ ${isNew || !canDelete ? '' : html`<form method="post" action="/admin/products/${
 </form>`}`;
 }
 
-function bodyToProduct(b) {
+function bodyToProduct(b: Body) {
   const ids = list(b.bundle_id);
   const qtys = list(b.bundle_qty);
   return { ...b, bundle: ids.map((id, i) => ({ product_id: id, qty: qtys[i] })) };
 }
 
-async function formExtras(ctx, id) {
+async function formExtras(ctx: AdminCtx, id?: Id) {
   const finance = $models_finance;
   const [brands, suppliers, prices, locations] = await Promise.all([
     catalog.listBrands(), finance.listSuppliers({ includeInactive: false }).catch(() => []),
-    id ? catalog.priceHistory(id, { withCost: ctx.can('see_cost'), limit: 15 }) : [],
+    id ? catalog.priceHistory(id as number, { withCost: ctx.can('see_cost'), limit: 15 }) : [],
     catalog.listLocations().catch(() => []),
   ]);
   const [tiers, links] = id ? await Promise.all([db.q('SELECT min_qty, price FROM price_tiers WHERE product_id=$1 ORDER BY min_qty', [id]), catalog.linkedSkus(id)])
@@ -508,11 +509,11 @@ async function formExtras(ctx, id) {
     canStock: ctx.can('inventory'), ledger };
 }
 // "১০টি বা বেশি নিলে ৳x করে" rows + linked products (related / goes with / better option), saved after the product.
-async function saveExtras(pid, b, settings = {}) {
-  const price = Number((await db.one('SELECT price FROM products WHERE id=$1', [pid])).price);
+async function saveExtras(pid: Loose, b: Body, settings: Loose = {}) {
+  const price = Number((await db.one('SELECT price FROM products WHERE id=$1', [pid]))!.price);
   const qs = list(b.tier_qty); const ps = list(b.tier_price);
   const tiers = new Map();
-  const problems = [];
+  const problems: Loose[] = [];
   for (let i = 0; i < qs.length; i++) {
     const n = int(qs[i]); const pr = shopPrice(amount(ps[i]));
     if (!n && !ps[i]) continue;
@@ -522,7 +523,7 @@ async function saveExtras(pid, b, settings = {}) {
   const maxQ = qtyRule(settings, price).max;
   const unreachable = [...tiers.keys()].filter((n) => n > maxQ);
   if (unreachable.length) problems.push(`${unreachable.map((n) => bn(n)).join(', ')}টির ধাপ সেভ হয়েছে, কিন্তু অনলাইনে এই পণ্য একবারে সর্বোচ্চ ${bn(maxQ)}টি অর্ডার করা যায় — তাই কাস্টমার এই দাম পাবে না (দোকানে দেখাবেও না)। চাইলে সেটিংসে "একসাথে সর্বোচ্চ" সংখ্যা বাড়ান`);
-  const missing = [];
+  const missing: Loose[] = [];
   await db.tx(async (t) => {
     await t.query('DELETE FROM price_tiers WHERE product_id=$1', [pid]);
     for (const [n, pr] of [...tiers.entries()].slice(0, 6)) await t.query('INSERT INTO price_tiers(product_id, min_qty, price) VALUES($1,$2,$3)', [pid, n, pr]);
@@ -533,10 +534,10 @@ async function saveExtras(pid, b, settings = {}) {
   if (missing.length) problems.push(`এই SKU পাওয়া যায়নি: ${missing.join(', ')}`);
   return problems;
 }
-function extrasBox(p, tiers, links, settings = {}) {
+function extrasBox(p?: Loose, tiers?: Loose, links?: Loose, settings: Loose = {}) {
   const rows = (tiers || []).slice(0, 6);
   const blank = Math.max(1, 3 - rows.length);
-  const row = (t) => html`<div class="field-row tier-row">
+  const row = (t?: Loose) => html`<div class="field-row tier-row">
     ${ui.field('কমপক্ষে কয়টা নিলে', ui.input('tier_qty[]', t.min_qty || '', { type: 'number', min: 2, class: 'w-num', placeholder: 'যেমন 10' }))}
     ${ui.field('প্রতি পিস দাম (৳)', ui.input('tier_price[]', t.price ?? '', { type: 'number', min: 0.01, step: '0.01', class: 'w-num', placeholder: 'যেমন 4.5' }))}
   </div>`;
@@ -556,7 +557,7 @@ function extrasBox(p, tiers, links, settings = {}) {
     ${ui.field('একই রকম পণ্য (নিজে বেছে দিন)', ui.input('related_skus', links.related.join(', '), { maxlength: 400 }))}
   </section>`;
 }
-async function formPage(ctx, m) {
+async function formPage(ctx: AdminCtx, m?: Loose) {
   const id = m && m[1] ? int(m[1]) : null;
   // a variant is edited on its main product's variants page
   if (id) {
@@ -567,7 +568,7 @@ async function formPage(ctx, m) {
   const seeCost = ctx.can('see_cost');
   const extras = await formExtras(ctx, id);
   if (ctx.method === 'POST') {
-    const b = bodyToProduct(await ctx.body());
+    const b: Loose = bodyToProduct(await ctx.body());
     const cur = id ? await catalog.getProduct({ id }) : null;
     if (!seeCost && id) b.cost_price = cur ? cur.cost_price : 0;
     // Only the owner, or staff given that permission, may switch "publish anyway" on or off.
@@ -587,9 +588,9 @@ async function formPage(ctx, m) {
     }
     if (error) {
       const images = String(b.images || '').split(',').map((x) => int(x)).filter(Boolean);
-      const parts = b.bundle.length ? await catalog.getProductsByIds(b.bundle.map((x) => x.product_id), { includeInactive: true }) : [];
-      const product = { ...b, id, images, active: !!b.active, featured: !!b.featured,
-        bundle: b.bundle.map((x) => { const pp = parts.find((y) => y.id === int(x.product_id)); return pp ? { product_id: pp.id, name: pp.name, sku: pp.sku, price: pp.price, stock: pp.stock, qty: int(x.qty, 1) } : null; }).filter(Boolean) };
+      const parts = b.bundle.length ? await catalog.getProductsByIds(b.bundle.map((x: Loose) => x.product_id), { includeInactive: true }) : [];
+      const product: Loose = { ...b, id, images, active: !!b.active, featured: !!b.featured,
+        bundle: b.bundle.map((x: Loose) => { const pp = parts.find((y) => y.id === int(x.product_id)); return pp ? { product_id: pp.id, name: pp.name, sku: pp.sku, price: pp.price, stock: pp.stock, qty: int(x.qty, 1) } : null; }).filter(Boolean) };
       if (cur) product.slug = cur.slug;
       product.specs = catalog.cleanSpecs(b.spec_key, b.spec_val);
       product.is_new = !!b.is_new;
@@ -610,7 +611,7 @@ async function formPage(ctx, m) {
     return ctx.page(product.name, html`${ui.flash(ctx.flash)}${productForm({ product, categories, seeCost, canOverride: canOverride(ctx), guardOn: guardOn(ctx), settings: ctx.settings, ...extras })}`, product.product_type === 'bundle' ? 'bundles' : 'products');
   }
   const type = ctx.query.get('type') === 'bundle' ? 'bundle' : 'single';
-  const fresh = { active: true, stock: type === 'bundle' ? 0 : 10, emoji: '📦', images: [], bundle: [], product_type: type, low_stock: 3, unit: type === 'bundle' ? 'সেট' : 'পিস',
+  const fresh: Loose = { active: true, stock: type === 'bundle' ? 0 : 10, emoji: '📦', images: [], bundle: [], product_type: type, low_stock: 3, unit: type === 'bundle' ? 'সেট' : 'পিস',
     category_id: int(ctx.query.get('cat')) || null };
   // came from 📷 স্ক্যান করে স্টক: a barcode no product has yet → it goes on the new product (with box and count)
   if (type === 'single') {
@@ -623,11 +624,11 @@ async function formPage(ctx, m) {
 }
 
 // Where to go after a list action: back to the same list page (only our own product list).
-function backTo(b) {
+function backTo(b: Body) {
   const v = String(b.back || '');
   return /^\/admin\/(products(\/duplicates)?|inventory)(\?[\w=&%.+-]*)?$/.test(v) ? v : '/admin/products';
 }
-async function remove(ctx, m) {
+async function remove(ctx: AdminCtx, m?: Loose) {
   const id = int(m[1]);
   const b = await ctx.body();
   const p = await catalog.getProduct({ id });
@@ -637,7 +638,7 @@ async function remove(ctx, m) {
   return ctx.back(backTo(b), 'deleted');
 }
 // Show / hide one product on the shop (the switch in the product list). SKU and everything else stay the same.
-async function setActive(ctx, m) {
+async function setActive(ctx: AdminCtx, m?: Loose) {
   const id = int(m[1]);
   const b = await ctx.body();
   const on = !!b.active && b.active !== '0';
@@ -649,7 +650,7 @@ async function setActive(ctx, m) {
   }
   return ctx.back(backTo(b), 'saved');
 }
-async function duplicate(ctx, m) {
+async function duplicate(ctx: AdminCtx, m?: Loose) {
   const nid = await catalog.duplicateProduct(int(m[1]), ctx.user.id);
   if (!nid) return ctx.back('/admin/products');
   await ctx.log('product_add', 'product', nid, 'কপি');
@@ -657,7 +658,7 @@ async function duplicate(ctx, m) {
 }
 
 // ---------------------------------------------------------------- duplicates page
-async function duplicatesPage(ctx) {
+async function duplicatesPage(ctx: AdminCtx) {
   const may = canOverride(ctx);
   if (ctx.method === 'POST') {
     const b = await ctx.body();
@@ -683,11 +684,11 @@ async function duplicatesPage(ctx) {
   const sure = groups.filter((g) => g.level === 'block');
   const maybe = groups.filter((g) => g.level === 'warn');
   const on = guardOn(ctx);
-  const card = (g) => {
-    const why = [...new Set(g.pairs.flatMap((pp) => pp.reasons))];
+  const card = (g?: Loose) => {
+    const why = [...new Set(g.pairs.flatMap((pp?: Loose) => pp.reasons))];
     return html`<div class="panel dup-group ${g.level === 'block' ? 'is-block' : 'is-warn'}">
       <p class="dup-why">${g.level === 'block' ? '⛔ ' : '⚠️ '}${why.join(' · ')}</p>
-      <ul class="dup-list">${g.products.map((x, i) => html`<li class="dup-item">
+      <ul class="dup-list">${g.products.map((x?: Loose, i?: Loose) => html`<li class="dup-item">
         <a class="dup-thumb" href="/admin/products/${x.id}">${x.image_id ? html`<img src="/media/${x.image_id}/t" alt="" loading="lazy">` : html`<span>${x.emoji || '📦'}</span>`}</a>
         <div class="dup-info">
           <a href="/admin/products/${x.id}"><b>${x.title}</b></a>
@@ -748,16 +749,16 @@ ${groups.length ? html`${sure.length ? html`<h3>⛔ প্রায় নিশ
 // ---------------------------------------------------------------- categories
 // Where categories show on the storefront: the bar above the banner (every page)
 // and the box grid on the home page (a home-page section).
-async function saveCategoryDisplay(ctx, b) {
+async function saveCategoryDisplay(ctx: AdminCtx, b: Body) {
   const top = b.show_cat_strip ? '1' : '0';
   await db.setSetting('show_cat_strip', top);
-  const sections = db.jsonSetting(ctx.settings, 'home_sections', []).filter((x) => x !== 'categories');
+  const sections = db.jsonSetting(ctx.settings, 'home_sections', []).filter((x?: Loose) => x !== 'categories');
   if (b.show_cat_grid) sections.splice(sections[0] === 'slider' ? 1 : 0, 0, 'categories');
   await db.setSetting('home_sections', JSON.stringify(sections));
   await ctx.reloadSettings();
   await ctx.log('settings', 'category', null, `ক্যাটাগরি দেখানো: উপরে ${top === '1' ? 'চালু' : 'বন্ধ'}, নিচে ${b.show_cat_grid ? 'চালু' : 'বন্ধ'}`);
 }
-function displaySwitch(name, on, title, desc) {
+function displaySwitch(name?: Loose, on?: Loose, title?: Loose, desc?: Loose) {
   return html`<label class="switch-row">
     <span class="switch-text"><b>${title}</b><small>${desc}</small></span>
     <span class="switch"><input type="checkbox" name="${name}" value="1" ${on ? raw('checked') : ''} data-autosubmit><span class="switch-ui" aria-hidden="true"></span></span>
@@ -765,7 +766,7 @@ function displaySwitch(name, on, title, desc) {
   </label>`;
 }
 
-async function categoriesPage(ctx) {
+async function categoriesPage(ctx: AdminCtx) {
   if (ctx.method === 'POST') {
     const b = await ctx.body();
     if (b.form === 'display') {
@@ -786,9 +787,9 @@ async function categoriesPage(ctx) {
   const tree = catalog.categoryOptions(categories); // menu order, with depth
   const { byId } = catalog.categoryTree(categories);
   // where a category may be put: anywhere except inside itself or its own sub-categories
-  const parentChoices = (c) => {
+  const parentChoices = (c?: Loose) => {
     const inside = new Set();
-    const walk = (n) => { inside.add(n.id); n.children.forEach(walk); };
+    const walk = (n?: Loose) => { inside.add(n.id); n.children.forEach(walk); };
     if (c) walk(byId.get(c.id));
     return [['', '— মূল ক্যাটাগরি (কোনোটির ভেতরে না)'], ...ui.catOpts(categories).filter(([id]) => !inside.has(id))];
   };
@@ -814,7 +815,7 @@ ${ui.flash(ctx.flash)}
   <section class="panel">
     <h2>সব ক্যাটাগরি <small>মূল ক্যাটাগরি আর তার ভেতরের সাব-ক্যাটাগরি</small></h2>
     <div class="cat-admin-grid cat-tree">
-      ${tree.map((c) => html`<form method="post" action="/admin/categories" class="cat-card depth-${Math.min(c.depth, 3)} ${c.active === false ? 'row-off' : ''}">
+      ${tree.map((c) => html`<form method="post" action="/admin/categories" class="cat-card depth-${Math.min(c.depth!, 3)} ${c.active === false ? 'row-off' : ''}">
         <input type="hidden" name="id" value="${c.id}">
         <div class="cat-card-top">
           <input name="icon" value="${c.icon}" maxlength="8" aria-label="আইকন" class="w-emoji" data-icon-input>
@@ -823,7 +824,7 @@ ${ui.flash(ctx.flash)}
         <div class="cat-card-bottom">
           <label class="small">ক্রম <input name="sort" type="number" value="${c.sort}" class="w-num"></label>
           ${ui.check('active', c.active !== false, 'দেখাও')}
-          <span class="small muted">${bn(c.product_count)}টি পণ্য${c.total_count > c.product_count ? ` (ভেতরেসহ ${bn(c.total_count)}টি)` : ''}</span>
+          <span class="small muted">${bn(c.product_count)}টি পণ্য${c.total_count! > c.product_count ? ` (ভেতরেসহ ${bn(c.total_count)}টি)` : ''}</span>
         </div>
         <label class="small cat-parent">কোথায় থাকবে ${ui.select('parent_id', parentChoices(c), c.parent_id || '')}</label>
         <details class="cat-seo"><summary class="small">🔎 SEO, বিবরণ ও ব্যানার${c.seo_title || c.description || c.banner_id ? ' ✓' : ''}</summary>
@@ -865,7 +866,7 @@ ${ui.flash(ctx.flash)}
   return ctx.page('ক্যাটাগরি', body, 'categories');
 }
 // ---------------------------------------------------------------- automatic sorting
-async function autoPage(ctx) {
+async function autoPage(ctx: AdminCtx) {
   const autocat = $services_autocat;
   if (ctx.method === 'POST') {
     const b = await ctx.body();
@@ -905,7 +906,7 @@ ${unknown.length ? html`<section class="panel"><h2>চেনা যায়ন�
   return ctx.page('স্বয়ংক্রিয় ক্যাটাগরি', body, 'categories');
 }
 
-async function deleteCategory(ctx, m) {
+async function deleteCategory(ctx: AdminCtx, m?: Loose) {
   await ctx.trash('category', int(m[1]));
   await ctx.log('category_delete', 'category', int(m[1]), '');
   return ctx.back('/admin/categories', 'deleted');
@@ -913,12 +914,12 @@ async function deleteCategory(ctx, m) {
 
 export const routes = [
     { method: 'GET', path: '/admin/products', perm: 'products', handler: listPage },
-    { method: 'POST', path: '/admin/products/bulk', perm: (ctx) => (ctx.can('products') ? 'products' : 'products_delete'), handler: bulkAction },
+    { method: 'POST', path: '/admin/products/bulk', perm: (ctx: AdminCtx) => (ctx.can('products') ? 'products' : 'products_delete'), handler: bulkAction },
     { method: '*', path: '/admin/products/duplicates', perm: 'products', handler: duplicatesPage },
     { method: 'POST', path: '/admin/api/products/dup-check', perm: 'products', handler: dupCheckApi },
-    { method: '*', path: '/admin/products/new', perm: 'products', handler: (ctx) => formPage(ctx, null) },
+    { method: '*', path: '/admin/products/new', perm: 'products', handler: (ctx: AdminCtx) => formPage(ctx, null) },
     { method: '*', path: /^\/admin\/products\/(\d+)$/, perm: 'products', handler: formPage },
-    { method: '*', path: /^\/admin\/products\/(\d+)\/variants$/, perm: 'products', handler: (ctx, m) => $variants.page(ctx, m) },
+    { method: '*', path: /^\/admin\/products\/(\d+)\/variants$/, perm: 'products', handler: (ctx: AdminCtx, m?: Loose) => $variants.page(ctx, m) },
     { method: 'POST', path: /^\/admin\/products\/(\d+)\/active$/, perm: 'products', handler: setActive },
     { method: 'POST', path: /^\/admin\/products\/(\d+)\/delete$/, perm: 'products', handler: remove },
     { method: 'POST', path: /^\/admin\/products\/(\d+)\/duplicate$/, perm: 'products', handler: duplicate },

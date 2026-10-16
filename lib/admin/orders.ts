@@ -186,7 +186,7 @@ async function exportCsv(ctx, m, excel = false) {
   const out = [['Order', 'Date', 'Status', 'Customer', 'Phone', 'Address', 'Thana', 'District', 'Items', 'SKU', 'Subtotal', 'Discount', 'Delivery', 'Total',
     'Paid', 'Refunded', 'Payment', 'Payment status', 'TrxID', 'Courier', 'Consignment', 'Zone', ...(seeCost ? ['Cost', 'Profit'] : []), 'Note']];
   for (const o of rows) {
-    out.push([o.code, fmtDate(o.created_at).replace(/[০-৯]/g, (d) => '০১২৩৪৫৬৭৮৯'.indexOf(d)), O.STATUSES[o.status], o.customer_name, o.phone, o.address, o.thana, o.district,
+    out.push([o.code, fmtDate(o.created_at).replace(/[০-৯]/g, (d) => String('০১২৩৪৫৬৭৮৯'.indexOf(d))), O.STATUSES[o.status], o.customer_name, o.phone, o.address, o.thana, o.district,
       o.item_names, o.item_skus, o.subtotal, o.discount, o.delivery, o.total, o.paid_amount, o.refund_amount || 0, o.payment, o.payment_status, o.transaction_id,
       courier.label(o.courier), o.consignment_id, o.zone_name || '', ...(seeCost ? [o.cost_total, o.total - o.cost_total - o.delivery] : []), o.note]);
   }

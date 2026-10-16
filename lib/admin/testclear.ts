@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // 🧪 Testing history: while the shop is being tested, the customer-related pages fill up with test codes, logins,
 // searches… Each page below gets a switch at the top ("🗑️ ইতিহাস মোছার বাটন"). While it is on, a
 // "মুছুন" button shows at the bottom of that page and wipes only that page's history (never orders, customers,
@@ -9,7 +8,8 @@ import { html, raw } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
 import * as delcode from '../services/delcode';
-const PAGES = {
+import type { AdminCtx, Loose } from '../types';
+const PAGES: Record<string, Loose> = {
   'cust-accounts': { path: '/admin/customer-accounts', what: 'লগইনের কোড, কে কখন লগইন করেছেন আর সেভ করা ঠিকানা',
     sql: ['DELETE FROM customer_otps', 'DELETE FROM customer_email_otps', 'DELETE FROM customer_addresses',
       // test e-mail accounts with no order go entirely
@@ -22,10 +22,10 @@ const PAGES = {
   fraud: { path: '/admin/fraud', what: 'ফ্রড চেকের পুরনো ফলাফল', sql: ['DELETE FROM fraud_checks'] },
 };
 const BASE = '/admin/test-clear';
-const key = (k) => `tc_${k.replace(/-/g, '_')}`;
+const key = (k?: Loose) => `tc_${k.replace(/-/g, '_')}`;
 
 // called from ctx.page: adds the switch under the page title and the button at the end
-function decorate(ctx, active, body) {
+function decorate(ctx: AdminCtx, active?: Loose, body?: Loose) {
   const p = PAGES[active];
   if (!p || !ctx.can('settings')) return body;
   const on = ctx.settings[key(active)] === '1';
@@ -43,7 +43,7 @@ function decorate(ctx, active, body) {
   return raw(i < 0 ? String(top) + s + String(bottom) : s.slice(0, i + 5) + String(top) + s.slice(i + 5) + String(bottom));
 }
 
-async function post(ctx) {
+async function post(ctx: AdminCtx) {
   const b = await ctx.body();
   const page = String(b.page || '');
   const p = Object.hasOwn(PAGES, page) ? PAGES[page] : null;

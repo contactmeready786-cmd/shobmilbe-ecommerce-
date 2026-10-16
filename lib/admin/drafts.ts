@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // Admin → অর্ডার ও কাস্টমার → অসম্পূর্ণ অর্ডার
 // Shoppers who typed their mobile number at checkout but never pressed "অর্ডার কনফার্ম".
 // Call them, turn the cart into an order in one tap, or drop it. The whole feature has an on/off switch at the top.
@@ -7,29 +6,30 @@ import * as db from '../db';
 import * as D from '../services/drafts';
 import * as ui from './ui';
 import * as $services_sms from '../services/sms';
+import type { AdminCtx, Id, Loose } from '../types';
 
 const BASE = '/admin/orders/incomplete';
 const PER_PAGE = 50;
 
-function ago(d) {
+function ago(d?: Loose) {
   const s = Math.max(0, Math.round((Date.now() - new Date(d).getTime()) / 1000));
   if (s < 60) return 'এইমাত্র';
   if (s < 3600) return bn(Math.floor(s / 60)) + ' মিনিট আগে';
   if (s < 86400) return bn(Math.floor(s / 3600)) + ' ঘণ্টা আগে';
   return bn(Math.floor(s / 86400)) + ' দিন আগে';
 }
-function waLink(phone) { return 'https://wa.me/88' + String(phone || '').replace(/\D/g, ''); }
+function waLink(phone?: Loose) { return 'https://wa.me/88' + String(phone || '').replace(/\D/g, ''); }
 
-function statusPill(d) {
+function statusPill(d?: Loose) {
   const st = D.STATUSES[d.status] || ['', d.status];
-  const cls = { open: 'pill-amber', called: 'pill-blue', ordered: 'pill-green', closed: 'pill-grey' }[d.status] || '';
+  const cls = (<Record<string, string>>{ open: 'pill-amber', called: 'pill-blue', ordered: 'pill-green', closed: 'pill-grey' })[d.status] || '';
   return html`<span class="pill ${cls}">${st[0]} ${st[1]}</span>`;
 }
-function actButton(id, status, label, cls = 'btn-ghost') {
+function actButton(id?: Id, status?: Loose, label?: Loose, cls: Loose = 'btn-ghost') {
   return html`<form method="post" action="${BASE}/${id}/status"><input type="hidden" name="status" value="${status}"><button class="btn btn-sm ${cls}">${label}</button></form>`;
 }
 
-async function listPage(ctx) {
+async function listPage(ctx: AdminCtx) {
   const s0 = ctx.settings;
   if (ctx.method === 'POST') {
     const b = await ctx.body();
@@ -52,7 +52,7 @@ async function listPage(ctx) {
   const [rows, total, c] = await Promise.all([D.list(f, { limit: PER_PAGE, offset: (page - 1) * PER_PAGE }), D.count(f), D.counts()]);
   const s = ctx.settings;
   const on = s.draft_capture_on !== '0';
-  const n = (k) => (c[k] ? c[k].n : 0);
+  const n = (k?: Loose) => (c[k] ? c[k].n : 0);
   const tabs = [['open', `🆕 নতুন (${bn(n('open'))})`], ['called', `📞 কল করা হয়েছে (${bn(n('called'))})`], ['ordered', `✅ অর্ডার হয়েছে (${bn(n('ordered'))})`],
     ['closed', `🚫 বাদ (${bn(n('closed'))})`], ['all', `সব (${bn(c.all)})`]];
   const recovered = n('ordered');
@@ -93,7 +93,7 @@ ${rows.length ? html`<div class="table-wrap"><table class="table draft-table"><t
   <td translate="no"><b>${d.name || '(নাম লেখেনি)'}</b><br><a href="tel:${d.phone}" class="mono">📞 ${d.phone}</a> · <a href="${waLink(d.phone)}" target="_blank" rel="noopener">WhatsApp</a>
     ${d.customer_id ? html`<br><a class="small" href="/admin/customers/${d.customer_id}">পুরনো কাস্টমার · ${bn(d.past_orders)}টি অর্ডার</a>` : html`<br><small class="muted">নতুন কাস্টমার</small>`}</td>
   <td class="small" translate="no">${[d.address, d.thana, d.district].filter(Boolean).join(', ') || html`<span class="muted">লেখেনি</span>`}${d.note ? html`<br><i>“${d.note}”</i>` : ''}</td>
-  <td class="small">${(d.items || []).length ? html`${d.items.map((i) => html`<div>${i.name} <span class="muted">× ${bn(i.qty)}</span></div>`)}<b>${money(d.subtotal)}</b>` : html`<span class="muted">—</span>`}</td>
+  <td class="small">${(d.items || []).length ? html`${d.items.map((i?: Loose) => html`<div>${i.name} <span class="muted">× ${bn(i.qty)}</span></div>`)}<b>${money(d.subtotal)}</b>` : html`<span class="muted">—</span>`}</td>
   <td>${statusPill(d)}${d.order_code ? html`<br><a class="small" href="/admin/orders?q=${d.order_code}">অর্ডার ${d.order_code}</a>` : ''}
     ${d.reminded_at ? html`<br><span class="pill ${d.remind_result === 'sent' ? 'pill-blue' : 'pill-warn'} small" title="${d.remind_result === 'sent' ? '' : d.remind_result}">📩 ${d.remind_result === 'sent' ? 'SMS গেছে' : 'SMS যায়নি'} · ${fmtDate(d.reminded_at)}</span>` : ''}
     ${d.caller_name && d.called_at ? html`<br><small class="muted">${d.caller_name} · ${fmtDate(d.called_at)}</small>` : ''}
@@ -111,13 +111,13 @@ ${ui.pager(total, page, PER_PAGE, base)}`
   return ctx.page('অসম্পূর্ণ অর্ডার', body, 'drafts');
 }
 
-async function statusAction(ctx, m) {
+async function statusAction(ctx: AdminCtx, m?: Loose) {
   const b = await ctx.body();
   await D.setStatus(m[1], String(b.status || ''), ctx.user.id);
   await ctx.log('draft_status', 'order', null, `${m[1]} → ${str(b.status, 20)}`);
   return ctx.back(BASE + (b.status === 'open' ? '?status=open' : ''), 'status');
 }
-async function deleteAction(ctx, m) {
+async function deleteAction(ctx: AdminCtx, m?: Loose) {
   await D.remove(m[1]);
   await ctx.log('draft_delete', 'order', null, m[1]);
   return ctx.back(BASE, 'removed');

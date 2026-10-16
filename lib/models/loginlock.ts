@@ -13,14 +13,14 @@ import * as security from '../security';
 import type { Body, Id, Loose, Settings, ShopRequest, StaffUser } from '../types';
 
 const MODES = ['off', 'passkey'];
-const MODE_NAMES = {
+const MODE_NAMES: Record<string, string> = {
   off: 'বন্ধ (শুধু পাসওয়ার্ড)',
   passkey: 'পাসকি (আঙুলের ছাপ / Windows Hello / ফোন দিয়ে QR)',
 };
-function mode(settings: Settings) {
+function mode(settings: Settings): string {
   const m = settings.login_lock_mode;
   if (m === 'both' || m === 'split') return 'passkey'; // the old face modes (a database step moves them for good)
-  return MODES.includes(m as string) ? m : 'off';
+  return MODES.includes(m as string) ? (m as string) : 'off';
 }
 function isOn(settings: Settings) { return mode(settings) !== 'off'; }
 function isMobile(req: ShopRequest) { return /Android|iPhone|iPod|iPad|Mobile|Opera Mini|IEMobile/i.test(String(req.headers['user-agent'] || '')); }

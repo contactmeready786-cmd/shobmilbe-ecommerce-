@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // 🔐 মোছার কোড (owner, 2026-10-14): anything that deletes for good — the recycle bin's "স্থায়ীভাবে মুছুন", emptying
 // the bin, sending every product to the bin at once, and the test-history "মুছুন" buttons — needs a 6-digit code that
 // is e-mailed to the shop's own Gmail. Someone who stole the admin password still can't wipe anything, and the code
@@ -11,12 +10,13 @@ import * as db from '../db';
 import * as security from '../security';
 import * as notify from './notify';
 import { bn } from '../util';
+import type { AdminCtx, Loose } from '../types';
 
 const CODE_EMAIL = (process.env.DELETE_CODE_EMAIL || 'contact.shobmilbe@gmail.com').trim();
 const MINUTES = 10;
 const MAX_TRIES = 5; // wrong codes for one code, then it is spent
 const FAIL_MAX = 10; // wrong codes per staff per hour, then deleting is shut for that hour
-const ACTIONS = {
+const ACTIONS: Record<string, string> = {
   trash_purge: 'রিসাইকেল বিন থেকে স্থায়ীভাবে মোছা',
   trash_empty: 'পুরো রিসাইকেল বিন খালি করা',
   trash_all_products: 'দোকানের সব পণ্য একসাথে মুছে বিনে পাঠানো',
@@ -24,24 +24,24 @@ const ACTIONS = {
 };
 
 // "contact.shobmilbe@gmail.com" → "co••••••be@gmail.com"
-function masked(e = CODE_EMAIL) {
+function masked(e: Loose = CODE_EMAIL) {
   const [u, d] = String(e).split('@');
   if (!u || !d) return '';
   return (u.length <= 4 ? u.slice(0, 1) : u.slice(0, 2)) + '••••••' + (u.length <= 4 ? '' : u.slice(-2)) + '@' + d;
 }
 
-function hash(code, salt) { return salt + '$' + crypto.createHash('sha256').update(salt + ':' + code).digest('hex'); }
-function same(code, stored) {
+function hash(code?: Loose, salt?: Loose) { return salt + '$' + crypto.createHash('sha256').update(salt + ':' + code).digest('hex'); }
+function same(code?: Loose, stored?: Loose) {
   const [salt] = String(stored).split('$');
   const a = Buffer.from(hash(String(code), salt));
   const b = Buffer.from(String(stored));
   return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
-const device = (ctx) => String((ctx.req && ctx.req.headers && ctx.req.headers['user-agent']) || '').replace(/[\r\n]+/g, ' ').slice(0, 140);
+const device = (ctx: AdminCtx) => String((ctx.req && ctx.req.headers && ctx.req.headers['user-agent']) || '').replace(/[\r\n]+/g, ' ').slice(0, 140);
 const when = () => new Date().toLocaleString('en-GB', { timeZone: 'Asia/Dhaka' });
 
 // Make a new code for this person and this kind of delete, and e-mail it. Throws with a message the admin can read.
-async function send(ctx, action, detail = '') {
+async function send(ctx: AdminCtx, action?: Loose, detail: Loose = '') {
   if (!ACTIONS[action]) throw new Error('অজানা কাজ।');
   if (!notify.emailConfig(ctx.settings).ready) {
     throw new Error('কোড পাঠানোর ইমেইল (Gmail) সেটআপ করা নেই, তাই এখন স্থায়ীভাবে মোছা যাবে না। Admin → নোটিফিকেশনে Gmail App Password দিন।');
@@ -76,7 +76,7 @@ async function send(ctx, action, detail = '') {
 <p style="color:#b42318"><b>⚠️ আপনি নিজে না চেয়ে থাকলে</b> কেউ আপনার অ্যাডমিনে ঢুকে কিছু মুছতে চাইছে। কোডটি কাউকে দেবেন না — এখনই অ্যাডমিনের পাসওয়ার্ড বদলান আর Admin → নিরাপত্তা থেকে অন্য সব ডিভাইস লগআউট করুন।</p></div>`;
   try {
     await notify.sendEmail(ctx.settings, `🔐 মোছার কোড ${code} — ${ctx.settings.store_name || 'সবমিলবে'}`, text, htmlBody, CODE_EMAIL);
-  } catch (err) {
+  } catch (err: Loose) {
     await db.logIntegration('notify-email', 'delete code', false, err.message).catch(() => {});
     throw new Error('কোডের ইমেইল পাঠানো গেল না: ' + err.message);
   }
@@ -85,7 +85,7 @@ async function send(ctx, action, detail = '') {
 }
 
 // Check the code typed for this kind of delete. Returns null when it is right (and spends it), or the error to show.
-async function check(ctx, action, typed) {
+async function check(ctx: AdminCtx, action?: Loose, typed?: Loose) {
   const uid = ctx.user.id;
   const code = String(typed || '').replace(/[^\d০-৯]/g, '').replace(/[০-৯]/g, (d) => String('০১২৩৪৫৬৭৮৯'.indexOf(d))).slice(0, 6);
   if (await security.blocked(db, 'delcode-fail:' + uid, FAIL_MAX)) return 'অনেকবার ভুল কোড দেওয়া হয়েছে — এক ঘণ্টা মোছা বন্ধ থাকবে।';
@@ -114,7 +114,7 @@ async function check(ctx, action, typed) {
 }
 
 // JSON route the "কোড পাঠান" button calls.
-async function sendRoute(ctx) {
+async function sendRoute(ctx: AdminCtx) {
   const b = await ctx.body();
   const action = String(b.action || '');
   if (!ACTIONS[action]) return ctx.json(ctx.res, 400, { error: 'অজানা কাজ।' });
@@ -124,7 +124,7 @@ async function sendRoute(ctx) {
   try {
     const r = await send(ctx, action, String(b.detail || '').slice(0, 200));
     return ctx.json(ctx.res, 200, { ok: true, ...r });
-  } catch (e) {
+  } catch (e: Loose) {
     return ctx.json(ctx.res, 200, { error: e.message });
   }
 }

@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // Admin → অর্ডার ও কাস্টমার → 📮 অভিযোগ (৭২ ঘণ্টা): every complaint with the hours left to solve it (the law asks for
 // 72 hours), late ones in red at the top. Open one to see the details and photos, write inside notes or a reply to the
 // customer (also by SMS), give it to a staff member, and mark it solved with what was done — all kept as a record.
@@ -6,18 +5,19 @@ import { html, bn, fmtDate, int, str, pageNum } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
 import * as C from '../models/complaints';
+import type { AdminCtx, Loose } from '../types';
 
 const BASE = '/admin/complaints';
 const PER_PAGE = 40;
-const PILL = { open: 'pill-new', working: 'pill-processing', solved: 'pill-delivered', closed: 'pill-grey' };
+const PILL: Record<string, string> = { open: 'pill-new', working: 'pill-processing', solved: 'pill-delivered', closed: 'pill-grey' };
 
-function timePill(c) {
+function timePill(c?: Loose) {
   const t = C.timeLeft(c);
   if (!t) return c.resolved_at ? html`<span class="small muted">${c.resolved_at <= c.due_at ? '✓ সময়মতো' : '⚠️ দেরিতে'} শেষ</span>` : '';
   return html`<span class="pill ${t.late ? 'pill-red' : t.soon ? 'pill-amber' : 'pill-green'}">⏱️ ${t.text}</span>`;
 }
 
-async function listPage(ctx) {
+async function listPage(ctx: AdminCtx) {
   const s = ctx.settings;
   if (ctx.method === 'POST') {
     const b = await ctx.body();
@@ -32,17 +32,17 @@ async function listPage(ctx) {
   const status = ['active', 'late', 'open', 'working', 'solved', 'closed', 'all'].includes(want) ? want : 'active';
   const f = { status: status === 'all' ? '' : status, q: str(ctx.query.get('q'), 80) };
   const [rows, total, c] = await Promise.all([C.list(f, { limit: PER_PAGE, offset: (page - 1) * PER_PAGE }), C.count(f), C.counts()]);
-  const tabs = [['active', `⏳ চলমান (${bn(c.active)})`], ['late', `🔴 দেরি (${bn(c.late)})`], ['solved', `✅ সমাধান (${bn(c.solved)})`], ['closed', `🚫 বন্ধ (${bn(c.closed)})`], ['all', `সব (${bn(c.total)})`]];
+  const tabs = [['active', `⏳ চলমান (${bn(c!.active)})`], ['late', `🔴 দেরি (${bn(c!.late)})`], ['solved', `✅ সমাধান (${bn(c!.solved)})`], ['closed', `🚫 বন্ধ (${bn(c!.closed)})`], ['all', `সব (${bn(c!.total)})`]];
   const base = `${BASE}?status=${status}${f.q ? '&q=' + encodeURIComponent(f.q) : ''}`;
   const body = html`<div class="title-row"><h1>📮 অভিযোগ (${bn(C.hoursOf(s))} ঘণ্টায় সমাধান)</h1>
   <div class="row-actions"><a class="btn btn-ghost btn-sm" href="${base}">🔄 রিফ্রেশ</a><a class="btn btn-ghost btn-sm" href="/complaint" target="_blank" rel="noopener">কাস্টমারের ফর্ম দেখুন ↗</a></div></div>
 ${ui.flash(ctx.flash)}
-${c.late ? html`<p class="flash flash-error"><b>🔴 ${bn(c.late)}টি অভিযোগের সময় পার হয়ে গেছে!</b> আইন অনুযায়ী ৭২ ঘণ্টার মধ্যে সমাধান করতে হয় — এখনই দেখুন।</p>` : ''}
+${c!.late ? html`<p class="flash flash-error"><b>🔴 ${bn(c!.late)}টি অভিযোগের সময় পার হয়ে গেছে!</b> আইন অনুযায়ী ৭২ ঘণ্টার মধ্যে সমাধান করতে হয় — এখনই দেখুন।</p>` : ''}
 <div class="kpis kpis-tight">
-  ${ui.kpi('চলমান', bn(c.active), `নতুন ${bn(c.open)} · কাজ চলছে ${bn(c.working)}`, '', `${BASE}?status=active`)}
-  ${ui.kpi('২৪ ঘণ্টার মধ্যে শেষ সময়', bn(c.soon), 'আগে এগুলো ধরুন', c.soon ? 'kpi-amber' : '')}
-  ${ui.kpi('সময় পার', bn(c.late), '', c.late ? 'kpi-red' : '', `${BASE}?status=late`)}
-  ${ui.kpi('৩০ দিনে সময়মতো সমাধান', c.done30 ? `${bn(Math.round((c.ontime30 * 100) / c.done30))}%` : '—', `${bn(c.ontime30)} / ${bn(c.done30)}`)}
+  ${ui.kpi('চলমান', bn(c!.active), `নতুন ${bn(c!.open)} · কাজ চলছে ${bn(c!.working)}`, '', `${BASE}?status=active`)}
+  ${ui.kpi('২৪ ঘণ্টার মধ্যে শেষ সময়', bn(c!.soon), 'আগে এগুলো ধরুন', c!.soon ? 'kpi-amber' : '')}
+  ${ui.kpi('সময় পার', bn(c!.late), '', c!.late ? 'kpi-red' : '', `${BASE}?status=late`)}
+  ${ui.kpi('৩০ দিনে সময়মতো সমাধান', c!.done30 ? `${bn(Math.round((c!.ontime30 * 100) / c!.done30))}%` : '—', `${bn(c!.ontime30)} / ${bn(c!.done30)}`)}
 </div>
 ${ui.helpBox('কীভাবে কাজ করে', html`<ol class="steps">
   <li>কাস্টমার দোকানের নিচের <b>"📮 অভিযোগ জানান"</b> লিংক (আর অর্ডারের পেজ) থেকে নাম, নম্বর, অর্ডার নম্বর, বিষয়, লেখা আর ছবি দিয়ে অভিযোগ করেন। সাথে সাথে একটা অভিযোগ নম্বর পান (SMS-এও)।</li>
@@ -55,7 +55,7 @@ ${ui.helpBox('কীভাবে কাজ করে', html`<ol class="steps">
   <input type="search" name="q" value="${f.q}" placeholder="অভিযোগ নম্বর, মোবাইল, নাম বা অর্ডার নম্বর"><button class="btn btn-sm">খুঁজুন</button></form>
 <section class="panel table-wrap">
 ${rows.length ? html`<table class="table"><thead><tr><th>অভিযোগ</th><th>কাস্টমার</th><th>বিষয়</th><th>অবস্থা</th><th>সময়</th><th></th></tr></thead><tbody>
-${rows.map((r) => html`<tr class="${C.timeLeft(r) && C.timeLeft(r).late ? 'row-late' : ''}">
+${rows.map((r) => html`<tr class="${C.timeLeft(r) && C.timeLeft(r)!.late ? 'row-late' : ''}">
   <td><a href="${BASE}/${r.id}"><b class="mono">${r.code}</b></a><br><span class="small muted">${fmtDate(r.created_at)}</span></td>
   <td translate="no"><b>${r.name}</b><br><a href="tel:${r.phone}" class="mono small">${r.phone}</a>${r.order_code ? html`<br><a class="small" href="/admin/orders?q=${r.order_code}">🧾 ${r.order_code}</a>` : ''}</td>
   <td class="small">${C.TOPICS[r.topic] || r.topic}${r.item_name ? html`<br><b>${r.item_name}</b>` : ''}${r.photos && r.photos.length ? html` <span title="ছবি আছে">📷${bn(r.photos.length)}</span>` : ''}<br><span class="muted">${String(r.message).slice(0, 80)}${String(r.message).length > 80 ? '…' : ''}</span></td>
@@ -74,7 +74,7 @@ ${ctx.can('settings') ? html`<section class="panel"><h2>⚙️ সেটিং�
   return ctx.page('অভিযোগ', body, 'complaints');
 }
 
-async function detail(ctx, m) {
+async function detail(ctx: AdminCtx, m?: Loose) {
   const id = int(m[1]);
   const c = await C.get(id);
   if (!c) return ctx.redirect(ctx.res, BASE);
@@ -116,11 +116,11 @@ ${ui.flash(ctx.flash)}
       <p class="small muted">জমা: ${fmtDate(c.created_at)} · শেষ সময়: <b>${fmtDate(c.due_at)}</b>${c.first_reply_at ? html` · প্রথম উত্তর: ${fmtDate(c.first_reply_at)}` : ''}</p>
       ${c.topic === 'warranty' || c.item_name ? html`<p class="flash">🛡️ <b>ওয়ারেন্টি দাবি:</b> ${c.product_id ? html`<a href="/admin/products/${c.product_id}">${c.item_name}</a>` : c.item_name}${c.warranty_until ? html` · ওয়ারেন্টি ${fmtDate(c.warranty_until, false)} পর্যন্ত (ঠিক আছে)` : ''}</p>` : ''}
       <p class="pre">${c.message}</p>
-      ${c.photos && c.photos.length ? html`<div class="ret-photos">${c.photos.map((pid) => html`<a href="${BASE}/photo/${pid}" target="_blank" rel="noopener"><img src="${BASE}/photo/${pid}" alt="অভিযোগের ছবি" loading="lazy"></a>`)}</div>` : ''}
+      ${c.photos && c.photos.length ? html`<div class="ret-photos">${c.photos.map((pid?: Loose) => html`<a href="${BASE}/photo/${pid}" target="_blank" rel="noopener"><img src="${BASE}/photo/${pid}" alt="অভিযোগের ছবি" loading="lazy"></a>`)}</div>` : ''}
       ${c.resolution ? html`<p class="flash"><b>সমাধান:</b> ${c.resolution}</p>` : ''}
     </section>
     <section class="panel"><h2>💬 কথোপকথন ও নোট</h2>
-      ${c.notes.length ? html`<ul class="timeline">${c.notes.map((n) => html`<li><b>${n.staff_name || 'সিস্টেম'}</b> · ${n.to_customer ? html`<span class="pill pill-blue">কাস্টমারকে উত্তর${n.sms_ok === true ? ' · SMS গেছে' : n.sms_ok === false ? ' · SMS যায়নি' : ''}</span>` : html`<span class="pill pill-grey">ভেতরের নোট</span>`}
+      ${c.notes.length ? html`<ul class="timeline">${c.notes.map((n?: Loose) => html`<li><b>${n.staff_name || 'সিস্টেম'}</b> · ${n.to_customer ? html`<span class="pill pill-blue">কাস্টমারকে উত্তর${n.sms_ok === true ? ' · SMS গেছে' : n.sms_ok === false ? ' · SMS যায়নি' : ''}</span>` : html`<span class="pill pill-grey">ভেতরের নোট</span>`}
         <p class="pre">${n.body}</p><span class="small muted">${fmtDate(n.created_at)}</span></li>`)}</ul>` : html`<p class="muted">এখনো কিছু লেখা হয়নি।</p>`}
       ${ctx.can('orders_edit') ? html`<form method="post" action="${back}" class="form">
         ${ui.field('লিখুন', ui.textarea('body', '', { rows: 3, maxlength: 1000, required: true }), 'কাস্টমারকে উত্তর দিলে তিনি SMS পান আর অভিযোগের অবস্থার পেজে দেখেন।')}
@@ -143,14 +143,14 @@ ${ui.flash(ctx.flash)}
       <form method="post" action="${back}" class="form"><input type="hidden" name="action" value="assign">
         ${ui.select('staff_id', [['', '— কেউ না —'], ...staff.map((x) => [String(x.id), x.name])], c.assigned_to ? String(c.assigned_to) : '')}
         <button class="btn btn-sm">সেভ করুন</button></form></section>` : ''}
-    ${c.history.length ? html`<section class="panel"><h2>এই নম্বরের আগের অভিযোগ</h2><ul>${c.history.map((h) => html`<li><a href="${BASE}/${h.id}" class="mono">${h.code}</a> · ${C.STATUS[h.status][1]} · <span class="small muted">${fmtDate(h.created_at)}</span></li>`)}</ul></section>` : ''}
+    ${c.history.length ? html`<section class="panel"><h2>এই নম্বরের আগের অভিযোগ</h2><ul>${c.history.map((h?: Loose) => html`<li><a href="${BASE}/${h.id}" class="mono">${h.code}</a> · ${C.STATUS[h.status][1]} · <span class="small muted">${fmtDate(h.created_at)}</span></li>`)}</ul></section>` : ''}
   </div>
 </div>`;
   return ctx.page(`অভিযোগ ${c.code}`, body, 'complaints');
 }
 
 // a complaint's photo (private: only logged-in staff)
-async function photo(ctx, m) {
+async function photo(ctx: AdminCtx, m?: Loose) {
   const p = await db.one(`SELECT mime, data FROM media WHERE id=$1 AND owner_type='complaint'`, [int(m[1])]);
   if (!p || !p.data) return ctx.send(ctx.res, 404, 'Not found', 'text/plain');
   ctx.res.writeHead(200, { 'Content-Type': /^image\/(jpeg|png|webp)$/.test(p.mime) ? p.mime : 'application/octet-stream', 'Cache-Control': 'private, max-age=3600', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'; sandbox" });
@@ -160,5 +160,5 @@ async function photo(ctx, m) {
 export const routes = [
     { method: '*', path: BASE, perm: 'orders', handler: listPage },
     { method: 'GET', path: /^\/admin\/complaints\/photo\/(\d+)$/, perm: 'orders', handler: photo },
-    { method: '*', path: /^\/admin\/complaints\/(\d+)$/, perm: (ctx) => (ctx.method === 'GET' ? 'orders' : 'orders_edit'), handler: detail },
+    { method: '*', path: /^\/admin\/complaints\/(\d+)$/, perm: (ctx: AdminCtx) => (ctx.method === 'GET' ? 'orders' : 'orders_edit'), handler: detail },
   ];

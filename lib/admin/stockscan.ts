@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // Admin → স্টক ও কেনাকাটা → 📷 স্ক্যান করে স্টক (owner, 2026-10-13)
 // Scan a product's barcode (barcode gun, or the phone / laptop camera) → the product opens with its stock and box →
 //   📥 মাল এসেছে: type how many came (or scan each piece, +1 every scan) → stock goes up
@@ -13,15 +12,16 @@ import * as W from '../models/warehouses';
 import * as ui from './ui';
 import { ASSET_V } from './layout';
 import * as $services_stockalert from '../services/stockalert';
+import type { AdminCtx, Loose } from '../types';
 
 const BASE = '/admin/stock-scan';
 const NOTE = '📷 স্ক্যান করে স্টক';
 
 // what the page needs to know about one product (main store = what is at home / the online stock, not branches)
-async function shape(rows) {
-  const ids = rows.map((p) => p.id);
+async function shape(rows?: Loose) {
+  const ids = rows.map((p?: Loose) => p.id);
   const [st, held] = await Promise.all([W.stockFor(ids), catalog.reservedFor(ids)]);
-  return rows.map((p) => {
+  return rows.map((p?: Loose) => {
     const main = (st.get(p.id) || { main: p.stock }).main;
     const h = held.get(p.id) || 0;
     return {
@@ -32,7 +32,7 @@ async function shape(rows) {
   });
 }
 
-async function find(ctx) {
+async function find(ctx: AdminCtx) {
   const code = str(ctx.query.get('q'), 100).trim();
   if (!code) return ctx.json(ctx.res, 200, { exact: null, list: [] });
   const exact = await db.one(`SELECT id FROM products WHERE (upper(barcode)=upper($1) OR lower(sku)=lower($1)) AND variant_count = 0 AND product_type <> 'bundle' LIMIT 1`, [code]);
@@ -52,7 +52,7 @@ async function find(ctx) {
   return ctx.json(ctx.res, 200, { exact: null, list: await shape(list), unknown: looksLikeCode && !list.length ? code.toUpperCase() : '' });
 }
 
-async function save(ctx) {
+async function save(ctx: AdminCtx) {
   const b = await ctx.body();
   const id = int(b.id);
   const mode = ['in', 'count', 'undo'].includes(b.mode) ? b.mode : 'in';
@@ -79,7 +79,7 @@ async function save(ctx) {
     if (!change) return ctx.json(ctx.res, 400, { ok: false, error: 'কিছু ফেরাতে হবে না।' });
   }
 
-  let ok = true;
+  let ok: Loose = true;
   if (change) {
     await db.tx(async (t) => {
       ok = await catalog.moveStock(t, id, change, reason, 'manual', null,
@@ -105,7 +105,7 @@ async function save(ctx) {
   return ctx.json(ctx.res, 200, { ok: true, change, product: after, message: msg, warn });
 }
 
-async function setLocation(ctx) {
+async function setLocation(ctx: AdminCtx) {
   const b = await ctx.body();
   const id = int(b.id);
   const loc = catalog.cleanLocation(b.location);
@@ -116,15 +116,15 @@ async function setLocation(ctx) {
   return ctx.json(ctx.res, 200, { ok: true, location: loc, message: loc ? `📍 "${p.name}" — ${loc}` : `📍 "${p.name}" — বক্স মুছে দেওয়া হলো` });
 }
 
-async function page(ctx) {
+async function page(ctx: AdminCtx) {
   const locations = await catalog.listLocations();
   const box = catalog.cleanLocation(ctx.query.get('box'));
-  let boxRows = [];
+  let boxRows: Loose[] = [];
   if (box) {
     const ids = await db.q(`SELECT id FROM products WHERE lower(location)=lower($1) AND variant_count = 0 AND product_type <> 'bundle' ORDER BY name`, [box]);
     boxRows = ids.length ? await shape(await catalog.getProductsByIds(ids.map((r) => r.id), { includeInactive: true })) : [];
   }
-  const noBox = (await db.one(`SELECT count(*)::int AS n FROM products WHERE location = '' AND variant_count = 0 AND product_type='single' AND stock > 0`)).n;
+  const noBox = (await db.one(`SELECT count(*)::int AS n FROM products WHERE location = '' AND variant_count = 0 AND product_type='single' AND stock > 0`))!.n;
   const body = html`<div class="title-row"><h1>📷 স্ক্যান করে স্টক</h1>
   <div class="row-actions"><a class="btn btn-ghost btn-sm" href="/admin/inventory">ইনভেন্টরি →</a></div></div>
 <section class="panel ho-scan ss-scan" data-stockscan>
@@ -156,8 +156,8 @@ async function page(ctx) {
   ${locations.length ? html`<div class="ss-boxes">${locations.map((x) => html`<a class="ss-box ${box && x.location.toLowerCase() === box.toLowerCase() ? 'on' : ''}" href="${BASE}?box=${encodeURIComponent(x.location)}"><b>📍 ${x.location}</b><small>${bn(x.products)}টি পণ্য · ${bn(x.units)} পিস</small></a>`)}</div>`
     : html`<p class="muted">এখনো কোনো পণ্যের বক্স লেখা হয়নি। পণ্য স্ক্যান করে "📍 যে বক্সে রাখছি" ঘরে বক্সের নাম দিন — বা পণ্য এডিট পেজে "📍 কোথায় রাখা"।</p>`}
   ${box ? html`<h3>📍 ${box} — ভেতরে যা আছে</h3>${boxRows.length ? html`<div class="table-wrap"><table class="table compact"><thead><tr><th>পণ্য</th><th>SKU</th><th class="num">তাকে মোট</th></tr></thead><tbody>
-    ${boxRows.map((p) => html`<tr><td><a href="/admin/products/${p.id}">${p.name}</a></td><td class="small">${p.sku}</td><td class="num"><b>${bn(p.shelf)}</b> <span class="small muted">${p.unit}</span></td></tr>`)}</tbody></table></div>
-    <p class="small"><a class="btn btn-sm btn-ghost" href="/admin/products/labels?ids=${boxRows.map((p) => p.id).join(',')}" target="_blank">🏷️ এই বক্সের সব পণ্যের লেবেল প্রিন্ট</a></p>`
+    ${boxRows.map((p?: Loose) => html`<tr><td><a href="/admin/products/${p.id}">${p.name}</a></td><td class="small">${p.sku}</td><td class="num"><b>${bn(p.shelf)}</b> <span class="small muted">${p.unit}</span></td></tr>`)}</tbody></table></div>
+    <p class="small"><a class="btn btn-sm btn-ghost" href="/admin/products/labels?ids=${boxRows.map((p?: Loose) => p.id).join(',')}" target="_blank">🏷️ এই বক্সের সব পণ্যের লেবেল প্রিন্ট</a></p>`
     : html`<p class="muted">এই বক্সে কিছু নেই।</p>`}` : ''}
 </section>
 ${ui.helpBox('কীভাবে ব্যবহার করবেন', html`<ol>

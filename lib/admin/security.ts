@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // Admin: security status page (owner only) — what protects the site, what still needs a step, and recent blocked attempts.
 import * as crypto from 'node:crypto';
 import { html, raw, fmtDate } from '../util';
@@ -12,15 +11,16 @@ import * as $services_dbmove from '../services/dbmove';
 import * as $services_imagekit from '../services/imagekit';
 import * as $pg from '../pg';
 import * as $services_notify from '../services/notify';
+import type { AdminCtx, Body, Loose } from '../types';
 
-function row(ok, title, desc) {
+function row(ok?: Loose, title?: Loose, desc?: Loose) {
   return html`<li class="sec-row ${ok === true ? 'ok' : ok === false ? 'todo' : 'info'}">
     <span class="sec-ic" aria-hidden="true">${ok === true ? '✅' : ok === false ? '⚠️' : 'ℹ️'}</span>
     <span><b>${title}</b><br><span class="small muted">${desc}</span></span></li>`;
 }
 
 // what each saved secret is, and where the owner types it again
-const SECRET_NAMES = {
+const SECRET_NAMES: Record<string, Loose> = {
   gmail_app_password: ['Gmail-এর Google কোড (ইমেইল নোটিফিকেশন)', '/admin/notify'],
   acct_gmail_password: ['কাস্টমারের কোড পাঠানোর Gmail-এর Google কোড', '/admin/customer-accounts'],
   callmebot_key: ['CallMeBot WhatsApp কোড', '/admin/notify'],
@@ -37,7 +37,7 @@ const SECRET_NAMES = {
   admin_password: ['পুরোনো অ্যাডমিন পাসওয়ার্ড (এখন আর লাগে না)', ''],
 };
 
-async function forgetLocked(ctx) {
+async function forgetLocked(ctx: AdminCtx) {
   const b = await ctx.body();
   const k = String(b.key || '');
   // only a value that really can't be read any more may be removed here
@@ -51,17 +51,17 @@ async function forgetLocked(ctx) {
 
 // ---------------------------------------------------------------- 🔐 অ্যাডমিন কোন দেশ থেকে খুলবে
 const ADMIN_COUNTRY_PATH = '/admin/security/admin-country';
-function adminCountryPanel(ctx) {
+function adminCountryPanel(ctx: AdminCtx) {
   const G = $services_geolock;
   const s = ctx.settings;
   const c = G.adminConfig(s);
   const here = G.countryOf(ctx.req);
-  const name = (code) => G.countryName(code);
-  const flag = (code) => String.fromCodePoint(...[...code].map((ch) => 0x1f1e6 + ch.charCodeAt(0) - 65));
+  const name = (code?: Loose) => G.countryName(code);
+  const flag = (code?: Loose) => String.fromCodePoint(...[...code].map((ch) => 0x1f1e6 + ch.charCodeAt(0) - 65));
   const picked = new Set(c.extra);
   const list = Object.keys(G.COUNTRIES).filter((k) => k !== G.ADMIN_HOME)
     .map((k) => ({ k, bn: name(k), en: G.countryName(k, 'en'), on: picked.has(k) }))
-    .sort((a, b) => (b.on - a.on) || a.en.localeCompare(b.en));
+    .sort((a: Loose, b: Loose) => (b.on - a.on) || a.en.localeCompare(b.en));
   const status = c.envOff ? html`⚠️ <b>বন্ধ আছে</b> — Vercel-এ জরুরি চাবি <code>ADMIN_GEO_LOCK=off</code> বসানো। দেশে ফিরে সেটা মুছে Redeploy দিন।`
     : !c.on ? html`⚠️ <b>বন্ধ আছে</b> — এখন সব দেশ থেকে অ্যাডমিন খোলা যায়।`
       : c.extraActive ? html`🔒 চালু — খোলা: ${flag('BD')} বাংলাদেশ + ${c.extra.map((k) => `${flag(k)} ${name(k)}`).join(', ')} (<b>${c.untilText}</b> তারিখের রাত ১২টা পর্যন্ত, তারপর নিজে থেকে শুধু বাংলাদেশ)`
@@ -91,11 +91,11 @@ q.addEventListener('input',upd);f.addEventListener('change',upd);upd();})();`)}<
 </section>`;
 }
 
-async function saveAdminCountry(ctx) {
+async function saveAdminCountry(ctx: AdminCtx) {
   const G = $services_geolock;
   const b = await ctx.body();
   const on = !!b.on;
-  const picked = [...new Set([].concat(b.c || []).map((x) => String(x).toUpperCase()).filter((x) => Object.hasOwn(G.COUNTRIES, x) && x !== G.ADMIN_HOME))];
+  const picked = [...new Set(([] as Loose[]).concat(b.c || []).map((x) => String(x).toUpperCase()).filter((x) => Object.hasOwn(G.COUNTRIES, x) && x !== G.ADMIN_HOME))];
   let until = String(b.until || '').trim();
   if (until && !/^\d{4}-\d{2}-\d{2}$/.test(until)) return ctx.fail('/admin/security', 'তারিখটা ঠিক নেই।');
   if (picked.length && !until) return ctx.fail('/admin/security', 'বাছাই করা দেশ কোন তারিখ পর্যন্ত খোলা থাকবে, সেটা দিন।');
@@ -116,7 +116,7 @@ async function saveAdminCountry(ctx) {
   return ctx.back('/admin/security', 'saved');
 }
 
-async function page(ctx) {
+async function page(ctx: AdminCtx) {
   const s = ctx.settings;
   const https = String(ctx.req.headers['x-forwarded-proto'] || '').includes('https');
   const hasKey = security.hasKey();
@@ -156,7 +156,7 @@ ${locked && !hasKey ? html`<p class="flash flash-error">⚠️ Vercel থেক�
         ? 'চালু: Supabase-এর আসল সার্টিফিকেট মিলিয়ে তবেই সংযোগ হয়।'
         : html`এখনো বন্ধ — সংযোগ এনক্রিপ্টেড, কিন্তু সার্ভারটা সত্যিই Supabase কি না তা মেলানো হচ্ছে না। চালু করতে: Supabase → Project Settings → Database → <b>SSL Configuration</b> → <b>Download certificate</b>। ফাইলটা Notepad-এ খুলে পুরো লেখা কপি করুন → Vercel → Settings → Environment Variables → Key: <code>DATABASE_CA_CERT</code>, Value: পেস্ট → Save → Redeploy। এরপর দোকান খুলে দেখুন ঠিক চলছে কি না; না চললে ভেরিয়েবলটা মুছে আবার Redeploy দিন।`);
     })()}
-    ${row(ikOn, 'ছবি রাখা হয় ImageKit-এ (ডাটাবেস হালকা থাকে)', ikOn ? html`চালু। ${dbLeft.n ? html`${ui.bn(dbLeft.n)}টি পুরনো ছবি এখনো ডাটাবেসে, প্রতি ঘণ্টায় একটু একটু করে ImageKit-এ সরে যাচ্ছে।` : 'সব ছবি ImageKit-এ।'}` : 'বন্ধ: Vercel-এ IMAGEKIT_PRIVATE_KEY ও IMAGEKIT_URL_ENDPOINT বসানো হয়নি, তাই ছবি ডাটাবেসেই থাকছে।')}
+    ${row(ikOn, 'ছবি রাখা হয় ImageKit-এ (ডাটাবেস হালকা থাকে)', ikOn ? html`চালু। ${dbLeft!.n ? html`${ui.bn(dbLeft!.n)}টি পুরনো ছবি এখনো ডাটাবেসে, প্রতি ঘণ্টায় একটু একটু করে ImageKit-এ সরে যাচ্ছে।` : 'সব ছবি ImageKit-এ।'}` : 'বন্ধ: Vercel-এ IMAGEKIT_PRIVATE_KEY ও IMAGEKIT_URL_ENDPOINT বসানো হয়নি, তাই ছবি ডাটাবেসেই থাকছে।')}
     ${move ? row(!!(move.done && move.verify && move.verify.ok), 'পুরনো Neon থেকে নতুন ডাটাবেসে তথ্য সরানো', move.done ? (move.verify && move.verify.ok ? html`✅ শেষ, ${ui.bn(move.verify.tables)}টি টেবিলের ${ui.bn(move.verify.rows)}টি তথ্য ১০০% মিলেছে (${fmtDate(move.finished_at)})। এখন Vercel থেকে Neon মুছে ফেলা নিরাপদ।` : html`⚠️ অমিল: ${(move.verify && move.verify.mismatches || []).join(', ')}। Neon মুছবেন না।`) : html`চলছে: ${ui.bn(move.copied || 0)} / ${ui.bn(move.total || 0)}`) : ''}
     ${row(hasKey, 'পেমেন্ট ও কুরিয়ারের পাসওয়ার্ড/API কী এনক্রিপ্ট করে রাখা', hasKey ? 'বিকাশ, SSLCommerz, Pathao, Steadfast ইত্যাদির গোপন তথ্য AES-256 দিয়ে তালাবদ্ধ। কেউ ডাটাবেসের কপি পেলেও এগুলো পড়তে পারবে না।' : 'এখনো চালু হয়নি — নিচের "এক ধাপ বাকি" অংশ দেখুন।')}
     ${row($services_notify.emailConfig(s).ready, 'নিরাপত্তা সতর্কতা ও ইমেইলে পাসওয়ার্ড রিসেট', $services_notify.emailConfig(s).ready ? html`কেউ পাসওয়ার্ড রিসেট করলে, বারবার ভুল পাসওয়ার্ড দিলে বা মালিক হিসেবে লগইন করলে আপনাকে ইমেইল/WhatsApp এ জানানো হয়। <a href="/admin/notify">বদলান →</a>` : html`এখনো বন্ধ। Gmail App Password বসালে চালু হবে, তখন পাসওয়ার্ড ভুলে গেলে ইমেইলেই রিসেট লিংক পাবেন। <a href="/admin/notify">চালু করুন →</a>`)}

@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 
 // ---------------------------------------------------------------- inventory
 import { html, raw, money, bn, fmtDate, int, str, list, ymd, pct, pageNum } from '../util';
@@ -7,10 +6,12 @@ import * as finance from '../models/finance';
 import * as ui from './ui';
 import * as $db from '../db';
 import * as $services_stockalert from '../services/stockalert';
+import type { AdminCtx, Loose } from '../types';
+import type { Tx } from '../pg';
 const INV_PER_PAGE = 50;
 const ADJUST_REASONS = [['adjust', 'হাতে বদল'], ['count', 'গণনা ঠিক করা'], ['damage', 'নষ্ট/ভাঙা → নষ্ট স্টকে'], ['lost', 'হারানো'], ['return', 'কাস্টমার ফেরত (ভালো মাল)'],
   ['damage_out', 'নষ্ট মাল ফেলে দেওয়া'], ['repair', 'মেরামত হয়ে আবার বিক্রিযোগ্য']];
-async function inventoryPage(ctx) {
+async function inventoryPage(ctx: AdminCtx) {
   const low = ctx.query.get('low') === '1';
   const damaged = ctx.query.get('damaged') === '1';
   const supplierId = int(ctx.query.get('supplier')) || null;
@@ -35,19 +36,19 @@ async function inventoryPage(ctx) {
   if (q) qs.set('q', q);
   if (low) qs.set('low', '1');
   if (damaged) qs.set('damaged', '1');
-  if (supplierId) qs.set('supplier', supplierId);
+  if (supplierId) qs.set('supplier', String(supplierId));
   if (sort !== 'sku') qs.set('sort', sort);
   const listUrl = '/admin/inventory' + (qs.toString() ? '?' + qs : '');
-  const backUrl = (() => { const x = new URLSearchParams(qs); if (page > 1) x.set('page', page); const t = x.toString(); return '/admin/inventory' + (t ? '?' + t : ''); })();
+  const backUrl = (() => { const x = new URLSearchParams(qs); if (page > 1) x.set('page', String(page)); const t = x.toString(); return '/admin/inventory' + (t ? '?' + t : ''); })();
   const body = html`<div class="title-row"><h1>ইনভেন্টরি (স্টক) <small>${bn(total)}টি</small></h1>
   ${canAdjust ? html`<div class="row-actions"><a class="btn btn-ghost" href="/admin/stock-scan">📷 স্ক্যান করে স্টক</a><a class="btn" href="/admin/purchases/new">+ মাল কিনেছি (পারচেজ)</a></div>` : ''}</div>
 ${ui.flash(ctx.flash)}
 <div class="kpis">
-  ${ui.kpi('মোট পণ্য', bn(sum.products), `${bn(sum.units)} পিস বিক্রির স্টকে`)}
-  ${seeCost ? ui.kpi('স্টকের কেনা দাম', money(sum.cost_value), 'এখন দোকানে যত টাকার মাল', 'kpi-blue') : ''}
-  ${ui.kpi('স্টকের বিক্রি দাম', money(sum.sale_value), seeCost ? `সম্ভাব্য লাভ ${money(Number(sum.sale_value) - Number(sum.cost_value))}` : '', 'kpi-green')}
-  ${ui.kpi('স্টক কম', bn(sum.low), `${bn(sum.out)}টি একদম শেষ`, sum.low ? 'kpi-alert' : '', '/admin/inventory?low=1')}
-  ${ui.kpi('নষ্ট স্টক', `${bn(sum.damaged)} পিস`, `${bn(sum.damaged_products)}টি পণ্যে${seeCost && Number(sum.damaged_value) ? ` · ${money(sum.damaged_value)} লোকসান` : ''}`, sum.damaged ? 'kpi-alert' : '', '/admin/inventory?damaged=1')}
+  ${ui.kpi('মোট পণ্য', bn(sum!.products), `${bn(sum!.units)} পিস বিক্রির স্টকে`)}
+  ${seeCost ? ui.kpi('স্টকের কেনা দাম', money(sum!.cost_value), 'এখন দোকানে যত টাকার মাল', 'kpi-blue') : ''}
+  ${ui.kpi('স্টকের বিক্রি দাম', money(sum!.sale_value), seeCost ? `সম্ভাব্য লাভ ${money(Number(sum!.sale_value) - Number(sum!.cost_value))}` : '', 'kpi-green')}
+  ${ui.kpi('স্টক কম', bn(sum!.low), `${bn(sum!.out)}টি একদম শেষ`, sum!.low ? 'kpi-alert' : '', '/admin/inventory?low=1')}
+  ${ui.kpi('নষ্ট স্টক', `${bn(sum!.damaged)} পিস`, `${bn(sum!.damaged_products)}টি পণ্যে${seeCost && Number(sum!.damaged_value) ? ` · ${money(sum!.damaged_value)} লোকসান` : ''}`, sum!.damaged ? 'kpi-alert' : '', '/admin/inventory?damaged=1')}
 </div>
 <form class="toolbar" method="get" action="/admin/inventory">
   <input type="search" name="q" value="${q}" placeholder="পণ্যের নাম, SKU, মডেল বা বারকোড" id="inv-q"><button type="button" class="btn btn-sm btn-ghost" data-scan-into="#inv-q" title="ক্যামেরা দিয়ে বারকোড স্ক্যান">📷</button>
@@ -113,23 +114,23 @@ ${ui.pager(total, page, INV_PER_PAGE, listUrl)}` : html`<p class="muted panel">�
 </section>`;
   return ctx.page('ইনভেন্টরি', body, 'inventory');
 }
-function movesTable(moves) {
+function movesTable(moves?: Loose) {
   if (!moves.length) return html`<p class="muted">এখনো কোনো বদল নেই।</p>`;
   return html`<div class="table-wrap"><table class="table compact"><thead><tr><th>সময়</th><th>পণ্য</th><th class="num">বদল</th><th class="num">পরে স্টক</th><th>কারণ</th><th>কে</th></tr></thead>
-  <tbody>${moves.map((m) => html`<tr><td class="small">${fmtDate(m.created_at)}</td><td>${m.product_name || '—'}</td>
+  <tbody>${moves.map((m?: Loose) => html`<tr><td class="small">${fmtDate(m.created_at)}</td><td>${m.product_name || '—'}</td>
     <td class="num ${m.change < 0 ? 'warn' : 'good'}">${m.change ? html`${m.change > 0 ? '+' : ''}${bn(m.change)}` : ''}${m.damaged_change ? html`<br><span class="small warn">নষ্ট ${m.damaged_change > 0 ? '+' : ''}${bn(m.damaged_change)}</span>` : ''}</td><td class="num">${bn(m.balance ?? '')}</td>
     <td class="small">${catalog.STOCK_REASONS[m.reason] || m.reason}${m.ref_type === 'order' && m.ref_id ? html` · <a href="/admin/orders/${m.ref_id}">অর্ডার</a>` : ''}${m.ref_type === 'purchase' && m.ref_id ? html` · <a href="/admin/purchases/${m.ref_id}">পারচেজ</a>` : ''}${m.note ? ` · ${m.note}` : ''}</td>
     <td class="small">${m.staff_name || '—'}</td></tr>`)}</tbody></table></div>`;
 }
-async function adjust(ctx) {
+async function adjust(ctx: AdminCtx) {
   const b = await ctx.body();
   const pids = list(b.pid);
   const changes = list(b.change);
   const reasons = list(b.reason);
   const note = str(b.note, 200);
   let n = 0;
-  const problems = [];
-  const touched = [];
+  const problems: Loose[] = [];
+  const touched: Loose[] = [];
   const { tx } = $db;
   await tx(async (t) => {
     for (let i = 0; i < pids.length; i++) {
@@ -138,7 +139,7 @@ async function adjust(ctx) {
       const pid = int(pids[i]);
       const reason = catalog.STOCK_REASONS[reasons[i]] ? reasons[i] : 'adjust';
       const qty = Math.abs(ch);
-      let ok = true;
+      let ok: Loose = true;
       // damaged goods: kept apart from the stock that can be sold
       if (reason === 'damage') ok = await catalog.changeDamaged(t, pid, { stock: -qty, damaged: qty }, 'damage', 'manual', null, note, ctx.user.id);
       else if (reason === 'damage_out') ok = await catalog.changeDamaged(t, pid, { damaged: -qty }, 'damage_out', 'manual', null, note, ctx.user.id);
@@ -163,7 +164,7 @@ async function adjust(ctx) {
 }
 
 // ---------------------------------------------------------------- suppliers
-async function suppliersPage(ctx) {
+async function suppliersPage(ctx: AdminCtx) {
   if (ctx.method === 'POST') {
     const b = await ctx.body();
     if (!str(b.name)) return ctx.fail('/admin/suppliers', 'সাপ্লায়ারের নাম দিন।');
@@ -194,7 +195,7 @@ ${seeCost ? html`<div class="kpis">${ui.kpi('সাপ্লায়ারদ�
 </div>`;
   return ctx.page('সাপ্লায়ার', body, 'suppliers');
 }
-function supplierForm(s) {
+function supplierForm(s?: Loose) {
   return html`<form method="post" action="/admin/suppliers" class="form">
     ${s.id ? html`<input type="hidden" name="id" value="${s.id}">` : ''}
     ${ui.field('নাম', ui.input('name', s.name || '', { required: true, maxlength: 100 }))}
@@ -207,7 +208,7 @@ function supplierForm(s) {
     <button class="btn">${s.id ? 'সেভ করুন' : 'যোগ করুন'}</button>
   </form>`;
 }
-async function supplierDetail(ctx, m) {
+async function supplierDetail(ctx: AdminCtx, m?: Loose) {
   const s = await finance.getSupplier(int(m[1]));
   if (!s) return ctx.redirect(ctx.res, '/admin/suppliers');
   const seeCost = ctx.can('see_cost');
@@ -225,11 +226,11 @@ ${seeCost ? html`<div class="kpis">
   <div>
     <section class="panel"><h2>কোন পণ্য কত দামে কিনেছেন</h2>
       ${s.products.length ? html`<table class="table compact"><thead><tr><th>পণ্য</th><th class="num">মোট পরিমাণ</th>${seeCost ? html`<th class="num">গড় কেনা দাম</th>` : ''}<th>শেষ কেনা</th></tr></thead>
-      <tbody>${s.products.map((p) => html`<tr><td>${p.product_id ? html`<a href="/admin/products/${p.product_id}">${p.name}</a>` : p.name}</td><td class="num">${bn(p.qty)}</td>${seeCost ? html`<td class="num">${money(p.avg_cost)}</td>` : ''}<td class="small">${p.last_date ? fmtDate(p.last_date + 'T06:00:00Z', false) : ''}</td></tr>`)}</tbody></table>` : html`<p class="muted">এখনো কিছু কেনা হয়নি।</p>`}
+      <tbody>${s.products.map((p?: Loose) => html`<tr><td>${p.product_id ? html`<a href="/admin/products/${p.product_id}">${p.name}</a>` : p.name}</td><td class="num">${bn(p.qty)}</td>${seeCost ? html`<td class="num">${money(p.avg_cost)}</td>` : ''}<td class="small">${p.last_date ? fmtDate(p.last_date + 'T06:00:00Z', false) : ''}</td></tr>`)}</tbody></table>` : html`<p class="muted">এখনো কিছু কেনা হয়নি।</p>`}
     </section>
     <section class="panel"><h2>পারচেজ</h2>${purchasesTable(s.purchases, seeCost)}</section>
     ${seeCost ? html`<section class="panel"><h2>পেমেন্ট</h2>
-      ${s.payments.length ? html`<table class="table compact"><tbody>${s.payments.map((t) => html`<tr><td class="small">${fmtDate(t.tx_date + 'T06:00:00Z', false)}</td><td>${t.account_name || '—'}</td><td class="small">${t.note}</td><td class="num">${money(t.amount)}</td></tr>`)}</tbody></table>` : html`<p class="muted">কোনো পেমেন্ট নেই।</p>`}
+      ${s.payments.length ? html`<table class="table compact"><tbody>${s.payments.map((t?: Loose) => html`<tr><td class="small">${fmtDate(t.tx_date + 'T06:00:00Z', false)}</td><td>${t.account_name || '—'}</td><td class="small">${t.note}</td><td class="num">${money(t.amount)}</td></tr>`)}</tbody></table>` : html`<p class="muted">কোনো পেমেন্ট নেই।</p>`}
     </section>` : ''}
   </div>
   <div>
@@ -245,25 +246,25 @@ ${seeCost ? html`<div class="kpis">
 </div>`;
   return ctx.page(s.name, body, 'suppliers');
 }
-async function supplierPay(ctx, m) {
+async function supplierPay(ctx: AdminCtx, m?: Loose) {
   const id = int(m[1]);
   const b = await ctx.body();
   try {
     await finance.addTransaction({ type: 'expense', category: 'সাপ্লায়ার পেমেন্ট', amount: b.amount, account_id: b.account_id, supplier_id: id, tx_date: b.tx_date, note: b.note }, ctx.user.id);
-  } catch (e) { return ctx.fail(`/admin/suppliers/${id}`, e.message); }
+  } catch (e: Loose) { return ctx.fail(`/admin/suppliers/${id}`, e.message); }
   await ctx.log('supplier_pay', 'supplier', id, `৳${b.amount}`);
   return ctx.back(`/admin/suppliers/${id}`, 'paid');
 }
 
 // ---------------------------------------------------------------- purchases
-function purchasesTable(rows, seeCost) {
+function purchasesTable(rows?: Loose, seeCost?: Loose) {
   if (!rows.length) return html`<p class="muted">কোনো পারচেজ নেই।</p>`;
   return html`<div class="table-wrap"><table class="table compact"><thead><tr><th>নম্বর</th><th>তারিখ</th><th>সাপ্লায়ার</th><th class="num">পরিমাণ</th>${seeCost ? html`<th class="num">মোট</th>` : ''}<th>অবস্থা</th></tr></thead>
-  <tbody>${rows.map((p) => html`<tr><td><a href="/admin/purchases/${p.id}"><b>${p.code}</b></a></td><td class="small">${fmtDate(p.purchase_date + 'T06:00:00Z', false)}</td>
+  <tbody>${rows.map((p?: Loose) => html`<tr><td><a href="/admin/purchases/${p.id}"><b>${p.code}</b></a></td><td class="small">${fmtDate(p.purchase_date + 'T06:00:00Z', false)}</td>
     <td>${p.supplier_name || '—'}</td><td class="num">${bn(p.units || 0)}</td>${seeCost ? html`<td class="num">${money(p.total)}</td>` : ''}
     <td>${ui.pill(finance.PURCHASE_STATUSES[p.status], 'pur-' + p.status)}</td></tr>`)}</tbody></table></div>`;
 }
-async function purchasesPage(ctx) {
+async function purchasesPage(ctx: AdminCtx) {
   const db = $db;
   const seeCost = ctx.can('see_cost');
   const [rows, month, suppliers, restock] = await Promise.all([
@@ -284,12 +285,12 @@ async function purchasesPage(ctx) {
         ORDER BY coalesce(sold.n,0) DESC, coalesce(seen.n,0) DESC, p.stock ASC LIMIT 12`).catch(() => []),
   ]);
   const totalDue = suppliers.reduce((sum, x) => sum + Math.max(0, finance.supplierDue(x)), 0);
-  const suggest = (r) => Math.max(r.low_stock * 2, r.sold30 * 2 - r.stock, 5);
+  const suggest = (r?: Loose) => Math.max(r.low_stock * 2, r.sold30 * 2 - r.stock, 5);
   const body = html`<div class="title-row"><h1>পারচেজ (মাল কেনা)</h1><div class="row-actions"><a class="btn" href="/admin/purchases/new">+ নতুন পারচেজ</a><a class="btn btn-ghost" href="/admin/suppliers">🚚 সাপ্লায়ার</a></div></div>
 ${ui.flash(ctx.flash)}
 <div class="kpis kpis-tight">
-  ${seeCost ? ui.kpi('এই মাসে মাল কেনা', money(month.total), `${bn(month.n)}টি পারচেজ · ${bn(month.units)} পিস`, 'kpi-blue') : ui.kpi('এই মাসে পারচেজ', bn(month.n), `${bn(month.units)} পিস`)}
-  ${ui.kpi('মাল আসার অপেক্ষায়', bn(month.waiting), 'অর্ডার দেওয়া, এখনো আসেনি', month.waiting ? 'kpi-alert' : '')}
+  ${seeCost ? ui.kpi('এই মাসে মাল কেনা', money(month!.total), `${bn(month!.n)}টি পারচেজ · ${bn(month!.units)} পিস`, 'kpi-blue') : ui.kpi('এই মাসে পারচেজ', bn(month!.n), `${bn(month!.units)} পিস`)}
+  ${ui.kpi('মাল আসার অপেক্ষায়', bn(month!.waiting), 'অর্ডার দেওয়া, এখনো আসেনি', month!.waiting ? 'kpi-alert' : '')}
   ${seeCost ? ui.kpi('সাপ্লায়ারদের বাকি', money(totalDue), 'আপনার কাছে তারা পাবে', totalDue > 0 ? 'kpi-alert' : '', '/admin/suppliers') : ''}
   ${ui.kpi('এখনই কেনা দরকার', bn(restock.length), 'স্টক শেষ বা কম', restock.length ? 'kpi-alert' : 'kpi-green', '#restock')}
 </div>
@@ -316,7 +317,7 @@ ${ui.helpBox('পারচেজ কেন দরকার? (ধাপে ধা
 <section class="panel">${purchasesTable(rows, seeCost)}</section>`;
   return ctx.page('পারচেজ', body, 'purchases');
 }
-async function purchaseNew(ctx) {
+async function purchaseNew(ctx: AdminCtx) {
   const [suppliers, accounts] = await Promise.all([finance.listSuppliers({ includeInactive: false }), finance.listAccounts()]);
   if (ctx.method === 'POST') {
     const b = await ctx.body();
@@ -327,13 +328,13 @@ async function purchaseNew(ctx) {
       const id = await finance.savePurchase({ ...b, items: pids.map((p, i) => ({ product_id: p, qty: qtys[i], unit_cost: costs[i] })) }, ctx.user.id);
       await ctx.log('purchase_add', 'purchase', id, '');
       return ctx.back(`/admin/purchases/${id}`, 'added');
-    } catch (e) {
+    } catch (e: Loose) {
       return ctx.fail('/admin/purchases/new', e.message);
     }
   }
   // started from "কী কিনবেন": those products are put in the form already
   const addIds = [...new Set(list(ctx.query.getAll ? ctx.query.getAll('add') : ctx.query.get('add')).map((x) => int(x)).filter((x) => x > 0))].slice(0, 40);
-  const prefill = [];
+  const prefill: Loose[] = [];
   for (const id of addIds) {
     const p = await catalog.getProduct({ id }).catch(() => null);
     if (p && p.product_type !== 'bundle') prefill.push({ id: p.id, name: p.name, sku: p.sku, stock: p.stock, price: p.price, cost: ctx.can('see_cost') ? p.cost_price : '' });
@@ -376,7 +377,7 @@ ${!suppliers.length ? html`<p class="flash">আগে একজন <a href="/adm
 </form>`;
   return ctx.page('নতুন পারচেজ', body, 'purchases');
 }
-async function purchaseDetail(ctx, m) {
+async function purchaseDetail(ctx: AdminCtx, m?: Loose) {
   const p = await finance.getPurchase(int(m[1]));
   if (!p) return ctx.redirect(ctx.res, '/admin/purchases');
   const seeCost = ctx.can('see_cost');
@@ -386,7 +387,7 @@ ${ui.flash(ctx.flash)}
 <div class="two-col">
   <section class="panel">
     <table class="table"><thead><tr><th>পণ্য</th><th class="num">পরিমাণ</th>${seeCost ? html`<th class="num">কেনা দাম</th><th class="num">বিক্রি দাম</th><th class="num">লাভ/পিস</th><th class="num">মোট</th>` : ''}</tr></thead>
-    <tbody>${p.items.map((i) => html`<tr><td>${i.product_id ? html`<a href="/admin/products/${i.product_id}">${i.name}</a>` : i.name}${i.sku ? html`<br><span class="small muted">${i.sku}</span>` : ''}</td><td class="num">${bn(i.qty)}</td>
+    <tbody>${p.items.map((i?: Loose) => html`<tr><td>${i.product_id ? html`<a href="/admin/products/${i.product_id}">${i.name}</a>` : i.name}${i.sku ? html`<br><span class="small muted">${i.sku}</span>` : ''}</td><td class="num">${bn(i.qty)}</td>
       ${seeCost ? html`<td class="num">${money(i.unit_cost)}</td><td class="num">${money(i.sale_price || 0)}</td>
       <td class="num ${i.sale_price - i.unit_cost < 0 ? 'warn' : 'good'}">${money((i.sale_price || 0) - i.unit_cost)}${i.sale_price ? html`<br><span class="small">${pct(((i.sale_price - i.unit_cost) / i.sale_price) * 100)}</span>` : ''}</td>
       <td class="num">${money(i.unit_cost * i.qty)}</td>` : ''}</tr>`)}</tbody>
@@ -411,7 +412,7 @@ ${ui.flash(ctx.flash)}
 </div>`;
   return ctx.page(p.code, body, 'purchases');
 }
-async function purchaseStatus(ctx, m) {
+async function purchaseStatus(ctx: AdminCtx, m?: Loose) {
   const b = await ctx.body();
   await finance.setPurchaseStatus(int(m[1]), b.status, ctx.user.id);
   await ctx.log('purchase_status', 'purchase', int(m[1]), b.status);

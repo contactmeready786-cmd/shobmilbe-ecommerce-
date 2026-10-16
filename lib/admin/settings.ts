@@ -19,7 +19,7 @@ async function settingsPage(ctx) {
     // 🚚 delivery time: "1-2" style (days); the law: same city within 5 days, another city within 10
     for (const [k, max] of [['del_days_dhaka', 5], ['del_days_outside', 10]]) {
       if (k in b) {
-        const m = String(b[k]).replace(/[০-৯]/g, (d) => '০১২৩৪৫৬৭৮৯'.indexOf(d)).match(/^\s*(\d{1,2})\s*(?:[-–—]\s*(\d{1,2}))?\s*$/);
+        const m = String(b[k]).replace(/[০-৯]/g, (d) => String('০১২৩৪৫৬৭৮৯'.indexOf(d))).match(/^\s*(\d{1,2})\s*(?:[-–—]\s*(\d{1,2}))?\s*$/);
         const lo = m ? Math.min(max, Math.max(0, int(m[1]))) : null;
         const hi = m ? Math.min(max, Math.max(lo, int(m[2] || m[1]))) : null;
         b[k] = m ? (lo === hi ? String(lo) : `${lo}-${hi}`) : (k === 'del_days_dhaka' ? '1-2' : '2-4');

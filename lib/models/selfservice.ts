@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // 🙋 The customer's own changes to an order, from the order's page (only the browser that placed it, or that opened it
 // with the order number + mobile number on "অর্ডার ট্র্যাক"):
 //  • ❌ cancel it            — until it is handed to the courier (new / confirmed / packing / on hold)
@@ -14,11 +13,12 @@ import * as $services_notify from '../services/notify';
 import * as $services_sms from '../services/sms';
 import * as $customers from './customers';
 import * as $checkoutotp from './checkoutotp';
+import type { Body, Id, Loose, Settings } from '../types';
 
 class SelfError extends Error {}
 
 const OPEN = new Set(['pending', 'confirmed', 'processing', 'hold']);
-const REASONS = {
+const REASONS: Record<string, Loose> = {
   mind: 'মত বদলেছি / আর লাগবে না',
   wrong: 'ভুল পণ্য বা ভুল পরিমাণ অর্ডার করেছি',
   cheaper: 'অন্য জায়গায় কম দামে পেয়েছি',
@@ -27,20 +27,20 @@ const REASONS = {
   other: 'অন্য কারণ',
 };
 
-function canChange(order) {
+function canChange(order?: Loose) {
   if (!order) return { ok: false, why: 'অর্ডারটি পাওয়া যায়নি।' };
   if (order.handed_at || !OPEN.has(order.status)) {
     return { ok: false, why: O.RELEASED.has(order.status) ? 'এই অর্ডারটি আগেই বাতিল/ফেরত হয়েছে।' : 'অর্ডারটি কুরিয়ারে দেওয়া হয়ে গেছে — এখন বদলাতে বা বাতিল করতে আমাদের কল করুন।' };
   }
   return { ok: true };
 }
-const note = (id, text) => db.q(`UPDATE orders SET admin_note = left(trim(coalesce(admin_note, '') || E'\n' || $1), 1000), updated_at=now() WHERE id=$2`, [text, id]);
-function pushOwner(title, body, url) {
+const note = (id?: Id, text?: Loose) => db.q(`UPDATE orders SET admin_note = left(trim(coalesce(admin_note, '') || E'\n' || $1), 1000), updated_at=now() WHERE id=$2`, [text, id]);
+function pushOwner(title?: Loose, body?: Loose, url?: Loose) {
   const push = $services_push;
   return $services_notify.later(push.count().then((n) => (n ? push.sendAll({ title, body, url, tag: 'self-' + Date.now() }) : null)).catch(() => null));
 }
 
-async function cancel(order, { reason, details }, settings) {
+async function cancel(order: Loose, { reason, details }: Body, settings: Settings) {
   const c = canChange(order);
   if (!c.ok) throw new SelfError(c.why);
   const why = REASONS[reason] ? REASONS[reason] : null;
@@ -60,7 +60,7 @@ async function cancel(order, { reason, details }, settings) {
 }
 
 // New name / number / address. Returns the new delivery charge and total.
-async function change(order, b, { req, settings }) {
+async function change(order: Loose, b: Body, { req, settings }: Body) {
   const c = canChange(order);
   if (!c.ok) throw new SelfError(c.why);
   const name = str(b.name, 80).trim();
@@ -86,7 +86,7 @@ async function change(order, b, { req, settings }) {
   let delivery = Number(order.delivery) || 0;
   if (delivery > 0) {
     const w = await db.one(`SELECT coalesce(sum(coalesce(p.weight_g, 0) * i.qty), 0)::int AS g FROM order_items i LEFT JOIN products p ON p.id=i.product_id WHERE i.order_id=$1`, [order.id]);
-    delivery = O.deliveryFor(settings, { district: dist.en, thana, subtotal: Number(order.subtotal), weightG: w.g }).fee;
+    delivery = O.deliveryFor(settings, { district: dist.en, thana, subtotal: Number(order.subtotal), weightG: w!.g }).fee;
   }
   const total = wholeTaka(Number(order.subtotal) - Number(order.discount || 0) - Number(order.points_discount || 0) + delivery);
   const area = O.zoneFor(settings, dist.en, thana);

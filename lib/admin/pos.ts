@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // Admin → 🧾 দোকানে বিক্রি (POS): a sale at the shop counter.
 // Scan the product's barcode (barcode gun, or the phone/laptop camera) or type the name/SKU → it goes into the bill;
 // change quantity / price, discount, customer's mobile (optional), how they paid, cash given → change to return.
@@ -12,10 +11,11 @@ import * as catalog from '../models/catalog';
 import * as W from '../models/warehouses';
 import { ASSET_V } from './layout';
 import * as $services_barcode from '../services/barcode';
+import type { AdminCtx, Loose } from '../types';
 
 const PAY = [['cash', '💵 নগদ'], ['manual_bkash', 'বিকাশ'], ['manual_nagad', 'নগদ (মোবাইল)'], ['manual_rocket', 'রকেট'], ['card', '💳 কার্ড']];
 
-async function page(ctx) {
+async function page(ctx: AdminCtx) {
   const stores = (await W.list({ activeOnly: true })).filter((w) => w.is_shop);
   const wh = int(ctx.query.get('wh'));
   const today = await db.one(`SELECT count(*)::int AS n, coalesce(sum(total),0)::numeric(14,2) AS total FROM orders
@@ -37,7 +37,7 @@ async function page(ctx) {
     <div class="pos-cam" data-pos-cam-box hidden><video data-pos-video playsinline muted></video><button type="button" class="btn btn-sm btn-ghost" data-pos-cam-stop>✕ ক্যামেরা বন্ধ</button></div>
     <p class="pos-msg" data-pos-msg role="status"></p>
     <ul class="pos-results" data-pos-results></ul>
-    <section class="panel pos-today"><h2>আজ দোকানে বিক্রি: <b>${money(today.total)}</b> <small>${bn(today.n)}টি মেমো</small></h2>
+    <section class="panel pos-today"><h2>আজ দোকানে বিক্রি: <b>${money(today!.total)}</b> <small>${bn(today!.n)}টি মেমো</small></h2>
       ${recent.length ? html`<ul class="pos-recent">${recent.map((o) => html`<li><a href="/admin/orders/${o.id}" class="mono">${o.code}</a> <span class="small muted">${fmtDate(o.created_at)}${o.wh_name ? ` · ${o.wh_name}` : ''}</span> <b>${money(o.total)}</b>
         <a class="small" href="/admin/pos/memo/${o.id}" target="_blank" rel="noopener">🖨️ মেমো</a></li>`)}</ul>` : ''}
     </section>
@@ -71,16 +71,16 @@ async function page(ctx) {
 }
 
 // A scanned code (barcode / SKU) or typed words → the product(s)
-async function find(ctx) {
+async function find(ctx: AdminCtx) {
   const q = str(ctx.query.get('q'), 100);
   const wh = int(ctx.query.get('wh'));
   if (!q) return ctx.json(ctx.res, 200, { exact: null, list: [] });
-  const shape = (p, st) => ({ id: p.id, name: p.name, sku: p.sku, barcode: p.barcode, price: Number(p.base_price ?? p.price), stock: p.stock,
+  const shape = (p?: Loose, st?: Loose) => ({ id: p.id, name: p.name, sku: p.sku, barcode: p.barcode, price: Number(p.base_price ?? p.price), stock: p.stock,
     here: wh ? ((st.get(p.id) || { by: {} }).by[wh] || 0) : (st.get(p.id) || { main: p.stock }).main, image: p.image_id ? `/media/${p.image_id}/t` : null, emoji: p.emoji, active: p.active });
   const exact = await db.one(`SELECT id FROM products WHERE (upper(barcode)=upper($1) OR lower(sku)=lower($1)) AND variant_count = 0 LIMIT 1`, [q]);
   if (exact) {
     const p = await catalog.getProduct({ id: exact.id });
-    const st = await W.stockFor([p.id]);
+    const st = await W.stockFor([p!.id]);
     return ctx.json(ctx.res, 200, { exact: shape(p, st), list: [] });
   }
   const list = await catalog.listProducts({ q, items: true, includeInactive: true, limit: 12, sort: 'name' });
@@ -88,7 +88,7 @@ async function find(ctx) {
   return ctx.json(ctx.res, 200, { exact: null, list: list.map((p) => shape(p, st)) });
 }
 
-async function sale(ctx) {
+async function sale(ctx: AdminCtx) {
   const b = await ctx.body();
   const items = (Array.isArray(b.items) ? b.items : []).slice(0, 100).map((x) => ({ id: int(x.id), qty: Math.min(9999, int(x.qty)), price: x.price }))
     .filter((x) => x.id > 0 && x.qty > 0);
@@ -124,7 +124,7 @@ async function sale(ctx) {
 }
 
 // The cash memo (80 mm receipt printer; also fine on A4)
-async function memo(ctx, m) {
+async function memo(ctx: AdminCtx, m?: Loose) {
   const o = await O.getOrder({ id: int(m[1]) });
   if (!o) return ctx.redirect(ctx.res, '/admin/pos');
   const s = ctx.settings;
@@ -149,7 +149,7 @@ table{width:100%;border-collapse:collapse;margin:6px 0}td{padding:2px 0;vertical
   <p class="c"><b>ক্যাশ মেমো</b></p>
   <p class="s">মেমো: <b>${o.code}</b><br>তারিখ: ${fmtDate(o.created_at)}${w ? html`<br>দোকান: ${w.name}` : ''}${o.phone ? html`<br>কাস্টমার: ${o.customer_name} (${o.phone})` : ''}</p>
   <div class="line"></div>
-  <table><tbody>${o.items.map((it) => html`<tr><td>${it.name}${it.sku ? html` <span class="s">[${it.sku}]</span>` : ''}<br><span class="s">${bn(it.qty)} × ${money(it.price)}</span></td><td class="n">${money(it.price * it.qty)}</td></tr>`)}</tbody></table>
+  <table><tbody>${o.items.map((it?: Loose) => html`<tr><td>${it.name}${it.sku ? html` <span class="s">[${it.sku}]</span>` : ''}<br><span class="s">${bn(it.qty)} × ${money(it.price)}</span></td><td class="n">${money(it.price * it.qty)}</td></tr>`)}</tbody></table>
   <div class="line"></div>
   <table><tbody>
     <tr><td>পণ্যের দাম</td><td class="n">${money(o.subtotal)}</td></tr>

@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 import { html, raw, bn, fmtDate, int, list } from '../util';
 import * as S from '../models/staff';
 import * as sessions from '../models/sessions';
@@ -6,8 +5,9 @@ import * as db from '../db';
 import * as ui from './ui';
 import * as P from './profile';
 import * as $account from './account';
+import type { AdminCtx, Loose } from '../types';
 
-async function listPage(ctx) {
+async function listPage(ctx: AdminCtx) {
   const rows = await S.listStaff();
   const body = html`<div class="title-row"><h1>স্টাফ ও প্রোফাইল <small>${bn(rows.length)} জন</small></h1>
   <div class="row-actions"><a class="btn" href="/admin/staff/new">+ নতুন স্টাফ</a><a class="btn btn-ghost" href="/admin/reports/staff">স্টাফ রিপোর্ট</a></div></div>
@@ -17,7 +17,7 @@ ${ui.helpBox('স্টাফ কীভাবে কাজ করে', html`প�
 <tbody>${rows.map((s) => html`<tr class="${s.active ? '' : 'row-off'}">
   <td><a class="staff-who" href="/admin/staff/${s.id}">${P.avatar(s)}<span><b>${s.name}</b>${s.designation ? html`<br><span class="small">${s.designation}</span>` : ''}${s.phone ? html`<br><span class="small muted">${s.phone}</span>` : ''}</span></a></td>
   <td class="mono">${s.username}</td>
-  <td class="small">${s.role === 'owner' ? ui.pill('মালিক — সব অনুমতি', 'pill-delivered') : (s.permissions || []).map((p) => (S.PERMISSIONS.find((x) => x[0] === p) || [p, p])[1]).join(', ') || '—'}</td>
+  <td class="small">${s.role === 'owner' ? ui.pill('মালিক — সব অনুমতি', 'pill-delivered') : (s.permissions || []).map((p?: Loose) => (S.PERMISSIONS.find((x) => x[0] === p) || [p, p])[1]).join(', ') || '—'}</td>
   <td class="small">${s.role === 'owner' ? '—' : s.totp_on ? '✅ চালু' : html`<span class="muted">বন্ধ</span>`}</td>
   <td class="small">${s.last_login ? fmtDate(s.last_login) : 'কখনো না'}</td>
   <td>${s.role === 'owner' || s.id === ctx.user.id ? html`<span class="small">${s.active ? 'চালু' : 'বন্ধ'}</span>` : ui.rowSwitch(`/admin/toggle/staff/${s.id}`, s.active, 'বন্ধ করলে এই স্টাফ আর লগইন করতে পারবে না')}</td>
@@ -25,7 +25,7 @@ ${ui.helpBox('স্টাফ কীভাবে কাজ করে', html`প�
   return ctx.page('স্টাফ', body, 'staff');
 }
 
-function form(s, error, isSelf) {
+function form(s?: Loose, error?: Loose, isSelf?: Loose) {
   const isNew = !s.id;
   const owner = s.role === 'owner';
   const perms = s.permissions || [];
@@ -66,7 +66,7 @@ ${error ? html`<p class="flash flash-error">${error}</p>` : ''}
 ${!isNew && !owner && !isSelf ? html`<form method="post" action="/admin/staff/${s.id}/delete" class="danger-zone" data-confirm="এই স্টাফকে মুছবেন? (শুধু বন্ধ করতে চাইলে 'অ্যাকাউন্ট চালু' টিক তুলে দিন)"><button class="btn btn-danger btn-sm">স্টাফ মুছুন</button></form>` : ''}`;
 }
 
-async function formPage(ctx, m) {
+async function formPage(ctx: AdminCtx, m?: Loose) {
   const id = m && m[1] ? int(m[1]) : null;
   if (ctx.method === 'POST') {
     const b = await ctx.body();
@@ -77,7 +77,7 @@ async function formPage(ctx, m) {
       await S.saveProfile(sid, { designation: b.designation, address: b.address, emergency_phone: b.emergency_phone, joined_on: b.joined_on, bio: b.bio });
       await ctx.log(id ? 'staff_edit' : 'staff_add', 'staff', sid, b.name);
       return ctx.back(`/admin/staff/${sid}`, 'saved');
-    } catch (e) {
+    } catch (e: Loose) {
       const cur = id ? await S.getStaff(id) : {};
       return ctx.page('স্টাফ', form({ ...cur, ...b, id, permissions: list(b.permissions) }, e.message, id === ctx.user.id), 'staff', { status: 400 });
     }
@@ -103,7 +103,7 @@ async function formPage(ctx, m) {
   ${id ? html`<section class="panel"><h2>সাম্প্রতিক কাজ</h2>${activity.length ? html`<ul class="timeline">${activity.map((a) => html`<li>${a.action}${a.entity ? html` · ${a.entity === 'order' && a.entity_id ? html`<a href="/admin/orders/${a.entity_id}">অর্ডার #${a.entity_id}</a>` : a.entity}` : ''}${a.detail ? ` · ${a.detail}` : ''}<br><span class="small muted">${fmtDate(a.created_at)}</span></li>`)}</ul>` : html`<p class="muted">কিছু নেই।</p>`}</section>` : ''}`, 'staff');
 }
 
-async function resetTwoFactor(ctx, m) {
+async function resetTwoFactor(ctx: AdminCtx, m?: Loose) {
   const id = int(m[1]);
   const s = await S.getStaff(id);
   if (!s || s.role === 'owner') return ctx.back('/admin/staff');
@@ -111,7 +111,7 @@ async function resetTwoFactor(ctx, m) {
   await ctx.log('tfa_reset', 'staff', id, `${s.name}-এর দুই ধাপের লগইন রিসেট`);
   return ctx.redirect(ctx.res, `/admin/staff/${id}?info=${encodeURIComponent('দুই ধাপের লগইন রিসেট হয়েছে।' + (ctx.settings.staff_2fa_required === '1' ? ' পরের লগইনে আবার সেটআপ করতে হবে।' : ''))}#security`);
 }
-async function logoutAll(ctx, m) {
+async function logoutAll(ctx: AdminCtx, m?: Loose) {
   const id = int(m[1]);
   const s = await S.getStaff(id);
   if (!s || id === ctx.user.id) return ctx.back('/admin/staff');
@@ -121,7 +121,7 @@ async function logoutAll(ctx, m) {
   return ctx.redirect(ctx.res, `/admin/staff/${id}?info=${encodeURIComponent(`${s.name} এখন সব ডিভাইস থেকে লগআউট।`)}#security`);
 }
 
-async function remove(ctx, m) {
+async function remove(ctx: AdminCtx, m?: Loose) {
   const id = int(m[1]);
   if (id === ctx.user.id) return ctx.fail('/admin/staff', 'নিজেকে মুছতে পারবেন না।');
   await ctx.trash('staff', id);
@@ -131,7 +131,7 @@ async function remove(ctx, m) {
 
 export const routes = [
     { method: 'GET', path: '/admin/staff', perm: 'owner', handler: listPage },
-    { method: '*', path: '/admin/staff/new', perm: 'owner', handler: (ctx) => formPage(ctx, null) },
+    { method: '*', path: '/admin/staff/new', perm: 'owner', handler: (ctx: AdminCtx) => formPage(ctx, null) },
     { method: '*', path: /^\/admin\/staff\/(\d+)$/, perm: 'owner', handler: formPage },
     { method: 'POST', path: /^\/admin\/staff\/(\d+)\/delete$/, perm: 'owner', handler: remove },
     { method: 'POST', path: /^\/admin\/staff\/(\d+)\/2fa-reset$/, perm: 'owner', handler: resetTwoFactor },

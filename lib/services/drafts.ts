@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // Incomplete orders (অসম্পূর্ণ অর্ডার): a shopper typed a mobile number at checkout but did not press "অর্ডার কনফার্ম".
 // The checkout page saves what was typed (only after a full, valid BD mobile number, and with a visible notice under the
 // phone box). When the same number orders later, the draft is marked "অর্ডার হয়েছে" by itself.
@@ -8,29 +7,30 @@ import * as catalog from '../models/catalog';
 import { str, int, normalizePhone, validPhone } from '../util';
 import * as $sms from './sms';
 import * as $models_customers from '../models/customers';
+import type { Body, Id, Loose, Settings } from '../types';
 
 const ID_RE = /^[a-f0-9]{20}$/;
-const STATUSES = {
+const STATUSES: Record<string, Loose> = {
   open: ['🆕', 'নতুন — কল করা হয়নি'],
   called: ['📞', 'কল করা হয়েছে'],
   ordered: ['✅', 'অর্ডার হয়েছে'],
   closed: ['🚫', 'বাদ দেওয়া হয়েছে'],
 };
 
-async function save({ b, ip, settings }) {
+async function save({ b, ip, settings }: Body) {
   if (settings.draft_capture_on === '0') return { off: 1 };
   const id = String(b.id || '');
   const phone = normalizePhone(b.phone);
   if (!ID_RE.test(id) || !validPhone(phone)) return {};
   // what was in the cart, with today's names and prices (the shopper's own numbers are never trusted)
   const wanted = (Array.isArray(b.items) ? b.items : []).slice(0, 30)
-    .map((i) => ({ id: int(i && i.id), qty: Math.min(999, Math.max(1, int(i && i.qty, 1))) })).filter((i) => i.id > 0);
-  const prods = wanted.length ? await catalog.getProductsByIds(wanted.map((i) => i.id), { includeInactive: true }) : [];
-  const items = wanted.map((i) => {
+    .map((i?: Loose) => ({ id: int(i && i.id), qty: Math.min(999, Math.max(1, int(i && i.qty, 1))) })).filter((i?: Loose) => i.id > 0);
+  const prods = wanted.length ? await catalog.getProductsByIds(wanted.map((i?: Loose) => i.id), { includeInactive: true }) : [];
+  const items = wanted.map((i?: Loose) => {
     const p = prods.find((x) => x.id === i.id);
     return p ? { id: p.id, name: p.name, sku: p.sku || '', price: Number(p.price) || 0, qty: i.qty } : null;
   }).filter(Boolean);
-  const subtotal = Math.round(items.reduce((s, i) => s + i.price * i.qty, 0));
+  const subtotal = Math.round(items.reduce((s?: Loose, i?: Loose) => s + i.price * i.qty, 0));
   const vid = ID_RE.test(String(b.vid || '')) ? String(b.vid) : '';
   const sid = ID_RE.test(String(b.sid || '')) ? String(b.sid) : '';
   // one open draft per number: a second visit with the same number updates the same row
@@ -52,15 +52,15 @@ async function save({ b, ip, settings }) {
 }
 
 // An order was placed with this number: its drafts are done.
-async function markOrdered(phone, code) {
+async function markOrdered(phone?: Loose, code?: Loose) {
   try {
     await db.q(`UPDATE checkout_drafts SET status = 'ordered', order_code = $2, updated_at = now()
       WHERE phone = $1 AND status IN ('open','called') AND created_at > now() - interval '14 days'`, [normalizePhone(phone), String(code || '')]);
-  } catch (e) { console.error('drafts', e.message); }
+  } catch (e: Loose) { console.error('drafts', e.message); }
 }
 
-function where(f, params) {
-  const w = [];
+function where(f: Body, params?: Loose) {
+  const w: Loose[] = [];
   if (f.status && STATUSES[f.status]) { params.push(f.status); w.push(`d.status = $${params.length}`); }
   if (f.q) {
     params.push(`%${f.q}%`);
@@ -69,8 +69,8 @@ function where(f, params) {
   }
   return w.length ? 'WHERE ' + w.join(' AND ') : '';
 }
-async function list(f, { limit = 50, offset = 0 } = {}) {
-  const params = [];
+async function list(f: Body, { limit = 50, offset = 0 }: Body = {}) {
+  const params: Loose[] = [];
   const w = where(f, params);
   params.push(limit, offset);
   return db.q(`SELECT d.*, c.id AS customer_id, s.name AS caller_name,
@@ -79,13 +79,13 @@ async function list(f, { limit = 50, offset = 0 } = {}) {
     FROM checkout_drafts d LEFT JOIN customers c ON c.phone = d.phone LEFT JOIN staff s ON s.id = d.called_by
     ${w} ORDER BY d.updated_at DESC LIMIT $${params.length - 1} OFFSET $${params.length}`, params);
 }
-async function count(f) {
-  const params = [];
-  return (await db.one(`SELECT count(*)::int AS n FROM checkout_drafts d ${where(f, params)}`, params)).n;
+async function count(f: Body) {
+  const params: Loose[] = [];
+  return (await db.one(`SELECT count(*)::int AS n FROM checkout_drafts d ${where(f, params)}`, params))!.n;
 }
 async function counts() {
   const rows = await db.q(`SELECT status, count(*)::int AS n, coalesce(sum(subtotal),0)::int AS value FROM checkout_drafts GROUP BY status`);
-  const out = { all: 0 };
+  const out: Record<string, Loose> = { all: 0 };
   rows.forEach((r) => { out[r.status] = r; out.all += r.n; });
   return out;
 }
@@ -96,8 +96,8 @@ async function counts() {
 //    at most one reminder per number in 3 days, never to a blocked number
 //  • the link opens the checkout with the same products and name/number filled in (/checkout?resume=<id>)
 // Runs in the background now and then (at most every 5 minutes, see app.js) — a few drafts each time.
-function dhakaHour(d = new Date()) { return Number(new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Dhaka', hour: '2-digit', hourCycle: 'h23' }).format(d)); }
-async function remindDue(settings, site = '') {
+function dhakaHour(d: Loose = new Date()) { return Number(new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Dhaka', hour: '2-digit', hourCycle: 'h23' }).format(d)); }
+async function remindDue(settings: Settings, site: Loose = '') {
   const SMS = $sms;
   if (settings.draft_sms_on !== '1' || !SMS.ready(settings).ok) return { sent: 0, idle: true };
   const h = dhakaHour();
@@ -128,21 +128,21 @@ async function remindDue(settings, site = '') {
   return { sent };
 }
 // The link in the reminder: the products and name/number to fill the checkout again (no address — it may be a shared link).
-async function resume(id) {
+async function resume(id?: Id) {
   if (!ID_RE.test(String(id))) return null;
   const d = await db.one(`SELECT name, phone, items, status FROM checkout_drafts WHERE id=$1 AND created_at > now() - interval '7 days'`, [id]);
   if (!d || d.status === 'ordered') return null;
-  return { name: d.name, phone: d.phone, items: (d.items || []).map((i) => ({ id: int(i.id), qty: int(i.qty, 1) })).filter((i) => i.id > 0) };
+  return { name: d.name, phone: d.phone, items: (d.items || []).map((i?: Loose) => ({ id: int(i.id), qty: int(i.qty, 1) })).filter((i?: Loose) => i.id > 0) };
 }
 
-async function get(id) { return ID_RE.test(String(id)) ? db.one('SELECT * FROM checkout_drafts WHERE id = $1', [id]) : null; }
-async function setStatus(id, status, staffId) {
+async function get(id?: Id) { return ID_RE.test(String(id)) ? db.one('SELECT * FROM checkout_drafts WHERE id = $1', [id]) : null; }
+async function setStatus(id?: Id, status?: Loose, staffId?: Id) {
   if (!STATUSES[status] || !ID_RE.test(String(id))) return;
   await db.q(`UPDATE checkout_drafts SET status = $2, updated_at = now(),
     called_by = CASE WHEN $2 = 'called' THEN $3::int ELSE called_by END, called_at = CASE WHEN $2 = 'called' THEN now() ELSE called_at END
     WHERE id = $1`, [id, status, staffId || null]);
 }
-async function setNote(id, note) { if (ID_RE.test(String(id))) await db.q('UPDATE checkout_drafts SET admin_note = $2 WHERE id = $1', [id, str(note, 500)]); }
-async function remove(id) { if (ID_RE.test(String(id))) await db.q('DELETE FROM checkout_drafts WHERE id = $1', [id]); }
+async function setNote(id?: Id, note?: Loose) { if (ID_RE.test(String(id))) await db.q('UPDATE checkout_drafts SET admin_note = $2 WHERE id = $1', [id, str(note, 500)]); }
+async function remove(id?: Id) { if (ID_RE.test(String(id))) await db.q('DELETE FROM checkout_drafts WHERE id = $1', [id]); }
 
 export { remindDue, resume, dhakaHour, STATUSES, ID_RE, save, markOrdered, list, count, counts, get, setStatus, setNote, remove };

@@ -1169,7 +1169,7 @@ async function shopRoutes({ req, res, path, method, query, settings }) {
     const perPage = (Number(settings.grid_cols) || 4) * 6;
     const pageNo = Math.max(1, int(query.get('page'), 1));
     // 🔎 filters: price from–to, brands (several), only in stock
-    const num = (v) => { const n = Number(String(v || '').replace(/[০-৯]/g, (d) => '০১২৩৪৫৬৭৮৯'.indexOf(d))); return Number.isFinite(n) && n > 0 ? Math.min(n, 1e7) : 0; };
+    const num = (v) => { const n = Number(String(v || '').replace(/[০-৯]/g, (d) => String('০১২৩৪৫৬৭৮৯'.indexOf(d)))); return Number.isFinite(n) && n > 0 ? Math.min(n, 1e7) : 0; };
     const filters = {
       pmin: num(query.get('pmin')), pmax: num(query.get('pmax')),
       brands: brand ? [] : query.getAll('b').map((x) => int(x)).filter((x) => x > 0).slice(0, 20),

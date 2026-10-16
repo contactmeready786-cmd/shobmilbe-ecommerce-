@@ -42,7 +42,7 @@ const smsReady = (s) => sendReady(s).ok;
 // is the box shown at checkout? — whenever the switch is on
 const active = (s) => on(s);
 const rememberDays = (s) => Math.max(0, Math.min(365, int(s.co_otp_remember_days)));
-const bnDigits = (v) => String(v || '').replace(/[০-৯]/g, (d) => '০১২৩৪৫৬৭৮৯'.indexOf(d));
+const bnDigits = (v) => String(v || '').replace(/[০-৯]/g, (d) => String('০১২৩৪৫৬৭৮৯'.indexOf(d)));
 const hashCode = (phone, code, secret) => crypto.createHmac('sha256', String(secret)).update(`co:${phone}:${code}`).digest('hex');
 
 // ---------- signed proofs: "this number was checked" (sent with the order) ----------

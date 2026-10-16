@@ -1,27 +1,27 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // Admin → মার্কেট রিসার্চ (owner only). Nothing here is ever shown on the shop.
 import { html, raw, bn, money, int, str, fmtDate } from '../util';
 import * as db from '../db';
 import * as R from '../services/research';
 import * as ui from './ui';
+import type { AdminCtx, Loose } from '../types';
 
 const TABS = [['winning', '🏆 উইনিং প্রোডাক্ট'], ['find', '🔍 প্রোডাক্ট খুঁজুন'], ['new', '🆕 বাজারে নতুন'], ['drops', '📉 দাম কমেছে'], ['demand', '🔎 আপনার কাস্টমার যা খুঁজছে'], ['sources', '🏪 যেসব দোকান দেখা হচ্ছে']];
 
-function pic(src) { return src ? html`<img src="${src}" alt="" loading="lazy" referrerpolicy="no-referrer">` : html`<span>📦</span>`; }
-function ago(d) {
+function pic(src?: Loose) { return src ? html`<img src="${src}" alt="" loading="lazy" referrerpolicy="no-referrer">` : html`<span>📦</span>`; }
+function ago(d?: Loose) {
   if (!d) return 'এখনো না';
   const m = Math.round((Date.now() - new Date(d).getTime()) / 60000);
   return m < 1 ? 'এইমাত্র' : m < 60 ? `${bn(m)} মিনিট আগে` : m < 1440 ? `${bn(Math.round(m / 60))} ঘণ্টা আগে` : `${bn(Math.round(m / 1440))} দিন আগে`;
 }
 
-function winningCard(g, i, segment = '') {
+function winningCard(g?: Loose, i?: Loose, segment: Loose = '') {
   const links = R.sourcingLinks(g.term);
   return html`<article class="rs-card">
     <div class="rs-rank">${bn(i + 1)}</div>
     <a class="rs-pic" href="${g.best.url}" target="_blank" rel="noopener noreferrer">${pic(g.lead.image)}</a>
     <div class="rs-body">
       <h3><a href="${g.lead.url}" target="_blank" rel="noopener noreferrer">${g.lead.title}</a></h3>
-      <p class="rs-why">${g.why.slice(0, 4).map((w) => html`<span>${w}</span>`)}</p>
+      <p class="rs-why">${g.why.slice(0, 4).map((w?: Loose) => html`<span>${w}</span>`)}</p>
       <div class="rs-nums">
         <div><small>বাজারে দাম</small><b>${g.min === g.max ? money(g.min) : html`${money(g.min)} – ${money(g.max)}`}</b><small>সবচেয়ে কম: ${g.best.shop}</small></div>
         <div><small>আপনি বিক্রি করতে পারেন</small><b class="good">${g.sell ? money(g.sell) : '—'}</b><small>বাজারের মাঝামাঝি দামের সামান্য কম</small></div>
@@ -29,7 +29,7 @@ function winningCard(g, i, segment = '') {
         <div><small>আপনার দোকানে</small>${oursCell(g.oursAll || [], g.best.url, g.min, g.max, `/admin/research${segment ? `?seg=${segment}` : ''}`)}</div>
       </div>
       <p class="rs-src"><small>কোথা থেকে কিনবেন খুঁজুন:</small> ${links.map(([l, u]) => html`<a href="${u}" target="_blank" rel="noopener noreferrer">${l}</a>`)}</p>
-      <p class="rs-shops small muted">যে দোকানে আছে: ${g.items.slice(0, 5).map((x) => html`<a href="${x.url}" target="_blank" rel="noopener noreferrer">${x.shop} (${money(x.price)}${x.rank ? `, #${bn(x.rank)}` : ''})</a> `)}</p>
+      <p class="rs-shops small muted">যে দোকানে আছে: ${g.items.slice(0, 5).map((x?: Loose) => html`<a href="${x.url}" target="_blank" rel="noopener noreferrer">${x.shop} (${money(x.price)}${x.rank ? `, #${bn(x.rank)}` : ''})</a> `)}</p>
     </div>
   </article>`;
 }
@@ -37,19 +37,19 @@ function winningCard(g, i, segment = '') {
 // "is it in our shop?" — every matching product, with a link; unsure matches say so
 // The import page opens in the SAME tab: a new tab on a phone is handed to the customer app
 // (it owns shobmilbe.com links), which never opens admin pages.
-function impLink(url, back) { return `/admin/products/import?url=${encodeURIComponent(url)}${back ? `&back=${encodeURIComponent(back)}` : ''}`; }
-function oursCell(list, url, min, max, back = '/admin/research') {
+function impLink(url?: Loose, back?: Loose) { return `/admin/products/import?url=${encodeURIComponent(url)}${back ? `&back=${encodeURIComponent(back)}` : ''}`; }
+function oursCell(list?: Loose, url?: Loose, min?: Loose, max?: Loose, back: Loose = '/admin/research') {
   if (!list.length) return html`<b class="bad">নেই</b><small><a href="${impLink(url, back)}">➕ তথ্য কপি করে আনুন →</a></small>`;
   const sure = list[0].match >= 0.85;
   const p = list[0];
   const priceNote = min && max ? (Number(p.price) > max ? '⚠️ বাজারের চেয়ে বেশি দাম' : Number(p.price) < min ? 'বাজারের চেয়ে কম দাম' : 'দাম বাজারের মধ্যে') : '';
   return html`<b class="${sure ? '' : 'warn'}">${sure ? (list.length > 1 ? `আছে (${bn(list.length)}টি)` : 'আছে') : 'সম্ভবত আছে'}</b>
-    ${list.slice(0, 3).map((x) => html`<small><a href="/admin/products/${x.id}">${x.name.length > 46 ? x.name.slice(0, 44) + '…' : x.name} — ${money(x.price)}</a>${x.active === false ? ' (বন্ধ)' : ''}${x.via === 'link' ? ' · এই দোকান থেকেই আনা' : ''}</small>`)}
+    ${list.slice(0, 3).map((x?: Loose) => html`<small><a href="/admin/products/${x.id}">${x.name.length > 46 ? x.name.slice(0, 44) + '…' : x.name} — ${money(x.price)}</a>${x.active === false ? ' (বন্ধ)' : ''}${x.via === 'link' ? ' · এই দোকান থেকেই আনা' : ''}</small>`)}
     ${sure ? (priceNote || p.cost_price ? html`<small>${priceNote}${p.cost_price ? ` · কেনা ${money(p.cost_price)}` : ''}</small>` : '') : html`<small>নাম পুরো মেলেনি — মিলিয়ে দেখুন। <a href="${impLink(url, back)}">আলাদা হলে আনুন →</a></small>`}`;
 }
 
 // another shop seen on Google: paste its link once, every later search includes it
-function addShop(term) {
+function addShop(term?: Loose) {
   const g = `https://www.google.com/search?q=${encodeURIComponent(term + ' price in Bangladesh')}`;
   return html`<section class="panel rs-addshop"><h2>আরও দোকানে খুঁজতে চান?</h2>
     <p class="small muted"><a href="${g}" target="_blank" rel="noopener noreferrer">Google-এ "${term} price in Bangladesh" খুলুন →</a> যে দোকানে পণ্যটা দেখবেন, তার লিংক নিচে দিন। এরপর থেকে প্রতিটা সার্চে ওই দোকানেও খোঁজা হবে (সারাদিন পড়া হবে না, শুধু আপনি খুঁজলে)।</p>
@@ -58,7 +58,7 @@ function addShop(term) {
 }
 
 // 🔍 search every shop by product name
-async function findTab(ctx) {
+async function findTab(ctx: AdminCtx) {
   const term = str(ctx.query.get('q') || '', 80).trim();
   const form = html`<form method="get" action="/admin/research" class="toolbar rs-find" data-rs-find><input type="hidden" name="tab" value="find">
     <input type="search" name="q" value="${term}" placeholder="পণ্যের নাম বা নামের অংশ — যেমন TDA2030, 7812, SG90" required minlength="2" maxlength="80" autofocus>
@@ -79,8 +79,8 @@ async function findTab(ctx) {
   const prices = r.items.map((x) => Number(x.price)).filter((x) => x > 0);
   const parts = r.items.filter((x) => !x.made);
   const made = r.items.filter((x) => x.made);
-  const rows = (list) => html`<div class="table-wrap panel"><table class="table rs-find-table"><thead><tr><th></th><th>পণ্য</th><th>দোকান</th><th class="num">দাম</th><th>আপনার দোকানে</th></tr></thead>
-    <tbody>${list.map((x) => html`<tr class="${x.ours.length ? 'rs-have' : ''}"><td class="thumb">${pic(x.image)}</td>
+  const rows = (list?: Loose) => html`<div class="table-wrap panel"><table class="table rs-find-table"><thead><tr><th></th><th>পণ্য</th><th>দোকান</th><th class="num">দাম</th><th>আপনার দোকানে</th></tr></thead>
+    <tbody>${list.map((x?: Loose) => html`<tr class="${x.ours.length ? 'rs-have' : ''}"><td class="thumb">${pic(x.image)}</td>
       <td><a href="${x.url}" target="_blank" rel="noopener noreferrer">${x.title}</a>${x.category ? html`<br><span class="small muted">${x.category}</span>` : ''}</td>
       <td class="small">${x.shop}${x.in_stock === false ? html`<br><span class="bad">স্টক নেই</span>` : ''}</td>
       <td class="num">${x.price ? html`<b>${money(x.price)}</b>${x.regular_price ? html`<br><s class="small muted">${money(x.regular_price)}</s>` : ''}` : '—'}</td>
@@ -95,7 +95,7 @@ async function findTab(ctx) {
     ${addShop(term)}`;
 }
 
-async function page(ctx) {
+async function page(ctx: AdminCtx) {
   const tab = TABS.some((t) => t[0] === ctx.query.get('tab')) ? ctx.query.get('tab') : 'winning';
   const segment = R.SEGMENTS[ctx.query.get('seg')] ? ctx.query.get('seg') : '';
   const margin = Math.min(80, Math.max(5, int(ctx.settings.research_margin, 30)));
@@ -103,11 +103,11 @@ async function page(ctx) {
     const b = await ctx.body();
     if (b.form === 'add_search') {
       const back = `/admin/research?tab=find&fresh=1&q=${encodeURIComponent(str(b.q, 80))}`;
-      try { await R.addSource(str(b.url, 300), 'electronics', '', true); } catch (e) { return ctx.fail(back, e.message); }
+      try { await R.addSource(str(b.url, 300), 'electronics', '', true); } catch (e: Loose) { return ctx.fail(back, e.message); }
       return ctx.back(back, 'added');
     }
     if (b.form === 'add') {
-      try { await R.addSource(str(b.url, 300), b.segment, str(b.name, 60)); } catch (e) { return ctx.fail('/admin/research?tab=sources', e.message); }
+      try { await R.addSource(str(b.url, 300), b.segment, str(b.name, 60)); } catch (e: Loose) { return ctx.fail('/admin/research?tab=sources', e.message); }
       return ctx.back('/admin/research?tab=sources', 'added');
     }
     if (b.form === 'toggle' && int(b.id)) await db.q('UPDATE research_sources SET active = NOT active WHERE id=$1', [int(b.id)]);
@@ -117,7 +117,7 @@ async function page(ctx) {
   }
   const st = await R.status();
   const segChips = html`<div class="chips">${[['', 'সব'], ...Object.entries(R.SEGMENTS)].map(([k, l]) => html`<a class="chip ${segment === k ? 'on' : ''}" href="/admin/research?tab=${tab}${k ? `&seg=${k}` : ''}">${l}</a>`)}</div>`;
-  let content = '';
+  let content: Loose = '';
   if (tab === 'find') {
     content = await findTab(ctx);
   } else if (tab === 'winning') {
@@ -181,8 +181,8 @@ async function page(ctx) {
   const body = html`<h1>🔭 মার্কেট রিসার্চ <small>শুধু আপনি দেখতে পাচ্ছেন — দোকানে কোথাও দেখায় না</small></h1>
 ${ui.flash(ctx.flash)}
 <div class="rs-status panel">
-  <span>🏪 <b>${bn(st.sources)}</b>টি দোকান দেখা হচ্ছে</span><span>📦 <b>${bn(st.items)}</b>টি পণ্যের দাম জানা</span>
-  <span>🕒 শেষ আপডেট: <b data-rs-last>${ago(st.last_ok)}</b></span>
+  <span>🏪 <b>${bn(st!.sources)}</b>টি দোকান দেখা হচ্ছে</span><span>📦 <b>${bn(st!.items)}</b>টি পণ্যের দাম জানা</span>
+  <span>🕒 শেষ আপডেট: <b data-rs-last>${ago(st!.last_ok)}</b></span>
   <button type="button" class="btn btn-sm" data-rs-run>🔄 এখনই আপডেট করুন</button><span class="small muted" data-rs-msg></span>
 </div>
 <nav class="tabs rs-tabs">${TABS.map(([k, l]) => html`<a class="tab ${tab === k ? 'on' : ''}" href="/admin/research?tab=${k}${segment ? `&seg=${segment}` : ''}">${l}</a>`)}</nav>
@@ -198,7 +198,7 @@ ${ui.helpBox('এটা কীভাবে কাজ করে?', html`<ul>
 }
 
 // "এখনই আপডেট করুন": read one shop per call (the page calls it until all are fresh)
-async function runApi(ctx) {
+async function runApi(ctx: AdminCtx) {
   const r = await R.tick({ force: true });
   return ctx.json(ctx.res, 200, r);
 }

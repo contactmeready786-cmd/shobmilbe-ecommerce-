@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // Customer accounts, two ways in:
 //  • 📧 e-mail + password: sign up = e-mail + a password + a 6-digit code to the e-mail (sent free by the shop's Gmail),
 //    asked once. After that the customer logs in with e-mail + password — no code. "Forgot password" = a new code.
@@ -16,6 +15,8 @@ import * as $services_notify from '../services/notify';
 import * as $security from '../security';
 import * as $customers from './customers';
 import * as $orders from './orders';
+import type { Body, Id, Loose, Settings, ShopRequest } from '../types';
+import type { Tx } from '../pg';
 
 const CODE_MIN = 5;          // a code works for 5 minutes
 const EMAIL_MIN = 10;        // an e-mail code works for 10 minutes (e-mail can be a little slow)
@@ -24,20 +25,20 @@ const SESSION_DAYS = 90;
 
 class AccountError extends Error {}
 
-const on = (s) => s.acct_on === '1';
+const on = (s?: Loose) => s.acct_on === '1';
 // which ways in are working right now (a tab is shown only for a way that works)
-const phoneReady = (s) => $services_sms.ready(s).ok;
-const emailReady = (s) => $services_notify.acctEmailConfig(s).ready;
-const validEmail = (e) => $services_notify.validEmail(e);
-const cleanEmail = (e) => String(e || '').trim().toLowerCase().slice(0, 120);
+const phoneReady = (s?: Loose) => $services_sms.ready(s).ok;
+const emailReady = (s?: Loose) => $services_notify.acctEmailConfig(s).ready;
+const validEmail = (e?: Loose) => $services_notify.validEmail(e);
+const cleanEmail = (e?: Loose) => String(e || '').trim().toLowerCase().slice(0, 120);
 // the number the shop delivers to / calls: the login number, or the one an e-mail account gave
-const deliveryPhone = (cu) => (cu && (cu.phone || cu.contact_phone)) || '';
+const deliveryPhone = (cu?: Loose) => (cu && (cu.phone || cu.contact_phone)) || '';
 // a new account must first give its name (and an e-mail account a mobile number) before ordering
-const needsProfile = (cu) => !!cu && (String(cu.name || '').trim().length < 2 || !validPhone(deliveryPhone(cu)));
-function hashCode(phone, code, secret) { return crypto.createHmac('sha256', String(secret)).update(`${phone}:${code}`).digest('hex'); }
+const needsProfile = (cu?: Loose) => !!cu && (String(cu.name || '').trim().length < 2 || !validPhone(deliveryPhone(cu)));
+function hashCode(phone?: Loose, code?: Loose, secret?: Loose) { return crypto.createHmac('sha256', String(secret)).update(`${phone}:${code}`).digest('hex'); }
 
 // Send a login code by SMS. Limits: 3 codes / 10 minutes and 8 / day per number, 10 / hour per connection.
-async function sendCode(settings, phone, ip) {
+async function sendCode(settings: Settings, phone?: Loose, ip?: Loose) {
   const SMS = $services_sms;
   const security = $security;
   const ph = normalizePhone(phone);
@@ -60,9 +61,9 @@ async function sendCode(settings, phone, ip) {
 }
 
 // Check the code; on success the customer (made now if new) is returned.
-async function verifyCode(settings, phone, code) {
+async function verifyCode(settings: Settings, phone?: Loose, code?: Loose) {
   const ph = normalizePhone(phone);
-  const c = String(code || '').replace(/[০-৯]/g, (d) => '০১২৩৪৫৬৭৮৯'.indexOf(d)).replace(/\D/g, '');
+  const c = String(code || '').replace(/[০-৯]/g, (d) => String('০১২৩৪৫৬৭৮৯'.indexOf(d))).replace(/\D/g, '');
   if (!validPhone(ph) || c.length !== 6) throw new AccountError('৬ অঙ্কের কোডটা দিন।');
   const row = await db.one(`SELECT id, code_hash, tries FROM customer_otps WHERE phone=$1 AND NOT used AND expires_at > now() ORDER BY id DESC LIMIT 1`, [ph]);
   if (!row) throw new AccountError('কোডের মেয়াদ শেষ। আবার কোড চান।');
@@ -77,26 +78,26 @@ async function verifyCode(settings, phone, code) {
   if (!won) throw new AccountError('আবার কোড চান।');
   await db.q('DELETE FROM customer_otps WHERE created_at < now() - interval \'2 days\'').catch(() => {});
   const cu = await db.one(`INSERT INTO customers(name, phone, login_via) VALUES('', $1, 'phone') ON CONFLICT (phone) DO UPDATE SET last_login=now() RETURNING *`, [ph]);
-  await db.q(`UPDATE customers SET last_login=now(), login_via=CASE WHEN login_via='' THEN 'phone' ELSE login_via END WHERE id=$1`, [cu.id]);
+  await db.q(`UPDATE customers SET last_login=now(), login_via=CASE WHEN login_via='' THEN 'phone' ELSE login_via END WHERE id=$1`, [cu!.id]);
   return cu;
 }
 
 // ---------- 📧 e-mail: a 6-digit code to the customer's e-mail (sent free by the shop's own Gmail) ----------
 // Limits: 3 codes / 10 minutes and 8 / day per e-mail, 10 / hour per connection, and 400 a day for the whole shop
 // (Gmail's own daily limit is about 500).
-const ehash = (email, code, secret) => crypto.createHmac('sha256', String(secret)).update(`em:${email}:${code}`).digest('hex');
+const ehash = (email?: Loose, code?: Loose, secret?: Loose) => crypto.createHmac('sha256', String(secret)).update(`em:${email}:${code}`).digest('hex');
 // a customer's password: 6+ characters, the same typed twice
-function customerPasswordProblem(pw, pw2) {
+function customerPasswordProblem(pw?: Loose, pw2?: Loose) {
   const p = String(pw || '');
   if (p.length < 6) return 'পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের দিন।';
   if (p.length > 100) return 'পাসওয়ার্ড ১০০ অক্ষরের মধ্যে দিন।';
   if (pw2 !== undefined && p !== String(pw2 || '')) return 'দুইবার একই পাসওয়ার্ড লিখুন — দুটো মেলেনি।';
   return null;
 }
-const findEmailAccount = (em) => db.one('SELECT * FROM customers WHERE lower(email)=$1 AND email_verified ORDER BY id LIMIT 1', [em]);
+const findEmailAccount = (em?: Loose) => db.one('SELECT * FROM customers WHERE lower(email)=$1 AND email_verified ORDER BY id LIMIT 1', [em]);
 
 // purpose 'signup' (new account) or 'reset' (forgot password). The new password waits, hashed, beside the code.
-async function sendEmailCode(settings, email, ip, { purpose = 'signup', password, password2 } = {}) {
+async function sendEmailCode(settings: Settings, email?: Loose, ip?: Loose, { purpose = 'signup', password, password2 }: Body = {}) {
   const security = $security;
   const N = $services_notify;
   const em = cleanEmail(email);
@@ -124,8 +125,8 @@ async function sendEmailCode(settings, email, ip, { purpose = 'signup', password
 <p style="font-size:14px;color:#555;margin:0">কোডটা ${bn(EMAIL_MIN)} মিনিট কাজ করবে। কাউকে বলবেন না।<br>আপনি কোড না চেয়ে থাকলে এই ইমেইলটা উপেক্ষা করুন।</p></div>`;
   try {
     await N.sendAcctEmail(settings, `${shop}: যাচাই কোড ${code}`, text, htmlBody, em);
-  } catch (e) {
-    await db.q('UPDATE customer_email_otps SET used=true WHERE id=$1', [row.id]).catch(() => {});
+  } catch (e: Loose) {
+    await db.q('UPDATE customer_email_otps SET used=true WHERE id=$1', [row!.id]).catch(() => {});
     db.logIntegration && db.logIntegration('acct-email', 'code', false, String(e.message || e).slice(0, 200)).catch(() => {});
     throw new AccountError('ইমেইল পাঠানো যায়নি। ঠিকানাটা ঠিক আছে কিনা দেখে আবার চেষ্টা করুন, অথবা মোবাইল নম্বর দিয়ে ঢুকুন।');
   }
@@ -134,9 +135,9 @@ async function sendEmailCode(settings, email, ip, { purpose = 'signup', password
 }
 
 // Check the e-mail code; on success the e-mail account (made now if new) is returned.
-async function verifyEmailCode(settings, email, code) {
+async function verifyEmailCode(settings: Settings, email?: Loose, code?: Loose) {
   const em = cleanEmail(email);
-  const c = String(code || '').replace(/[০-৯]/g, (d) => '০১২৩৪৫৬৭৮৯'.indexOf(d)).replace(/\D/g, '');
+  const c = String(code || '').replace(/[০-৯]/g, (d) => String('০১২৩৪৫৬৭৮৯'.indexOf(d))).replace(/\D/g, '');
   if (!validEmail(em) || c.length !== 6) throw new AccountError('ইমেইলে আসা ৬ অঙ্কের কোডটা দিন।');
   const row = await db.one(`SELECT id, code_hash, tries, pw_hash FROM customer_email_otps WHERE email=$1 AND NOT used AND expires_at > now() ORDER BY id DESC LIMIT 1`, [em]);
   if (!row) throw new AccountError('কোডের মেয়াদ শেষ। আবার কোড চান।');
@@ -160,7 +161,7 @@ async function verifyEmailCode(settings, email, code) {
 }
 
 // 📧 e-mail + password, no code. Limits: 10 wrong tries / hour per e-mail, 20 / hour per connection.
-async function loginWithPassword(email, password, ip) {
+async function loginWithPassword(email?: Loose, password?: Loose, ip?: Loose) {
   const security = $security;
   const em = cleanEmail(email);
   if (!validEmail(em)) throw new AccountError('সঠিক ইমেইল ঠিকানা দিন।');
@@ -176,13 +177,13 @@ async function loginWithPassword(email, password, ip) {
 }
 
 // ---------- the login cookie: signed customer id + a version (bumped by "log out everywhere") ----------
-function cookieFor(req, settings, cu) {
+function cookieFor(req: ShopRequest, settings: Settings, cu?: Loose) {
   const v = sign(`cu:${cu.id}:${cu.session_ver || 1}:${Date.now()}`, settings.session_secret);
   const secure = String(req.headers['x-forwarded-proto'] || '').includes('https') ? '; Secure' : '';
   return `sm_cust=${encodeURIComponent(v)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${SESSION_DAYS * 86400}${secure}`;
 }
 const CLEAR = 'sm_cust=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax';
-async function current(req, settings) {
+async function current(req: ShopRequest, settings: Settings) {
   if (!on(settings)) return null;
   const v = unsign(parseCookies(req.headers.cookie).sm_cust, settings.session_secret);
   if (!v) return null;
@@ -192,18 +193,18 @@ async function current(req, settings) {
   if (!cu || String(cu.session_ver || 1) !== ver) return null;
   return cu;
 }
-async function logoutEverywhere(id) { await db.q('UPDATE customers SET session_ver = session_ver + 1 WHERE id=$1', [int(id)]); }
+async function logoutEverywhere(id?: Id) { await db.q('UPDATE customers SET session_ver = session_ver + 1 WHERE id=$1', [int(id)]); }
 
 // ---------- what the account page shows ----------
-async function ordersOf(cu, limit = 50) {
+async function ordersOf(cu?: Loose, limit: Loose = 50) {
   return db.q(`SELECT o.id, o.code, o.status, o.total, o.created_at, o.paid_amount, o.payment,
       (SELECT json_agg(json_build_object('id', i.product_id, 'qty', i.qty, 'name', i.name, 'kind', i.kind) ORDER BY i.id) FROM order_items i WHERE i.order_id=o.id) AS items
     FROM orders o WHERE (o.phone=$1 AND $1 <> '') OR o.customer_id=$2 OR o.account_id=$2 ORDER BY o.created_at DESC LIMIT $3`, [cu.phone || '', cu.id, limit]);
 }
-async function addresses(customerId) {
+async function addresses(customerId?: Id) {
   return db.q('SELECT * FROM customer_addresses WHERE customer_id=$1 ORDER BY is_default DESC, id DESC', [int(customerId)]);
 }
-async function saveAddress(customerId, b) {
+async function saveAddress(customerId: Id, b: Body) {
   const O = $orders;
   const dist = O.findDistrict(str(b.district, 60));
   if (!dist) throw new AccountError('জেলা বাছাই করুন।');
@@ -213,7 +214,7 @@ async function saveAddress(customerId, b) {
   if (address.length < 5) throw new AccountError('পূর্ণ ঠিকানা লিখুন।');
   const phone = b.phone ? normalizePhone(b.phone) : '';
   if (phone && !validPhone(phone)) throw new AccountError('মোবাইল নম্বর ঠিক নেই।');
-  const count = (await db.one('SELECT count(*)::int AS n FROM customer_addresses WHERE customer_id=$1', [customerId])).n;
+  const count = (await db.one('SELECT count(*)::int AS n FROM customer_addresses WHERE customer_id=$1', [customerId]))!.n;
   const id = int(b.id);
   if (!id && count >= 10) throw new AccountError('সর্বোচ্চ ১০টা ঠিকানা রাখা যায় — পুরোনো একটা মুছুন।');
   const isDefault = !!b.is_default || count === 0;
@@ -228,8 +229,8 @@ async function saveAddress(customerId, b) {
       [customerId, str(b.label, 30), str(b.name, 80), phone, dist.en, thana, address, isDefault])).rows[0].id;
   });
 }
-async function deleteAddress(customerId, id) { await db.q('DELETE FROM customer_addresses WHERE id=$1 AND customer_id=$2', [int(id), int(customerId)]); }
-async function saveProfile(cu, b) {
+async function deleteAddress(customerId?: Id, id?: Id) { await db.q('DELETE FROM customer_addresses WHERE id=$1 AND customer_id=$2', [int(id), int(customerId)]); }
+async function saveProfile(cu: Loose, b: Body) {
   const name = str(b.name, 80);
   if (name.length < 2) throw new AccountError('আপনার নাম লিখুন।');
   if (cu.email_verified) {

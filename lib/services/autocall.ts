@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // 📞 অটো কল — a robot voice call to the customer right after an order, to confirm it.
 // A website cannot dial from a SIM card by itself, so the call is placed by a Bangladeshi voice-call company
 // (IVR / "press 1 to confirm") through its web API. This file works with any such company:
@@ -13,8 +12,9 @@ import * as $security from '../security';
 import * as $models_orders from '../models/orders';
 import * as $notify from './notify';
 import * as $push from './push';
+import type { Body, Id, Loose } from '../types';
 
-const STATES = {
+const STATES: Record<string, Loose> = {
   calling: ['📞', 'কল যাচ্ছে'],
   confirmed: ['✅', 'কাস্টমার কনফার্ম করেছে (১ চেপেছে)'],
   cancelled: ['❌', 'কাস্টমার বাতিল করেছে (২ চেপেছে)'],
@@ -37,30 +37,30 @@ const MESSAGES = [
   'হ্যালো {{name}}, {{shop}} থেকে আপনার {{items}} এর অর্ডারটি পেয়েছি। মোট {{amount}} টাকা। আমরা কি পাঠিয়ে দেব? পাঠাতে ১, বাতিল করতে ২ চাপুন।',
 ];
 
-function on(s) { return s.autocall_on === '1' && !!s.autocall_url; }
-function secret(s) { return String(s.autocall_token || ''); }
-async function ensureSecret(s) {
+function on(s?: Loose) { return s.autocall_on === '1' && !!s.autocall_url; }
+function secret(s?: Loose) { return String(s.autocall_token || ''); }
+async function ensureSecret(s?: Loose) {
   if (secret(s)) return secret(s);
   const t = crypto.randomBytes(18).toString('base64url');
   await db.setSetting('autocall_token', t);
   return t;
 }
-function callbackUrl(site, token) { return `${String(site || '').replace(/\/+$/, '')}/webhook/autocall/${token}`; }
-const localPhone = (p) => { const d = String(p || '').replace(/\D/g, ''); return d.startsWith('880') ? '0' + d.slice(3) : d; };
-const intlPhone = (p) => { const l = localPhone(p); return l.startsWith('0') ? '880' + l.slice(1) : l; };
-const words = (n) => String(Math.round(Number(n || 0)));
+function callbackUrl(site?: Loose, token?: Loose) { return `${String(site || '').replace(/\/+$/, '')}/webhook/autocall/${token}`; }
+const localPhone = (p?: Loose) => { const d = String(p || '').replace(/\D/g, ''); return d.startsWith('880') ? '0' + d.slice(3) : d; };
+const intlPhone = (p?: Loose) => { const l = localPhone(p); return l.startsWith('0') ? '880' + l.slice(1) : l; };
+const words = (n?: Loose) => String(Math.round(Number(n || 0)));
 
-function fill(tpl, vars, { json = false } = {}) {
+function fill(tpl?: Loose, vars?: Loose, { json = false }: Body = {}) {
   return String(tpl || '').replace(/\{\{\s*(\w+)\s*\}\}/g, (_, k) => {
     const v = vars[k] == null ? '' : String(vars[k]);
     return json ? JSON.stringify(v).slice(1, -1) : v;
   });
 }
-function varsFor(s, o, site, token) {
-  const vars = {
+function varsFor(s?: Loose, o?: Loose, site?: Loose, token?: Loose) {
+  const vars: Record<string, string> = {
     name: str(o.customer_name || o.name, 60) || 'গ্রাহক', phone: localPhone(o.phone), phone_intl: intlPhone(o.phone), phone_plus: '+' + intlPhone(o.phone),
     amount: words(o.total), order_code: o.code, shop: s.store_name || 'সবমিলবে', caller_id: s.autocall_caller || '',
-    items: (o.items || o.lines || []).slice(0, 2).map((i) => str(i.name, 40)).join(' আর ') || 'পণ্যের',
+    items: (o.items || o.lines || []).slice(0, 2).map((i?: Loose) => str(i.name, 40)).join(' আর ') || 'পণ্যের',
     callback_url: callbackUrl(site, token),
   };
   vars.message = fill(s.autocall_message || MESSAGES[0], vars);
@@ -68,13 +68,13 @@ function varsFor(s, o, site, token) {
 }
 
 // Place one call. Returns { ok, ref, error }.
-async function call(s, order, site, { test = false } = {}) {
+async function call(s?: Loose, order?: Loose, site?: Loose, { test = false }: Body = {}) {
   const token = await ensureSecret(s);
   const vars = varsFor(s, order, site, token);
   let body = fill(s.autocall_body || PRESETS.custom.body, vars, { json: true });
   let parsed = null;
   try { parsed = JSON.parse(body); } catch (_) { /* sent as typed */ }
-  const headers = { 'Content-Type': parsed ? 'application/json' : 'application/x-www-form-urlencoded', Accept: 'application/json' };
+  const headers: Record<string, Loose> = { 'Content-Type': parsed ? 'application/json' : 'application/x-www-form-urlencoded', Accept: 'application/json' };
   if (s.autocall_api_key) headers[(s.autocall_header || 'Authorization').trim() || 'Authorization'] = s.autocall_api_key;
   const url = fill(s.autocall_url, vars).trim();
   if (!/^https:\/\//i.test(url)) return { ok: false, error: 'কল কোম্পানির API ঠিকানা https:// দিয়ে শুরু হতে হবে।' };
@@ -93,7 +93,7 @@ async function call(s, order, site, { test = false } = {}) {
 }
 
 // After a new order (from the checkout)
-async function afterOrder(s, order, site) {
+async function afterOrder(s?: Loose, order?: Loose, site?: Loose) {
   if (!on(s)) return null;
   if (s.autocall_only_cod !== '0' && order.payment && order.payment !== 'cod') return null;
   return call(s, order, site);
@@ -101,14 +101,14 @@ async function afterOrder(s, order, site) {
 
 // ---------------------------------------------------------------- the company's reply (webhook)
 // Accepts JSON or form data. Looks for the order (code / reference / call id / phone) and what was pressed.
-function pick(b, keys) {
+function pick(b: Body, keys?: Loose) {
   for (const k of keys) {
-    const v = k.split('.').reduce((o, p) => (o && typeof o === 'object' ? o[p] : undefined), b);
+    const v = k.split('.').reduce((o?: Loose, p?: Loose) => (o && typeof o === 'object' ? o[p] : undefined), b);
     if (v !== undefined && v !== null && String(v) !== '') return String(v);
   }
   return '';
 }
-function resultOf(b) {
+function resultOf(b: Body) {
   const key = pick(b, ['digit', 'dtmf', 'key', 'pressed', 'keypress', 'input', 'Digits', 'data.digit', 'data.dtmf', 'data.keypress']).trim();
   const st = pick(b, ['result', 'status', 'call_status', 'CallStatus', 'event', 'data.status', 'data.result']).toLowerCase();
   if (key === '1' || /^(confirm|confirmed|approve|approved|yes|accept)/.test(st)) return 'confirmed';
@@ -118,7 +118,7 @@ function resultOf(b) {
   if (/(fail|error)/.test(st)) return 'failed';
   return null;
 }
-async function hook(s, token, b) {
+async function hook(s: Loose, token: Loose, b: Body) {
   if (!secret(s) || !$security.safeEqual(String(token || ''), secret(s))) return { status: 401, body: { ok: false } };
   const code = pick(b, ['order_code', 'order_id', 'reference', 'ref', 'custom_id', 'metadata.order_code', 'data.order_code', 'data.reference']);
   const callId = pick(b, ['call_id', 'id', 'callId', 'uuid', 'CallSid', 'data.call_id']);
@@ -140,7 +140,7 @@ async function hook(s, token, b) {
 }
 
 // What happens to the order, and telling the owner
-async function apply(s, row, result) {
+async function apply(s?: Loose, row?: Loose, result?: Loose) {
   const O = $models_orders;
   const [ic, label] = STATES[result] || ['ℹ️', result];
   let did = '';
@@ -149,14 +149,14 @@ async function apply(s, row, result) {
       if (result === 'confirmed' && s.autocall_on_confirm !== 'note') { await O.setStatus(row.order_id, 'confirmed', null); did = ' → অর্ডার "কনফার্ম" করা হলো'; }
       if (result === 'cancelled' && s.autocall_on_cancel === 'cancel') { await O.setStatus(row.order_id, 'cancelled', null); did = ' → অর্ডার বাতিল করা হলো'; }
       if (result === 'cancelled' && (s.autocall_on_cancel || 'hold') === 'hold') { await O.setStatus(row.order_id, 'hold', null); did = ' → অর্ডার "হোল্ডে" রাখা হলো (একবার ফোন করে নিশ্চিত হোন)'; }
-    } catch (e) { did = ` (অবস্থা বদলানো যায়নি: ${e.message})`; }
+    } catch (e: Loose) { did = ` (অবস্থা বদলানো যায়নি: ${e.message})`; }
   }
   await db.logActivity(null, 'autocall', 'order', row.order_id, `${ic} অটো কল: ${label}${did}`).catch(() => {});
   if (s.autocall_notify === '0') return;
   const notify = $notify;
   const site = String(s.site_url || '').replace(/\/+$/, '');
   const text = `${ic} অটো কল — অর্ডার ${row.code}\n${row.customer_name || ''} (${localPhone(row.o_phone)}) · ৳${row.total}\nফলাফল: ${label}${did}\n${site}/admin/orders/${row.order_id}`;
-  const jobs = [];
+  const jobs: Loose[] = [];
   try {
     const push = $push;
     jobs.push(push.count().then((n) => (n ? push.sendAll({ title: `${ic} অটো কল: ${label}`, body: `${row.code} · ${row.customer_name || ''}${did}`, url: `/admin/orders/${row.order_id}`, tag: 'autocall-' + row.order_id }) : null)).catch(() => null));
@@ -166,7 +166,7 @@ async function apply(s, row, result) {
   await Promise.all(jobs);
 }
 
-async function forOrder(orderId) {
+async function forOrder(orderId?: Id) {
   return db.q('SELECT * FROM autocalls WHERE order_id=$1 ORDER BY id DESC LIMIT 10', [orderId]).catch(() => []);
 }
 

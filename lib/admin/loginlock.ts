@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // Admin → নিরাপত্তা → লগইন তালা (owner only):
 // passkeys (fingerprint / Windows Hello / phone QR), and whether the lock is on. (The camera face check was removed.)
 // Also builds the "second check" page shown after the owner's password (see admin/index.js → /admin/verify).
@@ -9,18 +8,19 @@ import * as lock from '../models/loginlock';
 import * as security from '../security';
 import { ASSET_V } from './layout';
 import * as $recovery from './recovery';
+import type { AdminCtx, Body, Loose, ShopRequest } from '../types';
 
 const BASE = '/admin/security/login';
 
 // ---------------------------------------------------------------- challenge cookie for this page
-function chCookie(ctx, value) {
+function chCookie(ctx: AdminCtx, value?: Loose) {
   const secure = String(ctx.req.headers['x-forwarded-proto'] || '').includes('https') ? '; Secure' : '';
   return `sm_ch2=${encodeURIComponent(sign(value, ctx.settings.session_secret))}; Path=/admin; HttpOnly; SameSite=Strict; Max-Age=300${secure}`;
 }
-function chValue(ctx) { return unsign(parseCookies(ctx.req.headers.cookie).sm_ch2, ctx.settings.session_secret); }
+function chValue(ctx: AdminCtx) { return unsign(parseCookies(ctx.req.headers.cookie).sm_ch2, ctx.settings.session_secret); }
 
 // ---------------------------------------------------------------- the second-check page (after the password)
-function verifyPage({ settings, need, mobile, hasPasskey, otherHosts = [], error, blocked }) {
+function verifyPage({ settings, need, mode, mobile, hasPasskey, otherHosts = [], error, blocked }: Body) {
   return html`<div class="auth-card panel ll-verify" data-ll-verify data-need="${need || ''}" data-mode="${mode || ''}"
     data-mobile="${mobile ? '1' : ''}" data-has-passkey="${hasPasskey ? '1' : ''}">
   <p class="logo auth-logo">${settings.store_name}<small> Admin</small></p>
@@ -55,7 +55,7 @@ function verifyPage({ settings, need, mobile, hasPasskey, otherHosts = [], error
 }
 
 // ---------------------------------------------------------------- settings page
-function deviceGuess(req) {
+function deviceGuess(req: ShopRequest) {
   const ua = String(req.headers['user-agent'] || '');
   if (/iPhone/i.test(ua)) return 'iPhone';
   if (/iPad/i.test(ua)) return 'iPad';
@@ -65,17 +65,17 @@ function deviceGuess(req) {
   return 'আমার ডিভাইস';
 }
 
-async function page(ctx, extra = {}) {
+async function page(ctx: AdminCtx, extra: Loose = {}) {
   const u = ctx.user;
   const m = lock.mode(ctx.settings);
   const host = lock.rpId(ctx.req);
   const keys = await lock.passkeys(u.id);
   const keysHere = keys.filter((k) => k.rp_id === host);
-  const ready = {};
+  const ready: Record<string, Loose> = {};
   for (const x of lock.MODES) ready[x] = x === 'off' ? null : await lock.readyFor(x, u.id, ctx.req);
   const hasReset = String(process.env.ADMIN_RESET_CODE || '').trim().length >= 12 || (await $recovery.available()) > 0;
 
-  const modeCard = (x, title, lines, rec) => html`<label class="ll-mode ${m === x ? 'is-on' : ''} ${ready[x] ? 'is-off' : ''}">
+  const modeCard = (x?: Loose, title?: Loose, lines?: Loose, rec?: Loose) => html`<label class="ll-mode ${m === x ? 'is-on' : ''} ${ready[x] ? 'is-off' : ''}">
     <input type="radio" name="mode" value="${x}" ${m === x ? raw('checked') : ''} ${ready[x] && m !== x ? raw('disabled') : ''}>
     <span><b>${title}</b>${rec ? html` <span class="pill pill-green">${rec}</span>` : ''}
       <span class="small muted">${lines}</span>
@@ -137,7 +137,7 @@ ${extra.code ? html`<section class="panel ll-codebox">
 }
 
 // ---------------------------------------------------------------- handlers
-async function saveMode(ctx) {
+async function saveMode(ctx: AdminCtx) {
   const b = await ctx.body();
   const m = lock.MODES.includes(b.mode) ? b.mode : 'off';
   const why = m === 'off' ? null : await lock.readyFor(m, ctx.user.id, ctx.req);
@@ -151,12 +151,12 @@ async function saveMode(ctx) {
   return ctx.res.end();
 }
 
-async function pkOptions(ctx) {
+async function pkOptions(ctx: AdminCtx) {
   const ch = lock.newChallenge('create', ctx.user.id);
   const existing = await lock.passkeysFor(ctx.user.id, lock.rpId(ctx.req));
   return ctx.json(ctx.res, 200, lock.registrationOptions(ctx.req, ctx.user, ctx.settings, ch.challenge, existing), { 'Set-Cookie': chCookie(ctx, ch.value) });
 }
-async function pkAdd(ctx) {
+async function pkAdd(ctx: AdminCtx) {
   const c = lock.readChallenge(chValue(ctx), 'create', ctx.user.id);
   if (!c) return ctx.json(ctx.res, 400, { error: 'সময় শেষ, আবার চাপুন।' });
   if (!(await lock.useOnce(db, c.challenge))) return ctx.json(ctx.res, 400, { error: 'আবার চাপুন।' });
@@ -165,17 +165,17 @@ async function pkAdd(ctx) {
     const r = await lock.addPasskey(ctx.req, ctx.user, c.challenge, b);
     await ctx.log('passkey_add', 'security', ctx.user.id, `পাসকি যোগ: ${r.name} (${r.rp})`);
     return ctx.json(ctx.res, 200, { ok: true });
-  } catch (e) {
+  } catch (e: Loose) {
     if (/duplicate key/.test(e.message)) return ctx.json(ctx.res, 400, { error: 'এই পাসকি আগেই যোগ করা আছে।' });
     return ctx.json(ctx.res, 400, { error: 'যোগ করা যায়নি: ' + e.message });
   }
 }
-async function pkDelete(ctx, m) {
+async function pkDelete(ctx: AdminCtx, m?: Loose) {
   const id = int(m[1]);
   const k = await db.one('SELECT id, name, rp_id FROM owner_passkeys WHERE id=$1 AND staff_id=$2', [id, ctx.user.id]);
   if (!k) return ctx.back(BASE);
   const mode = lock.mode(ctx.settings);
-  if (['passkey', 'both'].includes(mode) && k.rp_id === lock.rpId(ctx.req)) {
+  if (['passkey', 'both'].includes(mode as string) && k.rp_id === lock.rpId(ctx.req)) {
     const here = await lock.passkeysFor(ctx.user.id, k.rp_id);
     if (here.length <= 1) return ctx.fail(BASE, 'এটাই এই ঠিকানার শেষ পাসকি। আগে অন্য ডিভাইসে পাসকি যোগ করুন, অথবা লগইন তালা বন্ধ করুন।');
   }
@@ -184,7 +184,7 @@ async function pkDelete(ctx, m) {
   return ctx.back(BASE, 'saved');
 }
 
-async function makeCode(ctx) {
+async function makeCode(ctx: AdminCtx) {
   if (!(await security.hit(db, 'llcode:' + ctx.user.id, 10, 3600))) return ctx.fail(BASE, 'অনেকবার কোড বানানো হয়েছে, একটু পরে চেষ্টা করুন।');
   const code = await lock.makeCode(ctx.user.id);
   await ctx.log('login_code', 'security', ctx.user.id, 'নতুন ঠিকানার জন্য এক-বারের অনুমতি কোড তৈরি');
@@ -194,7 +194,7 @@ async function makeCode(ctx) {
 ui.MESSAGES.bridged = 'অনুমতি কোড দিয়ে ঢুকেছেন। এখন এই ঠিকানার জন্য নিচে নতুন পাসকি যোগ করুন।';
 
 export const routes = [
-    { method: 'GET', path: BASE, perm: 'owner', handler: (ctx) => page(ctx) },
+    { method: 'GET', path: BASE, perm: 'owner', handler: (ctx: AdminCtx) => page(ctx) },
     { method: 'POST', path: BASE + '/mode', perm: 'owner', handler: saveMode },
     { method: 'POST', path: BASE + '/passkey/options', perm: 'owner', handler: pkOptions },
     { method: 'POST', path: BASE + '/passkey/add', perm: 'owner', handler: pkAdd },

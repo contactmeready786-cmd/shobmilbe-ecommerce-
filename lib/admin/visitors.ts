@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // Admin → মার্কেটিং → ভিজিটর অ্যানালিটিক্স
 // Overview (how many, from where, what they look at), live visitors, every visit with its full journey, and settings.
 import { html, raw, bn, money, fmtDate, str, dateRange, pageNum, pct } from '../util';
@@ -7,53 +6,54 @@ import * as V from '../services/visitors';
 import * as ui from './ui';
 import * as charts from './charts';
 import * as $services_geolock from '../services/geolock';
+import type { AdminCtx, Body, Loose, Settings } from '../types';
 
 const BASE = '/admin/marketing/visitors';
 const PER_PAGE = 50;
 const COUNTRY_PATH = `${BASE}/countries`;
-const DEVICES = { mobile: ['📱', 'মোবাইল'], desktop: ['💻', 'কম্পিউটার'], tablet: ['📲', 'ট্যাবলেট'] };
-const EVENT_LABELS = {
+const DEVICES: Record<string, Loose> = { mobile: ['📱', 'মোবাইল'], desktop: ['💻', 'কম্পিউটার'], tablet: ['📲', 'ট্যাবলেট'] };
+const EVENT_LABELS: Record<string, Loose> = {
   add_to_cart: ['🛒', 'কার্টে যোগ করেছে'], begin_checkout: ['🧾', 'চেকআউট শুরু করেছে'], purchase: ['✅', 'অর্ডার করেছে'],
   search: ['🔎', 'খুঁজেছে'], contact: ['📞', 'যোগাযোগ বাটনে চাপ দিয়েছে'],
 };
 
 // ---------------------------------------------------------------- small helpers
-function dur(sec) {
+function dur(sec?: Loose) {
   const s = Math.max(0, Math.round(Number(sec) || 0));
   if (s < 60) return bn(s) + ' সে';
   if (s < 3600) return bn(Math.floor(s / 60)) + ' মি' + (s % 60 ? ' ' + bn(s % 60) + ' সে' : '');
   return bn(Math.floor(s / 3600)) + ' ঘ ' + bn(Math.floor((s % 3600) / 60)) + ' মি';
 }
-function ago(d) {
+function ago(d?: Loose) {
   const s = Math.max(0, Math.round((Date.now() - new Date(d).getTime()) / 1000));
   if (s < 60) return 'এইমাত্র';
   if (s < 3600) return bn(Math.floor(s / 60)) + ' মিনিট আগে';
   if (s < 86400) return bn(Math.floor(s / 3600)) + ' ঘণ্টা আগে';
   return fmtDate(d);
 }
-function device(d) { const x = DEVICES[d] || ['🖥️', d || 'অজানা']; return html`<span title="${x[1]}">${x[0]} ${x[1]}</span>`; }
-function where(row) {
+function device(d?: Loose) { const x = DEVICES[d] || ['🖥️', d || 'অজানা']; return html`<span title="${x[1]}">${x[0]} ${x[1]}</span>`; }
+function where(row?: Loose) {
   const p = V.place(row);
   return html`<span class="va-place" title="${p.country}">${p.flag} ${p.text}</span>${netBadge(row)}${row.suspicious ? html` <a class="pill pill-red va-alert" href="/admin/security/threats?ip=${encodeURIComponent(row.ip)}" title="এই IP থেকে সাইটের ক্ষতি করার চেষ্টা হয়েছে — দেখুন">🚨 সন্দেহজনক</a>` : ''}`;
 }
 // 🛡️ = foreign IP but the phone's clock is set to Bangladesh (VPN/proxy); 🌍 = really abroad
-const NET = {
+const NET: Record<string, Loose> = {
   vpn: ['🛡️', 'VPN / প্রক্সি', 'IP বিদেশের, কিন্তু ফোন/কম্পিউটারের ঘড়ি বাংলাদেশের সময়ে — সম্ভবত বাংলাদেশ থেকেই VPN বা প্রক্সি দিয়ে এসেছে', 'pill-amber'],
   abroad: ['🌍', 'বিদেশ থেকে', 'IP আর ঘড়ি দুটোই বিদেশের — দেশের বাইরে থেকে এসেছে', 'pill-blue'],
 };
-function netBadge(row) {
+function netBadge(row?: Loose) {
   const n = NET[row.net];
   return n ? html` <span class="pill ${n[3]}" title="${n[2]}">${n[0]} ${n[1]}</span>` : '';
 }
 // the delivery address the visitor gave when ordering (this visit or an earlier one)
-function orderAddr(row, long) {
+function orderAddr(row?: Loose, long?: Loose) {
   const parts = [row.o_thana, row.o_district].filter(Boolean).join(', ');
   const addr = String(row.o_address || '');
   if (!parts && !addr) return '';
   const text = long ? [addr, parts].filter(Boolean).join(', ') : parts || (addr.length > 40 ? addr.slice(0, 40) + '…' : addr);
   return html`<br><small class="va-addr" translate="no" title="${addr}">🏠 ${text}</small>`;
 }
-function phoneName(row) {
+function phoneName(row?: Loose) {
   const brand = row.brand || '';
   const model = row.model || '';
   // "Apple" + "iPhone 13" → "iPhone 13"; "Samsung" + "SM-A536E" → "Samsung SM-A536E"; "Xiaomi" + "Redmi Note 12" → as is
@@ -61,11 +61,11 @@ function phoneName(row) {
   if (brand && model.toLowerCase().startsWith(brand.toLowerCase())) return model;
   return [brand, model].filter(Boolean).join(' ');
 }
-function deviceCell(row, extra) {
+function deviceCell(row?: Loose, extra?: Loose) {
   const name = phoneName(row);
   return html`${device(row.device)}${name ? html`<br><b class="small" translate="no">${name}</b>` : ''}<br><small class="muted">${row.browser}${extra ? ' · ' + row.os : ''}</small>`;
 }
-function pageName(path, title, settings) {
+function pageName(path: Loose, title: Loose, settings: Settings) {
   const store = settings.store_name || '';
   let t = String(title || '').replace(new RegExp('\\s*\\|\\s*' + store.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '.*$'), '').trim();
   const p = String(path || '');
@@ -76,25 +76,25 @@ function pageName(path, title, settings) {
   else if (p.startsWith('/track')) t = 'অর্ডার ট্র্যাক';
   return t || p;
 }
-function pageCell(path, title, settings) {
+function pageCell(path: Loose, title: Loose, settings: Settings) {
   return html`<a href="${path}" target="_blank" rel="noopener" class="va-page"><b>${pageName(path, title, settings)}</b><small>${decodeSafe(path)}</small></a>`;
 }
-function decodeSafe(p) { try { return decodeURI(p); } catch (_) { return p; } }
-function sourcePill(row) {
-  const cls = { social: 'pill-blue', organic: 'pill-green', cpc: 'pill-amber', paid: 'pill-amber', referral: '', direct: 'pill-grey' }[row.medium] || '';
+function decodeSafe(p?: Loose) { try { return decodeURI(p); } catch (_) { return p; } }
+function sourcePill(row?: Loose) {
+  const cls = (<Record<string, string>>{ social: 'pill-blue', organic: 'pill-green', cpc: 'pill-amber', paid: 'pill-amber', referral: '', direct: 'pill-grey' })[row.medium] || '';
   return html`<span class="pill ${cls}" title="${row.medium || ''}${row.campaign ? ' · ' + row.campaign : ''}">${row.source || 'অজানা'}</span>`;
 }
-function who(row) {
+function who(row?: Loose) {
   if (row.visitor_name || row.visitor_phone) return html`<span class="va-who">👤 <b>${row.visitor_name || ''}</b> ${row.visitor_phone ? html`<small>${row.visitor_phone}</small>` : ''}</span>`;
   return html`<span class="muted small">${row.total_visits > 1 ? `পুরনো ভিজিটর · ${bn(row.total_visits)}বার এসেছে` : (row.is_new ? 'নতুন ভিজিটর' : 'পুরনো ভিজিটর')}</span>`;
 }
-function rate(a, b) { return b ? pct((100 * a) / b) : '—'; }
+function rate(a: Loose, b: Loose) { return b ? pct((100 * a) / b) : '—'; }
 
-function tabs(active, live) {
+function tabs(active?: Loose, live?: Loose) {
   const items = [['', '📊 সারাংশ'], ['live', `🟢 এখন লাইভ${live !== undefined ? ` (${bn(live)})` : ''}`], ['sessions', '🧭 সব ভিজিট'], ['countries', '🌍 দেশ ব্লক'], ['settings', '⚙️ সেটিংস']];
   return html`<nav class="tabs va-tabs">${items.map(([k, l]) => html`<a class="tab ${active === k ? 'on' : ''}" href="${k === 'countries' ? COUNTRY_PATH : BASE + (k ? '?tab=' + k : '')}">${l}</a>`)}</nav>`;
 }
-function rangeChips(from, to, extra = '') {
+function rangeChips(from?: Loose, to?: Loose, extra: Loose = '') {
   const presets = [[1, 'আজ'], [7, '৭ দিন'], [30, '৩০ দিন'], [90, '৯০ দিন']];
   return html`<form class="date-filter" method="get" action="${BASE}">
     ${raw(extra)}
@@ -104,14 +104,14 @@ function rangeChips(from, to, extra = '') {
     <button class="btn btn-sm">দেখুন</button>
   </form>`;
 }
-function offNotice(settings) {
+function offNotice(settings: Settings) {
   return settings.visitor_tracking === '0'
     ? html`<p class="flash flash-error">ভিজিটর ট্র্যাকিং এখন <b>বন্ধ</b> আছে, তাই নতুন তথ্য জমা হচ্ছে না। <a href="${BASE}?tab=settings">সেটিংস থেকে চালু করুন</a>।</p>` : '';
 }
 
 // ---------------------------------------------------------------- overview
 // 🔄 Owner-only: start counting from zero (e.g. after own/test visits). Shown on the main page and in settings.
-function resetBox(ctx) {
+function resetBox(ctx: AdminCtx) {
   if (ctx.user.role !== 'owner') return '';
   const at = ctx.settings.analytics_reset_at;
   return html`<form method="post" action="${BASE}/clear" class="reset-box" style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:0 0 14px"
@@ -121,7 +121,7 @@ function resetBox(ctx) {
   </form>`;
 }
 
-async function overviewPage(ctx) {
+async function overviewPage(ctx: AdminCtx) {
   const { from, to } = dateRange(ctx.query, 7);
   const d = await V.overview(from, to);
   const k = d.k;
@@ -136,13 +136,13 @@ ${rangeChips(from, to)}
 <p class="muted small">${fmtDate(from + 'T00:00:00+06:00', false)} থেকে ${fmtDate(to + 'T00:00:00+06:00', false)} পর্যন্ত (বাংলাদেশ সময়)</p>
 <div class="kpis kpis-tight">
   ${ui.kpi('এখন সাইটে আছে', html`<span class="live-dot"></span>${bn(d.live)} জন`, `গত ${bn(V.LIVE_MINUTES)} মিনিটে সক্রিয়`, 'kpi-green', `${BASE}?tab=live`)}
-  ${ui.kpi('ভিজিটর (আলাদা মানুষ)', bn(k.visitors), `নতুন ${bn(k.new_visitors)} জন`)}
-  ${ui.kpi('ভিজিট (সেশন)', bn(k.sessions), `প্রতি ভিজিটে গড়ে ${bn(k.sessions ? (k.pageviews / k.sessions).toFixed(1) : 0)} পেজ`)}
-  ${ui.kpi('পেজ দেখা হয়েছে', bn(k.pageviews), '')}
-  ${ui.kpi('গড় সময় সাইটে', dur(k.avg_duration), 'প্রতি ভিজিটে')}
-  ${ui.kpi('বাউন্স রেট', rate(k.bounces, k.sessions), 'এক পেজ দেখেই চলে গেছে')}
-  ${ui.kpi('বিদেশ / VPN', html`🌍 ${bn(d.net.abroad)} · 🛡️ ${bn(d.net.vpn)}`, `বাংলাদেশ থেকে ${bn(d.net.bd)}টি ভিজিট`, '', `${BASE}?tab=sessions&net=vpn&from=${from}&to=${to}`)}
-  ${ui.kpi('অর্ডার হয়েছে', bn(k.orders), `কনভার্সন ${rate(k.orders, k.sessions)}`, 'kpi-blue', `${BASE}?tab=sessions&ordered=1&from=${from}&to=${to}`)}
+  ${ui.kpi('ভিজিটর (আলাদা মানুষ)', bn(k!.visitors), `নতুন ${bn(k!.new_visitors)} জন`)}
+  ${ui.kpi('ভিজিট (সেশন)', bn(k!.sessions), `প্রতি ভিজিটে গড়ে ${bn(k!.sessions ? (k!.pageviews / k!.sessions).toFixed(1) : 0)} পেজ`)}
+  ${ui.kpi('পেজ দেখা হয়েছে', bn(k!.pageviews), '')}
+  ${ui.kpi('গড় সময় সাইটে', dur(k!.avg_duration), 'প্রতি ভিজিটে')}
+  ${ui.kpi('বাউন্স রেট', rate(k!.bounces, k!.sessions), 'এক পেজ দেখেই চলে গেছে')}
+  ${ui.kpi('বিদেশ / VPN', html`🌍 ${bn(d.net!.abroad)} · 🛡️ ${bn(d.net!.vpn)}`, `বাংলাদেশ থেকে ${bn(d.net!.bd)}টি ভিজিট`, '', `${BASE}?tab=sessions&net=vpn&from=${from}&to=${to}`)}
+  ${ui.kpi('অর্ডার হয়েছে', bn(k!.orders), `কনভার্সন ${rate(k!.orders, k!.sessions)}`, 'kpi-blue', `${BASE}?tab=sessions&ordered=1&from=${from}&to=${to}`)}
 </div>
 
 <div class="va-grid va-grid-2-1">
@@ -151,7 +151,7 @@ ${rangeChips(from, to)}
 </section>
   <section class="panel"><h2>কেনাকাটার ধাপ (ফানেল)</h2>
     <p class="muted small">কতজন কোন ধাপ পর্যন্ত গেছে — কোথায় বেশি মানুষ থেমে যাচ্ছে বুঝতে পারবেন।</p>
-    ${funnel([['সাইটে এসেছে', f.all_sessions], ['পণ্য দেখেছে', f.viewed], ['কার্টে যোগ করেছে', f.carted], ['চেকআউটে গেছে', f.checkout], ['অর্ডার করেছে', f.ordered]])}
+    ${funnel([['সাইটে এসেছে', f!.all_sessions], ['পণ্য দেখেছে', f!.viewed], ['কার্টে যোগ করেছে', f!.carted], ['চেকআউটে গেছে', f!.checkout], ['অর্ডার করেছে', f!.ordered]])}
   </section>
 </div>
 
@@ -215,9 +215,9 @@ ${rangeChips(from, to)}
   return ctx.page('ভিজিটর অ্যানালিটিক্স', body, 'visitors');
 }
 
-function funnel(steps) {
+function funnel(steps?: Loose) {
   const top = steps[0][1] || 0;
-  return html`<ol class="funnel">${steps.map(([label, n], i) => {
+  return html`<ol class="funnel">${steps.map(([label, n]: Loose[], i?: Loose) => {
     const w = top ? Math.max(3, (100 * n) / top) : 0;
     const prev = i ? steps[i - 1][1] : null;
     return html`<li><span class="fn-label">${label}</span><span class="fn-track"><span class="fn-fill" style="width:${w.toFixed(1)}%"></span></span>
@@ -226,7 +226,7 @@ function funnel(steps) {
 }
 
 // ---------------------------------------------------------------- live
-async function livePage(ctx) {
+async function livePage(ctx: AdminCtx) {
   const rows = await V.liveSessions();
   const s = ctx.settings;
   const body = html`<div class="title-row"><h1>ভিজিটর অ্যানালিটিক্স</h1></div>
@@ -248,7 +248,7 @@ ${tabs('live', rows.length)}${offNotice(s)}
 }
 
 // ---------------------------------------------------------------- all visits
-async function sessionsPage(ctx) {
+async function sessionsPage(ctx: AdminCtx) {
   const page = pageNum(ctx.query);
   const r = ctx.query.get('from') || ctx.query.get('to') ? dateRange(ctx.query, 30) : { from: '', to: '' };
   const f = {
@@ -300,15 +300,15 @@ ${ui.pager(total, page, PER_PAGE, BASE + '?' + qs)}`
 }
 
 // ---------------------------------------------------------------- one visit
-async function sessionPage(ctx, m) {
-  const x = await V.getSession(m[1]);
+async function sessionPage(ctx: AdminCtx, m?: Loose) {
+  const x: Loose = await V.getSession(m[1]);
   if (!x) return ctx.back(`${BASE}?tab=sessions`);
   const s = ctx.settings;
   // one timeline: pages and actions in the order they happened
-  const timeline = [
-    ...x.views.map((v) => ({ at: v.created_at, kind: 'page', v })),
-    ...x.events.map((e) => ({ at: e.created_at, kind: 'event', e })),
-  ].sort((a, b) => new Date(a.at) - new Date(b.at) || (a.kind === 'page' ? -1 : 1));
+  const timeline: Loose[] = [
+    ...x.views.map((v: Loose) => ({ at: v.created_at, kind: 'page', v })),
+    ...x.events.map((e: Loose) => ({ at: e.created_at, kind: 'event', e })),
+  ].sort((a: Loose, b: Loose) => +new Date(a.at) - +new Date(b.at) || (a.kind === 'page' ? -1 : 1));
   const p = V.place(x);
   const body = html`<p class="crumbs"><a href="${BASE}?tab=sessions">← সব ভিজিট</a></p>
 <div class="title-row"><h1>একটি ভিজিটের বিস্তারিত</h1></div>
@@ -353,16 +353,16 @@ async function sessionPage(ctx, m) {
 </section>
 ${x.others.length ? html`<section class="panel"><h2>এই ভিজিটরের আগের/পরের ভিজিট</h2>
   <div class="table-wrap"><table class="table"><thead><tr><th>কখন</th><th>কোথা থেকে</th><th class="num">পেজ</th><th class="num">সময়</th><th>ফলাফল</th></tr></thead>
-  <tbody>${x.others.map((o) => html`<tr><td><a href="${BASE}/s/${o.id}">${fmtDate(o.started_at)}</a></td><td>${o.source}</td><td class="num">${bn(o.pageviews)}</td><td class="num">${dur(o.duration)}</td>
+  <tbody>${x.others.map((o: Loose) => html`<tr><td><a href="${BASE}/s/${o.id}">${fmtDate(o.started_at)}</a></td><td>${o.source}</td><td class="num">${bn(o.pageviews)}</td><td class="num">${dur(o.duration)}</td>
     <td>${o.order_code ? html`<span class="pill pill-green">অর্ডার ${o.order_code}</span>` : ''}</td></tr>`)}</tbody></table></div></section>` : ''}`;
   return ctx.page('ভিজিটের বিস্তারিত', body, 'visitors');
 }
-function fmtTime(d) {
+function fmtTime(d?: Loose) {
   return bn(new Date(d).toLocaleTimeString('en-GB', { timeZone: 'Asia/Dhaka', hour: '2-digit', minute: '2-digit', second: '2-digit' }));
 }
 
 // ---------------------------------------------------------------- settings
-async function settingsPage(ctx) {
+async function settingsPage(ctx: AdminCtx) {
   const s = ctx.settings;
   if (ctx.method === 'POST') {
     const b = await ctx.body();
@@ -373,7 +373,7 @@ async function settingsPage(ctx) {
     return ctx.back(`${BASE}?tab=settings`, 'saved');
   }
   const live = await V.liveSessions();
-  const sw = (name, on, title, desc) => html`<label class="switch-row">
+  const sw = (name?: Loose, on?: Loose, title?: Loose, desc?: Loose) => html`<label class="switch-row">
     <span class="switch-text"><b>${title}</b><small>${desc}</small></span>
     <span class="switch"><input type="checkbox" name="${name}" value="1" ${on ? raw('checked') : ''}><span class="switch-ui" aria-hidden="true"></span></span>
     <span class="switch-state" data-on="চালু" data-off="বন্ধ"></span></label>`;
@@ -401,7 +401,7 @@ ${tabs('settings', live.length)}${ui.flash(ctx.flash)}
       <li>✅ কেউ অর্ডার করলে তার নাম-ফোন সেই ভিজিটের সাথে জুড়ে যায়, তাই কোন কাস্টমার কোন পথে এসে কিনলো দেখতে পাবেন।</li>
       <li>✅ গুগল/ফেসবুকের রোবট (bot) গোনা হয় না।</li>
     </ul>
-    <p class="muted small">এখন জমা আছে: ${bn(size.sessions)}টি ভিজিট, ${bn(size.views)}টি পেজ ভিউ (জায়গা লাগছে ${size.size})।</p>
+    <p class="muted small">এখন জমা আছে: ${bn(size!.sessions)}টি ভিজিট, ${bn(size!.views)}টি পেজ ভিউ (জায়গা লাগছে ${size!.size})।</p>
     ${resetBox(ctx)}
   </section>
 </div>`;
@@ -410,13 +410,13 @@ ${tabs('settings', live.length)}${ui.flash(ctx.flash)}
 
 // ---------------------------------------------------------------- 🌍 দেশ ব্লক (owner only)
 // Tick the countries that may open the shop; everyone else sees "not available in your country" (services/geolock.js).
-async function countriesPage(ctx) {
+async function countriesPage(ctx: AdminCtx) {
   const G = $services_geolock;
   const s = ctx.settings;
   const mine = G.countryOf(ctx.req);
   if (ctx.method === 'POST') {
     const b = await ctx.body();
-    const picked = [...new Set([].concat(b.c || []).map((x) => String(x).toUpperCase()).filter((x) => Object.prototype.hasOwnProperty.call(G.COUNTRIES, x)))];
+    const picked = [...new Set(([] as Loose[]).concat(b.c || []).map((x) => String(x).toUpperCase()).filter((x) => Object.prototype.hasOwnProperty.call(G.COUNTRIES, x)))];
     const on = !!b.geo_lock_on;
     if (on && !picked.length) return ctx.fail(COUNTRY_PATH, 'চালু করতে অন্তত একটা দেশে টিক দিন (যেমন বাংলাদেশ)।');
     await db.setMany({ geo_lock_on: on ? '1' : '0', geo_allow: picked.join(','), geo_tz_check: b.geo_tz_check ? '1' : '0', geo_vpn_home: b.geo_vpn_home ? '1' : '0' });
@@ -436,8 +436,8 @@ async function countriesPage(ctx) {
   const tzBlocked = blocked.filter((r) => r.why === 'tz').reduce((a, r) => a + r.n, 0);
   // ticked first, then countries that sent visitors (most first), then the rest by name
   const list = Object.keys(G.COUNTRIES).map((c) => ({ c, bn: V.countryName(c), en: G.countryName(c, 'en'), n: seen[c] || 0, on: allow.has(c) }))
-    .sort((a, b) => (b.on - a.on) || (b.n - a.n) || a.en.localeCompare(b.en));
-  const sw = (name, on, title, desc) => html`<label class="switch-row">
+    .sort((a: Loose, b: Loose) => (b.on - a.on) || (b.n - a.n) || a.en.localeCompare(b.en));
+  const sw = (name?: Loose, on?: Loose, title?: Loose, desc?: Loose) => html`<label class="switch-row">
     <span class="switch-text"><b>${title}</b><small>${desc}</small></span>
     <span class="switch"><input type="checkbox" name="${name}" value="1" ${on ? raw('checked') : ''}><span class="switch-ui" aria-hidden="true"></span></span>
     <span class="switch-state" data-on="চালু" data-off="বন্ধ"></span></label>`;
@@ -499,14 +499,14 @@ upd();})();`)}</script>`;
   return ctx.page('দেশ ব্লক', body, 'visitors');
 }
 
-async function clearData(ctx) {
+async function clearData(ctx: AdminCtx) {
   await V.clearAll();
   await ctx.reloadSettings();
   await ctx.log('settings', 'marketing', null, 'ভিজিটর অ্যানালিটিক্সের সব হিসাব শূন্য করা হয়েছে');
   return ctx.back(BASE, 'deleted');
 }
 
-async function main(ctx) {
+async function main(ctx: AdminCtx) {
   const tab = ctx.query.get('tab') || '';
   if (ctx.method === 'POST' || tab === 'settings') return settingsPage(ctx);
   if (tab === 'live') return livePage(ctx);
