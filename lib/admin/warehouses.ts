@@ -1,16 +1,16 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // Admin → স্টক ও কেনাকাটা → 🏬 গুদাম ও শাখা: more than one place where goods are kept (a second store, a branch shop).
 // Each has its own count; the main store (where online orders are packed) is the rest of the total stock.
 import { html, int, str, bn, fmtDate } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
 import * as W from '../models/warehouses';
+import type { AdminCtx, Body, Loose } from '../types';
 
 const BASE = '/admin/warehouses';
-const REASON = { transfer: '🔁 স্থানান্তর', sale: '🧾 দোকানে বিক্রি', sale_cancel: '↩️ বিক্রি বাতিল', count: '🔢 গণনা ঠিক' };
+const REASON: Record<string, string> = { transfer: '🔁 স্থানান্তর', sale: '🧾 দোকানে বিক্রি', sale_cancel: '↩️ বিক্রি বাতিল', count: '🔢 গণনা ঠিক' };
 
 // "SKU / barcode / name" typed or scanned → one product (variants are separate products)
-async function findProduct(code) {
+async function findProduct(code?: Loose) {
   const c = str(code, 100);
   if (!c) return null;
   const exact = await db.one(`SELECT id, name, stock, variant_count FROM products WHERE (upper(barcode)=upper($1) OR lower(sku)=lower($1)) AND variant_count = 0 LIMIT 1`, [c]);
@@ -19,8 +19,8 @@ async function findProduct(code) {
   return rows.length === 1 ? rows[0] : null;
 }
 
-function transferForm(stores, { from = '', to = '', back = BASE } = {}) {
-  const opts = [['0', '🏠 মূল গুদাম (অনলাইন)'], ...stores.filter((w) => w.active).map((w) => [w.id, `${w.is_shop ? '🏪' : '🏬'} ${w.name}`])];
+function transferForm(stores?: Loose, { from = '', to = '', back = BASE }: Body = {}) {
+  const opts = [['0', '🏠 মূল গুদাম (অনলাইন)'], ...stores.filter((w?: Loose) => w.active).map((w?: Loose) => [w.id, `${w.is_shop ? '🏪' : '🏬'} ${w.name}`])];
   return html`<form method="post" action="${BASE}" class="form"><input type="hidden" name="action" value="transfer"><input type="hidden" name="back" value="${back}">
     ${ui.field('পণ্য (SKU, বারকোড স্ক্যান বা নাম)', ui.input('code', '', { required: true, maxlength: 100, autocomplete: 'off', placeholder: 'যেমন 125 বা SB000125' }))}
     <div class="field-row">${ui.field('কোথা থেকে', ui.select('from', opts, from || '0'))}${ui.field('কোথায়', ui.select('to', opts, to || (stores[0] ? stores[0].id : '0')))}
@@ -29,7 +29,7 @@ function transferForm(stores, { from = '', to = '', back = BASE } = {}) {
     <button class="btn btn-sm">🔁 স্থানান্তর করুন</button></form>`;
 }
 
-async function listPage(ctx) {
+async function listPage(ctx: AdminCtx) {
   if (ctx.method === 'POST') {
     const b = await ctx.body();
     const back = /^\/admin\/warehouses(\/\d+)?$/.test(String(b.back || '')) ? b.back : BASE;
@@ -75,8 +75,8 @@ ${ui.helpBox('কীভাবে কাজ করে', html`<ol class="steps">
   <li>মোট স্টক (সব জায়গা মিলিয়ে) আগের মতোই ইনভেন্টরি পেজে দেখা যায়।</li>
 </ol>`)}
 <div class="kpis kpis-tight">
-  ${ui.kpi('মোট স্টক (সব জায়গা)', bn(totals.units), 'পিস')}
-  ${ui.kpi('🏠 মূল গুদামে', bn(totals.units - inBranches), 'অনলাইন অর্ডার এখান থেকে', 'kpi-blue')}
+  ${ui.kpi('মোট স্টক (সব জায়গা)', bn(totals!.units), 'পিস')}
+  ${ui.kpi('🏠 মূল গুদামে', bn(totals!.units - inBranches), 'অনলাইন অর্ডার এখান থেকে', 'kpi-blue')}
   ${ui.kpi('শাখাগুলোতে', bn(inBranches), `${bn(stores.length)}টি গুদাম/শাখা`)}
   ${problems.length ? ui.kpi('মিলছে না', bn(problems.length), 'নিচে দেখুন', 'kpi-alert') : ''}
 </div>
@@ -85,7 +85,7 @@ ${problems.length ? html`<section class="panel"><h2>⚠️ এই পণ্য�
 <div class="two-col">
   <section class="panel table-wrap"><h2>সব জায়গা</h2>
     <table class="table compact"><thead><tr><th>নাম</th><th>ধরন</th><th class="num">পণ্য</th><th class="num">পিস</th><th></th></tr></thead><tbody>
-      <tr><td><b>🏠 মূল গুদাম</b><br><span class="small muted">অনলাইন অর্ডার</span></td><td class="small">মূল</td><td></td><td class="num">${bn(totals.units - inBranches)}</td><td><a class="btn btn-sm btn-ghost" href="/admin/inventory">ইনভেন্টরি</a></td></tr>
+      <tr><td><b>🏠 মূল গুদাম</b><br><span class="small muted">অনলাইন অর্ডার</span></td><td class="small">মূল</td><td></td><td class="num">${bn(totals!.units - inBranches)}</td><td><a class="btn btn-sm btn-ghost" href="/admin/inventory">ইনভেন্টরি</a></td></tr>
       ${stores.map((w) => html`<tr class="${w.active ? '' : 'row-off'}"><td><a href="${BASE}/${w.id}"><b>${w.name}</b></a>${w.address ? html`<br><span class="small muted">${w.address}</span>` : ''}</td>
         <td class="small">${w.is_shop ? '🏪 দোকান (POS)' : '🏬 গুদাম'}${w.active ? '' : ' · বন্ধ'}</td><td class="num">${bn(w.products)}</td><td class="num">${bn(w.units)}</td>
         <td><a class="btn btn-sm btn-ghost" href="${BASE}/${w.id}">খুলুন</a></td></tr>`)}
@@ -105,16 +105,16 @@ ${problems.length ? html`<section class="panel"><h2>⚠️ এই পণ্য�
   return ctx.page('গুদাম ও শাখা', body, 'warehouses');
 }
 
-function movesTable(moves) {
+function movesTable(moves?: Loose) {
   if (!moves.length) return html`<p class="muted">এখনো কিছু নেই।</p>`;
   return html`<table class="table compact"><thead><tr><th>সময়</th><th>পণ্য</th><th class="num">পরিমাণ</th><th>কোথা থেকে → কোথায়</th><th>কী</th><th>কে</th></tr></thead><tbody>
-  ${moves.map((m) => html`<tr><td class="small nowrap">${fmtDate(m.created_at)}</td><td>${m.name || '—'} <span class="small muted">${m.sku || ''}</span></td><td class="num">${bn(m.qty)}</td>
+  ${moves.map((m?: Loose) => html`<tr><td class="small nowrap">${fmtDate(m.created_at)}</td><td>${m.name || '—'} <span class="small muted">${m.sku || ''}</span></td><td class="num">${bn(m.qty)}</td>
     <td class="small">${m.from_wh ? m.from_name || '—' : m.reason === 'sale_cancel' ? 'ক্রেতা' : '🏠 মূল'} → ${m.to_wh ? m.to_name || '—' : m.reason === 'sale' ? 'ক্রেতা' : '🏠 মূল'}</td>
     <td class="small">${REASON[m.reason] || m.reason}${m.order_code ? html` <a href="/admin/orders/${m.ref_id}">${m.order_code}</a>` : ''}${m.note ? ` · ${m.note}` : ''}</td><td class="small">${m.staff_name || ''}</td></tr>`)}
   </tbody></table>`;
 }
 
-async function storePage(ctx, m) {
+async function storePage(ctx: AdminCtx, m?: Loose) {
   const w = await W.get(int(m[1]));
   if (!w) return ctx.redirect(ctx.res, BASE);
   const q = str(ctx.query.get('q'), 60);

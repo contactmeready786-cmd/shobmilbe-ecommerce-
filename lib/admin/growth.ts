@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // Admin → গ্রোথ গাইড (owner only): what to set up and what to do every day / week so the shop
 // reaches more people on Google and Facebook and sells more — checked against the shop's real state —
 // plus the privacy guard that keeps secrets away from robots.
@@ -8,16 +7,17 @@ import * as ui from './ui';
 import * as $services_research from '../services/research';
 import * as $setupmarks from './setupmarks';
 import * as $liveguide from './liveguide';
+import type { AdminCtx, Body, Loose } from '../types';
 
-const ok = (b) => (b ? '✅' : '❌');
-const pct = (a, b) => (b ? Math.round((a * 100) / b) : 0);
+const ok = (b: Body) => (b ? '✅' : '❌');
+const pct = (a: Loose, b: Loose) => (b ? Math.round((a * 100) / b) : 0);
 
-function isoWeek(d = new Date()) {
+function isoWeek(d: Loose = new Date()) {
   const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
   const day = t.getUTCDay() || 7;
   t.setUTCDate(t.getUTCDate() + 4 - day);
   const y = new Date(Date.UTC(t.getUTCFullYear(), 0, 1));
-  return `${t.getUTCFullYear()}-${String(Math.ceil(((t - y) / 864e5 + 1) / 7)).padStart(2, '0')}`;
+  return `${t.getUTCFullYear()}-${String(Math.ceil(((+t - +y) / 864e5 + 1) / 7)).padStart(2, '0')}`;
 }
 
 // Things to do every week (ticks are remembered for this week only, then start fresh).
@@ -32,7 +32,7 @@ const WEEKLY = [
   ['prices', 'বাজারের দামের সাথে মিলিয়ে দেখা', 'মার্কেট রিসার্চে "আপনার দাম বাজারের চেয়ে বেশি" লেখা পণ্যের দাম ঠিক করুন।'],
 ];
 
-async function page(ctx) {
+async function page(ctx: AdminCtx) {
   const s = ctx.settings;
   const week = isoWeek();
   const weekKey = `growth_week_${week}`;
@@ -45,7 +45,7 @@ async function page(ctx) {
       return ctx.back('/admin/growth', 'saved');
     }
     if (b.form === 'week') {
-      const done = [].concat(b.done || []).filter((k) => WEEKLY.some((w) => w[0] === k));
+      const done = ([] as Loose[]).concat(b.done || []).filter((k) => WEEKLY.some((w) => w[0] === k));
       await db.setSetting(weekKey, JSON.stringify(done));
       return ctx.back('/admin/growth#week', 'saved');
     }
@@ -72,13 +72,13 @@ async function page(ctx) {
     db.one(`SELECT count(*)::int AS n FROM banners WHERE active AND placement='slider'`),
     db.one(`SELECT count(*)::int AS n FROM pages WHERE active`),
   ]);
-  let missed = [];
+  let missed: Loose[] = [];
   try { missed = (await $services_research.demand(30)).searches.filter((x) => !x.found).slice(0, 8); } catch (_) { missed = []; }
-  const blogDays = blog.last ? Math.floor((Date.now() - new Date(blog.last).getTime()) / 864e5) : null;
+  const blogDays = blog!.last ? Math.floor((Date.now() - new Date(blog!.last).getTime()) / 864e5) : null;
   const domainOk = s.site_url && !/vercel\.app/.test(s.site_url);
 
   // ---- set-up checklist: [done, title, why, how, link]
-  const groups = [
+  const groups: Loose[] = [
     ['🔎 Google-এ খুঁজে পাওয়া', [
       [domainOk, 'নিজের ডোমেইন (shobmilbe.com) সাইটে লাগানো', 'গুগল আর কাস্টমার দুজনেই নিজের ডোমেইনকে বেশি বিশ্বাস করে।', 'ডোমেইন সেটআপ পেজে ধাপগুলো অনুসরণ করুন, তারপর SEO পেজে ওয়েবসাইটের ঠিকানা দিন।', '/admin/integrations/domain', 'domain'],
       [!!s.google_site_verification, 'Google Search Console যুক্ত করা', 'গুগল কোন পণ্য কোন শব্দে দেখাচ্ছে, কোনো সমস্যা আছে কি না — সব জানা যায়। নতুন সাইট দ্রুত গুগলে উঠে।', 'search.google.com/search-console → Add property → HTML tag কোড কপি করে "পিক্সেল ও ট্র্যাকিং" পেজে বসান → Verify। তারপর Sitemaps এ লিখুন: sitemap.xml', '/admin/marketing/tracking', 'gsc'],
@@ -100,13 +100,13 @@ async function page(ctx) {
       [!!(s.whatsapp && s.chat_whatsapp_button === '1') || !!s.chat_messenger_page, 'WhatsApp / Messenger চ্যাট বাটন', 'বাংলাদেশে বেশিরভাগ কাস্টমার কেনার আগে একবার জিজ্ঞেস করে নেয়।', 'সোশ্যাল ও লাইভ চ্যাট পেজে WhatsApp নম্বর দিয়ে বাটন চালু করুন।', '/admin/marketing/social', 'chat_btn'],
       [!!s.phone, 'দোকানের ফোন নম্বর', 'ফোন নম্বর দেখলে মানুষ ভরসা পায়।', 'সেটিংসে ফোন নম্বর দিন।', '/admin/settings', 'phone'],
       [!!s.logo_id, 'লোগো', 'চেনা ব্র্যান্ড মনে থাকে।', 'স্টোর ডিজাইনে লোগো দিন।', '/admin/design', 'logo'],
-      [banners.n > 0, 'হোমপেজের ব্যানার ছবি', 'অফার আর জনপ্রিয় পণ্য বড় করে দেখালে বিক্রি বাড়ে।', 'ব্যানার পেজে ১২০০×৪০০ মাপের ২-৩টা ব্যানার দিন।', '/admin/design/banners', 'banners'],
-      [pages.n >= 3, 'রিটার্ন, প্রাইভেসি, আমাদের সম্পর্কে পেজ', 'Facebook বিজ্ঞাপন আর Google এই পেজগুলো দেখে; কাস্টমারও।', 'পেজ মেনু থেকে লেখাগুলো নিজের মতো করে নিন।', '/admin/design/pages', 'pages'],
+      [banners!.n > 0, 'হোমপেজের ব্যানার ছবি', 'অফার আর জনপ্রিয় পণ্য বড় করে দেখালে বিক্রি বাড়ে।', 'ব্যানার পেজে ১২০০×৪০০ মাপের ২-৩টা ব্যানার দিন।', '/admin/design/banners', 'banners'],
+      [pages!.n >= 3, 'রিটার্ন, প্রাইভেসি, আমাদের সম্পর্কে পেজ', 'Facebook বিজ্ঞাপন আর Google এই পেজগুলো দেখে; কাস্টমারও।', 'পেজ মেনু থেকে লেখাগুলো নিজের মতো করে নিন।', '/admin/design/pages', 'pages'],
     ]],
   ];
   // the owner's marks: ✓ করা আছে (done another way) counts as done; ✕ দরকার নেই (and paid-ad tools never set up) leave the count
   const M = $setupmarks;
-  groups.forEach((g) => { g[1] = g[1].map(([done, t, why, how, link, key]) => {
+  groups.forEach((g) => { g[1] = g[1].map(([done, t, why, how, link, key]: Loose[]) => {
     const mark = M.markOf(s, key, !!done);
     return [!!done || mark === 'done', t, why, how, link, key, mark === 'skip' && !done, !done && mark === 'done'];
   }); });
@@ -115,22 +115,22 @@ async function page(ctx) {
   const score = pct(doneN, all.length);
 
   // ---- today's work, from the shop's own numbers
-  const today = [
-    pending.n ? ['🔥', `${bn(pending.n)}টি অর্ডার কনফার্ম বাকি`, 'অর্ডারের ১ ঘণ্টার মধ্যে ফোন করলে বাতিল অনেক কমে।', '/admin/orders?status=pending'] : null,
+  const today: Loose[] = [
+    pending!.n ? ['🔥', `${bn(pending!.n)}টি অর্ডার কনফার্ম বাকি`, 'অর্ডারের ১ ঘণ্টার মধ্যে ফোন করলে বাতিল অনেক কমে।', '/admin/orders?status=pending'] : null,
     missed.length ? ['🔎', `কাস্টমার খুঁজেছে কিন্তু পায়নি: ${missed.map((m) => `"${m.term}"`).join(', ')}`, 'এগুলো এনে রাখলে প্রায় নিশ্চিত বিক্রি।', '/admin/research?tab=demand'] : null,
-    p.no_img ? ['🖼️', `${bn(p.no_img)}টি পণ্যে ছবি নেই`, 'ছবি ছাড়া পণ্য প্রায় বিক্রিই হয় না, আর Facebook/Google ফিডেও বাদ যায়।', '/admin/products'] : null,
-    p.few_img ? ['📸', `${bn(p.few_img)}টি পণ্যে ৩টার কম ছবি`, 'কয়েক দিক থেকে ছবি থাকলে কাস্টমার নিশ্চিন্তে কেনে।', '/admin/products'] : null,
-    p.short_desc ? ['📝', `${bn(p.short_desc)}টি পণ্যের বিবরণ খুব ছোট`, 'গুগল ছোট বিবরণের পেজ কম দেখায়। কী কাজে লাগে, মাপ, ভোল্টেজ, প্যাকেটে কী আছে — লিখুন।', '/admin/products'] : null,
-    p.no_kw ? ['🏷️', `${bn(p.no_kw)}টি পণ্যে SEO কিওয়ার্ড নেই`, 'মানুষ গুগলে যেভাবে লেখে (বাংলা + ইংরেজি) সেই শব্দগুলো দিন।', '/admin/products'] : null,
-    p.no_brand ? ['🏢', `${bn(p.no_brand)}টি পণ্যে ব্র্যান্ড নেই`, 'Google/Facebook ফিডে ব্র্যান্ড থাকলে পণ্য বেশি দেখায়।', '/admin/products'] : null,
-    p.no_cat ? ['🗂️', `${bn(p.no_cat)}টি পণ্যের ক্যাটাগরি নেই`, '"স্বয়ংক্রিয়ভাবে সাজান" চাপলেই হয়ে যাবে।', '/admin/categories/auto'] : null,
-    p.out_stock ? ['📦', `${bn(p.out_stock)}টি পণ্য স্টকে নেই কিন্তু দোকানে দেখাচ্ছে`, 'স্টক আনুন, না আনলে সুইচ বন্ধ করে লুকিয়ে রাখুন — খালি পণ্যে বিজ্ঞাপন টাকা নষ্ট করে।', '/admin/products?low=1'] : null,
+    p!.no_img ? ['🖼️', `${bn(p!.no_img)}টি পণ্যে ছবি নেই`, 'ছবি ছাড়া পণ্য প্রায় বিক্রিই হয় না, আর Facebook/Google ফিডেও বাদ যায়।', '/admin/products'] : null,
+    p!.few_img ? ['📸', `${bn(p!.few_img)}টি পণ্যে ৩টার কম ছবি`, 'কয়েক দিক থেকে ছবি থাকলে কাস্টমার নিশ্চিন্তে কেনে।', '/admin/products'] : null,
+    p!.short_desc ? ['📝', `${bn(p!.short_desc)}টি পণ্যের বিবরণ খুব ছোট`, 'গুগল ছোট বিবরণের পেজ কম দেখায়। কী কাজে লাগে, মাপ, ভোল্টেজ, প্যাকেটে কী আছে — লিখুন।', '/admin/products'] : null,
+    p!.no_kw ? ['🏷️', `${bn(p!.no_kw)}টি পণ্যে SEO কিওয়ার্ড নেই`, 'মানুষ গুগলে যেভাবে লেখে (বাংলা + ইংরেজি) সেই শব্দগুলো দিন।', '/admin/products'] : null,
+    p!.no_brand ? ['🏢', `${bn(p!.no_brand)}টি পণ্যে ব্র্যান্ড নেই`, 'Google/Facebook ফিডে ব্র্যান্ড থাকলে পণ্য বেশি দেখায়।', '/admin/products'] : null,
+    p!.no_cat ? ['🗂️', `${bn(p!.no_cat)}টি পণ্যের ক্যাটাগরি নেই`, '"স্বয়ংক্রিয়ভাবে সাজান" চাপলেই হয়ে যাবে।', '/admin/categories/auto'] : null,
+    p!.out_stock ? ['📦', `${bn(p!.out_stock)}টি পণ্য স্টকে নেই কিন্তু দোকানে দেখাচ্ছে`, 'স্টক আনুন, না আনলে সুইচ বন্ধ করে লুকিয়ে রাখুন — খালি পণ্যে বিজ্ঞাপন টাকা নষ্ট করে।', '/admin/products?low=1'] : null,
     blogDays === null || blogDays > 14 ? ['✍️', blogDays === null ? 'এখনো কোনো ব্লগ পোস্ট নেই' : `${bn(blogDays)} দিন কোনো ব্লগ লেখা হয়নি`, 'নিয়মিত লেখা গুগলে নতুন কাস্টমার আনে।', '/admin/blog/new'] : null,
-    !coupons.n && !p.on_offer ? ['🏷️', 'এখন কোনো অফার বা কুপন চালু নেই', 'অফার থাকলে Facebook পোস্টে মানুষ বেশি সাড়া দেয়।', '/admin/marketing/coupons'] : null,
-    p.total && pct(p.with_video, p.total) < 10 ? ['🎬', `মাত্র ${bn(p.with_video)}টি পণ্যে ভিডিও আছে`, 'চালু অবস্থার ছোট ভিডিও থাকলে বিক্রি বাড়ে আর ফেরত কমে।', '/admin/products'] : null,
+    !coupons!.n && !p!.on_offer ? ['🏷️', 'এখন কোনো অফার বা কুপন চালু নেই', 'অফার থাকলে Facebook পোস্টে মানুষ বেশি সাড়া দেয়।', '/admin/marketing/coupons'] : null,
+    p!.total && pct(p!.with_video, p!.total) < 10 ? ['🎬', `মাত্র ${bn(p!.with_video)}টি পণ্যে ভিডিও আছে`, 'চালু অবস্থার ছোট ভিডিও থাকলে বিক্রি বাড়ে আর ফেরত কমে।', '/admin/products'] : null,
   ].filter(Boolean);
 
-  let weekDone = [];
+  let weekDone: Loose[] = [];
   try { weekDone = JSON.parse(s[weekKey] || '[]'); } catch (_) { weekDone = []; }
   const spies = s.block_seo_spies !== '0';
   const aiCopy = s.block_ai_copy !== '0';
@@ -159,7 +159,7 @@ ${await $liveguide.panel()}
 <section class="panel">
   <h2>🧩 সেটআপ চেকলিস্ট <small>একবার করলেই হয়</small></h2>
   <div class="gr-bar"><span style="width:${score}%"></span></div>
-  ${groups.map(([title, items]) => { const open = items.filter((x) => !x[6]); return open.length ? html`<h3>${title}</h3><ul class="gr-check">${open.map(([done, t, why, how, link, key, , byMark]) => html`<li class="${done ? 'is-done' : ''}">
+  ${groups.map(([title, items]) => { const open = items.filter((x?: Loose) => !x[6]); return open.length ? html`<h3>${title}</h3><ul class="gr-check">${open.map(([done, t, why, how, link, key, , byMark]: Loose[]) => html`<li class="${done ? 'is-done' : ''}">
     <span class="gr-ok">${ok(done)}</span><div><b>${t}</b><small>${why}</small>${done ? '' : html`<small class="gr-how">👉 ${how} <a href="${link}">এখানে করুন →</a></small>`}${!done ? html`<small>${M.buttons(key, '', '/admin/growth')}</small>` : byMark ? html`<small>${M.buttons(key, 'done', '/admin/growth')}</small>` : ''}</div></li>`)}</ul>` : ''; })}
   ${(() => { const skipped = groups.flatMap((g) => g[1]).filter((x) => x[6]); return skipped.length ? html`<details class="sec-quiet"><summary class="small muted">⚪ দরকার নেই (${bn(skipped.length)}টি) — হিসাবে ধরা হচ্ছে না। দেখতে চাপুন</summary><ul class="gr-check">${skipped.map(([, t, why, , , key]) => html`<li><span class="gr-ok">⚪</span><div><b>${t}</b><small>${why}</small><small>${M.buttons(key, 'skip', '/admin/growth')}</small></div></li>`)}</ul></details>` : ''; })()}
 </section>

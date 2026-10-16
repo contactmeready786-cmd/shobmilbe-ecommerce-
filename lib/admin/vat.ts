@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // Admin → হিসাব → ভ্যাট ও ট্যাক্স: the Bangladesh VAT paperwork, worked out from the shop's own orders and purchases.
 //  • মূসক-৯.১ মাসিক রিটার্নের হিসাব (what goes in each box, due by the 15th of the next month)
 //  • মূসক-৬.২ বিক্রয় হিসাব পুস্তক (sales register) and মূসক-৬.১ ক্রয় হিসাব পুস্তক (purchase register), with CSV
@@ -8,6 +7,7 @@ import { html, raw, money, bn, fmtDate, int, ymd, csv, num, str } from '../util'
 import * as db from '../db';
 import * as ui from './ui';
 import * as $models_orders from '../models/orders';
+import type { AdminCtx, Loose } from '../types';
 
 const MODES = {
   none: 'ভ্যাট হিসাব করব না',
@@ -17,11 +17,11 @@ const MODES = {
   margin: 'শুধু লাভের (মার্জিন) উপর ভ্যাট',
 };
 const BN_MONTH = ['জানুয়ারি', 'ফেব্রুয়ারি', 'মার্চ', 'এপ্রিল', 'মে', 'জুন', 'জুলাই', 'আগস্ট', 'সেপ্টেম্বর', 'অক্টোবর', 'নভেম্বর', 'ডিসেম্বর'];
-const monthName = (ym) => `${BN_MONTH[Number(ym.slice(5, 7)) - 1]} ${bn(ym.slice(0, 4))}`;
-const r2 = (n) => Math.round(Number(n || 0) * 100) / 100;
+const monthName = (ym?: Loose) => `${BN_MONTH[Number(ym.slice(5, 7)) - 1]} ${bn(ym.slice(0, 4))}`;
+const r2 = (n?: Loose) => Math.round(Number(n || 0) * 100) / 100;
 
 // VAT inside / on top of an amount for one mode
-function split(amount, s, cost = 0) {
+function split(amount?: Loose, s?: Loose, cost: Loose = 0) {
   const rate = num(s.vat_rate, 15);
   const a = Number(amount || 0);
   switch (s.vat_mode) {
@@ -32,19 +32,19 @@ function split(amount, s, cost = 0) {
     default: return { value: a, vat: 0, rate: 0 };
   }
 }
-function validMonth(m) { return /^\d{4}-(0[1-9]|1[0-2])$/.test(String(m || '')) ? m : ymd().slice(0, 7); }
-function nextMonth15(ym) {
+function validMonth(m?: Loose) { return /^\d{4}-(0[1-9]|1[0-2])$/.test(String(m || '')) ? m : ymd().slice(0, 7); }
+function nextMonth15(ym?: Loose) {
   const [y, m] = ym.split('-').map(Number);
   return new Date(Date.UTC(m === 12 ? y + 1 : y, m === 12 ? 0 : m, 15));
 }
 
-async function salesRows(month) {
+async function salesRows(month?: Loose) {
   return db.q(`SELECT o.id, o.code, o.customer_name, o.phone, o.address, coalesce(o.delivered_at, o.updated_at) AS at,
       (o.subtotal - o.discount - coalesce(o.points_discount,0))::numeric(14,2) AS goods, o.cost_total, o.delivery, o.total
     FROM orders o WHERE o.status='delivered' AND to_char(coalesce(o.delivered_at, o.updated_at) AT TIME ZONE 'Asia/Dhaka', 'YYYY-MM') = $1
     ORDER BY at, o.id`, [month]);
 }
-async function purchaseRows(month) {
+async function purchaseRows(month?: Loose) {
   return db.q(`SELECT p.id, p.code, p.purchase_date, coalesce(s.name, '—') AS supplier, coalesce(s.company, '') AS company, p.note,
       (p.subtotal - p.discount)::numeric(14,2) AS value, p.vat, p.total
     FROM purchases p LEFT JOIN suppliers s ON s.id=p.supplier_id
@@ -52,13 +52,13 @@ async function purchaseRows(month) {
 }
 
 // ---------------------------------------------------------------- মূসক-৯.১ (monthly return helper) + registers
-async function returnPage(ctx) {
+async function returnPage(ctx: AdminCtx) {
   const s = ctx.settings;
   const month = validMonth(ctx.query.get('month'));
   const kind = ['sales', 'purchase'].includes(ctx.query.get('reg')) ? ctx.query.get('reg') : '';
   const [sales, buys, paid] = await Promise.all([salesRows(month), purchaseRows(month),
     db.one(`SELECT coalesce(sum(amount),0)::numeric(14,2) AS n FROM transactions WHERE type='expense' AND category='ভ্যাট/ট্যাক্স পরিশোধ' AND to_char(tx_date,'YYYY-MM')=$1`, [month])]);
-  const saleLines = sales.map((o) => ({ ...o, ...split(o.goods, s, Number(o.cost_total)) }));
+  const saleLines: Loose[] = sales.map((o) => ({ ...o, ...split(o.goods, s, Number(o.cost_total)) }));
   const out = saleLines.reduce((a, o) => ({ value: a.value + Number(o.value), vat: a.vat + o.vat }), { value: 0, vat: 0 });
   const inn = buys.reduce((a, p) => ({ value: a.value + Number(p.value), vat: a.vat + Number(p.vat) }), { value: 0, vat: 0 });
   const turnover = s.vat_mode === 'turnover';
@@ -74,9 +74,9 @@ async function returnPage(ctx) {
       : [['Date', 'Purchase No', 'Supplier', 'Note / Challan', 'Value', 'VAT', 'Total'], ...buys.map((p) => [String(p.purchase_date).slice(0, 10), p.code, p.supplier, p.note || '', p.value, p.vat, p.total])];
     return ctx.send(ctx.res, 200, csv(rows), 'text/csv; charset=utf-8', { 'Content-Disposition': `attachment; filename="mushak-${kind === 'sales' ? '6.2-sales' : '6.1-purchase'}-${month}.csv"` });
   }
-  const months = [];
+  const months: Loose[] = [];
   for (let i = 0; i < 12; i++) { const d = new Date(); d.setUTCDate(1); d.setUTCMonth(d.getUTCMonth() - i); months.push(d.toISOString().slice(0, 7)); }
-  const box = (no, label, value, note) => html`<tr><td class="small muted">${no}</td><td>${label}${note ? html`<br><span class="small muted">${note}</span>` : ''}</td><td class="num"><b>${money(value)}</b></td></tr>`;
+  const box = (no?: Loose, label?: Loose, value?: Loose, note?: Loose) => html`<tr><td class="small muted">${no}</td><td>${label}${note ? html`<br><span class="small muted">${note}</span>` : ''}</td><td class="num"><b>${money(value)}</b></td></tr>`;
 
   const body = html`<p class="crumbs"><a href="/admin/accounts/vat">← ভ্যাট ও ট্যাক্স</a></p>
 <div class="title-row"><h1>🧾 ${turnover ? 'টার্নওভার ট্যাক্সের হিসাব' : 'মূসক-৯.১ মাসিক রিটার্নের হিসাব'} <small>${monthName(month)}</small></h1>
@@ -86,7 +86,7 @@ ${s.vat_mode === 'none' || !s.vat_mode ? html`<p class="flash flash-error">⚠�
 <div class="kpis kpis-tight">
   ${ui.kpi('জমার শেষ দিন', fmtDate(due.toISOString(), false), daysLeft > 0 ? `আর ${bn(daysLeft)} দিন` : daysLeft === 0 ? 'আজই!' : 'সময় পার হয়ে গেছে', daysLeft <= 5 ? 'kpi-alert' : 'kpi-blue')}
   ${ui.kpi(turnover ? 'টার্নওভার ট্যাক্স' : 'দিতে হবে (নিট)', money(net), turnover ? `বিক্রির ${bn(num(s.vat_turnover_rate, 4))}%` : 'আউটপুট − ইনপুট', net ? 'kpi-alert' : 'kpi-green')}
-  ${ui.kpi('জমা দেওয়া হয়েছে', money(paid.n), '"ভ্যাট/ট্যাক্স পরিশোধ" খরচ থেকে', Number(paid.n) >= net ? 'kpi-green' : '')}
+  ${ui.kpi('জমা দেওয়া হয়েছে', money(paid!.n), '"ভ্যাট/ট্যাক্স পরিশোধ" খরচ থেকে', Number(paid!.n) >= net ? 'kpi-green' : '')}
   ${ui.kpi('এই মাসে বিক্রি', bn(sales.length) + 'টি', money(out.value))}
 </div>
 <div class="two-col">
@@ -133,20 +133,20 @@ ${kind ? html`<section class="panel table-wrap" id="reg">
 }
 
 // ---------------------------------------------------------------- মূসক-৬.৩ কর চালানপত্র (printable)
-async function mushak63(ctx, m) {
+async function mushak63(ctx: AdminCtx, m?: Loose) {
   const s = ctx.settings;
   const o = await $models_orders.getOrder({ id: int(m[1]) });
   if (!o) return ctx.redirect(ctx.res, '/admin/orders');
   const rate = num(s.vat_rate, 15);
   const mode = s.vat_mode || 'none';
-  const lines = (o.items || []).map((it, i) => {
+  const lines = (o.items || []).map((it?: Loose, i?: Loose) => {
     const total = Number(it.price) * Number(it.qty);
     const sp = split(total, s, Number(it.cost || 0) * Number(it.qty));
     const unitEx = mode === 'inclusive' ? r2(Number(it.price) * 100 / (100 + rate)) : Number(it.price);
     return { i: i + 1, name: it.name, qty: it.qty, unit: it.unit || 'পিস', unitEx, value: sp.value, vat: sp.vat, gross: mode === 'exclusive' ? r2(sp.value + sp.vat) : total };
   });
   const disc = Number(o.discount || 0) + Number(o.points_discount || 0);
-  const tot = lines.reduce((a, l) => ({ value: a.value + l.value, vat: a.vat + l.vat, gross: a.gross + l.gross }), { value: 0, vat: 0, gross: 0 });
+  const tot = lines.reduce((a?: Loose, l?: Loose) => ({ value: a.value + l.value, vat: a.vat + l.vat, gross: a.gross + l.gross }), { value: 0, vat: 0, gross: 0 });
   const discSplit = split(disc, s);
   const page = '<!doctype html>' + html`<html lang="bn"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex">
 <title>মূসক-৬.৩ ${o.code}</title>
@@ -177,7 +177,7 @@ table{width:100%;border-collapse:collapse;margin-top:10px}th,td{border:1px solid
     <td>যানবাহনের প্রকৃতি ও নম্বর: ${o.courier ? `${o.courier}${o.consignment_id ? ' · ' + o.consignment_id : ''}` : '—'}<br>অর্ডারের তারিখ: ${fmtDate(o.created_at, false)}</td>
   </tr></table>
   <table><thead><tr><th>ক্রমিক</th><th>পণ্য বা সেবার বর্ণনা (প্রযোজ্য ক্ষেত্রে ব্র্যান্ড নামসহ)</th><th>সরবরাহের একক</th><th class="n">পরিমাণ</th><th class="n">একক মূল্য¹ (টাকায়)</th><th class="n">মোট মূল্য¹ (টাকায়)</th><th class="n">সম্পূরক শুল্কের হার</th><th class="n">মূল্য সংযোজন করের হার</th><th class="n">মূল্য সংযোজন করের পরিমাণ</th><th class="n">সকল প্রকার শুল্ক ও করসহ মূল্য</th></tr></thead>
-  <tbody>${lines.map((l) => html`<tr><td class="c">${bn(l.i)}</td><td>${l.name}</td><td>${l.unit}</td><td class="n">${bn(l.qty)}</td><td class="n">${money(l.unitEx)}</td><td class="n">${money(l.value)}</td><td class="n">০%</td><td class="n">${mode === 'margin' ? 'মার্জিনে ' : ''}${bn(rate)}%</td><td class="n">${money(l.vat)}</td><td class="n">${money(l.gross)}</td></tr>`)}
+  <tbody>${lines.map((l?: Loose) => html`<tr><td class="c">${bn(l.i)}</td><td>${l.name}</td><td>${l.unit}</td><td class="n">${bn(l.qty)}</td><td class="n">${money(l.unitEx)}</td><td class="n">${money(l.value)}</td><td class="n">০%</td><td class="n">${mode === 'margin' ? 'মার্জিনে ' : ''}${bn(rate)}%</td><td class="n">${money(l.vat)}</td><td class="n">${money(l.gross)}</td></tr>`)}
   ${disc ? html`<tr><td></td><td colspan="4">ছাড়${o.coupon_code ? ` (${o.coupon_code})` : ''}</td><td class="n">− ${money(discSplit.value)}</td><td></td><td></td><td class="n">− ${money(discSplit.vat)}</td><td class="n">− ${money(disc)}</td></tr>` : ''}
   <tr><td></td><td colspan="4"><b>সর্বমোট</b></td><td class="n"><b>${money(tot.value - discSplit.value)}</b></td><td></td><td></td><td class="n"><b>${money(tot.vat - discSplit.vat)}</b></td><td class="n"><b>${money(tot.gross - disc)}</b></td></tr></tbody></table>
   <p class="note">ডেলিভারি চার্জ (${money(o.delivery)}) এই চালানের বাইরে। ¹ মূল্য সংযোজন কর ব্যতীত মূল্য। ${mode === 'margin' ? 'মার্জিন পদ্ধতিতে কর হিসাব করা হয়েছে।' : ''}</p>

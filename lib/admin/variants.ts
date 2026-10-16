@@ -1,14 +1,14 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // Admin → পণ্য → (a product) → 🎨 ভ্যারিয়েন্ট: the sizes / colours / models of one product.
 // Every row is a variant with its own price, stock, SKU and barcode. The shop shows a picker on the product page.
 import { html, raw, int, str, bn, money } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
 import * as catalog from '../models/catalog';
+import type { AdminCtx, Body, Id, Loose } from '../types';
 
 const PRESET_TITLES = ['রং', 'সাইজ', 'মডেল', 'রং / সাইজ', 'ধরন', 'ভোল্টেজ', 'ক্ষমতা (ওয়াট)', 'দৈর্ঘ্য', 'প্যাক'];
 
-function rowHtml(v, { seeCost, images, i, blank = false }) {
+function rowHtml(v: Loose, { seeCost, images, i, blank = false }: Body) {
   const n = blank ? '' : i;
   return html`<tr class="${v.active === false ? 'row-off' : ''}" data-var-row>
     <td><input type="hidden" name="vid" value="${v.id || ''}">
@@ -20,7 +20,7 @@ function rowHtml(v, { seeCost, images, i, blank = false }) {
     ${v.id ? html`<td><input type="hidden" name="vstock" value=""><b>${bn(v.stock ?? 0)}</b><br><a class="small" href="/admin/inventory?q=${encodeURIComponent(v.sku || '')}">ঠিক করুন</a></td>`
     : html`<td><input name="vstock" type="number" min="0" value="${v.stock ?? ''}" class="w-num" aria-label="শুরুর স্টক" placeholder="শুরুর স্টক"></td>`}
     <td><input name="vsku" value="${v.sku || ''}" maxlength="60" class="w-sm" placeholder="নিজে বসবে" aria-label="SKU">${v.barcode ? html`<br><span class="small muted mono">${v.barcode}</span>` : ''}</td>
-    <td>${images.length ? ui.select('vimage', [['', '— মূল ছবি —'], ...images.map((id, k) => [id, `ছবি ${bn(k + 1)}`])], v.image_id || '', { 'aria-label': 'ছবি', 'data-var-img': true })
+    <td>${images.length ? ui.select('vimage', [['', '— মূল ছবি —'], ...images.map((id?: Loose, k?: Loose) => [id, `ছবি ${bn(k + 1)}`])], v.image_id || '', { 'aria-label': 'ছবি', 'data-var-img': true })
     : html`<input type="hidden" name="vimage" value=""><span class="small muted">ছবি নেই</span>`}</td>
     <td><label class="switch" title="বন্ধ = দোকানে এই অপশন দেখাবে না"><input type="checkbox" name="vactive_${blank ? 'new' : v.id || 'new'}" value="1" ${v.active === false ? '' : raw('checked')} data-var-active><span class="switch-ui" aria-hidden="true"></span></label>
       <input type="hidden" name="vactive" value="${v.active === false ? '0' : '1'}" data-var-active-val></td>
@@ -28,7 +28,7 @@ function rowHtml(v, { seeCost, images, i, blank = false }) {
   </tr>`;
 }
 
-async function page(ctx, m) {
+async function page(ctx: AdminCtx, m?: Loose) {
   const id = int(m[1]);
   const p = await catalog.getProduct({ id });
   if (!p) return ctx.redirect(ctx.res, '/admin/products');
@@ -38,7 +38,7 @@ async function page(ctx, m) {
   if (ctx.method === 'POST') {
     if (ctx.readOnly) return ctx.back(back, 'noperm');
     const b = await ctx.body();
-    const L = (k) => [].concat(b[k] === undefined ? [] : b[k]);
+    const L = (k?: Loose) => ([] as Loose[]).concat(b[k] === undefined ? [] : b[k]);
     const ids = L('vid'); const labels = L('vlabel'); const prices = L('vprice'); const olds = L('vold'); const costs = L('vcost');
     const stocks = L('vstock'); const skus = L('vsku'); const imgs = L('vimage'); const actives = L('vactive');
     const remove = new Set(L('vremove').map((x) => int(x)));
@@ -53,7 +53,7 @@ async function page(ctx, m) {
         if (own) { await ctx.trash('product', rid); await ctx.log('product_delete', 'product', rid, `ভ্যারিয়েন্ট মুছে ফেলা: ${own.name}`); }
       }
       await catalog.saveVariants(id, { title: b.variant_title, rows: rows.filter((r) => !remove.has(r.id)) }, ctx.user.id, { withCost: seeCost });
-    } catch (e) {
+    } catch (e: Loose) {
       if (remove.size) await db.tx((t) => catalog.syncVariants(t, id)).catch(() => {});
       return ctx.fail(back, e.message);
     }
@@ -74,7 +74,7 @@ ${ui.helpBox('ভ্যারিয়েন্ট কীভাবে কাজ 
   <li>কোনো অপশন সাময়িক লুকাতে সুইচ বন্ধ করুন। মুছলে রিসাইকেল বিনে যায়।</li>
   <li>ছবি: মূল পণ্যের ছবিগুলো থেকে প্রতিটা অপশনের ছবি বাছাই করা যায় — কাস্টমার অপশন বাছলে বড় ছবিটা বদলে যাবে।</li>
 </ol>`)}
-${images.length ? html`<div class="panel var-pics"><p class="small muted">মূল পণ্যের ছবি:</p><div class="var-pic-row">${images.map((mid, k) => html`<figure><img src="/media/${mid}/t" alt=""><figcaption class="small">ছবি ${bn(k + 1)}</figcaption></figure>`)}</div></div>` : ''}
+${images.length ? html`<div class="panel var-pics"><p class="small muted">মূল পণ্যের ছবি:</p><div class="var-pic-row">${images.map((mid?: Loose, k?: Loose) => html`<figure><img src="/media/${mid}/t" alt=""><figcaption class="small">ছবি ${bn(k + 1)}</figcaption></figure>`)}</div></div>` : ''}
 <form method="post" action="${back}" class="form panel" data-var-form>
   ${ui.field('অপশনের নাম (কাস্টমার যা দেখবে)', html`<input name="variant_title" value="${p.variant_title || ''}" maxlength="40" list="var-titles" placeholder="যেমন: রং, সাইজ, মডেল"><datalist id="var-titles">${PRESET_TITLES.map((t) => html`<option value="${t}">`)}</datalist>`, 'পণ্যের পেজে লেখা থাকবে: "রং: লাল"')}
   <div class="table-wrap"><table class="table compact var-table">

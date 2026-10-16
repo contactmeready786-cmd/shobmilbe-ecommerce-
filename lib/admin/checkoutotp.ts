@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // Admin → অর্ডার ও কাস্টমার → 🔐 চেকআউট OTP (ফেক অর্ডার বন্ধ): switch it on/off, the SMS text, how long a checked number is
 // remembered, what happens when SMS can't go, the daily limit — and what happened lately (codes, orders by how they were checked).
 import { html, raw, str, int, bn, fmtDate } from '../util';
@@ -6,10 +5,11 @@ import * as db from '../db';
 import * as ui from './ui';
 import * as CO from '../models/checkoutotp';
 import * as $services_sms from '../services/sms';
+import type { AdminCtx, Loose } from '../types';
 
 const BASE = '/admin/checkout-otp';
 
-async function page(ctx) {
+async function page(ctx: AdminCtx) {
   const s = ctx.settings;
   const SMS = $services_sms;
   if (ctx.method === 'POST') {
@@ -35,16 +35,16 @@ async function page(ctx) {
   const ready = CO.sendReady(s);
   const smsOk = ready.ok;
   const on = s.co_otp_on === '1';
-  const o30 = st.orders30 || {};
+  const o30 = st!.orders30 || {};
   const checked30 = (o30.otp || 0) + (o30.remembered || 0) + (o30.account || 0);
   const tpl = s.co_otp_sms || CO.DEF_SMS;
   const sample = tpl.replace(/\{shop\}/g, s.store_name || '').replace(/\{code\}/g, '4827').replace(/\{min\}/g, bn(CO.CODE_MIN));
   const body = html`<h1>🔐 চেকআউট OTP (ফেক অর্ডার বন্ধ)</h1>${ui.flash(ctx.flash)}
 <div class="kpis kpis-tight">
   ${ui.kpi('অবস্থা', on ? '✅ চালু' : '⚪ বন্ধ', on ? 'OTP ছাড়া অর্ডার হচ্ছে না' : 'আগের মতো সরাসরি অর্ডার হচ্ছে')}
-  ${ui.kpi('গত ২৪ ঘণ্টায় কোড', bn(st.sent24), `সঠিক দিয়েছেন ${bn(st.ok24)} জন${st.fail24 ? ` · SMS যায়নি ${bn(st.fail24)}` : ''}`)}
+  ${ui.kpi('গত ২৪ ঘণ্টায় কোড', bn(st!.sent24), `সঠিক দিয়েছেন ${bn(st!.ok24)} জন${st!.fail24 ? ` · SMS যায়নি ${bn(st!.fail24)}` : ''}`)}
   ${ui.kpi('৩০ দিনে যাচাই হওয়া অর্ডার', bn(checked30), '')}
-  ${ui.kpi('কোড নিয়েও অর্ডার করেননি', bn(st.never30), 'গত ৩০ দিনে — এদের অনেকেই ফেক / অন্যের নম্বর')}
+  ${ui.kpi('কোড নিয়েও অর্ডার করেননি', bn(st!.never30), 'গত ৩০ দিনে — এদের অনেকেই ফেক / অন্যের নম্বর')}
 </div>
 ${ui.helpBox('কীভাবে কাজ করে', html`<ol class="steps">
   <li>চেকআউটে কাস্টমার মোবাইল নম্বর লিখলে নিচে একটা ঘর আর <b>"OTP পাঠান"</b> বাটন আসে। চাপলে ঐ নম্বরে SMS-এ ৪ অঙ্কের কোড যায় (${bn(CO.CODE_MIN)} মিনিট কাজ করে)।</li>
@@ -56,7 +56,7 @@ ${ui.helpBox('কীভাবে কাজ করে', html`<ol class="steps">
   <li>অপব্যবহার রোধ (প্রতিটা কোড = ১টা SMS খরচ): এক নম্বরে ১০ মিনিটে ৩টা ও দিনে ৬টা কোড, এক সংযোগ থেকে ঘণ্টায় ৮টা, একটা কোডে ৫ বারের বেশি ভুল নয়, ব্লক লিস্টের নম্বরে কোড যায় না।</li>
   <li>প্রতিটা অর্ডারে দেখবেন কীভাবে নম্বর যাচাই হয়েছে: ✅ OTP যাচাই / ✅ আগে যাচাই / ✅ লগইন।</li>
 </ol>`)}
-${gw && gw.state ? html`<p class="flash ${gwBad ? 'flash-error' : ''}">📱 শেষ কোডটা ফোনে: <b>${CO.STATE_BN[gw.state] || gw.state}</b>${gw.error ? ` — ${gw.error}` : ''} (${lastGw.phone}, ${fmtDate(lastGw.created_at)})${gwBad ? html`<br><span class="small">${gw.state === 'Pending' ? 'SMS Gateway অ্যাপ খুলে Online করুন। ফোনে অ্যাপের Battery → Unrestricted আর Autostart চালু রাখুন, যাতে ফোন অ্যাপটা বন্ধ না করে।' : 'SIM-এ ব্যালান্স/SMS প্যাক, নেটওয়ার্ক আর অ্যাপের SMS অনুমতি দেখুন।'} কোড না গেলে আপনাকে নোটিফিকেশন / WhatsApp / ইমেইলে জানানো হয় (যেটা <a href="/admin/notify">নোটিফিকেশন</a> পেজে চালু আছে)।</span>` : ''}</p>` : ''}
+${gw && gw.state ? html`<p class="flash ${gwBad ? 'flash-error' : ''}">📱 শেষ কোডটা ফোনে: <b>${CO.STATE_BN[gw.state] || gw.state}</b>${gw.error ? ` — ${gw.error}` : ''} (${lastGw!.phone}, ${fmtDate(lastGw!.created_at)})${gwBad ? html`<br><span class="small">${gw.state === 'Pending' ? 'SMS Gateway অ্যাপ খুলে Online করুন। ফোনে অ্যাপের Battery → Unrestricted আর Autostart চালু রাখুন, যাতে ফোন অ্যাপটা বন্ধ না করে।' : 'SIM-এ ব্যালান্স/SMS প্যাক, নেটওয়ার্ক আর অ্যাপের SMS অনুমতি দেখুন।'} কোড না গেলে আপনাকে নোটিফিকেশন / WhatsApp / ইমেইলে জানানো হয় (যেটা <a href="/admin/notify">নোটিফিকেশন</a> পেজে চালু আছে)।</span>` : ''}</p>` : ''}
 ${lastSms ? html`<p class="flash ${lastSms.ok ? '' : 'flash-error'}">${lastSms.ok ? '✅ শেষ কোডের SMS ফোনে পৌঁছে দেওয়া হয়েছে' : '❌ শেষ কোডের SMS যায়নি'} (${lastSms.phone}, ${fmtDate(lastSms.created_at)}) — ${lastSms.detail}</p>` : ''}
 <section class="panel">
   <form method="post" action="${BASE}" class="form">

@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // One-time move: copy everything from the old Neon database into the new Supabase one.
 //  - Runs only when the site is on Supabase AND an old Neon address is still set in Vercel.
 //  - Works in small steps (each request ~9 s, Vercel cuts a request at 15 s); progress is kept
@@ -7,8 +6,10 @@
 import * as pg from '../pg';
 import * as db from '../db';
 import * as imagekit from './imagekit';
+import type { Body, Id, Loose } from '../types';
+import type { Tx } from '../pg';
 
-const qi = (n) => '"' + String(n).replace(/"/g, '""') + '"';
+const qi = (n?: Loose) => '"' + String(n).replace(/"/g, '""') + '"';
 const NEVER = new Set(['admin_sessions', 'login_lock_codes', '_db_move', '_db_move_lease']); // live logins are never copied
 // Visitor tracking (who came, what they clicked) starts again from zero — the owner asked for that;
 // everything else in the admin (products, orders, customers, settings, research, translations…) comes over.
@@ -17,8 +18,8 @@ const STEP_MS = Number(process.env.DBMOVE_STEP_MS) || 20000; // the move route m
 
 function neonUrl() {
   const env = process.env;
-  const k = Object.keys(env).filter((n) => /^postgres(ql)?:\/\//i.test(String(env[n] || '')) && /neon\.tech/.test(env[n]))
-    .sort((a, b) => (a === 'DATABASE_URL' ? -1 : b === 'DATABASE_URL' ? 1 : 0) || (/pooler/.test(env[a]) - /pooler/.test(env[b])) || a.localeCompare(b));
+  const k = Object.keys(env).filter((n) => /^postgres(ql)?:\/\//i.test(String(env[n] || '')) && /neon\.tech/.test(String(env[n])))
+    .sort((a, b) => (a === 'DATABASE_URL' ? -1 : b === 'DATABASE_URL' ? 1 : 0) || (Number(/pooler/.test(String(env[a]))) - Number(/pooler/.test(String(env[b])))) || a.localeCompare(b));
   return k.length ? env[k[0]] : '';
 }
 
@@ -28,7 +29,7 @@ async function state() {
   const r = await db.one('SELECT data FROM _db_move WHERE id=1');
   return r ? r.data : null;
 }
-async function save(s) {
+async function save(s?: Loose) {
   await db.q(`INSERT INTO _db_move(id, data, updated_at) VALUES(1, $1, now()) ON CONFLICT (id) DO UPDATE SET data=$1, updated_at=now()`, [JSON.stringify(s)]);
 }
 
@@ -41,45 +42,45 @@ async function pending() {
   return true;
 }
 
-async function tables(conn) {
+async function tables(conn: Tx) {
   return (await conn.query(`SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE' ORDER BY table_name`)).rows.map((r) => r.table_name);
 }
 
 // Tables in an order where every table comes after the tables it points to.
-async function fkOrder(list) {
+async function fkOrder(list?: Loose) {
   const deps = await db.q(`SELECT tc.relname AS child, tp.relname AS parent FROM pg_constraint c
     JOIN pg_class tc ON tc.oid=c.conrelid JOIN pg_class tp ON tp.oid=c.confrelid JOIN pg_namespace n ON n.oid=tc.relnamespace
     WHERE c.contype='f' AND n.nspname='public'`);
-  const set = new Set(list); const done = []; const seen = new Set();
-  const visit = (t, stack = new Set()) => {
+  const set = new Set(list); const done: Loose[] = []; const seen = new Set();
+  const visit = (t?: Loose, stack: Loose = new Set()) => {
     if (seen.has(t) || stack.has(t)) return;
     stack.add(t);
     deps.filter((d) => d.child === t && d.parent !== t && set.has(d.parent)).forEach((d) => visit(d.parent, stack));
     seen.add(t); done.push(t);
   };
-  list.forEach((t) => visit(t));
+  list.forEach((t?: Loose) => visit(t));
   return done;
 }
 
 // Every Neon address Vercel gave us (pooled and direct); the first one that answers is used.
 function neonUrls() {
   const env = process.env;
-  return [...new Set(Object.keys(env).filter((n) => /^postgres(ql)?:\/\//i.test(String(env[n] || '')) && /neon\.tech/.test(env[n]))
-    .sort((a, b) => (/pooler/.test(env[b]) - /pooler/.test(env[a])) || a.localeCompare(b)).map((n) => env[n]))];
+  return [...new Set(Object.keys(env).filter((n) => /^postgres(ql)?:\/\//i.test(String(env[n] || '')) && /neon\.tech/.test(String(env[n])))
+    .sort((a, b) => (Number(/pooler/.test(String(env[b]))) - Number(/pooler/.test(String(env[a])))) || a.localeCompare(b)).map((n) => env[n]))];
 }
 async function connectOld() {
-  const errs = [];
+  const errs: Loose[] = [];
   for (const u of neonUrls()) {
-    const c = new pg.Connection(pg.parseConnectionString(u));
-    try { await c.connect(); return c; } catch (e) {
+    const c = new pg.Connection(pg.parseConnectionString(u as string));
+    try { await c.connect(); return c; } catch (e: Loose) {
       try { c.end(); } catch (_) {}
-      errs.push(`${/pooler/.test(u) ? 'pooled' : 'direct'}: ${e.message}`);
+      errs.push(`${/pooler/.test(String(u)) ? 'pooled' : 'direct'}: ${e.message}`);
     }
   }
   throw new Error('পুরনো ডাটাবেস (Neon) সাড়া দিচ্ছে না — ' + errs.join(' | '));
 }
 
-async function mapLimit(items, n, fn) {
+async function mapLimit(items?: Loose, n?: Loose, fn?: Loose) {
   const out = new Array(items.length); let next = 0;
   await Promise.all(Array.from({ length: Math.min(n, items.length) }, async () => {
     while (next < items.length) { const i = next++; out[i] = await fn(items[i], i); }
@@ -87,7 +88,7 @@ async function mapLimit(items, n, fn) {
   return out;
 }
 
-async function cols(conn, t) {
+async function cols(conn: Tx, t?: Loose) {
   return (await conn.query(`SELECT column_name AS name, data_type AS type FROM information_schema.columns WHERE table_schema='public' AND table_name=$1 ORDER BY ordinal_position`, [t])).rows;
 }
 
@@ -118,7 +119,7 @@ async function stepLocked() {
       const here = new Set(await db.q(`SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE'`).then((r) => r.map((x) => x.table_name)));
       const list = (await tables(src)).filter((t) => here.has(t) && !NEVER.has(t) && !SKIP.has(t));
       const order = await fkOrder(list);
-      const counts = {};
+      const counts: Record<string, Loose> = {};
       for (const t of order) counts[t] = Number((await src.query(`SELECT count(*)::bigint AS n FROM ${qi(t)}`)).rows[0].n);
       await db.q(`TRUNCATE ${order.map(qi).join(', ')} RESTART IDENTITY CASCADE`);
       s = { order, counts, i: 0, offset: 0, copied: 0, total: Object.values(counts).reduce((a, b) => a + b, 0), done: false };
@@ -159,8 +160,8 @@ async function stepLocked() {
           // Each picture (and its watermarked copy) is uploaded to ImageKit; only the address is kept here.
           // Staff / owner photos are private and stay in the database.
           names = [...new Set([...names, 'ik_url', 'ik_id', 'wm_url', 'wm_ik_id'])];
-          out = await mapLimit(rows, 6, async (r) => {
-            const o = {};
+          out = await mapLimit(rows, 6, async (r?: Loose) => {
+            const o: Record<string, Loose> = {};
             for (const c of use) o[c.name] = c.type === 'bytea' && r[c.name] != null ? '\\x' + r[c.name] : r[c.name];
             const priv = /^(trash:)?staff$/.test(String(r.owner_type || ''));
             if (!priv && r.data) {
@@ -172,7 +173,7 @@ async function stepLocked() {
           });
         } else {
           out = rows.map((r) => {
-            const o = {};
+            const o: Record<string, Loose> = {};
             for (const c of use) o[c.name] = c.type === 'bytea' && r[c.name] != null ? '\\x' + r[c.name] : r[c.name];
             return o;
           });
@@ -200,14 +201,14 @@ async function stepLocked() {
       }
       // Check: every table here must hold exactly as many rows as in the old database,
       // and every picture must have an ImageKit address (or, for private photos, its bytes).
-      const mismatches = [];
+      const mismatches: Loose[] = [];
       for (const t of s.order) {
-        const here = Number((await db.one(`SELECT count(*)::bigint AS n FROM ${qi(t)}`)).n);
+        const here = Number((await db.one(`SELECT count(*)::bigint AS n FROM ${qi(t)}`))!.n);
         const there = Number((await src.query(`SELECT count(*)::bigint AS n FROM ${qi(t)}`)).rows[0].n);
         if (here !== there) mismatches.push(`${t}: ${there} → ${here}`);
       }
       if (s.order.includes('media')) {
-        const lost = Number((await db.one(`SELECT count(*)::int AS n FROM media WHERE ik_url IS NULL AND data IS NULL`)).n);
+        const lost = Number((await db.one(`SELECT count(*)::int AS n FROM media WHERE ik_url IS NULL AND data IS NULL`))!.n);
         if (lost) mismatches.push(`media: ${lost}টি ছবির ঠিকানা নেই`);
       }
       s.verify = { ok: mismatches.length === 0, mismatches, tables: s.order.length, rows: s.total, checked_at: new Date().toISOString() };

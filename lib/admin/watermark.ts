@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // Watermark (ওয়াটারমার্ক): one mark — the shop's domain, your own text, or a logo — placed softly
 // on the product itself in the big picture of every product page. Shop cards, thumbnails and the
 // Google/Facebook feeds keep the clean picture.
@@ -12,19 +11,20 @@ import * as db from '../db';
 import * as catalog from '../models/catalog';
 import * as security from '../security';
 import * as ui from './ui';
+import type { AdminCtx, Loose } from '../types';
 
-const TYPES = { domain: 'ওয়েবসাইটের ডোমেইন নাম', text: 'নিজের লেখা', logo: 'লোগো (ছবি)' };
-const STRENGTH = { soft: 'খুব হালকা (প্রায় চোখে পড়ে না)', normal: 'হালকা (প্রস্তাবিত)', clear: 'একটু স্পষ্ট' };
-const SIZES = { s: 'ছোট', m: 'মাঝারি', l: 'বড়' };
-const PLACES = { auto: 'স্বয়ংক্রিয় — পণ্যের গায়ে (প্রস্তাবিত)', center: 'ছবির ঠিক মাঝখানে', corner: 'পণ্যের নিচের ডান কোণে' };
+const TYPES: Record<string, Loose> = { domain: 'ওয়েবসাইটের ডোমেইন নাম', text: 'নিজের লেখা', logo: 'লোগো (ছবি)' };
+const STRENGTH: Record<string, Loose> = { soft: 'খুব হালকা (প্রায় চোখে পড়ে না)', normal: 'হালকা (প্রস্তাবিত)', clear: 'একটু স্পষ্ট' };
+const SIZES: Record<string, string> = { s: 'ছোট', m: 'মাঝারি', l: 'বড়' };
+const PLACES: Record<string, Loose> = { auto: 'স্বয়ংক্রিয় — পণ্যের গায়ে (প্রস্তাবিত)', center: 'ছবির ঠিক মাঝখানে', corner: 'পণ্যের নিচের ডান কোণে' };
 
-function domainOf(ctx) {
+function domainOf(ctx: AdminCtx) {
   const s = ctx.settings;
-  const from = (u) => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch (_) { return ''; } };
+  const from = (u?: Loose) => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch (_) { return ''; } };
   const host = from(s.site_url || '') || String(ctx.req.headers['x-forwarded-host'] || ctx.req.headers.host || '').split(',')[0].split(':')[0].replace(/^www\./, '');
   return host && !/vercel\.app$|localhost|^\d/.test(host) ? host : 'shobmilbe.com';
 }
-function config(s) {
+function config(s?: Loose) {
   return {
     on: s.wm_on === '1', type: TYPES[s.wm_type] ? s.wm_type : 'domain', text: s.wm_type === 'text' ? (s.wm_text || '') : (s.wm_domain || ''),
     logo: int(s.wm_logo_id) || int(s.logo_id) || null, strength: STRENGTH[s.wm_strength] ? s.wm_strength : 'normal',
@@ -32,7 +32,7 @@ function config(s) {
   };
 }
 
-async function page(ctx) {
+async function page(ctx: AdminCtx) {
   const s = ctx.settings;
   if (ctx.method === 'POST') {
     const b = await ctx.body();
@@ -42,7 +42,7 @@ async function page(ctx) {
     const logoId = int(b.wm_logo_id) || null;
     if (logoId) await db.q(`UPDATE media SET owner_type='setting', owner_id=0 WHERE id=$1 AND owner_type IS NULL`, [logoId]);
     if (type === 'logo' && !logoId && !int(s.logo_id)) return ctx.fail('/admin/products/watermark', 'লোগো বাছলে একটা লোগোর ছবি দিন।');
-    const vals = {
+    const vals: Record<string, Loose> = {
       wm_on: b.wm_on ? '1' : '0', wm_type: type, wm_text: text, wm_domain: domainOf(ctx), wm_logo_id: logoId ? String(logoId) : '',
       wm_strength: STRENGTH[b.wm_strength] ? b.wm_strength : 'normal', wm_size: SIZES[b.wm_size] ? b.wm_size : 'm', wm_place: PLACES[b.wm_place] ? b.wm_place : 'auto',
     };
@@ -96,8 +96,8 @@ ${ui.flash(ctx.flash)}
       <p class="small muted">একটা পণ্যের ছবিতে দেখানো হচ্ছে। ছবিতে চাপ দিয়ে বড় করে দেখুন।</p>`
     : html`<p class="muted">এখনো কোনো পণ্যের ছবি নেই — পণ্য যোগ করলে এখানে নমুনা দেখাবে।</p>`}
     <h2>অবস্থা</h2>
-    <p data-wm-progress data-total="${prog.total}" data-done="${prog.done}">${c.on
-      ? html`${bn(prog.done)} / ${bn(prog.total)} টি ছবিতে ওয়াটারমার্ক বসেছে।${prog.total > prog.done ? ' বাকিগুলো এখন বসানো হচ্ছে — পেজটা খোলা রাখুন।' : ' ✅ সব হয়ে গেছে।'}`
+    <p data-wm-progress data-total="${prog!.total}" data-done="${prog!.done}">${c.on
+      ? html`${bn(prog!.done)} / ${bn(prog!.total)} টি ছবিতে ওয়াটারমার্ক বসেছে।${prog!.total > prog!.done ? ' বাকিগুলো এখন বসানো হচ্ছে — পেজটা খোলা রাখুন।' : ' ✅ সব হয়ে গেছে।'}`
       : 'ওয়াটারমার্ক এখন বন্ধ আছে।'}</p>
     <p class="small muted">নতুন পণ্যের ছবিতে নিজে থেকেই বসে যায় (Admin প্যানেল খোলা থাকলে কয়েক সেকেন্ডে)। যতক্ষণ বসানো না হয়, ততক্ষণ আসল ছবি দেখায়।</p>
   </section>
@@ -106,13 +106,13 @@ ${ui.flash(ctx.flash)}
 }
 
 // Background job (admin browser): which pictures still need the current mark, and how to draw it.
-async function pendingApi(ctx) {
+async function pendingApi(ctx: AdminCtx) {
   const c = config(ctx.settings);
   if (!c.on || !c.ver) return ctx.json(ctx.res, 200, { ids: [] });
   const rows = await catalog.mediaNeedingWatermark(c.ver, 6);
   return ctx.json(ctx.res, 200, { ids: rows.map((r) => r.id), cfg: c });
 }
-async function saveApi(ctx, m) {
+async function saveApi(ctx: AdminCtx, m?: Loose) {
   if (!(await security.hit(db, 'wm:' + ctx.user.id, 6000, 3600))) return ctx.json(ctx.res, 429, { error: 'অনেক বেশি, একটু পরে।' });
   const b = await ctx.body();
   const c = config(ctx.settings);

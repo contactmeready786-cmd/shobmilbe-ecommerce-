@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // The two printed papers of an order — only for the shop's admin and staff, one or many orders at once.
 //   🏷️ ইনভয়েস  (invoicePage)   — stuck on the parcel: barcode, receiver, cash to collect. No product list.
 //   📋 চেকলিস্ট (checklistPage) — inside the box for the customer: pictures, names, warranty, prices.
@@ -13,8 +12,9 @@ import * as BC from '../services/barcode';
 import * as $services_courier from '../services/courier';
 import * as $services_qr from '../services/qr';
 import * as $models_catalog from '../models/catalog';
-function mergedItems(items) {
-  const out = [];
+import type { Body, Loose } from '../types';
+function mergedItems(items?: Loose) {
+  const out: Loose[] = [];
   const seen = new Map();
   for (const it of items || []) {
     const key = it.product_id ? `${it.product_id}:${it.price}` : null;
@@ -25,20 +25,20 @@ function mergedItems(items) {
   }
   return out;
 }
-const courierName = (c) => (($services_courier.PROVIDERS || {})[c] || {}).label || c;
-const siteOf = (s) => String(s.site_url || '').replace(/\/+$/, '');
-const bare = (u) => u.replace(/^https?:\/\//, '');
+const courierName = (c?: Loose) => (($services_courier.PROVIDERS || {})[c] || {}).label || c;
+const siteOf = (s?: Loose) => String(s.site_url || '').replace(/\/+$/, '');
+const bare = (u?: Loose) => u.replace(/^https?:\/\//, '');
 // The shop's mark: the uploaded logo, or the "সব" tile + two-colour "সবমিলবে" wordmark
-function brandMark(s, cls = '') {
+function brandMark(s?: Loose, cls: Loose = '') {
   if (s.logo_id) return html`<img class="dc-logo-img ${cls}" src="/media/${s.logo_id}" alt="${s.store_name}">`;
   const name = s.store_name || 'সবমিলবে';
   return html`<img class="dc-mark ${cls}" src="/brand/favicon-192.png" alt="" aria-hidden="true"><span class="dc-word">${name === 'সবমিলবে' ? html`<b class="a">সব</b><b class="b">মিলবে</b>` : html`<b class="a">${name}</b>`}</span>`;
 }
-function qrSvg(s, order, px) {
+function qrSvg(s?: Loose, order?: Loose, px?: Loose) {
   const site = siteOf(s);
   return site ? $services_qr.svg(`${site}/track?code=${order.code}`, { px, label: 'অর্ডার ট্র্যাক' }) : '';
 }
-const shell = (title, css, bodyHtml, { embed } = {}) => '<!doctype html>' + html`<html lang="bn"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+const shell = (title?: Loose, css?: Loose, bodyHtml?: Loose, { embed }: Body = {}) => '<!doctype html>' + html`<html lang="bn"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${title}</title><meta name="robots" content="noindex">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>${raw(css)}</style></head><body class="${embed ? 'embed' : ''}">
@@ -55,12 +55,12 @@ body.embed{background:transparent}
 .bc{display:block;max-width:100%;height:auto}`;
 
 // ================================================================ 📋 চেকলিস্ট (inside the box)
-function checklistBody(order, s, c) {
+function checklistBody(order?: Loose, s?: Loose, c?: Loose) {
   const on = c.show;
   const items = mergedItems(order.items);
   const area = ordersModel.areaLabel(order);
   const due = Math.max(0, order.total - (order.paid_amount || 0));
-  const wt = (it) => $models_catalog.warrantyText(it);
+  const wt = (it?: Loose) => $models_catalog.warrantyText(it);
   const anyWarranty = on.warranty_terms && items.some((it) => wt(it));
   const site = siteOf(s);
   const units = items.reduce((n, it) => n + Number(it.qty || 0), 0);
@@ -130,7 +130,7 @@ function checklistBody(order, s, c) {
   </footer>` : ''}
 </section>`;
 }
-function checklistCss(c) {
+function checklistCss(c?: Loose) {
   return `${BASE_CSS}
 :root{--p:${c.primary};--a:${c.accent}}
 .iv{background:#fff;max-width:${c.paper === 'A5' ? '600px' : '820px'};margin:18px auto;border-radius:14px;overflow:hidden;box-shadow:0 8px 28px rgba(20,33,61,.10);page-break-after:always;position:relative}
@@ -167,17 +167,17 @@ function checklistCss(c) {
 .iv-table{width:calc(100% - 32px);margin:0 16px;font-size:12px}.iv-table th,.iv-table td{padding:6px 5px}.iv-pic{width:48px}.iv-pic img,.iv-pic span{width:42px;height:42px}.iv-bottom{grid-template-columns:1fr;padding:12px 16px}.dc-word{font-size:30px}.dc-mark{width:46px;height:46px}}
 @media print{@page{size:${c.paper};margin:8mm}body{background:#fff}.bar{display:none}.iv{margin:0;border-radius:0;box-shadow:none;max-width:none}tr{page-break-inside:avoid}}`;
 }
-function checklistPage(orders, s, c = docs.checklist(s), opts = {}) {
-  return shell(`${c.title} ${orders.length === 1 ? orders[0].code : `(${bn(orders.length)}টি)`}`, checklistCss(c), html`${orders.map((o) => checklistBody(o, s, c))}`, opts);
+function checklistPage(orders?: Loose, s?: Loose, c: Loose = docs.checklist(s), opts: Body = {}) {
+  return shell(`${c.title} ${orders.length === 1 ? orders[0].code : `(${bn(orders.length)}টি)`}`, checklistCss(c), html`${orders.map((o?: Loose) => checklistBody(o, s, c))}`, opts);
 }
 
 // ================================================================ 🏷️ ইনভয়েস (on the parcel)
-function labelBody(order, s, c) {
+function labelBody(order?: Loose, s?: Loose, c?: Loose) {
   const on = c.show;
   const area = ordersModel.areaLabel(order);
   const due = Math.max(0, order.total - (order.paid_amount || 0));
-  const units = (order.items || []).reduce((n, it) => n + Number(it.qty || 0), 0);
-  const weight = (order.items || []).reduce((g, it) => g + Number(it.weight_g || 0) * Number(it.qty || 0), 0) || Number(order.weight_g || 0);
+  const units = (order.items || []).reduce((n?: Loose, it?: Loose) => n + Number(it.qty || 0), 0);
+  const weight = (order.items || []).reduce((g?: Loose, it?: Loose) => g + Number(it.weight_g || 0) * Number(it.qty || 0), 0) || Number(order.weight_g || 0);
   const site = siteOf(s);
   const z = docs.LABEL_SIZES[c.size] || docs.LABEL_SIZES.a4x6;
   const compact = z.h < 120;
@@ -210,7 +210,7 @@ function labelBody(order, s, c) {
   ${(on.return_note && c.return_text) || c.footer_text ? html`<footer class="lb-foot">${on.return_note && c.return_text ? html`<p>${docs.fill(c.return_text, s)}${s.address ? html` · ${s.address}` : ''}</p>` : ''}${c.footer_text ? html`<p>${docs.fill(c.footer_text, s)}</p>` : ''}${site ? html`<p class="lb-site">${bare(site)}</p>` : ''}</footer>` : ''}
 </section>`;
 }
-function labelCss(c) {
+function labelCss(c?: Loose) {
   const z = docs.LABEL_SIZES[c.size];
   return `${BASE_CSS}
 :root{--p:${c.primary};--a:${c.accent}}
@@ -254,8 +254,8 @@ function labelCss(c) {
 @media print{@page{size:${z.sheet ? 'A4' : `${z.w}mm ${z.h}mm`};margin:0}body{background:#fff}.bar{display:none}
   .sheet{padding:0;gap:0;justify-content:flex-start}.lb{box-shadow:none;border-radius:0;height:${z.h}mm;${z.sheet ? 'outline:1px dashed #CBD5E1;' : 'page-break-after:always;'}}}`;
 }
-function invoicePage(orders, s, c = docs.invoice(s), opts = {}) {
-  return shell(`${c.title} ${orders.length === 1 ? orders[0].code : `(${bn(orders.length)}টি)`}`, labelCss(c), html`<div class="sheet">${orders.map((o) => labelBody(o, s, c))}</div>`, opts);
+function invoicePage(orders?: Loose, s?: Loose, c: Loose = docs.invoice(s), opts: Body = {}) {
+  return shell(`${c.title} ${orders.length === 1 ? orders[0].code : `(${bn(orders.length)}টি)`}`, labelCss(c), html`<div class="sheet">${orders.map((o?: Loose) => labelBody(o, s, c))}</div>`, opts);
 }
 
 export { invoicePage, checklistPage, labelBody, checklistBody, mergedItems };

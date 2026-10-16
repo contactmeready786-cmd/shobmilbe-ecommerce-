@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // Owner only: the audit log (who changed what, when) and the login history with every logged-in device.
 
 // What each kind of record is about, and what each action means — in plain Bangla.
@@ -6,13 +5,14 @@ import { html, bn, fmtDate, int, str, csv, dateRange, pageNum, validYmd } from '
 import * as db from '../db';
 import * as ui from './ui';
 import * as sessions from '../models/sessions';
-const ENTITIES = {
+import type { AdminCtx, Body, Loose, ShopQuery } from '../types';
+const ENTITIES: Record<string, string> = {
   product: '📦 পণ্য', order: '🧾 অর্ডার', customer: '👤 কাস্টমার', category: '🗂️ ক্যাটাগরি', brand: '🏷️ ব্র্যান্ড', staff: '🧑‍💼 স্টাফ',
   security: '🛡️ নিরাপত্তা', settings: '⚙️ সেটিংস', marketing: '📣 মার্কেটিং', coupon: '🏷️ কুপন', blog: '📝 ব্লগ', page: '📄 পেজ', banner: '🖼️ ব্যানার',
   design: '🎨 ডিজাইন', supplier: '🚚 সাপ্লায়ার', purchase: '🛒 পারচেজ', transaction: '💰 হিসাব', accounting: '💰 হিসাব', trash: '🗑️ রিসাইকেল বিন',
   translation: '🌐 অনুবাদ', payments: '💳 পেমেন্ট', courier: '🛵 কুরিয়ার', domain: '🌐 ডোমেইন', account: '🏦 অ্যাকাউন্ট',
 };
-const ACTIONS = {
+const ACTIONS: Record<string, Loose> = {
   login: 'লগইন', login_step: 'পাসওয়ার্ড ঠিক, দ্বিতীয় যাচাই বাকি', password: 'নিজের পাসওয়ার্ড বদল', password_reset: 'পাসওয়ার্ড রিসেট', reset_mail: 'রিসেট লিংক পাঠানো',
   blocked: '⛔ আটকানো', product_add: 'পণ্য যোগ', product_edit: 'পণ্য এডিট', product_delete: 'পণ্য মুছা', product_dup_allow: 'ডুপ্লিকেট হলেও প্রকাশের অনুমতি',
   product_dup_blocked: 'ডুপ্লিকেট বলে সেভ আটকানো', price_change: '💲 দাম বদল', cost_change: '💲 কেনা দাম বদল', stock_adjust: 'স্টক বদল', product_bulk: 'একসাথে অনেক পণ্য বদল',
@@ -27,17 +27,17 @@ const ACTIONS = {
   purge: 'চিরতরে মুছা', restore: 'রিসাইকেল বিন থেকে ফেরত', add: 'যোগ', edit: 'এডিট', passkey_add: 'পাসকি যোগ', passkey_delete: 'পাসকি মুছা', face_add: 'মুখের ছবি যোগ',
   face_delete: 'মুখের ছবি মুছা', login_code: 'অনুমতি কোড', recovery_codes: 'রিকভারি কোড', damage_move: 'নষ্ট স্টকে সরানো', damage_out: 'নষ্ট মাল বাদ',
 };
-const actionLabel = (a) => ACTIONS[a] || a;
-const entityLabel = (e) => ENTITIES[e] || e || '—';
+const actionLabel = (a?: Loose) => ACTIONS[a] || a;
+const entityLabel = (e?: Loose) => ENTITIES[e] || e || '—';
 
-function link(a) {
+function link(a?: Loose) {
   if (!a.entity_id) return '';
-  const to = { product: `/admin/products/${a.entity_id}`, order: `/admin/orders/${a.entity_id}`, customer: `/admin/customers/${a.entity_id}`,
-    staff: `/admin/staff/${a.entity_id}`, supplier: `/admin/suppliers/${a.entity_id}`, purchase: `/admin/purchases/${a.entity_id}` }[a.entity];
+  const to: string | undefined = (<Record<string, string>>{ product: `/admin/products/${a.entity_id}`, order: `/admin/orders/${a.entity_id}`, customer: `/admin/customers/${a.entity_id}`,
+    staff: `/admin/staff/${a.entity_id}`, supplier: `/admin/suppliers/${a.entity_id}`, purchase: `/admin/purchases/${a.entity_id}` })[a.entity];
   return to ? html` <a class="small" href="${to}">#${a.entity_id}</a>` : html` <span class="small muted">#${a.entity_id}</span>`;
 }
 
-function filters(query) {
+function filters(query: ShopQuery) {
   const r = query.get('from') || query.get('to') || query.get('days') ? dateRange(query, 30) : { from: null, to: null };
   return {
     staffId: int(query.get('staff')) || null,
@@ -47,8 +47,8 @@ function filters(query) {
     from: validYmd(r.from), to: validYmd(r.to),
   };
 }
-function where(f, params) {
-  const w = [];
+function where(f: Body, params?: Loose) {
+  const w: Loose[] = [];
   if (f.staffId) { params.push(f.staffId); w.push(`a.staff_id=$${params.length}`); }
   if (f.entity) { params.push(f.entity); w.push(`a.entity=$${params.length}`); }
   if (f.action) { params.push(f.action); w.push(`a.action=$${params.length}`); }
@@ -59,15 +59,15 @@ function where(f, params) {
 }
 
 const PER = 50;
-async function auditPage(ctx) {
+async function auditPage(ctx: AdminCtx) {
   const f = filters(ctx.query);
   const page = pageNum(ctx.query);
-  const params = [];
+  const params: Loose[] = [];
   const w = where(f, params);
   const [rows, total, staff] = await Promise.all([
     db.q(`SELECT a.*, s.name AS staff_name FROM activity_log a LEFT JOIN staff s ON s.id=a.staff_id ${w}
       ORDER BY a.created_at DESC, a.id DESC LIMIT ${PER} OFFSET ${(page - 1) * PER}`, params),
-    db.one(`SELECT count(*)::int AS n FROM activity_log a ${w}`, params).then((r) => r.n),
+    db.one(`SELECT count(*)::int AS n FROM activity_log a ${w}`, params).then((r) => r!.n),
     db.q('SELECT id, name FROM staff ORDER BY role=\'owner\' DESC, name'),
   ]);
   const qs = new URLSearchParams();
@@ -107,9 +107,9 @@ ${rows.length ? html`<div class="panel table-wrap"><table class="table compact a
   return ctx.page('অডিট লগ', body, 'audit');
 }
 
-async function auditCsv(ctx) {
+async function auditCsv(ctx: AdminCtx) {
   const f = filters(ctx.query);
-  const params = [];
+  const params: Loose[] = [];
   const rows = await db.q(`SELECT a.*, s.name AS staff_name FROM activity_log a LEFT JOIN staff s ON s.id=a.staff_id ${where(f, params)}
     ORDER BY a.created_at DESC, a.id DESC LIMIT 20000`, params);
   await ctx.log('export', 'security', null, `অডিট লগ ডাউনলোড (${rows.length}টি)`);
@@ -121,7 +121,7 @@ async function auditCsv(ctx) {
 
 // ---------------------------------------------------------------- logins & devices
 const EVENT_OPTS = Object.entries(sessions.EVENTS);
-async function loginsPage(ctx) {
+async function loginsPage(ctx: AdminCtx) {
   if (ctx.method === 'POST') {
     const b = await ctx.body();
     const hours = Math.min(720, Math.max(1, int(b.session_idle_hours, 72)));
@@ -198,7 +198,7 @@ ${failed.length ? html`<section class="panel">
   return ctx.page('লগইন ইতিহাস ও ডিভাইস', body, 'logins');
 }
 
-async function logoutDevice(ctx) {
+async function logoutDevice(ctx: AdminCtx) {
   const b = await ctx.body();
   if (String(b.id) === ctx.user.__session) return ctx.redirect(ctx.res, '/admin/security/logins');
   const who = await sessions.revokeId(str(b.id, 100), null, `মালিক লগআউট করিয়েছেন (${ctx.user.name})`);
@@ -210,7 +210,7 @@ async function logoutDevice(ctx) {
   const back = String(ctx.req.headers.referer || '').includes('/admin/staff/') ? `/admin/staff/${who}#security` : '/admin/security/logins';
   return ctx.redirect(ctx.res, back);
 }
-async function logoutEveryone(ctx) {
+async function logoutEveryone(ctx: AdminCtx) {
   const n = await sessions.revokeEveryone(`মালিক সবাইকে লগআউট করিয়েছেন (${ctx.user.name})`, ctx.user.__token);
   await ctx.log('staff_logout', 'security', null, `সবাইকে লগআউট: ${n}টি ডিভাইস`);
   return ctx.redirect(ctx.res, '/admin/security/logins?info=' + encodeURIComponent(`${bn(n)}টি ডিভাইস থেকে লগআউট করা হয়েছে।`));

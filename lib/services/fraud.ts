@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // 🛡️ Fraud check: how reliable is this mobile number? Three sources, put together into one simple answer:
 //   1. this shop's own orders (always) — delivered vs cancelled / returned
 //   2. Pathao (when Pathao is connected) — the number's delivery record across Pathao merchants
@@ -8,10 +7,11 @@ import * as db from '../db';
 import * as customers from '../models/customers';
 import * as courier from './courier';
 import { normalizePhone, validPhone } from '../util';
+import type { Body, Loose, Settings } from '../types';
 
 const CACHE_HOURS = 24;
 
-async function fraudbd(s, phone) {
+async function fraudbd(s?: Loose, phone?: Loose) {
   const key = String(s.fraudbd_api_key || '').trim();
   if (!key) return null;
   const ctrl = new AbortController();
@@ -22,19 +22,19 @@ async function fraudbd(s, phone) {
     const j = await r.json().catch(() => null);
     if (!r.ok || !j || j.status === false) return { ok: false, message: (j && j.message) || `FraudBD: HTTP ${r.status}` };
     const d = j.data || {};
-    const couriers = Object.entries(d.Summaries || {}).map(([name, x]) => ({
+    const couriers = Object.entries(d.Summaries || {}).map(([name, x]: [string, Loose]) => ({
       name, type: x.data_type || 'delivery', total: Number(x.total) || 0, success: Number(x.success) || 0, cancel: Number(x.cancel) || 0,
       rating: x.customer_rating || '', risk: x.risk_level || '', message: x.message || '',
     }));
     const t = d.totalSummary || {};
     return { ok: true, couriers, total: Number(t.total) || 0, success: Number(t.success) || 0, cancel: Number(t.cancel) || 0, rate: t.successRate !== undefined ? Number(t.successRate) : null };
-  } catch (e) {
+  } catch (e: Loose) {
     return { ok: false, message: e.name === 'AbortError' ? 'FraudBD সময়মতো উত্তর দেয়নি' : e.message };
   } finally { clearTimeout(timer); }
 }
 
 // One answer from everything: level = new / low / medium / high, plus a sentence in Bangla.
-function judge(own, pathao, fbd) {
+function judge(own?: Loose, pathao?: Loose, fbd?: Loose) {
   const ownDone = own.delivered + own.failed;
   let total = 0; let ok = 0;
   if (fbd && fbd.ok) { total += fbd.total; ok += fbd.success; }
@@ -42,32 +42,32 @@ function judge(own, pathao, fbd) {
   total += ownDone; ok += own.delivered;
   const rate = total ? Math.round((ok / total) * 100) : null;
   let level = 'new';
-  if (total) level = rate < 50 && total >= 2 ? 'high' : rate < 75 ? 'medium' : 'low';
+  if (total) level = rate! < 50 && total >= 2 ? 'high' : rate! < 75 ? 'medium' : 'low';
   // a Pathao "risky" rating or many recent orders lift the level
-  const pathaoRisk = [pathao && pathao.rating, ...((fbd && fbd.couriers) || []).map((c) => c.risk || c.rating)].join(' ').toLowerCase();
+  const pathaoRisk = [pathao && pathao.rating, ...((fbd && fbd.couriers) || []).map((c?: Loose) => c.risk || c.rating)].join(' ').toLowerCase();
   if (/high|fraud|risky|bad/.test(pathaoRisk) && level !== 'high') level = 'high';
   let burst = false;
   if (own.last_day >= 3 && (level === 'low' || level === 'new')) { level = 'medium'; burst = true; }
-  const LBL = { new: '🆕 নতুন — আগে কোনো রেকর্ড নেই', low: '✅ বিশ্বস্ত', medium: '⚠️ সতর্ক থাকুন', high: '⛔ ঝুঁকিপূর্ণ' };
-  const ADV = { new: 'প্রথম অর্ডার — কল করে কনফার্ম করে নিন।', low: 'সাধারণত পণ্য নেন। পাঠিয়ে দিতে পারেন।',
+  const LBL: Record<string, string> = { new: '🆕 নতুন — আগে কোনো রেকর্ড নেই', low: '✅ বিশ্বস্ত', medium: '⚠️ সতর্ক থাকুন', high: '⛔ ঝুঁকিপূর্ণ' };
+  const ADV: Record<string, Loose> = { new: 'প্রথম অর্ডার — কল করে কনফার্ম করে নিন।', low: 'সাধারণত পণ্য নেন। পাঠিয়ে দিতে পারেন।',
     medium: 'আগে কিছু পার্সেল ফেরত দিয়েছেন। কল করে কনফার্ম করুন, চাইলে ডেলিভারি চার্জ আগে নিন।',
     high: 'অনেক পার্সেল নেননি। ডেলিভারি চার্জ বা পুরো টাকা আগে না নিয়ে পাঠাবেন না।' };
   const advice = burst ? `২৪ ঘণ্টায় এই নম্বর থেকে ${own.last_day}টি অর্ডার — একই অর্ডার বারবার এসেছে কিনা কল করে দেখুন।` : ADV[level];
   return { level, label: LBL[level], advice, total, success: ok, rate };
 }
 
-async function check(settings, phoneRaw, { fresh = false } = {}) {
+async function check(settings: Settings, phoneRaw?: Loose, { fresh = false }: Body = {}) {
   const phone = normalizePhone(phoneRaw);
   if (!validPhone(phone)) return { ok: false, message: 'ফোন নম্বর ঠিক নেই।' };
   const ownStats = await customers.phoneStats(phone);
-  const own = { orders: ownStats.orders, delivered: ownStats.delivered, failed: ownStats.failed, open: ownStats.open, last_day: ownStats.last_day };
+  const own = { orders: ownStats!.orders, delivered: ownStats!.delivered, failed: ownStats!.failed, open: ownStats!.open, last_day: ownStats!.last_day };
   let ext = null;
   if (!fresh) {
     const c = await db.one(`SELECT data, checked_at FROM fraud_checks WHERE phone=$1 AND checked_at > now() - make_interval(hours => $2)`, [phone, CACHE_HOURS]);
     if (c) ext = { ...c.data, cached_at: c.checked_at };
   }
   if (!ext) {
-    const [pathao, fbd] = await Promise.all([
+    const [pathao, fbd]: Loose[] = await Promise.all([
       courier.configured(settings, 'pathao') ? courier.pathaoSuccess(phone, settings).catch((e) => ({ ok: false, message: e.message })) : null,
       fraudbd(settings, phone),
     ]);
@@ -81,8 +81,8 @@ async function check(settings, phoneRaw, { fresh = false } = {}) {
     sources: { pathao: courier.configured(settings, 'pathao'), fraudbd: !!String(settings.fraudbd_api_key || '').trim() } };
 }
 // Only what is already known (no API call) — for lists.
-async function cachedLevels(phones) {
-  const list = [...new Set((phones || []).map((p) => normalizePhone(p)).filter(validPhone))];
+async function cachedLevels(phones?: Loose) {
+  const list = [...new Set((phones || []).map((p?: Loose) => normalizePhone(p)).filter(validPhone))];
   if (!list.length) return new Map();
   const rows = await db.q(`SELECT phone, data FROM fraud_checks WHERE phone = ANY($1::text[]) AND checked_at > now() - interval '7 days'`, [list]);
   const stats = await db.q(`SELECT phone, count(*) FILTER (WHERE status='delivered')::int AS delivered, count(*) FILTER (WHERE status IN ('cancelled','returned'))::int AS failed,

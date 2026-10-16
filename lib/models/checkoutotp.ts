@@ -155,7 +155,7 @@ async function verifyCode(s, phone, code) {
 // ---------- 📱 own-SIM app watch: did the code really leave the phone? ----------
 // The customer's page asks ~75 seconds after "OTP পাঠান" (if the code wasn't typed yet). Still "Pending" = the phone app
 // is stopped or offline → the owner is told at once (phone notification / WhatsApp / e-mail, at most every 20 minutes).
-const STATE_BN = { Pending: '⏳ ফোন এখনো নেয়নি (অ্যাপ বন্ধ / ইন্টারনেট নেই)', Processed: '📱 ফোন পেয়েছে, পাঠাচ্ছে', Sent: '✅ ফোন থেকে SMS গেছে',
+const STATE_BN: Record<string, string> = { Pending: '⏳ ফোন এখনো নেয়নি (অ্যাপ বন্ধ / ইন্টারনেট নেই)', Processed: '📱 ফোন পেয়েছে, পাঠাচ্ছে', Sent: '✅ ফোন থেকে SMS গেছে',
   Delivered: '✅ কাস্টমারের ফোনে পৌঁছেছে', Failed: '❌ ফোন পাঠাতে পারেনি', Cancelled: 'বাতিল' };
 async function alertOwner(s, title, body) {
   if (!(await security.hit(db, 'coo:alert', 1, 1200))) return;

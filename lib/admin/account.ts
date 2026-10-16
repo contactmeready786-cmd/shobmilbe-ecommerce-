@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // Admin → আমার অ্যাকাউন্ট: change my password, two-step login (authenticator app), and the devices I'm logged in on.
 import { html, raw, bn, fmtDate, str, verifyPassword, passwordProblem } from '../util';
 import * as db from '../db';
@@ -10,8 +9,9 @@ import * as totp from '../services/totp';
 import * as qr from '../services/qr';
 import * as $profile from './profile';
 import * as $services_notify from '../services/notify';
+import type { AdminCtx, Loose } from '../types';
 
-const MSG = {
+const MSG: Record<string, string> = {
   password: 'পাসওয়ার্ড বদলানো হয়েছে। নিরাপত্তার জন্য অন্য সব ডিভাইস থেকে লগআউট করা হয়েছে।',
   tfa_on: '✅ দুই ধাপের লগইন চালু হয়েছে। এখন থেকে লগইনে পাসওয়ার্ডের পরে অ্যাপের কোড লাগবে।',
   tfa_off: 'দুই ধাপের লগইন বন্ধ করা হয়েছে।',
@@ -19,15 +19,15 @@ const MSG = {
   out_others: 'অন্য সব ডিভাইস থেকে লগআউট করা হয়েছে।',
   profile: '✅ প্রোফাইল সেভ হয়েছে।',
 };
-function flash(ctx) {
+function flash(ctx: AdminCtx) {
   const m = MSG[ctx.query.get('msg')];
   return m ? ui.flash({ text: m }) : ui.flash(ctx.flash);
 }
 
-function devicesTable(rows, me, action) {
+function devicesTable(rows?: Loose, me?: Loose, action?: Loose) {
   if (!rows.length) return html`<p class="muted">কোনো ডিভাইসে লগইন নেই।</p>`;
   return html`<div class="table-wrap"><table class="table compact"><thead><tr><th>ডিভাইস</th><th>কোথা থেকে</th><th>লগইন</th><th>শেষ ব্যবহার</th><th></th></tr></thead>
-  <tbody>${rows.map((s) => html`<tr>
+  <tbody>${rows.map((s?: Loose) => html`<tr>
     <td>${s.device || '—'}${s.id === me ? html` <span class="pill pill-delivered">এই ডিভাইস</span>` : ''}</td>
     <td class="small">${s.place || ''}${s.place ? html`<br>` : ''}<span class="muted mono">${s.ip}</span></td>
     <td class="small">${fmtDate(s.created_at)}</td>
@@ -36,7 +36,7 @@ function devicesTable(rows, me, action) {
   </tr>`)}</tbody></table></div>`;
 }
 
-async function page(ctx, error) {
+async function page(ctx: AdminCtx, error?: Loose) {
   const u = ctx.user;
   const mine = await sessions.listFor(u.id, ctx.settings);
   const history = await sessions.history({ staffId: u.id }, { limit: 12 });
@@ -89,7 +89,7 @@ ${$profile.myPanel(u)}
   return ctx.page('আমার প্রোফাইল ও অ্যাকাউন্ট', body, '', { status: error ? 400 : 200 });
 }
 
-async function changePassword(ctx) {
+async function changePassword(ctx: AdminCtx) {
   const b = await ctx.body();
   const u = ctx.user;
   if (!(await security.hit(db, 'pwchange:' + u.id, 10, 3600))) return page(ctx, 'অনেকবার চেষ্টা হয়েছে। এক ঘণ্টা পর আবার চেষ্টা করুন।');
@@ -111,7 +111,7 @@ async function changePassword(ctx) {
 }
 
 // ---------------------------------------------------------------- two-step login set-up (staff)
-async function twoFactor(ctx) {
+async function twoFactor(ctx: AdminCtx) {
   const u = ctx.user;
   if (u.role === 'owner') return ctx.redirect(ctx.res, '/admin/security/login');
   const enabled = u.totp_on && !!u.totp_secret;
@@ -177,21 +177,21 @@ ${ctx.query.get('bad') ? html`<p class="flash flash-error">কোডটা ম�
   return ctx.page('দুই ধাপের লগইন', body, '');
 }
 
-async function logoutOne(ctx) {
+async function logoutOne(ctx: AdminCtx) {
   const b = await ctx.body();
   if (String(b.id) === ctx.user.__session) return ctx.redirect(ctx.res, '/admin/account');
   const who = await sessions.revokeId(str(b.id, 100), ctx.user.id, 'নিজে অন্য ডিভাইস থেকে লগআউট করেছেন');
   if (who) await sessions.record(ctx.req, { staffId: ctx.user.id, login: ctx.user.username, event: 'revoked', ok: true, ip: ctx.ip, detail: 'নিজে একটা ডিভাইস লগআউট করেছেন' });
   return ctx.back('/admin/account', 'out_one');
 }
-async function logoutOthers(ctx) {
+async function logoutOthers(ctx: AdminCtx) {
   const n = await sessions.revokeAll(ctx.user.id, 'নিজে অন্য সব ডিভাইস লগআউট করেছেন', ctx.user.__token);
   if (n) await sessions.record(ctx.req, { staffId: ctx.user.id, login: ctx.user.username, event: 'revoked', ok: true, ip: ctx.ip, detail: `${n}টি ডিভাইস লগআউট` });
   return ctx.back('/admin/account', 'out_others');
 }
 
 export const routes = [
-    { method: 'GET', path: '/admin/account', handler: (ctx) => page(ctx) },
+    { method: 'GET', path: '/admin/account', handler: (ctx: AdminCtx) => page(ctx) },
     { method: 'POST', path: '/admin/account', handler: changePassword },
     { method: '*', path: '/admin/account/2fa', handler: twoFactor },
     { method: 'POST', path: '/admin/account/logout-one', handler: logoutOne },

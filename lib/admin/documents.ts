@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // Admin → স্টোর ডিজাইন → 🖨️ ইনভয়েস ও চেকলিস্ট: everything on the two printed papers, with a live sample.
 import { html, raw, int } from '../util';
 import * as db from '../db';
@@ -6,6 +5,7 @@ import * as ui from './ui';
 import * as docs from '../services/docs';
 import * as O from '../models/orders';
 import { invoicePage, checklistPage } from '../views/invoice';
+import type { AdminCtx, Loose } from '../types';
 
 const BASE = '/admin/design/documents';
 
@@ -15,12 +15,12 @@ async function sampleOrder() {
   if (r) { const o = await O.getOrder({ id: r.id }); if (o && o.items.length) return o; }
   const p = await db.q('SELECT id, name, sku, price, image_id, emoji, warranty, warranty_type, barcode, weight_g FROM products WHERE active ORDER BY id LIMIT 3').catch(() => []);
   const items = (p.length ? p : [{ name: 'নমুনা পণ্য', price: 250 }]).map((x, i) => ({ ...x, product_id: x.id, qty: i + 1 }));
-  const subtotal = items.reduce((t, x) => t + x.price * x.qty, 0);
+  const subtotal = items.reduce((t: number, x: Loose) => t + x.price * x.qty, 0);
   return { id: 0, code: 'SM12AB34', created_at: new Date(), customer_name: 'মোঃ রাকিব হাসান', phone: '01912345678', address: 'বাসা ২৪, রোড ৭, শ্যামলী', district: 'Dhaka', thana: 'Adabor', area: 'dhaka',
     note: 'বিকেল ৫টার পর দিন', payment: 'cod', payment_status: 'unpaid', items, subtotal, discount: 0, points_discount: 0, delivery: 60, total: subtotal + 60, paid_amount: 0, courier: 'Steadfast', consignment_id: '12345678' };
 }
 
-async function page(ctx) {
+async function page(ctx: AdminCtx) {
   const s = ctx.settings;
   const tab = ctx.query.get('tab') === 'checklist' ? 'checklist' : 'invoice';
   if (ctx.method === 'POST') {
@@ -36,7 +36,7 @@ async function page(ctx) {
   const parts = tab === 'invoice' ? docs.INVOICE_PARTS : docs.CHECKLIST_PARTS;
   const sample = await sampleOrder();
   const previewHtml = tab === 'invoice' ? invoicePage([sample], s, c, { embed: true }) : checklistPage([sample], s, c, { embed: true });
-  const text = (name, label, hint, rows = 1) => ui.field(label, rows > 1 ? ui.textarea(name, c[name], { rows, maxlength: 600 }) : ui.input(name, c[name], { maxlength: 120 }), hint);
+  const text = (name?: Loose, label?: Loose, hint?: Loose, rows: Loose = 1) => ui.field(label, rows > 1 ? ui.textarea(name, c[name], { rows, maxlength: 600 }) : ui.input(name, c[name], { maxlength: 120 }), hint);
   const body = html`<div class="title-row"><h1>🖨️ ইনভয়েস ও চেকলিস্ট</h1>
   <div class="row-actions"><a class="btn btn-ghost btn-sm" href="/admin/orders">অর্ডারে যান</a></div></div>
 ${ui.flash(ctx.flash)}
@@ -87,7 +87,7 @@ ${ui.flash(ctx.flash)}
 }
 
 // live sample while editing (not saved)
-async function preview(ctx) {
+async function preview(ctx: AdminCtx) {
   const b = await ctx.body();
   const kind = b.kind === 'checklist' ? 'checklist' : 'invoice';
   const c = (kind === 'invoice' ? docs.invoice : docs.checklist)({ ...ctx.settings, [kind === 'invoice' ? 'doc_invoice' : 'doc_checklist']: JSON.stringify(docs.fromForm(kind, b)) });

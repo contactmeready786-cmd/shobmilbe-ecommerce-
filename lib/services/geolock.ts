@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // 🌍 দেশ ব্লক (Admin → ভিজিটর অ্যানালিটিক্স → 🌍 দেশ ব্লক, owner only): only visitors from the ticked countries
 // may open the shop; everyone else gets a short "not available in your country" page.
 //
@@ -21,6 +20,7 @@
 import * as db from '../db';
 import { parseCookies, sign, unsign } from '../util';
 import * as COUNTRIES from '../data/countries';
+import type { Body, Loose, ShopRequest } from '../types';
 
 const PASS_DAYS = 7;
 const BLOCK_PATH = '/__region';
@@ -30,17 +30,17 @@ const GOOD_BOTS = /googlebot|google-inspectiontool|googleother|storebot-google|a
 // paths other servers call, or that crawlers need, which must answer from anywhere
 const OPEN_PATHS = /^\/(e\/[oc]\/|unsubscribe$|webhook\/|pay\/|media\/|img\/|brand\/|feeds\/|api\/(research|backup)\/tick$|robots\.txt$|sitemap[^/]*\.xml$|[a-f0-9]{32}\.txt$|favicon|__region)/;
 
-const codeOk = (c) => Object.prototype.hasOwnProperty.call(COUNTRIES, c);
-function allowedList(s) {
+const codeOk = (c?: Loose) => Object.prototype.hasOwnProperty.call(COUNTRIES, c);
+function allowedList(s?: Loose) {
   return [...new Set(String(s.geo_allow || '').toUpperCase().split(/[\s,]+/).filter(codeOk))];
 }
-function config(s) {
+function config(s?: Loose) {
   const allow = allowedList(s);
   const zones = new Set();
   let zonesComplete = true;
   for (const c of allow) {
-    if (!COUNTRIES[c].length) zonesComplete = false;
-    COUNTRIES[c].forEach((z) => zones.add(z));
+    if (!(COUNTRIES as Loose)[c].length) zonesComplete = false;
+    (COUNTRIES as Loose)[c].forEach((z?: Loose) => zones.add(z));
   }
   return {
     on: s.geo_lock_on === '1' && allow.length > 0,
@@ -53,27 +53,27 @@ function config(s) {
   };
 }
 
-function header(req, name) { return String((req.headers && req.headers[name]) || '').trim(); }
-function countryOf(req) {
+function header(req: ShopRequest, name?: Loose) { return String((req.headers && req.headers[name]) || '').trim(); }
+function countryOf(req: ShopRequest) {
   const c = (header(req, 'x-vercel-ip-country') || header(req, 'cf-ipcountry')).toUpperCase().slice(0, 2);
   return /^[A-Z]{2}$/.test(c) && c !== 'XX' ? c : '';
 }
-const isGoodBot = (ua) => GOOD_BOTS.test(String(ua || ''));
+const isGoodBot = (ua?: Loose) => GOOD_BOTS.test(String(ua || ''));
 
-function hasPass(req, s) {
+function hasPass(req: ShopRequest, s?: Loose) {
   const v = unsign(parseCookies(req.headers.cookie).sm_geo, s.session_secret);
   if (!v) return false;
   const [k, at] = v.split(':');
   return k === 'geo' && Date.now() - Number(at) < PASS_DAYS * 864e5;
 }
-function passCookie(req, s) {
+function passCookie(req: ShopRequest, s?: Loose) {
   const secure = String(req.headers['x-forwarded-proto'] || '').includes('https') ? '; Secure' : '';
   return `sm_geo=${encodeURIComponent(sign(`geo:${Date.now()}`, s.session_secret))}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${PASS_DAYS * 86400}${secure}`;
 }
-const loggedIntoAdmin = (req, s) => !!unsign(parseCookies(req.headers.cookie).sm_admin, s.session_secret);
+const loggedIntoAdmin = (req: ShopRequest, s?: Loose) => !!unsign(parseCookies(req.headers.cookie).sm_admin, s.session_secret);
 
 // For a shop request (not /admin): null = let in, or { country } = show the blocked page.
-function check(req, path, s) {
+function check(req: ShopRequest, path?: Loose, s?: Loose) {
   const c = config(s);
   if (!c.on) return null;
   if (OPEN_PATHS.test(path)) return null;
@@ -86,7 +86,7 @@ function check(req, path, s) {
 }
 
 // how many visits each country lost (shown on the admin page), one row per day + country + reason
-function count(country, why) {
+function count(country?: Loose, why?: Loose) {
   db.q(`INSERT INTO geo_blocks(day, country, why, n) VALUES((now() AT TIME ZONE 'Asia/Dhaka')::date, $1, $2, 1)
     ON CONFLICT (day, country, why) DO UPDATE SET n = geo_blocks.n + 1`, [String(country || '??').slice(0, 2), why]).catch(() => {});
   if (Math.random() < 0.01) db.q(`DELETE FROM geo_blocks WHERE day < (now() AT TIME ZONE 'Asia/Dhaka')::date - 90`).catch(() => {});
@@ -94,19 +94,19 @@ function count(country, why) {
 
 // The tiny script put in every shop page when the clock check is on: a browser whose time zone belongs to no
 // ticked country goes to the blocked page. Crawlers are skipped (their clocks are in the USA).
-function headScript(s) {
+function headScript(s?: Loose) {
   const c = config(s);
   if (!c.on || !c.tzCheck) return '';
   return `<script>(function(){try{var u=navigator.userAgent||'';if(/bot|crawl|spider|slurp|lighthouse|headless|preview|facebookexternalhit|meta-external|whatsapp|telegram/i.test(u))return;var z=Intl.DateTimeFormat().resolvedOptions().timeZone;if(!z||/^(Etc\\/|UTC$|GMT)/.test(z))return;var ok=${JSON.stringify([...c.zones]).replace(/</g, '\\u003c')};if(ok.indexOf(z)<0)location.replace('${BLOCK_PATH}?w=tz&z='+encodeURIComponent(z));}catch(e){}})();</script>`;
 }
 
-function esc(v) { return String(v ?? '').replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch])); }
-function countryName(code, lang = 'bn') {
+function esc(v?: Loose) { return String(v ?? '').replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' } as Record<string, string>)[ch]); }
+function countryName(code?: Loose, lang: Loose = 'bn') {
   try { return new Intl.DisplayNames([lang], { type: 'region' }).of(code) || code; } catch (_) { return code; }
 }
 
 // The page a shut-out visitor sees (Bangla + English, no shop design so it loads instantly).
-function blockedPage(s, { country = '', why = 'country' } = {}) {
+function blockedPage(s?: Loose, { country = '', why = 'country' }: Body = {}) {
   const c = config(s);
   const shop = esc(s.store_name || 'সবমিলবে');
   const where = c.list.map((x) => esc(countryName(x))).join(', ');
@@ -132,13 +132,13 @@ ${vpnLine}</main>${passScript}</body></html>`;
 // Emergency key, in case the owner is abroad and forgot: Vercel → Environment Variables → ADMIN_GEO_LOCK = off → Redeploy.
 // No country header (local run) → let in, so a missing header can never lock the owner out.
 const ADMIN_HOME = 'BD';
-function adminUntil(s) {
+function adminUntil(s?: Loose) {
   const d = String(s.admin_geo_until || '');
   if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return 0;
   const t = Date.parse(`${d}T23:59:59+06:00`);
   return Number.isFinite(t) ? t : 0;
 }
-function adminConfig(s) {
+function adminConfig(s?: Loose) {
   const envOff = /^(off|0|no|false)$/i.test(String(process.env.ADMIN_GEO_LOCK || '').trim());
   const extra = [...new Set(String(s.admin_geo_extra || '').toUpperCase().split(/[\s,]+/).filter((c) => codeOk(c) && c !== ADMIN_HOME))];
   const until = adminUntil(s);
@@ -154,7 +154,7 @@ function adminConfig(s) {
   };
 }
 // For an /admin request: null = let in, or the visitor's country code = shut out.
-function adminBlocked(req, s) {
+function adminBlocked(req: ShopRequest, s?: Loose) {
   const c = adminConfig(s);
   if (!c.on) return null;
   const country = countryOf(req);

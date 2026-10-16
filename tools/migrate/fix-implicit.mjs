@@ -81,7 +81,7 @@ for (const [file, errs] of byFile) {
       // the table being indexed: the name just before "[" at the error column
       const before = L.slice(0, i + 200);
       const m = L.slice(i).match(/^([A-Za-z_$][\w$]*)\s*\[/);
-      if (m && /^[A-Z_][A-Z0-9_]*$/.test(m[1])) tables.add(m[1]);
+      if (m) tables.add(m[1]);
       void before;
     }
   }

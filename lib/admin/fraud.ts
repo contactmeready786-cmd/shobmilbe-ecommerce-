@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // Admin → অর্ডার ও কাস্টমার → 🛡️ ফ্রড চেক: check any mobile number's parcel record (this shop + Pathao + FraudBD),
 // the FraudBD key, and what happens to new orders from risky numbers (a note, or "হোল্ড").
 import { html, str, bn, fmtDate, normalizePhone, validPhone } from '../util';
@@ -6,28 +5,29 @@ import * as db from '../db';
 import * as ui from './ui';
 import * as fraud from '../services/fraud';
 import * as courier from '../services/courier';
+import type { AdminCtx, Loose } from '../types';
 
 const BASE = '/admin/fraud';
 
-function resultBox(r) {
+function resultBox(r?: Loose) {
   if (!r) return '';
   if (!r.ok) return html`<p class="flash flash-error">${r.message}</p>`;
   return html`<div class="risk risk-${r.level}"><b>${r.label}</b>${r.rate !== null ? html` — সব মিলিয়ে সফল <b>${bn(r.rate)}%</b> (${bn(r.success)}/${bn(r.total)})` : ''}<span>${r.advice}</span></div>
   <ul class="fraud-list">
     <li>🏪 এই দোকানে: মোট অর্ডার ${bn(r.own.orders)} · ডেলিভারি <b>${bn(r.own.delivered)}</b> · বাতিল/ফেরত <b>${bn(r.own.failed)}</b>${r.own.last_day > 1 ? html` · ⚠️ ২৪ ঘণ্টায় ${bn(r.own.last_day)}টি অর্ডার` : ''}</li>
-    ${r.fraudbd && r.fraudbd.ok ? r.fraudbd.couriers.map((c) => html`<li>🚚 ${c.name}: ${c.type === 'rating' ? (c.message || c.rating || '—') : html`মোট <b>${bn(c.total)}</b> · সফল <b>${bn(c.success)}</b> · বাতিল <b>${bn(c.cancel)}</b>`}</li>`) : ''}
+    ${r.fraudbd && r.fraudbd.ok ? r.fraudbd.couriers.map((c?: Loose) => html`<li>🚚 ${c.name}: ${c.type === 'rating' ? (c.message || c.rating || '—') : html`মোট <b>${bn(c.total)}</b> · সফল <b>${bn(c.success)}</b> · বাতিল <b>${bn(c.cancel)}</b>`}</li>`) : ''}
     ${r.fraudbd && !r.fraudbd.ok ? html`<li class="muted">FraudBD: ${r.fraudbd.message}</li>` : ''}
     ${r.pathao ? html`<li>${r.pathao.ok ? html`🚚 Pathao: মোট <b>${bn(r.pathao.total)}</b> · সফল <b>${bn(r.pathao.success)}</b>${r.pathao.rating ? ` · ${r.pathao.rating}` : ''}` : html`<span class="muted">Pathao: ${r.pathao.message}</span>`}</li>` : ''}
   </ul>
   <p class="row-actions"><a class="btn btn-sm btn-ghost" href="/admin/orders?q=${r.phone}">এই নম্বরের অর্ডার</a> <a class="btn btn-sm btn-ghost" href="/admin/blocklist">ব্লক লিস্ট</a></p>`;
 }
 
-async function page(ctx) {
+async function page(ctx: AdminCtx) {
   const s = ctx.settings;
   if (ctx.method === 'POST') {
     if (!ctx.can('settings')) return ctx.back(BASE, 'noperm');
     const b = await ctx.body();
-    const v = { fraud_auto: b.fraud_auto ? '1' : '0', fraud_hold: b.fraud_hold ? '1' : '0' };
+    const v: Record<string, string> = { fraud_auto: b.fraud_auto ? '1' : '0', fraud_hold: b.fraud_hold ? '1' : '0' };
     if (b.clear_key === '1') v.fraudbd_api_key = '';
     else if (str(b.fraudbd_api_key, 200)) v.fraudbd_api_key = str(b.fraudbd_api_key, 200);
     await db.setMany(v);
@@ -35,7 +35,7 @@ async function page(ctx) {
     return ctx.back(BASE, 'saved');
   }
   const phone = normalizePhone(ctx.query.get('phone') || '');
-  const result = phone ? (validPhone(phone) ? await fraud.check(s, phone, { fresh: ctx.query.get('fresh') === '1' }) : { ok: false, message: 'ফোন নম্বর ঠিক নেই।' }) : null;
+  const result: Loose = phone ? (validPhone(phone) ? await fraud.check(s, phone, { fresh: ctx.query.get('fresh') === '1' }) : { ok: false, message: 'ফোন নম্বর ঠিক নেই।' }) : null;
   const recent = await db.q('SELECT phone, data, checked_at FROM fraud_checks ORDER BY checked_at DESC LIMIT 20');
   const hasKey = !!String(s.fraudbd_api_key || '').trim();
   const body = html`<h1>🛡️ ফ্রড চেক (কাস্টমারের পার্সেল রেকর্ড)</h1>${ui.flash(ctx.flash)}
@@ -68,4 +68,4 @@ async function page(ctx) {
   return ctx.page('ফ্রড চেক', body, 'fraud');
 }
 
-export const routes = [{ method: '*', path: BASE, perm: (ctx) => (ctx.method === 'POST' ? 'settings' : 'orders'), handler: page }];
+export const routes = [{ method: '*', path: BASE, perm: (ctx: AdminCtx) => (ctx.method === 'POST' ? 'settings' : 'orders'), handler: page }];

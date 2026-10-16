@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // Admin → অর্ডার ও কাস্টমার → 👤 কাস্টমার অ্যাকাউন্ট (OTP লগইন): switch customer login on/off, the SMS text,
 // and who logged in lately. Customers open an account with 📧 e-mail (code by the shop's Gmail, free) or
 // 📱 mobile (code by SMS) — once; logged in, they order without any more codes.
@@ -7,10 +6,11 @@ import * as db from '../db';
 import * as ui from './ui';
 import * as $services_sms from '../services/sms';
 import * as $services_notify from '../services/notify';
+import type { AdminCtx, Loose } from '../types';
 
 const BASE = '/admin/customer-accounts';
 
-async function page(ctx) {
+async function page(ctx: AdminCtx) {
   const s = ctx.settings;
   if (ctx.method === 'POST') {
     const b = await ctx.body();
@@ -38,9 +38,9 @@ async function page(ctx) {
   const body = html`<h1>👤 কাস্টমার অ্যাকাউন্ট (OTP লগইন)</h1>${ui.flash(ctx.flash)}
 <div class="kpis kpis-tight">
   ${ui.kpi('অবস্থা', s.acct_on === '1' ? '✅ চালু' : '⚪ বন্ধ', s.acct_on === '1' ? 'দোকানের উপরে 👤 বাটন আছে' : '')}
-  ${ui.kpi('লগইন করেছেন', bn(stats.users), `গত ৩০ দিনে ${bn(stats.active30)} জন · ইমেইলে ${bn(stats.email_users)} জন`)}
-  ${ui.kpi('সেভ করা ঠিকানা', bn(stats.addresses), '')}
-  ${ui.kpi('গত ২৪ ঘণ্টায় কোড', bn(stats.codes24 + stats.ecodes24), `📱 SMS ${bn(stats.codes24)} · 📧 ইমেইল ${bn(stats.ecodes24)} (ফ্রি)`)}
+  ${ui.kpi('লগইন করেছেন', bn(stats!.users), `গত ৩০ দিনে ${bn(stats!.active30)} জন · ইমেইলে ${bn(stats!.email_users)} জন`)}
+  ${ui.kpi('সেভ করা ঠিকানা', bn(stats!.addresses), '')}
+  ${ui.kpi('গত ২৪ ঘণ্টায় কোড', bn(stats!.codes24 + stats!.ecodes24), `📱 SMS ${bn(stats!.codes24)} · 📧 ইমেইল ${bn(stats!.ecodes24)} (ফ্রি)`)}
 </div>
 ${ui.helpBox('কীভাবে কাজ করে', html`<ol class="steps">
   <li>কাস্টমার 👤 বাটনে চাপ দিলে উপরে দুইটা ট্যাব: <b>📧 ইমেইল</b> আর <b>📱 মোবাইল নম্বর</b>।</li>

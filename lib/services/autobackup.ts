@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // The shop backs itself up once a day — no setup needed.
 //  - Everything in the database (pictures' addresses included; the pictures themselves are on ImageKit),
 //    locked with a password (AES-256-GCM), uploaded to ImageKit under /shobmilbe/backups with a random name.
@@ -9,6 +8,7 @@ import * as crypto from 'node:crypto';
 import * as db from '../db';
 import * as backup from './backup';
 import * as imagekit from './imagekit';
+import type { Body, Loose } from '../types';
 
 const KEEP = 30;
 
@@ -31,7 +31,7 @@ async function due() {
   return !last || Date.now() - new Date(last.created_at).getTime() > 20 * 3600 * 1000;
 }
 
-async function run({ force = false } = {}) {
+async function run({ force = false }: Body = {}) {
   if (!imagekit.configured()) return { skipped: 'no-imagekit' };
   if (!force && !(await due())) return { skipped: 'not-due' };
   // one at a time across all running copies of the site
@@ -53,7 +53,7 @@ async function run({ force = false } = {}) {
       try { if (await imagekit.remove(o.ik_id)) await db.q('UPDATE backups SET ik_id=NULL, ik_url=NULL, note=$1 WHERE id=$2', ['পুরনো, মুছে ফেলা হয়েছে', o.id]); } catch (_) { /* next time */ }
     }
     return { ok: true, size: r.buffer.length, rows: r.rows };
-  } catch (e) {
+  } catch (e: Loose) {
     await db.q(`INSERT INTO backups(kind, ok, note) VALUES('auto', false, $1)`, [String(e.message).slice(0, 300)]).catch(() => {});
     return { ok: false, error: e.message };
   } finally {

@@ -1,14 +1,14 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // Admin → পণ্য → 🧰 প্রজেক্ট কিট: make a kit for a project ("ব্লুটুথ স্পিকার বানান"), list its parts (how many of each,
 // which are optional), and switch it on. Customers see it at /kits and add the parts to the cart together.
 import { html, raw, bn, money, int } from '../util';
 import * as ui from './ui';
 import * as K from '../models/kits';
 import * as $db from '../db';
+import type { AdminCtx, Loose } from '../types';
 
 const BASE = '/admin/kits';
 
-async function listPage(ctx) {
+async function listPage(ctx: AdminCtx) {
   const s = ctx.settings;
   if (ctx.method === 'POST') {
     const b = await ctx.body();
@@ -19,7 +19,7 @@ async function listPage(ctx) {
         if (r.existed) return ctx.back(`${BASE}/${r.id}?info=${encodeURIComponent('এই গাইড থেকে কিট আগেই বানানো আছে।')}`);
         await ctx.log('kit_save', 'kit', r.id, `তৈরি গাইড থেকে কিট: ${b.key}`);
         const msg = r.active ? '✅ কিট তৈরি হয়ে দোকানে চালু হয়েছে। পার্টসগুলো একবার মিলিয়ে দেখুন।'
-          : `⚠️ কিট তৈরি হয়েছে কিন্তু বন্ধ রাখা হলো — দোকানে এই পার্টস নেই: ${r.missing.map((x) => x.note || x.find[0]).join(', ')}। পার্টস তুলে কিটে যোগ করে "দোকানে দেখাও" চালু করুন।`;
+          : `⚠️ কিট তৈরি হয়েছে কিন্তু বন্ধ রাখা হলো — দোকানে এই পার্টস নেই: ${r.missing.map((x: Loose) => x.note || x.find[0]).join(', ')}। পার্টস তুলে কিটে যোগ করে "দোকানে দেখাও" চালু করুন।`;
         return ctx.back(`${BASE}/${r.id}?${r.active ? 'info' : 'err'}=${encodeURIComponent(msg)}`);
       } catch (e) {
         if (!(e instanceof K.KitError)) throw e;
@@ -51,9 +51,9 @@ ${kits.map((k) => html`<tr><td class="thumb">${k.image_id ? html`<img src="/medi
   <p class="small">প্রতিটা গাইডে বানানোর ধাপ লেখা আছে। "কিট বানান" চাপলে দোকানের পণ্য থেকে পার্টস নিজে খুঁজে নিয়ে কিট তৈরি হয়। সব দরকারি পার্টস পাওয়া গেলে সাথে সাথে চালু হয়; না পেলে বন্ধ থাকে আর কোন পার্টস নেই বলে দেয় (সেগুলো তুললেই চালু করা যাবে)।
   মানুষ Google-এ "ব্লুটুথ স্পিকার কিভাবে বানাবো" এভাবে খোঁজে — এই পেজগুলো ঠিক সেই উত্তর দেয় আর পার্টস বিক্রি করে।</p>
   ${guides.length ? html`<div class="table-wrap"><table class="table compact"><thead><tr><th>গাইড</th><th>দোকানে পার্টস</th><th></th></tr></thead><tbody>
-  ${guides.map((g) => { const need = g.parts.filter((x) => !x.optional).length; const have = need - g.missing.length; return html`<tr>
+  ${guides.map((g) => { const need = g.parts.filter((x: Loose) => !x.optional).length; const have = need - g.missing.length; return html`<tr>
     <td>${g.emoji} <b>${g.title}</b><br><span class="small muted">${g.level} · ${g.time} · ${bn(g.steps.length)}টা ধাপ</span></td>
-    <td class="small">${g.missing.length ? html`<span class="warn">${bn(have)}/${bn(need)}টা পাওয়া গেছে</span><br><span class="muted">নেই: ${g.missing.map((x) => x.note || x.find[0]).join(', ')}</span>` : html`<span class="ok">✅ সব ${bn(need)}টা আছে</span>`}</td>
+    <td class="small">${g.missing.length ? html`<span class="warn">${bn(have)}/${bn(need)}টা পাওয়া গেছে</span><br><span class="muted">নেই: ${g.missing.map((x: Loose) => x.note || x.find[0]).join(', ')}</span>` : html`<span class="ok">✅ সব ${bn(need)}টা আছে</span>`}</td>
     <td>${g.kit ? html`<a class="btn btn-sm btn-ghost" href="${BASE}/${g.kit.id}">✏️ কিট দেখুন${g.kit.active ? '' : ' (বন্ধ)'}</a>` : html`<form method="post" action="${BASE}"><input type="hidden" name="action" value="guide"><input type="hidden" name="key" value="${g.key}"><button class="btn btn-sm">➕ কিট বানান</button></form>`}</td></tr>`; })}
   </tbody></table></div>` : ''}
 </section>
@@ -63,7 +63,7 @@ ${ctx.can('settings') ? html`<section class="panel"><form method="post" action="
   return ctx.page('প্রজেক্ট কিট', body, 'kits');
 }
 
-async function editPage(ctx, m) {
+async function editPage(ctx: AdminCtx, m?: Loose) {
   const isNew = m[1] === 'new';
   const back = isNew ? `${BASE}/new` : `${BASE}/${int(m[1])}`;
   if (ctx.method === 'POST') {
@@ -98,7 +98,7 @@ ${ui.flash(ctx.flash)}
     <h2>কী কী পার্টস লাগবে</h2>
     <div class="item-picker"><input type="search" placeholder="পণ্য খুঁজে যোগ করুন…" data-bundle-search autocomplete="off"><ul class="picker-results" data-bundle-results hidden></ul></div>
     <div class="table-wrap"><table class="table item-rows bundle-rows"><thead><tr><th>ছবি</th><th>পণ্য</th><th class="num">দাম</th><th class="num">পরিমাণ</th><th class="num">মোট</th><th class="num">স্টক</th><th>ঐচ্ছিক</th><th>কাজ</th></tr></thead>
-      <tbody data-bundle-rows>${k.items.map((i) => html`<tr data-row data-price="${i.price}">
+      <tbody data-bundle-rows>${k.items.map((i?: Loose) => html`<tr data-row data-price="${i.price}">
         <td class="b-img">${i.image_id ? html`<img src="/media/${i.image_id}/t" alt="" loading="lazy">` : html`<span class="pe">${i.emoji || '📦'}</span>`}</td>
         <td class="b-name"><b>${i.name}</b>${i.sku ? html`<br><span class="small muted">SKU ${i.sku}</span>` : ''}<input type="hidden" name="bundle_id[]" value="${i.product_id}">
           <input name="kit_note[]" value="${i.note}" maxlength="120" placeholder="ছোট নোট (ঐচ্ছিক)" class="kit-note"></td>

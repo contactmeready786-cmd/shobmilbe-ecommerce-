@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // SMS to customers (Admin → মার্কেটিং → কাস্টমারকে SMS). Works with the common Bangladeshi SMS companies
 // (you buy SMS credit from them and paste the API key here), or any company that gives a "link" API.
 // Sent: when an order comes in, is confirmed, handed to the courier, delivered (each with its own switch and text).
@@ -6,8 +5,9 @@
 import * as db from '../db';
 import { safeFetch } from './safefetch';
 import { normalizePhone, validPhone, str } from '../util';
+import type { Body, Id, Loose, Settings } from '../types';
 
-const PROVIDERS = {
+const PROVIDERS: Record<string, Loose> = {
   // 📱 the owner's own phone + SIM (e.g. Grameenphone) sends the SMS through the free "SMS Gateway for Android" app
   // (sms-gate.app, cloud mode). Username → Sender ID box, Password → API Key box. Each SMS costs the SIM's normal rate.
   android: { label: '📱 নিজের ফোনের SIM দিয়ে (SMS Gateway অ্যাপ, ফ্রি)', site: 'https://sms-gate.app', needsSender: true },
@@ -20,8 +20,8 @@ const PROVIDERS = {
   custom: { label: 'অন্য কোম্পানি (নিজের লিংক)', site: '', needsSender: false },
 };
 
-function ready(settings) {
-  const p = PROVIDERS[settings.sms_provider] ? settings.sms_provider : 'bulksmsbd';
+function ready(settings: Settings) {
+  const p: string = PROVIDERS[settings.sms_provider as string] ? settings.sms_provider as string : 'bulksmsbd';
   if (settings.sms_on !== '1') return { ok: false, why: 'SMS বন্ধ আছে' };
   if (p === 'custom') return /^https:\/\//i.test(settings.sms_custom_url || '') ? { ok: true, p } : { ok: false, why: 'কোম্পানির লিংক (https://…) দিন' };
   if (!settings.sms_api_key) return { ok: false, why: 'API key দেওয়া নেই' };
@@ -29,16 +29,16 @@ function ready(settings) {
   return { ok: true, p };
 }
 // 01712345678 → 8801712345678
-const intl = (phone) => '88' + normalizePhone(phone);
+const intl = (phone?: Loose) => '88' + normalizePhone(phone);
 // SMS length: Bangla text = 70 characters per SMS part (67 when it is long), English = 160 (153).
-function parts(text) {
+function parts(text?: Loose) {
   const t = String(text || '');
   const uni = /[^\x00-\x7F]/.test(t);
   const one = uni ? 70 : 160; const multi = uni ? 67 : 153;
   return t.length <= one ? 1 : Math.ceil(t.length / multi);
 }
 
-function buildRequest(settings, p, to, message) {
+function buildRequest(settings: Settings, p?: Loose, to?: Loose, message?: Loose) {
   const key = settings.sms_api_key || '';
   if (p === 'bulksmsbd') {
     return 'https://bulksmsbd.net/api/smsapi?' + new URLSearchParams({ api_key: key, type: 'text', number: to, senderid: settings.sms_sender_id || '', message });
@@ -47,10 +47,10 @@ function buildRequest(settings, p, to, message) {
   if (p === 'greenweb') return 'https://api.greenweb.com.bd/api.php?' + new URLSearchParams({ token: key, to, message });
   // custom: the owner's link with {to}, {message}, {key}, {sender}
   return String(settings.sms_custom_url).replace(/\{(to|message|key|sender)\}/g, (_, k) => encodeURIComponent(
-    { to, message, key, sender: settings.sms_sender_id || '' }[k]));
+    ({ to, message, key, sender: settings.sms_sender_id || '' } as Record<string, Loose>)[k]));
 }
 // The company's answer → ok / its message
-function readAnswer(p, status, text) {
+function readAnswer(p?: Loose, status?: Loose, text?: Loose) {
   const t = String(text || '').slice(0, 400);
   let j = null;
   try { j = JSON.parse(t); } catch (_) { /* not JSON */ }
@@ -70,7 +70,7 @@ function readAnswer(p, status, text) {
 }
 
 // Send one SMS. Never throws — returns { ok, msg } and writes the log.
-async function send(settings, phone, text, { kind = 'manual', orderId = null, staffId = null } = {}) {
+async function send(settings: Settings, phone?: Loose, text?: Loose, { kind = 'manual', orderId = null, staffId = null }: Body = {}) {
   const r = ready(settings);
   const ph = normalizePhone(phone);
   const message = str(text, 640);
@@ -95,7 +95,7 @@ async function send(settings, phone, text, { kind = 'manual', orderId = null, st
         })
         : await safeFetch(buildRequest(settings, r.p, intl(ph), message), { maxBytes: 64 * 1024, timeoutMs: 10000, maxRedirects: 2 });
       result = readAnswer(r.p, res.status, res.body.toString('utf8'));
-    } catch (e) {
+    } catch (e: Loose) {
       result = { ok: false, msg: 'সংযোগ হয়নি: ' + String(e.message || e).slice(0, 120) };
     }
   }
@@ -107,29 +107,29 @@ async function send(settings, phone, text, { kind = 'manual', orderId = null, st
 // 📣 Offer SMS have their own small allowance, so a free own-SIM plan (e.g. textbee: ~50 a day, 300 a month) is never
 // used up by offers — checkout codes and order SMS always have room. 0 = no limit (for a paid SMS company).
 const MKT_KINDS = ['bulk'];
-async function mktLeft(settings) {
+async function mktLeft(settings: Settings) {
   const perDay = Math.max(0, Number(settings.sms_mkt_day) || 0);
   const perMonth = Math.max(0, Number(settings.sms_mkt_month) || 0);
   const r = await db.one(`SELECT count(*) FILTER (WHERE created_at >= date_trunc('day', now() AT TIME ZONE 'Asia/Dhaka') AT TIME ZONE 'Asia/Dhaka')::int AS d,
       count(*) FILTER (WHERE created_at >= date_trunc('month', now() AT TIME ZONE 'Asia/Dhaka') AT TIME ZONE 'Asia/Dhaka')::int AS m
     FROM sms_log WHERE ok AND kind = ANY($1::text[])`, [MKT_KINDS]).catch(() => ({ d: 0, m: 0 }));
-  const day = perDay ? Math.max(0, perDay - r.d) : Infinity;
-  const month = perMonth ? Math.max(0, perMonth - r.m) : Infinity;
-  return { left: Math.min(day, month), day, month, usedDay: r.d, usedMonth: r.m, perDay, perMonth };
+  const day = perDay ? Math.max(0, perDay - r!.d) : Infinity;
+  const month = perMonth ? Math.max(0, perMonth - r!.m) : Infinity;
+  return { left: Math.min(day, month), day, month, usedDay: r!.d, usedMonth: r!.m, perDay, perMonth };
 }
 
 // Order messages: {shop} {code} {total} {name} {tracking} {points} {link} (the order's page — reviews are given there)
-const ORDER_EVENTS = { placed: 'অর্ডার এলে', confirmed: 'কনফার্ম হলে', shipped: 'কুরিয়ারে দিলে', delivered: 'ডেলিভারি হলে' };
-function fill(tpl, o, settings, site = '') {
+const ORDER_EVENTS: Record<string, string> = { placed: 'অর্ডার এলে', confirmed: 'কনফার্ম হলে', shipped: 'কুরিয়ারে দিলে', delivered: 'ডেলিভারি হলে' };
+function fill(tpl: Loose, o: Loose, settings: Settings, site: Loose = '') {
   const track = o.tracking_code ? `ট্র্যাকিং: ${o.tracking_code}` : site ? `ট্র্যাক করুন: ${site.replace(/\/+$/, '')}/order/${o.code}` : '';
   const pts = o.points_earned > 0 ? ` আপনি ${o.points_earned} পয়েন্ট পেয়েছেন।` : '';
-  return String(tpl || '').replace(/\{(shop|code|total|name|tracking|points|link)\}/g, (_, k) => ({
+  return String(tpl || '').replace(/\{(shop|code|total|name|tracking|points|link)\}/g, (_, k: string) => ((<Record<string, string>>{
     shop: settings.store_name || '', code: o.code || '', total: `৳${Math.round(Number(o.total || 0))}`, name: String(o.customer_name || o.name || '').split(' ')[0],
     tracking: track, points: pts, link: site ? `${site.replace(/\/+$/, '')}/order/${o.code}` : '',
-  }[k])).replace(/\s+/g, ' ').trim();
+  })[k])).replace(/\s+/g, ' ').trim();
 }
 // Called after an order is placed or its status changes. Quietly does nothing when that SMS is switched off.
-async function orderEvent(settings, event, order, site = '') {
+async function orderEvent(settings: Settings, event?: Loose, order?: Loose, site: Loose = '') {
   if (!ORDER_EVENTS[event] || settings[`sms_on_${event}`] !== '1' || !ready(settings).ok || !order) return null;
   // the same order never gets the same message twice (e.g. status set to "confirmed" again)
   const dup = await db.one('SELECT 1 FROM sms_log WHERE order_id=$1 AND kind=$2 AND ok', [order.id, 'order_' + event]).catch(() => null);
@@ -140,7 +140,7 @@ async function orderEvent(settings, event, order, site = '') {
 // 📱 own-SIM app: what happened to a message the website handed to the phone?
 //   Pending = the phone hasn't picked it up (app stopped / no internet), Processed = the phone has it,
 //   Sent / Delivered = it left the SIM, Failed = the phone tried and couldn't (error says why).
-async function androidState(settings, id) {
+async function androidState(settings: Settings, id?: Id) {
   if (!id) return null;
   const res = await safeFetch(`https://api.sms-gate.app/3rdparty/v1/messages/${encodeURIComponent(id)}`, {
     maxBytes: 64 * 1024, timeoutMs: 8000, maxRedirects: 0,

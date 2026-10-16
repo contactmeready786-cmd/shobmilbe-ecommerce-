@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // 🧰 প্রজেক্ট কিট — like a "PC builder" for electronics projects. The owner makes a kit ("ব্লুটুথ স্পিকার বানান"):
 // a list of parts with how many of each, some marked "ঐচ্ছিক". On the kit's page the customer ticks off what they
 // already have, changes amounts, and adds everything else to the cart in one tap. Each part stays its own product
@@ -7,15 +6,17 @@ import * as db from '../db';
 import { str, int, slugify } from '../util';
 import * as $catalog from './catalog';
 import * as $data_guides from '../data/guides';
+import type { Body, Id, Loose } from '../types';
+import type { Tx } from '../pg';
 
 class KitError extends Error {}
 
-async function list({ activeOnly = false } = {}) {
+async function list({ activeOnly = false }: Body = {}) {
   return db.q(`SELECT k.*, (SELECT count(*)::int FROM kit_items i WHERE i.kit_id=k.id) AS parts,
       (SELECT coalesce(sum(p.price * i.qty), 0) FROM kit_items i JOIN products p ON p.id=i.product_id WHERE i.kit_id=k.id AND NOT i.optional) AS base_total
     FROM kits k ${activeOnly ? 'WHERE k.active' : ''} ORDER BY k.sort, k.id DESC`);
 }
-async function get({ id, slug }) {
+async function get({ id, slug }: Body) {
   const k = await db.one(`SELECT * FROM kits WHERE ${id ? 'id=$1' : 'slug=$1'}`, [id ? int(id) : String(slug || '')]);
   if (!k) return null;
   k.items = await db.q(`SELECT i.id, i.product_id, i.qty, i.optional, i.note, p.name, p.slug, p.sku, p.price, p.stock, p.image_id, p.emoji, p.active,
@@ -24,27 +25,27 @@ async function get({ id, slug }) {
   return k;
 }
 // The shop side: prices the customer pays now (flash sale counts), only parts that are switched on.
-async function forShop(slug) {
+async function forShop(slug?: Loose) {
   const k = await get({ slug });
   if (!k || !k.active) return null;
   const catalog = $catalog;
-  const prods = await catalog.getProductsByIds(k.items.map((i) => i.product_id), { public: true });
+  const prods = await catalog.getProductsByIds(k.items.map((i?: Loose) => i.product_id), { public: true });
   const byId = new Map(prods.map((p) => [p.id, p]));
-  k.items = k.items.filter((i) => byId.has(i.product_id)).map((i) => ({ ...i, product: byId.get(i.product_id) }));
+  k.items = k.items.filter((i?: Loose) => byId.has(i.product_id)).map((i?: Loose) => ({ ...i, product: byId.get(i.product_id) }));
   return k;
 }
-async function kitsWith(productId) {
+async function kitsWith(productId?: Id) {
   return db.q(`SELECT DISTINCT k.id, k.slug, k.title FROM kits k JOIN kit_items i ON i.kit_id=k.id WHERE k.active AND i.product_id=$1 ORDER BY k.title LIMIT 5`, [int(productId)]);
 }
 
-async function save(data) {
+async function save(data: Body) {
   const title = str(data.title, 120).trim();
   if (title.length < 3) throw new KitError('কিটের নাম লিখুন।');
-  const ids = [].concat(data['bundle_id[]'] || data.bundle_id || []).map(int);
-  const qtys = [].concat(data['bundle_qty[]'] || data.bundle_qty || []).map((x) => Math.max(1, Math.min(999, int(x, 1))));
-  const opt = new Set([].concat(data['kit_opt[]'] || data.kit_opt || []).map(int));
-  const notes = [].concat(data['kit_note[]'] || data.kit_note || []);
-  const rows = []; const seen = new Set();
+  const ids = ([] as Loose[]).concat(data['bundle_id[]'] || data.bundle_id || []).map(int);
+  const qtys = ([] as Loose[]).concat(data['bundle_qty[]'] || data.bundle_qty || []).map((x) => Math.max(1, Math.min(999, int(x, 1))));
+  const opt = new Set(([] as Loose[]).concat(data['kit_opt[]'] || data.kit_opt || []).map(int));
+  const notes = ([] as Loose[]).concat(data['kit_note[]'] || data.kit_note || []);
+  const rows: Loose[] = []; const seen = new Set();
   ids.forEach((pid, i) => { if (pid > 0 && !seen.has(pid)) { seen.add(pid); rows.push({ pid, qty: qtys[i] || 1, optional: opt.has(pid), note: str(notes[i], 120), sort: i }); } });
   if (!rows.length) throw new KitError('কিটে অন্তত একটা পণ্য যোগ করুন।');
   const bad = await db.q(`SELECT name FROM products WHERE id = ANY($1::int[]) AND (product_type='bundle' OR variant_count > 0)`, [rows.map((r) => r.pid)]);
@@ -69,21 +70,21 @@ async function save(data) {
     return id;
   });
 }
-async function remove(id) { await db.q('DELETE FROM kits WHERE id=$1', [int(id)]); }
+async function remove(id?: Id) { await db.q('DELETE FROM kits WHERE id=$1', [int(id)]); }
 
 // "কীভাবে বানাবেন": one step per line (a leading "1." / "-" is dropped — the page numbers them itself)
-function cleanSteps(text) {
+function cleanSteps(text?: Loose) {
   return String(text || '').split(/\r?\n/).map((l) => l.replace(/^\s*(?:\d+[.)।]|[-*•])\s*/, '').trim()).filter(Boolean).slice(0, 30)
     .map((l) => l.slice(0, 600)).join('\n');
 }
-function stepList(k) { return String((k && k.steps) || '').split('\n').map((l) => l.trim()).filter(Boolean); }
+function stepList(k?: Loose) { return String((k && k.steps) || '').split('\n').map((l) => l.trim()).filter(Boolean); }
 
 // ================================================================ 📚 ready-made guides (lib/data/guides.js)
 // Finds the shop's product for one part of a guide: the name must contain one of the words, none of the "not"
 // words; switched on, a single product (no bundle / options). In stock and best-selling first; earlier words win.
-async function matchPart(part) {
-  const like = part.find.map((w) => '%' + String(w).replace(/[%_\\]/g, '') + '%');
-  const notLike = (part.not || []).map((w) => '%' + String(w).replace(/[%_\\]/g, '') + '%');
+async function matchPart(part?: Loose) {
+  const like = part.find.map((w?: Loose) => '%' + String(w).replace(/[%_\\]/g, '') + '%');
+  const notLike = (part.not || []).map((w?: Loose) => '%' + String(w).replace(/[%_\\]/g, '') + '%');
   const rows = await db.q(`SELECT p.id, p.name, p.price, p.stock FROM products p
     WHERE p.active AND p.parent_id IS NULL AND coalesce(p.product_type,'single') <> 'bundle' AND coalesce(p.variant_count,0) = 0
       AND p.name ILIKE ANY($1::text[]) AND NOT (p.name ILIKE ANY($2::text[]))
@@ -98,9 +99,9 @@ async function matchPart(part) {
 async function guideStatus() {
   const { GUIDES } = $data_guides;
   const made = new Map((await db.q(`SELECT id, guide_key, slug, active FROM kits WHERE guide_key <> ''`)).map((k) => [k.guide_key, k]));
-  const out = [];
+  const out: Loose[] = [];
   for (const g of GUIDES) {
-    const parts = [];
+    const parts: Loose[] = [];
     for (const part of g.parts) parts.push({ ...part, product: await matchPart(part) });
     const missing = parts.filter((p) => !p.product && !p.optional);
     out.push({ ...g, parts, missing, kit: made.get(g.key) || null });
@@ -108,18 +109,18 @@ async function guideStatus() {
   return out;
 }
 // One tap: the guide becomes a kit. Switched on only when every needed part was found in the shop.
-async function fromGuide(key) {
+async function fromGuide(key?: Loose) {
   const g = (await guideStatus()).find((x) => x.key === key);
   if (!g) throw new KitError('গাইড পাওয়া যায়নি।');
   if (g.kit) return { id: g.kit.id, existed: true, missing: g.missing };
-  const found = g.parts.filter((p) => p.product);
+  const found = g.parts.filter((p: Loose) => p.product);
   if (!found.length) throw new KitError(`"${g.title}" — এর কোনো পার্টসই দোকানে পাওয়া যায়নি।`);
-  const seen = new Set(); const uniq = found.filter((p) => !seen.has(p.product.id) && seen.add(p.product.id));
+  const seen = new Set(); const uniq = found.filter((p: Loose) => !seen.has(p.product.id) && seen.add(p.product.id));
   const id = await save({
     title: g.title, description: g.intro, emoji: g.emoji, steps: g.steps.join('\n'), level: g.level, duration: g.time,
     active: g.missing.length === 0, sort: 0, slug: slugify(g.key) || g.key, guide_key: g.key,
-    'bundle_id[]': uniq.map((p) => p.product.id), 'bundle_qty[]': uniq.map((p) => p.qty || 1),
-    'kit_opt[]': uniq.filter((p) => p.optional).map((p) => p.product.id), 'kit_note[]': uniq.map((p) => p.note || ''),
+    'bundle_id[]': uniq.map((p: Loose) => p.product.id), 'bundle_qty[]': uniq.map((p: Loose) => p.qty || 1),
+    'kit_opt[]': uniq.filter((p: Loose) => p.optional).map((p: Loose) => p.product.id), 'kit_note[]': uniq.map((p: Loose) => p.note || ''),
   });
   return { id, existed: false, missing: g.missing, active: g.missing.length === 0 };
 }

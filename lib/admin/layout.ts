@@ -1,14 +1,14 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 import { html, raw } from '../util';
 import { can, canSee } from '../models/staff';
 import * as $profile from './profile';
+import type { Body, Id, Loose, Settings, StaffUser } from '../types';
 
 const ASSET_V = '53';
 
 // 📑 Small jobs that belong together sit on one page as tabs (like browser tabs). Each tab is still its own
 // page with its own link (bookmarks and the phone app keep working); the menu shows one entry for the set.
 // Each tab: [href, label, permission, key, icon]
-const TABS = {
+const TABS: Record<string, Loose> = {
   returns: [
     ['/admin/returns', 'রিটার্ন ও রিফান্ড', 'orders', 'returns', '↩️'],
     ['/admin/complaints', 'অভিযোগ (৭২ ঘণ্টা)', 'orders', 'complaints', '📮'],
@@ -71,7 +71,7 @@ const TABS = {
     ['/admin/security/recovery', 'জরুরি রিকভারি কোড', 'owner', 'recovery', '🆘'],
   ],
 };
-const tabSet = (id, label, icon) => ({ tabs: id, label, icon });
+const tabSet = (id?: Id, label?: Loose, icon?: Loose) => ({ tabs: id, label, icon });
 
 // The admin menu: everyday work at the top, things set up once at the bottom.
 // Each link: [href, label, permission, key, icon], or tabSet(...) for a page with tabs.
@@ -162,12 +162,12 @@ const MENU = [
   { title: '', items: [['/admin/trash', 'রিসাইকেল বিন', 'owner', 'trash', '🗑️']] },
 ];
 
-function allowed(user, perm) {
+function allowed(user: StaffUser, perm?: Loose) {
   if (perm === 'owner') return user && user.role === 'owner';
   return can(user, perm);
 }
 // menu items: shown when any level (see / add / edit / delete) of the permission is given
-function visible(user, perm) { return canSee(user, perm); }
+function visible(user: StaffUser, perm?: Loose) { return canSee(user, perm); }
 
 // 📊 The dashboard and visitor analytics sit together on one page as two tabs (like browser tabs),
 // so the owner does not have to look for visitor analytics in the menu.
@@ -175,35 +175,35 @@ const HOME_TABS = [
   ['/admin', 'ড্যাশবোর্ড', 'dashboard', 'home', '📊'],
   ['/admin/marketing/visitors', 'ভিজিটর অ্যানালিটিক্স', 'marketing', 'visitors', '👀'],
 ];
-function homeTabs(user, active) {
+function homeTabs(user: StaffUser, active?: Loose) {
   const tabs = HOME_TABS.filter((t) => visible(user, t[2]));
   if (tabs.length < 2) return '';
-  return html`<nav class="home-tabs" aria-label="ড্যাশবোর্ডের ট্যাব">${tabs.map(([href, label, , key, icon]) => html`<a href="${href}" class="home-tab ${active === key ? 'on' : ''}"${active === key ? raw(' aria-current="page"') : ''}><span aria-hidden="true">${icon}</span> ${label}</a>`)}</nav>`;
+  return html`<nav class="home-tabs" aria-label="ড্যাশবোর্ডের ট্যাব">${tabs.map(([href, label, , key, icon]: Loose[]) => html`<a href="${href}" class="home-tab ${active === key ? 'on' : ''}"${active === key ? raw(' aria-current="page"') : ''}><span aria-hidden="true">${icon}</span> ${label}</a>`)}</nav>`;
 }
 
 // A menu entry for the user: a plain link stays as it is; a tab set becomes a link to its first tab the user may
 // open, carrying the keys of all its tabs (so the menu lights up on any of them). null = nothing to show.
-function resolveItem(user, it) {
+function resolveItem(user: StaffUser, it?: Loose) {
   if (Array.isArray(it)) return visible(user, it[2]) ? it : null;
-  const tabs = (TABS[it.tabs] || []).filter((t) => visible(user, t[2]));
+  const tabs = (TABS[it.tabs] || []).filter((t?: Loose) => visible(user, t[2]));
   if (!tabs.length) return null;
-  return [tabs[0][0], it.label, tabs[0][2], tabs[0][3], it.icon, tabs.map((t) => t[3])];
+  return [tabs[0][0], it.label, tabs[0][2], tabs[0][3], it.icon, tabs.map((t?: Loose) => t[3])];
 }
 // The tab bar on top of a page that is one of a tab set — only on the tab pages themselves
 // (a single product, order or supplier opened from the list gets no tab bar).
-function pageTabs(user, active, path) {
+function pageTabs(user: StaffUser, active?: Loose, path?: Loose) {
   if (!active || !path) return '';
   for (const set of Object.values(TABS)) {
-    if (!set.some((t) => t[3] === active)) continue;
-    if (!set.some((t) => t[0].split('?')[0] === path)) continue;
-    const tabs = set.filter((t) => visible(user, t[2]));
+    if (!set.some((t?: Loose) => t[3] === active)) continue;
+    if (!set.some((t?: Loose) => t[0].split('?')[0] === path)) continue;
+    const tabs = set.filter((t?: Loose) => visible(user, t[2]));
     if (tabs.length < 2) return '';
-    return html`<nav class="home-tabs page-tabs" aria-label="এই বিভাগের পেজ">${tabs.map(([href, label, , key, icon]) => html`<a href="${href}" class="home-tab ${active === key ? 'on' : ''}"${active === key ? raw(' aria-current="page"') : ''}><span aria-hidden="true">${icon}</span> ${label}</a>`)}</nav>`;
+    return html`<nav class="home-tabs page-tabs" aria-label="এই বিভাগের পেজ">${tabs.map(([href, label, , key, icon]: Loose[]) => html`<a href="${href}" class="home-tab ${active === key ? 'on' : ''}"${active === key ? raw(' aria-current="page"') : ''}><span aria-hidden="true">${icon}</span> ${label}</a>`)}</nav>`;
   }
   return '';
 }
 
-function head(title, settings) {
+function head(title: Loose, settings: Settings) {
   return html`<meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${title}</title>
@@ -220,7 +220,7 @@ function head(title, settings) {
 <meta name="apple-mobile-web-app-capable" content="yes">`;
 }
 
-function logoMark(settings) {
+function logoMark(settings: Settings) {
   if (settings.logo_id) return html`<img class="logo-img" src="/media/${settings.logo_id}" alt="${settings.store_name}">`;
   const name = settings.store_name || 'সবমিলবে';
   if (name === 'সবমিলবে') return html`<span class="logo-a">সব</span><span class="logo-b">মিলবে</span>`;
@@ -229,23 +229,23 @@ function logoMark(settings) {
 
 // বাংলা ⇄ English for the admin itself (Admin → স্টোর ডিজাইন → ভাষা → "অ্যাডমিন প্যানেলেও বাংলা / English").
 // The choice lives on each device; the page is hidden for a moment while it turns English (no Bangla flash).
-const adminLangOn = (settings) => settings.admin_i18n_on !== '0';
-function langHead(settings) {
+const adminLangOn = (settings: Settings) => settings.admin_i18n_on !== '0';
+function langHead(settings: Settings) {
   if (!adminLangOn(settings)) return '';
   return raw(`<script>(function(){try{if(localStorage.getItem('sm_admin_lang')==='en'){var d=document.documentElement;d.className+=' admin-i18n-wait';d.setAttribute('data-admin-lang','en');}}catch(e){}})();</script><style>html.admin-i18n-wait body{visibility:hidden}</style>`);
 }
-function langScript(settings) {
+function langScript(settings: Settings) {
   if (!adminLangOn(settings)) return '';
   return html`<script src="/js/admin-i18n.js?v=${ASSET_V}" defer data-admin-i18n data-v="${ASSET_V}"></script>`;
 }
-function langSwitch(settings) {
+function langSwitch(settings: Settings) {
   if (!adminLangOn(settings)) return '';
   return html`<button type="button" class="lang-sw admin-lang-sw" role="switch" aria-checked="false" aria-label="English" title="বাংলা / English" translate="no" data-admin-lang-switch>
     <span class="ls-l ls-bn">বাং</span><span class="ls-track" aria-hidden="true"><span class="ls-knob"></span></span><span class="ls-l ls-en">EN</span>
   </button>`;
 }
 
-function adminLayout({ settings, user, title, body, active, bare, readOnly, path = '' }) {
+function adminLayout({ settings, user, title, body, active, bare, readOnly, path = '' }: Body) {
   if (bare) {
     return '<!doctype html>' + html`<html lang="bn"><head>${head(`${title} | Admin`, settings)}${langHead(settings)}</head>
 <body class="admin admin-auth">${adminLangOn(settings) ? html`<div class="bare-lang">${langSwitch(settings)}</div>` : ''}<main class="admin-bare">${body}</main>
@@ -264,8 +264,8 @@ function adminLayout({ settings, user, title, body, active, bare, readOnly, path
   <a class="side-logo logo" href="/admin" translate="no">${logoMark(settings)}<small>Admin</small></a>
   <nav>
     ${groups.map((g) => {
-    const isOn = (it) => it[3] === active || (it[5] || []).includes(active);
-    const link = (it) => { const [href, label, , , icon] = it; const on = isOn(it); return html`<a href="${href}" class="${on ? 'on' : ''}"${on ? raw(' aria-current="page"') : ''}><span class="side-ic" aria-hidden="true">${icon}</span>${label}</a>`; };
+    const isOn = (it?: Loose) => it[3] === active || (it[5] || []).includes(active);
+    const link = (it?: Loose) => { const [href, label, , , icon] = it; const on = isOn(it); return html`<a href="${href}" class="${on ? 'on' : ''}"${on ? raw(' aria-current="page"') : ''}><span class="side-ic" aria-hidden="true">${icon}</span>${label}</a>`; };
     if (!g.title) return html`<div class="side-group">${g.items.map(link)}</div>`;
     const here = g.items.some(isOn);
     return html`<details class="side-group side-drop ${here ? 'has-on' : ''}" data-side-group="${g.title}" ${here ? raw('open') : ''}>

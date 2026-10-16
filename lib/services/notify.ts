@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // Owner notifications: e-mail (Gmail, with an "App Password") and WhatsApp (CallMeBot free personal API).
 //  - new order on the website  -> e-mail + WhatsApp to the owner
 //  - security events (password reset, many wrong passwords, owner login) -> e-mail + WhatsApp
@@ -8,25 +7,26 @@ import * as tls from 'node:tls';
 import * as crypto from 'node:crypto';
 import * as $db from '../db';
 import * as $push from './push';
+import type { Body, Loose, Settings } from '../types';
 
 const SMTP_HOST = 'smtp.gmail.com';
 const SMTP_PORT = 465;
 const DEFAULT_EMAIL = 'contact.shobmilbe@gmail.com';
 
-function cleanLine(s, max = 300) { return String(s ?? '').replace(/[\r\n\t]+/g, ' ').trim().slice(0, max); }
-function validEmail(e) { return /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(String(e || '')) && String(e).length <= 120; }
-function maskEmail(e) {
+function cleanLine(s?: Loose, max: Loose = 300) { return String(s ?? '').replace(/[\r\n\t]+/g, ' ').trim().slice(0, max); }
+function validEmail(e?: Loose) { return /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(String(e || '')) && String(e).length <= 120; }
+function maskEmail(e?: Loose) {
   const [u, d] = String(e || '').split('@');
   if (!u || !d) return '';
   return u.slice(0, 2) + '•••••' + '@' + d;
 }
-function b64(s) { return Buffer.from(String(s), 'utf8').toString('base64'); }
-function wrap76(s) { return s.replace(/.{1,76}/g, (m) => m + '\r\n'); }
-function encHeader(s) { return /^[\x20-\x7e]*$/.test(s) ? s : `=?UTF-8?B?${b64(s)}?=`; }
+function b64(s?: Loose) { return Buffer.from(String(s), 'utf8').toString('base64'); }
+function wrap76(s?: Loose) { return s.replace(/.{1,76}/g, (m?: Loose) => m + '\r\n'); }
+function encHeader(s?: Loose) { return /^[\x20-\x7e]*$/.test(s) ? s : `=?UTF-8?B?${b64(s)}?=`; }
 
 // 📧 The shop has ONE Gmail (Admin → সেটিংস → আমার নোটিফিকেশন). It sends all three kinds of mail:
 // new-order news to the owner, customers' sign-up codes, and the owner's delete codes.
-function emailConfig(settings) {
+function emailConfig(settings: Settings) {
   let to = String(settings.notify_email || DEFAULT_EMAIL).trim();
   if (to.toLowerCase() === 'contact.submilbe@gmail.com') to = DEFAULT_EMAIL; // old misspelt default
   const pass = String(settings.gmail_app_password || '').replace(/\s+/g, '');
@@ -35,7 +35,7 @@ function emailConfig(settings) {
 }
 // Every Gmail + Google code saved in the admin, the main one first. The customer-accounts page used to keep its own
 // Gmail; that code is still tried when the main one is refused, so a wrong code in one place can't stop the mail.
-function sendersOf(settings) {
+function sendersOf(settings: Settings) {
   let main = String(settings.notify_email || DEFAULT_EMAIL).trim();
   if (main.toLowerCase() === 'contact.submilbe@gmail.com') main = DEFAULT_EMAIL;
   const list = [
@@ -47,7 +47,7 @@ function sendersOf(settings) {
 }
 // Send with the main Gmail; if Gmail refuses its code, try the other saved code. A code that works for the shop's own
 // address becomes the main code, so the next mail goes straight through.
-async function sendVia(settings, { to, subject, text, htmlBody, headers }) {
+async function sendVia(settings: Settings, { to, subject, text, htmlBody, headers }: Body) {
   const senders = sendersOf(settings);
   if (!senders.length) throw new Error('দোকানের Gmail এখনো সেটআপ করা হয়নি (সেটিংস → আমার নোটিফিকেশন)');
   let firstErr = null;
@@ -60,23 +60,23 @@ async function sendVia(settings, { to, subject, text, htmlBody, headers }) {
         settings.gmail_app_password = c.pass;
       }
       return;
-    } catch (e) {
+    } catch (e: Loose) {
       firstErr = firstErr || e;
       if (!/Gmail লগইন হয়নি/.test(e.message)) throw e; // only a refused code is worth a second try
     }
   }
   throw firstErr;
 }
-function acctEmailConfig(settings) { return { ...emailConfig(settings), own: false }; }
-async function sendAcctEmail(settings, subject, text, htmlBody, to) {
+function acctEmailConfig(settings: Settings) { return { ...emailConfig(settings), own: false }; }
+async function sendAcctEmail(settings: Settings, subject?: Loose, text?: Loose, htmlBody?: Loose, to?: Loose) {
   await sendVia(settings, { to, subject, text, htmlBody });
 }
-function waConfig(settings) {
+function waConfig(settings: Settings) {
   let phone = String(settings.wa_notify_phone || settings.whatsapp || '').replace(/[^\d+]/g, '');
   if (/^01\d{9}$/.test(phone)) phone = '+88' + phone;
   if (/^8801\d{9}$/.test(phone)) phone = '+' + phone;
   // two services: CallMeBot (free, sometimes slow to activate) or TextMeBot (about $1/month, links your own WhatsApp)
-  const provider = ['textmebot', 'greenapi'].includes(settings.wa_provider) ? settings.wa_provider : 'callmebot';
+  const provider = ['textmebot', 'greenapi'].includes(settings.wa_provider as string) ? settings.wa_provider : 'callmebot';
   if (provider === 'greenapi') {
     // Green-API free "Developer" plan: a WhatsApp linked by QR sends the message (idInstance + apiTokenInstance)
     const id = String(settings.greenapi_id || '').replace(/\D/g, '');
@@ -88,18 +88,18 @@ function waConfig(settings) {
 }
 
 // ---------------------------------------------------------------- SMTP (Gmail)
-function smtpSend({ user, pass, to, subject, text, htmlBody, fromName, headers = {} }) {
+function smtpSend({ user, pass, to, subject, text, htmlBody, fromName, headers = {} }: Body) {
   return new Promise((resolve, reject) => {
     const sock = tls.connect({ host: SMTP_HOST, port: SMTP_PORT, servername: SMTP_HOST });
     let buf = '';
-    let waiting = null;
+    let waiting: Loose = null;
     let done = false;
-    const finish = (err) => {
+    const finish = (err?: Loose) => {
       if (done) return;
       done = true;
       clearTimeout(timer);
       try { sock.end(); } catch (_) { /* ignore */ }
-      err ? reject(err) : resolve();
+      err ? reject(err) : resolve(undefined);
     };
     const timer = setTimeout(() => finish(new Error('ইমেইল সার্ভার সাড়া দেয়নি (timeout)')), 12000);
     sock.setEncoding('utf8');
@@ -118,8 +118,8 @@ function smtpSend({ user, pass, to, subject, text, htmlBody, fromName, headers =
         }
       }
     });
-    const cmd = (line, expect) => new Promise((ok, bad) => {
-      waiting = (code, reply) => (expect.includes(code) ? ok(reply) : bad(new Error(smtpError(code, reply))));
+    const cmd = (line?: Loose, expect?: Loose) => new Promise((ok, bad) => {
+      waiting = (code?: Loose, reply?: Loose) => (expect.includes(code) ? ok(reply) : bad(new Error(smtpError(code, reply))));
       if (line !== null) sock.write(line + '\r\n');
     });
 
@@ -165,13 +165,13 @@ function smtpSend({ user, pass, to, subject, text, htmlBody, fromName, headers =
     })().catch(finish);
   });
 }
-function smtpError(code, reply) {
+function smtpError(code?: Loose, reply?: Loose) {
   if (code === 535 || code === 534) return 'Gmail লগইন হয়নি: ঠিকানা বা App Password ভুল (সাধারণ Gmail পাসওয়ার্ড এখানে চলে না, App Password লাগবে)';
   return `ইমেইল পাঠানো যায়নি (${code}): ${String(reply).slice(0, 160)}`;
 }
-function escapeHtml(s) { return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+function escapeHtml(s?: Loose) { return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' } as Record<string, string>)[c]); }
 
-async function sendEmail(settings, subject, text, htmlBody, to) {
+async function sendEmail(settings: Settings, subject?: Loose, text?: Loose, htmlBody?: Loose, to?: Loose) {
   const c = emailConfig(settings);
   if (!c.ready) throw new Error('ইমেইল এখনো সেটআপ করা হয়নি');
   const target = to && validEmail(to) ? to : c.to;
@@ -179,7 +179,7 @@ async function sendEmail(settings, subject, text, htmlBody, to) {
 }
 
 // ---------------------------------------------------------------- WhatsApp (CallMeBot)
-async function sendWhatsApp(settings, text) {
+async function sendWhatsApp(settings: Settings, text?: Loose) {
   const c = waConfig(settings);
   if (!c.ready) throw new Error('WhatsApp নোটিফিকেশন এখনো সেটআপ করা হয়নি');
   if (c.provider === 'greenapi') return sendGreenApi(c, text);
@@ -196,7 +196,7 @@ async function sendWhatsApp(settings, text) {
 }
 
 // Green-API: the server for an instance is <first 4 digits of idInstance>.api.greenapi.com
-async function sendGreenApi(c, text) {
+async function sendGreenApi(c?: Loose, text?: Loose) {
   const hosts = [`https://${c.id.slice(0, 4)}.api.greenapi.com`, 'https://api.green-api.com'];
   let last;
   for (const h of hosts) {
@@ -218,36 +218,36 @@ async function sendGreenApi(c, text) {
 // ---------------------------------------------------------------- running after the reply
 // On Vercel, work started after the page is sent can be frozen. Vercel gives a "waitUntil" hook for exactly
 // this; if it isn't there (local server), we simply wait up to a few seconds.
-function later(promise, capMs = 6000) {
+function later(promise?: Loose, capMs: Loose = 6000) {
   const p = Promise.resolve(promise).catch((e) => console.error('notify', e && e.message));
   try {
-    const ctx = globalThis[Symbol.for('@vercel/request-context')];
+    const ctx = (globalThis as Loose)[Symbol.for('@vercel/request-context')];
     const w = ctx && ctx.get && ctx.get() && ctx.get().waitUntil;
     if (typeof w === 'function') { w(p); return Promise.resolve(); }
   } catch (_) { /* fall through */ }
   return Promise.race([p, new Promise((r) => setTimeout(r, capMs))]);
 }
 
-async function logResult(service, action, fn) {
+async function logResult(service?: Loose, action?: Loose, fn?: Loose) {
   const db = $db;
-  try { await fn(); await db.logIntegration(service, action, true, 'পাঠানো হয়েছে'); return true; } catch (e) {
+  try { await fn(); await db.logIntegration(service, action, true, 'পাঠানো হয়েছে'); return true; } catch (e: Loose) {
     await db.logIntegration(service, action, false, e.message || String(e));
     return false;
   }
 }
 
 // Phone notification to every device the owner turned on (skipped quietly when none).
-function pushJob(action, msg) {
+function pushJob(action?: Loose, msg?: Loose) {
   const push = $push;
   return push.count().then((n) => (n ? logResult('notify-push', action, () => push.sendAll(msg)) : null)).catch(() => null);
 }
 
 // ---------------------------------------------------------------- what gets sent
-const PAY_NAMES = { cod: 'ক্যাশ অন ডেলিভারি', bkash: 'বিকাশ (অনলাইন)', ssl: 'কার্ড/নগদ/রকেট (SSLCommerz)' };
-function tk(n) { return '৳' + (Math.round(Number(n || 0) * 100) / 100).toLocaleString('en-IN'); }
+const PAY_NAMES: Record<string, Loose> = { cod: 'ক্যাশ অন ডেলিভারি', bkash: 'বিকাশ (অনলাইন)', ssl: 'কার্ড/নগদ/রকেট (SSLCommerz)' };
+function tk(n?: Loose) { return '৳' + (Math.round(Number(n || 0) * 100) / 100).toLocaleString('en-IN'); }
 
-function newOrder(settings, site, o) {
-  const items = (o.lines || []).map((l) => `• ${cleanLine(l.name, 80)} × ${l.qty} = ${tk(l.price * l.qty)}`).join('\n');
+function newOrder(settings: Settings, site?: Loose, o?: Loose) {
+  const items = (o.lines || []).map((l?: Loose) => `• ${cleanLine(l.name, 80)} × ${l.qty} = ${tk(l.price * l.qty)}`).join('\n');
   const link = `${site}/admin/orders/${o.id}`;
   const pay = PAY_NAMES[o.payment] || (o.payment ? `${o.payment} Send Money${o.trxId ? ' · TrxID ' + o.trxId : ''}` : '');
   const text = [
@@ -269,17 +269,17 @@ function newOrder(settings, site, o) {
 <h2 style="margin:0 0 8px;color:#0a7d3b">🛒 নতুন অর্ডার এসেছে — ${escapeHtml(o.code)}</h2>
 <p><b>কাস্টমার:</b> ${escapeHtml(o.name)}<br><b>মোবাইল:</b> ${escapeHtml(o.phone)}<br>
 <b>ঠিকানা:</b> ${escapeHtml(o.address)}, ${escapeHtml(o.thana)}, ${escapeHtml(o.district)}</p>
-<table style="border-collapse:collapse;width:100%;max-width:520px">${(o.lines || []).map((l) => `<tr><td style="padding:4px 8px;border-bottom:1px solid #eee">${escapeHtml(l.name)}</td>
+<table style="border-collapse:collapse;width:100%;max-width:520px">${(o.lines || []).map((l?: Loose) => `<tr><td style="padding:4px 8px;border-bottom:1px solid #eee">${escapeHtml(l.name)}</td>
 <td style="padding:4px 8px;border-bottom:1px solid #eee;text-align:right">× ${l.qty}</td><td style="padding:4px 8px;border-bottom:1px solid #eee;text-align:right">${tk(l.price * l.qty)}</td></tr>`).join('')}
 <tr><td colspan="2" style="padding:6px 8px;text-align:right"><b>মোট</b></td><td style="padding:6px 8px;text-align:right"><b>${tk(o.total)}</b></td></tr></table>
 <p><b>পেমেন্ট:</b> ${escapeHtml(pay)}${o.note ? `<br><b>নোট:</b> ${escapeHtml(o.note)}` : ''}</p>
 <p><a href="${escapeHtml(link)}" style="display:inline-block;background:#0a7d3b;color:#fff;padding:10px 18px;border-radius:6px;text-decoration:none">অর্ডারটি খুলুন ও প্রসেস করুন</a></p></div>`;
-  const jobs = [];
+  const jobs: Loose[] = [];
   if (settings.notify_order_email !== '0' && emailConfig(settings).ready) {
     jobs.push(logResult('notify-email', 'order ' + o.code, () => sendEmail(settings, `🛒 নতুন অর্ডার ${o.code} — ${tk(o.total)}`, text, htmlBody)));
   }
   if (settings.notify_order_push !== '0') {
-    const n = (o.lines || []).reduce((t, l) => t + Number(l.qty || 0), 0);
+    const n = (o.lines || []).reduce((t?: Loose, l?: Loose) => t + Number(l.qty || 0), 0);
     jobs.push(pushJob('order ' + o.code, {
       title: `🛒 নতুন অর্ডার — ${tk(o.total)}`,
       body: `${cleanLine(o.name, 60)} · ${n} টি পণ্য · ${cleanLine(o.district, 40)}\nচাপ দিয়ে অর্ডারটি খুলুন ও প্রসেস করুন`,
@@ -293,7 +293,7 @@ function newOrder(settings, site, o) {
 }
 
 // 📮 A new complaint: the owner hears at once (phone notification, e-mail, WhatsApp — whatever is set up).
-function newComplaint(settings, site, c, topicLabel, hours) {
+function newComplaint(settings: Settings, site?: Loose, c?: Loose, topicLabel?: Loose, hours?: Loose) {
   const link = `${site}/admin/complaints/${c.id}`;
   const text = [`📮 নতুন অভিযোগ (${c.code}) — ${hours} ঘণ্টার মধ্যে সমাধান করতে হবে`, '', `কাস্টমার: ${cleanLine(c.name, 80)} · ${c.phone}`,
     `বিষয়: ${topicLabel}${c.order_code ? ` · অর্ডার ${c.order_code}` : ''}`, '', cleanLine(c.message, 500), '', `খুলুন: ${link}`].join('\n');
@@ -304,11 +304,11 @@ function newComplaint(settings, site, c, topicLabel, hours) {
 }
 
 // Security alerts always try both channels (unless the owner switched them off).
-function securityAlert(settings, title, detail, { extraEmail } = {}) {
+function securityAlert(settings: Settings, title?: Loose, detail?: Loose, { extraEmail }: Body = {}) {
   if (settings.notify_security === '0') return Promise.resolve();
   const when = new Date().toLocaleString('en-GB', { timeZone: 'Asia/Dhaka' });
   const text = `🔐 ${title}\n\n${detail}\n\nসময়: ${when} (ঢাকা)\n\nআপনি নিজে না করে থাকলে এখনই অ্যাডমিনে ঢুকে পাসওয়ার্ড বদলান, আর Admin → নিরাপত্তা দেখুন।`;
-  const jobs = [];
+  const jobs: Loose[] = [];
   if (emailConfig(settings).ready) {
     jobs.push(logResult('notify-email', 'security', () => sendEmail(settings, `🔐 নিরাপত্তা সতর্কতা: ${title}`, text)));
     if (extraEmail && validEmail(extraEmail) && extraEmail.toLowerCase() !== emailConfig(settings).to.toLowerCase()) {

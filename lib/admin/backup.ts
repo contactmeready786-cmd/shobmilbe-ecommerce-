@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // Admin → ব্যাকআপ ও রিস্টোর (owner only): download a backup now, see every backup made (by hand and the nightly
 // automatic one), and the step-by-step way to get the shop back from a backup.
 import { html, bn, fmtDate, str } from '../util';
@@ -8,10 +7,11 @@ import * as security from '../security';
 import * as backup from '../services/backup';
 import * as $services_imagekit from '../services/imagekit';
 import * as $services_autobackup from '../services/autobackup';
+import type { AdminCtx, Loose } from '../types';
 
 const MAX_BYTES = 4 * 1024 * 1024; // Vercel can send at most ~4.5 MB in one reply
 
-async function page(ctx) {
+async function page(ctx: AdminCtx) {
   const rows = await db.q(`SELECT b.*, s.name AS staff_name FROM backups b LEFT JOIN staff s ON s.id=b.staff_id ORDER BY b.created_at DESC LIMIT 40`);
   const lastAuto = rows.find((r) => r.kind === 'auto' && r.ok);
   const lastAny = rows.find((r) => r.ok);
@@ -63,7 +63,7 @@ ${age === null ? html`<p class="flash flash-error">⚠️ এখনো একট
   return ctx.page('ব্যাকআপ ও রিস্টোর', body, 'backup');
 }
 
-async function now(ctx) {
+async function now(ctx: AdminCtx) {
   if (!(await security.hit(db, 'backup-now:' + ctx.user.id, 6, 3600))) return ctx.fail('/admin/backup', 'এক ঘণ্টায় অনেকবার চেষ্টা হয়েছে, একটু পরে আবার চেষ্টা করুন।');
   const r = await $services_autobackup.run({ force: true });
   await ctx.log('export', 'security', null, 'নিজে থেকে ব্যাকআপ (হাতে চালানো)');
@@ -71,7 +71,7 @@ async function now(ctx) {
   return ctx.fail('/admin/backup', r.skipped === 'busy' ? 'একটা ব্যাকআপ এখন চলছে, এক মিনিট পর দেখুন।' : 'ব্যাকআপ হয়নি: ' + (r.error || r.skipped || ''));
 }
 
-async function download(ctx) {
+async function download(ctx: AdminCtx) {
   const b = await ctx.body();
   const pw = String(b.password || '');
   if (pw && pw.length < 8) return ctx.fail('/admin/backup', 'পাসওয়ার্ড কমপক্ষে ৮ অক্ষরের দিন।');
@@ -79,7 +79,7 @@ async function download(ctx) {
   let r;
   try {
     r = await backup.dump(db, { withImages: false, withAnalytics: !!b.analytics, password: pw });
-  } catch (e) {
+  } catch (e: Loose) {
     await db.q(`INSERT INTO backups(kind, ok, note, staff_id) VALUES('manual', false, $1, $2)`, [str(e.message, 300), ctx.user.id]);
     return ctx.fail('/admin/backup', 'ব্যাকআপ তৈরি করা যায়নি: ' + e.message);
   }
