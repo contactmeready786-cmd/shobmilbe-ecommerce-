@@ -6,12 +6,13 @@ set -euo pipefail
 OUT=$1; PORT=$2; shift 2
 DB=shop_parity_$PORT
 export PGHOST=${PGHOST:-/tmp} PGUSER=${PGUSER:-postgres}
-dropdb --if-exists "$DB" >/dev/null
+dropdb --if-exists --force "$DB" >/dev/null
 createdb -T shop_tpl "$DB"
 export DATABASE_URL="postgres://$PGUSER:${PGPASSWORD:-}@127.0.0.1:${PGPORT:-5432}/$DB?sslmode=disable" PORT
-"$@" >"$OUT.server.log" 2>&1 &
+# own process group, so servers started through npx (which runs a child process) are stopped too
+setsid "$@" >"$OUT.server.log" 2>&1 &
 PID=$!
-trap 'kill $PID 2>/dev/null || true; wait $PID 2>/dev/null || true' EXIT
+trap 'kill -- -$PID 2>/dev/null || true; wait $PID 2>/dev/null || true' EXIT
 for _ in $(seq 1 120); do curl -s -o /dev/null "http://127.0.0.1:$PORT/robots.txt" && break; sleep 0.5; done
 rm -rf "$OUT"
 if [ "${SCENARIOS:-}" = 1 ]; then

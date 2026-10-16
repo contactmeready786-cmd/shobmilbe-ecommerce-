@@ -15,8 +15,8 @@ const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'routes-'));
 fs.writeFileSync(path.join(tmp, 'entry.ts'), `import { adminRoutes, shopRoutes } from ${JSON.stringify(path.join(root, 'tools/parity/routes.ts'))};
 const ser = (r) => ({ method: r.method, path: r.path instanceof RegExp ? { re: r.path.source } : r.path });
 console.log(JSON.stringify({ admin: adminRoutes().map(ser), shop: shopRoutes(${JSON.stringify(root)}).map(ser) }));`);
-execFileSync(esbuild, [path.join(tmp, 'entry.ts'), '--bundle', '--platform=node', '--format=esm', `--alias:@=${root}`, '--log-level=error', '--outfile=' + path.join(tmp, 'out.mjs')]);
-const routes = JSON.parse(execFileSync('node', [path.join(tmp, 'out.mjs')], { env: { ...process.env, DATABASE_URL: process.env.DATABASE_URL || 'postgres://x@127.0.0.1:1/x' } }).toString());
+execFileSync(esbuild, [path.join(tmp, 'entry.ts'), '--bundle', '--platform=node', '--format=cjs', `--alias:@=${root}`, '--external:pg-native', '--external:pg-cloudflare', '--external:cloudflare:sockets', '--log-level=error', '--outfile=' + path.join(tmp, 'out.cjs')]);
+const routes = JSON.parse(execFileSync('node', [path.join(tmp, 'out.cjs')], { env: { ...process.env, DATABASE_URL: process.env.DATABASE_URL || 'postgres://x@127.0.0.1:1/x' } }).toString());
 
 const visited = JSON.parse(fs.readFileSync(path.join(dir, 'index.json'), 'utf8')).map((e) => e.path.split('?')[0]);
 const hit = (r) => visited.some((p) => (typeof r.path === 'string' ? p === r.path : new RegExp(r.path.re).test(p)));

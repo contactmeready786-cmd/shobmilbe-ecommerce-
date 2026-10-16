@@ -1,326 +1,50 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
-// A small, dependency-free PostgreSQL client (wire protocol v3).
-// Supports TLS, SCRAM-SHA-256 / MD5 / cleartext auth, parameterised queries
-// and transactions. Works with Neon (Vercel Postgres) and plain Postgres.
-
-// Code running inside a transaction may call the plain query() helpers; those
-// calls are routed into the open transaction instead of queueing behind it.
-import * as net from 'node:net';
-import * as tls from 'node:tls';
-import * as crypto from 'node:crypto';
+// Database connection, built on node-postgres ("pg", the standard PostgreSQL driver for Node.js).
+//
+// What the rest of the shop sees is unchanged from the old hand-written client:
+//   query(sql, params) → { rows, rowCount, command }, exec(sql) for several statements, transaction(fn),
+//   the same value types back (numbers, booleans, Dates, Buffers, parsed JSON, arrays; other types as text),
+//   and PgError with .code / .detail / .severity.
+// One shared connection per server instance; queries take turns on it, and a transaction has it to itself.
+// Code running inside a transaction may call the plain query() helpers; those calls are routed into the open
+// transaction instead of queueing behind it.
 import { AsyncLocalStorage } from 'node:async_hooks';
-const txStore = new AsyncLocalStorage();
+import type { ConnectionOptions } from 'node:tls';
+import pg from 'pg';
 
-const TYPE_PARSERS = {
-  16: (v) => v === 't',          // bool
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- a row's columns depend on the query
+export type DbRow = Record<string, any>;
+export type QueryResult<R = DbRow> = { rows: R[]; rowCount: number; command: string };
+export type Param = string | number | bigint | boolean | Date | Buffer | null | undefined | unknown[] | object;
+export type Tx = { query: (sql: string, params?: Param[]) => Promise<QueryResult>; exec: (sql: string) => Promise<true> };
+
+const txStore = new AsyncLocalStorage<Tx>();
+
+// ---------- value types (same as the old client) ----------
+type Parser = (v: string) => unknown;
+const TYPE_PARSERS: Record<number, Parser> = {
+  16: (v) => v === 't', // bool
   17: (v) => Buffer.from(v.slice(2), 'hex'), // bytea (hex format)
   1000: (v) => parseArray(v, (x) => x === 't'), // bool[]
   1007: (v) => parseArray(v, Number), // int4[]
   1016: (v) => parseArray(v, Number), // int8[]
   1009: (v) => parseArray(v, (x) => x), // text[]
-  20: (v) => Number(v),          // int8
-  21: (v) => Number(v),          // int2
-  23: (v) => Number(v),          // int4
-  700: (v) => Number(v),         // float4
-  701: (v) => Number(v),         // float8
-  1700: (v) => Number(v),        // numeric
-  114: (v) => JSON.parse(v),     // json
-  3802: (v) => JSON.parse(v),    // jsonb
+  20: (v) => Number(v), // int8
+  21: (v) => Number(v), // int2
+  23: (v) => Number(v), // int4
+  700: (v) => Number(v), // float4
+  701: (v) => Number(v), // float8
+  1700: (v) => Number(v), // numeric
+  114: (v) => JSON.parse(v), // json
+  3802: (v) => JSON.parse(v), // jsonb
   1114: (v) => new Date(v.replace(' ', 'T') + 'Z'), // timestamp
   1184: (v) => new Date(v.replace(' ', 'T').replace(/([+-]\d\d)$/, '$1:00')), // timestamptz
 };
+const identity: Parser = (v) => v;
+// Only text-format results are used, so every type not listed above stays text (as before).
+const types = { getTypeParser: (oid: number) => TYPE_PARSERS[oid] || identity } as unknown as pg.CustomTypesConfig;
 
-class PgError extends Error {
-  constructor(fields) {
-    super(fields.M || 'Database error');
-    this.code = fields.C;
-    this.detail = fields.D;
-    this.severity = fields.S;
-  }
-}
-
-function parseConnectionString(str) {
-  const u = new URL(str);
-  const host = u.hostname;
-  const local = host === 'localhost' || host === '127.0.0.1';
-  const sslmode = u.searchParams.get('sslmode');
-  return {
-    host,
-    port: Number(u.port) || 5432,
-    user: decodeURIComponent(u.username),
-    password: decodeURIComponent(u.password),
-    database: decodeURIComponent(u.pathname.slice(1)) || decodeURIComponent(u.username),
-    ssl: sslmode ? sslmode !== 'disable' : !local,
-  };
-}
-
-// Supabase signs its database certificates with its own root CA, which is not
-// in Node's default list. If DATABASE_CA_CERT (the PEM text from Supabase →
-// Database → SSL) is set, the certificate is fully checked against it.
-// Without it, Supabase connections stay encrypted but the certificate itself
-// is not verified.
-function tlsTrust(host) {
-  const ca = String(process.env.DATABASE_CA_CERT || '').replace(/\\n/g, '\n').trim();
-  if (ca) return { ca };
-  if (/supabase\.(com|co)$/.test(host)) return { rejectUnauthorized: false };
-  return {};
-}
-
-class Connection {
-  constructor(config) {
-    this.config = config;
-    this.socket = null;
-    this.buffer = Buffer.alloc(0);
-    this.waiter = null; // function(msg) handling incoming messages
-    this.closed = false;
-    this.queue = Promise.resolve();
-  }
-
-  // ---------- low level ----------
-  _send(type, payload) {
-    const len = Buffer.alloc(4);
-    len.writeInt32BE(payload.length + 4);
-    const parts = type ? [Buffer.from(type), len, payload] : [len, payload];
-    this.socket.write(Buffer.concat(parts));
-  }
-
-  _onData(chunk) {
-    this.buffer = this.buffer.length ? Buffer.concat([this.buffer, chunk]) : chunk;
-    while (this.buffer.length >= 5) {
-      const type = String.fromCharCode(this.buffer[0]);
-      const len = this.buffer.readInt32BE(1);
-      if (this.buffer.length < len + 1) break;
-      const body = this.buffer.subarray(5, len + 1);
-      this.buffer = this.buffer.subarray(len + 1);
-      if (this.waiter) this.waiter({ type, body });
-    }
-  }
-
-  _fail(err) {
-    this.closed = true;
-    if (this.waiter) {
-      const w = this.waiter;
-      this.waiter = null;
-      w({ type: '!', error: err });
-    }
-  }
-
-  _attach(socket) {
-    this.socket = socket;
-    socket.setNoDelay(true);
-    socket.on('data', (c) => this._onData(c));
-    socket.on('error', (e) => this._fail(e));
-    socket.on('close', () => this._fail(new Error('Database connection closed')));
-  }
-
-  // Wait for messages until handler returns a value !== undefined
-  _collect(handler) {
-    return new Promise((resolve, reject) => {
-      if (this.closed) return reject(new Error('Database connection closed'));
-      let error = null;
-      this.waiter = (msg) => {
-        if (msg.type === '!') return reject(error || msg.error);
-        if (msg.type === 'E') { error = new PgError(parseFields(msg.body)); return; }
-        if (msg.type === 'N' || msg.type === 'S' || msg.type === 'K' || msg.type === 'A') {
-          if (msg.type === 'S' || msg.type === 'K') handler(msg);
-          return;
-        }
-        if (msg.type === 'Z') {
-          this.waiter = null;
-          if (error) return reject(error);
-        }
-        try {
-          const result = handler(msg);
-          if (result !== undefined) { this.waiter = null; resolve(result); }
-        } catch (e) { this.waiter = null; reject(e); }
-      };
-    });
-  }
-
-  // ---------- connect & auth ----------
-  async connect() {
-    const { host, port, ssl } = this.config;
-    let socket = await new Promise((resolve, reject) => {
-      const s = net.connect({ host, port });
-      s.once('connect', () => resolve(s));
-      s.once('error', reject);
-    });
-    // Only the connecting itself may take at most 15 s. (This timer sits on the raw socket, so it has to be
-    // switched off on that same socket — otherwise a connection that is quiet for 15 s gets cut later.)
-    const raw = socket;
-    raw.setKeepAlive(true, 10000);
-    raw.setTimeout(15000, () => raw.destroy(new Error('Database connection timed out')));
-
-    if (ssl) {
-      const req = Buffer.alloc(8);
-      req.writeInt32BE(8, 0);
-      req.writeInt32BE(80877103, 4);
-      socket.write(req);
-      const answer = await new Promise((resolve, reject) => {
-        socket.once('data', (d) => resolve(String.fromCharCode(d[0])));
-        socket.once('error', reject);
-      });
-      if (answer !== 'S') throw new Error('Database server does not support SSL');
-      socket = await new Promise((resolve, reject) => {
-        const t = tls.connect({ socket, servername: host, ...tlsTrust(host) });
-        t.once('secureConnect', () => resolve(t));
-        t.once('error', reject);
-      });
-    }
-    this._attach(socket);
-    try { await this._startup(); } finally { raw.setTimeout(0); }
-  }
-
-  async _startup() {
-    const { user, database, password } = this.config;
-    const params = Buffer.from(`user\0${user}\0database\0${database}\0client_encoding\0UTF8\0\0`);
-    const head = Buffer.alloc(4);
-    head.writeInt32BE(196608);
-    this._send(null, Buffer.concat([head, params]));
-
-    let scram = null;
-    await this._collect((msg) => {
-      if (msg.type === 'R') {
-        const code = msg.body.readInt32BE(0);
-        if (code === 0) return undefined; // AuthenticationOk
-        if (code === 3) { this._send('p', cstr(password)); return undefined; }
-        if (code === 5) {
-          const salt = msg.body.subarray(4, 8);
-          const inner = md5(password + user);
-          const outer = 'md5' + md5(Buffer.concat([Buffer.from(inner), salt]));
-          this._send('p', cstr(outer));
-          return undefined;
-        }
-        if (code === 10) {
-          const mechs = msg.body.subarray(4).toString().split('\0');
-          if (!mechs.includes('SCRAM-SHA-256')) throw new Error('Unsupported SASL mechanism');
-          const nonce = crypto.randomBytes(18).toString('base64');
-          scram = { nonce, clientFirstBare: `n=*,r=${nonce}` };
-          const data = Buffer.from('n,,' + scram.clientFirstBare);
-          const len = Buffer.alloc(4); len.writeInt32BE(data.length);
-          this._send('p', Buffer.concat([cstr('SCRAM-SHA-256'), len, data]));
-          return undefined;
-        }
-        if (code === 11) {
-          const serverFirst = msg.body.subarray(4).toString();
-          const attrs = Object.fromEntries(serverFirst.split(',').map((p) => [p[0], p.slice(2)]));
-          if (!attrs.r.startsWith(scram.nonce)) throw new Error('SCRAM nonce mismatch');
-          const salted = crypto.pbkdf2Sync(password, Buffer.from(attrs.s, 'base64'), Number(attrs.i), 32, 'sha256');
-          const clientKey = hmac(salted, 'Client Key');
-          const storedKey = crypto.createHash('sha256').update(clientKey).digest();
-          const finalNoProof = `c=biws,r=${attrs.r}`;
-          const authMessage = `${scram.clientFirstBare},${serverFirst},${finalNoProof}`;
-          const sig = hmac(storedKey, authMessage);
-          const proof = Buffer.alloc(clientKey.length);
-          for (let i = 0; i < proof.length; i++) proof[i] = clientKey[i] ^ sig[i];
-          scram.serverSignature = hmac(hmac(salted, 'Server Key'), authMessage).toString('base64');
-          this._send('p', Buffer.from(`${finalNoProof},p=${proof.toString('base64')}`));
-          return undefined;
-        }
-        if (code === 12) {
-          const v = msg.body.subarray(4).toString().split(',').find((p) => p.startsWith('v='));
-          if (!v || v.slice(2) !== scram.serverSignature) throw new Error('SCRAM server signature mismatch');
-          return undefined;
-        }
-        throw new Error('Unsupported authentication method: ' + code);
-      }
-      if (msg.type === 'Z') return true;
-      return undefined;
-    });
-  }
-
-  // ---------- queries ----------
-  _run(fn) {
-    const p = this.queue.then(fn, fn);
-    this.queue = p.catch(() => {});
-    return p;
-  }
-
-  // Simple query protocol: allows multiple statements, no parameters.
-  exec(sql) {
-    return this._run(() => this._exec(sql));
-  }
-
-  _exec(sql) {
-    this._send('Q', cstr(sql));
-    return this._collect((msg) => (msg.type === 'Z' ? true : undefined));
-  }
-
-  query(sql, params = []) {
-    return this._run(() => this._query(sql, params));
-  }
-
-  _query(sql, params) {
-    const values = params.map(serialize);
-    // Parse
-    this._send('P', Buffer.concat([cstr(''), cstr(sql), int16(0)]));
-    // Bind
-    const parts = [cstr(''), cstr(''), int16(0), int16(values.length)];
-    for (const v of values) {
-      if (v === null) { const n = Buffer.alloc(4); n.writeInt32BE(-1); parts.push(n); }
-      else { const b = Buffer.from(v, 'utf8'); const n = Buffer.alloc(4); n.writeInt32BE(b.length); parts.push(n, b); }
-    }
-    parts.push(int16(0));
-    this._send('B', Buffer.concat(parts));
-    this._send('D', Buffer.concat([Buffer.from('P'), cstr('')]));
-    const exec = Buffer.alloc(4); exec.writeInt32BE(0);
-    this._send('E', Buffer.concat([cstr(''), exec]));
-    this._send('S', Buffer.alloc(0));
-
-    let fields = [];
-    const rows = [];
-    let command = '';
-    return this._collect((msg) => {
-      switch (msg.type) {
-        case 'T': fields = parseRowDescription(msg.body); break;
-        case 'D': rows.push(parseDataRow(msg.body, fields)); break;
-        case 'C': command = msg.body.subarray(0, msg.body.length - 1).toString(); break;
-        case 'Z': return { rows, rowCount: rows.length || Number(command.split(' ').pop()) || 0, command };
-        default: break;
-      }
-      return undefined;
-    });
-  }
-
-  // Run fn(tx) inside BEGIN/COMMIT with exclusive use of this connection.
-  transaction(fn) {
-    return this._run(async () => {
-      let open = true;
-      // After the transaction ends, stray late calls go through the normal queue.
-      const tx = {
-        query: (sql, params = []) => (open ? this._query(sql, params) : this.query(sql, params)),
-        exec: (sql) => (open ? this._exec(sql) : this.exec(sql)),
-      };
-      await this._query('BEGIN', []);
-      try {
-        const result = await txStore.run(tx, () => fn(tx));
-        await this._query('COMMIT', []);
-        open = false;
-        return result;
-      } catch (e) {
-        try { await this._query('ROLLBACK', []); } catch (_) { /* ignore */ }
-        open = false;
-        throw e;
-      }
-    });
-  }
-
-  end() {
-    if (this.socket && !this.closed) {
-      try { this._send('X', Buffer.alloc(0)); } catch (_) { /* ignore */ }
-      this.socket.end();
-    }
-    this.closed = true;
-  }
-}
-
-// ---------- helpers ----------
-function cstr(s) { return Buffer.from(s + '\0', 'utf8'); }
-function int16(n) { const b = Buffer.alloc(2); b.writeInt16BE(n); return b; }
-function md5(x) { return crypto.createHash('md5').update(x).digest('hex'); }
-function hmac(key, data) { return crypto.createHmac('sha256', key).update(data).digest(); }
-
-function serialize(v) {
+// Parameters are turned into text exactly as the old client did, so the database receives the same values.
+function serialize(v: Param): string | null {
   if (v === null || v === undefined) return null;
   if (typeof v === 'boolean') return v ? 't' : 'f';
   if (v instanceof Date) return v.toISOString();
@@ -331,11 +55,11 @@ function serialize(v) {
 }
 
 // Postgres array literal, e.g. {1,2,"a b",NULL}
-function parseArray(text, conv) {
-  const out = [];
+function parseArray<T>(text: string, conv: (s: string) => T): (T | null)[] {
+  const out: (T | null)[] = [];
   let i = 1;
   while (i < text.length - 1) {
-    let val;
+    let val: string;
     if (text[i] === '"') {
       let j = i + 1;
       val = '';
@@ -357,90 +81,172 @@ function parseArray(text, conv) {
   return out;
 }
 
-function parseFields(body) {
-  const fields = {};
-  let i = 0;
-  while (i < body.length && body[i] !== 0) {
-    const code = String.fromCharCode(body[i]);
-    const end = body.indexOf(0, i + 1);
-    fields[code] = body.subarray(i + 1, end).toString();
-    i = end + 1;
+// ---------- errors ----------
+type ErrorFields = { M?: string; C?: string; D?: string; S?: string };
+/** An error reported by the database itself (bad SQL, a unique key taken …) — not a connection problem. */
+class PgError extends Error {
+  code?: string;
+  detail?: string;
+  severity?: string;
+  constructor(fields: ErrorFields) {
+    super(fields.M || 'Database error');
+    this.code = fields.C;
+    this.detail = fields.D;
+    this.severity = fields.S;
   }
-  return fields;
+}
+function toPgError(e: unknown): unknown {
+  if (e instanceof pg.DatabaseError) return new PgError({ M: e.message, C: e.code, D: e.detail, S: e.severity });
+  return e;
 }
 
-function parseRowDescription(body) {
-  const n = body.readInt16BE(0);
-  const fields = [];
-  let i = 2;
-  for (let k = 0; k < n; k++) {
-    const end = body.indexOf(0, i);
-    const name = body.subarray(i, end).toString();
-    i = end + 1;
-    const typeOid = body.readInt32BE(i + 6);
-    i += 18;
-    fields.push({ name, typeOid });
-  }
-  return fields;
+// ---------- connection settings ----------
+type ConnConfig = { host: string; port: number; user: string; password: string; database: string; ssl: boolean };
+
+function parseConnectionString(str: string): ConnConfig {
+  const u = new URL(str);
+  const host = u.hostname;
+  const local = host === 'localhost' || host === '127.0.0.1';
+  const sslmode = u.searchParams.get('sslmode');
+  return {
+    host,
+    port: Number(u.port) || 5432,
+    user: decodeURIComponent(u.username),
+    password: decodeURIComponent(u.password),
+    database: decodeURIComponent(u.pathname.slice(1)) || decodeURIComponent(u.username),
+    ssl: sslmode ? sslmode !== 'disable' : !local,
+  };
 }
 
-function parseDataRow(body, fields) {
-  const n = body.readInt16BE(0);
-  const row = {};
-  let i = 2;
-  for (let k = 0; k < n; k++) {
-    const len = body.readInt32BE(i);
-    i += 4;
-    let value = null;
-    if (len >= 0) {
-      const raw = body.subarray(i, i + len).toString('utf8');
-      i += len;
-      const parser = TYPE_PARSERS[fields[k].typeOid];
-      value = parser ? parser(raw) : raw;
-    }
-    row[fields[k].name] = value;
+// Supabase signs its database certificates with its own root CA, which is not
+// in Node's default list. If DATABASE_CA_CERT (the PEM text from Supabase →
+// Database → SSL) is set, the certificate is fully checked against it.
+// Without it, Supabase connections stay encrypted but the certificate itself
+// is not verified.
+function tlsTrust(host: string): ConnectionOptions {
+  const ca = String(process.env.DATABASE_CA_CERT || '').replace(/\\n/g, '\n').trim();
+  if (ca) return { ca };
+  if (/supabase\.(com|co)$/.test(host)) return { rejectUnauthorized: false };
+  return {};
+}
+
+// ---------- one connection ----------
+class Connection {
+  config: ConnConfig;
+  closed = false;
+  private client: pg.Client;
+  private queue: Promise<unknown> = Promise.resolve();
+
+  constructor(config: ConnConfig) {
+    this.config = config;
+    this.client = new pg.Client({
+      host: config.host, port: config.port, user: config.user, password: config.password, database: config.database,
+      ssl: config.ssl ? { servername: config.host, ...tlsTrust(config.host) } : false,
+      types,
+      connectionTimeoutMillis: 15000, // only the connecting itself may take at most 15 s
+      keepAlive: true,
+      keepAliveInitialDelayMillis: 10000,
+      application_name: 'shobmilbe',
+    });
+    this.client.on('error', () => { this.closed = true; });
+    this.client.on('end', () => { this.closed = true; });
   }
-  return row;
+
+  async connect(): Promise<void> {
+    try { await this.client.connect(); } catch (e) { this.closed = true; throw toPgError(e); }
+  }
+
+  // Calls take turns; a transaction keeps the connection until it ends.
+  private run<T>(fn: () => Promise<T>): Promise<T> {
+    const p = this.queue.then(fn, fn);
+    this.queue = p.catch(() => {});
+    return p;
+  }
+
+  private async rawQuery(sql: string, params: Param[]): Promise<QueryResult> {
+    try {
+      const r = await this.client.query({ text: sql, values: params.map(serialize) });
+      const rows = (r.rows || []) as DbRow[];
+      return { rows, rowCount: rows.length || r.rowCount || 0, command: r.command || '' };
+    } catch (e) { throw toPgError(e); }
+  }
+
+  // Simple query protocol: allows several statements, no parameters.
+  private async rawExec(sql: string): Promise<true> {
+    try { await this.client.query(sql); return true; } catch (e) { throw toPgError(e); }
+  }
+
+  query(sql: string, params: Param[] = []): Promise<QueryResult> { return this.run(() => this.rawQuery(sql, params)); }
+  exec(sql: string): Promise<true> { return this.run(() => this.rawExec(sql)); }
+
+  // Run fn(tx) inside BEGIN/COMMIT with exclusive use of this connection.
+  transaction<T>(fn: (tx: Tx) => Promise<T>): Promise<T> {
+    return this.run(async () => {
+      let open = true;
+      // After the transaction ends, stray late calls go through the normal queue.
+      const tx: Tx = {
+        query: (sql, params = []) => (open ? this.rawQuery(sql, params) : this.query(sql, params)),
+        exec: (sql) => (open ? this.rawExec(sql) : this.exec(sql)),
+      };
+      await this.rawQuery('BEGIN', []);
+      try {
+        const result = await txStore.run(tx, () => fn(tx));
+        await this.rawQuery('COMMIT', []);
+        open = false;
+        return result;
+      } catch (e) {
+        try { await this.rawQuery('ROLLBACK', []); } catch { /* ignore */ }
+        open = false;
+        throw e;
+      }
+    });
+  }
+
+  end(): void {
+    if (!this.closed) this.client.end().catch(() => {});
+    this.closed = true;
+  }
 }
 
 // ---------- which database to use ----------
 // Supabase (connected through the Vercel integration) wins over an old
 // DATABASE_URL that may still be left over from Neon.
-function findDatabase() {
+function findDatabase(): { url: string; name: string; provider: string } {
   const env = process.env;
-  const isPg = (v) => /^postgres(ql)?:\/\//i.test(String(v || ''));
+  const isPg = (v: unknown) => /^postgres(ql)?:\/\//i.test(String(v || ''));
   // Any variable holding a Supabase address counts, whatever prefix Vercel gave it.
-  const supa = Object.keys(env).filter((k) => isPg(env[k]) && /supabase\.(com|co)/.test(env[k]))
+  const has = (re: RegExp, s: string | undefined) => Number(re.test(s || ''));
+  const supa = Object.keys(env).filter((k) => isPg(env[k]) && /supabase\.(com|co)/.test(env[k] || ''))
     // Prefer the pooler address (reachable from Vercel) over the direct one.
-    .sort((a, b) => (/pooler/.test(env[b]) - /pooler/.test(env[a])) || (/NON_POOLING/.test(a) - /NON_POOLING/.test(b)) || a.localeCompare(b));
+    .sort((a, b) => (has(/pooler/, env[b]) - has(/pooler/, env[a])) || (has(/NON_POOLING/, a) - has(/NON_POOLING/, b)) || a.localeCompare(b));
   if (supa.length) {
-    let url = env[supa[0]];
+    let url = env[supa[0]] || '';
     try {
       const u = new URL(url);
       // Transaction mode (6543) lets many serverless copies share the database; session mode (5432)
       // runs out of connections quickly. Nothing in the shop needs session mode any more.
       if (/pooler\.supabase\.com$/.test(u.hostname) && u.port === '5432') u.port = '6543';
       url = u.toString();
-    } catch {}
+    } catch { /* keep as given */ }
     return { url, name: supa[0], provider: 'Supabase' };
   }
   const name = env.DATABASE_URL ? 'DATABASE_URL' : env.POSTGRES_URL ? 'POSTGRES_URL' : '';
-  const url = name ? env[name] : '';
+  const url = name ? env[name] || '' : '';
   return { url, name, provider: /neon\.tech/.test(url) ? 'Neon' : url ? 'Postgres' : '' };
 }
-function pickDatabaseUrl() { return findDatabase().url; }
-function databaseInfo() {
+function pickDatabaseUrl(): string { return findDatabase().url; }
+function databaseInfo(): { provider: string; variable: string; host: string } {
   const d = findDatabase();
   let host = '';
-  try { host = new URL(d.url).hostname; } catch {}
+  try { host = new URL(d.url).hostname; } catch { /* no address */ }
   return { provider: d.provider, variable: d.name, host };
 }
 
 // ---------- shared connection for the serverless function ----------
-let shared = null;
-let sharedPromise = null;
+let shared: Connection | null = null;
+let sharedPromise: Promise<Connection> | null = null;
 
-async function getConnection() {
+async function getConnection(): Promise<Connection> {
   if (shared && !shared.closed) return shared;
   if (!sharedPromise) {
     const url = pickDatabaseUrl();
@@ -452,12 +258,12 @@ async function getConnection() {
   return sharedPromise;
 }
 
-function isConnectionError(e) {
+function isConnectionError(e: unknown): boolean {
   return !(e instanceof PgError);
 }
 
 // Retry once on a dropped connection (e.g. the server closed an idle socket).
-async function withConnection(fn) {
+async function withConnection<T>(fn: (c: Connection) => Promise<T>): Promise<T> {
   try {
     return await fn(await getConnection());
   } catch (e) {
@@ -467,17 +273,17 @@ async function withConnection(fn) {
   }
 }
 
-export const query = (sql, params) => {
-    const t = txStore.getStore();
-    return t ? t.query(sql, params || []) : withConnection((c) => c.query(sql, params));
-  };
-export const exec = (sql) => {
-    const t = txStore.getStore();
-    return t ? t.exec(sql) : withConnection((c) => c.exec(sql));
-  };
-export const transaction = (fn) => {
-    const t = txStore.getStore();
-    // Already inside a transaction: just run as part of it.
-    return t ? fn(t) : withConnection((c) => c.transaction(fn));
-  };
+export const query = (sql: string, params?: Param[]): Promise<QueryResult> => {
+  const t = txStore.getStore();
+  return t ? t.query(sql, params || []) : withConnection((c) => c.query(sql, params));
+};
+export const exec = (sql: string): Promise<true> => {
+  const t = txStore.getStore();
+  return t ? t.exec(sql) : withConnection((c) => c.exec(sql));
+};
+export const transaction = <T>(fn: (tx: Tx) => Promise<T>): Promise<T> => {
+  const t = txStore.getStore();
+  // Already inside a transaction: just run as part of it.
+  return t ? fn(t) : withConnection((c) => c.transaction(fn));
+};
 export { PgError, Connection, parseConnectionString, pickDatabaseUrl, databaseInfo };
