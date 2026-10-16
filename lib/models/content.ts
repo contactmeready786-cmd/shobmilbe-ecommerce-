@@ -81,8 +81,8 @@ async function deletePage(id?: Id) { await q('DELETE FROM pages WHERE id=$1', [i
 // ---------------------------------------------------------------- banners
 const PLACEMENTS: Record<string, string> = { slider: 'হোমপেজ স্লাইডার (বড় ব্যানার)', promo: 'হোমপেজ মাঝের ছোট ব্যানার', popup: 'পপআপ অফার' };
 async function listBanners({ active, placement }: Body = {}) {
-  const params = [];
-  const where = [];
+  const params: unknown[] = [];
+  const where: string[] = [];
   if (active) where.push('active AND image_id IS NOT NULL');
   if (placement) { params.push(placement); where.push(`placement=$${params.length}`); }
   return memo(`banners:${!!active}:${placement || ''}`, () => q(`SELECT * FROM banners ${where.length ? 'WHERE ' + where.join(' AND ') : ''} ORDER BY placement, sort, id`, params));
