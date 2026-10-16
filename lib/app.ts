@@ -51,6 +51,7 @@ import * as $services_stockalert from './services/stockalert';
 import * as $shopx from './shopx';
 import * as $models_homerows from './models/homerows';
 import * as $models_kits from './models/kits';
+import * as $services_errors from './services/errors';
 
 const securityHeaders = security.BASE_HEADERS;
 
@@ -549,7 +550,7 @@ async function handler(req, res) {
 
     return await shopRoutes(base);
   } catch (e) {
-    console.error(e);
+    $services_errors.report(e, { path, method });
     return send(res, 500, '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>সমস্যা</title><body style="font-family:sans-serif;padding:40px;text-align:center"><h1>একটা সমস্যা হয়েছে</h1><p>কিছুক্ষণ পর আবার চেষ্টা করুন।</p><p><a href="/">হোমে ফিরে যান</a></p></body>');
   }
 }
