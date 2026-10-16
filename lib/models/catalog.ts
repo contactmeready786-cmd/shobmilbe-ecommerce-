@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // Categories, products, bundles, images (media) and stock movements.
 
 // ---------------------------------------------------------------- media
@@ -8,23 +7,38 @@ import { q, one, tx, uniqueSlug } from '../db';
 import { slugify, int, str, youtubeId, amount, shopPrice, priceProblem } from '../util';
 import * as imagekit from '../services/imagekit';
 import * as $crypto from 'node:crypto';
+import type { DbRow, Param, Tx } from '../pg';
+import type { Body } from '../types';
+
+type Id = number | string | null | undefined;
+/** A category row plus what categoryTree() adds. */
+export type CategoryNode = DbRow & { id: number; parent_id: number | null; children: CategoryNode[]; depth?: number; path?: CategoryNode[]; total_count?: number };
+/** Product list filters (shop and admin). */
+export type ProductFilter = {
+  hideOut?: boolean; category?: string; categoryId?: Id; brandId?: Id; brandIds?: unknown[] | null; damaged?: boolean; supplierId?: Id; q?: string;
+  featured?: boolean; includeInactive?: boolean; type?: string; lowStock?: boolean; offer?: boolean; maxPrice?: unknown; minPrice?: unknown;
+  status?: string; outStock?: boolean; inStock?: boolean; isNew?: boolean; newDays?: unknown; items?: boolean; ids?: unknown[] | null;
+  specs?: Record<string, unknown[]> | null; sort?: string; limit?: number; offset?: number; public?: boolean;
+};
+export type StockPart = { product_id: number; qty: number };
 const HASH_RE = /^[0-9a-f]{64}$/; // 256-bit picture fingerprint
-function cleanHash(h) { const v = String(h ?? '').toLowerCase(); return HASH_RE.test(v) ? v : (v === '' && h !== undefined && h !== null ? '' : null); }
+function cleanHash(h: unknown): string | null { const v = String(h ?? '').toLowerCase(); return HASH_RE.test(v) ? v : (v === '' && h !== undefined && h !== null ? '' : null); }
 // The picture itself goes to ImageKit (when set up); the database keeps its address and fingerprints.
 // keepPrivate: profile / face photos never leave the database.
-async function saveMedia({ mime, data, thumb, width, height, ownerType = null, ownerId = null, phash, phashM, keepPrivate = false }) {
+type NewMedia = { mime: string; data: Buffer; thumb?: Buffer | null; width?: number | null; height?: number | null; ownerType?: string | null; ownerId?: number | null; phash?: unknown; phashM?: unknown; keepPrivate?: boolean };
+async function saveMedia({ mime, data, thumb, width, height, ownerType = null, ownerId = null, phash, phashM, keepPrivate = false }: NewMedia): Promise<number> {
   const sha = $crypto.createHash('sha256').update(data).digest('hex');
-  let ik = null;
+  let ik: { url: string; fileId: string } | null = null;
   if (!keepPrivate && ownerType !== 'staff' && imagekit.configured()) {
-    try { ik = await imagekit.upload(data, mime, sha.slice(0, 16)); } catch (e) { console.error('ImageKit upload failed, kept in database:', e.message); }
+    try { ik = await imagekit.upload(data, mime, sha.slice(0, 16)); } catch (e) { console.error('ImageKit upload failed, kept in database:', (e as Error).message); }
   }
   const row = await one(
     `INSERT INTO media(mime, data, thumb, width, height, owner_type, owner_id, sha, phash, phash_m, ik_url, ik_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING id`,
     [mime, ik ? null : data, ik ? null : (thumb || null), width || null, height || null, ownerType, ownerId, sha, cleanHash(phash), cleanHash(phashM), ik ? ik.url : null, ik ? ik.fileId : null]);
-  return row.id;
+  return row!.id;
 }
 // A picture that has to stay private (staff photo): bring it back from ImageKit into the database.
-async function keepPrivate(id) {
+async function keepPrivate(id: Id): Promise<void> {
   const m = await one('SELECT ik_url, ik_id FROM media WHERE id=$1', [int(id)]);
   if (!m || !m.ik_url) return;
   const r = await fetch(m.ik_url, { signal: AbortSignal.timeout(15000) });
@@ -33,44 +47,44 @@ async function keepPrivate(id) {
   await q('INSERT INTO ik_trash(file_id) VALUES($1) ON CONFLICT DO NOTHING', [m.ik_id]);
 }
 // Older pictures get their fingerprint later, from the admin's browser.
-async function mediaWithoutHash(limit = 40) {
+async function mediaWithoutHash(limit = 40): Promise<DbRow[]> {
   return q(`SELECT id FROM media WHERE owner_type='product' AND phash IS NULL ORDER BY id DESC LIMIT $1`, [limit]);
 }
-async function setMediaHash(id, phash, phashM) {
+async function setMediaHash(id: Id, phash: unknown, phashM: unknown): Promise<void> {
   const h = cleanHash(phash);
   if (h === null) return;
   await q('UPDATE media SET phash=$1, phash_m=$2 WHERE id=$3 AND phash IS NULL', [h, h ? cleanHash(phashM) : '', int(id)]);
 }
 // ---------------------------------------------------------------- watermark copies
 // Product pictures whose marked copy is missing or was made with older watermark settings.
-async function mediaNeedingWatermark(ver, limit = 6) {
+async function mediaNeedingWatermark(ver: string, limit = 6): Promise<DbRow[]> {
   return q(`SELECT id FROM media WHERE owner_type='product' AND wm_ver IS DISTINCT FROM $1 ORDER BY id DESC LIMIT $2`, [ver, limit]);
 }
-async function watermarkProgress(ver) {
+async function watermarkProgress(ver: string): Promise<DbRow | null> {
   return one(`SELECT count(*)::int AS total, count(*) FILTER (WHERE wm_ver = $1)::int AS done FROM media WHERE owner_type='product'`, [ver]);
 }
-async function setWatermark(id, ver, data) {
+async function setWatermark(id: Id, ver: string, data: Buffer | null): Promise<void> {
   if (data && imagekit.configured()) {
     try {
       const w = await imagekit.upload(data, 'image/jpeg', `m${int(id)}-wm`, 'wm');
       await q('UPDATE media SET wm=NULL, wm_url=$1, wm_ik_id=$2, wm_ver=$3 WHERE id=$4 AND owner_type=$5', [w.url, w.fileId, ver, int(id), 'product']);
       return;
-    } catch (e) { console.error('ImageKit watermark upload failed, kept in database:', e.message); }
+    } catch (e) { console.error('ImageKit watermark upload failed, kept in database:', (e as Error).message); }
   }
   await q('UPDATE media SET wm=$1, wm_url=NULL, wm_ik_id=NULL, wm_ver=$2 WHERE id=$3 AND owner_type=$4', [data, ver, int(id), 'product']);
 }
 // The marked copy when it matches the current settings (null → show the normal picture).
-async function getWatermarked(id, ver) {
+async function getWatermarked(id: Id, ver: string): Promise<DbRow | null> {
   return one(`SELECT mime, CASE WHEN wm IS NOT NULL AND wm_ver = $2 THEN wm END AS wm, CASE WHEN wm_url IS NOT NULL AND wm_ver = $2 THEN wm_url END AS wm_url, data, ik_url FROM media WHERE id=$1
     AND (owner_type IS NULL OR owner_type NOT IN ('staff', 'trash:staff', 'return', 'complaint', 'review_wait'))`, [id, ver]);
 }
-async function getMedia(id, wantThumb) {
+async function getMedia(id: Id, wantThumb?: boolean): Promise<DbRow | null> {
   // staff profile pictures are private: only the admin sees them (/admin/avatar/<staff id>)
   return one(`SELECT mime, ${wantThumb ? 'coalesce(thumb, data)' : 'data'} AS data, ik_url FROM media WHERE id=$1
     AND (owner_type IS NULL OR owner_type NOT IN ('staff', 'trash:staff', 'return', 'complaint', 'review_wait'))`, [id]);
 }
 // Give media rows to an owner in the given order; that owner's other media are removed.
-async function attachMedia(t, ids, ownerType, ownerId) {
+async function attachMedia(t: Tx, ids: unknown[], ownerType: string, ownerId: number): Promise<number[]> {
   const clean = ids.map((x) => int(x)).filter((x) => x > 0);
   await t.query(`DELETE FROM media WHERE owner_type=$1 AND owner_id=$2 AND NOT (id = ANY($3::int[]))`, [ownerType, ownerId, clean]);
   for (const [i, id] of clean.entries()) {
@@ -80,20 +94,20 @@ async function attachMedia(t, ids, ownerType, ownerId) {
   return clean;
 }
 // Claim a single uploaded image for a setting/banner etc. (no owner deletion logic).
-async function claimMedia(id, ownerType, ownerId = 0) {
+async function claimMedia(id: Id, ownerType: string, ownerId: number = 0): Promise<number | null> {
   if (!int(id)) return null;
   await q(`UPDATE media SET owner_type=$1, owner_id=$2 WHERE id=$3 AND owner_type IS NULL`, [ownerType, ownerId, int(id)]);
   return int(id);
 }
-async function deleteMedia(id) { if (int(id)) await q('DELETE FROM media WHERE id=$1', [int(id)]); }
-async function cleanupMedia() {
+async function deleteMedia(id: Id): Promise<void> { if (int(id)) await q('DELETE FROM media WHERE id=$1', [int(id)]); }
+async function cleanupMedia(): Promise<void> {
   await q(`DELETE FROM media WHERE owner_type IS NULL AND created_at < now() - interval '1 day'`);
 }
 
 // ---------------------------------------------------------------- categories
 // Every category (flat, in display order). product_count = this category's own products;
 // total_count (added by categoryTree) = its own + all its sub-categories'.
-async function listCategories({ includeInactive = true } = {}) {
+async function listCategories({ includeInactive = true }: { includeInactive?: boolean } = {}): Promise<DbRow[]> {
   const rows = await q(`SELECT c.*, (SELECT count(*)::int FROM products p WHERE p.category_id=c.id AND p.active AND p.parent_id IS NULL) AS product_count
             FROM categories c ${includeInactive ? '' : 'WHERE coalesce(c.active, true)'} ORDER BY sort, id`);
   // a sub-category whose main category is hidden is hidden too
@@ -101,28 +115,29 @@ async function listCategories({ includeInactive = true } = {}) {
     const ids = new Set(rows.map((r) => r.id));
     const all = await q('SELECT id, parent_id, coalesce(active,true) AS active FROM categories');
     const byId = new Map(all.map((r) => [r.id, r]));
-    const visible = (c) => { let x = c; for (let i = 0; x && i < 20; i++) { if (!x.active) return false; x = x.parent_id ? byId.get(x.parent_id) : null; } return true; };
+    const visible = (c: DbRow | undefined) => { let x: DbRow | null | undefined = c; for (let i = 0; x && i < 20; i++) { if (!x.active) return false; x = x.parent_id ? byId.get(x.parent_id) : null; } return true; };
     return rows.filter((r) => visible(byId.get(r.id)) && (!r.parent_id || ids.has(r.parent_id)));
   }
   return rows;
 }
 // Flat list → tree. Each node gets: children[], depth, path (main → … → this), total_count.
-function categoryTree(list) {
-  const byId = new Map(list.map((c) => [c.id, { ...c, children: [] }]));
-  const roots = [];
+function categoryTree(list: DbRow[]): { roots: CategoryNode[]; byId: Map<number, CategoryNode> } {
+  const byId = new Map<number, CategoryNode>(list.map((c) => [c.id, { ...c, children: [] } as unknown as CategoryNode]));
+  const roots: CategoryNode[] = [];
   for (const c of byId.values()) {
     const parent = c.parent_id && byId.get(c.parent_id);
     if (parent && parent !== c) parent.children.push(c); else roots.push(c);
   }
-  const seen = new Set();
-  const walk = (nodes, depth, path) => {
+  const seen = new Set<number>();
+  const walk = (nodes: CategoryNode[], depth: number, path: CategoryNode[]): number => {
     let sum = 0;
     for (const n of nodes) {
       if (seen.has(n.id)) continue;
       seen.add(n.id);
       n.depth = depth; n.path = [...path, n];
-      n.total_count = (n.product_count || 0) + walk(n.children, depth + 1, n.path);
-      sum += n.total_count;
+      const total = (n.product_count || 0) + walk(n.children, depth + 1, n.path);
+      n.total_count = total;
+      sum += total;
     }
     return sum;
   };
@@ -130,28 +145,29 @@ function categoryTree(list) {
   return { roots, byId };
 }
 // Tree as a flat list in menu order (for selects): [{…, depth}]
-function categoryOptions(list) {
+function categoryOptions(list: DbRow[]): CategoryNode[] {
   const { roots } = categoryTree(list);
-  const out = [];
-  const walk = (nodes) => nodes.forEach((n) => { out.push(n); walk(n.children); });
+  const out: CategoryNode[] = [];
+  const walk = (nodes: CategoryNode[]): void => nodes.forEach((n) => { out.push(n); walk(n.children); });
   walk(roots);
   return out;
 }
 // ids of a category and everything inside it
-async function categorySubtree(id) {
+async function categorySubtree(id: Id): Promise<number[]> {
   return (await q(`WITH RECURSIVE t AS (SELECT id FROM categories WHERE id=$1
     UNION SELECT c.id FROM categories c JOIN t ON c.parent_id=t.id) SELECT id FROM t`, [int(id)])).map((r) => r.id);
 }
-async function saveCategory({ id, name, icon, sort, active, imageId, parentId, seo, sizeChart }) {
+type CategoryInput = { id?: number | null; name: unknown; icon?: unknown; sort?: unknown; active?: boolean; imageId?: unknown; parentId?: unknown; seo?: { title?: unknown; description?: unknown; text?: unknown; bannerId?: unknown; noindex?: boolean }; sizeChart?: unknown };
+async function saveCategory({ id, name, icon, sort, active, imageId, parentId, seo, sizeChart }: CategoryInput): Promise<number> {
   const vals = [str(name, 60), str(icon, 8) || '📦', int(sort), active !== false, int(imageId) || null];
   // SEO title / description, the text shown above the products, and a wide banner picture (Admin → ক্যাটাগরি → SEO ও ব্যানার)
-  const saveSeo = async (cid) => {
+  const saveSeo = async (cid: number) => {
     if (sizeChart !== undefined) await q('UPDATE categories SET size_chart=$1 WHERE id=$2', [str(sizeChart, 3000), cid]);
     if (!seo) return;
     await q('UPDATE categories SET seo_title=$1, seo_description=$2, description=$3, banner_id=$4, noindex=$5 WHERE id=$6',
       [str(seo.title, 120), str(seo.description, 300), str(seo.text, 3000), int(seo.bannerId) || null, !!seo.noindex, cid]);
   };
-  let parent = parentId === undefined ? undefined : (int(parentId) || null);
+  let parent: number | null | undefined = parentId === undefined ? undefined : (int(parentId) || null);
   if (id && parent) {
     // a category can't go inside itself or inside one of its own sub-categories
     const inside = await categorySubtree(id);
@@ -164,12 +180,12 @@ async function saveCategory({ id, name, icon, sort, active, imageId, parentId, s
     return id;
   }
   const slug = await uniqueSlug('categories', slugify(name));
-  const nid = (await one('INSERT INTO categories(name,icon,sort,active,image_id,slug,parent_id) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING id', [...vals, slug, parent || null])).id;
+  const nid = (await one('INSERT INTO categories(name,icon,sort,active,image_id,slug,parent_id) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING id', [...vals, slug, parent || null]))!.id;
   await saveSeo(nid);
   return nid;
 }
 // Deleting a category: its sub-categories move up one level, its products become uncategorised.
-async function deleteCategory(id) {
+async function deleteCategory(id: number): Promise<void> {
   await tx(async (t) => {
     await t.query('UPDATE categories SET parent_id=(SELECT parent_id FROM categories WHERE id=$1) WHERE parent_id=$1', [id]);
     await t.query('DELETE FROM categories WHERE id=$1', [id]);
@@ -206,10 +222,10 @@ const PUBLIC_COLS = `p.id, p.name, p.slug, p.category_id, ${PRICE_COLS}, ${STOCK
 const PRODUCT_COLS = PUBLIC_COLS.replace(PRICE_COLS, `p.price, p.old_price, ${FLASH_SUB} AS flash_price, ${FLASH_END} AS flash_ends, p.price AS base_price`)
   + ', p.cost_price, p.damaged_stock, p.supplier_id, p.location';
 if (/cost|supplier|damaged|location/.test(PUBLIC_COLS)) throw new Error('PUBLIC_COLS must not contain private columns');
-const colsFor = (o) => (o && o.public ? PUBLIC_COLS : PRODUCT_COLS);
+const colsFor = (o?: { public?: boolean } | null): string => (o && o.public ? PUBLIC_COLS : PRODUCT_COLS);
 
-function productWhere({ hideOut, category, categoryId, brandId, brandIds, damaged, supplierId, q: search, featured, includeInactive, type, lowStock, offer, maxPrice, minPrice, status, outStock, inStock, isNew, newDays, items, ids, specs }, params) {
-  const where = [];
+function productWhere({ hideOut, category, categoryId, brandId, brandIds, damaged, supplierId, q: search, featured, includeInactive, type, lowStock, offer, maxPrice, minPrice, status, outStock, inStock, isNew, newDays, items, ids, specs }: ProductFilter, params: Param[]): string {
+  const where: string[] = [];
   // Variants (size / colour / model) are products of their own under a "parent" product.
   // Lists show the parent only; items=true (stock, orders, counter sale) shows each variant instead of its parent.
   where.push(items ? 'p.variant_count = 0' : 'p.parent_id IS NULL');
@@ -237,7 +253,7 @@ function productWhere({ hideOut, category, categoryId, brandId, brandIds, damage
   if (status === 'off') where.push('NOT p.active');
   if (outStock) where.push(`(${STOCK_EXPR}) <= 0`);
   // a category shows its own products and those of all its sub-categories
-  const SUBTREE = (cond) => `p.category_id IN (WITH RECURSIVE t AS (SELECT id FROM categories WHERE ${cond}
+  const SUBTREE = (cond: string) => `p.category_id IN (WITH RECURSIVE t AS (SELECT id FROM categories WHERE ${cond}
     UNION SELECT c3.id FROM categories c3 JOIN t ON c3.parent_id=t.id) SELECT id FROM t)`;
   if (category) { params.push(category); where.push(SUBTREE(`slug=$${params.length}`)); }
   if (categoryId) { params.push(int(categoryId)); where.push(SUBTREE(`id=$${params.length}`)); }
@@ -255,17 +271,17 @@ function productWhere({ hideOut, category, categoryId, brandId, brandIds, damage
   }
   return where.length ? 'WHERE ' + where.join(' AND ') : '';
 }
-const SORTS = {
+const SORTS: Record<string, string> = {
   price_asc: 'p.price ASC', price_desc: 'p.price DESC', new: 'p.created_at DESC', popular: 'p.sold_count DESC, p.created_at DESC',
   name: 'p.name ASC', stock_asc: 'stock ASC', offer: '(p.old_price - p.price) DESC NULLS LAST',
   // SKU 1, 2, 3 … in number order (not 1, 10, 100, 2 …); hand-typed codes come after the numbers
   sku: `(CASE WHEN p.sku ~ '^[0-9]{1,15}$' THEN p.sku::bigint END) ASC NULLS LAST, lower(coalesce(p.sku, '')) ASC, p.id ASC`,
   sku_desc: `(CASE WHEN p.sku ~ '^[0-9]{1,15}$' THEN p.sku::bigint END) DESC NULLS LAST, lower(coalesce(p.sku, '')) DESC`,
 };
-async function listProducts(opts = {}) {
-  const params = [];
+async function listProducts(opts: ProductFilter = {}): Promise<DbRow[]> {
+  const params: Param[] = [];
   const where = productWhere(opts, params);
-  const sortSql = Object.hasOwn(SORTS, String(opts.sort)) ? SORTS[opts.sort] : null;
+  const sortSql = Object.hasOwn(SORTS, String(opts.sort)) ? SORTS[String(opts.sort)] : null;
   let order = sortSql || 'p.featured DESC, (p.stock > 0 OR p.product_type=\'bundle\') DESC, p.created_at DESC';
   // smart search with no sort chosen: best match first
   if (Array.isArray(opts.ids) && !sortSql) { params.push(opts.ids.map(int)); order = `array_position($${params.length}::int[], p.id)`; }
@@ -274,14 +290,14 @@ async function listProducts(opts = {}) {
   if (opts.offset) { params.push(opts.offset); sql += ` OFFSET $${params.length}`; }
   return q(sql, params);
 }
-async function countProducts(opts = {}) {
-  const params = [];
+async function countProducts(opts: ProductFilter = {}): Promise<number> {
+  const params: Param[] = [];
   const where = productWhere(opts, params);
-  return (await one(`SELECT count(*)::int AS n FROM products p LEFT JOIN categories c ON c.id=p.category_id ${where}`, params)).n;
+  return (await one(`SELECT count(*)::int AS n FROM products p LEFT JOIN categories c ON c.id=p.category_id ${where}`, params))!.n;
 }
 // Counts for the small summary chips above the admin product list.
-async function productStats({ type } = {}) {
-  const params = [];
+async function productStats({ type }: { type?: string } = {}): Promise<DbRow | null> {
+  const params: Param[] = [];
   let where = 'WHERE p.parent_id IS NULL';
   if (type) { params.push(type); where += ` AND p.product_type=$1`; }
   return one(`SELECT count(*)::int AS total,
@@ -291,7 +307,7 @@ async function productStats({ type } = {}) {
       count(*) FILTER (WHERE (${STOCK_EXPR}) <= p.low_stock)::int AS low
     FROM products p ${where}`, params);
 }
-async function getProduct({ id, slug, public: pub = false }) {
+async function getProduct({ id, slug, public: pub = false }: { id?: Id; slug?: string; public?: boolean }): Promise<DbRow | null> {
   const p = await one(`SELECT ${colsFor({ public: pub })} FROM products p LEFT JOIN categories c ON c.id=p.category_id WHERE ${id ? 'p.id=$1' : 'p.slug=$1'}`, [id || slug]);
   if (!p) return null;
   p.images = (await q(`SELECT id FROM media WHERE owner_type='product' AND owner_id=$1 ORDER BY sort, id`, [p.id])).map((r) => r.id);
@@ -301,17 +317,17 @@ async function getProduct({ id, slug, public: pub = false }) {
   return p;
 }
 // The variants of a product (size / colour / model …), in the owner's order. Shop side: only the ones switched on.
-async function listVariants(parentId, { public: pub = false } = {}) {
+async function listVariants(parentId: Id, { public: pub = false }: { public?: boolean } = {}): Promise<DbRow[]> {
   return q(`SELECT ${colsFor({ public: pub })} FROM products p LEFT JOIN categories c ON c.id=p.category_id
     WHERE p.parent_id=$1 ${pub ? 'AND p.active' : ''} ORDER BY p.variant_sort, p.id`, [int(parentId)]);
 }
-async function getProductsByIds(ids, { includeInactive = false, public: pub = false } = {}) {
+async function getProductsByIds(ids: unknown[], { includeInactive = false, public: pub = false }: { includeInactive?: boolean; public?: boolean } = {}): Promise<DbRow[]> {
   const clean = ids.map((x) => int(x)).filter((x) => x > 0);
   if (!clean.length) return [];
   return q(`SELECT ${colsFor({ public: pub })} FROM products p LEFT JOIN categories c ON c.id=p.category_id
             WHERE p.id = ANY($1::int[]) ${includeInactive ? '' : 'AND p.active AND (p.parent_id IS NULL OR EXISTS (SELECT 1 FROM products pp WHERE pp.id=p.parent_id AND pp.active))'}`, [clean]);
 }
-async function bundleItems(bundleId, pub = false) {
+async function bundleItems(bundleId: number, pub = false): Promise<DbRow[]> {
   return q(`SELECT bi.product_id, bi.qty, p.name, p.sku, p.stock, p.price, ${pub ? '' : 'p.cost_price, '}p.image_id, p.emoji
             FROM bundle_items bi JOIN products p ON p.id=bi.product_id WHERE bi.bundle_id=$1 ORDER BY bi.id`, [bundleId]);
 }
@@ -320,7 +336,7 @@ async function bundleItems(bundleId, pub = false) {
 // Every new product gets the next number by itself. A number is never handed out twice,
 // even if that product is deleted later, and numbers typed by hand are skipped.
 const SKU_LOCK = 726301;
-async function takeSku(t) {
+async function takeSku(t: Tx): Promise<string> {
   await t.query('SELECT pg_advisory_xact_lock($1)', [SKU_LOCK]);
   const r = (await t.query(`SELECT greatest(
       coalesce((SELECT value::bigint FROM settings WHERE key='sku_counter' AND value ~ '^[0-9]{1,15}$'), 0),
@@ -330,14 +346,14 @@ async function takeSku(t) {
   return n;
 }
 // The number the next new product will get (shown on the "new product" form).
-async function nextSku() {
+async function nextSku(): Promise<string> {
   const r = await one(`SELECT greatest(
       coalesce((SELECT value::bigint FROM settings WHERE key='sku_counter' AND value ~ '^[0-9]{1,15}$'), 0),
       coalesce((SELECT max(sku::bigint) FROM products WHERE sku ~ '^[0-9]{1,15}$'), 0)) + 1 AS n`);
   return String(r ? r.n : 1);
 }
 
-async function skuTaken(sku, exceptId) {
+async function skuTaken(sku: string, exceptId?: Id): Promise<boolean> {
   if (!sku) return false;
   const r = await one('SELECT id FROM products WHERE lower(sku)=lower($1) AND id<>$2', [sku, exceptId || 0]);
   return !!r;
@@ -345,19 +361,19 @@ async function skuTaken(sku, exceptId) {
 
 const MAX_PRODUCT_IMAGES = 6;
 // Warranty choices (owner: from 7 days up to 5 years). Stored as the key; a typed one is kept as "c:<text>".
-const WARRANTY = { '7d': '৭ দিন', '15d': '১৫ দিন', '1m': '১ মাস', '3m': '৩ মাস', '6m': '৬ মাস', '1y': '১ বছর', '2y': '২ বছর', '3y': '৩ বছর', '4y': '৪ বছর', '5y': '৫ বছর' };
-const WARRANTY_TYPES = { replace: 'রিপ্লেসমেন্ট', service: 'সার্ভিস', brand: 'ব্র্যান্ড/কোম্পানি' };
-function warrantyText(p) {
+const WARRANTY: Record<string, string> = { '7d': '৭ দিন', '15d': '১৫ দিন', '1m': '১ মাস', '3m': '৩ মাস', '6m': '৬ মাস', '1y': '১ বছর', '2y': '২ বছর', '3y': '৩ বছর', '4y': '৪ বছর', '5y': '৫ বছর' };
+const WARRANTY_TYPES: Record<string, string> = { replace: 'রিপ্লেসমেন্ট', service: 'সার্ভিস', brand: 'ব্র্যান্ড/কোম্পানি' };
+function warrantyText(p: { warranty?: string; warranty_type?: string } | null | undefined): string {
   const w = String((p && p.warranty) || '');
   if (!w) return '';
   const len = w.startsWith('c:') ? w.slice(2) : WARRANTY[w];
   if (!len) return '';
-  const t = WARRANTY_TYPES[p.warranty_type];
+  const t = WARRANTY_TYPES[String(p!.warranty_type)];
   return t ? `${len} ${t} ওয়ারেন্টি` : `${len} ওয়ারেন্টি`;
 } // owner: at most 6 pictures per product (2026-10-10)
 // "a, b ,, c" -> "a, b, c" (no empty or repeated words)
-function cleanKeywords(v) {
-  const seen = new Set();
+function cleanKeywords(v: unknown): string {
+  const seen = new Set<string>();
   return String(v || '').split(/[,،\n]+/).map((k) => k.replace(/\s+/g, ' ').trim()).filter((k) => {
     const key = k.toLowerCase();
     if (!k || seen.has(key)) return false;
@@ -368,10 +384,11 @@ function cleanKeywords(v) {
 // ---------------------------------------------------------------- price history
 // Every change of the selling price / old price is written to the activity log ("price_change"),
 // and every change of the buying price separately ("cost_change", shown only to the owner).
-const n2 = (v) => (v === null || v === undefined || v === '' ? null : Math.round(Number(v) * 100) / 100);
-function moneyTxt(v) { return v === null ? 'নেই' : '৳' + (Number.isInteger(v) ? v : v.toFixed(2)); }
-async function logPriceChange(t, productId, before, after, staffId, via = '') {
-  const parts = [];
+const n2 = (v: unknown): number | null => (v === null || v === undefined || v === '' ? null : Math.round(Number(v) * 100) / 100);
+function moneyTxt(v: number | null): string { return v === null ? 'নেই' : '৳' + (Number.isInteger(v) ? v : v.toFixed(2)); }
+type PriceFields = { price?: unknown; old_price?: unknown; cost_price?: unknown; name?: unknown };
+async function logPriceChange(t: Tx, productId: number, before: PriceFields, after: PriceFields, staffId: Id, via = ''): Promise<void> {
+  const parts: string[] = [];
   if (after.price !== undefined && n2(before.price) !== n2(after.price)) parts.push(`বিক্রির দাম ${moneyTxt(n2(before.price))} → ${moneyTxt(n2(after.price))}`);
   if (after.old_price !== undefined && n2(before.old_price) !== n2(after.old_price)) parts.push(`আগের দাম ${moneyTxt(n2(before.old_price))} → ${moneyTxt(n2(after.old_price))}`);
   const tag = via ? ` (${via})` : '';
@@ -385,7 +402,7 @@ async function logPriceChange(t, productId, before, after, staffId, via = '') {
       [staffId || null, productId, `${name}: কেনা দাম ${moneyTxt(n2(before.cost_price || 0))} → ${moneyTxt(n2(after.cost_price || 0))}${tag}`.slice(0, 500)]);
   }
 }
-async function priceHistory(productId, { withCost = false, limit = 30 } = {}) {
+async function priceHistory(productId: number, { withCost = false, limit = 30 }: { withCost?: boolean; limit?: number } = {}): Promise<DbRow[]> {
   return q(`SELECT a.action, a.detail, a.created_at, s.name AS staff_name FROM activity_log a LEFT JOIN staff s ON s.id=a.staff_id
     WHERE a.entity='product' AND a.entity_id=$1 AND a.action = ANY($2::text[]) ORDER BY a.created_at DESC, a.id DESC LIMIT $3`,
   [productId, withCost ? ['price_change', 'cost_change'] : ['price_change'], limit]);
@@ -394,7 +411,7 @@ async function priceHistory(productId, { withCost = false, limit = 30 } = {}) {
 // 📒 One product's own book: every time stock came in (when, how many, at what price, from whom), every stock change,
 // and what its sales earned. Sales and profit come from the orders themselves (price and buying price are saved on
 // each order line when it is sold) — nobody types the profit. Cancelled / returned orders don't count.
-async function productLedger(productId, { limit = 200 } = {}) {
+async function productLedger(productId: Id, { limit = 200 }: { limit?: number } = {}) {
   const id = int(productId);
   const [buys, moves, sales] = await Promise.all([
     q(`SELECT m.id, m.created_at, m.change, m.reason, m.unit_cost, m.note, m.ref_type, m.ref_id,
@@ -414,7 +431,7 @@ async function productLedger(productId, { limit = 200 } = {}) {
        FROM order_items i JOIN orders o ON o.id=i.order_id
        WHERE i.product_id=$1 AND o.status NOT IN ('cancelled','returned')`, [id]),
   ]);
-  sales.profit = Number(sales.revenue) - Number(sales.cost);
+  sales!.profit = Number(sales!.revenue) - Number(sales!.cost);
   // totals over all the buys (not only the rows shown): cancelled purchases don't count
   const tot = await one(`SELECT coalesce(sum(m.change),0)::int AS qty,
       coalesce(sum(m.change) FILTER (WHERE m.unit_cost IS NOT NULL),0)::int AS priced_qty,
@@ -422,14 +439,14 @@ async function productLedger(productId, { limit = 200 } = {}) {
     FROM stock_movements m LEFT JOIN purchases pu ON m.ref_type='purchase' AND pu.id=m.ref_id
     WHERE m.product_id=$1 AND m.reason IN ('opening','purchase') AND m.change > 0 AND coalesce(pu.status,'') <> 'cancelled'`, [id]);
   return {
-    buys, moves, sales, boughtQty: tot.qty, spent: Number(tot.spent), pricedQty: tot.priced_qty,
-    avgBuy: tot.priced_qty ? Number(tot.spent) / tot.priced_qty : null,
+    buys, moves, sales: sales!, boughtQty: tot!.qty, spent: Number(tot!.spent), pricedQty: tot!.priced_qty,
+    avgBuy: tot!.priced_qty ? Number(tot!.spent) / tot!.priced_qty : null,
   };
 }
 
 // The buying price was wrong (typed by mistake, or never given): put it right, with a reason. It is written in the price
 // history with who, when and why, and only changes what future sales count as cost — sales already made keep theirs.
-async function correctCost(productId, cost, reason, staffId) {
+async function correctCost(productId: Id, cost: unknown, reason: unknown, staffId: Id): Promise<boolean> {
   const why = str(reason, 150);
   if (!why) throw new Error('কেন বদলাচ্ছেন লিখুন (যেমন: ভুল দাম বসানো ছিল)।');
   const c = amount(cost);
@@ -447,8 +464,9 @@ async function correctCost(productId, cost, reason, staffId) {
 // ---------------------------------------------------------------- brands
 // 🔧 Spec filters for a shop list: the specifications that many of its products share (e.g. ভোল্টেজ: 5V / 12V / 24V).
 // A spec shows when ≥2 products have it with 2–15 different short values. Spelling of the name/value: the most common one.
-async function specFacets(opts = {}) {
-  const params = [];
+type SpecFacet = { key: string; label: string; total: number; values: { value: string; label: string; n: number }[] };
+async function specFacets(opts: ProductFilter = {}): Promise<SpecFacet[]> {
+  const params: Param[] = [];
   const where = productWhere({ ...opts, specs: null }, params);
   const rows = await q(`SELECT lower(trim(e->>0)) AS k, lower(trim(e->>1)) AS v, mode() WITHIN GROUP (ORDER BY trim(e->>0)) AS kl,
       mode() WITHIN GROUP (ORDER BY trim(e->>1)) AS vl, count(DISTINCT p.id)::int AS n
@@ -456,35 +474,36 @@ async function specFacets(opts = {}) {
       jsonb_array_elements(CASE WHEN jsonb_typeof(p.specs)='array' THEN p.specs ELSE '[]'::jsonb END) e
     ${where}${where ? ' AND' : ' WHERE'} length(trim(e->>1)) BETWEEN 1 AND 30 AND length(trim(e->>0)) BETWEEN 1 AND 40
     GROUP BY 1, 2`, params);
-  const byKey = new Map();
+  const byKey = new Map<string, SpecFacet>();
   for (const r of rows) {
     if (!byKey.has(r.k)) byKey.set(r.k, { key: r.k, label: r.kl, total: 0, values: [] });
-    const f = byKey.get(r.k);
+    const f = byKey.get(r.k)!;
     f.total += r.n;
     f.values.push({ value: r.v, label: r.vl, n: r.n });
   }
-  const num = (x) => { const m = String(x).match(/-?\d+(\.\d+)?/); return m ? Number(m[0]) : null; };
+  const num = (x: unknown): number | null => { const m = String(x).match(/-?\d+(\.\d+)?/); return m ? Number(m[0]) : null; };
   return [...byKey.values()].filter((f) => f.total >= 2 && f.values.length >= 2 && f.values.length <= 15)
     .sort((a, b) => b.total - a.total).slice(0, 5)
-    .map((f) => ({ ...f, values: f.values.sort((a, b) => (num(a.label) !== null && num(b.label) !== null ? num(a.label) - num(b.label) : b.n - a.n)) }));
+    .map((f) => ({ ...f, values: f.values.sort((a, b) => (num(a.label) !== null && num(b.label) !== null ? num(a.label)! - num(b.label)! : b.n - a.n)) }));
 }
 
 // Brands among the products a shop list shows (for the brand filter), with how many products each has.
-async function brandsIn(opts = {}) {
-  const params = [];
+async function brandsIn(opts: ProductFilter = {}): Promise<DbRow[]> {
+  const params: Param[] = [];
   const where = productWhere({ ...opts, brandIds: null, brandId: null }, params);
   return q(`SELECT b.id, b.name, b.slug, count(*)::int AS n FROM products p LEFT JOIN categories c ON c.id=p.category_id
     JOIN brands b ON b.id=p.brand_id AND b.active ${where} GROUP BY b.id ORDER BY count(*) DESC, b.name LIMIT 40`, params);
 }
-async function listBrands({ activeOnly = false } = {}) {
+async function listBrands({ activeOnly = false }: { activeOnly?: boolean } = {}): Promise<DbRow[]> {
   return q(`SELECT b.*, (SELECT count(*)::int FROM products p WHERE p.brand_id=b.id) AS product_count,
       (SELECT count(*)::int FROM products p WHERE p.brand_id=b.id AND p.active) AS active_count
     FROM brands b ${activeOnly ? 'WHERE b.active' : ''} ORDER BY b.sort, lower(b.name)`);
 }
-async function getBrand({ id, slug }) {
+async function getBrand({ id, slug }: { id?: Id; slug?: string }): Promise<DbRow | null> {
   return one(`SELECT * FROM brands WHERE ${id ? 'id=$1' : 'slug=$1'}`, [id || slug]);
 }
-async function saveBrand({ id, name, logoId, description, seoTitle, seoDescription, active, sort, noindex = false }) {
+type BrandInput = { id?: Id; name: unknown; logoId?: unknown; description?: unknown; seoTitle?: unknown; seoDescription?: unknown; active?: boolean; sort?: unknown; noindex?: boolean };
+async function saveBrand({ id, name, logoId, description, seoTitle, seoDescription, active, sort, noindex = false }: BrandInput): Promise<number> {
   const n = str(name, 60);
   if (!n) throw new Error('ব্র্যান্ডের নাম লিখুন।');
   const clash = await one('SELECT id FROM brands WHERE lower(name)=lower($1) AND id<>$2', [n, int(id)]);
@@ -498,10 +517,10 @@ async function saveBrand({ id, name, logoId, description, seoTitle, seoDescripti
     return int(id);
   }
   const slug = await uniqueSlug('brands', slugify(n) === 'item' ? 'brand' : slugify(n));
-  return (await one('INSERT INTO brands(name, logo_id, description, seo_title, seo_description, active, sort, slug, noindex) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id', [...vals, slug, !!noindex])).id;
+  return (await one('INSERT INTO brands(name, logo_id, description, seo_title, seo_description, active, sort, slug, noindex) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id', [...vals, slug, !!noindex]))!.id;
 }
 // The brand with this name (any letter case) — made on the spot when it doesn't exist yet.
-async function brandIdFor(t, name) {
+async function brandIdFor(t: Tx, name: unknown): Promise<number | null> {
   const n = str(name, 60);
   if (!n) return null;
   const found = (await t.query('SELECT id FROM brands WHERE lower(name)=lower($1)', [n])).rows[0];
@@ -513,10 +532,10 @@ async function brandIdFor(t, name) {
 }
 
 // Specifications: [["Voltage", "5V"], ["Power", "3W"]] — from the admin form's two columns.
-function cleanSpecs(keys, vals) {
-  const k = [].concat(keys ?? []);
-  const v = [].concat(vals ?? []);
-  const out = [];
+function cleanSpecs(keys: unknown, vals: unknown): [string, string][] {
+  const k = ([] as unknown[]).concat(keys ?? []);
+  const v = ([] as unknown[]).concat(vals ?? []);
+  const out: [string, string][] = [];
   for (let i = 0; i < k.length && out.length < 40; i++) {
     const a = str(k[i], 60); const b = str(v[i], 300);
     if (a && b) out.push([a, b]);
@@ -527,19 +546,19 @@ function cleanSpecs(keys, vals) {
 // ---------------------------------------------------------------- linked products
 // related = "একই রকম আরও পণ্য" (replaces the automatic same-category list), cross = "এর সাথে যা লাগবে"
 // (also suggested in the cart), upsell = "আরও ভালো বিকল্প".
-const LINK_KINDS = { related: 'একই রকম পণ্য', cross: 'এর সাথে যা লাগবে (ক্রস-সেল)', upsell: 'আরও ভালো বিকল্প (আপসেল)' };
-async function linkedSkus(productId) {
+const LINK_KINDS: Record<string, string> = { related: 'একই রকম পণ্য', cross: 'এর সাথে যা লাগবে (ক্রস-সেল)', upsell: 'আরও ভালো বিকল্প (আপসেল)' };
+async function linkedSkus(productId: Id): Promise<Record<string, string[]>> {
   const rows = await q(`SELECT l.kind, p.sku FROM product_links l JOIN products p ON p.id=l.linked_id WHERE l.product_id=$1 ORDER BY l.kind, l.sort`, [int(productId)]);
-  const out = { related: [], cross: [], upsell: [] };
+  const out: Record<string, string[]> = { related: [], cross: [], upsell: [] };
   rows.forEach((r) => { if (out[r.kind]) out[r.kind].push(r.sku); });
   return out;
 }
 // skus: "12, 45 , 7" — unknown SKUs and the product itself are skipped. Returns the SKUs that were not found.
-async function setLinks(t, productId, kind, skus) {
+async function setLinks(t: Tx, productId: number, kind: string, skus: unknown): Promise<string[]> {
   if (!LINK_KINDS[kind]) return [];
   const want = [...new Set(String(skus || '').split(/[\s,،;]+/).map((x) => x.trim()).filter(Boolean))].slice(0, 24);
   await t.query('DELETE FROM product_links WHERE product_id=$1 AND kind=$2', [productId, kind]);
-  const missing = [];
+  const missing: string[] = [];
   let sort = 0;
   for (const sku of want) {
     const r = (await t.query('SELECT id FROM products WHERE sku=$1', [sku])).rows[0];
@@ -548,12 +567,12 @@ async function setLinks(t, productId, kind, skus) {
   }
   return missing;
 }
-async function linkedProducts(productId, kind, limit = 8) {
+async function linkedProducts(productId: Id, kind: string, limit = 8): Promise<DbRow[]> {
   return q(`SELECT ${PUBLIC_COLS} FROM product_links l JOIN products p ON p.id=l.linked_id LEFT JOIN categories c ON c.id=p.category_id
     WHERE l.product_id=$1 AND l.kind=$2 AND p.active ORDER BY l.sort LIMIT $3`, [int(productId), kind, limit]);
 }
 // Cart suggestions: what the cart's products list as "goes with", minus what is already in the cart.
-async function crossFor(ids, limit = 6) {
+async function crossFor(ids: unknown[] | null | undefined, limit = 6): Promise<DbRow[]> {
   const clean = (ids || []).map((x) => int(x)).filter((x) => x > 0);
   if (!clean.length) return [];
   return q(`SELECT DISTINCT ON (p.id) ${PUBLIC_COLS} FROM product_links l JOIN products p ON p.id=l.linked_id LEFT JOIN categories c ON c.id=p.category_id
@@ -561,24 +580,25 @@ async function crossFor(ids, limit = 6) {
 }
 
 // ---------------------------------------------------------------- old links keep working
-async function addRedirect(t, from, to) {
+async function addRedirect(t: Tx, from: string, to: string): Promise<void> {
   if (!from || from === to) return;
   await t.query('DELETE FROM redirects WHERE from_path=$1', [to]); // a link that is used again by a product
   await t.query('UPDATE redirects SET to_path=$2 WHERE to_path=$1', [from, to]); // no chains: a → b → c becomes a → c
   await t.query(`INSERT INTO redirects(from_path, to_path) VALUES($1,$2) ON CONFLICT (from_path) DO UPDATE SET to_path=EXCLUDED.to_path`, [from, to]);
 }
-async function findRedirect(path) {
+async function findRedirect(path: string): Promise<string | null> {
   const r = await one('SELECT to_path FROM redirects WHERE from_path=$1', [path]);
   if (r) q('UPDATE redirects SET hits=hits+1 WHERE from_path=$1', [path]).catch(() => {});
   return r ? r.to_path : null;
 }
 
 // Create or update a product with its images and bundle parts. Returns the id.
-async function saveProduct(data, staffId) {
+async function saveProduct(data: Body, staffId: Id): Promise<number> {
   const type = data.product_type === 'bundle' ? 'bundle' : 'single';
   const hasVariants = int(data.id) ? !!(await one('SELECT 1 AS x FROM products WHERE id=$1 AND variant_count > 0', [int(data.id)])) : false;
   if (!hasVariants) { const pp = priceProblem(shopPrice(amount(data.price)), 'বিক্রির দাম'); if (pp) throw new Error(pp); }
-  const f = {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- one value per products column
+  const f: Record<string, any> = {
     name: str(data.name, 140),
     category_id: int(data.category_id) || null,
     price: shopPrice(amount(data.price)),
@@ -611,7 +631,7 @@ async function saveProduct(data, staffId) {
   }
   // specifications: from the form (spec_key[] / spec_val[]) or already as a list (copy, import)
   if (data.spec_key !== undefined) f.specs = JSON.stringify(cleanSpecs(data.spec_key, data.spec_val));
-  else if (Array.isArray(data.specs)) f.specs = JSON.stringify(cleanSpecs(data.specs.map((x) => x[0]), data.specs.map((x) => x[1])));
+  else if (Array.isArray(data.specs)) f.specs = JSON.stringify(cleanSpecs(data.specs.map((x: unknown[]) => x[0]), data.specs.map((x: unknown[]) => x[1])));
   if (data.supplier_id !== undefined) f.supplier_id = int(data.supplier_id) || null;
   // 📍 where it is kept at home / in the store (বক্স ৩, তাক ২…) — only when the form sends it
   if (data.location !== undefined) f.location = cleanLocation(data.location);
@@ -631,13 +651,13 @@ async function saveProduct(data, staffId) {
   }
   const images = (Array.isArray(data.images) ? data.images : String(data.images || '').split(','))
     .map((x) => int(x)).filter((x) => x > 0).filter((x, i, a) => a.indexOf(x) === i).slice(0, MAX_PRODUCT_IMAGES);
-  const parts = (data.bundle || []).map((b) => ({ product_id: int(b.product_id), qty: Math.max(1, int(b.qty, 1)) }))
-    .filter((b) => b.product_id > 0);
+  const parts: StockPart[] = (data.bundle || []).map((b: DbRow) => ({ product_id: int(b.product_id), qty: Math.max(1, int(b.qty, 1)) }))
+    .filter((b: StockPart) => b.product_id > 0);
   const newStock = type === 'bundle' ? 0 : Math.max(0, int(data.stock));
   const id = int(data.id) || null;
 
   return tx(async (t) => {
-    let pid = id;
+    let pid = id as number;
     // brand typed as a name: linked to that brand (made on the spot if it's new)
     f.brand_id = f.brand ? await brandIdFor(t, f.brand) : null;
     if (f.brand_id) f.brand = (await t.query('SELECT name FROM brands WHERE id=$1', [f.brand_id])).rows[0].name;
@@ -696,7 +716,7 @@ async function saveProduct(data, staffId) {
 // The main product shows a picker; its price is the cheapest variant and its stock the sum of all variants.
 const MAX_VARIANTS = 40;
 // Keep the variants in line with their main product (name, category, brand …) and the main product's price/stock line.
-async function syncVariants(t, parentId) {
+async function syncVariants(t: Tx, parentId: number): Promise<void> {
   const p = (await t.query('SELECT id, name, category_id, brand, brand_id, emoji, unit, weight_g, warranty, warranty_type, image_id FROM products WHERE id=$1', [parentId])).rows[0];
   if (!p) return;
   await t.query(`UPDATE products SET name = left($2 || ' — ' || variant_label, 200), category_id=$3, brand=$4, brand_id=$5, emoji=$6, unit=$7,
@@ -710,7 +730,7 @@ async function syncVariants(t, parentId) {
 }
 // rows: [{ id?, label, price, old_price, cost_price?, stock, sku, image_id, active, remove }] — from the variants page.
 // withCost: only the owner may set buying prices.
-async function saveVariants(parentId, { title, rows }, staffId, { withCost = false } = {}) {
+async function saveVariants(parentId: Id, { title, rows }: { title: unknown; rows: Body[] }, staffId: Id, { withCost = false }: { withCost?: boolean } = {}): Promise<{ removed: number[] }> {
   return tx(async (t) => {
     const parent = (await t.query('SELECT * FROM products WHERE id=$1 FOR UPDATE', [int(parentId)])).rows[0];
     if (!parent) throw new Error('পণ্য পাওয়া যায়নি।');
@@ -719,10 +739,10 @@ async function saveVariants(parentId, { title, rows }, staffId, { withCost = fal
     await t.query('UPDATE products SET variant_title=$1 WHERE id=$2', [str(title, 40), parent.id]);
     const existing = new Map((await t.query('SELECT * FROM products WHERE parent_id=$1', [parent.id])).rows.map((r) => [r.id, r]));
     const images = new Set((await t.query(`SELECT id FROM media WHERE owner_type='product' AND owner_id=$1`, [parent.id])).rows.map((r) => r.id));
-    const seen = new Set();
+    const seen = new Set<string>();
     let sort = 0;
     let kept = [...existing.values()].length;
-    const removed = [];
+    const removed: number[] = [];
     for (const r of rows.slice(0, MAX_VARIANTS + 10)) {
       const id = int(r.id);
       const old = id ? existing.get(id) : null;
@@ -778,7 +798,7 @@ async function saveVariants(parentId, { title, rows }, staffId, { withCost = fal
   });
 }
 
-async function deleteProduct(id) {
+async function deleteProduct(id: number): Promise<void> {
   await tx(async (t) => {
     await t.query(`DELETE FROM media WHERE owner_type='product' AND owner_id=$1`, [id]);
     await t.query('DELETE FROM products WHERE id=$1', [id]);
@@ -786,7 +806,7 @@ async function deleteProduct(id) {
 }
 // Remove every product (with its pictures and stock history) and start SKU numbers again from 1.
 // Old orders keep the product name and price they were placed with.
-async function deleteAllProducts() {
+async function deleteAllProducts(): Promise<number> {
   return tx(async (t) => {
     const n = (await t.query('SELECT count(*)::int AS n FROM products')).rows[0].n;
     await t.query(`DELETE FROM media WHERE owner_type='product'`);
@@ -798,7 +818,7 @@ async function deleteAllProducts() {
     return n;
   });
 }
-async function duplicateProduct(id, staffId) {
+async function duplicateProduct(id: number, staffId: Id): Promise<number | null> {
   const p = await getProduct({ id });
   if (!p) return null;
   return saveProduct({ ...p, id: null, name: p.name + ' (কপি)', sku: '', active: false, images: [], stock: 0, allow_duplicate: false,
@@ -809,7 +829,7 @@ async function duplicateProduct(id, staffId) {
 // Change a product's stock by `change` and record why. With mustHave=true the
 // call fails (returns null) instead of going below zero.
 // unitCost: what one piece cost when stock comes in (opening / purchase) — kept as the buying-price history.
-async function moveStock(t, productId, change, reason, refType = '', refId = null, note = '', staffId = null, mustHave = false, unitCost = null) {
+async function moveStock(t: Tx, productId: number, change: number, reason: string, refType = '', refId: Id = null, note = '', staffId: Id = null, mustHave = false, unitCost: unknown = null): Promise<true | null> {
   if (!change) return true;
   const res = await t.query(
     `UPDATE products SET stock = ${mustHave ? 'stock + $1' : 'greatest(0, stock + $1)'}, updated_at=now()
@@ -823,7 +843,7 @@ async function moveStock(t, productId, change, reason, refType = '', refId = nul
 
 // ⏳ Pre-order: take `qty` even when the shelf has less — the stock goes below 0 (= pieces owed to pre-orders).
 // Returns how many of them were not on the shelf. A purchase later adds stock as usual, which pays the debt first.
-async function oweStock(t, productId, qty, refId = null, staffId = null) {
+async function oweStock(t: Tx, productId: number, qty: number, refId: Id = null, staffId: Id = null): Promise<number> {
   const before = (await t.query('SELECT stock FROM products WHERE id=$1 FOR UPDATE', [productId])).rows[0];
   if (!before) return 0;
   const r = (await t.query('UPDATE products SET stock = stock - $1, updated_at=now() WHERE id=$2 RETURNING stock', [qty, productId])).rows[0];
@@ -833,30 +853,30 @@ async function oweStock(t, productId, qty, refId = null, staffId = null) {
 }
 
 // The real stock parts a cart line uses: a bundle uses its components.
-async function stockParts(t, productId, qty) {
+async function stockParts(t: Tx, productId: number, qty: number): Promise<StockPart[]> {
   const p = (await t.query('SELECT id, product_type FROM products WHERE id=$1', [productId])).rows[0];
   if (!p) return [];
   if (p.product_type !== 'bundle') return [{ product_id: productId, qty }];
   const parts = (await t.query('SELECT product_id, qty FROM bundle_items WHERE bundle_id=$1', [productId])).rows;
-  return parts.map((x) => ({ product_id: x.product_id, qty: x.qty * qty }));
+  return parts.map((x) => ({ product_id: x.product_id as number, qty: (x.qty as number) * qty }));
 }
 
 // 📍 "বক্স ৩" / "box 3" / "B3" all look the same in lists: trimmed, single spaces, at most 40 letters
-function cleanLocation(v) { return String(v || '').replace(/\s+/g, ' ').trim().slice(0, 40); }
+function cleanLocation(v: unknown): string { return String(v || '').replace(/\s+/g, ' ').trim().slice(0, 40); }
 // every box / shelf name already used, with how many products sit there (for the suggestions and the box list)
-async function listLocations() {
+async function listLocations(): Promise<DbRow[]> {
   return q(`SELECT location, count(*)::int AS products, coalesce(sum(greatest(stock, 0)), 0)::int AS units FROM products
     WHERE location <> '' AND variant_count = 0 GROUP BY location ORDER BY length(location), location`);
 }
 
-const STOCK_REASONS = {
+const STOCK_REASONS: Record<string, string> = {
   opening: 'শুরুর স্টক', order: 'অর্ডার', cancel: 'অর্ডার বাতিল/ফেরত', edit: 'অর্ডার এডিট', purchase: 'পারচেজ (কেনা)',
   purchase_cancel: 'পারচেজ বাতিল', adjust: 'হাতে বদল', damage: 'নষ্ট/ভাঙা → নষ্ট স্টকে', lost: 'হারানো', count: 'গণনা ঠিক করা', return: 'কাস্টমার ফেরত',
   return_damaged: 'ফেরত আসা নষ্ট মাল → নষ্ট স্টকে', damage_out: 'নষ্ট মাল ফেলে দেওয়া', repair: 'মেরামত হয়ে আবার বিক্রিযোগ্য',
 };
 // Damaged goods are kept apart from the stock that can be sold: a change can move pieces between the two.
 // stock / damaged = how much each one changes (e.g. { stock: -2, damaged: 2 } = 2 pieces broke). Null if not enough.
-async function changeDamaged(t, productId, { stock = 0, damaged = 0 }, reason, refType = '', refId = null, note = '', staffId = null) {
+async function changeDamaged(t: Tx, productId: number, { stock = 0, damaged = 0 }: { stock?: number; damaged?: number }, reason: string, refType = '', refId: Id = null, note = '', staffId: Id = null): Promise<true | null> {
   if (!stock && !damaged) return true;
   const res = await t.query(`UPDATE products SET stock = stock + $1, damaged_stock = damaged_stock + $2, updated_at=now()
     WHERE id=$3 AND stock + $1 >= 0 AND damaged_stock + $2 >= 0 RETURNING stock`, [stock, damaged, productId]);
@@ -867,9 +887,9 @@ async function changeDamaged(t, productId, { stock = 0, damaged = 0 }, reason, r
 }
 // Pieces taken by orders that are not shipped yet (new, confirmed, packing, on hold) — still on the shelf.
 const OPEN_STATUSES = ['pending', 'confirmed', 'processing', 'hold'];
-async function reservedFor(ids) {
+async function reservedFor(ids: unknown[] | null | undefined): Promise<Map<number, number>> {
   const clean = (ids || []).map((x) => int(x)).filter((x) => x > 0);
-  if (!clean.length) return new Map();
+  if (!clean.length) return new Map<number, number>();
   const rows = await q(`SELECT pid, sum(qty)::int AS qty FROM (
       SELECT CASE WHEN c.value IS NULL THEN oi.product_id ELSE (c.value->>'product_id')::int END AS pid,
              CASE WHEN c.value IS NULL THEN oi.qty ELSE (c.value->>'qty')::int END AS qty
@@ -877,10 +897,10 @@ async function reservedFor(ids) {
       LEFT JOIN LATERAL jsonb_array_elements(CASE WHEN jsonb_typeof(oi.components)='array' THEN oi.components ELSE '[]'::jsonb END) c ON true
       WHERE o.status = ANY($2::text[])) x
     WHERE pid = ANY($1::int[]) GROUP BY pid`, [clean, OPEN_STATUSES]);
-  return new Map(rows.map((r) => [r.pid, r.qty]));
+  return new Map(rows.map((r): [number, number] => [r.pid, r.qty]));
 }
-async function stockMovements({ productId, limit = 100 } = {}) {
-  const params = [];
+async function stockMovements({ productId, limit = 100 }: { productId?: Id; limit?: number } = {}): Promise<DbRow[]> {
+  const params: Param[] = [];
   let where = '';
   if (productId) { params.push(productId); where = 'WHERE m.product_id=$1'; }
   params.push(limit);
@@ -889,7 +909,7 @@ async function stockMovements({ productId, limit = 100 } = {}) {
             ${where} ORDER BY m.created_at DESC, m.id DESC LIMIT $${params.length}`, params);
 }
 
-async function inventorySummary() {
+async function inventorySummary(): Promise<DbRow | null> {
   return one(`SELECT count(*)::int AS products,
       coalesce(sum(stock),0)::int AS units,
       coalesce(sum(damaged_stock),0)::int AS damaged,

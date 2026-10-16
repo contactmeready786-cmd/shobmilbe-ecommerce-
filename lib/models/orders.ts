@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // Orders: create, edit, status changes (with stock), delivery zones, coupons.
 import { q, one, tx, jsonSetting } from '../db';
 import { int, str, randomCode, bn, normalizePhone, ymd, amount, round2, money, qtyRule, contact, minOrder, wholeTaka } from '../util';
@@ -8,8 +7,20 @@ import GEO from '../data/bd-geo.json';
 import * as $services_pricing from '../services/pricing';
 import * as $giftcards from './giftcards';
 import * as $loyalty from './loyalty';
+import type { DbRow, Tx } from '../pg';
+import type { Body, Settings } from '../types';
 
-const STATUSES = {
+/** A priced order line, as saved in order_items. */
+export type OrderLine = {
+  product_id: number; name: string; sku?: string; price: number; cost?: number | string | null; qty: number; weight_g?: number;
+  components?: { product_id: number; qty: number }[] | null; kind?: string; note?: string; ref_id?: number | null; preorder_qty?: number;
+};
+/** What a customer or the admin asked for: product id, pieces and (admin only) a typed price. */
+type Wanted = { id: number; qty: number; price?: unknown; kind?: string; note?: string };
+type District = { en: string; bn: string; division?: string; areas: [string, string][] };
+const GEO_DATA = GEO as unknown as { districts: District[]; dhakaCity: string[] };
+
+const STATUSES: Record<string, string> = {
   pending: 'নতুন অর্ডার',
   confirmed: 'কনফার্ম হয়েছে',
   processing: 'প্যাকিং চলছে',
@@ -21,65 +32,67 @@ const STATUSES = {
 };
 // In these statuses the order's goods are back on the shelf.
 const RELEASED = new Set(['cancelled', 'returned']);
-const PAYMENT_METHODS = {
+const PAYMENT_METHODS: Record<string, string> = {
   cod: 'ক্যাশ অন ডেলিভারি', bkash: 'বিকাশ (অনলাইন)', ssl: 'কার্ড / মোবাইল ব্যাংকিং (SSLCommerz)',
   manual_bkash: 'বিকাশ (Send Money)', manual_nagad: 'নগদ (Send Money)', manual_rocket: 'রকেট (Send Money)',
   manual_upay: 'উপায় (Send Money)', cash: 'নগদ টাকা (দোকানে)', card: 'কার্ড (দোকানে)',
 };
-const PAYMENT_STATUSES = { unpaid: 'বাকি', partial: 'আংশিক পেইড', paid: 'পেইড', refunded: 'রিফান্ড' };
+const PAYMENT_STATUSES: Record<string, string> = { unpaid: 'বাকি', partial: 'আংশিক পেইড', paid: 'পেইড', refunded: 'রিফান্ড' };
 
 class OrderError extends Error {
-  constructor(message, field) { super(message); this.field = field; }
+  field?: string;
+  constructor(message: string, field?: string) { super(message); this.field = field; }
 }
 
 // ---------------------------------------------------------------- delivery zones
-function dhakaCityAreas(settings) {
+function dhakaCityAreas(settings: Settings): string[] {
   const custom = jsonSetting(settings, 'dhaka_city_areas', null);
-  return Array.isArray(custom) && custom.length ? custom : GEO.dhakaCity;
+  return Array.isArray(custom) && custom.length ? custom : GEO_DATA.dhakaCity;
 }
-function findDistrict(name) {
+function findDistrict(name: unknown): District | null {
   const n = String(name || '').trim().toLowerCase();
-  return GEO.districts.find((d) => d.en.toLowerCase() === n || d.bn === name) || null;
+  return GEO_DATA.districts.find((d) => d.en.toLowerCase() === n || d.bn === name) || null;
 }
-function zoneFor(settings, district, thana) {
+function zoneFor(settings: Settings, district: unknown, thana: unknown): 'dhaka' | 'outside' {
   const d = findDistrict(district);
   if (!d || d.en !== 'Dhaka') return 'outside';
-  return dhakaCityAreas(settings).includes(thana) ? 'dhaka' : 'outside';
+  return dhakaCityAreas(settings).includes(String(thana)) ? 'dhaka' : 'outside';
 }
-function deliveryFee(settings, zone, subtotal) {
+function deliveryFee(settings: Settings, zone: string, subtotal: number): number {
   const freeMin = int(settings.free_delivery_min);
   if (freeMin > 0 && subtotal >= freeMin) return 0;
   return zone === 'dhaka' ? int(settings.delivery_dhaka) : int(settings.delivery_outside);
 }
 // Extra delivery zones the owner made (Admin → সেটিংস → ডেলিভারি জোন), e.g. "ঢাকার আশেপাশে" ৳১০০ for Gazipur, Narayanganj…
-function customZones(settings) {
+type Zone = { name: string; fee: number; districts: string[] };
+function customZones(settings: Settings): Zone[] {
   const z = jsonSetting(settings, 'delivery_zones', []);
-  return (Array.isArray(z) ? z : []).filter((x) => x && str(x.name) && Array.isArray(x.districts) && x.districts.length)
-    .map((x) => ({ name: str(x.name, 60), fee: Math.max(0, amount(x.fee)), districts: x.districts.map((d) => String(d)) }));
+  return (Array.isArray(z) ? z : []).filter((x: DbRow) => x && str(x.name) && Array.isArray(x.districts) && x.districts.length)
+    .map((x: DbRow) => ({ name: str(x.name, 60), fee: Math.max(0, amount(x.fee)), districts: x.districts.map((d: unknown) => String(d)) }));
 }
 // Which zone an address is in, and its charge (before weight and free delivery).
-function deliveryZone(settings, district, thana) {
+function deliveryZone(settings: Settings, district: unknown, thana: unknown): { area: 'dhaka' | 'outside'; name: string; fee: number } {
   const d = findDistrict(district);
   const en = d ? d.en : '';
-  if (en === 'Dhaka' && dhakaCityAreas(settings).includes(thana)) return { area: 'dhaka', name: 'ঢাকা সিটি', fee: int(settings.delivery_dhaka) };
+  if (en === 'Dhaka' && dhakaCityAreas(settings).includes(String(thana))) return { area: 'dhaka', name: 'ঢাকা সিটি', fee: int(settings.delivery_dhaka) };
   for (const z of customZones(settings)) if (z.districts.includes(en)) return { area: 'outside', name: z.name, fee: z.fee };
   return { area: 'outside', name: 'ঢাকার বাইরে', fee: int(settings.delivery_outside) };
 }
 // Heavy parcels: extra charge per kg above the free kilos (0 = off).
-function weightExtra(settings, weightG) {
+function weightExtra(settings: Settings, weightG: number): number {
   const per = amount(settings.delivery_per_kg);
   if (!(per > 0) || !(weightG > 0)) return 0;
   const free = Math.max(0, Number(settings.delivery_free_kg) || 1);
   return Math.max(0, Math.ceil(weightG / 1000 - 1e-9) - free) * per;
 }
 // The full delivery charge for a cart.
-function deliveryFor(settings, { district, thana, subtotal, weightG = 0 }) {
+function deliveryFor(settings: Settings, { district, thana, subtotal, weightG = 0 }: { district: unknown; thana: unknown; subtotal: number; weightG?: number }) {
   const z = deliveryZone(settings, district, thana);
   const freeMin = int(settings.free_delivery_min);
   const fee = freeMin > 0 && subtotal >= freeMin ? 0 : round2(z.fee + weightExtra(settings, weightG));
   return { ...z, fee };
 }
-function areaLabel(order) {
+function areaLabel(order: { district?: string; thana?: string }): string {
   const d = findDistrict(order.district);
   const a = d && d.areas.find((x) => x[0] === order.thana);
   return [a ? a[1] : order.thana, d ? d.bn : order.district].filter(Boolean).join(', ');
@@ -87,7 +100,9 @@ function areaLabel(order) {
 
 // ---------------------------------------------------------------- coupons
 // lines: [{ product_id, price, qty }] — needed when the coupon is only for some products / categories.
-async function checkCoupon(code, subtotal, phone, lines = null, exceptOrderId = 0) {
+type LineForCoupon = { product_id: unknown; price: unknown; qty: unknown; kind?: string };
+type CouponCheck = { ok: false; message: string } | { ok: true; coupon: DbRow; discount: number; freeDelivery: boolean; partial: boolean; message: string };
+async function checkCoupon(code: unknown, subtotal: number, phone: unknown, lines: LineForCoupon[] | null = null, exceptOrderId: unknown = 0): Promise<CouponCheck> {
   const c = await one(`SELECT * FROM coupons WHERE upper(code)=upper($1)`, [str(code, 40)]);
   const today = ymd();
   if (!c || !c.active) return { ok: false, message: 'এই কুপন কোডটি সঠিক নয়।' };
@@ -99,25 +114,25 @@ async function checkCoupon(code, subtotal, phone, lines = null, exceptOrderId = 
   }
   if (c.per_phone > 0 && phone) {
     const used = await one(`SELECT count(*)::int AS n FROM orders WHERE upper(coupon_code)=upper($1) AND phone=$2 AND status<>'cancelled'`, [c.code, normalizePhone(phone)]);
-    if (used.n >= c.per_phone) return { ok: false, message: 'আপনি এই কুপন আগেই ব্যবহার করেছেন।' };
+    if (used!.n >= c.per_phone) return { ok: false, message: 'আপনি এই কুপন আগেই ব্যবহার করেছেন।' };
   }
   if (c.first_order) {
     if (!phone) return { ok: false, message: 'এই কুপন শুধু প্রথম অর্ডারে — আগে মোবাইল নম্বর লিখুন, তারপর কুপন দিন।' };
     // (the order being placed right now is already saved inside the same transaction — it doesn't count)
     const before = await one(`SELECT count(*)::int AS n FROM orders WHERE phone=$1 AND status NOT IN ('cancelled') AND id <> $2`, [normalizePhone(phone), int(exceptOrderId)]);
-    if (before.n > 0) return { ok: false, message: 'এই কুপন শুধু প্রথম অর্ডারের জন্য।' };
+    if (before!.n > 0) return { ok: false, message: 'এই কুপন শুধু প্রথম অর্ডারের জন্য।' };
   }
   // flash-sale lines and gifts never take a coupon (no double discount)
   const noCoupon = Array.isArray(lines) ? round2(lines.filter((l) => l.kind === 'flash' || l.kind === 'gift').reduce((s, l) => s + Number(l.price) * int(l.qty), 0)) : 0;
   // only for some products / categories: the discount counts only those products
   let base = round2(subtotal - noCoupon);
   if (!(base > 0)) return { ok: false, message: 'ফ্ল্যাশ সেল আর অফারের উপহারে কুপন চলে না।' };
-  const pids = c.product_ids || [];
-  const cids = c.category_ids || [];
+  const pids: number[] = c.product_ids || [];
+  const cids: number[] = c.category_ids || [];
   if (pids.length || cids.length) {
     if (!Array.isArray(lines) || !lines.length) return { ok: false, message: 'কার্টে পণ্য নেই।' };
     const inCats = cids.length ? new Set((await q(`WITH RECURSIVE t AS (SELECT id FROM categories WHERE id = ANY($1::int[])
-        UNION SELECT c.id FROM categories c JOIN t ON c.parent_id=t.id) SELECT p.id FROM products p WHERE p.category_id IN (SELECT id FROM t)`, [cids])).map((r) => r.id)) : new Set();
+        UNION SELECT c.id FROM categories c JOIN t ON c.parent_id=t.id) SELECT p.id FROM products p WHERE p.category_id IN (SELECT id FROM t)`, [cids])).map((r) => r.id)) : new Set<number>();
     base = round2(lines.filter((l) => l.kind !== 'flash' && l.kind !== 'gift' && (pids.includes(int(l.product_id)) || inCats.has(int(l.product_id))))
       .reduce((s, l) => s + Number(l.price) * int(l.qty), 0));
     if (!(base > 0)) return { ok: false, message: 'এই কুপন আপনার কার্টের পণ্যগুলোতে প্রযোজ্য নয়।' };
@@ -136,13 +151,14 @@ async function checkCoupon(code, subtotal, phone, lines = null, exceptOrderId = 
 // Turn requested lines into priced lines, taking stock for them. Throws OrderError.
 // Prices: an admin may type a price; otherwise the lowest of normal / flash sale / quantity price (services/pricing).
 // Web orders also get the "buy X get Y" gift lines (when the gift is in stock).
-async function takeLines(t, wanted, { allowPrice = false, refId = null, staffId = null } = {}) {
+type TakeOpts = { allowPrice?: boolean; refId?: number | null; staffId?: number | null };
+async function takeLines(t: Tx, wanted: Wanted[], { allowPrice = false, refId = null, staffId = null }: TakeOpts = {}): Promise<OrderLine[]> {
   const pricing = $services_pricing;
   const ids = wanted.map((w) => w.id);
   // one after the other: a transaction's connection runs one query at a time
   const tiers = await pricing.tiersFor(ids, t);
   const flash = await pricing.flashFor(ids, t);
-  const lines = [];
+  const lines: OrderLine[] = [];
   for (const w of wanted) {
     const p = (await t.query(
       `SELECT p.id, p.name, p.sku, p.price, p.cost_price, p.product_type, p.weight_g, p.variant_count,
@@ -174,7 +190,7 @@ async function takeLines(t, wanted, { allowPrice = false, refId = null, staffId 
     }
     if (p.product_type === 'bundle' && !cost) cost = await bundleCost(t, p.id);
     await t.query('UPDATE products SET sold_count = sold_count + $1 WHERE id=$2', [w.qty, p.id]);
-    let lp = { price: Number(p.price), kind: '', note: '', ref_id: null };
+    let lp: { price: number; kind: string; note: string; ref_id: number | null } = { price: Number(p.price), kind: '', note: '', ref_id: null };
     if (allowPrice && w.price !== undefined && w.price !== null && w.price !== '') {
       lp = { price: amount(w.price), kind: w.kind === 'gift' ? 'gift' : '', note: w.kind === 'gift' ? str(w.note, 120) : '', ref_id: null };
     } else {
@@ -196,12 +212,12 @@ async function takeLines(t, wanted, { allowPrice = false, refId = null, staffId 
   }
   return lines;
 }
-async function bundleCost(t, bundleId) {
+async function bundleCost(t: Tx, bundleId: number): Promise<number> {
   const c = (await t.query(`SELECT coalesce(sum(p.cost_price * bi.qty),0)::numeric(14,2) AS c FROM bundle_items bi JOIN products p ON p.id=bi.product_id WHERE bi.bundle_id=$1`, [bundleId])).rows[0];
   return c.c;
 }
 // A gift line: taken from stock only if there is enough (a missing gift never stops the order).
-async function takeGift(t, g, { refId, staffId }) {
+async function takeGift(t: Tx, g: $services_pricing.GiftLine, { refId, staffId }: { refId: number | null; staffId: number | null }): Promise<OrderLine | null> {
   const p = (await t.query('SELECT id, name, sku, cost_price, product_type, active, weight_g, stock FROM products WHERE id=$1', [g.product_id])).rows[0];
   if (!p || !p.active) return null;
   for (const qty of [...new Set([g.qty, Math.min(g.qty, p.product_type === 'bundle' ? g.qty : p.stock)])]) {
@@ -223,7 +239,7 @@ async function takeGift(t, g, { refId, staffId }) {
   return null;
 }
 // Put the stock of saved order items back on the shelf.
-async function releaseLines(t, items, reason, refId, staffId) {
+async function releaseLines(t: Tx, items: DbRow[], reason: string, refId: number, staffId: number | null | undefined): Promise<void> {
   for (const it of items) {
     if (it.kind === 'flash' && it.ref_id) await t.query('UPDATE flash_items SET sold = greatest(0, sold - $1) WHERE id=$2', [it.qty, it.ref_id]);
     if (!it.product_id) continue;
@@ -235,8 +251,8 @@ async function releaseLines(t, items, reason, refId, staffId) {
     await t.query('UPDATE products SET sold_count = greatest(0, sold_count - $1) WHERE id=$2', [it.qty, it.product_id]);
   }
 }
-function mergeWanted(items) {
-  const wanted = new Map();
+function mergeWanted(items: Body[] | null | undefined): Wanted[] {
+  const wanted = new Map<string, Wanted>();
   for (const it of items || []) {
     const id = int(it.id || it.product_id);
     const qty = Math.min(int(it.qty), 999);
@@ -250,7 +266,7 @@ function mergeWanted(items) {
   }
   return [...wanted.values()];
 }
-async function insertItems(t, orderId, lines) {
+async function insertItems(t: Tx, orderId: number, lines: OrderLine[]): Promise<void> {
   for (const l of lines) {
     await t.query(`INSERT INTO order_items(order_id, product_id, name, sku, price, cost, qty, components, kind, note, ref_id, preorder_qty) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
       [orderId, l.product_id, l.name, l.sku || '', l.price, l.cost || 0, l.qty, l.components ? JSON.stringify(l.components) : null,
@@ -259,7 +275,7 @@ async function insertItems(t, orderId, lines) {
 }
 
 // ---------------------------------------------------------------- create
-async function createOrder(input, settings) {
+async function createOrder(input: Body, settings: Settings) {
   const wanted = mergeWanted(input.items);
   if (!wanted.length) throw new OrderError('কার্ট খালি। আগে পণ্য যোগ করুন।');
   const isAdmin = input.source === 'admin' || input.source === 'pos';
@@ -270,13 +286,14 @@ async function createOrder(input, settings) {
   return tx(async (t) => {
     // The order row comes first so stock movements can point at it.
     const prefix = (settings.order_prefix || 'SM').replace(/[^A-Za-z0-9]/g, '').slice(0, 4).toUpperCase() || 'SM';
-    let order = null;
-    for (let i = 0; i < 6 && !order; i++) {
-      order = (await t.query(
+    let found: DbRow | undefined;
+    for (let i = 0; i < 6 && !found; i++) {
+      found = (await t.query(
         `INSERT INTO orders(code, customer_name, phone, address, area, subtotal, delivery, total)
          VALUES($1,$2,$3,$4,$5,0,0,0) ON CONFLICT (code) DO NOTHING RETURNING id, code`,
         [prefix + randomCode(6), input.name, phone, input.address, zone])).rows[0];
     }
+    const order = found!; // six random codes in a row all taken is not a real case (the old code failed here too)
     const lines = await takeLines(t, wanted, { allowPrice: isAdmin, refId: order.id, staffId: input.createdBy || null });
     // Online customers: cheap parts need a minimum amount, and each product has a maximum (Admin → সেটিংস).
     if (!isAdmin) {
@@ -298,7 +315,7 @@ async function createOrder(input, settings) {
     let discount = 0;
     let couponCode = '';
     let freeDelivery = false;
-    let ref = null;
+    let ref: { code: string; by: number; discount: number } | null = null;
     // coupon box switched off in the shop (Admin → দোকানে কী দেখাবে): web orders can't use a coupon
     if (input.coupon && !(settings.ui_co_coupon === '0' && !isAdmin)) {
       // the same box takes a friend's referral code (a code that is not one of the shop's coupons)
@@ -308,8 +325,8 @@ async function createOrder(input, settings) {
       if (referrer) {
         const r = await G.checkReferral(settings, input.coupon, phone, subtotal, order.id);
         if (!r.ok) throw new OrderError(r.message, 'coupon');
-        discount = r.discount;
-        ref = { code: r.referrer.ref_code, by: r.referrer.id, discount: r.discount };
+        discount = r.discount!;
+        ref = { code: r.referrer!.ref_code, by: r.referrer!.id, discount: r.discount! };
       } else {
         const c = await checkCoupon(input.coupon, subtotal, phone, lines, order.id);
         if (!c.ok) throw new OrderError(c.message, 'coupon');
@@ -324,13 +341,13 @@ async function createOrder(input, settings) {
     let delivery = freeDelivery ? 0 : (input.district ? deliveryFor(settings, { district: input.district, thana: input.thana, subtotal, weightG }).fee : deliveryFee(settings, zone, subtotal));
     if (isAdmin && input.delivery !== undefined && input.delivery !== '') delivery = amount(input.delivery);
     let total = wholeTaka(subtotal - discount + delivery); // whole taka: paisa are dropped as a rounding discount
-    const costTotal = round2(lines.reduce((s, l) => s + (l.cost || 0) * l.qty, 0));
+    const costTotal = round2(lines.reduce((s, l) => s + Number(l.cost || 0) * l.qty, 0));
     // a walk-in sale at the counter may have no mobile number: then there is no customer record
     const customerId = phone ? await customers.upsertCustomer(t, {
       name: input.name, phone, email: input.email, address: input.address, district: input.district, thana: input.thana,
     }) : null;
     // loyalty points the customer chose to use (web orders; the balance is checked here, inside the order)
-    let pts = { points: 0, discount: 0 };
+    let pts: { points: number; discount: number } = { points: 0, discount: 0 };
     if (input.usePoints && !isAdmin && settings.loyalty_on === '1') {
       pts = await $loyalty.redeem(t, customerId, settings, Math.max(0, subtotal - discount), order.id);
       if (pts.points) total = wholeTaka(subtotal - discount - pts.discount + delivery);
@@ -346,7 +363,7 @@ async function createOrder(input, settings) {
     await insertItems(t, order.id, lines);
     if (ref) await t.query('UPDATE orders SET ref_code=$1, ref_by=$2, ref_discount=$3 WHERE id=$4', [ref.code, ref.by, ref.discount, order.id]);
     // 💳 a gift card pays part or all of the order (the rest is paid as usual / on delivery)
-    let gift = null;
+    let gift: DbRow | null = null;
     if (input.giftCode && settings.gift_on === '1' && total > 0) {
       gift = await $giftcards.spend(t, input.giftCode, total, order.id);
       if (!gift) throw new OrderError('গিফট কার্ডটা আর ব্যবহার করা যাচ্ছে না (টাকা নেই বা মেয়াদ শেষ)। কোডটা সরিয়ে আবার চেষ্টা করুন।', 'gift');
@@ -372,7 +389,7 @@ async function createOrder(input, settings) {
 }
 
 // ---------------------------------------------------------------- read
-async function getOrder({ id, code }) {
+async function getOrder({ id, code }: { id?: number | string | null; code?: string | null }): Promise<DbRow | null> {
   const order = await one(`SELECT o.*, s.name AS created_by_name FROM orders o LEFT JOIN staff s ON s.id=o.created_by
                            WHERE ${id ? 'o.id=$1' : 'o.code=$1'}`, [id || code]);
   if (!order) return null;
@@ -381,8 +398,9 @@ async function getOrder({ id, code }) {
   return order;
 }
 
-function orderWhere({ status, q: search, from, to, courier, payment, paymentStatus, phone, source }, params) {
-  const where = [];
+export type OrderFilter = { status?: string; q?: string; from?: string; to?: string; courier?: string; payment?: string; paymentStatus?: string; phone?: string; source?: string; limit?: number; offset?: number };
+function orderWhere({ status, q: search, from, to, courier, payment, paymentStatus, phone, source }: OrderFilter, params: unknown[]): string {
+  const where: string[] = [];
   if (status) { params.push(status); where.push(`o.status=$${params.length}`); }
   if (search) {
     params.push(`%${search}%`);
@@ -400,8 +418,8 @@ function orderWhere({ status, q: search, from, to, courier, payment, paymentStat
   if (source) { params.push(source); where.push(`o.source=$${params.length}`); }
   return where.length ? 'WHERE ' + where.join(' AND ') : '';
 }
-async function listOrders(opts = {}) {
-  const params = [];
+async function listOrders(opts: OrderFilter = {}): Promise<DbRow[]> {
+  const params: (string | number)[] = [];
   const where = orderWhere(opts, params);
   params.push(opts.limit || 50, opts.offset || 0);
   return q(`SELECT o.*, (SELECT sum(qty)::int FROM order_items WHERE order_id=o.id) AS item_count,
@@ -410,14 +428,14 @@ async function listOrders(opts = {}) {
               (SELECT string_agg(NULLIF(sku,''), ', ' ORDER BY id) FROM order_items WHERE order_id=o.id) AS item_skus
             FROM orders o ${where} ORDER BY o.created_at DESC, o.id DESC LIMIT $${params.length - 1} OFFSET $${params.length}`, params);
 }
-async function countOrders(opts = {}) {
-  const params = [];
+async function countOrders(opts: OrderFilter = {}): Promise<number> {
+  const params: (string | number)[] = [];
   const where = orderWhere(opts, params);
-  return (await one(`SELECT count(*)::int AS n FROM orders o ${where}`, params)).n;
+  return (await one(`SELECT count(*)::int AS n FROM orders o ${where}`, params))!.n;
 }
-async function statusCounts() {
+async function statusCounts(): Promise<Record<string, number>> {
   const rows = await q('SELECT status, count(*)::int AS n FROM orders GROUP BY status');
-  const out = { all: 0 };
+  const out: Record<string, number> = { all: 0 };
   rows.forEach((r) => { out[r.status] = r.n; out.all += r.n; });
   return out;
 }
@@ -425,14 +443,17 @@ async function statusCounts() {
 // ---------------------------------------------------------------- change
 // opts.damaged: a returned order's goods came back broken — they go to "damaged stock" instead of the shelf.
 // Things to do after a status change is saved (customer SMS …) — registered once at start-up.
-const statusListeners = [];
-function onStatusChange(fn) { statusListeners.push(fn); }
-async function setStatus(id, status, staffId, opts = {}) {
+type StatusListener = (id: number, status: string, prev: string) => unknown;
+const statusListeners: StatusListener[] = [];
+function onStatusChange(fn: StatusListener): void { statusListeners.push(fn); }
+type StatusOpts = { damaged?: boolean };
+type StatusResult = { changed: boolean; prev: string; returnedTo?: string };
+async function setStatus(id: number, status: string, staffId: number | null | undefined, opts: StatusOpts = {}): Promise<StatusResult> {
   const r = await setStatusTx(id, status, staffId, opts);
-  if (r.changed) for (const fn of statusListeners) { try { await fn(id, status, r.prev); } catch (e) { console.error('status listener', e && e.message); } }
+  if (r.changed) for (const fn of statusListeners) { try { await fn(id, status, r.prev); } catch (e) { console.error('status listener', e && (e as Error).message); } }
   return r;
 }
-async function setStatusTx(id, status, staffId, opts = {}) {
+async function setStatusTx(id: number, status: string, staffId: number | null | undefined, opts: StatusOpts = {}): Promise<StatusResult> {
   if (!STATUSES[status]) throw new OrderError('অজানা অবস্থা।');
   return tx(async (t) => {
     const o = (await t.query('SELECT id, status, payment, payment_status, paid_amount, total, returned_to, coupon_code FROM orders WHERE id=$1 FOR UPDATE', [id])).rows[0];
@@ -441,7 +462,7 @@ async function setStatusTx(id, status, staffId, opts = {}) {
     const items = (await t.query('SELECT * FROM order_items WHERE order_id=$1', [id])).rows;
     const wasReleased = RELEASED.has(o.status);
     const nowReleased = RELEASED.has(status);
-    const partsOf = (it) => (it.components && it.components.length ? it.components : [{ product_id: it.product_id, qty: it.qty }]);
+    const partsOf = (it: DbRow): { product_id: number; qty: number }[] => (it.components && it.components.length ? it.components : [{ product_id: it.product_id, qty: it.qty }]);
     let returnedTo = o.returned_to;
     if (!wasReleased && nowReleased) {
       if (status === 'returned' && opts.damaged) {
@@ -505,11 +526,11 @@ async function setStatusTx(id, status, staffId, opts = {}) {
 }
 
 // Edit an order's details and (optionally) its items. Stock is kept right.
-async function updateOrder(id, data, settings, staffId) {
+async function updateOrder(id: number, data: Body, settings: Settings, staffId: number | null | undefined): Promise<{ total: number }> {
   return tx(async (t) => {
     const o = (await t.query('SELECT * FROM orders WHERE id=$1 FOR UPDATE', [id])).rows[0];
     if (!o) throw new OrderError('অর্ডার পাওয়া যায়নি।');
-    const fields = {
+    const fields: Record<string, string | number> & { area?: string; zone_name?: string } = {
       customer_name: str(data.customer_name, 80) || o.customer_name,
       phone: normalizePhone(data.phone) || o.phone,
       email: str(data.email, 120),
@@ -535,7 +556,7 @@ async function updateOrder(id, data, settings, staffId) {
       const oldItems = (await t.query('SELECT * FROM order_items WHERE order_id=$1', [id])).rows;
       const released = RELEASED.has(o.status);
       if (!released) await releaseLines(t, oldItems, 'edit', id, staffId);
-      let lines;
+      let lines: OrderLine[];
       if (released) {
         // Cancelled/returned orders don't hold stock; just price the lines.
         lines = [];
@@ -550,7 +571,7 @@ async function updateOrder(id, data, settings, staffId) {
       await t.query('DELETE FROM order_items WHERE order_id=$1', [id]);
       await insertItems(t, id, lines);
       subtotal = round2(lines.reduce((s, l) => s + l.price * l.qty, 0));
-      costTotal = round2(lines.reduce((s, l) => s + (l.cost || 0) * l.qty, 0));
+      costTotal = round2(lines.reduce((s, l) => s + Number(l.cost || 0) * l.qty, 0));
     }
     const discount = data.discount !== undefined ? Math.min(subtotal, amount(data.discount)) : o.discount;
     const delivery = data.delivery !== undefined ? amount(data.delivery) : o.delivery;
@@ -572,14 +593,14 @@ async function updateOrder(id, data, settings, staffId) {
   });
 }
 
-async function setCourierInfo(id, info) {
+async function setCourierInfo(id: number, info: { courier: string; consignment_id?: unknown; tracking_code?: unknown; status?: unknown }): Promise<void> {
   await q(`UPDATE orders SET courier=$1, consignment_id=$2, tracking_code=$3, courier_status=$4, courier_sent_at=coalesce(courier_sent_at, now()), updated_at=now() WHERE id=$5`,
     [info.courier, String(info.consignment_id || ''), String(info.tracking_code || ''), String(info.status || ''), id]);
 }
-async function setCourierStatus(id, courierStatus) {
+async function setCourierStatus(id: number, courierStatus: unknown): Promise<void> {
   await q('UPDATE orders SET courier_status=$1, updated_at=now() WHERE id=$2', [String(courierStatus || ''), id]);
 }
-async function markPaid(id, { amount: amt, trxId, method }) {
+async function markPaid(id: number, { amount: amt, trxId, method }: { amount: unknown; trxId?: unknown; method?: string | null }): Promise<void> {
   await q(`UPDATE orders SET payment_status = CASE WHEN $1::numeric >= total THEN 'paid' ELSE 'partial' END, paid_amount = $1,
            transaction_id = CASE WHEN $2<>'' THEN $2 ELSE transaction_id END, payment = coalesce($3, payment), updated_at=now() WHERE id=$4`,
     [amount(amt), String(trxId || ''), method || null, id]);
