@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // Full database backup (with pictures) — run every night by GitHub Actions (.github/workflows/backup.yml).
 //   DATABASE_URL=... BACKUP_PASSWORD=... npx tsx tools/backup.ts [out-folder]
 // The file is always locked with BACKUP_PASSWORD (it holds customers' details); without a password it refuses to run.
