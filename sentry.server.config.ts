@@ -10,9 +10,9 @@ if (dsn) {
     environment: process.env.VERCEL_ENV || process.env.NODE_ENV,
     // errors only — no performance tracing, so the free plan's monthly allowance goes to real problems
     tracesSampleRate: 0,
-    // customers' details stay in the shop: no cookies, IP addresses or form contents are sent
-    sendDefaultPii: false,
+    // customers' details stay in the shop: cookies, IP addresses and form contents are removed before sending
     beforeSend(event) {
+      if (event.user) delete event.user.ip_address;
       if (event.request) {
         delete event.request.cookies;
         delete event.request.data;

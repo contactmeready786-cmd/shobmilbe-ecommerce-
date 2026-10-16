@@ -585,7 +585,7 @@ async function updateOrder(id: number, data: Body, settings: Settings, staffId: 
       discount=$${cols.length + 2}, delivery=$${cols.length + 3}, total=$${cols.length + 4}, cost_total=$${cols.length + 5}, updated_at=now()
       WHERE id=$${cols.length + 6}`, [...cols.map((c) => fields[c]), subtotal, discount, delivery, total, costTotal, id]);
     if (fields.phone !== o.phone || fields.customer_name !== o.customer_name) {
-      const cid = await customers.upsertCustomer(t, { name: fields.customer_name, phone: fields.phone, email: fields.email,
+      const cid = await customers.upsertCustomer(t, { name: fields.customer_name, phone: String(fields.phone), email: fields.email,
         address: fields.address, district: fields.district, thana: fields.thana });
       await t.query('UPDATE orders SET customer_id=$1 WHERE id=$2', [cid, id]);
     }

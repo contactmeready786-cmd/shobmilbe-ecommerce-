@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // 💳 Gift cards and 🎁 referrals.
 //   Gift card: a code with a balance (৳). Sold in the admin (counter / phone order) or requested on the shop's
 //   /gift-card page with a Send Money TrxID (the shop checks the money, then switches it on). The code goes to the

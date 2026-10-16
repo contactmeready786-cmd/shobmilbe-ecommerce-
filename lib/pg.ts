@@ -14,7 +14,8 @@ import pg from 'pg';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- a row's columns depend on the query
 export type DbRow = Record<string, any>;
 export type QueryResult<R = DbRow> = { rows: R[]; rowCount: number; command: string };
-export type Param = string | number | bigint | boolean | Date | Buffer | null | undefined | unknown[] | object;
+/** A query parameter: sent as text (Dates as ISO, Buffers as bytea, arrays as Postgres arrays, objects as JSON). */
+export type Param = unknown;
 export type Tx = { query: (sql: string, params?: Param[]) => Promise<QueryResult>; exec: (sql: string) => Promise<true> };
 
 const txStore = new AsyncLocalStorage<Tx>();
