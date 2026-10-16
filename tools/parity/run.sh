@@ -14,4 +14,8 @@ PID=$!
 trap 'kill $PID 2>/dev/null || true; wait $PID 2>/dev/null || true' EXIT
 for _ in $(seq 1 120); do curl -s -o /dev/null "http://127.0.0.1:$PORT/robots.txt" && break; sleep 0.5; done
 rm -rf "$OUT"
-node "$(dirname "$0")/crawl.mjs" "http://127.0.0.1:$PORT" "$OUT" --login 'owner:Parity-Test-9271!'
+if [ "${SCENARIOS:-}" = 1 ]; then
+  PGDATABASE="$DB" node "$(dirname "$0")/scenarios.mjs" "http://127.0.0.1:$PORT" "$OUT.json"
+else
+  node "$(dirname "$0")/crawl.mjs" "http://127.0.0.1:$PORT" "$OUT" --login 'owner:Parity-Test-9271!'
+fi

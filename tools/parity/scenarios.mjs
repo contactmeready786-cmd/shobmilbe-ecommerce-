@@ -1,0 +1,95 @@
+#!/usr/bin/env node
+// Write-action parity: runs the same customer and admin actions (POST forms, JSON APIs, image upload)
+// against a site on a fresh test database, then records every answer plus the resulting database rows.
+// Running it on the old and the new site and diffing the two files proves the actions behave the same.
+//   node tools/parity/scenarios.mjs <base-url> <out-file>
+// Only for a LOCAL test server on a copy of the test template — it changes data.
+import fs from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { normalise } from './normalise.mjs';
+
+const [base, outFile] = process.argv.slice(2);
+const origin = new URL(base).origin;
+const log = [];
+const jars = { shop: {}, admin: {} };
+const jarHeader = (j) => Object.entries(jars[j]).map(([k, v]) => `${k}=${v}`).join('; ');
+function keep(j, res) {
+  for (const c of res.headers.getSetCookie()) {
+    const [pair] = c.split(';'); const i = pair.indexOf('=');
+    const k = pair.slice(0, i).trim(), v = pair.slice(i + 1).trim();
+    if (!v || /max-age=0/i.test(c)) delete jars[j][k]; else jars[j][k] = v;
+  }
+}
+async function call(step, jar, method, path, body, type = 'form') {
+  const headers = { cookie: jarHeader(jar), origin, referer: origin + path, 'user-agent': 'Mozilla/5.0 parity-scenarios', 'accept-language': 'bn' };
+  let payload;
+  if (body !== undefined) {
+    if (type === 'json') { headers['content-type'] = 'application/json'; payload = JSON.stringify(body); }
+    else { headers['content-type'] = 'application/x-www-form-urlencoded'; payload = new URLSearchParams(body).toString(); }
+  }
+  const res = await fetch(origin + path, { method, headers, body: payload, redirect: 'manual' });
+  keep(jar, res);
+  const text = await res.text();
+  const ct = res.headers.get('content-type') || '';
+  // HTML pages are already covered page by page by the crawl; here the error/notice text is what matters
+  const short = /json/.test(ct) ? text : (text.match(/class="(?:alert|notice|error|flash)[^"]*"[^>]*>([\s\S]{0,300}?)</) || [, ''])[1];
+  log.push({ step, method, path, status: res.status, location: res.headers.get('location') ? normalise(res.headers.get('location')) : undefined, body: normalise(short || '') });
+  return { res, text };
+}
+const id = (sql) => execFileSync('psql', ['-Atc', sql, process.env.PGDATABASE]).toString().trim();
+
+// a 1x1 PNG
+const PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+
+async function main() {
+  const uno = id("select id from products where slug='arduino-uno-r3'");
+  const servo = id("select id from products where slug='sg90-servo'");
+  const cat = id("select id from categories where slug='module'");
+
+  // ---------- customer ----------
+  await call('open shop', 'shop', 'GET', '/');
+  await call('cart api', 'shop', 'GET', `/api/cart?ids=${uno},${servo}`);
+  await call('quote', 'shop', 'POST', '/api/quote', { items: [{ id: uno, qty: 2 }, { id: servo, qty: 1 }] }, 'json');
+  await call('order: missing name', 'shop', 'POST', '/api/orders', { items: [{ id: uno, qty: 1 }], name: '', phone: '01711111111' }, 'json');
+  await call('order: bad phone', 'shop', 'POST', '/api/orders', { items: [{ id: uno, qty: 1 }], name: 'জামাল', phone: '123' }, 'json');
+  await call('order: no consent', 'shop', 'POST', '/api/orders', { items: [{ id: uno, qty: 1 }], name: 'জামাল', phone: '01711111111', district: 'Dhaka', thana: 'Adabor', address: 'বাসা ৫, রোড ৭' }, 'json');
+  await call('order: ok', 'shop', 'POST', '/api/orders', { items: [{ id: uno, qty: 2 }, { id: servo, qty: 1 }], name: 'জামাল হোসেন', phone: '01711111111',
+    district: 'Dhaka', thana: 'Adabor', address: 'বাসা ৫, রোড ৭, আদাবর', consent: '1', payment: 'cod', note: 'বিকেলে দিন' }, 'json');
+  await call('coupon: unknown', 'shop', 'POST', '/api/coupon', { code: 'NOPE' }, 'json');
+  await call('subscribe', 'shop', 'POST', '/api/subscribe', { email: 'test@example.com' }, 'json');
+  await call('stock alert', 'shop', 'POST', '/api/stock-alert', { product: id("select id from products where slug='arduino-nano'"), phone: '01722222222' }, 'json');
+  await call('question', 'shop', 'POST', '/api/question', { product: uno, name: 'রাফি', phone: '01733333333', question: 'এটা কি অরিজিনাল?' }, 'json');
+  await call('track', 'shop', 'GET', '/track?phone=01711111111');
+
+  // ---------- admin ----------
+  await call('login: wrong', 'admin', 'POST', '/admin/login', { login: 'owner', password: 'wrong-password' });
+  await call('login', 'admin', 'POST', '/admin/login', { login: 'owner', password: 'Parity-Test-9271!' });
+  await call('upload image', 'admin', 'POST', '/admin/api/media', { data: PNG, thumb: PNG, width: 1, height: 1 }, 'json');
+  const media = id('select max(id) from media');
+  await call('product: no price', 'admin', 'POST', '/admin/products/new', { name: 'LM7805 Regulator', price: '', stock: '10', category_id: cat });
+  await call('product: too dear', 'admin', 'POST', '/admin/products/new', { name: 'LM7805 Regulator', price: '2500', stock: '10', category_id: cat });
+  await call('product: ok', 'admin', 'POST', '/admin/products/new', { name: 'LM7805 Regulator', price: '12.40', stock: '30', category_id: cat,
+    short_description: '৫ ভোল্ট রেগুলেটর', description: 'TO-220 প্যাকেজ', images: media, active: '1', unit: 'পিস' });
+  await call('category: new', 'admin', 'POST', '/admin/categories', { name: 'রেগুলেটর', icon: '⚡' });
+  const ord = id("select id from orders where phone='01711111111' order by id desc limit 1") || '1';
+  await call('order: confirm', 'admin', 'POST', `/admin/orders/${ord}/status`, { status: 'confirmed' });
+  await call('order: deliver', 'admin', 'POST', `/admin/orders/${ord}/status`, { status: 'delivered' });
+  await call('order: bulk', 'admin', 'POST', '/admin/orders/bulk', { action: 'status', status: 'processing', 'ids[]': '1' });
+  await call('product: hide', 'admin', 'POST', `/admin/products/${servo}/active`, { active: '0' });
+  await call('product: delete (to bin)', 'admin', 'POST', `/admin/products/${id("select id from products where slug='1k-resistor'")}/delete`, {});
+  await call('logout', 'admin', 'POST', '/admin/logout', {});
+
+  // ---------- resulting data ----------
+  const tables = ['orders', 'order_items', 'products', 'categories', 'customers', 'stock_moves', 'activity_log', 'trash', 'email_subs', 'stock_alerts', 'product_questions', 'media'];
+  const data = {};
+  for (const t of tables) {
+    const exists = id(`select to_regclass('public.${t}') is not null`) === 't';
+    if (!exists) continue;
+    const cols = id(`select string_agg(column_name, ',' order by ordinal_position) from information_schema.columns where table_name='${t}'
+      and data_type not like 'timestamp%' and data_type <> 'bytea' and column_name not in ('ip','token','session_ver','code','password_hash')`);
+    data[t] = normalise(execFileSync('psql', ['-Atc', `select ${cols} from ${t} order by 1`, process.env.PGDATABASE]).toString());
+  }
+  fs.writeFileSync(outFile, JSON.stringify({ log, data }, null, 1));
+  console.error(`scenarios: ${log.length} steps, statuses ${[...new Set(log.map((l) => l.status))].join(',')}`);
+}
+main().catch((e) => { console.error(e); process.exit(1); });

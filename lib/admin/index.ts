@@ -717,4 +717,4 @@ ${link}
   return ctx.page('পাওয়া যায়নি', html`<h1>পেজটি পাওয়া যায়নি</h1><p><a href="${firstAllowed(user)}">শুরুর পেজে ফিরে যান</a></p>`, '', { status: 404 });
 }
 
-export { handle, currentUser, twoFactorOn };
+export { handle, currentUser, twoFactorOn, MODULES };

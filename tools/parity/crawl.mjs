@@ -9,6 +9,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import { normalise } from './normalise.mjs';
 
 const [base, outDir, ...rest] = process.argv.slice(2);
 if (!base || !outDir) { console.error('usage: crawl.mjs <base-url> <out-dir> [--login user:pass] [--setup]'); process.exit(2); }
@@ -41,28 +42,8 @@ async function post(url, form) {
   return res;
 }
 
-// Anything that changes per request (random tokens, times, nonces) is blanked so only real differences remain.
-export function normalise(body) {
-  return body
-    .replace(/(https?:)?(\/\/)?(127\.0\.0\.1|localhost):\d+/g, '<host>')
-    .replace(/nonce="[^"]*"/g, 'nonce=""')
-    .replace(/name="(csrf|_csrf|token|_t)" value="[^"]*"/g, 'name="$1" value=""')
-    .replace(/\b[0-9a-f]{32,}\b/g, '<hex>')
-    .replace(/(?<![\w/.-])[A-Za-z0-9_-]{40,}(?![\w/.-])/g, '<b64>')
-    .replace(/এইমাত্র|[০-৯]+ (সেকেন্ড|মিনিট) আগে/g, '<ago>')
-    .replace(/\b\d{4}-\d\d-\d\dT\d\d:\d\d(:\d\d(\.\d+)?)?Z?\b/g, '<iso>')
-    .replace(/\b1[6-9]\d{11}\b/g, '<ms>')
-    .replace(/[০-৯]{1,2}:[০-৯]{2}/g, '<hhmm>')
-    .replace(/\b\d{1,2}:\d{2}(:\d{2})?\b/g, '<hhmm>')
-    .replace(/\?v=[\w.-]+/g, '?v=<v>')
-    // secrets the app makes up the first time a page is opened, and the random tip of the day
-    .replace(/data-reveal="[\w-]+"/g, 'data-reveal="<secret>"')
-    .replace(/\/webhook\/autocall\/[\w-]+/g, '/webhook/autocall/<secret>')
-    .replace(/(💡 ইলেকট্রনিক্স টিপস\n\n)[^<]*/g, '$1<tip>');
-}
-
 const KEEP_HEADERS = ['content-security-policy', 'x-frame-options', 'strict-transport-security', 'x-content-type-options', 'referrer-policy', 'permissions-policy', 'cross-origin-opener-policy', 'cross-origin-resource-policy', 'cache-control', 'x-robots-tag', 'content-disposition'];
-const SKIP = /\/(logout|delete|remove|purge|empty|destroy|clear|reset|cancel|unsubscribe)(\/|$|\?)|[?&](delete|remove|logout)=|\/export|\.csv|\.xlsx|\/download/i;
+const SKIP = /\/(logout|delete|remove|purge|empty|destroy|clear|reset|cancel|unsubscribe)(\/|$|\?)|[?&](delete|remove|logout)=|^\/(__dbmove|api\/(backup|research)\/tick|webhook|pay\/)/i;
 const fileFor = (u) => {
   const key = u.pathname + u.search;
   const safe = key.replace(/[^a-zA-Z0-9._-]+/g, '_').slice(0, 120);
@@ -80,7 +61,8 @@ async function main() {
     console.error('login ->', r.status, r.headers.get('location'));
   }
   const seeds = ['/', '/products', '/cart', '/checkout', '/wishlist', '/compare', '/track', '/blog', '/kits', '/live',
-    '/account', '/gift-card', '/complaint', '/robots.txt', '/sitemap.xml', '/admin', '/product/arduino-uno-r3', '/order/TEST1001'];
+    '/account', '/gift-card', '/complaint', '/robots.txt', '/sitemap.xml', '/admin', '/product/arduino-uno-r3', '/order/TEST1001',
+    ...fs.readFileSync(new URL('./seeds.txt', import.meta.url), 'utf8').split('\n').map((l) => l.trim()).filter((l) => l.startsWith('/') && !SKIP.test(l))];
   const queue = seeds.map((s) => new URL(s, origin).href);
   const seen = new Set(queue);
   // pages that differ only by query string (filters, page numbers) are capped per path, or the crawl never ends

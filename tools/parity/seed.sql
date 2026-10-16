@@ -30,3 +30,29 @@ WHERE o.code = 'TEST1001' AND NOT EXISTS (SELECT 1 FROM order_items WHERE order_
 INSERT INTO order_items (order_id, product_id, name, price, qty)
 SELECT o.id, p.id, p.name, p.price, 1 FROM orders o JOIN products p ON p.slug = 'sg90-servo'
 WHERE o.code = 'TEST1002' AND NOT EXISTS (SELECT 1 FROM order_items WHERE order_id = o.id);
+
+-- detail pages (customer, blog, brand, supplier, purchase, gift card, warehouse, complaint, review)
+INSERT INTO customers (name, phone, email, address, district, thana, created_at)
+SELECT 'রহিম উদ্দিন', '01700000001', 'rahim@example.com', 'বাড়ি ১, রোড ২', 'Dhaka', 'Adabor', '2026-09-01 10:00+06'
+WHERE NOT EXISTS (SELECT 1 FROM customers WHERE phone = '01700000001');
+INSERT INTO blog_posts (title, slug, excerpt, content, status, published_at, created_at)
+VALUES ('Arduino শুরু করবেন যেভাবে', 'arduino-start', 'প্রথম প্রজেক্ট', '## শুরু\nএকটা LED জ্বালান।', 'published', '2026-09-05 10:00+06', '2026-09-05 10:00+06')
+ON CONFLICT (slug) DO NOTHING;
+INSERT INTO brands (name, slug, description) VALUES ('Arduino', 'arduino-brand', 'ইতালির বোর্ড') ON CONFLICT (slug) DO NOTHING;
+INSERT INTO suppliers (name, company, phone) SELECT 'করিম ট্রেডার্স', 'করিম', '01900000003'
+WHERE NOT EXISTS (SELECT 1 FROM suppliers WHERE phone = '01900000003');
+INSERT INTO purchases (code, supplier_id, purchase_date, status, subtotal, total, created_at)
+SELECT 'PUR-1', s.id, '2026-09-10', 'received', 4250, 4250, '2026-09-10 10:00+06' FROM suppliers s WHERE s.phone = '01900000003'
+ON CONFLICT (code) DO NOTHING;
+INSERT INTO purchase_items (purchase_id, product_id, name, qty, unit_cost)
+SELECT pu.id, p.id, p.name, 5, 850 FROM purchases pu, products p WHERE pu.code = 'PUR-1' AND p.slug = 'arduino-uno-r3'
+AND NOT EXISTS (SELECT 1 FROM purchase_items WHERE purchase_id = pu.id);
+INSERT INTO gift_cards (code, initial, balance, status, buyer_name, created_at)
+VALUES ('GIFT-TEST-1', 500, 500, 'active', 'রহিম', '2026-09-12 10:00+06') ON CONFLICT (code) DO NOTHING;
+INSERT INTO warehouses (name, address, is_shop) SELECT 'গুদাম ১', 'পুরান ঢাকা', false
+WHERE NOT EXISTS (SELECT 1 FROM warehouses WHERE name = 'গুদাম ১');
+INSERT INTO complaints (code, name, phone, order_code, topic, message, status, created_at)
+VALUES ('CMP-1', 'রহিম উদ্দিন', '01700000001', 'TEST1001', 'delivery', 'পণ্য দেরিতে এসেছে', 'open', '2026-10-03 10:00+06') ON CONFLICT (code) DO NOTHING;
+INSERT INTO reviews (product_id, name, phone, rating, body, status, created_at)
+SELECT p.id, 'রহিম', '01700000001', 5, 'ভালো বোর্ড', 'approved', '2026-10-04 10:00+06' FROM products p WHERE p.slug = 'arduino-uno-r3'
+AND NOT EXISTS (SELECT 1 FROM reviews WHERE body = 'ভালো বোর্ড');

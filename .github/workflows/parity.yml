@@ -63,6 +63,17 @@ jobs:
       - name: Compare every page
         working-directory: new
         run: node tools/parity/compare.mjs "$RUNNER_TEMP/old" "$RUNNER_TEMP/new" --show 40 | tee "$RUNNER_TEMP/compare.txt"
+      - name: Route coverage (which addresses the crawl reached)
+        if: always()
+        working-directory: new
+        run: node tools/parity/coverage.mjs "$RUNNER_TEMP/new" | tee "$RUNNER_TEMP/coverage.txt"
+      - name: Same actions on both (orders, products, uploads, status changes)
+        if: always()
+        run: |
+          (cd old && SCENARIOS=1 ../new/tools/parity/run.sh "$RUNNER_TEMP/scen-old" 3102 node server.js)
+          (cd new && SCENARIOS=1 tools/parity/run.sh "$RUNNER_TEMP/scen-new" 3200 npx next start -p 3200)
+          if cmp -s "$RUNNER_TEMP/scen-old.json" "$RUNNER_TEMP/scen-new.json"; then echo "actions: identical" | tee "$RUNNER_TEMP/scenarios.txt"
+          else { echo "actions: DIFFERENT"; diff <(python3 -m json.tool "$RUNNER_TEMP/scen-old.json") <(python3 -m json.tool "$RUNNER_TEMP/scen-new.json") | head -80; } | tee "$RUNNER_TEMP/scenarios.txt"; exit 1; fi
 
       # Results go to the separate "ci-results" branch (text only — no shop data, test data only).
       - name: Save results
@@ -71,7 +82,7 @@ jobs:
         run: |
           OUT="$RUNNER_TEMP/results"; mkdir -p "$OUT"
           cp package-lock.json "$OUT/" 2>/dev/null || true
-          for f in versions typecheck build compare; do cp "$RUNNER_TEMP/$f.txt" "$OUT/" 2>/dev/null || true; done
+          for f in versions typecheck build compare coverage scenarios; do cp "$RUNNER_TEMP/$f.txt" "$OUT/" 2>/dev/null || true; done
           for f in "$RUNNER_TEMP"/*.server.log; do [ -f "$f" ] && tail -c 20000 "$f" > "$OUT/$(basename "$f")"; done
           echo "${{ github.sha }} ${{ job.status }}" > "$OUT/RESULT"
           echo '{"git":{"deploymentEnabled":false}}' > "$OUT/vercel.json"  # Vercel must never build this branch

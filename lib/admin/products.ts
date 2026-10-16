@@ -8,6 +8,7 @@ import * as ui from './ui';
 import * as $services_barcode from '../services/barcode';
 import * as $models_finance from '../models/finance';
 import * as $services_autocat from '../services/autocat';
+import * as $variants from './variants';
 
 const PER_PAGE = 40;
 const ICONS = ['📦', '📟', '🧩', '🔋', '🔥', '🔌', '👕', '👗', '👟', '👜', '⌚', '📱', '💻', '🎧', '🔊', '📷', '🎮', '💡', '🔧', '🛠️', '⚙️',
@@ -917,7 +918,7 @@ export const routes = [
     { method: 'POST', path: '/admin/api/products/dup-check', perm: 'products', handler: dupCheckApi },
     { method: '*', path: '/admin/products/new', perm: 'products', handler: (ctx) => formPage(ctx, null) },
     { method: '*', path: /^\/admin\/products\/(\d+)$/, perm: 'products', handler: formPage },
-    { method: '*', path: /^\/admin\/products\/(\d+)\/variants$/, perm: 'products', handler: (ctx, m) => require('./variants').page(ctx, m) },
+    { method: '*', path: /^\/admin\/products\/(\d+)\/variants$/, perm: 'products', handler: (ctx, m) => $variants.page(ctx, m) },
     { method: 'POST', path: /^\/admin\/products\/(\d+)\/active$/, perm: 'products', handler: setActive },
     { method: 'POST', path: /^\/admin\/products\/(\d+)\/delete$/, perm: 'products', handler: remove },
     { method: 'POST', path: /^\/admin\/products\/(\d+)\/duplicate$/, perm: 'products', handler: duplicate },

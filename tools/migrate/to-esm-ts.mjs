@@ -146,6 +146,8 @@ export function convert(src, file) {
   // header comment block (kept at the very top), then imports
   const lead = out.match(/^(#![^\n]*\n)?(\s*(\/\/[^\n]*\n|\/\*[\s\S]*?\*\/\s*\n))*/)[0];
   out = '// @ts-nocheck — converted from JavaScript; types are added file by file.\n' + lead + imports.join('\n') + (imports.length ? '\n' : '') + out.slice(lead.length);
+  // a require() inside a value of module.exports is copied as-is above — flag it for a manual fix
+  for (const m of out.matchAll(/\brequire\(/g)) problems.push(`${file}:${out.slice(0, m.index).split('\n').length} require() left inside an exported value`);
   return { out: out.replace(/\n{3,}/g, '\n\n'), problems };
 }
 
