@@ -973,8 +973,8 @@ body.protect .card-pic img, body.protect .g-main img, body.protect .g-thumb img,
 .cs-replies { list-style: none; padding: 0; display: grid; gap: 8px; }
 .cs-replies li { background: var(--paper); border-radius: 10px; padding: 10px 12px; }
 .cs-replies p { margin: 0 0 4px; }
-.consent-check { display: flex; gap: 8px; align-items: flex-start; font-size: .9em; line-height: 1.45; margin: 4px 0 10px; padding: 10px 12px; border-radius: 10px; background: var(--paper); }
-.consent-check input { margin-top: 3px; width: 18px; height: 18px; flex: none; }
+.consent-check, .promo-check { display: flex; gap: 8px; align-items: flex-start; font-size: .9em; line-height: 1.45; margin: 4px 0 10px; padding: 10px 12px; border-radius: 10px; background: var(--paper); }
+.consent-check input, .promo-check input { margin-top: 3px; width: 18px; height: 18px; flex: none; }
 .consent-check.invalid, .consent-check:has(input.invalid) { outline: 2px solid var(--red); }
 
 /* ⏳ pre-order */
@@ -1049,3 +1049,13 @@ body.protect .card-pic img, body.protect .g-main img, body.protect .g-thumb img,
 
 /* 📱 inside the Android app (it has its own bottom bar and notifications) */
 .in-app .header-nav .cart-link, .in-app .header-nav .acct-link, .in-app [data-push-ask], .in-app .push-ask { display: none !important; }
+
+/* 📧 footer: join the offer e-mail list */
+.news-box { border-top: 1px solid rgba(255,255,255,.12); }
+.news-box .wrap { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; justify-content: space-between; padding-top: 18px; padding-bottom: 18px; }
+.news-box h2 { margin: 0 0 2px; font-size: 1.05rem; }
+.news-box p { margin: 0; opacity: .8; font-size: .9em; }
+.news-form { display: flex; gap: 8px; flex: 1 1 300px; max-width: 440px; }
+.news-form input[type=email] { flex: 1; min-width: 0; padding: 11px 12px; border-radius: 10px; border: 1px solid #c9d2e0; font: inherit; }
+.news-form .hp { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
+.news-msg { flex-basis: 100%; font-size: .9em; margin: 0; }

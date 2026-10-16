@@ -1281,6 +1281,12 @@
       var consentBox = $('[data-consent]', form);
       if (consentBox && !consentBox.checked) return showError('অর্ডার করতে নিচের ঘরে টিক দিয়ে আপনার তথ্য ব্যবহারে সম্মতি দিন।', 'consent');
       data.consent = consentBox ? (consentBox.checked ? '1' : '') : '1';
+      var promoBox = $('[data-promo]', form);
+      data.promo = promoBox && promoBox.checked ? '1' : '';
+      if (form.elements.email) {
+        data.email = form.elements.email.value.trim();
+        if (data.email && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(data.email)) return showError('ইমেইল ঠিকানাটা ঠিক নেই (অথবা খালি রাখুন)।', 'email');
+      }
       if (otpBox) {
         var otpPhone = cleanPhone(data.phone);
         if (!phoneOk(otpPhone)) return showError('সঠিক মোবাইল নম্বর দিন, যেমন 01712345678।', 'phone');
@@ -2121,4 +2127,22 @@
     });
     kitSum();
   }
+})();
+
+// 📧 footer: join the offer e-mail list
+(function () {
+  var f = document.querySelector('[data-news-form]');
+  if (!f) return;
+  var msg = f.querySelector('[data-news-msg]');
+  f.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var email = f.elements.email.value.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) { msg.textContent = 'সঠিক ইমেইল ঠিকানা লিখুন।'; return; }
+    var btn = f.querySelector('button'); btn.disabled = true;
+    fetch('/api/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: email, website: f.elements.website.value }) })
+      .then(function (r) { return r.json(); })
+      .then(function (j) { msg.textContent = j.message || j.error || ''; if (j.ok) f.elements.email.value = ''; })
+      .catch(function () { msg.textContent = 'এখন যোগ করা গেল না, একটু পরে আবার চেষ্টা করুন।'; })
+      .then(function () { btn.disabled = false; });
+  });
 })();

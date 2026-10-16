@@ -10,6 +10,7 @@ uses that one setup. Never add a second Gmail / App Password / SMS / API-key fie
 | Gmail (all e-mail: order news, customer sign-up codes, delete codes, password-reset links, security alerts, any future code or mail) | Admin → সেটিংস → **আমার নোটিফিকেশন** (`notify_email` + `gmail_app_password`) | `services/notify.js` → `sendEmail(settings, subject, text, html, to)` |
 | SMS (all SMS: checkout OTP, customer login codes, order SMS, any future code) | Admin → মার্কেটিং → কাস্টমারকে মেসেজ → **SMS** | `services/sms.js` → `send(settings, phone, text, { kind })` |
 | WhatsApp to the owner | আমার নোটিফিকেশন | `services/notify.js` → `sendWhatsApp(settings, text)` |
+| Offer / news e-mail to customers (campaigns, welcome, weekly, review, win-back) | Admin → মার্কেটিং → মেসেজ → **ইমেইল** (Brevo key, or the Gmail above — capped) | `services/mailer.js` → `sendOne(settings, sub, {...})` — only to people on `email_subs` |
 
 - A new feature that needs to send a code or a mail calls the function above. If the service isn't set up yet,
   the feature shows a link to that one page — it never shows its own credential form.
@@ -19,6 +20,7 @@ uses that one setup. Never add a second Gmail / App Password / SMS / API-key fie
 
 ## Other standing rules from the owner
 - Product prices: ৳0.50 – ৳2000 only (`util.priceProblem`). ৳10 or more = whole taka.
+- Offer SMS (bulk) skip customers with `promo_sms = false` and stay within `sms_mkt_day` / `sms_mkt_month`, so the free SIM plan keeps room for checkout codes.
 - Permanent deletes need the e-mailed delete code (`services/delcode.js`).
 - Admin menu: related small pages are tabs (`TABS` in admin/layout.js), not new menu lines.
 - The camera face check was removed on purpose; only the fingerprint / passkey login lock stays.
