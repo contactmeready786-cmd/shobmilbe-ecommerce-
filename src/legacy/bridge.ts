@@ -5,20 +5,10 @@
 // Node-style request and collects what the handler writes into a Web Response. Pages move out of lib/ one
 // by one; when the last one has moved, this bridge is deleted.
 import { Readable, Writable } from 'node:stream';
-import { createRequire } from 'node:module';
-import path from 'node:path';
+import { handler as shopHandler } from '@/lib/app';
 
 type NodeHandler = (req: unknown, res: unknown) => Promise<void> | void;
-
-let cached: NodeHandler | null = null;
-function legacyHandler(): NodeHandler {
-  if (!cached) {
-    // Loaded at run time from the project folder (not bundled), exactly as the old Vercel function did.
-    const load = createRequire(path.join(process.cwd(), 'package.json'));
-    cached = (load('./lib/app.js') as { handler: NodeHandler }).handler;
-  }
-  return cached;
-}
+const legacyHandler = (): NodeHandler => shopHandler as NodeHandler;
 
 type HeaderValue = string | number | readonly string[];
 

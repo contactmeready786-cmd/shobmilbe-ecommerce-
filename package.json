@@ -7,8 +7,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "typecheck": "tsc --noEmit",
-    "legacy": "node server.js"
+    "typecheck": "tsc --noEmit"
   },
   "engines": {
     "node": "22.x"
@@ -22,6 +21,7 @@
     "@types/node": "^22.18.0",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
+    "tsx": "^4.20.0",
     "typescript": "^6.0.0"
   }
 }

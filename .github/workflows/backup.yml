@@ -36,7 +36,9 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           BACKUP_PASSWORD: ${{ secrets.BACKUP_PASSWORD }}
-        run: node tools/backup.js backups
+        run: |
+          npm ci --no-audit --no-fund
+          npx tsx tools/backup.ts backups
       - name: Keep it for 30 days
         if: steps.check.outputs.ready == 'yes'
         uses: actions/upload-artifact@v4

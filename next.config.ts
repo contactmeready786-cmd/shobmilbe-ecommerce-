@@ -5,10 +5,6 @@ const config: NextConfig = {
   reactStrictMode: true,
   // The shop decides about trailing slashes itself (it always did); Next.js must not redirect first.
   skipTrailingSlashRedirect: true,
-  // The original shop code is loaded at run time from lib/ — make sure Vercel ships those files.
-  outputFileTracingIncludes: {
-    '/legacy/[[...path]]': ['./lib/**/*', './public/**/*'],
-  },
   async rewrites() {
     return {
       beforeFiles: [],

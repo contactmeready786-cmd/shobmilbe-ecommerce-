@@ -8,10 +8,10 @@ const path = require('path');
 const root = path.join(__dirname, '..');
 const files = [
   ...fs.readdirSync(root + '/lib/admin').map((f) => 'lib/admin/' + f),
-  'lib/views/admin.js', 'lib/views/invoice.js', 'public/js/admin.js', 'public/js/loginlock.js',
-  'lib/models/catalog.js', 'lib/models/orders.js', 'lib/models/finance.js', 'lib/models/trash.js', 'lib/models/duplicates.js',
-  'lib/models/staff.js', 'lib/models/customers.js', 'lib/models/loginlock.js', 'lib/models/content.js',
-  'lib/models/checkoutotp.js', 'lib/services/research.js', 'lib/services/uiswitch.js', 'lib/services/sms.js', 'lib/services/courier.js', 'lib/services/importer.js', 'lib/security.js', 'lib/util.js',
+  'lib/views/admin.ts', 'lib/views/invoice.ts', 'public/js/admin.js', 'public/js/loginlock.js',
+  'lib/models/catalog.ts', 'lib/models/orders.ts', 'lib/models/finance.ts', 'lib/models/trash.ts', 'lib/models/duplicates.ts',
+  'lib/models/staff.ts', 'lib/models/customers.ts', 'lib/models/loginlock.ts', 'lib/models/content.ts',
+  'lib/models/checkoutotp.ts', 'lib/services/research.ts', 'lib/services/uiswitch.ts', 'lib/services/sms.ts', 'lib/services/courier.ts', 'lib/services/importer.ts', 'lib/security.ts', 'lib/util.ts',
 ];
 const BN_LETTER = /[ঀ-৥ৰ-৿]/;
 const set = new Map();
@@ -25,7 +25,7 @@ function stripComments(src) {
   }).filter((l) => !/new RegExp|\.replace\(\/|\.test\(|\.match\(\/|^\s*const [A-Z_]+ = \//.test(l)).join('\n');
 }
 for (const f of [...new Set(files)]) {
-  if (!f.endsWith('.js') || !fs.existsSync(path.join(root, f))) continue;
+  if (!/\.(js|ts)$/.test(f) || !fs.existsSync(path.join(root, f))) continue;
   const src = stripComments(fs.readFileSync(path.join(root, f), 'utf8'));
   // texts inside HTML attributes people see: placeholder, title, aria-label, confirm messages, alt
   for (const m of src.matchAll(/\b(?:placeholder|title|aria-label|data-confirm|data-confirm-btn|alt|data-on|data-off)\s*=\s*"([^"]*)"/g)) {
