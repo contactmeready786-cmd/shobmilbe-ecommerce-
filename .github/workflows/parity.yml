@@ -10,6 +10,9 @@ permissions:
 concurrency:
   group: parity-${{ github.ref }}
   cancel-in-progress: true
+defaults:
+  run:
+    shell: bash # with pipefail, so a failing step piped into tee still fails
 jobs:
   parity:
     runs-on: ubuntu-latest
@@ -40,7 +43,7 @@ jobs:
         working-directory: new
         run: |
           if [ -f package-lock.json ]; then npm ci; else npm install --no-audit --no-fund; fi
-          npm ls next react react-dom typescript --depth=0 | tee "$RUNNER_TEMP/versions.txt" || true
+          { npm ls next react react-dom typescript --depth=0; echo "latest on npm:"; for p in next react typescript @sentry/nextjs; do echo "$p $(npm view $p version)"; done; } | tee "$RUNNER_TEMP/versions.txt" || true
       - name: Type check
         working-directory: new
         run: npx tsc --noEmit 2>&1 | tee "$RUNNER_TEMP/typecheck.txt"

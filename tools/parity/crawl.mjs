@@ -44,7 +44,7 @@ async function post(url, form) {
 // Anything that changes per request (random tokens, times, nonces) is blanked so only real differences remain.
 export function normalise(body) {
   return body
-    .replace(/127\.0\.0\.1:\d+|localhost:\d+/g, '<host>')
+    .replace(/(https?:)?(\/\/)?(127\.0\.0\.1|localhost):\d+/g, '<host>')
     .replace(/nonce="[^"]*"/g, 'nonce=""')
     .replace(/name="(csrf|_csrf|token|_t)" value="[^"]*"/g, 'name="$1" value=""')
     .replace(/\b[0-9a-f]{32,}\b/g, '<hex>')
@@ -96,7 +96,7 @@ async function main() {
     try { res = await get(href); } catch (e) { index.push({ path: u.pathname + u.search, status: 'ERR', error: String(e) }); continue; }
     const type = res.headers.get('content-type') || '';
     const loc = res.headers.get('location');
-    const entry = { path: u.pathname + u.search, status: res.status, type: type.split(';')[0], location: loc || undefined, headers: {} };
+    const entry = { path: u.pathname + u.search, status: res.status, type: type.split(';')[0], location: loc ? normalise(loc) : undefined, headers: {} };
     // security and caching headers must stay exactly the same too
     for (const h of KEEP_HEADERS) { const v = res.headers.get(h); if (v) entry.headers[h] = normalise(v); }
     const sc = res.headers.getSetCookie?.() || [];
