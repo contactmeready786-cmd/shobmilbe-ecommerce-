@@ -14,6 +14,9 @@ export function normalise(body) {
     .replace(/[০-৯]{1,2}:[০-৯]{2}/g, '<hhmm>')
     .replace(/\b\d{1,2}:\d{2}(:\d{2})?\b/g, '<hhmm>')
     .replace(/\?v=[\w.-]+/g, '?v=<v>')
+    // live matches come from the internet and change between two crawls: rows with a match are blanked whole
+    .replace(/<tr[^>]*>(?:(?!<\/tr>)[\s\S])*?  vs  [\s\S]*?<\/tr>/g, '<tr><match></tr>')
+    .replace(/<li[^>]*>(?:(?!<\/li>)[\s\S])*?  vs  [\s\S]*?<\/li>/g, '<li><match></li>')
     // live match minutes and scores come from the internet and change between two crawls
     .replace(/>\d{1,3}(\+\d+)?&#39;</g, '><min>&#39;<').replace(/ \d{1,2}  vs  /g, ' <n>  vs  ').replace(/(  vs  [^<]*?) \d{1,2}</g, '$1 <n><')
     // secrets the app makes up the first time a page is opened, and the random tip of the day
