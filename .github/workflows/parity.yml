@@ -70,11 +70,15 @@ jobs:
       - name: Same actions on both (orders, products, uploads, status changes)
         if: always()
         run: |
-          (cd old && SCENARIOS=1 ../new/tools/parity/run.sh "$RUNNER_TEMP/scen-old" 3102 node server.js)
-          (cd new && SCENARIOS=1 tools/parity/run.sh "$RUNNER_TEMP/scen-new" 3200 npx next start -p 3200)
-          if cmp -s "$RUNNER_TEMP/scen-old.json" "$RUNNER_TEMP/scen-new.json"; then echo "actions: identical" | tee "$RUNNER_TEMP/scenarios.txt"
-          else { echo "actions: DIFFERENT"; diff <(python3 -m json.tool "$RUNNER_TEMP/scen-old.json") <(python3 -m json.tool "$RUNNER_TEMP/scen-new.json") | head -80; } | tee "$RUNNER_TEMP/scenarios.txt"; exit 1; fi
-
+          set -o pipefail
+          {
+            (cd old && SCENARIOS=1 ../new/tools/parity/run.sh "$RUNNER_TEMP/scen-old" 3102 node server.js) 2>&1 || echo "old site run failed"
+            (cd new && SCENARIOS=1 tools/parity/run.sh "$RUNNER_TEMP/scen-new" 3200 npx next start -p 3200) 2>&1 || echo "new site run failed"
+            tail -30 "$RUNNER_TEMP/scen-new.server.log" 2>/dev/null
+          } > "$RUNNER_TEMP/scenarios.txt"
+          if cmp -s "$RUNNER_TEMP/scen-old.json" "$RUNNER_TEMP/scen-new.json"; then echo "actions: identical" >> "$RUNNER_TEMP/scenarios.txt"
+          else { echo "actions: DIFFERENT"; diff <(python3 -m json.tool "$RUNNER_TEMP/scen-old.json") <(python3 -m json.tool "$RUNNER_TEMP/scen-new.json") | head -80; } >> "$RUNNER_TEMP/scenarios.txt"; cat "$RUNNER_TEMP/scenarios.txt"; exit 1; fi
+          cat "$RUNNER_TEMP/scenarios.txt"
       # Results go to the separate "ci-results" branch (text only — no shop data, test data only).
       - name: Save results
         if: always()

@@ -1,8 +1,8 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 import * as crypto from 'node:crypto';
 import * as $querystring from 'node:querystring';
+import type { Body, HtmlValue, Settings, ShopRequest } from './types';
 
-function esc(v) {
+function esc(v: unknown): string {
   if (v === null || v === undefined) return '';
   return String(v)
     .replace(/&/g, '&amp;')
@@ -13,9 +13,9 @@ function esc(v) {
 }
 
 // Tagged template that escapes interpolated values, except values wrapped with raw().
-class Raw { constructor(s) { this.s = s; } toString() { return this.s; } }
-function raw(s) { return new Raw(s == null ? '' : String(s)); }
-function html(strings, ...values) {
+class Raw { s: string; constructor(s: string) { this.s = s; } toString() { return this.s; } }
+function raw(s: unknown): Raw { return new Raw(s == null ? '' : String(s)); }
+function html(strings: TemplateStringsArray, ...values: HtmlValue[]): Raw {
   let out = strings[0];
   values.forEach((v, i) => {
     if (Array.isArray(v)) out += v.map((x) => (x instanceof Raw ? x.s : esc(x))).join('');
@@ -28,9 +28,9 @@ function html(strings, ...values) {
 }
 
 const BN_DIGITS = '০১২৩৪৫৬৭৮৯';
-function bn(n) { return String(n ?? '').replace(/\d/g, (d) => BN_DIGITS[d]); }
+function bn(n: unknown): string { return String(n ?? '').replace(/\d/g, (d) => BN_DIGITS[Number(d)]); }
 // ৳১২০ for whole taka, ৳০.২৫ / ৳১০.৫০ when there are paisa.
-function money(n) {
+function money(n: unknown): string {
   const v = Math.round(Number(n || 0) * 100) / 100;
   const a = Math.abs(v);
   const whole = Math.abs(a - Math.round(a)) < 0.005;
@@ -38,26 +38,27 @@ function money(n) {
   return (v < 0 ? '-' : '') + '৳' + bn(txt);
 }
 // money amount typed in a form (keeps paisa, never negative): "০.২৫" -> 0.25
-function amount(v, fallback = 0) {
+function amount(v: unknown, fallback = 0): number {
   const n = num(v, NaN);
   return Number.isFinite(n) ? Math.max(0, Math.round(n * 100) / 100) : fallback;
 }
-const round2 = (n) => Math.round(Number(n || 0) * 100) / 100;
+const round2 = (n: unknown): number => Math.round(Number(n || 0) * 100) / 100;
 // A product price as the shop keeps it: below ৳10 paisa stay (৳0.25, ৳1.75); from ৳10 up any paisa go UP
 // to the next whole taka (৳10.04 → ৳11, ৳10.50 → ৳11). Used for typed, imported, bulk-changed and sale prices.
-function shopPrice(v) {
+function shopPrice(v: unknown): number {
   const n = Math.max(0, round2(v));
   return n >= 10 ? Math.ceil(n - 1e-9) : n;
 }
 // An order total in whole taka: paisa are dropped as a rounding discount (৳123.50 → ৳123), never added.
-function wholeTaka(v) { return Math.max(0, Math.floor(round2(v) + 1e-9)); }
+function wholeTaka(v: unknown): number { return Math.max(0, Math.floor(round2(v) + 1e-9)); }
 // The words for the rounding line on checkout, order page and invoice.
-function roundOffLabel(r) { return r > 0 ? 'রাউন্ড ফিগার' : 'রাউন্ড ফিগারের জন্য ছাড়'; }
+function roundOffLabel(r: number): string { return r > 0 ? 'রাউন্ড ফিগার' : 'রাউন্ড ফিগারের জন্য ছাড়'; }
 // The order total is rounded to whole taka; this is the difference (e.g. +0.25 or -0.25), 0 when none.
-function roundOff(o) { return round2(Number(o.total) - (Number(o.subtotal) - Number(o.discount || 0) - Number(o.points_discount || 0) + Number(o.delivery || 0))); }
-function pct(n, digits = 1) { return bn((Number(n) || 0).toFixed(digits)) + '%'; }
+type Totals = { total: unknown; subtotal: unknown; discount?: unknown; points_discount?: unknown; delivery?: unknown };
+function roundOff(o: Totals): number { return round2(Number(o.total) - (Number(o.subtotal) - Number(o.discount || 0) - Number(o.points_discount || 0) + Number(o.delivery || 0))); }
+function pct(n: unknown, digits = 1): string { return bn((Number(n) || 0).toFixed(digits)) + '%'; }
 
-function slugify(s) {
+function slugify(s: unknown): string {
   const base = String(s || '')
     .toLowerCase()
     .replace(/[^a-z0-9ঀ-৿]+/g, '-')
@@ -66,7 +67,7 @@ function slugify(s) {
   return base || 'item';
 }
 
-function randomCode(len = 8) {
+function randomCode(len = 8): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   const bytes = crypto.randomBytes(len);
   let s = '';
@@ -74,8 +75,8 @@ function randomCode(len = 8) {
   return s;
 }
 
-function parseCookies(header) {
-  const out = {};
+function parseCookies(header: string | undefined): Record<string, string> {
+  const out: Record<string, string> = {};
   (header || '').split(';').forEach((p) => {
     const i = p.indexOf('=');
     if (i > 0) {
@@ -88,18 +89,18 @@ function parseCookies(header) {
 // Vercel's Node runtime reads the request body before our handler runs and
 // exposes it as req.body, so the stream is already empty. Turn that back into
 // text so parseBody works the same everywhere.
-function vercelBodyText(req) {
-  let b;
+function vercelBodyText(req: ShopRequest): string {
+  let b: unknown;
   try { b = req.body; } catch (_) { return ''; } // malformed JSON throws on access
   if (b === null || b === undefined) return '';
   if (Buffer.isBuffer(b)) return b.toString('utf8');
   if (typeof b === 'string') return b;
   const type = (req.headers['content-type'] || '').split(';')[0].trim();
   if (type === 'application/json') return JSON.stringify(b);
-  return $querystring.stringify(b);
+  return $querystring.stringify(b as $querystring.ParsedUrlQueryInput);
 }
 
-function readBody(req, limit = 4 * 1024 * 1024) {
+function readBody(req: ShopRequest, limit = 4 * 1024 * 1024): Promise<string> {
   if (req.__body !== undefined) return Promise.resolve(req.__body);
   if (process.env.VERCEL && 'body' in req) {
     req.__body = vercelBodyText(req);
@@ -107,21 +108,21 @@ function readBody(req, limit = 4 * 1024 * 1024) {
   }
   if (req.readableEnded) { req.__body = ''; return Promise.resolve(''); }
   return new Promise((resolve, reject) => {
-    const chunks = [];
+    const chunks: Buffer[] = [];
     let size = 0;
-    req.on('data', (c) => {
+    req.on('data', (c: Buffer) => {
       size += c.length;
       if (size > limit) { reject(new Error('Body too large')); req.destroy(); return; }
       chunks.push(c);
     });
-    req.on('end', () => { req.__body = Buffer.concat(chunks).toString('utf8'); resolve(req.__body); });
+    req.on('end', () => { const text = Buffer.concat(chunks).toString('utf8'); req.__body = text; resolve(text); });
     req.on('error', reject);
   });
 }
 
 const BAD_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 // Form bodies: repeated keys (checkbox lists, item rows) become arrays.
-async function parseBody(req) {
+async function parseBody(req: ShopRequest): Promise<Body> {
   const text = await readBody(req);
   const type = (req.headers['content-type'] || '').split(';')[0].trim();
   if (type === 'application/json') {
@@ -130,30 +131,32 @@ async function parseBody(req) {
       return v && typeof v === 'object' ? v : {};
     } catch (_) { return {}; }
   }
-  const out = {};
+  const out: Record<string, string | string[]> = {};
   for (const [k, v] of new URLSearchParams(text)) {
     // names that could change how every object behaves are thrown away (a form never needs them)
     if (BAD_KEYS.has(k.replace(/\[\]$/, ''))) continue;
     if (k.endsWith('[]')) {
       const key = k.slice(0, -2);
-      (out[key] = Object.hasOwn(out, key) && Array.isArray(out[key]) ? out[key] : []).push(v);
+      const prev = Object.hasOwn(out, key) ? out[key] : undefined;
+      (out[key] = Array.isArray(prev) ? prev : []).push(v);
     } else if (Object.hasOwn(out, k)) {
-      out[k] = [].concat(out[k], v);
+      out[k] = ([] as string[]).concat(out[k], v);
     } else {
       out[k] = v;
     }
   }
   return out;
 }
-function list(v) { return v === undefined || v === null || v === '' ? [] : [].concat(v); }
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- form values: one or many
+function list(v: unknown): any[] { return v === undefined || v === null || v === '' ? [] : ([] as unknown[]).concat(v); }
 
 // Passwords: scrypt with random salt
-function hashPassword(pw) {
+function hashPassword(pw: string): string {
   const salt = crypto.randomBytes(16);
   const hash = crypto.scryptSync(pw, salt, 32);
   return `scrypt$${salt.toString('hex')}$${hash.toString('hex')}`;
 }
-function verifyPassword(pw, stored) {
+function verifyPassword(pw: unknown, stored: unknown): boolean {
   if (!stored || typeof stored !== 'string') return false;
   const [, saltHex, hashHex] = stored.split('$');
   if (!saltHex || !hashHex) return false;
@@ -167,7 +170,7 @@ const COMMON_PASSWORDS = new Set(('12345678 123456789 1234567890 87654321 111111
   + 'password password1 password123 passw0rd iloveyou admin123 admin1234 administrator welcome1 welcome123 letmein1 abc12345 abcd1234 '
   + '1q2w3e4r 1qaz2wsx zaq12wsx asdfghjk asdf1234 bangladesh bangladesh1 dhaka123 dhaka1234 shobmilbe shobmilbe1 shobmilbe123 sobmilbe '
   + 'bismillah bismillah1 allahuakbar 01700000000 01711111111 superman football cricket123 sunshine princess monkey123 dragon123').split(' '));
-function passwordProblem(pw, { username = '', name = '' } = {}) {
+function passwordProblem(pw: unknown, { username = '', name = '' }: { username?: unknown; name?: unknown } = {}): string | null {
   const p = String(pw || '');
   if (p.length < 8) return 'পাসওয়ার্ড কমপক্ষে ৮ অক্ষরের হতে হবে।';
   if (p.length > 128) return 'পাসওয়ার্ড ১২৮ অক্ষরের বেশি হতে পারবে না।';
@@ -185,11 +188,11 @@ function passwordProblem(pw, { username = '', name = '' } = {}) {
   return null;
 }
 
-function sign(value, secret) {
+function sign(value: string, secret: string): string {
   const mac = crypto.createHmac('sha256', secret).update(value).digest('base64url');
   return `${value}.${mac}`;
 }
-function unsign(signed, secret) {
+function unsign(signed: string | null | undefined, secret: string | null | undefined): string | null {
   if (!signed || !secret) return null;
   const i = signed.lastIndexOf('.');
   if (i < 0) return null;
@@ -199,27 +202,27 @@ function unsign(signed, secret) {
   const b = Buffer.from(expected);
   return a.length === b.length && crypto.timingSafeEqual(a, b) ? value : null;
 }
-function sha256(s) { return crypto.createHash('sha256').update(String(s)).digest('hex'); }
+function sha256(s: unknown): string { return crypto.createHash('sha256').update(String(s)).digest('hex'); }
 
 const TZ = 'Asia/Dhaka';
-function fmtDate(d, withTime = true) {
+function fmtDate(d: string | number | Date | null | undefined, withTime = true): string {
   if (!d) return '';
   const date = new Date(d);
-  const opts = { timeZone: TZ, day: '2-digit', month: 'short', year: 'numeric' };
+  const opts: Intl.DateTimeFormatOptions = { timeZone: TZ, day: '2-digit', month: 'short', year: 'numeric' };
   if (withTime) Object.assign(opts, { hour: '2-digit', minute: '2-digit' });
   return bn(date.toLocaleString('en-GB', opts));
 }
 // YYYY-MM-DD in Dhaka time
-function ymd(d = new Date()) {
+function ymd(d: string | number | Date = new Date()): string {
   return new Date(d).toLocaleDateString('en-CA', { timeZone: TZ });
 }
-function validYmd(s) { return /^\d{4}-\d{2}-\d{2}$/.test(String(s || '')) ? s : null; }
+function validYmd(s: unknown): string | null { return /^\d{4}-\d{2}-\d{2}$/.test(String(s || '')) ? String(s) : null; }
 
 // A date range from query (?from=YYYY-MM-DD&to=YYYY-MM-DD or ?days=N), as Dhaka calendar days.
-function dateRange(query, defaultDays = 30) {
+function dateRange(query: URLSearchParams, defaultDays = 30): { from: string; to: string } {
   let to = validYmd(query.get('to'));
   let from = validYmd(query.get('from'));
-  const days = parseInt(query.get('days'), 10);
+  const days = parseInt(query.get('days') || '', 10);
   if (!to) to = ymd();
   if (!from) {
     const n = days > 0 ? days : defaultDays;
@@ -231,25 +234,25 @@ function dateRange(query, defaultDays = 30) {
   return { from, to };
 }
 
-function int(v, fallback = 0) {
-  const n = parseInt(String(v ?? '').replace(/[০-৯]/g, (d) => BN_DIGITS.indexOf(d)).replace(/,/g, ''), 10);
+function int(v: unknown, fallback = 0): number {
+  const n = parseInt(String(v ?? '').replace(/[০-৯]/g, (d) => String(BN_DIGITS.indexOf(d))).replace(/,/g, ''), 10);
   return Number.isFinite(n) ? n : fallback;
 }
-function num(v, fallback = 0) {
-  const n = parseFloat(String(v ?? '').replace(/[০-৯]/g, (d) => BN_DIGITS.indexOf(d)).replace(/,/g, ''));
+function num(v: unknown, fallback = 0): number {
+  const n = parseFloat(String(v ?? '').replace(/[০-৯]/g, (d) => String(BN_DIGITS.indexOf(d))).replace(/,/g, ''));
   return Number.isFinite(n) ? n : fallback;
 }
-function str(v, max = 200) { return String(v ?? '').trim().slice(0, max); }
+function str(v: unknown, max = 200): string { return String(v ?? '').trim().slice(0, max); }
 
-function normalizePhone(p) {
-  let d = String(p || '').replace(/[০-৯]/g, (c) => BN_DIGITS.indexOf(c)).replace(/\D/g, '');
+function normalizePhone(p: unknown): string {
+  let d = String(p || '').replace(/[০-৯]/g, (c) => String(BN_DIGITS.indexOf(c))).replace(/\D/g, '');
   if (d.startsWith('880')) d = d.slice(2);
   else if (d.startsWith('88')) d = d.slice(2);
   return d;
 }
-function validPhone(p) { return /^01[3-9]\d{8}$/.test(p); }
+function validPhone(p: string): boolean { return /^01[3-9]\d{8}$/.test(p); }
 
-function csv(rows) {
+function csv(rows: unknown[][]): string {
   return '﻿' + rows.map((r) => r.map((c) => {
     const s = c === null || c === undefined ? '' : String(c);
     return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
@@ -257,7 +260,9 @@ function csv(rows) {
 }
 
 // fetch with a timeout; returns { ok, status, data, text }
-async function fetchJson(url, opts = {}, timeoutMs = 12000) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- whatever JSON the other service sends
+type FetchResult = { ok: boolean; status: number; data: any; text: string };
+async function fetchJson(url: string | URL, opts: RequestInit = {}, timeoutMs = 12000): Promise<FetchResult> {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
@@ -267,7 +272,8 @@ async function fetchJson(url, opts = {}, timeoutMs = 12000) {
     try { data = JSON.parse(text); } catch (_) { /* not json */ }
     return { ok: res.ok, status: res.status, data, text };
   } catch (e) {
-    return { ok: false, status: 0, data: null, text: e.name === 'AbortError' ? 'Request timed out' : e.message };
+    const err = e as Error;
+    return { ok: false, status: 0, data: null, text: err.name === 'AbortError' ? 'Request timed out' : err.message };
   } finally {
     clearTimeout(t);
   }
@@ -276,7 +282,7 @@ async function fetchJson(url, opts = {}, timeoutMs = 12000) {
 // Extract the 11-char video id from any YouTube URL form.
 // Accepts every common YouTube link: watch?v=, youtu.be/, shorts/, live/, embed/, m.youtube.com, music.youtube.com,
 // links with extra bits like ?si=… or &t=30s, and even a full <iframe> embed code copied from YouTube.
-function youtubeId(url) {
+function youtubeId(url: unknown): string | null {
   const s = String(url || '').trim();
   if (/^[A-Za-z0-9_-]{11}$/.test(s)) return s;
   if (!/youtu\.?be|youtube/i.test(s)) return null;
@@ -285,7 +291,7 @@ function youtubeId(url) {
 }
 
 // Contact numbers the shop shows to customers (each can be switched off in Admin → সেটিংস).
-function contact(s) {
+function contact(s: Settings) {
   const phone = s.show_phone !== '0' ? String(s.phone || '').trim() : '';
   const wa = String(s.whatsapp || '').replace(/\D/g, '').replace(/^0/, '880').replace(/^(?=1\d{9}$)/, '880');
   return { phone, wa, waButton: s.pp_whatsapp !== '0' && wa.length >= 11 ? wa : '', maxQty: Math.max(1, Number(s.max_qty_per_item) || 10) };
@@ -297,7 +303,7 @@ function contact(s) {
 // How many pieces of one product a web customer may order. Every product can be bought from 1 piece
 // (the shop's minimum is on the whole order — Admin → সেটিংস → "সর্বনিম্ন অর্ডার", e.g. ৳10 in total).
 // Cheap parts (price up to small_max_price) may be bought in bigger numbers: up to small_max_value worth.
-function qtyRule(s, price) {
+function qtyRule(s: Settings, price: unknown) {
   const maxQty = Math.max(1, Number(s.max_qty_per_item) || 10);
   const p = Number(price) || 0;
   const on = s.small_qty_on !== '0';
@@ -310,15 +316,15 @@ function qtyRule(s, price) {
 // 🏷️ The shop sells only products priced ৳0.50 – ৳2000 (the price the customer sees). Returns a message, or null.
 const PRICE_MIN = 0.5;
 const PRICE_MAX = 2000;
-function priceProblem(price, what = 'দাম') {
+function priceProblem(price: unknown, what = 'দাম'): string | null {
   const v = Number(price);
   if (!(v > 0)) return `${what} দিন।`;
   if (v < PRICE_MIN) return `${what} কমপক্ষে ৳০.৫০ হতে হবে।`;
   if (v > PRICE_MAX) return `${what} ৳২০০০ এর বেশি — দোকানে ৳০.৫০ থেকে ৳২০০০ পর্যন্ত দামের পণ্যই রাখা হয়।`;
   return null;
 }
-function minOrder(s) { return Math.max(0, Number(s && s.min_order) || 0); }
+function minOrder(s: Settings | null | undefined): number { return Math.max(0, Number(s && s.min_order) || 0); }
 
-function pageNum(query) { return Math.max(1, int(query.get('page'), 1)); }
+function pageNum(query: URLSearchParams): number { return Math.max(1, int(query.get('page'), 1)); }
 
 export { PRICE_MIN, PRICE_MAX, priceProblem, contact, qtyRule, amount, round2, roundOff, shopPrice, wholeTaka, roundOffLabel, esc, html, raw, Raw, bn, money, pct, slugify, randomCode, parseCookies, parseBody, readBody, list, hashPassword, verifyPassword, passwordProblem, sign, unsign, sha256, fmtDate, ymd, validYmd, dateRange, int, num, str, minOrder, normalizePhone, validPhone, csv, fetchJson, youtubeId, pageNum, TZ };
