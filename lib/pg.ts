@@ -96,7 +96,10 @@ class PgError extends Error {
   }
 }
 function toPgError(e: unknown): unknown {
-  if (e instanceof pg.DatabaseError) return new PgError({ M: e.message, C: e.code, D: e.detail, S: e.severity });
+  if (e instanceof pg.DatabaseError) {
+    const d = e as Error & { code?: string; detail?: string; severity?: string };
+    return new PgError({ M: d.message, C: d.code, D: d.detail, S: d.severity });
+  }
   return e;
 }
 
