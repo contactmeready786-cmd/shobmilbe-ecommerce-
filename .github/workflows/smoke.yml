@@ -1,0 +1,34 @@
+name: live-check
+# After Vercel finishes a production deployment, check from outside that the live shop answers properly.
+# Only addresses that are open to every country are checked (the shop itself is closed to the USA, where
+# GitHub's machines are — a 403 "not available in your country" page counts as healthy). Reads only, and never
+# touches admin addresses (the shop's security watch would rightly report that as a probe).
+on:
+  deployment_status: {}
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  check:
+    if: github.event_name == 'workflow_dispatch' || (github.event.deployment_status.state == 'success' && github.event.deployment.environment == 'Production')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Live shop answers
+        run: |
+          set -u
+          SITE=https://shobmilbe.com
+          fail=0
+          check() { # path, wanted statuses (regex), text that must appear (may be empty)
+            local code body
+            body=$(curl -sS -m 30 -A 'shobmilbe-live-check' -o /tmp/body -w '%{http_code}' "$SITE$1") || { echo "❌ $1: no answer"; fail=1; return; }
+            code=$body
+            if ! [[ $code =~ ^($2)$ ]]; then echo "❌ $1: status $code"; head -c 400 /tmp/body; echo; fail=1; return; fi
+            if [ -n "$3" ] && ! grep -q -- "$3" /tmp/body; then echo "❌ $1: '$3' missing"; head -c 400 /tmp/body; echo; fail=1; return; fi
+            echo "✅ $1: $code"
+          }
+          for i in 1 2 3; do curl -s -o /dev/null -m 30 "$SITE/robots.txt" && break; sleep 10; done
+          check /robots.txt 200 'Sitemap:'
+          check /sitemap.xml 200 '<urlset'          # reads the database
+          check / '200|403' '<html'                 # shop or the country page — never a server error
+          exit $fail

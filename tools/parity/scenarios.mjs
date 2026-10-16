@@ -11,7 +11,7 @@ import { normalise } from './normalise.mjs';
 const [base, outFile] = process.argv.slice(2);
 const origin = new URL(base).origin;
 const log = [];
-const jars = { shop: {}, admin: {} };
+const jars = { svc: {}, shop: {}, admin: {} };
 const jarHeader = (j) => Object.entries(jars[j]).map(([k, v]) => `${k}=${v}`).join('; ');
 function keep(j, res) {
   for (const c of res.headers.getSetCookie()) {
@@ -60,6 +60,22 @@ async function main() {
   await call('stock alert', 'shop', 'POST', '/api/stock-alert', { product: id("select id from products where slug='arduino-nano'"), phone: '01722222222' }, 'json');
   await call('question', 'shop', 'POST', '/api/question', { product: uno, name: 'রাফি', phone: '01733333333', question: 'এটা কি অরিজিনাল?' }, 'json');
   await call('track', 'shop', 'GET', '/track?phone=01711111111');
+
+  // ---------- outside services calling in (payments, couriers, daily jobs) — fake data, must be refused alike ----------
+  await call('steadfast webhook: no token', 'svc', 'POST', '/webhook/steadfast', { consignment_id: 1, status: 'delivered' }, 'json');
+  await call('steadfast webhook: wrong token', 'svc', 'POST', '/webhook/steadfast?token=wrong', { consignment_id: 1, status: 'delivered' }, 'json');
+  await call('pathao webhook: bad', 'svc', 'POST', '/webhook/pathao', { event: 'order.delivered', consignment_id: 'X' }, 'json');
+  await call('sslcommerz success: no session', 'svc', 'POST', '/pay/ssl/success', { tran_id: 'TEST1001', val_id: 'fake', status: 'VALID' });
+  await call('sslcommerz ipn: fake', 'svc', 'POST', '/pay/ssl/ipn', { tran_id: 'TEST1001', val_id: 'fake', status: 'VALID' });
+  await call('bkash callback: fake', 'svc', 'GET', '/pay/bkash/callback?paymentID=fake&status=success');
+  await call('autocall webhook: unknown', 'svc', 'POST', '/webhook/autocall/aaaaaaaaaaaaaaaa', { digit: '1' });
+  await call('mail open pixel: bad', 'svc', 'GET', '/e/o/1/aaaaaaaaaaaaaaaa.gif');
+  await call('mail click: bad', 'svc', 'GET', '/e/c/1/aaaaaaaaaaaaaaaa');
+  await call('unsubscribe: bad', 'svc', 'GET', '/unsubscribe?e=x&t=y');
+  await call('backup tick: no secret', 'svc', 'GET', '/api/backup/tick');
+  await call('research tick: no secret', 'svc', 'GET', '/api/research/tick');
+  await call('HEAD home', 'svc', 'HEAD', '/');
+  await call('OPTIONS api', 'svc', 'OPTIONS', '/api/cart');
 
   // ---------- admin ----------
   await call('login: wrong', 'admin', 'POST', '/admin/login', { login: 'owner', password: 'wrong-password' });
