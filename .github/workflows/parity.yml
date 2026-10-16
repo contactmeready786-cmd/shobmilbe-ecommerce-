@@ -6,7 +6,7 @@ on:
     branches: [nextjs-migration]
   workflow_dispatch: {}
 permissions:
-  contents: read
+  contents: write # only to save the results on the ci-results branch
 concurrency:
   group: parity-${{ github.ref }}
   cancel-in-progress: true
@@ -40,13 +40,13 @@ jobs:
         working-directory: new
         run: |
           if [ -f package-lock.json ]; then npm ci; else npm install --no-audit --no-fund; fi
-          npm ls next react typescript --depth=0 || true
+          npm ls next react react-dom typescript --depth=0 | tee "$RUNNER_TEMP/versions.txt" || true
       - name: Type check
         working-directory: new
-        run: npx tsc --noEmit
+        run: npx tsc --noEmit 2>&1 | tee "$RUNNER_TEMP/typecheck.txt"
       - name: Build
         working-directory: new
-        run: npx next build
+        run: npx next build 2>&1 | tee "$RUNNER_TEMP/build.txt"
 
       - name: Test database (template)
         working-directory: old
@@ -61,15 +61,19 @@ jobs:
         working-directory: new
         run: node tools/parity/compare.mjs "$RUNNER_TEMP/old" "$RUNNER_TEMP/new" --show 40 | tee "$RUNNER_TEMP/compare.txt"
 
+      # Results go to the separate "ci-results" branch (text only — no shop data, test data only).
       - name: Save results
         if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: parity-results
-          retention-days: 7
-          path: |
-            ${{ runner.temp }}/compare.txt
-            ${{ runner.temp }}/*.server.log
-            ${{ runner.temp }}/new/index.json
-            ${{ runner.temp }}/old/index.json
-            new/package-lock.json
+        working-directory: new
+        run: |
+          OUT="$RUNNER_TEMP/results"; mkdir -p "$OUT"
+          cp package-lock.json "$OUT/" 2>/dev/null || true
+          for f in versions typecheck build compare; do cp "$RUNNER_TEMP/$f.txt" "$OUT/" 2>/dev/null || true; done
+          for f in "$RUNNER_TEMP"/*.server.log; do [ -f "$f" ] && tail -c 20000 "$f" > "$OUT/$(basename "$f")"; done
+          echo "${{ github.sha }} ${{ job.status }}" > "$OUT/RESULT"
+          echo '{"git":{"deploymentEnabled":false}}' > "$OUT/vercel.json"  # Vercel must never build this branch
+          cd "$OUT"
+          git init -q && git checkout -q -b ci-results
+          git -c user.name=ci -c user.email=ci@localhost add -A
+          git -c user.name=ci -c user.email=ci@localhost commit -qm "parity results for ${{ github.sha }}"
+          git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" ci-results
