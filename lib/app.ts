@@ -562,7 +562,8 @@ async function handlerInner(req: ShopRequest, res: ShopResponse) {
 // pixels) gets the bytes through this site instead, because browsers only allow that for same-site pictures.
 async function sendFromImageKit(res: ShopResponse, url?: Loose, mime?: Loose, raw?: Loose) {
   if (!raw) {
-    res.writeHead(302, { Location: url, 'Cache-Control': 'public, max-age=86400', 'X-Content-Type-Options': 'nosniff' });
+    // s-maxage: Vercel's CDN keeps the redirect too, so a new visitor's pictures don't each wake the server and database
+    res.writeHead(302, { Location: url, 'Cache-Control': 'public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800', 'X-Content-Type-Options': 'nosniff' });
     return res.end();
   }
   const r = await fetch(url, { signal: AbortSignal.timeout(12000) }).catch(() => null);
@@ -576,9 +577,9 @@ async function sendFromImageKit(res: ShopResponse, url?: Loose, mime?: Loose, ra
 async function serveMedia(res: ShopResponse, id?: Id, thumb?: Loose, raw: Loose = false) {
   const m = await catalog.getMedia(id, thumb);
   if (!m) return send(res, 404, 'Not found', 'text/plain');
-  if (m.ik_url) return sendFromImageKit(res, thumb ? $services_imagekit.thumbUrl(m.ik_url) : m.ik_url, m.mime, raw);
+  if (m.ik_url) return sendFromImageKit(res, thumb ? $services_imagekit.thumbUrl(m.ik_url, !raw) : m.ik_url, m.mime, raw);
   const safeType = /^image\/(jpeg|png|webp|gif|x-icon)$/.test(m.mime) ? m.mime : 'application/octet-stream';
-  res.writeHead(200, { 'Content-Type': safeType, 'Cache-Control': 'public, max-age=31536000, immutable', 'X-Content-Type-Options': 'nosniff',
+  res.writeHead(200, { 'Content-Type': safeType, 'Cache-Control': 'public, max-age=31536000, s-maxage=31536000, immutable', 'X-Content-Type-Options': 'nosniff',
     'Content-Security-Policy': "default-src 'none'; sandbox" });
   return res.end(m.data);
 }
@@ -593,7 +594,7 @@ async function serveWatermarked(res: ShopResponse, id: Id, settings: Settings, r
   if (!m.wm && m.ik_url) return sendFromImageKit(res, m.ik_url, m.mime, raw);
   const ready = !!(ver && m.wm);
   const safeType = ready ? 'image/jpeg' : /^image\/(jpeg|png|webp|gif|x-icon)$/.test(m.mime) ? m.mime : 'application/octet-stream';
-  res.writeHead(200, { 'Content-Type': safeType, 'Cache-Control': ready ? 'public, max-age=31536000, immutable' : 'public, max-age=120', 'X-Content-Type-Options': 'nosniff',
+  res.writeHead(200, { 'Content-Type': safeType, 'Cache-Control': ready ? 'public, max-age=31536000, s-maxage=31536000, immutable' : 'public, max-age=120, s-maxage=60', 'X-Content-Type-Options': 'nosniff',
     'Content-Security-Policy': "default-src 'none'; sandbox" });
   return res.end(ready ? m.wm : m.data);
 }
