@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // The owner's own marks on the set-up lists (🔌 সংযোগের অবস্থা, 🚀 গ্রোথ গাইড) — owner, 2026-10-13:
 //   ✓ "করা আছে"   — done another way the site can't see (e.g. Search Console verified through the domain's DNS,
 //                   not the meta tag; the domain added straight in Vercel) → shown as done.
@@ -10,21 +9,22 @@
 // set up only when the shop runs paid ads — not a problem while they are empty
 import { html } from '../util';
 import * as db from '../db';
+import type { AdminCtx, Loose, Settings } from '../types';
 const ADS_ONLY = new Set(['fb_pixel', 'fb_capi', 'fb_domain', 'tiktok_pixel', 'tiktok_events']);
 
-function marks(s) {
+function marks(s: Settings) {
   try { const m = JSON.parse((s && s.setup_marks) || '{}'); return m && typeof m === 'object' ? m : {}; } catch (_) { return {}; }
 }
 // what the owner (or the ads rule) says about one item: 'done', 'skip' or ''
-function markOf(s, key, isSetUp) {
+function markOf(s: Settings, key: Loose, isSetUp: Loose) {
   const m = marks(s)[key];
   if (m === 'done' || m === 'skip') return m;
   if (m === 'show') return '';
   if (!isSetUp && ADS_ONLY.has(key)) return 'skip';
   return '';
 }
-function buttons(key, mark, back) {
-  const f = (val, label, title) => html`<form method="post" action="/admin/setup-mark" class="mark-form">
+function buttons(key: Loose, mark: Loose, back: Loose) {
+  const f = (val: Loose, label: Loose, title: Loose) => html`<form method="post" action="/admin/setup-mark" class="mark-form">
     <input type="hidden" name="key" value="${key}"><input type="hidden" name="val" value="${val}"><input type="hidden" name="back" value="${back}">
     <button class="link-btn small" title="${title}">${label}</button></form>`;
   if (mark === 'done') return html`<span class="small muted">✔ আপনি "করা আছে" দিয়েছেন</span> ${f('', '↩️ ফেরান', 'আবার সাইটের নিজের যাচাই দেখাবে')}`;
@@ -32,7 +32,7 @@ function buttons(key, mark, back) {
   return html`${f('done', '✓ করা আছে', 'অন্যভাবে (যেমন DNS দিয়ে) করা আছে — সাইট দেখতে পায় না')} ${f('skip', '✕ দরকার নেই', 'এই সার্ভিস ব্যবহার করি না — তালিকা থেকে সরান')}`;
 }
 
-async function save(ctx) {
+async function save(ctx: AdminCtx) {
   const b = await ctx.body();
   const key = String(b.key || '').replace(/[^\w-]/g, '').slice(0, 40);
   const back = /^\/admin\/(integrations\/status|growth)(#[\w-]+)?$/.test(String(b.back || '')) ? b.back : '/admin/integrations/status';

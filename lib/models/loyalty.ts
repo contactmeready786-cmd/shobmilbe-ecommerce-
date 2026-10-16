@@ -11,7 +11,7 @@ import type { Settings } from '../types';
 
 type Id = number | null | undefined;
 
-function cfg(settings: Settings = {}) {
+function cfg(settings: Partial<Settings> = {}) {
   return {
     on: settings.loyalty_on === '1',
     earnPer: Math.max(1, Number(settings.loyalty_earn_per) || 100),

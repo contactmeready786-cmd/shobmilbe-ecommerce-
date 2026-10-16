@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // Facebook engagement posts for the auto-poster (services/autopost.js): electronics tips in plain Bangla and questions
 // that start real conversations. Each tip can name words to find a matching product in the shop ("find"), so the post
 // ends with "the part for this" and its link. Facebook demotes "like/share if…" bait, so nothing here asks for that.

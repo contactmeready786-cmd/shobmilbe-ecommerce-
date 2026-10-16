@@ -1,4 +1,4 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
+import type { Loose } from '../types';
 // 🤖 অটো SEO — what kind of part a product is, worked out from words in its name (and category).
 // Used by services/autoseo.js to write a product's description when the owner hasn't written one:
 //   what — what it is, in plain Bangla ("একটি অডিও অ্যামপ্লিফায়ার বোর্ড")
@@ -125,8 +125,8 @@ const KINDS = [
 ];
 
 // The kind for a product: name first, then category name
-function kindOf(name, categoryName = '') {
-  const tryText = (t) => {
+function kindOf(name: Loose, categoryName: Loose = '') {
+  const tryText = (t: Loose) => {
     const low = ` ${String(t || '').toLowerCase()} `;
     return KINDS.find((k) => k.words.some((w) => {
       const word = w.toLowerCase();

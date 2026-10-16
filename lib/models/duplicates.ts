@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // Duplicate product guard.
 // A new or edited product is compared with every other product of the same kind
 // (single with single, bundle with bundle) in three ways:
@@ -10,12 +9,13 @@
 // ---------------------------------------------------------------- strictness
 import { q, one } from '../db';
 import { int, str } from '../util';
-const LEVELS = {
+import type { Body, Id, Loose, Settings } from '../types';
+const LEVELS: Record<string, Loose> = {
   strict: { label: 'কড়া', titleHigh: 0.84, titleMid: 0.66, imgStrong: 38, imgWeak: 56 },
   normal: { label: 'সাধারণ (প্রস্তাবিত)', titleHigh: 0.9, titleMid: 0.75, imgStrong: 30, imgWeak: 46 },
   relaxed: { label: 'নরম', titleHigh: 0.95, titleMid: 0.86, imgStrong: 18, imgWeak: 30 },
 };
-function levelOf(settings) { return LEVELS[(settings && settings.dup_level) || 'normal'] || LEVELS.normal; }
+function levelOf(settings: Settings) { return LEVELS[(settings && settings.dup_level) || 'normal'] || LEVELS.normal; }
 
 // ---------------------------------------------------------------- names
 const BN = '০১২৩৪৫৬৭৮৯';
@@ -23,15 +23,15 @@ const BN = '০১২৩৪৫৬৭৮৯';
 const STOP = new Set(('new original orginal orignal genuine best quality high premium top price prices in bd bangladesh '
   + 'for the and with of a an hot sale offer 100 percent হট নতুন অরিজিনাল অরজিনাল আসল সেরা ভালো ভাল দাম দামে মূল্য বাংলাদেশে বাংলাদেশ '
   + 'উন্নত মানের মান এর ও এবং জন্য সাথে সহ অফার').split(/\s+/));
-const UNITS = {
-  v: 'v', volt: 'v', volts: 'v', ভোল্ট: 'v', w: 'w', watt: 'w', watts: 'w', ওয়াট: 'w', ওয়াট: 'w', a: 'a', amp: 'a', amps: 'a',
+const UNITS: Record<string, string> = {
+  v: 'v', volt: 'v', volts: 'v', ভোল্ট: 'v', w: 'w', watt: 'w', watts: 'w', ওয়াট: 'w', a: 'a', amp: 'a', amps: 'a',
   ma: 'ma', mah: 'mah', mm: 'mm', cm: 'cm', m: 'm', meter: 'm', মিটার: 'm', kg: 'kg', কেজি: 'kg', g: 'g', gm: 'g', gram: 'g', গ্রাম: 'g',
   gb: 'gb', tb: 'tb', mb: 'mb', ml: 'ml', l: 'l', ltr: 'l', liter: 'l', litre: 'l', লিটার: 'l', inch: 'inch', inches: 'inch', ইঞ্চি: 'inch',
   pcs: 'pcs', pc: 'pcs', piece: 'pcs', pieces: 'pcs', পিস: 'pcs', টি: 'pcs', hz: 'hz', khz: 'khz', mhz: 'mhz', uf: 'uf', µf: 'uf', nf: 'nf',
   pf: 'pf', k: 'k', ohm: 'ohm', ohms: 'ohm', rpm: 'rpm', x: 'x',
 };
 
-function words(name) {
+function words(name: Loose) {
   let s = String(name || '').normalize('NFC').toLowerCase()
     .replace(/[০-৯]/g, (d) => String(BN.indexOf(d)))
     .replace(/\((?:কপি|copy)\)/g, ' ')
@@ -52,7 +52,7 @@ function words(name) {
   return out.filter((w) => !STOP.has(w));
 }
 // letter pairs inside each word (order of words does not matter)
-function pairs(ws) {
+function pairs(ws: Loose) {
   const m = new Map();
   let n = 0;
   for (const w of ws) {
@@ -66,7 +66,7 @@ function pairs(ws) {
   }
   return { m, n };
 }
-function dice(a, b) {
+function dice(a: Loose, b: Body) {
   if (!a.n || !b.n) return 0;
   let both = 0;
   const [small, big] = a.m.size < b.m.size ? [a.m, b.m] : [b.m, a.m];
@@ -74,10 +74,10 @@ function dice(a, b) {
   return (2 * both) / (a.n + b.n);
 }
 // words that hold a number: model numbers and sizes (pam8403, 60w, 12v, 3p7v)
-function numberWords(ws) { return new Set(ws.filter((w) => /\d/.test(w))); }
-function sameSet(a, b) { if (a.size !== b.size) return false; for (const x of a) if (!b.has(x)) return false; return true; }
+function numberWords(ws: Loose) { return new Set(ws.filter((w: Loose) => /\d/.test(w))); }
+function sameSet(a: Loose, b: Body) { if (a.size !== b.size) return false; for (const x of a) if (!b.has(x)) return false; return true; }
 
-function prepName(name) {
+function prepName(name: Loose) {
   const ws = words(name);
   return { ws, key: ws.join(' '), sorted: [...ws].sort().join(' '), pairs: pairs(ws), nums: numberWords(ws) };
 }
@@ -85,20 +85,20 @@ function prepName(name) {
 // ---------------------------------------------------------------- pictures
 // A fingerprint is 256 bits (64 hex letters), made in the admin's browser from the picture's
 // 16 x 16 coarsest DCT patterns. Distance = how many bits differ: same photo ≈ 0-30, different photo ≈ 80+.
-function pop32(x) { x -= (x >>> 1) & 0x55555555; x = (x & 0x33333333) + ((x >>> 2) & 0x33333333); return (((x + (x >>> 4)) & 0x0f0f0f0f) * 0x01010101) >>> 24; }
-const okHash = (h) => typeof h === 'string' && /^[0-9a-f]{64}$/.test(h);
-const split = (h) => (okHash(h) ? Uint32Array.from({ length: 8 }, (_, i) => parseInt(h.slice(i * 8, i * 8 + 8), 16)) : null);
-function hamming(a, b) {
+function pop32(x: Loose) { x -= (x >>> 1) & 0x55555555; x = (x & 0x33333333) + ((x >>> 2) & 0x33333333); return (((x + (x >>> 4)) & 0x0f0f0f0f) * 0x01010101) >>> 24; }
+const okHash = (h: Loose) => typeof h === 'string' && /^[0-9a-f]{64}$/.test(h);
+const split = (h: Loose) => (okHash(h) ? Uint32Array.from({ length: 8 }, (_, i) => parseInt(h.slice(i * 8, i * 8 + 8), 16)) : null);
+function hamming(a: Loose, b: Loose) {
   const x = typeof a === 'string' ? split(a) : a;
   const y = typeof b === 'string' ? split(b) : b;
   let d = 0;
   for (let i = 0; i < 8; i++) d += pop32((x[i] ^ y[i]) >>> 0);
   return d;
 }
-const similarity = (d) => Math.max(0, Math.round(100 * (1 - d / 128)));
-function prepImage(m) { return { sha: m.sha || null, h: split(m.phash), hm: split(m.phash_m) }; }
+const similarity = (d: Loose) => Math.max(0, Math.round(100 * (1 - d / 128)));
+function prepImage(m: Loose) { return { sha: m.sha || null, h: split(m.phash), hm: split(m.phash_m) }; }
 // smallest picture distance between two products (0 = same picture)
-function imageDistance(newImgs, oldImgs) {
+function imageDistance(newImgs: Loose, oldImgs: Loose) {
   let best = 999;
   for (const a of newImgs) {
     for (const b of oldImgs) {
@@ -113,8 +113,8 @@ function imageDistance(newImgs, oldImgs) {
 }
 
 // ---------------------------------------------------------------- compare two products
-const bnNum = (n) => String(n).replace(/\d/g, (d) => BN[d]);
-function compare(a, b, lv, { sameDesc = false } = {}) {
+const bnNum = (n: Loose) => String(n).replace(/\d/g, (d) => BN[Number(d)]);
+function compare(a: Loose, b: Loose, lv: Loose, { sameDesc = false }: Body = {}) {
   const reasons = [];
   let block = false;
   let warn = false;
@@ -157,11 +157,11 @@ function compare(a, b, lv, { sameDesc = false } = {}) {
 }
 
 // ---------------------------------------------------------------- loading
-const youtubeKey = (u) => { const m = String(u || '').match(/[?&]v=([A-Za-z0-9_-]{11})/); return m ? m[1] : ''; };
+const youtubeKey = (u: Loose) => { const m = String(u || '').match(/[?&]v=([A-Za-z0-9_-]{11})/); return m ? m[1] : ''; };
 const DESC_HASH = `md5(lower(regexp_replace(coalesce(description,''), '\\s', '', 'g')))`;
 const DESC_LEN = `length(regexp_replace(coalesce(description,''), '\\s', '', 'g'))`;
 
-async function loadCatalog(type, exceptId = 0) {
+async function loadCatalog(type: Loose, exceptId: Id = 0): Promise<Loose[]> {
   const rows = await q(`SELECT p.id, p.name, p.sku, p.slug, p.active, p.price, p.image_id, p.emoji, p.youtube_url, p.allow_duplicate,
       p.created_at, CASE WHEN ${DESC_LEN} >= 60 THEN ${DESC_HASH} ELSE NULL END AS desc_hash
     FROM products p WHERE p.product_type=$1 AND p.id<>$2 AND p.parent_id IS NULL`, [type, int(exceptId)]);
@@ -174,7 +174,7 @@ async function loadCatalog(type, exceptId = 0) {
 
 // Is this product (new or being edited) a copy of another one?
 // data: { id, name, description, images: [media ids], product_type, youtube_url }
-async function findDuplicates(data, settings) {
+async function findDuplicates(data: Body, settings: Settings) {
   const lv = levelOf(settings);
   const type = data.product_type === 'bundle' ? 'bundle' : 'single';
   const id = int(data.id);
@@ -200,19 +200,19 @@ async function findDuplicates(data, settings) {
 }
 
 // Whole-catalog scan: groups of products that look like copies of each other.
-async function scanCatalog(settings, { includeAllowed = false } = {}) {
+async function scanCatalog(settings: Settings, { includeAllowed = false }: Body = {}) {
   const lv = levelOf(settings);
   const pairsOut = [];
   for (const type of ['single', 'bundle']) {
     const all = (await loadCatalog(type)).filter((p) => includeAllowed || !p.allow_duplicate);
     // Only compare products that share a word, a picture or a description (fast enough for thousands).
-    const cand = new Set();
-    const pair = (i, j) => { if (i !== j) cand.add(i < j ? i * 100000 + j : j * 100000 + i); };
+    const cand = new Set<number>();
+    const pair = (i: Loose, j: Loose) => { if (i !== j) cand.add(i < j ? i * 100000 + j : j * 100000 + i); };
     const index = new Map();
-    const add = (k, i) => { if (!index.has(k)) index.set(k, []); index.get(k).push(i); };
-    const flat = [];
+    const add = (k: Loose, i: Loose) => { if (!index.has(k)) index.set(k, []); index.get(k).push(i); };
+    const flat: Loose[] = [];
     all.forEach((p, i) => {
-      new Set(p.name.ws.filter((w) => Array.from(w).length >= 3)).forEach((w) => add('w:' + w, i));
+      new Set(p.name.ws.filter((w: Loose) => Array.from(w).length >= 3)).forEach((w) => add('w:' + w, i));
       for (const im of p.images) {
         if (im.sha) add('s:' + im.sha, i);
         if (im.h) flat.push([i, im.h, im.hm]);
@@ -243,8 +243,8 @@ async function scanCatalog(settings, { includeAllowed = false } = {}) {
   }
   // join pairs into groups
   const parent = new Map();
-  const find = (x) => { while (parent.get(x) !== x) { parent.set(x, parent.get(parent.get(x))); x = parent.get(x); } return x; };
-  const unite = (x, y) => { [x, y].forEach((v) => { if (!parent.has(v)) parent.set(v, v); }); parent.set(find(x), find(y)); };
+  const find = (x: Loose) => { while (parent.get(x) !== x) { parent.set(x, parent.get(parent.get(x))); x = parent.get(x); } return x; };
+  const unite = (x: Loose, y: Loose) => { [x, y].forEach((v) => { if (!parent.has(v)) parent.set(v, v); }); parent.set(find(x), find(y)); };
   pairsOut.forEach((p) => unite(p.older.id, p.newer.id));
   const groups = new Map();
   for (const p of pairsOut) {

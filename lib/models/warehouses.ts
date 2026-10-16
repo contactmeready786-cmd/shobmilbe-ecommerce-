@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // 🏬 Stores / branches (গুদাম ও শাখা).
 // The shop's total stock of a product stays where it always was (products.stock — the online shop sells from it).
 // Each extra store keeps its own count; the "মূল গুদাম" (main store, where online orders are packed) is whatever is left:
@@ -7,38 +6,40 @@
 // between stores; a counter sale at a branch (POS) takes from that branch (and from the total).
 import * as db from '../db';
 import { str, int } from '../util';
+import type { Body, Id, Loose } from '../types';
+import type { Tx } from '../pg';
 
 class WhError extends Error {}
 
-async function list({ activeOnly = false } = {}) {
+async function list({ activeOnly = false }: Body = {}) {
   return db.q(`SELECT w.*, coalesce(sum(s.qty),0)::int AS units, count(s.product_id) FILTER (WHERE s.qty > 0)::int AS products
     FROM warehouses w LEFT JOIN warehouse_stock s ON s.warehouse_id=w.id ${activeOnly ? 'WHERE w.active' : ''} GROUP BY w.id ORDER BY w.sort, w.id`);
 }
-async function get(id) { return db.one('SELECT * FROM warehouses WHERE id=$1', [int(id)]); }
-async function save(b) {
+async function get(id: Id) { return db.one('SELECT * FROM warehouses WHERE id=$1', [int(id)]); }
+async function save(b: Body) {
   const name = str(b.name, 80);
   if (name.length < 2) throw new WhError('গুদাম / শাখার নাম দিন।');
   const id = int(b.id);
   const v = [name, str(b.address, 300), str(b.phone, 30), !!b.is_shop, b.active === undefined ? true : !!b.active, int(b.sort), str(b.note, 300)];
   if (id) { await db.q('UPDATE warehouses SET name=$1, address=$2, phone=$3, is_shop=$4, active=$5, sort=$6, note=$7 WHERE id=$8', [...v, id]); return id; }
-  return (await db.one('INSERT INTO warehouses(name, address, phone, is_shop, active, sort, note) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING id', v)).id;
+  return (await db.one('INSERT INTO warehouses(name, address, phone, is_shop, active, sort, note) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING id', v))!.id;
 }
 
 // How many pieces of these products each store has, plus the main store. → Map(product_id → { total, main, by: { whId: qty } })
-async function stockFor(productIds) {
-  const ids = (productIds || []).map((x) => int(x)).filter((x) => x > 0);
+async function stockFor(productIds: Loose) {
+  const ids = (productIds || []).map((x: Loose) => int(x)).filter((x: Loose) => x > 0);
   if (!ids.length) return new Map();
   const [prods, rows] = await Promise.all([
     db.q('SELECT id, stock FROM products WHERE id = ANY($1::int[])', [ids]),
     db.q('SELECT warehouse_id, product_id, qty FROM warehouse_stock WHERE product_id = ANY($1::int[])', [ids]),
   ]);
-  const m = new Map(prods.map((p) => [p.id, { total: p.stock, main: p.stock, by: {} }]));
+  const m = new Map(prods.map((p) => [p.id, { total: p.stock, main: p.stock, by: {} as Record<string, number> }]));
   rows.forEach((r) => { const x = m.get(r.product_id); if (x) { x.by[r.warehouse_id] = r.qty; x.main -= r.qty; } });
   return m;
 }
 // One store's products (with the main store's count beside it).
-async function storeStock(whId, { q = '', limit = 200 } = {}) {
-  const params = [int(whId)];
+async function storeStock(whId: Id, { q = '', limit = 200 }: Body = {}) {
+  const params: unknown[] = [int(whId)];
   let where = 's.warehouse_id=$1 AND s.qty > 0';
   if (q) { params.push(`%${q}%`); where += ` AND (p.name ILIKE $2 OR p.sku ILIKE $2 OR p.barcode ILIKE $2)`; }
   params.push(limit);
@@ -48,7 +49,7 @@ async function storeStock(whId, { q = '', limit = 200 } = {}) {
 }
 
 // Move pieces from one store to another (0 / null = the main store).
-async function transfer({ productId, qty, from, to, note }, staffId) {
+async function transfer({ productId, qty, from, to, note }: Body, staffId: Id) {
   const n = int(qty);
   const f = int(from) || null; const tw = int(to) || null;
   if (n < 1) throw new WhError('কয়টা সরাবেন লিখুন।');
@@ -79,7 +80,7 @@ async function transfer({ productId, qty, from, to, note }, staffId) {
   });
 }
 // A branch's count corrected after counting the shelf (the difference comes from / goes to the main store).
-async function setCount(whId, productId, qty, staffId) {
+async function setCount(whId: Id, productId: Id, qty: Loose, staffId: Id) {
   const n = Math.max(0, int(qty));
   return db.tx(async (t) => {
     const p = (await t.query('SELECT id, name, stock FROM products WHERE id=$1 FOR UPDATE', [int(productId)])).rows[0];
@@ -94,7 +95,7 @@ async function setCount(whId, productId, qty, staffId) {
     return { name: p.name, was, now: n };
   });
 }
-async function moves({ whId = null, limit = 60 } = {}) {
+async function moves({ whId = null, limit = 60 }: Body = {}) {
   const params = [];
   let where = '';
   if (whId) { params.push(int(whId)); where = 'WHERE m.from_wh=$1 OR m.to_wh=$1'; }

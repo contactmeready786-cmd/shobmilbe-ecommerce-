@@ -7,17 +7,23 @@
 import * as db from '../db';
 import { str, int, amount, round2, randomCode, normalizePhone, validPhone, ymd, bn } from '../util';
 import * as $services_sms from '../services/sms';
+import type { DbRow, Tx } from '../pg';
+import type { Settings } from '../types';
+
+type Id = number | string | null | undefined;
 
 class GiftError extends Error {}
-const STATUSES = { pending: 'পেমেন্ট যাচাইয়ের অপেক্ষায়', active: 'চালু', used: 'শেষ (টাকা নেই)', disabled: 'বন্ধ', expired: 'মেয়াদ শেষ' };
+const STATUSES: Record<string, string> = { pending: 'পেমেন্ট যাচাইয়ের অপেক্ষায়', active: 'চালু', used: 'শেষ (টাকা নেই)', disabled: 'বন্ধ', expired: 'মেয়াদ শেষ' };
 
-const cleanCode = (c) => String(c || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
-function newCode() { const r = randomCode(8); return `GC${r.slice(0, 4)}${r.slice(4)}`; }
+const cleanCode = (c: unknown): string => String(c || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+function newCode(): string { const r = randomCode(8); return `GC${r.slice(0, 4)}${r.slice(4)}`; }
 // GC7KQ29XMP → GC-7KQ2-9XMP (easier to read out on the phone)
-function pretty(code) { const c = cleanCode(code); return c.length === 10 ? `${c.slice(0, 2)}-${c.slice(2, 6)}-${c.slice(6)}` : c; }
+function pretty(code: unknown): string { const c = cleanCode(code); return c.length === 10 ? `${c.slice(0, 2)}-${c.slice(2, 6)}-${c.slice(6)}` : c; }
 
+type NewCard = { amount: unknown; status?: string; source?: string; buyerName?: unknown; buyerPhone?: unknown; recipientName?: unknown; recipientPhone?: unknown; message?: unknown;
+  validDays?: unknown; payMethod?: unknown; trxId?: unknown; payNumber?: unknown; price?: unknown; customerId?: Id; note?: unknown; staffId?: Id; ip?: unknown };
 async function issue({ amount: amt, status = 'active', source = 'admin', buyerName = '', buyerPhone = '', recipientName = '', recipientPhone = '', message = '',
-  validDays = 0, payMethod = '', trxId = '', payNumber = '', price = null, customerId = null, note = '', staffId = null, ip = '' }) {
+  validDays = 0, payMethod = '', trxId = '', payNumber = '', price = null, customerId = null, note = '', staffId = null, ip = '' }: NewCard): Promise<DbRow> {
   const a = round2(amount(amt));
   if (!(a >= 1) || a > 100000) throw new GiftError('গিফট কার্ডের টাকার পরিমাণ ঠিক নেই।');
   const rp = recipientPhone ? normalizePhone(recipientPhone) : '';
@@ -39,7 +45,7 @@ async function issue({ amount: amt, status = 'active', source = 'admin', buyerNa
 }
 
 // The SMS with the code, to the receiver.
-async function sendCodeSms(settings, card) {
+async function sendCodeSms(settings: Settings, card: DbRow): Promise<unknown> {
   const SMS = $services_sms;
   if (!card.recipient_phone || !SMS.ready(settings).ok) return { ok: false, msg: 'SMS চালু নেই বা নম্বর নেই' };
   const tpl = String(settings.gift_sms || '').trim() || '{shop}: আপনার জন্য {amount} টাকার গিফট কার্ড{from}! কোড: {code}{expiry}। চেকআউটে কোডটা দিন।{message}';
@@ -51,7 +57,7 @@ async function sendCodeSms(settings, card) {
 }
 
 // For the checkout box: is this a usable card, and how much is on it?
-async function check(code) {
+async function check(code: unknown) {
   const c = await db.one('SELECT * FROM gift_cards WHERE code=$1', [cleanCode(code)]);
   if (!c) return { ok: false, message: 'এই গিফট কার্ড কোডটা সঠিক নয়।' };
   if (c.status === 'pending') return { ok: false, message: 'এই গিফট কার্ডের পেমেন্ট এখনো যাচাই হয়নি।' };
@@ -62,7 +68,7 @@ async function check(code) {
 }
 
 // Inside the order: take up to `want` from the card (locked, so two orders can't spend the same money).
-async function spend(t, code, want, orderId) {
+async function spend(t: Tx, code: unknown, want: number, orderId: number): Promise<{ code: string; amount: number } | null> {
   const c = (await t.query('SELECT * FROM gift_cards WHERE code=$1 FOR UPDATE', [cleanCode(code)])).rows[0];
   const ok = c && c.status === 'active' && Number(c.balance) > 0 && !(c.expires_on && String(c.expires_on).slice(0, 10) < ymd());
   if (!ok) return null;
@@ -74,7 +80,7 @@ async function spend(t, code, want, orderId) {
   return { code: c.code, amount: take };
 }
 // A cancelled / returned order: the card money comes back (once).
-async function refundOrder(orderId, staffId = null) {
+async function refundOrder(orderId: number, staffId: Id = null) {
   return db.tx(async (t) => {
     const o = (await t.query('SELECT id, code, gift_code, gift_amount, paid_amount FROM orders WHERE id=$1 FOR UPDATE', [int(orderId)])).rows[0];
     if (!o || !o.gift_code || !(Number(o.gift_amount) > 0)) return null;
@@ -91,7 +97,7 @@ async function refundOrder(orderId, staffId = null) {
   });
 }
 // Again taken when a cancelled order is switched back on (if the card still has the money).
-async function respendOrder(orderId) {
+async function respendOrder(orderId: number) {
   return db.tx(async (t) => {
     const o = (await t.query('SELECT id, gift_code, gift_amount, total, paid_amount FROM orders WHERE id=$1 FOR UPDATE', [int(orderId)])).rows[0];
     if (!o || !o.gift_code || !(Number(o.gift_amount) > 0)) return null;
@@ -106,8 +112,8 @@ async function respendOrder(orderId) {
   });
 }
 
-async function list({ status = '', q = '', limit = 100 } = {}) {
-  const params = []; const where = [];
+async function list({ status = '', q = '', limit = 100 }: { status?: string; q?: string; limit?: number } = {}): Promise<DbRow[]> {
+  const params: unknown[] = []; const where: string[] = [];
   if (STATUSES[status]) { params.push(status); where.push(`g.status=$${params.length}`); }
   if (q) { params.push(`%${cleanCode(q) || q}%`, `%${q}%`); where.push(`(g.code ILIKE $${params.length - 1} OR g.recipient_phone ILIKE $${params.length} OR g.buyer_phone ILIKE $${params.length} OR g.recipient_name ILIKE $${params.length})`); }
   params.push(limit);
@@ -119,23 +125,23 @@ async function stats() {
     coalesce(sum(initial) FILTER (WHERE status<>'pending' AND source<>'referral'),0)::numeric(14,2) AS sold,
     coalesce(sum(initial) FILTER (WHERE source='referral'),0)::numeric(14,2) AS rewards FROM gift_cards`);
 }
-async function get(id) { return db.one('SELECT * FROM gift_cards WHERE id=$1', [int(id)]); }
-async function ledger(cardId) {
+async function get(id: unknown): Promise<DbRow | null> { return db.one('SELECT * FROM gift_cards WHERE id=$1', [int(id)]); }
+async function ledger(cardId: unknown): Promise<DbRow[]> {
   return db.q(`SELECT l.*, o.code AS order_code, s.name AS staff_name FROM gift_card_ledger l LEFT JOIN orders o ON o.id=l.order_id LEFT JOIN staff s ON s.id=l.staff_id
     WHERE l.card_id=$1 ORDER BY l.id`, [int(cardId)]);
 }
-async function forPhone(phone) {
+async function forPhone(phone: unknown): Promise<DbRow[]> {
   const ph = normalizePhone(phone);
   return db.q(`SELECT * FROM gift_cards WHERE (recipient_phone=$1 OR buyer_phone=$1) ORDER BY id DESC LIMIT 30`, [ph]);
 }
-async function setStatus(id, status, staffId, note = '') {
+async function setStatus(id: unknown, status: string, staffId: Id, note = '') {
   if (!STATUSES[status]) throw new GiftError('অজানা অবস্থা।');
   const c = await db.one(`UPDATE gift_cards SET status=$1, activated_at = CASE WHEN $1='active' THEN coalesce(activated_at, now()) ELSE activated_at END,
     note = CASE WHEN $3<>'' THEN left(note || ' ' || $3, 300) ELSE note END WHERE id=$2 RETURNING *`, [status, int(id), str(note, 100)]);
   if (c) await db.q('INSERT INTO gift_card_ledger(card_id, amount, balance, note, staff_id) VALUES($1,0,$2,$3,$4)', [c.id, c.balance, `অবস্থা: ${STATUSES[status]}`, staffId]);
   return c;
 }
-async function adjust(id, change, note, staffId) {
+async function adjust(id: unknown, change: unknown, note: unknown, staffId: Id) {
   return db.tx(async (t) => {
     const c = (await t.query('SELECT * FROM gift_cards WHERE id=$1 FOR UPDATE', [int(id)])).rows[0];
     if (!c) throw new GiftError('কার্ড পাওয়া যায়নি।');
@@ -149,12 +155,12 @@ async function adjust(id, change, note, staffId) {
 }
 
 // ---------------------------------------------------------------- referral
-function refCfg(s) {
+function refCfg(s: Settings) {
   return { on: s.ref_on === '1', friendGets: Math.max(0, Number(s.ref_friend_amount) || 0), friendMin: Math.max(0, Number(s.ref_friend_min) || 0),
     youGet: Math.max(0, Number(s.ref_reward_amount) || 0), validDays: Math.max(0, int(s.ref_reward_days, 90)) };
 }
 // The customer's own referral code (made the first time it is needed): e.g. RAHIM-K7
-async function refCodeFor(customerId) {
+async function refCodeFor(customerId: unknown): Promise<string | null> {
   const c = await db.one('SELECT id, name, ref_code FROM customers WHERE id=$1', [int(customerId)]);
   if (!c) return null;
   if (c.ref_code) return c.ref_code;
@@ -168,13 +174,14 @@ async function refCodeFor(customerId) {
   }
   return null;
 }
-async function referrerFor(code) {
+async function referrerFor(code: unknown): Promise<DbRow | null> {
   const c = cleanCode(code);
   if (!c || c.length < 4) return null;
   return db.one('SELECT id, name, phone, ref_code FROM customers WHERE upper(ref_code)=$1', [c]);
 }
 // May this phone use this referral code? (a new customer, not the code's own owner, order big enough)
-async function checkReferral(settings, code, phone, subtotal, exceptOrderId = 0) {
+type ReferralCheck = { ok: boolean; message: string; discount?: number; referrer?: DbRow };
+async function checkReferral(settings: Settings, code: unknown, phone: unknown, subtotal: number, exceptOrderId: unknown = 0): Promise<ReferralCheck> {
   const R = refCfg(settings);
   if (!R.on || !R.friendGets) return { ok: false, message: 'এই কোডটা সঠিক নয়।' };
   const ref = await referrerFor(code);
@@ -183,13 +190,13 @@ async function checkReferral(settings, code, phone, subtotal, exceptOrderId = 0)
   if (!validPhone(ph)) return { ok: false, message: 'রেফারেল কোড দিতে আগে আপনার মোবাইল নম্বর লিখুন।' };
   if (ph === ref.phone) return { ok: false, message: 'নিজের রেফারেল কোড নিজে ব্যবহার করা যায় না।' };
   const before = await db.one(`SELECT count(*)::int AS n FROM orders WHERE phone=$1 AND status <> 'cancelled' AND id <> $2`, [ph, int(exceptOrderId)]);
-  if (before.n > 0) return { ok: false, message: 'রেফারেল কোড শুধু নতুন কাস্টমারের প্রথম অর্ডারে চলে।' };
+  if (before!.n > 0) return { ok: false, message: 'রেফারেল কোড শুধু নতুন কাস্টমারের প্রথম অর্ডারে চলে।' };
   if (R.friendMin && subtotal < R.friendMin) return { ok: false, message: `রেফারেল ছাড় পেতে কমপক্ষে ৳${bn(R.friendMin)} এর পণ্য কিনতে হবে।` };
   const discount = round2(Math.min(R.friendGets, subtotal));
   return { ok: true, referrer: ref, discount, message: `রেফারেল কোড যোগ হয়েছে — ৳${bn(discount)} ছাড়!` };
 }
 // The friend's first order was delivered: the person who shared the code gets the gift card (once).
-async function rewardReferral(settings, orderId) {
+async function rewardReferral(settings: Settings, orderId: number): Promise<DbRow | null> {
   const R = refCfg(settings);
   if (!R.on || !R.youGet) return null;
   const o = await db.one(`UPDATE orders SET ref_rewarded=true WHERE id=$1 AND ref_by IS NOT NULL AND NOT ref_rewarded AND status='delivered' RETURNING id, code, ref_by, customer_name`, [int(orderId)]);
@@ -201,7 +208,7 @@ async function rewardReferral(settings, orderId) {
   await sendCodeSms(settings, card).catch(() => null);
   return card;
 }
-async function referralStats(customerId) {
+async function referralStats(customerId: unknown) {
   return db.one(`SELECT count(*)::int AS joined, count(*) FILTER (WHERE ref_rewarded)::int AS rewarded FROM orders WHERE ref_by=$1 AND status<>'cancelled'`, [int(customerId)]);
 }
 

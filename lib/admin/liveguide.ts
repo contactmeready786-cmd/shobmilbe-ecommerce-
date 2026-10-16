@@ -1,10 +1,10 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // 🧭 "এখন কী করবেন" — a live guideline panel for the owner (shown on গ্রোথ গাইড and কাস্টমারের কাছে পৌঁছান).
 // Every tip is worked out fresh from: the time right now in Dhaka, the day of the week, the season and
 // upcoming Bangladeshi occasions, and the shop's own live numbers (visitors, carts, incomplete orders,
 // stock, trending products). The panel refreshes itself every minute while the page is open.
 import { html, bn } from '../util';
 import * as db from '../db';
+import type { Body, Loose } from '../types';
 
 const DAY = 864e5;
 const BN_MONTHS = ['জানুয়ারি', 'ফেব্রুয়ারি', 'মার্চ', 'এপ্রিল', 'মে', 'জুন', 'জুলাই', 'আগস্ট', 'সেপ্টেম্বর', 'অক্টোবর', 'নভেম্বর', 'ডিসেম্বর'];
@@ -28,7 +28,7 @@ const MOON_DAYS = [
   ['2028-02-27', 'ঈদুল ফিতর (আনুমানিক)', 'ঈদের ১০-১৪ দিন আগে থেকে ঈদ অফার; কুরিয়ারের শেষ তারিখ জানিয়ে দিন।'],
 ];
 // What sells by season (by month)
-function seasonTip(month) {
+function seasonTip(month: Loose) {
   if ([11, 12, 1].includes(month)) return ['❄️', 'শীতের মৌসুম', 'রুম হিটার/গিজারের পার্টস, হিটার কয়েল, ট্রিমার, পাওয়ার ব্যাংক, লাইট — এগুলো সামনে রাখুন। দিন ছোট, সন্ধ্যা ৭-১১টায় সবচেয়ে বেশি কেনাকাটা।'];
   if ([2].includes(month)) return ['🌸', 'বসন্ত ও বিয়ের মৌসুম', 'গিফট আইটেম, ডেকোরেশন লাইট, ফ্যাশন — উপহারের বান্ডেল বানিয়ে দিন।'];
   if ([3, 4, 5].includes(month)) return ['☀️', 'গরমের মৌসুম', 'এসি রিমোট, ফ্যানের ক্যাপাসিটর/মোটর, রিচার্জেবল ফ্যান, কুলিং পার্টস — এখন চাহিদা সবচেয়ে বেশি। স্টক আগে থেকে বাড়ান।'];
@@ -40,9 +40,9 @@ function dhakaNow() {
   const d = new Date(Date.now() + 6 * 3600e3); // Asia/Dhaka is UTC+6 all year (no daylight saving)
   return { y: d.getUTCFullYear(), m: d.getUTCMonth() + 1, day: d.getUTCDate(), wd: d.getUTCDay(), h: d.getUTCHours(), min: d.getUTCMinutes(), ts: Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()) };
 }
-const bnTime = (h, m) => `${bn(((h + 11) % 12) + 1)}:${bn(String(m).padStart(2, '0'))} ${h < 12 ? 'সকাল' : h < 16 ? 'দুপুর' : h < 19 ? 'বিকেল' : 'রাত'}`;
+const bnTime = (h: Loose, m: Loose) => `${bn(((h + 11) % 12) + 1)}:${bn(String(m).padStart(2, '0'))} ${h < 12 ? 'সকাল' : h < 16 ? 'দুপুর' : h < 19 ? 'বিকেল' : 'রাত'}`;
 
-function timeTip(t) {
+function timeTip(t: Loose) {
   const { h, wd } = t;
   const weekend = wd === 5 || wd === 6; // Friday, Saturday
   if (h >= 0 && h < 7) return ['🌙', 'এখন গভীর রাত', 'নতুন পোস্ট না দিয়ে কাল সকালের পোস্ট শিডিউল করে রাখুন (সকাল ৯-১০টা)। রাতে আসা অর্ডারগুলো সকালেই কনফার্ম করবেন।'];
@@ -53,8 +53,8 @@ function timeTip(t) {
 }
 
 async function liveNumbers() {
-  const one = async (sql) => { try { return (await db.q(sql))[0] || {}; } catch (_) { return {}; } };
-  const many = async (sql) => { try { return await db.q(sql); } catch (_) { return []; } };
+  const one = async (sql: Loose) => { try { return (await db.q(sql))[0] || {}; } catch (_) { return {}; } };
+  const many = async (sql: Loose) => { try { return await db.q(sql); } catch (_) { return []; } };
   const [now, carts, drafts, pending, trend, emptyHot] = await Promise.all([
     one(`SELECT (SELECT count(*) FROM visit_sessions WHERE last_seen > now() - interval '5 minutes')::int AS online,
       (SELECT count(DISTINCT visitor_id) FROM page_views WHERE created_at > now() - interval '24 hours')::int AS visitors24,
@@ -101,8 +101,8 @@ async function tips() {
   const soon = [];
   for (const [m, d, name, what] of FIXED_DAYS) {
     for (const y of [t.y, t.y + 1]) {
-      const days = Math.round((Date.UTC(y, m - 1, d) - t.ts) / DAY);
-      if (days >= 0 && days <= 21) soon.push({ days, name, what, date: `${bn(d)} ${BN_MONTHS[m - 1]}` });
+      const days = Math.round((Date.UTC(y, Number(m) - 1, Number(d)) - t.ts) / DAY);
+      if (days >= 0 && days <= 21) soon.push({ days, name, what, date: `${bn(d)} ${BN_MONTHS[Number(m) - 1]}` });
     }
   }
   for (const [iso, name, what] of MOON_DAYS) {

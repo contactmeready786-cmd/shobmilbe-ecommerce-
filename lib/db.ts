@@ -1565,7 +1565,7 @@ const ENCRYPTED_KEYS = new Set([...SECRET_KEYS, 'bkash_app_key', 'steadfast_api_
   .filter((k) => k !== 'session_secret'));
 async function getSettings(): Promise<Settings> {
   const rows = await q<{ key: string; value: string | null }>('SELECT key, value FROM settings');
-  const s: Settings = { ...DEFAULT_SETTINGS };
+  const s = { ...DEFAULT_SETTINGS } as Settings; // session_secret is always there (ensureReady makes it)
   let locked = 0;
   const lockedKeys: string[] = [];
   rows.forEach((r) => {

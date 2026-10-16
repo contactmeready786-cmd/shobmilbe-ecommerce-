@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // Automatic categories (স্বয়ংক্রিয় ক্যাটাগরি): reads each product's name and puts it in the right
 // main category → sub-category (→ sub-sub-category). Remotes are also split by AC / TV / box and by
 // company (Walton, Singer, LG …). The tree follows how Bangladeshi electronics & gadget shops
@@ -11,6 +10,8 @@
 // ---------------------------------------------------------------- the tree
 // [slug, name, icon, children]
 import { q, tx } from '../db';
+import type { Body, Loose, Settings } from '../types';
+import type { Tx } from '../pg';
 const TREE = [
   ['electronics', 'ইলেকট্রনিক্স', '📟', [
     ['circuits', 'সার্কিট ও মডিউল', '🧩', [
@@ -102,8 +103,8 @@ const BRANDS = [
 const UNIVERSAL = /universal|1000 in 1|\d+ brands|master remote/;
 
 // ---------------------------------------------------------------- rules (first match wins)
-const R = [];
-const rule = (slug, re, not) => R.push([slug, re, not || null]);
+const R: Loose[] = [];
+const rule = (slug: Loose, re: Loose, not?: Loose) => R.push([slug, re, not || null]);
 // fashion / home first (their words are clear)
 rule('digital-products', /gift ?card|license key|licen[cs]e|activation key|product key|subscription|premium account|e-?book|online course|software|ডিজিটাল/);
 rule('packaging', /bubble ?wrap|carton|courier (bag|poly|flyer)|poly ?bag|polythene|zipper bag|zip ?lock bag|packaging|packing (box|bag|material)|stretch (film|wrap)|shrink wrap|mailer (bag|box)|প্যাকেজিং|কার্টন/);
@@ -157,12 +158,12 @@ rule('fuse', /fuse/);
 // last chance: an un-named board/module/circuit
 rule('circuits', /module|board|circuit|সার্কিট/);
 
-function norm(name) {
-  return String(name || '').toLowerCase().replace(/[০-৯]/g, (d) => '০১২৩৪৫৬৭৮৯'.indexOf(d)).replace(/[_]+/g, ' ').replace(/\s+/g, ' ');
+function norm(name: Loose) {
+  return String(name || '').toLowerCase().replace(/[০-৯]/g, (d) => String('০১২৩৪৫৬৭৮৯'.indexOf(d))).replace(/[_]+/g, ' ').replace(/\s+/g, ' ');
 }
 
 // Remote? → { kind: 'ac-remote'|'tv-remote'|'box-remote', brand: slug|'universal'|null }
-function remoteOf(n) {
+function remoteOf(n: Loose) {
   if (!/remote|রিমোট/.test(n)) return null;
   if (/(switch|lamp holder|remote control device|timer switch)/.test(n)) return null;
   let kind;
@@ -182,7 +183,7 @@ function remoteOf(n) {
 }
 
 // slug for one product name (remotes: the type; the brand is handled when applying)
-function classify(name) {
+function classify(name: Loose) {
   const n = norm(name);
   const r = remoteOf(n);
   if (r) return { slug: r.kind, remote: r };
@@ -191,32 +192,32 @@ function classify(name) {
   }
   return null;
 }
-function suggest(name) { const c = classify(name); return c ? c.slug : null; }
+function suggest(name: Loose) { const c = classify(name); return c ? c.slug : null; }
 
 // ---------------------------------------------------------------- saving
 function flatTree() {
-  const out = [];
-  const walk = (nodes, parent) => nodes.forEach(([slug, name, icon, kids], i) => {
+  const out: Loose[] = [];
+  const walk = (nodes: Loose, parent: Loose) => nodes.forEach(([slug, name, icon, kids]: Loose[], i: number) => {
     out.push({ slug, name, icon, parent, sort: i });
     if (kids) walk(kids, slug);
   });
   walk(TREE, null);
   return out;
 }
-const SEED_NAMES = { electronics: 'ইলেকট্রনিক্স', circuits: 'সার্কিট', components: 'কম্পোনেন্ট', soldering: 'সোল্ডারিং', electrical: 'ইলেকট্রিক্যাল', fashion: 'ফ্যাশন' };
+const SEED_NAMES: Record<string, string> = { electronics: 'ইলেকট্রনিক্স', circuits: 'সার্কিট', components: 'কম্পোনেন্ট', soldering: 'সোল্ডারিং', electrical: 'ইলেকট্রিক্যাল', fashion: 'ফ্যাশন' };
 
 // Create (or put in place) the categories with these slugs, parents first. Returns slug → id.
-async function ensureCategories(t, wanted) {
+async function ensureCategories(t: Tx, wanted: Loose) {
   const all = flatTree();
-  const need = new Set();
-  const add = (slug) => {
+  const need = new Set<string>();
+  const add = (slug: Loose) => {
     const node = all.find((x) => x.slug === slug) || wanted.extra.get(slug);
     if (!node || need.has(slug)) return;
     if (node.parent) add(node.parent);
     need.add(slug);
   };
   wanted.slugs.forEach(add);
-  const ids = new Map();
+  const ids = new Map<string, number>();
   for (const slug of need) {
     const node = all.find((x) => x.slug === slug) || wanted.extra.get(slug);
     const parentId = node.parent ? ids.get(node.parent) : null;
@@ -237,13 +238,13 @@ async function ensureCategories(t, wanted) {
 }
 
 // What every product would get. Remote brands get a sub-category only when there are enough of them.
-async function plan({ ids = null } = {}) {
+async function plan({ ids = null }: Body = {}) {
   const products = await q(`SELECT p.id, p.name, p.category_id, c.slug AS category_slug, c.name AS category_name
     FROM products p LEFT JOIN categories c ON c.id=p.category_id WHERE p.parent_id IS NULL ${ids ? 'AND p.id = ANY($1::int[])' : ''} ORDER BY p.id`, ids ? [ids] : []);
-  const rows = products.map((p) => ({ ...p, c: classify(p.name) }));
+  const rows: Loose[] = products.map((p) => ({ ...p, c: classify(p.name) }));
   // brand counts per remote kind (whole shop, so small brands still group well later)
-  const allRemotes = (await q('SELECT name FROM products')).map((p) => remoteOf(norm(p.name))).filter(Boolean);
-  const count = new Map();
+  const allRemotes = (await q('SELECT name FROM products')).map((p) => remoteOf(norm(p.name))).filter((x): x is NonNullable<typeof x> => !!x);
+  const count = new Map<string, number>();
   for (const r of allRemotes) if (r.brand) count.set(r.kind + '|' + r.brand, (count.get(r.kind + '|' + r.brand) || 0) + 1);
   const all = flatTree();
   const extra = new Map();
@@ -252,7 +253,7 @@ async function plan({ ids = null } = {}) {
     let slug = r.c.slug;
     if (r.c.remote) {
       const { kind, brand } = r.c.remote;
-      const big = brand && (brand === 'universal' || count.get(kind + '|' + brand) >= BRAND_MIN);
+      const big = brand && (brand === 'universal' || (count.get(kind + '|' + brand) || 0) >= BRAND_MIN);
       const bslug = big ? brand : 'other';
       const bname = brand === 'universal' ? 'ইউনিভার্সাল রিমোট' : big ? (BRANDS.find((b) => b[0] === brand) || [])[1] : 'অন্যান্য কোম্পানি';
       slug = `${kind}-${bslug}`;
@@ -260,7 +261,7 @@ async function plan({ ids = null } = {}) {
     }
     r.to = slug;
     const node = all.find((x) => x.slug === slug) || extra.get(slug);
-    const path = [];
+    const path: string[] = [];
     for (let x = node; x; x = all.find((y) => y.slug === x.parent) || extra.get(x.parent)) path.unshift(x.name);
     r.path = path.join(' › ');
   }
@@ -277,7 +278,7 @@ async function preview() {
 }
 
 // Move products. ids: only these products (null = all). onlyMatched: leave unknown products where they are.
-async function apply({ ids = null } = {}) {
+async function apply({ ids = null }: Body = {}) {
   const { rows, extra } = await plan({ ids });
   const todo = rows.filter((r) => r.to);
   if (!todo.length) return { moved: 0, unknown: rows.length };

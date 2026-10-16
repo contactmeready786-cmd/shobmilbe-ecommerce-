@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // Every country (ISO 3166-1 alpha-2, plus XK Kosovo) and the time zones a browser there reports.
 // Made from the IANA time-zone tables (zone.tab, zone1970.tab, and old names like Asia/Dacca). Used by services/geolock.js.
 export const AD = ['Europe/Andorra'];

@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // 📚 তৈরি প্রজেক্ট গাইড — ready-made "how to build it" guides for Admin → পণ্য → প্রজেক্ট কিট.
 // One tap turns a guide into a kit: each part below is looked up among the shop's own products by its words
 // ("find"); words in "not" rule a product out (e.g. a case is not the board itself). The kit page then shows the

@@ -2,7 +2,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 
 /** Every admin setting, as stored in the settings table (all values are text; a missing one is undefined). */
-export type Settings = Record<string, string | undefined> & { store_name?: string; session_secret?: string };
+export type Settings = Record<string, string | undefined> & { store_name: string; session_secret: string };
 
 /** A request as the shop code sees it (Node request, plus the body once it has been read). */
 export type ShopRequest = IncomingMessage & { __body?: string; body?: unknown };
@@ -21,3 +21,35 @@ export type Row = Record<string, any>;
 
 /** Anything that can appear inside html`...`: text (escaped), raw HTML, lists of those, or nothing. */
 export type HtmlValue = string | number | bigint | boolean | null | undefined | { toString(): string } | HtmlValue[];
+
+/** Old code that has not been given exact types yet. Searching for "Loose" finds every place still to tighten. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- legacy: type me
+export type Loose = any;
+/** A row id as the code passes it around (from the database, a form or the address). */
+export type Id = number | string | null | undefined;
+
+type HeaderMap = Record<string, string | string[] | number | undefined>;
+/** What every request handler in lib/app.ts gets. */
+export type Base = {
+  req: ShopRequest; res: ShopResponse; path: string; method: string; query: URLSearchParams; settings: Settings;
+  send: (res: ShopResponse, status: number, body: string | Buffer, type?: string, extra?: HeaderMap) => void;
+  json: (res: ShopResponse, status: number, data: unknown, extra?: HeaderMap) => void;
+  redirect: (res: ShopResponse, to: string, extra?: HeaderMap) => void;
+};
+/** A signed-in admin user (a row of the staff table plus the session's marks). */
+export type StaffUser = Row & { id: number; name: string; role: string; permissions: string[]; __session?: number; __token?: string; __verified?: boolean };
+/** What every admin page handler gets (built in lib/admin/index.ts). */
+export type AdminCtx = Base & {
+  user: StaffUser; ip: string; readOnly?: boolean; __err?: string;
+  can: (perm: string) => boolean;
+  flash: Loose;
+  body: () => Promise<Body>;
+  page: (title: string, body: unknown, active?: string, opts?: { status?: number }) => void;
+  back: (to: string, msgKey?: string) => void;
+  fail: (to: string, text: string) => void;
+  log: (action: string, entity?: string, entityId?: number | string | null, detail?: unknown) => Promise<void>;
+  trash: (kind: string, id: number | string) => Promise<Loose>;
+  markVerified: () => Promise<unknown>;
+  newSession: (u: StaffUser) => Promise<string>;
+  reloadSettings: () => Promise<Settings>;
+};

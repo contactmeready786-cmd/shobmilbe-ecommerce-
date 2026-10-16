@@ -1,10 +1,10 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // On/off switches in admin lists (blog posts, pages, staff, suppliers). Saves instantly; the list
 // row fades when off. Same behaviour as the product list switch.
 import { int } from '../util';
 import * as db from '../db';
+import type { AdminCtx, Loose } from '../types';
 
-const KINDS = {
+const KINDS: Record<string, Loose> = {
   blog: { perm: 'blog', entity: 'blog', sql: `UPDATE blog_posts SET status=CASE WHEN $2 THEN 'published' ELSE 'draft' END,
     published_at=CASE WHEN $2 THEN coalesce(published_at, now()) ELSE published_at END, updated_at=now() WHERE id=$1 RETURNING title AS name` },
   page: { perm: 'design', entity: 'page', sql: 'UPDATE pages SET active=$2, updated_at=now() WHERE id=$1 RETURNING title AS name' },
@@ -16,7 +16,7 @@ const KINDS = {
   offer: { perm: 'marketing', entity: 'marketing', sql: 'UPDATE offers SET active=$2 WHERE id=$1 RETURNING coalesce(nullif(title,\'\'), \'অফার #\' || id) AS name' },
 };
 
-async function toggle(ctx, m) {
+async function toggle(ctx: AdminCtx, m: Loose) {
   const K = KINDS[m[1]];
   const id = int(m[2]);
   if (!K || !ctx.can(K.perm)) return ctx.json(ctx.res, 403, { error: 'অনুমতি নেই।' });
