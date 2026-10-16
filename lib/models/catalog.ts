@@ -4,6 +4,7 @@
 // sha = exact file fingerprint; phash / phash_m = picture fingerprint (and its mirror image)
 // made in the browser, so a resized or re-saved copy of the same photo is still recognised.
 import { q, one, tx, uniqueSlug } from '../db';
+import { memo } from '../cache';
 import { slugify, int, str, youtubeId, amount, shopPrice, priceProblem } from '../util';
 import * as imagekit from '../services/imagekit';
 import * as $crypto from 'node:crypto';
@@ -107,7 +108,10 @@ async function cleanupMedia(): Promise<void> {
 // ---------------------------------------------------------------- categories
 // Every category (flat, in display order). product_count = this category's own products;
 // total_count (added by categoryTree) = its own + all its sub-categories'.
-async function listCategories({ includeInactive = true }: { includeInactive?: boolean } = {}): Promise<DbRow[]> {
+function listCategories({ includeInactive = true }: { includeInactive?: boolean } = {}): Promise<DbRow[]> {
+  return memo(`categories:${includeInactive}`, () => loadCategories(includeInactive));
+}
+async function loadCategories(includeInactive: boolean): Promise<DbRow[]> {
   const rows = await q(`SELECT c.*, (SELECT count(*)::int FROM products p WHERE p.category_id=c.id AND p.active AND p.parent_id IS NULL) AS product_count
             FROM categories c ${includeInactive ? '' : 'WHERE coalesce(c.active, true)'} ORDER BY sort, id`);
   // a sub-category whose main category is hidden is hidden too

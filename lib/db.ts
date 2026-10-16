@@ -2,6 +2,7 @@
 import * as security from './security';
 import * as crypto from 'node:crypto';
 import * as pg from './pg';
+import { memo } from './cache';
 import { slugify, randomCode } from './util';
 import type { DbRow, Param, Tx } from './pg';
 import type { Settings } from './types';
@@ -1563,7 +1564,9 @@ const SECRET_KEYS = new Set(['session_secret', 'admin_password', 'fb_capi_token'
 // session_secret is left out on purpose: if the key were ever removed, nobody could log in.
 const ENCRYPTED_KEYS = new Set([...SECRET_KEYS, 'bkash_app_key', 'steadfast_api_key', 'steadfast_webhook_token', 'pathao_webhook_secret']
   .filter((k) => k !== 'session_secret'));
-async function getSettings(): Promise<Settings> {
+// Shop pages share one copy for up to 15 s (lib/cache.ts); admin pages and changes always read fresh.
+function getSettings(): Promise<Settings> { return memo('settings', loadSettings); }
+async function loadSettings(): Promise<Settings> {
   const rows = await q<{ key: string; value: string | null }>('SELECT key, value FROM settings');
   const s = { ...DEFAULT_SETTINGS } as Settings; // session_secret is always there (ensureReady makes it)
   let locked = 0;

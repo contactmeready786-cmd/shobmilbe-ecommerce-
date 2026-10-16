@@ -16,6 +16,7 @@ import * as feeds from './services/feeds';
 import * as translate from './services/translate';
 import * as admin from './admin';
 import { shopLayout } from './views/layout';
+import { scoped } from './cache';
 import * as shop from './views/shop';
 import * as md from './views/md';
 import { parseBody, readBody, int, str, normalizePhone, validPhone, esc, parseCookies, sign, unsign, contact, bn, amount, qtyRule } from './util';
@@ -125,7 +126,9 @@ function siteUrl(req: ShopRequest, settings: Settings) {
   return `${proto}://${host}`;
 }
 
-async function handler(req: ShopRequest, res: ShopResponse) {
+// Admin pages and changes read fresh data; shop pages may share 15-second copies (lib/cache.ts).
+const handler = scoped(handlerInner);
+async function handlerInner(req: ShopRequest, res: ShopResponse) {
   const url = new URL(req.url || '/', 'http://local');
   let path = url.searchParams.get('__p');
   if (path !== null) {

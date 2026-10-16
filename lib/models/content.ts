@@ -2,6 +2,7 @@
 
 // ---------------------------------------------------------------- blog
 import { q, one, uniqueSlug } from '../db';
+import { memo } from '../cache';
 import { slugify, int, str, validYmd } from '../util';
 import type { Body, Id, Loose } from '../types';
 async function listBlogCategories() {
@@ -63,7 +64,7 @@ async function deletePost(id?: Id) {
 
 // ---------------------------------------------------------------- pages
 async function listPages({ active }: Body = {}) {
-  return q(`SELECT * FROM pages ${active ? 'WHERE active' : ''} ORDER BY sort, id`);
+  return memo(`pages:${!!active}`, () => q(`SELECT * FROM pages ${active ? 'WHERE active' : ''} ORDER BY sort, id`));
 }
 async function getPage({ id, slug }: Body) { return one(`SELECT * FROM pages WHERE ${id ? 'id=$1' : 'slug=$1'}`, [id || slug]); }
 async function savePage(data: Body) {
@@ -84,7 +85,7 @@ async function listBanners({ active, placement }: Body = {}) {
   const where = [];
   if (active) where.push('active AND image_id IS NOT NULL');
   if (placement) { params.push(placement); where.push(`placement=$${params.length}`); }
-  return q(`SELECT * FROM banners ${where.length ? 'WHERE ' + where.join(' AND ') : ''} ORDER BY placement, sort, id`, params);
+  return memo(`banners:${!!active}:${placement || ''}`, () => q(`SELECT * FROM banners ${where.length ? 'WHERE ' + where.join(' AND ') : ''} ORDER BY placement, sort, id`, params));
 }
 async function saveBanner(data: Body) {
   const f = [int(data.image_id) || null, str(data.title, 120), str(data.subtitle, 200), str(data.link, 300), str(data.button, 40),
