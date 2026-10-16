@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // Admin → মার্কেটিং → ❓ প্রশ্ন-উত্তর and 🔔 স্টকে এলে জানাও.
 //   প্রশ্ন-উত্তর: customers' questions on products — answer, show on the shop, or hide. An SMS tells the asker (if a number was given).
 //   স্টকে এলে জানাও: who is waiting for which out-of-stock product (most wanted first) and the SMS that goes out when it is back.
@@ -10,11 +9,12 @@ import * as ui from './ui';
 import * as X from '../models/extras';
 import * as $uiswitches from './uiswitches';
 import * as $services_sms from '../services/sms';
-async function questionsPage(ctx) {
+import type { AdminCtx, Loose } from '../types';
+async function questionsPage(ctx: AdminCtx) {
   const status = X.Q_STATUSES[ctx.query.get('status')] || ctx.query.get('status') === 'all' ? ctx.query.get('status') : 'pending';
   const page = Math.max(1, int(ctx.query.get('page'), 1));
   const [rows, counts] = await Promise.all([X.listQuestions({ status, limit: 50, offset: (page - 1) * 50 }), X.questionCounts()]);
-  const tab = (k, l) => html`<a class="chip ${status === k ? 'on' : ''}" href="/admin/questions?status=${k}">${l} <b>${bn(counts[k] || 0)}</b></a>`;
+  const tab = (k?: Loose, l?: Loose) => html`<a class="chip ${status === k ? 'on' : ''}" href="/admin/questions?status=${k}">${l} <b>${bn(counts[k] || 0)}</b></a>`;
   const body = html`<div class="title-row"><h1>❓ পণ্যে প্রশ্ন-উত্তর</h1><div class="row-actions"><a class="btn btn-ghost btn-sm" href="/admin/questions?status=${status}">🔄 রিফ্রেশ</a></div></div>
 ${ui.flash(ctx.flash)}
 <p class="muted small">কাস্টমাররা পণ্যের পেজ থেকে প্রশ্ন করেন। উত্তর লিখে "দোকানে দেখান" চাপলে প্রশ্ন আর উত্তর পণ্যের পেজে সবাই দেখবে — কাস্টমার মোবাইল নম্বর দিয়ে থাকলে SMS-এ জানানো হয় (SMS চালু থাকলে)।</p>
@@ -42,14 +42,14 @@ ${ui.pager(counts[status] || counts.all || 0, page, 50, `/admin/questions?status
   return ctx.page('প্রশ্ন-উত্তর', body, 'questions');
 }
 
-async function answer(ctx, m) {
+async function answer(ctx: AdminCtx, m?: Loose) {
   const id = int(m[1]);
   const b = await ctx.body();
   const back = (ctx.req.headers.referer && new URL(ctx.req.headers.referer).pathname === '/admin/questions') ? new URL(ctx.req.headers.referer).pathname + new URL(ctx.req.headers.referer).search : '/admin/questions';
-  let q;
+  let q: Loose;
   try {
     q = await X.answerQuestion(id, { answer: b.answer, publish: b.publish === '1', question: b.question }, ctx.user.id);
-  } catch (e) { return ctx.fail(back, e.message); }
+  } catch (e: Loose) { return ctx.fail(back, e.message); }
   await ctx.log('question_answer', 'question', id, `${q.status === 'published' ? 'দোকানে দেখানো' : 'সেভ'}: ${str(q.question, 80)}`);
   // the first answer to a question with a mobile number: tell the customer by SMS
   let note = '';
@@ -64,7 +64,7 @@ async function answer(ctx, m) {
   }
   return ctx.redirect(ctx.res, back + (back.includes('?') ? '&' : '?') + 'info=' + encodeURIComponent('সেভ হয়েছে।' + note));
 }
-async function removeQuestion(ctx, m) {
+async function removeQuestion(ctx: AdminCtx, m?: Loose) {
   const id = int(m[1]);
   await ctx.trash('question', id);
   await ctx.log('question_delete', 'question', id, 'প্রশ্ন মুছে ফেলা');
@@ -72,7 +72,7 @@ async function removeQuestion(ctx, m) {
 }
 
 // ---------------------------------------------------------------- stock alerts
-async function restockPage(ctx) {
+async function restockPage(ctx: AdminCtx) {
   if (ctx.method === 'POST') {
     const b = await ctx.body();
     if (b.action === 'tpl') {
@@ -100,8 +100,8 @@ async function restockPage(ctx) {
   const body = html`<div class="title-row"><h1>🔔 স্টকে এলে জানাও</h1><div class="row-actions"><a class="btn btn-ghost btn-sm" href="/admin/marketing/restock?status=${status}">🔄 রিফ্রেশ</a></div></div>
 ${ui.flash(ctx.flash)}
 <div class="kpis kpis-tight">
-  ${ui.kpi('অপেক্ষায় আছেন', bn(cnt.waiting), `${bn(cnt.products)}টি পণ্যের জন্য`, cnt.waiting ? 'kpi-blue' : '')}
-  ${ui.kpi('SMS পাঠানো হয়েছে', bn(cnt.sent), 'পণ্য স্টকে আসার পর')}
+  ${ui.kpi('অপেক্ষায় আছেন', bn(cnt!.waiting), `${bn(cnt!.products)}টি পণ্যের জন্য`, cnt!.waiting ? 'kpi-blue' : '')}
+  ${ui.kpi('SMS পাঠানো হয়েছে', bn(cnt!.sent), 'পণ্য স্টকে আসার পর')}
   ${ui.kpi('SMS কোম্পানি', smsOk ? '✅ সেটআপ আছে' : '⚠️ সেটআপ হয়নি', smsOk ? 'SMS নিজে থেকেই যাবে' : 'মার্কেটিং → কাস্টমারকে SMS পেজে API Key দিলেই নিজে থেকে চালু হবে; ততদিন তালিকা জমা থাকবে', smsOk ? '' : 'kpi-alert', '/admin/marketing/sms')}
 </div>
 ${$uiswitches.featureRows(ctx, ['ui_restock_notify', 'price_alert_on'])}
@@ -132,7 +132,7 @@ ${$uiswitches.featureRows(ctx, ['ui_restock_notify', 'price_alert_on'])}
   </tbody></table>` : html`<p class="muted">কিছু নেই।</p>`}
 </section>
 <section class="panel table-wrap" id="price"><h2>🔔 দাম কমলে জানাও — কারা অপেক্ষায়</h2>
-  <p class="muted small">পণ্যের পেজে "দাম কমলে SMS-এ জানাও" ঘরে কাস্টমার নম্বর রেখে যান। আপনি দাম কমালে বা ফ্ল্যাশ সেলে দিলে কয়েক মিনিটের মধ্যে নিজে থেকে একবার SMS যায়। এখন অপেক্ষায়: <b>${bn(pcnt.waiting)}</b> জন · SMS গেছে: ${bn(pcnt.sent)}। বেশি মানুষ যেটা চাইছে, সেটায় ছোট অফার দিলেই বিক্রি হয়।</p>
+  <p class="muted small">পণ্যের পেজে "দাম কমলে SMS-এ জানাও" ঘরে কাস্টমার নম্বর রেখে যান। আপনি দাম কমালে বা ফ্ল্যাশ সেলে দিলে কয়েক মিনিটের মধ্যে নিজে থেকে একবার SMS যায়। এখন অপেক্ষায়: <b>${bn(pcnt!.waiting)}</b> জন · SMS গেছে: ${bn(pcnt!.sent)}। বেশি মানুষ যেটা চাইছে, সেটায় ছোট অফার দিলেই বিক্রি হয়।</p>
   ${ptop.length ? html`<table class="table compact"><thead><tr><th>পণ্য</th><th class="num">অপেক্ষায়</th><th class="num">এখনকার দাম</th><th></th></tr></thead><tbody>
   ${ptop.map((p) => html`<tr><td>${p.name}<br><span class="small muted">SKU ${p.sku}</span></td><td class="num"><b>${bn(p.n)}</b> জন</td><td class="num">৳${bn(p.price)}</td>
     <td><a class="btn btn-sm btn-ghost" href="/admin/products/${p.edit_id}">দাম বদলান</a> <a class="btn btn-sm btn-ghost" href="/admin/marketing/flash">⚡ ফ্ল্যাশ সেল</a></td></tr>`)}</tbody></table>`

@@ -1,9 +1,9 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // 📮 Customer pages for complaints: the form (/complaint) and "my complaint's status" (/complaint/status).
 import { html, raw, bn, fmtDate, contact } from '../util';
 import * as C from '../models/complaints';
+import type { Body, Loose } from '../types';
 
-function statusBox(c) {
+function statusBox(c?: Loose) {
   const [ic, label] = C.STATUS[c.status] || ['', c.status];
   return html`<section class="panel complaint-status">
     <p class="small muted">অভিযোগ নম্বর</p><h2 class="mono">${c.code}</h2>
@@ -14,12 +14,12 @@ function statusBox(c) {
       ${C.OPEN.includes(c.status) ? html`<li>সমাধানের শেষ সময়: <b>${fmtDate(c.due_at)}</b></li>` : c.resolved_at ? html`<li>শেষ হয়েছে: ${fmtDate(c.resolved_at)}</li>` : ''}
     </ul>
     <details><summary>আপনার লেখা</summary><p class="pre">${c.message}</p></details>
-    ${c.replies && c.replies.length ? html`<h3>আমাদের উত্তর</h3><ul class="cs-replies">${c.replies.map((r) => html`<li><p class="pre">${r.body}</p><small class="muted">${fmtDate(r.created_at)}</small></li>`)}</ul>`
+    ${c.replies && c.replies.length ? html`<h3>আমাদের উত্তর</h3><ul class="cs-replies">${c.replies.map((r?: Loose) => html`<li><p class="pre">${r.body}</p><small class="muted">${fmtDate(r.created_at)}</small></li>`)}</ul>`
     : html`<p class="muted small">এখনো উত্তর দেওয়া হয়নি — আমরা দেখছি। উত্তর দিলে SMS-এও জানানো হবে।</p>`}
   </section>`;
 }
 
-function complaintPage({ settings: s, values = {}, error = '', done = null, look = null, lookError = '' }) {
+function complaintPage({ settings: s, values = {}, error = '', done = null, look = null, lookError = '' }: Body) {
   const hrs = C.hoursOf(s);
   const ct = contact(s);
   if (done) {
@@ -46,7 +46,7 @@ function complaintPage({ settings: s, values = {}, error = '', done = null, look
     </div>
     ${values.topic === 'warranty' ? html`<div class="warranty-claim">
       ${values.item_name ? html`<p>🛡️ <b>ওয়ারেন্টি দাবি:</b> <span translate="no">${values.item_name}</span>${values.item_end ? html` <span class="small muted">(ওয়ারেন্টি ${fmtDate(values.item_end, false)} পর্যন্ত)</span>` : ''}</p><input type="hidden" name="item" value="${values.item}">`
-    : values.items && values.items.length ? html`<div class="field"><label>কোন পণ্যের ওয়ারেন্টি?</label><select name="item">${values.items.map((x) => html`<option value="${x.product_id}" ${x.valid ? '' : raw('disabled')}>${x.name}${x.valid ? '' : ' (মেয়াদ শেষ)'}</option>`)}</select></div>`
+    : values.items && values.items.length ? html`<div class="field"><label>কোন পণ্যের ওয়ারেন্টি?</label><select name="item">${values.items.map((x?: Loose) => html`<option value="${x.product_id}" ${x.valid ? '' : raw('disabled')}>${x.name}${x.valid ? '' : ' (মেয়াদ শেষ)'}</option>`)}</select></div>`
     : html`<input type="hidden" name="item" value="${values.item || ''}">`}
       <p class="small muted">পণ্যটি কী সমস্যা করছে লিখুন আর ছবি/ভিডিওর স্ক্রিনশট দিন। যাচাই করে রিপ্লেসমেন্ট বা সার্ভিসের ব্যবস্থা জানানো হবে। ভুল ব্যবহার, পানি লাগা, পড়ে ভাঙা বা নিজে খুললে ওয়ারেন্টি থাকে না।</p>
     </div>` : ''}
@@ -73,7 +73,7 @@ function complaintPage({ settings: s, values = {}, error = '', done = null, look
 </div>`;
 }
 
-function statusPage({ c = null, code = '', error = '' }) {
+function statusPage({ c = null, code = '', error = '' }: Body) {
   return html`<div class="wrap section narrow">
   <h1>📮 অভিযোগের অবস্থা</h1>
   ${c ? statusBox(c) : html`<form class="form panel" method="get" action="/complaint/status">

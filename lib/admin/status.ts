@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // Admin → সংযোগের অবস্থা: one page that shows whether every outside connection is set up and working —
 // Google / Facebook / TikTok tracking, product feeds, couriers, payments, notifications, backups —
 // plus the SEO checker (products that Google may show badly).
@@ -12,23 +11,24 @@ import * as $services_payments from '../services/payments';
 import * as $services_feeds from '../services/feeds';
 import * as $security from '../security';
 import * as $services_seo from '../services/seo';
+import type { AdminCtx, Loose } from '../types';
 
 const OK = 'ok'; const WARN = 'warn'; const OFF = 'off'; const BAD = 'bad';
-const ICON = { ok: '✅', warn: '⚠️', off: '⚪', bad: '❌' };
+const ICON: Record<string, string> = { ok: '✅', warn: '⚠️', off: '⚪', bad: '❌' };
 // one line of the list. key = for the owner's ✓ করা আছে / ✕ দরকার নেই marks (setupmarks.js); setUp = the site sees it set up
-function row(state, title, detail, link, key, setUp) {
+function row(state?: Loose, title?: Loose, detail?: Loose, link?: Loose, key?: Loose, setUp?: Loose) {
   return { state, title, detail, link, key, setUp: setUp === undefined ? state === OK : setUp };
 }
-function line(r, buttons) {
+function line(r?: Loose, buttons?: Loose) {
   return html`<li class="sec-row ${r.state === OK ? 'ok' : r.state === OFF ? 'info' : 'todo'}"><span class="sec-ic" aria-hidden="true">${ICON[r.state]}</span>
     <span><b>${r.title}</b><br><span class="small muted">${r.detail}</span>${r.link ? html` <a class="small" href="${r.link[0]}">${r.link[1]} →</a>` : ''}${buttons ? html`<br>${buttons}` : ''}</span></li>`;
 }
 // a section: what needs looking at stays in view; ⚪ not set up (optional) and "দরকার নেই" go into a closed box
-function section(ctx, title, rows) {
+function section(ctx: AdminCtx, title?: Loose, rows?: Loose) {
   const M = $setupmarks;
   const owner = ctx.user.role === 'owner';
   const back = '/admin/integrations/status';
-  const shown = []; const quiet = [];
+  const shown: Loose[] = []; const quiet = [];
   for (const r of rows.filter(Boolean)) {
     const mark = r.key ? M.markOf(ctx.settings, r.key, r.setUp) : '';
     if (mark === 'done' && r.state !== OK) { shown.push(line({ ...r, state: OK, detail: 'আপনি জানিয়েছেন অন্যভাবে করা আছে (সাইট নিজে দেখতে পায় না)।' }, owner ? M.buttons(r.key, 'done', back) : '')); continue; }
@@ -45,12 +45,12 @@ function section(ctx, title, rows) {
 async function lastLogs() {
   const rows = await db.q(`SELECT DISTINCT ON (service, ok) service, ok, action, message, created_at FROM integration_logs
     WHERE created_at > now() - interval '30 days' ORDER BY service, ok, created_at DESC`);
-  const m = {};
-  rows.forEach((r) => { (m[r.service] = m[r.service] || {})[r.ok ? 'good' : 'fail'] = r; });
+  const m: Record<string, string> = {};
+  rows.forEach((r) => { (m[r.service] = m[r.service] || {} as Loose)[r.ok ? 'good' : 'fail'] = r; });
   return m;
 }
 // ✅ when the last thing that happened worked, ❌ when the last thing failed
-function fromLog(L, service, setUp) {
+function fromLog(L?: Loose, service?: Loose, setUp?: Loose) {
   const x = L[service] || {};
   if (!setUp) return { state: OFF, note: 'সেটআপ করা নেই' };
   if (x.fail && (!x.good || new Date(x.fail.created_at) > new Date(x.good.created_at))) return { state: BAD, note: `শেষ চেষ্টা ব্যর্থ (${fmtDate(x.fail.created_at)}): ${String(x.fail.message || '').slice(0, 160)}` };
@@ -58,9 +58,9 @@ function fromLog(L, service, setUp) {
   return { state: WARN, note: 'সেটআপ করা আছে, কিন্তু গত ৩০ দিনে এখনো কোনো কাজ হয়নি' };
 }
 
-async function statusPage(ctx) {
+async function statusPage(ctx: AdminCtx) {
   const s = ctx.settings;
-  const L = await lastLogs();
+  const L: Loose = await lastLogs();
   const courier = $services_courier;
   const notify = $services_notify;
   const payments = $services_payments;
@@ -73,7 +73,7 @@ async function statusPage(ctx) {
   const ownDomain = /^https?:\/\//.test(site) && !/vercel\.app/.test(site) ? site.replace(/^https?:\/\//, '').replace(/\/.*$/, '') : '';
   const fbPage = !!(s.autopost_page_token && s.autopost_page_id);
   const ageDays = lastBackup ? (Date.now() - new Date(lastBackup.created_at).getTime()) / 864e5 : null;
-  const feedSeen = (ch) => { const x = (L[ch + '-feed'] || {}).good; return x ? `শেষবার ${x.message || 'কেউ'} পড়েছে: ${fmtDate(x.created_at)}` : 'এখনো কেউ ফিডটা পড়েনি (Merchant Center / Commerce Manager-এ লিংক দেওয়া হয়েছে কি না দেখুন)'; };
+  const feedSeen = (ch?: Loose) => { const x = (L[ch + '-feed'] || {}).good; return x ? `শেষবার ${x.message || 'কেউ'} পড়েছে: ${fmtDate(x.created_at)}` : 'এখনো কেউ ফিডটা পড়েনি (Merchant Center / Commerce Manager-এ লিংক দেওয়া হয়েছে কি না দেখুন)'; };
 
   const body = html`<h1>🔌 সংযোগের অবস্থা</h1>${ui.flash(ctx.flash)}
 <p class="muted">বাইরের প্রতিটা সার্ভিস ঠিকমতো জোড়া আছে কি না, আর শেষবার কাজ করেছে কি না — এক জায়গায়। ❌ দেখলে পাশের লিংকে গিয়ে ঠিক করুন। অন্যভাবে করা থাকলে "✓ করা আছে", ব্যবহার না করলে "✕ দরকার নেই" চাপুন — তালিকা থেকে সরে যাবে।</p>
@@ -82,7 +82,7 @@ ${section(ctx, 'ওয়েবসাইট', [
   // the domain may be added straight in Vercel (no token saved here): a site address that is not *.vercel.app counts too
   row(s.custom_domain || ownDomain ? OK : WARN, 'নিজের ডোমেইন', s.custom_domain || ownDomain || 'এখনো vercel.app ঠিকানায় চলছে', ['/admin/integrations/domain', 'ডোমেইন'], 'domain'),
   row($security.hasKey() ? OK : WARN, 'গোপন তথ্য এনক্রিপশন (ENCRYPTION_KEY)', $security.hasKey() ? 'চালু' : 'বন্ধ — পেমেন্ট/কুরিয়ারের পাসওয়ার্ড সাধারণ লেখায় সেভ হচ্ছে', ['/admin/security', 'নিরাপত্তা']),
-  ctx.user.role === 'owner' ? row(ageDays === null ? BAD : ageDays > 8 ? WARN : OK, 'ব্যাকআপ', ageDays === null ? 'এখনো কোনো ব্যাকআপ নেওয়া হয়নি!' : `শেষ ব্যাকআপ: ${fmtDate(lastBackup.created_at)} (${lastBackup.kind === 'auto' ? 'নিজে থেকে' : 'হাতে'})`, ['/admin/backup', 'ব্যাকআপ']) : null,
+  ctx.user.role === 'owner' ? row(ageDays === null ? BAD : ageDays > 8 ? WARN : OK, 'ব্যাকআপ', ageDays === null ? 'এখনো কোনো ব্যাকআপ নেওয়া হয়নি!' : `শেষ ব্যাকআপ: ${fmtDate(lastBackup!.created_at)} (${lastBackup!.kind === 'auto' ? 'নিজে থেকে' : 'হাতে'})`, ['/admin/backup', 'ব্যাকআপ']) : null,
 ])}
 ${section(ctx, 'Google', [
   row(s.google_site_verification ? OK : WARN, 'Google Search Console', s.google_site_verification ? 'ভেরিফিকেশন ট্যাগ বসানো আছে — sitemap জমা দিয়েছেন কি না দেখুন' : 'সাইটে ভেরিফিকেশন ট্যাগ নেই। DNS দিয়ে ভেরিফাই করে থাকলে "✓ করা আছে" চাপুন।', ['/admin/marketing/tracking', 'পিক্সেল'], 'gsc'),
@@ -123,7 +123,7 @@ ${section(ctx, 'নোটিফিকেশন', [
 // shop's own words, the model / part number people type ("PAM8403"), specifications, a category, a brand, reviews.
 // "bad" problems cost the most; "info" lines cost nothing (just good to know).
 const SEO_WEIGHTS = { image: 20, text: 20, textLong: 10, model: 12, specs: 10, category: 10, gallery: 6, brand: 4, title: 4, reviews: 4 };
-function seoScore(p, seo) {
+function seoScore(p?: Loose, seo?: Loose) {
   const textLen = String(p.description || '').trim().length + String(p.short_description || '').trim().length;
   const W = SEO_WEIGHTS;
   let n = 0;
@@ -132,7 +132,7 @@ function seoScore(p, seo) {
   if (textLen > 0 || p.auto_desc) n += W.text; // 🤖 the auto description counts as text (the long-text bonus needs the owner's own)
   if (textLen >= 200) n += W.textLong;
   if (String(p.model || '').trim()) n += W.model;
-  if (Array.isArray(p.specs) && p.specs.filter((r) => Array.isArray(r) && r[0] && r[1]).length >= 2) n += W.specs;
+  if (Array.isArray(p.specs) && p.specs.filter((r?: Loose) => Array.isArray(r) && r[0] && r[1]).length >= 2) n += W.specs;
   if (p.category_id) n += W.category;
   if (String(p.brand || '').trim()) n += W.brand;
   const t = seo.productTitle(p);
@@ -146,12 +146,12 @@ async function seoProblems() {
       (SELECT count(*) FROM media m WHERE m.owner_type='product' AND m.owner_id=p.id)::int AS pics,
       (SELECT count(*) FROM products x WHERE x.active AND lower(x.name)=lower(p.name) AND x.id<>p.id)::int AS same_name
     FROM products p WHERE p.active AND p.parent_id IS NULL ORDER BY p.id`);
-  const out = [];
+  const out: Loose[] = [];
   const seo = $services_seo;
   const autoOn = (await db.getSettings()).autoseo_desc !== '0';
   let sum = 0;
   for (const p of rows) {
-    const why = [];
+    const why: Loose[] = [];
     p.auto_desc = autoOn;
     const title = seo.productTitle(p);
     p.score = seoScore(p, seo);

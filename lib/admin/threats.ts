@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // Admin → স্টাফ ও নিরাপত্তা → সন্দেহজনক ভিজিটর
 // Who tried to harm the site (hacking-file scans, harmful code in links, wrong admin passwords, request floods),
 // from where, what exactly they tried — and one tap to shut that IP out of the whole shop (for 24 hours or for good).
@@ -7,29 +6,30 @@ import * as db from '../db';
 import * as G from '../services/guard';
 import * as V from '../services/visitors';
 import * as ui from './ui';
+import type { AdminCtx, Body, Loose } from '../types';
 
 const BASE = '/admin/security/threats';
 
-function ago(d) {
+function ago(d?: Loose) {
   const s = Math.max(0, Math.round((Date.now() - new Date(d).getTime()) / 1000));
   if (s < 60) return 'এইমাত্র';
   if (s < 3600) return bn(Math.floor(s / 60)) + ' মিনিট আগে';
   if (s < 86400) return bn(Math.floor(s / 3600)) + ' ঘণ্টা আগে';
   return bn(Math.floor(s / 86400)) + ' দিন আগে';
 }
-function kindPills(kinds) {
+function kindPills(kinds?: Loose) {
   return html`<span class="threat-kinds">${Object.entries(kinds || {}).map(([k, n]) => {
     const x = G.KINDS[k] || ['•', k];
     const cls = k === 'probe' || k === 'attack' ? 'pill-red' : k === 'login_fail' ? 'pill-amber' : '';
     return html`<span class="pill ${cls}" title="${x[1]}">${x[0]} ${x[1]} × ${bn(n)}</span>`;
   })}</span>`;
 }
-function place(r) {
+function place(r?: Loose) {
   if (!r.country) return html`<span class="muted">অজানা</span>`;
   const p = V.place({ country: r.country, region: '', city: r.city });
   return html`<span title="${p.country}">${p.flag} ${p.text}</span>`;
 }
-function blockButtons(ip, blocked, until) {
+function blockButtons(ip?: Loose, blocked?: Loose, until?: Loose) {
   if (blocked) {
     return html`<span class="pill pill-red">⛔ ব্লক করা${until ? html` · ${fmtDate(until)} পর্যন্ত` : ' · স্থায়ী'}</span>
       <form method="post" action="${BASE}/unblock"><input type="hidden" name="ip" value="${ip}"><button class="btn btn-sm btn-ghost">ব্লক তুলুন</button></form>`;
@@ -38,7 +38,7 @@ function blockButtons(ip, blocked, until) {
     <form method="post" action="${BASE}/block" data-confirm="এই IP থেকে আর কখনো সাইট খোলা যাবে না (যতক্ষণ না আপনি ব্লক তোলেন)। মোবাইল ইন্টারনেটে অনেক মানুষ একই IP ভাগ করে, তাই আসল কাস্টমারও আটকে যেতে পারে। নিশ্চিত?"><input type="hidden" name="ip" value="${ip}"><input type="hidden" name="hours" value="0"><button class="link-btn danger small">স্থায়ী ব্লক</button></form>`;
 }
 
-async function page(ctx) {
+async function page(ctx: AdminCtx) {
   if (ctx.method === 'POST') {
     const b = await ctx.body();
     await db.setMany({ guard_on: b.guard_on === '1' ? '1' : '0', guard_autoblock: b.guard_autoblock === '1' ? '1' : '0' });
@@ -83,10 +83,10 @@ ${evs.length ? html`<section class="panel"><h2>সব ঘটনা (নতুন
   <td class="threat-paths" translate="no">${e.path || ''}${e.detail ? html` <span class="muted">${e.detail}</span>` : ''}</td></tr>`)}</tbody></table></div></section>` : ''}`
   : html`
 <div class="kpis">
-  ${ui.kpi('সন্দেহজনক IP', bn(sum.ips), `গত ${bn(days)} দিনে`, sum.ips ? 'kpi-red' : '')}
-  ${ui.kpi('হ্যাকিংয়ের চেষ্টা', bn(sum.hack), 'ফাইল খোঁজা / ক্ষতিকর কোড')}
-  ${ui.kpi('ভুল অ্যাডমিন পাসওয়ার্ড', bn(sum.logins), '')}
-  ${ui.kpi('এখন ব্লক করা', bn(sum.blocked), 'পুরো সাইট থেকে')}
+  ${ui.kpi('সন্দেহজনক IP', bn(sum!.ips), `গত ${bn(days)} দিনে`, sum!.ips ? 'kpi-red' : '')}
+  ${ui.kpi('হ্যাকিংয়ের চেষ্টা', bn(sum!.hack), 'ফাইল খোঁজা / ক্ষতিকর কোড')}
+  ${ui.kpi('ভুল অ্যাডমিন পাসওয়ার্ড', bn(sum!.logins), '')}
+  ${ui.kpi('এখন ব্লক করা', bn(sum!.blocked), 'পুরো সাইট থেকে')}
 </div>
 <div class="chips">${[[1, 'আজ'], [7, '৭ দিন'], [30, '৩০ দিন'], [90, '৯০ দিন']].map(([d, l]) => html`<a class="chip ${d === days ? 'on' : ''}" href="${BASE}?days=${d}">${l}</a>`)}</div>
 <form class="toolbar" method="get" action="${BASE}"><input type="search" name="ip" placeholder="IP দিয়ে খুঁজুন / ব্লক করুন" aria-label="IP"><button class="btn btn-sm">দেখুন</button></form>
@@ -96,7 +96,7 @@ ${rows.length ? html`<details class="panel fold">
 <tbody>${rows.map((r) => html`<tr>
   <td><a href="${BASE}?ip=${encodeURIComponent(r.ip)}" class="mono" translate="no"><b>${r.ip}</b></a><br>${place(r)}${r.visits ? html`<br><small class="muted">${bn(r.visits)}টি ভিজিট</small>` : ''}</td>
   <td>${kindPills(r.kinds)}</td>
-  <td class="threat-paths" translate="no">${(r.paths || []).map((p) => html`<div>${p}</div>`)}</td>
+  <td class="threat-paths" translate="no">${(r.paths || []).map((p?: Loose) => html`<div>${p}</div>`)}</td>
   <td class="small">${ago(r.last_at)}<br><span class="muted">মোট ${bn(r.n)}বার</span></td>
   <td class="threat-acts">${blockButtons(r.ip, !!r.block_id, r.block_until)}</td>
 </tr>`)}</tbody></table></div></details>`
@@ -110,7 +110,7 @@ ${blocks.length ? html`<details class="panel fold">
   return ctx.page('সন্দেহজনক ভিজিটর', body, 'threats');
 }
 
-async function block(ctx) {
+async function block(ctx: AdminCtx) {
   const b = await ctx.body();
   const ip = str(b.ip, 64).trim();
   const hours = Number(b.hours) > 0 ? 24 : 0;
@@ -119,7 +119,7 @@ async function block(ctx) {
   await ctx.log('block', 'security', null, `সাইট থেকে ব্লক: ${ip}${hours ? ' (২৪ ঘণ্টা)' : ' (স্থায়ী)'}`);
   return ctx.back(`${BASE}?ip=${encodeURIComponent(ip)}`, 'blocked');
 }
-async function unblock(ctx) {
+async function unblock(ctx: AdminCtx) {
   const b = await ctx.body();
   const ip = str(b.ip, 64).trim();
   await G.unblockSite(ip);

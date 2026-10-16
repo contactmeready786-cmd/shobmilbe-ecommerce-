@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // Admin → অর্ডার ও কাস্টমার → 📦 কুরিয়ারে হ্যান্ডওভার (স্ক্যান):
 // scan the barcode on the parcel's ইনভয়েস (or type the order / consignment number) → the order opens;
 // optionally scan every product's own barcode to check the box is packed right; press হ্যান্ডওভার →
@@ -11,20 +10,21 @@ import * as ui from './ui';
 import { ASSET_V } from './layout';
 import * as $services_courier from '../services/courier';
 import * as $orders from './orders';
+import type { AdminCtx, Loose } from '../types';
 
 const BASE = '/admin/handover';
 const READY = ['confirmed', 'processing', 'hold'];
 
-async function findOrder(code) {
+async function findOrder(code?: Loose) {
   const c = str(code, 60).trim().toUpperCase();
   if (!c) return null;
   const r = await db.one(`SELECT id FROM orders WHERE upper(code)=$1 OR (consignment_id<>'' AND upper(consignment_id)=$1) OR (coalesce(tracking_code,'')<>'' AND upper(tracking_code)=$1) ORDER BY id DESC LIMIT 1`, [c]);
   return r ? O.getOrder({ id: r.id }) : null;
 }
-function view(o) {
+function view(o?: Loose) {
   const due = Math.max(0, Number(o.total) - Number(o.paid_amount || 0));
   // each product line with what its barcode is (bundles: the parts inside)
-  const lines = [];
+  const lines: Loose[] = [];
   for (const it of o.items) {
     if (Array.isArray(it.components) && it.components.length) {
       for (const c of it.components) lines.push({ product_id: c.product_id, name: `${c.name || it.name} (প্যাকেজের ভেতরে)`, qty: c.qty * (it.qty || 1), barcode: c.barcode || '', image: it.image_id ? `/media/${it.image_id}/t` : '' });
@@ -36,26 +36,26 @@ function view(o) {
     handed_at: o.handed_at || null, ready: READY.includes(o.status) || o.status === 'pending', items: lines,
   };
 }
-async function partsBarcodes(order) {
+async function partsBarcodes(order?: Loose) {
   // bundle parts need their own product barcodes
-  const ids = [];
-  for (const it of order.items) if (Array.isArray(it.components)) it.components.forEach((c) => ids.push(c.product_id));
+  const ids: Loose[] = [];
+  for (const it of order.items) if (Array.isArray(it.components)) it.components.forEach((c?: Loose) => ids.push(c.product_id));
   if (!ids.length) return;
   const rows = await db.q('SELECT id, name, barcode FROM products WHERE id = ANY($1::int[])', [ids]);
   const m = new Map(rows.map((r) => [r.id, r]));
-  for (const it of order.items) if (Array.isArray(it.components)) it.components.forEach((c) => { const p = m.get(c.product_id); if (p) { c.barcode = p.barcode; c.name = c.name || p.name; } });
+  for (const it of order.items) if (Array.isArray(it.components)) it.components.forEach((c?: Loose) => { const p = m.get(c.product_id); if (p) { c.barcode = p.barcode; c.name = c.name || p.name; } });
 }
 
 // 📍 which box each product sits in, so whoever packs finds it at once
-async function addLocations(view) {
-  const ids = view.items.map((x) => x.product_id).filter(Boolean);
+async function addLocations(view?: Loose) {
+  const ids = view.items.map((x?: Loose) => x.product_id).filter(Boolean);
   if (!ids.length) return view;
   const rows = await db.q("SELECT id, location FROM products WHERE id = ANY($1::int[]) AND location <> ''", [ids]);
   const m = new Map(rows.map((r) => [r.id, r.location]));
-  view.items.forEach((x) => { x.location = m.get(x.product_id) || ''; });
+  view.items.forEach((x?: Loose) => { x.location = m.get(x.product_id) || ''; });
   return view;
 }
-async function lookup(ctx) {
+async function lookup(ctx: AdminCtx) {
   const code = ctx.query.get('code');
   const o = await findOrder(code);
   if (!o) {
@@ -67,7 +67,7 @@ async function lookup(ctx) {
   return ctx.json(ctx.res, 200, { ok: true, order: await addLocations(view(o)) });
 }
 
-async function handover(ctx) {
+async function handover(ctx: AdminCtx) {
   const b = await ctx.body();
   const o = await findOrder(b.code);
   if (!o) return ctx.json(ctx.res, 404, { ok: false, error: 'অর্ডার পাওয়া যায়নি।' });
@@ -87,13 +87,13 @@ async function handover(ctx) {
   }
   try {
     const cur = await db.one('SELECT status FROM orders WHERE id=$1', [o.id]);
-    if (cur.status !== 'shipped') await O.setStatus(o.id, 'shipped', ctx.user.id);
-  } catch (e) { return ctx.json(ctx.res, 400, { ok: false, error: e.message }); }
+    if (cur!.status !== 'shipped') await O.setStatus(o.id, 'shipped', ctx.user.id);
+  } catch (e: Loose) { return ctx.json(ctx.res, 400, { ok: false, error: e.message }); }
   await db.q('UPDATE orders SET handed_at=now(), handed_by=$1 WHERE id=$2', [ctx.user.id, o.id]);
   await ctx.log('handover', 'order', o.id, `📦 কুরিয়ারে হ্যান্ডওভার (স্ক্যান)${b.verified ? ' — সব পণ্যের বারকোড মিলিয়ে' : ''}`);
   return ctx.json(ctx.res, 200, { ok: true, code: o.code, message: `✅ ${o.code} কুরিয়ারে দেওয়া হলো — স্টক থেকে কমেছে।${booked}` });
 }
-async function undo(ctx) {
+async function undo(ctx: AdminCtx) {
   const b = await ctx.body();
   const o = await findOrder(b.code);
   if (!o || o.status !== 'shipped') return ctx.json(ctx.res, 409, { ok: false, error: 'এই অর্ডার এখন "কুরিয়ারে দেওয়া" অবস্থায় নেই।' });
@@ -103,7 +103,7 @@ async function undo(ctx) {
   return ctx.json(ctx.res, 200, { ok: true, message: `↩️ ${o.code} আবার "প্যাকিং চলছে" — স্টকে ফিরেছে।` });
 }
 
-async function page(ctx) {
+async function page(ctx: AdminCtx) {
   const [today, waiting] = await Promise.all([
     db.q(`SELECT o.id, o.code, o.customer_name, o.total, o.paid_amount, o.courier, o.handed_at, s.name AS by_name FROM orders o LEFT JOIN staff s ON s.id=o.handed_by
       WHERE o.handed_at > date_trunc('day', now() AT TIME ZONE 'Asia/Dhaka') AT TIME ZONE 'Asia/Dhaka' ORDER BY o.handed_at DESC LIMIT 200`),
@@ -114,7 +114,7 @@ async function page(ctx) {
   <a class="btn btn-ghost btn-sm" href="/admin/orders?status=processing">প্যাক বাকি অর্ডার →</a></div>
 <div class="kpis kpis-tight">
   ${ui.kpi('আজ হ্যান্ডওভার', `${bn(today.length)}টি`, `কুরিয়ার থেকে পাবেন ${money(cod)}`, 'kpi-green')}
-  ${ui.kpi('দেওয়ার অপেক্ষায়', `${bn(waiting.n)}টি`, 'কনফার্ম / প্যাকিং চলছে', waiting.n ? 'kpi-alert' : '')}
+  ${ui.kpi('দেওয়ার অপেক্ষায়', `${bn(waiting!.n)}টি`, 'কনফার্ম / প্যাকিং চলছে', waiting!.n ? 'kpi-alert' : '')}
 </div>
 ${(() => {
     const s = ctx.settings; const courier = $services_courier;

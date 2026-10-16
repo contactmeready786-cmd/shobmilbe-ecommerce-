@@ -7,7 +7,7 @@ import type { Tx } from '../pg';
 const MANUAL = { manual_bkash: ['বিকাশ', 'manual_bkash'], manual_nagad: ['নগদ', 'manual_nagad'], manual_rocket: ['রকেট', 'manual_rocket'], manual_upay: ['উপায়', 'manual_upay'] };
 
 // Which payment options the checkout shows.
-function methods(settings: Settings) {
+function methods(settings: Settings): Loose[] {
   const out = [];
   if (settings.pay_cod === '1') {
     const cod = { id: 'cod', label: 'ক্যাশ অন ডেলিভারি', note: settings.pay_cod_note || 'পণ্য হাতে পেয়ে টাকা দিন' };

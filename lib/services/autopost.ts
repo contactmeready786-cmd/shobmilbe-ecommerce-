@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // 🤖 অটো পোস্ট — every day, at the hours the owner picked, the shop posts one of its own products on its
 // Facebook page (and Instagram, if linked): the real photo, price, a Bangla caption and the order link.
 // It uses the official Facebook Graph API with the page's own token, so nothing is "botted" and the page
@@ -13,39 +12,40 @@ import * as C from '../data/fbcontent';
 import * as $dupcanon from './dupcanon';
 import * as $seo from './seo';
 import * as $models_kits from '../models/kits';
+import type { Body, Id, Loose, Settings, ShopResponse } from '../types';
 
 const GRAPH = 'https://graph.facebook.com/v21.0';
 const REPEAT_DAYS = 45;
 
-const money = (n) => '৳' + bn(Math.round(Number(n) || 0).toLocaleString('en-IN'));
+const money = (n?: Loose) => '৳' + bn(Math.round(Number(n) || 0).toLocaleString('en-IN'));
 
 // Today's date and hour in Dhaka
-function dhakaNow(d = new Date()) {
+function dhakaNow(d: Loose = new Date()) {
   const parts = Object.fromEntries(new Intl.DateTimeFormat('en-GB', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', hourCycle: 'h23', weekday: 'short' })
     .formatToParts(d).map((p) => [p.type, p.value]));
   const wd = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(parts.weekday);
   return { day: `${parts.year}-${parts.month}-${parts.day}`, hour: Number(parts.hour), weekday: wd };
 }
 
-function hoursOf(settings) {
+function hoursOf(settings: Settings) {
   const hs = String(settings.autopost_hours || '11,20').split(/[,\s]+/).map(Number).filter((h) => Number.isInteger(h) && h >= 0 && h <= 23);
   return [...new Set(hs)].sort((a, b) => a - b).slice(0, 4);
 }
 
-function siteBase(settings) { return String(settings.site_url || 'https://shobmilbe.com').replace(/\/+$/, ''); }
+function siteBase(settings: Settings) { return String(settings.site_url || 'https://shobmilbe.com').replace(/\/+$/, ''); }
 
 // ---------------------------------------------------------------- picking the product
 // Root category of every category (sub-categories post under their main one).
 async function rootCategories() {
   const cats = await db.q('SELECT id, name, parent_id FROM categories WHERE coalesce(active,true)');
   const byId = new Map(cats.map((c) => [c.id, c]));
-  const rootOf = (id) => { let c = byId.get(id); for (let i = 0; c && c.parent_id && i < 10; i++) c = byId.get(c.parent_id) || c; return c; };
+  const rootOf = (id?: Id) => { let c = byId.get(id); for (let i = 0; c && c.parent_id && i < 10; i++) c = byId.get(c.parent_id) || c; return c; };
   return { byId, rootOf };
 }
 
 const ELIGIBLE = `p.active AND p.parent_id IS NULL AND p.stock > 0 AND p.price > 0 AND p.image_id IS NOT NULL AND NOT coalesce(p.noindex,false)`;
 
-async function pickProduct(weekday, { exclude = [] } = {}) {
+async function pickProduct(weekday?: Loose, { exclude = [] }: Body = {}) {
   const rows = await db.q(`SELECT p.id, p.name, p.slug, p.price, p.old_price, p.stock, p.image_id, p.category_id, p.short_description, p.description,
       p.brand, coalesce(p.sold_count,0)::int AS sold, coalesce(p.featured,false) AS featured,
       (SELECT max(sp.created_at) FROM social_posts sp WHERE sp.product_id=p.id AND sp.ok) AS last_posted
@@ -70,30 +70,30 @@ async function pickProduct(weekday, { exclude = [] } = {}) {
   const ordered = [...groups.values()].sort((a, b) => b.items.length - a.items.length);
   const group = ordered[weekday % ordered.length];
   // within the category: offers, best sellers and featured first, with some chance so it never feels repetitive
-  const score = (p) => (p.old_price > p.price ? 3 : 0) + Math.min(p.sold, 20) / 4 + (p.featured ? 2 : 0) + (p.last_posted ? 0 : 1.5) + Math.random() * 4;
-  const best = group.items.map((p) => ({ p, s: score(p) })).sort((a, b) => b.s - a.s)[0].p;
+  const score = (p?: Loose) => (p.old_price > p.price ? 3 : 0) + Math.min(p.sold, 20) / 4 + (p.featured ? 2 : 0) + (p.last_posted ? 0 : 1.5) + Math.random() * 4;
+  const best = group.items.map((p?: Loose) => ({ p, s: score(p) })).sort((a?: Loose, b?: Loose) => b.s - a.s)[0].p;
   best.category = group.name;
   return best;
 }
 
 // ---------------------------------------------------------------- the caption
 const OPENERS = [
-  (p) => `🔥 ${p.name}`,
-  (p) => `✨ নতুন করে দেখুন — ${p.name}`,
-  (p) => `👉 ${p.name}`,
-  (p) => `🛒 আজকের পছন্দ: ${p.name}`,
-  (p) => `📦 স্টকে আছে — ${p.name}`,
+  (p?: Loose) => `🔥 ${p.name}`,
+  (p?: Loose) => `✨ নতুন করে দেখুন — ${p.name}`,
+  (p?: Loose) => `👉 ${p.name}`,
+  (p?: Loose) => `🛒 আজকের পছন্দ: ${p.name}`,
+  (p?: Loose) => `📦 স্টকে আছে — ${p.name}`,
 ];
-function hashtags(p, settings) {
-  const tag = (t) => '#' + String(t || '').replace(/[^\p{L}\p{M}\p{N}]+/gu, '');
+function hashtags(p: Loose, settings: Settings) {
+  const tag = (t?: Loose) => '#' + String(t || '').replace(/[^\p{L}\p{M}\p{N}]+/gu, '');
   const list = [tag(settings.store_name || 'সবমিলবে'), '#shobmilbe', p.category ? tag(p.category) : '', p.brand && !/^(made\s*in|china|chinese|generic|no\s*brand|unbranded|চায়না|চাইনিজ)/i.test(String(p.brand).trim()) ? tag(p.brand) : '', '#OnlineShopBD', '#CashOnDelivery'];
   return [...new Set(list.filter((t) => t.length > 2))].slice(0, 6).join(' ');
 }
-function caption(p, settings, channel = 'facebook') {
+function caption(p: Loose, settings: Settings, channel: Loose = 'facebook') {
   const name = $seo.cleanName(p.name); // "Product details of …" copied from other shops never shows
   const open = OPENERS[(p.id + new Date().getDate()) % OPENERS.length]({ name });
   // copied descriptions often just repeat the product name ("<name> <name> …"): take those repeats out
-  const flat = (t) => String(t || '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+  const flat = (t?: Loose) => String(t || '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
   let about = md.plain(p.short_description || p.description || '', 400).replace(/\s+/g, ' ').trim();
   const nameFlat = flat(name);
   for (let i = 0; i < 3 && nameFlat; i++) {
@@ -129,14 +129,14 @@ function caption(p, settings, channel = 'facebook') {
 
 // ---------------------------------------------------------------- picture link
 // Facebook / Instagram fetch the picture themselves, so it has to be a public JPEG link.
-async function imageUrl(p, settings) {
+async function imageUrl(p: Loose, settings: Settings) {
   const m = await db.one('SELECT ik_url FROM media WHERE id=$1', [p.image_id]).catch(() => null);
   if (m && m.ik_url) return `${m.ik_url}${m.ik_url.includes('?') ? '&' : '?'}tr=f-jpg,w-1080`;
   return `${siteBase(settings)}/media/${p.image_id}`;
 }
 
 // ---------------------------------------------------------------- Graph API
-async function graph(path, { method = 'GET', params = {}, token }) {
+async function graph(path: Loose, { method = 'GET', params = {}, token }: Body) {
   const qs = new URLSearchParams({ ...params, access_token: token });
   const url = `${GRAPH}/${path}`;
   const r = method === 'GET'
@@ -144,7 +144,7 @@ async function graph(path, { method = 'GET', params = {}, token }) {
     : await fetchJson(url, { method, headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: qs.toString() }, 30000);
   const err = r.data && r.data.error;
   if (!r.ok || err) {
-    const e = new Error((err && (err.error_user_msg || err.message)) || r.text || `HTTP ${r.status}`);
+    const e: Loose = new Error((err && (err.error_user_msg || err.message)) || r.text || `HTTP ${r.status}`);
     e.code = err && err.code;
     throw e;
   }
@@ -153,7 +153,7 @@ async function graph(path, { method = 'GET', params = {}, token }) {
 
 // Owner pastes the token from Facebook (and optionally the app id + secret). Works out the page, a
 // page token that does not expire, and the linked Instagram account.
-async function connect({ token, appId, appSecret, pageId }) {
+async function connect({ token, appId, appSecret, pageId }: Body) {
   let t = String(token || '').trim();
   if (!t) throw new Error('টোকেন দিন।');
   if (appId && appSecret) {
@@ -161,15 +161,15 @@ async function connect({ token, appId, appSecret, pageId }) {
     try {
       const ex = await graph('oauth/access_token', { token: t, params: { grant_type: 'fb_exchange_token', client_id: appId, client_secret: appSecret, fb_exchange_token: t } });
       if (ex.access_token) t = ex.access_token;
-    } catch (e) { throw new Error('App ID / App Secret দিয়ে টোকেন লম্বা করা গেল না: ' + e.message); }
+    } catch (e: Loose) { throw new Error('App ID / App Secret দিয়ে টোকেন লম্বা করা গেল না: ' + e.message); }
   }
   let page = null;
   let longLived = !!(appId && appSecret);
   try {
     const acc = await graph('me/accounts', { token: t, params: { fields: 'id,name,access_token,tasks', limit: '50' } });
-    const pages = (acc.data || []).filter((x) => x.access_token);
-    if (pages.length) page = pages.find((x) => String(x.id) === String(pageId || '')) || pages[0];
-    if (pages.length > 1 && !pageId) page.others = pages.map((x) => ({ id: x.id, name: x.name }));
+    const pages = (acc.data || []).filter((x?: Loose) => x.access_token);
+    if (pages.length) page = pages.find((x?: Loose) => String(x.id) === String(pageId || '')) || pages[0];
+    if (pages.length > 1 && !pageId) page.others = pages.map((x?: Loose) => ({ id: x.id, name: x.name }));
   } catch (_) { /* not a user token — maybe it is already a page token */ }
   if (!page) {
     const me = await graph('me', { token: t, params: { fields: 'id,name' } });
@@ -186,7 +186,7 @@ async function connect({ token, appId, appSecret, pageId }) {
   return { pageId: page.id, pageName: page.name, pageToken: page.access_token, ig, others: page.others || [], longLived };
 }
 
-async function postFacebook(p, settings) {
+async function postFacebook(p: Loose, settings: Settings) {
   const r = await graph(`${settings.autopost_page_id}/photos`, {
     method: 'POST', token: settings.autopost_page_token,
     params: { url: await imageUrl(p, settings), caption: caption(p, settings, 'facebook'), published: 'true' },
@@ -194,7 +194,7 @@ async function postFacebook(p, settings) {
   return r.post_id || r.id;
 }
 
-async function postInstagram(p, settings) {
+async function postInstagram(p: Loose, settings: Settings) {
   const token = settings.autopost_page_token;
   const box = await graph(`${settings.autopost_ig_id}/media`, { method: 'POST', token, params: { image_url: await imageUrl(p, settings), caption: caption(p, settings, 'instagram') } });
   let lastErr = null;
@@ -205,7 +205,7 @@ async function postInstagram(p, settings) {
   throw lastErr || new Error('Instagram পোস্ট হলো না');
 }
 
-async function record(slot, channel, productId, ok, postId, message, kind = 'product', ref = '') {
+async function record(slot?: Loose, channel?: Loose, productId?: Id, ok?: Loose, postId?: Id, message?: Loose, kind: Loose = 'product', ref: Loose = '') {
   await db.q(`INSERT INTO social_posts(slot, channel, product_id, ok, post_id, message, kind, ref) VALUES($1,$2,$3,$4,$5,$6,$7,$8)
     ON CONFLICT (slot) DO UPDATE SET product_id=EXCLUDED.product_id, ok=EXCLUDED.ok, post_id=EXCLUDED.post_id, message=EXCLUDED.message,
       kind=EXCLUDED.kind, ref=EXCLUDED.ref, created_at=now()`,
@@ -229,28 +229,28 @@ async function lastEngagement() {
 async function nextKind() {
   const last = await lastEngagement();
   if (last && last.kind === 'quiz') return 'answer';
-  const n = (await db.one(`SELECT count(*)::int AS n FROM social_posts WHERE channel='facebook' AND ok AND kind IN ('tip','quiz','question','kit')`).catch(() => ({ n: 0 }))).n;
+  const n = (await db.one(`SELECT count(*)::int AS n FROM social_posts WHERE channel='facebook' AND ok AND kind IN ('tip','quiz','question','kit')`).catch(() => ({ n: 0 })))!.n;
   return ROTATION[n % ROTATION.length];
 }
 // the item of a list that was used longest ago (never-used first)
-async function freshIndex(kind, length) {
+async function freshIndex(kind?: Loose, length?: Loose) {
   const used = await db.q(`SELECT ref, max(created_at) AS at FROM social_posts WHERE kind=$1 AND ok GROUP BY ref`, [kind]).catch(() => []);
   const at = new Map(used.map((r) => [String(r.ref), new Date(r.at).getTime()]));
   const order = [...Array(length).keys()].sort((a, b) => (at.get(String(a)) || 0) - (at.get(String(b)) || 0) || Math.random() - 0.5);
   return order[0];
 }
-async function productFor(words) {
+async function productFor(words?: Loose) {
   if (!words || !words.length) return null;
-  const like = words.map((w) => '%' + String(w).replace(/[%_]/g, '') + '%');
+  const like = words.map((w?: Loose) => '%' + String(w).replace(/[%_]/g, '') + '%');
   return db.one(`SELECT p.*, coalesce(p.sold_count,0)::int AS sold FROM products p WHERE ${ELIGIBLE} AND p.name ILIKE ANY($1::text[])
     ORDER BY coalesce(p.sold_count,0) DESC, random() LIMIT 1`, [like]).catch(() => null);
 }
-const shortName = (n) => { const x = $seo.cleanName(n); return x.length > 70 ? x.slice(0, 70).replace(/\s+\S*$/, '') + '…' : x; };
-const productLink = (p, settings, campaign) => `${siteBase(settings)}/p/${encodeURIComponent(p.slug)}?utm_source=facebook&utm_medium=social&utm_campaign=${campaign}`;
+const shortName = (n?: Loose) => { const x = $seo.cleanName(n); return x.length > 70 ? x.slice(0, 70).replace(/\s+\S*$/, '') + '…' : x; };
+const productLink = (p: Loose, settings: Settings, campaign?: Loose) => `${siteBase(settings)}/p/${encodeURIComponent(p.slug)}?utm_source=facebook&utm_medium=social&utm_campaign=${campaign}`;
 const BN_ABC = ['ক', 'খ', 'গ'];
 
 // Builds the post (text + optional product photo). Nothing is sent here, so the admin page can preview it.
-async function buildEngagement(settings, kind) {
+async function buildEngagement(settings: Settings, kind?: Loose) {
   const shop = settings.store_name || 'সবমিলবে';
   const tagLine = `#${String(shop).replace(/[^\p{L}\p{M}\p{N}]+/gu, '')} #shobmilbe #ElectronicsBD #বাংলায়_ইলেকট্রনিক্স`;
   if (kind === 'tip') {
@@ -273,14 +273,14 @@ async function buildEngagement(settings, kind) {
     const K = $models_kits;
     const kit = await K.forShop(pick.slug);
     if (!kit || !kit.items.length) return buildEngagement(settings, 'tip');
-    const need = kit.items.filter((i) => !i.optional);
-    const total = need.reduce((t, i) => t + Number(i.product.price) * i.qty, 0);
+    const need = kit.items.filter((i?: Loose) => !i.optional);
+    const total = need.reduce((t?: Loose, i?: Loose) => t + Number(i.product.price) * i.qty, 0);
     const steps = K.stepList(kit);
-    const photo = kit.image_id ? { image_id: kit.image_id } : (kit.items.find((i) => i.product.image_id) || {}).product || null;
+    const photo = kit.image_id ? { image_id: kit.image_id } : (kit.items.find((i?: Loose) => i.product.image_id) || {}).product || null;
     const link = `${siteBase(settings)}/kit/${encodeURIComponent(kit.slug)}?utm_source=facebook&utm_medium=social&utm_campaign=kit`;
     const text = [`🛠️ আজকের প্রজেক্ট: ${kit.title}`, '',
       md.plain(kit.description, 300), '',
-      '🔩 যা যা লাগবে:', ...need.slice(0, 8).map((i) => `• ${shortName(i.product.name)}${i.qty > 1 ? ` × ${bn(i.qty)}` : ''}`),
+      '🔩 যা যা লাগবে:', ...need.slice(0, 8).map((i?: Loose) => `• ${shortName(i.product.name)}${i.qty > 1 ? ` × ${bn(i.qty)}` : ''}`),
       need.length > 8 ? `• …আরও ${bn(need.length - 8)}টা` : null, '',
       `💰 সব পার্টস মিলিয়ে প্রায় ${money(total)}${kit.level ? ` · 📶 ${kit.level}` : ''}${kit.duration ? ` · ⏱️ ${kit.duration}` : ''}`,
       `📋 ${bn(steps.length)}টি ধাপে বানানোর নিয়ম আর এক চাপে সব পার্টস কার্টে: ${link}`, '',
@@ -309,7 +309,7 @@ async function buildEngagement(settings, kind) {
   if (kind === 'answer') {
     const last = await lastEngagement();
     let quiz = null;
-    try { quiz = JSON.parse(last.ref); } catch (_) { quiz = null; }
+    try { quiz = JSON.parse(last!.ref); } catch (_) { quiz = null; }
     const p = last && last.product_id ? await db.one(`SELECT p.*, coalesce(p.sold_count,0)::int AS sold FROM products p WHERE p.id=$1`, [last.product_id]) : null;
     if (!p || !quiz || !p.active) return buildEngagement(settings, 'tip'); // the part was removed meanwhile: skip to a tip
     const text = [`✅ গত কুইজের সঠিক উত্তর: ${BN_ABC[quiz.right]}) ${shortName(p.name)}`, '',
@@ -317,12 +317,12 @@ async function buildEngagement(settings, kind) {
       p.stock > 0 ? `💰 দাম: ${money(p.price)} — স্টকে আছে\n🛍️ অর্ডার: ${productLink(p, settings, 'quiz')}` : 'এই মুহূর্তে স্টকে নেই — শীঘ্রই আসবে।',
       '🚚 সারা দেশে হোম ডেলিভারি, ক্যাশ অন ডেলিভারি', '',
       'পরের কুইজ শীঘ্রই — পেজ ফলো করে রাখুন। 🔔', '', tagLine].join('\n');
-    return { kind, ref: 'answer', product: p, text, quizPost: last.post_id };
+    return { kind, ref: 'answer', product: p, text, quizPost: last!.post_id };
   }
   return null;
 }
 
-async function postEngagement(settings, slot, kindWanted) {
+async function postEngagement(settings: Settings, slot?: Loose, kindWanted?: Loose) {
   const kind = kindWanted || (await nextKind());
   const e = await buildEngagement(settings, kind);
   if (!e) return { error: 'পোস্ট বানানো গেল না (পণ্য নেই)।' };
@@ -334,14 +334,14 @@ async function postEngagement(settings, slot, kindWanted) {
     const id = r.post_id || r.id;
     await record(`${base}:fb`, 'facebook', e.product ? e.product.id : null, true, id, '', e.kind, e.ref);
     return { engagement: e.kind, fb: id, product: e.product };
-  } catch (err) {
+  } catch (err: Loose) {
     await record(`${base}:fb`, 'facebook', e.product ? e.product.id : null, false, '', err.message, e.kind, e.ref);
     await db.logIntegration('facebook-autopost', 'engage', false, err.message, e.kind);
     return { engagement: e.kind, fbError: err.message, product: e.product };
   }
 }
 // Is this slot an engagement one? The first picked hour each day; with only one hour, every other day.
-function engagementSlot(settings, hour, day) {
+function engagementSlot(settings: Settings, hour?: Loose, day?: Loose) {
   if (settings.autopost_engage === '0') return false;
   const hs = hoursOf(settings);
   if (hs.length > 1) return hour === hs[0];
@@ -350,23 +350,23 @@ function engagementSlot(settings, hour, day) {
 }
 
 // Post one product now. Returns what happened on each channel.
-async function postOne(settings, { slot, productId } = {}) {
+async function postOne(settings: Settings, { slot, productId }: Body = {}) {
   const now = dhakaNow();
   const p = productId
     ? await db.one(`SELECT p.*, coalesce(p.sold_count,0)::int AS sold FROM products p WHERE p.id=$1 AND ${ELIGIBLE}`, [productId])
     : await pickProduct(now.weekday);
   if (!p) return { error: 'পোস্ট করার মতো পণ্য পাওয়া যায়নি (স্টকে আছে, ছবি আছে, দোকানে চালু — এমন পণ্য লাগবে)।' };
   if (!p.category && p.category_id) { const { rootOf } = await rootCategories(); const r = rootOf(p.category_id); p.category = r ? r.name : ''; }
-  const out = { product: p };
+  const out: Loose = { product: p };
   const base = slot || `manual:${Date.now()}`;
   if (settings.autopost_fb !== '0') {
-    try { out.fb = await postFacebook(p, settings); await record(`${base}:fb`, 'facebook', p.id, true, out.fb, ''); } catch (e) {
+    try { out.fb = await postFacebook(p, settings); await record(`${base}:fb`, 'facebook', p.id, true, out.fb, ''); } catch (e: Loose) {
       out.fbError = e.message; await record(`${base}:fb`, 'facebook', p.id, false, '', e.message);
       await db.logIntegration('facebook-autopost', 'post', false, e.message, p.name);
     }
   }
   if (settings.autopost_ig === '1' && settings.autopost_ig_id) {
-    try { out.ig = await postInstagram(p, settings); await record(`${base}:ig`, 'instagram', p.id, true, out.ig, ''); } catch (e) {
+    try { out.ig = await postInstagram(p, settings); await record(`${base}:ig`, 'instagram', p.id, true, out.ig, ''); } catch (e: Loose) {
       out.igError = e.message; await record(`${base}:ig`, 'instagram', p.id, false, '', e.message);
       await db.logIntegration('instagram-autopost', 'post', false, e.message, p.name);
     }
@@ -375,7 +375,7 @@ async function postOne(settings, { slot, productId } = {}) {
 }
 
 // Called from the hourly wake-up: posts when an hour the owner picked has come and its slot is still free.
-async function tick(settings) {
+async function tick(settings: Settings) {
   if (settings.autopost_on !== '1' || !settings.autopost_page_token || !settings.autopost_page_id) return { off: true };
   const now = dhakaNow();
   const due = hoursOf(settings).filter((h) => h <= now.hour && now.hour - h <= 3); // a missed hour is caught up within 3 hours
@@ -385,13 +385,13 @@ async function tick(settings) {
   const claimed = await db.one(`INSERT INTO social_posts(slot, channel, ok, message) VALUES($1,'claim',NULL,'') ON CONFLICT (slot) DO NOTHING RETURNING id`, [slot]);
   if (!claimed) return { done: true };
   const hour = due[due.length - 1];
-  const r = settings.autopost_fb !== '0' && engagementSlot(settings, hour, now.day) ? await postEngagement(settings, slot) : await postOne(settings, { slot });
+  const r: Loose = settings.autopost_fb !== '0' && engagementSlot(settings, hour, now.day) ? await postEngagement(settings, slot) : await postOne(settings, { slot });
   await db.q(`UPDATE social_posts SET product_id=$2, ok=$3, message=$4 WHERE slot=$1`,
     [slot, r.product ? r.product.id : null, !r.error && !r.fbError, r.error || r.fbError || '']);
   return r;
 }
 
-async function recent(limit = 30) {
+async function recent(limit: Loose = 30) {
   return db.q(`SELECT sp.*, p.name AS product_name, p.slug FROM social_posts sp LEFT JOIN products p ON p.id=sp.product_id
     WHERE sp.channel <> 'claim' ORDER BY sp.created_at DESC LIMIT $1`, [limit]).catch(() => []);
 }

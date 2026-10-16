@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // Customer pages that take forms: 👤 আমার অ্যাকাউন্ট (OTP login, orders, addresses, profile, referral, gift cards),
 // ↩️ the return request on a delivered order, and 🎁 buying a gift card.
 // Every form here must come from this same site (checked) and the login cookie is SameSite=Lax.
@@ -17,25 +16,26 @@ import * as $models_giftcards from './models/giftcards';
 import * as $models_returns from './models/returns';
 import * as $services_push from './services/push';
 import * as $services_payments from './services/payments';
+import type { Body, Id, Loose, Settings, ShopRequest } from './types';
 
-const safeNext = (n) => (/^\/(?!\/)[A-Za-z0-9/_?=&.%-]{0,200}$/.test(String(n || '')) && !String(n).startsWith('/account') ? String(n) : '');
+const safeNext = (n?: Loose) => (/^\/(?!\/)[A-Za-z0-9/_?=&.%-]{0,200}$/.test(String(n || '')) && !String(n).startsWith('/account') ? String(n) : '');
 
 // The browser's "my orders" list (order page shows the full address / reviews / returns for these).
-function ordersCookie(req, settings, codes) {
+function ordersCookie(req: ShopRequest, settings: Settings, codes?: Loose) {
   const old = (() => { const v = unsign(parseCookies(req.headers.cookie).sm_orders, settings.session_secret); return v ? v.split('.').filter(Boolean) : []; })();
   const all = [...new Set([...codes, ...old])].slice(0, 15);
   const secure = String(req.headers['x-forwarded-proto'] || '').includes('https') ? '; Secure' : '';
   return `sm_orders=${encodeURIComponent(sign(all.join('.'), settings.session_secret))}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${120 * 86400}${secure}`;
 }
-function myOrders(req, settings) {
+function myOrders(req: ShopRequest, settings: Settings) {
   const v = unsign(parseCookies(req.headers.cookie).sm_orders, settings.session_secret);
   return v ? v.split('.').filter(Boolean) : [];
 }
 
-async function route({ req, res, path, method, query, settings, page, notFound, redirect, ip }) {
+async function route({ req, res, path, method, query, settings, page, notFound, redirect, ip }: Body) {
   const isPost = method === 'POST';
   if (isPost && !security.sameSite(req)) return page('অনুমতি নেই', '<div class="wrap section"><p>এই ফর্ম অন্য ওয়েবসাইট থেকে পাঠানো হয়েছে।</p></div>', { status: 403, noindex: true });
-  const go = (to, cookies) => redirect(res, to, cookies ? { 'Set-Cookie': cookies } : {});
+  const go = (to?: Loose, cookies?: Loose) => redirect(res, to, cookies ? { 'Set-Cookie': cookies } : {});
 
   // ---------------------------------------------------------------- 🙋 the customer cancels / changes their own order
   let sm = path.match(/^\/order\/([A-Za-z0-9]+)\/(cancel|edit)$/);
@@ -43,7 +43,7 @@ async function route({ req, res, path, method, query, settings, page, notFound, 
     if (!isPost) return go(`/order/${sm[1].toUpperCase()}`);
     const code = sm[1].toUpperCase();
     const SS = $models_selfservice;
-    const back = (msg, ok) => go(`/order/${code}?${ok ? 'done' : 'err'}=${encodeURIComponent(msg)}#self`);
+    const back = (msg?: Loose, ok?: Loose) => go(`/order/${code}?${ok ? 'done' : 'err'}=${encodeURIComponent(msg)}#self`);
     if (!myOrders(req, settings).includes(code)) return back('এই অর্ডারটি বদলাতে আগে "অর্ডার ট্র্যাক" পেজে অর্ডার নম্বর আর মোবাইল নম্বর দিয়ে খুলুন।');
     if (!(await security.hit(db, 'selfsvc:' + ip, 20, 3600))) return back('অনেকবার চেষ্টা হয়েছে। কিছুক্ষণ পর আবার চেষ্টা করুন।');
     const order = await O.getOrder({ code });
@@ -83,7 +83,7 @@ async function route({ req, res, path, method, query, settings, page, notFound, 
       if (query.get('topic') === 'warranty' && oc) {
         const order = await O.getOrder({ code: oc });
         const items = CM.warrantyItems(order);
-        const it = items.find((x) => x.product_id === int(query.get('item'))) || (items.length === 1 ? items[0] : null);
+        const it = items.find((x?: Loose) => x.product_id === int(query.get('item'))) || (items.length === 1 ? items[0] : null);
         Object.assign(values, { topic: 'warranty', item: it ? it.product_id : '', item_name: it ? it.name : '', item_end: it && it.end instanceof Date ? it.end : null, items });
       }
       return page('অভিযোগ জানান', CV.complaintPage({ settings, values }), { canonical: '/complaint', description: 'অর্ডার, পণ্য, ডেলিভারি বা টাকা নিয়ে সমস্যা জানান — ৭২ ঘণ্টার মধ্যে সমাধান।' });
@@ -91,17 +91,17 @@ async function route({ req, res, path, method, query, settings, page, notFound, 
     const b = await parseBody(req);
     if (b.website) return go('/complaint'); // a robot filled the hidden box
     if (!(await security.hit(db, 'complaint:' + ip, 6, 3600))) return page('অভিযোগ জানান', CV.complaintPage({ settings, values: b, error: 'অনেকগুলো অভিযোগ পাঠানো হয়েছে। কিছুক্ষণ পর আবার চেষ্টা করুন, অথবা ফোন করুন।' }), { noindex: true, status: 429 });
-    let photos = [];
+    let photos: Loose[] = [];
     try { photos = JSON.parse(b.photos || '[]'); } catch (_) { photos = []; }
     try {
       const c = await CM.create({ name: b.name, phone: b.phone, email: b.email, orderCode: b.order_code, topic: b.topic, message: b.message, photos, ip, settings, productId: b.item });
       const site = (settings.site_url || `https://${req.headers['x-forwarded-host'] || req.headers.host}`).replace(/\/+$/, '');
       const hours = CM.hoursOf(settings);
       const notify = $services_notify;
-      await notify.newComplaint(settings, site, c, CM.TOPICS[c.topic] || c.topic, hours).catch(() => {});
+      await notify.newComplaint(settings, site, c, CM.TOPICS[c!.topic] || c!.topic, hours).catch(() => {});
       if (settings.complaint_sms_on !== '0') {
         const SMS = $services_sms;
-        if (SMS.ready(settings).ok) await notify.later(SMS.send(settings, c.phone, `${settings.store_name || ''}: আপনার অভিযোগ ${c.code} পেয়েছি। ${hours} ঘণ্টার মধ্যে সমাধান করা হবে। অবস্থা দেখুন: ${site}/complaint/status?code=${c.code}`, { kind: 'complaint' }));
+        if (SMS.ready(settings).ok) await notify.later(SMS.send(settings, c!.phone, `${settings.store_name || ''}: আপনার অভিযোগ ${c!.code} পেয়েছি। ${hours} ঘণ্টার মধ্যে সমাধান করা হবে। অবস্থা দেখুন: ${site}/complaint/status?code=${c!.code}`, { kind: 'complaint' }));
       }
       return page('অভিযোগ জমা হয়েছে', CV.complaintPage({ settings, done: c }), { noindex: true });
     } catch (e) {
@@ -116,9 +116,9 @@ async function route({ req, res, path, method, query, settings, page, notFound, 
     const cu = await A.current(req, settings);
     const next = safeNext(isPost ? '' : query.get('next'));
     const ways = { phoneOn: A.phoneReady(settings), emailOn: A.emailReady(settings) };
-    const login = (o) => page('লগইন', V.loginPage({ ...ways, ...o }), { noindex: true, status: o.error ? 400 : 200 });
+    const login = (o?: Loose) => page('লগইন', V.loginPage({ ...ways, ...o }), { noindex: true, status: o.error ? 400 : 200 });
     // after the code is right: a new account first gives its name (and mobile), then goes where it was going
-    const afterLogin = (c, nxt) => (A.needsProfile(c) ? `/account?tab=profile&welcome=1${nxt ? '&next=' + encodeURIComponent(nxt) : ''}` : nxt || '/account');
+    const afterLogin = (c?: Loose, nxt?: Loose) => (A.needsProfile(c) ? `/account?tab=profile&welcome=1${nxt ? '&next=' + encodeURIComponent(nxt) : ''}` : nxt || '/account');
     // ---------- 📱 mobile + SMS code ----------
     if (path === '/account/code' && isPost) {
       const b = await parseBody(req);
@@ -135,7 +135,7 @@ async function route({ req, res, path, method, query, settings, page, notFound, 
       if (!(await security.hit(db, 'otpv:' + ip, 20, 3600))) return login({ via: 'phone', error: 'অনেকবার চেষ্টা হয়েছে। কিছুক্ষণ পর আবার চেষ্টা করুন।' });
       try {
         const c = await A.verifyCode(settings, b.phone, b.code);
-        const codes = (await db.q('SELECT code FROM orders WHERE phone=$1 ORDER BY created_at DESC LIMIT 15', [c.phone])).map((r) => r.code);
+        const codes = (await db.q('SELECT code FROM orders WHERE phone=$1 ORDER BY created_at DESC LIMIT 15', [c!.phone])).map((r) => r.code);
         return go(afterLogin(c, safeNext(b.next)), [A.cookieFor(req, settings, c), ordersCookie(req, settings, codes)]);
       } catch (e) {
         if (!(e instanceof A.AccountError)) throw e;
@@ -209,7 +209,7 @@ async function route({ req, res, path, method, query, settings, page, notFound, 
     if (RC.on && RC.friendGets) {
       const code = await G.refCodeFor(cu.id);
       const st = await G.referralStats(cu.id);
-      referral = { code, friendGets: RC.friendGets, friendMin: RC.friendMin, youGet: RC.youGet, joined: st.joined, rewarded: st.rewarded };
+      referral = { code, friendGets: RC.friendGets, friendMin: RC.friendMin, youGet: RC.youGet, joined: st!.joined, rewarded: st!.rewarded };
     }
     // their orders open in full on this browser (address, reviews, returns)
     const codes = orders.slice(0, 15).map((o) => o.code);
@@ -233,8 +233,8 @@ async function route({ req, res, path, method, query, settings, page, notFound, 
       const b = await parseBody(req);
       if (b.website) return go(`/order/${order.code}`);
       if (!(await security.hit(db, 'retreq:' + ip, 6, 3600))) return page('রিটার্ন', V.returnForm({ order, existing, settings, mine, error: 'অনেকবার চেষ্টা হয়েছে, কিছুক্ষণ পর আবার চেষ্টা করুন।' }), { noindex: true, status: 429 });
-      const ids = [].concat(b.item || []).map((x) => int(x));
-      let photos = [];
+      const ids = ([] as Loose[]).concat(b.item || []).map((x) => int(x));
+      let photos: Loose[] = [];
       try { photos = JSON.parse(b.photos || '[]'); } catch (_) { photos = []; }
       try {
         const cu = await A.current(req, settings);
@@ -242,7 +242,7 @@ async function route({ req, res, path, method, query, settings, page, notFound, 
           photos, refundMethod: b.refund_method, refundNumber: b.refund_number, customerId: cu ? cu.id : null, settings });
         const push = $services_push;
         $services_notify.later(push.count().then((n) => (n ? push.sendAll({ title: '↩️ নতুন রিটার্ন আবেদন', body: `${order.code} — ${order.customer_name}`, url: '/admin/returns', tag: 'return' }) : null)).catch(() => null));
-        return page('রিটার্ন', V.returnForm({ order, existing: await R.forOrder(order.id), settings, mine, done: r.code }), { noindex: true });
+        return page('রিটার্ন', V.returnForm({ order, existing: await R.forOrder(order.id), settings, mine, done: r!.code }), { noindex: true });
       } catch (e) {
         if (!(e instanceof R.ReturnError)) throw e;
         return page('রিটার্ন', V.returnForm({ order, existing, settings, mine, error: e.message }), { noindex: true, status: 400 });
@@ -276,7 +276,7 @@ async function route({ req, res, path, method, query, settings, page, notFound, 
       const dupTrx = await db.one('SELECT id FROM gift_cards WHERE trx_id=$1', [trx]);
       if (dupTrx) return page('গিফট কার্ড', V.giftPage({ settings, methods, values: b, error: 'এই TrxID দিয়ে আগেই অনুরোধ এসেছে।' }), { status: 400 });
       await G.issue({ amount: Math.round(amt), status: 'pending', source: 'shop', buyerName: b.buyer_name, buyerPhone: b.buyer_phone, recipientName: b.recipient_name,
-        recipientPhone: b.recipient_phone, message: b.message, validDays: int(settings.gift_valid_days), payMethod: method.id, trxId: trx, payNumber: b.pay_number, ip });
+        recipientPhone: b.recipient_phone, message: b.message, validDays: int(settings.gift_valid_days), payMethod: method!.id, trxId: trx, payNumber: b.pay_number, ip });
       const push = $services_push;
       $services_notify.later(push.count().then((n) => (n ? push.sendAll({ title: '💳 গিফট কার্ড কেনার অনুরোধ', body: `৳${Math.round(amt)} — TrxID ${trx}`, url: '/admin/giftcards?status=pending', tag: 'gift' }) : null)).catch(() => null));
       return page('গিফট কার্ড', V.giftPage({ settings, methods, done: { trx, to: normalizePhone(b.recipient_phone) } }), { noindex: true });
@@ -287,10 +287,10 @@ async function route({ req, res, path, method, query, settings, page, notFound, 
 }
 
 // The referral link (?ref=CODE) is remembered for 30 days, so the code is in the box at checkout.
-function refCookie(req, code) {
+function refCookie(req: ShopRequest, code?: Loose) {
   const secure = String(req.headers['x-forwarded-proto'] || '').includes('https') ? '; Secure' : '';
   return `sm_ref=${encodeURIComponent(String(code).toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 20))}; Path=/; SameSite=Lax; Max-Age=${30 * 86400}${secure}`;
 }
-function refFromCookie(req) { return String(parseCookies(req.headers.cookie).sm_ref || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 20); }
+function refFromCookie(req: ShopRequest) { return String(parseCookies(req.headers.cookie).sm_ref || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 20); }
 
 export { route, refCookie, refFromCookie, safeNext };

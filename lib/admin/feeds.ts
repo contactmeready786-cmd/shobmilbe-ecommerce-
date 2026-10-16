@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // Admin: product feed links for Google Merchant Center and Facebook Commerce Manager.
 import * as crypto from 'node:crypto';
 import { html, bn, int } from '../util';
@@ -6,8 +5,9 @@ import * as db from '../db';
 import * as ui from './ui';
 import { saveKeys } from './marketing';
 import * as feeds from '../services/feeds';
+import type { AdminCtx, Loose } from '../types';
 
-function baseUrl(ctx) {
+function baseUrl(ctx: AdminCtx) {
   const s = ctx.settings;
   if (s.site_url) return s.site_url.replace(/\/+$/, '');
   const req = ctx.req;
@@ -16,7 +16,7 @@ function baseUrl(ctx) {
   return `${proto}://${host}`;
 }
 
-async function page(ctx) {
+async function page(ctx: AdminCtx) {
   const s = ctx.settings;
   if (ctx.method === 'POST') {
     const b = await ctx.body();
@@ -44,8 +44,8 @@ async function page(ctx) {
 
   const base = baseUrl(ctx);
   const [g, f] = await Promise.all([feeds.build('google', s, base), feeds.build('facebook', s, base)]);
-  const link = (ch, fmt) => `${base}/feeds/${ch}.${fmt}?key=${s[`feed_${ch}_token`]}`;
-  const card = (ch, title, built, steps) => {
+  const link = (ch?: Loose, fmt?: Loose) => `${base}/feeds/${ch}.${fmt}?key=${s[`feed_${ch}_token`]}`;
+  const card = (ch?: Loose, title?: Loose, built?: Loose, steps?: Loose) => {
     const token = s[`feed_${ch}_token`];
     return html`<section class="panel feed-card">
       <h2><span class="brand-dot ${ch === 'google' ? 'gg' : 'fb'}"></span> ${title}</h2>
@@ -67,9 +67,9 @@ async function page(ctx) {
           <button class="btn">🔗 ${ch === 'google' ? 'Google' : 'Facebook'} ফিড লিংক তৈরি করুন</button></form>`}
       <details class="feed-steps"><summary>কোথায় বসাবেন? (ধাপে ধাপে)</summary><ol class="small">${steps}</ol></details>
       ${built.report.excluded.length ? html`<details class="feed-issues" open><summary class="warn">⚠️ ${bn(built.report.excluded.length)}টি পণ্য ফিডে যাচ্ছে না</summary>
-        <ul class="small">${built.report.excluded.slice(0, 50).map((x) => html`<li><a href="/admin/products/${x.id}">${x.name}</a> — ${x.why.join(', ')}</li>`)}</ul></details>` : ''}
+        <ul class="small">${built.report.excluded.slice(0, 50).map((x?: Loose) => html`<li><a href="/admin/products/${x.id}">${x.name}</a> — ${x.why.join(', ')}</li>`)}</ul></details>` : ''}
       ${built.report.warnings.length ? html`<details class="feed-issues"><summary>ℹ️ ${bn(built.report.warnings.length)}টি পণ্যে ছোট সমস্যা (তবুও ফিডে যাচ্ছে)</summary>
-        <ul class="small">${built.report.warnings.slice(0, 50).map((x) => html`<li><a href="/admin/products/${x.id}">${x.name}</a> — ${x.why.join(', ')}</li>`)}</ul></details>` : ''}
+        <ul class="small">${built.report.warnings.slice(0, 50).map((x?: Loose) => html`<li><a href="/admin/products/${x.id}">${x.name}</a> — ${x.why.join(', ')}</li>`)}</ul></details>` : ''}
     </section>`;
   };
 

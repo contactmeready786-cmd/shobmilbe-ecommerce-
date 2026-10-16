@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 
 // Save the given setting keys from a form body. Secret fields left blank keep their old value.
 // Boxes where raw code (scripts) can be pasted. A script on the store runs with the same rights as the
@@ -10,8 +9,9 @@ import * as ui from './ui';
 import * as $services_seo from '../services/seo';
 import * as $status from './status';
 import * as $models_catalog from '../models/catalog';
+import type { AdminCtx, Body, Loose } from '../types';
 const OWNER_ONLY_KEYS = new Set(['custom_scripts', 'custom_head', 'custom_body', 'chat_script', 'verification_files', 'live_cricket_embed', 'live_football_embed']);
-async function saveKeys(ctx, keys, body, { secrets = [], checkboxes = [] } = {}) {
+async function saveKeys(ctx: AdminCtx, keys?: Loose, body?: Loose, { secrets = [], checkboxes = [] }: Body = {}) {
   const owner = ctx.user && ctx.user.role === 'owner';
   for (const k of keys) {
     if (OWNER_ONLY_KEYS.has(k) && !owner) continue;
@@ -23,7 +23,7 @@ async function saveKeys(ctx, keys, body, { secrets = [], checkboxes = [] } = {})
   }
   await ctx.reloadSettings();
 }
-const secretInput = (name, value, attrs = {}) => ui.input(name, value ? '••••••••' : '', { type: 'password', autocomplete: 'off', placeholder: value ? 'সেভ করা আছে (বদলাতে নতুন দিন)' : '', ...attrs });
+const secretInput = (name?: Loose, value?: Loose, attrs: Loose = {}) => ui.input(name, value ? '••••••••' : '', { type: 'password', autocomplete: 'off', placeholder: value ? 'সেভ করা আছে (বদলাতে নতুন দিন)' : '', ...attrs });
 
 // ---------------------------------------------------------------- tracking
 const ID_RULES = {
@@ -32,12 +32,12 @@ const ID_RULES = {
   gtm_id: [/^GTM-[A-Z0-9]{4,10}$/i, 'GTM ID দেখতে এমন হয়: GTM-ABC1234'],
   ga4_id: [/^G-[A-Z0-9]{6,12}$/i, 'GA4 Measurement ID দেখতে এমন হয়: G-ABC123XYZ'],
 };
-async function tracking(ctx) {
+async function tracking(ctx: AdminCtx) {
   const s = ctx.settings;
   if (ctx.method === 'POST') {
     const b = await ctx.body();
     for (const [k, [re, msg]] of Object.entries(ID_RULES)) {
-      if (b[k] && !re.test(String(b[k]).trim())) return ctx.fail('/admin/marketing/tracking', msg);
+      if (b[k] && !(re as RegExp).test(String(b[k]).trim())) return ctx.fail('/admin/marketing/tracking', msg as string);
     }
     if (b.gtm_id) b.gtm_id = String(b.gtm_id).trim().toUpperCase();
     if (b.ga4_id) b.ga4_id = String(b.ga4_id).trim().toUpperCase();
@@ -46,7 +46,7 @@ async function tracking(ctx) {
       const m = String(b[k] || '').match(/content=["']([^"']+)["']/);
       if (m) b[k] = m[1];
     }
-    const files = [];
+    const files: Loose[] = [];
     list(b.vf_path).forEach((p, i) => {
       const path = String(p || '').trim().replace(/^\/+/, '');
       const body = String(list(b.vf_content)[i] || '');
@@ -54,7 +54,7 @@ async function tracking(ctx) {
     });
     b.verification_files = JSON.stringify(files);
     // "যেকোনো স্ক্রিপ্ট বসান": named codes, each with its own place and on/off
-    const scripts = [];
+    const scripts: Loose[] = [];
     list(b.sc_name).forEach((n, i) => {
       const code = String(list(b.sc_code)[i] || '').trim();
       const name = String(n || '').trim().slice(0, 60);
@@ -76,7 +76,7 @@ async function tracking(ctx) {
     ['Facebook Pixel', !!s.fb_pixel_id, '#fb'], ['Conversions API', !!s.fb_capi_token, '#fb'], ['FB ডোমেইন ভেরিফিকেশন', !!s.fb_domain_verification, '#fb'],
     ['TikTok Pixel', !!s.tiktok_pixel_id, '#tt'], ['TikTok Events API', !!s.tiktok_events_token, '#tt'],
     ['Google Tag Manager', !!s.gtm_id, '#gg'], ['Google Analytics 4', !!s.ga4_id, '#gg'], ['Search Console', !!s.google_site_verification, '#gg'],
-    ['অন্যান্য স্ক্রিপ্ট', scripts.some((x) => x.on) || !!(s.custom_head || s.custom_body), '#scripts'],
+    ['অন্যান্য স্ক্রিপ্ট', scripts.some((x?: Loose) => x.on) || !!(s.custom_head || s.custom_body), '#scripts'],
   ];
   const body = html`<h1>পিক্সেল ও ট্র্যাকিং</h1>${ui.flash(ctx.flash)}
 <nav class="trk-status" aria-label="কী কী বসানো আছে">${st.map(([t, on, a]) => html`<a href="${a}" class="trk-chip ${on ? 'on' : ''}">${on ? '✅' : '⭕'} ${t}</a>`)}
@@ -155,7 +155,7 @@ ${logs.length ? html`<section class="panel"><h2>সার্ভার ইভে�
 }
 
 // ---------------------------------------------------------------- SEO
-async function seo(ctx) {
+async function seo(ctx: AdminCtx) {
   const s = ctx.settings;
   if (ctx.method === 'POST') {
     const b = await ctx.body();
@@ -180,7 +180,7 @@ async function seo(ctx) {
   const tabs = html`<nav class="rs-tabs"><a class="tab ${ctx.query.get('tab') === 'check' ? '' : 'on'}" href="/admin/marketing/seo">⚙️ সেটিংস</a><a class="tab ${ctx.query.get('tab') === 'check' ? 'on' : ''}" href="/admin/marketing/seo?tab=check">🩺 SEO চেকার</a></nav>`;
   if (ctx.query.get('tab') === 'check') {
     const { total, list, avg, perfect } = await $status.seoProblems();
-    const bad = list.filter((p) => p.why.some((w) => w[0] === 'bad')).length;
+    const bad = list.filter((p) => p.why.some((w: Loose) => w[0] === 'bad')).length;
     const body = html`<h1>SEO (গুগল সার্চ)</h1>${tabs}
 ${!base ? html`<p class="flash flash-error">⚠️ ওয়েবসাইটের ঠিকানা দেওয়া নেই — এটা না দিলে গুগল ঠিক লিংক চিনতে পারবে না। <a href="/admin/marketing/seo">সেটিংসে দিন</a>।</p>` : ''}
 ${ui.flash(ctx.flash)}
@@ -190,7 +190,7 @@ ${list.some((p) => $services_seo.needsNameFix(p.name)) ? html`<form method="post
 ${ui.helpBox('স্কোর কীভাবে হিসাব হয়', html`<p class="small">প্রতিটা পণ্য ১০০-এর মধ্যে: ছবি ২০ · বিবরণ ২০ (+২০০ অক্ষরের বেশি হলে আরও ১০) · মডেল/পার্ট নম্বর ১২ · স্পেসিফিকেশন ১০ · ক্যাটাগরি ১০ · একাধিক ছবি ৬ · ব্র্যান্ড ৪ · ঠিকঠাক টাইটেল ৪ · রিভিউ ৪। সবচেয়ে কম স্কোরের পণ্য উপরে — ওগুলো আগে ঠিক করলে Google-এ তাড়াতাড়ি উঠবে।</p>`)}
 <section class="panel table-wrap">${list.length ? html`<table class="table compact"><thead><tr><th>পণ্য</th><th>যা ঠিক করতে হবে</th><th></th></tr></thead>
 <tbody>${list.sort((a, b) => a.score - b.score || b.id - a.id).slice(0, 300).map((p) => html`<tr><td>${p.name}${p.sku ? html`<br><span class="small muted">SKU ${p.sku}</span>` : ''}<br><b class="${p.score >= 80 ? 'ok' : p.score >= 50 ? 'warn' : 'bad'}">স্কোর ${bn(p.score)}/১০০</b></td>
-  <td class="small">${p.why.map((w) => html`<span class="${w[0] === 'bad' ? 'bad' : w[0] === 'warn' ? 'warn' : 'muted'}">${w[0] === 'bad' ? '❌' : w[0] === 'warn' ? '⚠️' : 'ℹ️'} ${w[1]}</span><br>`)}</td>
+  <td class="small">${p.why.map((w: Loose) => html`<span class="${w[0] === 'bad' ? 'bad' : w[0] === 'warn' ? 'warn' : 'muted'}">${w[0] === 'bad' ? '❌' : w[0] === 'warn' ? '⚠️' : 'ℹ️'} ${w[1]}</span><br>`)}</td>
   <td><a class="btn btn-sm btn-ghost" href="/admin/products/${p.id}">✏️ ঠিক করুন</a></td></tr>`)}</tbody></table>${list.length > 300 ? html`<p class="small muted">প্রথম ৩০০টি দেখানো হচ্ছে।</p>` : ''}` : html`<p>🎉 সব পণ্যের SEO ঠিক আছে।</p>`}</section>
 <p class="small muted">টিপস: টাইটেল ৫০-৬০ অক্ষর (পণ্যের নাম + মূল বৈশিষ্ট্য + "price in BD"), বিবরণ ১২০-১৬০ অক্ষর। প্রতিটা পণ্যে অন্তত একটা পরিষ্কার ছবি আর কয়েক লাইন নিজের লেখা বিবরণ দিন — কপি করা লেখা গুগল কম পছন্দ করে।</p>`;
     return ctx.page('SEO চেকার', body, 'seo');
@@ -231,7 +231,7 @@ ${ui.helpBox('স্কোর কীভাবে হিসাব হয়', htm
 }
 
 // ---------------------------------------------------------------- coupons
-async function coupons(ctx) {
+async function coupons(ctx: AdminCtx) {
   if (ctx.method === 'POST') {
     const b = await ctx.body();
     try {
@@ -243,7 +243,7 @@ async function coupons(ctx) {
       b.product_ids = found.map((f) => f.id);
       const id = await content.saveCoupon({ ...b, active: b.id ? b.active : true });
       await ctx.log('coupon_save', 'coupon', id, str(b.code, 30));
-    } catch (e) { return ctx.fail('/admin/marketing/coupons' + (b.id ? `?edit=${int(b.id)}` : ''), e.message); }
+    } catch (e: Loose) { return ctx.fail('/admin/marketing/coupons' + (b.id ? `?edit=${int(b.id)}` : ''), e.message); }
     return ctx.back('/admin/marketing/coupons', 'saved');
   }
   const rows = await content.listCoupons();
@@ -263,7 +263,7 @@ ${ui.helpBox('অফার দেওয়ার উপায়', html`<b>১. 
     <tbody>${rows.map((r) => html`<tr class="${r.active ? '' : 'row-off'}"><td><b class="mono">${r.code}</b>${r.note ? html`<br><span class="small muted">${r.note}</span>` : ''}</td>
       <td>${r.type === 'percent' ? `${bn(r.value)}%` : r.type === 'fixed' ? money(r.value) : 'ফ্রি ডেলিভারি'}${r.max_discount ? html`<br><span class="small muted">সর্বোচ্চ ${money(r.max_discount)}</span>` : ''}</td>
       <td class="small">${r.min_order ? `কমপক্ষে ${money(r.min_order)}` : '—'}${r.per_phone ? html`<br>প্রতি নম্বরে ${bn(r.per_phone)} বার` : ''}${r.first_order ? html`<br>🆕 শুধু প্রথম অর্ডারে` : ''}
-        ${(r.product_ids || []).length ? html`<br>🎯 পণ্য: ${(r.product_ids || []).map((x) => skuOf.get(x) || '#' + x).join(', ')}` : ''}${(r.category_ids || []).length ? html`<br>🎯 ক্যাটাগরি: ${(r.category_ids || []).map((x) => catName.get(x) || '#' + x).join(', ')}` : ''}</td>
+        ${(r.product_ids || []).length ? html`<br>🎯 পণ্য: ${(r.product_ids || []).map((x?: Loose) => skuOf.get(x) || '#' + x).join(', ')}` : ''}${(r.category_ids || []).length ? html`<br>🎯 ক্যাটাগরি: ${(r.category_ids || []).map((x?: Loose) => catName.get(x) || '#' + x).join(', ')}` : ''}</td>
       <td class="small">${r.starts_on || r.ends_on ? `${r.starts_on || '…'} → ${r.ends_on || '…'}` : 'সবসময়'}</td>
       <td class="num">${bn(r.used_count)}${r.usage_limit ? ` / ${bn(r.usage_limit)}` : ''}</td>
       <td>${ui.rowSwitch(`/admin/toggle/coupon/${r.id}`, r.active, 'বন্ধ করলে এই কুপন আর কাজ করবে না')}</td>
@@ -292,7 +292,7 @@ ${ui.helpBox('অফার দেওয়ার উপায়', html`<b>১. 
         ${ui.field('এক নম্বর থেকে কতবার', ui.input('per_phone', c.per_phone || 0, { type: 'number', min: 0 }), '০ = যতবার খুশি')}
       </div>
       <details class="help" ${(c.product_ids || []).length || (c.category_ids || []).length || c.first_order ? raw('open') : ''}><summary>🎯 শুধু কিছু পণ্যে / প্রথম অর্ডারে (ঐচ্ছিক)</summary><div>
-        ${ui.field('শুধু এই পণ্যগুলোতে (SKU, কমা দিয়ে)', ui.input('product_skus', (c.product_ids || []).map((x) => skuOf.get(x)).filter(Boolean).join(', '), { maxlength: 2000, placeholder: 'যেমন: 12, 15, 101' }), 'খালি = পুরো কার্টে ছাড়। দিলে শুধু এই পণ্যগুলোর দামের উপর ছাড় হিসাব হবে।')}
+        ${ui.field('শুধু এই পণ্যগুলোতে (SKU, কমা দিয়ে)', ui.input('product_skus', (c.product_ids || []).map((x?: Loose) => skuOf.get(x)).filter(Boolean).join(', '), { maxlength: 2000, placeholder: 'যেমন: 12, 15, 101' }), 'খালি = পুরো কার্টে ছাড়। দিলে শুধু এই পণ্যগুলোর দামের উপর ছাড় হিসাব হবে।')}
         <label class="field"><span>শুধু এই ক্যাটাগরিগুলোতে (ভেতরের সাব-ক্যাটাগরিসহ)</span>
           <select name="category_ids[]" multiple size="6">${ui.catOpts(cats).map(([id, label]) => html`<option value="${id}" ${(c.category_ids || []).includes(id) ? raw('selected') : ''}>${label}</option>`)}</select>
           <small>Ctrl (মোবাইলে চাপ দিয়ে) দিয়ে একাধিক বাছুন। কিছু না বাছলে সব ক্যাটাগরি।</small></label>
@@ -307,7 +307,7 @@ ${ui.helpBox('অফার দেওয়ার উপায়', html`<b>১. 
 </div>`;
   return ctx.page('কুপন ও অফার', body, 'coupons');
 }
-async function deleteCoupon(ctx, m) {
+async function deleteCoupon(ctx: AdminCtx, m?: Loose) {
   await ctx.trash('coupon', int(m[1]));
   await ctx.log('coupon_delete', 'coupon', int(m[1]), '');
   return ctx.back('/admin/marketing/coupons', 'deleted');
@@ -316,7 +316,7 @@ async function deleteCoupon(ctx, m) {
 // ---------------------------------------------------------------- social & live chat
 const SOCIALS = [['social_facebook', 'Facebook পেজ'], ['social_instagram', 'Instagram'], ['social_youtube', 'YouTube'], ['social_tiktok', 'TikTok'],
   ['social_linkedin', 'LinkedIn'], ['social_x', 'X (Twitter)'], ['social_pinterest', 'Pinterest'], ['social_telegram', 'Telegram']];
-async function social(ctx) {
+async function social(ctx: AdminCtx) {
   const s = ctx.settings;
   if (ctx.method === 'POST') {
     const b = await ctx.body();

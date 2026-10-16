@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // ✈️ Telegram চ্যানেল — the shop's daily posts also go to its own Telegram channel, free and with no limits:
 // at the same hours as the Facebook auto-post (Admin → অটো মার্কেটিং), one product with its photo, price and
 // order link; on the engagement slot a tip, a question or a project guide instead. Telegram channels are where many
@@ -9,11 +8,12 @@
 import * as db from '../db';
 import { fetchJson, str } from '../util';
 import * as autopost from './autopost';
+import type { Body, Id, Loose, Settings } from '../types';
 
 const API = 'https://api.telegram.org';
 const ROTATION = ['tip', 'kit', 'tip', 'question'];
 
-async function call(token, method, params) {
+async function call(token?: Loose, method?: Loose, params?: Loose) {
   if (!/^\d{5,}:[A-Za-z0-9_-]{30,}$/.test(String(token || ''))) throw new Error('বটের টোকেন ঠিক নেই — @BotFather যেটা দিয়েছে পুরোটা কপি করুন (যেমন 123456789:AA…)।');
   const r = await fetchJson(`${API}/bot${token}/${method}`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(params || {}),
@@ -29,7 +29,7 @@ async function call(token, method, params) {
 }
 
 // "@shobmilbe", "t.me/shobmilbe", "https://t.me/shobmilbe" or a numeric id → what the API wants
-function chatId(input) {
+function chatId(input: Body) {
   const t = String(input || '').trim().replace(/^https?:\/\//i, '').replace(/^t\.me\//i, '').replace(/\/+$/, '');
   if (/^-?\d{5,}$/.test(t)) return t;
   const name = t.replace(/^@/, '');
@@ -38,7 +38,7 @@ function chatId(input) {
 }
 
 // Checks the token and the channel, and sends one test message.
-async function connect(token, chatInput) {
+async function connect(token?: Loose, chatInput?: Loose) {
   const me = await call(token, 'getMe');
   const chat = chatId(chatInput);
   const info = await call(token, 'getChat', { chat_id: chat });
@@ -46,7 +46,7 @@ async function connect(token, chatInput) {
   return { chat: info.username ? '@' + info.username : String(info.id), title: info.title || '' };
 }
 
-async function send(settings, { text, product }) {
+async function send(settings: Settings, { text, product }: Body) {
   const token = settings.telegram_bot_token;
   const chat = settings.telegram_chat;
   if (product && product.image_id) {
@@ -58,7 +58,7 @@ async function send(settings, { text, product }) {
   return r.message_id;
 }
 
-async function record(slot, productId, ok, postId, message, kind = 'product', ref = '') {
+async function record(slot?: Loose, productId?: Id, ok?: Loose, postId?: Id, message?: Loose, kind: Loose = 'product', ref: Loose = '') {
   await db.q(`INSERT INTO social_posts(slot, channel, product_id, ok, post_id, message, kind, ref) VALUES($1,'telegram',$2,$3,$4,$5,$6,$7)
     ON CONFLICT (slot) DO UPDATE SET product_id=EXCLUDED.product_id, ok=EXCLUDED.ok, post_id=EXCLUDED.post_id, message=EXCLUDED.message,
       kind=EXCLUDED.kind, ref=EXCLUDED.ref, created_at=now()`,
@@ -66,7 +66,7 @@ async function record(slot, productId, ok, postId, message, kind = 'product', re
 }
 
 // One product post (the same kind of caption as Facebook, with a Telegram link tag)
-async function postOne(settings, { slot } = {}) {
+async function postOne(settings: Settings, { slot }: Body = {}) {
   const p = await autopost.pickProduct(autopost.dhakaNow().weekday);
   if (!p) return { error: 'পোস্ট করার মতো পণ্য পাওয়া যায়নি (স্টকে আছে, ছবি আছে, দোকানে চালু — এমন পণ্য লাগবে)।' };
   const key = `${slot || `manual:${Date.now()}`}:tg`;
@@ -74,15 +74,15 @@ async function postOne(settings, { slot } = {}) {
     const id = await send(settings, { text: autopost.caption(p, settings, 'telegram'), product: p });
     await record(key, p.id, true, id, '');
     return { product: p, id };
-  } catch (e) {
+  } catch (e: Loose) {
     await record(key, p.id, false, '', e.message);
     await db.logIntegration('telegram', 'post', false, e.message, p.name);
     return { error: e.message, product: p };
   }
 }
 
-async function postEngagement(settings, slot) {
-  const n = (await db.one(`SELECT count(*)::int AS n FROM social_posts WHERE channel='telegram' AND ok AND kind <> 'product'`).catch(() => ({ n: 0 }))).n;
+async function postEngagement(settings: Settings, slot?: Loose) {
+  const n = (await db.one(`SELECT count(*)::int AS n FROM social_posts WHERE channel='telegram' AND ok AND kind <> 'product'`).catch(() => ({ n: 0 })))!.n;
   const kind = ROTATION[n % ROTATION.length];
   const e = await autopost.buildEngagement(settings, kind);
   if (!e) return postOne(settings, { slot });
@@ -92,7 +92,7 @@ async function postEngagement(settings, slot) {
     const id = await send(settings, { text, product: e.product });
     await record(key, e.product ? e.product.id : null, true, id, '', e.kind, e.ref);
     return { engagement: e.kind, id };
-  } catch (err) {
+  } catch (err: Loose) {
     await record(key, e.product ? e.product.id : null, false, '', err.message, e.kind, e.ref);
     await db.logIntegration('telegram', 'engage', false, err.message, e.kind);
     return { error: err.message };
@@ -100,7 +100,7 @@ async function postEngagement(settings, slot) {
 }
 
 // From the round-the-clock wake-up: at the owner's posting hours, once per slot.
-async function tick(settings) {
+async function tick(settings: Settings) {
   if (settings.telegram_on !== '1' || !settings.telegram_bot_token || !settings.telegram_chat) return { off: true };
   const now = autopost.dhakaNow();
   const due = autopost.hoursOf(settings).filter((h) => h <= now.hour && now.hour - h <= 3);
@@ -113,7 +113,7 @@ async function tick(settings) {
   return engage ? postEngagement(settings, slot) : postOne(settings, { slot });
 }
 
-async function recent(limit = 10) {
+async function recent(limit: Loose = 10) {
   return db.q(`SELECT sp.*, p.name AS product_name FROM social_posts sp LEFT JOIN products p ON p.id=sp.product_id
     WHERE sp.channel='telegram' ORDER BY sp.created_at DESC LIMIT $1`, [limit]).catch(() => []);
 }

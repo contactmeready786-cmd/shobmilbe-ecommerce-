@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // 🤖 অটো SEO ইঞ্জিন (Admin → মার্কেটিং → Google ও Facebook → অটো SEO).
 // 700+ products can't be fixed by hand, so the shop does it itself, round the clock:
 //  1. 🔢 মডেল নম্বর — reads the part number out of the product name ("PAM8403", "HC-SR04", "1N4007") into the model
@@ -19,13 +18,15 @@ import { kindOf } from '../data/partinfo';
 import * as $seo from './seo';
 import * as $util from '../util';
 import * as $admin_status from '../admin/status';
+import type { Body, Id, Loose, Settings } from '../types';
+import type { Tx } from '../pg';
 
 const EVERY_MS = 9 * 60 * 1000;
 const PER_RUN = 40;
 const OWN_TEXT_ENOUGH = 150; // own description at least this long → no auto text
 
-const money = (n) => '৳' + bn(Math.round(Number(n) || 0).toLocaleString('en-IN'));
-const cleanName = (n) => $seo.cleanName(n);
+const money = (n?: Loose) => '৳' + bn(Math.round(Number(n) || 0).toLocaleString('en-IN'));
+const cleanName = (n?: Loose) => $seo.cleanName(n);
 
 // ---------------------------------------------------------------- 1. model / part number from the name
 // a size, an amount or a unit is not a model: 5V, 3W, 2000mAh, 16x2, 10K, 40pcs, 2.4GHz, 12V-5V …
@@ -33,7 +34,7 @@ const UNIT = /^\d+(?:\.\d+)?(?:v|vac|vdc|w|kw|a|ma|mah|ah|mm|cm|m|km|k|kg|g|mg|o
 const RANGE = /^\d+(?:\.\d+)?[a-z]{0,4}[-~]\d/i;
 const SIZE = /^\d+(?:\.\d+)?x\d+(?:\.\d+)?(?:x\d+(?:\.\d+)?)?[a-z]*$/i;
 const GENERIC = /^(?:i2c|iic|spi|uart|ttl\d*|ps2|rs\d{3}|db\d+|m\d|cr\d{4}|ag\d+|lr\d+|usb\d*(?:\.\d)?|dc\d*|ac\d*|led\d*|rgb\d*|ip\d+|type-?[abc]\d*|hdmi\d*|wi-?fi\d*|cat\d+[a-z]?|v\d+(?:\.\d+)*|ver\d*|r\d|mk\d+|gen\d+|bt\d(?:\.\d)?|[2345]g|[48]k|\d{3,4}p|a\d|aa+|aaa|ble\d*|lipo\d*|li-?ion\d*|\d+s\d*p?|sma\d*|smd\d*|dip\d*|to-?\d+|sot-?\d+|qfn\d*|\d+[a-z]{1,3}\d*(?:x|\*)\d+.*)$/i;
-function extractModel(name) {
+function extractModel(name?: Loose) {
   const tokens = String(name || '').replace(/[()[\]{},;:|/+&"“”'’]/g, ' ').split(/\s+/).map((t) => t.replace(/^[-.]+|[-.]+$/g, '')).filter(Boolean);
   for (const t of tokens) {
     if (t.length < 3 || t.length > 20) continue;
@@ -48,25 +49,25 @@ function extractModel(name) {
 // ---------------------------------------------------------------- 2. specifications from the name and text
 const NUM = '(\\d+(?:\\.\\d+)?)';
 const SPEC_RULES = [
-  ['ভোল্টেজ', new RegExp(`(?:DC|AC)?\\s*${NUM}\\s*V(?:DC|AC)?(?:\\s*(?:-|~|to|থেকে)\\s*${NUM}\\s*V(?:DC|AC)?)?(?![a-z])`, 'i'), (m) => m[0].replace(/\s+/g, ' ').trim()],
-  ['কারেন্ট', new RegExp(`${NUM}\\s*(mA|A)(?![a-z])`, 'i'), (m) => `${m[1]}${/^ma$/i.test(m[2]) ? 'mA' : 'A'}`],
-  ['পাওয়ার', new RegExp(`(?:(\\d+)\\s*[x×]\\s*)?${NUM}\\s*W(?:att)?(?![a-z])`, 'i'), (m) => (m[1] ? `${m[1]}×${m[2]}W` : `${m[2]}W`)],
-  ['ক্যাপাসিটি', new RegExp(`${NUM}\\s*mAh(?![a-z])`, 'i'), (m) => `${m[1]}mAh`],
-  ['রেজিস্ট্যান্স', new RegExp(`${NUM}\\s*(K|M)?\\s*(?:ohms?|Ω)`, 'i'), (m) => `${m[1]}${m[2] ? m[2].toUpperCase() : ''}Ω`],
-  ['ক্যাপাসিট্যান্স', new RegExp(`${NUM}\\s*(uF|µF|μF|nF|pF)(?![a-z])`, 'i'), (m) => `${m[1]}${m[2].replace(/^u|μ/i, 'µ').replace(/f$/i, 'F').replace(/^n/i, 'n').replace(/^p/i, 'p')}`],
-  ['ফ্রিকোয়েন্সি', new RegExp(`${NUM}\\s*(GHz|MHz|KHz|Hz)(?![a-z])`, 'i'), (m) => `${m[1]}${{ ghz: 'GHz', mhz: 'MHz', khz: 'kHz', hz: 'Hz' }[m[2].toLowerCase()]}`],
-  ['ডিসপ্লে', /(?<![\d.])(16x2|16x1|20x4|128x64|128x32|240x320|320x480|8x8)(?![\d])/i, (m) => m[1].toLowerCase()],
-  ['স্ক্রিন সাইজ', new RegExp(`${NUM}\\s*(?:inch|in|")(?![a-z])`, 'i'), (m) => `${m[1]} ইঞ্চি`],
-  ['চ্যানেল', /(?<![\d.])(\d{1,2})\s*-?\s*(?:channel|ch)(?![a-z])/i, (m) => `${m[1]} চ্যানেল`],
-  ['পিন', /(?<![\d.])(\d{1,3})\s*-?\s*pins?(?![a-z])/i, (m) => `${m[1]} পিন`],
-  ['গতি', new RegExp(`${NUM}\\s*RPM(?![a-z])`, 'i'), (m) => `${m[1]} RPM`],
-  ['ব্লুটুথ ভার্সন', /bluetooth\s*(?:v|ver(?:sion)?)?\s*(\d\.\d)/i, (m) => m[1]],
-  ['প্যাকে', /(?<![\d.])(\d{1,4})\s*(?:pcs|pc|pieces|piece|টি|টা|পিস)(?![a-z])/i, (m) => `${m[1]} পিস`],
+  ['ভোল্টেজ', new RegExp(`(?:DC|AC)?\\s*${NUM}\\s*V(?:DC|AC)?(?:\\s*(?:-|~|to|থেকে)\\s*${NUM}\\s*V(?:DC|AC)?)?(?![a-z])`, 'i'), (m?: Loose) => m[0].replace(/\s+/g, ' ').trim()],
+  ['কারেন্ট', new RegExp(`${NUM}\\s*(mA|A)(?![a-z])`, 'i'), (m?: Loose) => `${m[1]}${/^ma$/i.test(m[2]) ? 'mA' : 'A'}`],
+  ['পাওয়ার', new RegExp(`(?:(\\d+)\\s*[x×]\\s*)?${NUM}\\s*W(?:att)?(?![a-z])`, 'i'), (m?: Loose) => (m[1] ? `${m[1]}×${m[2]}W` : `${m[2]}W`)],
+  ['ক্যাপাসিটি', new RegExp(`${NUM}\\s*mAh(?![a-z])`, 'i'), (m?: Loose) => `${m[1]}mAh`],
+  ['রেজিস্ট্যান্স', new RegExp(`${NUM}\\s*(K|M)?\\s*(?:ohms?|Ω)`, 'i'), (m?: Loose) => `${m[1]}${m[2] ? m[2].toUpperCase() : ''}Ω`],
+  ['ক্যাপাসিট্যান্স', new RegExp(`${NUM}\\s*(uF|µF|μF|nF|pF)(?![a-z])`, 'i'), (m?: Loose) => `${m[1]}${m[2].replace(/^u|μ/i, 'µ').replace(/f$/i, 'F').replace(/^n/i, 'n').replace(/^p/i, 'p')}`],
+  ['ফ্রিকোয়েন্সি', new RegExp(`${NUM}\\s*(GHz|MHz|KHz|Hz)(?![a-z])`, 'i'), (m?: Loose) => `${m[1]}${(<Record<string, string>>{ ghz: 'GHz', mhz: 'MHz', khz: 'kHz', hz: 'Hz' })[m[2].toLowerCase()]}`],
+  ['ডিসপ্লে', /(?<![\d.])(16x2|16x1|20x4|128x64|128x32|240x320|320x480|8x8)(?![\d])/i, (m?: Loose) => m[1].toLowerCase()],
+  ['স্ক্রিন সাইজ', new RegExp(`${NUM}\\s*(?:inch|in|")(?![a-z])`, 'i'), (m?: Loose) => `${m[1]} ইঞ্চি`],
+  ['চ্যানেল', /(?<![\d.])(\d{1,2})\s*-?\s*(?:channel|ch)(?![a-z])/i, (m?: Loose) => `${m[1]} চ্যানেল`],
+  ['পিন', /(?<![\d.])(\d{1,3})\s*-?\s*pins?(?![a-z])/i, (m?: Loose) => `${m[1]} পিন`],
+  ['গতি', new RegExp(`${NUM}\\s*RPM(?![a-z])`, 'i'), (m?: Loose) => `${m[1]} RPM`],
+  ['ব্লুটুথ ভার্সন', /bluetooth\s*(?:v|ver(?:sion)?)?\s*(\d\.\d)/i, (m?: Loose) => m[1]],
+  ['প্যাকে', /(?<![\d.])(\d{1,4})\s*(?:pcs|pc|pieces|piece|টি|টা|পিস)(?![a-z])/i, (m?: Loose) => `${m[1]} পিস`],
 ];
-function extractSpecs(...texts) {
+function extractSpecs(...texts: Loose[]) {
   const text = texts.map((t) => String(t || '')).join(' \n ');
-  const out = [];
-  for (const [label, re, fmt] of SPEC_RULES) {
+  const out: Loose[] = [];
+  for (const [label, re, fmt] of SPEC_RULES as Loose[]) {
     const m = text.match(re);
     if (!m) continue;
     const v = fmt(m);
@@ -76,14 +77,14 @@ function extractSpecs(...texts) {
 }
 
 // ---------------------------------------------------------------- 3. the description
-const pick = (list, seed) => list[Math.abs(seed) % list.length];
-function seedOf(id) { let h = 7; for (const ch of String(id)) h = (h * 31 + ch.charCodeAt(0)) | 0; return h; }
-function ownTextLength(p) { return md.plain(`${p.short_description || ''} ${p.description || ''}`, 5000).trim().length; }
-function needsAuto(p, settings = {}) { return settings.autoseo_desc !== '0' && ownTextLength(p) < OWN_TEXT_ENOUGH; }
-function cheapRule(settings, price) { try { return $util.qtyRule(settings, price).cheap; } catch (_) { return false; } }
+const pick = (list?: Loose, seed?: Loose) => list[Math.abs(seed) % list.length];
+function seedOf(id?: Id) { let h = 7; for (const ch of String(id)) h = (h * 31 + ch.charCodeAt(0)) | 0; return h; }
+function ownTextLength(p?: Loose) { return md.plain(`${p.short_description || ''} ${p.description || ''}`, 5000).trim().length; }
+function needsAuto(p?: Loose, settings: Settings = {} as Settings) { return settings.autoseo_desc !== '0' && ownTextLength(p) < OWN_TEXT_ENOUGH; }
+function cheapRule(settings: Settings, price?: Loose) { try { return $util.qtyRule(settings, price).cheap; } catch (_) { return false; } }
 
 // a short paragraph — meta description, feeds, Google's product description
-function summary(p) {
+function summary(p?: Loose) {
   const name = cleanName(p.name);
   const k = kindOf(name, p.category_name);
   const what = k ? k.what : p.category_name ? `${p.category_name} ক্যাটাগরির পণ্য` : 'পণ্য';
@@ -91,7 +92,7 @@ function summary(p) {
 }
 
 // for the Google snippet, after "<name> কিনুন ৳…।": what it is and what it is for
-function metaLine(p, room = 999) {
+function metaLine(p?: Loose, room: Loose = 999) {
   const k = kindOf(cleanName(p.name), p.category_name);
   if (!k) return '';
   const full = `${k.what}${p.model ? ` (${p.model})` : ''}। ${k.uses}`.replace(/\s+/g, ' ').trim();
@@ -99,17 +100,17 @@ function metaLine(p, room = 999) {
 }
 
 // The full description (markdown). With settings, the price and delivery charges of today are in the questions.
-function describe(p, settings = {}) {
+function describe(p?: Loose, settings: Settings = {} as Settings) {
   const name = cleanName(p.name);
   const shop = settings.store_name || 'সবমিলবে';
   const k = kindOf(name, p.category_name);
   const seed = seedOf(p.id || name);
   const brand = p.brand && !/^(made\s*in|china|chinese|generic|no\s*brand|unbranded|চায়না|চাইনিজ)/i.test(String(p.brand).trim()) ? p.brand : '';
   const what = k ? k.what : p.category_name ? `${p.category_name} ক্যাটাগরির পণ্য` : 'পণ্য';
-  const specs = (Array.isArray(p.specs) ? p.specs : []).filter((r) => Array.isArray(r) && r[0] && r[1]).slice(0, 12);
+  const specs = (Array.isArray(p.specs) ? p.specs : []).filter((r?: Loose) => Array.isArray(r) && r[0] && r[1]).slice(0, 12);
   const dhaka = Number(settings.delivery_dhaka) || 60;
   const outside = Number(settings.delivery_outside) || 110;
-  const lines = [];
+  const lines: Loose[] = [];
   lines.push(`## ${name} — ${pick(['বিস্তারিত', 'পণ্য পরিচিতি', 'যা জানা দরকার'], seed)}`);
   lines.push([
     pick([`**${name}** একটি ${what}${brand ? `, ব্র্যান্ড ${brand}` : ''}।`, `**${name}** হলো ${brand ? `${brand}-এর ` : ''}একটি ${what}।`], seed),
@@ -118,7 +119,7 @@ function describe(p, settings = {}) {
   ].filter(Boolean).join(' '));
   if (specs.length) {
     lines.push('', `### ${pick(['মূল বৈশিষ্ট্য', 'স্পেসিফিকেশন এক নজরে', 'বৈশিষ্ট্য'], seed >> 2)}`);
-    specs.forEach(([a, b]) => lines.push(`- **${a}:** ${b}`));
+    specs.forEach(([a, b]: Loose[]) => lines.push(`- **${a}:** ${b}`));
   }
   lines.push('', `### ${pick(['কেনার আগে জেনে নিন', 'ব্যবহারের টিপস', 'যা খেয়াল রাখবেন'], seed >> 4)}`);
   if (k) lines.push(`- ${k.tip}`);
@@ -146,8 +147,8 @@ function describe(p, settings = {}) {
 // ---------------------------------------------------------------- the round-the-clock sweep
 const LOG_FIELDS = { model: 'মডেল নম্বর', specs: 'স্পেসিফিকেশন' };
 
-async function processOne(p, settings) {
-  const changes = [];
+async function processOne(p: Loose, settings: Settings) {
+  const changes: Loose[] = [];
   const past = await db.q(`SELECT field, new_value FROM seo_auto_log WHERE product_id=$1`, [p.id]);
   // 🔢 model: only when empty, and never again after the owner removed / changed one we filled
   if (settings.autoseo_model !== '0' && !String(p.model || '').trim() && !past.some((l) => l.field === 'model')) {
@@ -156,13 +157,13 @@ async function processOne(p, settings) {
   }
   // ⚙️ specs: add only labels that are missing, never a label we added before (the owner may have taken it out)
   if (settings.autoseo_specs !== '0') {
-    const cur = (Array.isArray(p.specs) ? p.specs : []).filter((r) => Array.isArray(r) && r[0]);
-    const have = new Set(cur.map((r) => String(r[0]).trim().toLowerCase()));
-    const addedBefore = new Set(past.filter((l) => l.field === 'specs').flatMap((l) => { try { return JSON.parse(l.new_value).map((r) => String(r[0]).toLowerCase()); } catch (_) { return []; } }));
+    const cur = (Array.isArray(p.specs) ? p.specs : []).filter((r?: Loose) => Array.isArray(r) && r[0]);
+    const have = new Set(cur.map((r?: Loose) => String(r[0]).trim().toLowerCase()));
+    const addedBefore = new Set(past.filter((l) => l.field === 'specs').flatMap((l) => { try { return JSON.parse(l.new_value).map((r?: Loose) => String(r[0]).toLowerCase()); } catch (_) { return []; } }));
     // the owner's own English labels mean the same thing
-    const same = { 'ভোল্টেজ': ['voltage', 'input voltage', 'operating voltage', 'working voltage'], 'কারেন্ট': ['current', 'output current'], 'পাওয়ার': ['power', 'output power'], 'ক্যাপাসিটি': ['capacity'] };
+    const same: Record<string, Loose> = { 'ভোল্টেজ': ['voltage', 'input voltage', 'operating voltage', 'working voltage'], 'কারেন্ট': ['current', 'output current'], 'পাওয়ার': ['power', 'output power'], 'ক্যাপাসিটি': ['capacity'] };
     const add = extractSpecs(cleanName(p.name), md.plain(`${p.short_description || ''} ${p.description || ''}`, 1500))
-      .filter(([label]) => !have.has(label.toLowerCase()) && !addedBefore.has(label.toLowerCase()) && !(same[label] || []).some((x) => have.has(x)))
+      .filter(([label]) => !have.has(label.toLowerCase()) && !addedBefore.has(label.toLowerCase()) && !(same[label] || []).some((x?: Loose) => have.has(x)))
       .slice(0, 8);
     if (add.length) changes.push({ field: 'specs', old: JSON.stringify(cur), value: JSON.stringify(add), next: [...cur, ...add] });
   }
@@ -184,7 +185,7 @@ async function processOne(p, settings) {
 }
 
 // Once a day: the shop's SEO score is written down, so the owner sees it climb.
-async function snapshot(force = false) {
+async function snapshot(force: Loose = false) {
   const day = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Dhaka' }).format(new Date());
   if (!force) {
     const had = await db.one('SELECT 1 FROM seo_score_history WHERE day=$1', [day]).catch(() => null);
@@ -196,7 +197,7 @@ async function snapshot(force = false) {
   return { day, avg, perfect, total };
 }
 
-async function sweep(settings, { force = false, max = PER_RUN } = {}) {
+async function sweep(settings: Settings, { force = false, max = PER_RUN }: Body = {}) {
   if (settings.autoseo_on === '0') return { off: true };
   if (!force && Date.now() - (Number(settings.autoseo_try) || 0) < EVERY_MS) return { skipped: true };
   await db.setMany({ autoseo_try: String(Date.now()) });
@@ -208,7 +209,7 @@ async function sweep(settings, { force = false, max = PER_RUN } = {}) {
     try {
       const c = await processOne(p, settings);
       if (c) { changed++; if (c.some((x) => x.field === 'model')) models++; if (c.some((x) => x.field === 'specs')) specs++; }
-    } catch (e) { console.error('autoseo', p.id, e.message); }
+    } catch (e: Loose) { console.error('autoseo', p.id, e.message); }
   }
   await snapshot().catch((e) => console.error('autoseo snapshot', e.message));
   await db.setMany({ autoseo_last: String(Date.now()) });
@@ -216,16 +217,16 @@ async function sweep(settings, { force = false, max = PER_RUN } = {}) {
 }
 
 // ---------------------------------------------------------------- undo
-async function undo(logId) {
+async function undo(logId?: Id) {
   const l = await db.one('SELECT * FROM seo_auto_log WHERE id=$1 AND NOT undone', [Number(logId) || 0]);
   if (!l) return false;
   const p = await db.one('SELECT id, model, specs FROM products WHERE id=$1', [l.product_id]);
   if (p) {
     if (l.field === 'model' && String(p.model || '') === l.new_value) await db.q(`UPDATE products SET model='', updated_at=now(), seo_auto_at=now() WHERE id=$1`, [p.id]);
     if (l.field === 'specs') {
-      let added = [];
+      let added: Loose[] = [];
       try { added = JSON.parse(l.new_value); } catch (_) { added = []; }
-      const key = (r) => `${r[0]}\u0001${r[1]}`;
+      const key = (r?: Loose) => `${r[0]}\u0001${r[1]}`;
       const drop = new Set(added.map(key));
       const keep = (Array.isArray(p.specs) ? p.specs : []).filter((r) => !(Array.isArray(r) && drop.has(key(r))));
       await db.q('UPDATE products SET specs=$2::jsonb, updated_at=now(), seo_auto_at=now() WHERE id=$1', [p.id, JSON.stringify(keep)]);
@@ -253,7 +254,7 @@ async function stats() {
   const autoDesc = own.filter((p) => ownTextLength(p) < OWN_TEXT_ENOUGH).length;
   return { ...a, ...b, autoDesc, hist };
 }
-async function recent(limit = 40) {
+async function recent(limit: Loose = 40) {
   return db.q(`SELECT l.*, p.name, p.slug FROM seo_auto_log l JOIN products p ON p.id=l.product_id ORDER BY l.id DESC LIMIT $1`, [limit]);
 }
 

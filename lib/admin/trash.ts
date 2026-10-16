@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // Admin → স্থায়ীভাবে মুছে ফেলুন (রিসাইকেল বিন) — owner only.
 // Everything anyone deleted waits here with full details; the owner restores it or deletes it for good.
 import { html, raw, bn, money, int, list, fmtDate } from '../util';
@@ -6,10 +5,11 @@ import * as db from '../db';
 import * as T from '../models/trash';
 import * as ui from './ui';
 import * as delcode from '../services/delcode';
+import type { AdminCtx, Id, Loose } from '../types';
 
 const PER_PAGE = 100;
 // friendly names for the details table
-const FIELD = {
+const FIELD: Record<string, Loose> = {
   name: 'নাম', title: 'শিরোনাম', sku: 'SKU', price: 'বিক্রির দাম', old_price: 'আগের দাম', cost_price: 'কেনা দাম', stock: 'স্টক', brand: 'ব্র্যান্ড',
   category_id: 'ক্যাটাগরি', short_description: 'ছোট বিবরণ', description: 'বিস্তারিত বিবরণ', active: 'দোকানে দেখানো', featured: 'জনপ্রিয়', slug: 'লিংক',
   youtube_url: 'YouTube', unit: 'একক', weight_g: 'ওজন (গ্রাম)', sold_count: 'মোট বিক্রি', created_at: 'তৈরি', updated_at: 'শেষ বদল', import_ref: 'যেখান থেকে আমদানি',
@@ -17,25 +17,25 @@ const FIELD = {
   url: 'লিংক', segment: 'ধরন', content: 'লেখা', excerpt: 'সংক্ষেপ', status: 'অবস্থা', link: 'লিংক', placement: 'জায়গা', icon: 'আইকন', parent_id: 'মূল ক্যাটাগরি',
 };
 const HIDE = new Set(['password', 'permissions', 'image', 'seo_title', 'seo_description', 'seo_keywords', 'emoji', 'image_id', 'cover_id', 'id']);
-const ENTITY = { product: 'product', category: 'category', blog_post: 'blog', banner: 'banner', page: 'page', coupon: 'coupon', transaction: 'transaction', staff: 'staff', customer: 'customer', order: 'order' };
+const ENTITY: Record<string, string> = { product: 'product', category: 'category', blog_post: 'blog', banner: 'banner', page: 'page', coupon: 'coupon', transaction: 'transaction', staff: 'staff', customer: 'customer', order: 'order' };
 
-function who(e) { return e.deleted_by_name || (e.deleted_by ? `স্টাফ #${e.deleted_by}` : '—'); }
-function where(path) {
-  const map = [[/^\/admin\/products\/\d+/, 'পণ্যের এডিট পেজ'], [/^\/admin\/products/, 'সব পণ্য তালিকা'], [/^\/admin\/categories/, 'ক্যাটাগরি পেজ'], [/^\/admin\/blog/, 'ব্লগ'],
+function who(e?: Loose) { return e.deleted_by_name || (e.deleted_by ? `স্টাফ #${e.deleted_by}` : '—'); }
+function where(path?: Loose) {
+  const map: [RegExp, string][] = [[/^\/admin\/products\/\d+/, 'পণ্যের এডিট পেজ'], [/^\/admin\/products/, 'সব পণ্য তালিকা'], [/^\/admin\/categories/, 'ক্যাটাগরি পেজ'], [/^\/admin\/blog/, 'ব্লগ'],
     [/^\/admin\/design\/banners/, 'ব্যানার'], [/^\/admin\/design\/pages/, 'পেজ'], [/^\/admin\/marketing\/coupons/, 'কুপন'], [/^\/admin\/accounts/, 'হিসাব'], [/^\/admin\/staff/, 'স্টাফ'],
     [/^\/admin\/research/, 'মার্কেট রিসার্চ'], [/^\/admin\/customers\/\d+/, 'কাস্টমারের পেজ'], [/^\/admin\/customers/, 'সব কাস্টমার তালিকা'], [/^\/admin\/trash/, 'রিসাইকেল বিন']];
-  const m = map.find(([re]) => re.test(path || ''));
+  const m = map.find(([re]) => (re as RegExp).test(path || ''));
   return m ? m[1] : (path || '—');
 }
 
-async function page(ctx) {
+async function page(ctx: AdminCtx) {
   if (ctx.method === 'POST') {
     const b = await ctx.body();
     const ids = list(b.id).map((x) => int(x)).filter(Boolean);
     if (b.form === 'restore') {
       if (!ids.length) return ctx.fail('/admin/trash', 'কিছু বাছা হয়নি।');
       let ok = 0;
-      const errors = [];
+      const errors: Loose[] = [];
       for (const id of ids) {
         const r = await T.restore(id);
         if (r.ok) { ok++; await ctx.log('restore', ENTITY[r.kind] || r.kind, r.id, 'রিসাইকেল বিন থেকে ফেরত আনা হলো'); } else errors.push(r.error);
@@ -44,7 +44,7 @@ async function page(ctx) {
       return ctx.redirect(ctx.res, '/admin/trash?' + (errors.length && !ok ? 'err=' : 'info=') + encodeURIComponent(text));
     }
     // 🔐 deleting for good needs the code e-mailed to the shop's Gmail (restoring above needs nothing)
-    const codeFor = { purge: 'trash_purge', empty: 'trash_empty', all_products: 'trash_all_products' }[b.form];
+    const codeFor = (<Record<string, string>>{ purge: 'trash_purge', empty: 'trash_empty', all_products: 'trash_all_products' })[b.form];
     if (codeFor) {
       const back = ids.length === 1 && b.form === 'purge' && b.from_detail ? `/admin/trash/${ids[0]}` : '/admin/trash';
       if (b.form === 'purge' && !ids.length) return ctx.fail(back, 'কিছু বাছা হয়নি।');
@@ -76,7 +76,7 @@ async function page(ctx) {
   const [rows, counts] = await Promise.all([T.list({ kind, limit: PER_PAGE, offset: (pageNo - 1) * PER_PAGE }), T.counts()]);
   const total = counts.reduce((a, c) => a + c.n, 0);
   const shown = kind ? (counts.find((c) => c.kind === kind) || { n: 0 }).n : total;
-  const productsLive = (await db.one('SELECT count(*)::int AS n FROM products')).n;
+  const productsLive = (await db.one('SELECT count(*)::int AS n FROM products'))!.n;
   const body = html`<h1>🗑️ স্থায়ীভাবে মুছে ফেলুন <small>রিসাইকেল বিন — শুধু মালিক দেখতে পান</small></h1>
 ${ui.flash(ctx.flash)}
 <p class="note small">🔐 স্থায়ীভাবে মুছতে, বিন খালি করতে বা সব পণ্য একসাথে মুছতে একটা কোড লাগবে, যা <b>${delcode.masked()}</b> ঠিকানায় যায়। ফেরত আনতে কোড লাগে না। নিজে না চেয়ে কোডের ইমেইল পেলে বুঝবেন কেউ চেষ্টা করছে — তখনই পাসওয়ার্ড বদলান।</p>
@@ -125,7 +125,7 @@ ${rows.length ? html`<form method="post" action="/admin/trash" class="panel tras
   return ctx.page('রিসাইকেল বিন', body, 'trash');
 }
 
-function valueOf(k, v, cats) {
+function valueOf(k?: Loose, v?: Loose, cats?: Loose) {
   if (v === null || v === undefined || v === '') return html`<span class="muted">—</span>`;
   if (typeof v === 'boolean') return v ? 'হ্যাঁ' : 'না';
   if (['price', 'old_price', 'cost_price', 'amount'].includes(k)) return money(v);
@@ -135,7 +135,7 @@ function valueOf(k, v, cats) {
   return s.length > 400 ? html`<details><summary>${s.slice(0, 160)}…</summary><div class="trash-long">${s}</div></details>` : s;
 }
 
-async function detail(ctx, m) {
+async function detail(ctx: AdminCtx, m?: Loose) {
   const e = await T.get(m[1]);
   if (!e) return ctx.redirect(ctx.res, '/admin/trash');
   const K = T.KINDS[e.kind] || { label: e.kind, icon: '🗑️' };
@@ -144,7 +144,7 @@ async function detail(ctx, m) {
   const history = ENTITY[e.kind] ? await db.q(`SELECT a.*, s.name AS staff_name FROM activity_log a LEFT JOIN staff s ON s.id=a.staff_id
     WHERE a.entity=$1 AND a.entity_id=$2 ORDER BY a.created_at DESC LIMIT 60`, [ENTITY[e.kind], e.ref_id]) : [];
   const fields = Object.keys(row).filter((k) => !HIDE.has(k));
-  const parts = Object.entries(e.data.children || {}).reduce((a, [, v]) => a + v.length, 0);
+  const parts = Object.entries(e.data.children || {}).reduce((a, [, v]: Loose) => a + v.length, 0);
   const body = html`<p class="crumbs"><a href="/admin/trash">← রিসাইকেল বিন</a></p>
 <h1>${K.icon} ${e.name || '(নাম নেই)'} <small>${K.label} · মুছে ফেলা হয়েছে</small></h1>
 <div class="two-col">
@@ -164,7 +164,7 @@ async function detail(ctx, m) {
       <input type="hidden" name="from_detail" value="1">
       <button class="btn btn-danger" name="form" value="purge" data-delcode="trash_purge" data-delcode-to="${delcode.masked()}" data-delcode-what="${e.name || 'এই জিনিস'}" data-confirm-btn="এটা স্থায়ীভাবে মুছে ফেলবেন? আর কখনো ফেরত আনা যাবে না।">🗑️ স্থায়ীভাবে মুছুন</button>
     </form>
-    ${e.media && e.media.length ? html`<h2>ছবি</h2><div class="trash-pics">${e.media.map((id) => html`<a href="/media/${id}" target="_blank" rel="noopener"><img src="/media/${id}/t" alt="" loading="lazy"></a>`)}</div>` : ''}
+    ${e.media && e.media.length ? html`<h2>ছবি</h2><div class="trash-pics">${e.media.map((id?: Loose) => html`<a href="/media/${id}" target="_blank" rel="noopener"><img src="/media/${id}/t" alt="" loading="lazy"></a>`)}</div>` : ''}
   </section>
   <section class="panel">
     <h2>এর ইতিহাস <small>কে কখন কী করেছে</small></h2>

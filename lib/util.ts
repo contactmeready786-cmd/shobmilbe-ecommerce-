@@ -54,7 +54,7 @@ function wholeTaka(v: unknown): number { return Math.max(0, Math.floor(round2(v)
 // The words for the rounding line on checkout, order page and invoice.
 function roundOffLabel(r: number): string { return r > 0 ? 'রাউন্ড ফিগার' : 'রাউন্ড ফিগারের জন্য ছাড়'; }
 // The order total is rounded to whole taka; this is the difference (e.g. +0.25 or -0.25), 0 when none.
-type Totals = { total: unknown; subtotal: unknown; discount?: unknown; points_discount?: unknown; delivery?: unknown };
+type Totals = { total?: unknown; subtotal?: unknown; discount?: unknown; points_discount?: unknown; delivery?: unknown };
 function roundOff(o: Totals): number { return round2(Number(o.total) - (Number(o.subtotal) - Number(o.discount || 0) - Number(o.points_discount || 0) + Number(o.delivery || 0))); }
 function pct(n: unknown, digits = 1): string { return bn((Number(n) || 0).toFixed(digits)) + '%'; }
 

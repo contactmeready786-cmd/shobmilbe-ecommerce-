@@ -23,6 +23,7 @@ import * as $accounts from './accounts';
 import * as $customers from './customers';
 import * as $services_notify from '../services/notify';
 import * as $services_push from '../services/push';
+import type { Loose } from '../types';
 
 const CODE_LEN = 4;
 const CODE_MIN = 10;       // a code works for 10 minutes
@@ -217,7 +218,7 @@ async function recent(limit = 30) {
   return db.q(`SELECT phone, sent_ok, verified_at, tries, created_at, (verified_at IS NULL AND NOT sent_ok) AS failed FROM checkout_otps ORDER BY id DESC LIMIT $1`, [limit]);
 }
 // the pill shown on orders in Admin
-const LABELS = {
+const LABELS: Record<string, Loose> = {
   otp: ['✅ OTP যাচাই', 'কাস্টমার SMS-এর কোড দিয়ে নম্বর যাচাই করেছেন'],
   remembered: ['✅ আগে যাচাই', 'এই ব্রাউজারে আগে এই নম্বর OTP দিয়ে যাচাই হয়েছিল'],
   account: ['✅ লগইন', 'কাস্টমার নিজের অ্যাকাউন্টে লগইন করা (লগইনেই নম্বর যাচাই হয়েছে)'],

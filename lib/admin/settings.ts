@@ -1,14 +1,14 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 import { html, raw, int, list, num, bn, money, qtyRule } from '../util';
 import * as O from '../models/orders';
 import * as ui from './ui';
 import { saveKeys } from './marketing';
+import type { AdminCtx, Loose } from '../types';
 
-async function settingsPage(ctx) {
+async function settingsPage(ctx: AdminCtx) {
   const s = ctx.settings;
   if (ctx.method === 'POST') {
     const b = await ctx.body();
-    for (const [k, lo, hi, def] of [['small_max_price', 0.01, 100000, 5], ['small_max_value', 0.01, 10000000, 100]]) {
+    for (const [k, lo, hi, def] of [['small_max_price', 0.01, 100000, 5], ['small_max_value', 0.01, 10000000, 100]] as [string, number, number, number][]) {
       if (k in b) b[k] = String(Math.min(hi, Math.max(lo, Math.round(num(b[k], def) * 100) / 100)));
     }
     if ('max_qty_per_item' in b) b.max_qty_per_item = String(Math.min(999, Math.max(1, int(b.max_qty_per_item) || 10)));
@@ -17,11 +17,11 @@ async function settingsPage(ctx) {
       if (k in b) b[k] = String(Math.max(0, int(b[k])));
     }
     // 🚚 delivery time: "1-2" style (days); the law: same city within 5 days, another city within 10
-    for (const [k, max] of [['del_days_dhaka', 5], ['del_days_outside', 10]]) {
+    for (const [k, max] of [['del_days_dhaka', 5], ['del_days_outside', 10]] as [string, number][]) {
       if (k in b) {
         const m = String(b[k]).replace(/[০-৯]/g, (d) => String('০১২৩৪৫৬৭৮৯'.indexOf(d))).match(/^\s*(\d{1,2})\s*(?:[-–—]\s*(\d{1,2}))?\s*$/);
         const lo = m ? Math.min(max, Math.max(0, int(m[1]))) : null;
-        const hi = m ? Math.min(max, Math.max(lo, int(m[2] || m[1]))) : null;
+        const hi = m ? Math.min(max, Math.max(lo!, int(m[2] || m[1]))) : null;
         b[k] = m ? (lo === hi ? String(lo) : `${lo}-${hi}`) : (k === 'del_days_dhaka' ? '1-2' : '2-4');
       }
     }
@@ -34,7 +34,7 @@ async function settingsPage(ctx) {
       const names = list(b.zone_name);
       const fees = list(b.zone_fee);
       const known = new Set(O.GEO.districts.map((d) => d.en));
-      const zones = [];
+      const zones: Loose[] = [];
       names.forEach((n, i) => {
         const ds = list(b['zone_d_' + i]).filter((d) => known.has(d));
         if (String(n || '').trim() && ds.length) zones.push({ name: String(n).trim().slice(0, 60), fee: Math.max(0, Math.round(num(fees[i], 0) * 100) / 100), districts: [...new Set(ds)] });
@@ -125,7 +125,7 @@ async function settingsPage(ctx) {
         <h2>কোন এলাকাগুলো "ঢাকা সিটির ভেতরে"</h2>
         <p class="muted small">চেকআউটে কাস্টমার জেলা আর থানা বাছাই করেন। নিচে টিক দেওয়া থানাগুলো হলে ঢাকা সিটির চার্জ (৳${s.delivery_dhaka}) লাগবে, বাকি সব জায়গায় ঢাকার বাইরের চার্জ (৳${s.delivery_outside})। ডিফল্টভাবে ঢাকা মেট্রোপলিটন পুলিশের (DMP) ৫০টি থানা টিক দেওয়া আছে; সাভার, কেরানীগঞ্জ, ধামরাই, দোহার, নবাবগঞ্জ ঢাকার বাইরে ধরা আছে — আপনার কুরিয়ারের নিয়ম অনুযায়ী বদলাতে পারেন।</p>
         <div class="area-checks">
-          ${dhaka.areas.map(([en, bn]) => html`<label class="check"><input type="checkbox" name="city_area[]" value="${en}" ${city.includes(en) ? raw('checked') : ''}> <span>${bn}</span></label>`)}
+          ${dhaka!.areas.map(([en, bn]) => html`<label class="check"><input type="checkbox" name="city_area[]" value="${en}" ${city.includes(en) ? raw('checked') : ''}> <span>${bn}</span></label>`)}
         </div>
       </section>
       <section class="panel" id="zones">
@@ -137,7 +137,7 @@ async function settingsPage(ctx) {
     return rows.map((z, i) => html`<div class="zone-box">
           <div class="field-row">${ui.field('জোনের নাম', ui.input('zone_name[]', z.name, { maxlength: 60, placeholder: 'যেমন: ঢাকার আশেপাশে' }))}${ui.field('চার্জ (৳)', ui.input('zone_fee[]', z.fee, { type: 'number', min: 0, step: '0.01', class: 'w-num' }))}</div>
           <details ${z.districts.length ? '' : raw('open')}><summary class="small">জেলা বাছুন ${z.districts.length ? `(${ui.bn(z.districts.length)}টি বাছাই করা)` : ''}</summary>
-            <div class="area-checks">${O.GEO.districts.map((d) => html`<label class="check"><input type="checkbox" name="zone_d_${i}[]" value="${d.en}" ${z.districts.includes(d.en) ? raw('checked') : ''}> <span>${d.bn}</span></label>`)}</div>
+            <div class="area-checks">${O.GEO.districts.map((d) => html`<label class="check"><input type="checkbox" name="zone_d_${i}[]" value="${d.en}" ${(z.districts as string[]).includes(d.en) ? raw('checked') : ''}> <span>${d.bn}</span></label>`)}</div>
           </details></div>`);
   })()}
         <p class="small muted">জোন মুছতে নাম খালি করে সেভ করুন। নতুন জোনের জন্য সেভ করার পর আরেকটা খালি ঘর আসবে।</p>

@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // 👯 Same product listed more than once (for example imported again, so it got a "…-2" link).
 // Google then finds two pages that say the same thing and picks one of them by itself — Search Console
 // reports it as "Duplicate, Google chose different canonical than user".
@@ -12,12 +11,13 @@
 import * as db from '../db';
 import * as seo from './seo';
 import { words } from '../models/duplicates';
+import type { Loose } from '../types';
 
 const TTL = 5 * 60 * 1000;
-let cache = null;
+let cache: Loose = null;
 let cachedAt = 0;
 
-function keyOf(name) {
+function keyOf(name?: Loose) {
   const ws = words(seo.cleanName(name));
   return ws.length ? [...ws].sort().join(' ') : '';
 }
@@ -38,7 +38,7 @@ async function copies() {
   const map = new Map();
   for (const list of groups.values()) {
     if (list.length < 2) continue;
-    const main = list.find((r) => Number(r.stock) > 0) || list[0];
+    const main = list.find((r?: Loose) => Number(r.stock) > 0) || list[0];
     for (const r of list) if (r !== main) map.set(r.slug, main.slug);
   }
   cache = map;
@@ -47,7 +47,7 @@ async function copies() {
 }
 
 // canonical path for a product page
-async function canonicalFor(slug) {
+async function canonicalFor(slug?: Loose) {
   try {
     const main = (await copies()).get(slug);
     return `/p/${main || slug}`;
@@ -56,7 +56,7 @@ async function canonicalFor(slug) {
   }
 }
 
-async function isCopy(slug) {
+async function isCopy(slug?: Loose) {
   try { return (await copies()).has(slug); } catch (_) { return false; }
 }
 
