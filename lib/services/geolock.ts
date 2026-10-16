@@ -17,10 +17,14 @@
 // see adminConfig below), payment/courier webhooks, the
 // daily jobs, robots/sitemap/feeds/images, and the crawlers Google, Facebook, Bing etc. use (they visit from the
 // USA/Europe — blocking them would drop the shop from Google, Merchant Center and Facebook link previews).
+// A crawler's user agent alone is not trusted (anyone can type "Googlebot"): services/crawlers.ts checks search
+// engines by DNS, and link-preview bots may only read public pages.
 import * as db from '../db';
 import { parseCookies, sign, unsign } from '../util';
 import * as COUNTRIES from '../data/countries';
 import type { Body, Loose, ShopRequest } from '../types';
+import { clientIp } from '../security';
+import * as crawlers from './crawlers';
 
 const PASS_DAYS = 7;
 const BLOCK_PATH = '/__region';
@@ -73,13 +77,19 @@ function passCookie(req: ShopRequest, s?: Loose) {
 const loggedIntoAdmin = (req: ShopRequest, s?: Loose) => !!unsign(parseCookies(req.headers.cookie).sm_admin, s.session_secret);
 
 // For a shop request (not /admin): null = let in, or { country } = show the blocked page.
-function check(req: ShopRequest, path?: Loose, s?: Loose) {
+async function check(req: ShopRequest, path?: Loose, s?: Loose, method = 'GET'): Promise<{ country: string } | null> {
   const c = config(s);
   if (!c.on) return null;
   if (OPEN_PATHS.test(path)) return null;
-  if (isGoodBot(req.headers['user-agent'])) return null;
   const country = countryOf(req);
   if (!country || c.allow.has(country)) return null;
+  const ua = String(req.headers['user-agent'] || '');
+  if (isGoodBot(ua)) {
+    const v = await crawlers.verdict(ua, clientIp(req));
+    if (v === 'verified') return null;
+    if (v === 'preview' && crawlers.previewMayOpen(method, String(path))) return null;
+    // a fake search engine, or a preview bot asking for a private address: treated like any visitor from there
+  }
   if (loggedIntoAdmin(req, s)) return null; // the owner/staff abroad still sees the shop
   if (c.vpnHome && hasPass(req, s)) return null;
   return { country };

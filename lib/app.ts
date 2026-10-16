@@ -211,7 +211,7 @@ async function handler(req: ShopRequest, res: ShopResponse) {
         if (!c.on || !c.vpnHome || !c.zones.has(String(b.tz || '')) || !(await security.hit(db, 'geopass:' + clientIp(req), 10, 3600))) return json(res, 403, { ok: false });
         return json(res, 200, { ok: true }, { 'Set-Cookie': geo.passCookie(req, settings) });
       }
-      const shut = geo.check(req, path, settings);
+      const shut = await geo.check(req, path, settings, method);
       if (shut) {
         geo.count(shut.country, 'country');
         if (path.startsWith('/api/')) return json(res, 403, { error: 'region' });
