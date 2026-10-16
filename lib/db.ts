@@ -1,15 +1,18 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // Database core: query helpers, schema + migrations, settings, activity log.
 import * as security from './security';
 import * as crypto from 'node:crypto';
 import * as pg from './pg';
 import { slugify, randomCode } from './util';
+import type { DbRow, Param, Tx } from './pg';
+import type { Settings } from './types';
 import * as $services_autocat from './services/autocat';
 import * as $services_uiswitch from './services/uiswitch';
 
-const q = async (sql, params = []) => (await pg.query(sql, params)).rows;
-const one = async (sql, params = []) => (await pg.query(sql, params)).rows[0] || null;
-const tx = (fn) => pg.transaction(fn);
+/** All rows of a query. */
+const q = async <R extends DbRow = DbRow>(sql: string, params: Param[] = []): Promise<R[]> => (await pg.query(sql, params)).rows as R[];
+/** The first row of a query, or null. */
+const one = async <R extends DbRow = DbRow>(sql: string, params: Param[] = []): Promise<R | null> => ((await pg.query(sql, params)).rows[0] as R | undefined) || null;
+const tx = <T>(fn: (t: Tx) => Promise<T>): Promise<T> => pg.transaction(fn);
 
 // ---------------------------------------------------------------------------
 // Schema. BASE is the original v1 schema (kept so old databases line up);
@@ -1104,7 +1107,7 @@ CREATE INDEX IF NOT EXISTS email_log_order_idx ON email_log(order_id) WHERE orde
 ];
 
 // Data steps that need code, keyed by migration number (run after its SQL).
-const MIGRATION_STEPS = {
+const MIGRATION_STEPS: Record<number, () => Promise<void>> = {
   // (migration 36) "রিটার্ন ও রিফান্ড নীতি" still holding the one-line starter text → a full policy (owner-edited pages stay)
   36: async () => {
     const RETURNS = `পণ্য নিয়ে কোনো সমস্যা হলে আমরা দায়িত্ব নিয়ে সমাধান করি। নিচে সহজ ভাষায় আমাদের রিটার্ন আর টাকা ফেরতের নিয়ম লেখা আছে।
@@ -1244,10 +1247,10 @@ const MIGRATION_STEPS = {
   },
   // Permissions became finer (see / add / edit / delete). Staff keep everything they could do before.
   20: async () => {
-    const more = { products: ['products_view', 'products_add', 'products_delete'], inventory: ['inventory_view'], customers: ['customers_view'] };
+    const more: Record<string, string[]> = { products: ['products_view', 'products_add', 'products_delete'], inventory: ['inventory_view'], customers: ['customers_view'] };
     for (const s of await q(`SELECT id, permissions FROM staff WHERE role<>'owner'`)) {
       const have = Array.isArray(s.permissions) ? s.permissions : [];
-      const next = [...new Set([...have, ...have.flatMap((p) => more[p] || [])])];
+      const next = [...new Set([...have, ...have.flatMap((p: string) => more[p] || [])])];
       if (next.length !== have.length) await q('UPDATE staff SET permissions=$1 WHERE id=$2', [JSON.stringify(next), s.id]);
     }
   },
@@ -1257,8 +1260,9 @@ const MIGRATION_STEPS = {
   // Sort every existing product into the new main / sub-category tree once (Admin can re-run it any time).
   9: async () => {
     // a brand-new database has no products yet (and no variant columns at this step) — nothing to sort
-    if ((await one('SELECT count(*)::int AS n FROM products')).n === 0) return;
-    try { await $services_autocat.apply({ onlyMatched: true }); } catch (e) { console.error('auto-category', e); }
+    if ((await one('SELECT count(*)::int AS n FROM products'))?.n === 0) return;
+    // (an "onlyMatched" option was passed here once; apply() never had one — it always moves only matched products)
+    try { await $services_autocat.apply(); } catch (e) { console.error('auto-category', e); }
   },
   // Products that have no SKU yet get the next numbers (1, 2, 3 …), oldest first.
   7: async () => {
@@ -1323,7 +1327,7 @@ const SEED_PRODUCTS = [
   ['DC Motor 3V–9V', 'electrical', 90, null, 50, '⚙️', false, '৩ থেকে ৯ ভোল্টে চলা ছোট ডিসি মোটর। খেলনা, রোবট আর সায়েন্স প্রজেক্টের জন্য।'],
 ];
 
-async function seed() {
+async function seed(): Promise<void> {
   for (const [i, [name, slug, icon]] of SEED_CATEGORIES.entries()) {
     await q('INSERT INTO categories(name,slug,icon,sort) VALUES($1,$2,$3,$4) ON CONFLICT (slug) DO NOTHING', [name, slug, icon, i]);
   }
@@ -1335,8 +1339,8 @@ async function seed() {
   }
 }
 
-let ready = null;
-function ensureReady() {
+let ready: Promise<void> | null = null;
+function ensureReady(): Promise<void> {
   if (!ready) {
     ready = (async () => {
       await pg.exec(BASE);
@@ -1346,7 +1350,7 @@ function ensureReady() {
         // works through a connection pooler (Supabase), and is released even if this copy is cut off.
         await tx(async () => {
           await q('SELECT pg_advisory_xact_lock(726201)');
-          const fresh = (await one('SELECT count(*)::int AS n FROM categories')).n === 0;
+          const fresh = (await one('SELECT count(*)::int AS n FROM categories'))?.n === 0;
           const cur = await one("SELECT value FROM settings WHERE key='schema_version'");
           let version = cur ? Number(cur.value) : 0;
           for (let i = version; i < MIGRATIONS.length; i++) {
@@ -1385,7 +1389,7 @@ function ensureReady() {
 //   • The API's built-in logins (anon, authenticated) lose every right on the tables, now and for tables made later.
 // Runs at every start (cheap: it only acts when a table is still open), so new tables are closed automatically.
 // On a database without these logins (Neon, plain Postgres) only the Row-Level Security part runs, harmlessly.
-async function lockPublicApi() {
+async function lockPublicApi(): Promise<void> {
   const open = await one(`SELECT
       (SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
         WHERE n.nspname='public' AND c.relkind IN ('r','p') AND NOT c.relrowsecurity AND pg_get_userbyid(c.relowner)=current_user)::int AS tables,
@@ -1416,7 +1420,7 @@ END $lock$;`);
 // ---------------------------------------------------------------------------
 // Settings
 // ---------------------------------------------------------------------------
-const DEFAULT_SETTINGS = {
+const DEFAULT_SETTINGS: Record<string, string> = {
   store_name: 'সবমিলবে',
   tagline: 'ইলেকট্রনিক্স কম্পোনেন্ট থেকে প্রতিদিনের দরকারি জিনিস, সবই এক জায়গায়।',
   hero_title: 'দরকারি সব পার্টস, এক দোকানে',
@@ -1549,7 +1553,7 @@ const DEFAULT_SETTINGS = {
   customer_groups: 'নিয়মিত, পাইকারি, VIP, অফিস/প্রতিষ্ঠান', vip_spend: '5000',
 };
 // the shop's show/hide switches (Admin → স্টোর ডিজাইন → দোকানে কী দেখাবে): all on unless switched off
-for (const [k, v] of Object.entries($services_uiswitch.DEFAULTS)) if (!(k in DEFAULT_SETTINGS)) DEFAULT_SETTINGS[k] = v;
+for (const [k, v] of Object.entries($services_uiswitch.DEFAULTS)) if (!(k in DEFAULT_SETTINGS)) DEFAULT_SETTINGS[k] = String(v);
 
 const SECRET_KEYS = new Set(['session_secret', 'admin_password', 'fb_capi_token', 'tiktok_events_token', 'bkash_app_secret',
   'bkash_password', 'ssl_store_password', 'steadfast_secret_key', 'pathao_client_secret', 'pathao_password',
@@ -1559,11 +1563,11 @@ const SECRET_KEYS = new Set(['session_secret', 'admin_password', 'fb_capi_token'
 // session_secret is left out on purpose: if the key were ever removed, nobody could log in.
 const ENCRYPTED_KEYS = new Set([...SECRET_KEYS, 'bkash_app_key', 'steadfast_api_key', 'steadfast_webhook_token', 'pathao_webhook_secret']
   .filter((k) => k !== 'session_secret'));
-async function getSettings() {
-  const rows = await q('SELECT key, value FROM settings');
-  const s = { ...DEFAULT_SETTINGS };
+async function getSettings(): Promise<Settings> {
+  const rows = await q<{ key: string; value: string | null }>('SELECT key, value FROM settings');
+  const s: Settings = { ...DEFAULT_SETTINGS };
   let locked = 0;
-  const lockedKeys = [];
+  const lockedKeys: string[] = [];
   rows.forEach((r) => {
     if (r.value === null) return;
     if (security.isEncrypted(r.value)) {
@@ -1579,35 +1583,36 @@ async function getSettings() {
   s.__secrets_locked_keys = lockedKeys.join(',');
   return s;
 }
-async function setSetting(key, value) {
+async function setSetting(key: string, value: unknown): Promise<void> {
   const v = String(value ?? '');
   await q('INSERT INTO settings(key,value) VALUES($1,$2) ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value',
     [key, ENCRYPTED_KEYS.has(key) ? security.encrypt(v) : v]);
 }
-async function setMany(obj) {
+async function setMany(obj: Record<string, unknown>): Promise<void> {
   for (const [k, v] of Object.entries(obj)) await setSetting(k, v);
 }
-function jsonSetting(settings, key, fallback = []) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- the stored JSON's shape depends on the setting
+function jsonSetting(settings: Settings, key: string, fallback: any = []): any {
   try { const v = JSON.parse(settings[key] || ''); return v ?? fallback; } catch (_) { return fallback; }
 }
 
 // ---------------------------------------------------------------------------
 // Activity log
 // ---------------------------------------------------------------------------
-async function logActivity(staffId, action, entity = '', entityId = null, detail = '') {
+async function logActivity(staffId: number | null | undefined, action: string, entity = '', entityId: number | string | null = null, detail: unknown = ''): Promise<void> {
   try {
     await q('INSERT INTO activity_log(staff_id, action, entity, entity_id, detail) VALUES($1,$2,$3,$4,$5)',
       [staffId || null, action, entity, entityId, String(detail || '').slice(0, 500)]);
-  } catch (e) { console.error('activity log failed', e.message); }
+  } catch (e) { console.error('activity log failed', (e as Error).message); }
 }
-async function logIntegration(service, action, ok, message = '', ref = '') {
+async function logIntegration(service: string, action: string, ok: unknown, message: unknown = '', ref: unknown = ''): Promise<void> {
   try {
     await q('INSERT INTO integration_logs(service, action, ok, message, ref) VALUES($1,$2,$3,$4,$5)',
       [service, action, !!ok, String(message || '').slice(0, 1000), String(ref || '')]);
-  } catch (e) { console.error('integration log failed', e.message); }
+  } catch (e) { console.error('integration log failed', (e as Error).message); }
 }
 
-async function uniqueSlug(table, base, exceptId = null) {
+async function uniqueSlug(table: string, base: string, exceptId: number | null = null): Promise<string> {
   let slug = base;
   for (let i = 2; i < 200; i++) {
     const row = await one(`SELECT id FROM ${table} WHERE slug=$1`, [slug]);
