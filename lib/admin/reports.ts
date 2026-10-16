@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // Admin → রিপোর্ট: sales by day / week / month, products (best and slow sellers), categories, customers,
 // cancelled & returned orders, profit & margin (owner only), staff — any date range, CSV and Excel downloads.
 import { html, money, bn, pct, fmtDate, dateRange, csv } from '../util';
@@ -8,13 +7,14 @@ import * as O from '../models/orders';
 import * as ui from './ui';
 import * as charts from './charts';
 import * as xlsx from '../services/xlsx';
+import type { AdminCtx, Loose } from '../types';
 
 const DAY = `(o.created_at AT TIME ZONE 'Asia/Dhaka')::date`;
 const OK = `o.status NOT IN ('cancelled','returned')`;
 const TABS = [['sales', '📈 বিক্রি'], ['products', '📦 পণ্য'], ['categories', '🗂️ ক্যাটাগরি'], ['customers', '👤 কাস্টমার'], ['returns', '↩️ বাতিল ও ফেরত'], ['profit', '💰 লাভ ও মার্জিন']];
 
 // ---------------------------------------------------------------- data
-async function salesBy(from, to, unit) {
+async function salesBy(from?: Loose, to?: Loose, unit?: Loose) {
   const trunc = unit === 'month' ? 'month' : unit === 'week' ? 'week' : 'day';
   return db.q(`SELECT date_trunc('${trunc}', ${DAY})::date AS period,
       count(*)::int AS orders,
@@ -25,7 +25,7 @@ async function salesBy(from, to, unit) {
       coalesce(sum(o.discount + o.points_discount) FILTER (WHERE ${OK}),0)::numeric(14,2) AS discount
     FROM orders o WHERE ${DAY} BETWEEN $1 AND $2 GROUP BY 1 ORDER BY 1`, [from, to]);
 }
-async function productRows(from, to) {
+async function productRows(from?: Loose, to?: Loose) {
   return db.q(`SELECT i.product_id, i.name, max(i.sku) AS sku, sum(i.qty)::int AS qty, sum(i.qty*i.price)::numeric(14,2) AS revenue,
       sum(i.qty*i.cost)::numeric(14,2) AS cost, count(DISTINCT o.id)::int AS orders,
       (SELECT count(*) FROM page_views v WHERE v.product_id=i.product_id AND (v.created_at AT TIME ZONE 'Asia/Dhaka')::date BETWEEN $1 AND $2)::int AS views
@@ -33,7 +33,7 @@ async function productRows(from, to) {
     GROUP BY i.product_id, i.name ORDER BY revenue DESC LIMIT 500`, [from, to]);
 }
 // Products on the shop that sold nothing in the range — the most viewed first (people look but don't buy).
-async function slowRows(from, to) {
+async function slowRows(from?: Loose, to?: Loose) {
   return db.q(`SELECT p.id, p.name, p.sku, p.price, p.stock, p.created_at,
       (SELECT count(*) FROM page_views v WHERE v.product_id=p.id AND (v.created_at AT TIME ZONE 'Asia/Dhaka')::date BETWEEN $1 AND $2)::int AS views,
       (SELECT max(o.created_at) FROM order_items i JOIN orders o ON o.id=i.order_id WHERE i.product_id=p.id AND ${OK}) AS last_sold
@@ -41,13 +41,13 @@ async function slowRows(from, to) {
       WHERE i.product_id=p.id AND ${DAY} BETWEEN $1 AND $2 AND ${OK})
     ORDER BY views DESC, p.stock DESC, p.id LIMIT 200`, [from, to]);
 }
-async function categoryRows(from, to) {
+async function categoryRows(from?: Loose, to?: Loose) {
   return db.q(`SELECT coalesce(c.name,'ক্যাটাগরি নেই') AS name, sum(i.qty)::int AS qty, sum(i.qty*i.price)::numeric(14,2) AS revenue,
       sum(i.qty*(i.price-i.cost))::numeric(14,2) AS profit, count(DISTINCT o.id)::int AS orders
     FROM order_items i JOIN orders o ON o.id=i.order_id LEFT JOIN products p ON p.id=i.product_id LEFT JOIN categories c ON c.id=p.category_id
     WHERE ${DAY} BETWEEN $1 AND $2 AND ${OK} GROUP BY 1 ORDER BY revenue DESC`, [from, to]);
 }
-async function customerRows(from, to) {
+async function customerRows(from?: Loose, to?: Loose) {
   const top = await db.q(`SELECT o.phone, max(o.customer_name) AS name, count(*)::int AS orders, sum(o.total) FILTER (WHERE ${OK})::numeric(14,2) AS spent,
       count(*) FILTER (WHERE o.status IN ('cancelled','returned'))::int AS failed, max(c.id) AS customer_id
     FROM orders o LEFT JOIN customers c ON c.phone=o.phone WHERE ${DAY} BETWEEN $1 AND $2 GROUP BY o.phone ORDER BY spent DESC NULLS LAST LIMIT 100`, [from, to]);
@@ -58,7 +58,7 @@ async function customerRows(from, to) {
     FROM orders o WHERE ${DAY} BETWEEN $1 AND $2 GROUP BY 1 ORDER BY 2 DESC LIMIT 20`, [from, to]);
   return { top, mix, districts };
 }
-async function returnRows(from, to) {
+async function returnRows(from?: Loose, to?: Loose) {
   const orders = await db.q(`SELECT o.id, o.code, o.customer_name, o.phone, o.district, o.status, o.total, o.courier, o.courier_status, o.returned_to, o.created_at
     FROM orders o WHERE ${DAY} BETWEEN $1 AND $2 AND o.status IN ('cancelled','returned') ORDER BY o.created_at DESC LIMIT 300`, [from, to]);
   const products = await db.q(`SELECT i.product_id, i.name, sum(i.qty)::int AS qty, count(DISTINCT o.id)::int AS orders,
@@ -70,7 +70,7 @@ async function returnRows(from, to) {
     FROM orders o WHERE ${DAY} BETWEEN $1 AND $2 GROUP BY 1 HAVING count(*) >= 3 ORDER BY (count(*) FILTER (WHERE o.status IN ('cancelled','returned')))::float / count(*) DESC LIMIT 15`, [from, to]);
   return { orders, products, districts };
 }
-async function profitRow(from, to) {
+async function profitRow(from?: Loose, to?: Loose) {
   return db.one(`SELECT coalesce(sum(o.subtotal) FILTER (WHERE ${OK}),0)::numeric(14,2) AS goods,
       coalesce(sum(o.discount + o.points_discount) FILTER (WHERE ${OK}),0)::numeric(14,2) AS discount,
       coalesce(sum(o.delivery) FILTER (WHERE ${OK}),0)::numeric(14,2) AS delivery,
@@ -83,21 +83,21 @@ async function profitRow(from, to) {
 }
 
 // ---------------------------------------------------------------- page
-const periodLabel = (d, unit) => {
+const periodLabel = (d?: Loose, unit?: Loose) => {
   const s = String(d instanceof Date ? d.toISOString() : d).slice(0, 10);
   if (unit === 'month') return bn(s.slice(0, 7));
   return fmtDate(s + 'T06:00:00Z', false) + (unit === 'week' ? ' থেকে' : '');
 };
-const margin = (rev, cost) => (Number(rev) > 0 ? ((Number(rev) - Number(cost)) / Number(rev)) * 100 : null);
+const margin = (rev?: Loose, cost?: Loose) => (Number(rev) > 0 ? ((Number(rev) - Number(cost)) / Number(rev)) * 100 : null);
 
-async function page(ctx) {
+async function page(ctx: AdminCtx) {
   const { from, to } = dateRange(ctx.query, 30);
   const seeCost = ctx.can('see_cost');
   const tabs = TABS.filter(([k]) => k !== 'profit' || seeCost);
   const tab = tabs.some(([k]) => k === ctx.query.get('tab')) ? ctx.query.get('tab') : 'sales';
   const unit = ['day', 'week', 'month'].includes(ctx.query.get('by')) ? ctx.query.get('by') : 'day';
-  const qs = (extra) => '?' + new URLSearchParams({ from, to, tab, ...(unit !== 'day' ? { by: unit } : {}), ...extra });
-  let content = '';
+  const qs = (extra?: Loose) => '?' + new URLSearchParams({ from, to, tab, ...(unit !== 'day' ? { by: unit } : {}), ...extra });
+  let content: Loose = '';
 
   if (tab === 'sales') {
     const rows = await salesBy(from, to, unit);
@@ -146,9 +146,9 @@ async function page(ctx) {
   if (tab === 'customers') {
     const { top, mix, districts } = await customerRows(from, to);
     content = html`<div class="kpis">
-      ${ui.kpi('মোট ক্রেতা', bn(mix.buyers), 'এই সময়ে অর্ডার করেছেন')}
-      ${ui.kpi('নতুন ক্রেতা', bn(mix.new_buyers), 'প্রথমবার অর্ডার', 'kpi-blue')}
-      ${ui.kpi('পুরোনো ক্রেতা', bn(mix.buyers - mix.new_buyers), mix.buyers ? `${pct(((mix.buyers - mix.new_buyers) / mix.buyers) * 100, 0)} আবার কিনেছেন` : '', 'kpi-green')}
+      ${ui.kpi('মোট ক্রেতা', bn(mix!.buyers), 'এই সময়ে অর্ডার করেছেন')}
+      ${ui.kpi('নতুন ক্রেতা', bn(mix!.new_buyers), 'প্রথমবার অর্ডার', 'kpi-blue')}
+      ${ui.kpi('পুরোনো ক্রেতা', bn(mix!.buyers - mix!.new_buyers), mix!.buyers ? `${pct(((mix!.buyers - mix!.new_buyers) / mix!.buyers) * 100, 0)} আবার কিনেছেন` : '', 'kpi-green')}
     </div>
     <div class="grid-2">
     <section class="panel table-wrap"><h2>সবচেয়ে বেশি কেনাকাটা</h2>
@@ -188,24 +188,24 @@ async function page(ctx) {
 
   if (tab === 'profit' && seeCost) {
     const p = await profitRow(from, to);
-    const gross = Number(p.goods) - Number(p.discount) - Number(p.cost);
-    const net = gross - Number(p.expenses) - Number(p.refunds);
-    const goodsNet = Number(p.goods) - Number(p.discount);
+    const gross = Number(p!.goods) - Number(p!.discount) - Number(p!.cost);
+    const net = gross - Number(p!.expenses) - Number(p!.refunds);
+    const goodsNet = Number(p!.goods) - Number(p!.discount);
     content = html`<div class="kpis">
-      ${ui.kpi('পণ্যের বিক্রি', money(goodsNet), `ছাড় ${money(p.discount)} বাদে`, 'kpi-blue')}
-      ${ui.kpi('কেনা দাম', money(p.cost), 'বিক্রি হওয়া পণ্যের')}
+      ${ui.kpi('পণ্যের বিক্রি', money(goodsNet), `ছাড় ${money(p!.discount)} বাদে`, 'kpi-blue')}
+      ${ui.kpi('কেনা দাম', money(p!.cost), 'বিক্রি হওয়া পণ্যের')}
       ${ui.kpi('পণ্যে লাভ', money(gross), goodsNet > 0 ? `মার্জিন ${pct((gross / goodsNet) * 100)}` : '', 'kpi-green')}
-      ${ui.kpi('নিট লাভ (আনুমানিক)', money(net), `খরচ ${money(p.expenses)} আর রিফান্ড ${money(p.refunds)} বাদে`, net >= 0 ? 'kpi-green' : 'kpi-red')}
+      ${ui.kpi('নিট লাভ (আনুমানিক)', money(net), `খরচ ${money(p!.expenses)} আর রিফান্ড ${money(p!.refunds)} বাদে`, net >= 0 ? 'kpi-green' : 'kpi-red')}
     </div>
     <section class="panel"><table class="table compact pnl"><tbody>
-      <tr><td>পণ্যের দাম (ছাড়ের আগে)</td><td class="num">${money(p.goods)}</td></tr>
-      <tr><td>− ছাড় (কুপন/হাতে)</td><td class="num">${money(p.discount)}</td></tr>
-      <tr><td>− বিক্রি হওয়া পণ্যের কেনা দাম</td><td class="num">${money(p.cost)}</td></tr>
+      <tr><td>পণ্যের দাম (ছাড়ের আগে)</td><td class="num">${money(p!.goods)}</td></tr>
+      <tr><td>− ছাড় (কুপন/হাতে)</td><td class="num">${money(p!.discount)}</td></tr>
+      <tr><td>− বিক্রি হওয়া পণ্যের কেনা দাম</td><td class="num">${money(p!.cost)}</td></tr>
       <tr class="total"><td>= পণ্যে লাভ</td><td class="num">${money(gross)}</td></tr>
-      <tr><td>− দোকানের খরচ (হিসাবের "আয়-ব্যয়" থেকে)</td><td class="num">${money(p.expenses)}</td></tr>
-      <tr><td>− রিফান্ড</td><td class="num">${money(p.refunds)}</td></tr>
+      <tr><td>− দোকানের খরচ (হিসাবের "আয়-ব্যয়" থেকে)</td><td class="num">${money(p!.expenses)}</td></tr>
+      <tr><td>− রিফান্ড</td><td class="num">${money(p!.refunds)}</td></tr>
       <tr class="total"><td>= নিট লাভ (আনুমানিক)</td><td class="num">${money(net)}</td></tr>
-      <tr><td class="muted">ডেলিভারি চার্জ নেওয়া হয়েছে (কুরিয়ারকে যায়, লাভে ধরা হয়নি)</td><td class="num muted">${money(p.delivery)}</td></tr>
+      <tr><td class="muted">ডেলিভারি চার্জ নেওয়া হয়েছে (কুরিয়ারকে যায়, লাভে ধরা হয়নি)</td><td class="num muted">${money(p!.delivery)}</td></tr>
     </tbody></table>
     <p class="small muted">বাতিল আর ফেরত আসা অর্ডার বাদ দিয়ে হিসাব। কেনা দাম ঠিক না দেওয়া থাকলে লাভ বেশি দেখাবে — মাল কিনলে <a href="/admin/purchases/new">পারচেজ এন্ট্রি</a> দিন, আর পুরোনো পণ্যে পণ্যের "📒 কেনার ইতিহাস" পেজে কেনা দাম বসান। বিস্তারিত: <a href="/admin/accounts/pnl">লাভ-ক্ষতি</a>।</p></section>`;
   }
@@ -223,19 +223,19 @@ ${content}`;
 }
 
 // Everything in one Excel file: one sheet per report.
-async function exportAll(ctx) {
+async function exportAll(ctx: AdminCtx) {
   const { from, to } = dateRange(ctx.query, 30);
   const seeCost = ctx.can('see_cost');
   const [days, months, products, slow, cats, cust, ret] = await Promise.all([
     salesBy(from, to, 'day'), salesBy(from, to, 'month'), productRows(from, to), slowRows(from, to), categoryRows(from, to), customerRows(from, to), returnRows(from, to)]);
-  const d10 = (d) => String(d instanceof Date ? d.toISOString() : d).slice(0, 10);
+  const d10 = (d?: Loose) => String(d instanceof Date ? d.toISOString() : d).slice(0, 10);
   const sheets = [
     { name: 'Daily sales', rows: [['Date', 'Orders', 'Delivered', 'Cancelled/Returned', 'Discount', 'Sales', ...(seeCost ? ['Profit'] : [])],
       ...days.map((d) => [d10(d.period), d.orders, d.delivered, d.failed, d.discount, d.sales, ...(seeCost ? [d.profit] : [])])] },
     { name: 'Monthly sales', rows: [['Month', 'Orders', 'Delivered', 'Cancelled/Returned', 'Sales', ...(seeCost ? ['Profit'] : [])],
       ...months.map((d) => [d10(d.period).slice(0, 7), d.orders, d.delivered, d.failed, d.sales, ...(seeCost ? [d.profit] : [])])] },
     { name: 'Products', rows: [['Product', 'SKU', 'Qty', 'Orders', 'Revenue', ...(seeCost ? ['Cost', 'Profit', 'Margin %'] : []), 'Views'],
-      ...products.map((p) => [p.name, p.sku, p.qty, p.orders, p.revenue, ...(seeCost ? [p.cost, Number(p.revenue) - Number(p.cost), margin(p.revenue, p.cost) === null ? '' : Math.round(margin(p.revenue, p.cost) * 10) / 10] : []), p.views])] },
+      ...products.map((p) => [p.name, p.sku, p.qty, p.orders, p.revenue, ...(seeCost ? [p.cost, Number(p.revenue) - Number(p.cost), margin(p.revenue, p.cost) === null ? '' : Math.round(margin(p.revenue, p.cost)! * 10) / 10] : []), p.views])] },
     { name: 'Not selling', rows: [['Product', 'SKU', 'Price', 'Stock', 'Views', 'Last sold'], ...slow.map((p) => [p.name, p.sku, p.price, p.stock, p.views, p.last_sold ? d10(p.last_sold) : 'never'])] },
     { name: 'Categories', rows: [['Category', 'Orders', 'Qty', 'Revenue', ...(seeCost ? ['Profit'] : [])], ...cats.map((c) => [c.name, c.orders, c.qty, c.revenue, ...(seeCost ? [c.profit] : [])])] },
     { name: 'Top customers', rows: [['Name', 'Phone', 'Orders', 'Cancelled/Returned', 'Spent'], ...cust.top.map((c) => [c.name, c.phone, c.orders, c.failed, c.spent || 0])] },
@@ -244,15 +244,15 @@ async function exportAll(ctx) {
   ];
   if (seeCost) {
     const p = await profitRow(from, to);
-    const gross = Number(p.goods) - Number(p.discount) - Number(p.cost);
-    sheets.push({ name: 'Profit', rows: [['Item', 'Amount'], ['Goods (before discount)', p.goods], ['Discount', p.discount], ['Cost of goods sold', p.cost], ['Gross profit', gross],
-      ['Expenses', p.expenses], ['Refunds', p.refunds], ['Net profit (approx.)', gross - Number(p.expenses) - Number(p.refunds)], ['Delivery charges collected', p.delivery]] });
+    const gross = Number(p!.goods) - Number(p!.discount) - Number(p!.cost);
+    sheets.push({ name: 'Profit', rows: [['Item', 'Amount'], ['Goods (before discount)', p!.goods], ['Discount', p!.discount], ['Cost of goods sold', p!.cost], ['Gross profit', gross],
+      ['Expenses', p!.expenses], ['Refunds', p!.refunds], ['Net profit (approx.)', gross - Number(p!.expenses) - Number(p!.refunds)], ['Delivery charges collected', p!.delivery]] });
   }
   await ctx.log('export', 'order', null, `রিপোর্ট Excel ${from} → ${to}`);
   return xlsx.send(ctx.res, `report-${from}-to-${to}.xlsx`, sheets);
 }
 
-async function staff(ctx) {
+async function staff(ctx: AdminCtx) {
   const { from, to } = dateRange(ctx.query, 30);
   const rows = await F.staffReport(from, to);
   if (ctx.query.get('csv') === '1') {
@@ -271,7 +271,7 @@ ${ui.dateFilter('/admin/reports/staff', from, to)}
 }
 
 // old link: /admin/reports?csv=products
-async function legacyCsv(ctx) {
+async function legacyCsv(ctx: AdminCtx) {
   const { from, to } = dateRange(ctx.query, 30);
   const seeCost = ctx.can('see_cost');
   const products = await productRows(from, to);
@@ -281,7 +281,7 @@ async function legacyCsv(ctx) {
 }
 
 export const routes = [
-    { method: 'GET', path: '/admin/reports', perm: 'reports', handler: (ctx) => (ctx.query.get('csv') === 'products' ? legacyCsv(ctx) : page(ctx)) },
+    { method: 'GET', path: '/admin/reports', perm: 'reports', handler: (ctx: AdminCtx) => (ctx.query.get('csv') === 'products' ? legacyCsv(ctx) : page(ctx)) },
     { method: 'GET', path: '/admin/reports/export.xlsx', perm: 'reports', handler: exportAll },
     { method: 'GET', path: '/admin/reports/staff', perm: 'reports', handler: staff },
   ];

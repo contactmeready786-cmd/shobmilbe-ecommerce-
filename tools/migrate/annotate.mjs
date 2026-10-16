@@ -13,7 +13,7 @@ const acorn = createRequire(import.meta.url)(acornPath || 'acorn');
 
 const BY_NAME = [
   [/^(settings|s2)$/, 'Settings'], [/^req$/, 'ShopRequest'], [/^res$/, 'ShopResponse'],
-  [/^ctx$/, 'AdminCtx'], [/^base$/, 'Base'], [/^query$/, 'URLSearchParams'], [/^user$/, 'StaffUser'],
+  [/^ctx$/, 'AdminCtx'], [/^base$/, 'Base'], [/^query$/, 'ShopQuery'], [/^user$/, 'StaffUser'],
   [/^(id|[a-z]+Id)$/, 'Id'], [/^(b|data|input|opts|options|f|filter)$/, 'Body'],
   [/^(row|r|o|p|order|product|item|it|c|cat|category|customer|cust|card|x|v|e|rec|sub|msg|post|page|line|l|m)$/, 'Loose'],
 ];
@@ -85,7 +85,7 @@ export function annotate(src, file) {
     if (bare) out = before.slice(0, before.length - m[2].length) + '(' + m[2] + x.text + ')' + out.slice(x.at);
     else out = before + x.text + out.slice(x.at);
   }
-  const typesUsed = [...used].filter((t) => ['Settings', 'ShopRequest', 'ShopResponse', 'AdminCtx', 'Base', 'StaffUser', 'Id', 'Body', 'Loose'].includes(t));
+  const typesUsed = [...used].filter((t) => ['Settings', 'ShopRequest', 'ShopResponse', 'ShopQuery', 'AdminCtx', 'Base', 'StaffUser', 'Id', 'Body', 'Loose'].includes(t));
   const needTx = used.has('Tx');
   const rel = path.relative(path.dirname(file), 'lib').replace(/\\/g, '/') || '.';
   const imp = [];

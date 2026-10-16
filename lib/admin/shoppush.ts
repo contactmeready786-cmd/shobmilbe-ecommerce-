@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // Admin → মার্কেটিং → 🔔 ফোনে অফারের নোটিফিকেশন: customers who said "yes" get a notification on their phone/computer
 // (like an app) — the owner writes the offer here and sends it. Free: no SMS cost. Works in Chrome / Edge / Firefox
 // on Android and computers, and on iPhone when the shop is added to the home screen.
@@ -6,11 +5,12 @@ import { html, int, str, bn, fmtDate } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
 import * as push from '../services/push';
+import type { AdminCtx, Loose } from '../types';
 
 const BASE = '/admin/marketing/push';
 const BATCH = 300; // phones per click
 
-async function page(ctx, note = null) {
+async function page(ctx: AdminCtx, note: Loose = null) {
   const s = ctx.settings;
   await push.publicKey(); // makes the site's key pair once
   const [count, camps, week] = await Promise.all([push.shopCount(), db.q(`SELECT c.*, st.name AS staff_name FROM push_campaigns c LEFT JOIN staff st ON st.id=c.staff_id ORDER BY c.id DESC LIMIT 20`),
@@ -20,7 +20,7 @@ async function page(ctx, note = null) {
 ${ui.flash(ctx.flash)}${note ? ui.flash(note) : ''}
 <div class="kpis kpis-tight">
   ${ui.kpi('অবস্থা', s.shoppush_on === '1' ? '✅ চালু' : '⚪ বন্ধ', '')}
-  ${ui.kpi('যারা নোটিফিকেশন নিচ্ছেন', bn(count), `গত ৭ দিনে নতুন ${bn(week.n)} জন`, 'kpi-blue')}
+  ${ui.kpi('যারা নোটিফিকেশন নিচ্ছেন', bn(count), `গত ৭ দিনে নতুন ${bn(week!.n)} জন`, 'kpi-blue')}
   ${ui.kpi('খরচ', 'ফ্রি', 'SMS-এর মতো টাকা লাগে না')}
 </div>
 ${ui.helpBox('কীভাবে কাজ করে', html`<ol class="steps">
@@ -60,13 +60,13 @@ ${ui.helpBox('কীভাবে কাজ করে', html`<ol class="steps">
   return ctx.page('অফারের নোটিফিকেশন', body, 'shoppush');
 }
 
-function message(s, c) {
+function message(s?: Loose, c?: Loose) {
   const base = String(s.site_url || '').replace(/\/+$/, '');
   const url = /^https?:\/\//i.test(c.url) || !base ? (c.url || '/') : base + (c.url.startsWith('/') ? c.url : '/' + c.url);
   return { title: c.title, body: c.body, url: c.url && c.url.startsWith('/') ? c.url : url, tag: 'offer-' + c.id, image: c.image_id ? `${base}/media/${c.image_id}` : undefined, icon: s.favicon_id ? `${base}/media/${s.favicon_id}/t` : undefined };
 }
 
-async function post(ctx) {
+async function post(ctx: AdminCtx) {
   const b = await ctx.body();
   const s = ctx.settings;
   if (b.action === 'settings') {
@@ -85,21 +85,21 @@ async function post(ctx) {
     const total = await push.shopCount();
     c = await db.one(`INSERT INTO push_campaigns(title, body, url, image_id, total, staff_id) VALUES($1,$2,$3,$4,$5,$6) RETURNING *`,
       [title, str(b.body, 160), url, int(b.image_id) || null, total, ctx.user.id]);
-    if (c.image_id) await db.q(`UPDATE media SET owner_type='push', owner_id=$1 WHERE id=$2 AND owner_type IS NULL`, [c.id, c.image_id]);
+    if (c!.image_id) await db.q(`UPDATE media SET owner_type='push', owner_id=$1 WHERE id=$2 AND owner_type IS NULL`, [c!.id, c!.image_id]);
   } else if (b.action === 'more') {
     c = await db.one('SELECT * FROM push_campaigns WHERE id=$1', [int(b.id)]);
     if (!c) return ctx.back(BASE);
   } else return ctx.back(BASE);
-  const cursor = int(s[`push_cursor_${c.id}`]);
+  const cursor = int(s[`push_cursor_${c!.id}`]);
   const r = await push.shopSendBatch(message(s, c), { afterId: cursor, limit: BATCH });
-  await db.setSetting(`push_cursor_${c.id}`, String(r.lastId));
-  const upd = await db.one('UPDATE push_campaigns SET sent=sent+$1, failed=failed+$2, total=CASE WHEN $3 THEN sent+$1+failed+$2 ELSE total END WHERE id=$4 RETURNING *', [r.sent, r.failed, r.done, c.id]);
-  await ctx.log('push_campaign', 'marketing', c.id, `নোটিফিকেশন "${c.title}": ${r.sent} জন`);
+  await db.setSetting(`push_cursor_${c!.id}`, String(r.lastId));
+  const upd = await db.one('UPDATE push_campaigns SET sent=sent+$1, failed=failed+$2, total=CASE WHEN $3 THEN sent+$1+failed+$2 ELSE total END WHERE id=$4 RETURNING *', [r.sent, r.failed, r.done, c!.id]);
+  await ctx.log('push_campaign', 'marketing', c!.id, `নোটিফিকেশন "${c!.title}": ${r.sent} জন`);
   await ctx.reloadSettings();
-  return page({ ...ctx, method: 'GET' }, { text: `✅ ${bn(r.sent)} জনকে পাঠানো হয়েছে${r.failed ? `, ${bn(r.failed)}টি যায়নি (বন্ধ করে দিয়েছেন বা ফোন বদলেছেন)` : ''}।${!r.done && upd.total > upd.sent + upd.failed ? ' বাকিদের পাঠাতে নিচের তালিকা থেকে "বাকিদের পাঠান" চাপুন।' : ''}` });
+  return page({ ...ctx, method: 'GET' }, { text: `✅ ${bn(r.sent)} জনকে পাঠানো হয়েছে${r.failed ? `, ${bn(r.failed)}টি যায়নি (বন্ধ করে দিয়েছেন বা ফোন বদলেছেন)` : ''}।${!r.done && upd!.total > upd!.sent + upd!.failed ? ' বাকিদের পাঠাতে নিচের তালিকা থেকে "বাকিদের পাঠান" চাপুন।' : ''}` });
 }
 
 export const routes = [
-    { method: 'GET', path: BASE, perm: 'marketing', handler: (ctx) => page(ctx) },
+    { method: 'GET', path: BASE, perm: 'marketing', handler: (ctx: AdminCtx) => page(ctx) },
     { method: 'POST', path: BASE, perm: 'marketing', handler: post },
   ];

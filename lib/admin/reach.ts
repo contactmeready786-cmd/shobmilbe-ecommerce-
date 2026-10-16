@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // Admin → মার্কেটিং → 🎯 কাস্টমারের কাছে পৌঁছান (owner).
 // The honest, working version of "ads that follow people": everyone who looked at a product here is
 // remembered by the shop's Facebook / TikTok / Google tags, and those platforms then show them that
@@ -11,12 +10,13 @@ import { html, bn, fmtDate } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
 import * as $liveguide from './liveguide';
+import type { AdminCtx, Body, Loose } from '../types';
 
 const BASE = '/admin/reach';
 
 async function numbers() {
-  const q = (sql, p = []) => db.q(sql, p).catch(() => []);
-  const one = async (sql, p = []) => (await q(sql, p))[0] || {};
+  const q = (sql?: Loose, p: Loose = []) => db.q(sql, p).catch(() => []);
+  const one = async (sql?: Loose, p: Loose = []) => (await q(sql, p))[0] || {};
   const [aud, buyers, live, products] = await Promise.all([
     one(`SELECT
       (SELECT count(DISTINCT pv.visitor_id) FROM page_views pv JOIN visitors v ON v.id=pv.visitor_id
@@ -48,40 +48,40 @@ async function numbers() {
 }
 
 // The "algorithm": four ranked lists from the shop's own data.
-function rank(products) {
-  const inStock = products.filter((p) => p.stock > 0);
-  const top = (arr, n = 8) => arr.slice(0, n);
+function rank(products?: Loose) {
+  const inStock = products.filter((p?: Loose) => p.stock > 0);
+  const top = (arr?: Loose, n: Loose = 8) => arr.slice(0, n);
   // 1. many look, few buy → remind them with ads (retargeting)
-  const retarget = top(inStock.filter((p) => p.v30 >= 3)
-    .map((p) => ({ ...p, why: `${bn(p.v30)} জন দেখেছে, অর্ডার ${bn(p.orders)}টি`, score: p.v30 * (1 - Math.min(1, p.orders / Math.max(1, p.v30))) }))
-    .sort((a, b) => b.score - a.score));
+  const retarget = top(inStock.filter((p?: Loose) => p.v30 >= 3)
+    .map((p?: Loose) => ({ ...p, why: `${bn(p.v30)} জন দেখেছে, অর্ডার ${bn(p.orders)}টি`, score: p.v30 * (1 - Math.min(1, p.orders / Math.max(1, p.v30))) }))
+    .sort((a?: Loose, b?: Loose) => b.score - a.score));
   // 2. those who look usually buy → spend to bring new people to these
-  const winners = top(inStock.filter((p) => p.v30 >= 5 && p.orders > 0)
-    .map((p) => ({ ...p, why: `প্রতি ১০০ জন দেখলে ~${bn(Math.round((p.orders / p.v30) * 100))} জন কেনে`, score: p.orders / p.v30 }))
-    .sort((a, b) => b.score - a.score));
+  const winners = top(inStock.filter((p?: Loose) => p.v30 >= 5 && p.orders > 0)
+    .map((p?: Loose) => ({ ...p, why: `প্রতি ১০০ জন দেখলে ~${bn(Math.round((p.orders / p.v30) * 100))} জন কেনে`, score: p.orders / p.v30 }))
+    .sort((a?: Loose, b?: Loose) => b.score - a.score));
   // 3. looked at more this week than the week before
-  const trending = top(inStock.filter((p) => p.v7 >= 3 && p.v7 > p.vprev)
-    .map((p) => ({ ...p, why: `এ সপ্তাহে ${bn(p.v7)} জন, আগের সপ্তাহে ${bn(p.vprev)} জন`, score: (p.v7 + 1) / (p.vprev + 1) }))
-    .sort((a, b) => b.score - a.score));
+  const trending = top(inStock.filter((p?: Loose) => p.v7 >= 3 && p.v7 > p.vprev)
+    .map((p?: Loose) => ({ ...p, why: `এ সপ্তাহে ${bn(p.v7)} জন, আগের সপ্তাহে ${bn(p.vprev)} জন`, score: (p.v7 + 1) / (p.vprev + 1) }))
+    .sort((a?: Loose, b?: Loose) => b.score - a.score));
   // 4. plenty in stock but nobody sees them → a small boost or a post
-  const unseen = top(inStock.filter((p) => p.v30 === 0).sort((a, b) => b.stock - a.stock)
-    .map((p) => ({ ...p, why: `স্টকে ${bn(p.stock)}টি, ৩০ দিনে কেউ দেখেনি` })));
+  const unseen = top(inStock.filter((p?: Loose) => p.v30 === 0).sort((a?: Loose, b?: Loose) => b.stock - a.stock)
+    .map((p?: Loose) => ({ ...p, why: `স্টকে ${bn(p.stock)}টি, ৩০ দিনে কেউ দেখেনি` })));
   return { retarget, winners, trending, unseen };
 }
 
-function list(title, help, items, empty) {
+function list(title?: Loose, help?: Loose, items?: Loose, empty?: Loose) {
   return html`<section class="panel"><h2>${title}</h2><p class="small muted">${help}</p>
-  ${items.length ? html`<div class="row-preview">${items.map((p) => html`<a class="rp" href="/admin/products/${p.id}">
+  ${items.length ? html`<div class="row-preview">${items.map((p?: Loose) => html`<a class="rp" href="/admin/products/${p.id}">
     <img src="${p.image_id ? `/media/${p.image_id}/t` : ''}" alt="" loading="lazy"><span>${p.name}</span><b>${ui.money(p.price)}</b><small class="muted">${p.why}</small></a>`)}</div>`
     : html`<p class="muted small">${empty}</p>`}</section>`;
 }
 
-async function page(ctx) {
+async function page(ctx: AdminCtx) {
   const s = ctx.settings;
   const n = await numbers();
   const r = rank(n.products);
   const site = (s.site_url || '').replace(/\/+$/, '') || `https://${ctx.req.headers.host}`;
-  const ok = (v) => !!String(v || '').trim();
+  const ok = (v?: Loose) => !!String(v || '').trim();
   const checks = [
     [ok(s.fb_pixel_id), 'Facebook Pixel', 'যে পণ্য দেখল, Facebook তাকে মনে রাখে — রিটার্গেটিংয়ের মূল জিনিস', '/admin/marketing/tracking'],
     [ok(s.fb_capi_token), 'Facebook Conversions API', 'ব্রাউজার ব্লক করলেও অর্ডারের খবর Facebook পায় — বিজ্ঞাপন বেশি নিখুঁত হয়', '/admin/marketing/tracking'],
@@ -151,16 +151,16 @@ ${list('😴 স্টক আছে, কিন্তু কেউ দেখছ�
   return ctx.page('কাস্টমারের কাছে পৌঁছান', body, 'reach');
 }
 
-async function live(ctx) {
+async function live(ctx: AdminCtx) {
   const n = await numbers();
   return ctx.json(ctx.res, 200, { now: bn(n.live.now_online || 0) + ' জন', views: bn(n.live.views_today || 0), orders: bn(n.live.orders_today || 0) });
 }
 
 // Customer list for Facebook "Custom Audience → Customer list": phone (with country code), first name.
-async function buyersCsv(ctx) {
+async function buyersCsv(ctx: AdminCtx) {
   const rows = await db.q(`SELECT phone, max(customer_name) AS name FROM orders WHERE status NOT IN ('cancelled','returned') GROUP BY phone ORDER BY max(created_at) DESC LIMIT 50000`);
-  const esc = (v) => `"${String(v || '').replace(/"/g, '""')}"`;
-  const phone = (p) => { const d = String(p || '').replace(/\D/g, ''); return d.startsWith('880') ? '+' + d : d.startsWith('0') ? '+88' + d : d ? '+880' + d : ''; };
+  const esc = (v?: Loose) => `"${String(v || '').replace(/"/g, '""')}"`;
+  const phone = (p?: Loose) => { const d = String(p || '').replace(/\D/g, ''); return d.startsWith('880') ? '+' + d : d.startsWith('0') ? '+88' + d : d ? '+880' + d : ''; };
   const csv = 'phone,fn,country\n' + rows.map((r) => [esc(phone(r.phone)), esc(String(r.name || '').split(/\s+/)[0]), 'BD'].join(',')).join('\n');
   await ctx.log('export', 'customers', null, `Facebook-এর জন্য ক্রেতার তালিকা (${rows.length} জন)`);
   ctx.res.writeHead(200, { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename="shobmilbe-buyers.csv"', 'Cache-Control': 'no-store' });

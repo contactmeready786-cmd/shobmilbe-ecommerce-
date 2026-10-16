@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // Product import (পণ্য আমদানি): copy products from another website, a product feed link,
 // or a CSV / Excel file into this shop — every product goes through the duplicate guard,
 // gets the next automatic SKU, and its pictures are copied here (resized + fingerprinted).
@@ -18,11 +17,13 @@ import * as ui from './ui';
 import * as importer from '../services/importer';
 import { safeFetch, FetchError } from '../services/safefetch';
 import * as $services_autocat from '../services/autocat';
+import type { AdminCtx, Body, Loose } from '../types';
+import type { Tx } from '../pg';
 
 const FILE_MAX = 3 * 1024 * 1024; // what fits in one request
 
 // ---------------------------------------------------------------- page
-async function page(ctx) {
+async function page(ctx: AdminCtx) {
   const categories = await catalog.listCategories();
   const may = ctx.can('dup_override');
   const guard = ctx.settings.dup_guard !== '0';
@@ -137,7 +138,7 @@ ${ui.helpBox('পুরোনো ওয়েবসাইটের ৫০০+ �
   return ctx.page('পণ্য আমদানি', body, 'product-import');
 }
 
-function template(ctx) {
+function template(ctx: AdminCtx) {
   const rows = [importer.TEMPLATE_HEADER,
     ['', 'PAM8403 Mini Amplifier Board', 'Generic', '150', '120', '70', '25', 'সার্কিট', 'https://example.com/pam8403.jpg', 'https://example.com/pam8403-2.jpg, https://example.com/pam8403-3.jpg',
       '৫ ভোল্টের ছোট স্টেরিও অ্যামপ্লিফায়ার', 'বিস্তারিত বিবরণ এখানে লিখুন', '', '20 g']];
@@ -145,7 +146,7 @@ function template(ctx) {
 }
 
 // ---------------------------------------------------------------- 1. read
-function nextPageUrl(u, count) {
+function nextPageUrl(u?: Loose, count?: Loose) {
   try {
     const url = new URL(u);
     if (/\/products\.json$/.test(url.pathname) && count >= int(url.searchParams.get('limit'), 30)) {
@@ -159,20 +160,20 @@ function nextPageUrl(u, count) {
 }
 const PAGE_ACCEPT = 'text/html,application/xhtml+xml,application/xml;q=0.9,application/json;q=0.9,text/csv;q=0.8,*/*;q=0.5';
 
-async function readUrl(u, { follow = true } = {}) {
+async function readUrl(u?: Loose, { follow = true }: Body = {}): Promise<Loose> {
   const r = await safeFetch(u, { maxBytes: 20 * 1024 * 1024, timeoutMs: follow ? 10000 : 9000, accept: PAGE_ACCEPT });
   if (!r.ok) {
     const why = r.status === 404 ? 'পেজটি পাওয়া যায়নি (404)' : r.status === 403 || r.status === 401 ? 'ওয়েবসাইটটি পড়তে দিচ্ছে না (অনুমতি নেই)' : `ওয়েবসাইট ভুল উত্তর দিয়েছে (${r.status})`;
     return { items: [], error: why + '।' };
   }
-  const out = importer.parseContent(r.body, { contentType: r.contentType, baseUrl: r.finalUrl });
+  const out: Loose = importer.parseContent(r.body, { contentType: r.contentType, baseUrl: r.finalUrl });
   out.finalUrl = r.finalUrl;
   if (out.items.length) {
     out.next = nextPageUrl(r.finalUrl, out.items.length);
     return out;
   }
   // A whole shop's home page: try the shop's own product list, then its sitemap.
-  if (follow && out.format === 'html' && out.links.length < 2) {
+  if (follow && out.format === 'html' && out.links!.length < 2) {
     const origin = new URL(r.finalUrl).origin;
     const tries = out.shop === 'shopify' ? [`${origin}/products.json?limit=250&page=1`]
       : out.shop === 'woocommerce' ? [`${origin}/wp-json/wc/store/v1/products?per_page=100&page=1`]
@@ -187,7 +188,7 @@ async function readUrl(u, { follow = true } = {}) {
   return out;
 }
 
-async function readApi(ctx) {
+async function readApi(ctx: AdminCtx) {
   if (!(await security.hit(db, 'impread:' + ctx.user.id, 4000, 3600))) return ctx.json(ctx.res, 429, { error: 'এক ঘণ্টায় অনেক বেশি পড়া হয়েছে, একটু পরে চেষ্টা করুন।' });
   const b = await ctx.body();
   let out;
@@ -214,7 +215,7 @@ async function readApi(ctx) {
   if (out.error) return ctx.json(ctx.res, 400, { error: out.error });
   const items = importer.finish(out.items || [], source);
   // which of these were imported before
-  const refs = items.map((i) => i.ref);
+  const refs = items.map((i?: Loose) => i.ref);
   if (refs.length) {
     const have = await db.q('SELECT id, name, sku, import_ref FROM products WHERE import_ref = ANY($1::text[])', [refs]);
     const map = new Map(have.map((h) => [h.import_ref, h]));
@@ -227,7 +228,7 @@ async function readApi(ctx) {
 }
 
 // ---------------------------------------------------------------- 2. picture from the other site
-async function imageApi(ctx) {
+async function imageApi(ctx: AdminCtx) {
   if (!(await security.hit(db, 'impimg:' + ctx.user.id, 10000, 3600))) return ctx.json(ctx.res, 429, { error: 'অনেক বেশি ছবি, একটু পরে চেষ্টা করুন।' });
   const u = str(ctx.query.get('u'), 2000);
   try {
@@ -243,13 +244,13 @@ async function imageApi(ctx) {
 }
 
 // ---------------------------------------------------------------- 3. save one product
-function categoryFinder(categories) {
+function categoryFinder(categories?: Loose) {
   const byName = new Map();
   for (const c of categories) {
     byName.set(String(c.name).toLowerCase().trim(), c.id);
     if (c.slug) byName.set(String(c.slug).toLowerCase(), c.id);
   }
-  return (text) => {
+  return (text?: Loose) => {
     const first = String(text || '').split(/[,|;]/)[0];
     const parts = first.split(/>|»|\//).map((x) => x.replace(/\s+/g, ' ').trim()).filter(Boolean);
     for (let i = parts.length - 1; i >= 0; i--) {
@@ -260,7 +261,7 @@ function categoryFinder(categories) {
   };
 }
 
-async function saveApi(ctx) {
+async function saveApi(ctx: AdminCtx) {
   if (!(await security.hit(db, 'impsave:' + ctx.user.id, 8000, 3600))) return ctx.json(ctx.res, 429, { error: 'এক ঘণ্টায় অনেক বেশি পণ্য, একটু পরে চেষ্টা করুন।' });
   const b = await ctx.body();
   const it = b.item && typeof b.item === 'object' ? b.item : {};
@@ -335,7 +336,7 @@ async function saveApi(ctx) {
       active, featured: false, emoji: '📦', unit: 'পিস', low_stock: 3, product_type: 'single', sku: '',
       allow_duplicate: allow, import_ref: ref,
     }, ctx.user.id);
-  } catch (e) {
+  } catch (e: Loose) {
     if (/products_import_ref_uq|duplicate key/i.test(String(e && e.message))) {
       const old = await db.one('SELECT id, name, sku FROM products WHERE import_ref=$1', [ref]);
       return ctx.json(ctx.res, 200, { result: 'exists', id: old && old.id, sku: old && old.sku, name: old && old.name });

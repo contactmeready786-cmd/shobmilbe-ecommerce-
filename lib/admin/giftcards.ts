@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // Admin → মার্কেটিং → 💳 গিফট কার্ড ও 🎁 রেফারেল.
 //   Gift cards: sell / give one here (code goes by SMS), check the shop's online requests (TrxID) and switch them on,
 //   see every card's balance and history, switch a card off or change its balance.
@@ -8,11 +7,12 @@ import * as db from '../db';
 import * as ui from './ui';
 import * as G from '../models/giftcards';
 import * as finance from '../models/finance';
+import type { AdminCtx, Loose } from '../types';
 
 const BASE = '/admin/giftcards';
-const PILL = { pending: 'pill-warn', active: 'pill-ok', used: '', disabled: '', expired: '' };
+const PILL: Record<string, string> = { pending: 'pill-warn', active: 'pill-ok', used: '', disabled: '', expired: '' };
 
-async function listPage(ctx) {
+async function listPage(ctx: AdminCtx) {
   const s = ctx.settings;
   if (ctx.method === 'POST') {
     const b = await ctx.body();
@@ -53,10 +53,10 @@ async function listPage(ctx) {
   const body = html`<div class="title-row"><h1>💳 গিফট কার্ড ও 🎁 রেফারেল</h1><div class="row-actions"><a class="btn btn-ghost btn-sm" href="${BASE}">🔄 রিফ্রেশ</a>${s.gift_on === '1' ? html`<a class="btn btn-ghost btn-sm" href="/gift-card" target="_blank" rel="noopener">দোকানের পেজ ↗</a>` : ''}</div></div>
 ${ui.flash(ctx.flash)}
 <div class="kpis kpis-tight">
-  ${ui.kpi('যাচাই বাকি', bn(st.pending), 'অনলাইনে কেনার অনুরোধ', st.pending ? 'kpi-alert' : '', `${BASE}?status=pending`)}
-  ${ui.kpi('কার্ডে জমা টাকা', money(st.outstanding), 'কাস্টমার এখনো খরচ করেননি (আপনার দেনা)')}
-  ${ui.kpi('মোট বিক্রি', money(st.sold), `${bn(st.n)}টি কার্ড`)}
-  ${ui.kpi('রেফারেল', `${bn(refStats.orders)} অর্ডার`, `${bn(refStats.rewarded)}টি পুরস্কার · ছাড় ${money(refStats.given)}`)}
+  ${ui.kpi('যাচাই বাকি', bn(st!.pending), 'অনলাইনে কেনার অনুরোধ', st!.pending ? 'kpi-alert' : '', `${BASE}?status=pending`)}
+  ${ui.kpi('কার্ডে জমা টাকা', money(st!.outstanding), 'কাস্টমার এখনো খরচ করেননি (আপনার দেনা)')}
+  ${ui.kpi('মোট বিক্রি', money(st!.sold), `${bn(st!.n)}টি কার্ড`)}
+  ${ui.kpi('রেফারেল', `${bn(refStats!.orders)} অর্ডার`, `${bn(refStats!.rewarded)}টি পুরস্কার · ছাড় ${money(refStats!.given)}`)}
 </div>
 <div class="two-col">
   <section class="panel"><h2>➕ নতুন গিফট কার্ড দিন / বিক্রি করুন</h2>
@@ -105,7 +105,7 @@ ${ui.flash(ctx.flash)}
   return ctx.page('গিফট কার্ড ও রেফারেল', body, 'giftcards');
 }
 
-async function detail(ctx, m) {
+async function detail(ctx: AdminCtx, m?: Loose) {
   const id = int(m[1]);
   const back = `${BASE}/${id}`;
   if (ctx.method === 'POST') {
@@ -113,11 +113,11 @@ async function detail(ctx, m) {
     try {
       if (b.action === 'activate' || b.action === 'disable' || b.action === 'enable') {
         const c = await G.setStatus(id, b.action === 'disable' ? 'disabled' : 'active', ctx.user.id, b.action === 'activate' ? 'পেমেন্ট যাচাই করে চালু' : '');
-        await ctx.log('giftcard_status', 'giftcard', id, `${G.pretty(c.code)}: ${G.STATUSES[c.status]}`);
+        await ctx.log('giftcard_status', 'giftcard', id, `${G.pretty(c!.code)}: ${G.STATUSES[c!.status]}`);
         let note = '';
         if (b.action === 'activate') {
-          if (int(b.account_id) && ctx.can('accounting') && Number(c.price) > 0) {
-            await finance.addTransaction({ type: 'income', category: 'গিফট কার্ড বিক্রি', amount: c.price, account_id: b.account_id, note: `গিফট কার্ড ${G.pretty(c.code)} (TrxID ${c.trx_id})` }, ctx.user.id);
+          if (int(b.account_id) && ctx.can('accounting') && Number(c!.price) > 0) {
+            await finance.addTransaction({ type: 'income', category: 'গিফট কার্ড বিক্রি', amount: c!.price, account_id: b.account_id, note: `গিফট কার্ড ${G.pretty(c!.code)} (TrxID ${c!.trx_id})` }, ctx.user.id);
           }
           const r = await G.sendCodeSms(ctx.settings, c);
           note = r.ok ? ' কোড প্রাপককে SMS-এ পাঠানো হয়েছে।' : ` (SMS যায়নি: ${r.msg} — কোডটা নিজে জানিয়ে দিন)`;

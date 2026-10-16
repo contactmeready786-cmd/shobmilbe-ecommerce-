@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // Admin → স্টোর ডিজাইন → ভাষা (বাংলা / English)
 //  - one switch turns the English version on/off (the বাংলা | English button next to the cart appears / disappears)
 //  - which language a first-time visitor sees
@@ -7,12 +6,13 @@ import { html, raw, bn, int, str } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
 import * as translate from '../services/translate';
+import type { AdminCtx, Body, Loose, Settings } from '../types';
 
 const BASE = '/admin/design/language';
 const PER = 40;
 const bumpRev = () => db.setSetting('i18n_rev', String(Date.now()).slice(-9));
 
-async function stats(settings) {
+async function stats(settings: Settings) {
   const [all, manual, texts] = await Promise.all([
     db.one('SELECT count(*)::int AS n FROM translations'),
     db.one("SELECT count(*)::int AS n FROM translations WHERE origin = 'manual'"),
@@ -26,11 +26,11 @@ async function stats(settings) {
   return { rows: all ? all.n : 0, manual: manual ? manual.n : 0, site: texts.length, siteDone: Math.min(have, texts.length) };
 }
 
-async function page(ctx) {
+async function page(ctx: AdminCtx) {
   const s = ctx.settings;
   if (ctx.method === 'POST') {
     const b = await ctx.body();
-    const vals = {
+    const vals: Record<string, string> = {
       i18n_on: b.i18n_on ? '1' : '0',
       i18n_default: b.i18n_default === 'en' ? 'en' : 'bn',
       i18n_auto: b.i18n_auto ? '1' : '0',
@@ -51,8 +51,8 @@ async function page(ctx) {
   const q = str(ctx.query.get('q'), 100);
   const show = ['manual', 'auto'].includes(ctx.query.get('show')) ? ctx.query.get('show') : '';
   const pageNo = Math.max(1, int(ctx.query.get('page')) || 1);
-  const where = [];
-  const params = [];
+  const where: Loose[] = [];
+  const params: Loose[] = [];
   if (q) { params.push('%' + q.replace(/[%_\\]/g, '\\$&') + '%'); where.push(`(src ILIKE $${params.length} OR en ILIKE $${params.length})`); }
   if (show) { params.push(show); where.push(`origin = $${params.length}`); }
   const w = where.length ? 'WHERE ' + where.join(' AND ') : '';
@@ -141,9 +141,9 @@ ${ui.flash(ctx.flash)}
   return ctx.page('ভাষা (বাংলা / English)', body, 'language');
 }
 
-function backTo(b) { const v = str(b.back, 400); return v.startsWith(BASE) ? v : BASE; }
+function backTo(b: Body) { const v = str(b.back, 400); return v.startsWith(BASE) ? v : BASE; }
 
-async function edit(ctx) {
+async function edit(ctx: AdminCtx) {
   const b = await ctx.body();
   const id = int(b.id);
   const en = String(b.en || '').replace(/\s+/g, ' ').trim().slice(0, translate.MAX_LEN * 2);
@@ -156,7 +156,7 @@ async function edit(ctx) {
   return ctx.back(backTo(b), 'saved');
 }
 
-async function redo(ctx) {
+async function redo(ctx: AdminCtx) {
   const b = await ctx.body();
   let en = null;
   try { en = await translate.retranslate(int(b.id), ctx.settings); } catch (e) { en = ''; }
@@ -167,7 +167,7 @@ async function redo(ctx) {
   return ctx.back(backTo(b), 'saved');
 }
 
-async function add(ctx) {
+async function add(ctx: AdminCtx) {
   const b = await ctx.body();
   const src = translate.norm(b.src).slice(0, translate.MAX_LEN);
   const en = translate.norm(b.en).slice(0, translate.MAX_LEN * 2);
@@ -180,7 +180,7 @@ async function add(ctx) {
 }
 
 // "এখনই সব অনুবাদ করে রাখুন": the browser calls this again and again until nothing is left.
-async function fill(ctx) {
+async function fill(ctx: AdminCtx) {
   const r = await translate.fillBatch(ctx.settings, 50);
   return ctx.json(ctx.res, 200, r);
 }

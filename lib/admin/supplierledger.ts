@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // Admin → স্টক ও কেনাকাটা → সাপ্লায়ার → 📒 বাকির খাতা (owner only — buying prices are the owner's secret).
 //   /admin/suppliers/dues        every supplier you owe money to: how much, how old the debt is (0-30 / 31-60 / 61-90 / 90+ days)
 //   /admin/suppliers/:id/ledger  one supplier's statement: opening due, each purchase (+) and payment (−) with the running balance,
@@ -9,7 +8,8 @@ import { html, int, str, bn, money, fmtDate, ymd, validYmd, round2 } from '../ut
 import * as db from '../db';
 import * as ui from './ui';
 import * as finance from '../models/finance';
-async function entries(id) {
+import type { AdminCtx, Body, Id, Loose } from '../types';
+async function entries(id?: Id) {
   return db.q(`SELECT * FROM (
       SELECT 'p' AS kind, p.id, p.purchase_date AS d, p.code AS ref, p.total AS amount, p.status, p.note, p.created_at AS at,
         (SELECT count(*) FROM purchase_items i WHERE i.purchase_id=p.id)::int AS lines
@@ -21,8 +21,8 @@ async function entries(id) {
 }
 
 // What is still unpaid, oldest purchases first (payments clear the oldest debt first).
-function aging(opening, list) {
-  const debts = [];
+function aging(opening?: Loose, list?: Loose) {
+  const debts: Loose[] = [];
   if (Number(opening) > 0) debts.push({ d: null, left: Number(opening) });
   let credit = 0;
   for (const e of list) {
@@ -30,7 +30,7 @@ function aging(opening, list) {
     else credit += Number(e.amount);
   }
   for (const x of debts) { const take = Math.min(x.left, credit); x.left -= take; credit -= take; }
-  const b = { a: 0, b: 0, c: 0, d: 0, oldest: null };
+  const b: { a: number; b: number; c: number; d: number; oldest: number | null } = { a: 0, b: 0, c: 0, d: 0, oldest: null };
   const today = new Date(ymd() + 'T00:00:00Z').getTime();
   for (const x of debts) {
     if (x.left <= 0.004) continue;
@@ -41,9 +41,9 @@ function aging(opening, list) {
   return b;
 }
 
-async function duesPage(ctx) {
+async function duesPage(ctx: AdminCtx) {
   const rows = await finance.listSuppliers();
-  const out = [];
+  const out: Loose[] = [];
   for (const s of rows) {
     const due = finance.supplierDue(s);
     if (Math.abs(due) < 0.005 && !Number(s.purchased)) continue;
@@ -70,7 +70,7 @@ ${out.map((s) => html`<tr><td><a href="/admin/suppliers/${s.id}/ledger"><b>${s.n
   return ctx.page('সাপ্লায়ারের বাকির খাতা', body, 'supplier-dues');
 }
 
-async function ledgerPage(ctx, m) {
+async function ledgerPage(ctx: AdminCtx, m?: Loose) {
   const s = await finance.getSupplier(int(m[1]));
   if (!s) return ctx.redirect(ctx.res, '/admin/suppliers');
   const from = validYmd(ctx.query.get('from')) || '';
@@ -78,7 +78,7 @@ async function ledgerPage(ctx, m) {
   const list = await entries(s.id);
   let bal = Number(s.opening_due || 0);
   let before = bal;
-  const rows = [];
+  const rows: Loose[] = [];
   for (const e of list) {
     const d = String(e.d).slice(0, 10);
     const change = e.kind === 'p' ? Number(e.amount) : -Number(e.amount);

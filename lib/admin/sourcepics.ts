@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // Admin → পণ্য → ওয়াটারমার্ক ও ডুপ্লিকেট → 🚩 অন্য দোকানের ছবি (owner, 2026-10-14).
 // Products copied from another shop (TechShop BD …) often still carry that shop's watermark on their pictures.
 // Here every product copied from one shop is shown with ALL its pictures; the owner taps "🚩 ওয়াটারমার্ক আছে" or
@@ -8,6 +7,7 @@ import { html, raw, bn, fmtDate, int, str } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
 import * as $services_xlsx from '../services/xlsx';
+import type { AdminCtx, Body, Loose } from '../types';
 
 const BASE = '/admin/products/source-pics';
 const PER_PAGE = 40;
@@ -16,9 +16,9 @@ const HOST = "split_part(p.import_ref, '#', 1)";
 // were added by hand or from a file, so they have no import reference and never showed up under a shop's name.
 const ALL = '*';
 const ALL_LABEL = 'দোকানের সব পণ্য (হাতে/ফাইলে যোগ করাসহ)';
-const hostCond = (host) => (host === ALL ? 'TRUE' : `${HOST}=$1`);
-const hostArgs = (host) => (host === ALL ? [] : [host]);
-const FILTERS = { todo: 'এখনো দেখা হয়নি', flag: '🚩 ওয়াটারমার্ক আছে', clean: '✅ পরিষ্কার', all: 'সব' };
+const hostCond = (host?: Loose) => (host === ALL ? 'TRUE' : `${HOST}=$1`);
+const hostArgs = (host?: Loose) => (host === ALL ? [] : [host]);
+const FILTERS: Record<string, string> = { todo: 'এখনো দেখা হয়নি', flag: '🚩 ওয়াটারমার্ক আছে', clean: '✅ পরিষ্কার', all: 'সব' };
 
 async function hosts() {
   const [shops, all] = await Promise.all([db.q(`SELECT ${HOST} AS host, count(*)::int AS n, count(*) FILTER (WHERE p.src_wm)::int AS flagged,
@@ -29,26 +29,26 @@ async function hosts() {
       min(p.created_at) AS first_at, max(p.created_at) AS last_at FROM products p WHERE p.parent_id IS NULL`)]);
   return all && all.n ? [...shops, { host: ALL, ...all }] : shops;
 }
-const hostLabel = (h) => (h === ALL ? ALL_LABEL : h);
-function pickHost(list, wanted) {
-  if (wanted && list.some((h) => h.host === wanted)) return wanted;
-  const ts = list.find((h) => /techshop/i.test(h.host));
+const hostLabel = (h?: Loose) => (h === ALL ? ALL_LABEL : h);
+function pickHost(list?: Loose, wanted?: Loose) {
+  if (wanted && list.some((h?: Loose) => h.host === wanted)) return wanted;
+  const ts = list.find((h?: Loose) => /techshop/i.test(h.host));
   return ts ? ts.host : list[0] ? list[0].host : '';
 }
-function where(f) {
+function where(f: Loose) {
   return f === 'flag' ? 'AND p.src_wm' : f === 'clean' ? 'AND p.src_wm_checked AND NOT p.src_wm' : f === 'todo' ? 'AND NOT p.src_wm_checked' : '';
 }
-const srcLink = (h, ref) => {
+const srcLink = (h?: Loose, ref?: Loose) => {
   if (h !== ALL) return shopLink(h, ref);
   const shop = String(ref || '').split('#')[0];
   return shop && shop !== 'file' ? shopLink(shop, ref) : 'নিজে / ফাইল থেকে যোগ করা';
 };
-const shopLink = (h, ref) => {
+const shopLink = (h?: Loose, ref?: Loose) => {
   const key = String(ref || '').split('#').slice(1).join('#');
   return key.startsWith('/') ? `https://${h}${key}` : `https://${h}`;
 };
 
-async function excel(ctx, host, f) {
+async function excel(ctx: AdminCtx, host: Loose, f: Loose) {
   const rows = await db.q(`SELECT p.id, p.sku, p.name, p.slug, p.active, p.created_at, p.import_ref, p.src_wm, p.src_wm_checked,
       (SELECT count(*) FROM media m WHERE m.owner_type='product' AND m.owner_id=p.id)::int AS pics
     FROM products p WHERE p.parent_id IS NULL AND ${hostCond(host)} ${where(f)}
@@ -64,7 +64,7 @@ async function excel(ctx, host, f) {
   return $services_xlsx.send(ctx.res, name, [{ name: f === 'flag' ? 'Watermark' : 'Products', rows: out }]);
 }
 
-async function handle(ctx) {
+async function handle(ctx: AdminCtx) {
   const list = await hosts();
   if (ctx.method === 'POST') {
     const b = await ctx.body();
@@ -94,10 +94,10 @@ async function handle(ctx) {
       FROM products p WHERE p.parent_id IS NULL AND ${hostCond(host)} ${where(f)}
       ORDER BY CASE WHEN p.sku ~ '^[0-9]+$' THEN lpad(p.sku, 12, '0') ELSE p.sku END, p.id
       LIMIT ${PER_PAGE} OFFSET ${(page - 1) * PER_PAGE}`, hostArgs(host)),
-    db.one(`SELECT count(*)::int AS n FROM products p WHERE p.parent_id IS NULL AND ${hostCond(host)} ${where(f)}`, hostArgs(host)).then((r) => r.n),
+    db.one(`SELECT count(*)::int AS n FROM products p WHERE p.parent_id IS NULL AND ${hostCond(host)} ${where(f)}`, hostArgs(host)).then((r) => r!.n),
   ]) : [[], 0];
   const pages = Math.max(1, Math.ceil(count / PER_PAGE));
-  const q = (o) => `${BASE}?${new URLSearchParams({ host, f, ...o })}`;
+  const q = (o?: Loose) => `${BASE}?${new URLSearchParams({ host, f, ...o })}`;
   const body = html`<div class="title-row"><h1>🚩 অন্য দোকানের ছবি</h1>
   ${host ? html`<div class="row-actions">
     <a class="btn btn-sm" href="${q({ excel: 'flag' })}">📥 ওয়াটারমার্কের SKU (Excel)</a>
@@ -122,7 +122,7 @@ ${cur ? html`<div class="kpis kpis-tight">
 ${rows.length ? html`<div class="srcpic-list">${rows.map((p) => html`<section class="panel srcpic ${p.src_wm ? 'is-flag' : p.src_wm_checked ? 'is-clean' : ''}" id="p${p.id}">
   <div class="srcpic-head"><b class="srcpic-sku">SKU ${p.sku || '—'}</b> <a href="/admin/products/${p.id}" target="_blank" rel="noopener">${p.name}</a>
     ${p.active ? '' : html` <span class="pill pill-grey">বন্ধ</span>`} <span class="small muted">· কপি ${fmtDate(p.created_at, false)} · ${bn(p.pics.length)}টি ছবি</span></div>
-  <div class="srcpic-pics">${p.pics.length ? p.pics.map((m) => html`<a href="/media/${m}" target="_blank" rel="noopener"><img src="/media/${m}/t" alt="" loading="lazy"></a>`) : html`<span class="muted small">ছবি নেই</span>`}</div>
+  <div class="srcpic-pics">${p.pics.length ? p.pics.map((m?: Loose) => html`<a href="/media/${m}" target="_blank" rel="noopener"><img src="/media/${m}/t" alt="" loading="lazy"></a>`) : html`<span class="muted small">ছবি নেই</span>`}</div>
   <form method="post" action="${BASE}" class="row-actions" data-srcpic>
     <input type="hidden" name="action" value="mark"><input type="hidden" name="id" value="${p.id}"><input type="hidden" name="host" value="${host}"><input type="hidden" name="f" value="${f}">
     <button class="btn btn-sm btn-danger" name="flag" value="1">🚩 ওয়াটারমার্ক আছে</button>

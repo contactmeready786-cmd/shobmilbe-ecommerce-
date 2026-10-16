@@ -8,7 +8,7 @@ import * as db from '../db';
 import { str, int, amount, round2, randomCode, normalizePhone, validPhone, ymd, bn } from '../util';
 import * as $services_sms from '../services/sms';
 import type { DbRow, Tx } from '../pg';
-import type { Settings } from '../types';
+import type { Loose, Settings } from '../types';
 
 type Id = number | string | null | undefined;
 
@@ -45,15 +45,15 @@ async function issue({ amount: amt, status = 'active', source = 'admin', buyerNa
 }
 
 // The SMS with the code, to the receiver.
-async function sendCodeSms(settings: Settings, card: DbRow): Promise<unknown> {
+async function sendCodeSms(settings: Settings, card: DbRow | null): Promise<Loose> {
   const SMS = $services_sms;
-  if (!card.recipient_phone || !SMS.ready(settings).ok) return { ok: false, msg: 'SMS চালু নেই বা নম্বর নেই' };
+  if (!card!.recipient_phone || !SMS.ready(settings).ok) return { ok: false, msg: 'SMS চালু নেই বা নম্বর নেই' };
   const tpl = String(settings.gift_sms || '').trim() || '{shop}: আপনার জন্য {amount} টাকার গিফট কার্ড{from}! কোড: {code}{expiry}। চেকআউটে কোডটা দিন।{message}';
-  const text = tpl.replace(/\{shop\}/g, settings.store_name || '').replace(/\{amount\}/g, String(Number(card.balance)))
-    .replace(/\{from\}/g, card.buyer_name && card.source !== 'referral' ? ` — ${card.buyer_name} পাঠিয়েছেন` : '')
-    .replace(/\{code\}/g, pretty(card.code)).replace(/\{expiry\}/g, card.expires_on ? `, মেয়াদ ${String(card.expires_on).slice(0, 10)}` : '')
-    .replace(/\{message\}/g, card.message ? ` "${card.message}"` : '');
-  return SMS.send(settings, card.recipient_phone, text, { kind: 'giftcard' });
+  const text = tpl.replace(/\{shop\}/g, settings.store_name || '').replace(/\{amount\}/g, String(Number(card!.balance)))
+    .replace(/\{from\}/g, card!.buyer_name && card!.source !== 'referral' ? ` — ${card!.buyer_name} পাঠিয়েছেন` : '')
+    .replace(/\{code\}/g, pretty(card!.code)).replace(/\{expiry\}/g, card!.expires_on ? `, মেয়াদ ${String(card!.expires_on).slice(0, 10)}` : '')
+    .replace(/\{message\}/g, card!.message ? ` "${card!.message}"` : '');
+  return SMS.send(settings, card!.recipient_phone, text, { kind: 'giftcard' });
 }
 
 // For the checkout box: is this a usable card, and how much is on it?

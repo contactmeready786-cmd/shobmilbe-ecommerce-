@@ -29,9 +29,14 @@ export type Loose = any;
 export type Id = number | string | null | undefined;
 
 type HeaderMap = Record<string, string | string[] | number | undefined>;
+/**
+ * The address's ?query. get() really returns text or null; the old code passes the value straight on in many
+ * places (where null and "missing" mean the same), so it is Loose until those places are tightened.
+ */
+export type ShopQuery = Omit<URLSearchParams, 'get'> & { get(name: string): Loose };
 /** What every request handler in lib/app.ts gets. */
 export type Base = {
-  req: ShopRequest; res: ShopResponse; path: string; method: string; query: URLSearchParams; settings: Settings;
+  req: ShopRequest; res: ShopResponse; path: string; method: string; query: ShopQuery; settings: Settings;
   send: (res: ShopResponse, status: number, body: string | Buffer, type?: string, extra?: HeaderMap) => void;
   json: (res: ShopResponse, status: number, data: unknown, extra?: HeaderMap) => void;
   redirect: (res: ShopResponse, to: string, extra?: HeaderMap) => void;

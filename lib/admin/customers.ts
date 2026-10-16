@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 
 // Deleting customers: only the owner, and only while the switch on the customers page is on.
 import { html, raw, money, bn, fmtDate, int, str, pageNum, csv, normalizePhone, validPhone, list } from '../util';
@@ -7,8 +6,9 @@ import * as O from '../models/orders';
 import * as ui from './ui';
 import * as db from '../db';
 import * as $services_xlsx from '../services/xlsx';
-function canDelete(ctx) { return ctx.user.role === 'owner' && ctx.settings.customer_delete_on === '1'; }
-function deleteSwitch(ctx) {
+import type { AdminCtx, Loose } from '../types';
+function canDelete(ctx: AdminCtx) { return ctx.user.role === 'owner' && ctx.settings.customer_delete_on === '1'; }
+function deleteSwitch(ctx: AdminCtx) {
   if (ctx.user.role !== 'owner') return '';
   return html`<form method="post" action="/admin/customers/delete-setting" class="panel switch-list cust-del-sw" data-autosubmit>
     ${ui.switchRow('customer_delete_on', ctx.settings.customer_delete_on === '1', '🗑️ কাস্টমার মুছে ফেলার বাটন দেখান', 'শুধু আপনি (মালিক) দেখবেন। চালু করলে প্রতিটা কাস্টমারের পাশে "মুছুন" বাটন আর একসাথে অনেকগুলো মোছার ব্যবস্থা আসবে। কাজ শেষ হলে বন্ধ করে রাখুন, যাতে ভুল করে কেউ মুছে না ফেলে।')}
@@ -17,8 +17,8 @@ function deleteSwitch(ctx) {
 
 const PER_PAGE = 40;
 
-const groupsOf = (s) => String(s.customer_groups || '').split(',').map((x) => x.trim()).filter(Boolean).slice(0, 20);
-function listFilters(ctx) {
+const groupsOf = (s?: Loose) => String(s.customer_groups || '').split(',').map((x) => x.trim()).filter(Boolean).slice(0, 20);
+function listFilters(ctx: AdminCtx) {
   return {
     q: str(ctx.query.get('q'), 60),
     segment: C.SEGMENTS[ctx.query.get('seg')] ? ctx.query.get('seg') : '',
@@ -27,7 +27,7 @@ function listFilters(ctx) {
     vipMin: Number(ctx.settings.vip_spend) || 5000,
   };
 }
-async function listPage(ctx) {
+async function listPage(ctx: AdminCtx) {
   const f = listFilters(ctx);
   const q = f.q;
   const sort = ['spent', 'orders', 'name'].includes(ctx.query.get('sort')) ? ctx.query.get('sort') : '';
@@ -67,7 +67,7 @@ ${rows.length ? html`${canDelete(ctx) ? html`<form method="post" action="/admin/
 <tbody>${rows.map((c) => html`<tr class="${c.blocked ? 'row-blocked' : ''}">
   ${canDelete(ctx) ? html`<td><input type="checkbox" name="ids" value="${c.id}" form="cust-bulk" data-check-row aria-label="বাছুন"></td>` : ''}
   <td><b translate="no">${c.name || '—'}</b>${c.blocked ? html` <span class="pill pill-cancelled">ব্লক</span>` : ''}${c.grp ? html` <span class="pill">${c.grp}</span>` : ''}<br><a class="small" href="tel:${c.phone}">${c.phone}</a>
-    ${c.tags ? html`<br>${c.tags.split(',').map((t) => html`<a class="tag-chip" href="/admin/customers?tag=${encodeURIComponent(t.trim())}">#${t.trim()}</a> `)}` : ''}</td>
+    ${c.tags ? html`<br>${c.tags.split(',').map((t?: Loose) => html`<a class="tag-chip" href="/admin/customers?tag=${encodeURIComponent(t.trim())}">#${t.trim()}</a> `)}` : ''}</td>
   <td class="small" translate="no">${c.address}${c.thana || c.district ? html`<br><span class="muted">${O.areaLabel(c)}</span>` : ''}</td>
   <td class="num">${bn(c.orders)}</td><td class="num">${bn(c.delivered)}</td>
   <td class="num ${c.cancelled + c.returned > 0 ? 'warn' : ''}">${bn(c.cancelled + c.returned)}</td>
@@ -79,7 +79,7 @@ ${ui.pager(total, page, PER_PAGE, '/admin/customers' + (qs ? '?' + qs : ''))}`
   return ctx.page('কাস্টমার', body, 'customers');
 }
 
-async function detail(ctx, m) {
+async function detail(ctx: AdminCtx, m?: Loose) {
   const id = int(m[1]);
   if (ctx.method === 'POST') {
     const b = await ctx.body();
@@ -153,7 +153,7 @@ ${ui.flash(ctx.flash)}
   return ctx.page(c.name || c.phone, body, 'customers');
 }
 
-async function exportCsv(ctx, m, excel = false) {
+async function exportCsv(ctx: AdminCtx, m?: Loose, excel: Loose = false) {
   const rows = await C.listCustomers({ ...listFilters(ctx), limit: 100000 });
   const out = [['Name', 'Phone', 'Email', 'Address', 'Thana', 'District', 'Group', 'Tags', 'Orders', 'Delivered', 'Cancelled', 'Returned', 'Spent', 'Last order', 'Blocked']];
   rows.forEach((c) => out.push([c.name, c.phone, c.email, c.address, c.thana, c.district, c.grp, c.tags, c.orders, c.delivered, c.cancelled, c.returned, c.spent,
@@ -162,7 +162,7 @@ async function exportCsv(ctx, m, excel = false) {
   if (excel) return $services_xlsx.send(ctx.res, `customers-${new Date().toISOString().slice(0, 10)}.xlsx`, [{ name: 'Customers', rows: out }]);
   return ctx.send(ctx.res, 200, csv(out), 'text/csv; charset=utf-8', { 'Content-Disposition': `attachment; filename="customers-${Date.now()}.csv"` });
 }
-async function saveSettings(ctx) {
+async function saveSettings(ctx: AdminCtx) {
   const b = await ctx.body();
   const groups = String(b.customer_groups || '').split(',').map((x) => x.trim().slice(0, 40)).filter(Boolean).slice(0, 20).join(', ');
   await db.setMany({ customer_groups: groups, vip_spend: String(Math.max(0, int(b.vip_spend, 5000))) });
@@ -171,7 +171,7 @@ async function saveSettings(ctx) {
 }
 
 // ---------------------------------------------------------------- delete (owner only, switch on)
-async function removeCustomers(ctx, ids, withOrders) {
+async function removeCustomers(ctx: AdminCtx, ids?: Loose, withOrders?: Loose) {
   let n = 0;
   let orders = 0;
   for (const id of ids) {
@@ -188,13 +188,13 @@ async function removeCustomers(ctx, ids, withOrders) {
   }
   return { n, orders };
 }
-async function deleteOne(ctx, m) {
+async function deleteOne(ctx: AdminCtx, m?: Loose) {
   if (!canDelete(ctx)) return ctx.back('/admin/customers', 'noperm');
   const b = await ctx.body();
   await removeCustomers(ctx, [int(m[1])], b.with_orders === '1' || ctx.query.get('with_orders') === '1');
   return ctx.back('/admin/customers', 'cust_deleted');
 }
-async function deleteMany(ctx) {
+async function deleteMany(ctx: AdminCtx) {
   if (!canDelete(ctx)) return ctx.back('/admin/customers', 'noperm');
   const b = await ctx.body();
   const ids = list(b.ids).map((x) => int(x)).filter(Boolean).slice(0, 500);
@@ -202,7 +202,7 @@ async function deleteMany(ctx) {
   await removeCustomers(ctx, ids, b.with_orders === '1');
   return ctx.back('/admin/customers', 'cust_deleted');
 }
-async function deleteSetting(ctx) {
+async function deleteSetting(ctx: AdminCtx) {
   if (ctx.user.role !== 'owner') return ctx.back('/admin/customers', 'noperm');
   const b = await ctx.body();
   await db.setSetting('customer_delete_on', b.customer_delete_on === '1' ? '1' : '0');
@@ -211,7 +211,7 @@ async function deleteSetting(ctx) {
 }
 
 // ---------------------------------------------------------------- block list
-async function blocklistPage(ctx) {
+async function blocklistPage(ctx: AdminCtx) {
   if (ctx.method === 'POST') {
     const b = await ctx.body();
     const kind = b.kind === 'ip' ? 'ip' : 'phone';
@@ -246,7 +246,7 @@ ${ui.helpBox('ব্লক লিস্ট কীভাবে কাজ কর�
 </div>`;
   return ctx.page('ব্লক লিস্ট', body, 'blocklist');
 }
-async function unblock(ctx, m) {
+async function unblock(ctx: AdminCtx, m?: Loose) {
   const b = await ctx.body();
   await C.unblock(int(m[1]));
   await ctx.log('unblock', 'customer', null, String(m[1]));
@@ -257,7 +257,7 @@ async function unblock(ctx, m) {
 export const routes = [
     { method: 'GET', path: '/admin/customers', perm: 'customers', handler: listPage },
     { method: 'GET', path: '/admin/customers/export.csv', perm: 'reports', handler: exportCsv },
-    { method: 'GET', path: '/admin/customers/export.xlsx', perm: 'reports', handler: (ctx, m) => exportCsv(ctx, m, true) },
+    { method: 'GET', path: '/admin/customers/export.xlsx', perm: 'reports', handler: (ctx: AdminCtx, m?: Loose) => exportCsv(ctx, m, true) },
     { method: 'POST', path: '/admin/customers/settings', perm: 'customers', handler: saveSettings },
     { method: 'POST', path: '/admin/customers/delete-setting', perm: 'customers', handler: deleteSetting },
     { method: 'POST', path: '/admin/customers/bulk-delete', perm: 'customers', handler: deleteMany },

@@ -1,13 +1,13 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // Admin → মার্কেটিং → লয়ালটি পয়েন্ট: the rules, who has the most points, and adding / taking points by hand.
 import { html, bn, int, str, money, fmtDate, normalizePhone, validPhone } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
 import * as L from '../models/loyalty';
+import type { AdminCtx, Loose } from '../types';
 
 const BASE = '/admin/marketing/loyalty';
 
-async function page(ctx, error = null) {
+async function page(ctx: AdminCtx, error: Loose = null) {
   if (ctx.method === 'POST' && !error) return save(ctx);
   const s = ctx.settings;
   const c = L.cfg(s);
@@ -24,9 +24,9 @@ ${ui.helpBox('লয়ালটি পয়েন্ট কীভাবে ক
   <li>উদাহরণ: ${money(c.earnPer * 10)} এর কেনাকাটায় ১০ পয়েন্ট = পরের বার ${money(10 * c.value)} ছাড়। মানে প্রায় ${bn(Math.round((c.value / c.earnPer) * 1000) / 10)}% ক্যাশব্যাক।</li>
 </ul>`)}
 <div class="kpis">
-  ${ui.kpi('কাস্টমারদের হাতে মোট পয়েন্ট', bn(sum.outstanding), `${money(sum.outstanding * c.value)} সমান · ${bn(sum.holders)} জন`)}
-  ${ui.kpi('গত ৩০ দিনে দেওয়া', bn(sum.earned30), 'পয়েন্ট')}
-  ${ui.kpi('গত ৩০ দিনে খরচ', bn(sum.spent30), `${money(sum.spent30 * c.value)} ছাড়`)}
+  ${ui.kpi('কাস্টমারদের হাতে মোট পয়েন্ট', bn(sum!.outstanding), `${money(sum!.outstanding * c.value)} সমান · ${bn(sum!.holders)} জন`)}
+  ${ui.kpi('গত ৩০ দিনে দেওয়া', bn(sum!.earned30), 'পয়েন্ট')}
+  ${ui.kpi('গত ৩০ দিনে খরচ', bn(sum!.spent30), `${money(sum!.spent30 * c.value)} ছাড়`)}
 </div>
 <div class="two-col">
   <section class="panel">
@@ -69,7 +69,7 @@ ${ui.helpBox('লয়ালটি পয়েন্ট কীভাবে ক
   return ctx.page('লয়ালটি পয়েন্ট', body, 'loyalty', { status: error ? 400 : 200 });
 }
 
-async function save(ctx) {
+async function save(ctx: AdminCtx) {
   const b = await ctx.body();
   if (b.action === 'adjust') {
     const pts = int(b.points);
@@ -93,4 +93,4 @@ async function save(ctx) {
   return ctx.back(BASE, 'saved');
 }
 
-export const routes = [{ method: '*', path: BASE, perm: 'marketing', handler: (ctx) => page(ctx) }];
+export const routes = [{ method: '*', path: BASE, perm: 'marketing', handler: (ctx: AdminCtx) => page(ctx) }];

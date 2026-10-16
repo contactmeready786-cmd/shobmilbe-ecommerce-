@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // Admin → মার্কেটিং → ফ্ল্যাশ সেল ও অফার
 //   • ফ্ল্যাশ সেল: a start and end time, products (by SKU) with a sale price and an optional piece limit.
 //     While it runs the sale price is the price everywhere in the shop; the home page shows a row with a countdown.
@@ -8,26 +7,28 @@ import { html, bn, int, str, list, money, amount, fmtDate, shopPrice } from '../
 import * as db from '../db';
 import * as ui from './ui';
 import * as pricing from '../services/pricing';
+import type { AdminCtx, Loose } from '../types';
+import type { Tx } from '../pg';
 
 const BASE = '/admin/marketing/flash';
 const DHAKA_MS = 6 * 3600e3; // Bangladesh: UTC+6, no summer time
-const toLocalInput = (d) => (d ? new Date(new Date(d).getTime() + DHAKA_MS).toISOString().slice(0, 16) : '');
-function fromLocalInput(v) {
+const toLocalInput = (d?: Loose) => (d ? new Date(new Date(d).getTime() + DHAKA_MS).toISOString().slice(0, 16) : '');
+function fromLocalInput(v?: Loose) {
   const m = String(v || '').match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})$/);
   if (!m) return null;
   const d = new Date(`${m[1]}T${m[2]}:00+06:00`);
   return Number.isNaN(d.getTime()) ? null : d;
 }
-const validDate = (v) => (/^\d{4}-\d{2}-\d{2}$/.test(String(v || '')) ? String(v) : null);
+const validDate = (v?: Loose) => (/^\d{4}-\d{2}-\d{2}$/.test(String(v || '')) ? String(v) : null);
 
-function tabs(tab) {
+function tabs(tab?: Loose) {
   return html`<nav class="rs-tabs">
     <a class="tab ${tab === 'flash' ? 'on' : ''}" href="${BASE}">⚡ ফ্ল্যাশ সেল</a>
     <a class="tab ${tab === 'offers' ? 'on' : ''}" href="${BASE}?tab=offers">🎁 এটা কিনলে ওটা ফ্রি</a>
     <a class="tab" href="/admin/marketing/coupons">🏷️ কুপন</a>
   </nav>`;
 }
-function saleState(s) {
+function saleState(s?: Loose) {
   const now = Date.now();
   if (!s.active) return ['বন্ধ', ''];
   if (now < new Date(s.starts_at).getTime()) return ['শুরু হয়নি', 'pill-pending'];
@@ -36,7 +37,7 @@ function saleState(s) {
 }
 
 // ---------------------------------------------------------------- flash sales
-async function flashPage(ctx) {
+async function flashPage(ctx: AdminCtx) {
   const tab = ctx.query.get('tab') === 'offers' ? 'offers' : 'flash';
   if (tab === 'offers') return offersPage(ctx);
   const editId = int(ctx.query.get('edit')) || null;
@@ -49,14 +50,14 @@ async function flashPage(ctx) {
     WHERE fi.sale_id=$1 ORDER BY fi.id`, [editing.id]) : [];
   return ctx.page('ফ্ল্যাশ সেল', flashBody(ctx, sales, editing, items), 'flash');
 }
-function flashBody(ctx, sales, editing, items, error = null) {
+function flashBody(ctx: AdminCtx, sales?: Loose, editing?: Loose, items?: Loose, error: Loose = null) {
   const e = editing || { title: '', show_home: true, active: true };
   const now = new Date();
   const start = editing ? toLocalInput(e.starts_at) : toLocalInput(now);
   const end = editing ? toLocalInput(e.ends_at) : toLocalInput(new Date(now.getTime() + 24 * 3600e3));
   const rows = items.length ? items : [];
   const blank = Math.max(3, 6 - rows.length);
-  const row = (it) => html`<div class="field-row tier-row flash-row">
+  const row = (it?: Loose) => html`<div class="field-row tier-row flash-row">
     ${ui.field('পণ্যের SKU', ui.input('sku[]', it.sku || '', { maxlength: 40, placeholder: 'যেমন 101' }), it.name ? html`${it.name} · এখন দাম ${money(it.base)} · স্টক ${bn(it.stock)}` : '')}
     ${ui.field('সেলের দাম (৳)', ui.input('sale_price[]', it.price ?? '', { type: 'number', min: 0.01, step: '0.01', class: 'w-num' }))}
     ${ui.field('সর্বোচ্চ কয়টা (ঐচ্ছিক)', ui.input('max_qty[]', it.max_qty || '', { type: 'number', min: 0, class: 'w-num', placeholder: '০ = সীমা নেই' }),
@@ -74,7 +75,7 @@ ${ui.helpBox('ফ্ল্যাশ সেল কীভাবে কাজ ক�
   <section class="panel table-wrap">
     <h2>সব ফ্ল্যাশ সেল</h2>
     ${sales.length ? html`<table class="table"><thead><tr><th>নাম</th><th>সময়</th><th class="num">পণ্য</th><th class="num">বিক্রি</th><th>অবস্থা</th><th>চালু</th><th>কাজ</th></tr></thead>
-    <tbody>${sales.map((x) => { const [st, cls] = saleState(x); return html`<tr class="${x.active ? '' : 'row-off'}">
+    <tbody>${sales.map((x?: Loose) => { const [st, cls] = saleState(x); return html`<tr class="${x.active ? '' : 'row-off'}">
       <td><b>${x.title}</b>${x.show_home ? '' : html`<br><span class="small muted">হোমপেজে দেখায় না</span>`}</td>
       <td class="small">${fmtDate(x.starts_at)}<br>→ ${fmtDate(x.ends_at)}</td>
       <td class="num">${bn(x.items)}</td><td class="num">${bn(x.sold)}</td>
@@ -103,14 +104,14 @@ ${ui.helpBox('ফ্ল্যাশ সেল কীভাবে কাজ ক�
   </section>
 </div>`;
 }
-async function saveFlash(ctx) {
+async function saveFlash(ctx: AdminCtx) {
   const b = await ctx.body();
   const id = int(b.id) || null;
   const title = str(b.title, 80);
   const starts = fromLocalInput(b.starts_at);
   const ends = fromLocalInput(b.ends_at);
   const skus = list(b.sku); const prices = list(b.sale_price); const maxes = list(b.max_qty);
-  const problems = [];
+  const problems: Loose[] = [];
   const items = new Map();
   for (let i = 0; i < skus.length; i++) {
     const sku = str(skus[i], 40);
@@ -126,7 +127,7 @@ async function saveFlash(ctx) {
   if (error) {
     const sales = await db.q('SELECT fs.*, 0 AS items, 0 AS sold FROM flash_sales fs ORDER BY fs.starts_at DESC LIMIT 100');
     const editing = { id, title, starts_at: starts || new Date(), ends_at: ends || new Date(), show_home: !!b.show_home, active: id ? !!b.active : true };
-    const rows = [];
+    const rows: Loose[] = [];
     for (let i = 0; i < skus.length; i++) if (str(skus[i])) rows.push({ sku: skus[i], price: prices[i], max_qty: maxes[i] });
     return ctx.page('ফ্ল্যাশ সেল', flashBody(ctx, sales, id ? editing : { ...editing, id: null }, rows, error), 'flash', { status: 400 });
   }
@@ -149,14 +150,14 @@ async function saveFlash(ctx) {
   await ctx.log('settings', 'marketing', sid, `ফ্ল্যাশ সেল "${title}": ${items.size}টি পণ্য, ${fmtDate(starts)} → ${fmtDate(ends)}`);
   return ctx.back(BASE, 'saved');
 }
-async function deleteFlash(ctx, m) {
+async function deleteFlash(ctx: AdminCtx, m?: Loose) {
   const r = await db.one('DELETE FROM flash_sales WHERE id=$1 RETURNING title', [int(m[1])]);
   if (r) await ctx.log('delete', 'marketing', int(m[1]), `ফ্ল্যাশ সেল মুছা: ${r.title}`);
   return ctx.back(BASE, 'removed');
 }
 
 // ---------------------------------------------------------------- buy X get Y
-async function offersPage(ctx, error = null, values = null) {
+async function offersPage(ctx: AdminCtx, error: Loose = null, values: Loose = null): Promise<Loose> {
   if (ctx.method === 'POST' && !error) return saveOffer(ctx);
   const editId = int(ctx.query.get('edit')) || null;
   const offers = await db.q(`SELECT o.*, b.name AS buy_name, b.sku AS buy_sku, g.name AS get_name, g.sku AS get_sku,
@@ -211,7 +212,7 @@ ${ui.helpBox('"এটা কিনলে ওটা ফ্রি" কীভাব
 </div>`;
   return ctx.page('অফার', body, 'flash', { status: error ? 400 : 200 });
 }
-async function saveOffer(ctx) {
+async function saveOffer(ctx: AdminCtx): Promise<Loose> {
   const b = await ctx.body();
   const id = int(b.id) || null;
   const buy = await db.one('SELECT id, name FROM products WHERE sku=$1', [str(b.buy_sku, 40)]);
@@ -224,19 +225,19 @@ async function saveOffer(ctx) {
   const error = !buy ? `যে পণ্য কিনবে — SKU "${str(b.buy_sku, 40)}" পাওয়া যায়নি।` : str(b.get_sku, 40) && !get ? `যে পণ্য পাবে — SKU "${str(b.get_sku, 40)}" পাওয়া যায়নি।`
     : v.starts_on && v.ends_on && v.ends_on < v.starts_on ? 'শেষের তারিখ শুরুর পরে হতে হবে।' : null;
   if (error) return offersPage({ ...ctx, method: 'GET' }, error, { ...v, id, buy_sku: b.buy_sku, get_sku: b.get_sku });
-  const vals = [v.title, buy.id, v.buy_qty, get ? get.id : null, v.get_qty, v.get_percent, v.max_times, v.starts_on, v.ends_on, v.active];
+  const vals = [v.title, buy!.id, v.buy_qty, get ? get.id : null, v.get_qty, v.get_percent, v.max_times, v.starts_on, v.ends_on, v.active];
   let oid = id;
   if (id) {
     await db.q(`UPDATE offers SET title=$1, buy_product_id=$2, buy_qty=$3, get_product_id=$4, get_qty=$5, get_percent=$6, max_times=$7,
       starts_on=$8, ends_on=$9, active=$10 WHERE id=$11`, [...vals, id]);
   } else {
     oid = (await db.one(`INSERT INTO offers(title, buy_product_id, buy_qty, get_product_id, get_qty, get_percent, max_times, starts_on, ends_on, active)
-      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id`, vals)).id;
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id`, vals))!.id;
   }
-  await ctx.log('settings', 'marketing', oid, `অফার: ${v.buy_qty}× ${buy.name} কিনলে ${v.get_qty}× ${get ? get.name : 'একই পণ্য'} ${v.get_percent >= 100 ? 'ফ্রি' : v.get_percent + '% ছাড়ে'}`);
+  await ctx.log('settings', 'marketing', oid, `অফার: ${v.buy_qty}× ${buy!.name} কিনলে ${v.get_qty}× ${get ? get.name : 'একই পণ্য'} ${v.get_percent >= 100 ? 'ফ্রি' : v.get_percent + '% ছাড়ে'}`);
   return ctx.back(`${BASE}?tab=offers`, 'saved');
 }
-async function deleteOffer(ctx, m) {
+async function deleteOffer(ctx: AdminCtx, m?: Loose) {
   const r = await db.one('DELETE FROM offers WHERE id=$1 RETURNING id', [int(m[1])]);
   if (r) await ctx.log('delete', 'marketing', r.id, 'অফার মুছা');
   return ctx.back(`${BASE}?tab=offers`, 'removed');

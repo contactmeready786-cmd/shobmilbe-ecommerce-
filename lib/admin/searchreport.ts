@@ -1,13 +1,13 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // Admin → রিপোর্ট → 🔎 কাস্টমার কী খুঁজছে: the words customers typed in the shop's search box and how many products came up.
 // "পাওয়া যায়নি" = people want it but the shop doesn't have it (or names it differently) — a list of what to buy / rename.
 import { html, bn, fmtDate, int } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
+import type { AdminCtx, Loose } from '../types';
 
 const BASE = '/admin/reports/search';
 
-async function page(ctx) {
+async function page(ctx: AdminCtx) {
   const days = [7, 30, 90].includes(int(ctx.query.get('days'))) ? int(ctx.query.get('days')) : 30;
   const [stats, zero, top, recent] = await Promise.all([
     db.one(`SELECT count(*)::int AS n, count(*) FILTER (WHERE found = 0)::int AS zero, count(DISTINCT q)::int AS words
@@ -22,8 +22,8 @@ async function page(ctx) {
 <div class="toolbar"><span class="muted small">সময়:</span>${[7, 30, 90].map((d) => html` <a class="chip ${d === days ? 'on' : ''}" href="${BASE}?days=${d}">গত ${bn(d)} দিন</a>`)}
   <a class="btn btn-sm btn-ghost" href="${BASE}?days=${days}">🔄 রিফ্রেশ</a></div>
 <div class="kpis kpis-tight">
-  ${ui.kpi('মোট সার্চ', bn(stats.n), `${bn(stats.words)}টি আলাদা শব্দ`)}
-  ${ui.kpi('কিছু পাওয়া যায়নি', bn(stats.zero), stats.n ? `${bn(Math.round((stats.zero * 100) / stats.n))}% সার্চ খালি গেছে` : '', stats.zero ? 'kpi-amber' : '')}
+  ${ui.kpi('মোট সার্চ', bn(stats!.n), `${bn(stats!.words)}টি আলাদা শব্দ`)}
+  ${ui.kpi('কিছু পাওয়া যায়নি', bn(stats!.zero), stats!.n ? `${bn(Math.round((stats!.zero * 100) / stats!.n))}% সার্চ খালি গেছে` : '', stats!.zero ? 'kpi-amber' : '')}
 </div>
 ${ui.helpBox('এই পেজ কীভাবে কাজে লাগাবেন', html`<ol class="steps">
   <li><b>"পাওয়া যায়নি"</b> তালিকা = কাস্টমার এটা চাইছে কিন্তু দোকানে নেই। যেটা বারবার আসছে, সেটা কিনে এনে আপলোড করুন — এটাই সবচেয়ে নিশ্চিত বিক্রি।</li>

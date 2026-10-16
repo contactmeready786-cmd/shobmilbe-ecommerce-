@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // Admin → পণ্য → (a product) → 📒 কেনা-বেচার হিসাব (owner only, 2026-10-14).
 // One page per product: every buy (date, supplier, how many, price per piece), every stock change, what the sales
 // earned and the profit — all worked out from purchases, orders and stock entries, nothing typed by hand.
@@ -8,10 +7,11 @@ import { html, money, bn, int, str, fmtDate, pct } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
 import * as catalog from '../models/catalog';
+import type { AdminCtx, Body, Loose } from '../types';
 
-const dateOf = (b) => (b.purchase_date ? fmtDate(b.purchase_date + 'T06:00:00Z', false) : fmtDate(b.created_at, false));
+const dateOf = (b: Body) => (b.purchase_date ? fmtDate(b.purchase_date + 'T06:00:00Z', false) : fmtDate(b.created_at, false));
 
-async function page(ctx, m) {
+async function page(ctx: AdminCtx, m?: Loose) {
   const id = int(m[1]);
   const p = await db.one(`SELECT id, name, sku, price, cost_price, stock, damaged_stock, unit, product_type, parent_id, variant_label, variant_count
     FROM products WHERE id=$1`, [id]);
@@ -25,7 +25,7 @@ async function page(ctx, m) {
     try {
       const changed = await catalog.correctCost(id, b.cost, b.reason, ctx.user.id);
       if (changed) await ctx.log('cost_fix', 'product', id, `${p.name}: কেনা দাম সংশোধন → ${money(b.cost)} (${str(b.reason, 150)})`);
-    } catch (e) {
+    } catch (e: Loose) {
       return ctx.fail(self, e.message);
     }
     return ctx.back(self, 'saved');

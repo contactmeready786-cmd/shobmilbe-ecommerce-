@@ -1,17 +1,17 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // Admin → মার্কেটিং → রিভিউ ও পছন্দের তালিকা: approve / hide / answer / delete customer reviews,
 // the review switches, and which products customers put on their wishlist (♡) most.
 import { html, bn, int, str, fmtDate, pageNum } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
 import * as R from '../models/reviews';
+import type { AdminCtx, Loose } from '../types';
 
 const BASE = '/admin/reviews';
 const PER = 30;
-const MSG = { approved: 'রিভিউ এখন দোকানে দেখাচ্ছে।', hidden: 'রিভিউ লুকানো হয়েছে।', replied: 'উত্তর সেভ হয়েছে।', gone: 'রিভিউ মুছে ফেলা হয়েছে।', set: 'সেটিংস সেভ হয়েছে।' };
-const stars = (n) => html`<span class="stars" aria-label="${bn(n)} স্টার">${'★'.repeat(n)}<span class="muted">${'★'.repeat(5 - n)}</span></span>`;
+const MSG: Record<string, string> = { approved: 'রিভিউ এখন দোকানে দেখাচ্ছে।', hidden: 'রিভিউ লুকানো হয়েছে।', replied: 'উত্তর সেভ হয়েছে।', gone: 'রিভিউ মুছে ফেলা হয়েছে।', set: 'সেটিংস সেভ হয়েছে।' };
+const stars = (n?: Loose) => html`<span class="stars" aria-label="${bn(n)} স্টার">${'★'.repeat(n)}<span class="muted">${'★'.repeat(5 - n)}</span></span>`;
 
-async function page(ctx) {
+async function page(ctx: AdminCtx) {
   const status = R.STATUS[ctx.query.get('status')] ? ctx.query.get('status') : '';
   const q = str(ctx.query.get('q'), 60);
   const pg = pageNum(ctx.query);
@@ -23,7 +23,7 @@ async function page(ctx) {
   const qs = new URLSearchParams();
   if (status) qs.set('status', status);
   if (q) qs.set('q', q);
-  const chip = (key, label, n) => html`<a class="chip ${status === key ? 'on' : ''}" href="${BASE}${key ? `?status=${key}` : ''}">${label} <b>${bn(n)}</b></a>`;
+  const chip = (key?: Loose, label?: Loose, n?: Loose) => html`<a class="chip ${status === key ? 'on' : ''}" href="${BASE}${key ? `?status=${key}` : ''}">${label} <b>${bn(n)}</b></a>`;
   const msg = MSG[ctx.query.get('m')];
   const body = html`<h1>⭐ রিভিউ ও পছন্দের তালিকা</h1>${msg ? ui.flash({ text: msg }) : ui.flash(ctx.flash)}
 <div class="chips">${chip('', 'সব', counts.all)}${chip('pending', '⏳ অনুমোদনের অপেক্ষায়', counts.pending)}${chip('approved', '✅ দেখানো হচ্ছে', counts.approved)}${chip('hidden', '🙈 লুকানো', counts.hidden)}</div>
@@ -42,7 +42,7 @@ async function page(ctx) {
           <span class="small muted">${fmtDate(r.created_at)}${r.phone ? ` · ${r.phone}` : ''}</span></p>
         <p class="small"><a href="/p/${r.product_slug}" target="_blank" rel="noopener">${r.product_name}</a> <span class="muted">SKU ${r.sku || '—'}</span>${r.order_id ? html` · <a href="/admin/orders/${r.order_id}">অর্ডার</a>` : ''}</p>
         <p class="review-body" translate="no">${r.body}</p>
-        ${r.photos && r.photos.length ? html`<div class="ret-photos">${r.photos.map((pid) => html`<a href="${BASE}/photo/${pid}" target="_blank" rel="noopener"><img src="${BASE}/photo/${pid}" alt="রিভিউয়ের ছবি" loading="lazy"></a>`)}</div>` : ''}
+        ${r.photos && r.photos.length ? html`<div class="ret-photos">${r.photos.map((pid?: Loose) => html`<a href="${BASE}/photo/${pid}" target="_blank" rel="noopener"><img src="${BASE}/photo/${pid}" alt="রিভিউয়ের ছবি" loading="lazy"></a>`)}</div>` : ''}
         ${r.reply ? html`<p class="review-reply"><b>আপনার উত্তর:</b> ${r.reply}</p>` : ''}
         <div class="row-actions">
           ${r.status !== 'approved' ? html`<form method="post" action="${BASE}/${r.id}/status"><input type="hidden" name="status" value="approved"><button class="btn btn-sm">✅ দেখান</button></form>` : ''}
@@ -81,33 +81,33 @@ async function page(ctx) {
   return ctx.page('রিভিউ', body, 'reviews');
 }
 
-async function setStatus(ctx, m) {
+async function setStatus(ctx: AdminCtx, m?: Loose) {
   const b = await ctx.body();
   const r = await R.setStatus(int(m[1]), String(b.status || ''));
   if (r) await ctx.log('edit', 'product', r.product_id, `রিভিউ #${int(m[1])}: ${R.STATUS[b.status] || ''}`);
   return ctx.redirect(ctx.res, `${back(ctx)}${back(ctx).includes('?') ? '&' : '?'}m=${b.status === 'approved' ? 'approved' : 'hidden'}`);
 }
-async function reply(ctx, m) {
+async function reply(ctx: AdminCtx, m?: Loose) {
   const b = await ctx.body();
   const r = await R.reply(int(m[1]), b.reply);
   if (r) await ctx.log('edit', 'product', r.product_id, `রিভিউ #${int(m[1])}-এ উত্তর`);
   return ctx.redirect(ctx.res, `${back(ctx)}${back(ctx).includes('?') ? '&' : '?'}m=replied`);
 }
-async function remove(ctx, m) {
+async function remove(ctx: AdminCtx, m?: Loose) {
   const r = await R.remove(int(m[1]));
   if (r) await ctx.log('delete', 'product', r.product_id, `রিভিউ #${int(m[1])} মুছা`);
   return ctx.redirect(ctx.res, `${back(ctx)}${back(ctx).includes('?') ? '&' : '?'}m=gone`);
 }
-async function saveSettings(ctx) {
+async function saveSettings(ctx: AdminCtx) {
   const b = await ctx.body();
-  const v = {};
+  const v: Record<string, Loose> = {};
   for (const k of ['reviews_on', 'reviews_auto_approve', 'wishlist_on', 'review_photos_on']) v[k] = b[k] ? '1' : '0';
   await db.setMany(v);
   await ctx.log('settings', 'settings', null, `রিভিউ/পছন্দের তালিকা: ${Object.entries(v).map(([k, x]) => `${k}=${x}`).join(', ')}`);
   return ctx.redirect(ctx.res, `${BASE}?m=set`);
 }
 // back to the same list page (only our own page, never another site)
-function back(ctx) {
+function back(ctx: AdminCtx) {
   try {
     const u = new URL(ctx.req.headers.referer || '');
     if (u.pathname === BASE) return BASE + u.search.replace(/([?&])m=[^&]*/g, '$1').replace(/[?&]+$/, '');
@@ -116,7 +116,7 @@ function back(ctx) {
 }
 
 // a review's photo (also before the review is shown — only staff)
-async function photo(ctx, m) {
+async function photo(ctx: AdminCtx, m?: Loose) {
   const p = await db.one(`SELECT mime, data, ik_url FROM media WHERE id=$1 AND owner_type IN ('review','review_wait')`, [int(m[1])]);
   if (!p || !p.data) return ctx.send(ctx.res, 404, 'Not found', 'text/plain');
   ctx.res.writeHead(200, { 'Content-Type': /^image\/(jpeg|png|webp)$/.test(p.mime) ? p.mime : 'application/octet-stream', 'Cache-Control': 'private, max-age=3600', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'; sandbox" });

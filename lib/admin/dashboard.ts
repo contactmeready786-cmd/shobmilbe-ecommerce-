@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 import { html, money, bn, dateRange, fmtDate } from '../util';
 import * as finance from '../models/finance';
 import * as orders from '../models/orders';
@@ -6,8 +5,9 @@ import * as ui from './ui';
 import * as security from '../security';
 import * as charts from './charts';
 import * as $db from '../db';
+import type { AdminCtx, Loose } from '../types';
 
-async function dashboard(ctx) {
+async function dashboard(ctx: AdminCtx) {
   const { from, to } = dateRange(ctx.query, 30);
   const seeCost = ctx.can('see_cost');
   const [d, series, monthly, recent, cmp] = await Promise.all([
@@ -22,8 +22,8 @@ async function dashboard(ctx) {
   const live = d.live;
   const days = series.map((s) => ({ label: charts.dayLabel(s.day), bar: s.orders, line: s.sales }));
   const profitSeries = series.map((s) => ({ label: charts.dayLabel(s.day), bar: s.sales, line: s.profit }));
-  const done = k.delivered + k.failed;
-  const success = done ? Math.round((100 * k.delivered) / done) : null;
+  const done = k!.delivered + k!.failed;
+  const success = done ? Math.round((100 * k!.delivered) / done) : null;
   const statusRows = Object.entries(orders.STATUSES).map(([key, label]) => ({ label, value: (d.byStatus.find((x) => x.status === key) || {}).n || 0 })).filter((r) => r.value);
   const payRows = d.byPayment.map((p) => ({ label: orders.PAYMENT_METHODS[p.payment] || p.payment, value: p.n }));
   const zoneRows = d.byZone.map((z) => ({ label: z.area === 'dhaka' ? 'ঢাকা সিটির ভেতরে' : 'ঢাকার বাইরে', value: z.n }));
@@ -36,25 +36,25 @@ ${ui.flash(ctx.flash)}
 ${ui.dateFilter('/admin', from, to)}
 
 <div class="kpis">
-  ${ui.kpi('এখনই কনফার্ম করতে হবে', bn(live.pending), 'নতুন অর্ডার', live.pending ? 'kpi-alert' : '', '/admin/orders?status=pending')}
-  ${ui.kpi('প্যাক করে পাঠাতে হবে', bn(live.to_ship), 'কনফার্ম/প্যাকিং', '', '/admin/orders?status=confirmed')}
-  ${ui.kpi('কুরিয়ারে আছে', bn(live.shipped), 'ডেলিভারির পথে', '', '/admin/orders?status=shipped')}
-  ${ui.kpi('আজকের বিক্রি', money(live.today_sales), `${bn(live.today_orders)}টি অর্ডার`)}
+  ${ui.kpi('এখনই কনফার্ম করতে হবে', bn(live!.pending), 'নতুন অর্ডার', live!.pending ? 'kpi-alert' : '', '/admin/orders?status=pending')}
+  ${ui.kpi('প্যাক করে পাঠাতে হবে', bn(live!.to_ship), 'কনফার্ম/প্যাকিং', '', '/admin/orders?status=confirmed')}
+  ${ui.kpi('কুরিয়ারে আছে', bn(live!.shipped), 'ডেলিভারির পথে', '', '/admin/orders?status=shipped')}
+  ${ui.kpi('আজকের বিক্রি', money(live!.today_sales), `${bn(live!.today_orders)}টি অর্ডার`)}
 </div>
 <div class="kpis">
-  ${ui.kpi('গত ৭ দিনের বিক্রি', money(live.week_sales), `${bn(live.week_orders)}টি অর্ডার`, '', '/admin?days=7')}
-  ${ui.kpi('এই মাসের বিক্রি', money(live.month_sales), `${bn(live.month_orders)}টি অর্ডার`)}
-  ${ui.kpi('দোকানে চালু পণ্য', bn(live.products), `${bn(live.low_stock)}টি স্টক কম`, '', ctx.can('products') || ctx.can('products_view') ? '/admin/products?status=on' : '')}
-  ${ui.kpi('স্টক শেষ', bn(live.out_of_stock), 'চালু পণ্যের মধ্যে', live.out_of_stock ? 'kpi-alert' : '', ctx.can('products') || ctx.can('products_view') ? '/admin/products?out=1' : '')}
-  ${ui.kpi('বাতিল / ফেরত', bn(live.cancel_return_30), 'গত ৩০ দিনে', '', ctx.can('orders') ? '/admin/orders?status=returned' : '')}
+  ${ui.kpi('গত ৭ দিনের বিক্রি', money(live!.week_sales), `${bn(live!.week_orders)}টি অর্ডার`, '', '/admin?days=7')}
+  ${ui.kpi('এই মাসের বিক্রি', money(live!.month_sales), `${bn(live!.month_orders)}টি অর্ডার`)}
+  ${ui.kpi('দোকানে চালু পণ্য', bn(live!.products), `${bn(live!.low_stock)}টি স্টক কম`, '', ctx.can('products') || ctx.can('products_view') ? '/admin/products?status=on' : '')}
+  ${ui.kpi('স্টক শেষ', bn(live!.out_of_stock), 'চালু পণ্যের মধ্যে', live!.out_of_stock ? 'kpi-alert' : '', ctx.can('products') || ctx.can('products_view') ? '/admin/products?out=1' : '')}
+  ${ui.kpi('বাতিল / ফেরত', bn(live!.cancel_return_30), 'গত ৩০ দিনে', '', ctx.can('orders') ? '/admin/orders?status=returned' : '')}
 </div>
 <div class="kpis">
-  ${ui.kpi('মোট বিক্রি', money(k.sales), `${bn(k.orders)}টি অর্ডার (বাতিল বাদে)`, 'kpi-blue')}
-  ${seeCost ? ui.kpi('মোট লাভ (খরচের আগে)', money(k.gross), 'বিক্রি − কেনা দাম − ডেলিভারি', 'kpi-green') : ''}
-  ${seeCost ? ui.kpi('নিট লাভ (আনুমানিক)', money(Number(k.gross) - d.expenses), `খরচ ${money(d.expenses)} বাদে`, Number(k.gross) - d.expenses >= 0 ? 'kpi-green' : 'kpi-red') : ''}
-  ${ui.kpi('গড় অর্ডারের দাম', money(k.aov), 'প্রতি অর্ডার')}
-  ${ui.kpi('ডেলিভারি সফলতা', success === null ? '—' : bn(success) + '%', `${bn(k.delivered)} সফল · ${bn(k.failed)} বাতিল/ফেরত`)}
-  ${ui.kpi('কাস্টমার', bn(live.customers), `এই সময়ে নতুন ${bn(live.new_customers)} জন`, '', ctx.can('customers') ? '/admin/customers' : '')}
+  ${ui.kpi('মোট বিক্রি', money(k!.sales), `${bn(k!.orders)}টি অর্ডার (বাতিল বাদে)`, 'kpi-blue')}
+  ${seeCost ? ui.kpi('মোট লাভ (খরচের আগে)', money(k!.gross), 'বিক্রি − কেনা দাম − ডেলিভারি', 'kpi-green') : ''}
+  ${seeCost ? ui.kpi('নিট লাভ (আনুমানিক)', money(Number(k!.gross) - d.expenses), `খরচ ${money(d.expenses)} বাদে`, Number(k!.gross) - d.expenses >= 0 ? 'kpi-green' : 'kpi-red') : ''}
+  ${ui.kpi('গড় অর্ডারের দাম', money(k!.aov), 'প্রতি অর্ডার')}
+  ${ui.kpi('ডেলিভারি সফলতা', success === null ? '—' : bn(success) + '%', `${bn(k!.delivered)} সফল · ${bn(k!.failed)} বাতিল/ফেরত`)}
+  ${ui.kpi('কাস্টমার', bn(live!.customers), `এই সময়ে নতুন ${bn(live!.new_customers)} জন`, '', ctx.can('customers') ? '/admin/customers' : '')}
 </div>
 
 <div class="grid-2">
@@ -109,9 +109,9 @@ ${seeCost ? html`<div class="grid-2">
       <td>${ctx.can('products') ? html`<a href="/admin/products/${p.id}">${p.name}</a>` : p.name}<br><span class="small muted">${p.sku}</span></td>
       <td class="num ${p.stock === 0 ? 'warn' : ''}">${bn(p.stock)} ${p.unit}</td></tr>`)}</tbody></table>` : html`<p class="muted">সব পণ্যের যথেষ্ট স্টক আছে। 👍</p>`}
     ${seeCost ? html`<div class="inv-sum">
-      <div><span class="muted small">স্টকের কেনা দাম</span><b>${money(d.inventory.cost_value)}</b></div>
-      <div><span class="muted small">স্টকের বিক্রি দাম</span><b>${money(d.inventory.sale_value)}</b></div>
-      <div><span class="muted small">মোট পিস</span><b>${bn(d.inventory.units)}</b></div>
+      <div><span class="muted small">স্টকের কেনা দাম</span><b>${money(d.inventory!.cost_value)}</b></div>
+      <div><span class="muted small">স্টকের বিক্রি দাম</span><b>${money(d.inventory!.sale_value)}</b></div>
+      <div><span class="muted small">মোট পিস</span><b>${bn(d.inventory!.units)}</b></div>
     </div>` : ''}
   </section>
 </div>`;

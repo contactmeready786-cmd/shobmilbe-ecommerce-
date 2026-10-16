@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // Admin → নিরাপত্তা → জরুরি রিকভারি কোড (owner only).
 // Six one-time codes the owner writes on paper. Any one of them opens /admin/reset when the phone is lost,
 // the camera is broken or the password is forgotten — no Vercel setting needed.
@@ -7,28 +6,30 @@ import * as crypto from 'node:crypto';
 import { html, fmtDate } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
+import type { AdminCtx, Loose } from '../types';
+import type { Tx } from '../pg';
 
 const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O, 1/I
 function makeCode() {
   let s = '';
   for (let i = 0; i < 12; i++) s += ALPHABET[crypto.randomInt(ALPHABET.length)];
-  return s.match(/.{4}/g).join('-');
+  return s.match(/.{4}/g)!.join('-');
 }
-function normalize(c) { return String(c || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); }
-function hash(c) { return crypto.scryptSync(normalize(c), 'shobmilbe-recovery-v1', 32).toString('hex'); }
+function normalize(c?: Loose) { return String(c || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); }
+function hash(c?: Loose) { return crypto.scryptSync(normalize(c), 'shobmilbe-recovery-v1', 32).toString('hex'); }
 
-async function available() { return (await db.one('SELECT count(*)::int AS n FROM recovery_codes WHERE used_at IS NULL')).n; }
+async function available() { return (await db.one('SELECT count(*)::int AS n FROM recovery_codes WHERE used_at IS NULL'))!.n; }
 // Is this a valid unused code? (does not use it up)
-async function check(code) {
+async function check(code?: Loose) {
   if (normalize(code).length !== 12) return false;
   return !!(await db.one('SELECT id FROM recovery_codes WHERE hash=$1 AND used_at IS NULL', [hash(code)]));
 }
 // Use it up (only one request can win).
-async function consume(code) {
+async function consume(code?: Loose) {
   return !!(await db.one('UPDATE recovery_codes SET used_at=now() WHERE hash=$1 AND used_at IS NULL RETURNING id', [hash(code)]));
 }
 
-async function page(ctx, fresh) {
+async function page(ctx: AdminCtx, fresh?: Loose) {
   const [left, made] = await Promise.all([
     available(),
     db.one('SELECT max(created_at) AS at, count(*)::int AS n FROM recovery_codes'),
@@ -37,7 +38,7 @@ async function page(ctx, fresh) {
 ${fresh ? html`<section class="panel rc-fresh">
   <h2>✍️ এই ৬টা কোড এখনই কাগজে লিখে রাখুন</h2>
   <p>এগুলো <b>শুধু এখন একবার</b> দেখানো হচ্ছে। পেজ বন্ধ করলে আর দেখা যাবে না। প্রতিটা কোড একবারই কাজ করে।</p>
-  <ol class="rc-list">${fresh.map((c) => html`<li><code>${c}</code></li>`)}</ol>
+  <ol class="rc-list">${fresh.map((c?: Loose) => html`<li><code>${c}</code></li>`)}</ol>
   <p class="small">কাগজটা আলমারি বা নিরাপদ জায়গায় রাখুন। ফোনে ছবি তুলে বা কাউকে পাঠিয়ে রাখবেন না।</p>
   <button type="button" class="btn btn-ghost" data-print>🖨️ প্রিন্ট করুন</button>
 </section>` : ''}
@@ -55,7 +56,7 @@ ${fresh ? html`<section class="panel rc-fresh">
   return ctx.page('জরুরি রিকভারি কোড', body, 'recovery');
 }
 
-async function makeNew(ctx) {
+async function makeNew(ctx: AdminCtx) {
   const codes = Array.from({ length: 6 }, makeCode);
   await db.tx(async (t) => {
     await t.query('DELETE FROM recovery_codes');
@@ -66,7 +67,7 @@ async function makeNew(ctx) {
 }
 
 export const routes = [
-    { method: 'GET', path: '/admin/security/recovery', perm: 'owner', handler: (ctx) => page(ctx) },
+    { method: 'GET', path: '/admin/security/recovery', perm: 'owner', handler: (ctx: AdminCtx) => page(ctx) },
     { method: 'POST', path: '/admin/security/recovery', perm: 'owner', handler: makeNew },
   ];
 export { available, check, consume, normalize };

@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // Admin → স্টোর ডিজাইন → 🎞️ রানিং স্লাইডার: the big moving picture banner at the top of the home page.
 // On/off switch, up to 5 pictures (each with an optional link), how many seconds each picture stays,
 // and how it moves. Pictures are kept as "slider" banners, so the old ব্যানার page keeps working too.
@@ -6,19 +5,20 @@ import { html, raw, bn, int, str } from '../util';
 import * as db from '../db';
 import * as content from '../models/content';
 import * as ui from './ui';
+import type { AdminCtx, Loose } from '../types';
 
 const BASE = '/admin/design/slider';
 const MAX = 5;
 const SECONDS = [1, 2, 3, 4, 5, 6, 8, 10, 15];
 
-async function page(ctx) {
+async function page(ctx: AdminCtx) {
   const s = ctx.settings;
   if (ctx.method === 'POST') {
     const b = await ctx.body();
     const current = (await content.listBanners({ placement: 'slider' })).slice(0, MAX);
-    const ids = [].concat(b.slide_id || []);
-    const imgs = [].concat(b.slide_image || []);
-    const links = [].concat(b.slide_link || []);
+    const ids = ([] as Loose[]).concat(b.slide_id || []);
+    const imgs = ([] as Loose[]).concat(b.slide_image || []);
+    const links = ([] as Loose[]).concat(b.slide_link || []);
     let shown = 0;
     for (let i = 0; i < MAX; i++) {
       const id = int(ids[i]);

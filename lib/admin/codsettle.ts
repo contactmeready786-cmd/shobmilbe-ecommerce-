@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // Admin → হিসাব → 🚚 কুরিয়ারের COD টাকা মিলানো.
 // Couriers collect cash-on-delivery money from customers and pay the shop later (minus their charge).
 // Here: per courier, which delivered parcels are still unpaid by the courier and how much that is; tick the parcels a
@@ -9,6 +8,8 @@ import * as db from '../db';
 import * as ui from './ui';
 import * as courier from '../services/courier';
 import * as finance from '../models/finance';
+import type { AdminCtx, Loose } from '../types';
+import type { Tx } from '../pg';
 
 const BASE = '/admin/accounts/cod';
 // what the courier collects for an order: the total minus what was paid before delivery (gift card, advance)
@@ -23,7 +24,7 @@ async function summary() {
     GROUP BY o.courier ORDER BY open_amount DESC`);
 }
 
-async function page(ctx) {
+async function page(ctx: AdminCtx) {
   const list = await summary();
   const cur = str(ctx.query.get('courier'), 30) || (list.find((x) => x.open_n) || list[0] || {}).courier || '';
   const [open, settlements, accounts, month] = await Promise.all([
@@ -34,12 +35,12 @@ async function page(ctx) {
     db.one(`SELECT coalesce(sum(received),0)::numeric(14,2) AS received, coalesce(sum(fee),0)::numeric(14,2) AS fee FROM cod_settlements WHERE date_trunc('month', settled_on) = date_trunc('month', (now() AT TIME ZONE 'Asia/Dhaka')::date)`),
   ]);
   const totalOpen = list.reduce((s, x) => s + Number(x.open_amount), 0);
-  const days = (d) => Math.max(0, Math.floor((Date.now() - new Date(d).getTime()) / 864e5));
+  const days = (d?: Loose) => Math.max(0, Math.floor((Date.now() - new Date(d).getTime()) / 864e5));
   const body = html`<div class="title-row"><h1>🚚 কুরিয়ারের COD টাকা মিলানো</h1><div class="row-actions"><a class="btn btn-ghost btn-sm" href="${BASE}${cur ? `?courier=${cur}` : ''}">🔄 রিফ্রেশ</a></div></div>
 ${ui.flash(ctx.flash)}
 <div class="kpis kpis-tight">
   ${ui.kpi('কুরিয়ারের কাছে পাওনা', money(totalOpen), 'ডেলিভারি হয়েছে, টাকা এখনো আসেনি', totalOpen > 0 ? 'kpi-alert' : 'kpi-green')}
-  ${ui.kpi('এই মাসে পেয়েছেন', money(month.received), `কুরিয়ার চার্জ কেটেছে ${money(month.fee)}`, 'kpi-blue')}
+  ${ui.kpi('এই মাসে পেয়েছেন', money(month!.received), `কুরিয়ার চার্জ কেটেছে ${money(month!.fee)}`, 'kpi-blue')}
 </div>
 ${ui.helpBox('কীভাবে মিলাবেন', html`<ol class="steps">
   <li>কুরিয়ার (Steadfast/Pathao/RedX…) টাকা পাঠালে তাদের প্যানেলের পেমেন্ট রিপোর্ট খুলুন — কোন কোন পার্সেলের টাকা দিয়েছে সেখানে লেখা থাকে।</li>
@@ -91,9 +92,9 @@ var pk=f.querySelector('[data-cod-pick]');if(pk)pk.addEventListener('click',func
   return ctx.page('কুরিয়ারের COD মিলানো', body, 'acc-cod');
 }
 
-async function save(ctx) {
+async function save(ctx: AdminCtx) {
   const b = await ctx.body();
-  const ids = [].concat(b.ids || []).map((x) => int(x)).filter(Boolean).slice(0, 1000);
+  const ids = ([] as Loose[]).concat(b.ids || []).map((x) => int(x)).filter(Boolean).slice(0, 1000);
   const back = `${BASE}?courier=${encodeURIComponent(str(b.courier, 30))}`;
   if (!ids.length) return ctx.fail(back, 'যে পার্সেলগুলোর টাকা পেয়েছেন সেগুলোয় টিক দিন।');
   const received = round2(amount(b.received));
@@ -108,7 +109,7 @@ async function save(ctx) {
     // the courier's charge, shared over the parcels (for each order's own profit)
     for (const r of rows) await t.query('UPDATE orders SET cod_settlement_id=$1, courier_fee=$2 WHERE id=$3', [c.id, collected ? round2(fee * (Number(r.cod) / collected)) : 0, r.id]);
     return { id: c.id, n: rows.length, collected, fee };
-  }).catch((e) => ({ error: e.message }));
+  }).catch((e) => ({ error: e.message })) as Loose;
   if (res.error) return ctx.fail(back, res.error);
   if (int(b.account_id) && ctx.can('accounting')) {
     const note = `${courier.label(b.courier)} COD${b.ref ? ` #${str(b.ref, 60)}` : ''} (${res.n}টি পার্সেল)`;
@@ -120,7 +121,7 @@ async function save(ctx) {
   return ctx.redirect(ctx.res, back + '&info=' + encodeURIComponent(`✅ ${bn(res.n)}টি পার্সেল মিলানো হয়েছে — COD ${money(res.collected)}, চার্জ ${money(res.fee)}, পেয়েছেন ${money(received)}।`));
 }
 
-async function undo(ctx) {
+async function undo(ctx: AdminCtx) {
   const b = await ctx.body();
   const c = await db.one('SELECT * FROM cod_settlements WHERE id=$1', [int(b.id)]);
   if (!c) return ctx.back(BASE);

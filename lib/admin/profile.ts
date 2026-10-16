@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // Profiles for the owner and every staff member: picture (add / change / remove), job title, address,
 // emergency number, joining date and a short note. The owner fills them in at Admin → স্টাফ → (name);
 // everyone can keep their own up to date at Admin → আমার প্রোফাইল ও অ্যাকাউন্ট.
@@ -9,14 +8,15 @@ import { html, fmtDate, str, int, normalizePhone, validPhone } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
 import * as S from '../models/staff';
-function ymd(v) {
+import type { AdminCtx, Body, Id, Loose } from '../types';
+function ymd(v?: Loose) {
   if (!v) return '';
   if (v instanceof Date) return Number.isNaN(v.getTime()) ? '' : `${v.getFullYear()}-${String(v.getMonth() + 1).padStart(2, '0')}-${String(v.getDate()).padStart(2, '0')}`;
   const m = String(v).match(/^(\d{4}-\d{2}-\d{2})/);
   return m ? m[1] : '';
 }
 // how long someone has been with the shop: "২ বছর ৩ মাস"
-function since(v) {
+function since(v?: Loose) {
   const d = ymd(v);
   if (!d) return '';
   const [y, m] = d.split('-').map(Number);
@@ -28,14 +28,14 @@ function since(v) {
 }
 
 // The round picture (or the first letter of the name when there is no picture)
-function avatar(u, cls = '') {
+function avatar(u?: Loose, cls: Loose = '') {
   if (!u) return html`<span class="avatar ${cls}">?</span>`;
   if (u.photo_id) return html`<span class="avatar has-photo ${cls}"><img src="/admin/avatar/${u.id}?v=${u.photo_id}" alt="${u.name}" loading="lazy"></span>`;
   return html`<span class="avatar ${cls}" aria-hidden="true">${String(u.name || '?').trim().slice(0, 1).toUpperCase()}</span>`;
 }
 
 // Picture with "ছবি দিন / বদলান", "ক্যামেরায় তুলুন" and "মুছুন" — a new picture is shown first, then saved with its own "সেভ করুন"
-function photoBox(u, action) {
+function photoBox(u?: Loose, action?: Loose) {
   return html`<div class="avatar-box" data-avatar-pick data-action="${action}">
     ${avatar(u, 'avatar-xl')}
     <div class="avatar-box-act">
@@ -55,7 +55,7 @@ function photoBox(u, action) {
 }
 
 // The profile boxes inside a form. ownerEdit: the owner is filling it in (job title and joining date can be changed).
-function fields(u, { ownerEdit }) {
+function fields(u: Loose, { ownerEdit }: Body) {
   return html`<div class="field-row">
     ${ownerEdit ? ui.field('পদবি / কাজ', ui.input('designation', u.designation || '', { maxlength: 60, placeholder: 'যেমন: ম্যানেজার, অর্ডার কনফার্ম, প্যাকিং' }))
       : html`<div class="field"><span class="label">পদবি / কাজ</span><p>${u.designation || html`<span class="muted">—</span>`}</p></div>`}
@@ -68,7 +68,7 @@ function fields(u, { ownerEdit }) {
 }
 
 // Same phone / email can't be on two accounts (both can be used to log in)
-async function contactProblem(id, phone, email) {
+async function contactProblem(id?: Id, phone?: Loose, email?: Loose) {
   const p = normalizePhone(phone || '');
   const e = String(email || '').trim().toLowerCase();
   if (p) {
@@ -83,7 +83,7 @@ async function contactProblem(id, phone, email) {
 }
 
 // GET /admin/avatar/<staff id> — the picture, only for people logged in to the admin
-async function servePhoto(ctx, m) {
+async function servePhoto(ctx: AdminCtx, m?: Loose) {
   const p = await S.photoOf(int(m[1]), ctx.query.get('full') !== '1');
   if (!p) { ctx.res.writeHead(404, { 'Content-Type': 'text/plain' }); return ctx.res.end('Not found'); }
   const type = /^image\/(jpeg|png|webp|gif)$/.test(p.mime) ? p.mime : 'application/octet-stream';
@@ -91,11 +91,11 @@ async function servePhoto(ctx, m) {
   return ctx.res.end(p.data);
 }
 
-function answer(ctx, ok, back, msg) {
+function answer(ctx: AdminCtx, ok?: Loose, back?: Loose, msg?: Loose) {
   if (String(ctx.req.headers.accept || '').includes('application/json')) return ctx.json(ctx.res, ok ? 200 : 400, ok ? { ok: true } : { error: msg });
   return ok ? ctx.back(back, 'saved') : ctx.fail(back, msg);
 }
-async function changePhoto(ctx, id, back) {
+async function changePhoto(ctx: AdminCtx, id?: Id, back?: Loose) {
   const b = await ctx.body();
   const want = int(b.photo_id) || null;
   if (want) {
@@ -108,16 +108,16 @@ async function changePhoto(ctx, id, back) {
   return answer(ctx, true, back);
 }
 // the owner changes anyone's picture
-async function staffPhoto(ctx, m) {
+async function staffPhoto(ctx: AdminCtx, m?: Loose) {
   const id = int(m[1]);
   if (!(await S.getStaff(id))) return answer(ctx, false, '/admin/staff', 'স্টাফ পাওয়া যায়নি।');
   return changePhoto(ctx, id, `/admin/staff/${id}`);
 }
 // everyone changes their own picture
-async function myPhoto(ctx) { return changePhoto(ctx, ctx.user.id, '/admin/account'); }
+async function myPhoto(ctx: AdminCtx) { return changePhoto(ctx, ctx.user.id, '/admin/account'); }
 
 // POST /admin/account/profile — my own details (the owner can change everything; staff: contact details only)
-async function saveMine(ctx) {
+async function saveMine(ctx: AdminCtx) {
   const u = ctx.user;
   const b = await ctx.body();
   const owner = u.role === 'owner';
@@ -137,7 +137,7 @@ async function saveMine(ctx) {
 }
 
 // The "আমার প্রোফাইল" panel on the account page
-function myPanel(u) {
+function myPanel(u?: Loose) {
   const owner = u.role === 'owner';
   return html`<section class="panel profile-panel" id="profile">
   <h2>👤 আমার প্রোফাইল</h2>

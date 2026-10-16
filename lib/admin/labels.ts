@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // Admin → পণ্য → 🏷️ বারকোড লেবেল: print stickers with each product's own barcode (name, price, barcode).
 // Opened from a product's page or from the product list ("বাছাই করা পণ্য → বারকোড লেবেল প্রিন্ট").
 
@@ -6,17 +5,18 @@
 import { html, raw, money, int, str, bn } from '../util';
 import * as db from '../db';
 import * as BC from '../services/barcode';
-const SIZES = {
+import type { AdminCtx, Loose } from '../types';
+const SIZES: Record<string, Loose> = {
   '38x25': { w: 38, h: 25, label: '৩৮×২৫ মিমি (ছোট রোল স্টিকার)' },
   '50x30': { w: 50, h: 30, label: '৫০×৩০ মিমি (রোল স্টিকার, প্রস্তাবিত)' },
   '60x40': { w: 60, h: 40, label: '৬০×৪০ মিমি (বড় রোল স্টিকার)' },
   a4: { w: 63.5, h: 38.1, label: 'A4 কাগজে ২১টা (৩×৭)', sheet: true },
 };
 
-async function labels(ctx) {
+async function labels(ctx: AdminCtx) {
   const ids = String(ctx.query.get('ids') || '').split(',').map((x) => int(x)).filter(Boolean).slice(0, 300);
   if (!ids.length) return ctx.redirect(ctx.res, '/admin/products');
-  const size = SIZES[ctx.query.get('size')] ? ctx.query.get('size') : (SIZES[ctx.settings.label_size] ? ctx.settings.label_size : '50x30');
+  const size = SIZES[ctx.query.get('size')] ? ctx.query.get('size') : (SIZES[ctx.settings.label_size as string] ? ctx.settings.label_size : '50x30');
   const copies = Math.min(100, Math.max(1, int(ctx.query.get('copies'), 1)));
   const byStock = ctx.query.get('stock') === '1';
   const showPrice = ctx.query.get('price') !== '0';
@@ -25,12 +25,12 @@ async function labels(ctx) {
   if (ctx.query.get('size') && ctx.query.get('size') !== ctx.settings.label_size) await db.setSetting('label_size', size).catch(() => {});
   const rows = await db.q(`SELECT id, name, sku, barcode, price, stock, unit, location FROM products WHERE id = ANY($1::int[]) ORDER BY array_position($1::int[], id)`, [ids]);
   const z = SIZES[size];
-  const stickers = [];
+  const stickers: Loose[] = [];
   for (const p of rows) {
     const n = byStock ? Math.min(200, Math.max(1, p.stock)) : copies;
     for (let i = 0; i < n; i++) stickers.push(p);
   }
-  const qs = (k, v) => { const q = new URLSearchParams(ctx.query); q.set(k, v); return '?' + q.toString(); };
+  const qs = (k?: Loose, v?: Loose) => { const q = new URLSearchParams(ctx.query); q.set(k, v); return '?' + q.toString(); };
   const page = '<!doctype html>' + html`<html lang="bn"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex">
 <title>বারকোড লেবেল (${bn(stickers.length)}টি)</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@500;700&display=swap" rel="stylesheet">
