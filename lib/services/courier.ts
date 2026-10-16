@@ -1,31 +1,31 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // Courier companies: Steadfast, Pathao, RedX — create parcels, read status, fraud signals.
 import * as db from '../db';
 import { fetchJson, int } from '../util';
+import type { Body, Id, Loose, Settings } from '../types';
 
-const PROVIDERS = {
-  steadfast: { label: 'Steadfast (স্টেডফাস্ট)', track: (o) => (o.tracking_code ? `https://steadfast.com.bd/t/${o.tracking_code}` : '') },
-  pathao: { label: 'Pathao (পাঠাও)', track: (o) => (o.consignment_id ? `https://merchant.pathao.com/tracking?consignment_id=${o.consignment_id}&phone=${o.phone}` : '') },
-  redx: { label: 'RedX (রেডএক্স)', track: (o) => (o.tracking_code ? `https://redx.com.bd/track-parcel/?trackingId=${o.tracking_code}` : '') },
+const PROVIDERS: Record<string, Loose> = {
+  steadfast: { label: 'Steadfast (স্টেডফাস্ট)', track: (o?: Loose) => (o.tracking_code ? `https://steadfast.com.bd/t/${o.tracking_code}` : '') },
+  pathao: { label: 'Pathao (পাঠাও)', track: (o?: Loose) => (o.consignment_id ? `https://merchant.pathao.com/tracking?consignment_id=${o.consignment_id}&phone=${o.phone}` : '') },
+  redx: { label: 'RedX (রেডএক্স)', track: (o?: Loose) => (o.tracking_code ? `https://redx.com.bd/track-parcel/?trackingId=${o.tracking_code}` : '') },
 };
 
 // Couriers without an API: the tracking number is typed by hand on the order page.
-const MANUAL = {
+const MANUAL: Record<string, string> = {
   sundarban: 'সুন্দরবন কুরিয়ার', sa_paribahan: 'এসএ পরিবহন', janani: 'জননী এক্সপ্রেস', korotoa: 'করতোয়া কুরিয়ার', ecourier: 'eCourier',
   paperfly: 'Paperfly', delivery_tiger: 'Delivery Tiger', carrybee: 'CarryBee', self: 'নিজেরা হাতে ডেলিভারি', other: 'অন্য কুরিয়ার',
 };
-function label(name) { return (PROVIDERS[name] && PROVIDERS[name].label) || MANUAL[name] || name || ''; }
+function label(name?: Loose) { return (PROVIDERS[name] && PROVIDERS[name].label) || MANUAL[name] || name || ''; }
 
-function configured(settings, name) {
+function configured(settings: Settings, name?: Loose) {
   if (name === 'steadfast') return !!(settings.steadfast_api_key && settings.steadfast_secret_key);
   if (name === 'pathao') return !!(settings.pathao_client_id && settings.pathao_client_secret && settings.pathao_username && settings.pathao_password && settings.pathao_store_id);
   if (name === 'redx') return !!settings.redx_token;
   return false;
 }
-function available(settings) { return Object.keys(PROVIDERS).filter((p) => configured(settings, p)); }
+function available(settings: Settings) { return Object.keys(PROVIDERS).filter((p) => configured(settings, p)); }
 
 // Map a courier's own status words onto ours (only final states matter).
-function mapStatus(courier, raw) {
+function mapStatus(courier?: Loose, raw?: Loose) {
   const s = String(raw || '').toLowerCase();
   if (!s) return null;
   if (courier === 'steadfast') {
@@ -46,15 +46,15 @@ function mapStatus(courier, raw) {
   return null;
 }
 
-function codAmount(order) { return Math.max(0, order.total - (order.paid_amount || 0)); }
-function itemText(order) { return (order.items || []).map((i) => `${i.name} x${i.qty}`).join(', ').slice(0, 250); }
+function codAmount(order?: Loose) { return Math.max(0, order.total - (order.paid_amount || 0)); }
+function itemText(order?: Loose) { return (order.items || []).map((i?: Loose) => `${i.name} x${i.qty}`).join(', ').slice(0, 250); }
 
 // ---------------------------------------------------------------- Steadfast
-function sfHeaders(s) { return { 'Api-Key': s.steadfast_api_key, 'Secret-Key': s.steadfast_secret_key, 'Content-Type': 'application/json', Accept: 'application/json' }; }
-function sfBase(s) { return (s.steadfast_base_url || 'https://portal.packzy.com/api/v1').replace(/\/+$/, ''); }
+function sfHeaders(s: Settings): Record<string, string> { return <Record<string, string>>{ 'Api-Key': s.steadfast_api_key, 'Secret-Key': s.steadfast_secret_key, 'Content-Type': 'application/json', Accept: 'application/json' }; }
+function sfBase(s: Settings) { return (s.steadfast_base_url || 'https://portal.packzy.com/api/v1').replace(/\/+$/, ''); }
 
-async function steadfastCreate(order, s, extra) {
-  const body = {
+async function steadfastCreate(order: Loose, s: Settings, extra?: Loose) {
+  const body: Loose = {
     invoice: order.code,
     recipient_name: order.customer_name.slice(0, 100),
     recipient_phone: order.phone,
@@ -71,21 +71,21 @@ async function steadfastCreate(order, s, extra) {
   }
   return { ok: false, message: errorText(r) };
 }
-async function steadfastStatus(order, s) {
+async function steadfastStatus(order: Loose, s: Settings) {
   const path = order.consignment_id ? `status_by_cid/${encodeURIComponent(order.consignment_id)}` : `status_by_invoice/${encodeURIComponent(order.code)}`;
   const r = await fetchJson(`${sfBase(s)}/${path}`, { headers: sfHeaders(s) });
   if (r.ok && r.data && r.data.delivery_status) return { ok: true, status: r.data.delivery_status };
   return { ok: false, message: errorText(r) };
 }
-async function steadfastBalance(s) {
+async function steadfastBalance(s: Settings) {
   const r = await fetchJson(`${sfBase(s)}/get_balance`, { headers: sfHeaders(s) });
   if (r.ok && r.data && r.data.current_balance !== undefined) return { ok: true, message: `সংযোগ ঠিক আছে। Steadfast ব্যালেন্স: ৳${r.data.current_balance}` };
   return { ok: false, message: errorText(r) };
 }
 
 // ---------------------------------------------------------------- Pathao
-function phBase(s) { return s.pathao_sandbox === '1' ? 'https://courier-api-sandbox.pathao.com' : 'https://api-hermes.pathao.com'; }
-async function pathaoToken(s, force = false) {
+function phBase(s: Settings) { return s.pathao_sandbox === '1' ? 'https://courier-api-sandbox.pathao.com' : 'https://api-hermes.pathao.com'; }
+async function pathaoToken(s: Settings, force: Loose = false) {
   if (!force && s.pathao_token && Number(s.pathao_token_expires) > Date.now() + 60e3) return s.pathao_token;
   const r = await fetchJson(`${phBase(s)}/aladdin/api/v1/issue-token`, {
     method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
@@ -100,15 +100,15 @@ async function pathaoToken(s, force = false) {
   }
   throw new Error('Pathao লগইন হয়নি: ' + errorText(r));
 }
-async function pathaoFetch(s, path, opts = {}) {
+async function pathaoFetch(s: Settings, path?: Loose, opts: Body = {}) {
   let token = await pathaoToken(s);
-  const go = (t) => fetchJson(`${phBase(s)}${path}`, { ...opts, headers: { 'Content-Type': 'application/json', Accept: 'application/json', Authorization: `Bearer ${t}`, ...(opts.headers || {}) } });
+  const go = (t?: Loose) => fetchJson(`${phBase(s)}${path}`, { ...opts, headers: { 'Content-Type': 'application/json', Accept: 'application/json', Authorization: `Bearer ${t}`, ...(opts.headers || {}) } });
   let r = await go(token);
   if (r.status === 401) { token = await pathaoToken(s, true); r = await go(token); }
   return r;
 }
-async function pathaoCreate(order, s, extra) {
-  const body = {
+async function pathaoCreate(order: Loose, s: Settings, extra?: Loose) {
+  const body: Loose = {
     store_id: int(s.pathao_store_id),
     merchant_order_id: order.code,
     recipient_name: order.customer_name.slice(0, 100),
@@ -117,7 +117,7 @@ async function pathaoCreate(order, s, extra) {
     delivery_type: 48,
     item_type: 2,
     special_instruction: (extra.note || order.note || '').slice(0, 250),
-    item_quantity: (order.items || []).reduce((n, i) => n + i.qty, 0) || 1,
+    item_quantity: (order.items || []).reduce((n?: Loose, i?: Loose) => n + i.qty, 0) || 1,
     item_weight: String(Math.max(0.5, Number(extra.weight) || 0.5)),
     amount_to_collect: codAmount(order),
     item_description: itemText(order),
@@ -130,14 +130,14 @@ async function pathaoCreate(order, s, extra) {
   if (r.ok && d && d.consignment_id) return { ok: true, consignment_id: String(d.consignment_id), tracking_code: String(d.consignment_id), status: d.order_status || 'Pending' };
   return { ok: false, message: errorText(r) };
 }
-async function pathaoStatus(order, s) {
+async function pathaoStatus(order: Loose, s: Settings) {
   if (!order.consignment_id) return { ok: false, message: 'Consignment ID নেই।' };
   const r = await pathaoFetch(s, `/aladdin/api/v1/orders/${encodeURIComponent(order.consignment_id)}`);
   const d = r.data && r.data.data;
   if (r.ok && d && (d.order_status || d.order_status_slug)) return { ok: true, status: d.order_status_slug || d.order_status };
   return { ok: false, message: errorText(r) };
 }
-async function pathaoList(s, kind, parentId) {
+async function pathaoList(s: Settings, kind?: Loose, parentId?: Id) {
   const path = kind === 'cities' ? '/aladdin/api/v1/city-list'
     : kind === 'zones' ? `/aladdin/api/v1/cities/${int(parentId)}/zone-list`
       : kind === 'areas' ? `/aladdin/api/v1/zones/${int(parentId)}/area-list` : '/aladdin/api/v1/stores';
@@ -151,7 +151,7 @@ async function pathaoList(s, kind, parentId) {
   };
 }
 // Delivery success rate of a phone number across Pathao merchants.
-async function pathaoSuccess(phone, s) {
+async function pathaoSuccess(phone: Loose, s: Settings) {
   const r = await pathaoFetch(s, '/aladdin/api/v1/user/success', { method: 'POST', body: JSON.stringify({ phone }) });
   if (!r.ok || !r.data) return { ok: false, message: errorText(r) };
   const d = r.data.data || r.data;
@@ -162,11 +162,11 @@ async function pathaoSuccess(phone, s) {
 }
 
 // ---------------------------------------------------------------- RedX
-function rxBase(s) { return s.redx_sandbox === '1' ? 'https://sandbox.redx.com.bd/v1.0.0-beta' : 'https://openapi.redx.com.bd/v1.0.0-beta'; }
-function rxHeaders(s) { return { 'API-ACCESS-TOKEN': `Bearer ${s.redx_token}`, 'Content-Type': 'application/json', Accept: 'application/json' }; }
-async function redxCreate(order, s, extra) {
+function rxBase(s: Settings) { return s.redx_sandbox === '1' ? 'https://sandbox.redx.com.bd/v1.0.0-beta' : 'https://openapi.redx.com.bd/v1.0.0-beta'; }
+function rxHeaders(s: Settings): Record<string, string> { return <Record<string, string>>{ 'API-ACCESS-TOKEN': `Bearer ${s.redx_token}`, 'Content-Type': 'application/json', Accept: 'application/json' }; }
+async function redxCreate(order: Loose, s: Settings, extra?: Loose) {
   if (!int(extra.area_id)) return { ok: false, message: 'RedX এর জন্য ডেলিভারি এরিয়া বাছাই করুন।' };
-  const body = {
+  const body: Loose = {
     customer_name: order.customer_name.slice(0, 100),
     customer_phone: order.phone,
     delivery_area: extra.area_name || order.thana || order.district,
@@ -177,20 +177,20 @@ async function redxCreate(order, s, extra) {
     parcel_weight: Math.round(Math.max(0.5, Number(extra.weight) || 0.5) * 1000),
     instruction: (extra.note || order.note || '').slice(0, 250),
     value: order.subtotal,
-    parcel_details_json: (order.items || []).map((i) => ({ name: i.name.slice(0, 80), category: 'general', value: i.price * i.qty })),
+    parcel_details_json: (order.items || []).map((i?: Loose) => ({ name: i.name.slice(0, 80), category: 'general', value: i.price * i.qty })),
   };
   if (int(s.redx_pickup_store_id)) body.pickup_store_id = int(s.redx_pickup_store_id);
   const r = await fetchJson(`${rxBase(s)}/parcel`, { method: 'POST', headers: rxHeaders(s), body: JSON.stringify(body) });
   if (r.ok && r.data && r.data.tracking_id) return { ok: true, consignment_id: String(r.data.tracking_id), tracking_code: String(r.data.tracking_id), status: 'pickup-pending' };
   return { ok: false, message: errorText(r) };
 }
-async function redxStatus(order, s) {
+async function redxStatus(order: Loose, s: Settings) {
   const r = await fetchJson(`${rxBase(s)}/parcel/info/${encodeURIComponent(order.tracking_code || order.consignment_id)}`, { headers: rxHeaders(s) });
   const p = r.data && r.data.parcel;
   if (r.ok && p && p.status) return { ok: true, status: p.status };
   return { ok: false, message: errorText(r) };
 }
-async function redxAreas(s, district) {
+async function redxAreas(s: Settings, district?: Loose) {
   const r = await fetchJson(`${rxBase(s)}/areas${district ? `?district_name=${encodeURIComponent(district)}` : ''}`, { headers: rxHeaders(s) });
   const rows = r.data && r.data.areas;
   if (!r.ok || !Array.isArray(rows)) return { ok: false, message: errorText(r), rows: [] };
@@ -198,7 +198,7 @@ async function redxAreas(s, district) {
 }
 
 // ---------------------------------------------------------------- common
-function errorText(r) {
+function errorText(r?: Loose) {
   if (r.status === 0) return 'কুরিয়ার সার্ভারে পৌঁছানো যায়নি: ' + r.text;
   const d = r.data;
   if (d) {
@@ -212,7 +212,7 @@ function errorText(r) {
   return `HTTP ${r.status}: ${String(r.text || '').slice(0, 200)}`;
 }
 
-async function send(order, courier, settings, extra = {}) {
+async function send(order: Loose, courier: Loose, settings: Settings, extra: Loose = {}) {
   if (!PROVIDERS[courier]) return { ok: false, message: 'অজানা কুরিয়ার।' };
   if (!configured(settings, courier)) return { ok: false, message: `${PROVIDERS[courier].label} এর API সেটআপ করা নেই। Admin → কুরিয়ার থেকে সেটআপ করুন।` };
   if (order.consignment_id) return { ok: false, message: `এই অর্ডার আগেই ${order.courier} এ পাঠানো হয়েছে (${order.consignment_id})।` };
@@ -221,25 +221,25 @@ async function send(order, courier, settings, extra = {}) {
     res = courier === 'steadfast' ? await steadfastCreate(order, settings, extra)
       : courier === 'pathao' ? await pathaoCreate(order, settings, extra)
         : await redxCreate(order, settings, extra);
-  } catch (e) {
+  } catch (e: Loose) {
     res = { ok: false, message: e.message };
   }
   await db.logIntegration(courier, 'create_parcel', res.ok, res.ok ? `${order.code} → ${res.consignment_id}` : res.message, order.code);
   return res;
 }
-async function status(order, settings) {
+async function status(order: Loose, settings: Settings) {
   if (!order.courier || !configured(settings, order.courier)) return { ok: false, message: 'কুরিয়ার সেটআপ নেই।' };
   let res;
   try {
     res = order.courier === 'steadfast' ? await steadfastStatus(order, settings)
       : order.courier === 'pathao' ? await pathaoStatus(order, settings) : await redxStatus(order, settings);
-  } catch (e) {
+  } catch (e: Loose) {
     res = { ok: false, message: e.message };
   }
   if (!res.ok) await db.logIntegration(order.courier, 'status', false, res.message, order.code);
   return res;
 }
-async function test(courier, settings) {
+async function test(courier: Loose, settings: Settings) {
   try {
     if (courier === 'steadfast') return await steadfastBalance(settings);
     if (courier === 'pathao') {
@@ -253,7 +253,7 @@ async function test(courier, settings) {
       const a = await redxAreas(settings, 'Dhaka');
       return a.ok ? { ok: true, message: `সংযোগ ঠিক আছে। ঢাকায় ${a.rows.length}টি এরিয়া পাওয়া গেছে।` } : a;
     }
-  } catch (e) {
+  } catch (e: Loose) {
     return { ok: false, message: e.message };
   }
   return { ok: false, message: 'অজানা কুরিয়ার।' };

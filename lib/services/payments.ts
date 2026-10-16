@@ -1,17 +1,18 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // Online payments: bKash Tokenized Checkout and SSLCommerz (cards, Nagad, Rocket, bank).
 import * as db from '../db';
 import { fetchJson, int } from '../util';
+import type { Body, Id, Loose, Settings } from '../types';
+import type { Tx } from '../pg';
 
 const MANUAL = { manual_bkash: ['বিকাশ', 'manual_bkash'], manual_nagad: ['নগদ', 'manual_nagad'], manual_rocket: ['রকেট', 'manual_rocket'], manual_upay: ['উপায়', 'manual_upay'] };
 
 // Which payment options the checkout shows.
-function methods(settings) {
+function methods(settings: Settings) {
   const out = [];
   if (settings.pay_cod === '1') {
     const cod = { id: 'cod', label: 'ক্যাশ অন ডেলিভারি', note: settings.pay_cod_note || 'পণ্য হাতে পেয়ে টাকা দিন' };
     // delivery charge first (Admin → সেটিংস): needs a Send Money number to send it to
-    const adv = ['new', 'all'].includes(settings.cod_advance) ? Object.entries(MANUAL).find(([, [, key]]) => settings[key]) : null;
+    const adv = ['new', 'all'].includes(settings.cod_advance as string) ? Object.entries(MANUAL).find(([, [, key]]: Loose) => settings[key]) : null;
     if (adv) Object.assign(cod, { advance: settings.cod_advance, number: settings[adv[1][1]], numberLabel: adv[1][0] });
     out.push(cod);
   }
@@ -31,14 +32,14 @@ function methods(settings) {
 }
 
 // ---------------------------------------------------------------- bKash (tokenized checkout)
-function bkBase(s) { return s.bkash_sandbox === '1' ? 'https://tokenized.sandbox.bka.sh/v1.2.0-beta' : 'https://tokenized.pay.bka.sh/v1.2.0-beta'; }
-let bkToken = null; // { token, exp, key }
-async function bkashToken(s) {
-  const key = s.bkash_app_key + s.bkash_username + s.bkash_sandbox;
+function bkBase(s: Settings) { return s.bkash_sandbox === '1' ? 'https://tokenized.sandbox.bka.sh/v1.2.0-beta' : 'https://tokenized.pay.bka.sh/v1.2.0-beta'; }
+let bkToken: Loose = null; // { token, exp, key }
+async function bkashToken(s: Settings) {
+  const key = `${s.bkash_app_key}${s.bkash_username}${s.bkash_sandbox}`;
   if (bkToken && bkToken.key === key && bkToken.exp > Date.now() + 60e3) return bkToken.token;
   const r = await fetchJson(`${bkBase(s)}/tokenized/checkout/token/grant`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Accept: 'application/json', username: s.bkash_username, password: s.bkash_password },
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json', username: s.bkash_username, password: s.bkash_password } as Record<string, string>,
     body: JSON.stringify({ app_key: s.bkash_app_key, app_secret: s.bkash_app_secret }),
   });
   if (r.ok && r.data && r.data.id_token) {
@@ -47,9 +48,9 @@ async function bkashToken(s) {
   }
   throw new Error('বিকাশ টোকেন পাওয়া যায়নি: ' + ((r.data && (r.data.statusMessage || r.data.msg)) || r.text));
 }
-function bkHeaders(s, token) { return { 'Content-Type': 'application/json', Accept: 'application/json', Authorization: token, 'X-App-Key': s.bkash_app_key }; }
+function bkHeaders(s: Settings, token?: Loose): Record<string, string> { return <Record<string, string>>{ 'Content-Type': 'application/json', Accept: 'application/json', Authorization: token, 'X-App-Key': s.bkash_app_key }; }
 
-async function bkashCreate(order, s, siteUrl) {
+async function bkashCreate(order: Loose, s: Settings, siteUrl?: Loose) {
   const token = await bkashToken(s);
   const amount = Math.max(1, order.total - (order.paid_amount || 0));
   const r = await fetchJson(`${bkBase(s)}/tokenized/checkout/create`, {
@@ -68,7 +69,7 @@ async function bkashCreate(order, s, siteUrl) {
   await db.logIntegration('bkash', 'create', false, msg, order.code);
   return { ok: false, message: msg };
 }
-async function bkashExecute(paymentID, s) {
+async function bkashExecute(paymentID: Loose, s: Settings) {
   const token = await bkashToken(s);
   let r = await fetchJson(`${bkBase(s)}/tokenized/checkout/execute`, { method: 'POST', headers: bkHeaders(s, token), body: JSON.stringify({ paymentID }) });
   // If execute timed out or was already done, ask for the payment's state.
@@ -80,17 +81,17 @@ async function bkashExecute(paymentID, s) {
 }
 
 // ---------------------------------------------------------------- SSLCommerz
-function sslBase(s) { return s.ssl_sandbox === '1' ? 'https://sandbox.sslcommerz.com' : 'https://securepay.sslcommerz.com'; }
-async function sslCreate(order, s, siteUrl) {
+function sslBase(s: Settings) { return s.ssl_sandbox === '1' ? 'https://sandbox.sslcommerz.com' : 'https://securepay.sslcommerz.com'; }
+async function sslCreate(order: Loose, s: Settings, siteUrl?: Loose) {
   const amount = Math.max(10, order.total - (order.paid_amount || 0));
   const tranId = `${order.code}-${Date.now().toString(36).toUpperCase()}`;
-  const form = new URLSearchParams({
+  const form = new URLSearchParams(<Record<string, string>>{
     store_id: s.ssl_store_id, store_passwd: s.ssl_store_password, total_amount: amount.toFixed(2), currency: 'BDT', tran_id: tranId,
     success_url: `${siteUrl}/pay/ssl/success`, fail_url: `${siteUrl}/pay/ssl/fail`, cancel_url: `${siteUrl}/pay/ssl/cancel`, ipn_url: `${siteUrl}/pay/ssl/ipn`,
     cus_name: order.customer_name, cus_email: order.email || 'customer@example.com', cus_add1: order.address.slice(0, 100),
     cus_city: order.district || 'Dhaka', cus_postcode: '1000', cus_country: 'Bangladesh', cus_phone: order.phone,
     shipping_method: 'NO', num_of_item: String((order.items || []).length || 1),
-    product_name: (order.items || []).map((i) => i.name).join(', ').slice(0, 250) || 'Order ' + order.code,
+    product_name: (order.items || []).map((i?: Loose) => i.name).join(', ').slice(0, 250) || 'Order ' + order.code,
     product_category: 'General', product_profile: 'general', value_a: order.code,
   });
   const r = await fetchJson(`${sslBase(s)}/gwprocess/v4/api.php`, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: form.toString() });
@@ -103,15 +104,15 @@ async function sslCreate(order, s, siteUrl) {
   await db.logIntegration('sslcommerz', 'create', false, msg, order.code);
   return { ok: false, message: msg };
 }
-async function sslValidate(valId, s) {
-  const url = `${sslBase(s)}/validator/api/validationserverAPI.php?val_id=${encodeURIComponent(valId)}&store_id=${encodeURIComponent(s.ssl_store_id)}&store_passwd=${encodeURIComponent(s.ssl_store_password)}&format=json`;
+async function sslValidate(valId: Id, s: Settings) {
+  const url = `${sslBase(s)}/validator/api/validationserverAPI.php?val_id=${encodeURIComponent(String(valId))}&store_id=${encodeURIComponent(String(s.ssl_store_id))}&store_passwd=${encodeURIComponent(String(s.ssl_store_password))}&format=json`;
   const r = await fetchJson(url);
   const d = r.data || {};
   return { ok: d.status === 'VALID' || d.status === 'VALIDATED', tranId: d.tran_id, amount: Number(d.amount) || 0, trxID: d.bank_tran_id || d.val_id || '', cardType: d.card_type || '', raw: d };
 }
 
 // Record a successful gateway payment on the order (and in the books).
-async function recordSuccess(payment, { trxID, amount, raw, label }) {
+async function recordSuccess(payment: Loose, { trxID, amount, raw, label }: Body) {
   if (payment.status === 'paid') return;
   const settings = await db.getSettings();
   await db.tx(async (t) => {
@@ -130,8 +131,8 @@ async function recordSuccess(payment, { trxID, amount, raw, label }) {
   await db.logIntegration(payment.method === 'bkash' ? 'bkash' : 'sslcommerz', 'paid', true, `${trxID} ৳${amount}`, String(payment.order_id));
 }
 
-async function bkashTest(s) {
-  try { await bkashToken({ ...s }); bkToken = null; return { ok: true, message: 'বিকাশের সাথে সংযোগ ঠিক আছে।' }; } catch (e) { return { ok: false, message: e.message }; }
+async function bkashTest(s: Settings) {
+  try { await bkashToken({ ...s }); bkToken = null; return { ok: true, message: 'বিকাশের সাথে সংযোগ ঠিক আছে।' }; } catch (e: Loose) { return { ok: false, message: e.message }; }
 }
 
 export { methods, MANUAL, bkashCreate, bkashExecute, sslCreate, sslValidate, recordSuccess, bkashTest };

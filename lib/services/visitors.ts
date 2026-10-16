@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // Visitor analytics: who visits the shop, from where, what they look at and for how long.
 // The browser (public/js/shop.js) sends small beacons to POST /api/v; this file stores them
 // and answers the questions the admin "ভিজিটর অ্যানালিটিক্স" page asks.
@@ -7,35 +6,36 @@
 // so it works on Vercel without any paid service. Locally these headers are missing.
 import * as db from '../db';
 import { parseCookies, str, int } from '../util';
+import type { Body, Id, Loose, Settings, ShopRequest } from '../types';
 
 const { q, one } = db;
-const DAY = (col) => `(${col} AT TIME ZONE 'Asia/Dhaka')::date`;
+const DAY = (col?: Loose) => `(${col} AT TIME ZONE 'Asia/Dhaka')::date`;
 const LIVE_MINUTES = 5;
 const ID_RE = /^[a-f0-9]{20}$/;
 const EVENTS = new Set(['add_to_cart', 'begin_checkout', 'purchase', 'search', 'contact']);
 
 // ---------------------------------------------------------------- places
 // ISO 3166-2:BD — divisions (letters) and the 64 districts (01–64).
-const BD_DIVISIONS = { A: 'বরিশাল বিভাগ', B: 'চট্টগ্রাম বিভাগ', C: 'ঢাকা বিভাগ', D: 'খুলনা বিভাগ', E: 'রাজশাহী বিভাগ', F: 'রংপুর বিভাগ', G: 'সিলেট বিভাগ', H: 'ময়মনসিংহ বিভাগ' };
+const BD_DIVISIONS: Record<string, string> = { A: 'বরিশাল বিভাগ', B: 'চট্টগ্রাম বিভাগ', C: 'ঢাকা বিভাগ', D: 'খুলনা বিভাগ', E: 'রাজশাহী বিভাগ', F: 'রংপুর বিভাগ', G: 'সিলেট বিভাগ', H: 'ময়মনসিংহ বিভাগ' };
 const BD_DISTRICTS = ['বান্দরবান', 'বরগুনা', 'বগুড়া', 'ব্রাহ্মণবাড়িয়া', 'বাগেরহাট', 'বরিশাল', 'ভোলা', 'কুমিল্লা', 'চাঁদপুর', 'চট্টগ্রাম', 'কক্সবাজার',
   'চুয়াডাঙ্গা', 'ঢাকা', 'দিনাজপুর', 'ফরিদপুর', 'ফেনী', 'গোপালগঞ্জ', 'গাজীপুর', 'গাইবান্ধা', 'হবিগঞ্জ', 'জামালপুর', 'যশোর', 'ঝিনাইদহ', 'জয়পুরহাট', 'ঝালকাঠি',
   'কিশোরগঞ্জ', 'খুলনা', 'কুড়িগ্রাম', 'খাগড়াছড়ি', 'কুষ্টিয়া', 'লক্ষ্মীপুর', 'লালমনিরহাট', 'মানিকগঞ্জ', 'ময়মনসিংহ', 'মুন্সিগঞ্জ', 'মাদারীপুর', 'মাগুরা', 'মৌলভীবাজার',
   'মেহেরপুর', 'নারায়ণগঞ্জ', 'নেত্রকোণা', 'নরসিংদী', 'নড়াইল', 'নাটোর', 'চাঁপাইনবাবগঞ্জ', 'নীলফামারী', 'নোয়াখালী', 'নওগাঁ', 'পাবনা', 'পিরোজপুর', 'পটুয়াখালী',
   'পঞ্চগড়', 'রাজবাড়ী', 'রাজশাহী', 'রংপুর', 'রাঙ্গামাটি', 'শেরপুর', 'সাতক্ষীরা', 'সিরাজগঞ্জ', 'সিলেট', 'সুনামগঞ্জ', 'শরীয়তপুর', 'টাঙ্গাইল', 'ঠাকুরগাঁও'];
 
-let regionNames = null;
-function countryName(code) {
+let regionNames: Loose = null;
+function countryName(code?: Loose) {
   if (!code) return 'অজানা';
   try {
     regionNames = regionNames || new Intl.DisplayNames(['bn'], { type: 'region' });
     return regionNames.of(code) || code;
   } catch (_) { return code; }
 }
-function flag(code) {
+function flag(code?: Loose) {
   if (!/^[A-Z]{2}$/.test(code || '')) return '🌐';
   return String.fromCodePoint(...[...code].map((c) => 0x1F1E6 + c.charCodeAt(0) - 65));
 }
-function regionName(country, region) {
+function regionName(country?: Loose, region?: Loose) {
   if (!region) return '';
   if (country === 'BD') {
     if (BD_DIVISIONS[region]) return BD_DIVISIONS[region];
@@ -44,16 +44,16 @@ function regionName(country, region) {
   }
   return region;
 }
-function place(row) {
+function place(row?: Loose) {
   const parts = [row.city, regionName(row.country, row.region)].filter(Boolean);
   // "Dhaka, ঢাকা" -> keep both: city in English as Vercel sends it, district in Bangla
   return { flag: flag(row.country), text: parts.length ? parts.join(', ') : countryName(row.country), country: countryName(row.country) };
 }
-function header(req, name) {
+function header(req: ShopRequest, name?: Loose) {
   const v = String(req.headers[name] || '').trim();
   try { return decodeURIComponent(v); } catch (_) { return v; }
 }
-function geoFrom(req) {
+function geoFrom(req: ShopRequest) {
   return {
     country: header(req, 'x-vercel-ip-country').toUpperCase().slice(0, 2),
     region: header(req, 'x-vercel-ip-country-region').slice(0, 10),
@@ -63,9 +63,9 @@ function geoFrom(req) {
 
 // ---------------------------------------------------------------- browser / device
 const BOT_RE = /bot|crawl|spider|slurp|facebookexternalhit|facebookcatalog|meta-externalagent|bingpreview|headless|lighthouse|pagespeed|gtmetrix|pingdom|uptime|monitor|curl|wget|python|axios|node-fetch|go-http|java\/|okhttp|preview|whatsapp\/|telegrambot|discordbot|skypeuripreview|vercel/i;
-function isBot(ua) { return !ua || ua.length < 20 || BOT_RE.test(ua); }
+function isBot(ua?: Loose) { return !ua || ua.length < 20 || BOT_RE.test(ua); }
 
-function parseUA(ua) {
+function parseUA(ua?: Loose) {
   ua = String(ua || '');
   const tablet = /iPad|Tablet|PlayBook|Silk|(Android(?!.*Mobile))/i.test(ua);
   const mobile = !tablet && /Mobi|iPhone|iPod|Android|Opera Mini|IEMobile/i.test(ua);
@@ -110,23 +110,23 @@ const BRANDS = [
   [/honor|^(HRY|BKL|ALI|ANY|CMA|RMO|LGE)-/i, 'Honor'], [/symphony/i, 'Symphony'], [/walton|primo/i, 'Walton'],
   [/moto|motorola|^XT\d{4}/i, 'Motorola'], [/lenovo/i, 'Lenovo'], [/^(SO-|XQ-)|xperia/i, 'Sony'], [/^LM-|lg-/i, 'LG'], [/asus|^ASUS_/i, 'Asus'],
 ];
-function brandOf(model) {
+function brandOf(model?: Loose) {
   const m = String(model || '');
-  const hit = BRANDS.find(([re]) => re.test(m));
+  const hit = BRANDS.find(([re]) => (re as RegExp).test(m));
   return hit ? hit[1] : '';
 }
 // "Mozilla/5.0 (Linux; Android 13; SM-A536E Build/TP1A…)" → "SM-A536E"; the reduced "Android 10; K" → ''
-function androidModel(ua) {
+function androidModel(ua?: Loose) {
   const m = String(ua).match(/Android[\s\d.]*;\s*(?:[a-z]{2}[-_][a-z]{2};\s*)?([^;)]+?)(?:\s+Build\/|\s*\)|;)/i);
   const model = m ? m[1].trim() : '';
   return !model || /^K$|^wv$|^Mobile$|^Linux$|^U$/i.test(model) ? '' : model.slice(0, 60);
 }
-const IPHONES = {
+const IPHONES: Record<string, Loose> = {
   '320x568@2': 'iPhone SE (১ম) / 5s', '375x667@2': 'iPhone 6/7/8 / SE', '414x736@3': 'iPhone 6/7/8 Plus', '375x812@3': 'iPhone X/XS/11 Pro/12 mini/13 mini',
   '414x896@2': 'iPhone XR / 11', '414x896@3': 'iPhone XS Max / 11 Pro Max', '390x844@3': 'iPhone 12/13/14', '428x926@3': 'iPhone 12/13 Pro Max / 14 Plus',
   '393x852@3': 'iPhone 14 Pro / 15 / 16', '430x932@3': 'iPhone 15 Plus / 15 Pro Max / 16 Plus', '402x874@3': 'iPhone 16 Pro / 17', '440x956@3': 'iPhone 16 Pro Max / 17 Pro Max',
 };
-function iphoneModel(screen, dpr) {
+function iphoneModel(screen?: Loose, dpr?: Loose) {
   const m = String(screen || '').match(/^(\d+)x(\d+)$/);
   if (!m) return '';
   const [a, b] = [Number(m[1]), Number(m[2])].sort((x, y) => x - y);
@@ -134,13 +134,13 @@ function iphoneModel(screen, dpr) {
   return name ? name + ' (আনুমানিক)' : '';
 }
 // Samsung's A/M/F phones: "SM-A536E" → "Galaxy A53 (SM-A536E)", "SM-A057F" → "Galaxy A05s"
-function friendlyModel(model) {
+function friendlyModel(model?: Loose) {
   const m = String(model || '').match(/^SM-([AMF])(\d)(\d)(\d)[A-Z0-9/]*$/i);
   if (!m) return model;
   const s = m[4] === '7' ? 's' : '';
   return `Galaxy ${m[1].toUpperCase()}${m[2]}${m[3]}${s} (${model})`.slice(0, 80);
 }
-function deviceDetails(ua, screen, dpr) {
+function deviceDetails(ua?: Loose, screen?: Loose, dpr?: Loose) {
   if (/iPhone/.test(ua)) return { brand: 'Apple', model: iphoneModel(screen, dpr) || 'iPhone' };
   if (/iPad/.test(ua) || (/Macintosh/.test(ua) && Number(dpr) >= 2 && /^(7[68]\d|8[0-3]\d|10[0-9]{2})x/.test(String(screen)))) return { brand: 'Apple', model: /iPad/.test(ua) ? 'iPad' : '' };
   if (/Android/.test(ua)) { const model = androidModel(ua); return { brand: brandOf(model), model: friendlyModel(model) }; }
@@ -154,7 +154,7 @@ function deviceDetails(ua, screen, dpr) {
 // a Bangladesh clock (Asia/Dhaka) with a foreign IP = almost surely a Bangladeshi using a VPN, proxy,
 // or a browser with a data-saver (Opera Mini, some UC modes). A foreign IP with a foreign clock = abroad.
 const TZ_RE = /^[A-Za-z_]+(?:\/[A-Za-z0-9_+\-]+){0,2}$/;
-function netFlag(country, tz) {
+function netFlag(country?: Loose, tz?: Loose) {
   if (!country) return '';
   if (country === 'BD') return '';
   if (tz === 'Asia/Dhaka' || tz === 'Asia/Dacca') return 'vpn';
@@ -180,14 +180,14 @@ const SOURCES = [
   [/(^|\.)yandex\./, 'Yandex', 'organic'],
   [/(^|\.)(chatgpt\.com|openai\.com|perplexity\.ai|claude\.ai|gemini\.google\.com|copilot\.microsoft\.com)$/, 'AI চ্যাট', 'referral'],
 ];
-const UTM_NAMES = { fb: 'Facebook', facebook: 'Facebook', ig: 'Instagram', instagram: 'Instagram', tiktok: 'TikTok', google: 'Google', youtube: 'YouTube', yt: 'YouTube', messenger: 'Facebook', whatsapp: 'WhatsApp' };
+const UTM_NAMES: Record<string, string> = { fb: 'Facebook', facebook: 'Facebook', ig: 'Instagram', instagram: 'Instagram', tiktok: 'TikTok', google: 'Google', youtube: 'YouTube', yt: 'YouTube', messenger: 'Facebook', whatsapp: 'WhatsApp' };
 
-function hostOf(u) {
+function hostOf(u?: Loose) {
   try { return new URL(u).hostname.toLowerCase().replace(/^www\.|^m\.|^l\.|^lm\.|^mobile\./, ''); } catch (_) { return ''; }
 }
 // Decide where a visit came from. `params` are the landing page's query params.
-function sourceOf({ referrer, params, ownHost, browser }) {
-  const p = (k) => str(params.get(k), 100);
+function sourceOf({ referrer, params, ownHost, browser }: Body) {
+  const p = (k?: Loose) => str(params.get(k), 100);
   const out = { source: 'সরাসরি (Direct)', medium: 'direct', campaign: p('utm_campaign'), refHost: '' };
   const host = hostOf(referrer);
   if (host && host !== ownHost && !host.endsWith('.' + ownHost)) out.refHost = host;
@@ -201,18 +201,18 @@ function sourceOf({ referrer, params, ownHost, browser }) {
   if (p('gclid') || p('gbraid') || p('wbraid')) { out.source = 'Google'; out.medium = 'cpc'; return out; }
   if (p('ttclid')) { out.source = 'TikTok'; out.medium = 'cpc'; return out; }
   if (out.refHost) {
-    const hit = SOURCES.find(([re]) => re.test(out.refHost));
-    if (hit) { out.source = hit[1]; out.medium = hit[2]; } else { out.source = out.refHost; out.medium = 'referral'; }
+    const hit = SOURCES.find(([re]) => (re as RegExp).test(out.refHost));
+    if (hit) { out.source = hit[1] as string; out.medium = hit[2] as string; } else { out.source = out.refHost; out.medium = 'referral'; }
     return out;
   }
   // No referrer, but opened inside an app's browser: that app is the source.
-  const app = { 'Facebook অ্যাপ': 'Facebook', 'Messenger অ্যাপ': 'Facebook', 'Instagram অ্যাপ': 'Instagram', 'TikTok অ্যাপ': 'TikTok' }[browser];
+  const app = ({ 'Facebook অ্যাপ': 'Facebook', 'Messenger অ্যাপ': 'Facebook', 'Instagram অ্যাপ': 'Instagram', 'TikTok অ্যাপ': 'TikTok' } as Record<string, string>)[browser];
   if (app) { out.source = app; out.medium = 'social'; }
   return out;
 }
 
 // ---------------------------------------------------------------- recording
-function cleanPath(p) {
+function cleanPath(p?: Loose) {
   let s = str(p, 300);
   if (!s.startsWith('/')) s = '/';
   // drop tracking params so the same page is counted together
@@ -223,10 +223,10 @@ function cleanPath(p) {
   } catch (_) { /* keep */ }
   return s.slice(0, 300);
 }
-function readJson(text) {
+function readJson(text?: Loose) {
   try { const v = JSON.parse(text || '{}'); return v && typeof v === 'object' ? v : {}; } catch (_) { return {}; }
 }
-function shouldSkip(req, settings) {
+function shouldSkip(req: ShopRequest, settings: Settings) {
   if (settings.visitor_tracking === '0') return true;
   if (isBot(String(req.headers['user-agent'] || ''))) return true;
   if (settings.visitor_exclude_admin !== '0' && parseCookies(req.headers.cookie).sm_admin) return true;
@@ -234,7 +234,7 @@ function shouldSkip(req, settings) {
   return false;
 }
 
-async function cleanup(settings) {
+async function cleanup(settings: Settings) {
   const keep = Math.min(730, Math.max(7, int(settings.visitor_keep_days, 60)));
   await q(`DELETE FROM page_views WHERE created_at < now() - make_interval(days => $1::int)`, [keep]);
   await q(`DELETE FROM visit_events WHERE created_at < now() - make_interval(days => $1::int)`, [keep]);
@@ -243,7 +243,7 @@ async function cleanup(settings) {
 }
 
 // One call per beacon. Returns a small object for the browser (or null).
-async function record({ req, settings, body, ip, ownHost }) {
+async function record({ req, settings, body, ip, ownHost }: Body) {
   const b = readJson(body);
   const vid = String(b.vid || '');
   const sid = String(b.sid || '');
@@ -280,7 +280,7 @@ async function record({ req, settings, body, ip, ownHost }) {
       VALUES($1,$2,$3,$4, ${slug ? '(SELECT id FROM products WHERE slug=$5)' : 'NULL'}) RETURNING id`,
     slug ? [sid, vid, path, title, slug] : [sid, vid, path, title]);
     if (Math.random() < 0.01) cleanup(settings).catch((e) => console.error('visitor cleanup', e.message));
-    return { pv: pv.id };
+    return { pv: pv!.id };
   }
 
   // new Chrome on Android hides the model in its name, but tells it when the page asks
@@ -330,9 +330,9 @@ async function record({ req, settings, body, ip, ownHost }) {
 }
 
 // ---------------------------------------------------------------- reports
-const RANGE = (col, a = 1) => `${DAY(col)} BETWEEN $${a}::date AND $${a + 1}::date`;
+const RANGE = (col?: Loose, a: Loose = 1) => `${DAY(col)} BETWEEN $${a}::date AND $${a + 1}::date`;
 
-async function overview(from, to) {
+async function overview(from?: Loose, to?: Loose) {
   const r = [from, to];
   const [k, live, daily, hours, pages, products, sources, cities, regions, countries, devices, browsers, oses, referrers, campaigns, funnel, contacts, brands, models, net] = await Promise.all([
     one(`SELECT count(*)::int AS sessions, count(DISTINCT visitor_id)::int AS visitors, count(*) FILTER (WHERE is_new)::int AS new_visitors,
@@ -379,7 +379,7 @@ async function overview(from, to) {
        count(*) FILTER (WHERE net = 'abroad')::int AS abroad, count(*) FILTER (WHERE country = '')::int AS unknown
        FROM visit_sessions WHERE ${RANGE('started_at')}`, r),
   ]);
-  return { k, live: live.n, daily, hours, pages, products, sources, cities, regions, countries, devices, browsers, oses, referrers, campaigns, funnel, contacts, brands, models, net };
+  return { k, live: live!.n, daily, hours, pages, products, sources, cities, regions, countries, devices, browsers, oses, referrers, campaigns, funnel, contacts, brands, models, net };
 }
 
 async function liveSessions() {
@@ -392,7 +392,7 @@ async function liveSessions() {
     WHERE s.last_seen > now() - interval '${LIVE_MINUTES} minutes' ORDER BY s.last_seen DESC LIMIT 200`);
 }
 
-function sessionWhere(f, params) {
+function sessionWhere(f: Body, params?: Loose) {
   const where = [];
   if (f.from) { params.push(f.from); where.push(`${DAY('s.started_at')} >= $${params.length}::date`); }
   if (f.to) { params.push(f.to); where.push(`${DAY('s.started_at')} <= $${params.length}::date`); }
@@ -411,8 +411,8 @@ function sessionWhere(f, params) {
   }
   return where.length ? 'WHERE ' + where.join(' AND ') : '';
 }
-async function listSessions(f, { limit = 50, offset = 0 } = {}) {
-  const params = [];
+async function listSessions(f: Body, { limit = 50, offset = 0 }: Body = {}) {
+  const params: Loose[] = [];
   const where = sessionWhere(f, params);
   params.push(limit, offset);
   return q(`SELECT s.*, v.visits AS total_visits, v.name AS visitor_name, v.phone AS visitor_phone,
@@ -422,16 +422,16 @@ async function listSessions(f, { limit = 50, offset = 0 } = {}) {
       WHERE o.code = s.order_code OR (v.phone <> '' AND o.phone = v.phone) ORDER BY (o.code = s.order_code) DESC, o.created_at DESC LIMIT 1) oa ON true ${where}
     ORDER BY s.started_at DESC LIMIT $${params.length - 1} OFFSET $${params.length}`, params);
 }
-async function countSessions(f) {
-  const params = [];
+async function countSessions(f: Body) {
+  const params: Loose[] = [];
   const where = sessionWhere(f, params);
-  return (await one(`SELECT count(*)::int AS n FROM visit_sessions s JOIN visitors v ON v.id = s.visitor_id ${where}`, params)).n;
+  return (await one(`SELECT count(*)::int AS n FROM visit_sessions s JOIN visitors v ON v.id = s.visitor_id ${where}`, params))!.n;
 }
 async function sourceList() {
   return (await q(`SELECT DISTINCT source FROM visit_sessions WHERE started_at > now() - interval '90 days' ORDER BY source LIMIT 60`)).map((r) => r.source);
 }
 
-async function getSession(id) {
+async function getSession(id?: Id) {
   const s = await one(`SELECT s.*, v.first_seen, v.visits AS total_visits, v.pageviews AS total_pageviews, v.name AS visitor_name,
       v.phone AS visitor_phone, v.orders AS total_orders, oa.*, (s.ip <> '' AND EXISTS (SELECT 1 FROM security_events se WHERE se.ip = s.ip AND se.created_at > now() - interval '30 days')) AS suspicious
     FROM visit_sessions s JOIN visitors v ON v.id = s.visitor_id

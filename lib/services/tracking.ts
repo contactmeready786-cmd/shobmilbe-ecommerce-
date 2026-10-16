@@ -1,13 +1,13 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // Server-side conversion events: Facebook Conversions API and TikTok Events API.
 // The browser pixel sends the same events with the same event_id, so the platforms count each sale once.
 import * as db from '../db';
 import { fetchJson, sha256 } from '../util';
 import * as $security from '../security';
+import type { Loose, Settings, ShopRequest } from '../types';
 
-function phoneE164(p) { return '88' + String(p || '').replace(/\D/g, '').replace(/^88/, ''); }
+function phoneE164(p?: Loose) { return '88' + String(p || '').replace(/\D/g, '').replace(/^88/, ''); }
 
-async function facebookPurchase(order, settings, req) {
+async function facebookPurchase(order: Loose, settings: Settings, req: ShopRequest) {
   if (!settings.fb_pixel_id || !settings.fb_capi_token) return;
   const ua = String(req.headers['user-agent'] || '');
   const cookies = String(req.headers.cookie || '');
@@ -32,24 +32,24 @@ async function facebookPurchase(order, settings, req) {
       },
       custom_data: {
         currency: 'BDT', value: order.total, order_id: order.code,
-        content_type: 'product', content_ids: (order.lines || []).map((l) => String(l.product_id)),
-        contents: (order.lines || []).map((l) => ({ id: String(l.product_id), quantity: l.qty, item_price: l.price })),
-        num_items: (order.lines || []).reduce((n, l) => n + l.qty, 0),
+        content_type: 'product', content_ids: (order.lines || []).map((l?: Loose) => String(l.product_id)),
+        contents: (order.lines || []).map((l?: Loose) => ({ id: String(l.product_id), quantity: l.qty, item_price: l.price })),
+        num_items: (order.lines || []).reduce((n?: Loose, l?: Loose) => n + l.qty, 0),
       },
     }],
   };
-  if (settings.fb_test_code) body.test_event_code = settings.fb_test_code;
+  if (settings.fb_test_code) (body as Loose).test_event_code = settings.fb_test_code;
   const r = await fetchJson(`https://graph.facebook.com/v21.0/${encodeURIComponent(settings.fb_pixel_id)}/events?access_token=${encodeURIComponent(settings.fb_capi_token)}`,
     { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }, 4000);
   if (!r.ok) await db.logIntegration('facebook', 'capi_purchase', false, (r.data && r.data.error && r.data.error.message) || r.text, order.code);
   else await logOk('facebook', 'capi_purchase', order.code);
 }
 // Success is written at most once an hour (enough for the "সংযোগের অবস্থা" page, without filling the log).
-async function logOk(service, action, ref) {
+async function logOk(service?: Loose, action?: Loose, ref?: Loose) {
   if (await $security.hit(db, 'log:ok:' + service, 1, 3600)) await db.logIntegration(service, action, true, 'ইভেন্ট পাঠানো হয়েছে', ref);
 }
 
-async function tiktokPurchase(order, settings, req) {
+async function tiktokPurchase(order: Loose, settings: Settings, req: ShopRequest) {
   if (!settings.tiktok_pixel_id || !settings.tiktok_events_token) return;
   const cookies = String(req.headers.cookie || '');
   const ttp = (cookies.match(/(?:^|;\s*)_ttp=([^;]+)/) || [])[1];
@@ -64,7 +64,7 @@ async function tiktokPurchase(order, settings, req) {
       page: { url: (settings.site_url || '') + '/checkout' },
       properties: {
         currency: 'BDT', value: order.total, order_id: order.code, content_type: 'product',
-        contents: (order.lines || []).map((l) => ({ content_id: String(l.product_id), content_name: l.name, quantity: l.qty, price: l.price })),
+        contents: (order.lines || []).map((l?: Loose) => ({ content_id: String(l.product_id), content_name: l.name, quantity: l.qty, price: l.price })),
       },
     }],
   };
@@ -75,7 +75,7 @@ async function tiktokPurchase(order, settings, req) {
 }
 
 // Fire both; never let a tracking problem break an order.
-async function purchase(order, settings, req) {
+async function purchase(order: Loose, settings: Settings, req: ShopRequest) {
   await Promise.allSettled([facebookPurchase(order, settings, req), tiktokPurchase(order, settings, req)]);
 }
 

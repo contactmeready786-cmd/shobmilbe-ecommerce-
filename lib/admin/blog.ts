@@ -1,9 +1,9 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 import { html, bn, fmtDate, int, str } from '../util';
 import * as content from '../models/content';
 import * as ui from './ui';
+import type { AdminCtx, Loose } from '../types';
 
-async function listPage(ctx) {
+async function listPage(ctx: AdminCtx) {
   const [posts, cats] = await Promise.all([content.listPosts({ limit: 200 }), content.listBlogCategories()]);
   const body = html`<div class="title-row"><h1>ব্লগ <small>${bn(posts.length)}টি পোস্ট</small></h1>
   <div class="row-actions"><a class="btn" href="/admin/blog/new">+ নতুন পোস্ট</a><a class="btn btn-ghost" href="/blog" target="_blank">ব্লগ দেখুন ↗</a></div></div>
@@ -36,7 +36,7 @@ ${ui.flash(ctx.flash)}
   return ctx.page('ব্লগ', body, 'blog');
 }
 
-function postForm(p, cats, error) {
+function postForm(p?: Loose, cats?: Loose, error?: Loose) {
   const isNew = !p.id;
   return html`<p class="crumbs"><a href="/admin/blog">← সব পোস্ট</a></p>
 <div class="title-row"><h1>${isNew ? 'নতুন ব্লগ পোস্ট' : p.title}</h1>${!isNew && p.status === 'published' ? html`<a class="btn btn-ghost btn-sm" href="/blog/${p.slug}" target="_blank">দেখুন ↗</a>` : ''}</div>
@@ -51,7 +51,7 @@ ${error ? html`<p class="flash flash-error">${error}</p>` : ''}
     </section>
     <section class="panel">
       ${ui.field('অবস্থা', ui.select('status', [['draft', 'ড্রাফট (লুকানো)'], ['published', 'প্রকাশ করুন']], p.status || 'draft'))}
-      ${ui.field('ক্যাটাগরি', ui.select('category_id', [['', 'কোনোটি না'], ...cats.map((c) => [c.id, c.name])], p.category_id || ''))}
+      ${ui.field('ক্যাটাগরি', ui.select('category_id', [['', 'কোনোটি না'], ...cats.map((c?: Loose) => [c.id, c.name])], p.category_id || ''))}
       ${ui.imagePicker('cover_id', p.cover_id, { label: 'কভার ছবি', wide: true })}
       <h2>SEO</h2>
       ${ui.field('SEO টাইটেল', ui.input('seo_title', p.seo_title || '', { maxlength: 120 }))}
@@ -63,7 +63,7 @@ ${error ? html`<p class="flash flash-error">${error}</p>` : ''}
 ${isNew ? '' : html`<form method="post" action="/admin/blog/${p.id}/delete" class="danger-zone" data-confirm="পোস্টটি মুছে ফেলবেন?"><button class="btn btn-danger btn-sm">পোস্ট মুছুন</button></form>`}`;
 }
 
-async function form(ctx, m) {
+async function form(ctx: AdminCtx, m?: Loose) {
   const id = m && m[1] ? int(m[1]) : null;
   const cats = await content.listBlogCategories();
   if (ctx.method === 'POST') {
@@ -75,19 +75,19 @@ async function form(ctx, m) {
   }
   const p = id ? await content.getPost({ id }) : {};
   if (id && !p) return ctx.redirect(ctx.res, '/admin/blog');
-  return ctx.page(id ? p.title : 'নতুন পোস্ট', html`${ui.flash(ctx.flash)}${postForm(p, cats)}`, 'blog');
+  return ctx.page(id ? p!.title : 'নতুন পোস্ট', html`${ui.flash(ctx.flash)}${postForm(p, cats)}`, 'blog');
 }
-async function remove(ctx, m) {
+async function remove(ctx: AdminCtx, m?: Loose) {
   await ctx.trash('blog_post', int(m[1]));
   await ctx.log('post_delete', 'blog', int(m[1]), '');
   return ctx.back('/admin/blog', 'deleted');
 }
-async function saveCat(ctx) {
+async function saveCat(ctx: AdminCtx) {
   const b = await ctx.body();
   if (str(b.name)) await content.saveBlogCategory(b);
   return ctx.back('/admin/blog', 'saved');
 }
-async function deleteCat(ctx, m) {
+async function deleteCat(ctx: AdminCtx, m?: Loose) {
   await ctx.trash('blog_category', int(m[1]));
   await ctx.log('blog_category_delete', 'blog', int(m[1]), '');
   return ctx.back('/admin/blog', 'deleted');
@@ -95,7 +95,7 @@ async function deleteCat(ctx, m) {
 
 export const routes = [
     { method: 'GET', path: '/admin/blog', perm: 'blog', handler: listPage },
-    { method: '*', path: '/admin/blog/new', perm: 'blog', handler: (ctx) => form(ctx, null) },
+    { method: '*', path: '/admin/blog/new', perm: 'blog', handler: (ctx: AdminCtx) => form(ctx, null) },
     { method: '*', path: /^\/admin\/blog\/(\d+)$/, perm: 'blog', handler: form },
     { method: 'POST', path: /^\/admin\/blog\/(\d+)\/delete$/, perm: 'blog', handler: remove },
     { method: 'POST', path: '/admin/blog/categories', perm: 'blog', handler: saveCat },

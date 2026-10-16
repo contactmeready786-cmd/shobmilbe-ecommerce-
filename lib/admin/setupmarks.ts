@@ -16,15 +16,15 @@ function marks(s: Settings) {
   try { const m = JSON.parse((s && s.setup_marks) || '{}'); return m && typeof m === 'object' ? m : {}; } catch (_) { return {}; }
 }
 // what the owner (or the ads rule) says about one item: 'done', 'skip' or ''
-function markOf(s: Settings, key: Loose, isSetUp: Loose) {
+function markOf(s: Settings, key?: Loose, isSetUp?: Loose) {
   const m = marks(s)[key];
   if (m === 'done' || m === 'skip') return m;
   if (m === 'show') return '';
   if (!isSetUp && ADS_ONLY.has(key)) return 'skip';
   return '';
 }
-function buttons(key: Loose, mark: Loose, back: Loose) {
-  const f = (val: Loose, label: Loose, title: Loose) => html`<form method="post" action="/admin/setup-mark" class="mark-form">
+function buttons(key?: Loose, mark?: Loose, back?: Loose) {
+  const f = (val?: Loose, label?: Loose, title?: Loose) => html`<form method="post" action="/admin/setup-mark" class="mark-form">
     <input type="hidden" name="key" value="${key}"><input type="hidden" name="val" value="${val}"><input type="hidden" name="back" value="${back}">
     <button class="link-btn small" title="${title}">${label}</button></form>`;
   if (mark === 'done') return html`<span class="small muted">✔ আপনি "করা আছে" দিয়েছেন</span> ${f('', '↩️ ফেরান', 'আবার সাইটের নিজের যাচাই দেখাবে')}`;

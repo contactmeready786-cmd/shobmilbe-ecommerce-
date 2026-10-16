@@ -16,7 +16,7 @@ const KINDS: Record<string, Loose> = {
   offer: { perm: 'marketing', entity: 'marketing', sql: 'UPDATE offers SET active=$2 WHERE id=$1 RETURNING coalesce(nullif(title,\'\'), \'অফার #\' || id) AS name' },
 };
 
-async function toggle(ctx: AdminCtx, m: Loose) {
+async function toggle(ctx: AdminCtx, m?: Loose) {
   const K = KINDS[m[1]];
   const id = int(m[2]);
   if (!K || !ctx.can(K.perm)) return ctx.json(ctx.res, 403, { error: 'অনুমতি নেই।' });

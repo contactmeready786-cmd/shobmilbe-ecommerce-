@@ -69,6 +69,14 @@ for (const [file, errs] of byFile) {
       if (end < 0 || !/^[.[]/.test(L.slice(end)) || L[end - 1] === '!') continue;
       lines[e.line - 1] = L.slice(0, end) + '!' + L.slice(end);
       touched = true; fixed++;
+    } else if (e.code === 'TS18046') {
+      // "'e' is of type 'unknown'": a caught error whose .message is read → catch (e: Loose)
+      const name = (e.msg.match(/^'([^']+)' is of type 'unknown'/) || [])[1];
+      if (!name) continue;
+      for (let k = e.line - 1; k >= 0 && k >= e.line - 80; k--) {
+        const re = new RegExp(`catch \\(${name}\\)`);
+        if (re.test(lines[k])) { lines[k] = lines[k].replace(re, `catch (${name}: Loose)`); touched = true; fixed++; break; }
+      }
     } else if (e.code === 'TS7053') {
       // the table being indexed: the name just before "[" at the error column
       const before = L.slice(0, i + 200);

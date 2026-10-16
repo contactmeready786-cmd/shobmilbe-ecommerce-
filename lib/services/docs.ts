@@ -1,4 +1,4 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
+import type { Body, Loose, Settings } from '../types';
 // Settings for the two printed papers of every order (Admin → স্টোর ডিজাইন → ইনভয়েস ও চেকলিস্ট):
 //   🏷️ ইনভয়েস  — stuck on top of the parcel: only what delivery needs (barcode, receiver, cash to collect).
 //   📋 চেকলিস্ট — goes inside the box for the customer: pictures, names, warranty, prices, totals.
@@ -47,7 +47,7 @@ const CHECKLIST_PARTS = [
   ['note_box', '"পণ্য হাতে পেয়ে" বক্স'], ['thanks', 'ধন্যবাদের লেখা'], ['footer', 'নিচের যোগাযোগ লাইন'],
 ];
 // Smaller paper = less printing cost per parcel. "per" = parcels per A4 sheet (paper) — stickers print one by one.
-const LABEL_SIZES = {
+const LABEL_SIZES: Record<string, Loose> = {
   a4x6: { w: 105, h: 99, per: 6, label: '📄 A4 কাগজে ৬টা — সবচেয়ে কম খরচ (প্রস্তাবিত)', sheet: true },
   a4x4: { w: 105, h: 148.5, per: 4, label: '📄 A4 কাগজে ৪টা — বড় লেখা', sheet: true },
   '100x75': { w: 100, h: 75, label: '🏷️ স্টিকার ১০০×৭৫ মিমি (থার্মাল, ছোট)' },
@@ -55,25 +55,25 @@ const LABEL_SIZES = {
   '4x6': { w: 101.6, h: 152.4, label: '🏷️ স্টিকার ৪×৬ ইঞ্চি (১০০×১৫০ মিমি, কুরিয়ারের মতো)' },
   a6: { w: 105, h: 148, label: '📄 A6 আলাদা কাগজ (১০৫×১৪৮ মিমি)' },
 };
-const PAPERS = { A4: 'A4', A5: 'A5' };
+const PAPERS: Record<string, string> = { A4: 'A4', A5: 'A5' };
 
 const HEX = /^#[0-9a-f]{6}$/i;
-function merge(def, saved) {
+function merge(def?: Loose, saved?: Loose) {
   const out = { ...def, ...(saved && typeof saved === 'object' ? saved : {}) };
   out.show = { ...def.show, ...((saved && saved.show) || {}) };
   if (!HEX.test(out.primary)) out.primary = def.primary;
   if (!HEX.test(out.accent)) out.accent = def.accent;
   return out;
 }
-function parse(s, key) { try { return JSON.parse(s[key] || '{}'); } catch (_) { return {}; } }
-function invoice(s) { const c = merge(INVOICE, parse(s, 'doc_invoice')); if (!LABEL_SIZES[c.size]) c.size = INVOICE.size; return c; }
-function checklist(s) { const c = merge(CHECKLIST, parse(s, 'doc_checklist')); if (!PAPERS[c.paper]) c.paper = 'A4'; return c; }
+function parse(s: Settings, key?: Loose) { try { return JSON.parse(s[key] || '{}'); } catch (_) { return {}; } }
+function invoice(s: Settings) { const c = merge(INVOICE, parse(s, 'doc_invoice')); if (!LABEL_SIZES[c.size]) c.size = INVOICE.size; return c; }
+function checklist(s: Settings) { const c = merge(CHECKLIST, parse(s, 'doc_checklist')); if (!PAPERS[c.paper]) c.paper = 'A4'; return c; }
 
 // form body → saved settings
-function fromForm(kind, b) {
-  const def = kind === 'invoice' ? INVOICE : CHECKLIST;
+function fromForm(kind: Loose, b: Body) {
+  const def: Loose = kind === 'invoice' ? INVOICE : CHECKLIST;
   const parts = kind === 'invoice' ? INVOICE_PARTS : CHECKLIST_PARTS;
-  const out = { show: {} };
+  const out: Loose = { show: {} };
   for (const [k] of parts) out.show[k] = !!b['show_' + k];
   for (const k of Object.keys(def)) {
     if (k === 'show') continue;
@@ -87,7 +87,7 @@ function fromForm(kind, b) {
   return out;
 }
 // {shop} {phone} {site} in the texts
-function fill(text, s) {
+function fill(text: Loose, s: Settings) {
   const site = String(s.site_url || '').replace(/^https?:\/\//, '').replace(/\/+$/, '');
   return String(text || '').replace(/\{shop\}/g, s.store_name || 'সবমিলবে').replace(/\{phone\}/g, s.phone || '').replace(/\{site\}/g, site)
     .replace(/\s*·\s*$/, '').replace(/^\s*·\s*/, '');

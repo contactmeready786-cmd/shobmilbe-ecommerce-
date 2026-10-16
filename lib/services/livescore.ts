@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // Live cricket and football scores from ESPN's public score feeds (the same data ESPN's own site uses).
 // Results are kept in memory for a few seconds and the API route is cached at Vercel's edge,
 // so thousands of visitors still cause only a handful of requests to ESPN.
@@ -6,6 +5,7 @@
 // ESPN has two addresses for the same cricket feed. In Oct 2026 the "site.web.api" one froze on
 // late-September matches, so both are asked and the one with the newest matches is used.
 import { fetchJson } from '../util';
+import type { Body, Loose, Settings } from '../types';
 const CRICKET_URLS = [
   () => `https://site.api.espn.com/apis/site/v2/sports/cricket/scorepanel?dates=${dhakaDate()}`,
   () => 'https://site.api.espn.com/apis/site/v2/sports/cricket/scorepanel',
@@ -17,7 +17,7 @@ function dhakaDate() {
 }
 // A match still marked "live" this long after it started is old data, not a running match (a Test lasts 5 days).
 const STALE_LIVE_MS = 6 * 864e5;
-const FOOTBALL_URL = (league) => `https://site.api.espn.com/apis/site/v2/sports/soccer/${league}/scoreboard`;
+const FOOTBALL_URL = (league?: Loose) => `https://site.api.espn.com/apis/site/v2/sports/soccer/${league}/scoreboard`;
 
 // Football competitions the admin can switch on. [ESPN code, Bangla name]
 const FOOTBALL_LEAGUES = [
@@ -71,10 +71,10 @@ const DEFAULT_CRICKET = CRICKET_LEAGUES.map(([k]) => k); // everything on by def
 const CRICKET_CODES = new Set(DEFAULT_CRICKET);
 const CRICKET_BN = Object.fromEntries(CRICKET_LEAGUES.map(([k, l]) => [k, l]));
 const COUNTRIES = /^(afghanistan|australia|bangladesh|england|india|ireland|new zealand|pakistan|south africa|sri lanka|west indies|zimbabwe|netherlands|scotland|nepal|oman|namibia|canada|usa|united states( of america)?|united arab emirates|uae|hong kong|papua new guinea|png|kenya|uganda|italy|jersey|germany)( a| xi| u-?19| under-?19s?)?$/i;
-function cricketCategory(league, title, teams) {
+function cricketCategory(league?: Loose, title?: Loose, teams?: Loose) {
   const text = `${league} ${title}`;
-  for (const [code, , re] of CRICKET_LEAGUES) if (re && re.test(text)) return code;
-  if (teams.length >= 2 && teams.every((t) => COUNTRIES.test(String(t.name).trim()))) return 'intl';
+  for (const [code, , re] of CRICKET_LEAGUES) if (re && (re as RegExp).test(text)) return code;
+  if (teams.length >= 2 && teams.every((t?: Loose) => COUNTRIES.test(String(t.name).trim()))) return 'intl';
   return 'other';
 }
 
@@ -84,14 +84,14 @@ const FAVOURITE = /bangladesh|বাংলাদেশ|\bBAN\b|argentina|brazil/
 const cache = new Map(); // key -> { at, data, pending }
 const FRESH_MS = 12000;
 
-async function cached(key, loader) {
+async function cached(key?: Loose, loader?: Loose) {
   const c = cache.get(key);
   if (c && c.data && Date.now() - c.at < FRESH_MS) return c.data;
   if (c && c.pending) return c.pending;
-  const pending = loader().then((data) => {
+  const pending = loader().then((data?: Loose) => {
     cache.set(key, { at: Date.now(), data });
     return data;
-  }).catch((e) => {
+  }).catch((e?: Loose) => {
     if (c && c.data) { // keep showing the last good scores, try again a little later
       cache.set(key, { at: Date.now() - FRESH_MS + 5000, data: c.data });
       return { ...c.data, stale: true };
@@ -103,31 +103,31 @@ async function cached(key, loader) {
   return pending;
 }
 
-function stateOf(status) {
+function stateOf(status?: Loose) {
   const t = (status && status.type) || {};
   const st = t.state === 'in' || t.state === 'post' ? t.state : 'pre';
   return { state: st, completed: !!t.completed || st === 'post', detail: t.shortDetail || t.detail || t.description || '', description: t.description || '' };
 }
-function bool(v) { return v === true || v === 'true'; }
+function bool(v?: Loose) { return v === true || v === 'true'; }
 
-function sortMatches(list) {
-  const rank = { in: 0, pre: 1, post: 2 };
-  return list.sort((a, b) => (b.fav - a.fav) || (rank[a.state] - rank[b.state])
-    || (a.state === 'post' ? new Date(b.date) - new Date(a.date) : new Date(a.date) - new Date(b.date)));
+function sortMatches(list?: Loose) {
+  const rank: Record<string, number> = { in: 0, pre: 1, post: 2 };
+  return list.sort((a?: Loose, b?: Loose) => (b.fav - a.fav) || (rank[a.state] - rank[b.state])
+    || (a.state === 'post' ? +new Date(b.date) - +new Date(a.date) : +new Date(a.date) - +new Date(b.date)));
 }
 
 // ---------------------------------------------------------------- cricket
-function cricketTeam(c) {
+function cricketTeam(c?: Loose) {
   const t = c.team || {};
   const lines = Array.isArray(c.linescores) ? c.linescores : [];
-  const cur = lines.find((l) => Number(l.isCurrent) === 1);
+  const cur = lines.find((l?: Loose) => Number(l.isCurrent) === 1);
   return {
     name: t.displayName || t.name || '', short: t.abbreviation || t.shortDisplayName || '',
     logo: t.logo || (Array.isArray(t.logos) && t.logos[0] && t.logos[0].href) || (t.id ? `https://a.espncdn.com/i/teamlogos/cricket/500/${t.id}.png` : ''),
     score: String(c.score || ''), batting: !!(cur && cur.isBatting), winner: bool(c.winner), order: Number(c.order) || 0,
   };
 }
-function newestDate(data) {
+function newestDate(data: Body) {
   let max = 0;
   for (const g of (data && data.scores) || []) for (const e of g.events || []) {
     const t = new Date(e.date).getTime();
@@ -139,24 +139,24 @@ async function loadCricket() {
   const tries = await Promise.all(CRICKET_URLS.map((u) => fetchJson(u(), { headers: { Accept: 'application/json' } }, 8000).catch(() => null)));
   const good = tries.filter((r) => r && r.ok && r.data && Array.isArray(r.data.scores));
   if (!good.length) throw new Error('cricket feed unavailable');
-  good.sort((a, b) => newestDate(b.data) - newestDate(a.data)); // freshest feed first
+  good.sort((a, b) => newestDate(b!.data) - newestDate(a!.data)); // freshest feed first
   const r = good[0];
   const now = Date.now();
   const out = [];
-  for (const group of r.data.scores || []) {
+  for (const group of r!.data.scores || []) {
     const league = (group.leagues && group.leagues[0] && group.leagues[0].name) || '';
     for (const e of group.events || []) {
       const comp = (e.competitions && e.competitions[0]) || {};
       const status = comp.status || e.status || {};
       const st = stateOf(status);
-      const teams = (comp.competitors || []).map(cricketTeam).sort((a, b) => a.order - b.order);
+      const teams = (comp.competitors || []).map(cricketTeam).sort((a?: Loose, b?: Loose) => a.order - b.order);
       if (teams.length < 2) continue;
       if (st.state === 'in' && now - new Date(e.date).getTime() > STALE_LIVE_MS) continue; // frozen old match
       out.push({
         id: String(e.id), league, title: comp.description || '', date: e.date, ...st,
         cat: cricketCategory(league, comp.description || '', teams),
         session: status.session || '', summary: status.summary || '', teams,
-        fav: FAVOURITE.test(teams.map((t) => t.name).join(' ') + ' ' + league) ? 1 : 0,
+        fav: FAVOURITE.test(teams.map((t?: Loose) => t.name).join(' ') + ' ' + league) ? 1 : 0,
       });
     }
   }
@@ -164,7 +164,7 @@ async function loadCricket() {
 }
 
 // ---------------------------------------------------------------- football
-function footballTeam(c) {
+function footballTeam(c?: Loose) {
   const t = c.team || {};
   return {
     name: t.shortDisplayName || t.displayName || t.name || '', short: t.abbreviation || '',
@@ -172,51 +172,51 @@ function footballTeam(c) {
     score: c.score === undefined || c.score === null ? '' : String(c.score), winner: bool(c.winner), home: c.homeAway === 'home',
   };
 }
-async function loadLeague(code) {
+async function loadLeague(code?: Loose) {
   const r = await fetchJson(FOOTBALL_URL(code), { headers: { Accept: 'application/json' } }, 8000);
   if (!r.ok || !r.data) return [];
   const leagueName = LEAGUE_BN[code] || (r.data.leagues && r.data.leagues[0] && r.data.leagues[0].name) || code;
-  return (r.data.events || []).map((e) => {
+  return (r.data.events || []).map((e?: Loose) => {
     const comp = (e.competitions && e.competitions[0]) || {};
     const status = comp.status || e.status || {};
     const st = stateOf(status);
-    const teams = (comp.competitors || []).map(footballTeam).sort((a, b) => (b.home ? 1 : 0) - (a.home ? 1 : 0));
-    const goals = (comp.details || []).filter((d) => d && d.scoringPlay && d.clock).slice(-8).map((d) => ({
+    const teams = (comp.competitors || []).map(footballTeam).sort((a?: Loose, b?: Loose) => (b.home ? 1 : 0) - (a.home ? 1 : 0));
+    const goals = (comp.details || []).filter((d?: Loose) => d && d.scoringPlay && d.clock).slice(-8).map((d?: Loose) => ({
       min: d.clock.displayValue || '', team: d.team && d.team.id, who: (d.athletesInvolved && d.athletesInvolved[0] && d.athletesInvolved[0].shortName) || '',
     }));
     return {
       id: String(e.id), league: leagueName, cat: code, date: e.date, ...st, clock: status.displayClock || '',
       venue: (comp.venue && comp.venue.fullName) || '', teams, goals,
-      fav: FAVOURITE.test(teams.map((t) => t.name).join(' ')) ? 1 : 0,
+      fav: FAVOURITE.test(teams.map((t?: Loose) => t.name).join(' ')) ? 1 : 0,
     };
-  }).filter((m) => m.teams.length === 2);
+  }).filter((m?: Loose) => m.teams.length === 2);
 }
-async function loadFootball(leagues) {
+async function loadFootball(leagues?: Loose) {
   // each league is cached on its own, so the admin overview and the store share the same requests
-  const lists = await Promise.all(leagues.map((l) => cached('fl:' + l, () => loadLeague(l)).catch(() => [])));
+  const lists = await Promise.all(leagues.map((l?: Loose) => cached('fl:' + l, () => loadLeague(l)).catch(() => [])));
   const all = lists.flat();
   return { sport: 'football', updated: new Date().toISOString(), matches: sortMatches(all) };
 }
 
-function footballLeagues(settings) {
+function footballLeagues(settings: Settings) {
   let list = DEFAULT_FOOTBALL;
   try { const v = JSON.parse(settings.live_football_leagues || 'null'); if (Array.isArray(v) && v.length) list = v; } catch (_) { /* default */ }
   return list.filter((x) => LEAGUE_BN[x]).slice(0, 15);
 }
 
-function cricketLeagues(settings) {
+function cricketLeagues(settings: Settings) {
   let list = DEFAULT_CRICKET;
   try { const v = JSON.parse(settings.live_cricket_leagues || 'null'); if (Array.isArray(v) && v.length) list = v; } catch (_) { /* default */ }
   return list.filter((x) => CRICKET_CODES.has(x));
 }
 
-async function scores(sport, settings) {
+async function scores(sport: Loose, settings: Settings) {
   if (sport === 'cricket') {
     const data = await cached('cricket', loadCricket);
     const allow = new Set(cricketLeagues(settings));
     const keepBd = settings.live_cricket_always_bd !== '0';
     // Bangladesh matches always stay (unless the admin turns that off); everything else follows the ticks.
-    return { ...data, matches: data.matches.filter((m) => allow.has(m.cat) || (keepBd && /bangladesh/i.test(m.teams.map((t) => t.name).join(' ')))) };
+    return { ...data, matches: data.matches.filter((m?: Loose) => allow.has(m.cat) || (keepBd && /bangladesh/i.test(m.teams.map((t?: Loose) => t.name).join(' ')))) };
   }
   const leagues = footballLeagues(settings);
   return cached('football:' + leagues.join(','), () => loadFootball(leagues));
@@ -232,12 +232,12 @@ const POPULAR = {
 
 // For the admin page: every competition (ticked or not) with what is running now and what starts soon.
 async function overview() {
-  const shortMatch = (m) => ({
-    id: m.id, state: m.state, date: m.date, league: m.league, title: m.title || '', bd: /bangladesh/i.test(m.teams.map((t) => t.name).join(' ')),
-    teams: m.teams.map((t) => ({ name: t.name, score: t.score })), status: m.summary || m.clock || m.detail || '',
+  const shortMatch = (m?: Loose) => ({
+    id: m.id, state: m.state, date: m.date, league: m.league, title: m.title || '', bd: /bangladesh/i.test(m.teams.map((t?: Loose) => t.name).join(' ')),
+    teams: m.teams.map((t?: Loose) => ({ name: t.name, score: t.score })), status: m.summary || m.clock || m.detail || '',
   });
-  const group = (matches) => {
-    const out = {};
+  const group = (matches?: Loose) => {
+    const out: Record<string, Loose> = {};
     const now = Date.now();
     for (const m of matches) {
       const g = out[m.cat] || (out[m.cat] = { live: [], soon: [] });
@@ -253,7 +253,7 @@ async function overview() {
   return { cricket, football };
 }
 
-function enabled(settings) {
+function enabled(settings: Settings) {
   return { cricket: settings.live_cricket === '1', football: settings.live_football === '1' };
 }
 

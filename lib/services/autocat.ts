@@ -104,7 +104,7 @@ const UNIVERSAL = /universal|1000 in 1|\d+ brands|master remote/;
 
 // ---------------------------------------------------------------- rules (first match wins)
 const R: Loose[] = [];
-const rule = (slug: Loose, re: Loose, not?: Loose) => R.push([slug, re, not || null]);
+const rule = (slug?: Loose, re?: Loose, not?: Loose) => R.push([slug, re, not || null]);
 // fashion / home first (their words are clear)
 rule('digital-products', /gift ?card|license key|licen[cs]e|activation key|product key|subscription|premium account|e-?book|online course|software|ডিজিটাল/);
 rule('packaging', /bubble ?wrap|carton|courier (bag|poly|flyer)|poly ?bag|polythene|zipper bag|zip ?lock bag|packaging|packing (box|bag|material)|stretch (film|wrap)|shrink wrap|mailer (bag|box)|প্যাকেজিং|কার্টন/);
@@ -158,12 +158,12 @@ rule('fuse', /fuse/);
 // last chance: an un-named board/module/circuit
 rule('circuits', /module|board|circuit|সার্কিট/);
 
-function norm(name: Loose) {
+function norm(name?: Loose) {
   return String(name || '').toLowerCase().replace(/[০-৯]/g, (d) => String('০১২৩৪৫৬৭৮৯'.indexOf(d))).replace(/[_]+/g, ' ').replace(/\s+/g, ' ');
 }
 
 // Remote? → { kind: 'ac-remote'|'tv-remote'|'box-remote', brand: slug|'universal'|null }
-function remoteOf(n: Loose) {
+function remoteOf(n?: Loose) {
   if (!/remote|রিমোট/.test(n)) return null;
   if (/(switch|lamp holder|remote control device|timer switch)/.test(n)) return null;
   let kind;
@@ -183,7 +183,7 @@ function remoteOf(n: Loose) {
 }
 
 // slug for one product name (remotes: the type; the brand is handled when applying)
-function classify(name: Loose) {
+function classify(name?: Loose) {
   const n = norm(name);
   const r = remoteOf(n);
   if (r) return { slug: r.kind, remote: r };
@@ -192,12 +192,12 @@ function classify(name: Loose) {
   }
   return null;
 }
-function suggest(name: Loose) { const c = classify(name); return c ? c.slug : null; }
+function suggest(name?: Loose) { const c = classify(name); return c ? c.slug : null; }
 
 // ---------------------------------------------------------------- saving
 function flatTree() {
   const out: Loose[] = [];
-  const walk = (nodes: Loose, parent: Loose) => nodes.forEach(([slug, name, icon, kids]: Loose[], i: number) => {
+  const walk = (nodes?: Loose, parent?: Loose) => nodes.forEach(([slug, name, icon, kids]: Loose[], i: number) => {
     out.push({ slug, name, icon, parent, sort: i });
     if (kids) walk(kids, slug);
   });
@@ -207,10 +207,10 @@ function flatTree() {
 const SEED_NAMES: Record<string, string> = { electronics: 'ইলেকট্রনিক্স', circuits: 'সার্কিট', components: 'কম্পোনেন্ট', soldering: 'সোল্ডারিং', electrical: 'ইলেকট্রিক্যাল', fashion: 'ফ্যাশন' };
 
 // Create (or put in place) the categories with these slugs, parents first. Returns slug → id.
-async function ensureCategories(t: Tx, wanted: Loose) {
+async function ensureCategories(t: Tx, wanted?: Loose) {
   const all = flatTree();
   const need = new Set<string>();
-  const add = (slug: Loose) => {
+  const add = (slug?: Loose) => {
     const node = all.find((x) => x.slug === slug) || wanted.extra.get(slug);
     if (!node || need.has(slug)) return;
     if (node.parent) add(node.parent);

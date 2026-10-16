@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // A tiny, safe text formatter for descriptions, pages and blog posts.
 // Everything is escaped first; only these patterns become HTML:
 //   ## Heading / ### Heading, - bullet, 1. numbered, **bold**, *italic*, [text](url),
@@ -6,24 +5,25 @@
 //   a line "/p/slug" → product card placeholder (filled by the caller),
 //   | a | b | rows → a table (first row = heading; a |---| row is skipped) — used for size charts.
 import { esc, youtubeId } from '../util';
+import type { Body, Loose, Settings } from '../types';
 
-function inline(s) {
+function inline(s?: Loose) {
   return s
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
     .replace(/(^|[\s(])\*(?!\s)(.+?)\*(?=[\s).,!?]|$)/g, '$1<em>$2</em>')
-    .replace(/\[([^\]]+)\]\(((?:https?:\/\/|\/)[^\s)]+)\)/g, (_, t, u) => `<a href="${u}"${u.startsWith('/') ? '' : ' rel="noopener nofollow" target="_blank"'}>${t}</a>`);
+    .replace(/\[([^\]]+)\]\(((?:https?:\/\/|\/)[^\s)]+)\)/g, (_?: Loose, t?: Loose, u?: Loose) => `<a href="${u}"${u.startsWith('/') ? '' : ' rel="noopener nofollow" target="_blank"'}>${t}</a>`);
 }
 
-function render(text, { productCard } = {}) {
+function render(text?: Loose, { productCard }: Body = {}) {
   const lines = String(text || '').replace(/\r/g, '').split('\n');
   const out = [];
-  let list = null;
-  let table = null;
+  let list: Loose = null;
+  let table: Loose = null;
   const closeTable = () => {
     if (!table) return;
     const [head, ...body] = table;
-    out.push(`<div class="table-scroll"><table class="md-table"><thead><tr>${head.map((c) => `<th>${inline(esc(c))}</th>`).join('')}</tr></thead>`
-      + `<tbody>${body.map((r) => `<tr>${head.map((_, i) => `<td>${inline(esc(r[i] || ''))}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`);
+    out.push(`<div class="table-scroll"><table class="md-table"><thead><tr>${head.map((c?: Loose) => `<th>${inline(esc(c))}</th>`).join('')}</tr></thead>`
+      + `<tbody>${body.map((r?: Loose) => `<tr>${head.map((_?: Loose, i?: Loose) => `<td>${inline(esc(r[i] || ''))}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`);
     table = null;
   };
   const close = () => { if (list) { out.push(`</${list}>`); list = null; } };
@@ -54,7 +54,7 @@ function render(text, { productCard } = {}) {
   closeTable();
   return out.join('\n');
 }
-function plain(text, max = 160) {
+function plain(text?: Loose, max: Loose = 160) {
   return String(text || '').replace(/[#*_[\]()>-]+/g, ' ').replace(/https?:\/\/\S+/g, '').replace(/\s+/g, ' ').trim().slice(0, max);
 }
 

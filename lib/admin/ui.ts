@@ -21,7 +21,7 @@ const MESSAGES: Record<string, Loose> = {
   noperm: { type: 'error', text: 'এই কাজের অনুমতি আপনার নেই। মালিকের সাথে কথা বলুন।' },
 };
 
-function flash(msg: Loose) {
+function flash(msg?: Loose) {
   if (!msg) return '';
   return html`<p class="flash ${msg.type === 'error' ? 'flash-error' : ''}" role="status">${msg.text}</p>`;
 }
@@ -32,16 +32,16 @@ function flashFrom(query: URLSearchParams) {
   return m ? (typeof m === 'string' ? { text: m } : m) : null;
 }
 
-function pill(text: Loose, cls: Loose = '') { return html`<span class="pill ${cls}">${text}</span>`; }
+function pill(text?: Loose, cls: Loose = '') { return html`<span class="pill ${cls}">${text}</span>`; }
 
 // ---------- form fields ----------
-function field(label: Loose, control: Loose, hint: Loose) {
+function field(label?: Loose, control?: Loose, hint?: Loose) {
   return html`<div class="field"><label>${label}${control}</label>${hint ? html`<small>${hint}</small>` : ''}</div>`;
 }
 // Money boxes accept paisa (৳0.25).
 const MONEY_FIELDS = new Set(['price', 'old_price', 'cost_price', 'amount', 'paid_amount', 'discount', 'delivery', 'shipping', 'other_cost',
   'vat', 'paid_now', 'opening_due', 'opening_balance', 'small_max_price', 'small_min_value', 'small_max_value']);
-function input(name: Loose, value: Loose, attrs: Loose = {}) {
+function input(name?: Loose, value?: Loose, attrs: Loose = {}) {
   if (attrs.type === 'number' && MONEY_FIELDS.has(name) && attrs.step === undefined) {
     attrs = { ...attrs, step: '0.01' };
     if (Number(attrs.min) === 1) attrs.min = '0.01';
@@ -50,30 +50,30 @@ function input(name: Loose, value: Loose, attrs: Loose = {}) {
     .map(([k, v]) => (v === true ? ` ${k}` : ` ${k}="${esc(v)}"`)).join('');
   return raw(`<input name="${esc(name)}" value="${esc(value ?? '')}"${a}>`);
 }
-function textarea(name: Loose, value: Loose, attrs: Loose = {}) {
+function textarea(name?: Loose, value?: Loose, attrs: Loose = {}) {
   const a = Object.entries(attrs).filter(([, v]) => v !== false && v !== null && v !== undefined)
     .map(([k, v]) => (v === true ? ` ${k}` : ` ${k}="${esc(v)}"`)).join('');
   return raw(`<textarea name="${esc(name)}"${a}>${esc(value ?? '')}</textarea>`);
 }
-function select(name: Loose, options: Body, value: Loose, attrs: Loose = {}) {
+function select(name: Loose, options: Body, value?: Loose, attrs: Loose = {}) {
   const a = Object.entries(attrs).filter(([, v]) => v !== false && v !== null && v !== undefined)
     .map(([k, v]) => (v === true ? ` ${k}` : ` ${k}="${esc(v)}"`)).join('');
   const opts = (Array.isArray(options) ? options : Object.entries(options))
     .map(([v, l]) => `<option value="${esc(v)}"${String(v) === String(value ?? '') ? ' selected' : ''}>${esc(l)}</option>`).join('');
   return raw(`<select name="${esc(name)}"${a}>${opts}</select>`);
 }
-function check(name: Loose, checked: Loose, label: Loose, value: Loose = '1') {
+function check(name?: Loose, checked?: Loose, label?: Loose, value: Loose = '1') {
   return html`<label class="check"><input type="checkbox" name="${name}" value="${value}" ${checked ? raw('checked') : ''}> <span>${label}</span></label>`;
 }
 // Big on/off switch with a title and explanation.
-function switchRow(name: Loose, on: Loose, title: Loose, desc: Loose) {
+function switchRow(name?: Loose, on?: Loose, title?: Loose, desc?: Loose) {
   return html`<label class="switch-row">
     <span class="switch-text"><b>${title}</b>${desc ? html`<small>${desc}</small>` : ''}</span>
     <span class="switch"><input type="checkbox" name="${name}" value="1" ${on ? raw('checked') : ''}><span class="switch-ui" aria-hidden="true"></span></span>
     <span class="switch-state" data-on="চালু" data-off="বন্ধ"></span></label>`;
 }
 // Image picker: uploads in the browser, keeps the media id in a hidden input.
-function imagePicker(name: Loose, mediaId: Id, { label = 'ছবি', hint = '', wide = false }: Body = {}) {
+function imagePicker(name?: Loose, mediaId?: Id, { label = 'ছবি', hint = '', wide = false }: Body = {}) {
   return html`<div class="field image-pick ${wide ? 'wide' : ''}" data-image-pick>
     <span class="label">${label}</span>
     <div class="pick-preview" data-pick-preview>${mediaId ? html`<img src="/media/${mediaId}/t" alt="">` : html`<span class="muted small">ছবি নেই</span>`}</div>
@@ -88,10 +88,10 @@ function imagePicker(name: Loose, mediaId: Id, { label = 'ছবি', hint = '',
   </div>`;
 }
 
-function pager(total: Loose, page: Loose, perPage: Loose, baseUrl: Loose) {
+function pager(total?: Loose, page?: Loose, perPage?: Loose, baseUrl?: Loose) {
   const pages = Math.ceil(total / perPage);
   if (pages <= 1) return '';
-  const link = (p: Loose) => baseUrl + (baseUrl.includes('?') ? '&' : '?') + 'page=' + p;
+  const link = (p?: Loose) => baseUrl + (baseUrl.includes('?') ? '&' : '?') + 'page=' + p;
   const items = [];
   for (let p = Math.max(1, page - 2); p <= Math.min(pages, page + 2); p++) items.push(p);
   return html`<nav class="pager" aria-label="পেজ">
@@ -102,7 +102,7 @@ function pager(total: Loose, page: Loose, perPage: Loose, baseUrl: Loose) {
   </nav>`;
 }
 
-function dateFilter(path: Loose, from: Loose, to: Loose, extra: Loose = '') {
+function dateFilter(path?: Loose, from?: Loose, to?: Loose, extra: Loose = '') {
   const presets = [[7, '৭ দিন'], [30, '৩০ দিন'], [90, '৯০ দিন'], [365, '১ বছর']];
   return html`<form class="date-filter" method="get" action="${path}">
     ${raw(extra)}
@@ -113,19 +113,19 @@ function dateFilter(path: Loose, from: Loose, to: Loose, extra: Loose = '') {
   </form>`;
 }
 
-function kpi(label: Loose, value: Loose, sub: Loose, cls: Loose = '', href: Loose = '') {
+function kpi(label?: Loose, value?: Loose, sub?: Loose, cls: Loose = '', href: Loose = '') {
   const body = html`<span class="kpi-label">${label}</span><b class="kpi-value">${value}</b>${sub ? html`<span class="kpi-sub">${sub}</span>` : ''}`;
   return href ? html`<a class="kpi ${cls}" href="${href}">${body}</a>` : html`<div class="kpi ${cls}">${body}</div>`;
 }
 
 // Category choices as a tree: "📟 ইলেকট্রনিক্স", "　└ সার্কিট ও মডিউল", "　　└ অডিও অ্যামপ্লিফায়ার বোর্ড"
-function catOpts(categories: Loose) {
+function catOpts(categories?: Loose) {
   const { categoryOptions } = $models_catalog;
   return categoryOptions(categories).map((c) => [c.id, c.depth ? `${'\u3000'.repeat(c.depth)}└ ${c.name}` : `${c.icon} ${c.name}`]);
 }
 
 // "কাজ" column for admin lists: ✏️ edit, optional on/off switch, optional 🗑️ delete (goes to the recycle bin).
-function rowSwitch(action: Loose, on: Loose, label: Loose) {
+function rowSwitch(action?: Loose, on?: Loose, label?: Loose) {
   return html`<form method="post" action="${action}" class="prod-toggle">
     <label class="switch" title="${label}"><input type="checkbox" name="active" value="1" ${on ? raw('checked') : ''} data-prod-toggle aria-label="${label}"><span class="switch-ui" aria-hidden="true"></span></label>
     <span class="small prod-toggle-text" data-prod-toggle-text>${on ? 'চালু' : 'বন্ধ'}</span><noscript><button class="btn btn-sm btn-ghost">সেভ</button></noscript></form>`;
@@ -136,7 +136,7 @@ function rowActions({ edit, del, delConfirm, editLabel = '✏️ এডিট' }
 }
 
 // One "পণ্য আমদানি" place with two ways in (tabs at the top of both pages)
-function importTabs(current: Loose) {
+function importTabs(current?: Loose) {
   const tabs = [
     ['import', '/admin/products/import', '📥', 'লিংক বা ফাইল থেকে আমদানি', 'ফিড লিংক, একটা পণ্যের লিংক, CSV / Excel'],
     ['old', '/admin/products/more-photos', '📸', 'পুরোনো সাইট থেকে সব পণ্য ও ছবি', 'বাকি পণ্য যোগ + প্রতিটা পণ্যের সব ছবি'],
@@ -144,11 +144,11 @@ function importTabs(current: Loose) {
   return html`<nav class="imp-tabs" aria-label="পণ্য আমদানির ধরন">${tabs.map(([k, href, ic, t, d]) => html`<a href="${href}" class="imp-tab ${k === current ? 'on' : ''}"${k === current ? raw(' aria-current="page"') : ''}><span class="imp-tab-ic">${ic}</span><span><b>${t}</b><small>${d}</small></span></a>`)}</nav>`;
 }
 
-function empty(text: Loose, action: Loose) {
+function empty(text?: Loose, action?: Loose) {
   return html`<div class="empty panel"><p>${text}</p>${action || ''}</div>`;
 }
 
-function helpBox(title: Loose, body: Loose) {
+function helpBox(title?: Loose, body?: Loose) {
   return html`<details class="help"><summary>💡 ${title}</summary><div>${body}</div></details>`;
 }
 

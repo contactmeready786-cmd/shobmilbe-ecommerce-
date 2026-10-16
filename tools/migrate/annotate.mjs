@@ -12,7 +12,7 @@ const acornPath = ['/opt/npm-tools/node_modules/acorn', '/opt/node-tools/node_mo
 const acorn = createRequire(import.meta.url)(acornPath || 'acorn');
 
 const BY_NAME = [
-  [/^(settings|s|s2)$/, 'Settings'], [/^req$/, 'ShopRequest'], [/^res$/, 'ShopResponse'],
+  [/^(settings|s2)$/, 'Settings'], [/^req$/, 'ShopRequest'], [/^res$/, 'ShopResponse'],
   [/^ctx$/, 'AdminCtx'], [/^base$/, 'Base'], [/^query$/, 'URLSearchParams'], [/^user$/, 'StaffUser'],
   [/^(id|[a-z]+Id)$/, 'Id'], [/^(b|data|input|opts|options|f|filter)$/, 'Body'],
   [/^(row|r|o|p|order|product|item|it|c|cat|category|customer|cust|card|x|v|e|rec|sub|msg|post|page|line|l|m)$/, 'Loose'],

@@ -134,14 +134,14 @@ async function forPhone(phone: unknown): Promise<DbRow[]> {
   const ph = normalizePhone(phone);
   return db.q(`SELECT * FROM gift_cards WHERE (recipient_phone=$1 OR buyer_phone=$1) ORDER BY id DESC LIMIT 30`, [ph]);
 }
-async function setStatus(id: unknown, status: string, staffId: Id, note = '') {
+async function setStatus(id: unknown, status: string, staffId?: Id, note = '') {
   if (!STATUSES[status]) throw new GiftError('অজানা অবস্থা।');
   const c = await db.one(`UPDATE gift_cards SET status=$1, activated_at = CASE WHEN $1='active' THEN coalesce(activated_at, now()) ELSE activated_at END,
     note = CASE WHEN $3<>'' THEN left(note || ' ' || $3, 300) ELSE note END WHERE id=$2 RETURNING *`, [status, int(id), str(note, 100)]);
   if (c) await db.q('INSERT INTO gift_card_ledger(card_id, amount, balance, note, staff_id) VALUES($1,0,$2,$3,$4)', [c.id, c.balance, `অবস্থা: ${STATUSES[status]}`, staffId]);
   return c;
 }
-async function adjust(id: unknown, change: unknown, note: unknown, staffId: Id) {
+async function adjust(id: unknown, change: unknown, note: unknown, staffId?: Id) {
   return db.tx(async (t) => {
     const c = (await t.query('SELECT * FROM gift_cards WHERE id=$1 FOR UPDATE', [int(id)])).rows[0];
     if (!c) throw new GiftError('কার্ড পাওয়া যায়নি।');

@@ -38,7 +38,7 @@ async function saveMedia({ mime, data, thumb, width, height, ownerType = null, o
   return row!.id;
 }
 // A picture that has to stay private (staff photo): bring it back from ImageKit into the database.
-async function keepPrivate(id: Id): Promise<void> {
+async function keepPrivate(id?: Id): Promise<void> {
   const m = await one('SELECT ik_url, ik_id FROM media WHERE id=$1', [int(id)]);
   if (!m || !m.ik_url) return;
   const r = await fetch(m.ik_url, { signal: AbortSignal.timeout(15000) });
@@ -78,7 +78,7 @@ async function getWatermarked(id: Id, ver: string): Promise<DbRow | null> {
   return one(`SELECT mime, CASE WHEN wm IS NOT NULL AND wm_ver = $2 THEN wm END AS wm, CASE WHEN wm_url IS NOT NULL AND wm_ver = $2 THEN wm_url END AS wm_url, data, ik_url FROM media WHERE id=$1
     AND (owner_type IS NULL OR owner_type NOT IN ('staff', 'trash:staff', 'return', 'complaint', 'review_wait'))`, [id, ver]);
 }
-async function getMedia(id: Id, wantThumb?: boolean): Promise<DbRow | null> {
+async function getMedia(id?: Id, wantThumb?: boolean): Promise<DbRow | null> {
   // staff profile pictures are private: only the admin sees them (/admin/avatar/<staff id>)
   return one(`SELECT mime, ${wantThumb ? 'coalesce(thumb, data)' : 'data'} AS data, ik_url FROM media WHERE id=$1
     AND (owner_type IS NULL OR owner_type NOT IN ('staff', 'trash:staff', 'return', 'complaint', 'review_wait'))`, [id]);
@@ -99,7 +99,7 @@ async function claimMedia(id: Id, ownerType: string, ownerId: number = 0): Promi
   await q(`UPDATE media SET owner_type=$1, owner_id=$2 WHERE id=$3 AND owner_type IS NULL`, [ownerType, ownerId, int(id)]);
   return int(id);
 }
-async function deleteMedia(id: Id): Promise<void> { if (int(id)) await q('DELETE FROM media WHERE id=$1', [int(id)]); }
+async function deleteMedia(id?: Id): Promise<void> { if (int(id)) await q('DELETE FROM media WHERE id=$1', [int(id)]); }
 async function cleanupMedia(): Promise<void> {
   await q(`DELETE FROM media WHERE owner_type IS NULL AND created_at < now() - interval '1 day'`);
 }
@@ -153,7 +153,7 @@ function categoryOptions(list: DbRow[]): CategoryNode[] {
   return out;
 }
 // ids of a category and everything inside it
-async function categorySubtree(id: Id): Promise<number[]> {
+async function categorySubtree(id?: Id): Promise<number[]> {
   return (await q(`WITH RECURSIVE t AS (SELECT id FROM categories WHERE id=$1
     UNION SELECT c.id FROM categories c JOIN t ON c.parent_id=t.id) SELECT id FROM t`, [int(id)])).map((r) => r.id);
 }
@@ -317,7 +317,7 @@ async function getProduct({ id, slug, public: pub = false }: { id?: Id; slug?: s
   return p;
 }
 // The variants of a product (size / colour / model …), in the owner's order. Shop side: only the ones switched on.
-async function listVariants(parentId: Id, { public: pub = false }: { public?: boolean } = {}): Promise<DbRow[]> {
+async function listVariants(parentId?: Id, { public: pub = false }: { public?: boolean } = {}): Promise<DbRow[]> {
   return q(`SELECT ${colsFor({ public: pub })} FROM products p LEFT JOIN categories c ON c.id=p.category_id
     WHERE p.parent_id=$1 ${pub ? 'AND p.active' : ''} ORDER BY p.variant_sort, p.id`, [int(parentId)]);
 }
@@ -387,7 +387,7 @@ function cleanKeywords(v: unknown): string {
 const n2 = (v: unknown): number | null => (v === null || v === undefined || v === '' ? null : Math.round(Number(v) * 100) / 100);
 function moneyTxt(v: number | null): string { return v === null ? 'নেই' : '৳' + (Number.isInteger(v) ? v : v.toFixed(2)); }
 type PriceFields = { price?: unknown; old_price?: unknown; cost_price?: unknown; name?: unknown };
-async function logPriceChange(t: Tx, productId: number, before: PriceFields, after: PriceFields, staffId: Id, via = ''): Promise<void> {
+async function logPriceChange(t: Tx, productId: number, before: PriceFields, after: PriceFields, staffId?: Id, via = ''): Promise<void> {
   const parts: string[] = [];
   if (after.price !== undefined && n2(before.price) !== n2(after.price)) parts.push(`বিক্রির দাম ${moneyTxt(n2(before.price))} → ${moneyTxt(n2(after.price))}`);
   if (after.old_price !== undefined && n2(before.old_price) !== n2(after.old_price)) parts.push(`আগের দাম ${moneyTxt(n2(before.old_price))} → ${moneyTxt(n2(after.old_price))}`);
@@ -411,7 +411,7 @@ async function priceHistory(productId: number, { withCost = false, limit = 30 }:
 // 📒 One product's own book: every time stock came in (when, how many, at what price, from whom), every stock change,
 // and what its sales earned. Sales and profit come from the orders themselves (price and buying price are saved on
 // each order line when it is sold) — nobody types the profit. Cancelled / returned orders don't count.
-async function productLedger(productId: Id, { limit = 200 }: { limit?: number } = {}) {
+async function productLedger(productId?: Id, { limit = 200 }: { limit?: number } = {}) {
   const id = int(productId);
   const [buys, moves, sales] = await Promise.all([
     q(`SELECT m.id, m.created_at, m.change, m.reason, m.unit_cost, m.note, m.ref_type, m.ref_id,
@@ -446,7 +446,7 @@ async function productLedger(productId: Id, { limit = 200 }: { limit?: number } 
 
 // The buying price was wrong (typed by mistake, or never given): put it right, with a reason. It is written in the price
 // history with who, when and why, and only changes what future sales count as cost — sales already made keep theirs.
-async function correctCost(productId: Id, cost: unknown, reason: unknown, staffId: Id): Promise<boolean> {
+async function correctCost(productId: Id, cost: unknown, reason: unknown, staffId?: Id): Promise<boolean> {
   const why = str(reason, 150);
   if (!why) throw new Error('কেন বদলাচ্ছেন লিখুন (যেমন: ভুল দাম বসানো ছিল)।');
   const c = amount(cost);
@@ -547,7 +547,7 @@ function cleanSpecs(keys: unknown, vals: unknown): [string, string][] {
 // related = "একই রকম আরও পণ্য" (replaces the automatic same-category list), cross = "এর সাথে যা লাগবে"
 // (also suggested in the cart), upsell = "আরও ভালো বিকল্প".
 const LINK_KINDS: Record<string, string> = { related: 'একই রকম পণ্য', cross: 'এর সাথে যা লাগবে (ক্রস-সেল)', upsell: 'আরও ভালো বিকল্প (আপসেল)' };
-async function linkedSkus(productId: Id): Promise<Record<string, string[]>> {
+async function linkedSkus(productId?: Id): Promise<Record<string, string[]>> {
   const rows = await q(`SELECT l.kind, p.sku FROM product_links l JOIN products p ON p.id=l.linked_id WHERE l.product_id=$1 ORDER BY l.kind, l.sort`, [int(productId)]);
   const out: Record<string, string[]> = { related: [], cross: [], upsell: [] };
   rows.forEach((r) => { if (out[r.kind]) out[r.kind].push(r.sku); });
@@ -593,7 +593,7 @@ async function findRedirect(path: string): Promise<string | null> {
 }
 
 // Create or update a product with its images and bundle parts. Returns the id.
-async function saveProduct(data: Body, staffId: Id): Promise<number> {
+async function saveProduct(data: Body, staffId?: Id): Promise<number> {
   const type = data.product_type === 'bundle' ? 'bundle' : 'single';
   const hasVariants = int(data.id) ? !!(await one('SELECT 1 AS x FROM products WHERE id=$1 AND variant_count > 0', [int(data.id)])) : false;
   if (!hasVariants) { const pp = priceProblem(shopPrice(amount(data.price)), 'বিক্রির দাম'); if (pp) throw new Error(pp); }
@@ -730,7 +730,7 @@ async function syncVariants(t: Tx, parentId: number): Promise<void> {
 }
 // rows: [{ id?, label, price, old_price, cost_price?, stock, sku, image_id, active, remove }] — from the variants page.
 // withCost: only the owner may set buying prices.
-async function saveVariants(parentId: Id, { title, rows }: { title: unknown; rows: Body[] }, staffId: Id, { withCost = false }: { withCost?: boolean } = {}): Promise<{ removed: number[] }> {
+async function saveVariants(parentId: Id, { title, rows }: { title: unknown; rows: Body[] }, staffId?: Id, { withCost = false }: { withCost?: boolean } = {}): Promise<{ removed: number[] }> {
   return tx(async (t) => {
     const parent = (await t.query('SELECT * FROM products WHERE id=$1 FOR UPDATE', [int(parentId)])).rows[0];
     if (!parent) throw new Error('পণ্য পাওয়া যায়নি।');
@@ -818,7 +818,7 @@ async function deleteAllProducts(): Promise<number> {
     return n;
   });
 }
-async function duplicateProduct(id: number, staffId: Id): Promise<number | null> {
+async function duplicateProduct(id: number, staffId?: Id): Promise<number | null> {
   const p = await getProduct({ id });
   if (!p) return null;
   return saveProduct({ ...p, id: null, name: p.name + ' (কপি)', sku: '', active: false, images: [], stock: 0, allow_duplicate: false,

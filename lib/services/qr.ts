@@ -1,4 +1,4 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
+import type { Body, Loose } from '../types';
 // Tiny QR code maker (no outside library): text → SVG picture.
 // Byte mode, error-correction level M, versions 1–14 (up to ~330 characters) — plenty for the
 // Google Authenticator setup link. Follows the QR standard (ISO/IEC 18004); the structure mirrors
@@ -10,7 +10,7 @@ const NUM_BLOCKS = [0, 1, 1, 1, 2, 2, 4, 4, 4, 5, 5, 5, 8, 9, 9, 10];
 const MAX_VERSION = 14; // ~330 characters (each size tested with a real QR reader) — the setup link needs about 130
 const FORMAT_BITS_M = 0; // level M = 00 in the format bits
 
-function rawModules(ver) {
+function rawModules(ver?: Loose) {
   let r = (16 * ver + 128) * ver + 64;
   if (ver >= 2) {
     const n = Math.floor(ver / 7) + 2;
@@ -19,10 +19,10 @@ function rawModules(ver) {
   }
   return r;
 }
-const dataCodewords = (ver) => Math.floor(rawModules(ver) / 8) - ECC_PER_BLOCK[ver] * NUM_BLOCKS[ver];
+const dataCodewords = (ver?: Loose) => Math.floor(rawModules(ver) / 8) - ECC_PER_BLOCK[ver] * NUM_BLOCKS[ver];
 
 // ---------------------------------------------------------------- Reed-Solomon over GF(256), poly 0x11D
-function gfMul(x, y) {
+function gfMul(x?: Loose, y?: Loose) {
   let z = 0;
   for (let i = 7; i >= 0; i--) {
     z = (z << 1) ^ ((z >>> 7) * 0x11d);
@@ -30,7 +30,7 @@ function gfMul(x, y) {
   }
   return z & 0xff;
 }
-function rsDivisor(degree) {
+function rsDivisor(degree?: Loose) {
   const r = new Array(degree).fill(0);
   r[degree - 1] = 1;
   let root = 1;
@@ -43,18 +43,18 @@ function rsDivisor(degree) {
   }
   return r;
 }
-function rsRemainder(data, divisor) {
+function rsRemainder(data?: Loose, divisor?: Loose) {
   const r = divisor.map(() => 0);
   for (const b of data) {
     const factor = b ^ r.shift();
     r.push(0);
-    divisor.forEach((coef, i) => { r[i] ^= gfMul(coef, factor); });
+    divisor.forEach((coef?: Loose, i?: Loose) => { r[i] ^= gfMul(coef, factor); });
   }
   return r;
 }
 
 // ---------------------------------------------------------------- encoder
-function encode(text) {
+function encode(text?: Loose) {
   const bytes = [...Buffer.from(String(text), 'utf8')];
   let ver = 1;
   for (; ver <= MAX_VERSION; ver++) {
@@ -65,8 +65,8 @@ function encode(text) {
   if (ver > MAX_VERSION) throw new Error('QR: text too long');
 
   // data bits
-  const bits = [];
-  const put = (val, len) => { for (let i = len - 1; i >= 0; i--) bits.push((val >>> i) & 1); };
+  const bits: Loose[] = [];
+  const put = (val?: Loose, len?: Loose) => { for (let i = len - 1; i >= 0; i--) bits.push((val >>> i) & 1); };
   put(0x4, 4);
   put(bytes.length, ver <= 9 ? 8 : 16);
   bytes.forEach((b) => put(b, 8));
@@ -92,7 +92,7 @@ function encode(text) {
     if (i < shortBlocks) dat.push(0); // placeholder so all blocks line up
     blocks.push(dat.concat(ecc));
   }
-  const all = [];
+  const all: Loose[] = [];
   for (let i = 0; i < blocks[0].length; i++) {
     blocks.forEach((b, j) => { if (i !== shortLen - eccLen || j >= shortBlocks) all.push(b[i]); });
   }
@@ -100,12 +100,12 @@ function encode(text) {
   const size = ver * 4 + 17;
   const mod = Array.from({ length: size }, () => new Array(size).fill(false));
   const fn = Array.from({ length: size }, () => new Array(size).fill(false));
-  const set = (x, y, dark) => { mod[y][x] = dark; fn[y][x] = true; };
+  const set = (x?: Loose, y?: Loose, dark?: Loose) => { mod[y][x] = dark; fn[y][x] = true; };
 
   // timing patterns
   for (let i = 0; i < size; i++) { set(6, i, i % 2 === 0); set(i, 6, i % 2 === 0); }
   // finder patterns
-  const finder = (cx, cy) => {
+  const finder = (cx?: Loose, cy?: Loose) => {
     for (let dy = -4; dy <= 4; dy++) {
       for (let dx = -4; dx <= 4; dx++) {
         const d = Math.max(Math.abs(dx), Math.abs(dy));
@@ -129,12 +129,12 @@ function encode(text) {
     for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) set(ax + dx, ay + dy, Math.max(Math.abs(dx), Math.abs(dy)) !== 1);
   }));
   // format bits (drawn properly once the mask is known)
-  const drawFormat = (mask) => {
+  const drawFormat = (mask?: Loose) => {
     const d = (FORMAT_BITS_M << 3) | mask;
     let rem = d;
     for (let i = 0; i < 10; i++) rem = (rem << 1) ^ ((rem >>> 9) * 0x537);
     const b = ((d << 10) | rem) ^ 0x5412;
-    const bit = (i) => ((b >>> i) & 1) !== 0;
+    const bit = (i?: Loose) => ((b >>> i) & 1) !== 0;
     for (let i = 0; i <= 5; i++) set(8, i, bit(i));
     set(8, 7, bit(6)); set(8, 8, bit(7)); set(7, 8, bit(8));
     for (let i = 9; i < 15; i++) set(14 - i, 8, bit(i));
@@ -172,17 +172,17 @@ function encode(text) {
   }
 
   const MASKS = [
-    (x, y) => (x + y) % 2 === 0, (x, y) => y % 2 === 0, (x) => x % 3 === 0, (x, y) => (x + y) % 3 === 0,
-    (x, y) => (Math.floor(x / 3) + Math.floor(y / 2)) % 2 === 0, (x, y) => ((x * y) % 2) + ((x * y) % 3) === 0,
-    (x, y) => (((x * y) % 2) + ((x * y) % 3)) % 2 === 0, (x, y) => (((x + y) % 2) + ((x * y) % 3)) % 2 === 0,
+    (x?: Loose, y?: Loose) => (x + y) % 2 === 0, (x?: Loose, y?: Loose) => y % 2 === 0, (x?: Loose) => x % 3 === 0, (x?: Loose, y?: Loose) => (x + y) % 3 === 0,
+    (x?: Loose, y?: Loose) => (Math.floor(x / 3) + Math.floor(y / 2)) % 2 === 0, (x?: Loose, y?: Loose) => ((x * y) % 2) + ((x * y) % 3) === 0,
+    (x?: Loose, y?: Loose) => (((x * y) % 2) + ((x * y) % 3)) % 2 === 0, (x?: Loose, y?: Loose) => (((x + y) % 2) + ((x * y) % 3)) % 2 === 0,
   ];
-  const applyMask = (m) => {
+  const applyMask = (m?: Loose) => {
     for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) if (!fn[y][x] && MASKS[m](x, y)) mod[y][x] = !mod[y][x];
   };
   // pick the mask with the lowest penalty (the standard's four rules)
   const penalty = () => {
     let p = 0;
-    const line = (get) => {
+    const line = (get?: Loose) => {
       for (let a = 0; a < size; a++) {
         let run = 1;
         for (let b = 1; b <= size; b++) {
@@ -192,13 +192,13 @@ function encode(text) {
         for (let b = 0; b + 10 < size + 1; b++) {
           const s = Array.from({ length: 11 }, (_, k) => (b + k < size ? get(a, b + k) : false));
           const pat = [true, false, true, true, true, false, true];
-          const at = (o) => pat.every((v, k) => s[o + k] === v);
+          const at = (o?: Loose) => pat.every((v, k) => s[o + k] === v);
           if (b + 11 <= size && ((at(0) && !s[7] && !s[8] && !s[9] && !s[10]) || (!s[0] && !s[1] && !s[2] && !s[3] && at(4)))) p += 40;
         }
       }
     };
-    line((a, b) => mod[a][b]);
-    line((a, b) => mod[b][a]);
+    line((a?: Loose, b?: Loose) => mod[a][b]);
+    line((a?: Loose, b?: Loose) => mod[b][a]);
     for (let y = 0; y < size - 1; y++) {
       for (let x = 0; x < size - 1; x++) {
         const c = mod[y][x];
@@ -223,7 +223,7 @@ function encode(text) {
 }
 
 // SVG with a 4-module quiet zone. Dark = #000 on white, so any phone camera reads it.
-function svg(text, { px = 220, label = 'QR' } = {}) {
+function svg(text?: Loose, { px = 220, label = 'QR' }: Body = {}) {
   const { size, modules } = encode(text);
   const n = size + 8;
   let path = '';

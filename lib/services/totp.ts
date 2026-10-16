@@ -1,10 +1,10 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // Two-step login codes (TOTP, RFC 6238) — the 6-digit code that changes every 30 seconds in
 // Google Authenticator / Microsoft Authenticator / Authy. Works without internet on the phone.
 import * as crypto from 'node:crypto';
+import type { Loose, Settings } from '../types';
 
 const B32 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
-function base32(buf) {
+function base32(buf?: Loose) {
   let bits = 0; let val = 0; let out = '';
   for (const b of buf) {
     val = (val << 8) | b; bits += 8;
@@ -13,7 +13,7 @@ function base32(buf) {
   if (bits > 0) out += B32[(val << (5 - bits)) & 31];
   return out;
 }
-function unbase32(s) {
+function unbase32(s: Settings) {
   const clean = String(s || '').toUpperCase().replace(/[^A-Z2-7]/g, '');
   let bits = 0; let val = 0; const out = [];
   for (const ch of clean) {
@@ -25,9 +25,9 @@ function unbase32(s) {
 
 const newSecret = () => base32(crypto.randomBytes(20)); // 160 bits, as the standard recommends
 const STEP = 30;
-const stepNow = (t = Date.now()) => Math.floor(t / 1000 / STEP);
+const stepNow = (t: Loose = Date.now()) => Math.floor(t / 1000 / STEP);
 
-function codeAt(secret, step) {
+function codeAt(secret?: Loose, step?: Loose) {
   const msg = Buffer.alloc(8);
   msg.writeBigUInt64BE(BigInt(step));
   const h = crypto.createHmac('sha1', unbase32(secret)).update(msg).digest();
@@ -38,8 +38,8 @@ function codeAt(secret, step) {
 
 // Accepts the code of this 30-second window or the one before/after (phone clock a little off).
 // Returns the matched step (so the same code can't be used twice), or null.
-function check(secret, code, lastStep = 0) {
-  const c = String(code || '').replace(/[০-৯]/g, (d) => '০১২৩৪৫৬৭৮৯'.indexOf(d)).replace(/\D/g, '');
+function check(secret?: Loose, code?: Loose, lastStep: Loose = 0) {
+  const c = String(code || '').replace(/[০-৯]/g, (d) => String('০১২৩৪৫৬৭৮৯'.indexOf(d))).replace(/\D/g, '');
   if (!secret || c.length !== 6) return null;
   const now = stepNow();
   for (const s of [now, now - 1, now + 1]) {
@@ -51,11 +51,11 @@ function check(secret, code, lastStep = 0) {
 }
 
 // The link the authenticator app reads (shown as a QR code).
-function uri(secret, account, issuer) {
+function uri(secret?: Loose, account?: Loose, issuer?: Loose) {
   const iss = String(issuer || 'Shop').replace(/:/g, '');
   return `otpauth://totp/${encodeURIComponent(iss)}:${encodeURIComponent(account)}?secret=${secret}&issuer=${encodeURIComponent(iss)}&algorithm=SHA1&digits=6&period=${STEP}`;
 }
 // "JBSW Y3DP EHPK …" — easier to type by hand
-const pretty = (secret) => String(secret).replace(/(.{4})/g, '$1 ').trim();
+const pretty = (secret?: Loose) => String(secret).replace(/(.{4})/g, '$1 ').trim();
 
 export { newSecret, check, codeAt, stepNow, uri, pretty, base32, unbase32 };

@@ -27,7 +27,7 @@ function isMobile(req: ShopRequest) { return /Android|iPhone|iPod|iPad|Mobile|Op
 
 // What this login still needs, given the mode, the device and what is already passed.
 //   passed = { passkey: bool, face: bool }
-function needs(settings: Settings, req: ShopRequest, passed: Loose) {
+function needs(settings: Settings, req: ShopRequest, passed?: Loose) {
   const m = mode(settings);
   if (m === 'off') return null;
   return passed.passkey ? null : 'passkey';
@@ -45,13 +45,13 @@ function origin(req: ShopRequest) {
 }
 
 // ---------------------------------------------------------------- base64url
-const b64u = (buf: Loose) => Buffer.from(buf).toString('base64url');
+const b64u = (buf?: Loose) => Buffer.from(buf).toString('base64url');
 const fromB64u = (s: Settings) => Buffer.from(String(s || ''), 'base64url');
 
 // ---------------------------------------------------------------- tiny CBOR reader (enough for WebAuthn)
-function cborDecode(buf: Loose, start: Loose = 0) {
+function cborDecode(buf?: Loose, start: Loose = 0) {
   let pos = start;
-  function len(info: Loose) {
+  function len(info?: Loose) {
     if (info < 24) return info;
     if (info === 24) return buf.readUInt8(pos++);
     if (info === 25) { const v = buf.readUInt16BE(pos); pos += 2; return v; }
@@ -85,7 +85,7 @@ function cborDecode(buf: Loose, start: Loose = 0) {
 }
 
 // COSE public key -> Node KeyObject
-function coseToKey(cose: Loose) {
+function coseToKey(cose?: Loose) {
   const kty = cose.get(1);
   const alg = cose.get(3);
   let jwk;
@@ -103,7 +103,7 @@ function coseToKey(cose: Loose) {
   return { key: crypto.createPublicKey({ key: jwk, format: 'jwk' }), alg };
 }
 
-function parseAuthData(ad: Loose): Loose {
+function parseAuthData(ad?: Loose): Loose {
   if (!Buffer.isBuffer(ad) || ad.length < 37) throw new Error('authenticator data too short');
   const out: { rpIdHash: Buffer; flags: number; signCount: number; up?: boolean; uv?: boolean; credId?: Buffer; cose?: Loose } = { rpIdHash: ad.subarray(0, 32), flags: ad[32], signCount: ad.readUInt32BE(33) };
   out.up = !!(out.flags & 0x01);
@@ -126,7 +126,7 @@ function checkClientData(clientDataJSON: Loose, type: Loose, challenge: Loose, r
   if (cd.origin !== origin(req)) throw new Error('অন্য ঠিকানা থেকে উত্তর এসেছে');
 }
 
-function verifySig(alg: Loose, keyPem: Loose, data: Buffer, sig: Loose) {
+function verifySig(alg: Loose, keyPem: Loose, data: Buffer, sig?: Loose) {
   const key = crypto.createPublicKey(keyPem);
   if (alg === -7) return crypto.verify('sha256', data, { key, dsaEncoding: 'der' }, sig);
   if (alg === -35) return crypto.verify('sha384', data, { key, dsaEncoding: 'der' }, sig);
@@ -138,27 +138,27 @@ function verifySig(alg: Loose, keyPem: Loose, data: Buffer, sig: Loose) {
 
 // ---------------------------------------------------------------- challenges (signed cookie + one-time use)
 const CHALLENGE_SECONDS = 300;
-function newChallenge(purpose: Loose, staffId: Id, extra: Loose = '') {
+function newChallenge(purpose?: Loose, staffId?: Id, extra: Loose = '') {
   const c = b64u(crypto.randomBytes(32));
   const exp = Date.now() + CHALLENGE_SECONDS * 1000;
   return { challenge: c, value: `${purpose}|${staffId}|${c}|${exp}|${extra}` };
 }
-function readChallenge(value: Loose, purpose: Loose, staffId: Id) {
+function readChallenge(value?: Loose, purpose?: Loose, staffId?: Id) {
   if (!value) return null;
   const [p, id, c, exp, extra] = String(value).split('|');
   if (p !== purpose || Number(id) !== Number(staffId) || !c || Date.now() > Number(exp)) return null;
   return { challenge: c, extra: extra || '' };
 }
 // A challenge may be answered once; a copied answer can't be sent again.
-async function useOnce(db: Loose, challenge: Loose) { return security.hit(db, 'chal:' + challenge, 1, CHALLENGE_SECONDS + 60); }
+async function useOnce(db?: Loose, challenge?: Loose) { return security.hit(db, 'chal:' + challenge, 1, CHALLENGE_SECONDS + 60); }
 
 // ---------------------------------------------------------------- passkeys
-async function passkeys(staffId: Id) {
+async function passkeys(staffId?: Id) {
   return q('SELECT id, cred_id, rp_id, name, transports, created_at, last_used FROM owner_passkeys WHERE staff_id=$1 ORDER BY id', [staffId]);
 }
-async function passkeysFor(staffId: Id, rp: Loose) { return (await passkeys(staffId)).filter((k) => k.rp_id === rp); }
+async function passkeysFor(staffId?: Id, rp?: Loose) { return (await passkeys(staffId)).filter((k) => k.rp_id === rp); }
 
-function registrationOptions(req: ShopRequest, user: StaffUser, settings: Settings, challenge: Loose, existing: Loose) {
+function registrationOptions(req: ShopRequest, user: StaffUser, settings: Settings, challenge?: Loose, existing?: Loose) {
   return {
     challenge,
     rp: { id: rpId(req), name: (settings.store_name || 'Shop') + ' Admin' },
@@ -167,11 +167,11 @@ function registrationOptions(req: ShopRequest, user: StaffUser, settings: Settin
     authenticatorSelection: { residentKey: 'preferred', requireResidentKey: false, userVerification: 'required' },
     attestation: 'none',
     timeout: 120000,
-    excludeCredentials: existing.map((k: Loose) => ({ type: 'public-key', id: k.cred_id })),
+    excludeCredentials: existing.map((k?: Loose) => ({ type: 'public-key', id: k.cred_id })),
   };
 }
 
-async function addPasskey(req: ShopRequest, user: StaffUser, challenge: Loose, body: Loose) {
+async function addPasskey(req: ShopRequest, user: StaffUser, challenge?: Loose, body?: Loose) {
   const resp = body && body.response;
   if (!resp || !resp.clientDataJSON || !resp.attestationObject) throw new Error('উত্তর অসম্পূর্ণ');
   checkClientData(fromB64u(resp.clientDataJSON), 'webauthn.create', challenge, req);
@@ -187,14 +187,14 @@ async function addPasskey(req: ShopRequest, user: StaffUser, challenge: Loose, b
   const credId = b64u(ad.credId);
   if (body.id && body.id !== credId) throw new Error('চাবির নম্বর মেলেনি');
   const pem = key.export({ type: 'spki', format: 'pem' });
-  const transports = Array.isArray(body.transports) ? body.transports.filter((t: Loose) => /^[a-z-]{2,20}$/.test(t)).slice(0, 6).join(',') : '';
+  const transports = Array.isArray(body.transports) ? body.transports.filter((t?: Loose) => /^[a-z-]{2,20}$/.test(t)).slice(0, 6).join(',') : '';
   const name = String(body.name || '').replace(/[<>]/g, '').trim().slice(0, 60) || 'আমার ডিভাইস';
   await q(`INSERT INTO owner_passkeys(staff_id, cred_id, public_key, alg, sign_count, rp_id, name, transports)
     VALUES($1,$2,$3,$4,$5,$6,$7,$8)`, [user.id, credId, pem, alg, ad.signCount, rp, name, transports]);
   return { name, rp };
 }
 
-async function loginOptions(req: ShopRequest, staffId: Id, challenge: Loose) {
+async function loginOptions(req: ShopRequest, staffId?: Id, challenge?: Loose) {
   const keys = await passkeysFor(staffId, rpId(req));
   return {
     challenge,
@@ -205,7 +205,7 @@ async function loginOptions(req: ShopRequest, staffId: Id, challenge: Loose) {
   };
 }
 
-async function checkPasskey(req: ShopRequest, staffId: Id, challenge: Loose, body: Loose) {
+async function checkPasskey(req: ShopRequest, staffId?: Id, challenge?: Loose, body?: Loose) {
   const resp = body && body.response;
   if (!resp || !resp.clientDataJSON || !resp.authenticatorData || !resp.signature) throw new Error('উত্তর অসম্পূর্ণ');
   const cred = await one('SELECT * FROM owner_passkeys WHERE cred_id=$1 AND staff_id=$2', [String(body.id || ''), staffId]);
@@ -230,14 +230,14 @@ async function checkPasskey(req: ShopRequest, staffId: Id, challenge: Loose, bod
 // ---------------------------------------------------------------- one-time code for a new web address
 // Passkeys belong to one web address. When the shop moves to a new address (e.g. shobmilbe.com),
 // the owner makes a code at the old address and types it once at the new one.
-function hashCode(c: Loose) { return crypto.createHash('sha256').update('llc:' + String(c).replace(/\D/g, '')).digest('hex'); }
-async function makeCode(staffId: Id) {
+function hashCode(c?: Loose) { return crypto.createHash('sha256').update('llc:' + String(c).replace(/\D/g, '')).digest('hex'); }
+async function makeCode(staffId?: Id) {
   const code = String(crypto.randomInt(10000000, 100000000));
   await q("DELETE FROM login_lock_codes WHERE staff_id=$1 OR expires_at < now()", [staffId]);
   await q("INSERT INTO login_lock_codes(hash, staff_id, expires_at) VALUES($1,$2, now() + interval '15 minutes')", [hashCode(code), staffId]);
   return code;
 }
-async function useCode(staffId: Id, code: Loose) {
+async function useCode(staffId?: Id, code?: Loose) {
   const r = await one('DELETE FROM login_lock_codes WHERE hash=$1 AND staff_id=$2 AND expires_at > now() RETURNING hash', [hashCode(code), staffId]);
   return !!r;
 }

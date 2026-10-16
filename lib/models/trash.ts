@@ -14,38 +14,38 @@ import type { Body, Id, Loose } from '../types';
 import type { Tx } from '../pg';
 const KINDS: Record<string, Loose> = {
   product: {
-    label: 'পণ্য', icon: '📦', table: 'products', name: (r: Loose) => r.name,
+    label: 'পণ্য', icon: '📦', table: 'products', name: (r?: Loose) => r.name,
     // its variants (size / colour …) go with it and come back with it
     children: [['bundle_items', 'bundle_id'], ['bundle_items', 'product_id'], ['products', 'parent_id']], media: 'product',
   },
   category: {
-    label: 'ক্যাটাগরি', icon: '🗂️', table: 'categories', name: (r: Loose) => r.name,
+    label: 'ক্যাটাগরি', icon: '🗂️', table: 'categories', name: (r?: Loose) => r.name,
     // products in it lose their category; sub-categories move one level up — both remembered for restoring
     refs: [['products', 'category_id'], ['categories', 'parent_id']],
   },
-  blog_post: { label: 'ব্লগ পোস্ট', icon: '📝', table: 'blog_posts', name: (r: Loose) => r.title, media: 'blog' },
-  blog_category: { label: 'ব্লগ ক্যাটাগরি', icon: '🗂️', table: 'blog_categories', name: (r: Loose) => r.name, refs: [['blog_posts', 'category_id']] },
-  page: { label: 'পেজ', icon: '📄', table: 'pages', name: (r: Loose) => r.title },
-  home_row: { label: 'হোমপেজের নিজের সারি', icon: '🏠', table: 'home_rows', name: (r: Loose) => r.title },
-  banner: { label: 'ব্যানার', icon: '🖼️', table: 'banners', name: (r: Loose) => r.title || `ব্যানার #${r.id}`, imageCol: 'image_id' },
-  coupon: { label: 'কুপন', icon: '🏷️', table: 'coupons', name: (r: Loose) => r.code },
-  transaction: { label: 'হিসাবের এন্ট্রি', icon: '💰', table: 'transactions', name: (r: Loose) => `${r.type} ৳${r.amount}${r.note ? ' — ' + r.note : ''}` },
-  staff: { label: 'স্টাফ', icon: '👤', table: 'staff', name: (r: Loose) => `${r.name} (${r.username})`, guard: (r: Loose) => r.role !== 'owner', imageCol: 'photo_id' },
-  research_source: { label: 'রিসার্চের দোকান', icon: '🏪', table: 'research_sources', name: (r: Loose) => r.name },
-  question: { label: 'পণ্যের প্রশ্ন', icon: '❓', table: 'product_questions', name: (r: Loose) => String(r.question || '').slice(0, 120) },
-  warehouse: { label: 'গুদাম / শাখা', icon: '🏬', table: 'warehouses', name: (r: Loose) => r.name, children: [['warehouse_stock', 'warehouse_id']] },
-  customer: { label: 'কাস্টমার', icon: '👤', table: 'customers', name: (r: Loose) => `${r.name || '(নাম নেই)'} (${r.phone})` },
+  blog_post: { label: 'ব্লগ পোস্ট', icon: '📝', table: 'blog_posts', name: (r?: Loose) => r.title, media: 'blog' },
+  blog_category: { label: 'ব্লগ ক্যাটাগরি', icon: '🗂️', table: 'blog_categories', name: (r?: Loose) => r.name, refs: [['blog_posts', 'category_id']] },
+  page: { label: 'পেজ', icon: '📄', table: 'pages', name: (r?: Loose) => r.title },
+  home_row: { label: 'হোমপেজের নিজের সারি', icon: '🏠', table: 'home_rows', name: (r?: Loose) => r.title },
+  banner: { label: 'ব্যানার', icon: '🖼️', table: 'banners', name: (r?: Loose) => r.title || `ব্যানার #${r.id}`, imageCol: 'image_id' },
+  coupon: { label: 'কুপন', icon: '🏷️', table: 'coupons', name: (r?: Loose) => r.code },
+  transaction: { label: 'হিসাবের এন্ট্রি', icon: '💰', table: 'transactions', name: (r?: Loose) => `${r.type} ৳${r.amount}${r.note ? ' — ' + r.note : ''}` },
+  staff: { label: 'স্টাফ', icon: '👤', table: 'staff', name: (r?: Loose) => `${r.name} (${r.username})`, guard: (r?: Loose) => r.role !== 'owner', imageCol: 'photo_id' },
+  research_source: { label: 'রিসার্চের দোকান', icon: '🏪', table: 'research_sources', name: (r?: Loose) => r.name },
+  question: { label: 'পণ্যের প্রশ্ন', icon: '❓', table: 'product_questions', name: (r?: Loose) => String(r.question || '').slice(0, 120) },
+  warehouse: { label: 'গুদাম / শাখা', icon: '🏬', table: 'warehouses', name: (r?: Loose) => r.name, children: [['warehouse_stock', 'warehouse_id']] },
+  customer: { label: 'কাস্টমার', icon: '👤', table: 'customers', name: (r?: Loose) => `${r.name || '(নাম নেই)'} (${r.phone})` },
   // a brand: its products stay, they just lose the brand (given back when it is restored)
-  brand: { label: 'ব্র্যান্ড', icon: '🏷️', table: 'brands', name: (r: Loose) => r.name, refs: [['products', 'brand_id']], imageCol: 'logo_id' },
+  brand: { label: 'ব্র্যান্ড', icon: '🏷️', table: 'brands', name: (r?: Loose) => r.name, refs: [['products', 'brand_id']], imageCol: 'logo_id' },
   // an order: its items, payments and accounts entries go with it; goods still "taken" go back on the shelf
   order: {
-    label: 'অর্ডার', icon: '🧾', table: 'orders', name: (r: Loose) => `${r.code} — ${r.customer_name || ''} (${r.phone})`,
+    label: 'অর্ডার', icon: '🧾', table: 'orders', name: (r?: Loose) => `${r.code} — ${r.customer_name || ''} (${r.phone})`,
     children: [['order_items', 'order_id'], ['payments', 'order_id'], ['transactions', 'order_id']],
   },
 };
 const RELEASED = new Set(['cancelled', 'returned']);
 // Stock of an order's items: back on the shelf (sign +1) when it goes to the bin, taken again (-1) when restored.
-async function orderStock(t: Tx, items: Loose, sign: Loose, orderId: Id, note: Loose) {
+async function orderStock(t: Tx, items?: Loose, sign?: Loose, orderId?: Id, note?: Loose) {
   const catalog = $catalog;
   for (const it of items) {
     if (!it.product_id) continue;
@@ -55,12 +55,12 @@ async function orderStock(t: Tx, items: Loose, sign: Loose, orderId: Id, note: L
   }
 }
 
-async function rowsOf(t: Tx, table: Loose, col: Loose, id: Id) {
+async function rowsOf(t: Tx, table?: Loose, col?: Loose, id?: Id) {
   return (await t.query(`SELECT row_to_json(x) AS r FROM ${table} x WHERE ${col}=$1`, [id])).rows.map((x) => x.r);
 }
 
 // Delete one thing into the bin. who: { id, name, path, ip }. Returns the bin entry id (or null).
-async function move(kind: Loose, id: Id, who: Loose = {}) {
+async function move(kind?: Loose, id?: Id, who: Loose = {}) {
   const K = KINDS[kind];
   if (!K) throw new Error('unknown kind ' + kind);
   id = int(id);
@@ -132,16 +132,16 @@ async function list({ kind = '', limit = 200, offset = 0 }: Body = {}) {
 async function counts() {
   return q('SELECT kind, count(*)::int AS n FROM trash GROUP BY kind ORDER BY n DESC');
 }
-async function get(id: Id) { return one('SELECT * FROM trash WHERE id=$1', [int(id)]); }
+async function get(id?: Id) { return one('SELECT * FROM trash WHERE id=$1', [int(id)]); }
 
 // Put it back exactly as it was (same id). Returns { ok } or { error }.
-async function restore(id: Id) {
+async function restore(id?: Id) {
   const e = await get(id);
   if (!e) return { error: 'পাওয়া যায়নি।' };
   const K = KINDS[e.kind];
   try {
     await tx(async (t) => {
-      const ins = async (table: Loose, r: Loose) => t.query(`INSERT INTO ${table} SELECT * FROM jsonb_populate_record(NULL::${table}, $1::jsonb) ON CONFLICT DO NOTHING`, [JSON.stringify(r)]);
+      const ins = async (table?: Loose, r?: Loose) => t.query(`INSERT INTO ${table} SELECT * FROM jsonb_populate_record(NULL::${table}, $1::jsonb) ON CONFLICT DO NOTHING`, [JSON.stringify(r)]);
       const row = { ...e.data.row };
       // a category whose main category is gone goes back to the top level
       if (e.kind === 'category' && row.parent_id) {
@@ -198,7 +198,7 @@ async function restore(id: Id) {
 }
 
 // Gone for good. When no products are left anywhere (shop or bin), SKU numbers start again from 1.
-async function purge(ids: Loose) {
+async function purge(ids?: Loose) {
   const clean = (Array.isArray(ids) ? ids : [ids]).map((x) => int(x)).filter(Boolean);
   if (!clean.length) return 0;
   const n = await tx(async (t) => {

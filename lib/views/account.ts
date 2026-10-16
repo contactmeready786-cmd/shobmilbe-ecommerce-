@@ -1,25 +1,25 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // Customer side: "আমার অ্যাকাউন্ট" (login with e-mail or mobile + a one-time code, my orders, addresses, profile, referral, gift cards),
 // the return / refund request form, and the gift card page.
 import { html, raw, money, bn, fmtDate } from '../util';
 import * as O from '../models/orders';
+import type { Body, Loose, Settings } from '../types';
 
-function maskPhone(p) { const s = String(p || ''); return s.length > 6 ? s.slice(0, 3) + '•'.repeat(s.length - 6) + s.slice(-3) : '•••'; }
+function maskPhone(p?: Loose) { const s = String(p || ''); return s.length > 6 ? s.slice(0, 3) + '•'.repeat(s.length - 6) + s.slice(-3) : '•••'; }
 
 // ---------------------------------------------------------------- login
 // Two tabs on top — 📧 ইমেইল / 📱 মোবাইল নম্বর. A tab is shown only when that way works (SMS / the shop's Gmail set up).
 //  📧 e-mail: "লগইন" (e-mail + password, no code) · "নতুন অ্যাকাউন্ট" (e-mail + password → a code to the e-mail, once)
 //            · "পাসওয়ার্ড ভুলে গেছেন?" (e-mail + new password → a code).
 //  📱 mobile: number → SMS code → in (asked once; the phone stays logged in).
-function loginPage({ via = '', step = 'start', mode = 'login', phone = '', email = '', error = '', info = '', next = '', phoneOn = true, emailOn = false }) {
+function loginPage({ via = '', step = 'start', mode = 'login', phone = '', email = '', error = '', info = '', next = '', phoneOn = true, emailOn = false }: Body) {
   const tabs = [emailOn && ['email', '📧 ইমেইল'], phoneOn && ['phone', '📱 মোবাইল নম্বর']].filter(Boolean);
   const cur = tabs.some((t) => t[0] === via) ? via : (tabs[0] || [''])[0];
   const nx = next ? `&next=${encodeURIComponent(next)}` : '';
   const m = ['login', 'signup', 'reset'].includes(mode) ? mode : 'login';
   const em = encodeURIComponent(email || '');
-  const pwFields = (label) => html`<div class="field"><label for="apw">${label}</label><input id="apw" name="password" type="password" autocomplete="new-password" required minlength="6" maxlength="100" placeholder="কমপক্ষে ৬ অক্ষর"></div>
+  const pwFields = (label?: Loose) => html`<div class="field"><label for="apw">${label}</label><input id="apw" name="password" type="password" autocomplete="new-password" required minlength="6" maxlength="100" placeholder="কমপক্ষে ৬ অক্ষর"></div>
       <div class="field"><label for="apw2">আবার একই পাসওয়ার্ড লিখুন</label><input id="apw2" name="password2" type="password" autocomplete="new-password" required minlength="6" maxlength="100"></div>`;
-  const emailField = (auto) => html`<div class="field"><label for="aemail">ইমেইল ঠিকানা</label><input id="aemail" name="email" type="email" inputmode="email" autocomplete="email" required maxlength="120" placeholder="name@gmail.com" value="${email}" ${auto ? raw('autofocus') : ''}></div>`;
+  const emailField = (auto?: Loose) => html`<div class="field"><label for="aemail">ইমেইল ঠিকানা</label><input id="aemail" name="email" type="email" inputmode="email" autocomplete="email" required maxlength="120" placeholder="name@gmail.com" value="${email}" ${auto ? raw('autofocus') : ''}></div>`;
   const emailForm = step === 'code' ? html`<form method="post" action="/account/email-verify" class="form">
       <input type="hidden" name="email" value="${email}"><input type="hidden" name="mode" value="${m}"><input type="hidden" name="next" value="${next}">
       <p><b translate="no">${email}</b> ঠিকানায় একটা ৬ অঙ্কের কোড পাঠানো হয়েছে। ইমেইল খুলে কোডটা নিচে বসান। <span class="small muted">(Inbox-এ না পেলে Spam / Promotions ফোল্ডার দেখুন)</span></p>
@@ -85,7 +85,7 @@ function loginPage({ via = '', step = 'start', mode = 'login', phone = '', email
 }
 
 // ---------------------------------------------------------------- dashboard
-function addressForm(a, { action = '/account/address', submit = 'সেভ করুন' } = {}) {
+function addressForm(a?: Loose, { action = '/account/address', submit = 'সেভ করুন' }: Body = {}) {
   return html`<form method="post" action="${action}" class="form addr-form" data-geo-form>
     ${a.id ? html`<input type="hidden" name="id" value="${a.id}">` : ''}
     <div class="field-row">
@@ -103,14 +103,14 @@ function addressForm(a, { action = '/account/address', submit = 'সেভ ক�
   </form>`;
 }
 
-function dashboard({ cu, orders, addresses, settings: s, tab = 'orders', flash = '', error = '', referral = null, cards = [], welcome = false, next = '' }) {
+function dashboard({ cu, orders, addresses, settings: s, tab = 'orders', flash = '', error = '', referral = null, cards = [], welcome = false, next = '' }: Body) {
   const isEmail = !!cu.email_verified && !cu.phone;
   const dPhone = cu.phone || cu.contact_phone || '';
   const T = [['orders', '🧾 আমার অর্ডার'], ['addresses', '📍 ঠিকানা'], ['profile', '👤 প্রোফাইল']];
   if (referral) T.push(['refer', '🎁 বন্ধুকে আনুন']);
   if (s.gift_on === '1') T.push(['gift', '💳 গিফট কার্ড']);
-  const reorderItems = (o) => (o.items || []).filter((i) => i.id && i.kind !== 'gift').map((i) => ({ id: i.id, qty: i.qty }));
-  const returnable = (o) => s.returns_on === '1' && o.status === 'delivered';
+  const reorderItems = (o?: Loose) => (o.items || []).filter((i?: Loose) => i.id && i.kind !== 'gift').map((i?: Loose) => ({ id: i.id, qty: i.qty }));
+  const returnable = (o?: Loose) => s.returns_on === '1' && o.status === 'delivered';
   return html`<div class="wrap section acct">
   <div class="title-row"><h1>আসসালামু আলাইকুম${cu.name ? html`, <span translate="no">${cu.name.split(' ')[0]}</span>` : ''}!</h1>
     <form method="post" action="/account/logout"><button class="btn btn-sm btn-ghost">লগআউট</button></form></div>
@@ -118,9 +118,9 @@ function dashboard({ cu, orders, addresses, settings: s, tab = 'orders', flash =
   ${flash ? html`<p class="flash">${flash}</p>` : ''}${error ? html`<p class="form-error">${error}</p>` : ''}
   ${welcome ? '' : html`<nav class="acct-tabs" aria-label="অ্যাকাউন্ট">${T.map(([k, l]) => html`<a href="/account?tab=${k}" class="${tab === k ? 'on' : ''}" ${tab === k ? raw('aria-current="page"') : ''}>${l}</a>`)}</nav>`}
   ${tab === 'orders' ? html`<section class="panel">
-    ${orders.length ? html`<ul class="acct-orders">${orders.map((o) => html`<li>
+    ${orders.length ? html`<ul class="acct-orders">${orders.map((o?: Loose) => html`<li>
       <div><a href="/order/${o.code}"><b class="mono">${o.code}</b></a> <span class="pill st-${o.status}">${O.STATUSES[o.status] || o.status}</span><br>
-        <span class="small muted">${fmtDate(o.created_at)} · ${bn((o.items || []).length)}টি পণ্য: ${(o.items || []).map((i) => i.name).slice(0, 3).join(', ')}${(o.items || []).length > 3 ? '…' : ''}</span></div>
+        <span class="small muted">${fmtDate(o.created_at)} · ${bn((o.items || []).length)}টি পণ্য: ${(o.items || []).map((i?: Loose) => i.name).slice(0, 3).join(', ')}${(o.items || []).length > 3 ? '…' : ''}</span></div>
       <div class="acct-order-act"><b>${money(o.total)}</b>
         <a class="btn btn-sm btn-ghost" href="/order/${o.code}">দেখুন</a>
         ${reorderItems(o).length ? html`<button type="button" class="btn btn-sm" data-reorder="${JSON.stringify(reorderItems(o))}">🔁 আবার অর্ডার</button>` : ''}
@@ -128,7 +128,7 @@ function dashboard({ cu, orders, addresses, settings: s, tab = 'orders', flash =
     </li>`)}</ul>` : html`<div class="empty"><p>এখনো কোনো অর্ডার নেই।</p><a class="btn" href="/products">কেনাকাটা শুরু করুন</a></div>`}
   </section>` : ''}
   ${tab === 'addresses' ? html`<section class="panel">
-    ${addresses.length ? html`<ul class="acct-addr">${addresses.map((a) => html`<li><details><summary><b>${a.label || 'ঠিকানা'}</b>${a.is_default ? html` <span class="pill">মূল</span>` : ''}<br>
+    ${addresses.length ? html`<ul class="acct-addr">${addresses.map((a?: Loose) => html`<li><details><summary><b>${a.label || 'ঠিকানা'}</b>${a.is_default ? html` <span class="pill">মূল</span>` : ''}<br>
       <span class="small">${a.name ? `${a.name}, ` : ''}${a.phone ? `${a.phone}, ` : ''}${a.address}, ${O.areaLabel({ district: a.district, thana: a.thana })}</span> <span class="small link-like">✏️ এডিট</span></summary>
       ${addressForm(a)}
       <form method="post" action="/account/address/delete" class="mt" data-confirm-shop="ঠিকানাটা মুছবেন?"><input type="hidden" name="id" value="${a.id}"><button class="link-btn danger small">🗑️ মুছুন</button></form>
@@ -153,7 +153,7 @@ function dashboard({ cu, orders, addresses, settings: s, tab = 'orders', flash =
   ${tab === 'refer' && referral ? referralBox(referral, s) : ''}
   ${tab === 'gift' && s.gift_on === '1' ? html`<section class="panel">
     <h2>💳 আমার গিফট কার্ড</h2>
-    ${cards.length ? html`<ul class="acct-orders">${cards.map((c) => html`<li><div><b class="mono">${c.code}</b> <span class="pill">${c.status === 'active' ? 'চালু' : c.status === 'pending' ? 'পেমেন্ট যাচাই চলছে' : c.status === 'used' ? 'শেষ' : c.status}</span><br>
+    ${cards.length ? html`<ul class="acct-orders">${cards.map((c?: Loose) => html`<li><div><b class="mono">${c.code}</b> <span class="pill">${c.status === 'active' ? 'চালু' : c.status === 'pending' ? 'পেমেন্ট যাচাই চলছে' : c.status === 'used' ? 'শেষ' : c.status}</span><br>
       <span class="small muted">${c.source === 'referral' ? 'রেফারেলের পুরস্কার' : c.recipient_phone === cu.phone ? 'আপনাকে দেওয়া' : `আপনি কিনেছেন${c.recipient_name ? ` — ${c.recipient_name}` : ''}`}${c.expires_on ? ` · মেয়াদ ${c.expires_on}` : ''}</span></div>
       <div class="acct-order-act"><b>${money(c.balance)}</b> <span class="small muted">/ ${money(c.initial)}</span></div></li>`)}</ul>`
       : html`<p class="muted">আপনার কোনো গিফট কার্ড নেই।</p>`}
@@ -162,7 +162,7 @@ function dashboard({ cu, orders, addresses, settings: s, tab = 'orders', flash =
 </div>`;
 }
 
-function referralBox(r, s) {
+function referralBox(r: Loose, s: Settings) {
   const base = String(s.site_url || '').replace(/\/+$/, '');
   const link = `${base}/?ref=${r.code}`;
   return html`<section class="panel ref-box">
@@ -183,14 +183,14 @@ function referralBox(r, s) {
 const REASONS = [['broken', 'ভাঙা / নষ্ট পণ্য এসেছে'], ['wrong', 'ভুল পণ্য এসেছে'], ['missing', 'পণ্য কম এসেছে / পার্টস নেই'], ['not_working', 'কাজ করছে না'],
   ['not_as_described', 'ছবি/বিবরণের সাথে মিলছে না'], ['warranty', 'ওয়ারেন্টি দাবি'], ['other', 'অন্য কারণ']];
 const WANTS = [['refund', '💵 টাকা ফেরত'], ['replace', '🔄 বদলে দিন (একই পণ্য)'], ['fix', '🛠️ মেরামত / ওয়ারেন্টি সার্ভিস']];
-function returnForm({ order, existing = [], settings: s, error = '', done = null, mine }) {
-  const items = (order.items || []).filter((i) => i.product_id);
+function returnForm({ order, existing = [], settings: s, error = '', done = null, mine }: Body) {
+  const items = (order.items || []).filter((i?: Loose) => i.product_id);
   return html`<div class="wrap section narrow">
   <p class="crumbs"><a href="/order/${order.code}">← অর্ডার ${order.code}</a></p>
   <h1>↩️ রিটার্ন / রিফান্ড আবেদন</h1>
   ${done ? html`<div class="success-banner"><div class="tick" aria-hidden="true">✓</div><h2>আবেদন পেয়েছি — নম্বর <span class="mono">${done}</span></h2><p>আমরা দেখে শীঘ্রই আপনার সাথে যোগাযোগ করব। এই পেজে আবেদনের অবস্থা দেখতে পাবেন।</p></div>` : ''}
-  ${existing.length ? html`<section class="panel"><h2>আপনার আবেদন</h2><ul class="acct-orders">${existing.map((r) => html`<li><div><b class="mono">${r.code}</b> <span class="pill">${RETURN_LABELS[r.status] || r.status}</span><br>
-    <span class="small muted">${fmtDate(r.created_at)} · ${(r.items || []).map((i) => `${i.name} ×${bn(i.qty)}`).join(', ')}</span>
+  ${existing.length ? html`<section class="panel"><h2>আপনার আবেদন</h2><ul class="acct-orders">${existing.map((r?: Loose) => html`<li><div><b class="mono">${r.code}</b> <span class="pill">${RETURN_LABELS[r.status] || r.status}</span><br>
+    <span class="small muted">${fmtDate(r.created_at)} · ${(r.items || []).map((i?: Loose) => `${i.name} ×${bn(i.qty)}`).join(', ')}</span>
     ${r.reply ? html`<br><span class="small"><b>${s.store_name}:</b> ${r.reply}</span>` : ''}</div>
     <div class="acct-order-act">${Number(r.refund_amount) ? html`<b>${money(r.refund_amount)}</b> ফেরত` : ''}</div></li>`)}</ul></section>` : ''}
   ${!mine ? html`<p class="note">আবেদন করতে আগে <a href="/track?code=${order.code}">অর্ডার ট্র্যাক</a> পেজে অর্ডার নম্বর আর মোবাইল নম্বর দিন${s.acct_on === '1' ? html`, অথবা <a href="/account?next=/order/${order.code}/return">লগইন করুন</a>` : ''}।</p>`
@@ -198,7 +198,7 @@ function returnForm({ order, existing = [], settings: s, error = '', done = null
       : html`<form class="form panel" method="post" action="/order/${order.code}/return" data-return-form>
     ${error ? html`<p class="form-error">${error}</p>` : ''}
     <p class="muted small">পণ্য হাতে পাওয়ার ${bn(Number(s.returns_days) || 7)} দিনের মধ্যে আবেদন করা যায়। যে পণ্য ফেরত দিতে চান টিক দিন আর পরিমাণ লিখুন।</p>
-    <table class="lines"><tbody>${items.map((it) => html`<tr><td><label class="check"><input type="checkbox" name="item" value="${it.id}"> <span>${it.name}</span></label></td>
+    <table class="lines"><tbody>${items.map((it?: Loose) => html`<tr><td><label class="check"><input type="checkbox" name="item" value="${it.id}"> <span>${it.name}</span></label></td>
       <td class="num"><input type="number" name="qty_${it.id}" min="1" max="${it.qty}" value="${it.qty}" class="w-num" aria-label="পরিমাণ"> / ${bn(it.qty)}</td></tr>`)}</tbody></table>
     <div class="field-row">
       <div class="field"><label>কারণ</label><select name="reason" required>${REASONS.map(([k, l]) => html`<option value="${k}">${l}</option>`)}</select></div>
@@ -218,10 +218,10 @@ function returnForm({ order, existing = [], settings: s, error = '', done = null
   </form>`}
 </div>`;
 }
-const RETURN_LABELS = { requested: 'আবেদন পেয়েছি', approved: 'অনুমোদিত — পণ্য পাঠান', received: 'পণ্য ফেরত পেয়েছি', refunded: 'টাকা ফেরত দেওয়া হয়েছে', replaced: 'বদলে দেওয়া হয়েছে', rejected: 'গ্রহণ করা যায়নি', cancelled: 'বাতিল' };
+const RETURN_LABELS: Record<string, string> = { requested: 'আবেদন পেয়েছি', approved: 'অনুমোদিত — পণ্য পাঠান', received: 'পণ্য ফেরত পেয়েছি', refunded: 'টাকা ফেরত দেওয়া হয়েছে', replaced: 'বদলে দেওয়া হয়েছে', rejected: 'গ্রহণ করা যায়নি', cancelled: 'বাতিল' };
 
 // ---------------------------------------------------------------- gift card page
-function giftPage({ settings: s, methods = [], error = '', done = null, values = {} }) {
+function giftPage({ settings: s, methods = [], error = '', done = null, values = {} }: Body) {
   const amounts = String(s.gift_amounts || '500,1000,2000,5000').split(',').map((x) => Number(x)).filter((x) => x > 0).slice(0, 8);
   const min = Number(s.gift_min) || 200; const max = Number(s.gift_max) || 20000;
   return html`<div class="wrap section narrow">
@@ -245,7 +245,7 @@ function giftPage({ settings: s, methods = [], error = '', done = null, values =
       <div class="field"><label>আপনার মোবাইল</label><input name="buyer_phone" inputmode="tel" maxlength="20" required value="${values.buyer_phone || ''}" autocomplete="tel"></div>
     </div>
     <h2>পেমেন্ট (Send Money)</h2>
-    ${methods.length ? html`<div class="pay-methods">${methods.map((m, i) => html`<label class="pay-opt"><input type="radio" name="pay_method" value="${m.id}" ${i === 0 ? raw('checked') : ''}><span><b>${m.label}</b><small>${m.number} (${s.manual_type || 'Personal'}) নম্বরে Send Money করুন</small></span></label>`)}</div>
+    ${methods.length ? html`<div class="pay-methods">${methods.map((m?: Loose, i?: Loose) => html`<label class="pay-opt"><input type="radio" name="pay_method" value="${m.id}" ${i === 0 ? raw('checked') : ''}><span><b>${m.label}</b><small>${m.number} (${s.manual_type || 'Personal'}) নম্বরে Send Money করুন</small></span></label>`)}</div>
     <div class="field-row">
       <div class="field"><label>যে নম্বর থেকে পাঠিয়েছেন</label><input name="pay_number" inputmode="tel" maxlength="20" required value="${values.pay_number || ''}"></div>
       <div class="field"><label>Transaction ID (TrxID)</label><input name="trx" maxlength="40" required autocapitalize="characters" value="${values.trx || ''}"></div>

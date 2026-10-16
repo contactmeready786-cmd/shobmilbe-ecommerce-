@@ -11,7 +11,7 @@ import type { Tx } from '../pg';
 const STATUS: Record<string, string> = { pending: 'অনুমোদনের অপেক্ষায়', approved: 'দেখানো হচ্ছে', hidden: 'লুকানো' };
 
 // Recount a product's average rating (only approved reviews count).
-async function refresh(t: Tx, productId: Id) {
+async function refresh(t: Tx, productId?: Id) {
   await t.query(`UPDATE products p SET rating_count = x.n, rating_avg = x.a
     FROM (SELECT count(*)::int AS n, coalesce(round(avg(rating)::numeric, 2), 0) AS a FROM reviews WHERE product_id=$1 AND status='approved') x
     WHERE p.id=$1`, [productId]);
@@ -20,12 +20,12 @@ async function refresh(t: Tx, productId: Id) {
 class ReviewError extends Error {}
 
 // Is this product in this order? (its own line, or inside a package)
-async function orderHas(orderId: Id, productId: Id) {
+async function orderHas(orderId?: Id, productId?: Id) {
   return !!(await one(`SELECT 1 FROM order_items WHERE order_id=$1 AND (product_id=$2 OR components @> $3::jsonb) LIMIT 1`,
     [orderId, productId, JSON.stringify([{ product_id: productId }])]));
 }
 // The products of a delivered order and whether each one already has a review from this order.
-async function forOrder(orderId: Id) {
+async function forOrder(orderId?: Id) {
   return q(`SELECT DISTINCT ON (i.product_id) i.product_id, i.name, p.slug, p.active, r.id AS review_id, r.rating, r.status
     FROM order_items i LEFT JOIN products p ON p.id=i.product_id LEFT JOIN reviews r ON r.order_id=i.order_id AND r.product_id=i.product_id
     WHERE i.order_id=$1 AND i.product_id IS NOT NULL ORDER BY i.product_id`, [orderId]);
@@ -34,7 +34,7 @@ async function forOrder(orderId: Id) {
 // A review is accepted only from a customer whose order was DELIVERED and has this product —
 // one review per product per order. The caller has already checked that the order belongs to this browser.
 // 📸 photos with a review (max 3, made small in the browser). They stay hidden ('review_wait') until the review is shown.
-async function savePhotos(list: Loose, visible: Loose) {
+async function savePhotos(list?: Loose, visible?: Loose) {
   const security = $security;
   const catalog = $catalog;
   const out = [];
@@ -76,7 +76,7 @@ async function submit({ code, productId, name, rating, body, ip, photos }: Body,
   });
 }
 
-async function forProduct(productId: Id, limit: Loose = 30) {
+async function forProduct(productId?: Id, limit: Loose = 30) {
   const pid = int(productId);
   const [rows, stats] = await Promise.all([
     q(`SELECT id, name, rating, body, reply, verified, photos, created_at FROM reviews WHERE product_id=$1 AND status='approved'
@@ -106,7 +106,7 @@ async function counts() {
   rows.forEach((r) => { c[r.status] = r.n; c.all += r.n; });
   return c;
 }
-async function setStatus(id: Id, status: Loose) {
+async function setStatus(id?: Id, status?: Loose) {
   if (!STATUS[status]) return null;
   return tx(async (t) => {
     const r = (await t.query(`UPDATE reviews SET status=$1, approved_at = CASE WHEN $1='approved' THEN coalesce(approved_at, now()) ELSE approved_at END
@@ -117,10 +117,10 @@ async function setStatus(id: Id, status: Loose) {
     return r;
   });
 }
-async function reply(id: Id, text: Loose) {
+async function reply(id?: Id, text?: Loose) {
   return one('UPDATE reviews SET reply=$1 WHERE id=$2 RETURNING product_id', [str(text, 1000), int(id)]);
 }
-async function remove(id: Id) {
+async function remove(id?: Id) {
   return tx(async (t) => {
     const r = (await t.query('DELETE FROM reviews WHERE id=$1 RETURNING product_id, photos', [int(id)])).rows[0];
     if (r) await refresh(t, r.product_id);

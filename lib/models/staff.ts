@@ -45,7 +45,7 @@ const PRESETS = {
 // Buying prices, profit and profit-loss are the owner's secret: no staff member can ever get them,
 // even if an old account still has the old "see_cost" tick saved.
 const OWNER_ONLY = new Set(['see_cost', 'owner']);
-function can(user: StaffUser, perm: Loose) {
+function can(user: StaffUser, perm?: Loose) {
   if (!user) return false;
   if (user.role === 'owner') return true;
   if (OWNER_ONLY.has(perm)) return false;
@@ -58,10 +58,10 @@ const LEVELS: Record<string, Loose> = {
   inventory: { view: 'inventory_view' },
   customers: { view: 'customers_view' },
 };
-const isDeletePath = (path: Loose) => /\/(delete|bulk-delete|remove)$/.test(path);
-const isAddPath = (path: Loose) => /\/(new|duplicate)$|\/import(\/|$)|\/dup-check$/.test(path);
+const isDeletePath = (path?: Loose) => /\/(delete|bulk-delete|remove)$/.test(path);
+const isAddPath = (path?: Loose) => /\/(new|duplicate)$|\/import(\/|$)|\/dup-check$/.test(path);
 // May this person use this route? Pages (GET) open with any level; a change needs the matching level.
-function routeAllows(user: StaffUser, perm: Loose, method: Loose, path: Loose) {
+function routeAllows(user: StaffUser, perm?: Loose, method?: Loose, path?: Loose) {
   if (perm === 'owner') return !!user && user.role === 'owner';
   if (!user) return false;
   if (user.role === 'owner') return true;
@@ -74,13 +74,13 @@ function routeAllows(user: StaffUser, perm: Loose, method: Loose, path: Loose) {
   return can(user, perm);
 }
 // Only the "see" tick for this page (nothing can be changed) — the page shows a small notice.
-function viewOnly(user: StaffUser, perm: Loose) {
+function viewOnly(user: StaffUser, perm?: Loose) {
   const L = LEVELS[perm];
   if (!L || !user || user.role === 'owner' || can(user, perm)) return false;
   return !Object.entries(L).some(([k, p]) => k !== 'view' && can(user, p));
 }
 // Shown in the menu when any level of the permission is given.
-function canSee(user: StaffUser, perm: Loose) {
+function canSee(user: StaffUser, perm?: Loose) {
   if (perm === 'owner') return !!user && user.role === 'owner';
   const L = LEVELS[perm];
   return can(user, perm) || (!!L && Object.values(L).some((p) => can(user, p)));
@@ -89,17 +89,17 @@ function canSee(user: StaffUser, perm: Loose) {
 async function listStaff() {
   return q('SELECT id, name, username, phone, email, role, permissions, active, note, last_login, created_at, totp_on, photo_id, designation, joined_on FROM staff ORDER BY role=\'owner\' DESC, active DESC, name');
 }
-async function getStaff(id: Id) {
+async function getStaff(id?: Id) {
   return one('SELECT * FROM staff WHERE id=$1', [id]);
 }
-async function findLogin(login: Loose) {
+async function findLogin(login?: Loose) {
   const l = String(login || '').trim().toLowerCase();
   if (!l) return null;
   return one(`SELECT * FROM staff WHERE lower(username)=$1 OR (phone<>'' AND phone=$1) OR (email<>'' AND lower(email)=$1) LIMIT 1`, [l]);
 }
 async function countStaff() { return (await one('SELECT count(*)::int AS n FROM staff'))!.n; }
 
-function cleanUsername(u: Loose) { return String(u || '').trim().toLowerCase().replace(/[^a-z0-9._-]/g, '').slice(0, 40); }
+function cleanUsername(u?: Loose) { return String(u || '').trim().toLowerCase().replace(/[^a-z0-9._-]/g, '').slice(0, 40); }
 
 async function saveStaff(data: Body, { isOwnerEditing = true }: Body = {}) {
   const id = int(data.id);
@@ -129,7 +129,7 @@ async function saveStaff(data: Body, { isOwnerEditing = true }: Body = {}) {
 // ---------------------------------------------------------------- profile (picture, job title, address …)
 // Used by the owner (Admin → স্টাফ) for anyone, and by each person for themself (Admin → আমার প্রোফাইল).
 const PROFILE_FIELDS = ['designation', 'address', 'emergency_phone', 'joined_on', 'bio'];
-function cleanDate(v: Loose) {
+function cleanDate(v?: Loose) {
   const m = String(v || '').trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (!m) return null;
   const d = new Date(`${m[1]}-${m[2]}-${m[3]}T00:00:00Z`);
@@ -144,7 +144,7 @@ async function saveProfile(id: Id, data: Body) {
   if ('photo_id' in data) await setPhoto(id, data.photo_id);
 }
 // New picture (a just-uploaded media id) or '' to remove it. The old picture is deleted.
-async function setPhoto(id: Id, photoId: Id) {
+async function setPhoto(id?: Id, photoId?: Id) {
   const cur = await one('SELECT photo_id FROM staff WHERE id=$1', [id]);
   if (!cur) return;
   const next = int(photoId) || null;
@@ -157,7 +157,7 @@ async function setPhoto(id: Id, photoId: Id) {
   await q('UPDATE staff SET photo_id=$1 WHERE id=$2', [next, id]);
   if (cur.photo_id) await q(`DELETE FROM media WHERE id=$1 AND owner_type='staff'`, [cur.photo_id]);
 }
-async function photoOf(staffId: Id, thumb: Loose) {
+async function photoOf(staffId?: Id, thumb?: Loose) {
   return one(`SELECT m.mime, ${thumb ? 'coalesce(m.thumb, m.data)' : 'm.data'} AS data, m.id FROM staff s JOIN media m ON m.id=s.photo_id AND m.owner_type='staff' WHERE s.id=$1`, [staffId]);
 }
 
@@ -165,9 +165,9 @@ async function createOwner({ name, username, password }: Body) {
   return (await one(`INSERT INTO staff(name, username, password, role, permissions) VALUES($1,$2,$3,'owner','[]') RETURNING id`,
     [str(name, 80) || 'মালিক', cleanUsername(username) || 'admin', hashPassword(password)]))!.id;
 }
-async function setPassword(id: Id, password: Loose) { await q('UPDATE staff SET password=$1, password_changed_at=now() WHERE id=$2', [hashPassword(password), id]); }
-async function deleteStaff(id: Id) { await q(`DELETE FROM staff WHERE id=$1 AND role<>'owner'`, [id]); }
-async function touchLogin(id: Id) { await q('UPDATE staff SET last_login=now() WHERE id=$1', [id]); }
+async function setPassword(id?: Id, password?: Loose) { await q('UPDATE staff SET password=$1, password_changed_at=now() WHERE id=$2', [hashPassword(password), id]); }
+async function deleteStaff(id?: Id) { await q(`DELETE FROM staff WHERE id=$1 AND role<>'owner'`, [id]); }
+async function touchLogin(id?: Id) { await q('UPDATE staff SET last_login=now() WHERE id=$1', [id]); }
 
 async function activity({ staffId, entity, entityId, limit = 100 }: Body = {}) {
   const params = [];

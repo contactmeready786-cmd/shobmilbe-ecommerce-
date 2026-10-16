@@ -1,11 +1,11 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // Admin → পণ্য → ব্র্যান্ড: add / edit / hide / delete brands (logo, description, SEO). Each brand gets its own page in the shop (/brand/…).
 import { html, bn, int, str } from '../util';
 import * as catalog from '../models/catalog';
 import * as ui from './ui';
 import * as $db from '../db';
+import type { AdminCtx, Body, Loose } from '../types';
 
-function form(b, error) {
+function form(b: Body, error?: Loose) {
   const isNew = !b.id;
   return html`<form method="post" action="${isNew ? '/admin/brands' : `/admin/brands/${b.id}`}" class="form panel ${isNew ? '' : 'is-editing'}" id="brand-form">
     <h2>${isNew ? 'নতুন ব্র্যান্ড' : `এডিট: ${b.name}`}</h2>
@@ -24,7 +24,7 @@ function form(b, error) {
   </form>`;
 }
 
-async function page(ctx, m, error = null, values = null) {
+async function page(ctx: AdminCtx, m?: Loose, error: Loose = null, values: Loose = null) {
   const id = m && m[1] ? int(m[1]) : null;
   if (ctx.method === 'POST' && !error) {
     const b = await ctx.body();
@@ -33,7 +33,7 @@ async function page(ctx, m, error = null, values = null) {
       if (int(b.logo_id)) await catalog.claimMedia(b.logo_id, 'brand', bid);
       await ctx.log('brand_save', 'brand', bid, str(b.name, 60));
       return ctx.back('/admin/brands', 'saved');
-    } catch (e) {
+    } catch (e: Loose) {
       return page({ ...ctx, method: 'GET' }, m, e.message, { ...b, id, active: !!b.active });
     }
   }
@@ -62,7 +62,7 @@ ${ui.helpBox('ব্র্যান্ড কীভাবে কাজ করে
   return ctx.page('ব্র্যান্ড', body, 'brands', { status: error ? 400 : 200 });
 }
 
-async function setActive(ctx, m) {
+async function setActive(ctx: AdminCtx, m?: Loose) {
   const id = int(m[1]);
   const b = await ctx.body();
   const on = !!b.active && b.active !== '0';
@@ -71,7 +71,7 @@ async function setActive(ctx, m) {
   if (String(ctx.req.headers.accept || '').includes('application/json')) return ctx.json(ctx.res, r ? 200 : 404, { ok: !!r, active: on });
   return ctx.back('/admin/brands', 'saved');
 }
-async function remove(ctx, m) {
+async function remove(ctx: AdminCtx, m?: Loose) {
   const id = int(m[1]);
   const b = await catalog.getBrand({ id });
   await ctx.trash('brand', id);
@@ -80,7 +80,7 @@ async function remove(ctx, m) {
 }
 
 export const routes = [
-    { method: '*', path: '/admin/brands', perm: 'products', handler: (ctx) => page(ctx, null) },
+    { method: '*', path: '/admin/brands', perm: 'products', handler: (ctx: AdminCtx) => page(ctx, null) },
     { method: '*', path: /^\/admin\/brands\/(\d+)$/, perm: 'products', handler: page },
     { method: 'POST', path: /^\/admin\/brands\/(\d+)\/active$/, perm: 'products', handler: setActive },
     { method: 'POST', path: /^\/admin\/brands\/(\d+)\/delete$/, perm: 'products', handler: remove },

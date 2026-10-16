@@ -13,7 +13,7 @@ async function saveBlogCategory({ id, name, sort }: Body) {
   const slug = await uniqueSlug('blog_categories', slugify(name));
   return (await one('INSERT INTO blog_categories(name, slug, sort) VALUES($1,$2,$3) RETURNING id', [str(name, 60), slug, int(sort)]))!.id;
 }
-async function deleteBlogCategory(id: Id) { await q('DELETE FROM blog_categories WHERE id=$1', [id]); }
+async function deleteBlogCategory(id?: Id) { await q('DELETE FROM blog_categories WHERE id=$1', [id]); }
 
 const POST_COLS = `p.id, p.title, p.slug, p.category_id, p.excerpt, p.cover_id, p.status, p.published_at, p.seo_title, p.seo_description,
   p.views, p.created_at, p.updated_at, c.name AS category_name, c.slug AS category_slug, s.name AS author_name`;
@@ -32,7 +32,7 @@ async function getPost({ id, slug }: Body) {
   return one(`SELECT ${POST_COLS}, p.content FROM blog_posts p LEFT JOIN blog_categories c ON c.id=p.category_id
               LEFT JOIN staff s ON s.id=p.author_id WHERE ${id ? 'p.id=$1' : 'p.slug=$1'}`, [id || slug]);
 }
-async function savePost(data: Body, staffId: Id) {
+async function savePost(data: Body, staffId?: Id) {
   const status = data.status === 'published' ? 'published' : 'draft';
   const f = {
     title: str(data.title, 160), category_id: int(data.category_id) || null, excerpt: str(data.excerpt, 500),
@@ -56,7 +56,7 @@ async function savePost(data: Body, staffId: Id) {
   if (f.cover_id) await q(`UPDATE media SET owner_type='blog', owner_id=$1 WHERE id=$2 AND owner_type IS NULL`, [row!.id, f.cover_id]);
   return row!.id;
 }
-async function deletePost(id: Id) {
+async function deletePost(id?: Id) {
   await q(`DELETE FROM media WHERE owner_type='blog' AND owner_id=$1`, [id]);
   await q('DELETE FROM blog_posts WHERE id=$1', [id]);
 }
@@ -75,7 +75,7 @@ async function savePage(data: Body) {
   const slug = await uniqueSlug('pages', slugify(data.slug || data.title) === 'item' ? 'page' : slugify(data.slug || data.title));
   return (await one('INSERT INTO pages(title, content, in_footer, active, sort, slug) VALUES($1,$2,$3,$4,$5,$6) RETURNING id', [...f, slug]))!.id;
 }
-async function deletePage(id: Id) { await q('DELETE FROM pages WHERE id=$1', [id]); }
+async function deletePage(id?: Id) { await q('DELETE FROM pages WHERE id=$1', [id]); }
 
 // ---------------------------------------------------------------- banners
 const PLACEMENTS: Record<string, string> = { slider: 'হোমপেজ স্লাইডার (বড় ব্যানার)', promo: 'হোমপেজ মাঝের ছোট ব্যানার', popup: 'পপআপ অফার' };
@@ -100,7 +100,7 @@ async function saveBanner(data: Body) {
   if (f[0]) await q(`UPDATE media SET owner_type='banner', owner_id=$1 WHERE id=$2`, [id, f[0]]);
   return id;
 }
-async function deleteBanner(id: Id) {
+async function deleteBanner(id?: Id) {
   const b = await one('SELECT image_id FROM banners WHERE id=$1', [id]);
   await q('DELETE FROM banners WHERE id=$1', [id]);
   if (b && b.image_id) await q('DELETE FROM media WHERE id=$1', [b.image_id]);
@@ -121,7 +121,7 @@ async function saveCoupon(data: Body) {
   const clash = await one('SELECT id FROM coupons WHERE upper(code)=$1 AND id<>$2', [code, int(data.id)]);
   if (clash) throw new Error('এই কোডের কুপন আগে থেকেই আছে।');
   // only for some products / categories (empty = the whole cart), and first order only
-  const ids = (v: Loose) => [...new Set([].concat(v ?? []).flatMap((x) => String(x).split(',')).map((x) => int(x)).filter((x) => x > 0))].slice(0, 300);
+  const ids = (v?: Loose) => [...new Set([].concat(v ?? []).flatMap((x) => String(x).split(',')).map((x) => int(x)).filter((x) => x > 0))].slice(0, 300);
   const extra = [ids(data.product_ids), ids(data.category_ids), !!data.first_order];
   if (int(data.id)) {
     await q(`UPDATE coupons SET code=$1, type=$2, value=$3, min_order=$4, max_discount=$5, starts_on=$6, ends_on=$7, usage_limit=$8,
@@ -131,6 +131,6 @@ async function saveCoupon(data: Body) {
   return (await one(`INSERT INTO coupons(code, type, value, min_order, max_discount, starts_on, ends_on, usage_limit, per_phone, active, note, product_ids, category_ids, first_order)
                      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING id`, [...f, ...extra]))!.id;
 }
-async function deleteCoupon(id: Id) { await q('DELETE FROM coupons WHERE id=$1', [id]); }
+async function deleteCoupon(id?: Id) { await q('DELETE FROM coupons WHERE id=$1', [id]); }
 
 export { listBlogCategories, saveBlogCategory, deleteBlogCategory, listPosts, getPost, savePost, deletePost, listPages, getPage, savePage, deletePage, PLACEMENTS, listBanners, saveBanner, deleteBanner, COUPON_TYPES, listCoupons, saveCoupon, deleteCoupon };

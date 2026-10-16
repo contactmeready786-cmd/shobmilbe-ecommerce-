@@ -1,4 +1,4 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
+import type { Loose, Settings } from '../types';
 // Every part of the shop the owner can show or hide (Admin → স্টোর ডিজাইন → দোকানে কী দেখাবে),
 // plus the texts on those parts that can be changed without any coding.
 //   switch:  { key, label, desc }            → setting key = '1' (shown) / '0' (hidden); missing = shown
@@ -99,18 +99,18 @@ const HOME_TEXTS = {
 // it is not shown again on "দোকানে কী দেখাবে", so every switch is in exactly one place.
 const SWITCHES = GROUPS.flatMap((g) => g.items.filter((i) => i.key).map((i) => (g.hidden ? { ...i, hidden: true } : i)));
 const KEYS = new Set(SWITCHES.map((i) => i.key));
-const TEXTS = new Map(SWITCHES.filter((i) => i.text).map((i) => [i.text.key, i.text]));
+const TEXTS = new Map(SWITCHES.filter((i?: Loose) => i.text).map((i?: Loose) => [i.text.key, i.text]));
 for (const [k, v] of Object.entries(HOME_TEXTS)) {
   TEXTS.set(`uit_home_${k}`, { label: 'শিরোনাম', def: v.title, max: 60 });
   if (v.sub) TEXTS.set(`uit_home_${k}_sub`, { label: 'ছোট লাইন', def: v.sub, max: 80 });
 }
 
 // defaults: every new switch on, every text empty (= its default)
-const DEFAULTS = {};
+const DEFAULTS: Record<string, string> = {};
 SWITCHES.forEach((i) => { if (/^ui_/.test(i.key)) DEFAULTS[i.key] = '1'; });
 
-const on = (s, key) => !s || s[key] !== '0';
-function text(s, key) {
+const on = (s: Settings, key?: Loose) => !s || s[key] !== '0';
+function text(s: Settings, key?: Loose) {
   const t = TEXTS.get(key);
   const v = s && typeof s[key] === 'string' ? s[key].trim() : '';
   return v || (t ? t.def || '' : '');

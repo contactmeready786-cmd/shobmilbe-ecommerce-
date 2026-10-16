@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // Safe download from another website (used by product import).
 // The admin types a link; the server fetches it. To stop that being used to reach
 // our own private network (cloud metadata, the database host, localhost …):
@@ -13,12 +12,13 @@ import * as https from 'node:https';
 import * as dns from 'node:dns';
 import * as net from 'node:net';
 import * as zlib from 'node:zlib';
+import type { Body, Loose, ShopResponse } from '../types';
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36';
 const PORTS = new Set(['', '80', '443', '8080', '8443']);
 
-function v4Private(ip) {
+function v4Private(ip?: Loose) {
   const p = ip.split('.').map(Number);
-  if (p.length !== 4 || p.some((x) => !Number.isInteger(x) || x < 0 || x > 255)) return true;
+  if (p.length !== 4 || p.some((x?: Loose) => !Number.isInteger(x) || x < 0 || x > 255)) return true;
   const [a, b] = p;
   return a === 0 || a === 10 || a === 127 || a >= 224
     || (a === 100 && b >= 64 && b <= 127) // carrier NAT
@@ -31,7 +31,7 @@ function v4Private(ip) {
     || (a === 198 && b === 51 && p[2] === 100)
     || (a === 203 && b === 0 && p[2] === 113);
 }
-function isPrivate(ip) {
+function isPrivate(ip?: Loose) {
   const s = String(ip || '').toLowerCase().replace(/^\[|\]$/g, '').split('%')[0];
   if (net.isIPv4(s)) return v4Private(s);
   if (!net.isIPv6(s)) return true;
@@ -48,11 +48,12 @@ function isPrivate(ip) {
 }
 
 class FetchError extends Error {
-  constructor(message, code) { super(message); this.code = code; }
+  code?: string;
+  constructor(message?: Loose, code?: Loose) { super(message); this.code = code; }
 }
 
 // Checked at connect time: the address really used is the address that was checked.
-function safeLookup(hostname, options, cb) {
+function safeLookup(hostname: Loose, options: Body, cb?: Loose) {
   if (typeof options === 'function') { cb = options; options = {}; }
   dns.lookup(hostname, { all: true, verbatim: true }, (err, addrs) => {
     if (err) return cb(err);
@@ -66,7 +67,7 @@ function safeLookup(hostname, options, cb) {
   });
 }
 
-function checkUrl(u) {
+function checkUrl(u?: Loose) {
   let url;
   try { url = new URL(String(u).trim()); } catch (_) { throw new FetchError('লিংকটি ঠিক নেই।', 'EURL'); }
   if (!['http:', 'https:'].includes(url.protocol)) throw new FetchError('শুধু http:// বা https:// লিংক দেওয়া যাবে।', 'EURL');
@@ -80,7 +81,7 @@ function checkUrl(u) {
   return url;
 }
 
-function once(url, { maxBytes, timeoutMs, accept, deadline, method = 'GET', headers = {}, body = null }) {
+function once(url: Loose, { maxBytes, timeoutMs, accept, deadline, method = 'GET', headers = {}, body = null }: Body) {
   return new Promise((resolve, reject) => {
     const mod = url.protocol === 'https:' ? https : http;
     const left = Math.max(1000, Math.min(timeoutMs, deadline - Date.now()));
@@ -108,13 +109,13 @@ function once(url, { maxBytes, timeoutMs, accept, deadline, method = 'GET', head
         return resolve({ redirect: res.headers.location, status });
       }
       const enc = String(res.headers['content-encoding'] || '').toLowerCase().trim();
-      let stream = res;
+      let stream: Loose = res;
       if (enc === 'gzip' || enc === 'x-gzip') stream = res.pipe(zlib.createGunzip());
       else if (enc === 'deflate') stream = res.pipe(zlib.createInflate());
       else if (enc === 'br') stream = res.pipe(zlib.createBrotliDecompress());
-      const chunks = [];
+      const chunks: Loose[] = [];
       let size = 0;
-      stream.on('data', (c) => {
+      stream.on('data', (c: Loose) => {
         size += c.length;
         if (size > maxBytes) { req.destroy(); stream.destroy(); clearTimeout(timer); reject(new FetchError('ফাইলটি অনেক বড়।', 'ETOOBIG')); return; }
         chunks.push(c);
@@ -123,21 +124,21 @@ function once(url, { maxBytes, timeoutMs, accept, deadline, method = 'GET', head
         clearTimeout(timer);
         resolve({ status, headers: res.headers, body: Buffer.concat(chunks), contentType: String(res.headers['content-type'] || '').toLowerCase() });
       });
-      stream.on('error', (e) => { clearTimeout(timer); reject(e); });
+      stream.on('error', (e: Loose) => { clearTimeout(timer); reject(e); });
     });
     req.end(body || undefined);
   });
 }
 
 // Returns { status, ok, body (Buffer), contentType, finalUrl }. Throws FetchError with a Bangla message.
-async function safeFetch(u, { maxBytes = 15 * 1024 * 1024, timeoutMs = 12000, accept, maxRedirects = 5, method = 'GET', headers = {}, body = null } = {}) {
+async function safeFetch(u?: Loose, { maxBytes = 15 * 1024 * 1024, timeoutMs = 12000, accept, maxRedirects = 5, method = 'GET', headers = {}, body = null }: Body = {}) {
   const deadline = Date.now() + timeoutMs;
   let url = checkUrl(u);
   for (let i = 0; i <= maxRedirects; i++) {
-    let r;
+    let r: Loose;
     try {
       r = await once(url, { maxBytes, timeoutMs, accept, deadline, method, headers, body });
-    } catch (e) {
+    } catch (e: Loose) {
       if (e instanceof FetchError) throw e;
       if (e && e.code === 'ENOTFOUND') throw new FetchError('এই নামের কোনো ওয়েবসাইট পাওয়া যায়নি। লিংক ঠিক আছে কি না দেখুন।', 'ENOTFOUND');
       throw new FetchError('ওয়েবসাইটে ঢোকা যায়নি' + (e && e.code ? ` (${e.code})` : '') + '।', 'ENET');

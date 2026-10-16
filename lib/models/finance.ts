@@ -22,7 +22,7 @@ async function listSuppliers({ includeInactive = true }: Body = {}) {
       (SELECT max(purchase_date) FROM purchases p WHERE p.supplier_id=s.id) AS last_purchase
     FROM suppliers s ${includeInactive ? '' : 'WHERE s.active'} ORDER BY s.active DESC, s.name`);
 }
-async function getSupplier(id: Id) {
+async function getSupplier(id?: Id) {
   const s = (await listSuppliers()).find((x) => x.id === id);
   if (!s) return null;
   s.purchases = await q(`SELECT * FROM purchases WHERE supplier_id=$1 ORDER BY purchase_date DESC, id DESC LIMIT 100`, [id]);
@@ -43,7 +43,7 @@ async function saveSupplier(data: Body) {
   }
   return (await one(`INSERT INTO suppliers(name, company, phone, email, address, note, opening_due, active) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`, f))!.id;
 }
-function supplierDue(s: Loose) { return (s.opening_due || 0) + (s.purchased || 0) - (s.paid || 0); }
+function supplierDue(s?: Loose) { return (s.opening_due || 0) + (s.purchased || 0) - (s.paid || 0); }
 
 // ---------------------------------------------------------------- purchases
 const PURCHASE_STATUSES: Record<string, string> = { ordered: 'অর্ডার দেওয়া (মাল আসেনি)', received: 'মাল বুঝে পেয়েছি', cancelled: 'বাতিল' };
@@ -58,7 +58,7 @@ async function listPurchases({ supplierId, limit = 100 }: Body = {}) {
             FROM purchases p LEFT JOIN suppliers s ON s.id=p.supplier_id ${where}
             ORDER BY p.purchase_date DESC, p.id DESC LIMIT $${params.length}`, params);
 }
-async function getPurchase(id: Id) {
+async function getPurchase(id?: Id) {
   const p = await one(`SELECT p.*, s.name AS supplier_name, st.name AS staff_name FROM purchases p
                        LEFT JOIN suppliers s ON s.id=p.supplier_id LEFT JOIN staff st ON st.id=p.created_by WHERE p.id=$1`, [id]);
   if (!p) return null;
@@ -66,12 +66,12 @@ async function getPurchase(id: Id) {
                      WHERE i.purchase_id=$1 ORDER BY i.id`, [id]);
   p.payments = await q(`SELECT t.*, a.name AS account_name FROM transactions t LEFT JOIN accounts a ON a.id=t.account_id
                         WHERE t.purchase_id=$1 ORDER BY t.id`, [id]);
-  p.paid = p.payments.reduce((s: Loose, x: Loose) => s + x.amount, 0);
+  p.paid = p.payments.reduce((s?: Loose, x?: Loose) => s + x.amount, 0);
   return p;
 }
 
 // Receive goods: stock goes up and the product's cost becomes the weighted average.
-async function receiveItems(t: Tx, purchaseId: Id, items: Loose, staffId: Id, costShare: Loose) {
+async function receiveItems(t: Tx, purchaseId?: Id, items?: Loose, staffId?: Id, costShare?: Loose) {
   for (const it of items) {
     if (!it.product_id) continue;
     const p = (await t.query('SELECT stock, cost_price FROM products WHERE id=$1 FOR UPDATE', [it.product_id])).rows[0];
@@ -85,7 +85,7 @@ async function receiveItems(t: Tx, purchaseId: Id, items: Loose, staffId: Id, co
   }
 }
 
-async function savePurchase(data: Body, staffId: Id) {
+async function savePurchase(data: Body, staffId?: Id) {
   const items: Loose[] = [];
   for (const row of data.items || []) {
     const pid = int(row.product_id);
@@ -125,7 +125,7 @@ async function savePurchase(data: Body, staffId: Id) {
     return p.id;
   });
 }
-async function setPurchaseStatus(id: Id, status: Loose, staffId: Id) {
+async function setPurchaseStatus(id?: Id, status?: Loose, staffId?: Id) {
   return tx(async (t) => {
     const p = (await t.query('SELECT * FROM purchases WHERE id=$1 FOR UPDATE', [id])).rows[0];
     if (!p || p.status === status || !PURCHASE_STATUSES[status]) return;
@@ -159,7 +159,7 @@ async function saveAccount(data: Body) {
   }
   return (await one('INSERT INTO accounts(name, type, details, opening_balance, active, sort) VALUES($1,$2,$3,$4,$5,(SELECT coalesce(max(sort),0)+1 FROM accounts)) RETURNING id', f))!.id;
 }
-async function addTransaction(data: Body, staffId: Id) {
+async function addTransaction(data: Body, staffId?: Id) {
   const type = ['income', 'expense', 'transfer'].includes(data.type) ? data.type : 'expense';
   const amt = amount(data.amount);
   if (amt <= 0) throw new Error('টাকার পরিমাণ দিন।');
@@ -173,7 +173,7 @@ async function addTransaction(data: Body, staffId: Id) {
     int(data.order_id) || null, int(data.purchase_id) || null, amount(data.vat), str(data.note, 500), staffId || null]);
   return row!.id;
 }
-async function deleteTransaction(id: Id) { await q('DELETE FROM transactions WHERE id=$1', [id]); }
+async function deleteTransaction(id?: Id) { await q('DELETE FROM transactions WHERE id=$1', [id]); }
 async function listTransactions({ from, to, type, accountId, category, limit = 200 }: Body = {}) {
   const params = [];
   const where = [];
@@ -195,7 +195,7 @@ async function listTransactions({ from, to, type, accountId, category, limit = 2
 const DHAKA_DAY = `(o.created_at AT TIME ZONE 'Asia/Dhaka')::date`;
 
 // Profit & loss for a date range. Sales are counted on delivered orders (by delivery date).
-async function profitLoss(from: Loose, to: Loose) {
+async function profitLoss(from?: Loose, to?: Loose) {
   const sales = await one(`SELECT count(*)::int AS orders, coalesce(sum(subtotal),0)::numeric(14,2) AS goods, coalesce(sum(discount + points_discount),0)::numeric(14,2) AS discount,
       coalesce(sum(delivery),0)::numeric(14,2) AS delivery, coalesce(sum(total),0)::numeric(14,2) AS revenue, coalesce(sum(cost_total),0)::numeric(14,2) AS cogs
     FROM orders o WHERE status='delivered' AND (coalesce(delivered_at, updated_at) AT TIME ZONE 'Asia/Dhaka')::date BETWEEN $1 AND $2`, [from, to]);
@@ -215,7 +215,7 @@ async function profitLoss(from: Loose, to: Loose) {
 }
 
 // VAT summary by month. mode: 'inclusive' (prices include VAT), 'exclusive' (VAT on top), 'margin' (VAT on gross margin).
-async function vatReport(settings: Settings, year: Loose) {
+async function vatReport(settings: Settings, year?: Loose) {
   const rate = num(settings.vat_rate, 15);
   const mode = settings.vat_mode || 'none';
   const rows = await q(`SELECT to_char(coalesce(delivered_at, updated_at) AT TIME ZONE 'Asia/Dhaka', 'YYYY-MM') AS month,
@@ -244,7 +244,7 @@ async function vatReport(settings: Settings, year: Loose) {
 }
 
 // Daily series for charts.
-async function dailySeries(from: Loose, to: Loose) {
+async function dailySeries(from?: Loose, to?: Loose) {
   return q(`SELECT d::date AS day,
       coalesce((SELECT count(*) FROM orders o WHERE ${DHAKA_DAY} = d::date),0)::int AS orders,
       coalesce((SELECT sum(total) FROM orders o WHERE ${DHAKA_DAY} = d::date AND o.status NOT IN ('cancelled','returned')),0)::numeric(14,2) AS sales,
@@ -262,7 +262,7 @@ async function monthlySeries(months: Loose = 12) {
                          date_trunc('month', (now() AT TIME ZONE 'Asia/Dhaka')), interval '1 month') m ORDER BY m`, [months]);
 }
 
-async function dashboard(from: Loose, to: Loose) {
+async function dashboard(from?: Loose, to?: Loose) {
   const k = await one(`SELECT
       count(*)::int AS orders,
       count(*) FILTER (WHERE status='pending')::int AS pending_in_range,
@@ -308,7 +308,7 @@ async function dashboard(from: Loose, to: Loose) {
   return { k, live, byStatus, topProducts, byCategory, byZone, byPayment, byDistrict, byHour, expenses: Number(expenses!.total), inventory, lowStock };
 }
 
-async function staffReport(from: Loose, to: Loose) {
+async function staffReport(from?: Loose, to?: Loose) {
   return q(`SELECT s.id, s.name, s.role, s.active, s.last_login,
       (SELECT count(*) FROM activity_log a WHERE a.staff_id=s.id AND (a.created_at AT TIME ZONE 'Asia/Dhaka')::date BETWEEN $1 AND $2)::int AS actions,
       (SELECT count(*) FROM activity_log a WHERE a.staff_id=s.id AND a.action='order_status' AND a.detail LIKE '%→ confirmed%' AND (a.created_at AT TIME ZONE 'Asia/Dhaka')::date BETWEEN $1 AND $2)::int AS confirmed,

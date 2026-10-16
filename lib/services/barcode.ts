@@ -1,4 +1,4 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
+import type { Body, Id, Loose, Settings } from '../types';
 // Code 128 barcodes (no outside library): text → SVG. Every phone scanner app, USB/Bluetooth barcode
 // gun and courier scanner reads Code 128. Uses code set B (all normal letters, digits and signs),
 // switching to code set C for long runs of digits so number-only codes stay short.
@@ -14,14 +14,14 @@ const P = ['212222', '222122', '222221', '121223', '121322', '131222', '122213',
 const START_B = 104; const START_C = 105; const TO_C = 99; const TO_B = 100; const STOP = 106;
 
 // Only printable ASCII is allowed in a barcode (what a scanner can type back)
-function clean(text) { return String(text || '').replace(/[^\x20-\x7e]/g, '').slice(0, 48); }
+function clean(text?: Loose) { return String(text || '').replace(/[^\x20-\x7e]/g, '').slice(0, 48); }
 
 // text → list of symbol values (with start, checksum and stop)
-function values(text) {
+function values(text?: Loose) {
   const s = clean(text);
   if (!s) throw new Error('empty barcode');
   const out = [];
-  const digitsAt = (i) => { let n = 0; while (i + n < s.length && s[i + n] >= '0' && s[i + n] <= '9') n += 1; return n; };
+  const digitsAt = (i?: Loose) => { let n = 0; while (i + n < s.length && s[i + n] >= '0' && s[i + n] <= '9') n += 1; return n; };
   let set = digitsAt(0) >= 4 && digitsAt(0) % 2 === 0 ? 'C' : 'B';
   out.push(set === 'C' ? START_C : START_B);
   let i = 0;
@@ -46,12 +46,12 @@ function values(text) {
   return out;
 }
 // list of module widths, alternating bar, space, bar …
-function widths(text) { return values(text).map((v) => P[v]).join('').split('').map(Number); }
+function widths(text?: Loose) { return values(text).map((v) => P[v]).join('').split('').map(Number); }
 
-function esc(s) { return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+function esc(s?: Loose) { return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' } as Record<string, string>)[c]); }
 
 // SVG picture. module = width of the thinnest bar (in SVG units), height of bars, show the text below.
-function svg(text, { height = 60, module = 2, showText = true, fontSize = 14, quiet = 10, label } = {}) {
+function svg(text?: Loose, { height = 60, module = 2, showText = true, fontSize = 14, quiet = 10, label }: Body = {}) {
   const w = widths(text);
   let x = quiet * module;
   let rects = '';
@@ -68,6 +68,6 @@ function svg(text, { height = 60, module = 2, showText = true, fontSize = 14, qu
 }
 
 // The shop's own product barcode: SB + 6 digits of the product number (SB000123). Never reused.
-function productCode(id) { return 'SB' + String(id).padStart(6, '0'); }
+function productCode(id?: Id) { return 'SB' + String(id).padStart(6, '0'); }
 
 export { svg, values, widths, clean, productCode, P as PATTERNS };

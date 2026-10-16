@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // Phone notifications (Web Push) for the owner — no app, no account, no password:
 // the owner taps "এই ফোনে নোটিফিকেশন চালু করুন" in the admin once, and new orders / security alerts
 // pop up on that phone like any app notification.
@@ -7,12 +6,13 @@
 // only that phone's browser can read the message. Built with Node's crypto only (no npm packages).
 import * as crypto from 'node:crypto';
 import * as db from '../db';
+import type { Body, Id, Loose, Settings } from '../types';
 
-const b64u = (b) => Buffer.from(b).toString('base64url');
-const fromB64u = (s) => Buffer.from(String(s || ''), 'base64url');
+const b64u = (b?: Loose) => Buffer.from(b).toString('base64url');
+const fromB64u = (s?: Loose) => Buffer.from(String(s || ''), 'base64url');
 
 // ---------------------------------------------------------------- the site's own key pair (made once)
-let cached = null;
+let cached: Loose = null;
 async function vapid() {
   if (cached) return cached;
   const s = await db.getSettings();
@@ -32,7 +32,7 @@ async function vapid() {
 }
 async function publicKey() { return (await vapid()).pub; }
 
-function vapidHeader(endpoint, v) {
+function vapidHeader(endpoint?: Loose, v?: Loose) {
   const aud = new URL(endpoint).origin;
   const head = b64u(JSON.stringify({ typ: 'JWT', alg: 'ES256' }));
   const body = b64u(JSON.stringify({ aud, exp: Math.floor(Date.now() / 1000) + 12 * 3600, sub: 'mailto:contact.shobmilbe@gmail.com' }));
@@ -41,7 +41,7 @@ function vapidHeader(endpoint, v) {
 }
 
 // ---------------------------------------------------------------- RFC 8291 message encryption
-function encrypt(sub, payload) {
+function encrypt(sub?: Loose, payload?: Loose) {
   const uaPublic = fromB64u(sub.p256dh);
   const authSecret = fromB64u(sub.auth);
   if (uaPublic.length !== 65 || authSecret.length < 16) throw new Error('bad subscription keys');
@@ -61,11 +61,11 @@ function encrypt(sub, payload) {
 
 // Only the real push services of phone/computer browsers (stops the admin being tricked into calling other sites).
 const PUSH_HOSTS = /(^|\.)(fcm\.googleapis\.com|android\.googleapis\.com|push\.services\.mozilla\.com|push\.apple\.com|notify\.windows\.com)$/;
-function okEndpoint(u) {
+function okEndpoint(u?: Loose) {
   try { const x = new URL(u); return x.protocol === 'https:' && PUSH_HOSTS.test(x.hostname); } catch (_) { return false; }
 }
 
-async function sendOne(sub, msg, v) {
+async function sendOne(sub?: Loose, msg?: Loose, v?: Loose) {
   const body = encrypt(sub, JSON.stringify(msg));
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), 8000);
@@ -85,7 +85,7 @@ async function sendOne(sub, msg, v) {
 }
 
 // msg = { title, body, url, tag }
-async function sendAll(msg) {
+async function sendAll(msg?: Loose) {
   const subs = await db.q("SELECT p.* FROM push_subs p JOIN staff s ON s.id=p.staff_id WHERE s.role='owner' AND s.active");
   if (!subs.length) return 0;
   const v = await vapid();
@@ -95,9 +95,9 @@ async function sendAll(msg) {
   if (!ok && lastErr) throw lastErr;
   return ok;
 }
-async function count() { return (await db.one("SELECT count(*)::int AS n FROM push_subs p JOIN staff s ON s.id=p.staff_id WHERE s.role='owner'")).n; }
+async function count() { return (await db.one("SELECT count(*)::int AS n FROM push_subs p JOIN staff s ON s.id=p.staff_id WHERE s.role='owner'"))!.n; }
 
-async function subscribe(staffId, sub, device) {
+async function subscribe(staffId?: Id, sub?: Loose, device?: Loose) {
   const endpoint = String(sub && sub.endpoint || '');
   const keys = (sub && sub.keys) || {};
   if (!okEndpoint(endpoint) || endpoint.length > 1000) throw new Error('এই ব্রাউজারের নোটিফিকেশন ঠিকানা চেনা যায়নি');
@@ -110,7 +110,7 @@ async function subscribe(staffId, sub, device) {
 
 // ---------------------------------------------------------------- customers (offer notifications)
 // Customers who tapped "হ্যাঁ" on the shop's 🔔 box. Same Web Push, separate list (shop_push_subs).
-async function shopSubscribe(sub, { customerId = null, device = '' } = {}) {
+async function shopSubscribe(sub?: Loose, { customerId = null, device = '' }: Body = {}) {
   const endpoint = String(sub && sub.endpoint || '');
   const keys = (sub && sub.keys) || {};
   if (!okEndpoint(endpoint) || endpoint.length > 1000) throw new Error('bad endpoint');
@@ -119,10 +119,10 @@ async function shopSubscribe(sub, { customerId = null, device = '' } = {}) {
     ON CONFLICT (endpoint) DO UPDATE SET p256dh=EXCLUDED.p256dh, auth=EXCLUDED.auth, customer_id=coalesce(EXCLUDED.customer_id, shop_push_subs.customer_id), fails=0`,
   [endpoint, String(keys.p256dh), String(keys.auth), customerId, String(device || '').slice(0, 60)]);
 }
-async function shopUnsubscribe(endpoint) { await db.q('DELETE FROM shop_push_subs WHERE endpoint=$1', [String(endpoint || '').slice(0, 1000)]); }
-async function shopCount() { return (await db.one('SELECT count(*)::int AS n FROM shop_push_subs')).n; }
+async function shopUnsubscribe(endpoint?: Loose) { await db.q('DELETE FROM shop_push_subs WHERE endpoint=$1', [String(endpoint || '').slice(0, 1000)]); }
+async function shopCount() { return (await db.one('SELECT count(*)::int AS n FROM shop_push_subs'))!.n; }
 // One batch of a campaign: the next `limit` subscribers after `afterId`. Returns { sent, failed, lastId, done }.
-async function shopSendBatch(msg, { afterId = 0, limit = 300 } = {}) {
+async function shopSendBatch(msg?: Loose, { afterId = 0, limit = 300 }: Body = {}) {
   const subs = await db.q('SELECT * FROM shop_push_subs WHERE id > $1 ORDER BY id LIMIT $2', [afterId, limit]);
   if (!subs.length) return { sent: 0, failed: 0, lastId: afterId, done: true };
   const v = await vapid();

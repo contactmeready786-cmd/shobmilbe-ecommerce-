@@ -125,8 +125,8 @@ const KINDS = [
 ];
 
 // The kind for a product: name first, then category name
-function kindOf(name: Loose, categoryName: Loose = '') {
-  const tryText = (t: Loose) => {
+function kindOf(name?: Loose, categoryName: Loose = '') {
+  const tryText = (t?: Loose) => {
     const low = ` ${String(t || '').toLowerCase()} `;
     return KINDS.find((k) => k.words.some((w) => {
       const word = w.toLowerCase();

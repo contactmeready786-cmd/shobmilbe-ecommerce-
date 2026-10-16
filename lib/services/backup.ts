@@ -12,25 +12,25 @@ const MAGIC = Buffer.from('SMBK1');
 const ANALYTICS = new Set(['visitors', 'visit_sessions', 'page_views', 'visit_events', 'research_items', 'research_queue', 'research_hosts', 'rate_limits', 'security_events', 'live_clicks', 'translations']);
 const NEVER = new Set(['admin_sessions', 'login_lock_codes']); // live logins are never copied
 
-async function tableList(db: Loose) {
-  return (await db.q(`SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE' ORDER BY table_name`)).map((r: Loose) => r.table_name);
+async function tableList(db?: Loose) {
+  return (await db.q(`SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE' ORDER BY table_name`)).map((r?: Loose) => r.table_name);
 }
-async function columnsOf(db: Loose, table: Loose) {
+async function columnsOf(db?: Loose, table?: Loose) {
   return db.q(`SELECT column_name AS name, data_type AS type FROM information_schema.columns WHERE table_schema='public' AND table_name=$1 ORDER BY ordinal_position`, [table]);
 }
-const qi = (n: Loose) => '"' + String(n).replace(/"/g, '""') + '"';
+const qi = (n?: Loose) => '"' + String(n).replace(/"/g, '""') + '"';
 
 // { withImages, withAnalytics } → { buffer (gzip json), tables, rows }
-async function dump(db: Loose, { withImages = false, withAnalytics = false, password = '' }: Body = {}) {
-  const tables = (await tableList(db)).filter((t: Loose) => !NEVER.has(t) && (withAnalytics || !ANALYTICS.has(t)) && (withImages || t !== 'media'));
+async function dump(db?: Loose, { withImages = false, withAnalytics = false, password = '' }: Body = {}) {
+  const tables = (await tableList(db)).filter((t?: Loose) => !NEVER.has(t) && (withAnalytics || !ANALYTICS.has(t)) && (withImages || t !== 'media'));
   const schema = await db.one("SELECT value FROM settings WHERE key='schema_version'");
   const out = { app: 'shobmilbe', format: 1, schema_version: schema ? Number(schema.value) : null, created_at: new Date().toISOString(), with_images: !!withImages, tables: {} as Record<string, Loose> };
   let rows = 0;
   for (const t of tables) {
     const cols = await columnsOf(db, t);
-    const sel = cols.map((c: Loose) => (c.type === 'bytea' ? `encode(${qi(c.name)}, 'base64') AS ${qi(c.name)}` : qi(c.name))).join(', ');
+    const sel = cols.map((c?: Loose) => (c.type === 'bytea' ? `encode(${qi(c.name)}, 'base64') AS ${qi(c.name)}` : qi(c.name))).join(', ');
     const data = await db.q(`SELECT ${sel} FROM ${qi(t)}`);
-    out.tables[t] = { columns: cols.map((c: Loose) => c.name), bytea: cols.filter((c: Loose) => c.type === 'bytea').map((c: Loose) => c.name), rows: data.map((r: Loose) => cols.map((c: Loose) => r[c.name])) };
+    out.tables[t] = { columns: cols.map((c?: Loose) => c.name), bytea: cols.filter((c?: Loose) => c.type === 'bytea').map((c?: Loose) => c.name), rows: data.map((r?: Loose) => cols.map((c?: Loose) => r[c.name])) };
     rows += data.length;
   }
   let buffer = zlib.gzipSync(Buffer.from(JSON.stringify(out), 'utf8'), { level: 9 });
@@ -38,7 +38,7 @@ async function dump(db: Loose, { withImages = false, withAnalytics = false, pass
   return { buffer, tables: tables.length, rows, encrypted: !!password };
 }
 
-function lock(buf: Loose, password: Loose) {
+function lock(buf?: Loose, password?: Loose) {
   const salt = crypto.randomBytes(16);
   const key = crypto.scryptSync(String(password), salt, 32, { N: 16384, r: 8, p: 1 });
   const iv = crypto.randomBytes(12);
@@ -46,7 +46,7 @@ function lock(buf: Loose, password: Loose) {
   const enc = Buffer.concat([c.update(buf), c.final()]);
   return Buffer.concat([MAGIC, salt, iv, c.getAuthTag(), enc]);
 }
-function unlock(buf: Loose, password: Loose) {
+function unlock(buf?: Loose, password?: Loose) {
   if (!buf.subarray(0, 5).equals(MAGIC)) return buf; // not locked
   if (!password) throw new Error('এই ব্যাকআপ পাসওয়ার্ড দিয়ে তালাবদ্ধ — পাসওয়ার্ড দিন (--password)।');
   const salt = buf.subarray(5, 21); const iv = buf.subarray(21, 33); const tag = buf.subarray(33, 49);
@@ -55,25 +55,25 @@ function unlock(buf: Loose, password: Loose) {
   d.setAuthTag(tag);
   try { return Buffer.concat([d.update(buf.subarray(49)), d.final()]); } catch (_) { throw new Error('পাসওয়ার্ড ভুল, অথবা ফাইলটা নষ্ট।'); }
 }
-function read(buf: Loose, password: Loose) {
+function read(buf?: Loose, password?: Loose) {
   const data = JSON.parse(zlib.gunzipSync(unlock(buf, password)).toString('utf8'));
   if (data.app !== 'shobmilbe' || !data.tables) throw new Error('এটা এই দোকানের ব্যাকআপ ফাইল না।');
   return data;
 }
 
 // Tables in an order where every table comes after the tables it points to.
-async function fkOrder(db: Loose, tables: Loose) {
+async function fkOrder(db?: Loose, tables?: Loose) {
   const deps = await db.q(`SELECT tc.relname AS child, tp.relname AS parent FROM pg_constraint c
     JOIN pg_class tc ON tc.oid=c.conrelid JOIN pg_class tp ON tp.oid=c.confrelid JOIN pg_namespace n ON n.oid=tc.relnamespace
     WHERE c.contype='f' AND n.nspname='public'`);
   const set = new Set(tables); const done: Loose[] = []; const seen = new Set();
-  const visit = (t: Loose, stack: Loose = new Set()) => {
+  const visit = (t?: Loose, stack: Loose = new Set()) => {
     if (seen.has(t) || stack.has(t)) return;
     stack.add(t);
-    deps.filter((d: Loose) => d.child === t && d.parent !== t && set.has(d.parent)).forEach((d: Loose) => visit(d.parent, stack));
+    deps.filter((d?: Loose) => d.child === t && d.parent !== t && set.has(d.parent)).forEach((d?: Loose) => visit(d.parent, stack));
     seen.add(t); done.push(t);
   };
-  tables.forEach((t: Loose) => visit(t));
+  tables.forEach((t?: Loose) => visit(t));
   return done;
 }
 
@@ -83,18 +83,18 @@ async function restore(db: Loose, data: Body, { log = () => {} }: Body = {}) {
   const tables = Object.keys(data.tables).filter((t) => existing.has(t) && !NEVER.has(t));
   const order = await fkOrder(db, tables);
   let total = 0;
-  await db.tx(async (t: Loose) => {
+  await db.tx(async (t?: Loose) => {
     await t.query(`TRUNCATE ${order.map(qi).join(', ')} RESTART IDENTITY CASCADE`);
     for (const name of order) {
       const T = data.tables[name];
-      const have = new Set((await t.query(`SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name=$1`, [name])).rows.map((r: Loose) => r.column_name));
-      const cols = T.columns.filter((c: Loose) => have.has(c));
-      const idx = cols.map((c: Loose) => T.columns.indexOf(c));
+      const have = new Set((await t.query(`SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name=$1`, [name])).rows.map((r?: Loose) => r.column_name));
+      const cols = T.columns.filter((c?: Loose) => have.has(c));
+      const idx = cols.map((c?: Loose) => T.columns.indexOf(c));
       const byteaCols = new Set(T.bytea || []);
       for (let i = 0; i < T.rows.length; i += 500) {
-        const chunk = T.rows.slice(i, i + 500).map((r: Loose) => {
+        const chunk = T.rows.slice(i, i + 500).map((r?: Loose) => {
           const o: Record<string, unknown> = {};
-          cols.forEach((c: Loose, k: Loose) => { const v = r[idx[k]]; o[c] = byteaCols.has(c) && v != null ? '\\x' + Buffer.from(v, 'base64').toString('hex') : v; });
+          cols.forEach((c?: Loose, k?: Loose) => { const v = r[idx[k]]; o[c] = byteaCols.has(c) && v != null ? '\\x' + Buffer.from(v, 'base64').toString('hex') : v; });
           return o;
         });
         await t.query(`INSERT INTO ${qi(name)} (${cols.map(qi).join(', ')}) SELECT ${cols.map(qi).join(', ')} FROM json_populate_recordset(NULL::${qi(name)}, $1::json)`, [JSON.stringify(chunk)]);

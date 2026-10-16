@@ -21,29 +21,29 @@ const SORTS: Record<string, string> = { popular: 'বেশি বিক্র�
 const STYLES: Record<string, string> = { rail: 'এক লাইনে, পাশে সরানো যায়', grid: 'কয়েক লাইনে গ্রিড' };
 
 const KEY_RE = /^x(\d{1,9})$/;
-const keyOf = (id: Id) => 'x' + int(id);
-const idOf = (key: Loose) => { const m = KEY_RE.exec(String(key)); return m ? int(m[1]) : 0; };
+const keyOf = (id?: Id) => 'x' + int(id);
+const idOf = (key?: Loose) => { const m = KEY_RE.exec(String(key)); return m ? int(m[1]) : 0; };
 
 async function list() { return q('SELECT * FROM home_rows ORDER BY id'); }
-async function get(id: Id) { return one('SELECT * FROM home_rows WHERE id=$1', [int(id)]); }
+async function get(id?: Id) { return one('SELECT * FROM home_rows WHERE id=$1', [int(id)]); }
 
 // "12, 5 7" → SKUs → product ids (in the order typed)
-async function idsFromSkus(text: Loose) {
+async function idsFromSkus(text?: Loose) {
   const skus = [...new Set(String(text || '').split(/[\s,;।]+/).map((x) => x.trim()).filter(Boolean))].slice(0, 60);
   if (!skus.length) return { ids: [], missing: [] };
   const rows = await q('SELECT id, sku FROM products WHERE sku = ANY($1::text[])', [skus]);
   const by = new Map(rows.map((r) => [String(r.sku), r.id]));
   return { ids: skus.map((k) => by.get(k)).filter(Boolean), missing: skus.filter((k) => !by.has(k)) };
 }
-async function skusOf(ids: Loose) {
+async function skusOf(ids?: Loose) {
   if (!ids || !ids.length) return '';
   const rows = await q('SELECT id, sku FROM products WHERE id = ANY($1::int[])', [ids]);
   const by = new Map(rows.map((r) => [r.id, r.sku]));
-  return ids.map((i: Loose) => by.get(i)).filter(Boolean).join(', ');
+  return ids.map((i?: Loose) => by.get(i)).filter(Boolean).join(', ');
 }
 
 function clean(b: Body) {
-  const num = (v: Loose) => { const n = Number(String(v ?? '').replace(/[^\d.]/g, '')); return String(v ?? '').trim() === '' || !Number.isFinite(n) ? null : n; };
+  const num = (v?: Loose) => { const n = Number(String(v ?? '').replace(/[^\d.]/g, '')); return String(v ?? '').trim() === '' || !Number.isFinite(n) ? null : n; };
   return {
     title: str(b.title, 80) || 'নতুন সারি',
     sub: str(b.sub, 160),
@@ -74,7 +74,7 @@ async function save(id: Id, b: Body) {
 }
 
 // The products of one row, ready for the shop.
-async function productsFor(r: Loose, { hideOut }: Body = {}) {
+async function productsFor(r?: Loose, { hideOut }: Body = {}) {
   const catalog = $catalog;
   const limit = r.lim || 16;
   const base = { public: true, hideOut: hideOut || r.in_stock_only, sort: r.sort, limit };
@@ -104,7 +104,7 @@ async function productsFor(r: Loose, { hideOut }: Body = {}) {
 }
 
 // Where "সব দেখুন" goes for this row.
-function linkFor(r: Loose) {
+function linkFor(r?: Loose) {
   if (r.source === 'category' && r.ref) return `/products?cat=${encodeURIComponent(r.ref)}`;
   if (r.source === 'search' && r.ref) return `/products?q=${encodeURIComponent(r.ref)}`;
   if (r.source === 'offers') return '/products?sort=offer';

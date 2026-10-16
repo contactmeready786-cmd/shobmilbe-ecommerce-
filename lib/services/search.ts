@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // 🔎 Smart search for the shop: finds the product even when the customer
 //   • misspells it            — "capasitor", "transistr", "soldring" → capacitor / transistor / soldering
 //   • writes it in Bangla     — "ক্যাপাসিটর", "রিমোট", "সিঙ্গার এসি রিমোট" → capacitor / remote / Singer AC remote
@@ -13,6 +12,7 @@
 // ---------------------------------------------------------------- Bangla → English words
 // Common ways Bangladeshi customers write shop words. Several spellings per word on purpose.
 import * as db from '../db';
+import type { Body, Loose } from '../types';
 const WORDS = {
   capacitor: 'ক্যাপাসিটর ক্যাপাসিটার কেপাসিটর কেপাসিটার ক্যাপাসিটি কন্ডেন্সার কনডেন্সার',
   resistor: 'রেজিস্টর রেজিস্টার রেসিস্টর রেজিস্ট্যান্স রেজিস্টেন্স',
@@ -107,16 +107,16 @@ const BN_TO_EN = new Map();
 for (const [en, bnList] of Object.entries(WORDS)) for (const w of bnList.split(/\s+/).filter(Boolean)) BN_TO_EN.set(w, en);
 
 // ---------------------------------------------------------------- Bangla → sound-alike Latin
-const BN_CONS = {
+const BN_CONS: Record<string, string> = {
   'ক': 'k', 'খ': 'kh', 'গ': 'g', 'ঘ': 'gh', 'ঙ': 'ng', 'চ': 'ch', 'ছ': 'ch', 'জ': 'j', 'ঝ': 'jh', 'ঞ': 'n', 'ট': 't', 'ঠ': 'th', 'ড': 'd', 'ঢ': 'dh',
   'ণ': 'n', 'ত': 't', 'থ': 'th', 'দ': 'd', 'ধ': 'dh', 'ন': 'n', 'প': 'p', 'ফ': 'f', 'ব': 'b', 'ভ': 'v', 'ম': 'm', 'য': 'j', 'র': 'r', 'ল': 'l',
   'শ': 's', 'ষ': 's', 'স': 's', 'হ': 'h', 'ড়': 'r', 'ঢ়': 'r', 'য়': 'y', 'ৎ': 't', 'ং': 'ng', 'ঃ': 'h', 'ঁ': '',
 };
-const BN_VOW = { 'অ': 'o', 'আ': 'a', 'ই': 'i', 'ঈ': 'i', 'উ': 'u', 'ঊ': 'u', 'ঋ': 'ri', 'এ': 'e', 'ঐ': 'oi', 'ও': 'o', 'ঔ': 'ou' };
-const BN_SIGN = { 'া': 'a', 'ি': 'i', 'ী': 'i', 'ু': 'u', 'ূ': 'u', 'ৃ': 'ri', 'ে': 'e', 'ৈ': 'oi', 'ো': 'o', 'ৌ': 'ou' };
+const BN_VOW: Record<string, string> = { 'অ': 'o', 'আ': 'a', 'ই': 'i', 'ঈ': 'i', 'উ': 'u', 'ঊ': 'u', 'ঋ': 'ri', 'এ': 'e', 'ঐ': 'oi', 'ও': 'o', 'ঔ': 'ou' };
+const BN_SIGN: Record<string, string> = { 'া': 'a', 'ি': 'i', 'ী': 'i', 'ু': 'u', 'ূ': 'u', 'ৃ': 'ri', 'ে': 'e', 'ৈ': 'oi', 'ো': 'o', 'ৌ': 'ou' };
 // Product names in Bangla are mostly English words written in Bangla letters, so the silent "o" between letters is left
 // out (স্যামসাং → samsang ≈ samsung, ট্রান্সফরমার → transformar ≈ transformer).
-function translit(word) {
+function translit(word?: Loose) {
   const w = String(word).replace(/য়/g, 'য়').replace(/ড়/g, 'ড়').replace(/ঢ়/g, 'ঢ়')
     .replace(/্য/g, '') // য-ফলা: ক্যা = "ka"
     .replace(/^\u0993\u09DF/, 'w').replace(/\u0993\u09DF/g, 'w'); // ওয়াট → wat, ওয়ালটন → walton
@@ -133,14 +133,14 @@ function translit(word) {
 // ---------------------------------------------------------------- words
 const BN_DIGITS = '০১২৩৪৫৬৭৮৯';
 const STOP = new Set(['er', 'and', 'the', 'for', 'with', 'of', 'a', 'an', 'to', 'in', 'এর', 'ও', 'এবং', 'জন্য', 'দাম', 'কত', 'চাই', 'দরকার', 'আছে', 'price', 'buy', 'best']);
-function norm(text) {
+function norm(text?: Loose) {
   return String(text || '').toLowerCase().normalize('NFC')
-    .replace(/[০-৯]/g, (d) => BN_DIGITS.indexOf(d))
+    .replace(/[০-৯]/g, (d) => String(BN_DIGITS.indexOf(d)))
     .replace(/[µμ]/g, 'u').replace(/Ω|ω/g, 'ohm').replace(/[‐-―]/g, '-')
     .replace(/[^a-z0-9.ঀ-৿\s-]/g, ' ');
 }
 // "1000uF-25V" → 1000uf 1000 uf 25v 25 v ; "a.b" stays only when it's a number (0.25)
-function words(text) {
+function words(text?: Loose) {
   const out = [];
   for (let w of norm(text).split(/[\s\-/]+/)) {
     w = w.replace(/^\.+|\.+$/g, '');
@@ -154,7 +154,7 @@ function words(text) {
   return out;
 }
 // a Bangla word → the English it may mean (word list, then sound-alike)
-function bnVariants(w) {
+function bnVariants(w?: Loose) {
   if (!/[ঀ-৿]/.test(w)) return [];
   const v = [];
   if (BN_TO_EN.has(w)) v.push(BN_TO_EN.get(w));
@@ -169,7 +169,7 @@ function bnVariants(w) {
 }
 
 // Damerau–Levenshtein distance, stops early once over `max`
-function dist(a, b, max) {
+function dist(a: Loose, b: Body, max?: Loose) {
   if (Math.abs(a.length - b.length) > max) return max + 1;
   const m = a.length; const n = b.length;
   let prev2 = null; let prev = Array.from({ length: n + 1 }, (_, j) => j);
@@ -189,7 +189,7 @@ function dist(a, b, max) {
   return prev[n];
 }
 // how well one typed word matches one product word (0 = not at all)
-function wordScore(q, p) {
+function wordScore(q?: Loose, p?: Loose) {
   if (q === p) return 10;
   const num = /^\d/.test(q);
   if (p.startsWith(q) && (q.length >= 2 || num)) return num ? 8 : 7 + Math.min(2, q.length / 4);
@@ -206,7 +206,7 @@ function wordScore(q, p) {
 }
 
 // ---------------------------------------------------------------- the product list in memory
-let INDEX = null; let builtAt = 0; let sig = ''; let building = null;
+let INDEX: Loose = null; let builtAt = 0; let sig = ''; let building: Loose = null;
 async function index() {
   const fresh = INDEX && Date.now() - builtAt < 60e3;
   if (fresh) return INDEX;
@@ -214,7 +214,7 @@ async function index() {
   building = (async () => {
     try {
       const s = await db.one(`SELECT count(*)::int AS n, coalesce(max(updated_at), 'epoch')::text AS u FROM products`);
-      const nowSig = `${s.n}:${s.u}`;
+      const nowSig = `${s!.n}:${s!.u}`;
       if (INDEX && nowSig === sig) { builtAt = Date.now(); return INDEX; }
       const rows = await db.q(`SELECT p.id, p.name, p.brand, p.model, p.sku, p.barcode, p.short_description, p.seo_keywords, c.name AS cat,
           coalesce(p.sold_count, 0) AS sold,
@@ -226,8 +226,8 @@ async function index() {
           [words(`${r.sku || ''} ${r.barcode || ''}`), 1],
           [words(`${r.cat || ''} ${r.seo_keywords || ''}`), 0.6],
           [words(String(r.short_description || '').slice(0, 300)), 0.35],
-        ].map(([ws, wt]) => {
-          const all = new Set(ws);
+        ].map(([ws, wt]: Loose[]) => {
+          const all = new Set<Loose>(ws as Loose);
           for (const w of ws) for (const v of bnVariants(w)) all.add(v);
           return [[...all], wt];
         });
@@ -243,7 +243,7 @@ function clearCache() { builtAt = 0; sig = ''; }
 
 // ---------------------------------------------------------------- search
 // → product ids, best match first (at most `limit`)
-async function find(query, { limit = 500 } = {}) {
+async function find(query: URLSearchParams, { limit = 500 }: Body = {}) {
   const typed = words(query).filter((w) => !STOP.has(w));
   // each typed word with the other ways it may be meant
   const groups = [];
@@ -280,7 +280,7 @@ async function find(query, { limit = 500 } = {}) {
 }
 
 // What people searched for (Admin → সার্চ রিপোর্ট): the words and how many products were found.
-async function log(query, found) {
+async function log(query: URLSearchParams, found?: Loose) {
   const q = norm(query).replace(/\s+/g, ' ').trim().slice(0, 80);
   if (q.length < 2) return;
   await db.q(`INSERT INTO search_log(q, found) VALUES($1,$2)`, [q, found]).catch(() => {});
