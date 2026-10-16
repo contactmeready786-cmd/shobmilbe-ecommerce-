@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 import { html, bn, int, str, list } from '../util';
 import * as db from '../db';
 import * as content from '../models/content';
@@ -7,6 +6,7 @@ import { saveKeys } from './marketing';
 import * as $homerows from './homerows';
 import * as $navswitch from './navswitch';
 import * as $models_catalog from '../models/catalog';
+import type { AdminCtx, Body, Id, Loose } from '../types';
 
 const SECTIONS = {
   slider: 'বড় ব্যানার স্লাইডার', trust: 'ভরসার বার (ডেলিভারি, ক্যাশ অন ডেলিভারি, রিটার্ন)', categories: 'ক্যাটাগরি বক্স', flash: '⚡ ফ্ল্যাশ সেল (চলার সময় দেখায়)',
@@ -15,9 +15,9 @@ const SECTIONS = {
   featured: '⭐ আমাদের বাছাই (যেগুলোতে "জনপ্রিয়" টিক দেওয়া)', blog: 'ব্লগ পোস্ট',
 };
 
-async function claim(id) { if (int(id)) await db.q(`UPDATE media SET owner_type='setting', owner_id=0 WHERE id=$1 AND owner_type IS NULL`, [int(id)]); }
+async function claim(id?: Id) { if (int(id)) await db.q(`UPDATE media SET owner_type='setting', owner_id=0 WHERE id=$1 AND owner_type IS NULL`, [int(id)]); }
 
-async function general(ctx) {
+async function general(ctx: AdminCtx) {
   const s = ctx.settings;
   if (ctx.method === 'POST') {
     const b = await ctx.body();
@@ -40,11 +40,11 @@ async function general(ctx) {
     return ctx.back('/admin/design', 'saved');
   }
   const { labels } = await $homerows.allLabels();
-  const enabled = db.jsonSetting(s, 'home_sections', []).filter((k) => labels[k]);
+  const enabled = db.jsonSetting(s, 'home_sections', []).filter((k?: Loose) => labels[k]);
   const ordered = [...enabled, ...Object.keys(labels).filter((k) => !enabled.includes(k))];
   const menu = db.jsonSetting(s, 'header_menu', []);
-  const sw = (on) => (on ? html`<span class="on">✅ চালু</span>` : html`<span class="off">⛔ বন্ধ</span>`);
-  const pic = (id, what) => (int(id) ? html`<img src="/media/${int(id)}/t" alt="${what}">` : html`<span class="small muted">দেওয়া নেই</span>`);
+  const sw = (on?: Loose) => (on ? html`<span class="on">✅ চালু</span>` : html`<span class="off">⛔ বন্ধ</span>`);
+  const pic = (id?: Id, what?: Loose) => (int(id) ? html`<img src="/media/${int(id)}/t" alt="${what}">` : html`<span class="small muted">দেওয়া নেই</span>`);
   const body = html`<h1>লোগো, রং ও হোমপেজ</h1>${ui.flash(ctx.flash)}
 <section class="panel">
   <h2>👀 এখন সাইটে যা চলছে</h2>
@@ -58,7 +58,7 @@ async function general(ctx) {
   </div>
   <h3 class="small" style="margin:14px 0 6px">উপরের মেনুর বাটন (হেডার)</h3>
   <div class="live-now">
-    ${menu.map((r) => html`<div class="ln"><b>${r.label}</b><span class="sw">${sw(r.on !== false)}</span></div>`)}
+    ${menu.map((r?: Loose) => html`<div class="ln"><b>${r.label}</b><span class="sw">${sw(r.on !== false)}</span></div>`)}
     <div class="ln"><b>লাইভ স্কোর</b><span class="sw">${sw(s.nav_live !== '0')}</span></div>
     <div class="ln"><b>কার্ট</b><span class="sw">${sw(s.nav_cart !== '0')}</span></div>
   </div>
@@ -123,7 +123,7 @@ async function general(ctx) {
 }
 
 // ---------------------------------------------------------------- banners
-async function banners(ctx) {
+async function banners(ctx: AdminCtx) {
   if (ctx.method === 'POST') {
     const b = await ctx.body();
     if (!int(b.id) && !int(b.image_id)) return ctx.fail('/admin/design/banners', 'ব্যানারের ছবি দিন।');
@@ -171,7 +171,7 @@ ${ui.helpBox('ব্যানারের মাপ', html`<b>স্লাইড
 </form>`;
   return ctx.page('ব্যানার', body, 'banners');
 }
-async function deleteBanner(ctx, m) {
+async function deleteBanner(ctx: AdminCtx, m?: Loose) {
   await ctx.trash('banner', int(m[1]));
   await ctx.log('banner_delete', 'banner', int(m[1]), '');
   return ctx.back('/admin/design/banners', 'deleted');
@@ -179,30 +179,30 @@ async function deleteBanner(ctx, m) {
 
 // ---------------------------------------------------------------- menus
 // switch whose value is the page id (several in one form)
-function pageSwitch(id, on, title, desc) {
+function pageSwitch(id?: Id, on?: Loose, title?: Loose, desc?: Loose) {
   return html`<label class="switch-row">
     <span class="switch-text"><b>${title}</b>${desc ? html`<small>${desc}</small>` : ''}</span>
     <span class="switch"><input type="checkbox" name="page_footer[]" value="${id}" ${on ? html`checked` : ''}><span class="switch-ui" aria-hidden="true"></span></span>
     <span class="switch-state" data-on="চালু" data-off="বন্ধ"></span></label>`;
 }
-function linkRows(name, rows, { onOff = false } = {}) {
+function linkRows(name?: Loose, rows?: Loose, { onOff = false }: Body = {}) {
   return html`<div data-repeat="${name}">${[...rows, { label: '', url: '' }].map((r) => html`<div class="field-row repeat-row">
     ${ui.field('লেখা', ui.input(`${name}_label[]`, r.label, { maxlength: 40 }))}
     ${ui.field('লিংক', ui.input(`${name}_url[]`, r.url, { maxlength: 300, placeholder: '/products?cat=… বা https://…' }))}
     ${onOff ? ui.field('দেখাবে?', ui.select(`${name}_on[]`, [['1', '✅ চালু'], ['0', '⛔ বন্ধ']], r.on === false ? '0' : '1')) : ''}
   </div>`)}</div><button type="button" class="btn btn-sm btn-ghost" data-repeat-add="${name}">+ আরেকটা লিংক</button>`;
 }
-function readRows(b, name) {
+function readRows(b: Body, name?: Loose) {
   const labels = list(b[`${name}_label`]);
   const urls = list(b[`${name}_url`]);
   const ons = list(b[`${name}_on`]);
   return labels.map((l, i) => {
-    const r = { label: str(l, 40), url: str(urls[i], 300) };
+    const r: { label: string; url: string; on?: boolean } = { label: str(l, 40), url: str(urls[i], 300) };
     if (ons.length && ons[i] === '0') r.on = false;
     return r;
   }).filter((r) => r.label && r.url);
 }
-async function menus(ctx) {
+async function menus(ctx: AdminCtx) {
   const s = ctx.settings;
   if (ctx.method === 'POST') {
     const b = await ctx.body();
@@ -264,7 +264,7 @@ async function menus(ctx) {
 }
 
 // ---------------------------------------------------------------- pages
-async function pages(ctx) {
+async function pages(ctx: AdminCtx) {
   const rows = await content.listPages({});
   const body = html`<div class="title-row"><h1>পেজ <small>${bn(rows.length)}টি</small></h1><a class="btn" href="/admin/design/pages/new">+ নতুন পেজ</a></div>${ui.flash(ctx.flash)}
 ${ui.helpBox('এই পেজগুলো দোকানের কোথায় দেখায়?', html`দোকানের প্রতিটা পেজের <b>একদম নিচে (ফুটারে)</b> <b>"তথ্য"</b> নামের কলামে এদের লিংক থাকে — যেমন আমাদের সম্পর্কে, রিটার্ন ও রিফান্ড পলিসি, প্রাইভেসি পলিসি, শর্তাবলী।
@@ -279,14 +279,14 @@ ${ui.helpBox('এই পেজগুলো দোকানের কোথায
   ${ui.rowActions({ edit: `/admin/design/pages/${p.id}`, del: `/admin/design/pages/${p.id}/delete` })}</tr>`)}</tbody></table></section>`;
   return ctx.page('পেজ', body, 'pages');
 }
-async function pageFooter(ctx, m) {
+async function pageFooter(ctx: AdminCtx, m?: Loose) {
   const b = await ctx.body();
   const id = int(m[1]);
   await db.q('UPDATE pages SET in_footer=$1, updated_at=now() WHERE id=$2', [!!b.in_footer, id]);
   await ctx.log('page_save', 'page', id, b.in_footer ? 'ফুটারে চালু' : 'ফুটারে বন্ধ');
   return ctx.back('/admin/design/pages', 'saved');
 }
-async function pageForm(ctx, m) {
+async function pageForm(ctx: AdminCtx, m?: Loose) {
   const id = m && m[1] ? int(m[1]) : null;
   if (ctx.method === 'POST') {
     const b = await ctx.body();
@@ -310,7 +310,7 @@ async function pageForm(ctx, m) {
 ${id ? html`<form method="post" action="/admin/design/pages/${id}/delete" class="danger-zone" data-confirm="পেজটি মুছবেন?"><button class="btn btn-danger btn-sm">পেজ মুছুন</button></form>` : ''}`;
   return ctx.page('পেজ', body, 'pages');
 }
-async function deletePage(ctx, m) {
+async function deletePage(ctx: AdminCtx, m?: Loose) {
   await ctx.trash('page', int(m[1]));
   await ctx.log('page_delete', 'page', int(m[1]), '');
   return ctx.back('/admin/design/pages', 'deleted');
@@ -323,7 +323,7 @@ export const routes = [
     { method: '*', path: '/admin/design/menus', perm: 'design', handler: menus },
     { method: 'GET', path: '/admin/design/pages', perm: 'design', handler: pages },
     { method: 'POST', path: /^\/admin\/design\/pages\/(\d+)\/footer$/, perm: 'design', handler: pageFooter },
-    { method: '*', path: '/admin/design/pages/new', perm: 'design', handler: (ctx) => pageForm(ctx, null) },
+    { method: '*', path: '/admin/design/pages/new', perm: 'design', handler: (ctx: AdminCtx) => pageForm(ctx, null) },
     { method: '*', path: /^\/admin\/design\/pages\/(\d+)$/, perm: 'design', handler: pageForm },
     { method: 'POST', path: /^\/admin\/design\/pages\/(\d+)\/delete$/, perm: 'design', handler: deletePage },
   ];

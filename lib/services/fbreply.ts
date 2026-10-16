@@ -98,7 +98,7 @@ function permissionHint(msg?: Loose) {
     ? 'টোকেনে কমেন্ট পড়া/উত্তরের অনুমতি নেই — অটো মার্কেটিং পেজের ধাপ অনুযায়ী pages_read_user_content আর pages_manage_engagement যোগ করে আবার যুক্ত করুন।' : '';
 }
 
-async function run(settings: Settings, { force = false }: Body = {}) {
+async function run(settings: Settings, { force = false }: Body = {}): Promise<Loose> {
   if (settings.fbreply_on !== '1' || !settings.autopost_page_token || !settings.autopost_page_id) return { off: true };
   if (!force && Date.now() - (Number(settings.fbreply_try) || 0) < EVERY_MS) return { skipped: true };
   await db.setMany({ fbreply_try: String(Date.now()) });

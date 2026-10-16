@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // On/off switches for the buttons in the store's top menu (সব পণ্য, অফার, ব্লগ, অর্ডার ট্র্যাক, লাইভ স্কোর, কার্ট).
 // The same switch shows up on the admin page each button belongs to (blog switch on the blog page, etc.)
 // and all of them together on "হেডার ও ফুটার মেনু".
@@ -8,12 +7,13 @@ import { html, raw, list, str } from '../util';
 import * as ui from './ui';
 import * as db from '../db';
 import * as $marketing from './marketing';
-const FIXED = {
+import type { AdminCtx, Body, Loose } from '../types';
+const FIXED: Record<string, Loose> = {
   live: { key: 'nav_live', label: 'লাইভ স্কোর', desc: 'ক্রিকেট বা ফুটবল স্কোর চালু থাকলে তবেই এই বাটন দেখা যায়' },
   cart: { key: 'nav_cart', label: 'কার্ট', desc: 'বন্ধ করলে উপরের কার্ট আইকন লুকাবে। "কার্টে যোগ" আর "এখনই কিনুন" বাটন আগের মতোই কাজ করবে' },
 };
 // Links in the store's footer (bottom of every page). [setting, label, column]
-const FOOTER = {
+const FOOTER: Record<string, Loose> = {
   products: { key: 'foot_products', label: 'সব পণ্য', where: 'ফুটারের "কেনাকাটা" কলামে' },
   offer: { key: 'foot_offer', label: 'অফার', where: 'ফুটারের "কেনাকাটা" কলামে' },
   track: { key: 'foot_track', label: 'অর্ডার ট্র্যাক করুন', where: 'ফুটারের "কেনাকাটা" কলামে' },
@@ -21,28 +21,28 @@ const FOOTER = {
   contact: { key: 'foot_contact', label: 'যোগাযোগ (ফোন, WhatsApp, ইমেইল, ঠিকানা)', where: 'ফুটারের ডান পাশের "যোগাযোগ" কলাম' },
 };
 
-function menuRows(s) { return db.jsonSetting(s, 'header_menu', []); }
-function isOn(row) { return row.on !== false; }
+function menuRows(s?: Loose) { return db.jsonSetting(s, 'header_menu', []); }
+function isOn(row?: Loose) { return row.on !== false; }
 
 // Small panel with switches for the given menu links (by url) and fixed buttons ('live', 'cart').
 // Every switch saves the moment it is clicked.
-function box(ctx, { urls = [], fixed = [], footer = [], back, note } = {}) {
+function box(ctx: AdminCtx, { urls = [], fixed = [], footer = [], back, note }: Body = {}) {
   if (!ctx.can('design')) return '';
   const s = ctx.settings;
-  const rows = menuRows(s).filter((r) => urls.includes(r.url));
+  const rows = menuRows(s).filter((r?: Loose) => urls.includes(r.url));
   const top = [
-    ...rows.map((r) => ({ id: 'url:' + r.url, on: isOn(r), title: `"${r.label}" বাটন`, desc: `জায়গা: উপরের মেনু, সার্চ বারের পাশে · লিংক: ${r.url}` })),
-    ...fixed.map((k) => ({ id: k, on: s[FIXED[k].key] !== '0', title: `"${FIXED[k].label}" বাটন`, desc: `জায়গা: উপরের মেনু · ${FIXED[k].desc}` })),
+    ...rows.map((r?: Loose) => ({ id: 'url:' + r.url, on: isOn(r), title: `"${r.label}" বাটন`, desc: `জায়গা: উপরের মেনু, সার্চ বারের পাশে · লিংক: ${r.url}` })),
+    ...fixed.map((k?: Loose) => ({ id: k, on: s[FIXED[k].key] !== '0', title: `"${FIXED[k].label}" বাটন`, desc: `জায়গা: উপরের মেনু · ${FIXED[k].desc}` })),
   ];
-  const bottom = footer.map((k) => ({ id: 'foot:' + k, on: s[FOOTER[k].key] !== '0', title: `"${FOOTER[k].label}" লিংক`, desc: `জায়গা: পেজের একদম নিচে, ${FOOTER[k].where}` }));
+  const bottom = footer.map((k?: Loose) => ({ id: 'foot:' + k, on: s[FOOTER[k].key] !== '0', title: `"${FOOTER[k].label}" লিংক`, desc: `জায়গা: পেজের একদম নিচে, ${FOOTER[k].where}` }));
   const items = [...top, ...bottom];
   if (!items.length) return '';
   // compact: one small chip per button, the long explanation sits in the chip's tooltip
-  const chip = (it) => html`<label class="nav-chip" title="${it.desc}">
+  const chip = (it?: Loose) => html`<label class="nav-chip" title="${it.desc}">
       <span class="nav-chip-t">${it.title}</span>
       <span class="switch switch-sm"><input type="checkbox" name="${'on_' + it.id}" value="1" ${it.on ? raw('checked') : ''} data-autosubmit><span class="switch-ui" aria-hidden="true"></span></span>
     </label>`;
-  const group = (title, list) => (list.length ? html`<div class="nav-chip-group"><span class="nav-chip-where">${title}</span>${list.map(chip)}</div>` : '');
+  const group = (title?: Loose, list?: Loose) => (list.length ? html`<div class="nav-chip-group"><span class="nav-chip-where">${title}</span>${list.map(chip)}</div>` : '');
   return html`<details class="panel nav-switch-box nav-compact">
   <summary><span>🧭 দোকানে এর বাটন ও লিংক</span><span class="nav-chip-sum">${items.map((it) => html`<span class="dot ${it.on ? 'on' : ''}" title="${it.title}: ${it.on ? 'চালু' : 'বন্ধ'}"></span>`)} ${items.filter((i) => i.on).length}/${items.length} চালু</span></summary>
   <form method="post" action="/admin/design/menus/toggle">
@@ -55,13 +55,13 @@ function box(ctx, { urls = [], fixed = [], footer = [], back, note } = {}) {
 </details>`;
 }
 
-async function toggle(ctx) {
+async function toggle(ctx: AdminCtx) {
   const b = await ctx.body();
   const keys = list(b.keys);
   const rows = menuRows(ctx.settings);
   let rowsChanged = false;
-  const fixedBody = {};
-  const fixedKeys = [];
+  const fixedBody: Record<string, string> = {};
+  const fixedKeys: Loose[] = [];
   for (const k of keys) {
     const on = !!b['on_' + k];
     if (k.startsWith('url:')) {

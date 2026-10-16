@@ -42,7 +42,8 @@ export type Base = {
   redirect: (res: ShopResponse, to: string, extra?: HeaderMap) => void;
 };
 /** A signed-in admin user (a row of the staff table plus the session's marks). */
-export type StaffUser = Row & { id: number; name: string; role: string; permissions: string[]; __session?: Loose; __token?: string; __verified?: boolean };
+// (columns: id, name, username, role, permissions[], active …; plus __session, __token, __verified from the login)
+export type StaffUser = Row;
 /** What every admin page handler gets (built in lib/admin/index.ts). */
 export type AdminCtx = Base & {
   user: StaffUser; ip: string; readOnly?: boolean; __err?: string;

@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // Admin → মার্কেটিং → Google ও Facebook → 🤖 অটো SEO: what the automatic SEO engine (services/autoseo.js) has done,
 // the shop's SEO score day by day, its switches, every change with an undo button, and a preview of an auto description.
 import { html, raw, bn, fmtDate } from '../util';
@@ -8,15 +7,16 @@ import * as charts from './charts';
 import * as md from '../views/md';
 import * as A from '../services/autoseo';
 import * as $status from './status';
+import type { AdminCtx, Body, Loose } from '../types';
 
 const BASE = '/admin/marketing/autoseo';
 
-async function handle(ctx) {
+async function handle(ctx: AdminCtx) {
   if (ctx.method === 'POST') return post(ctx);
   return page(ctx);
 }
 
-async function post(ctx) {
+async function post(ctx: AdminCtx) {
   const b = await ctx.body();
   const s = ctx.settings;
   if (b.action === 'save') {
@@ -48,7 +48,7 @@ async function post(ctx) {
   return ctx.back(BASE);
 }
 
-async function page(ctx) {
+async function page(ctx: AdminCtx) {
   const s = ctx.settings;
   const [st, log, { avg, total, list }, sample] = await Promise.all([
     A.stats(),
@@ -63,10 +63,10 @@ async function page(ctx) {
   const up = first && hist.length > 1 ? avg - first.avg : 0;
   const pctDone = st.total ? Math.round((st.done * 100) / st.total) : 0;
   const on = s.autoseo_on !== '0';
-  const label = (f) => A.LOG_FIELDS[f] || f;
-  const show = (l) => {
+  const label = (f: string) => A.LOG_FIELDS[f] || f;
+  const show = (l?: Loose) => {
     if (l.field !== 'specs') return l.new_value;
-    try { return JSON.parse(l.new_value).map((r) => `${r[0]}: ${r[1]}`).join(' · '); } catch (_) { return l.new_value; }
+    try { return JSON.parse(l.new_value).map((r?: Loose) => `${r[0]}: ${r[1]}`).join(' · '); } catch (_) { return l.new_value; }
   };
   const body = html`<div class="title-row"><h1>🤖 অটো SEO</h1><div class="row-actions"><a class="btn btn-ghost btn-sm" href="/admin/marketing/seo?tab=check">🩺 SEO চেকার</a></div></div>
 ${ui.flash(ctx.flash)}

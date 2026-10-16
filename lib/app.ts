@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // Every request comes here: storefront pages, small JSON APIs, payments, webhooks, images and the admin panel.
 import * as db from './db';
 import * as catalog from './models/catalog';
@@ -52,6 +51,7 @@ import * as $shopx from './shopx';
 import * as $models_homerows from './models/homerows';
 import * as $models_kits from './models/kits';
 import * as $services_errors from './services/errors';
+import type { Body, Id, Loose, Settings, ShopRequest, ShopResponse } from './types';
 
 const securityHeaders = security.BASE_HEADERS;
 
@@ -92,41 +92,41 @@ O.onStatusChange(async (id, status, prev) => {
 });
 // The home page, top to bottom (Admin → স্টোর ডিজাইন can switch rows on/off and change the order).
 const HOME_DEFAULT = ['slider', 'trust', 'categories', 'new', 'offers', 'bestsellers', 'popular', 'promo', 'cat_rows', 'budget', 'featured'];
-function send(res, status, body, type = 'text/html; charset=utf-8', extra = {}) {
+function send(res: ShopResponse, status?: Loose, body?: Loose, type: Loose = 'text/html; charset=utf-8', extra: Loose = {}) {
   res.writeHead(status, { 'Content-Type': type, 'Cache-Control': 'no-store', ...securityHeaders, ...extra });
   res.end(body);
 }
-function json(res, status, data, extra = {}) { send(res, status, JSON.stringify(data), 'application/json; charset=utf-8', extra); }
+function json(res: ShopResponse, status: Loose, data: unknown, extra: Loose = {}) { send(res, status, JSON.stringify(data), 'application/json; charset=utf-8', extra); }
 
 // "This browser placed / verified these orders" — a signed cookie, so only that customer sees the full address and phone.
-function myOrders(req, settings) {
+function myOrders(req: ShopRequest, settings: Settings) {
   const v = unsign(parseCookies(req.headers.cookie).sm_orders, settings.session_secret);
   return v ? v.split('.').filter(Boolean) : [];
 }
-function myOrdersCookie(req, settings, code) {
+function myOrdersCookie(req: ShopRequest, settings: Settings, code?: Loose) {
   const codes = [code, ...myOrders(req, settings).filter((c) => c !== code)].slice(0, 15);
   const secure = String(req.headers['x-forwarded-proto'] || '').includes('https') ? '; Secure' : '';
   return `sm_orders=${encodeURIComponent(sign(codes.join('.'), settings.session_secret))}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${120 * 86400}${secure}`;
 }
-function redirect(res, to, extra = {}) { res.writeHead(303, { Location: to, 'Cache-Control': 'no-store', ...extra }); res.end(); }
+function redirect(res: ShopResponse, to?: Loose, extra: Loose = {}) { res.writeHead(303, { Location: to, 'Cache-Control': 'no-store', ...extra }); res.end(); }
 
 const clientIp = security.clientIp;
 // Too many requests from one visitor: polite message, nothing else happens.
-function tooMany(req, res, asJson) {
+function tooMany(req: ShopRequest, res: ShopResponse, asJson?: Loose) {
   guard.record({ req, kind: 'flood', path: String(req.url || '').slice(0, 200) }).catch(() => {});
   const text = 'অনেক বেশি চেষ্টা হয়েছে। কিছুক্ষণ পর আবার চেষ্টা করুন।';
   if (asJson) return send(res, 429, JSON.stringify({ error: text }), 'application/json; charset=utf-8', { 'Retry-After': '120' });
   return send(res, 429, `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>একটু অপেক্ষা করুন</title><body style="font-family:sans-serif;padding:40px;text-align:center"><h1>একটু অপেক্ষা করুন</h1><p>${text}</p><p><a href="/">হোমে ফিরে যান</a></p></body>`, 'text/html; charset=utf-8', { 'Retry-After': '120' });
 }
-function siteUrl(req, settings) {
+function siteUrl(req: ShopRequest, settings: Settings) {
   if (settings.site_url) return settings.site_url.replace(/\/+$/, '');
-  const host = req.headers['x-forwarded-host'] || req.headers.host || 'localhost';
+  const host = String(req.headers['x-forwarded-host'] || req.headers.host || 'localhost');
   const proto = String(req.headers['x-forwarded-proto'] || (host.startsWith('localhost') ? 'http' : 'https')).split(',')[0];
   return `${proto}://${host}`;
 }
 
-async function handler(req, res) {
-  const url = new URL(req.url, 'http://local');
+async function handler(req: ShopRequest, res: ShopResponse) {
+  const url = new URL(req.url || '/', 'http://local');
   let path = url.searchParams.get('__p');
   if (path !== null) {
     url.searchParams.delete('__p');
@@ -136,12 +136,12 @@ async function handler(req, res) {
   }
   try { path = decodeURIComponent(path); } catch (_) { /* keep raw */ }
   if (path.length > 1) path = path.replace(/\/+$/, '');
-  const method = req.method;
+  const method = req.method || 'GET';
   const query = url.searchParams;
 
   try {
     await db.ensureReady();
-  } catch (e) {
+  } catch (e: Loose) {
     console.error('Database setup failed:', e);
     return send(res, 503, setupErrorPage(e));
   }
@@ -156,7 +156,7 @@ async function handler(req, res) {
     if (await dbmove.pending()) {
       if (path === '/__dbmove' && method === 'POST') {
         try { return send(res, 200, JSON.stringify(await dbmove.step()), 'application/json; charset=utf-8', { 'Cache-Control': 'no-store' }); }
-        catch (e) { console.error('DB move step failed:', e); return send(res, 200, JSON.stringify({ error: String(e.message || e).slice(0, 300), at: String(e.stack || '').split('\n').slice(1, 6).map((l) => l.trim().replace(/^at /, '').replace(/\/var\/task\//g, '')).join(' < ').slice(0, 500) }), 'application/json; charset=utf-8', { 'Cache-Control': 'no-store' }); }
+        catch (e: Loose) { console.error('DB move step failed:', e); return send(res, 200, JSON.stringify({ error: String(e.message || e).slice(0, 300), at: String(e.stack || '').split('\n').slice(1, 6).map((l) => l.trim().replace(/^at /, '').replace(/\/var\/task\//g, '')).join(' < ').slice(0, 500) }), 'application/json; charset=utf-8', { 'Cache-Control': 'no-store' }); }
       }
       if (path === '/__dbmove' && method === 'GET') return send(res, 200, JSON.stringify(await dbmove.status()), 'application/json; charset=utf-8', { 'Cache-Control': 'no-store' });
       if (/^\/(css|js|vendor|favicon|brand)/.test(path)) { /* let static bits through */ } else
@@ -167,7 +167,7 @@ async function handler(req, res) {
   try {
     const settings = await db.getSettings();
     const isAdmin = path === '/admin' || path.startsWith('/admin/');
-    const adminSend = (r, status, body, type, extra = {}) => send(r, status, body, type, { 'Content-Security-Policy': security.ADMIN_CSP, 'X-Robots-Tag': 'noindex, nofollow, noarchive, nosnippet, noimageindex', 'Referrer-Policy': 'same-origin',
+    const adminSend = (r?: Loose, status?: Loose, body?: Loose, type?: Loose, extra: Loose = {}) => send(r, status, body, type, { 'Content-Security-Policy': security.ADMIN_CSP, 'X-Robots-Tag': 'noindex, nofollow, noarchive, nosnippet, noimageindex', 'Referrer-Policy': 'same-origin',
       // the admin may use the camera (owner's face check); the shop pages never can
       'Permissions-Policy': 'camera=(self), microphone=(), geolocation=(), usb=(), payment=(self)', ...extra });
     const base = { req, res, path, method, query, settings, send: isAdmin ? adminSend : send, json, redirect };
@@ -207,7 +207,7 @@ async function handler(req, res) {
       // a visitor whose own clock is in a ticked country (e.g. a Bangladeshi on a VPN) — only when the owner allows it
       if (path === geo.BLOCK_PATH + '/pass' && method === 'POST') {
         const c = geo.config(settings);
-        const b = await parseBody(req).catch(() => ({}));
+        const b: Body = await parseBody(req).catch(() => ({}));
         if (!c.on || !c.vpnHome || !c.zones.has(String(b.tz || '')) || !(await security.hit(db, 'geopass:' + clientIp(req), 10, 3600))) return json(res, 403, { ok: false });
         return json(res, 200, { ok: true }, { 'Set-Cookie': geo.passCookie(req, settings) });
       }
@@ -244,7 +244,7 @@ async function handler(req, res) {
     if (path === '/sitemap.xml') return await sitemap(req, res, settings);
     // ⚡ IndexNow key file (Bing & co. check it belongs to this shop)
     if (/^\/[a-f0-9]{32}\.txt$/.test(path) && settings.indexnow_key && path === `/${settings.indexnow_key}.txt`) return send(res, 200, settings.indexnow_key, 'text/plain; charset=utf-8');
-    const vf = db.jsonSetting(settings, 'verification_files', []).find((f) => '/' + f.path === path);
+    const vf = db.jsonSetting(settings, 'verification_files', []).find((f?: Loose) => '/' + f.path === path);
     if (vf) return send(res, 200, vf.content, vf.path.endsWith('.html') ? 'text/html; charset=utf-8' : 'text/plain; charset=utf-8', { 'Content-Security-Policy': "sandbox; default-src 'none'" });
 
     // ---- API ----
@@ -339,14 +339,14 @@ async function handler(req, res) {
       const ids = (query.get('ids') || '').split(',').map((x) => int(x)).filter((x) => x > 0).slice(0, 24);
       const prods = ids.length ? (await catalog.getProductsByIds(ids, { public: true })).filter((p) => !p.parent_id) : [];
       const pos = new Map(ids.map((id, i) => [id, i]));
-      prods.sort((a, b) => pos.get(a.id) - pos.get(b.id));
+      prods.sort((a, b) => (pos.get(a.id) as number) - (pos.get(b.id) as number));
       return json(res, 200, { ids: prods.map((p) => p.id), html: prods.map((p) => shop.productCard(p, settings).s).join('') });
     }
     // ✨ "আপনার জন্য": products picked for this shopper from what they viewed, have in the cart and bought before
     //    (bought together by other customers first, then popular ones from the same categories)
     if (path === '/api/for-you' && method === 'GET') {
       if (settings.for_you_on === '0') return json(res, 200, { html: '' });
-      const list = (k) => (query.get(k) || '').split(',').map((x) => int(x)).filter((x) => x > 0).slice(0, 30);
+      const list = (k?: Loose) => (query.get(k) || '').split(',').map((x) => int(x)).filter((x) => x > 0).slice(0, 30);
       const codes = myOrders(req, settings);
       const bought = codes.length ? (await db.q(`SELECT DISTINCT i.product_id FROM order_items i JOIN orders o ON o.id=i.order_id WHERE o.code = ANY($1::text[]) AND i.product_id IS NOT NULL`, [codes])).map((r) => r.product_id) : [];
       const seeds = [...new Set([...list('cart'), ...list('seen'), ...bought])].slice(0, 40);
@@ -365,7 +365,7 @@ async function handler(req, res) {
       const ids = rows.map((r) => r.id);
       const prods = ids.length ? await catalog.getProductsByIds(ids, { public: true }) : [];
       const pos = new Map(ids.map((id, i) => [id, i]));
-      prods.sort((a, b) => pos.get(a.id) - pos.get(b.id));
+      prods.sort((a, b) => (pos.get(a.id) as number) - (pos.get(b.id) as number));
       return json(res, 200, { html: prods.map((p) => shop.productCard(p, settings).s).join('') }, { 'Cache-Control': 'no-store' });
     }
     if (path === '/api/quote' && method === 'POST') {
@@ -376,13 +376,13 @@ async function handler(req, res) {
     if (path === '/api/app/offers' && method === 'GET') {
       const after = Math.max(0, int(query.get('after')) || 0);
       const last = await db.one('SELECT COALESCE(max(id),0)::int AS id FROM push_campaigns');
-      let items = [];
+      let items: Loose[] = [];
       if (settings.shoppush_on === '1' && after > 0) {
         // only the newest one, and only if it is fresh — never a pile of old offers
         items = (await db.q(`SELECT id, title, body, url, image_id FROM push_campaigns WHERE id > $1 AND created_at > now() - interval '2 days' ORDER BY id DESC LIMIT 1`, [after]))
           .map((c) => ({ id: c.id, title: c.title, body: c.body, url: c.url || '/', image: c.image_id ? `/media/${c.image_id}` : '' }));
       }
-      return json(res, 200, { latest: last.id, items }, { 'Cache-Control': 'no-store' });
+      return json(res, 200, { latest: last!.id, items }, { 'Cache-Control': 'no-store' });
     }
     // 📥 Android app's ইনবক্স tab: the shop's recent offer messages + how to reach the shop
     if (path === '/api/app/inbox' && method === 'GET') {
@@ -426,11 +426,11 @@ async function handler(req, res) {
     if (path === '/unsubscribe') {
       const M = $services_mailer;
       const t = str(query.get('t'), 60);
-      const page = (title, msg, extra = '') => send(res, 200, `<!doctype html><html lang="bn"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>${esc(title)}</title><body style="font-family:'Hind Siliguri',sans-serif;max-width:480px;margin:60px auto;padding:0 18px;text-align:center;color:#14213d"><div style="font-size:46px">📧</div><h1 style="font-size:22px">${esc(title)}</h1><p style="color:#5b6475;line-height:1.7">${msg}</p>${extra}<p><a href="/" style="display:inline-block;margin-top:14px;background:#0866D6;color:#fff;text-decoration:none;padding:11px 24px;border-radius:10px">দোকানে যান</a></p></body></html>`, 'text/html; charset=utf-8', { 'X-Robots-Tag': 'noindex' });
+      const page = (title?: Loose, msg?: Loose, extra: Loose = '') => send(res, 200, `<!doctype html><html lang="bn"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>${esc(title)}</title><body style="font-family:'Hind Siliguri',sans-serif;max-width:480px;margin:60px auto;padding:0 18px;text-align:center;color:#14213d"><div style="font-size:46px">📧</div><h1 style="font-size:22px">${esc(title)}</h1><p style="color:#5b6475;line-height:1.7">${msg}</p>${extra}<p><a href="/" style="display:inline-block;margin-top:14px;background:#0866D6;color:#fff;text-decoration:none;padding:11px 24px;border-radius:10px">দোকানে যান</a></p></body></html>`, 'text/html; charset=utf-8', { 'X-Robots-Tag': 'noindex' });
       if (method === 'POST') {
         // Gmail's one-click "Unsubscribe" button (RFC 8058) and the button on this page both POST here
         if (!(await security.hit(db, 'unsub:' + ip, 30, 3600))) return tooMany(req, res);
-        const b = await parseBody(req).catch(() => ({}));
+        const b: Body = await parseBody(req).catch(() => ({}));
         const tok = t || str(b.t, 60);
         if (str(b.again, 2) === '1') {
           const sub = await M.bySubToken(tok);
@@ -505,27 +505,27 @@ async function handler(req, res) {
     // the two scheduled jobs: anyone may knock, but one connection only a few times an hour (stops someone making the site work hard on purpose)
     if ((path === '/api/backup/tick' || path === '/api/research/tick') && !(await security.hit(db, 'tick:' + ip, 30, 3600))) return json(res, 429, { ok: false });
     if (path === '/api/backup/tick') {
-      let r = {};
+      let r: Record<string, Loose> = {};
       try { r = await $services_autobackup.run(); } catch (_) { r = {}; }
       return json(res, 200, { ok: true, done: !!r.ok });
     }
     if (path === '/api/research/tick') {
-      let r = {};
+      let r: Record<string, Loose> = {};
       try { r = await $services_research.tick(); } catch (_) { r = {}; }
       try { const ik = $services_imagekit; await ik.moveOld(db, 10); await ik.flushTrash(db, 30); } catch (_) { /* next time */ }
       try { await $models_extras.restockSweep(settings); } catch (_) { /* next time */ }
       try { await seo.indexNowSweep(settings); } catch (_) { /* next hour */ }
       // 🤖 অটো মার্কেটিং: the day's Facebook / Instagram post at the owner's hours, and the weekly price-list articles
       // 🤖 অটো SEO: model numbers and specifications for a few dozen products, and the daily score
-      try { await $services_autoseo.sweep(settings); } catch (e) { console.error('autoseo', e.message); }
-      try { await $services_autopost.tick(settings); } catch (e) { console.error('autopost', e.message); }
+      try { await $services_autoseo.sweep(settings); } catch (e: Loose) { console.error('autoseo', e.message); }
+      try { await $services_autopost.tick(settings); } catch (e: Loose) { console.error('autopost', e.message); }
       // 💬 "দাম কত?" under the page's posts → price + order link in the comment (every ~10 minutes, when switched on)
-      try { await $services_fbreply.run(settings); } catch (e) { console.error('fbreply', e.message); }
+      try { await $services_fbreply.run(settings); } catch (e: Loose) { console.error('fbreply', e.message); }
       // ✈️ the same daily posts to the shop's Telegram channel (when one is connected)
-      try { await $services_telegram.tick(settings); } catch (e) { console.error('telegram', e.message); }
-      try { await $services_autoblog.run(settings, { max: 1 }); } catch (e) { console.error('autoblog', e.message); }
+      try { await $services_telegram.tick(settings); } catch (e: Loose) { console.error('telegram', e.message); }
+      try { await $services_autoblog.run(settings, { max: 1 }); } catch (e: Loose) { console.error('autoblog', e.message); }
       // 📧 ইমেইল মার্কেটিং: welcome / review / weekly new products / campaigns / 'we miss you' (within the day's allowance)
-      try { await $services_mailer.tick(settings); } catch (e) { console.error('mailer', e.message); }
+      try { await $services_mailer.tick(settings); } catch (e: Loose) { console.error('mailer', e.message); }
       try { await $services_autobackup.run(); } catch (_) { /* the daily one will try again */ }
       return json(res, 200, { ok: true, done: !r.skipped && !r.idle });
     }
@@ -557,7 +557,7 @@ async function handler(req, res) {
 
 // A picture on ImageKit: send the visitor straight there (fast CDN). raw=1 (admin tools that read the
 // pixels) gets the bytes through this site instead, because browsers only allow that for same-site pictures.
-async function sendFromImageKit(res, url, mime, raw) {
+async function sendFromImageKit(res: ShopResponse, url?: Loose, mime?: Loose, raw?: Loose) {
   if (!raw) {
     res.writeHead(302, { Location: url, 'Cache-Control': 'public, max-age=86400', 'X-Content-Type-Options': 'nosniff' });
     return res.end();
@@ -570,7 +570,7 @@ async function sendFromImageKit(res, url, mime, raw) {
   return res.end(Buffer.from(await r.arrayBuffer()));
 }
 
-async function serveMedia(res, id, thumb, raw = false) {
+async function serveMedia(res: ShopResponse, id?: Id, thumb?: Loose, raw: Loose = false) {
   const m = await catalog.getMedia(id, thumb);
   if (!m) return send(res, 404, 'Not found', 'text/plain');
   if (m.ik_url) return sendFromImageKit(res, thumb ? $services_imagekit.thumbUrl(m.ik_url) : m.ik_url, m.mime, raw);
@@ -582,7 +582,7 @@ async function serveMedia(res, id, thumb, raw = false) {
 
 // Product page's big picture with the shop's watermark. Until the marked copy is ready
 // the normal picture is sent, and only cached briefly so the marked one shows up soon.
-async function serveWatermarked(res, id, settings, raw = false) {
+async function serveWatermarked(res: ShopResponse, id: Id, settings: Settings, raw: Loose = false) {
   const ver = settings.wm_on === '1' ? String(settings.wm_ver || '') : '';
   const m = ver ? await catalog.getWatermarked(id, ver) : await catalog.getMedia(id, false);
   if (!m) return send(res, 404, 'Not found', 'text/plain');
@@ -601,16 +601,16 @@ async function serveWatermarked(res, id, settings, raw = false) {
 // AI-training copiers are told to stay away — they never bring customers, so this costs no sales.
 const SPY_BOTS = ['AhrefsBot', 'SemrushBot', 'MJ12bot', 'DotBot', 'BLEXBot', 'DataForSeoBot', 'Barkrowler', 'serpstatbot', 'SEOkicks', 'MegaIndex', 'ZoominfoBot'];
 const AI_COPIERS = ['GPTBot', 'CCBot', 'Google-Extended', 'ClaudeBot', 'anthropic-ai', 'Bytespider', 'Applebot-Extended', 'meta-externalagent', 'Diffbot', 'cohere-ai', 'omgili'];
-function blockedBots(settings) {
+function blockedBots(settings: Settings) {
   return [...(settings.block_seo_spies !== '0' ? SPY_BOTS : []), ...(settings.block_ai_copy !== '0' ? AI_COPIERS : [])];
 }
-function robots(req, res, settings) {
+function robots(req: ShopRequest, res: ShopResponse, settings: Settings) {
   const base = siteUrl(req, settings);
   const closed = blockedBots(settings).map((b) => `User-agent: ${b}\nDisallow: /\n`).join('\n');
   send(res, 200, `${closed ? closed + '\n' : ''}User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /cart\nDisallow: /checkout\nDisallow: /order/\nDisallow: /api/\nDisallow: /pay/\nDisallow: /track\nDisallow: /*?q=\nDisallow: /*&q=\n\nSitemap: ${base}/sitemap.xml\n`,
     'text/plain; charset=utf-8', { 'Cache-Control': 'public, max-age=3600' });
 }
-async function sitemap(req, res, settings) {
+async function sitemap(req: ShopRequest, res: ShopResponse, settings: Settings) {
   const base = siteUrl(req, settings);
   const [products, categories, posts, pages, brands] = await Promise.all([
     db.q('SELECT slug, updated_at, image_id, name FROM products WHERE active AND NOT noindex AND parent_id IS NULL ORDER BY id'),
@@ -623,7 +623,7 @@ async function sitemap(req, res, settings) {
   const kits = settings.kits_on !== '0' ? await db.q('SELECT slug, updated_at, image_id FROM kits WHERE active ORDER BY sort, id').catch(() => []) : [];
   // the same product listed twice: only its main page goes to Google
   const dupSlugs = await dupcanon.copies().catch(() => new Map());
-  const u = (loc, lastmod, pri, img) => `<url><loc>${esc(base + loc)}</loc>${lastmod ? `<lastmod>${new Date(lastmod).toISOString().slice(0, 10)}</lastmod>` : ''}${pri ? `<priority>${pri}</priority>` : ''}${img ? `<image:image><image:loc>${esc(base + img)}</image:loc></image:image>` : ''}</url>`;
+  const u = (loc?: Loose, lastmod?: Loose, pri?: Loose, img?: Loose) => `<url><loc>${esc(base + loc)}</loc>${lastmod ? `<lastmod>${new Date(lastmod).toISOString().slice(0, 10)}</lastmod>` : ''}${pri ? `<priority>${pri}</priority>` : ''}${img ? `<image:image><image:loc>${esc(base + img)}</image:loc></image:image>` : ''}</url>`;
   const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">${[
     u('/', null, '1.0'), u('/products', null, '0.9'), u('/blog', null, '0.5'),
     ...categories.map((c) => u(`/products?cat=${encodeURIComponent(c.slug)}`, null, '0.8')),
@@ -639,34 +639,34 @@ async function sitemap(req, res, settings) {
 
 // ---------------------------------------------------------------- API
 // Visitor analytics beacons from shop.js. Always answers fast; never breaks the page.
-async function visitApi({ req, res, settings }) {
+async function visitApi({ req, res, settings }: Body) {
   let out = null;
   try {
     const host = String(req.headers['x-forwarded-host'] || req.headers.host || '').split(':')[0].toLowerCase().replace(/^www\./, '');
     out = await visitors.record({ req, settings, body: await readBody(req, 16 * 1024), ip: clientIp(req), ownHost: host });
-  } catch (e) {
+  } catch (e: Loose) {
     console.error('visit beacon', e.message);
   }
   return json(res, 200, out || {});
 }
 
 // Live scores: cached a few seconds at Vercel's edge so every visitor gets them instantly.
-async function liveApi({ res, settings }, sport) {
+async function liveApi({ res, settings }: Body, sport?: Loose) {
   if (!livescore.enabled(settings)[sport]) return json(res, 404, { error: 'off' });
   try {
     const data = await livescore.scores(sport, settings);
     return send(res, 200, JSON.stringify(data), 'application/json; charset=utf-8',
       { 'Cache-Control': 'public, max-age=5, s-maxage=10, stale-while-revalidate=30' });
-  } catch (e) {
+  } catch (e: Loose) {
     console.error('live scores', e.message);
     return json(res, 502, { error: 'স্কোর এই মুহূর্তে আনা যাচ্ছে না।' });
   }
 }
 
 // A visitor tapped a match in the score box / score page: count it per competition per day (shown to the admin).
-async function liveClickApi({ req, res }) {
+async function liveClickApi({ req, res }: Body) {
   try {
-    let b = {};
+    let b: Record<string, Loose> = {};
     try { b = JSON.parse(await readBody(req, 2048) || '{}'); } catch (_) { b = {}; }
     const sport = b.sport === 'football' ? 'football' : b.sport === 'cricket' ? 'cricket' : '';
     const cat = String(b.cat || '');
@@ -675,7 +675,7 @@ async function liveClickApi({ req, res }) {
       await db.q(`INSERT INTO live_clicks(day, sport, cat, n) VALUES ((now() AT TIME ZONE 'Asia/Dhaka')::date, $1, $2, 1)
         ON CONFLICT (day, sport, cat) DO UPDATE SET n = live_clicks.n + 1`, [sport, cat]);
     }
-  } catch (e) {
+  } catch (e: Loose) {
     console.error('live click', e.message);
   }
   res.statusCode = 204;
@@ -684,29 +684,29 @@ async function liveClickApi({ req, res }) {
 
 // The visitor's browser sends the texts on the page that are not in the built-in word list; we answer
 // with saved translations and translate the new ones once (they are kept for everyone after that).
-async function i18nApi({ req, res, settings }) {
-  let b = {};
+async function i18nApi({ req, res, settings }: Body) {
+  let b: Record<string, Loose> = {};
   try { b = JSON.parse(await readBody(req, 96 * 1024) || '{}'); } catch (_) { b = {}; }
   let budget = 40000;
-  const texts = (Array.isArray(b.t) ? b.t : []).slice(0, 60).map((x) => String(x || '')).filter((x) => {
+  const texts = (Array.isArray(b.t) ? b.t : []).slice(0, 60).map((x?: Loose) => String(x || '')).filter((x?: Loose) => {
     if (!x || x.length > translate.MAX_LEN || budget - x.length < 0) return false;
     budget -= x.length;
     return true;
   });
-  let m = {};
-  try { m = await translate.lookup(texts, settings, { auto: settings.i18n_auto !== '0', deadline: Date.now() + 9000 }); } catch (e) { console.error('i18n', e.message); }
+  let m: Record<string, Loose> = {};
+  try { m = await translate.lookup(texts, settings, { auto: settings.i18n_auto !== '0', deadline: Date.now() + 9000 }); } catch (e: Loose) { console.error('i18n', e.message); }
   return json(res, 200, { m });
 }
 // Lines the owner corrected by hand. The URL carries a version number, so it can be cached at the edge.
-async function i18nFixApi({ res, settings }) {
+async function i18nFixApi({ res, settings }: Body) {
   if (settings.i18n_on !== '1') return json(res, 404, { error: 'off' });
-  let m = {};
-  try { m = await translate.manualAll(); } catch (e) { console.error('i18n fix', e.message); }
+  let m: Record<string, Loose> = {};
+  try { m = await translate.manualAll(); } catch (e: Loose) { console.error('i18n fix', e.message); }
   return send(res, 200, JSON.stringify({ m }), 'application/json; charset=utf-8', { 'Cache-Control': 'public, max-age=300, s-maxage=86400' });
 }
 
-async function cartApi({ res, query }) {
-  const ids = (query.get('ids') || '').split(',').map((x) => int(x)).filter((x) => x > 0).slice(0, 100);
+async function cartApi({ res, query }: Body) {
+  const ids = (query.get('ids') || '').split(',').map((x?: Loose) => int(x)).filter((x?: Loose) => x > 0).slice(0, 100);
   const products = await catalog.getProductsByIds(ids, { public: true });
   return json(res, 200, {
     products: products.map((p) => ({
@@ -717,7 +717,7 @@ async function cartApi({ res, query }) {
 }
 
 // Incomplete order: what the shopper typed at checkout so far (only with a full BD mobile number).
-async function draftApi({ req, res, settings }) {
+async function draftApi({ req, res, settings }: Body) {
   const b = await parseBody(req);
   if (settings.draft_capture_on === '0') return json(res, 200, { off: 1 });
   if (await customers.isBlocked(normalizePhone(b.phone), clientIp(req))) return json(res, 200, {});
@@ -726,7 +726,7 @@ async function draftApi({ req, res, settings }) {
 
 // A customer's review — only from the order page of a DELIVERED order that belongs to this browser
 // (the order was placed here, or opened with order number + mobile number on "অর্ডার ট্র্যাক").
-async function reviewApi({ req, res, settings }) {
+async function reviewApi({ req, res, settings }: Body) {
   if (settings.reviews_on === '0') return json(res, 403, { error: 'রিভিউ এখন বন্ধ আছে।' });
   const b = await parseBody(req);
   const ip = clientIp(req);
@@ -749,7 +749,7 @@ async function reviewApi({ req, res, settings }) {
   }
 }
 // ♡ pressed or un-pressed: the owner sees which products people want most (no personal data is kept).
-async function wishApi({ req, res, settings }) {
+async function wishApi({ req, res, settings }: Body) {
   if (settings.wishlist_on === '0') return json(res, 200, {});
   const b = await parseBody(req);
   const id = int(b.id);
@@ -763,7 +763,7 @@ async function wishApi({ req, res, settings }) {
 // A page view starts the small background jobs: 📩 reminder SMS for unfinished checkouts, 🔔 price-drop SMS. Each server copy looks at most
 // every 5 minutes, and only one copy across all servers does the work in any 5 minutes. Never slows the page.
 let lastTick = 0;
-function backgroundTick(req, settings) {
+function backgroundTick(req: ShopRequest, settings: Settings) {
   if (Date.now() - lastTick < 5 * 60e3) return;
   lastTick = Date.now();
   const draftsOn = settings.draft_sms_on === '1';
@@ -782,7 +782,7 @@ function backgroundTick(req, settings) {
 
 // 🔐 চেকআউট OTP: /api/checkout-otp/status (does this number need a code?), /send (SMS a code), /verify (check it).
 // /smscheck: did the shop's phone really send the code? (tells the owner when the SMS app is off)
-async function checkoutOtpApi({ req, res, path, settings }) {
+async function checkoutOtpApi({ req, res, path, settings }: Body) {
   const CO = $models_checkoutotp;
   if (!security.sameSite(req)) return json(res, 403, { error: 'অনুমতি নেই।' });
   const b = await parseBody(req);
@@ -818,7 +818,7 @@ async function checkoutOtpApi({ req, res, path, settings }) {
   return json(res, 404, { error: 'নেই' });
 }
 
-async function pointsApi({ req, res, settings }) {
+async function pointsApi({ req, res, settings }: Body) {
   const L = $models_loyalty;
   const c = L.cfg(settings);
   if (!c.on) return json(res, 200, { on: false });
@@ -830,7 +830,7 @@ async function pointsApi({ req, res, settings }) {
   return json(res, 200, { on: true, points: cu ? cu.points : 0, value: c.value, min: c.min, maxPct: c.maxPct, earnPer: c.earnPer });
 }
 
-async function couponApi({ req, res, settings }) {
+async function couponApi({ req, res, settings }: Body) {
   if (settings && settings.ui_co_coupon === '0') return json(res, 200, { ok: false, message: 'এখন কুপন নেওয়া হচ্ছে না।' });
   const b = await parseBody(req);
   // the cart's own prices are worked out here (never trusted from the browser): flash sale, quantity price, gifts
@@ -850,7 +850,7 @@ async function couponApi({ req, res, settings }) {
   return json(res, 200, c.ok ? { ok: true, discount: c.discount, freeDelivery: c.freeDelivery, code: c.coupon.code, message: c.message } : { ok: false, message: c.message });
 }
 
-async function placeOrder({ req, res, settings }) {
+async function placeOrder({ req, res, settings }: Body) {
   const body = await parseBody(req);
   const name = str(body.name, 80);
   const phone = normalizePhone(body.phone);
@@ -880,7 +880,7 @@ async function placeOrder({ req, res, settings }) {
   const maxDay = int(settings.max_orders_per_phone_day);
   if (maxDay > 0) {
     const st = await customers.phoneStats(phone);
-    if (st.last_day >= maxDay) return json(res, 429, { error: `এই নম্বর থেকে আজ অনেকগুলো অর্ডার হয়েছে। আরও অর্ডার করতে আমাদের কল করুন${contact(settings).phone ? ': ' + contact(settings).phone : ''}।` });
+    if (st!.last_day >= maxDay) return json(res, 429, { error: `এই নম্বর থেকে আজ অনেকগুলো অর্ডার হয়েছে। আরও অর্ডার করতে আমাদের কল করুন${contact(settings).phone ? ': ' + contact(settings).phone : ''}।` });
   }
   const methods = payments.methods(settings);
   const method = methods.find((x) => x.id === body.payment) || methods[0];
@@ -895,7 +895,7 @@ async function placeOrder({ req, res, settings }) {
   } else if (method.advance) {
     // cash on delivery, but the delivery charge first by Send Money (all orders, or a first order only)
     const typed = str(body.trx, 40).toUpperCase().replace(/[^A-Z0-9]/g, '');
-    const need = method.advance === 'all' || (await customers.phoneStats(phone)).delivered === 0;
+    const need = method.advance === 'all' || (await customers.phoneStats(phone))!.delivered === 0;
     if (need || typed) {
       trxId = typed;
       paymentNumber = normalizePhone(body.payment_number);
@@ -954,14 +954,14 @@ async function placeOrder({ req, res, settings }) {
     const online = method.id === 'bkash' || method.id === 'ssl';
     return json(res, 200, { code: order.code, redirect: online ? `/pay/${order.code}` : `/order/${order.code}?new=1` },
       { 'Set-Cookie': myOrdersCookie(req, settings, order.code) });
-  } catch (e) {
+  } catch (e: Loose) {
     if (e instanceof O.OrderError) return json(res, 409, { error: e.message, field: e.field });
     throw e;
   }
 }
 
 // ---------------------------------------------------------------- payments
-async function paymentRoutes({ req, res, path, method, query, settings }) {
+async function paymentRoutes({ req, res, path, method, query, settings }: Body) {
   const site = siteUrl(req, settings);
   let m = path.match(/^\/pay\/([A-Z0-9]{4,12})$/i);
   if (m && method === 'GET') {
@@ -972,7 +972,7 @@ async function paymentRoutes({ req, res, path, method, query, settings }) {
     try {
       r = order.payment === 'bkash' ? await payments.bkashCreate(order, settings, site)
         : order.payment === 'ssl' ? await payments.sslCreate(order, settings, site) : { ok: false };
-    } catch (e) {
+    } catch (e: Loose) {
       r = { ok: false, message: e.message };
       await db.logIntegration(order.payment, 'create', false, e.message, order.code);
     }
@@ -989,15 +989,15 @@ async function paymentRoutes({ req, res, path, method, query, settings }) {
         const r = await payments.bkashExecute(paymentID, settings);
         if (r.ok && r.amount >= Number(p.amount) - 1) {
           await payments.recordSuccess(p, { trxID: r.trxID, amount: r.amount, raw: r.raw, label: 'বিকাশ' });
-          return redirect(res, `/order/${order.code}?new=1`);
+          return redirect(res, `/order/${order!.code}?new=1`);
         }
-        await db.logIntegration('bkash', 'execute', false, r.message, order.code);
-      } catch (e) {
-        await db.logIntegration('bkash', 'execute', false, e.message, order.code);
+        await db.logIntegration('bkash', 'execute', false, r.message, order!.code);
+      } catch (e: Loose) {
+        await db.logIntegration('bkash', 'execute', false, e.message, order!.code);
       }
     }
     await db.q(`UPDATE payments SET status=$1, updated_at=now() WHERE id=$2 AND status<>'paid'`, [status === 'cancel' ? 'cancelled' : 'failed', p.id]);
-    return redirect(res, `/order/${order.code}?new=1&pay=failed`);
+    return redirect(res, `/order/${order!.code}?new=1&pay=failed`);
   }
   m = path.match(/^\/pay\/ssl\/(success|fail|cancel|ipn)$/);
   if (m) {
@@ -1010,28 +1010,28 @@ async function paymentRoutes({ req, res, path, method, query, settings }) {
       const v = await payments.sslValidate(str(b.val_id, 120), settings);
       if (v.ok && v.tranId === tranId && v.amount >= p.amount - 1) {
         await payments.recordSuccess(p, { trxID: v.trxID, amount: v.amount, raw: v.raw, label: `কার্ড/মোবাইল (${v.cardType})` });
-        return m[1] === 'ipn' ? send(res, 200, 'ok', 'text/plain') : redirect(res, `/order/${order.code}?new=1`);
+        return m[1] === 'ipn' ? send(res, 200, 'ok', 'text/plain') : redirect(res, `/order/${order!.code}?new=1`);
       }
-      await db.logIntegration('sslcommerz', 'validate', false, JSON.stringify(v.raw).slice(0, 300), order.code);
+      await db.logIntegration('sslcommerz', 'validate', false, JSON.stringify(v.raw).slice(0, 300), order!.code);
     }
     if (m[1] !== 'ipn') await db.q(`UPDATE payments SET status=$1, updated_at=now() WHERE id=$2 AND status<>'paid'`, [m[1] === 'cancel' ? 'cancelled' : 'failed', p.id]);
-    return m[1] === 'ipn' ? send(res, 200, 'ok', 'text/plain') : redirect(res, `/order/${order.code}?new=1&pay=failed`);
+    return m[1] === 'ipn' ? send(res, 200, 'ok', 'text/plain') : redirect(res, `/order/${order!.code}?new=1&pay=failed`);
   }
   return redirect(res, '/');
 }
 
 // ---------------------------------------------------------------- courier webhooks
-async function applyCourierUpdate(orderRow, courierName, rawStatus) {
+async function applyCourierUpdate(orderRow?: Loose, courierName?: Loose, rawStatus?: Loose) {
   await O.setCourierStatus(orderRow.id, rawStatus);
   const mapped = courier.mapStatus(courierName, rawStatus);
   if (mapped && mapped !== orderRow.status) {
     try {
       const s = await O.setStatus(orderRow.id, mapped, null);
       if (s.changed) await db.logActivity(null, 'order_status', 'order', orderRow.id, `${s.prev} → ${mapped} (${courierName} ওয়েবহুক)`);
-    } catch (e) { await db.logIntegration(courierName, 'webhook', false, e.message, orderRow.code); }
+    } catch (e: Loose) { await db.logIntegration(courierName, 'webhook', false, e.message, orderRow.code); }
   }
 }
-async function steadfastWebhook({ req, res, settings }) {
+async function steadfastWebhook({ req, res, settings }: Body) {
   const auth = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '');
   if (!settings.steadfast_webhook_token || !security.safeEqual(auth, settings.steadfast_webhook_token)) return json(res, 401, { status: 'error', message: 'Unauthorized' });
   const b = await parseBody(req);
@@ -1041,7 +1041,7 @@ async function steadfastWebhook({ req, res, settings }) {
   await db.logIntegration('steadfast', 'webhook', !!order, `${b.notification_type || ''} ${cid} ${b.status || ''}`, order ? order.code : '');
   return json(res, 200, { status: 'success', message: 'Webhook received successfully.' });
 }
-async function pathaoWebhook({ req, res, settings }) {
+async function pathaoWebhook({ req, res, settings }: Body) {
   const sig = String(req.headers['x-pathao-signature'] || '');
   const headers = { 'X-Pathao-Merchant-Webhook-Integration-Secret': 'f3992ecc-59da-4cbe-a049-a13da2018d51' };
   if (!settings.pathao_webhook_secret || !security.safeEqual(sig, settings.pathao_webhook_secret)) return send(res, 401, '{"status":"unauthorized"}', 'application/json');
@@ -1055,13 +1055,13 @@ async function pathaoWebhook({ req, res, settings }) {
 }
 
 // ---------------------------------------------------------------- storefront
-async function shopRoutes({ req, res, path, method, query, settings }) {
+async function shopRoutes({ req, res, path, method, query, settings }: Body) {
   // Admin → দোকানে কী দেখাবে → "স্টক শেষ পণ্য তালিকায় দেখাও" off: lists, home rows and search skip them
   const hideOut = settings.ui_show_out_of_stock === '0';
   const [categories, pages, popups] = await Promise.all([
     catalog.listCategories({ includeInactive: false }), content.listPages({ active: true }), content.listBanners({ active: true, placement: 'popup' }),
   ]);
-  const page = (title, body, opts = {}) => send(res, opts.status || 200,
+  const page = (title?: Loose, body?: Loose, opts: Body = {}) => send(res, opts.status || 200,
     shopLayout({ settings, title, body, categories, pages, popup: popups[0] || null, ...opts }));
   const notFound = () => page('পাওয়া যায়নি', shop.notFound(), { status: 404, noindex: true });
   // 👤 customer account, ↩️ return request, 🎁 gift card — these pages also take forms
@@ -1077,9 +1077,9 @@ async function shopRoutes({ req, res, path, method, query, settings }) {
     let sections = db.jsonSetting(settings, 'home_sections', HOME_DEFAULT);
     // 🎞️ running slider switched on (Admin → স্টোর ডিজাইন → রানিং স্লাইডার) → always at the top
     if (settings.slider_on === '1' && Array.isArray(sections) && !sections.includes('slider')) sections = ['slider', ...sections];
-    const want = (k) => sections.includes(k);
+    const want = (k?: Loose) => sections.includes(k);
     const ROW = 16;
-    const inStockFirst = (a) => [...a.filter((p) => p.stock > 0), ...a.filter((p) => p.stock <= 0)];
+    const inStockFirst = (a?: Loose) => [...a.filter((p?: Loose) => p.stock > 0), ...a.filter((p?: Loose) => p.stock <= 0)];
     // most looked-at products of the last 30 days (real visitors)
     const viewedIds = want('popular') ? (await db.q(`SELECT product_id FROM page_views WHERE product_id IS NOT NULL AND created_at > now() - interval '30 days'
       GROUP BY product_id ORDER BY count(DISTINCT visitor_id) DESC LIMIT $1`, [ROW * 2])).map((r) => r.product_id) : [];
@@ -1095,18 +1095,18 @@ async function shopRoutes({ req, res, path, method, query, settings }) {
       want('budget') ? catalog.listProducts({ public: true, hideOut, sort: 'popular', maxPrice: 100, limit: ROW * 2 }) : [],
     ]);
     const order = new Map(viewedIds.map((id, i) => [id, i]));
-    const popularList = viewed.sort((a, b) => order.get(a.id) - order.get(b.id));
+    const popularList = viewed.sort((a, b) => (order.get(a.id) as number) - (order.get(b.id) as number));
     // category rows: each main category with its best products
-    let catRows = [];
+    let catRows: Loose[] = [];
     if (want('cat_rows')) {
       const { roots } = catalog.categoryTree(categories);
-      const mains = roots.filter((c) => c.total_count >= 4).slice(0, 8);
+      const mains = roots.filter((c) => c.total_count! >= 4).slice(0, 8);
       catRows = await Promise.all(mains.map(async (c) => ({
-        cat: c, chips: c.children.filter((k) => k.total_count > 0).slice(0, 8),
+        cat: c, chips: c.children.filter((k) => k.total_count! > 0).slice(0, 8),
         products: inStockFirst(await catalog.listProducts({ public: true, hideOut, category: c.slug, sort: 'popular', limit: ROW * 2 })).slice(0, ROW),
       })));
     }
-    const take = (a) => inStockFirst(a).slice(0, ROW);
+    const take = (a?: Loose) => inStockFirst(a).slice(0, ROW);
     // the flash sale that ends first among the running ones, with its products (sale price already in them)
     let flash = null;
     if (want('flash')) {
@@ -1116,15 +1116,15 @@ async function shopRoutes({ req, res, path, method, query, settings }) {
         const ids = (await db.q('SELECT product_id FROM flash_items WHERE sale_id=$1 AND (max_qty = 0 OR sold < max_qty) ORDER BY id', [sale.id])).map((r) => r.product_id);
         const prods = (await catalog.getProductsByIds(ids, { public: true })).filter((p) => p.flash_ends && (!hideOut || p.stock > 0));
         const pos = new Map(ids.map((id, i) => [id, i]));
-        flash = { sale, products: inStockFirst(prods.sort((a, b) => pos.get(a.id) - pos.get(b.id))).slice(0, ROW * 2) };
+        flash = { sale, products: inStockFirst(prods.sort((a, b) => (pos.get(a.id) as number) - (pos.get(b.id) as number))).slice(0, ROW * 2) };
       }
     }
     // the owner's own rows
-    const custom = {};
-    const customKeys = sections.filter((k) => /^x\d+$/.test(k));
+    const custom: Record<string, Loose> = {};
+    const customKeys = sections.filter((k?: Loose) => /^x\d+$/.test(k));
     if (customKeys.length) {
       const H = $models_homerows;
-      const rows = await db.q('SELECT * FROM home_rows WHERE id = ANY($1::int[])', [customKeys.map((k) => H.idOf(k))]).catch(() => []);
+      const rows = await db.q('SELECT * FROM home_rows WHERE id = ANY($1::int[])', [customKeys.map((k?: Loose) => H.idOf(k))]).catch(() => []);
       await Promise.all(rows.map(async (r) => {
         custom[H.keyOf(r.id)] = { row: r, link: H.linkFor(r), products: await H.productsFor(r, { hideOut }).catch(() => []) };
       }));
@@ -1169,13 +1169,13 @@ async function shopRoutes({ req, res, path, method, query, settings }) {
     const perPage = (Number(settings.grid_cols) || 4) * 6;
     const pageNo = Math.max(1, int(query.get('page'), 1));
     // 🔎 filters: price from–to, brands (several), only in stock
-    const num = (v) => { const n = Number(String(v || '').replace(/[০-৯]/g, (d) => String('০১২৩৪৫৬৭৮৯'.indexOf(d)))); return Number.isFinite(n) && n > 0 ? Math.min(n, 1e7) : 0; };
+    const num = (v?: Loose) => { const n = Number(String(v || '').replace(/[০-৯]/g, (d) => String('০১২৩৪৫৬৭৮৯'.indexOf(d)))); return Number.isFinite(n) && n > 0 ? Math.min(n, 1e7) : 0; };
     const filters = {
       pmin: num(query.get('pmin')), pmax: num(query.get('pmax')),
-      brands: brand ? [] : query.getAll('b').map((x) => int(x)).filter((x) => x > 0).slice(0, 20),
+      brands: brand ? [] : query.getAll('b').map((x?: Loose) => int(x)).filter((x?: Loose) => x > 0).slice(0, 20),
       stock: query.get('stock') === '1',
       // 🔧 spec filters: ?sp=voltage~12v&sp=voltage~5v
-      specs: {}, specList: [],
+      specs: {} as Record<string, string[]>, specList: [] as string[],
     };
     for (const raw of query.getAll('sp').slice(0, 30)) {
       const i = String(raw).indexOf('~');
@@ -1196,7 +1196,7 @@ async function shopRoutes({ req, res, path, method, query, settings }) {
     const fopts = { ...opts, minPrice: filters.pmin || undefined, maxPrice: filters.pmax || undefined, brandIds: filters.brands, inStock: filters.stock,
       specs: filters.specList.length ? filters.specs : null };
     const [products, total, brandList, specFacets] = await Promise.all([
-      catalog.listProducts({ public: true, hideOut, ...fopts, limit: perPage, offset: (pageNo - 1) * perPage }), catalog.countProducts(fopts),
+      catalog.listProducts({ public: true, ...fopts, limit: perPage, offset: (pageNo - 1) * perPage }), catalog.countProducts(fopts),
       brand || settings.ui_filters === '0' ? [] : catalog.brandsIn(opts).catch(() => []),
       settings.ui_filters === '0' || settings.ui_spec_filters === '0' ? [] : catalog.specFacets(opts).catch(() => []),
     ]);
@@ -1252,7 +1252,7 @@ async function shopRoutes({ req, res, path, method, query, settings }) {
       : [];
     const offers = offerRows.map((o) => ({ label: pricing.offerTitle(o, bn), ends_on: o.ends_on ? String(o.ends_on).slice(0, 10) : '' }));
     const slugs = [...String(product.description || '').matchAll(/^\s*\/p\/([A-Za-z0-9ঀ-৿-]+)\s*$/gm)].map((x) => x[1]).slice(0, 6);
-    const inlineProducts = {};
+    const inlineProducts: Record<string, Loose> = {};
     for (const s of slugs) { const ip = await catalog.getProduct({ slug: s, public: true }); if (ip && ip.active) inlineProducts[s] = ip; }
     // full https:// links, so Google can read pictures and prices even when "site_url" is not set
     const base = siteUrl(req, settings).replace(/\/+$/, '');
@@ -1264,7 +1264,7 @@ async function shopRoutes({ req, res, path, method, query, settings }) {
       mpn: product.model || undefined,
       additionalProperty: Array.isArray(product.specs) && product.specs.length
         ? product.specs.filter((x) => Array.isArray(x) && x[0] && x[1]).map(([k, v]) => ({ '@type': 'PropertyValue', name: k, value: v })) : undefined,
-      image: product.images.map((id) => `${base}/media/${id}`),
+      image: product.images.map((id?: Loose) => `${base}/media/${id}`),
       offers: { '@type': 'Offer', priceCurrency: 'BDT', price: product.price, availability: product.stock > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock', url: `${base}/p/${product.slug}`,
         priceValidUntil: product.flash_ends ? new Date(product.flash_ends).toISOString().slice(0, 10) : undefined,
         itemCondition: 'https://schema.org/NewCondition',
@@ -1281,15 +1281,15 @@ async function shopRoutes({ req, res, path, method, query, settings }) {
           merchantReturnDays: Number(settings.returns_days) || 7,
           returnMethod: 'https://schema.org/ReturnByMail', returnFees: 'https://schema.org/ReturnFeesCustomerResponsibility' } },
       // star rating in Google results (only real, approved reviews)
-      aggregateRating: rv.stats.count ? { '@type': 'AggregateRating', ratingValue: rv.stats.avg, reviewCount: rv.stats.count, bestRating: 5, worstRating: 1 } : undefined,
+      aggregateRating: rv.stats.count ? { '@type': 'AggregateRating', ratingValue: (rv.stats as Loose).avg, reviewCount: rv.stats.count, bestRating: 5, worstRating: 1 } : undefined,
       review: rv.reviews.length ? rv.reviews.slice(0, 5).map((r) => ({ '@type': 'Review', author: { '@type': 'Person', name: r.name || 'Customer' },
         reviewRating: { '@type': 'Rating', ratingValue: r.rating, bestRating: 5 }, reviewBody: String(r.body).slice(0, 500), datePublished: new Date(r.created_at).toISOString().slice(0, 10) })) : undefined,
     };
     // breadcrumb for Google: Home › main category › … › product
-    const crumbs = [];
+    const crumbs: Loose[] = [];
     if (product.category_id) {
       const node = catalog.categoryTree(categories).byId.get(product.category_id);
-      (node ? node.path : []).forEach((c) => crumbs.push({ name: c.name, url: `${base}/products?cat=${c.slug}` }));
+      (node ? node.path : [])!.forEach((c) => crumbs.push({ name: c.name, url: `${base}/products?cat=${c.slug}` }));
     }
     const breadcrumb = { '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: [{ name: settings.store_name, url: base + '/' }, ...crumbs, { name: seo.cleanName(product.name), url: `${base}/p/${product.slug}` }]
       .map((c, i) => ({ '@type': 'ListItem', position: i + 1, name: c.name, item: c.url || undefined })) };
@@ -1321,16 +1321,16 @@ async function shopRoutes({ req, res, path, method, query, settings }) {
   if (path === '/cart') return page('কার্ট', shop.cartPage({ settings }), { active: 'cart', noindex: true });
   if (path === '/wishlist') {
     // the list lives in the shopper's own browser; the page asks for /wishlist?ids=… and shows those products
-    const ids = (query.get('ids') || '').split(',').map((x) => int(x)).filter((x) => x > 0).slice(0, 60);
+    const ids = (query.get('ids') || '').split(',').map((x?: Loose) => int(x)).filter((x?: Loose) => x > 0).slice(0, 60);
     const prods = ids.length ? await catalog.getProductsByIds(ids, { public: true }) : [];
-    const pos = new Map(ids.map((id, i) => [id, i]));
-    return page('পছন্দের তালিকা', shop.wishlistPage({ products: prods.sort((a, b) => pos.get(a.id) - pos.get(b.id)), settings, asked: query.has('ids') }), { noindex: true, canonical: '/wishlist' });
+    const pos = new Map(ids.map((id?: Loose, i?: Loose) => [id, i]));
+    return page('পছন্দের তালিকা', shop.wishlistPage({ products: prods.sort((a, b) => (pos.get(a.id) as number) - (pos.get(b.id) as number)), settings, asked: query.has('ids') }), { noindex: true, canonical: '/wishlist' });
   }
   if (path === '/compare') {
     if (settings.ui_compare === '0') return notFound();
     // ⚖️ the shopper's own comparison list (kept in the browser): /compare?ids=1,2,3
-    const ids = (query.get('ids') || '').split(',').map((x) => int(x)).filter((x) => x > 0).slice(0, 4);
-    const prods = ids.length ? (await Promise.all(ids.map((id) => catalog.getProduct({ id, public: true })))).filter((p) => p && p.active && !p.parent_id) : [];
+    const ids = (query.get('ids') || '').split(',').map((x?: Loose) => int(x)).filter((x?: Loose) => x > 0).slice(0, 4);
+    const prods = ids.length ? (await Promise.all(ids.map((id?: Loose) => catalog.getProduct({ id, public: true })))).filter((p) => p && p.active && !p.parent_id) : [];
     const rv = await Promise.all(prods.map((p) => (settings.reviews_on === '0' ? { stats: { count: 0 } } : $models_reviews.forProduct(p.id))));
     prods.forEach((p, i) => { p.review_stats = rv[i].stats; });
     return page('পণ্য তুলনা', shop.comparePage({ products: prods, settings, asked: query.has('ids') }), { noindex: true, canonical: '/compare' });
@@ -1359,11 +1359,11 @@ async function shopRoutes({ req, res, path, method, query, settings }) {
     const K = $models_kits;
     const steps = K.stepList(kit);
     const base = siteUrl(req, settings).replace(/\/+$/, '');
-    const need = kit.items.filter((i) => !i.optional);
+    const need = kit.items.filter((i?: Loose) => !i.optional);
     const howTo = steps.length ? { '@context': 'https://schema.org', '@type': 'HowTo', name: kit.title, url: `${base}/kit/${kit.slug}`,
       description: md.plain(kit.description, 300) || kit.title, image: kit.image_id ? `${base}/media/${kit.image_id}` : undefined,
-      estimatedCost: { '@type': 'MonetaryAmount', currency: 'BDT', value: Math.round(need.reduce((t, i) => t + Number(i.product.price) * i.qty, 0)) },
-      supply: kit.items.map((i) => ({ '@type': 'HowToSupply', name: seo.cleanName(i.product.name), requiredQuantity: i.qty })),
+      estimatedCost: { '@type': 'MonetaryAmount', currency: 'BDT', value: Math.round(need.reduce((t?: Loose, i?: Loose) => t + Number(i.product.price) * i.qty, 0)) },
+      supply: kit.items.map((i?: Loose) => ({ '@type': 'HowToSupply', name: seo.cleanName(i.product.name), requiredQuantity: i.qty })),
       step: steps.map((t, i) => ({ '@type': 'HowToStep', position: i + 1, name: seo.cut(t, 80), text: t, url: `${base}/kit/${kit.slug}#step-${i + 1}` })) } : null;
     const crumbs = { '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: [
       { '@type': 'ListItem', position: 1, name: settings.store_name, item: base + '/' },
@@ -1387,7 +1387,7 @@ async function shopRoutes({ req, res, path, method, query, settings }) {
     const fresh = query.get('new') === '1';
     const trackUrl = order.courier && courier.PROVIDERS[order.courier] ? courier.PROVIDERS[order.courier].track(order) : '';
     const track = fresh && query.get('pay') !== 'failed'
-      ? { event: 'purchase', code: order.code, value: order.total, items: order.items.map((i) => ({ id: i.product_id, name: i.name, price: i.price, qty: i.qty })) }
+      ? { event: 'purchase', code: order.code, value: order.total, items: order.items.map((i?: Loose) => ({ id: i.product_id, name: i.name, price: i.price, qty: i.qty })) }
       : null;
     // delivered → each product can be reviewed once (only by the order's owner on this browser)
     const reviewItems = order.status === 'delivered' && settings.reviews_on !== '0' ? await $models_reviews.forOrder(order.id) : [];
@@ -1439,7 +1439,7 @@ async function shopRoutes({ req, res, path, method, query, settings }) {
   return notFound();
 }
 
-function setupErrorPage(e) {
+function setupErrorPage(e?: Loose) {
   const missing = /DATABASE_URL/.test(e.message);
   return `<!doctype html><html lang="bn"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>সেটআপ বাকি</title>

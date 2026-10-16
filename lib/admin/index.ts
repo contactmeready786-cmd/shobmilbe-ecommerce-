@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // Admin panel: login, sessions, permissions and routing to the page modules.
 import * as crypto from 'node:crypto';
 import * as db from '../db';
@@ -89,6 +88,7 @@ import * as $email from './email';
 import * as $services_guard from '../services/guard';
 import * as $models_trash from '../models/trash';
 import * as $models_extras from '../models/extras';
+import type { AdminCtx, Base, Body, Id, Loose, Settings, ShopRequest, StaffUser } from '../types';
 
 const MODULES = [$dashboard, $orders, $import, $morepics, $watermark,
   $research, $trash, $growth, $toggles, $products, $inventory,
@@ -103,30 +103,30 @@ const MODULES = [$dashboard, $orders, $import, $morepics, $watermark,
   $supplierledger, $fraud, $checkoutotp, $searchreport, $complaints, $kits,
   $automarketing, $autoseo, $sourcepics, $testclear, $stockscan, $setupmarks,
   $ledger, $email];
-const ROUTES = MODULES.flatMap((m) => m.routes);
+const ROUTES: Loose[] = MODULES.flatMap((m: Loose) => m.routes);
 
 // ---------- sessions ----------
 // The browser keeps only a random token (signed, HttpOnly); the login itself lives in the admin_sessions table,
 // so any device can be logged out from the admin, and a stolen cookie stops working after "logout".
-function pwTag(user) { return String(user.password || '').slice(-12); }
-function secureFlag(req) { return (req.headers['x-forwarded-proto'] || '').includes('https') ? '; Secure' : ''; }
-function cookieFor(req, settings, user, token) {
+function pwTag(user: StaffUser) { return String(user.password || '').slice(-12); }
+function secureFlag(req: ShopRequest) { return (req.headers['x-forwarded-proto'] || '').includes('https') ? '; Secure' : ''; }
+function cookieFor(req: ShopRequest, settings: Settings, user: StaffUser, token?: Loose) {
   const value = sign(`v2:${token}:${pwTag(user)}`, settings.session_secret);
   return `sm_admin=${encodeURIComponent(value)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${sessions.MAX_DAYS * 86400}${secureFlag(req)}`;
 }
 // verified = the owner passed the second check (fingerprint / passkey / face) for this login
-async function startSession(req, settings, user, verified = false) {
+async function startSession(req: ShopRequest, settings: Settings, user: StaffUser, verified: Loose = false) {
   const token = await sessions.create(req, user.id, { verified, ip: security.clientIp(req) });
   return cookieFor(req, settings, user, token);
 }
 const CLEAR_ADMIN = 'sm_admin=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax';
-function cookieToken(req, settings) {
+function cookieToken(req: ShopRequest, settings: Settings) {
   const value = unsign(parseCookies(req.headers.cookie).sm_admin, settings.session_secret);
   if (!value) return null;
   const [ver, token, tag] = value.split(':');
   return ver === 'v2' && token ? { token, tag } : null;
 }
-async function currentUser(req, settings) {
+async function currentUser(req: ShopRequest, settings: Settings) {
   const c = cookieToken(req, settings);
   if (!c) return null; // also every old-style login cookie (before the server-side logins): log in once more
   const sess = await sessions.find(c.token, settings);
@@ -142,13 +142,13 @@ async function currentUser(req, settings) {
 }
 
 // ---------- staff two-step login (authenticator app code) ----------
-const twoFactorOn = (user) => user.role !== 'owner' && user.totp_on && !!user.totp_secret;
-function tfaCookie(req, settings, user) {
+const twoFactorOn = (user: StaffUser) => user.role !== 'owner' && user.totp_on && !!user.totp_secret;
+function tfaCookie(req: ShopRequest, settings: Settings, user: StaffUser) {
   const value = sign(`tfa:${user.id}:${Date.now()}:${pwTag(user)}`, settings.session_secret);
   return `sm_tfa=${encodeURIComponent(value)}; Path=/admin; HttpOnly; SameSite=Strict; Max-Age=600${secureFlag(req)}`;
 }
 const CLEAR_TFA = 'sm_tfa=; Path=/admin; Max-Age=0; HttpOnly; SameSite=Strict';
-async function tfaUser(req, settings) {
+async function tfaUser(req: ShopRequest, settings: Settings) {
   const value = unsign(parseCookies(req.headers.cookie).sm_tfa, settings.session_secret);
   if (!value) return null;
   const [kind, id, issued, tag] = value.split(':');
@@ -159,12 +159,12 @@ async function tfaUser(req, settings) {
 
 // ---------- owner login lock: the half-way login (password done, second check not yet) ----------
 const PRE_MINUTES = 10;
-function preCookie(req, settings, user, passed) {
+function preCookie(req: ShopRequest, settings: Settings, user: StaffUser, passed?: Loose) {
   const value = sign(`pre:${user.id}:${Date.now()}:${pwTag(user)}:${passed.passkey ? 'p' : ''}${passed.face ? 'f' : ''}`, settings.session_secret);
   return `sm_pre=${encodeURIComponent(value)}; Path=/admin; HttpOnly; SameSite=Strict; Max-Age=${PRE_MINUTES * 60}${secureFlag(req)}`;
 }
 const CLEAR_PRE = 'sm_pre=; Path=/admin; Max-Age=0; HttpOnly; SameSite=Strict';
-async function preUser(req, settings) {
+async function preUser(req: ShopRequest, settings: Settings) {
   const value = unsign(parseCookies(req.headers.cookie).sm_pre, settings.session_secret);
   if (!value) return null;
   const [kind, id, issued, tag, flags = ''] = value.split(':');
@@ -173,10 +173,10 @@ async function preUser(req, settings) {
   if (!user || !user.active || user.role !== 'owner' || pwTag(user) !== tag) return null;
   return { user, passed: { passkey: flags.includes('p'), face: flags.includes('f') } };
 }
-function challengeCookie(req, settings, value) {
+function challengeCookie(req: ShopRequest, settings: Settings, value?: Loose) {
   return `sm_ch=${encodeURIComponent(sign(value, settings.session_secret))}; Path=/admin; HttpOnly; SameSite=Strict; Max-Age=300${secureFlag(req)}`;
 }
-function challengeValue(req, settings) { return unsign(parseCookies(req.headers.cookie).sm_ch, settings.session_secret); }
+function challengeValue(req: ShopRequest, settings: Settings) { return unsign(parseCookies(req.headers.cookie).sm_ch, settings.session_secret); }
 const CLEAR_CH = 'sm_ch=; Path=/admin; Max-Age=0; HttpOnly; SameSite=Strict';
 
 // Password-guessing protection, counted in the database so it holds across every server:
@@ -185,23 +185,23 @@ const IP_MAX = 8;
 const IP_WINDOW = 15 * 60;
 const USER_MAX = 15;
 const USER_WINDOW = 60 * 60;
-let currentDb = null;
-async function tooMany(ip, login) {
+let currentDb: Loose = null;
+async function tooMany(ip?: Loose, login?: Loose) {
   if (await security.blocked(currentDb, 'login:ip:' + ip, IP_MAX)) return true;
   return !!login && security.blocked(currentDb, 'login:user:' + String(login).toLowerCase().trim().slice(0, 60), USER_MAX);
 }
-async function failed(ip, login) {
+async function failed(ip?: Loose, login?: Loose) {
   $services_guard.record({ ip, kind: 'login_fail', detail: login ? 'ইউজারনেম: ' + String(login).slice(0, 40) : 'রিসেট কোড' }).catch(() => {});
   await security.hit(currentDb, 'login:ip:' + ip, IP_MAX, IP_WINDOW);
   if (login) await security.hit(currentDb, 'login:user:' + String(login).toLowerCase().trim().slice(0, 60), USER_MAX, USER_WINDOW);
 }
 
-function firstAllowed(user) {
+function firstAllowed(user: StaffUser) {
   for (const g of MENU) for (const it of g.items) { const r = resolveItem(user, it); if (r) return r[0]; }
   return '/admin/account';
 }
 
-function authPage({ settings, mode, error, values = {} }) {
+function authPage({ settings, mode, error, values = {} }: Body) {
   const setup = mode === 'setup';
   return html`<div class="auth-card panel">
   <p class="logo auth-logo">${settings.store_name}<small> Admin</small></p>
@@ -236,12 +236,12 @@ function authPage({ settings, mode, error, values = {} }) {
 //  could try to guess it offline. The paper recovery codes, the e-mail link and ADMIN_RESET_CODE remain.)
 function resetCode() { return String(process.env.ADMIN_RESET_CODE || '').trim(); }
 async function oneTimeAvailable() { return false; }
-function sameSecret(a, b) {
+function sameSecret(a: Loose, b: Loose) {
   const x = crypto.createHash('sha256').update(String(a)).digest();
   const y = crypto.createHash('sha256').update(String(b)).digest();
   return crypto.timingSafeEqual(x, y);
 }
-function resetPage({ settings, error, done, values = {}, enabled, mailMsg }) {
+function resetPage({ settings, error, done, values = {}, enabled, mailMsg }: Body) {
   const mail = notify.emailConfig(settings);
   return html`<div class="auth-card panel">
   <p class="logo auth-logo">${settings.store_name}<small> Admin</small></p>
@@ -277,18 +277,18 @@ function resetPage({ settings, error, done, values = {}, enabled, mailMsg }) {
 // A random 32-byte link token; only its SHA-256 + expiry is saved (encrypted). Works once, for 30 minutes.
 // Resets the owner's password only — the fingerprint / face lock (if on) stays on.
 const MAIL_TOKEN_MIN = 30;
-function mailTokenOk(settings, token) {
+function mailTokenOk(settings: Settings, token?: Loose) {
   const [hash, exp] = String(settings.reset_mail_token || '').split(':');
   if (!hash || !exp || Date.now() > Number(exp) || !/^[A-Za-z0-9_-]{40,60}$/.test(String(token || ''))) return false;
   return sameSecret(crypto.createHash('sha256').update(String(token)).digest('hex'), hash);
 }
-function baseUrl(req, settings) {
+function baseUrl(req: ShopRequest, settings: Settings) {
   if (settings.site_url) return settings.site_url.replace(/\/+$/, '');
   if (settings.custom_domain) return 'https://' + String(settings.custom_domain).replace(/^https?:\/\//, '').replace(/\/.*$/, '');
   const host = String(req.headers['x-forwarded-host'] || req.headers.host || 'localhost').split(',')[0].trim();
   return `${host.startsWith('localhost') ? 'http' : 'https'}://${host}`;
 }
-function mailResetPage({ settings, token, error, done }) {
+function mailResetPage({ settings, token, error, done }: Body) {
   return html`<div class="auth-card panel">
   <p class="logo auth-logo">${settings.store_name}<small> Admin</small></p>
   <h1>নতুন পাসওয়ার্ড দিন</h1>
@@ -307,7 +307,7 @@ function mailResetPage({ settings, token, error, done }) {
 }
 
 // Second step of a staff login: the 6-digit code from Google Authenticator (or a similar app).
-function tfaPage({ settings, user, error, blocked }) {
+function tfaPage({ settings, user, error, blocked }: Body) {
   return html`<div class="auth-card panel">
   <p class="logo auth-logo">${settings.store_name}<small> Admin</small></p>
   <h1>🔐 যাচাই কোড দিন</h1>
@@ -322,12 +322,12 @@ function tfaPage({ settings, user, error, blocked }) {
 </div>`;
 }
 
-async function handle(base) {
+async function handle(base: Base) {
   const { req, res, path, method, query, send, redirect, json } = base;
   let { settings } = base;
   const ip = security.clientIp(req);
   currentDb = db;
-  const bare = (title, body, status = 200) => send(res, status, adminLayout({ settings, title, body, bare: true }));
+  const bare = (title?: Loose, body?: Loose, status: Loose = 200) => send(res, status, adminLayout({ settings, title, body, bare: true }));
 
   // Every form sent to the admin must come from this same website.
   // (Stops a trick page on another site from submitting forms using your login.)
@@ -354,7 +354,7 @@ async function handle(base) {
       const user = await staffModel.getStaff(id);
       await db.logActivity(id, 'login', 'staff', id, 'প্রথম সেটআপ');
       await sessions.record(req, { staffId: id, login: username, event: 'login', ok: true, ip, detail: 'প্রথম সেটআপ' });
-      return redirect(res, '/admin', { 'Set-Cookie': await startSession(req, settings, user) });
+      return redirect(res, '/admin', { 'Set-Cookie': await startSession(req, settings, user!) });
     }
     return bare('অ্যাকাউন্ট তৈরি', authPage({ settings, mode: 'setup' }));
   }
@@ -384,7 +384,7 @@ ${link}
 <p><a href="${notify.escapeHtml(link)}" style="display:inline-block;background:#0a7d3b;color:#fff;padding:12px 20px;border-radius:6px;text-decoration:none">নতুন পাসওয়ার্ড দিন</a></p>
 <p style="color:#666;font-size:13px">লিংকটা ${MAIL_TOKEN_MIN} মিনিট কাজ করবে, একবারই। আপনি না চাইলে এই মেইল উপেক্ষা করুন — কিছুই বদলাবে না।<br>অনুরোধ এসেছে: ${notify.escapeHtml(ip)}</p></div>`);
       await db.logActivity(null, 'reset_mail', 'security', null, `ইমেইলে রিসেট লিংক পাঠানো (${ip})`);
-    } catch (e) {
+    } catch (e: Loose) {
       await db.logIntegration('notify-email', 'reset link', false, e.message);
       return bare('রিসেট', resetPage({ settings, enabled: enabledCode, mailMsg: 'ইমেইল পাঠানো যায়নি। নিচের গোপন রিসেট কোড দিয়ে চেষ্টা করুন।' }), 502);
     }
@@ -486,7 +486,7 @@ ${link}
         await db.logActivity(user.id, 'login', 'staff', user.id, ip);
         await sessions.record(req, { staffId: user.id, login: b.login, event: 'login', ok: true, ip });
         if (user.role === 'owner' && settings.notify_owner_login !== '0') await notify.securityAlert(settings, 'মালিকের অ্যাকাউন্টে লগইন হয়েছে', `যেখান থেকে: ${ip}\nডিভাইস: ${str(req.headers['user-agent'], 120)}`);
-        return redirect(res, firstAllowed(user), { 'Set-Cookie': await startSession(req, settings, user) });
+        return redirect(res, firstAllowed(user), { 'Set-Cookie': await startSession(req, settings, user!) });
       }
       await failed(ip, b.login);
       await sessions.record(req, { staffId: user ? user.id : null, login: b.login, event: user && !user.active ? 'inactive' : 'fail', ip });
@@ -512,7 +512,7 @@ ${link}
   async function twoFactorRoute() {
     const u = await tfaUser(req, settings);
     if (!u) return redirect(res, '/admin/login', { 'Set-Cookie': CLEAR_TFA });
-    const page = (error, status = 200) => bare('যাচাই কোড', tfaPage({ settings, user: u, error }), status);
+    const page = (error?: Loose, status: Loose = 200) => bare('যাচাই কোড', tfaPage({ settings, user: u, error }), status);
     if (method !== 'POST') return page();
     if (await security.blocked(db, 'mfa:' + u.id, 8)) {
       return bare('যাচাই কোড', tfaPage({ settings, user: u, error: 'অনেকবার ভুল কোড দেওয়া হয়েছে। ১৫ মিনিট পর আবার পাসওয়ার্ড দিয়ে লগইন করুন।', blocked: true }), 429);
@@ -545,12 +545,12 @@ ${link}
       return redirect(res, '/admin/login', { 'Set-Cookie': [CLEAR_PRE, CLEAR_CH] });
     }
     const { user: owner, passed } = pre;
-    const fail = async (why, status = 400, extra = {}) => {
+    const fail = async (why?: Loose, status: Loose = 400, extra: Loose = {}) => {
       await db.logActivity(owner.id, 'blocked', 'security', owner.id, `মালিকের লগইনে দ্বিতীয় যাচাই ব্যর্থ: ${why} (${ip})`).catch(() => {});
       return json(res, status, { error: why, ...extra });
     };
     // A finished check: either the next step, or the real login.
-    const next = async (how) => {
+    const next = async (how?: Loose) => {
       const need = lock.needs(settings, req, passed);
       if (need) return json(res, 200, { next: need }, { 'Set-Cookie': [preCookie(req, settings, owner, passed), CLEAR_CH] });
       await security.clear(db, 'mfa:' + owner.id);
@@ -595,7 +595,7 @@ ${link}
       const b = await parseBody(req);
       try {
         await lock.checkPasskey(req, owner.id, c.challenge, b);
-      } catch (e) {
+      } catch (e: Loose) {
         await countFail();
         await sessions.record(req, { staffId: owner.id, login: owner.username, event: 'code_fail', ip, detail: 'পাসকি' });
         return fail('পাসকি: ' + e.message);
@@ -628,25 +628,25 @@ ${link}
   }
   user.permissions = Array.isArray(user.permissions) ? user.permissions : [];
 
-  const ctx = {
+  const ctx: AdminCtx = {
     ...base,
     user,
     ip,
-    can: (p) => allowed(user, p),
+    can: (p?: Loose) => allowed(user, p),
     flash: ui.flashFrom(query),
     body: () => parseBody(req),
-    page: (title, body, active, opts = {}) => send(res, opts.status || 200, adminLayout({ settings: ctx.settings, user, title,
+    page: (title?: Loose, body?: Loose, active?: Loose, opts: Body = {}) => send(res, opts.status || 200, adminLayout({ settings: ctx.settings, user, title,
       body: $testclear.decorate(ctx, active, body), active, readOnly: ctx.readOnly, path })),
-    back: (to, msgKey) => redirect(res, to + (msgKey ? (to.includes('?') ? '&' : '?') + 'msg=' + msgKey : '')),
-    fail: (to, text) => redirect(res, to + (to.includes('?') ? '&' : '?') + 'err=' + encodeURIComponent(text)),
-    log: (action, entity, entityId, detail) => db.logActivity(user.id, action, entity, entityId, detail),
+    back: (to?: Loose, msgKey?: Loose) => redirect(res, to + (msgKey ? (to.includes('?') ? '&' : '?') + 'msg=' + msgKey : '')),
+    fail: (to?: Loose, text?: Loose) => redirect(res, to + (to.includes('?') ? '&' : '?') + 'err=' + encodeURIComponent(text)),
+    log: (action?: Loose, entity?: Loose, entityId?: Id, detail?: Loose) => db.logActivity(user.id, action, entity, entityId, detail),
     // every delete goes to the recycle bin (Admin → রিসাইকেল বিন), with who / when / from where
-    trash: (kind, id) => $models_trash.move(kind, id, { id: user.id, name: user.name, ip,
+    trash: (kind?: Loose, id?: Id) => $models_trash.move(kind, id, { id: user.id, name: user.name, ip,
       path: (() => { try { return new URL(req.headers.referer || '').pathname; } catch (_) { return path; } })() }),
     // this login passed the fingerprint / face step (the owner just set the lock up on this device)
     markVerified: () => db.q('UPDATE admin_sessions SET verified=true WHERE id=$1', [user.__session]),
     // a brand-new login for this device (after a password change: every other device is logged out)
-    newSession: async (u) => { await sessions.revoke(user.__token, 'পাসওয়ার্ড বদল'); return startSession(req, settings, u, user.__verified); },
+    newSession: async (u?: Loose) => { await sessions.revoke(user.__token, 'পাসওয়ার্ড বদল'); return startSession(req, settings, u, user.__verified); },
     reloadSettings: async () => { settings = await db.getSettings(); ctx.settings = settings; return settings; },
   };
 

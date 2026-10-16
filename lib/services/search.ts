@@ -243,7 +243,7 @@ function clearCache() { builtAt = 0; sig = ''; }
 
 // ---------------------------------------------------------------- search
 // → product ids, best match first (at most `limit`)
-async function find(query: URLSearchParams, { limit = 500 }: Body = {}) {
+async function find(query: string, { limit = 500 }: Body = {}) {
   const typed = words(query).filter((w) => !STOP.has(w));
   // each typed word with the other ways it may be meant
   const groups = [];
@@ -280,7 +280,7 @@ async function find(query: URLSearchParams, { limit = 500 }: Body = {}) {
 }
 
 // What people searched for (Admin → সার্চ রিপোর্ট): the words and how many products were found.
-async function log(query: URLSearchParams, found?: Loose) {
+async function log(query: string, found?: Loose) {
   const q = norm(query).replace(/\s+/g, ' ').trim().slice(0, 80);
   if (q.length < 2) return;
   await db.q(`INSERT INTO search_log(q, found) VALUES($1,$2)`, [q, found]).catch(() => {});

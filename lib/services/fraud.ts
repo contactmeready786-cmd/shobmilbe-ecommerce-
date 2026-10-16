@@ -56,7 +56,7 @@ function judge(own?: Loose, pathao?: Loose, fbd?: Loose) {
   return { level, label: LBL[level], advice, total, success: ok, rate };
 }
 
-async function check(settings: Settings, phoneRaw?: Loose, { fresh = false }: Body = {}) {
+async function check(settings: Settings, phoneRaw?: Loose, { fresh = false }: Body = {}): Promise<Loose> {
   const phone = normalizePhone(phoneRaw);
   if (!validPhone(phone)) return { ok: false, message: 'ফোন নম্বর ঠিক নেই।' };
   const ownStats = await customers.phoneStats(phone);

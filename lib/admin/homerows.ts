@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // Admin → স্টোর ডিজাইন → হোমপেজের সারি: the owner's own rows on the home page — add, edit, switch on/off,
 // move up/down among all rows (built-in ones too) and delete (to the recycle bin).
 import { html, raw, int, bn, list as asList } from '../util';
@@ -7,6 +6,7 @@ import * as ui from './ui';
 import * as H from '../models/homerows';
 import * as catalog from '../models/catalog';
 import * as $design from './design';
+import type { AdminCtx, Loose } from '../types';
 
 const BASE = '/admin/design/rows';
 // The list of rows lives on "লোগো, রং ও হোমপেজ" — this file only makes / edits / deletes the owner's own rows.
@@ -17,17 +17,17 @@ function builtIns() { return $design.SECTIONS; }
 
 async function allLabels() {
   const own = await H.list();
-  const labels = { ...builtIns() };
+  const labels: Record<string, Loose> = { ...builtIns() };
   for (const r of own) labels[H.keyOf(r.id)] = `✨ ${r.title}`;
   return { labels, own };
 }
 
-async function page(ctx) {
+async function page(ctx: AdminCtx) {
   const s = ctx.settings;
   const { labels, own } = await allLabels();
-  const enabled = db.jsonSetting(s, 'home_sections', []).filter((k) => labels[k]);
+  const enabled = db.jsonSetting(s, 'home_sections', []).filter((k?: Loose) => labels[k]);
   const ordered = [...enabled, ...Object.keys(labels).filter((k) => !enabled.includes(k))];
-  const counts = new Map(await Promise.all(own.map(async (r) => [r.id, (await H.productsFor(r, {}).catch(() => [])).length])));
+  const counts = new Map(await Promise.all(own.map(async (r): Promise<[Loose, number]> => [r.id, (await H.productsFor(r, {}).catch(() => [])).length])));
   const body = html`<h1>🏠 হোমপেজের সারি</h1>${ui.flash(ctx.flash)}
 <p class="muted">হোমপেজে কোন কোন সারি দেখাবে, কোনটা আগে-পরে — সব এখানে। আগে থেকে থাকা সারির পাশাপাশি <b>নিজের নতুন সারি</b> বানাতে পারবেন (যেমন "শীতের অফার", "৳৫০ এর নিচে রিমোট", "নতুন সোল্ডারিং টুলস")।</p>
 <p><a class="btn" href="${BASE}/new">➕ নতুন সারি বানান</a></p>
@@ -64,7 +64,7 @@ async function page(ctx) {
   return ctx.page('হোমপেজের সারি', body, 'design');
 }
 
-async function saveOrder(ctx) {
+async function saveOrder(ctx: AdminCtx) {
   const b = await ctx.body();
   const { labels } = await allLabels();
   const order = asList(b.section_order);
@@ -74,7 +74,7 @@ async function saveOrder(ctx) {
   return ctx.back(HOME, 'saved');
 }
 
-async function form(ctx, m) {
+async function form(ctx: AdminCtx, m?: Loose) {
   const id = m ? int(m[1]) : 0;
   const r = id ? await H.get(id) : null;
   if (id && !r) return ctx.fail(HOME, 'সারিটা পাওয়া যায়নি।');
@@ -84,11 +84,11 @@ async function form(ctx, m) {
     if (!id) {
       // a new row goes on the home page straight away, at the end
       const list = db.jsonSetting(ctx.settings, 'home_sections', []);
-      if (!list.includes(H.keyOf(row.id))) await db.setSetting('home_sections', JSON.stringify([...list, H.keyOf(row.id)]));
+      if (!list.includes(H.keyOf(row!.id))) await db.setSetting('home_sections', JSON.stringify([...list, H.keyOf(row!.id)]));
     }
-    await ctx.log(id ? 'home_row_edit' : 'home_row_add', 'home_row', row.id, row.title);
-    if (missing.length) return ctx.fail(`${BASE}/${row.id}`, `সেভ হয়েছে, কিন্তু এই SKU গুলো পাওয়া যায়নি: ${missing.join(', ')}`);
-    return ctx.back(`${BASE}/${row.id}`, 'saved');
+    await ctx.log(id ? 'home_row_edit' : 'home_row_add', 'home_row', row!.id, row!.title);
+    if (missing.length) return ctx.fail(`${BASE}/${row!.id}`, `সেভ হয়েছে, কিন্তু এই SKU গুলো পাওয়া যায়নি: ${missing.join(', ')}`);
+    return ctx.back(`${BASE}/${row!.id}`, 'saved');
   }
   const v = r || { title: '', sub: '', source: 'category', ref: '', sort: 'popular', lim: 16, badge: '', style: 'rail', in_stock_only: false, product_ids: [] };
   const [cats, brands, skus, preview] = await Promise.all([
@@ -97,7 +97,7 @@ async function form(ctx, m) {
     H.skusOf(v.product_ids),
     r ? H.productsFor(r, {}).catch(() => []) : [],
   ]);
-  const show = (src) => raw(`data-show-when="source=${src}"`);
+  const show = (src?: Loose) => raw(`data-show-when="source=${src}"`);
   const body = html`<h1>${r ? '✏️ সারি এডিট' : '➕ নতুন সারি'}</h1>${ui.flash(ctx.flash)}
 <p><a href="${HOME}">← লোগো, রং ও হোমপেজ (সব সারি)</a></p>
 <form method="post" class="form panel" data-row-form>
@@ -144,19 +144,19 @@ ${r ? html`<form method="post" action="${BASE}/${r.id}/delete" data-confirm="&qu
   return ctx.page(r ? 'সারি এডিট' : 'নতুন সারি', body, 'design');
 }
 
-async function remove(ctx, m) {
+async function remove(ctx: AdminCtx, m?: Loose) {
   const id = int(m[1]);
   await ctx.trash('home_row', id);
-  const list = db.jsonSetting(ctx.settings, 'home_sections', []).filter((k) => k !== H.keyOf(id));
+  const list = db.jsonSetting(ctx.settings, 'home_sections', []).filter((k?: Loose) => k !== H.keyOf(id));
   await db.setSetting('home_sections', JSON.stringify(list));
   await ctx.log('home_row_delete', 'home_row', id, '');
   return ctx.back(HOME, 'deleted');
 }
 
 export const routes = [
-    { method: 'GET', path: BASE, perm: 'design', handler: (ctx) => ctx.back(HOME) },
+    { method: 'GET', path: BASE, perm: 'design', handler: (ctx: AdminCtx) => ctx.back(HOME) },
     { method: 'POST', path: `${BASE}/order`, perm: 'design', handler: saveOrder },
-    { method: '*', path: `${BASE}/new`, perm: 'design', handler: (ctx) => form(ctx, null) },
+    { method: '*', path: `${BASE}/new`, perm: 'design', handler: (ctx: AdminCtx) => form(ctx, null) },
     { method: '*', path: /^\/admin\/design\/rows\/(\d+)$/, perm: 'design', handler: form },
     { method: 'POST', path: /^\/admin\/design\/rows\/(\d+)\/delete$/, perm: 'design', handler: remove },
   ];

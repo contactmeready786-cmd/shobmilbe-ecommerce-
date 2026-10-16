@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 import { promises as dns } from 'node:dns';
 import { html, raw, fmtDate, int, str, fetchJson, randomCode } from '../util';
 import * as db from '../db';
@@ -7,16 +6,17 @@ import * as payments from '../services/payments';
 import * as finance from '../models/finance';
 import * as ui from './ui';
 import { saveKeys, secretInput } from './marketing';
+import type { AdminCtx, Loose } from '../types';
 
-function siteBase(ctx) {
+function siteBase(ctx: AdminCtx) {
   if (ctx.settings.site_url) return ctx.settings.site_url.replace(/\/+$/, '');
   const host = ctx.req.headers['x-forwarded-host'] || ctx.req.headers.host || '';
   return `${String(ctx.req.headers['x-forwarded-proto'] || 'https').split(',')[0]}://${host}`;
 }
-const status = (ok) => (ok ? ui.pill('সেটআপ করা আছে', 'pill-delivered') : ui.pill('সেটআপ বাকি', 'pill-pending'));
+const status = (ok?: Loose) => (ok ? ui.pill('সেটআপ করা আছে', 'pill-delivered') : ui.pill('সেটআপ বাকি', 'pill-pending'));
 
 // ---------------------------------------------------------------- courier
-async function courierPage(ctx) {
+async function courierPage(ctx: AdminCtx) {
   const s = ctx.settings;
   if (ctx.method === 'POST') {
     const b = await ctx.body();
@@ -92,11 +92,11 @@ ${ui.helpBox('কীভাবে কাজ করে', html`কুরিয়�
 ${logLines(logs)}`;
   return ctx.page('কুরিয়ার', body, 'courier');
 }
-function logLines(logs) {
+function logLines(logs?: Loose) {
   if (!logs.length) return '';
-  return html`<section class="panel"><h2>সাম্প্রতিক লগ</h2><ul class="log">${logs.map((l) => html`<li class="${l.ok ? 'ok' : 'bad'}">${l.ok ? '✅' : '❌'} ${fmtDate(l.created_at)} · ${l.service} · ${l.action}${l.ref ? ` · ${l.ref}` : ''}<br><span class="small">${l.message}</span></li>`)}</ul></section>`;
+  return html`<section class="panel"><h2>সাম্প্রতিক লগ</h2><ul class="log">${logs.map((l?: Loose) => html`<li class="${l.ok ? 'ok' : 'bad'}">${l.ok ? '✅' : '❌'} ${fmtDate(l.created_at)} · ${l.service} · ${l.action}${l.ref ? ` · ${l.ref}` : ''}<br><span class="small">${l.message}</span></li>`)}</ul></section>`;
 }
-async function courierTest(ctx) {
+async function courierTest(ctx: AdminCtx) {
   const b = await ctx.body();
   const r = await courier.test(b.courier, ctx.settings);
   await db.logIntegration(b.courier, 'test', r.ok, r.message);
@@ -104,7 +104,7 @@ async function courierTest(ctx) {
 }
 
 // ---------------------------------------------------------------- payments
-async function paymentsPage(ctx) {
+async function paymentsPage(ctx: AdminCtx) {
   const s = ctx.settings;
   if (ctx.method === 'POST') {
     const b = await ctx.body();
@@ -168,14 +168,14 @@ ${!s.site_url ? html`<p class="flash flash-error">অনলাইন পেম�
 ${logLines(logs)}`;
   return ctx.page('পেমেন্ট', body, 'payments');
 }
-async function paymentsTest(ctx) {
+async function paymentsTest(ctx: AdminCtx) {
   const r = await payments.bkashTest(ctx.settings);
   await db.logIntegration('bkash', 'test', r.ok, r.message);
   return r.ok ? ctx.redirect(ctx.res, '/admin/integrations/payments?msg=saved&info=' + encodeURIComponent(r.message)) : ctx.fail('/admin/integrations/payments', r.message);
 }
 
 // ---------------------------------------------------------------- domain
-async function domainPage(ctx) {
+async function domainPage(ctx: AdminCtx) {
   const s = ctx.settings;
   if (ctx.method === 'POST') {
     const b = await ctx.body();
@@ -187,7 +187,7 @@ async function domainPage(ctx) {
     return ctx.back('/admin/integrations/domain', 'saved');
   }
   const domain = s.custom_domain;
-  let check = null;
+  let check: Loose = null;
   if (domain) {
     check = { apex: [], www: [] };
     try { check.apex = await dns.resolve4(domain); } catch (_) { /* none */ }
@@ -241,8 +241,8 @@ async function domainPage(ctx) {
     <h2>ধাপ ৪: অপেক্ষা ও চেক</h2>
     <p>DNS ছড়াতে ৫ মিনিট থেকে কয়েক ঘণ্টা লাগে। এরপর Vercel নিজে থেকে ফ্রি SSL (https) দিয়ে দেবে।</p>
     ${domain ? html`<div class="dns-check">
-      <p>${check.apex.length ? '✅' : '⏳'} <b>${domain}</b> → ${check.apex.length ? check.apex.join(', ') : 'এখনো কোথাও যাচ্ছে না'}</p>
-      <p>${check.www.length ? '✅' : '⏳'} <b>www.${domain}</b> → ${check.www.length ? check.www.join(', ') : 'এখনো কোথাও যাচ্ছে না'}</p>
+      <p>${check!.apex.length ? '✅' : '⏳'} <b>${domain}</b> → ${check!.apex.length ? check!.apex.join(', ') : 'এখনো কোথাও যাচ্ছে না'}</p>
+      <p>${check!.www.length ? '✅' : '⏳'} <b>www.${domain}</b> → ${check!.www.length ? check!.www.join(', ') : 'এখনো কোথাও যাচ্ছে না'}</p>
       ${vercel ? (vercel.error ? html`<p class="warn small">Vercel: ${vercel.error}</p>` : html`<p>${apexOk ? '✅ Vercel বলছে কনফিগারেশন ঠিক আছে!' : '⏳ Vercel এখনো সঠিক কনফিগারেশন দেখছে না।'}</p>`) : ''}
       <a class="btn btn-ghost btn-sm" href="/admin/integrations/domain">🔄 আবার চেক করুন</a>
     </div>` : ''}
@@ -254,10 +254,10 @@ async function domainPage(ctx) {
 </div>`;
   return ctx.page('ডোমেইন', body, 'domain');
 }
-async function domainAdd(ctx) {
+async function domainAdd(ctx: AdminCtx) {
   const s = ctx.settings;
   if (!s.custom_domain || !s.vercel_token || !s.vercel_project) return ctx.fail('/admin/integrations/domain', 'ডোমেইন, Vercel Token আর প্রজেক্টের নাম দিন।');
-  const msgs = [];
+  const msgs: Loose[] = [];
   for (const name of [s.custom_domain, 'www.' + s.custom_domain]) {
     const body = name.startsWith('www.') ? { name, redirect: s.custom_domain, redirectStatusCode: 308 } : { name };
     const r = await fetchJson(`https://api.vercel.com/v10/projects/${encodeURIComponent(s.vercel_project)}/domains`,

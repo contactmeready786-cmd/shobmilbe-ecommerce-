@@ -7,7 +7,7 @@ import type { Loose, Settings } from '../types';
 // switches, so changing them here or on their own page is the same thing.
 // Things that would stop people from ordering (price, "add to cart", address, confirm button) have no switch on purpose.
 
-const GROUPS = [
+const GROUPS: Loose[] = [
   { id: 'top', title: '🔝 একদম উপরের অংশ', items: [
     { key: 'ui_notice', label: 'উপরের নোটিশ বার', desc: 'একদম উপরের পাতলা বারের লেখা। বন্ধ করলে বারটা থাকবে না (ভাষার বাটন চালু থাকলে শুধু সেটা থাকবে)।',
       text: { key: 'notice', label: 'নোটিশের লেখা', max: 160 } },
@@ -83,7 +83,7 @@ const GROUPS = [
 ];
 
 // home page rows: shown/hidden with the home-page list; their titles and small lines can be changed here
-const HOME_TEXTS = {
+const HOME_TEXTS: Record<string, Loose> = {
   flash: { title: '' , sub: 'অফার শেষ হবে' },
   new: { title: '🆕 নতুন এসেছে', sub: 'সদ্য দোকানে তোলা পণ্য' },
   offers: { title: '🔥 অফারে আছে', sub: 'সীমিত সময়ের ছাড়' },
@@ -97,7 +97,7 @@ const HOME_TEXTS = {
 
 // hidden: the switch lives on its own page (reviews, Q&A, restock/price alerts, header & footer menu) —
 // it is not shown again on "দোকানে কী দেখাবে", so every switch is in exactly one place.
-const SWITCHES = GROUPS.flatMap((g) => g.items.filter((i) => i.key).map((i) => (g.hidden ? { ...i, hidden: true } : i)));
+const SWITCHES = GROUPS.flatMap((g) => g.items.filter((i: Loose) => i.key).map((i: Loose) => (g.hidden ? { ...i, hidden: true } : i)));
 const KEYS = new Set(SWITCHES.map((i) => i.key));
 const TEXTS = new Map(SWITCHES.filter((i?: Loose) => i.text).map((i?: Loose) => [i.text.key, i.text]));
 for (const [k, v] of Object.entries(HOME_TEXTS)) {

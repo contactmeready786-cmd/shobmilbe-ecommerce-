@@ -16,7 +16,7 @@ import * as $security from '../security';
 import type { Body, Id, Loose, Settings } from '../types';
 
 const MAX_GMAIL_DAY = 80;
-const KINDS = { campaign: 'ক্যাম্পেইন', weekly: 'সাপ্তাহিক নতুন পণ্য', welcome: 'স্বাগতম', review: 'রিভিউ চাওয়া', winback: 'আবার আসুন', test: 'পরীক্ষা' };
+const KINDS: Record<string, string> = { campaign: 'ক্যাম্পেইন', weekly: 'সাপ্তাহিক নতুন পণ্য', welcome: 'স্বাগতম', review: 'রিভিউ চাওয়া', winback: 'আবার আসুন', test: 'পরীক্ষা' };
 const AUDIENCES: Record<string, Loose> = { all: 'সবাই (লিস্টের সবাই)', buyers: 'যারা কিনেছেন', nonbuyers: 'যারা এখনো কেনেননি' };
 
 const esc = (v?: Loose) => notify.escapeHtml(v);

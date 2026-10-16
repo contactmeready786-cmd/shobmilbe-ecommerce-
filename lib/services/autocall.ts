@@ -24,7 +24,7 @@ const STATES: Record<string, Loose> = {
 };
 
 // Ready-made starting points. The exact API differs per company — the owner checks it against their docs.
-const PRESETS = {
+const PRESETS: Record<string, Loose> = {
   epbx: { label: 'ePBX (epbx.bd) — অটো অর্ডার কল', url: 'https://epbx.bd/api/v1/calls/initiate', header: 'Authorization', body: JSON.stringify({ phone_number: '{{phone}}', customer_name: '{{name}}', amount: '{{amount}}', order_id: '{{order_code}}', confirm_text: '{{message}}', cancel_text: 'অর্ডার বাতিল করতে ২ চাপুন', callback_url: '{{callback_url}}' }, null, 2) },
   manydial: { label: 'ManyDial', url: 'https://api.manydial.com/v1/calls', header: 'Authorization', body: JSON.stringify({ to: '{{phone_intl}}', from: '{{caller_id}}', message: '{{message}}', reference: '{{order_code}}', webhook: '{{callback_url}}' }, null, 2) },
   custom: { label: 'অন্য কোম্পানি (নিজে API বসান)', url: '', header: 'Authorization', body: JSON.stringify({ phone: '{{phone}}', message: '{{message}}', reference: '{{order_code}}', callback: '{{callback_url}}' }, null, 2) },

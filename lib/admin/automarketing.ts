@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // Admin → মার্কেটিং → 🤖 অটো মার্কেটিং: switches and log for the two things the shop now does by itself —
 //  1. a daily post of one product on the Facebook page (and Instagram), at the hours chosen here;
 //  2. a "দাম তালিকা" blog article for every main category, refreshed every week.
@@ -11,20 +10,21 @@ import * as fbreply from '../services/fbreply';
 import * as telegram from '../services/telegram';
 import { secretInput } from './marketing';
 import * as $data_fbcontent from '../data/fbcontent';
+import type { AdminCtx, Loose } from '../types';
 
 const BASE = '/admin/marketing/auto';
 
-async function save(ctx, obj) {
+async function save(ctx: AdminCtx, obj?: Loose) {
   for (const [k, v] of Object.entries(obj)) await db.setSetting(k, v);
   await ctx.reloadSettings();
 }
 
-async function handle(ctx) {
+async function handle(ctx: AdminCtx) {
   if (ctx.method === 'POST') return post(ctx);
   return page(ctx);
 }
 
-async function post(ctx) {
+async function post(ctx: AdminCtx) {
   const b = await ctx.body();
   const s = ctx.settings;
   if (b.action === 'connect') {
@@ -34,7 +34,7 @@ async function post(ctx) {
     const appSecret = secretIn && !/^•+$/.test(secretIn) ? secretIn : s.autopost_app_secret || '';
     if (!token) return ctx.fail(BASE, 'Facebook থেকে আনা টোকেনটা দিন।');
     let r;
-    try { r = await autopost.connect({ token, appId, appSecret, pageId: String(b.page_id || '').trim() }); } catch (e) {
+    try { r = await autopost.connect({ token, appId, appSecret, pageId: String(b.page_id || '').trim() }); } catch (e: Loose) {
       return ctx.fail(BASE, 'Facebook-এর সাথে যুক্ত হলো না: ' + e.message);
     }
     await save(ctx, {
@@ -43,7 +43,7 @@ async function post(ctx) {
       autopost_app_id: appId, autopost_app_secret: appSecret, autopost_long_lived: r.longLived ? '1' : '0',
     });
     await ctx.log('settings', 'marketing', null, `অটো পোস্ট: Facebook পেজ যুক্ত (${r.pageName})`);
-    const more = r.others.length > 1 ? ` আপনার আরো পেজ আছে: ${r.others.map((x) => `${x.name} (${x.id})`).join(', ')} — অন্যটা চাইলে "পেজ ID" ঘরে দিয়ে আবার যুক্ত করুন।` : '';
+    const more = r.others.length > 1 ? ` আপনার আরো পেজ আছে: ${r.others.map((x?: Loose) => `${x.name} (${x.id})`).join(', ')} — অন্যটা চাইলে "পেজ ID" ঘরে দিয়ে আবার যুক্ত করুন।` : '';
     return ctx.back(`${BASE}?info=${encodeURIComponent(`✅ যুক্ত হয়েছে: ${r.pageName}${r.ig ? ` + Instagram @${r.ig.username}` : ' (এই পেজের সাথে Instagram বিজনেস অ্যাকাউন্ট যুক্ত নেই)'}।${more}`)}`);
   }
   if (b.action === 'disconnect') {
@@ -78,7 +78,7 @@ async function post(ctx) {
     const tokIn = String(b.tg_token || '').trim();
     const token = tokIn && !/^•+$/.test(tokIn) ? tokIn : s.telegram_bot_token || '';
     let r;
-    try { r = await telegram.connect(token, String(b.tg_chat || '').trim()); } catch (e) { return ctx.fail(BASE, 'Telegram যুক্ত হলো না: ' + e.message); }
+    try { r = await telegram.connect(token, String(b.tg_chat || '').trim()); } catch (e: Loose) { return ctx.fail(BASE, 'Telegram যুক্ত হলো না: ' + e.message); }
     await save(ctx, { telegram_bot_token: token, telegram_chat: r.chat, telegram_chat_title: r.title || '', telegram_on: '1' });
     await ctx.log('settings', 'marketing', null, `Telegram চ্যানেল যুক্ত (${r.title || r.chat})`);
     return ctx.back(`${BASE}?info=${encodeURIComponent(`✅ Telegram যুক্ত হয়েছে: ${r.title || r.chat} — একটা পরীক্ষার মেসেজ পাঠানো হয়েছে।`)}#telegram`);
@@ -102,7 +102,7 @@ async function post(ctx) {
     if (!s.autopost_page_token) return ctx.fail(BASE, 'আগে Facebook পেজ যুক্ত করুন।');
     const r = await autopost.postOne(s, {});
     if (r.error) return ctx.fail(BASE, r.error);
-    const parts = [];
+    const parts: Loose[] = [];
     if (r.fb) parts.push('Facebook ✅');
     if (r.fbError) parts.push('Facebook ❌ ' + r.fbError);
     if (r.ig) parts.push('Instagram ✅');
@@ -127,9 +127,9 @@ async function post(ctx) {
   return ctx.back(BASE);
 }
 
-const ENGAGE_LABEL = { tip: '💡 টিপস', quiz: '🧠 কুইজ', answer: '✅ কুইজের উত্তর', question: '❓ প্রশ্ন', kit: '🛠️ প্রজেক্ট গাইড', product: '🛒 পণ্য' };
+const ENGAGE_LABEL: Record<string, string> = { tip: '💡 টিপস', quiz: '🧠 কুইজ', answer: '✅ কুইজের উত্তর', question: '❓ প্রশ্ন', kit: '🛠️ প্রজেক্ট গাইড', product: '🛒 পণ্য' };
 
-async function page(ctx) {
+async function page(ctx: AdminCtx) {
   const s = ctx.settings;
   const base = String(s.site_url || 'https://shobmilbe.com').replace(/\/+$/, '');
   const connected = !!(s.autopost_page_token && s.autopost_page_id);
@@ -147,15 +147,15 @@ async function page(ctx) {
   const [replies, replyStats, tgRecent] = await Promise.all([fbreply.recent(20), fbreply.stats(), telegram.recent(8)]);
   const tgOn = !!(s.telegram_bot_token && s.telegram_chat);
   const hours = autopost.hoursOf(s);
-  const hourLabel = (h) => `${bn(h % 12 || 12)}টা ${h < 12 ? 'সকাল' : h < 16 ? 'দুপুর' : h < 19 ? 'বিকাল' : 'রাত'}`;
-  const postLink = (r) => (r.channel === 'facebook' && r.post_id ? `https://www.facebook.com/${r.post_id}` : r.channel === 'instagram' && s.autopost_ig_name ? `https://www.instagram.com/${s.autopost_ig_name}/` : '');
+  const hourLabel = (h?: Loose) => `${bn(h % 12 || 12)}টা ${h < 12 ? 'সকাল' : h < 16 ? 'দুপুর' : h < 19 ? 'বিকাল' : 'রাত'}`;
+  const postLink = (r?: Loose) => (r.channel === 'facebook' && r.post_id ? `https://www.facebook.com/${r.post_id}` : r.channel === 'instagram' && s.autopost_ig_name ? `https://www.instagram.com/${s.autopost_ig_name}/` : '');
 
   const body = html`<div class="title-row"><h1>🤖 অটো মার্কেটিং</h1><div class="row-actions"><a class="btn btn-ghost btn-sm" href="${BASE}">🔄 রিফ্রেশ</a></div></div>
 ${ui.flash(ctx.flash)}
 <div class="kpis kpis-tight">
   ${ui.kpi('Facebook অটো পোস্ট', connected && s.autopost_on === '1' ? '✅ চালু' : connected ? '⏸ বন্ধ' : '⚪ যুক্ত নেই', connected ? s.autopost_page_name || '' : 'নিচে পেজ যুক্ত করুন')}
   ${ui.kpi('প্রতিদিন পোস্ট', bn(hours.length) + 'টা', hours.map(hourLabel).join(', '))}
-  ${ui.kpi('গত ৭ দিনে পোস্ট', bn(counts.week || 0), `মোট Facebook ${bn(counts.fb || 0)} · Instagram ${bn(counts.ig || 0)}`, 'kpi-blue')}
+  ${ui.kpi('গত ৭ দিনে পোস্ট', bn(counts!.week || 0), `মোট Facebook ${bn(counts!.fb || 0)} · Instagram ${bn(counts!.ig || 0)}`, 'kpi-blue')}
   ${ui.kpi('দাম-তালিকা লেখা', bn(posts.length), s.autoblog_on === '1' ? '✅ প্রতি সপ্তাহে আপডেট' : '⏸ বন্ধ')}
 </div>
 ${ui.helpBox('এটা কী করে?', html`<ol class="steps">
@@ -236,7 +236,7 @@ ${ui.helpBox('এটা কী করে?', html`<ol class="steps">
   <p class="small">পেজের পোস্টে কেউ <b>"দাম কত?", "price?", "আছে?", "অর্ডার করব কীভাবে"</b> লিখলে ১০ মিনিটের মধ্যে দোকান নিজেই কমেন্টের নিচে উত্তর দেয় — পণ্যের দাম, স্টক, অর্ডারের লিংক আর ডেলিভারি চার্জ।
   পোস্টটা যে পণ্যের, সেটার দাম যায়; কমেন্টে মডেল লিখলে (যেমন "PAM8403 এর দাম?") সেই পণ্যের দাম যায়। অন্য কমেন্ট (প্রশংসা, প্রশ্ন, কুইজের উত্তর) আপনার জন্য রেখে দেয়। একই কমেন্টে দুইবার উত্তর দেয় না; দিনে সর্বোচ্চ ১৫০টা।</p>
   ${s.fbreply_error ? html`<p class="flash flash-error small">⚠️ শেষবার: ${s.fbreply_error}</p>` : ''}
-  <p class="small muted">এ পর্যন্ত উত্তর: ${bn(replyStats.replied || 0)}টা (গত ৭ দিনে ${bn(replyStats.week || 0)}) · দেখা কমেন্ট ${bn(replyStats.seen || 0)}টা${s.fbreply_last ? ` · শেষ চেক ${fmtDate(new Date(Number(s.fbreply_last)))}` : ''}</p>
+  <p class="small muted">এ পর্যন্ত উত্তর: ${bn(replyStats!.replied || 0)}টা (গত ৭ দিনে ${bn(replyStats!.week || 0)}) · দেখা কমেন্ট ${bn(replyStats!.seen || 0)}টা${s.fbreply_last ? ` · শেষ চেক ${fmtDate(new Date(Number(s.fbreply_last)))}` : ''}</p>
   <form method="post" action="${BASE}" class="form"><input type="hidden" name="action" value="fbreply_save">
     ${ui.switchRow('fbreply_on', s.fbreply_on === '1', 'দাম/অর্ডারের প্রশ্নে কমেন্টে নিজে উত্তর দাও', connected ? 'Facebook টোকেনে pages_read_user_content আর pages_manage_engagement অনুমতি লাগবে (উপরের ধাপ ৩)' : 'আগে উপরে Facebook পেজ যুক্ত করুন')}
     <button class="btn btn-sm">সেভ করুন</button>

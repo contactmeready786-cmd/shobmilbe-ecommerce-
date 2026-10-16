@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // Admin → মার্কেটিং → মেসেজ → 📧 ইমেইল: e-mail marketing (owner, 2026-10-16).
 //  - set-up ONCE: Brevo (free ~300/day, made for bulk mail) — or the shop's Gmail for a small list (capped, so Google
 //    never locks the Gmail that carries order mails and codes; that Gmail is the one in আমার নোটিফিকেশন, never entered here)
@@ -13,15 +12,16 @@ import * as M from '../services/mailer';
 import * as notify from '../services/notify';
 import { secretInput } from './marketing';
 import * as $security from '../security';
+import type { AdminCtx, Body, Loose } from '../types';
 
 const BASE = '/admin/marketing/email';
 const DAYS = [['6', 'শনিবার'], ['0', 'রবিবার'], ['1', 'সোমবার'], ['2', 'মঙ্গলবার'], ['3', 'বুধবার'], ['4', 'বৃহস্পতিবার'], ['5', 'শুক্রবার']];
-const pct = (a, b) => (b ? `${bn(Math.round((a * 100) / b))}%` : '—');
+const pct = (a: Loose, b: Loose) => (b ? `${bn(Math.round((a * 100) / b))}%` : '—');
 
 // "1023, 1024", product links (/p/slug) or SKUs → product ids (in the order given)
-async function resolveProducts(text) {
+async function resolveProducts(text?: Loose) {
   const parts = String(text || '').split(/[\s,;]+/).map((x) => x.trim()).filter(Boolean).slice(0, 12);
-  const ids = [];
+  const ids: Loose[] = [];
   for (const p of parts) {
     const slug = (p.match(/\/p\/([^/?#\s]+)/) || [])[1];
     const row = slug
@@ -31,12 +31,12 @@ async function resolveProducts(text) {
   }
   return ids;
 }
-async function newest(n = 6) {
+async function newest(n: Loose = 6) {
   return (await db.q(`SELECT p.id FROM products p WHERE p.active AND p.parent_id IS NULL AND p.stock > 0 AND p.price > 0 AND p.image_id IS NOT NULL
     ORDER BY p.created_at DESC LIMIT $1`, [n])).map((r) => r.id);
 }
 
-async function page(ctx, note = null) {
+async function page(ctx: AdminCtx, note: Loose = null) {
   const s = ctx.settings;
   const c = M.cfg(s);
   const canSetup = ctx.can('settings');
@@ -57,10 +57,10 @@ async function page(ctx, note = null) {
 ${c.on && !c.ready ? ui.flash({ type: 'error', text: `ইমেইল যাচ্ছে না: ${c.why}` }) : ''}
 <div class="kpis">
   ${ui.kpi('অবস্থা', status, c.provider === 'brevo' ? 'Brevo দিয়ে' : 'দোকানের Gmail দিয়ে')}
-  ${ui.kpi('তালিকায় আছেন', bn(st.subs), `গত ৩০ দিনে নতুন ${bn(st.new30)} · চলে গেছেন ${bn(st.left_list)}`)}
+  ${ui.kpi('তালিকায় আছেন', bn(st!.subs), `গত ৩০ দিনে নতুন ${bn(st!.new30)} · চলে গেছেন ${bn(st!.left_list)}`)}
   ${ui.kpi('আজ পাঠানো', `${bn(today)} / ${bn(c.perDay)}`, 'দিনের সীমা (বাকিগুলো কাল যায়)')}
-  ${ui.kpi('৩০ দিনে খোলা', pct(st.opened30, st.sent30), `${bn(st.sent30)}টি গেছে · ক্লিক ${pct(st.clicked30, st.sent30)}`)}
-  ${st.bad30 ? ui.kpi('যায়নি (৩০ দিন)', bn(st.bad30), 'নিচের তালিকায় কারণ দেখুন', 'kpi-alert') : ''}
+  ${ui.kpi('৩০ দিনে খোলা', pct(st!.opened30, st!.sent30), `${bn(st!.sent30)}টি গেছে · ক্লিক ${pct(st!.clicked30, st!.sent30)}`)}
+  ${st!.bad30 ? ui.kpi('যায়নি (৩০ দিন)', bn(st!.bad30), 'নিচের তালিকায় কারণ দেখুন', 'kpi-alert') : ''}
 </div>
 
 ${ui.helpBox('Brevo দিয়ে চালু করবেন কীভাবে (একবারই, ১০ মিনিট)', html`<ol class="steps">
@@ -148,7 +148,7 @@ ${camps.length ? html`<section class="panel table-wrap"><h2>📊 ক্যাম
   </tbody></table></section>` : ''}
 
 <section class="panel">
-  <h2>👥 তালিকা (${bn(st.subs)} জন)</h2>
+  <h2>👥 তালিকা (${bn(st!.subs)} জন)</h2>
   <div class="two-col">
     <form method="post" action="${BASE}" class="form">
       <input type="hidden" name="action" value="add">
@@ -162,7 +162,7 @@ ${camps.length ? html`<section class="panel table-wrap"><h2>📊 ক্যাম
   </div>
   ${subs.length ? html`<div class="table-wrap"><table class="table compact"><thead><tr><th>ইমেইল</th><th>নাম / নম্বর</th><th>কোথা থেকে</th><th>কবে</th><th>অবস্থা</th></tr></thead><tbody>
     ${subs.map((x) => html`<tr class="${x.on_list ? '' : 'row-muted'}"><td class="small mono">${x.email}</td><td class="small">${x.name}${x.phone ? html`<br><span class="muted">${x.phone}</span>` : ''}</td>
-      <td class="small">${{ footer: 'ফুটার', checkout: 'চেকআউট', admin: 'হাতে যোগ', popup: 'পপআপ' }[x.source] || x.source}</td><td class="small nowrap">${fmtDate(x.created_at, false)}</td>
+      <td class="small">${({ footer: 'ফুটার', checkout: 'চেকআউট', admin: 'হাতে যোগ', popup: 'পপআপ' } as Record<string, string>)[x.source] || x.source}</td><td class="small nowrap">${fmtDate(x.created_at, false)}</td>
       <td class="small"><form method="post" action="${BASE}"><input type="hidden" name="action" value="toggle"><input type="hidden" name="id" value="${x.id}">
         ${x.on_list ? html`✅ আছেন <button class="btn btn-sm btn-ghost">বাদ দিন</button>` : html`🚫 ${x.unsub_at ? 'নিজে চলে গেছেন' : 'বাদ'}${x.unsub_at ? '' : html` <button class="btn btn-sm btn-ghost">আবার যোগ</button>`}`}</form></td></tr>`)}
   </tbody></table></div>` : html`<p class="muted">${q ? 'কাউকে পাওয়া যায়নি।' : 'এখনো কেউ যোগ দেননি। ইমেইল মার্কেটিং চালু করলে ফুটার আর চেকআউট থেকে নিজে থেকে যোগ হবে।'}</p>`}
@@ -178,12 +178,12 @@ ${camps.length ? html`<section class="panel table-wrap"><h2>📊 ক্যাম
   return ctx.page('ইমেইল মার্কেটিং', body, 'email');
 }
 
-async function post(ctx) {
+async function post(ctx: AdminCtx) {
   const b = await ctx.body();
   const s = ctx.settings;
   if (b.action === 'setup') {
     if (!ctx.can('settings')) return ctx.back(BASE, 'noperm');
-    const v = {
+    const v: Record<string, Loose> = {
       email_mkt_on: b.email_mkt_on ? '1' : '0', email_mkt_provider: b.email_mkt_provider === 'gmail' ? 'gmail' : 'brevo',
       email_mkt_from: notify.validEmail(str(b.email_mkt_from, 120)) ? str(b.email_mkt_from, 120) : '', email_mkt_from_name: str(b.email_mkt_from_name, 60),
       email_mkt_day: String(Math.max(1, Math.min(100000, int(b.email_mkt_day, 280)))),
@@ -238,12 +238,12 @@ async function post(ctx) {
     await ctx.log('settings', 'marketing', null, `ইমেইল ক্যাম্পেইন: "${subject.slice(0, 80)}" — ${n} জন`);
     // the first part goes right now (a minute at most); the rest goes with the hourly job, within the day's allowance
     const sent = await M.runCampaigns(s, Math.min(40, await M.leftToday(s))).catch(() => 0);
-    const after = await db.one('SELECT sent, failed FROM email_campaigns WHERE id=$1', [camp.id]);
-    if (after.failed && !after.sent) {
-      const why = await db.one('SELECT detail FROM email_log WHERE campaign_id=$1 AND NOT ok ORDER BY id DESC LIMIT 1', [camp.id]);
+    const after = await db.one('SELECT sent, failed FROM email_campaigns WHERE id=$1', [camp!.id]);
+    if (after!.failed && !after!.sent) {
+      const why = await db.one('SELECT detail FROM email_log WHERE campaign_id=$1 AND NOT ok ORDER BY id DESC LIMIT 1', [camp!.id]);
       return ctx.fail(BASE, `❌ একটাও যায়নি: ${why ? why.detail : ''}`);
     }
-    return ctx.back(`${BASE}?info=${encodeURIComponent(`✅ ক্যাম্পেইন শুরু হয়েছে — এখনই ${bn(after.sent)} জনকে গেছে${sent < n ? `, বাকি ${bn(Math.max(0, n - after.sent - after.failed))} জন দিনের সীমার মধ্যে নিজে থেকে পাবেন` : ''}।`)}`);
+    return ctx.back(`${BASE}?info=${encodeURIComponent(`✅ ক্যাম্পেইন শুরু হয়েছে — এখনই ${bn(after!.sent)} জনকে গেছে${sent < n ? `, বাকি ${bn(Math.max(0, n - after!.sent - after!.failed))} জন দিনের সীমার মধ্যে নিজে থেকে পাবেন` : ''}।`)}`);
   }
   if (b.action === 'stop') {
     await db.q("UPDATE email_campaigns SET status='stopped', finished_at=now(), updated_at=now() WHERE id=$1 AND status='sending'", [int(b.id)]);
@@ -268,9 +268,9 @@ async function post(ctx) {
 }
 
 // what a mail looks like (the newest 4 products), opened in a new tab
-async function preview(ctx) {
+async function preview(ctx: AdminCtx) {
   const s = ctx.settings;
-  const products = [];
+  const products: Loose[] = [];
   for (const id of await newest(4)) products.push(id);
   const sub = { email: 'test@example.com', name: ctx.user.name || 'রহিম', token: 'preview' };
   const utm = 'utm_source=email';
@@ -284,9 +284,9 @@ async function preview(ctx) {
   return ctx.send(ctx.res, 200, out, 'text/html; charset=utf-8', { 'Content-Security-Policy': "sandbox; default-src 'none'; img-src https: http: data: 'self'; style-src 'unsafe-inline'" });
 }
 
-async function subsCsv(ctx) {
+async function subsCsv(ctx: AdminCtx) {
   const rows = await db.q('SELECT email, name, phone, source, on_list, created_at, unsub_at FROM email_subs ORDER BY id');
-  const esc = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const esc = (v?: Loose) => `"${String(v ?? '').replace(/"/g, '""')}"`;
   const csv = 'email,name,phone,source,subscribed,joined,left\n' + rows.map((r) => [r.email, r.name, r.phone, r.source, r.on_list ? 'yes' : 'no',
     r.created_at ? new Date(r.created_at).toISOString().slice(0, 10) : '', r.unsub_at ? new Date(r.unsub_at).toISOString().slice(0, 10) : ''].map(esc).join(',')).join('\n');
   await ctx.log('export', 'marketing', null, `ইমেইল তালিকা ডাউনলোড (${rows.length} জন)`);
@@ -295,7 +295,7 @@ async function subsCsv(ctx) {
 }
 
 export const routes = [
-    { method: 'GET', path: BASE, perm: 'marketing', handler: (ctx) => page(ctx) },
+    { method: 'GET', path: BASE, perm: 'marketing', handler: (ctx: AdminCtx) => page(ctx) },
     { method: 'POST', path: BASE, perm: 'marketing', handler: post },
     { method: 'GET', path: `${BASE}/preview`, perm: 'marketing', handler: preview },
     { method: 'POST', path: `${BASE}/subs.csv`, perm: 'owner', handler: subsCsv },

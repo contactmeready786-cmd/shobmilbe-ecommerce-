@@ -1,12 +1,12 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // Admin: live cricket & football scores on the storefront (on/off switches, leagues, refresh speed).
 import { html, raw, int, list } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
 import { saveKeys } from './marketing';
 import * as live from '../services/livescore';
+import type { AdminCtx, Body, Loose } from '../types';
 
-async function settingsPage(ctx) {
+async function settingsPage(ctx: AdminCtx) {
   const s = ctx.settings;
   if (ctx.method === 'POST') {
     const b = await ctx.body();
@@ -32,16 +32,16 @@ async function settingsPage(ctx) {
     Promise.race([live.overview(), new Promise((r) => setTimeout(() => r(null), 7000))]).catch(() => null),
     db.q(`SELECT sport, cat, SUM(n)::int AS n FROM live_clicks WHERE day >= (now() AT TIME ZONE 'Asia/Dhaka')::date - 6 GROUP BY sport, cat`).catch(() => []),
   ]);
-  const clicks = {};
+  const clicks: Record<string, Loose> = {};
   for (const r of clickRows || []) clicks[r.sport + ':' + r.cat] = r.n;
-  const names = { cricket: Object.fromEntries(live.CRICKET_LEAGUES.map(([k, l]) => [k, l])), football: Object.fromEntries(live.FOOTBALL_LEAGUES) };
-  const ticked = { cricket: chosenCricket, football: chosen };
-  const stars = (code) => { const n = live.POPULAR[code] || 1; return html`<span class="lv-stars" title="বাংলাদেশে জনপ্রিয়তা ${ui.bn(n)}/৫">${'★'.repeat(n)}<i>${'☆'.repeat(5 - n)}</i></span>`; };
-  const info = (sport, code) => (ov && ov[sport] && ov[sport][code]) || { live: [], soon: [] };
-  const vs = (m) => m.teams.map((t) => `${t.name}${t.score ? ' ' + t.score : ''}`).join('  vs  ');
-  const timeBn = (d) => { // "আজ রাত ৮:৩০" / "আগামীকাল সকাল ১০:০০"
+  const names: Record<string, Loose> = { cricket: Object.fromEntries(live.CRICKET_LEAGUES.map(([k, l]) => [k, l])), football: Object.fromEntries(live.FOOTBALL_LEAGUES) };
+  const ticked: Record<string, Loose> = { cricket: chosenCricket, football: chosen };
+  const stars = (code?: Loose) => { const n = live.POPULAR[code] || 1; return html`<span class="lv-stars" title="বাংলাদেশে জনপ্রিয়তা ${ui.bn(n)}/৫">${'★'.repeat(n)}<i>${'☆'.repeat(5 - n)}</i></span>`; };
+  const info = (sport?: Loose, code?: Loose) => (ov && ov[sport] && ov[sport][code]) || { live: [], soon: [] };
+  const vs = (m?: Loose) => m.teams.map((t?: Loose) => `${t.name}${t.score ? ' ' + t.score : ''}`).join('  vs  ');
+  const timeBn = (d?: Loose) => { // "আজ রাত ৮:৩০" / "আগামীকাল সকাল ১০:০০"
     const dt = new Date(d);
-    const dayKey = (x) => x.toLocaleDateString('en-GB', { timeZone: 'Asia/Dhaka' });
+    const dayKey = (x?: Loose) => x.toLocaleDateString('en-GB', { timeZone: 'Asia/Dhaka' });
     const parts = Object.fromEntries(new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Dhaka', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(dt).map((p) => [p.type, p.value]));
     const h = Number(parts.hour);
     const part = h < 4 ? 'রাত' : h < 12 ? 'সকাল' : h < 16 ? 'দুপুর' : h < 18 ? 'বিকাল' : h < 20 ? 'সন্ধ্যা' : 'রাত';
@@ -50,7 +50,7 @@ async function settingsPage(ctx) {
   };
 
   // one checkbox row: tick + name + green light / today + popularity + clicks
-  const item = (sport, field, code, label, isOn) => {
+  const item = (sport?: Loose, field?: Loose, code?: Loose, label?: Loose, isOn?: Loose) => {
     const g = info(sport, code);
     const c = clicks[sport + ':' + code] || 0;
     return html`<label class="lv-item ${g.live.length ? 'is-live' : ''}">
@@ -61,27 +61,27 @@ async function settingsPage(ctx) {
             : g.soon.length ? html`<span class="lv-soon">⏰ ২৪ ঘণ্টার মধ্যে ${ui.bn(g.soon.length)}টি</span>` : html`<span class="lv-off">এখন খেলা নেই</span>`}
           ${c ? html`<span class="lv-clicks" title="গত ৭ দিনে আপনার সাইটে এই খেলায় কতবার চাপ দেওয়া হয়েছে">👆 ${ui.bn(c)} বার দেখা</span>` : ''}
         </span>
-        ${g.live.length ? html`<span class="lv-games">${g.live.slice(0, 3).map((m) => html`<span>${m.bd ? '🇧🇩 ' : ''}${vs(m)}</span>`)}</span>` : ''}
+        ${g.live.length ? html`<span class="lv-games">${g.live.slice(0, 3).map((m?: Loose) => html`<span>${m.bd ? '🇧🇩 ' : ''}${vs(m)}</span>`)}</span>` : ''}
       </span></label>`;
   };
-  const sortCodes = (sport, entries) => [...entries].sort((a, b) => (info(sport, b[0]).live.length > 0) - (info(sport, a[0]).live.length > 0)
-    || (info(sport, b[0]).soon.length > 0) - (info(sport, a[0]).soon.length > 0) || (live.POPULAR[b[0]] || 1) - (live.POPULAR[a[0]] || 1));
+  const sortCodes = (sport?: Loose, entries?: Loose) => [...entries].sort((a, b) => Number(info(sport, b[0]).live.length > 0) - Number(info(sport, a[0]).live.length > 0)
+    || Number(info(sport, b[0]).soon.length > 0) - Number(info(sport, a[0]).soon.length > 0) || (live.POPULAR[b[0]] || 1) - (live.POPULAR[a[0]] || 1));
 
   // "right now" list across both sports
-  const nowRows = [];
-  const soonRows = [];
+  const nowRows: Loose[] = [];
+  const soonRows: Loose[] = [];
   if (ov) {
     for (const sport of ['cricket', 'football']) {
-      for (const [code, g] of Object.entries(ov[sport] || {})) {
+      for (const [code, g] of Object.entries<Loose>(ov[sport] || {})) {
         for (const m of g.live) nowRows.push({ sport, code, m });
         for (const m of g.soon) soonRows.push({ sport, code, m });
       }
     }
   }
-  const rank = (a, b) => (b.m.bd - a.m.bd) || ((live.POPULAR[b.code] || 1) - (live.POPULAR[a.code] || 1));
+  const rank = (a: Loose, b: Body) => (b.m.bd - a.m.bd) || ((live.POPULAR[b.code] || 1) - (live.POPULAR[a.code] || 1));
   nowRows.sort(rank);
-  soonRows.sort((a, b) => new Date(a.m.date) - new Date(b.m.date));
-  const shownOnSite = (sport, code, m) => s[`live_${sport}`] === '1' && (ticked[sport].includes(code) || (sport === 'cricket' && m.bd && s.live_cricket_always_bd !== '0'));
+  soonRows.sort((a, b) => +new Date(a.m.date) - +new Date(b.m.date));
+  const shownOnSite = (sport?: Loose, code?: Loose, m?: Loose) => s[`live_${sport}`] === '1' && (ticked[sport].includes(code) || (sport === 'cricket' && m.bd && s.live_cricket_always_bd !== '0'));
   const topClicks = Object.entries(clicks).sort((a, b) => b[1] - a[1]).slice(0, 5);
   const nowPanel = html`<section class="panel lv-now">
     <div class="title-row"><h2><i class="lv-light"></i> এই মুহূর্তে যে খেলাগুলো চলছে</h2><a class="btn btn-sm btn-ghost" href="/admin/design/live">↻ আবার দেখুন</a></div>
@@ -94,14 +94,14 @@ async function settingsPage(ctx) {
           <td>${shownOnSite(sport, code, m) ? html`<span class="pill pill-delivered">✅ দেখাচ্ছে</span>` : html`<span class="pill pill-cancelled">দেখাচ্ছে না</span>`}</td></tr>`)}
         </tbody></table></div>`
       : html`<p class="muted">এই মুহূর্তে কোনো খেলা চলছে না।</p>`}
-    ${soonRows.length ? html`<h3>⏰ পরের ২৪ ঘণ্টায় শুরু হবে</h3><ul class="lv-soon-list">${soonRows.slice(0, 8).map(({ sport, code, m }) => html`<li>${sport === 'cricket' ? '🏏' : '⚽'} ${m.bd ? '🇧🇩 ' : ''}<b>${m.teams.map((t) => t.name).join(' vs ')}</b> — ${timeBn(m.date)} <span class="muted small">(${names[sport][code] || code})</span> ${stars(code)}</li>`)}</ul>` : ''}
+    ${soonRows.length ? html`<h3>⏰ পরের ২৪ ঘণ্টায় শুরু হবে</h3><ul class="lv-soon-list">${soonRows.slice(0, 8).map(({ sport, code, m }) => html`<li>${sport === 'cricket' ? '🏏' : '⚽'} ${m.bd ? '🇧🇩 ' : ''}<b>${m.teams.map((t?: Loose) => t.name).join(' vs ')}</b> — ${timeBn(m.date)} <span class="muted small">(${names[sport][code] || code})</span> ${stars(code)}</li>`)}</ul>` : ''}
     <h3>👆 আপনার সাইটে সবচেয়ে বেশি দেখা (গত ৭ দিন)</h3>
     ${topClicks.length ? html`<ol class="lv-top">${topClicks.map(([k, n]) => { const [sp, code] = k.split(':'); return html`<li>${sp === 'cricket' ? '🏏' : '⚽'} ${(names[sp] && names[sp][code]) || code} — <b>${ui.bn(n)} বার</b></li>`; })}</ol>`
       : html`<p class="muted small">এখনো তথ্য জমেনি। ক্রেতারা স্কোর বক্স বা স্কোর পেজে খেলায় চাপ দিলে এখানে হিসাব জমবে।</p>`}
     <p class="muted small">★ = বাংলাদেশে কতটা জনপ্রিয় (৫ এর মধ্যে, সাধারণ ধারণা)। 👆 = আপনার সাইটে ক্রেতারা কতবার চাপ দিয়েছে। <i class="lv-light"></i> সবুজ বাতি = এখন খেলা চলছে।
     <b>সহজ নিয়ম:</b> সবুজ বাতি জ্বলা আর ৪-৫ তারার খেলাগুলোতে টিক দিন।</p>
   </section>`;
-  const sourceBox = (sport, label) => html`
+  const sourceBox = (sport?: Loose, label?: Loose) => html`
     ${ui.field('স্কোর কোথা থেকে আসবে', ui.select(`live_${sport}_source`, [['auto', 'অটোমেটিক লাইভ ডাটা (সুপারিশকৃত)'], ['embed', 'নিজের পছন্দের উইজেট কোড']], s[`live_${sport}_source`]))}
     ${ui.field(`${label} উইজেট কোড (শুধু "নিজের পছন্দের উইজেট" বাছলে) — 🔒 শুধু মালিক বদলাতে পারবেন`, ui.textarea(`live_${sport}_embed`, s[`live_${sport}_embed`], { rows: 3, class: 'mono', placeholder: '<iframe src="…"></iframe>' }), 'অন্য কোনো স্কোর সাইট উইজেট কোড দিলে সেটা এখানে পেস্ট করুন। খালি থাকলে অটোমেটিক ডাটাই দেখাবে।')}`;
   const body = html`<h1>লাইভ খেলার স্কোর</h1>${ui.flash(ctx.flash)}

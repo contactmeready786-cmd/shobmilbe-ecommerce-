@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 import { html, money, bn, fmtDate, int, str, ymd, dateRange, validYmd, csv, num } from '../util';
 import * as db from '../db';
 import * as F from '../models/finance';
@@ -6,10 +5,11 @@ import * as ui from './ui';
 import * as charts from './charts';
 import { saveKeys } from './marketing';
 import * as $vat from './vat';
+import type { AdminCtx, Loose } from '../types';
 
-const dd = (d) => fmtDate(String(d).slice(0, 10) + 'T06:00:00Z', false);
+const dd = (d?: Loose) => fmtDate(String(d).slice(0, 10) + 'T06:00:00Z', false);
 
-async function home(ctx) {
+async function home(ctx: AdminCtx) {
   const today = ymd();
   const monthStart = today.slice(0, 8) + '01';
   const [accounts, pnl, monthly, receivable, suppliers] = await Promise.all([
@@ -29,13 +29,13 @@ async function home(ctx) {
   ]);
   const haveCat = new Set(monthCats.map((r) => r.category));
   const MONTHLY = [['দোকান/অফিস ভাড়া', '🏠'], ['স্টাফ বেতন', '👥'], ['ফেসবুক/গুগল বিজ্ঞাপন', '📣'], ['প্যাকেজিং খরচ', '📦'], ['কুরিয়ার চার্জ', '🛵'], ['ইন্টারনেট ও মোবাইল', '📶'], ['বিদ্যুৎ ও পানি', '💡']];
-  const todo = [
-    !txCount.n && cash === 0 ? ['🏦', 'শুরুর টাকা লিখুন', 'ক্যাশ, ব্যাংক, বিকাশ, নগদে এখন কত টাকা আছে — "ব্যাংক ও ক্যাশ ব্যালেন্স" পেজে শুরুর ব্যালেন্স দিন। তাহলে সব হিসাব মিলবে।', '/admin/accounts/banks'] : null,
-    Number(receivable.cod) > 0 ? ['🛵', `কুরিয়ারের কাছে ${money(receivable.cod)} পাওনা`, 'কুরিয়ার টাকা পাঠালে "আয় লিখুন" → খাত "কুরিয়ার থেকে COD টাকা" দিন, যে অ্যাকাউন্টে টাকা এসেছে সেটা বাছুন।', '/admin/accounts/transactions?new=income&cat=' + encodeURIComponent('কুরিয়ার থেকে COD টাকা')] : null,
-    unpaidDelivered.n ? ['🧾', `${bn(unpaidDelivered.n)}টি ডেলিভারি হওয়া অর্ডারের টাকা এখনো "পেয়েছি" করা হয়নি (${money(unpaidDelivered.due)})`, 'অর্ডার খুলে "পেমেন্ট রেকর্ড" করুন — তাহলে কোন অর্ডারের টাকা হাতে এসেছে বোঝা যাবে।', '/admin/orders?status=delivered'] : null,
+  const todo: Loose[] = [
+    !txCount!.n && cash === 0 ? ['🏦', 'শুরুর টাকা লিখুন', 'ক্যাশ, ব্যাংক, বিকাশ, নগদে এখন কত টাকা আছে — "ব্যাংক ও ক্যাশ ব্যালেন্স" পেজে শুরুর ব্যালেন্স দিন। তাহলে সব হিসাব মিলবে।', '/admin/accounts/banks'] : null,
+    Number(receivable!.cod) > 0 ? ['🛵', `কুরিয়ারের কাছে ${money(receivable!.cod)} পাওনা`, 'কুরিয়ার টাকা পাঠালে "আয় লিখুন" → খাত "কুরিয়ার থেকে COD টাকা" দিন, যে অ্যাকাউন্টে টাকা এসেছে সেটা বাছুন।', '/admin/accounts/transactions?new=income&cat=' + encodeURIComponent('কুরিয়ার থেকে COD টাকা')] : null,
+    unpaidDelivered!.n ? ['🧾', `${bn(unpaidDelivered!.n)}টি ডেলিভারি হওয়া অর্ডারের টাকা এখনো "পেয়েছি" করা হয়নি (${money(unpaidDelivered!.due)})`, 'অর্ডার খুলে "পেমেন্ট রেকর্ড" করুন — তাহলে কোন অর্ডারের টাকা হাতে এসেছে বোঝা যাবে।', '/admin/orders?status=delivered'] : null,
     payable > 0 ? ['🚚', `সাপ্লায়ারদের ${money(payable)} বাকি`, 'পরিশোধ করলে সাপ্লায়ারের পেজ থেকে "পেমেন্ট দিন" — বাকি আর ক্যাশ দুটোই ঠিক থাকবে।', '/admin/suppliers'] : null,
     ctx.settings.vat_mode && ctx.settings.vat_mode !== 'none' && Number(today.slice(8, 10)) <= 15 ? ['🧾', `${ctx.settings.vat_mode === 'turnover' ? 'টার্নওভার ট্যাক্স' : 'মূসক-৯.১ ভ্যাট'} রিটার্ন — শেষ দিন ${bn(15)} তারিখ (আর ${bn(15 - Number(today.slice(8, 10)))} দিন)`, 'গত মাসের হিসাব তৈরি আছে — কোন ঘরে কত বসবে দেখে vat.gov.bd-তে জমা দিন।', '/admin/accounts/vat/return'] : null,
-    noCost.n ? ['⚠️', `${bn(noCost.n)}টি পণ্যের কেনা দাম দেওয়া নেই`, 'কেনা দাম ছাড়া লাভের হিসাব বেশি দেখাবে। পারচেজ এন্ট্রি দিলে, বা পণ্যের "📒 কেনার ইতিহাস" পেজে কারণসহ কেনা দাম বসালে ঠিক হবে।', '/admin/products'] : null,
+    noCost!.n ? ['⚠️', `${bn(noCost!.n)}টি পণ্যের কেনা দাম দেওয়া নেই`, 'কেনা দাম ছাড়া লাভের হিসাব বেশি দেখাবে। পারচেজ এন্ট্রি দিলে, বা পণ্যের "📒 কেনার ইতিহাস" পেজে কারণসহ কেনা দাম বসালে ঠিক হবে।', '/admin/products'] : null,
   ].filter(Boolean);
   const missing = MONTHLY.filter(([c]) => !haveCat.has(c));
   const body = html`<div class="title-row"><h1>হিসাবের সারাংশ</h1>
@@ -43,9 +43,9 @@ async function home(ctx) {
 ${ui.flash(ctx.flash)}
 <div class="kpis">
   ${ui.kpi('হাতে + ব্যাংকে মোট টাকা', money(cash), `${bn(accounts.filter((a) => a.active).length)}টি অ্যাকাউন্ট`, 'kpi-blue', '/admin/accounts/banks')}
-  ${ui.kpi('কুরিয়ারের কাছে পাওনা (COD)', money(receivable.cod), `${bn(receivable.n)}টি পার্সেল রাস্তায়`, '', '/admin/orders?status=shipped')}
+  ${ui.kpi('কুরিয়ারের কাছে পাওনা (COD)', money(receivable!.cod), `${bn(receivable!.n)}টি পার্সেল রাস্তায়`, '', '/admin/orders?status=shipped')}
   ${ui.kpi('সাপ্লায়ারদের দিতে হবে', money(payable), '', payable ? 'kpi-alert' : '', '/admin/suppliers')}
-  ${ctx.can('see_cost') ? ui.kpi('এই মাসের নিট লাভ', money(pnl.net), `বিক্রি ${money(pnl.sales.revenue)} · খরচ ${money(pnl.expenseTotal)}`, pnl.net >= 0 ? 'kpi-green' : 'kpi-red', '/admin/accounts/pnl') : ''}
+  ${ctx.can('see_cost') ? ui.kpi('এই মাসের নিট লাভ', money(pnl.net), `বিক্রি ${money(pnl.sales!.revenue)} · খরচ ${money(pnl.expenseTotal)}`, pnl.net >= 0 ? 'kpi-green' : 'kpi-red', '/admin/accounts/pnl') : ''}
 </div>
 <section class="panel acc-todo">
   <h2>🧾 হিসাবের কাজ <small>আপনার দোকানের এখনকার তথ্য দেখে — সব শেষ হলে হিসাব ১০০% মিলবে</small></h2>
@@ -72,13 +72,13 @@ ${ui.helpBox('হিসাব কীভাবে কাজ করে', html`<ul>
   return ctx.page('হিসাব', body, 'acc-home');
 }
 
-async function transactions(ctx) {
+async function transactions(ctx: AdminCtx) {
   if (ctx.method === 'POST') {
     const b = await ctx.body();
     try {
       await F.addTransaction(b, ctx.user.id);
       await ctx.log('tx_add', 'transaction', null, `${b.type} ৳${b.amount} ${str(b.category, 40)}`);
-    } catch (e) { return ctx.fail('/admin/accounts/transactions?new=' + (b.type || 'expense'), e.message); }
+    } catch (e: Loose) { return ctx.fail('/admin/accounts/transactions?new=' + (b.type || 'expense'), e.message); }
     return ctx.back('/admin/accounts/transactions', 'added');
   }
   const { from, to } = dateRange(ctx.query, 30);
@@ -136,13 +136,13 @@ ${ui.flash(ctx.flash)}
 </div>`;
   return ctx.page('আয়-ব্যয়', body, 'acc-tx');
 }
-async function deleteTx(ctx, m) {
+async function deleteTx(ctx: AdminCtx, m?: Loose) {
   await ctx.trash('transaction', int(m[1]));
   await ctx.log('tx_delete', 'transaction', int(m[1]), '');
   return ctx.back('/admin/accounts/transactions', 'deleted');
 }
 
-async function banks(ctx) {
+async function banks(ctx: AdminCtx) {
   if (ctx.method === 'POST') {
     const b = await ctx.body();
     if (!str(b.name)) return ctx.fail('/admin/accounts/banks', 'নাম দিন।');
@@ -176,28 +176,28 @@ async function banks(ctx) {
   return ctx.page('ব্যাংক ও ক্যাশ', body, 'acc-banks');
 }
 
-async function pnlPage(ctx) {
+async function pnlPage(ctx: AdminCtx) {
   const { from, to } = dateRange(ctx.query, 30);
   const p = await F.profitLoss(from, to);
   const s = p.sales;
-  const row = (label, v, cls = '') => html`<tr class="${cls}"><td>${label}</td><td class="num">${money(v)}</td></tr>`;
+  const row = (label?: Loose, v?: Loose, cls: Loose = '') => html`<tr class="${cls}"><td>${label}</td><td class="num">${money(v)}</td></tr>`;
   const body = html`<h1>লাভ-ক্ষতি</h1>
 ${ui.dateFilter('/admin/accounts/pnl', from, to)}
 <div class="two-col">
   <section class="panel">
     <h2>${dd(from)} থেকে ${dd(to)}</h2>
     <table class="lines pnl"><tbody>
-      ${row(`পণ্য বিক্রি (${bn(s.orders)}টি ডেলিভারি হওয়া অর্ডার)`, s.goods)}
-      ${row('− ছাড়', -s.discount)}
-      ${row('+ ডেলিভারি চার্জ আদায়', s.delivery)}
-      ${row('মোট আয়', s.revenue, 'sub')}
-      ${row('− বিক্রি হওয়া পণ্যের কেনা দাম', -s.cogs)}
+      ${row(`পণ্য বিক্রি (${bn(s!.orders)}টি ডেলিভারি হওয়া অর্ডার)`, s!.goods)}
+      ${row('− ছাড়', -s!.discount)}
+      ${row('+ ডেলিভারি চার্জ আদায়', s!.delivery)}
+      ${row('মোট আয়', s!.revenue, 'sub')}
+      ${row('− বিক্রি হওয়া পণ্যের কেনা দাম', -s!.cogs)}
       ${row('মোট লাভ (Gross profit)', p.gross, 'sub')}
       ${p.otherIncome.map((e) => row('+ ' + e.category, e.amount))}
       ${p.expenses.map((e) => row('− ' + e.category, -e.amount))}
       ${row('নিট লাভ (Net profit)', p.net, 'total ' + (p.net >= 0 ? 'good' : 'warn'))}
     </tbody></table>
-    ${Number(s.revenue) ? html`<p class="muted small">লাভের হার: ${bn(((p.net / Number(s.revenue)) * 100).toFixed(1))}% · ফেরত আসা অর্ডার: ${bn(p.returns)}টি</p>` : ''}
+    ${Number(s!.revenue) ? html`<p class="muted small">লাভের হার: ${bn(((p.net / Number(s!.revenue)) * 100).toFixed(1))}% · ফেরত আসা অর্ডার: ${bn(p.returns)}টি</p>` : ''}
     <p class="muted small">টীকা: কুরিয়ারের ডেলিভারি চার্জ যদি "কুরিয়ার চার্জ" খাতে খরচ হিসেবে লেখেন, তাহলে এখানে সঠিক লাভ আসবে।</p>
   </section>
   <section class="panel">
@@ -212,7 +212,7 @@ ${ui.dateFilter('/admin/accounts/pnl', from, to)}
   return ctx.page('লাভ-ক্ষতি', body, 'acc-pnl');
 }
 
-async function vatPage(ctx) {
+async function vatPage(ctx: AdminCtx) {
   if (ctx.method === 'POST') {
     const b = await ctx.body();
     if (!['none', 'turnover', 'inclusive', 'exclusive', 'margin'].includes(b.vat_mode)) b.vat_mode = 'none';

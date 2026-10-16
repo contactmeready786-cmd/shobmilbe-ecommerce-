@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 import * as U from '../services/uiswitch';
 import * as security from '../security';
 import { html, raw, esc, contact } from '../util';
@@ -6,6 +5,7 @@ import { jsonSetting } from '../db';
 import { categoryTree } from '../models/catalog';
 import * as $services_geolock from '../services/geolock';
 import * as $services_seo from '../services/seo';
+import type { Body, Id, Loose, Settings } from '../types';
 
 const ASSET_V = '45';
 
@@ -17,7 +17,7 @@ const icons = {
   wa: '<svg viewBox="0 0 32 32" width="28" height="28" aria-hidden="true"><path fill="currentColor" d="M16 3a13 13 0 0 0-11.2 19.6L3 29l6.6-1.7A13 13 0 1 0 16 3Zm0 23.7c-2 0-4-.6-5.7-1.6l-.4-.2-3.9 1 1-3.8-.3-.4A10.7 10.7 0 1 1 16 26.7Zm5.9-8c-.3-.2-1.9-1-2.2-1-.3-.1-.5-.2-.7.1l-1 1.3c-.2.2-.4.2-.7.1-.3-.2-1.4-.5-2.6-1.6-1-.9-1.6-1.9-1.8-2.2-.2-.3 0-.5.1-.7l.5-.6.3-.5c.1-.2 0-.4 0-.6l-1-2.4c-.3-.6-.5-.5-.7-.5h-.6c-.2 0-.6.1-.9.4-.3.3-1.1 1.1-1.1 2.7s1.2 3.1 1.3 3.3c.2.2 2.3 3.5 5.5 4.9.8.3 1.4.5 1.9.7.8.2 1.5.2 2.1.1.6-.1 1.9-.8 2.2-1.5.3-.8.3-1.4.2-1.5l-.6-.5Z"/></svg>',
   ms: '<svg viewBox="0 0 32 32" width="26" height="26" aria-hidden="true"><path fill="currentColor" d="M16 3C8.8 3 3 8.4 3 15.1c0 3.8 1.9 7.2 4.8 9.4V29l4.4-2.4c1.2.3 2.5.5 3.8.5 7.2 0 13-5.4 13-12.1S23.2 3 16 3Zm1.3 16.3-3.3-3.5-6.4 3.5 7.1-7.5 3.4 3.5 6.3-3.5-7.1 7.5Z"/></svg>',
 };
-const SOCIAL_ICONS = {
+const SOCIAL_ICONS: Record<string, Loose> = {
   social_facebook: ['Facebook', 'M14 8h3V4h-3c-2.8 0-4.5 1.8-4.5 4.6V11H7v4h2.5v9h4v-9h3l.5-4h-3.5V8.8c0-.5.3-.8.5-.8Z'],
   social_instagram: ['Instagram', 'M12 7.3A4.7 4.7 0 1 0 12 16.7 4.7 4.7 0 0 0 12 7.3Zm0 7.7a3 3 0 1 1 0-6 3 3 0 0 1 0 6Zm6-7.9a1.1 1.1 0 1 1-2.2 0 1.1 1.1 0 0 1 2.2 0ZM12 4c2.2 0 2.5 0 3.3.1 2.2.1 3.2 1.1 3.3 3.3.1.9.1 1.1.1 3.3v2.6c0 2.2 0 2.5-.1 3.3-.1 2.2-1.1 3.2-3.3 3.3-.9.1-1.1.1-3.3.1s-2.5 0-3.3-.1c-2.2-.1-3.2-1.1-3.3-3.3C5.3 15.7 5.3 15.4 5.3 13.2v-2.4c0-2.2 0-2.5.1-3.3.1-2.2 1.1-3.2 3.3-3.3C9.5 4 9.8 4 12 4Z'],
   social_youtube: ['YouTube', 'M21.6 7.2a2.5 2.5 0 0 0-1.8-1.8C18.2 5 12 5 12 5s-6.2 0-7.8.4A2.5 2.5 0 0 0 2.4 7.2 26 26 0 0 0 2 12a26 26 0 0 0 .4 4.8 2.5 2.5 0 0 0 1.8 1.8C5.8 19 12 19 12 19s6.2 0 7.8-.4a2.5 2.5 0 0 0 1.8-1.8A26 26 0 0 0 22 12a26 26 0 0 0-.4-4.8ZM10 15V9l5.2 3L10 15Z'],
@@ -28,9 +28,9 @@ const SOCIAL_ICONS = {
   social_telegram: ['Telegram', 'M21.5 4.3 2.9 11.5c-1.3.5-1.2 1.2-.2 1.5l4.8 1.5 1.8 5.6c.2.6.4.8.8.8.4 0 .6-.2.9-.4l2.3-2.2 4.7 3.5c.9.5 1.5.2 1.7-.8l3.1-14.6c.3-1.3-.5-1.8-1.3-1.6ZM17.3 8l-8 7.2-.3 3.3-1.5-4.6L17.3 8Z'],
 };
 
-function mediaUrl(id, thumb) { return id ? `/media/${id}${thumb ? '/t' : ''}` : ''; }
+function mediaUrl(id?: Id, thumb?: Loose) { return id ? `/media/${id}${thumb ? '/t' : ''}` : ''; }
 
-function logo(settings) {
+function logo(settings: Settings) {
   if (settings.logo_id) return html`<img class="logo-img" src="/media/${settings.logo_id}" alt="${settings.store_name}">`;
   const name = settings.store_name || 'সবমিলবে';
   if (name === 'সবমিলবে') return html`<span class="logo-a">সব</span><span class="logo-b">মিলবে</span>`;
@@ -38,13 +38,13 @@ function logo(settings) {
 }
 
 // Admin → পিক্সেল ও ট্র্যাকিং → "যেকোনো স্ক্রিপ্ট বসান": only the owner can save these, each with its own on/off
-function customScripts(s, place) {
-  let list = [];
+function customScripts(s?: Loose, place?: Loose) {
+  let list: Loose[] = [];
   try { list = JSON.parse(s.custom_scripts || '[]'); } catch (_) { list = []; }
   return (Array.isArray(list) ? list : []).filter((x) => x && x.on && x.place === place && x.code).map((x) => `\n<!-- ${String(x.name || '').replace(/--/g, '')} -->\n${x.code}`).join('');
 }
 
-function trackingHead(s) {
+function trackingHead(s?: Loose) {
   let out = '';
   // Google consent mode: this shop sells in Bangladesh (no EU cookie-consent rule), so measurement is allowed by default.
   // Without this, Google's tag can start in "denied" mode and GA4/Ads count almost nothing.
@@ -66,12 +66,12 @@ function trackingHead(s) {
   return out;
 }
 
-function head({ settings: s, title, description, keywords, canonical, image, jsonLd, jsonLdExtra, type = 'website', noindex }) {
+function head({ settings: s, title, description, keywords, canonical, image, jsonLd, jsonLdExtra, type = 'website', noindex }: Body) {
   const kw = keywords || s.seo_keywords || '';
   const desc = description || s.seo_description || s.tagline || '';
   const base = (s.site_url || '').replace(/\/+$/, '');
   const ogImage = image || (s.og_image_id ? `/media/${s.og_image_id}` : s.logo_id ? `/media/${s.logo_id}` : '');
-  const abs = (u) => (u && u.startsWith('/') && base ? base + u : u);
+  const abs = (u?: Loose) => (u && u.startsWith('/') && base ? base + u : u);
   const primary = /^#[0-9a-f]{6}$/i.test(s.color_primary) ? s.color_primary : '#0866D6';
   const accent = /^#[0-9a-f]{6}$/i.test(s.color_accent) ? s.color_accent : '#F5A524';
   return html`<meta charset="utf-8">
@@ -107,7 +107,7 @@ ${raw(customScripts(s, 'head'))}`;
 // বাংলা / English: before the page is drawn, pick the visitor's language (their last choice, a ?lang= link,
 // or the shop's default). An English visitor's page stays invisible for the split second it takes to switch,
 // so Bangla never flashes (at most 1.2 s, then it shows anyway).
-function langBoot(s) {
+function langBoot(s?: Loose) {
   const def = s.i18n_default === 'en' ? 'en' : 'bn';
   return `<script>(function(){var d=document.documentElement,l=${JSON.stringify(def)};try{var q=/[?&]lang=(en|bn)(?:&|$)/.exec(location.search);if(q){l=q[1];localStorage.setItem('sm_lang',l);}else{l=localStorage.getItem('sm_lang')||l;}}catch(e){}d.setAttribute('data-lang',l);if(l==='en'){d.lang='en';d.className+=' i18n-wait';setTimeout(function(){d.className=d.className.replace(' i18n-wait','');},1200);}})();</script><style>html.i18n-wait body{visibility:hidden}</style>`;
 }
@@ -120,15 +120,15 @@ function langSwitch() {
 
 // Category menus. Top bar: main categories with drop-down sub-categories (any depth).
 // Phone menu: the same tree, folding open. Empty sub-categories are left out.
-const visibleKids = (n) => n.children.filter((k) => k.total_count > 0);
-function catMenuItems(nodes, top) {
-  return nodes.map((n) => {
+const visibleKids = (n?: Loose) => n.children.filter((k?: Loose) => k.total_count > 0);
+function catMenuItems(nodes?: Loose, top?: Loose) {
+  return nodes.map((n?: Loose) => {
     const kids = visibleKids(n);
     return html`<li class="cm-item ${kids.length ? 'has-sub' : ''}"><a href="/products?cat=${n.slug}"${kids.length ? raw(' aria-haspopup="true"') : ''}>${top ? html`<span class="cm-ic" aria-hidden="true">${n.icon}</span> ` : ''}${n.name}</a>${kids.length ? html`<ul class="cm-sub">${catMenuItems(kids, false)}</ul>` : ''}</li>`;
   });
 }
-function drawerCats(nodes) {
-  return nodes.map((n) => {
+function drawerCats(nodes?: Loose) {
+  return nodes.map((n?: Loose) => {
     const kids = visibleKids(n);
     return kids.length
       ? html`<details class="dc"><summary>${n.depth === 0 ? html`${n.icon} ` : ''}${n.name}</summary><div class="dc-in"><a href="/products?cat=${n.slug}">সব ${n.name} →</a>${drawerCats(kids)}</div></details>`
@@ -136,12 +136,12 @@ function drawerCats(nodes) {
   });
 }
 
-function shopLayout({ settings: s, title, description, keywords, body, q, active, canonical, image, jsonLd, jsonLdExtra, type, noindex, categories = [], pages = [], track = null, popup = null }) {
+function shopLayout({ settings: s, title, description, keywords, body, q, active, canonical, image, jsonLd, jsonLdExtra, type, noindex, categories = [], pages = [], track = null, popup = null }: Body) {
   const full = title ? `${title} | ${s.store_name}` : $services_seo.homeTitle(s);
   const { roots } = categoryTree(categories);
-  const menu = jsonSetting(s, 'header_menu', []).filter((m) => m.on !== false); // admin can switch each button off
+  const menu = jsonSetting(s, 'header_menu', []).filter((m?: Loose) => m.on !== false); // admin can switch each button off
   const showCart = s.nav_cart !== '0';
-  const footerLinks = jsonSetting(s, 'footer_links', []).filter((l) => l.on !== false);
+  const footerLinks = jsonSetting(s, 'footer_links', []).filter((l?: Loose) => l.on !== false);
   // footer "কেনাকাটা" column — each link can be switched off from the admin
   const shopLinks = [
     ['/products', 'সব পণ্য', 'foot_products'], ['/products?sort=offer', 'অফার', 'foot_offer'],
@@ -150,8 +150,8 @@ function shopLayout({ settings: s, title, description, keywords, body, q, active
     ...(s.gift_on === '1' ? [['/gift-card', '🎁 গিফট কার্ড', 'foot_gift']] : []),
     ...(s.ui_compare !== '0' ? [['/compare', '⚖️ পণ্য তুলনা', 'foot_compare']] : []),
     ...(s.shoppush_on === '1' && s.push_vapid_public ? [['#offers-on', '🔔 অফারের খবর পান', 'foot_push']] : []),
-  ].filter(([, , k]) => s[k] !== '0').concat(footerLinks.map((l) => [l.url, l.label]));
-  const infoPages = pages.filter((p) => p.in_footer);
+  ].filter(([, , k]) => s[k] !== '0').concat(footerLinks.map((l?: Loose) => [l.url, l.label]));
+  const infoPages = pages.filter((p?: Loose) => p.in_footer);
   const socials = Object.keys(SOCIAL_ICONS).filter((k) => s[k]);
   const liveLinks = [['cricket', '🏏 ক্রিকেট স্কোর'], ['football', '⚽ ফুটবল স্কোর']].filter(([k]) => s[`live_${k}`] === '1');
   const showLiveNav = liveLinks.length && s.nav_live !== '0';
@@ -186,7 +186,7 @@ ${noticeText || mini || langOn ? html`<div class="notice ${noticeText ? '' : 'no
       <button type="submit" aria-label="খুঁজুন">${raw(icons.search)}</button>
     </form>` : html`<span class="search-off" aria-hidden="true"></span>`}
     <nav class="header-nav" aria-label="প্রধান মেনু">
-      ${menu.map((m) => html`<a href="${security.safeUrl(m.url)}" class="${active && m.url.startsWith('/' + active) ? 'on' : ''}">${m.label}</a>`)}
+      ${menu.map((m?: Loose) => html`<a href="${security.safeUrl(m.url)}" class="${active && m.url.startsWith('/' + active) ? 'on' : ''}">${m.label}</a>`)}
       ${showLiveNav ? html`<a href="/live" class="live-link ${active === 'live' ? 'on' : ''}"><span class="live-dot" aria-hidden="true"></span>${liveLabel}</a>` : ''}
       ${s.acct_on === '1' && s.nav_account !== '0' ? html`<a href="/account" class="acct-link ${active === 'account' ? 'on' : ''}" aria-label="আমার অ্যাকাউন্ট" title="আমার অ্যাকাউন্ট">${raw(icons.user)}<span class="acct-word">অ্যাকাউন্ট</span></a>` : ''}
       ${showCart ? html`<a href="/cart" class="cart-link ${active === 'cart' ? 'on' : ''}" aria-label="কার্ট">${raw(icons.cart)}<span class="cart-word">কার্ট</span><b class="cart-count" data-cart-count hidden>0</b></a>` : ''}
@@ -196,7 +196,7 @@ ${noticeText || mini || langOn ? html`<div class="notice ${noticeText ? '' : 'no
 </header>
 <aside class="drawer" id="drawer" aria-label="মেনু" hidden>
   <div class="drawer-head"><a class="logo logo-sm" href="/" translate="no">${logo(s)}</a><button type="button" class="drawer-x" data-drawer-close aria-label="বন্ধ করুন">✕</button></div>
-  <nav>${menu.map((m) => html`<a href="${security.safeUrl(m.url)}">${m.label}</a>`)}${s.acct_on === '1' ? html`<a href="/account">👤 আমার অ্যাকাউন্ট</a>` : ''}${showCart ? html`<a href="/cart">কার্ট</a>` : ''}${s.wishlist_on !== '0' ? html`<a href="/wishlist">♡ পছন্দের তালিকা</a>` : ''}</nav>
+  <nav>${menu.map((m?: Loose) => html`<a href="${security.safeUrl(m.url)}">${m.label}</a>`)}${s.acct_on === '1' ? html`<a href="/account">👤 আমার অ্যাকাউন্ট</a>` : ''}${showCart ? html`<a href="/cart">কার্ট</a>` : ''}${s.wishlist_on !== '0' ? html`<a href="/wishlist">♡ পছন্দের তালিকা</a>` : ''}</nav>
   ${showLiveNav ? html`<nav><a href="/live"><span class="live-dot" aria-hidden="true"></span> ${liveLabel}</a></nav>` : ''}
   ${categories.length ? html`<p class="drawer-title">ক্যাটাগরি</p><nav class="drawer-cats">${drawerCats(roots)}</nav>` : ''}
 </aside>
@@ -214,7 +214,7 @@ ${noticeText || mini || langOn ? html`<div class="notice ${noticeText ? '' : 'no
     </div>` : ''}
     ${infoPages.length ? html`<div>
       <h2>তথ্য</h2>
-      ${infoPages.map((p) => html`<a href="/page/${p.slug}">${p.title}</a>`)}
+      ${infoPages.map((p?: Loose) => html`<a href="/page/${p.slug}">${p.title}</a>`)}
     </div>` : ''}
     ${s.foot_contact !== '0' && (C.phone || C.wa || s.email || s.address || s.complaints_on !== '0') ? html`<div>
       <h2>যোগাযোগ</h2>

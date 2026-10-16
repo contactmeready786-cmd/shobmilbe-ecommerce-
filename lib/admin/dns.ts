@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // Admin → সেটিংস ও সংযোগ → 🛰️ DNS রেকর্ড (owner only).
 // The domain's DNS lives at Cloudflare (free plan): the shop talks to Cloudflare's API with an API token, so the
 // owner can see, add, change and remove DNS records (A, AAAA, CNAME, MX, TXT, NS, SRV, CAA) right here —
@@ -10,13 +9,14 @@ import { html, raw, int, str, fmtDate, fetchJson, bn } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
 import { saveKeys, secretInput } from './marketing';
+import type { AdminCtx, Body, Loose } from '../types';
 
 const BASE = '/admin/integrations/dns';
 const API = 'https://api.cloudflare.com/client/v4';
 const TYPES = ['A', 'AAAA', 'CNAME', 'MX', 'TXT', 'NS', 'SRV', 'CAA'];
 const TTLS = [[1, 'Auto (স্বয়ংক্রিয়)'], [60, '১ মিনিট'], [300, '৫ মিনিট'], [3600, '১ ঘণ্টা'], [86400, '১ দিন']];
 const PROXYABLE = new Set(['A', 'AAAA', 'CNAME']);
-const TYPE_HELP = {
+const TYPE_HELP: Record<string, Loose> = {
   A: 'নাম → একটা IPv4 ঠিকানা (যেমন 76.76.21.21)। সাইটকে কোনো সার্ভারে পাঠাতে।',
   AAAA: 'নাম → একটা IPv6 ঠিকানা।',
   CNAME: 'নাম → আরেকটা নাম (যেমন www → cname.vercel-dns.com)।',
@@ -28,7 +28,7 @@ const TYPE_HELP = {
 };
 
 // ---------------------------------------------------------------- Cloudflare API
-async function cf(s, path, { method = 'GET', body } = {}) {
+async function cf(s?: Loose, path?: Loose, { method = 'GET', body }: Body = {}): Promise<Loose> {
   if (!s.cf_api_token) return { ok: false, error: 'Cloudflare API Token দেওয়া নেই।' };
   const r = await fetchJson(API + path, {
     method,
@@ -37,11 +37,11 @@ async function cf(s, path, { method = 'GET', body } = {}) {
   }, 15000);
   const d = r.data || {};
   if (r.ok && d.success !== false) return { ok: true, result: d.result, info: d.result_info };
-  const msg = (d.errors || []).map((e) => `${e.message}${e.error_chain ? ' — ' + e.error_chain.map((c) => c.message).join(', ') : ''}`).join('; ') || r.text || `HTTP ${r.status}`;
+  const msg = (d.errors || []).map((e?: Loose) => `${e.message}${e.error_chain ? ' — ' + e.error_chain.map((c?: Loose) => c.message).join(', ') : ''}`).join('; ') || r.text || `HTTP ${r.status}`;
   return { ok: false, error: explain(msg, r.status) };
 }
 // Cloudflare's English errors → what to do, in Bangla
-function explain(msg, status) {
+function explain(msg?: Loose, status?: Loose) {
   const m = String(msg || '');
   if (status === 401 || status === 403 || /Authentication error|Invalid API Token|Unauthorized/i.test(m)) return `টোকেন কাজ করছে না বা অনুমতি কম (${m})। Cloudflare-এ টোকেনটার অনুমতিতে Zone → DNS → Edit আছে কি না দেখুন।`;
   if (/already exists|identical record/i.test(m)) return `একই রকম রেকর্ড আগে থেকেই আছে (${m})।`;
@@ -51,7 +51,7 @@ function explain(msg, status) {
   return m;
 }
 
-async function zone(s) {
+async function zone(s?: Loose) {
   const domain = String(s.custom_domain || '').trim();
   if (s.cf_zone_id) {
     const r = await cf(s, `/zones/${encodeURIComponent(s.cf_zone_id)}`);
@@ -66,7 +66,7 @@ async function zone(s) {
 }
 
 // ---------------------------------------------------------------- form → Cloudflare record
-function recordFrom(b, zoneName) {
+function recordFrom(b: Body, zoneName?: Loose) {
   const type = TYPES.includes(String(b.type).toUpperCase()) ? String(b.type).toUpperCase() : null;
   if (!type) return { error: 'রেকর্ডের ধরন (Type) বাছুন।' };
   let name = str(b.name, 200).trim().toLowerCase().replace(/\.$/, '');
@@ -75,7 +75,7 @@ function recordFrom(b, zoneName) {
   if (!/^[a-z0-9_*.-]+$/.test(name)) return { error: 'Name-এ শুধু ইংরেজি অক্ষর, সংখ্যা, - আর . দিন (মূল ডোমেইনের জন্য @)।' };
   const ttl = TTLS.some(([v]) => v === int(b.ttl)) ? int(b.ttl) : 1;
   const comment = str(b.comment, 100);
-  const rec = { type, name, ttl, comment: comment || undefined };
+  const rec: Loose = { type, name, ttl, comment: comment || undefined };
   let content = String(b.content || '').trim();
   if (type === 'SRV') {
     const target = str(b.target, 200).trim().replace(/\.$/, '');
@@ -104,14 +104,14 @@ function recordFrom(b, zoneName) {
   if (PROXYABLE.has(type)) rec.proxied = !!b.proxied;
   return { rec };
 }
-const shortName = (name, zoneName) => (name === zoneName ? '@' : name.endsWith('.' + zoneName) ? name.slice(0, -(zoneName.length + 1)) : name);
-function contentOf(r) {
+const shortName = (name?: Loose, zoneName?: Loose) => (name === zoneName ? '@' : name.endsWith('.' + zoneName) ? name.slice(0, -(zoneName.length + 1)) : name);
+function contentOf(r?: Loose) {
   if (r.type === 'SRV' && r.data) return `${r.data.priority} ${r.data.weight} ${r.data.port} ${r.data.target}`;
   if (r.type === 'CAA' && r.data) return `${r.data.flags} ${r.data.tag} "${r.data.value}"`;
   return r.content;
 }
 // what a record is for, in plain words (shown under the record)
-function purpose(r, s) {
+function purpose(r?: Loose, s?: Loose) {
   const c = String(r.content || '');
   if (/^google-site-verification=/i.test(c)) return '🔎 Google Search Console ভেরিফিকেশন';
   if (/^facebook-domain-verification=/i.test(c)) return '📘 Facebook ডোমেইন ভেরিফিকেশন';
@@ -126,7 +126,7 @@ function purpose(r, s) {
 }
 
 // ---------------------------------------------------------------- page
-async function page(ctx) {
+async function page(ctx: AdminCtx) {
   const s = ctx.settings;
   if (ctx.method === 'POST') {
     const b = await ctx.body();
@@ -150,7 +150,7 @@ async function page(ctx) {
   }
 
   const connected = !!s.cf_api_token;
-  let z = null; let records = []; let err = null; let sec = null;
+  let z: Loose = null; let records = []; let err = null; let sec = null;
   if (connected) {
     const zr = await zone(s);
     if (!zr.ok) err = zr.error;
@@ -165,10 +165,10 @@ async function page(ctx) {
   const zoneName = z ? z.name : (s.custom_domain || 'shobmilbe.com');
   const deleted = db.jsonSetting(s, 'dns_deleted', []);
   const editId = str(ctx.query.get('edit'), 40);
-  const editing = editId ? records.find((r) => r.id === editId) : null;
+  const editing = editId ? records.find((r?: Loose) => r.id === editId) : null;
   const pre = presetFrom(ctx.query.get('preset'), s, zoneName);
-  const verifyGoogle = s.google_site_verification && !records.some((r) => r.type === 'TXT' && r.content.includes(s.google_site_verification));
-  const verifyFb = s.fb_domain_verification && !records.some((r) => r.type === 'TXT' && r.content.includes(s.fb_domain_verification));
+  const verifyGoogle = s.google_site_verification && !records.some((r?: Loose) => r.type === 'TXT' && r.content.includes(s.google_site_verification));
+  const verifyFb = s.fb_domain_verification && !records.some((r?: Loose) => r.type === 'TXT' && r.content.includes(s.fb_domain_verification));
 
   const body = html`<div class="title-row"><h1>🛰️ DNS রেকর্ড ও Cloudflare</h1></div>
 ${ui.flash(ctx.flash)}
@@ -211,7 +211,7 @@ ${z ? html`<section class="panel dns-zone">
       <span class="small muted">প্ল্যান: ${z.plan ? z.plan.name : '—'} · ${bn(records.length)}টি রেকর্ড</span></div>
     <form method="post" action="${BASE}" data-confirm="Cloudflare সংযোগ বাদ দেবেন? DNS রেকর্ড Cloudflare-এ যেমন আছে তেমনই থাকবে, শুধু এখান থেকে দেখা/বদলানো যাবে না।"><input type="hidden" name="form" value="disconnect"><button class="btn btn-sm btn-ghost">সংযোগ বাদ দিন</button></form>
   </div>
-  ${z.status !== 'active' ? html`<p class="small">Namecheap → Domain List → Manage → Nameservers → <b>Custom DNS</b>-এ এই দুইটা বসান: ${(z.name_servers || []).map((n) => html`<code class="copy">${n}</code> `)}</p>` : ''}
+  ${z.status !== 'active' ? html`<p class="small">Namecheap → Domain List → Manage → Nameservers → <b>Custom DNS</b>-এ এই দুইটা বসান: ${(z.name_servers || []).map((n?: Loose) => html`<code class="copy">${n}</code> `)}</p>` : ''}
 </section>
 ${verifyGoogle || verifyFb ? html`<section class="panel dns-suggest">
   <h2>✨ এক চাপে বসান <small>পিক্সেল ও ট্র্যাকিং পেজে কোড দেওয়া আছে, কিন্তু DNS-এ এখনো নেই</small></h2>
@@ -225,7 +225,7 @@ ${verifyGoogle || verifyFb ? html`<section class="panel dns-suggest">
   <section class="panel table-wrap">
     <h2>সব DNS রেকর্ড</h2>
     ${records.length ? html`<table class="table compact dns-table"><thead><tr><th>Type</th><th>Name</th><th>Content</th><th>TTL</th><th>Proxy</th><th>কাজ</th></tr></thead>
-    <tbody>${records.map((r) => html`<tr class="${editing && editing.id === r.id ? 'row-edit' : ''}">
+    <tbody>${records.map((r?: Loose) => html`<tr class="${editing && editing.id === r.id ? 'row-edit' : ''}">
       <td><span class="dns-type t-${r.type}">${r.type}</span></td>
       <td class="dns-name"><b>${shortName(r.name, z.name)}</b>${purpose(r, s) ? html`<br><span class="small muted">${purpose(r, s)}</span>` : ''}${r.comment ? html`<br><span class="small muted">📝 ${r.comment}</span>` : ''}</td>
       <td class="dns-content"><code class="copy" title="কপি করতে চাপুন">${contentOf(r)}</code>${r.type === 'MX' ? html`<br><span class="small muted">Priority ${r.priority}</span>` : ''}</td>
@@ -255,7 +255,7 @@ ${sec ? html`<section class="panel">
 ${deleted.length ? html`<section class="panel">
   <h2>🗑️ সম্প্রতি মোছা রেকর্ড <small>ভুল করে মুছলে "আবার যোগ করুন" চাপুন</small></h2>
   <div class="table-wrap"><table class="table compact"><thead><tr><th>Type</th><th>Name</th><th>Content</th><th>কখন, কে</th><th></th></tr></thead>
-  <tbody>${deleted.map((d, i) => html`<tr><td>${d.rec.type}</td><td>${shortName(d.rec.name, z.name)}</td><td><code>${contentOf(d.rec)}</code></td><td class="small">${fmtDate(d.at)} · ${d.by || ''}</td>
+  <tbody>${deleted.map((d?: Loose, i?: Loose) => html`<tr><td>${d.rec.type}</td><td>${shortName(d.rec.name, z.name)}</td><td><code>${contentOf(d.rec)}</code></td><td class="small">${fmtDate(d.at)} · ${d.by || ''}</td>
     <td><form method="post" action="${BASE}/restore"><input type="hidden" name="i" value="${i}"><button class="btn btn-sm btn-ghost">↩️ আবার যোগ করুন</button></form></td></tr>`)}</tbody></table></div>
 </section>` : ''}
 ` : ''}
@@ -263,7 +263,7 @@ ${deleted.length ? html`<section class="panel">
   return ctx.page('DNS রেকর্ড', body, 'dns');
 }
 
-function presetFrom(key, s, zoneName) {
+function presetFrom(key?: Loose, s?: Loose, zoneName?: Loose) {
   void zoneName;
   if (key === 'vercel-a') return { type: 'A', name: '@', content: '76.76.21.21', ttl: 1, comment: 'Website (Vercel)' };
   if (key === 'vercel-www') return { type: 'CNAME', name: 'www', content: 'cname.vercel-dns.com', ttl: 1, comment: 'Website www (Vercel)' };
@@ -271,12 +271,12 @@ function presetFrom(key, s, zoneName) {
   if (key === 'fb') return { type: 'TXT', name: '@', content: `facebook-domain-verification=${s.fb_domain_verification || ''}`, ttl: 1, comment: 'Facebook domain verification' };
   return null;
 }
-function presetForm(key, label, rec) {
+function presetForm(key?: Loose, label?: Loose, rec?: Loose) {
   return html`<form method="post" action="${BASE}/save" class="dns-preset" data-no-dirty>
-    ${Object.entries(rec).map(([k, v]) => html`<input type="hidden" name="${k}" value="${v}">`)}
+    ${Object.entries<Loose>(rec).map(([k, v]) => html`<input type="hidden" name="${k}" value="${v}">`)}
     <button class="btn btn-sm" data-preset="${key}">➕ ${label}</button></form>`;
 }
-function recordForm(r, pre, zoneName) {
+function recordForm(r?: Loose, pre?: Loose, zoneName?: Loose) {
   const v = r ? { id: r.id, type: r.type, name: shortName(r.name, zoneName), content: r.content || '', ttl: r.ttl, proxied: r.proxied, priority: r.priority ?? (r.data && r.data.priority) ?? 10, comment: r.comment || '',
     weight: r.data && r.data.weight, port: r.data && r.data.port, target: r.data && r.data.target, caa: r.type === 'CAA' ? contentOf(r) : '' } : (pre || { type: 'A', name: '@', ttl: 1, priority: 10 });
   const type = v.type || 'A';
@@ -304,7 +304,7 @@ function recordForm(r, pre, zoneName) {
   </form>
   ${r ? '' : html`<p class="small muted mt">দ্রুত শুরু: <a href="${BASE}?preset=vercel-a#dns-form">ওয়েবসাইট (Vercel) A @</a> · <a href="${BASE}?preset=vercel-www#dns-form">www CNAME</a> · <a href="${BASE}?preset=google#dns-form">Google TXT</a> · <a href="${BASE}?preset=fb#dns-form">Facebook TXT</a></p>`}`;
 }
-function manualTable(s, zoneName) {
+function manualTable(s?: Loose, zoneName?: Loose) {
   const rows = [['A Record', '@', '76.76.21.21', 'ওয়েবসাইট'], ['CNAME Record', 'www', 'cname.vercel-dns.com', 'www ঠিকানা']];
   if (s.google_site_verification) rows.push(['TXT Record', '@', `google-site-verification=${s.google_site_verification}`, 'Google']);
   if (s.fb_domain_verification) rows.push(['TXT Record', '@', `facebook-domain-verification=${s.fb_domain_verification}`, 'Facebook']);
@@ -314,12 +314,12 @@ function manualTable(s, zoneName) {
 }
 
 // ---------------------------------------------------------------- actions
-async function needZone(ctx) {
+async function needZone(ctx: AdminCtx) {
   const zr = await zone(ctx.settings);
   if (!zr.ok) throw new Error(zr.error);
   return zr.zone;
 }
-async function save(ctx) {
+async function save(ctx: AdminCtx) {
   const b = await ctx.body();
   try {
     const z = await needZone(ctx);
@@ -329,11 +329,11 @@ async function save(ctx) {
     const r = id ? await cf(ctx.settings, `/zones/${z.id}/dns_records/${encodeURIComponent(id)}`, { method: 'PUT', body: rec })
       : await cf(ctx.settings, `/zones/${z.id}/dns_records`, { method: 'POST', body: rec });
     if (!r.ok) return ctx.fail(BASE + (id ? `?edit=${encodeURIComponent(id)}` : ''), r.error);
-    await ctx.log('settings', 'dns', null, `${id ? 'বদল' : 'যোগ'}: ${rec.type} ${rec.name} → ${rec.content || JSON.stringify(rec.data)}`);
+    await ctx.log('settings', 'dns', null, `${id ? 'বদল' : 'যোগ'}: ${rec!.type} ${rec!.name} → ${rec!.content || JSON.stringify(rec!.data)}`);
     return ctx.back(BASE, id ? 'saved' : 'added');
-  } catch (e) { return ctx.fail(BASE, e.message); }
+  } catch (e: Loose) { return ctx.fail(BASE, e.message); }
 }
-async function proxy(ctx) {
+async function proxy(ctx: AdminCtx) {
   const b = await ctx.body();
   try {
     const z = await needZone(ctx);
@@ -341,9 +341,9 @@ async function proxy(ctx) {
     if (!r.ok) return ctx.fail(BASE, r.error);
     await ctx.log('settings', 'dns', null, `Proxy ${b.proxied ? 'চালু' : 'বন্ধ'}: ${r.result.type} ${r.result.name}`);
     return ctx.back(BASE, 'saved');
-  } catch (e) { return ctx.fail(BASE, e.message); }
+  } catch (e: Loose) { return ctx.fail(BASE, e.message); }
 }
-async function remove(ctx) {
+async function remove(ctx: AdminCtx) {
   const b = await ctx.body();
   try {
     const z = await needZone(ctx);
@@ -353,7 +353,7 @@ async function remove(ctx) {
     const r = await cf(ctx.settings, `/zones/${z.id}/dns_records/${encodeURIComponent(id)}`, { method: 'DELETE' });
     if (!r.ok) return ctx.fail(BASE, r.error);
     const x = got.result;
-    const rec = { type: x.type, name: x.name, ttl: x.ttl, comment: x.comment || undefined };
+    const rec: Loose = { type: x.type, name: x.name, ttl: x.ttl, comment: x.comment || undefined };
     if (x.data && (x.type === 'SRV' || x.type === 'CAA')) rec.data = x.data; else rec.content = x.content;
     if (x.type === 'MX') rec.priority = x.priority;
     if (PROXYABLE.has(x.type)) rec.proxied = !!x.proxied;
@@ -362,9 +362,9 @@ async function remove(ctx) {
     await ctx.reloadSettings();
     await ctx.log('settings', 'dns', null, `মোছা: ${x.type} ${x.name} → ${contentOf(x)}`);
     return ctx.back(BASE, 'removed');
-  } catch (e) { return ctx.fail(BASE, e.message); }
+  } catch (e: Loose) { return ctx.fail(BASE, e.message); }
 }
-async function restore(ctx) {
+async function restore(ctx: AdminCtx) {
   const b = await ctx.body();
   const list = db.jsonSetting(ctx.settings, 'dns_deleted', []);
   const i = int(b.i, -1);
@@ -378,9 +378,9 @@ async function restore(ctx) {
     await ctx.reloadSettings();
     await ctx.log('settings', 'dns', null, `ফেরত আনা: ${r.result.type} ${r.result.name}`);
     return ctx.back(BASE, 'added');
-  } catch (e) { return ctx.fail(BASE, e.message); }
+  } catch (e: Loose) { return ctx.fail(BASE, e.message); }
 }
-async function security(ctx) {
+async function security(ctx: AdminCtx) {
   const b = await ctx.body();
   try {
     const z = await needZone(ctx);
@@ -389,7 +389,7 @@ async function security(ctx) {
       always_use_https: ['on', 'off'].includes(b.always_use_https) ? b.always_use_https : null,
       ssl: ['strict', 'full', 'flexible', 'off'].includes(b.ssl) ? b.ssl : null,
     };
-    const errs = [];
+    const errs: Loose[] = [];
     for (const [k, v] of Object.entries(want)) {
       if (!v) continue;
       const r = await cf(ctx.settings, `/zones/${z.id}/settings/${k}`, { method: 'PATCH', body: { value: v } });
@@ -398,7 +398,7 @@ async function security(ctx) {
     await ctx.log('settings', 'dns', null, `Cloudflare নিরাপত্তা: ${Object.entries(want).map(([k, v]) => `${k}=${v}`).join(', ')}`);
     if (errs.length) return ctx.fail(BASE, errs.join(' · '));
     return ctx.back(BASE, 'saved');
-  } catch (e) { return ctx.fail(BASE, e.message); }
+  } catch (e: Loose) { return ctx.fail(BASE, e.message); }
 }
 
 export const routes = [

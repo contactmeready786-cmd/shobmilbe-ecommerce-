@@ -145,7 +145,7 @@ function describe(p?: Loose, settings: Settings = {} as Settings) {
 }
 
 // ---------------------------------------------------------------- the round-the-clock sweep
-const LOG_FIELDS = { model: 'মডেল নম্বর', specs: 'স্পেসিফিকেশন' };
+const LOG_FIELDS: Record<string, string> = { model: 'মডেল নম্বর', specs: 'স্পেসিফিকেশন' };
 
 async function processOne(p: Loose, settings: Settings) {
   const changes: Loose[] = [];
@@ -242,7 +242,7 @@ async function undoAll() {
   return n;
 }
 
-async function stats() {
+async function stats(): Promise<Loose> {
   const [a, b, hist] = await Promise.all([
     db.one(`SELECT count(*) FILTER (WHERE seo_auto_at IS NOT NULL AND seo_auto_at >= updated_at)::int AS done, count(*)::int AS total
       FROM products WHERE active AND parent_id IS NULL`),

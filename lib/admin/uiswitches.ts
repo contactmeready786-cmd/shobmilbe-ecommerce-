@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // Admin → স্টোর ডিজাইন → দোকানে কী দেখাবে: one page with an on/off switch for every part of the shop
 // (with a line on what it does) and small boxes for the texts on those parts. Switches save at once.
 import { html, raw, str } from '../util';
@@ -6,20 +5,21 @@ import * as db from '../db';
 import * as ui from './ui';
 import * as U from '../services/uiswitch';
 import * as $homerows from './homerows';
+import type { AdminCtx, Loose } from '../types';
 
 const BASE = '/admin/design/switches';
-const HOME_LABELS = {
+const HOME_LABELS: Record<string, Loose> = {
   slider: 'বড় ব্যানার স্লাইডার', trust: 'ভরসার বার (ডেলিভারি, ক্যাশ অন ডেলিভারি, রিটার্ন)', categories: 'ক্যাটাগরি বক্স', flash: '⚡ ফ্ল্যাশ সেল',
   new: 'নতুন এসেছে', offers: 'অফারে আছে', bestsellers: 'সবচেয়ে বেশি বিক্রি', popular: 'সবাই দেখছে', promo: 'মাঝের ছোট ব্যানার',
   cat_rows: 'ক্যাটাগরি অনুযায়ী পণ্যের সারি', budget: '৳১০০ এর মধ্যে', featured: 'আমাদের বাছাই', blog: 'ব্লগ পোস্ট',
 };
 
-function switchForm(action, on, label) {
+function switchForm(action?: Loose, on?: Loose, label?: Loose) {
   return html`<form method="post" action="${action}" class="prod-toggle" data-on="${label}: চালু — দোকানে দেখাচ্ছে" data-off="${label}: বন্ধ — দোকানে লুকানো">
     <label class="switch" title="${label}"><input type="checkbox" name="active" value="1" ${on ? raw('checked') : ''} data-prod-toggle aria-label="${label}"><span class="switch-ui" aria-hidden="true"></span></label>
     <span class="small prod-toggle-text" data-prod-toggle-text>${on ? 'চালু' : 'বন্ধ'}</span><noscript><button class="btn btn-sm btn-ghost">সেভ</button></noscript></form>`;
 }
-function textForm(s, key, t) {
+function textForm(s?: Loose, key?: Loose, t?: Loose) {
   const cur = typeof s[key] === 'string' ? s[key] : '';
   return html`<form method="post" action="${BASE}/text" class="ui-text" data-ui-text>
     <input type="hidden" name="key" value="${key}">
@@ -30,24 +30,24 @@ function textForm(s, key, t) {
   </form>`;
 }
 
-async function page(ctx) {
+async function page(ctx: AdminCtx) {
   const s = ctx.settings;
   const home = db.jsonSetting(s, 'home_sections', []);
-  const row = (it) => html`<li class="ui-row ${it.key && !U.on(s, it.key) ? 'row-off' : ''}">
+  const row = (it?: Loose) => html`<li class="ui-row ${it.key && !U.on(s, it.key) ? 'row-off' : ''}">
     <div class="ui-row-main">
       <div class="ui-row-text"><b>${it.label}</b><span class="small muted">${it.desc}</span></div>
       ${it.link ? html`<a class="btn btn-sm btn-ghost" href="${it.link}">ওখানে যান →</a>` : switchForm(`${BASE}/toggle/${it.key}`, U.on(s, it.key), it.label)}
     </div>
     ${it.text ? textForm(s, it.text.key, it.text) : ''}
   </li>`;
-  const LBL = { ...HOME_LABELS, ...(await $homerows.allLabels()).labels };
+  const LBL: Record<string, Loose> = { ...HOME_LABELS, ...(await $homerows.allLabels()).labels };
   for (const k of Object.keys(HOME_LABELS)) LBL[k] = HOME_LABELS[k];
   const allHome = [...home, ...Object.keys(LBL).filter((k) => !home.includes(k))].filter((k) => LBL[k]);
   const body = html`<h1>👁️ দোকানে কী দেখাবে</h1>${ui.flash(ctx.flash)}
 <p class="muted">দোকানের প্রতিটা অংশ এখান থেকে চালু/বন্ধ করুন — সুইচ টিপলেই সাথে সাথে সেভ হয়, দোকানে কয়েক সেকেন্ডের মধ্যে বদলে যায়। লেখা বদলাতে ঘরে লিখে "সেভ" চাপুন। দাম, "কার্টে যোগ করুন", ঠিকানা আর অর্ডার কনফার্মের বাটন সবসময় চালু থাকে, যাতে ভুল করে অর্ডার বন্ধ না হয়ে যায়।</p>
 <nav class="chips ui-jump">${U.GROUPS.filter((g) => !g.hidden).map((g) => html`<a class="chip" href="#g-${g.id}">${g.title}</a>`)}<a class="chip" href="#g-home">🏠 হোমপেজ</a></nav>
 <div class="ui-groups">
-${U.GROUPS.filter((g) => !g.hidden).slice(0, 1).map((g) => html`<section class="panel ui-group" id="g-${g.id}"><h2>${g.title}</h2><ul class="ui-list">${g.items.filter((i) => !i.hidden).map(row)}</ul></section>`)}
+${U.GROUPS.filter((g) => !g.hidden).slice(0, 1).map((g) => html`<section class="panel ui-group" id="g-${g.id}"><h2>${g.title}</h2><ul class="ui-list">${g.items.filter((i: Loose) => !i.hidden).map(row)}</ul></section>`)}
 <section class="panel ui-group" id="g-home"><h2>🏠 হোমপেজের সারি</h2>
   <p class="small muted">সারিগুলোর ক্রম (কোনটা আগে) বদলাতে <a href="/admin/design">লোগো, রং ও হোমপেজ</a> পেজে যান।</p>
   <ul class="ui-list">${allHome.map((k) => html`<li class="ui-row ${home.includes(k) ? '' : 'row-off'}">
@@ -57,27 +57,27 @@ ${U.GROUPS.filter((g) => !g.hidden).slice(0, 1).map((g) => html`<section class="
     ${U.HOME_TEXTS[k] && U.HOME_TEXTS[k].sub && k !== 'flash' ? textForm(s, `uit_home_${k}_sub`, U.TEXTS.get(`uit_home_${k}_sub`)) : ''}
   </li>`)}</ul>
 </section>
-${U.GROUPS.filter((g) => !g.hidden).slice(1).map((g) => html`<section class="panel ui-group" id="g-${g.id}"><h2>${g.title}</h2><ul class="ui-list">${g.items.filter((i) => !i.hidden).map(row)}</ul></section>`)}
+${U.GROUPS.filter((g) => !g.hidden).slice(1).map((g) => html`<section class="panel ui-group" id="g-${g.id}"><h2>${g.title}</h2><ul class="ui-list">${g.items.filter((i: Loose) => !i.hidden).map(row)}</ul></section>`)}
 </div>`;
   return ctx.page('দোকানে কী দেখাবে', body, 'ui-switches');
 }
 
 // The switch (and its text box) for a shop part shown on that part's own admin page (restock, Q&A …).
 // It saves the moment it is clicked, the same way as on "দোকানে কী দেখাবে".
-function featureRows(ctx, keys) {
+function featureRows(ctx: AdminCtx, keys?: Loose) {
   if (!ctx.can('design')) return '';
   const s = ctx.settings;
-  const items = keys.map((k) => U.GROUPS.flatMap((g) => g.items).find((i) => i.key === k)).filter(Boolean);
-  return html`<section class="panel"><ul class="ui-list">${items.map((it) => html`<li class="ui-row ${!U.on(s, it.key) ? 'row-off' : ''}">
+  const items = keys.map((k?: Loose) => U.GROUPS.flatMap((g) => g.items).find((i) => i.key === k)).filter(Boolean);
+  return html`<section class="panel"><ul class="ui-list">${items.map((it?: Loose) => html`<li class="ui-row ${!U.on(s, it.key) ? 'row-off' : ''}">
     <div class="ui-row-main"><div class="ui-row-text"><b>${it.label}</b><span class="small muted">${it.desc}</span></div>${switchForm(`${BASE}/toggle/${it.key}`, U.on(s, it.key), it.label)}</div>
     ${it.text ? textForm(s, it.text.key, it.text) : ''}</li>`)}</ul></section>`;
 }
 
-function done(ctx, ok, msg) {
+function done(ctx: AdminCtx, ok?: Loose, msg?: Loose) {
   if (String(ctx.req.headers.accept || '').includes('application/json')) return ctx.json(ctx.res, ok ? 200 : 400, ok ? { ok: true } : { error: msg });
   return ok ? ctx.back(BASE, 'saved') : ctx.fail(BASE, msg);
 }
-async function toggle(ctx, m) {
+async function toggle(ctx: AdminCtx, m?: Loose) {
   const key = m[1];
   if (!U.KEYS.has(key)) return done(ctx, false, 'অজানা সুইচ।');
   const b = await ctx.body();
@@ -86,13 +86,13 @@ async function toggle(ctx, m) {
   await ctx.log('settings', 'design', null, `দোকানে কী দেখাবে: ${key} ${on ? 'চালু' : 'বন্ধ'}`);
   return done(ctx, true);
 }
-async function homeToggle(ctx, m) {
+async function homeToggle(ctx: AdminCtx, m?: Loose) {
   const key = m[1];
   const LBL = (await $homerows.allLabels()).labels;
   if (!LBL[key]) return done(ctx, false, 'অজানা সারি।');
   const b = await ctx.body();
   const on = !!b.active && b.active !== '0';
-  const list = db.jsonSetting(ctx.settings, 'home_sections', []).filter((k) => LBL[k] && k !== key);
+  const list = db.jsonSetting(ctx.settings, 'home_sections', []).filter((k?: Loose) => LBL[k] && k !== key);
   if (on) {
     // back in its usual place: just after the row that comes before it in the default order
     const order = Object.keys(HOME_LABELS);
@@ -105,7 +105,7 @@ async function homeToggle(ctx, m) {
   await ctx.log('settings', 'design', null, `হোমপেজের সারি "${LBL[key]}" ${on ? 'চালু' : 'বন্ধ'}`);
   return done(ctx, true);
 }
-async function saveText(ctx) {
+async function saveText(ctx: AdminCtx) {
   const b = await ctx.body();
   const key = String(b.key || '');
   const t = U.TEXTS.get(key);

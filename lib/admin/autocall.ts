@@ -1,18 +1,18 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // Admin → অর্ডার ও কাস্টমার → 📞 অটো কল (অর্ডার কনফার্ম). Settings, a test call, and the call history.
 import { html, raw, bn, fmtDate, int, str } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
 import * as AC from '../services/autocall';
 import { saveKeys, secretInput } from './marketing';
+import type { AdminCtx, Loose } from '../types';
 
 const BASE = '/admin/autocall';
-function site(ctx) {
+function site(ctx: AdminCtx) {
   if (ctx.settings.site_url) return ctx.settings.site_url.replace(/\/+$/, '');
   return `${String(ctx.req.headers['x-forwarded-proto'] || 'https').split(',')[0]}://${ctx.req.headers['x-forwarded-host'] || ctx.req.headers.host}`;
 }
 
-async function page(ctx) {
+async function page(ctx: AdminCtx) {
   const s = ctx.settings;
   if (ctx.method === 'POST') {
     const b = await ctx.body();
@@ -63,9 +63,9 @@ async function page(ctx) {
 ${ui.flash(ctx.flash)}
 <div class="kpis kpis-tight">
   ${ui.kpi('অবস্থা', ready ? '✅ চালু' : s.autocall_on === '1' ? '⚠️ API বাকি' : '⏸ বন্ধ', ready ? 'নতুন অর্ডারে কল যাচ্ছে' : 'নিচে সেটআপ করুন', ready ? 'kpi-green' : 'kpi-alert')}
-  ${ui.kpi('৩০ দিনে কল', bn(stats.n), `${bn(stats.failed)}টি যায়নি`)}
-  ${ui.kpi('কনফার্ম করেছে', bn(stats.ok), stats.n ? `${bn(Math.round((stats.ok * 100) / stats.n))}%` : '', 'kpi-green')}
-  ${ui.kpi('বাতিল / ধরেনি', `${bn(stats.cancel)} / ${bn(stats.miss)}`, 'এদের নিজে একবার ফোন করুন', stats.cancel + stats.miss ? 'kpi-alert' : '')}
+  ${ui.kpi('৩০ দিনে কল', bn(stats!.n), `${bn(stats!.failed)}টি যায়নি`)}
+  ${ui.kpi('কনফার্ম করেছে', bn(stats!.ok), stats!.n ? `${bn(Math.round((stats!.ok * 100) / stats!.n))}%` : '', 'kpi-green')}
+  ${ui.kpi('বাতিল / ধরেনি', `${bn(stats!.cancel)} / ${bn(stats!.miss)}`, 'এদের নিজে একবার ফোন করুন', stats!.cancel + stats!.miss ? 'kpi-alert' : '')}
 </div>
 ${ui.helpBox('অটো কল কীভাবে কাজ করে? (সহজ কথায়)', html`<ol>
   <li>কাস্টমার অর্ডার করলেই একটা কল কোম্পানি নিজে থেকে তাকে ফোন করে আর আপনার লেখা কথা বাংলায় শোনায়: "কনফার্ম করতে ১, বাতিল করতে ২ চাপুন"।</li>
@@ -142,7 +142,7 @@ ${Object.keys(AC.PRESETS).map((k) => html`<form method="post" action="${BASE}" i
 }
 
 // "📞 অটো কল করুন" on an order's page
-async function callOrder(ctx, m) {
+async function callOrder(ctx: AdminCtx, m?: Loose) {
   const id = int(m[1]);
   const o = await db.one('SELECT id, code, phone, customer_name, total, payment FROM orders WHERE id=$1', [id]);
   if (!o) return ctx.back('/admin/orders');
@@ -154,7 +154,7 @@ async function callOrder(ctx, m) {
 }
 
 // small block for the order page
-async function orderBox(ctx, order) {
+async function orderBox(ctx: AdminCtx, order?: Loose) {
   const calls = await AC.forOrder(order.id);
   if (!calls.length && !ctx.settings.autocall_url) return '';
   const last = calls[0];

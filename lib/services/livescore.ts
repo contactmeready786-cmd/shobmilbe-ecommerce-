@@ -223,7 +223,7 @@ async function scores(sport: Loose, settings: Settings) {
 }
 
 // How much Bangladeshi viewers usually care about each competition (1-5). A general estimate shown to the admin.
-const POPULAR = {
+const POPULAR: Record<string, number> = {
   women: 2, ipl: 5, bpl: 5, psl: 3, bbl: 2, cpl: 2, sa20: 2, ilt20: 2, hundred: 2, lpl: 2, mlc: 1, icc: 5, intl: 4, other: 1,
   'fifa.world': 5, 'fifa.worldq.afc': 3, 'fifa.friendly': 3, 'afc.asian.cup': 2, 'afc.cupq': 3, 'uefa.champions': 5, 'uefa.europa': 3,
   'uefa.nations': 2, 'uefa.euro': 4, 'conmebol.america': 5, 'eng.1': 5, 'esp.1': 5, 'ita.1': 3, 'ger.1': 3, 'fra.1': 3, 'por.1': 2,
@@ -231,7 +231,7 @@ const POPULAR = {
 };
 
 // For the admin page: every competition (ticked or not) with what is running now and what starts soon.
-async function overview() {
+async function overview(): Promise<Loose> {
   const shortMatch = (m?: Loose) => ({
     id: m.id, state: m.state, date: m.date, league: m.league, title: m.title || '', bd: /bangladesh/i.test(m.teams.map((t?: Loose) => t.name).join(' ')),
     teams: m.teams.map((t?: Loose) => ({ name: t.name, score: t.score })), status: m.summary || m.clock || m.detail || '',
@@ -253,7 +253,7 @@ async function overview() {
   return { cricket, football };
 }
 
-function enabled(settings: Settings) {
+function enabled(settings: Settings): Record<string, boolean> {
   return { cricket: settings.live_cricket === '1', football: settings.live_football === '1' };
 }
 

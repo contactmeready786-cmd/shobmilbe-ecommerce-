@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 import * as security from '../security';
 import { html, raw, esc, money, bn, fmtDate, youtubeId, contact, roundOff, roundOffLabel, qtyRule, minOrder } from '../util';
 import * as O from '../models/orders';
@@ -12,33 +11,34 @@ import * as $models_kits from '../models/kits';
 import * as $services_courier from '../services/courier';
 import * as $models_selfservice from '../models/selfservice';
 import * as $models_complaints from '../models/complaints';
+import type { Body, Id, Loose, Settings } from '../types';
 
-function img(p, cls = '', thumb = true) {
+function img(p?: Loose, cls: Loose = '', thumb: Loose = true) {
   if (p.image_id) return html`<img class="${cls}" src="/media/${p.image_id}${thumb ? '/t' : ''}" alt="${p.name}" loading="lazy" decoding="async" draggable="false">`;
   return html`<span class="emoji ${cls}" aria-hidden="true">${p.emoji || '📦'}</span>`;
 }
-function discount(p) {
+function discount(p?: Loose) {
   if (!p.old_price || p.old_price <= p.price) return 0;
   return Math.round(((p.old_price - p.price) / p.old_price) * 100);
 }
 
 // ★★★★☆ for a rating (rounded to the nearest whole star)
-function stars(r) {
+function stars(r?: Loose) {
   const n = Math.max(0, Math.min(5, Math.round(Number(r) || 0)));
   return html`<span class="stars" aria-label="${bn(Number(r || 0).toFixed(1))} / ৫">${'★'.repeat(n)}<span class="stars-off">${'★'.repeat(5 - n)}</span></span>`;
 }
-const wishOn = (s) => !s || s.wishlist_on !== '0';
-function wishBtn(p, s, cls = '') {
+const wishOn = (s?: Loose) => !s || s.wishlist_on !== '0';
+function wishBtn(p?: Loose, s?: Loose, cls: Loose = '') {
   return wishOn(s) ? html`<button type="button" class="wish-btn ${cls}" data-wish="${p.id}" aria-label="${p.name} পছন্দের তালিকায় রাখুন" aria-pressed="false" title="পছন্দের তালিকায় রাখুন">♡</button>` : '';
 }
 
 // "নতুন": ticked by hand, or added within the last N days (Admin → সেটিংস)
-function isNewP(p, s) {
+function isNewP(p?: Loose, s?: Loose) {
   if (p.is_new) return true;
   const days = Number(s && s.new_badge_days !== undefined ? s.new_badge_days : 14);
   return days > 0 && !!p.created_at && Date.now() - new Date(p.created_at).getTime() < days * 864e5;
 }
-function productCard(p, settings, badge = '') {
+function productCard(p: Loose, settings: Settings, badge: Loose = '') {
   const S = settings || {};
   // "Product details of …" copied from other shops never shows on a card
   if (p && /^\s*product\s+details?\s+of\s/i.test(p.name || '')) p = { ...p, name: $services_seo.cleanName(p.name) };
@@ -73,12 +73,12 @@ function productCard(p, settings, badge = '') {
   </div>
 </article>`;
 }
-function productGrid(products, settings, emptyMsg) {
+function productGrid(products: Loose, settings: Settings, emptyMsg?: Loose) {
   if (!products.length) return html`<div class="empty"><p>${emptyMsg || 'কোনো পণ্য পাওয়া যায়নি।'}</p><a class="btn" href="/products">সব পণ্য দেখুন</a></div>`;
-  return html`<div class="grid">${products.map((p) => productCard(p, settings))}</div>`;
+  return html`<div class="grid">${products.map((p?: Loose) => productCard(p, settings))}</div>`;
 }
 // The shop's four promises — small and in one row (inside the blue banner, or a thin strip under the pictures).
-function trustItems(s, cls) {
+function trustItems(s?: Loose, cls?: Loose) {
   const phone = contact(s).phone;
   return html`<ul class="trust-row ${cls}">
     <li><span class="tr-ic" aria-hidden="true">🚚</span><span><b>সারা দেশে ডেলিভারি</b><small>ঢাকায় ${money(s.delivery_dhaka)}, বাইরে ${money(s.delivery_outside)}</small></span></li>
@@ -88,38 +88,38 @@ function trustItems(s, cls) {
     : html`<span class="tr-ic" aria-hidden="true">📞</span><span><b>সাহায্য দরকার?</b><small>আমাদের মেসেজ দিন</small></span>`}</li>
   </ul>`;
 }
-function section(title, link, content) {
+function section(title?: Loose, link?: Loose, content?: Loose) {
   return html`<section class="home-sec"><div class="section-head"><h2>${title}</h2>${link ? html`<a href="${link}">সব দেখুন →</a>` : ''}</div>${content}</section>`;
 }
 // Home page boxes: only the main categories (no drop-downs); the count includes their sub-categories.
-function catGrid(categories) {
+function catGrid(categories?: Loose) {
   const { roots } = categoryTree(categories);
   return html`<nav class="cat-grid" aria-label="ক্যাটাগরি">${roots.map((c) => html`<a class="cat-box" href="/products?cat=${c.slug}">
     <span class="cat-ic" aria-hidden="true">${c.image_id ? html`<img src="/media/${c.image_id}/t" alt="" draggable="false">` : c.icon}</span>
     <span class="cat-name">${c.name}</span><span class="cat-count">${bn(c.total_count)}টি</span></a>`)}</nav>`;
 }
 // "হোম / ইলেকট্রনিক্স / সার্কিট ও মডিউল" — every step is a link except the last
-function catCrumbs(node, last = true) {
+function catCrumbs(node?: Loose, last: Loose = true) {
   if (!node) return '';
-  return html`${node.path.map((x, i) => (last && i === node.path.length - 1 ? html` / <span>${x.name}</span>` : html` / <a href="/products?cat=${x.slug}">${x.name}</a>`))}`;
+  return html`${node.path.map((x?: Loose, i?: Loose) => (last && i === node.path.length - 1 ? html` / <span>${x.name}</span>` : html` / <a href="/products?cat=${x.slug}">${x.name}</a>`))}`;
 }
 
 // A row of products that slides sideways (arrows on computers, swipe on phones).
 // auto = moves on by itself, one card at a time, and stops while someone is looking at it.
-function rail(title, link, products, s, { badge = '', auto = false, sub = '', chips = null } = {}) {
+function rail(title?: Loose, link?: Loose, products?: Loose, s?: Loose, { badge = '', auto = false, sub = '', chips = null }: Body = {}) {
   if (!products || !products.length) return '';
   return html`<section class="home-sec rail-sec">
     <div class="section-head"><div><h2>${title}</h2>${sub ? html`<p class="sec-sub">${sub}</p>` : ''}</div>
       <div class="rail-head-r">${link ? html`<a href="${link}">সব দেখুন →</a>` : ''}
         <button type="button" class="rail-btn" data-rail-prev aria-label="আগের পণ্য">‹</button><button type="button" class="rail-btn" data-rail-next aria-label="পরের পণ্য">›</button></div></div>
-    ${chips && chips.length ? html`<div class="chips rail-chips">${chips.map((c) => html`<a class="chip" href="/products?cat=${c.slug}">${c.name}</a>`)}</div>` : ''}
-    <div class="rail" data-rail ${auto ? raw('data-rail-auto') : ''}>${products.map((p) => productCard(p, s, typeof badge === 'function' ? badge(p) : badge))}</div>
+    ${chips && chips.length ? html`<div class="chips rail-chips">${chips.map((c?: Loose) => html`<a class="chip" href="/products?cat=${c.slug}">${c.name}</a>`)}</div>` : ''}
+    <div class="rail" data-rail ${auto ? raw('data-rail-auto') : ''}>${products.map((p?: Loose) => productCard(p, s, typeof badge === 'function' ? badge(p) : badge))}</div>
   </section>`;
 }
 
 // ---------------------------------------------------------------- home
-function home({ settings: s, sections, data }) {
-  const parts = sections.map((key) => {
+function home({ settings: s, sections, data }: Body) {
+  const parts = sections.map((key?: Loose) => {
     if (key === 'slider') {
       if (!data.slides.length || s.slider_on === '0') {
         // no banner pictures yet: the blue welcome banner, with the shop's promises inside it
@@ -130,11 +130,11 @@ function home({ settings: s, sections, data }) {
         </div></div></section>`;
       }
       return html`<section class="slider ${s.slider_effect === 'fade' ? 'fx-fade' : 'fx-slide'}" data-slider data-interval="${Math.min(15, Math.max(1, Number(s.slider_interval) || 4))}" aria-roledescription="carousel">
-        <div class="slides">${data.slides.slice(0, 5).map((b, i) => html`<a class="slide ${i === 0 ? 'on' : ''}" href="${security.safeUrl(b.link)}" ${b.link ? '' : raw('tabindex="-1"')}>
+        <div class="slides">${data.slides.slice(0, 5).map((b?: Loose, i?: Loose) => html`<a class="slide ${i === 0 ? 'on' : ''}" href="${security.safeUrl(b.link)}" ${b.link ? '' : raw('tabindex="-1"')}>
           <img src="/media/${b.image_id}" alt="${b.title || s.store_name}" ${i ? raw('loading="lazy"') : raw('fetchpriority="high"')} draggable="false">
           ${b.title || b.subtitle ? html`<span class="slide-text"><b>${b.title}</b>${b.subtitle ? html`<span>${b.subtitle}</span>` : ''}${b.button ? html`<em class="btn btn-amber btn-sm">${b.button}</em>` : ''}</span>` : ''}
         </a>`)}</div>
-        ${data.slides.length > 1 ? html`<div class="dots">${data.slides.slice(0, 5).map((_, i) => html`<button type="button" data-dot="${i}" class="${i === 0 ? 'on' : ''}" aria-label="স্লাইড ${bn(i + 1)}"></button>`)}</div>` : ''}
+        ${data.slides.length > 1 ? html`<div class="dots">${data.slides.slice(0, 5).map((_?: Loose, i?: Loose) => html`<button type="button" data-dot="${i}" class="${i === 0 ? 'on' : ''}" aria-label="স্লাইড ${bn(i + 1)}"></button>`)}</div>` : ''}
       </section>`;
     }
     if (key === 'categories' && data.categories.length) return html`<div class="wrap">${section(U.text(s, 'uit_home_categories'), '', catGrid(data.categories))}</div>`;
@@ -144,17 +144,17 @@ function home({ settings: s, sections, data }) {
       return html`<div class="wrap flash-sec">${rail(`⚡ ${data.flash.sale.title}`, '/products?sort=offer', data.flash.products, s,
         { sub: html`অফার শেষ হবে <b class="countdown" data-countdown="${new Date(data.flash.sale.ends_at).toISOString()}"></b>` })}</div>`;
     }
-    if (key === 'new') return html`<div class="wrap">${rail(U.text(s, 'uit_home_new'), '/products?sort=new', data.latest, s, { auto: true, badge: (p) => (isNewP(p, s) ? 'নতুন' : ''), sub: U.text(s, 'uit_home_new_sub') })}</div>`;
+    if (key === 'new') return html`<div class="wrap">${rail(U.text(s, 'uit_home_new'), '/products?sort=new', data.latest, s, { auto: true, badge: (p?: Loose) => (isNewP(p, s) ? 'নতুন' : ''), sub: U.text(s, 'uit_home_new_sub') })}</div>`;
     if (key === 'offers') return html`<div class="wrap">${rail(U.text(s, 'uit_home_offers'), '/products?sort=offer', data.offers, s, { sub: U.text(s, 'uit_home_offers_sub') })}</div>`;
     if (key === 'bestsellers') return html`<div class="wrap">${rail(U.text(s, 'uit_home_bestsellers'), '/products?sort=popular', data.best, s, { badge: 'বেস্ট সেলার', sub: U.text(s, 'uit_home_bestsellers_sub') })}</div>`;
     if (key === 'popular') return html`<div class="wrap">${rail(U.text(s, 'uit_home_popular'), '/products', data.popular, s, { badge: 'জনপ্রিয়', sub: U.text(s, 'uit_home_popular_sub') })}</div>`;
     if (key === 'featured') return html`<div class="wrap">${rail(U.text(s, 'uit_home_featured'), '/products', data.featured, s, { sub: U.text(s, 'uit_home_featured_sub') })}</div>`;
     if (key === 'budget') return html`<div class="wrap">${rail(U.text(s, 'uit_home_budget'), '/products?sort=price_asc', data.budget, s, { sub: U.text(s, 'uit_home_budget_sub') })}</div>`;
     if (key === 'cat_rows') {
-      return html`<div class="wrap">${(data.catRows || []).map((r) => rail(`${r.cat.icon} ${r.cat.name}`, `/products?cat=${r.cat.slug}`, r.products, s, { chips: r.chips }))}</div>`;
+      return html`<div class="wrap">${(data.catRows || []).map((r?: Loose) => rail(`${r.cat.icon} ${r.cat.name}`, `/products?cat=${r.cat.slug}`, r.products, s, { chips: r.chips }))}</div>`;
     }
     if (key === 'promo' && data.promos.length) {
-      return html`<div class="wrap"><div class="promos">${data.promos.map((b) => html`<a href="${security.safeUrl(b.link)}" class="promo"><img src="/media/${b.image_id}" alt="${b.title || ''}" loading="lazy" draggable="false"></a>`)}</div></div>`;
+      return html`<div class="wrap"><div class="promos">${data.promos.map((b?: Loose) => html`<a href="${security.safeUrl(b.link)}" class="promo"><img src="/media/${b.image_id}" alt="${b.title || ''}" loading="lazy" draggable="false"></a>`)}</div></div>`;
     }
     // the owner's own rows (Admin → হোমপেজের সারি)
     if (/^x\d+$/.test(key)) {
@@ -163,7 +163,7 @@ function home({ settings: s, sections, data }) {
       const sub = c.row.sub;
       if (c.row.style === 'grid') {
         return html`<div class="wrap"><section class="home-sec"><div class="section-head"><div><h2>${c.row.title}</h2>${sub ? html`<p class="sec-sub">${sub}</p>` : ''}</div><a href="${c.link}">সব দেখুন →</a></div>
-          <div class="grid">${c.products.map((p) => productCard(p, s, c.row.badge))}</div></section></div>`;
+          <div class="grid">${c.products.map((p?: Loose) => productCard(p, s, c.row.badge))}</div></section></div>`;
       }
       return html`<div class="wrap">${rail(c.row.title, c.link, c.products, s, { badge: c.row.badge, sub })}</div>`;
     }
@@ -176,7 +176,7 @@ function home({ settings: s, sections, data }) {
 }
 
 // ---------------------------------------------------------------- listing
-function listing({ products, categories, category, brand = null, q, sort, settings, total, page, perPage, filters = {}, brandList = [], specFacets = [], fallback = [] }) {
+function listing({ products, categories, category, brand = null, q, sort, settings, total, page, perPage, filters = {}, brandList = [], specFacets = [], fallback = [] }: Body) {
   const title = brand ? brand.name : category ? category.name : q ? `"${q}" এর ফলাফল` : sort === 'offer' ? 'অফারের পণ্য' : 'সব পণ্য';
   const base = new URLSearchParams();
   if (category) base.set('cat', category.slug);
@@ -184,19 +184,19 @@ function listing({ products, categories, category, brand = null, q, sort, settin
   if (sort) base.set('sort', sort);
   if (filters.pmin) base.set('pmin', filters.pmin);
   if (filters.pmax) base.set('pmax', filters.pmax);
-  (filters.brands || []).forEach((b) => base.append('b', b));
+  (filters.brands || []).forEach((b?: Loose) => base.append('b', b));
   if (filters.stock) base.set('stock', '1');
-  (filters.specList || []).forEach((x) => base.append('sp', x));
+  (filters.specList || []).forEach((x?: Loose) => base.append('sp', x));
   const nFilters = (filters.pmin || filters.pmax ? 1 : 0) + (filters.brands || []).length + (filters.stock ? 1 : 0) + (filters.specList || []).length;
   const pages = Math.ceil(total / perPage);
   const listPath = brand ? `/brand/${brand.slug}` : '/products';
-  const pageLink = (n) => { const p = new URLSearchParams(base); if (n > 1) p.set('page', n); return listPath + (p.toString() ? '?' + p : ''); };
+  const pageLink = (n?: Loose) => { const p = new URLSearchParams(base); if (n > 1) p.set('page', n); return listPath + (p.toString() ? '?' + p : ''); };
   const intro = brand || category;
   const { roots, byId } = categoryTree(categories);
   const here = category ? byId.get(category.id) : null;
   // chips: inside a category → its sub-categories (or, at the bottom level, its neighbours); otherwise the main categories
-  const holder = here ? (here.children.some((k) => k.total_count > 0) ? here : (here.parent_id ? byId.get(here.parent_id) : null)) : null;
-  const chips = (holder ? holder.children : roots).filter((k) => k.total_count > 0 || !holder);
+  const holder = here ? (here.children.some((k) => k.total_count! > 0) ? here : (here.parent_id ? byId.get(here.parent_id) : null)) : null;
+  const chips = (holder ? holder.children : roots).filter((k) => k.total_count! > 0 || !holder);
   const allHref = holder ? `/products?cat=${holder.slug}` : (q ? `/products?q=${encodeURIComponent(q)}` : '/products');
   return html`<div class="wrap section">
   <nav class="crumbs" aria-label="অবস্থান"><a href="/">হোম</a>${brand ? html` / <a href="/products">সব পণ্য</a> / <span>${brand.name}</span>` : here ? catCrumbs(here) : html` / <span>${title}</span>`}</nav>
@@ -212,8 +212,8 @@ function listing({ products, categories, category, brand = null, q, sort, settin
     .map(([v, l]) => html`<option value="${v}" ${sort === v ? raw('selected') : ''}>${l}</option>`)}
       </select>
       ${filters.pmin ? html`<input type="hidden" name="pmin" value="${filters.pmin}">` : ''}${filters.pmax ? html`<input type="hidden" name="pmax" value="${filters.pmax}">` : ''}
-      ${(filters.brands || []).map((b) => html`<input type="hidden" name="b" value="${b}">`)}${filters.stock ? html`<input type="hidden" name="stock" value="1">` : ''}
-      ${(filters.specList || []).map((x) => html`<input type="hidden" name="sp" value="${x}">`)}
+      ${(filters.brands || []).map((b?: Loose) => html`<input type="hidden" name="b" value="${b}">`)}${filters.stock ? html`<input type="hidden" name="stock" value="1">` : ''}
+      ${(filters.specList || []).map((x?: Loose) => html`<input type="hidden" name="sp" value="${x}">`)}
     </form>
   </div>
   ${settings.ui_filters === '0' ? '' : filterBox({ listPath, category, brand, q, sort, filters, brandList, specFacets, nFilters })}
@@ -232,13 +232,13 @@ function listing({ products, categories, category, brand = null, q, sort, settin
 }
 
 // "1-2" → "১-২ দিনে"
-function delText(v, def) {
+function delText(v?: Loose, def?: Loose) {
   const m = String(v || def).match(/^(\d{1,2})(?:-(\d{1,2}))?$/) || String(def).match(/^(\d{1,2})(?:-(\d{1,2}))?$/);
-  return `${bn(m[1])}${m[2] && m[2] !== m[1] ? '-' + bn(m[2]) : ''} দিনে`;
+  return `${bn(m![1])}${m![2] && m![2] !== m![1] ? '-' + bn(m![2]) : ''} দিনে`;
 }
 
 // 🔎 Filter box on shop lists: price from–to, brands, only in stock. A plain form (works without JavaScript too).
-function filterBox({ listPath, category, brand, q, sort, filters, brandList, specFacets = [], nFilters }) {
+function filterBox({ listPath, category, brand, q, sort, filters, brandList, specFacets = [], nFilters }: Body) {
   const clear = new URLSearchParams();
   if (category && !brand) clear.set('cat', category.slug);
   if (q) clear.set('q', q);
@@ -255,10 +255,10 @@ function filterBox({ listPath, category, brand, q, sort, filters, brandList, spe
         <input name="pmax" inputmode="decimal" placeholder="সর্বোচ্চ" value="${filters.pmax || ''}" aria-label="সর্বোচ্চ দাম" maxlength="8">
       </fieldset>
       ${showBrands ? html`<fieldset class="f-brands"><legend>ব্র্যান্ড</legend><div class="f-brand-list">
-        ${brandList.map((b) => html`<label class="check"><input type="checkbox" name="b" value="${b.id}" ${(filters.brands || []).includes(b.id) ? raw('checked') : ''}> <span translate="no">${b.name}</span> <small class="muted">(${bn(b.n)})</small></label>`)}
+        ${brandList.map((b?: Loose) => html`<label class="check"><input type="checkbox" name="b" value="${b.id}" ${(filters.brands || []).includes(b.id) ? raw('checked') : ''}> <span translate="no">${b.name}</span> <small class="muted">(${bn(b.n)})</small></label>`)}
       </div></fieldset>` : ''}
-      ${specFacets.map((f) => html`<fieldset class="f-brands f-spec"><legend translate="no">${f.label}</legend><div class="f-brand-list">
-        ${f.values.map((v) => html`<label class="check"><input type="checkbox" name="sp" value="${f.key}~${v.value}" ${(filters.specList || []).includes(`${f.key}~${v.value}`) ? raw('checked') : ''}> <span translate="no">${v.label}</span> <small class="muted">(${bn(v.n)})</small></label>`)}
+      ${specFacets.map((f?: Loose) => html`<fieldset class="f-brands f-spec"><legend translate="no">${f.label}</legend><div class="f-brand-list">
+        ${f.values.map((v?: Loose) => html`<label class="check"><input type="checkbox" name="sp" value="${f.key}~${v.value}" ${(filters.specList || []).includes(`${f.key}~${v.value}`) ? raw('checked') : ''}> <span translate="no">${v.label}</span> <small class="muted">(${bn(v.n)})</small></label>`)}
       </div></fieldset>`)}
       <label class="check f-stock"><input type="checkbox" name="stock" value="1" ${filters.stock ? raw('checked') : ''}> <span>শুধু স্টকে আছে এমন পণ্য</span></label>
       <div class="f-actions"><button class="btn btn-sm">ফিল্টার করুন</button>${nFilters ? html`<a class="btn btn-sm btn-ghost" href="${clearHref}">✕ সব মুছুন</a>` : ''}</div>
@@ -268,7 +268,7 @@ function filterBox({ listPath, category, brand, q, sort, filters, brandList, spe
 
 // ---------------------------------------------------------------- product page
 // YouTube video that loads only when tapped (keeps the page fast), with a link in case the owner blocked embedding.
-function videoBox(yt, title) {
+function videoBox(yt?: Loose, title?: Loose) {
   return html`<div class="video yt-lite" data-yt-lite="${yt}">
     <button type="button" class="yt-play" aria-label="ভিডিও চালান">
       <img src="https://i.ytimg.com/vi/${yt}/hqdefault.jpg" alt="${title} — ভিডিও" loading="lazy" draggable="false">
@@ -280,20 +280,20 @@ function videoBox(yt, title) {
 
 const WA_ICON = '<svg viewBox="0 0 32 32" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M16 3a13 13 0 0 0-11.2 19.6L3 29l6.6-1.7A13 13 0 1 0 16 3Zm0 23.7c-2 0-4-.6-5.7-1.6l-.4-.2-3.9 1 1-3.8-.3-.4A10.7 10.7 0 1 1 16 26.7Zm5.9-8c-.3-.2-1.9-1-2.2-1-.3-.1-.5-.2-.7.1l-1 1.3c-.2.2-.4.2-.7.1-.3-.2-1.4-.5-2.6-1.6-1-.9-1.6-1.9-1.8-2.2-.2-.3 0-.5.1-.7l.5-.6.3-.5c.1-.2 0-.4 0-.6l-1-2.4c-.3-.6-.5-.5-.7-.5h-.6c-.2 0-.6.1-.9.4-.3.3-1.1 1.1-1.1 2.7s1.2 3.1 1.3 3.3c.2.2 2.3 3.5 5.5 4.9.8.3 1.4.5 1.9.7.8.2 1.5.2 2.1.1.6-.1 1.9-.8 2.2-1.5.3-.8.3-1.4.2-1.5l-.6-.5Z"/></svg>';
 
-function specTable(specs) {
-  return html`<table class="spec-table"><tbody>${specs.map(([k, v]) => html`<tr><th scope="row">${k}</th><td>${v}</td></tr>`)}</tbody></table>`;
+function specTable(specs?: Loose) {
+  return html`<table class="spec-table"><tbody>${specs.map(([k, v]: Loose) => html`<tr><th scope="row">${k}</th><td>${v}</td></tr>`)}</tbody></table>`;
 }
-function tierBox(p, tiers, maxQty = Infinity) {
+function tierBox(p?: Loose, tiers?: Loose, maxQty: Loose = Infinity) {
   if (!tiers || !tiers.length) return '';
   // only steps a customer can actually order online (the per-product maximum still applies)
-  const rows = tiers.slice().sort((a, b) => a.min_qty - b.min_qty).filter((t) => t.price < p.price && t.min_qty <= maxQty);
+  const rows = tiers.slice().sort((a?: Loose, b?: Loose) => a.min_qty - b.min_qty).filter((t?: Loose) => t.price < p.price && t.min_qty <= maxQty);
   if (!rows.length) return '';
   return html`<div class="tier-box"><p class="pdp-label">📦 বেশি কিনলে কম দাম</p><table class="tier-table"><tbody>
     <tr><td>${bn(1)}–${bn(rows[0].min_qty - 1)}টি</td><td><b>${money(p.price)}</b> করে</td></tr>
-    ${rows.map((t, i) => html`<tr><td>${bn(t.min_qty)}${rows[i + 1] ? `–${bn(rows[i + 1].min_qty - 1)}` : '+'}টি</td><td><b>${money(t.price)}</b> করে <span class="good small">(${bn(Math.round((1 - t.price / p.price) * 100))}% কম)</span></td></tr>`)}
+    ${rows.map((t?: Loose, i?: Loose) => html`<tr><td>${bn(t.min_qty)}${rows[i + 1] ? `–${bn(rows[i + 1].min_qty - 1)}` : '+'}টি</td><td><b>${money(t.price)}</b> করে <span class="good small">(${bn(Math.round((1 - t.price / p.price) * 100))}% কম)</span></td></tr>`)}
   </tbody></table><p class="small muted">কার্টে পরিমাণ বাড়ালে কম দাম নিজে থেকেই বসে যাবে।</p></div>`;
 }
-function reviewsBlock(p, s, reviews, stats) {
+function reviewsBlock(p?: Loose, s?: Loose, reviews?: Loose, stats?: Loose) {
   if (s.reviews_on === '0' || !stats.count) return '';
   const dist = [5, 4, 3, 2, 1].map((n) => [n, (stats.dist || {})[n] || 0]);
   return html`<section class="reviews" id="reviews">
@@ -304,17 +304,17 @@ function reviewsBlock(p, s, reviews, stats) {
         <ul class="rating-bars">${dist.map(([n, c]) => html`<li><span>${bn(n)}★</span><span class="bar"><i style="width:${stats.count ? Math.round((c / stats.count) * 100) : 0}%"></i></span><span>${bn(c)}</span></li>`)}</ul>`
     : html`<p class="muted">এখনো কোনো রিভিউ নেই।</p>`}
     </div>
-    <div class="review-list">${reviews.length ? html`<ul>${reviews.map((r) => html`<li class="review">
+    <div class="review-list">${reviews.length ? html`<ul>${reviews.map((r?: Loose) => html`<li class="review">
       <p>${stars(r.rating)} <b>${r.name || 'কাস্টমার'}</b>${r.verified ? html` <span class="verified">✓ যাচাই করা ক্রেতা</span>` : ''} <span class="small muted">${fmtDate(r.created_at).split(',')[0]}</span></p>
       <p class="review-body">${r.body}</p>
-      ${r.photos && r.photos.length ? html`<div class="review-photos">${r.photos.map((pid) => html`<a href="/media/${pid}" target="_blank" rel="noopener"><img src="/media/${pid}/t" alt="ক্রেতার তোলা ছবি" loading="lazy" draggable="false"></a>`)}</div>` : ''}
+      ${r.photos && r.photos.length ? html`<div class="review-photos">${r.photos.map((pid?: Loose) => html`<a href="/media/${pid}" target="_blank" rel="noopener"><img src="/media/${pid}/t" alt="ক্রেতার তোলা ছবি" loading="lazy" draggable="false"></a>`)}</div>` : ''}
       ${r.reply ? html`<p class="review-reply"><b>${s.store_name}:</b> ${r.reply}</p>` : ''}
     </li>`)}</ul>` : ''}</div>
   </div>
 </section>`;
 }
 // 🔔 "দাম কমলে জানাও": a small fold-out with a mobile number box
-function priceAlertBox(productId, price) {
+function priceAlertBox(productId?: Id, price?: Loose) {
   return html`<details class="price-alert"><summary>🔔 দাম কমলে SMS-এ জানাও</summary>
   <form class="notify-box" data-price-alert data-product="${productId}" novalidate>
     <p class="small muted">এখন দাম ${money(price)}। এর চেয়ে কমলেই (নতুন দাম বা ফ্ল্যাশ সেল) একবার SMS পাবেন।</p>
@@ -324,7 +324,7 @@ function priceAlertBox(productId, price) {
   </form></details>`;
 }
 // 📤 share the product: phone's own share sheet, Facebook, Messenger, WhatsApp, copy the link
-function shareRow(p, s) {
+function shareRow(p?: Loose, s?: Loose) {
   if (s.ui_share === '0') return '';
   const base = String(s.site_url || '').replace(/\/+$/, '');
   const url = base ? `${base}/p/${encodeURIComponent(p.slug)}` : '';
@@ -341,7 +341,7 @@ function shareRow(p, s) {
   </div>`;
 }
 // 🔔 "স্টকে এলে জানাও": the customer leaves a mobile number; an SMS goes out when the product is back.
-function notifyBox(productId, s, hidden = false) {
+function notifyBox(productId?: Id, s?: Loose, hidden: Loose = false) {
   if (!U.on(s, 'ui_restock_notify')) return '';
   return html`<form class="notify-box" data-notify data-product="${productId}" ${hidden ? raw('hidden') : ''} novalidate>
     <p><b>🔔 ${U.text(s, 'uit_restock_title')}</b><br><span class="small muted">মোবাইল নম্বর দিন — পণ্যটা আবার এলেই আপনাকে SMS করে জানাব।</span></p>
@@ -351,11 +351,11 @@ function notifyBox(productId, s, hidden = false) {
   </form>`;
 }
 // The size / colour / model picker. Each variant carries what the page needs to switch to it without reloading.
-function variantPicker(p, V, sel, big) {
+function variantPicker(p?: Loose, V?: Loose, sel?: Loose, big?: Loose) {
   return html`<div class="var-pick" data-variants>
     <p class="var-head">${p.variant_title || 'অপশন'}: <b data-var-name>${sel.variant_label}</b></p>
     <div class="var-list" role="radiogroup" aria-label="${p.variant_title || 'অপশন'} বাছাই করুন">
-      ${V.map((v) => html`<button type="button" role="radio" aria-checked="${v.id === sel.id ? 'true' : 'false'}" class="var-opt ${v.id === sel.id ? 'on' : ''} ${v.stock <= 0 ? 'is-out' : ''}"
+      ${V.map((v?: Loose) => html`<button type="button" role="radio" aria-checked="${v.id === sel.id ? 'true' : 'false'}" class="var-opt ${v.id === sel.id ? 'on' : ''} ${v.stock <= 0 ? 'is-out' : ''}"
         data-var="${v.id}" data-label="${v.variant_label}" data-name="${v.name}" data-price="${v.price}" data-old="${v.old_price || ''}" data-stock="${v.stock}" data-low="${v.low_stock}"
         data-sku="${v.sku || ''}" data-img="${v.image_id ? big(v.image_id) : ''}" data-flash="${v.flash_ends ? new Date(v.flash_ends).toISOString() : ''}">
         ${v.image_id ? html`<img src="/media/${v.image_id}/t" alt="" loading="lazy" draggable="false">` : ''}<span>${v.variant_label}</span>${v.stock <= 0 ? html`<small>স্টকে নেই</small>` : ''}</button>`)}
@@ -363,12 +363,12 @@ function variantPicker(p, V, sel, big) {
   </div>`;
 }
 // Questions & answers on a product: what others asked and the shop's answers, plus a small form to ask.
-function questionsBlock(p, s, questions) {
+function questionsBlock(p?: Loose, s?: Loose, questions?: Loose) {
   if (!U.on(s, 'ui_qa')) return '';
   return html`<section class="qa" id="qa">
   <div class="section-head"><h2>❓ ${U.text(s, 'uit_qa_title')} ${questions.length ? html`<small>${bn(questions.length)}টি</small>` : ''}</h2></div>
   <div class="qa-grid">
-    <div>${questions.length ? html`<ul class="qa-list">${questions.map((x) => html`<li>
+    <div>${questions.length ? html`<ul class="qa-list">${questions.map((x?: Loose) => html`<li>
       <p class="qa-q"><b>প্রশ্ন:</b> ${x.question} <span class="small muted">— ${x.name || 'একজন কাস্টমার'}, ${fmtDate(x.created_at).split(',')[0]}</span></p>
       <p class="qa-a"><b>${s.store_name}:</b> ${x.answer}</p></li>`)}</ul>` : html`<p class="muted">এখনো কেউ প্রশ্ন করেননি। এই পণ্য নিয়ে কিছু জানার থাকলে প্রথম প্রশ্নটা আপনিই করুন।</p>`}</div>
     <form class="form panel qa-form" data-qa-form data-product="${p.id}" novalidate>
@@ -386,21 +386,21 @@ function questionsBlock(p, s, questions) {
   </div>
 </section>`;
 }
-function productPage({ product: p, related, settings: s, inlineProducts = {}, categories = [], tiers = [], offers = [], reviews = [], reviewStats = { count: 0 }, cross = [], upsell = [], questions = [], selectedVariant = 0, kits = [] }) {
-  const specs = U.on(s, 'ui_pdp_specs') ? (Array.isArray(p.specs) ? p.specs : []).filter((r) => Array.isArray(r) && r[0] && r[1]) : [];
+function productPage({ product: p, related, settings: s, inlineProducts = {}, categories = [], tiers = [], offers = [], reviews = [], reviewStats = { count: 0 }, cross = [], upsell = [], questions = [], selectedVariant = 0, kits = [] }: Body) {
+  const specs = U.on(s, 'ui_pdp_specs') ? (Array.isArray(p.specs) ? p.specs : []).filter((r?: Loose) => Array.isArray(r) && r[0] && r[1]) : [];
   const catNode = p.category_id ? categoryTree(categories).byId.get(p.category_id) : null;
   // 📏 size chart: the product's own category, or the nearest parent category that has one
   const sizeChart = catNode ? ([...(catNode.path || [catNode])].reverse().map((c) => String(c.size_chart || '').trim()).find(Boolean) || '') : '';
   // a product with variants shows the chosen one's price, stock and SKU (first in-stock one unless ?v= says otherwise)
   const V = Array.isArray(p.variants) ? p.variants : [];
-  const sel = V.length ? (V.find((v) => v.id === selectedVariant && v.stock > 0) || V.find((v) => v.stock > 0) || V.find((v) => v.id === selectedVariant) || V[0]) : null;
+  const sel = V.length ? (V.find((v?: Loose) => v.id === selectedVariant && v.stock > 0) || V.find((v?: Loose) => v.stock > 0) || V.find((v?: Loose) => v.id === selectedVariant) || V[0]) : null;
   const cur = sel || p;
   const off = discount(cur);
   const out = cur.stock <= 0;
   const yt = U.on(s, 'ui_pdp_video') ? youtubeId(p.youtube_url) : null;
   const images = p.images && p.images.length ? p.images : [];
   // big picture: the watermarked copy when the watermark is on (thumbnails and cards stay as they are)
-  const big = (id) => (s.wm_on === '1' && s.wm_ver ? `/media/${id}/w?v=${s.wm_ver}.r2` : `/media/${id}`);
+  const big = (id?: Id) => (s.wm_on === '1' && s.wm_ver ? `/media/${id}/w?v=${s.wm_ver}.r2` : `/media/${id}`);
   const slots = Math.max(images.length, 1);
   const C = contact(s);
   const waText = `আসসালামু আলাইকুম। এই পণ্যটি সম্পর্কে জানতে চাই:\n${p.name}${p.sku ? ` (SKU: ${p.sku})` : ''}\nদাম: ৳${p.price}`;
@@ -428,7 +428,7 @@ function productPage({ product: p, related, settings: s, inlineProducts = {}, ca
         ${off ? html`<span class="badge-off">${bn(off)}% ছাড়</span>` : ''}
       </div>
       <div class="g-thumbs" role="list">
-        ${images.map((id, i) => html`<button type="button" class="g-thumb ${i === 0 ? 'on' : ''}" data-g-img="${big(id)}" data-g-orig="/media/${id}" aria-label="ছবি ${bn(i + 1)}"><img src="/media/${id}/t" alt="${p.name} — ছবি ${bn(i + 1)}" loading="lazy" draggable="false"></button>`)}
+        ${images.map((id?: Loose, i?: Loose) => html`<button type="button" class="g-thumb ${i === 0 ? 'on' : ''}" data-g-img="${big(id)}" data-g-orig="/media/${id}" aria-label="ছবি ${bn(i + 1)}"><img src="/media/${id}/t" alt="${p.name} — ছবি ${bn(i + 1)}" loading="lazy" draggable="false"></button>`)}
         ${yt ? html`<button type="button" class="g-thumb g-thumb-video" data-g-yt aria-label="ভিডিও দেখুন"><img src="https://i.ytimg.com/vi/${yt}/mqdefault.jpg" alt="" loading="lazy" draggable="false"><span class="play">▶</span></button>` : ''}
         ${Array.from({ length: Math.max(0, 5 - slots - (yt ? 1 : 0)) }, () => html`<span class="g-thumb g-empty" aria-hidden="true"></span>`)}
       </div>
@@ -445,15 +445,15 @@ function productPage({ product: p, related, settings: s, inlineProducts = {}, ca
       </div>
       ${U.on(s, 'ui_pdp_flash') ? html`<div class="flash-box" data-p-flash ${cur.flash_ends ? '' : raw('hidden')}>⚡ <b>ফ্ল্যাশ সেল</b> — এই দাম শেষ হবে <b class="countdown" data-countdown="${cur.flash_ends ? new Date(cur.flash_ends).toISOString() : ''}"></b></div>` : ''}
       ${sel ? variantPicker(p, V, sel, big) : ''}
-      ${offers.length && U.on(s, 'ui_pdp_offers') ? html`<ul class="offer-box">${offers.map((o) => html`<li>🎁 <b>${o.label}</b>${o.ends_on ? html` <span class="small muted">(${o.ends_on} পর্যন্ত)</span>` : ''}</li>`)}</ul>` : ''}
+      ${offers.length && U.on(s, 'ui_pdp_offers') ? html`<ul class="offer-box">${offers.map((o?: Loose) => html`<li>🎁 <b>${o.label}</b>${o.ends_on ? html` <span class="small muted">(${o.ends_on} পর্যন্ত)</span>` : ''}</li>`)}</ul>` : ''}
       ${U.on(s, 'ui_pdp_tiers') ? tierBox(p, tiers, qtyRule(s, p.price).max) : ''}
       ${R.cheap && minOrder(s) > p.price ? html`<div class="small-rule">🔩 <b>কম দামের পণ্য:</b> প্রতি পিস ${money(p.price)}। ১টা করেও নেওয়া যায় — শুধু পুরো অর্ডারে মোট কমপক্ষে ${money(minOrder(s))} এর পণ্য হতে হবে (যেমন এটা ${bn(Math.ceil(minOrder(s) / p.price - 1e-9))}টি, অথবা অন্য পণ্যের সাথে মিলিয়ে)।</div>` : ''}
       ${out || U.on(s, 'ui_pdp_stock') || sel ? html`<p class="stock ${out ? 'out' : cur.stock <= cur.low_stock ? 'low' : 'ok'}" data-p-stock data-show="${U.on(s, 'ui_pdp_stock') ? '1' : ''}" ${out || U.on(s, 'ui_pdp_stock') ? '' : raw('hidden')}>${out ? (preorderOk ? 'স্টকে নেই — প্রি-অর্ডার চলছে' : 'স্টকে নেই') : cur.stock <= cur.low_stock ? `মাত্র ${bn(cur.stock)}টি বাকি আছে` : '✓ স্টকে আছে'}</p>` : ''}
       ${preorderOk ? html`<div class="preorder-note" data-pre-note ${out ? '' : raw('hidden')}>⏳ <b>প্রি-অর্ডার:</b> এখন স্টকে নেই, কিন্তু অর্ডার নেওয়া হচ্ছে। পণ্য আসতে আনুমানিক <b>${preDays ? `${bn(preDays)} দিন` : 'কিছু দিন'}</b> লাগবে — এলেই সবার আগে আপনাকে পাঠানো হবে।${s.preorder_note ? html` ${s.preorder_note}` : ''}</div>` : ''}
       ${p.short_description && U.on(s, 'ui_pdp_short') ? html`<div class="pdp-short"><p class="pdp-label">📝 সংক্ষেপে</p>${raw(md.render(p.short_description))}
         ${p.description ? html`<a class="pdp-more" href="#details">বিস্তারিত বিবরণ পড়ুন ↓</a>` : ''}</div>` : ''}
-      ${p.bundle && p.bundle.length ? html`<div class="bundle-box"><b>এই প্যাকেজে যা যা আছে:</b><ul>${p.bundle.map((b) => html`<li>${b.name} × ${bn(b.qty)}</li>`)}</ul>
-        ${(() => { const sum = p.bundle.reduce((t, b) => t + b.price * b.qty, 0); return sum > p.price ? html`<p class="save">আলাদা কিনলে ${money(sum)} — প্যাকেজে ${money(sum - p.price)} কম!</p>` : ''; })()}</div>` : ''}
+      ${p.bundle && p.bundle.length ? html`<div class="bundle-box"><b>এই প্যাকেজে যা যা আছে:</b><ul>${p.bundle.map((b?: Loose) => html`<li>${b.name} × ${bn(b.qty)}</li>`)}</ul>
+        ${(() => { const sum = p.bundle.reduce((t?: Loose, b?: Loose) => t + b.price * b.qty, 0); return sum > p.price ? html`<p class="save">আলাদা কিনলে ${money(sum)} — প্যাকেজে ${money(sum - p.price)} কম!</p>` : ''; })()}</div>` : ''}
       ${(out && !preorderOk) || short ? html`${short ? html`<p class="qty-limit">এই পণ্যটি কমপক্ষে ${bn(R.min)}টি নিতে হয়, কিন্তু স্টকে আছে ${bn(cur.stock)}টি। নিতে চাইলে সরাসরি যোগাযোগ করুন।</p>` : ''}<div class="buy-box">${C.phone ? html`<a class="btn btn-ghost btn-lg" href="tel:${C.phone}">📞 স্টক জানতে কল করুন</a>` : ''}${waBtn}</div>${out ? notifyBox(cur.id, s) : ''}${compareBtn(p, s)}` : html`<div class="buy-box" data-buy-box ${preorderOk ? raw('data-preorder="1"') : ''}>
         <div class="qty" data-qty ${U.on(s, 'ui_pdp_qty') ? '' : raw('hidden')}>
           <button type="button" data-step="-1" aria-label="কমান">−</button>
@@ -469,7 +469,7 @@ function productPage({ product: p, related, settings: s, inlineProducts = {}, ca
       ${sizeChart ? html`<details class="size-guide"><summary>📏 সাইজ গাইড দেখুন</summary><div class="rich">${raw(md.render(sizeChart))}</div></details>` : ''}
       ${s.price_alert_on !== '0' && !out ? priceAlertBox(cur.id, cur.price) : ''}
       ${shareRow(p, s)}
-      ${kits.length ? html`<p class="kit-links">🧰 এই পণ্যটি এই প্রজেক্ট কিটে আছে: ${kits.map((k, i) => html`${i ? ', ' : ''}<a href="/kit/${k.slug}">${k.title}</a>`)}</p>` : ''}
+      ${kits.length ? html`<p class="kit-links">🧰 এই পণ্যটি এই প্রজেক্ট কিটে আছে: ${kits.map((k?: Loose, i?: Loose) => html`${i ? ', ' : ''}<a href="/kit/${k.slug}">${k.title}</a>`)}</p>` : ''}
       ${U.on(s, 'ui_pdp_facts') ? html`<ul class="pdp-facts">
         <li>🚚 ঢাকা সিটিতে <b>${delText(s.del_days_dhaka, '1-2')}</b>, চার্জ ${money(s.delivery_dhaka)} · ঢাকার বাইরে <b>${delText(s.del_days_outside, '2-4')}</b>, চার্জ ${money(s.delivery_outside)}</li>
         ${out && !preorderOk ? '' : html`<li class="del-eta" data-del-eta data-dhaka="${s.del_days_dhaka || '1-2'}" data-outside="${s.del_days_outside || '2-4'}" data-cutoff="${s.del_cutoff_hour || '17'}" data-extra="${out && preorderOk ? Number(p.preorder_days) || 0 : 0}" hidden></li>`}
@@ -520,16 +520,16 @@ ${out || short || !U.on(s, 'ui_pdp_sticky') ? '' : html`<div class="sticky-buy" 
   <button class="btn btn-amber" data-add="${cur.id}" data-name="${cur.name}" data-price="${cur.price}" data-with-qty data-buy-now>${U.text(s, 'uit_buy_now')}</button></div>`}`;
 }
 // ⚖️ put this product in the comparison list (kept in the shopper's own browser, up to 4 products)
-function compareBtn(p, s) {
+function compareBtn(p?: Loose, s?: Loose) {
   return U.on(s, 'ui_compare') ? html`<p class="pdp-tools"><button type="button" class="link-btn compare-btn" data-compare="${p.id}" aria-pressed="false" title="অন্য পণ্যের সাথে পাশাপাশি তুলনা করুন">⚖️ তুলনা</button></p>` : '';
 }
 // 🕘 the products this shopper looked at lately (filled in by the browser from its own list)
-function recentBox(s) {
+function recentBox(s?: Loose) {
   return html`<section class="recent-box" data-recent-box hidden><div class="section-head"><h2>${U.text(s, 'uit_recent')}</h2><button type="button" class="link-btn small" data-recent-clear>মুছে দিন</button></div><div class="grid" data-recent-list></div></section>`;
 }
 
 // ---------------------------------------------------------------- cart & checkout
-function cartPage({ settings }) {
+function cartPage({ settings }: Body) {
   return html`<div class="wrap section narrow">
   <h1>আপনার কার্ট</h1>
   <div id="cart-root" data-cart-page data-free-min="${U.on(settings, 'ui_cart_free_msg') ? settings.free_delivery_min : 0}"><p class="muted">লোড হচ্ছে…</p></div>
@@ -537,19 +537,19 @@ function cartPage({ settings }) {
 </div>${settings.for_you_on !== '0' ? html`<div class="wrap">${forYouBox()}</div>` : ''}`;
 }
 // 🧰 project kits: the list, and one kit with its parts (tick what you need → all into the cart)
-function kitsPage({ kits }) {
+function kitsPage({ kits }: Body) {
   return html`<div class="wrap section">
   <nav class="crumbs" aria-label="অবস্থান"><a href="/">হোম</a> / <span>প্রজেক্ট কিট</span></nav>
   <h1>🧰 প্রজেক্ট কিট</h1>
   <p class="muted">একটা প্রজেক্ট বানাতে যা যা লাগে, সব এক জায়গায়। যেটা আপনার কাছে আছে সেটা বাদ দিয়ে বাকি সব এক চাপে কার্টে নিন।</p>
-  ${kits.length ? html`<div class="kit-grid">${kits.map((k) => html`<a class="kit-card panel" href="/kit/${k.slug}">
+  ${kits.length ? html`<div class="kit-grid">${kits.map((k?: Loose) => html`<a class="kit-card panel" href="/kit/${k.slug}">
     <span class="kit-pic">${k.image_id ? html`<img src="/media/${k.image_id}/t" alt="" loading="lazy" draggable="false">` : html`<span>${k.emoji}</span>`}</span>
     <span class="kit-body"><b>${k.title}</b><span class="small muted">${bn(k.parts)}টি পার্টস · মোট প্রায় ${money(k.base_total)}${k.level ? ` · ${k.level}` : ''}</span></span></a>`)}</div>`
   : html`<p class="muted">শীঘ্রই আসছে।</p>`}
 </div>`;
 }
-function kitPage({ kit: k, settings: s }) {
-  const rule = (price) => qtyRule(s, price);
+function kitPage({ kit: k, settings: s }: Body) {
+  const rule = (price?: Loose) => qtyRule(s, price);
   const steps = $models_kits.stepList(k);
   return html`<div class="wrap section" data-kit-page>
   <nav class="crumbs" aria-label="অবস্থান"><a href="/">হোম</a> / <a href="/kits">প্রজেক্ট কিট</a> / <span>${k.title}</span></nav>
@@ -563,7 +563,7 @@ function kitPage({ kit: k, settings: s }) {
     <h2>যা যা লাগবে</h2>
     <p class="small muted">আপনার কাছে আগে থেকে যেটা আছে সেটার টিক তুলে দিন। পরিমাণ বদলাতে পারবেন।</p>
     <ul class="kit-parts">
-      ${k.items.map((i) => {
+      ${k.items.map((i?: Loose) => {
     const p = i.product; const out = p.stock <= 0 && !p.preorder;
     return html`<li class="kit-part ${out ? 'is-out' : ''}" data-kit-item data-id="${p.id}" data-price="${p.price}">
         <label class="kit-tick"><input type="checkbox" data-kit-on ${!i.optional && !out ? raw('checked') : ''} ${out ? raw('disabled') : ''} aria-label="${p.name} নেব"></label>
@@ -593,7 +593,7 @@ function forYouBox() {
   return html`<section class="recent-box for-you" data-for-you hidden><div class="section-head"><h2>✨ আপনার জন্য</h2></div><div class="grid" data-for-you-list></div></section>`;
 }
 
-function wishlistPage({ products, settings, asked }) {
+function wishlistPage({ products, settings, asked }: Body) {
   return html`<div class="wrap section" data-wish-page ${asked ? '' : raw('data-wish-load')}>
   <h1>♡ পছন্দের তালিকা ${products.length ? html`<small>${bn(products.length)}টি</small>` : ''}</h1>
   <p class="muted small">এই তালিকা শুধু এই ফোন/কম্পিউটারের ব্রাউজারে রাখা থাকে। পণ্যের ♡ চিহ্নে চাপ দিয়ে যোগ করুন বা সরান।</p>
@@ -601,41 +601,41 @@ function wishlistPage({ products, settings, asked }) {
 </div>`;
 }
 // ⚖️ products side by side: price, stock, rating, warranty, brand and every specification any of them has
-function comparePage({ products: P, settings: s, asked }) {
+function comparePage({ products: P, settings: s, asked }: Body) {
   if (!asked) return html`<div class="wrap section" data-compare-page data-compare-load><h1>⚖️ পণ্য তুলনা</h1><p class="muted">লোড হচ্ছে…</p></div>`;
   if (P.length < 1) return html`<div class="wrap section" data-compare-page><h1>⚖️ পণ্য তুলনা</h1><div class="empty"><p>তুলনার তালিকা খালি। পণ্যের পেজে "⚖️ তুলনা" বাটনে চাপ দিয়ে ২ থেকে ৪টা পণ্য যোগ করুন।</p><a class="btn" href="/products">পণ্য দেখুন</a></div></div>`;
-  const keys = [];
-  P.forEach((p) => (Array.isArray(p.specs) ? p.specs : []).forEach((r) => { if (Array.isArray(r) && r[0] && !keys.includes(r[0])) keys.push(r[0]); }));
-  const spec = (p, k) => { const r = (Array.isArray(p.specs) ? p.specs : []).find((x) => Array.isArray(x) && x[0] === k); return r ? r[1] : '—'; };
+  const keys: Loose[] = [];
+  P.forEach((p?: Loose) => (Array.isArray(p.specs) ? p.specs : []).forEach((r?: Loose) => { if (Array.isArray(r) && r[0] && !keys.includes(r[0])) keys.push(r[0]); }));
+  const spec = (p?: Loose, k?: Loose) => { const r = (Array.isArray(p.specs) ? p.specs : []).find((x?: Loose) => Array.isArray(x) && x[0] === k); return r ? r[1] : '—'; };
   const W = $models_catalog.warrantyText;
-  const row = (label, cells) => html`<tr><th scope="row">${label}</th>${cells}</tr>`;
+  const row = (label?: Loose, cells?: Loose) => html`<tr><th scope="row">${label}</th>${cells}</tr>`;
   return html`<div class="wrap section" data-compare-page>
   <div class="title-row"><h1>⚖️ পণ্য তুলনা <small>${bn(P.length)}টি</small></h1><button type="button" class="btn btn-sm btn-ghost" data-compare-clear>সব সরান</button></div>
   ${P.length < 2 ? html`<p class="note">আরেকটা পণ্য যোগ করুন — পণ্যের পেজে "⚖️ তুলনা" বাটনে চাপ দিন।</p>` : ''}
   <div class="table-wrap compare-wrap"><table class="compare-table">
-    <thead><tr><th></th>${P.map((p) => html`<th scope="col"><a href="/p/${p.slug}" class="cmp-pic">${img(p)}</a><a href="/p/${p.slug}" class="cmp-name">${p.name}</a>
+    <thead><tr><th></th>${P.map((p?: Loose) => html`<th scope="col"><a href="/p/${p.slug}" class="cmp-pic">${img(p)}</a><a href="/p/${p.slug}" class="cmp-name">${p.name}</a>
       <button type="button" class="link-btn small danger" data-compare-remove="${p.id}">✕ সরান</button></th>`)}</tr></thead>
     <tbody>
-      ${row('দাম', P.map((p) => html`<td><b class="price">${money(p.price)}</b>${p.variant_count > 0 ? ' থেকে' : ''}${p.old_price > p.price ? html` <s class="old-price">${money(p.old_price)}</s>` : ''}</td>`))}
-      ${row('স্টক', P.map((p) => html`<td>${p.stock > 0 ? html`<span class="good">✓ আছে</span>` : html`<span class="warn">স্টকে নেই</span>`}</td>`))}
-      ${s.reviews_on !== '0' ? row('রেটিং', P.map((p) => html`<td>${p.review_stats && p.review_stats.count ? html`${stars(p.review_stats.avg)} <span class="small">(${bn(p.review_stats.count)})</span>` : '—'}</td>`)) : ''}
-      ${row('ব্র্যান্ড', P.map((p) => html`<td>${p.brand || '—'}</td>`))}
-      ${row('মডেল', P.map((p) => html`<td>${p.model || '—'}</td>`))}
-      ${row('ক্যাটাগরি', P.map((p) => html`<td>${p.category_name || '—'}</td>`))}
-      ${row('ওয়ারেন্টি', P.map((p) => html`<td>${W(p) || '—'}</td>`))}
-      ${P.some((p) => p.variant_count > 0) ? row('অপশন', P.map((p) => html`<td class="small">${(p.variants || []).map((v) => v.variant_label).join(', ') || '—'}</td>`)) : ''}
-      ${keys.map((k) => row(k, P.map((p) => html`<td>${spec(p, k)}</td>`)))}
-      ${row('সংক্ষেপে', P.map((p) => html`<td class="small">${md.plain(p.short_description || p.description || '', 220) || '—'}</td>`))}
-      ${row('', P.map((p) => html`<td>${p.stock > 0 ? (p.variant_count > 0 ? html`<a class="btn btn-sm btn-block" href="/p/${p.slug}">অপশন বাছুন</a>` : html`<button class="btn btn-sm btn-block btn-add" data-add="${p.id}" data-name="${p.name}" data-price="${p.price}">কার্টে যোগ করুন</button>`) : ''}</td>`))}
+      ${row('দাম', P.map((p?: Loose) => html`<td><b class="price">${money(p.price)}</b>${p.variant_count > 0 ? ' থেকে' : ''}${p.old_price > p.price ? html` <s class="old-price">${money(p.old_price)}</s>` : ''}</td>`))}
+      ${row('স্টক', P.map((p?: Loose) => html`<td>${p.stock > 0 ? html`<span class="good">✓ আছে</span>` : html`<span class="warn">স্টকে নেই</span>`}</td>`))}
+      ${s.reviews_on !== '0' ? row('রেটিং', P.map((p?: Loose) => html`<td>${p.review_stats && p.review_stats.count ? html`${stars(p.review_stats.avg)} <span class="small">(${bn(p.review_stats.count)})</span>` : '—'}</td>`)) : ''}
+      ${row('ব্র্যান্ড', P.map((p?: Loose) => html`<td>${p.brand || '—'}</td>`))}
+      ${row('মডেল', P.map((p?: Loose) => html`<td>${p.model || '—'}</td>`))}
+      ${row('ক্যাটাগরি', P.map((p?: Loose) => html`<td>${p.category_name || '—'}</td>`))}
+      ${row('ওয়ারেন্টি', P.map((p?: Loose) => html`<td>${W(p) || '—'}</td>`))}
+      ${P.some((p?: Loose) => p.variant_count > 0) ? row('অপশন', P.map((p?: Loose) => html`<td class="small">${(p.variants || []).map((v?: Loose) => v.variant_label).join(', ') || '—'}</td>`)) : ''}
+      ${keys.map((k) => row(k, P.map((p?: Loose) => html`<td>${spec(p, k)}</td>`)))}
+      ${row('সংক্ষেপে', P.map((p?: Loose) => html`<td class="small">${md.plain(p.short_description || p.description || '', 220) || '—'}</td>`))}
+      ${row('', P.map((p?: Loose) => html`<td>${p.stock > 0 ? (p.variant_count > 0 ? html`<a class="btn btn-sm btn-block" href="/p/${p.slug}">অপশন বাছুন</a>` : html`<button class="btn btn-sm btn-block btn-add" data-add="${p.id}" data-name="${p.name}" data-price="${p.price}">কার্টে যোগ করুন</button>`) : ''}</td>`))}
     </tbody></table></div>
 </div>`;
 }
-function cartSuggest(s) {
+function cartSuggest(s?: Loose) {
   return html`<section class="panel cart-suggest" data-cart-suggest hidden><h2>${U.text(s, 'uit_cart_suggest')}</h2><ul class="suggest-list" data-suggest-list></ul></section>`;
 }
-function checkoutPage({ settings: s, methods, cityAreas, zones = [], account = null, refCode = '', otp = false }) {
+function checkoutPage({ settings: s, methods, cityAreas, zones = [], account = null, refCode = '', otp = false }: Body) {
   const addrs = account ? account.addresses || [] : [];
-  const def = addrs.find((a) => a.is_default) || addrs[0] || null;
+  const def = addrs.find((a?: Loose) => a.is_default) || addrs[0] || null;
   const pre = account ? { name: (def && def.name) || account.name || '', phone: (def && def.phone) || account.phone || '', district: def ? def.district : '', thana: def ? def.thana : '', address: def ? def.address : '' } : null;
   return html`<div class="wrap section">
   <h1>অর্ডার করুন</h1>
@@ -645,7 +645,7 @@ function checkoutPage({ settings: s, methods, cityAreas, zones = [], account = n
     <form class="form panel" id="checkout-form" novalidate ${s.draft_capture_on !== '0' ? raw('data-draft') : ''} ${pre ? raw('data-account') : ''}>
       <h2>ডেলিভারির তথ্য</h2>
       ${addrs.length ? html`<div class="field"><label for="saved-addr">📍 সেভ করা ঠিকানা</label><select id="saved-addr" data-saved-addr>
-        ${addrs.map((a) => html`<option value="${a.id}" data-a="${JSON.stringify({ name: a.name || account.name || '', phone: a.phone || account.phone || '', district: a.district, thana: a.thana, address: a.address })}" ${def && a.id === def.id ? raw('selected') : ''}>${a.label || 'ঠিকানা'} — ${String(a.address).slice(0, 40)}</option>`)}
+        ${addrs.map((a?: Loose) => html`<option value="${a.id}" data-a="${JSON.stringify({ name: a.name || account.name || '', phone: a.phone || account.phone || '', district: a.district, thana: a.thana, address: a.address })}" ${def && a.id === def.id ? raw('selected') : ''}>${a.label || 'ঠিকানা'} — ${String(a.address).slice(0, 40)}</option>`)}
         <option value="">+ নতুন ঠিকানা লিখব</option></select></div>` : ''}
       <div class="field"><label for="name">আপনার নাম</label><input id="name" name="name" required autocomplete="name" maxlength="80" value="${pre ? pre.name : ''}"></div>
       <div class="field"><label for="phone">মোবাইল নম্বর</label>
@@ -671,7 +671,7 @@ function checkoutPage({ settings: s, methods, cityAreas, zones = [], account = n
       ${U.on(s, 'ui_co_note') ? html`<div class="field"><label for="note">${U.text(s, 'uit_co_note')}</label><input id="note" name="note" maxlength="300"></div>` : html`<input type="hidden" id="note" name="note" value="">`}
       <h2>পেমেন্ট</h2>
       <div class="pay-methods" role="radiogroup">
-        ${methods.map((m, i) => html`<label class="pay-opt"><input type="radio" name="payment" value="${m.id}" ${i === 0 ? raw('checked') : ''} data-manual="${m.manual ? '1' : ''}" data-number="${m.number || ''}" data-advance="${m.advance || ''}" data-number-label="${m.numberLabel || ''}">
+        ${methods.map((m?: Loose, i?: Loose) => html`<label class="pay-opt"><input type="radio" name="payment" value="${m.id}" ${i === 0 ? raw('checked') : ''} data-manual="${m.manual ? '1' : ''}" data-number="${m.number || ''}" data-advance="${m.advance || ''}" data-number-label="${m.numberLabel || ''}">
           <span><b>${m.label}</b><small>${m.note}</small></span></label>`)}
       </div>
       <div class="manual-pay" data-manual-box hidden>
@@ -718,16 +718,16 @@ function checkoutPage({ settings: s, methods, cityAreas, zones = [], account = n
 
 const STEPS = ['pending', 'confirmed', 'processing', 'shipped', 'delivered'];
 // 01712345678 -> 017•••••678 (shown to anyone who only has the order number)
-function maskPhone(p) { const s = String(p || ''); return s.length > 6 ? s.slice(0, 3) + '•'.repeat(s.length - 6) + s.slice(-3) : '•••'; }
+function maskPhone(p?: Loose) { const s = String(p || ''); return s.length > 6 ? s.slice(0, 3) + '•'.repeat(s.length - 6) + s.slice(-3) : '•••'; }
 
 // After delivery: one review per product, only for the order's owner (placed on this browser or opened with
 // order number + mobile number). Everyone else sees how to open it.
-function orderReviews(order, items, mine, s = {}) {
+function orderReviews(order?: Loose, items?: Loose, mine?: Loose, s: Loose = {}) {
   return html`<section class="panel order-reviews" id="review">
     <h2>⭐ পণ্যগুলো কেমন লাগলো?</h2>
     ${!mine ? html`<p class="muted">রিভিউ দিতে আগে <a href="/track?code=${order.code}">অর্ডার ট্র্যাক</a> পেজে অর্ডার নম্বর আর যে মোবাইল নম্বরে অর্ডার করেছিলেন সেটা দিন।</p>`
     : html`<p class="muted small">আপনি পণ্য হাতে পেয়েছেন — আপনার মতামত অন্য কাস্টমারদের সাহায্য করবে। প্রতিটা পণ্যে একবার রিভিউ দেওয়া যায়।</p>
-    <ul class="order-review-list">${items.map((it) => html`<li>
+    <ul class="order-review-list">${items.map((it?: Loose) => html`<li>
       <p><b>${it.name}</b>${it.review_id ? html` <span class="verified">✓ রিভিউ দিয়েছেন${it.status === 'pending' ? ' (যাচাই চলছে)' : ''}</span>` : ''}</p>
       ${it.review_id ? '' : html`<details><summary class="btn btn-sm btn-ghost">✍️ রিভিউ দিন</summary>
       <form class="form review-form" data-review-form data-product="${it.product_id}" data-code="${order.code}">
@@ -745,7 +745,7 @@ function orderReviews(order, items, mine, s = {}) {
     </li>`)}</ul>`}
   </section>`;
 }
-function orderPage({ order, settings: s, fresh, payFailed, trackUrl, mine = false, reviewItems = [], selfMsg = {}, otpActive = false }) {
+function orderPage({ order, settings: s, fresh, payFailed, trackUrl, mine = false, reviewItems = [], selfMsg = {}, otpActive = false }: Body) {
   const cancelled = O.RELEASED.has(order.status);
   const at = STEPS.indexOf(order.status === 'hold' ? 'confirmed' : order.status);
   const due = Math.max(0, order.total - (order.paid_amount || 0));
@@ -774,7 +774,7 @@ function orderPage({ order, settings: s, fresh, payFailed, trackUrl, mine = fals
   <div class="panel">
     <h2>পণ্যসমূহ</h2>
     <table class="lines"><tbody>
-      ${order.items.map((it) => html`<tr><td>${it.name} <span class="muted">× ${bn(it.qty)}</span>${it.note ? html`<br><span class="small good">${it.note}</span>` : ''}${it.preorder_qty > 0 && !['delivered', 'shipped'].includes(order.status) ? html`<br><span class="small preorder-line">⏳ প্রি-অর্ডার: ${bn(it.preorder_qty)}টি স্টকে এলেই পাঠানো হবে</span>` : ''}</td><td class="num">${it.kind === 'gift' && !Number(it.price) ? 'ফ্রি' : money(it.price * it.qty)}</td></tr>`)}
+      ${order.items.map((it?: Loose) => html`<tr><td>${it.name} <span class="muted">× ${bn(it.qty)}</span>${it.note ? html`<br><span class="small good">${it.note}</span>` : ''}${it.preorder_qty > 0 && !['delivered', 'shipped'].includes(order.status) ? html`<br><span class="small preorder-line">⏳ প্রি-অর্ডার: ${bn(it.preorder_qty)}টি স্টকে এলেই পাঠানো হবে</span>` : ''}</td><td class="num">${it.kind === 'gift' && !Number(it.price) ? 'ফ্রি' : money(it.price * it.qty)}</td></tr>`)}
     </tbody><tfoot>
       <tr><td>পণ্যের দাম</td><td class="num">${money(order.subtotal)}</td></tr>
       ${order.discount ? html`<tr><td>ছাড়${order.coupon_code ? ` (${order.coupon_code})` : ''}</td><td class="num">− ${money(order.discount)}</td></tr>` : ''}
@@ -799,12 +799,12 @@ function orderPage({ order, settings: s, fresh, payFailed, trackUrl, mine = fals
 }
 
 // 👍 right after ordering, the happiest moment: ask to follow the Facebook page (owner wants page followers)
-function fbPageUrl(s) {
+function fbPageUrl(s?: Loose) {
   const u = String(s.social_facebook || '').trim();
   if (/^https?:\/\/(www\.|m\.)?(facebook|fb)\.com\//i.test(u)) return u;
   return s.autopost_page_id ? `https://www.facebook.com/${encodeURIComponent(s.autopost_page_id)}` : '';
 }
-function followBox(s) {
+function followBox(s?: Loose) {
   const url = fbPageUrl(s);
   if (!url || s.follow_box_on === '0') return '';
   return html`<section class="panel follow-box" style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;border-left:4px solid #1877f2">
@@ -814,16 +814,16 @@ function followBox(s) {
   </section>`;
 }
 // 🛡️ delivered products with a warranty: until when, and a button to claim it online
-function warrantyBox(order) {
+function warrantyBox(order?: Loose) {
   const items = $models_complaints.warrantyItems(order);
   if (!items.length) return '';
   return html`<section class="panel warranty-box"><h2>🛡️ ওয়ারেন্টি</h2><ul class="warranty-list">
-    ${items.map((x) => html`<li><span><b translate="no">${x.name}</b><br><span class="small ${x.valid ? 'good' : 'muted'}">${x.end instanceof Date ? (x.valid ? `ওয়ারেন্টি আছে ${fmtDate(x.end, false)} পর্যন্ত` : `ওয়ারেন্টি শেষ হয়েছে ${fmtDate(x.end, false)}`) : 'ওয়ারেন্টি আছে'}</span></span>
+    ${items.map((x?: Loose) => html`<li><span><b translate="no">${x.name}</b><br><span class="small ${x.valid ? 'good' : 'muted'}">${x.end instanceof Date ? (x.valid ? `ওয়ারেন্টি আছে ${fmtDate(x.end, false)} পর্যন্ত` : `ওয়ারেন্টি শেষ হয়েছে ${fmtDate(x.end, false)}`) : 'ওয়ারেন্টি আছে'}</span></span>
       ${x.valid ? html`<a class="btn btn-sm btn-ghost" href="/complaint?order=${order.code}&topic=warranty&item=${x.product_id}">ওয়ারেন্টি দাবি করুন</a>` : ''}</li>`)}
   </ul></section>`;
 }
 // 🙋 the customer's own changes (until the parcel goes to the courier): change name / number / address, or cancel
-function selfPanel(order, s, otpActive) {
+function selfPanel(order?: Loose, s?: Loose, otpActive?: Loose) {
   const SS = $models_selfservice;
   return html`<section class="panel self-panel" id="self">
   <h2>অর্ডারে কিছু বদলাতে চান?</h2>
@@ -860,7 +860,7 @@ function selfPanel(order, s, otpActive) {
 <script src="/js/bd-geo.js" defer></script>`;
 }
 
-function trackPage({ error, code, phone }) {
+function trackPage({ error, code, phone }: Body) {
   return html`<div class="wrap section narrow">
   <h1>অর্ডার ট্র্যাক করুন</h1>
   <form class="form panel" method="get" action="/track">
@@ -874,19 +874,19 @@ function trackPage({ error, code, phone }) {
 }
 
 // ---------------------------------------------------------------- blog & pages
-function postCard(p) {
+function postCard(p?: Loose) {
   return html`<article class="post-card"><a href="/blog/${p.slug}" class="post-pic">${p.cover_id ? html`<img src="/media/${p.cover_id}/t" alt="" loading="lazy" draggable="false">` : html`<span>📝</span>`}</a>
     <div><span class="small muted">${p.category_name || ''} · ${fmtDate(p.published_at, false)}</span><h3><a href="/blog/${p.slug}">${p.title}</a></h3><p>${p.excerpt}</p></div></article>`;
 }
-function blogList({ posts, categories, category }) {
+function blogList({ posts, categories, category }: Body) {
   return html`<div class="wrap section">
   <nav class="crumbs"><a href="/">হোম</a> / <a href="/blog">ব্লগ</a>${category ? html` / <span>${category.name}</span>` : ''}</nav>
   <h1>${category ? category.name : 'ব্লগ ও টিপস'}</h1>
-  ${categories.length ? html`<div class="chips"><a class="chip ${!category ? 'on' : ''}" href="/blog">সব</a>${categories.map((c) => html`<a class="chip ${category && category.id === c.id ? 'on' : ''}" href="/blog/category/${c.slug}">${c.name}</a>`)}</div>` : ''}
+  ${categories.length ? html`<div class="chips"><a class="chip ${!category ? 'on' : ''}" href="/blog">সব</a>${categories.map((c?: Loose) => html`<a class="chip ${category && category.id === c.id ? 'on' : ''}" href="/blog/category/${c.slug}">${c.name}</a>`)}</div>` : ''}
   ${posts.length ? html`<div class="post-grid">${posts.map(postCard)}</div>` : html`<div class="empty"><p>এখনো কোনো লেখা নেই।</p></div>`}
 </div>`;
 }
-function blogPost({ post, contentHtml, related }) {
+function blogPost({ post, contentHtml, related }: Body) {
   return html`<div class="wrap section narrow">
   <nav class="crumbs"><a href="/">হোম</a> / <a href="/blog">ব্লগ</a>${post.category_slug ? html` / <a href="/blog/category/${post.category_slug}">${post.category_name}</a>` : ''}</nav>
   <article class="post rich">
@@ -898,7 +898,7 @@ function blogPost({ post, contentHtml, related }) {
   ${related.length ? html`<h2>আরও পড়ুন</h2><div class="post-grid">${related.map(postCard)}</div>` : ''}
 </div>`;
 }
-function staticPage({ page }) {
+function staticPage({ page }: Body) {
   return html`<div class="wrap section narrow"><nav class="crumbs"><a href="/">হোম</a> / <span>${page.title}</span></nav>
   <article class="post rich"><h1>${page.title}</h1>${raw(md.render(page.content))}</article></div>`;
 }
@@ -912,7 +912,7 @@ function notFound() {
 }
 
 // ---------------------------------------------------------------- live scores
-function livePage({ sport, on, data, embed, settings }) {
+function livePage({ sport, on, data, embed, settings }: Body) {
   const tabs = [['cricket', '🏏 ক্রিকেট'], ['football', '⚽ ফুটবল']].filter(([k]) => on[k]);
   const refresh = Math.min(120, Math.max(10, Number(settings.live_refresh) || 20));
   return html`<div class="wrap section live">

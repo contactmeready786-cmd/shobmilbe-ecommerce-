@@ -1,4 +1,3 @@
-// @ts-nocheck — converted from JavaScript; types are added file by file.
 // 🔐 চেকআউট OTP — the customer proves the mobile number before an order goes in.
 //
 // At checkout, under the mobile number: a small box + "OTP পাঠান". A 4-digit code goes by SMS; when it is typed
@@ -34,22 +33,23 @@ const COOKIE = 'sm_vph';   // numbers checked in this browser
 const DEF_SMS = '{shop}: অর্ডার যাচাই কোড {code}। কাউকে বলবেন না।';
 
 class OtpError extends Error {
-  constructor(msg, extra = {}) { super(msg); Object.assign(this, extra); }
+  declare expired?: boolean;
+  constructor(msg: string, extra: Record<string, unknown> = {}) { super(msg); Object.assign(this, extra); }
 }
 
-const on = (s) => s.co_otp_on === '1';
-const sendReady = (s) => $services_sms.ready(s);
-const smsReady = (s) => sendReady(s).ok;
+const on = (s?: Loose) => s.co_otp_on === '1';
+const sendReady = (s?: Loose) => $services_sms.ready(s);
+const smsReady = (s?: Loose) => sendReady(s).ok;
 // is the box shown at checkout? — whenever the switch is on
-const active = (s) => on(s);
-const rememberDays = (s) => Math.max(0, Math.min(365, int(s.co_otp_remember_days)));
-const bnDigits = (v) => String(v || '').replace(/[০-৯]/g, (d) => String('০১২৩৪৫৬৭৮৯'.indexOf(d)));
-const hashCode = (phone, code, secret) => crypto.createHmac('sha256', String(secret)).update(`co:${phone}:${code}`).digest('hex');
+const active = (s?: Loose) => on(s);
+const rememberDays = (s?: Loose) => Math.max(0, Math.min(365, int(s.co_otp_remember_days)));
+const bnDigits = (v?: Loose) => String(v || '').replace(/[০-৯]/g, (d) => String('০১২৩৪৫৬৭৮৯'.indexOf(d)));
+const hashCode = (phone?: Loose, code?: Loose, secret?: Loose) => crypto.createHmac('sha256', String(secret)).update(`co:${phone}:${code}`).digest('hex');
 
 // ---------- signed proofs: "this number was checked" (sent with the order) ----------
 // kind: otp = code typed
-function token(s, phone, kind) { return sign(`cov:${phone}:${kind}:${Date.now()}`, s.session_secret); }
-function readToken(s, t) {
+function token(s?: Loose, phone?: Loose, kind?: Loose) { return sign(`cov:${phone}:${kind}:${Date.now()}`, s.session_secret); }
+function readToken(s?: Loose, t?: Loose) {
   const v = unsign(String(t || ''), s.session_secret);
   if (!v) return null;
   const [k, phone, kind, at] = v.split(':');
@@ -57,14 +57,14 @@ function readToken(s, t) {
   return { phone, kind };
 }
 // ---------- the browser's list of checked numbers ----------
-function remembered(req, s) {
+function remembered(req?: Loose, s?: Loose) {
   const days = rememberDays(s);
   if (!days) return [];
   const v = unsign(parseCookies(req.headers.cookie)[COOKIE], s.session_secret);
   if (!v) return [];
   return v.split('.').map((x) => x.split('-')).filter(([p, t]) => validPhone(p) && Date.now() - Number(t) * 1000 < days * 864e5).map(([p, t]) => ({ phone: p, t: Number(t) }));
 }
-function rememberCookie(req, s, phone) {
+function rememberCookie(req?: Loose, s?: Loose, phone?: Loose) {
   const days = rememberDays(s);
   if (!days) return null;
   const list = [{ phone, t: Math.floor(Date.now() / 1000) }, ...remembered(req, s).filter((r) => r.phone !== phone)].slice(0, 5);
@@ -73,7 +73,7 @@ function rememberCookie(req, s, phone) {
 }
 
 // Does this number still need a code here? → null (no) or the reason it doesn't: 'account' / 'acct' / 'email_acct' / 'remembered'
-async function noNeedWhy(req, s, phone) {
+async function noNeedWhy(req?: Loose, s?: Loose, phone?: Loose) {
   const A = $accounts;
   const cu = await A.current(req, s).catch(() => null);
   if (cu && cu.phone === phone) return 'account';
@@ -85,7 +85,7 @@ async function noNeedWhy(req, s, phone) {
 
 // ---------- send a code ----------
 // → { sent: true, wait } — or throws OtpError with a message for the customer
-async function sendCode(req, s, phone, ip, site = '') {
+async function sendCode(req?: Loose, s?: Loose, phone?: Loose, ip?: Loose, site = '') {
   const SMS = $services_sms;
   const ph = normalizePhone(phone);
   if (!validPhone(ph)) throw new OtpError('সঠিক মোবাইল নম্বর দিন, যেমন 01712345678।');
@@ -107,7 +107,7 @@ async function sendCode(req, s, phone, ip, site = '') {
   const cap = int(s.co_otp_daily_cap);
   if (cap > 0) {
     const today = await db.one(`SELECT count(*)::int AS n FROM checkout_otps WHERE sent_ok AND created_at > now() - interval '1 day'`);
-    if (today.n >= cap) return cannotSend();
+    if (today!.n >= cap) return cannotSend();
   }
 
   const code = String(crypto.randomInt(0, 10 ** CODE_LEN)).padStart(CODE_LEN, '0');
@@ -120,19 +120,19 @@ async function sendCode(req, s, phone, ip, site = '') {
     [ph, hashCode(ph, code, s.session_secret), CODE_MIN, str(ip, 60)]);
   const r = await SMS.send(s, ph, text, { kind: 'checkout_otp' });
   if (!r.ok) {
-    await db.q('UPDATE checkout_otps SET sent_ok=false, used=true WHERE id=$1', [row.id]);
+    await db.q('UPDATE checkout_otps SET sent_ok=false, used=true WHERE id=$1', [row!.id]);
     throw new OtpError(NOSEND);
   }
-  if (r.id) await db.q('UPDATE checkout_otps SET gw_id=$1 WHERE id=$2', [str(r.id, 80), row.id]).catch(() => {});
+  if (r.id) await db.q('UPDATE checkout_otps SET gw_id=$1 WHERE id=$2', [str(r.id, 80), row!.id]).catch(() => {});
   // older codes for this number stop working (only the newest counts)
-  await db.q('UPDATE checkout_otps SET used=true WHERE phone=$1 AND id<>$2 AND NOT used', [ph, row.id]);
+  await db.q('UPDATE checkout_otps SET used=true WHERE phone=$1 AND id<>$2 AND NOT used', [ph, row!.id]);
   db.q("DELETE FROM checkout_otps WHERE created_at < now() - interval '60 days'").catch(() => {});
   return { sent: true, wait: RESEND_SEC };
 }
 
 // ---------- check a code ----------
 // → the proof token for the order (and the "remember" cookie) — or throws OtpError
-async function verifyCode(s, phone, code) {
+async function verifyCode(s?: Loose, phone?: Loose, code?: Loose) {
   const ph = normalizePhone(phone);
   const c = bnDigits(code).replace(/\D/g, '');
   if (!validPhone(ph)) throw new OtpError('সঠিক মোবাইল নম্বর দিন।');
@@ -158,21 +158,21 @@ async function verifyCode(s, phone, code) {
 // is stopped or offline → the owner is told at once (phone notification / WhatsApp / e-mail, at most every 20 minutes).
 const STATE_BN: Record<string, string> = { Pending: '⏳ ফোন এখনো নেয়নি (অ্যাপ বন্ধ / ইন্টারনেট নেই)', Processed: '📱 ফোন পেয়েছে, পাঠাচ্ছে', Sent: '✅ ফোন থেকে SMS গেছে',
   Delivered: '✅ কাস্টমারের ফোনে পৌঁছেছে', Failed: '❌ ফোন পাঠাতে পারেনি', Cancelled: 'বাতিল' };
-async function alertOwner(s, title, body) {
+async function alertOwner(s?: Loose, title?: Loose, body?: Loose) {
   if (!(await security.hit(db, 'coo:alert', 1, 1200))) return;
   const N = $services_notify;
-  const jobs = [$services_push.sendAll({ title, body, url: '/admin/checkout-otp', tag: 'sms-phone' }).catch(() => null)];
+  const jobs: Promise<unknown>[] = [$services_push.sendAll({ title, body, url: '/admin/checkout-otp', tag: 'sms-phone' }).catch(() => null)];
   if (N.waConfig(s).ready) jobs.push(N.sendWhatsApp(s, `${title}\n${body}`).catch(() => null));
   if (N.emailConfig(s).ready) jobs.push(N.sendEmail(s, title, body, `<p style="font-family:Arial,sans-serif;font-size:15px">${N.escapeHtml(body)}</p>`).catch(() => null));
   await Promise.all(jobs);
 }
-async function phoneState(s, row) {
+async function phoneState(s?: Loose, row?: Loose) {
   if (!row || !row.gw_id) return null;
   const st = await $services_sms.androidState(s, row.gw_id).catch(() => null);
   if (st && st.state && st.state !== row.gw_state) await db.q('UPDATE checkout_otps SET gw_state=$1 WHERE id=$2', [str(st.state, 20), row.id]).catch(() => {});
   return st;
 }
-async function smsCheck(s, phone) {
+async function smsCheck(s?: Loose, phone?: Loose) {
   const ph = normalizePhone(phone);
   if (!validPhone(ph)) return { state: '' };
   const row = await db.one(`SELECT id, gw_id, gw_state, extract(epoch FROM now() - created_at)::int AS ago FROM checkout_otps
@@ -192,7 +192,7 @@ async function smsCheck(s, phone) {
 // ---------- when the order is placed ----------
 // → { ok: true, how } with how = otp / account / remembered ('' when switched off)  —  or { ok: false, error }
 // Switched on = strict: no checked number, no order.
-async function checkOrder(req, s, phone, tok) {
+async function checkOrder(req?: Loose, s?: Loose, phone?: Loose, tok?: Loose) {
   if (!on(s)) return { ok: true, how: '' };
   const t = readToken(s, tok);
   if (t && t.phone === phone) return { ok: true, how: 'otp' };

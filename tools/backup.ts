@@ -7,6 +7,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as db from '../lib/db';
 import * as backup from '../lib/services/backup';
+import type { Loose } from '../lib/types';
 
 (async () => {
   const password = String(process.env.BACKUP_PASSWORD || '');
