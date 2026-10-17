@@ -1,4 +1,4 @@
-// 🛒 More shop pages as data — live scores, cart, wishlist, compare, checkout, project kits — each with its title, React
+// 🛒 More shop pages as data — live scores, cart, wishlist, compare, checkout, project kits, order pages — each with its title, React
 // body and page settings. Used by the Next.js pages (app/(shop)) and by the original router (lib/app.ts), so both always
 // show the same page. The code is the original router's, moved here unchanged.
 import * as catalog from '../models/catalog';
@@ -12,12 +12,16 @@ import * as $models_accounts from '../models/accounts';
 import * as $models_reviews from '../models/reviews';
 import * as $models_checkoutotp from '../models/checkoutotp';
 import * as $models_kits from '../models/kits';
-import { refFromCookie } from '../gate';
-import { int, bn } from '../util';
+import * as courier from '../services/courier';
+import { refFromCookie, myOrders } from '../gate';
+import { int, str, bn } from '../util';
 import type { PageOpts, Resolved } from './router';
 import type { Loose, Settings, ShopRequest } from '../types';
 
 export type MoreCtx = { path: string; query: URLSearchParams; settings: Settings; base: string; req: Pick<ShopRequest, 'headers'> };
+
+/** An order's page (and the old invoice address, which now opens the order). */
+export const ORDER_PAGE = /^\/order\/([A-Za-z0-9]+)(\/invoice)?$/;
 
 const NOT_FOUND: Resolved = { kind: 'notFound' };
 const page = (title: string, body: Loose, opts: PageOpts = {}): Resolved => ({ kind: 'page', title, body, opts });
@@ -97,6 +101,25 @@ export async function resolveMore({ path, query, settings, base: siteBase, req }
     return page(title, shop.kitPage({ kit, settings }), { canonical: `/kit/${kit.slug}`,
       description: seo.cut(`${md.plain(kit.description, 300) || kit.title} ${steps.length ? `${bn(steps.length)}টি ধাপে বানানোর নিয়ম, ` : ''}সব পার্টস এক চাপে কার্টে।`, 160),
       image: kit.image_id ? `/media/${kit.image_id}` : '', jsonLd: howTo || undefined, jsonLdExtra: crumbs });
+  }
+  m = path.match(ORDER_PAGE);
+  if (m) {
+    // (the caller has already counted this visit against the limit for trying many order numbers)
+    const order = await O.getOrder({ code: m[1].toUpperCase() });
+    if (!order) return NOT_FOUND;
+    const mine = myOrders(req, settings).includes(order.code);
+    // Invoices are only for the shop's own staff (Admin → অর্ডার → ইনভয়েস), not for customers.
+    if (m[2]) return see(`/order/${order.code}`);
+    const fresh = query.get('new') === '1';
+    const trackUrl = order.courier && courier.PROVIDERS[order.courier] ? courier.PROVIDERS[order.courier].track(order) : '';
+    const track = fresh && query.get('pay') !== 'failed'
+      ? { event: 'purchase', code: order.code, value: order.total, items: order.items.map((i?: Loose) => ({ id: i.product_id, name: i.name, price: i.price, qty: i.qty })) }
+      : null;
+    // delivered → each product can be reviewed once (only by the order's owner on this browser)
+    const reviewItems = order.status === 'delivered' && settings.reviews_on !== '0' ? await $models_reviews.forOrder(order.id) : [];
+    const selfMsg = { ok: str(query.get('done'), 300), err: str(query.get('err'), 300) };
+    return page(`অর্ডার ${order.code}`, shop.orderPage({ order, settings, fresh, payFailed: query.get('pay') === 'failed', trackUrl, mine, reviewItems, selfMsg,
+      otpActive: $models_checkoutotp.active(settings) }), { noindex: true, track });
   }
   return null;
 }

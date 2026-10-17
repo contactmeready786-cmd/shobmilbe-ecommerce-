@@ -1,7 +1,7 @@
 // Customer pages that take forms: 👤 আমার অ্যাকাউন্ট (OTP login, orders, addresses, profile, referral, gift cards),
 // ↩️ the return request on a delivered order, and 🎁 buying a gift card.
 // Every form here must come from this same site (checked) and the login cookie is SameSite=Lax.
-import { refCookie, refFromCookie } from './gate';
+import { refCookie, refFromCookie, myOrders } from './gate';
 import * as db from './db';
 import * as security from './security';
 import * as A from './models/accounts';
@@ -27,10 +27,6 @@ function ordersCookie(req: ShopRequest, settings: Settings, codes?: Loose) {
   const all = [...new Set([...codes, ...old])].slice(0, 15);
   const secure = String(req.headers['x-forwarded-proto'] || '').includes('https') ? '; Secure' : '';
   return `sm_orders=${encodeURIComponent(sign(all.join('.'), settings.session_secret))}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${120 * 86400}${secure}`;
-}
-function myOrders(req: ShopRequest, settings: Settings) {
-  const v = unsign(parseCookies(req.headers.cookie).sm_orders, settings.session_secret);
-  return v ? v.split('.').filter(Boolean) : [];
 }
 
 async function route({ req, res, path, method, query, settings, page, notFound, redirect, ip }: Body) {

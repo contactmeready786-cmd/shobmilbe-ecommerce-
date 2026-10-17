@@ -4,6 +4,7 @@ import { cache } from 'react';
 import * as db from '../db';
 import * as content from '../models/content';
 import * as catalog from '../models/catalog';
+import * as security from '../security';
 import * as kits from '../models/kits';
 import * as accounts from '../models/accounts';
 import * as livescore from '../services/livescore';
@@ -64,6 +65,15 @@ export async function drawableHere(path: string, headers: Headers): Promise<bool
     const s = await settingsNow();
     const cu = await accounts.current({ headers: { cookie: headers.get('cookie') || '' } } as ShopRequest, s);
     return !(cu && accounts.needsProfile(cu));
+  }
+  // an order's page: counts against the limit for trying many order numbers (over it → the original code's "wait" page)
+  m = /^\/order\/([A-Za-z0-9]+)$/.exec(path);
+  if (m) {
+    await db.ensureReady();
+    const plain: Record<string, string> = {};
+    headers.forEach((v, k) => { plain[k] = v; });
+    if (!(await security.hit(db, 'orderview:' + security.clientIp({ headers: plain } as ShopRequest), 60, 600))) return false;
+    return !!(await db.one('SELECT 1 FROM orders WHERE code=$1', [m[1].toUpperCase()]));
   }
   m = /^\/p\/([^/]+)$/.exec(path);
   if (m) {

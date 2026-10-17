@@ -21,7 +21,7 @@ import { resolveShop } from './shop/router';
 import { scoped } from './cache';
 import * as shop from './views/shop';
 import * as md from './views/md';
-import { parseBody, readBody, int, str, normalizePhone, validPhone, esc, parseCookies, sign, unsign, contact, bn, amount, qtyRule } from './util';
+import { parseBody, readBody, int, str, normalizePhone, validPhone, esc, sign, contact, bn, amount, qtyRule } from './util';
 import * as security from './security';
 import * as seo from './services/seo';
 import * as dupcanon from './services/dupcanon';
@@ -46,6 +46,7 @@ import * as $services_fbreply from './services/fbreply';
 import * as $services_telegram from './services/telegram';
 import * as $shop_blog from './shop/blog';
 import * as $shop_more from './shop/more';
+import { ORDER_PAGE } from './shop/more';
 import * as $services_autoblog from './services/autoblog';
 import * as $services_autocall from './services/autocall';
 import * as $models_reviews from './models/reviews';
@@ -57,7 +58,7 @@ import * as $shopx from './shopx';
 import * as $models_homerows from './models/homerows';
 import * as $models_kits from './models/kits';
 import * as $services_errors from './services/errors';
-import { siteUrl, blockedBots, backgroundTick, SITE_BLOCKED_PAGE } from './gate';
+import { siteUrl, blockedBots, backgroundTick, SITE_BLOCKED_PAGE, myOrders } from './gate';
 import type { Body, Id, Loose, Settings, ShopRequest, ShopResponse } from './types';
 
 const securityHeaders = security.BASE_HEADERS;
@@ -106,10 +107,6 @@ function send(res: ShopResponse, status?: Loose, body?: Loose, type: Loose = 'te
 function json(res: ShopResponse, status: Loose, data: unknown, extra: Loose = {}) { send(res, status, JSON.stringify(data), 'application/json; charset=utf-8', extra); }
 
 // "This browser placed / verified these orders" — a signed cookie, so only that customer sees the full address and phone.
-function myOrders(req: ShopRequest, settings: Settings) {
-  const v = unsign(parseCookies(req.headers.cookie).sm_orders, settings.session_secret);
-  return v ? v.split('.').filter(Boolean) : [];
-}
 function myOrdersCookie(req: ShopRequest, settings: Settings, code?: Loose) {
   const codes = [code, ...myOrders(req, settings).filter((c) => c !== code)].slice(0, 15);
   const secure = String(req.headers['x-forwarded-proto'] || '').includes('https') ? '; Secure' : '';
@@ -1082,7 +1079,9 @@ async function shopRoutes({ req, res, path, method, query, settings }: Body) {
     return page(r.title, r.body, r.opts);
   }
   let m: RegExpMatchArray | null = null;
-  // live scores, cart, wishlist, compare, checkout, project kits: lib/shop/more.tsx (shared with the Next.js pages)
+  // stops someone from trying thousands of order numbers to find other people's orders
+  if (ORDER_PAGE.test(path) && !(await security.hit(db, 'orderview:' + clientIp(req), 60, 600))) return tooMany(req, res);
+  // live scores, cart, wishlist, compare, checkout, project kits, order pages: lib/shop/more.tsx (shared with the Next.js pages)
   {
     const r = await $shop_more.resolveMore({ path, query, settings, base: siteUrl(req, settings), req });
     if (r) {
@@ -1090,26 +1089,6 @@ async function shopRoutes({ req, res, path, method, query, settings }: Body) {
       if (r.kind === 'redirect') { res.writeHead(r.status, { Location: r.location, ...r.headers }); return res.end(); }
       return page(r.title, r.body, r.opts);
     }
-  }
-  m = path.match(/^\/order\/([A-Za-z0-9]+)(\/invoice)?$/);
-  if (m) {
-    // stops someone from trying thousands of order numbers to find other people's orders
-    if (!(await security.hit(db, 'orderview:' + clientIp(req), 60, 600))) return tooMany(req, res);
-    const order = await O.getOrder({ code: m[1].toUpperCase() });
-    if (!order) return notFound();
-    const mine = myOrders(req, settings).includes(order.code);
-    // Invoices are only for the shop's own staff (Admin → অর্ডার → ইনভয়েস), not for customers.
-    if (m[2]) return redirect(res, `/order/${order.code}`);
-    const fresh = query.get('new') === '1';
-    const trackUrl = order.courier && courier.PROVIDERS[order.courier] ? courier.PROVIDERS[order.courier].track(order) : '';
-    const track = fresh && query.get('pay') !== 'failed'
-      ? { event: 'purchase', code: order.code, value: order.total, items: order.items.map((i?: Loose) => ({ id: i.product_id, name: i.name, price: i.price, qty: i.qty })) }
-      : null;
-    // delivered → each product can be reviewed once (only by the order's owner on this browser)
-    const reviewItems = order.status === 'delivered' && settings.reviews_on !== '0' ? await $models_reviews.forOrder(order.id) : [];
-    const selfMsg = { ok: str(query.get('done'), 300), err: str(query.get('err'), 300) };
-    return page(`অর্ডার ${order.code}`, shop.orderPage({ order, settings, fresh, payFailed: query.get('pay') === 'failed', trackUrl, mine, reviewItems, selfMsg,
-      otpActive: $models_checkoutotp.active(settings) }), { noindex: true, track });
   }
   if (path === '/track') {
     const code = str(query.get('code'), 20).toUpperCase();

@@ -17,7 +17,7 @@ import * as $services_geolock from './services/geolock';
 import * as $services_health from './services/health';
 import * as $services_mailer from './services/mailer';
 import * as $models_extras from './models/extras';
-import { parseCookies } from './util';
+import { parseCookies, unsign } from './util';
 import type { Settings, ShopRequest } from './types';
 
 export const SPY_BOTS = ['AhrefsBot', 'SemrushBot', 'MJ12bot', 'DotBot', 'BLEXBot', 'DataForSeoBot', 'Barkrowler', 'serpstatbot', 'SEOkicks', 'MegaIndex', 'ZoominfoBot'];
@@ -107,4 +107,10 @@ export function refFromCookie(req: Pick<ShopRequest, 'headers'>): string { retur
 /** A friend's referral link: ?ref=CODE when the owner has referrals on. */
 export function refToRemember(settings: Settings, ref: string | null): string | null {
   return settings.ref_on === '1' && ref && /^[A-Za-z0-9-]{4,24}$/.test(ref) ? ref : null;
+}
+
+/** The order numbers this browser placed or opened with its phone number (signed cookie sm_orders). */
+export function myOrders(req: Pick<ShopRequest, 'headers'>, settings: Settings): string[] {
+  const v = unsign(parseCookies(req.headers.cookie as string).sm_orders, settings.session_secret);
+  return v ? v.split('.').filter(Boolean) : [];
 }

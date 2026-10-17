@@ -3,16 +3,16 @@
 // the original router goes.
 const EXACT = new Set(['/', '/products', '/track', '/blog', '/live', '/cart', '/wishlist', '/compare', '/checkout', '/kits']);
 const PATTERNS = [/^\/brand\/[^/]+$/, /^\/p\/[^/]+$/, /^\/blog\/category\/[^/]+$/, /^\/blog\/[^/]+$/, /^\/page\/[^/]+$/,
-  /^\/live\/(cricket|football)$/, /^\/kit\/[^/]+$/];
+  /^\/live\/(cricket|football)$/, /^\/kit\/[^/]+$/, /^\/order\/[A-Za-z0-9]+$/];
 
 /** Addresses drawn by lib/shop/router.tsx (home, lists, product pages). */
 export function servesShopRouter(path: string): boolean {
   return path === '/' || path === '/products' || /^\/brand\/[^/]+$/.test(path) || /^\/p\/[^/]+$/.test(path);
 }
 
-/** Addresses drawn by lib/shop/more.tsx (live scores, cart, wishlist, compare, checkout, kits). */
+/** Addresses drawn by lib/shop/more.tsx (live scores, cart, wishlist, compare, checkout, kits, order pages). */
 export function servesMore(path: string): boolean {
-  return ['/live', '/cart', '/wishlist', '/compare', '/checkout', '/kits'].includes(path) || /^\/live\/(cricket|football)$/.test(path) || /^\/kit\/[^/]+$/.test(path);
+  return ['/live', '/cart', '/wishlist', '/compare', '/checkout', '/kits'].includes(path) || /^\/live\/(cricket|football)$/.test(path) || /^\/kit\/[^/]+$/.test(path) || /^\/order\/[A-Za-z0-9]+$/.test(path);
 }
 
 /** Does a Next.js page exist for this address (for some requests)? */
