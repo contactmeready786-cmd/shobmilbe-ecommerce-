@@ -11,6 +11,7 @@ export function normalise(body) {
     .replace(/\b[0-9a-f]{32,}\b/g, '«hex»')
     .replace(/(?<![\w/.-])[A-Za-z0-9_-]{40,}(?![\w/.-])/g, '«b64»')
     .replace(/এইমাত্র|[০-৯]+ (সেকেন্ড|মিনিট) আগে/g, '«ago»')
+    .replace(/গতি: [০-৯]+ মিলিসেকেন্ড/g, 'গতি: «ms» মিলিসেকেন্ড') // the database's measured speed (Admin → সার্ভার ও ডাটাবেস)
     .replace(/\b\d{4}-\d\d-\d\dT\d\d:\d\d(:\d\d(\.\d+)?)?Z?\b/g, '«iso»')
     .replace(/\b1[6-9]\d{11}\b/g, '«ms»')
     .replace(/[০-৯]{1,2}:[০-৯]{2}/g, '«hhmm»')
