@@ -50,7 +50,7 @@ jobs:
           status=0
           npm test 2>&1 | tee "$RUNNER_TEMP/tests.txt" || status=$?
           # failing tests show up as notes on the run (readable without opening the log)
-          grep -nE "^not ok|^\s+(error|message|failureType):|Error:" "$RUNNER_TEMP/tests.txt" | head -30 | while IFS= read -r l; do echo "::error title=test::${l:0:900}"; done
+          grep -nE -A2 "^not ok|^\s+(error|message|failureType):|Error:" "$RUNNER_TEMP/tests.txt" | head -40 | while IFS= read -r l; do echo "::error title=test::${l:0:900}"; done
           pass=$(awk '$2 == "pass" && ($1 == "ℹ" || $1 == "#") && $3 ~ /^[0-9]+$/ {s += $3} END {print s + 0}' "$RUNNER_TEMP/tests.txt")
           fail=$(awk '$2 == "fail" && ($1 == "ℹ" || $1 == "#") && $3 ~ /^[0-9]+$/ {s += $3} END {print s + 0}' "$RUNNER_TEMP/tests.txt")
           skipped=$(awk '$2 == "skipped" && ($1 == "ℹ" || $1 == "#") && $3 ~ /^[0-9]+$/ {s += $3} END {print s + 0}' "$RUNNER_TEMP/tests.txt")
