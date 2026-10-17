@@ -16,6 +16,12 @@ export function normalise(body) {
     .replace(/\b\d{1,2}:\d{2}(:\d{2})?\b/g, '«hhmm»')
     .replace(/\?v=[\w.-]+/g, '?v=«v»')
     .replace(/(খোলা সংযোগ: )[০-৯]+( \/ )/g, '$1«n»$2') // open database connections: a live count
+    // database size and the biggest tables (Admin → সার্ভার ও ডাটাবেস) change as the site runs
+    .replace(/[০-৯]+(?:\.[০-৯]+)? MB/g, '«MB»').replace(/(<meter\b[^>]*value=")[^"]*"/g, '$1«n»"')
+    .replace(/(<summary class="small"><b>সবচেয়ে বেশি জায়গা নিচ্ছে যেগুলো<\/b><\/summary>)[\s\S]*?<\/details>/g, '$1«tables»</details>')
+    .replace(/\(([০-৯]+)%\)/g, '(«n»%)')
+    // a live cricket score in the admin's live-score settings
+    .replace(/\d+(?:\.\d+)?\/\d+ ov\b/g, '«overs» ov').replace(/(<span class="lv-games">)[\s\S]*?(<\/span><\/span>)/g, '$1«games»$2')
     // live matches come from the internet and change between two crawls: rows with a match are blanked whole
     .replace(/<tr[^>]*>(?:(?!<\/tr>)[\s\S])*?  vs  [\s\S]*?<\/tr>/g, '<tr>«match»</tr>')
     .replace(/<li[^>]*>(?:(?!<\/li>)[\s\S])*?  vs  [\s\S]*?<\/li>/g, '<li>«match»</li>')
