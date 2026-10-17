@@ -57,7 +57,7 @@ import * as $shopx from './shopx';
 import * as $models_homerows from './models/homerows';
 import * as $models_kits from './models/kits';
 import * as $services_errors from './services/errors';
-import { siteUrl, blockedBots, backgroundTick, SITE_BLOCKED_PAGE, myOrders } from './gate';
+import { siteUrl, blockedBots, backgroundTick, SITE_BLOCKED_PAGE, myOrders, myOrdersCookie } from './gate';
 import type { Body, Id, Loose, Settings, ShopRequest, ShopResponse } from './types';
 
 const securityHeaders = security.BASE_HEADERS;
@@ -105,12 +105,6 @@ function send(res: ShopResponse, status?: Loose, body?: Loose, type: Loose = 'te
 }
 function json(res: ShopResponse, status: Loose, data: unknown, extra: Loose = {}) { send(res, status, JSON.stringify(data), 'application/json; charset=utf-8', extra); }
 
-// "This browser placed / verified these orders" — a signed cookie, so only that customer sees the full address and phone.
-function myOrdersCookie(req: ShopRequest, settings: Settings, code?: Loose) {
-  const codes = [code, ...myOrders(req, settings).filter((c) => c !== code)].slice(0, 15);
-  const secure = String(req.headers['x-forwarded-proto'] || '').includes('https') ? '; Secure' : '';
-  return `sm_orders=${encodeURIComponent(sign(codes.join('.'), settings.session_secret))}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${120 * 86400}${secure}`;
-}
 function redirect(res: ShopResponse, to?: Loose, extra: Loose = {}) { res.writeHead(303, { Location: to, 'Cache-Control': 'no-store', ...extra }); res.end(); }
 
 const clientIp = security.clientIp;
@@ -251,12 +245,6 @@ async function handlerInner(req: ShopRequest, res: ShopResponse) {
     // ---- API ----
     const ip = clientIp(req);
     // (the other shop APIs are their own Next.js routes: app/api/… → lib/api/shop-read.ts, lib/api/shop-actions.ts)
-    if (path === '/api/orders' && method === 'POST') {
-      // stops fake-order floods: 10 orders per hour from one connection is far above any real customer
-      if (!(await security.hit(db, 'order:' + ip, 10, 3600))) return tooMany(req, res, true);
-      return await placeOrder(base);
-    }
-    if (path.startsWith('/api/checkout-otp/') && method === 'POST') return await checkoutOtpApi(base);
     // ---- 📧 ইমেইল মার্কেটিং: leaving the offer list, and the open / click counters in each mail ----
     if (path === '/unsubscribe') {
       const M = $services_mailer;
@@ -441,154 +429,8 @@ async function sitemap(req: ShopRequest, res: ShopResponse, settings: Settings) 
 
 
 
-// 🔐 চেকআউট OTP: /api/checkout-otp/status (does this number need a code?), /send (SMS a code), /verify (check it).
-// /smscheck: did the shop's phone really send the code? (tells the owner when the SMS app is off)
-async function checkoutOtpApi({ req, res, path, settings }: Body) {
-  const CO = $models_checkoutotp;
-  if (!security.sameSite(req)) return json(res, 403, { error: 'অনুমতি নেই।' });
-  const b = await parseBody(req);
-  const phone = normalizePhone(b.phone);
-  const ip = clientIp(req);
-  if (!CO.active(settings)) return json(res, 200, { need: false });
-  if (!validPhone(phone)) return json(res, 200, { need: true, error: 'সঠিক মোবাইল নম্বর দিন, যেমন 01712345678।' });
-  try {
-    if (path === '/api/checkout-otp/status') {
-      if (!(await security.hit(db, 'coo:st:' + ip, 120, 3600))) return json(res, 200, { need: true });
-      const why = await CO.noNeedWhy(req, settings, phone);
-      return json(res, 200, { need: !why, why: why || '' });
-    }
-    if (path === '/api/checkout-otp/send') {
-      const r = await CO.sendCode(req, settings, phone, ip, siteUrl(req, settings));
-      return json(res, 200, { sent: true, wait: r.wait, len: CO.CODE_LEN, message: r.again ? 'কোড একটু আগেই পাঠানো হয়েছে — SMS দেখুন।' : `${phone.slice(0, 3)}•••••${phone.slice(-3)} নম্বরে কোড পাঠানো হয়েছে।` });
-    }
-    if (path === '/api/checkout-otp/smscheck') {
-      if (!(await security.hit(db, 'coo:sc:' + ip, 20, 3600))) return json(res, 200, { state: '' });
-      const r = await CO.smsCheck(settings, phone);
-      return json(res, 200, { stuck: !!r.stuck });
-    }
-    if (path === '/api/checkout-otp/verify') {
-      if (!(await security.hit(db, 'coo:v:' + ip, 30, 3600))) return json(res, 429, { error: 'অনেকবার চেষ্টা হয়েছে। কিছুক্ষণ পর আবার চেষ্টা করুন।' });
-      const r = await CO.verifyCode(settings, phone, b.code);
-      const ck = CO.rememberCookie(req, settings, r.phone);
-      return json(res, 200, { ok: true, token: r.token }, ck ? { 'Set-Cookie': ck } : {});
-    }
-  } catch (e) {
-    if (!(e instanceof CO.OtpError)) throw e;
-    return json(res, 400, { error: e.message, expired: !!e.expired });
-  }
-  return json(res, 404, { error: 'নেই' });
-}
 
 
-async function placeOrder({ req, res, settings }: Body) {
-  const body = await parseBody(req);
-  const name = str(body.name, 80);
-  const phone = normalizePhone(body.phone);
-  const address = str(body.address, 400);
-  const district = str(body.district, 60);
-  const thana = str(body.thana, 60);
-  const ip = clientIp(req);
-  if (name.length < 2) return json(res, 400, { error: 'আপনার নাম লিখুন।', field: 'name' });
-  if (!validPhone(phone)) return json(res, 400, { error: 'সঠিক মোবাইল নম্বর দিন, যেমন 01712345678।', field: 'phone' });
-  const dist = O.findDistrict(district);
-  if (!dist) return json(res, 400, { error: 'জেলা বাছাই করুন।', field: 'district' });
-  if (!dist.areas.some((a) => a[0] === thana)) return json(res, 400, { error: 'থানা / উপজেলা বাছাই করুন।', field: 'thana' });
-  if (address.length < 5) return json(res, 400, { error: 'পূর্ণ ঠিকানা লিখুন, যাতে ডেলিভারিম্যান সহজে খুঁজে পান।', field: 'address' });
-  // ✅ Digital Commerce Guidelines 2021: the customer's permission to use their details (tick box at checkout)
-  const consented = body.consent === '1' || body.consent === true;
-  if (settings.consent_on !== '0' && !consented) return json(res, 400, { error: 'অর্ডার করতে নিচের ঘরে টিক দিয়ে আপনার তথ্য ব্যবহারে সম্মতি দিন।', field: 'consent' });
-
-  const blocked = await customers.isBlocked(phone, ip);
-  if (blocked) {
-    guard.record({ req, kind: 'blocked_order', detail: phone, settings }).catch(() => {});
-    return json(res, 403, { error: settings.block_message || 'অর্ডার নেওয়া যাচ্ছে না।' });
-  }
-  // 🔐 চেকআউট OTP: the number must be checked by SMS code (or already checked: logged in / earlier in this browser)
-  const CO = $models_checkoutotp;
-  const otp = await CO.checkOrder(req, settings, phone, body.otp_token);
-  if (!otp.ok) return json(res, 400, { error: otp.error, field: 'phone', otp: true });
-  const maxDay = int(settings.max_orders_per_phone_day);
-  if (maxDay > 0) {
-    const st = await customers.phoneStats(phone);
-    if (st!.last_day >= maxDay) return json(res, 429, { error: `এই নম্বর থেকে আজ অনেকগুলো অর্ডার হয়েছে। আরও অর্ডার করতে আমাদের কল করুন${contact(settings).phone ? ': ' + contact(settings).phone : ''}।` });
-  }
-  const methods = payments.methods(settings);
-  const method = methods.find((x) => x.id === body.payment) || methods[0];
-  let trxId = '';
-  let paymentNumber = '';
-  let adminNote = '';
-  if (method.manual) {
-    trxId = str(body.trx, 40).toUpperCase().replace(/[^A-Z0-9]/g, '');
-    paymentNumber = normalizePhone(body.payment_number);
-    if (trxId.length < 6) return json(res, 400, { error: 'টাকা পাঠানোর পর পাওয়া Transaction ID (TrxID) লিখুন।', field: 'trx' });
-    if (!validPhone(paymentNumber)) return json(res, 400, { error: 'যে নম্বর থেকে টাকা পাঠিয়েছেন সেটা লিখুন।', field: 'payment_number' });
-  } else if (method.advance) {
-    // cash on delivery, but the delivery charge first by Send Money (all orders, or a first order only)
-    const typed = str(body.trx, 40).toUpperCase().replace(/[^A-Z0-9]/g, '');
-    const need = method.advance === 'all' || (await customers.phoneStats(phone))!.delivered === 0;
-    if (need || typed) {
-      trxId = typed;
-      paymentNumber = normalizePhone(body.payment_number);
-      if (trxId.length < 6) return json(res, 400, { error: `ডেলিভারি চার্জটা আগে ${method.numberLabel || ''} ${method.number} নম্বরে Send Money করে Transaction ID (TrxID) লিখুন।`.replace(/\s+/g, ' '), field: 'trx' });
-      if (!validPhone(paymentNumber)) return json(res, 400, { error: 'যে নম্বর থেকে ডেলিভারি চার্জ পাঠিয়েছেন সেটা লিখুন।', field: 'payment_number' });
-      adminNote = `💵 ডেলিভারি চার্জ আগে পাঠিয়েছেন বলে জানিয়েছেন (${method.numberLabel || 'Send Money'}) — TrxID ${trxId}, নম্বর ${paymentNumber}। মিলিয়ে দেখে "টাকা পেয়েছি" দিন।`;
-    }
-  }
-  try {
-    const order = await O.createOrder({
-      items: Array.isArray(body.items) ? body.items.slice(0, 50) : [], name, phone, email: str(body.email, 120), address, district: dist.en, thana,
-      note: str(body.note, 300), payment: method.id, coupon: str(body.coupon, 40), trxId, paymentNumber, ip, source: 'web', adminNote,
-      usePoints: body.use_points === true || body.use_points === '1', giftCode: str(body.gift_code, 30),
-    }, settings);
-    await drafts.markOrdered(phone, order.code);
-    if (otp.how) await db.q('UPDATE orders SET phone_check=$1 WHERE id=$2', [otp.how, order.id]).catch(() => {});
-    // 👤 the logged-in account that placed it (an e-mail account finds its orders by this)
-    const acct = await $models_accounts.current(req, settings).catch(() => null);
-    if (acct) await db.q('UPDATE orders SET account_id=$1 WHERE id=$2', [acct.id, order.id]).catch(() => {});
-    if (consented) await db.q('UPDATE orders SET consent_at=now() WHERE id=$1', [order.id]).catch(() => {});
-    // 🎁 "অফারের খবর পেতে চাই" at checkout: tick = offer e-mails (when an e-mail was given) and offer SMS; no tick = no offer SMS
-    {
-      const wants = body.promo === '1' || body.promo === true;
-      await db.q('UPDATE customers SET promo_sms=$1 WHERE phone=$2', [wants, phone]).catch(() => {});
-      const em = str(body.email, 120) || (acct && acct.email_verified ? acct.email : '');
-      if (wants && em && settings.email_mkt_on === '1') await $services_mailer.addSub(em, { name, phone, source: 'checkout' }).catch(() => {});
-    }
-    // Server-side conversion events + the owner's "new order" e-mail / WhatsApp (never block the order for long).
-    await Promise.all([
-      Promise.race([
-        tracking.purchase({ ...order, phone, customer_name: name, district: dist.en, email: str(body.email, 120), ip }, settings, req),
-        new Promise((r) => setTimeout(r, 2500)),
-      ]).catch(() => {}),
-      notify.newOrder(settings, siteUrl(req, settings), { ...order, name, phone, address, district: dist.bn || dist.en, thana: (dist.areas.find((a) => a[0] === thana) || [])[1] || thana,
-        note: str(body.note, 300), payment: method.id, trxId }).catch(() => {}),
-      // "we got your order" SMS to the customer (when switched on)
-      $services_sms.orderEvent(settings, 'placed', { id: order.id, code: order.code, total: order.total, phone, customer_name: name }, siteUrl(req, settings)).catch(() => {}),
-      // 📞 অটো কল: a robot call asks the customer to press 1 (confirm) or 2 (cancel) — when switched on
-      Promise.race([
-        $services_autocall.afterOrder(settings, { ...order, phone, customer_name: name, payment: method.id }, siteUrl(req, settings)),
-        new Promise((r) => setTimeout(r, 4000)),
-      ]).catch(() => {}),
-      // 🛡️ fraud check of the number (Admin → ফ্রড চেক): a note on risky orders, "হোল্ড" if chosen, a phone alert
-      settings.fraud_auto === '1' ? Promise.race([(async () => {
-        const r = await $services_fraud.check(settings, phone);
-        if (!r.ok || r.level !== 'high') return;
-        await db.q(`UPDATE orders SET admin_note = left(trim(admin_note || E'\n' || $1), 1000) WHERE id=$2`, [`⛔ ফ্রড চেক: ঝুঁকিপূর্ণ নম্বর — সফল ${r.rate === null ? '?' : r.rate}% (${r.success}/${r.total})। ${r.advice}`, order.id]);
-        if (settings.fraud_hold === '1') await O.setStatus(order.id, 'hold', null).catch(() => {});
-        const push = $services_push;
-        if (await push.count()) await push.sendAll({ title: '⛔ ঝুঁকিপূর্ণ অর্ডার', body: `${order.code} — ${name}: সফল ${r.rate === null ? '?' : r.rate}%`, url: `/admin/orders/${order.id}`, tag: 'fraud' }).catch(() => {});
-      })(), new Promise((r) => setTimeout(r, 5000))]).catch(() => {}) : null,
-      // products this order made run low → one short message to the owner (once a day per product)
-      $services_stockalert.check(settings, (order.lines || []).flatMap((l) => (l.components && l.components.length ? l.components.map((c) => c.product_id) : [l.product_id])))
-        .catch(() => {}),
-    ]);
-    const online = method.id === 'bkash' || method.id === 'ssl';
-    return json(res, 200, { code: order.code, redirect: online ? `/pay/${order.code}` : `/order/${order.code}?new=1` },
-      { 'Set-Cookie': myOrdersCookie(req, settings, order.code) });
-  } catch (e: Loose) {
-    if (e instanceof O.OrderError) return json(res, 409, { error: e.message, field: e.field });
-    throw e;
-  }
-}
 
 // ---------------------------------------------------------------- payments
 async function paymentRoutes({ req, res, path, method, query, settings }: Body) {

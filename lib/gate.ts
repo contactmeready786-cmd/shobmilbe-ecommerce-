@@ -18,7 +18,7 @@ import * as $services_health from './services/health';
 import * as $services_mailer from './services/mailer';
 import * as $services_errors from './services/errors';
 import * as $models_extras from './models/extras';
-import { parseCookies, unsign } from './util';
+import { parseCookies, sign, unsign } from './util';
 import type { Settings, ShopRequest } from './types';
 
 export const SPY_BOTS = ['AhrefsBot', 'SemrushBot', 'MJ12bot', 'DotBot', 'BLEXBot', 'DataForSeoBot', 'Barkrowler', 'serpstatbot', 'SEOkicks', 'MegaIndex', 'ZoominfoBot'];
@@ -137,4 +137,11 @@ export async function adminGateOk(req: GateRequest, method: string): Promise<{ o
   $services_errors.ensure(settings); // Sentry on/off follows the key saved in Admin → আমার নোটিফিকেশন
   if (method === 'GET') backgroundTick(r, settings);
   return { ok: true, settings };
+}
+
+// "This browser placed / verified these orders" — a signed cookie, so only that customer sees the full address and phone.
+export function myOrdersCookie(req: Pick<ShopRequest, 'headers'>, settings: Settings, code: string): string {
+  const codes = [code, ...myOrders(req, settings).filter((c) => c !== code)].slice(0, 15);
+  const secure = String(req.headers['x-forwarded-proto'] || '').includes('https') ? '; Secure' : '';
+  return `sm_orders=${encodeURIComponent(sign(codes.join('.'), settings.session_secret))}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${120 * 86400}${secure}`;
 }
