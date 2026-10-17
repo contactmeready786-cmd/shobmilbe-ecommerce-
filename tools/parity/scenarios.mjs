@@ -92,6 +92,10 @@ async function main() {
   await call('sslcommerz ipn: fake', 'svc', 'POST', '/pay/ssl/ipn', { tran_id: 'TEST1001', val_id: 'fake', status: 'VALID' });
   await call('bkash callback: fake', 'svc', 'GET', '/pay/bkash/callback?paymentID=fake&status=success');
   await call('autocall webhook: unknown', 'svc', 'POST', '/webhook/autocall/aaaaaaaaaaaaaaaa', { digit: '1' });
+  await call('autocall webhook: bad address', 'svc', 'POST', '/webhook/autocall/short', { digit: '1' });
+  await call('picture: sent a form', 'svc', 'POST', '/media/1', { x: '1' });
+  await call('pay: unknown order', 'svc', 'GET', '/pay/NOPE1234');
+  await call('pay: unknown step', 'svc', 'POST', '/pay/zz/zz', { a: '1' });
   await call('mail open pixel: bad', 'svc', 'GET', '/e/o/1/aaaaaaaaaaaaaaaa.gif');
   await call('mail click: bad', 'svc', 'GET', '/e/c/1/aaaaaaaaaaaaaaaa');
   await call('unsubscribe: bad', 'svc', 'GET', '/unsubscribe?e=x&t=y');
