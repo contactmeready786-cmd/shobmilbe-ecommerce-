@@ -112,7 +112,7 @@ export function nextNeutral(body) {
 }
 function unwrap(s) {
   for (let guard = 0; guard < 2000; guard++) {
-    const m = /<(div|span) (?:style="display:\s*contents;?" data-unwrap(?:="")?|data-unwrap(?:="")? style="display:\s*contents;?")>/.exec(s);
+    const m = /<(div|span|g) (?:style="display:\s*contents;?" data-unwrap(?:="")?|data-unwrap(?:="")? style="display:\s*contents;?")>/.exec(s);
     if (!m) break;
     const tag = m[1];
     let depth = 1; let i = m.index + m[0].length;

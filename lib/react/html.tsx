@@ -69,6 +69,20 @@ export function withSlots<T>(fn: (mine: string[]) => T): T {
   try { return fn(mine); } finally { slots = outer; }
 }
 
+const SVG_TAG = /^\s*<(?:line|text|path|rect|circle|ellipse|g|polyline|polygon|defs|stop|tspan|use|linearGradient|radialGradient|clipPath|mask|pattern|symbol|image)\b/;
+const ENTITY: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: '\u00a0' };
+/** Text with no tags: what it says (entities read); null when it has a tag or an entity this doesn't know. */
+function wordsOf(s: string): string | null {
+  if (s.includes('<')) return null;
+  let unknown = false;
+  const out = s.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (_, e: string) => {
+    if (e[0] === '#') return String.fromCodePoint(e[1] === 'x' || e[1] === 'X' ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10));
+    const v = ENTITY[e.toLowerCase()];
+    if (v === undefined) unknown = true;
+    return v ?? '';
+  });
+  return unknown || /&/.test(out.replace(/&(?![a-z#])/gi, '')) ? null : out;
+}
 const BLOCK_TAG = /<(?:div|p|ul|ol|li|dl|dt|dd|table|thead|tbody|tr|td|th|section|article|aside|nav|header|footer|main|form|fieldset|details|summary|h[1-6]|pre|blockquote|figure|hr|address|menu|option|select|textarea|svg|template|script|style)\b/i;
 
 /** Puts ready-made HTML (a string the shop made itself, or a legacy Raw) into a React page, unescaped — only HTML the shop made, never visitor text. */
@@ -78,9 +92,13 @@ export function RawHtml({ html }: { html: unknown }): ReactNode {
   const s = html instanceof Raw ? html.s : html === null || html === undefined || html === false ? '' : String(html);
   if (!s) return null;
   if (!slots) {
-    // A see-through wrapper. Words and small inline pieces get a <span>: a <div> inside a <p> would make the browser
-    // close the <p> early, and React would then find a different page than it drew.
-    const Tag = BLOCK_TAG.test(s) ? 'div' : 'span';
+    // only words (with &amp; and the like): plain React text, no wrapper at all
+    const words = wordsOf(s);
+    if (words !== null) return words;
+    // Otherwise a see-through wrapper the browser keeps exactly where it is: <g> inside a picture (SVG), <div> for
+    // blocks, <span> for small inline pieces (a <div> inside a <p> would make the browser close the <p> early, and
+    // React would then find a different page than it drew).
+    const Tag = SVG_TAG.test(s) ? 'g' : BLOCK_TAG.test(s) ? 'div' : 'span';
     return <Tag style={{ display: 'contents' }} data-unwrap="" dangerouslySetInnerHTML={{ __html: s }} />;
   }
   slots.push(s);
