@@ -60,7 +60,7 @@ function combo(series?: Loose, { barName = '', lineName = '', barMoney = false, 
 function hbars(rows?: Loose, { isMoney = false, color = 0 }: Body = {}) {
   if (!rows.length) return toHtml(<p className="muted">কোনো ডাটা নেই।</p>);
   const max = Math.max(...rows.map((r?: Loose) => Number(r.value) || 0), 1);
-  return toHtml(<ul className="hbars">{jsxList(rows.map((r?: Loose, i?: Loose) => <li><span className="hb-label" title={attrValue(r.label)}><Val v={r.label} /></span>{' '}<span className="hb-track"><span className="hb-fill" style={styleOf(`width:${attrValue(Math.max(2, (100 * (Number(r.value) || 0)) / max).toFixed(1))}%;background:${attrValue(PALETTE[(color === -1 ? i : color) % PALETTE.length])}`)}></span></span>{' '}<span className="hb-val">{(isMoney ? <Val v={money(r.value)} /> : <Val v={bn(r.value)} />)}{(r.sub ? <>{' '}<small><Val v={r.sub} /></small></> : null)}</span></li>))}</ul>);
+  return toHtml(<ul className="hbars">{jsxList(rows.map((r?: Loose, i?: Loose) => <li><span className="hb-label" title={attrValue(r.label)}><Val v={r.label} /></span>{' '}<span className="hb-track"><span className="hb-fill" style={styleOf(`width:${Math.max(2, (100 * (Number(r.value) || 0)) / max).toFixed(1)}%;background:${attrValue(PALETTE[(color === -1 ? i : color) % PALETTE.length])}`)}></span></span>{' '}<span className="hb-val">{(isMoney ? money(r.value) : bn(r.value))}{(r.sub ? <>{' '}<small><Val v={r.sub} /></small></> : null)}</span></li>))}</ul>);
 }
 
 // Donut: rows [{label, value}]
@@ -76,7 +76,7 @@ function donut(rows?: Loose, { center = '', centerSub = '' }: Body = {}) {
     off += len;
     return s;
   }).join('');
-  return toHtml(<div className="donut"><svg viewBox="0 0 180 180" width="180" height="180" role="img"><g transform="rotate(-90 90 90)"><RawHtml html={segs} /></g>{' '}<text x="90" y="88" className="dn-c" text-anchor="middle"><Val v={center || bn(total)} /></text>{' '}<text x="90" y="108" className="dn-s" text-anchor="middle"><Val v={centerSub} /></text></svg><ul className="dn-legend">{jsxList(rows.map((r?: Loose, i?: Loose) => <li><i className="sw" style={styleOf(`background:${attrValue(PALETTE[i % PALETTE.length])}`)}></i><Val v={r.label} />{' '}<b><Val v={bn(r.value)} /></b>{' '}<small>(<Val v={bn(Math.round((100 * r.value) / total))} />%)</small></li>))}</ul></div>);
+  return toHtml(<div className="donut"><svg viewBox="0 0 180 180" width="180" height="180" role="img"><g transform="rotate(-90 90 90)"><RawHtml html={segs} /></g>{' '}<text x="90" y="88" className="dn-c" text-anchor="middle"><Val v={center || bn(total)} /></text>{' '}<text x="90" y="108" className="dn-s" text-anchor="middle"><Val v={centerSub} /></text></svg><ul className="dn-legend">{jsxList(rows.map((r?: Loose, i?: Loose) => <li><i className="sw" style={styleOf(`background:${attrValue(PALETTE[i % PALETTE.length])}`)}></i><Val v={r.label} />{' '}<b>{bn(r.value)}</b>{' '}<small>({bn(Math.round((100 * r.value) / total))}%)</small></li>))}</ul></div>);
 }
 
 // 24-hour heat strip.
@@ -84,7 +84,7 @@ function hours(rows?: Loose, unit: Loose = 'টি অর্ডার') {
   const by = new Array(24).fill(0);
   rows.forEach((r?: Loose) => { by[r.h] = r.n; });
   const max = Math.max(...by, 1);
-  return toHtml(<div className="hours">{jsxList(by.map((n, h) => <span style={styleOf(`--a:${attrValue((0.08 + (0.92 * n) / max).toFixed(2))}`)} title={`${attrValue(bn(h))}টা: ${attrValue(bn(n))}${attrValue(unit)}`}><i><Val v={bn(h)} /></i></span>))}</div>);
+  return toHtml(<div className="hours">{jsxList(by.map((n, h) => <span style={styleOf(`--a:${(0.08 + (0.92 * n) / max).toFixed(2)}`)} title={`${bn(h)}টা: ${bn(n)}${attrValue(unit)}`}><i>{bn(h)}</i></span>))}</div>);
 }
 
 export { combo, hbars, donut, hours, dayLabel, short, PALETTE };

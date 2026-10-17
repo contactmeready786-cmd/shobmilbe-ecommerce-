@@ -21,7 +21,7 @@ function row(state?: Loose, title?: Loose, detail?: Loose, link?: Loose, key?: L
   return { state, title, detail, link, key, setUp: setUp === undefined ? state === OK : setUp };
 }
 function line(r?: Loose, buttons?: Loose) {
-  return toHtml(<li className={`sec-row ${attrValue(r.state === OK ? 'ok' : r.state === OFF ? 'info' : 'todo')}`}><span className="sec-ic" aria-hidden="true"><Val v={ICON[r.state]} /></span>{' '}<span><b><Val v={r.title} /></b><br /><span className="small muted"><Val v={r.detail} /></span>{(r.link ? <>{' '}<a className="small" href={attrValue(r.link[0])}><Val v={r.link[1]} />{' '}→</a></> : null)}{(buttons ? <><br /><Val v={buttons} /></> : null)}</span></li>);
+  return toHtml(<li className={`sec-row ${r.state === OK ? 'ok' : r.state === OFF ? 'info' : 'todo'}`}><span className="sec-ic" aria-hidden="true"><Val v={ICON[r.state]} /></span>{' '}<span><b><Val v={r.title} /></b><br /><span className="small muted"><Val v={r.detail} /></span>{(r.link ? <>{' '}<a className="small" href={attrValue(r.link[0])}><Val v={r.link[1]} />{' '}→</a></> : null)}{(buttons ? <><br /><Val v={buttons} /></> : null)}</span></li>);
 }
 // a section: what needs looking at stays in view; ⚪ not set up (optional) and "দরকার নেই" go into a closed box
 function section(ctx: AdminCtx, title?: Loose, rows?: Loose) {
@@ -37,7 +37,7 @@ function section(ctx: AdminCtx, title?: Loose, rows?: Loose) {
     shown.push(line(r, owner && r.key && r.state !== OK ? M.buttons(r.key, '', back) : ''));
   }
   if (!shown.length && !quiet.length) return '';
-  return toHtml(<section className="panel"><h2><Val v={title} /></h2>{(shown.length ? <ul className="sec-list"><Val v={shown} /></ul> : <p className="muted small">সব ঠিক আছে — দেখার মতো কিছু নেই।</p>)}{' '}{(quiet.length ? <details className="sec-quiet"><summary className="small muted">⚪ চালু করা নেই / দরকার নেই (<Val v={bn(quiet.length)} />টি) — দেখতে চাপুন</summary><ul className="sec-list"><Val v={quiet} /></ul></details> : null)}</section>);
+  return toHtml(<section className="panel"><h2><Val v={title} /></h2>{(shown.length ? <ul className="sec-list"><Val v={shown} /></ul> : <p className="muted small">সব ঠিক আছে — দেখার মতো কিছু নেই।</p>)}{' '}{(quiet.length ? <details className="sec-quiet"><summary className="small muted">⚪ চালু করা নেই / দরকার নেই ({bn(quiet.length)}টি) — দেখতে চাপুন</summary><ul className="sec-list"><Val v={quiet} /></ul></details> : null)}</section>);
 }
 
 // latest success / failure per service from the integration log

@@ -24,7 +24,7 @@ const MESSAGES: Record<string, Loose> = {
 
 function flash(msg?: Loose) {
   if (!msg) return '';
-  return toHtml(<p className={`flash ${attrValue(msg.type === 'error' ? 'flash-error' : '')}`} role="status"><Val v={msg.text} /></p>);
+  return toHtml(<p className={`flash ${msg.type === 'error' ? 'flash-error' : ''}`} role="status"><Val v={msg.text} /></p>);
 }
 function flashFrom(query: URLSearchParams) {
   if (query.get('err')) return { type: 'error', text: query.get('err')!.slice(0, 300) };
@@ -72,7 +72,7 @@ function switchRow(name?: Loose, on?: Loose, title?: Loose, desc?: Loose) {
 }
 // Image picker: uploads in the browser, keeps the media id in a hidden input.
 function imagePicker(name?: Loose, mediaId?: Id, { label = 'ছবি', hint = '', wide = false }: Body = {}) {
-  return toHtml(<div className={`field image-pick ${attrValue(wide ? 'wide' : '')}`} data-image-pick=""><span className="label"><Val v={label} /></span><div className="pick-preview" data-pick-preview="">{(mediaId ? <img src={`/media/${attrValue(mediaId)}/t`} alt="" /> : <span className="muted small">ছবি নেই</span>)}</div><p className={`pick-status ${attrValue(mediaId ? 'is-live' : '')}`} data-pick-status="" data-live={attrValue(mediaId ? '1' : '')}>{(mediaId ? "✅ এখন সাইটে এই ছবিটা চলছে" : "এখনো কোনো ছবি দেওয়া হয়নি")}</p><input type="hidden" name={attrValue(name)} defaultValue={attrValue(mediaId || '')} data-pick-value="" /><div className="pick-actions"><label className="btn btn-sm btn-ghost">{(mediaId ? "🔄 ছবি বদলান" : "📷 ছবি বাছুন")}<input type="file" accept="image/*" hidden data-pick-file="" {...attrProps(wide ? raw('data-wide') : '')} /></label>{' '}{(mediaId ? <a className="btn btn-sm btn-ghost" href={`/media/${attrValue(mediaId)}`} target="_blank" rel="noopener">🔍 বড় করে দেখুন</a> : null)}{' '}<button type="button" className="link-btn danger" data-pick-clear="" {...attrProps(mediaId ? '' : raw('hidden'))}>🗑️ সরান</button></div>{(hint ? <small><Val v={hint} /></small> : null)}</div>);
+  return toHtml(<div className={`field image-pick ${wide ? 'wide' : ''}`} data-image-pick=""><span className="label"><Val v={label} /></span><div className="pick-preview" data-pick-preview="">{(mediaId ? <img src={`/media/${attrValue(mediaId)}/t`} alt="" /> : <span className="muted small">ছবি নেই</span>)}</div><p className={`pick-status ${mediaId ? 'is-live' : ''}`} data-pick-status="" data-live={mediaId ? '1' : ''}>{(mediaId ? "✅ এখন সাইটে এই ছবিটা চলছে" : "এখনো কোনো ছবি দেওয়া হয়নি")}</p><input type="hidden" name={attrValue(name)} defaultValue={attrValue(mediaId || '')} data-pick-value="" /><div className="pick-actions"><label className="btn btn-sm btn-ghost">{(mediaId ? "🔄 ছবি বদলান" : "📷 ছবি বাছুন")}<input type="file" accept="image/*" hidden data-pick-file="" {...attrProps(wide ? raw('data-wide') : '')} /></label>{' '}{(mediaId ? <a className="btn btn-sm btn-ghost" href={`/media/${attrValue(mediaId)}`} target="_blank" rel="noopener">🔍 বড় করে দেখুন</a> : null)}{' '}<button type="button" className="link-btn danger" data-pick-clear="" {...attrProps(mediaId ? '' : raw('hidden'))}>🗑️ সরান</button></div>{(hint ? <small><Val v={hint} /></small> : null)}</div>);
 }
 
 function pager(total?: Loose, page?: Loose, perPage?: Loose, baseUrl?: Loose) {
@@ -81,7 +81,7 @@ function pager(total?: Loose, page?: Loose, perPage?: Loose, baseUrl?: Loose) {
   const link = (p?: Loose) => baseUrl + (baseUrl.includes('?') ? '&' : '?') + 'page=' + p;
   const items = [];
   for (let p = Math.max(1, page - 2); p <= Math.min(pages, page + 2); p++) items.push(p);
-  return toHtml(<nav className="pager" aria-label="পেজ">{(page > 1 ? <a href={attrValue(link(page - 1))}>← আগের</a> : null)}{' '}{jsxList(items.map((p) => (p === page ? <b><Val v={bn(p)} /></b> : <a href={attrValue(link(p))}><Val v={bn(p)} /></a>)))}{' '}{(page < pages ? <a href={attrValue(link(page + 1))}>পরের →</a> : null)}{' '}<span className="muted small">মোট{' '}<Val v={bn(total)} />টি</span></nav>);
+  return toHtml(<nav className="pager" aria-label="পেজ">{(page > 1 ? <a href={attrValue(link(page - 1))}>← আগের</a> : null)}{' '}{jsxList(items.map((p) => (p === page ? <b>{bn(p)}</b> : <a href={attrValue(link(p))}>{bn(p)}</a>)))}{' '}{(page < pages ? <a href={attrValue(link(page + 1))}>পরের →</a> : null)}{' '}<span className="muted small">মোট{' '}{bn(total)}টি</span></nav>);
 }
 
 function dateFilter(path?: Loose, from?: Loose, to?: Loose, extra: Loose = '') {
@@ -114,7 +114,7 @@ function importTabs(current?: Loose) {
     ['import', '/admin/products/import', '📥', 'লিংক বা ফাইল থেকে আমদানি', 'ফিড লিংক, একটা পণ্যের লিংক, CSV / Excel'],
     ['old', '/admin/products/more-photos', '📸', 'পুরোনো সাইট থেকে সব পণ্য ও ছবি', 'বাকি পণ্য যোগ + প্রতিটা পণ্যের সব ছবি'],
   ];
-  return toHtml(<nav className="imp-tabs" aria-label="পণ্য আমদানির ধরন">{jsxList(tabs.map(([k, href, ic, t, d]) => <a href={attrValue(href)} className={`imp-tab ${attrValue(k === current ? 'on' : '')}`} {...attrProps(k === current ? raw(' aria-current="page"') : '')}><span className="imp-tab-ic"><Val v={ic} /></span><span><b><Val v={t} /></b><small><Val v={d} /></small></span></a>))}</nav>);
+  return toHtml(<nav className="imp-tabs" aria-label="পণ্য আমদানির ধরন">{jsxList(tabs.map(([k, href, ic, t, d]) => <a href={attrValue(href)} className={`imp-tab ${k === current ? 'on' : ''}`} {...attrProps(k === current ? raw(' aria-current="page"') : '')}><span className="imp-tab-ic"><Val v={ic} /></span><span><b><Val v={t} /></b><small><Val v={d} /></small></span></a>))}</nav>);
 }
 
 function empty(text?: Loose, action?: Loose) {
