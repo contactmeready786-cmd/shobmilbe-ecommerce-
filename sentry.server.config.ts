@@ -6,7 +6,7 @@ import { setStarter, setFlusher, ensure } from './lib/services/errors';
 
 function start(dsn: string) {
   if (!dsn) {
-    Sentry.getClient()?.close().catch(() => {});
+    Promise.resolve(Sentry.getClient()?.close()).catch(() => {});
     return null;
   }
   Sentry.init({

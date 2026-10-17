@@ -26,15 +26,16 @@ export const DSN_RE = /^https:\/\/[A-Za-z0-9]{8,64}@[A-Za-z0-9.-]*sentry\.io\/\d
 export function validDsn(v: unknown): boolean { return DSN_RE.test(String(v || '').trim()); }
 
 /** The key to use: Vercel's SENTRY_DSN if set, else the one saved in the admin. */
-export function dsnFrom(settings: { sentry_dsn?: string } | null | undefined): string {
+type HasDsn = { sentry_dsn?: unknown } | Record<string, unknown> | null | undefined;
+export function dsnFrom(settings: HasDsn): string {
   const env = String(process.env.SENTRY_DSN || '').trim();
   if (env) return env;
-  const v = String(settings?.sentry_dsn || '').trim();
+  const v = String((settings as { sentry_dsn?: unknown } | null | undefined)?.sentry_dsn || '').trim();
   return validDsn(v) ? v : '';
 }
 
 /** Cheap check on every request: start, change or stop Sentry when the saved key changed. */
-export function ensure(settings: { sentry_dsn?: string } | null | undefined): void {
+export function ensure(settings: HasDsn): void {
   if (!starter) return;
   const dsn = dsnFrom(settings);
   if (dsn === activeDsn) return;
