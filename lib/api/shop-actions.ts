@@ -289,5 +289,5 @@ export async function cspReport(ctx: ApiCtx) {
       $services_health.logError(new Error(`অ্যাডমিনে স্ক্রিপ্ট আটকানো হয়েছে (${dir}: ${blocked})`), { path: page, method: 'CSP' });
     }
   }
-  return new Response('', { status: 204, headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store', ...security.BASE_HEADERS } });
+  return new Response(null, { status: 204, headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store', ...security.BASE_HEADERS } });
 }
