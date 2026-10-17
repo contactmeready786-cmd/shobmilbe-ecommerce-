@@ -8,7 +8,9 @@ const base = (over: Partial<H.Health> = {}): H.Health => ({
   dbBytes: 100 * MB, limitBytes: 500 * MB, share: 0.2, dbLevel: 'ok',
   tables: [{ name: 'page_views', bytes: 40 * MB, rows: 120000 }, { name: 'orders', bytes: 5 * MB, rows: 900 }],
   pingMs: 4, pingLevel: 'ok', connections: 5, maxConnections: 60, connLevel: 'ok',
-  backupAt: new Date(), backupDays: 0.3, backupLevel: 'ok', checkedAt: new Date(), ...over,
+  backupAt: new Date(), backupDays: 0.3, backupLevel: 'ok', errors24: [], errors7: [], errorLevel: 'ok',
+  ik: { bandwidthBytes: 2 * 1024 ** 3, bandwidthLimit: 20 * 1024 ** 3, bwLevel: 'ok', storageBytes: 0.5 * 1024 ** 3, storageLimit: 3 * 1024 ** 3, storageLevel: 'ok', since: '2026-10-01' },
+  checkedAt: new Date(), ...over,
 });
 
 test('limit: Supabase free plan by default, owner can set another', () => {
@@ -46,4 +48,35 @@ test('no backup for days, and connections nearly used up', () => {
 test('MB formatting', () => {
   assert.equal(H.mb(85.4 * MB), '85.4');
   assert.equal(H.mb(512 * MB), '512');
+});
+
+test('error log groups the same page and hides personal details', () => {
+  assert.equal(H.pagePattern('/admin/orders/123/edit?x=1'), '/admin/orders/:id/edit');
+  assert.equal(H.pagePattern('/order/SM8K2Q9X'), '/order/:code');
+  assert.equal(H.pagePattern('/p/arduino-uno-r3'), '/p/arduino-uno-r3');
+  const t = H.errorText(new Error('order for 01712345678 rahim@example.com failed'));
+  assert.ok(!t.includes('01712345678') && !t.includes('rahim@example.com'), t);
+  assert.ok(H.errorText('x'.repeat(1000)).length <= 300);
+});
+
+test('errors: 5 a day on one page = look at it, 30 = serious', () => {
+  assert.equal(H.errorLevel([{ n: 2 }, { n: 3 }]), 'ok');
+  assert.equal(H.errorLevel([{ n: 5 }]), 'warn');
+  assert.equal(H.errorLevel([{ n: 31 }]), 'bad');
+  const w = H.warnings(base({ errors24: [{ path: '/checkout', message: 'TypeError: x', n: 7, last_at: new Date() }], errorLevel: 'warn' }));
+  assert.equal(w[0].key, 'errors');
+  assert.match(w[0].title, /\/checkout/);
+});
+
+test('ImageKit: free plan limits, warning before images stop', () => {
+  const l = H.ikLimits({} as never);
+  assert.equal(l.bandwidth, 20 * 1024 ** 3);
+  assert.equal(l.storage, 3 * 1024 ** 3);
+  const w = H.warnings(base({ ik: { bandwidthBytes: 17 * 1024 ** 3, bandwidthLimit: 20 * 1024 ** 3, bwLevel: 'warn', storageBytes: 1, storageLimit: 3 * 1024 ** 3, storageLevel: 'ok', since: '2026-10-01' } }));
+  assert.deepEqual(w.map((x) => x.key), ['ik_bw']);
+  assert.match(w[0].title, /৮৫%/);
+});
+
+test('ImageKit not reachable: no false warning', () => {
+  assert.deepEqual(H.warnings(base({ ik: null })), []);
 });

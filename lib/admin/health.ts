@@ -1,0 +1,75 @@
+// Admin → স্টাফ ও নিরাপত্তা → 🩺 সার্ভার, ডাটাবেস ও ব্যাকআপ (owner only): everything the owner would otherwise
+// need a Supabase / Vercel / ImageKit login for — measured by the site itself (services/health.ts) — plus the pages
+// that keep failing. Warnings also go by e-mail before something runs out.
+import { html, bn, fmtDate } from '../util';
+import * as ui from './ui';
+import * as H from '../services/health';
+import * as ik from '../services/imagekit';
+import type { AdminCtx, Loose } from '../types';
+
+const ICON: Record<H.Level | 'off', string> = { ok: '✅', warn: '⚠️', bad: '❌', off: '⚪' };
+function line(level: H.Level | 'off', title: Loose, detail: Loose, link?: [string, string]) {
+  return html`<li class="sec-row ${level === 'ok' ? 'ok' : level === 'off' ? 'info' : 'todo'}"><span class="sec-ic" aria-hidden="true">${ICON[level]}</span>
+    <span><b>${title}</b><br><span class="small muted">${detail}</span>${link ? html` <a class="small" href="${link[0]}">${link[1]} →</a>` : ''}</span></li>`;
+}
+const pctOf = (a: number, b: number) => (b ? Math.round((100 * a) / b) : 0);
+const meter = (pct: number) => html`<meter min="0" max="100" low="80" high="90" optimum="10" value="${Math.min(100, pct)}" style="width:100%;height:16px">${bn(pct)}%</meter>`;
+
+async function page(ctx: AdminCtx) {
+  if (ctx.query.get('fresh') === '1') H.forget();
+  const h = await H.measure(ctx.settings);
+  const dbPct = pctOf(h.dbBytes, h.limitBytes);
+  const warns = H.warnings(h);
+
+  const body = html`<div class="title-row"><h1>🩺 সার্ভার ও ডাটাবেস</h1><a class="btn btn-ghost btn-sm" href="/admin/health?fresh=1">🔄 এখনই আবার মাপুন</a></div>
+${ui.flash(ctx.flash)}
+<p class="muted">Supabase, Vercel বা ImageKit-এ লগইন না করেই দোকানের "স্বাস্থ্য" এখানে দেখুন। কিছু শেষ হয়ে আসার আগেই দোকানের Gmail-এ জানানো হয় (দিনে একবার, অবস্থা খারাপ হলে সাথে সাথে)।</p>
+${warns.length ? html`${warns.map((w) => html`<p class="flash ${w.level === 'bad' ? 'flash-error' : ''}">${w.level === 'bad' ? '🚨' : '⚠️'} <b>${w.title}</b></p>`)}` : html`<p class="flash">✅ সব ঠিক আছে — এখন দেখার মতো কোনো সমস্যা নেই।</p>`}
+
+<div class="two-col">
+<section class="panel">
+  <h2>🗄️ ডাটাবেস (Supabase)</h2>
+  <p>${meter(dbPct)}</p>
+  <ul class="sec-list">
+    ${line(h.dbLevel, `জায়গা: ${bn(H.mb(h.dbBytes))} MB / ${bn(H.mb(h.limitBytes))} MB (${bn(dbPct)}%)`,
+      h.dbLevel === 'ok' ? 'অনেক জায়গা বাকি। ৮০% হলে ইমেইলে জানানো হবে।' : 'জায়গা কমে আসছে — নিচের বড় তালিকাগুলো ছোট করুন, বা Supabase-এর প্ল্যান বাড়ান।')}
+    ${line(h.pingLevel, `গতি: ${h.pingMs === null ? 'সাড়া দিচ্ছে না!' : bn(h.pingMs) + ' মিলিসেকেন্ড'}`,
+      h.pingMs === null ? 'ডাটাবেসে পৌঁছানো যাচ্ছে না।' : h.pingLevel === 'ok' ? 'দ্রুত — সাইট আর ডাটাবেস একই জায়গায় (সিঙ্গাপুর)।' : 'স্বাভাবিকের চেয়ে ধীর।')}
+    ${h.connections !== null ? line(h.connLevel, `খোলা সংযোগ: ${bn(h.connections)} / ${bn(h.maxConnections)}`, 'সব শেষ হয়ে গেলে সাইট খুলবে না; সাধারণত অনেক কম থাকে।') : ''}
+    ${line(h.backupLevel, 'শেষ ভালো ব্যাকআপ', h.backupAt ? `${fmtDate(h.backupAt)} — প্রতিদিন রাতে নিজে থেকে হয়` : 'কোনো ব্যাকআপ নেই!', ['/admin/backup', 'ব্যাকআপ'])}
+  </ul>
+  <details><summary class="small"><b>সবচেয়ে বেশি জায়গা নিচ্ছে যেগুলো</b></summary>
+    <div class="table-wrap"><table class="table"><thead><tr><th>কী</th><th class="num">জায়গা</th><th class="num">সারি (আনুমানিক)</th><th></th></tr></thead><tbody>
+    ${h.tables.map((t) => { const [label, link] = H.TABLE_HELP[t.name] || [t.name]; return html`<tr><td>${label}<br><span class="small muted" translate="no">${t.name}</span></td><td class="num">${bn(H.mb(t.bytes))} MB</td><td class="num">${bn(t.rows)}</td><td>${link ? html`<a class="small" href="${link}">ছোট করুন →</a>` : ''}</td></tr>`; })}
+    </tbody></table></div></details>
+  <p class="small muted">সীমা ${bn(H.mb(h.limitBytes))} MB ধরা হয়েছে (Supabase ফ্রি প্ল্যান)। মাসিক ব্যান্ডউইথ (৫ GB) সাইট নিজে মাপতে পারে না — সেটা Supabase → Usage-এ দেখায়।</p>
+</section>
+
+<section class="panel">
+  <h2>🖼️ ছবি (ImageKit) — এই মাসে</h2>
+  ${h.ik ? html`
+  <p class="small">ব্যান্ডউইথ (ছবি দেখানো)</p><p>${meter(pctOf(h.ik.bandwidthBytes, h.ik.bandwidthLimit))}</p>
+  <p class="small">জায়গা (ছবি রাখা)</p><p>${meter(pctOf(h.ik.storageBytes, h.ik.storageLimit))}</p>
+  <ul class="sec-list">
+    ${line(h.ik.bwLevel, `ব্যান্ডউইথ: ${bn(H.gb(h.ik.bandwidthBytes))} GB / ${bn(H.gb(h.ik.bandwidthLimit))} GB (${bn(pctOf(h.ik.bandwidthBytes, h.ik.bandwidthLimit))}%)`,
+      `${bn(h.ik.since)} থেকে। প্রতি মাসের ১ তারিখে আবার শূন্য থেকে শুরু হয়। শেষ হয়ে গেলে মাসের বাকি সময় ছবি না-ও দেখাতে পারে।`)}
+    ${line(h.ik.storageLevel, `জায়গা: ${bn(H.gb(h.ik.storageBytes))} GB / ${bn(H.gb(h.ik.storageLimit))} GB (${bn(pctOf(h.ik.storageBytes, h.ik.storageLimit))}%)`,
+      'ভরে গেলে নতুন ছবি আপলোড হবে না। রিসাইকেল বিন খালি করলে জায়গা ফেরত আসে।', ['/admin/trash', 'রিসাইকেল বিন'])}
+  </ul>
+  <p class="small muted">সীমা: ফ্রি প্ল্যান — মাসে ২০ GB ব্যান্ডউইথ, ৩ GB জায়গা। তথ্য ImageKit থেকে ঘণ্টায় একবার আনা হয়।</p>`
+  : html`<ul class="sec-list">${line('off', 'ImageKit-এর হিসাব পাওয়া যায়নি', ik.configured() ? 'ImageKit এই মুহূর্তে উত্তর দেয়নি — কিছুক্ষণ পর আবার মাপুন।' : `ImageKit জোড়া নেই: ${ik.problem()}`)}</ul>`}
+</section>
+</div>
+
+<section class="panel">
+  <h2>🐞 যেসব পেজে এরর হচ্ছে ${h.errors7.length ? ui.pill(`৭ দিনে ${bn(h.errors7.reduce((a, r) => a + Number(r.n), 0))} বার`, h.errorLevel === 'ok' ? 'pill-pending' : 'pill-cancelled') : ui.pill('কোনো এরর নেই', 'pill-delivered')}</h2>
+  <p class="muted small">কাস্টমার বা আপনি কোনো পেজে "একটা সমস্যা হয়েছে" দেখলে এখানে ওঠে। একই পেজে ২৪ ঘণ্টায় ৫ বারের বেশি হলে ইমেইলে জানানো হয়। এই তালিকাটা Claude-কে দেখালেই সমস্যা খুঁজে ঠিক করা সহজ হবে।</p>
+  ${h.errors7.length ? html`<div class="table-wrap"><table class="table"><thead><tr><th>পেজ</th><th>কী হয়েছে</th><th class="num">কতবার</th><th>শেষবার</th></tr></thead><tbody>
+    ${h.errors7.map((r) => html`<tr><td translate="no">${r.path}</td><td class="small" translate="no">${r.message}</td><td class="num">${bn(r.n)}</td><td class="small">${fmtDate(r.last_at)}</td></tr>`)}
+  </tbody></table></div>` : html`<p class="muted">গত ৭ দিনে কোনো পেজে এরর হয়নি। 🎉</p>`}
+</section>
+<p class="small muted">মাপা হয়েছে: ${fmtDate(h.checkedAt)} (প্রতি ৫ মিনিটে নতুন করে)।</p>`;
+  return ctx.page('সার্ভার ও ডাটাবেস', body, 'health');
+}
+
+export const routes = [{ method: 'GET', path: '/admin/health', perm: 'owner', handler: page }];

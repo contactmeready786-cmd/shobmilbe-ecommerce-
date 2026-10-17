@@ -53,6 +53,10 @@ const TABS: Record<string, Loose> = {
     ['/admin/marketing/tracking', 'পিক্সেল ও ট্র্যাকিং', 'marketing', 'tracking', '🎯'],
     ['/admin/integrations/status', 'সংযোগের অবস্থা', 'settings', 'status', '🔌'],
   ],
+  system: [
+    ['/admin/health', 'সার্ভার ও ডাটাবেস', 'owner', 'health', '🩺'],
+    ['/admin/backup', 'ব্যাকআপ ও রিস্টোর', 'owner', 'backup', '💾'],
+  ],
   slides: [
     ['/admin/design/slider', 'রানিং স্লাইডার', 'design', 'slider', '🎞️'],
     ['/admin/design/banners', 'ব্যানার', 'design', 'banners', '🖼️'],
@@ -157,7 +161,7 @@ const MENU = [
     tabSet('login', 'লগইন ও ডিভাইস', '🔐'),
     ['/admin/security/threats', 'সন্দেহজনক ভিজিটর', 'owner', 'threats', '🚨'],
     ['/admin/security/audit', 'অডিট লগ (কে কী বদলেছে)', 'owner', 'audit', '📜'],
-    ['/admin/backup', 'ব্যাকআপ ও রিস্টোর', 'owner', 'backup', '💾'],
+    tabSet('system', 'সার্ভার, ডাটাবেস ও ব্যাকআপ', '🩺'),
   ] },
   { title: '', items: [['/admin/trash', 'রিসাইকেল বিন', 'owner', 'trash', '🗑️']] },
 ];

@@ -1105,6 +1105,15 @@ CREATE INDEX IF NOT EXISTS email_log_camp_idx ON email_log(campaign_id, sub_id);
 CREATE INDEX IF NOT EXISTS email_log_sub_kind_idx ON email_log(sub_id, kind);
 CREATE INDEX IF NOT EXISTS email_log_order_idx ON email_log(order_id) WHERE order_id IS NOT NULL;
 `,
+  // 36 — 🩺 the site's own error log: which page failed, how often (Admin → সংযোগের অবস্থা → সার্ভার ও ডাটাবেস)
+  `
+CREATE TABLE IF NOT EXISTS error_log (
+  id bigserial PRIMARY KEY, day date NOT NULL, path text NOT NULL, message text NOT NULL, n int NOT NULL DEFAULT 1,
+  method text NOT NULL DEFAULT '', first_at timestamptz NOT NULL DEFAULT now(), last_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS error_log_day_uq ON error_log(day, path, message);
+CREATE INDEX IF NOT EXISTS error_log_last_idx ON error_log(last_at DESC);
+`,
 ];
 
 // Data steps that need code, keyed by migration number (run after its SQL).

@@ -11,7 +11,6 @@ import * as $services_payments from '../services/payments';
 import * as $services_feeds from '../services/feeds';
 import * as $security from '../security';
 import * as $services_seo from '../services/seo';
-import * as H from '../services/health';
 import type { AdminCtx, Loose } from '../types';
 
 const OK = 'ok'; const WARN = 'warn'; const OFF = 'off'; const BAD = 'bad';
@@ -40,33 +39,6 @@ function section(ctx: AdminCtx, title?: Loose, rows?: Loose) {
   if (!shown.length && !quiet.length) return '';
   return html`<section class="panel"><h2>${title}</h2>${shown.length ? html`<ul class="sec-list">${shown}</ul>` : html`<p class="muted small">সব ঠিক আছে — দেখার মতো কিছু নেই।</p>`}
   ${quiet.length ? html`<details class="sec-quiet"><summary class="small muted">⚪ চালু করা নেই / দরকার নেই (${bn(quiet.length)}টি) — দেখতে চাপুন</summary><ul class="sec-list">${quiet}</ul></details>` : ''}</section>`;
-}
-
-// 🩺 সার্ভার ও ডাটাবেস — what would otherwise need a login to Supabase / Vercel (services/health.ts)
-async function healthPanel(ctx: AdminCtx) {
-  const h = await H.measure(ctx.settings);
-  const pct = Math.round(h.share * 100);
-  const lvl = (l: H.Level) => (l === 'ok' ? OK : l === 'warn' ? WARN : BAD);
-  const lim = H.mb(h.limitBytes);
-  const rows = [
-    row(lvl(h.dbLevel), `ডাটাবেসের জায়গা: ${bn(H.mb(h.dbBytes))} MB / ${bn(lim)} MB (${bn(pct)}%)`,
-      h.dbLevel === 'ok' ? `অনেক জায়গা বাকি। ৮০% হলে ইমেইলে জানানো হবে।` : 'জায়গা কমে আসছে — নিচের বড় তালিকাগুলো ছোট করুন, বা Supabase-এর প্ল্যান বাড়ান।'),
-    row(lvl(h.pingLevel), `ডাটাবেসের গতি: ${h.pingMs === null ? 'সাড়া দিচ্ছে না!' : bn(h.pingMs) + ' মিলিসেকেন্ড'}`,
-      h.pingMs === null ? 'ডাটাবেসে পৌঁছানো যাচ্ছে না।' : h.pingLevel === 'ok' ? 'দ্রুত (সাইট আর ডাটাবেস একই জায়গায় — সিঙ্গাপুর)।' : 'স্বাভাবিকের চেয়ে ধীর।'),
-    h.connections !== null ? row(lvl(h.connLevel), `খোলা সংযোগ: ${bn(h.connections)} / ${bn(h.maxConnections)}`, 'সব শেষ হয়ে গেলে সাইট খুলবে না; সাধারণত অনেক কম থাকে।') : null,
-    row(lvl(h.backupLevel), 'শেষ ভালো ব্যাকআপ', h.backupAt ? `${fmtDate(h.backupAt)} (প্রতিদিন রাতে নিজে থেকে হয়)` : 'কোনো ব্যাকআপ নেই!', ['/admin/backup', 'ব্যাকআপ']),
-  ].filter(Boolean);
-  return html`<section class="panel" id="health"><h2>🩺 সার্ভার ও ডাটাবেস</h2>
-  <p><meter min="0" max="100" low="80" high="90" optimum="10" value="${Math.min(100, pct)}" style="width:100%;height:18px">${bn(pct)}%</meter></p>
-  <ul class="sec-list">${rows.map((r) => line(r))}</ul>
-  <details><summary class="small"><b>সবচেয়ে বেশি জায়গা নিচ্ছে যেগুলো</b></summary>
-    <div class="table-wrap"><table class="table"><thead><tr><th>কী</th><th class="num">জায়গা</th><th class="num">সারি (আনুমানিক)</th><th></th></tr></thead><tbody>
-    ${h.tables.map((t) => { const [label, link] = H.TABLE_HELP[t.name] || [t.name]; return html`<tr><td>${label}<br><span class="small muted" translate="no">${t.name}</span></td><td class="num">${bn(H.mb(t.bytes))} MB</td><td class="num">${bn(t.rows)}</td><td>${link ? html`<a class="small" href="${link}">ছোট করুন →</a>` : ''}</td></tr>`; })}
-    </tbody></table></div></details>
-  <p class="small muted">সমস্যা হওয়ার আগেই (জায়গা ৮০% ভরা, ২ দিন ব্যাকআপ নেই, সংযোগ প্রায় শেষ) দোকানের Gmail-এ জানানো হয় — দিনে একবার, খারাপ হলে সাথে সাথে।
-    ${H.mb(h.limitBytes) === String(H.DEFAULT_LIMIT_MB) ? 'সীমা ৫০০ MB ধরা হয়েছে (Supabase ফ্রি প্ল্যান)।' : ''} মাসিক ব্যান্ডউইথ (৫ GB) সাইট নিজে মাপতে পারে না — সেটা Supabase → Usage-এ দেখায়।
-    মাপা হয়েছে: ${fmtDate(h.checkedAt)}</p>
-</section>`;
 }
 
 // latest success / failure per service from the integration log
@@ -105,7 +77,7 @@ async function statusPage(ctx: AdminCtx) {
 
   const body = html`<h1>🔌 সংযোগের অবস্থা</h1>${ui.flash(ctx.flash)}
 <p class="muted">বাইরের প্রতিটা সার্ভিস ঠিকমতো জোড়া আছে কি না, আর শেষবার কাজ করেছে কি না — এক জায়গায়। ❌ দেখলে পাশের লিংকে গিয়ে ঠিক করুন। অন্যভাবে করা থাকলে "✓ করা আছে", ব্যবহার না করলে "✕ দরকার নেই" চাপুন — তালিকা থেকে সরে যাবে।</p>
-${ctx.user.role === 'owner' ? await healthPanel(ctx) : ''}
+${ctx.user.role === 'owner' ? html`<p><a class="btn btn-ghost btn-sm" href="/admin/health">🩺 সার্ভার, ডাটাবেস ও ছবির জায়গা দেখুন →</a></p>` : ''}
 ${section(ctx, 'ওয়েবসাইট', [
   row(site ? OK : BAD, 'ওয়েবসাইটের ঠিকানা (site URL)', site ? site : 'দেওয়া নেই — Google-এর canonical লিংক, sitemap, শেয়ার ছবি আর পেমেন্ট ফেরার লিংক ঠিক হবে না।', ['/admin/marketing/seo', 'SEO']),
   // the domain may be added straight in Vercel (no token saved here): a site address that is not *.vercel.app counts too

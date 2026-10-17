@@ -9,6 +9,9 @@ let starter: Starter | null = null;
 let activeDsn = '';
 let flusher: ((ms: number) => Promise<unknown>) | null = null;
 let unsent = false;
+// the site's own error log (services/health.ts → error_log), so the owner sees failing pages even without Sentry
+let store: Reporter | null = null;
+export function setStore(fn: Reporter | null): void { store = fn; }
 
 export function setReporter(fn: Reporter | null): void { reporter = fn; }
 /** How to send waiting reports right away (Vercel may pause the server as soon as the answer is sent). */
@@ -46,6 +49,7 @@ export function isOn(): boolean { return !!reporter; }
 
 export function report(error: unknown, context?: Record<string, unknown>): void {
   console.error(error);
+  if (store) { try { store(error, context); } catch { /* never break a page */ } }
   if (!reporter) return;
   try { reporter(error, context); unsent = true; } catch { /* reporting must never break a page */ }
 }

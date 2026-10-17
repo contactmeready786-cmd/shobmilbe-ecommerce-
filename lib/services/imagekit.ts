@@ -79,6 +79,29 @@ async function remove(fileId?: Id) {
   return r.ok || r.status === 404;
 }
 
+// This month's usage (from the 1st, UTC), from ImageKit's own account API — kept 1 hour.
+export type IkUsage = { bandwidthBytes: number; storageBytes: number; since: string };
+let usageCache: { at: number; value: IkUsage | null } | null = null;
+async function usage(): Promise<IkUsage | null> {
+  if (!configured()) return null;
+  if (usageCache && Date.now() - usageCache.at < 3600e3) return usageCache.value;
+  const ymd = (d: Date) => d.toISOString().slice(0, 10);
+  const now = new Date();
+  const since = ymd(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)));
+  const until = ymd(new Date(now.getTime() + 864e5)); // ImageKit leaves the end date out, so tomorrow = up to today
+  let value: IkUsage | null = null;
+  try {
+    const r = await fetch(`https://api.imagekit.io/v1/accounts/usage?startDate=${since}&endDate=${until}`,
+      { headers: { Authorization: auth() }, signal: AbortSignal.timeout(8000) });
+    if (r.ok) {
+      const j = (await r.json()) as Loose;
+      value = { bandwidthBytes: Number(j.bandwidthBytes) || 0, storageBytes: Number(j.mediaLibraryStorageBytes) || 0, since };
+    }
+  } catch (_) { value = null; }
+  usageCache = { at: Date.now(), value };
+  return value;
+}
+
 // Small version for cards and lists (ImageKit resizes on the fly; f-auto = AVIF/WebP for phones that can show them).
 // The admin's raw copies (auto = false) keep the original format, because the server reads their bytes itself.
 function thumbUrl(url?: Loose, auto = true) { return url ? `${url}${url.includes('?') ? '&' : '?'}tr=w-480${auto ? ',f-auto' : ''}` : url; }
@@ -113,4 +136,4 @@ async function moveOld(db?: Loose, limit: Loose = 20) {
   return n;
 }
 
-export { configured, problem, check, upload, remove, thumbUrl, flushTrash, moveOld, endpoint };
+export { configured, problem, check, upload, remove, thumbUrl, flushTrash, moveOld, endpoint, usage };

@@ -52,6 +52,7 @@ import * as $loyalty from './loyalty';
 import * as $sms from './sms';
 import * as $uiswitches from './uiswitches';
 import * as $status from './status';
+import * as $health from './health';
 import * as $backup from './backup';
 import * as $homerows from './homerows';
 import * as $reach from './reach';
@@ -96,7 +97,7 @@ const MODULES = [$dashboard, $orders, $import, $morepics, $watermark,
   $reports, $integrations, $settings, $visitors, $live, $feeds,
   $navswitch, $security, lockView, $notify, recovery, $language,
   $drafts, $threats, $account, $profile, $audit, $brands,
-  $promos, $reviews, $loyalty, $sms, $uiswitches, $status,
+  $promos, $reviews, $loyalty, $sms, $uiswitches, $status, $health,
   $backup, $homerows, $reach, $dns, $autocall, $vat, $slider,
   $labels, $documents, $handover, $qa, $variants, $custaccounts,
   $returns, $giftcards, $shoppush, $pos, $warehouses, $codsettle,

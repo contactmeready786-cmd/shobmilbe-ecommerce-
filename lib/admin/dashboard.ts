@@ -35,7 +35,7 @@ async function dashboard(ctx: AdminCtx) {
   const body = html`
 ${ctx.user.role === 'owner' && (!security.hasKey() || ctx.settings.__secrets_locked) ? html`<p class="flash flash-error">🛡️ নিরাপত্তার একটা ধাপ বাকি আছে — <a href="/admin/security">নিরাপত্তা পেজে দেখুন</a> (৫ মিনিটের কাজ)।</p>` : ''}
 ${cmp && (cmp.late || cmp.soon) ? html`<p class="flash ${cmp.late ? 'flash-error' : ''}">📮 ${cmp.late ? html`<b>${bn(cmp.late)}টি অভিযোগের ৭২ ঘণ্টা পার হয়ে গেছে!</b> ` : ''}${cmp.soon ? html`${bn(cmp.soon)}টির সময় ২৪ ঘণ্টারও কম বাকি। ` : ''}<a href="/admin/complaints">অভিযোগ দেখুন →</a></p>` : ''}
-${healthWarn.map((w) => html`<p class="flash ${w.level === 'bad' ? 'flash-error' : ''}">🩺 <b>${w.title}</b> — <a href="/admin/integrations/status#health">সার্ভার ও ডাটাবেস দেখুন →</a></p>`)}
+${healthWarn.map((w) => html`<p class="flash ${w.level === 'bad' ? 'flash-error' : ''}">🩺 <b>${w.title}</b> — <a href="/admin/health">সার্ভার ও ডাটাবেস দেখুন →</a></p>`)}
 <div class="title-row"><h1>ড্যাশবোর্ড</h1><span class="muted">${fmtDate(from + 'T06:00:00Z', false)} থেকে ${fmtDate(to + 'T06:00:00Z', false)}</span></div>
 ${ui.flash(ctx.flash)}
 ${ui.dateFilter('/admin', from, to)}

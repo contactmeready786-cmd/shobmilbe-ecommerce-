@@ -129,6 +129,8 @@ function siteUrl(req: ShopRequest, settings: Settings) {
 
 // Admin pages and changes read fresh data; shop pages may share 15-second copies (lib/cache.ts).
 const handler = scoped(handlerInner);
+// every reported error is also counted in the site's own error log (Admin → সার্ভার ও ডাটাবেস)
+$services_errors.setStore($services_health.logError);
 async function handlerInner(req: ShopRequest, res: ShopResponse) {
   const url = new URL(req.url || '/', 'http://local');
   let path = url.searchParams.get('__p');
