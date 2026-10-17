@@ -56,7 +56,7 @@ test('the admin scripts the pages load also avoid inline handlers', () => {
 // ⚛️ Since 2026-10-17 every page is React (JSX). Only the page frames (<html>/<head>, kept as text so React doesn't
 // reorder the head) may still be html`…`. New screens are written in JSX — this stops html`…` from creeping back.
 test('pages are React: no new html`…` templates in lib/admin or lib/views', () => {
-  const ALLOWED: Record<string, number> = { 'lib/admin/labels.tsx': 1, 'lib/admin/layout.tsx': 2, 'lib/admin/pos.tsx': 1, 'lib/admin/vat.tsx': 1, 'lib/views/invoice.tsx': 1, 'lib/views/layout.tsx': 1 };
+  const ALLOWED: Record<string, number> = { 'lib/admin/labels.tsx': 1, 'lib/admin/pos.tsx': 1, 'lib/admin/vat.tsx': 1, 'lib/views/invoice.tsx': 1 };
   const bad: string[] = [];
   for (const dir of ['lib/admin', 'lib/views']) {
     for (const f of readdirSync(join(ROOT, dir)).filter((x) => /\.tsx?$/.test(x) && !x.startsWith('__'))) {
