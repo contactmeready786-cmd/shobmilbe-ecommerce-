@@ -90,6 +90,7 @@ export function nextNeutral(body) {
     .replace(/<script\b[^>]*\bsrc="[^"]*\/_next\/[^"]*"[^>]*>\s*<\/script>/g, '')
     .replace(/<script\b[^>]*>(?:(?!<\/script>)[\s\S])*?(?:self\.__next_f|__next_s|\$RC|\$RS|\$RX|requestAnimationFrame\(function\(\)\{\$RT)(?:(?!<\/script>)[\s\S])*<\/script>/g, '')
     .replace(/<link\b[^>]*\bhref="[^"]*\/_next\/[^"]*"[^>]*\/?>/g, '')
+    .replace(/<script id="_R_">\(globalThis\["TURBOPACK"\][\s\S]*?<\/script>/g, '') // Next's loader for its own files
     .replace(/<meta name="next-size-adjust"[^>]*>/g, '')
     .replace(/<div hidden(?:="")?>\s*(?:<!--\$-->|<!--\/\$-->|<!--\$\?-->)*\s*<\/div>/g, '')
     .replace(/<!--\/?\$\??-->/g, '');
