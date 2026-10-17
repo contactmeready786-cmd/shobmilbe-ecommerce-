@@ -1,7 +1,7 @@
 import { ADMIN_GET_ROUTES } from './admin-routes';
 
 // Which customer addresses are already served by Next.js pages (app/(shop)). proxy.ts runs the security gate for these;
-// every other address still goes to the original code (lib/app.ts). Grows as pages move; when it covers everything,
+// every other address still goes to the original code (lib/site.ts). Grows as pages move; when it covers everything,
 // the original router goes.
 const EXACT = new Set(['/', '/products', '/track', '/blog', '/live', '/cart', '/wishlist', '/compare', '/checkout', '/kits', '/complaint', '/complaint/status', '/gift-card', '/account']);
 const PATTERNS = [/^\/brand\/[^/]+$/, /^\/p\/[^/]+$/, /^\/blog\/category\/[^/]+$/, /^\/blog\/[^/]+$/, /^\/page\/[^/]+$/,
@@ -40,7 +40,7 @@ export function servedByNext(path: string, query: URLSearchParams, method: strin
 // ---------------------------------------------------------------- admin
 // Admin addresses that answer with a file, a picture, a print page or data rather than an admin page: always the
 // original code. (Any other admin page that turns out not to be a page is sent there too — lib/next/admin.ts.)
-const ADMIN_LEGACY = [
+const ADMIN_SITE = [
   /^\/admin\/api\//, /\.(csv|xlsx|json|txt|xml|pdf)$/, /^\/admin\/avatar\//, /\/photo\/\d+$/,
   /^\/admin\/orders\/(invoice|checklist)$/, /^\/admin\/orders\/\d+\/mushak$/, /^\/admin\/products\/labels$/, /^\/admin\/pos\/memo\//,
   /^\/admin\/reports\/staff$/, /^\/admin\/accounts\/vat\/return$/, /^\/admin\/reach(\/live)?$/, /^\/admin\/design\/documents$/, /^\/admin\/marketing\/email\/preview$/,
@@ -51,9 +51,9 @@ const ADMIN_LEGACY = [
 export function adminServedByNext(path: string, query: URLSearchParams, method: string): boolean {
   if (method !== 'GET' && method !== 'HEAD') return false;
   if (path !== '/admin' && !path.startsWith('/admin/')) return false;
-  if (query.has('__legacy')) return false;
+  if (query.has('__site')) return false;
   // a page's download links (?excel=…, ?export=…) answer with a file
   if (['excel', 'export', 'download', 'csv', 'xlsx'].some((k) => query.has(k))) return false;
-  if (ADMIN_LEGACY.some((re) => re.test(path))) return false;
+  if (ADMIN_SITE.some((re) => re.test(path))) return false;
   return ADMIN_GET_ROUTES.some((r) => (typeof r === 'string' ? r === path : r.test(path)));
 }

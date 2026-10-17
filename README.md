@@ -180,9 +180,9 @@ Admin → স্টোর ডিজাইন → ভাষা → "অ্যা�
 | --- | --- |
 | `app/` | Next.js App Router — প্রতিটা ঠিকানা `app/legacy/[[...path]]/route.ts` হয়ে দোকানের কোডে যায় |
 | `proxy.ts`, `next.config.ts`, `instrumentation.ts`, `sentry.server.config.ts` | Next.js সেটআপ, Sentry |
-| `src/legacy/bridge.ts` | Next.js-এর Request ↔ দোকানের কোডের req/res |
+| `lib/site-answer.ts` | Next.js-এর Request ↔ দোকানের কোডের req/res |
 | `lib/types.ts` | সব কোডের শেয়ার করা TypeScript টাইপ (`Loose` = এখনো পুরো টাইট করা হয়নি এমন জায়গা) |
-| `lib/app.ts` | দোকানের পেজ, API, পেমেন্ট, ওয়েবহুক |
+| `lib/site.ts` | দোকানের পেজ, API, পেমেন্ট, ওয়েবহুক |
 | `lib/admin/` | Admin Panel এর প্রতিটা মেনু |
 | `lib/models/` | ডাটাবেসের কাজ (পণ্য, অর্ডার, হিসাব…) |
 | `lib/services/` | কুরিয়ার, পেমেন্ট, Facebook/TikTok সার্ভার ইভেন্ট, পণ্য আমদানি (`importer.ts`, `safefetch.ts`) |

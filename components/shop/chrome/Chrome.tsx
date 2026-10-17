@@ -1,6 +1,6 @@
 // ⚛️ The frame around every shop page: top notice bar, header (logo, search, menu, cart), category menu, phone
 // drawer, footer, chat buttons, pop-up offer, and the scripts the page needs. One component for both the Next.js
-// pages (app/(shop)/layout.tsx) and the pages still answered by lib/app.ts (lib/views/layout.tsx).
+// pages (app/(shop)/layout.tsx) and the pages still answered by lib/site.ts (lib/views/layout.tsx).
 import type { ReactNode } from 'react';
 import * as U from '../../../lib/services/uiswitch';
 import * as security from '../../../lib/security';

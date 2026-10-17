@@ -34,7 +34,7 @@ type HeaderMap = Record<string, string | string[] | number | undefined>;
  * places (where null and "missing" mean the same), so it is Loose until those places are tightened.
  */
 export type ShopQuery = Omit<URLSearchParams, 'get'> & { get(name: string): Loose };
-/** What every request handler in lib/app.ts gets. */
+/** What every request handler in lib/site.ts gets. */
 export type Base = {
   req: ShopRequest; res: ShopResponse; path: string; method: string; query: ShopQuery; settings: Settings;
   send: (res: ShopResponse, status: number, body: string | Buffer, type?: string, extra?: HeaderMap) => void;

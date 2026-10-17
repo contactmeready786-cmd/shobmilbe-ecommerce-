@@ -1,5 +1,5 @@
 // 📝 One blog article (/blog/<slug>) as data: its title, its React body and its page settings. Used by the Next.js page
-// (app/(shop)/blog/[slug]) and by the original router (lib/app.ts), so both always show the same page.
+// (app/(shop)/blog/[slug]) and by the original router (lib/site.ts), so both always show the same page.
 // A line "/p/<product link>" inside the article shows that product's card (at most 10 per article).
 import * as catalog from '../models/catalog';
 import * as content from '../models/content';

@@ -63,13 +63,13 @@ export function apiRoute(fn: (ctx: ApiCtx) => Promise<Response>, opts: { bots?: 
 
 /** Any other way of asking (OPTIONS, HEAD, a form sent where only GET is meant): the original code's answer, as always. */
 export async function otherMethods(request: Request): Promise<Response> {
-  const { handleWithLegacy } = await import('../../src/legacy/bridge');
+  const { answerWithSite } = await import('../site-answer');
   const url = new URL(request.url);
-  return handleWithLegacy(request, url.pathname + url.search);
+  return answerWithSite(request, url.pathname + url.search);
 }
 
 /** Inside an API route: let the original code answer this request after all (its body was already read here). */
-export function toLegacy(ctx: ApiCtx): Promise<Response> {
+export function toSite(ctx: ApiCtx): Promise<Response> {
   const m = ctx.request.method;
   const body = m === 'GET' || m === 'HEAD' ? undefined : String((ctx.req as unknown as { __body?: string }).__body ?? '');
   return otherMethods(new Request(ctx.request.url, { method: m, headers: ctx.request.headers, body }));

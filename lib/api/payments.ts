@@ -1,7 +1,7 @@
 // 💳 Online payment (bKash, SSLCommerz) and the couriers' / call company's status updates (webhooks). Money and order
 // status are only changed after the payment company itself confirms (bkashExecute / sslValidate), never on the
 // browser's word. Served by app/pay/[...step] and app/webhook/* (lib/next/api.ts runs the gate first). Moved here
-// from lib/app.ts unchanged.
+// from lib/site.ts unchanged.
 import * as db from '../db';
 import * as O from '../models/orders';
 import * as payments from '../services/payments';

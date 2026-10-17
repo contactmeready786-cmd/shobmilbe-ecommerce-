@@ -1,4 +1,4 @@
-// Lists every address the shop answers (admin route tables + the storefront's checks in lib/app.ts),
+// Lists every address the shop answers (admin route tables + the storefront's checks in lib/site.ts),
 // so the parity crawl can prove it visited each one. Bundled and run by tools/parity/coverage.mjs.
 import fs from 'node:fs';
 import path from 'node:path';
@@ -14,7 +14,7 @@ export function adminRoutes(): Route[] {
 
 export function shopRoutes(root: string): Route[] {
   const out: Route[] = [];
-  for (const f of ['lib/app.ts', 'lib/shopx.ts']) {
+  for (const f of ['lib/site.ts', 'lib/shopx.ts']) {
     const src = fs.readFileSync(path.join(root, f), 'utf8');
     for (const m of src.matchAll(/path === '([^']+)'(?:\s*&&\s*method === '([A-Z]+)')?/g)) out.push({ method: m[2] || 'GET', path: m[1] });
     for (const m of src.matchAll(/(\/\^\\\/[^ ]*?\$\/)\.test\(path\)|path\.match\((\/\^\\\/[^ ]*?\$\/)\)/g)) {

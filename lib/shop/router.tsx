@@ -1,6 +1,6 @@
 // 🧭 The shop's main pages — home, product lists (all products, a category, a brand, search, offers) and product
 // pages — as data: the page's title, its React body and its settings (canonical link, data for Google, tracking …).
-// Used by the Next.js pages (app/(shop)) and by the original router (lib/app.ts), so both always show the same page.
+// Used by the Next.js pages (app/(shop)) and by the original router (lib/site.ts), so both always show the same page.
 import type { ReactNode } from 'react';
 import * as db from '../db';
 import * as catalog from '../models/catalog';

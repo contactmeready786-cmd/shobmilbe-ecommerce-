@@ -1,6 +1,6 @@
 // 🖼️ Pictures, robots.txt, the sitemap, product feeds, the e-mail counters and "leave the e-mail list", and the two
 // scheduled jobs — each served by its own Next.js route (app/media, app/robots.txt, app/sitemap.xml, app/feeds,
-// app/e, app/unsubscribe, app/api/*/tick). lib/next/api.ts runs the shop's gate first. Moved from lib/app.ts unchanged.
+// app/e, app/unsubscribe, app/api/*/tick). lib/next/api.ts runs the shop's gate first. Moved from lib/site.ts unchanged.
 import * as db from '../db';
 import * as catalog from '../models/catalog';
 import * as feeds from '../services/feeds';

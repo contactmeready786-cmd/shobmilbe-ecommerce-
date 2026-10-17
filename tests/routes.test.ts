@@ -1,4 +1,4 @@
-// 🧭 Which addresses Next.js draws, and which still belong to the original code (lib/app.ts).
+// 🧭 Which addresses Next.js draws, and which still belong to the original code (lib/site.ts).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { servedByNext, hasNextPage, servesMore, servesShopRouter, servesForms } from '../lib/next/routes';
@@ -40,7 +40,7 @@ test('admin pages are drawn by Next.js; forms, files and data stay with the orig
   for (const p of ['/admin', '/admin/orders', '/admin/orders/5', '/admin/products', '/admin/settings', '/admin/login']) assert.ok(a(p), p);
   for (const p of ['/admin/api/media', '/admin/orders/export.csv', '/admin/orders/invoice', '/admin/avatar/3', '/admin/pos/memo/4', '/admin/design/documents', '/admin/products/9/active', '/admin/no-such-page']) assert.equal(a(p), false, p);
   assert.equal(a('/admin/orders', '', 'POST'), false);
-  assert.equal(a('/admin/orders', '__legacy=1'), false); // sent back by lib/next/admin.ts: the original code answers
+  assert.equal(a('/admin/orders', '__site=1'), false); // sent back by lib/next/admin.ts: the original code answers
   assert.equal(a('/products'), false);
 });
 

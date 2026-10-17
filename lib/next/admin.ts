@@ -4,7 +4,7 @@
 //
 // An admin page that answers with something other than a page — a redirect, a file, a status other than 200 — is
 // answered as follows: a plain redirect goes there; anything else is sent to the original code (proxy.ts sends
-// ?__legacy=1 there), which answers it exactly as before. proxy.ts already sends the addresses known to be files.
+// ?__site=1 there), which answers it exactly as before. proxy.ts already sends the addresses known to be files.
 import { cache } from 'react';
 import { headers } from 'next/headers';
 import * as admin from '../admin';
@@ -16,10 +16,10 @@ import type { AdminDrawn, Base, Loose, ShopRequest, ShopResponse } from '../type
 export type AdminOutcome =
   | ({ kind: 'page'; nonce: string } & AdminDrawn)
   | { kind: 'redirect'; location: string }
-  | { kind: 'legacy' };
+  | { kind: 'site' };
 
 /** The marker proxy.ts looks for: "let the original code answer this one". */
-export const LEGACY_MARK = '__legacy';
+export const SITE_MARK = '__site';
 
 export const currentAdminPage = cache(async (): Promise<AdminOutcome> => {
   const h = await headers();
@@ -33,7 +33,7 @@ export const currentAdminPage = cache(async (): Promise<AdminOutcome> => {
   // admin pages always read fresh from the database (lib/cache.ts), so what the owner saved shows at once
   const settings = await runFresh(() => db.getSettings());
 
-  let out: AdminOutcome = { kind: 'legacy' };
+  let out: AdminOutcome = { kind: 'site' };
   let cookie = false;
   const req = { headers: plain, url: url.pathname + url.search, method: 'GET', socket: { remoteAddress: plain['x-real-ip'] || '' } } as unknown as ShopRequest;
   const res = {
@@ -45,18 +45,18 @@ export const currentAdminPage = cache(async (): Promise<AdminOutcome> => {
   } as unknown as ShopResponse;
   const base: Base = {
     req, res, path, method: 'GET', query: url.searchParams as Loose, settings,
-    send: () => { out = { kind: 'legacy' }; },
-    json: () => { out = { kind: 'legacy' }; },
-    redirect: (_r, to, extra) => { out = extra && Object.keys(extra).length ? { kind: 'legacy' } : { kind: 'redirect', location: String(to) }; },
-    drawPage: (p) => { out = p.status === 200 ? { kind: 'page', nonce, ...p } : { kind: 'legacy' }; },
+    send: () => { out = { kind: 'site' }; },
+    json: () => { out = { kind: 'site' }; },
+    redirect: (_r, to, extra) => { out = extra && Object.keys(extra).length ? { kind: 'site' } : { kind: 'redirect', location: String(to) }; },
+    drawPage: (p) => { out = p.status === 200 ? { kind: 'page', nonce, ...p } : { kind: 'site' }; },
   };
   try {
     await runFresh(() => security.withNonce(nonce, () => admin.handle(base)));
   } catch (e) {
     // a page the Next.js side can't draw yet (e.g. it needs its HTML as text): the original code answers it
-    console.error('admin page via legacy:', path, (e as Error).message, String((e as Error).stack || '').split('\n').slice(1, 7).map((l) => l.trim()).join(' < '));
-    return { kind: 'legacy' };
+    console.error('admin page via lib/site.ts:', path, (e as Error).message, String((e as Error).stack || '').split('\n').slice(1, 7).map((l) => l.trim()).join(' < '));
+    return { kind: 'site' };
   }
   const done = out as AdminOutcome; // (set by the callbacks above)
-  return cookie && done.kind === 'page' ? { kind: 'legacy' } : done;
+  return cookie && done.kind === 'page' ? { kind: 'site' } : done;
 });

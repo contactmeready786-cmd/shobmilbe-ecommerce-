@@ -1,4 +1,4 @@
-// ⚛️ The page frame for the shop pages still answered by lib/app.ts (the ones not yet served by Next.js).
+// ⚛️ The page frame for the shop pages still answered by lib/site.ts (the ones not yet served by Next.js).
 // It draws exactly what the Next.js pages draw: the same React frame (components/shop/chrome) and head pieces; only the
 // title/description tags are written here instead of by Next.js's metadata. When the last page has moved to app/(shop),
 // this file goes.

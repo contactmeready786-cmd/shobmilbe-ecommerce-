@@ -1,6 +1,6 @@
 // 🛒 Placing an order and the checkout's SMS code (চেকআউট OTP) — money, stock and the customer's details are all
 // checked here on the server, never trusted from the browser. Served by app/api/orders and app/api/checkout-otp/*
-// (lib/next/api.ts runs the gate first). Moved here from lib/app.ts unchanged; tests/orders.db.test.ts and
+// (lib/next/api.ts runs the gate first). Moved here from lib/site.ts unchanged; tests/orders.db.test.ts and
 // tests/checkout-otp.db.test.ts cover the order and code rules.
 import * as db from '../db';
 import * as O from '../models/orders';

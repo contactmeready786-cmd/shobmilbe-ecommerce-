@@ -2,7 +2,7 @@
 //  • Pages served by Next.js (lib/next/routes.ts): the shop's security gate runs here first (lib/gate.ts — the same
 //    checks the original code does: blocked IPs, hacking attempts, the country lock, blocked bots), and the
 //    security headers are added. A visitor who is turned away gets the same page as before.
-//  • Everything else goes on to the original shop code (the fallback rewrite to /api/legacy in next.config.ts).
+//  • Everything else goes on to the original shop code (the fallback rewrite to /api/site in next.config.ts).
 // In both cases the exact address the visitor asked for is passed on as x-shop-url — any copy the visitor sent is
 // overwritten, so it can't be faked.
 import { NextResponse, type NextRequest } from 'next/server';
@@ -26,13 +26,13 @@ export async function proxy(request: NextRequest) {
   if (!servedByNext(path, url.searchParams, request.method)) {
     // an address a Next.js page also has, but this request belongs to the original code (/track?code=…&phone=…,
     // or a form sent to it): the original code answers, as always
-    if (hasNextPage(path)) return NextResponse.rewrite(new URL('/api/legacy' + url.pathname + url.search, request.url), { request: { headers } });
+    if (hasNextPage(path)) return NextResponse.rewrite(new URL('/api/site' + url.pathname + url.search, request.url), { request: { headers } });
     return NextResponse.next({ request: { headers } });
   }
 
   // something that doesn't exist: the shop's own 404 page (the original code also runs the gate for it);
   // something that moved: its new address — exactly as the original code does
-  if (!(await drawableHere(path, request.headers))) return NextResponse.rewrite(new URL('/api/legacy' + url.pathname + url.search, request.url), { request: { headers } });
+  if (!(await drawableHere(path, request.headers))) return NextResponse.rewrite(new URL('/api/site' + url.pathname + url.search, request.url), { request: { headers } });
 
   const plain: Record<string, string> = {};
   request.headers.forEach((v, k) => { plain[k] = v; });
@@ -54,19 +54,19 @@ export async function proxy(request: NextRequest) {
 
 async function adminProxy(request: NextRequest, path: string, headers: Headers) {
   const url = request.nextUrl;
-  const toLegacy = () => {
+  const toSite = () => {
     // the mark that sent this visit here (lib/next/admin.ts) is not passed on
     const q = new URLSearchParams(url.searchParams);
-    q.delete('__legacy');
+    q.delete('__site');
     const search = q.toString();
     headers.set('x-shop-url', url.pathname + (search ? '?' + search : ''));
-    return NextResponse.rewrite(new URL('/api/legacy' + url.pathname + (search ? '?' + search : ''), request.url), { request: { headers } });
+    return NextResponse.rewrite(new URL('/api/site' + url.pathname + (search ? '?' + search : ''), request.url), { request: { headers } });
   };
-  if (!adminServedByNext(path, url.searchParams, request.method)) return toLegacy();
+  if (!adminServedByNext(path, url.searchParams, request.method)) return toSite();
   const plain: Record<string, string> = {};
   request.headers.forEach((v, k) => { plain[k] = v; });
   const gate = await adminGateOk({ headers: plain, socket: { remoteAddress: plain['x-real-ip'] || '' }, url: url.pathname + url.search }, request.method);
-  if (!gate.ok) return toLegacy();
+  if (!gate.ok) return toSite();
   // only scripts carrying this visit's nonce may run (lib/security.ts); Next.js puts it on its own scripts too
   const nonce = Buffer.from(crypto.getRandomValues(new Uint8Array(16))).toString('base64');
   headers.set('x-nonce', nonce);

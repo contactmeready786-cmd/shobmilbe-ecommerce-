@@ -324,7 +324,7 @@ function AdminBody({ settings, user, active, readOnly, path = '', nonce, childre
 /** The body tag's class: "admin", and "admin-auth" on the pages without the menu. */
 const adminBodyClass = (bare?: boolean) => (bare ? 'admin admin-auth' : 'admin');
 
-// The whole admin page as text, for the original router (lib/app.ts). The Next.js admin pages use the same pieces.
+// The whole admin page as text, for the original router (lib/site.ts). The Next.js admin pages use the same pieces.
 function adminLayout({ settings, user, title, body, active, bare, readOnly, path = '' }: Body) {
   const headHtml = `${head(`${title} | Admin`, settings).s}${langHead(settings)}`;
   const inner = bare

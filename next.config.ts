@@ -13,7 +13,7 @@ const config: NextConfig = {
       beforeFiles: [],
       afterFiles: [],
       // Anything without its own Next.js page (yet) is answered by the original code.
-      fallback: [{ source: '/:path*', destination: '/api/legacy/:path*' }],
+      fallback: [{ source: '/:path*', destination: '/api/site/:path*' }],
     };
   },
 };

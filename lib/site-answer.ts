@@ -1,18 +1,18 @@
-// The original shop handler (lib/app.ts) inside a Next.js route: it gets the request's details and the body text, and
-// what it answers (status, headers, body) becomes a Web Response. No Node streams are involved: the handler only ever
-// sets headers and ends its answer once (readBody in lib/util uses the body text given here).
+// The site's form and fallback answers (lib/site.ts) for a Web Request: the handler gets the request's details and the
+// body text, and what it answers (status, headers, body) becomes a Web Response. The handler only ever sets headers and
+// ends its answer once (readBody in lib/util uses the body text given here). Served by app/api/site.
 //
 // What still comes here: forms sent to the shop and the admin, /admin/api and the admin's files and exports, the shop's
 // own 404 page and redirects, and a few small addresses (the country-lock page, verification files). Everything else
 // has its own Next.js page or route.
-import { handler as shopHandler } from '@/lib/app';
-import { flush as flushErrorReports } from '@/lib/services/errors';
-import { loadRenderer } from '@/lib/react/render';
+import { handler as shopHandler } from './site';
+import { flush as flushErrorReports } from './services/errors';
+import { loadRenderer } from './react/render';
 
 type HeaderValue = string | number | readonly string[];
 
 /** Collects what the handler answers (the parts of Node's ServerResponse it uses). */
-export class CollectedAnswer {
+export class ResponseBuilder {
   statusCode = 200;
   statusMessage = '';
   headersSent = false;
@@ -60,19 +60,19 @@ export class CollectedAnswer {
   }
 }
 
-/** Runs the original shop code for one request and collects its answer. */
-export async function runLegacy({ method, headers, body, url }: { method: string; headers: Record<string, string>; body: string; url: string }): Promise<CollectedAnswer | null> {
+/** Runs lib/site.ts for one request and collects its answer. */
+export async function runSite({ method, headers, body, url }: { method: string; headers: Record<string, string>; body: string; url: string }): Promise<ResponseBuilder | null> {
   const req = {
     url, method, headers, httpVersion: '1.1', readableEnded: true, __body: body,
     socket: { remoteAddress: headers['x-real-ip'] || (headers['x-forwarded-for'] || '').split(',')[0].trim() || '127.0.0.1' },
   };
-  const res = new CollectedAnswer();
+  const res = new ResponseBuilder();
   await loadRenderer(); // the original code's pages are text (lib/react/render.tsx)
   try {
     await (shopHandler as unknown as (q: unknown, r: unknown) => Promise<void>)(req, res);
     await res.done;
   } catch (e) {
-    console.error('legacy handler failed', e);
+    console.error('site handler failed', e);
     if (!res.writableEnded) return null;
   } finally {
     await flushErrorReports(); // an error reported to Sentry goes out before the server may be paused
@@ -80,10 +80,10 @@ export async function runLegacy({ method, headers, body, url }: { method: string
   return res;
 }
 
-export async function handleWithLegacy(request: Request, originalUrl: string): Promise<Response> {
+export async function answerWithSite(request: Request, originalUrl: string): Promise<Response> {
   const body = request.method === 'GET' || request.method === 'HEAD' ? '' : await request.text();
   const headers: Record<string, string> = {};
   request.headers.forEach((v, k) => { headers[k] = v; });
-  const res = await runLegacy({ method: request.method, headers, body, url: originalUrl });
+  const res = await runSite({ method: request.method, headers, body, url: originalUrl });
   return res ? res.toResponse() : new Response('Server error', { status: 500 });
 }

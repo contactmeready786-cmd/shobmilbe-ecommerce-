@@ -1,5 +1,5 @@
 // 🛡️ The shop's front gate: the checks every customer page passes before it is drawn — the same for the original
-// router (lib/app.ts) and the Next.js pages (proxy.ts runs it for every address that has its own Next.js page).
+// router (lib/site.ts) and the Next.js pages (proxy.ts runs it for every address that has its own Next.js page).
 //
 //   1. the database is ready (the first visit after an update finishes the setup)
 //   2. the one-time database move isn't running

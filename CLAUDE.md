@@ -42,7 +42,7 @@ uses that one setup. Never add a second Gmail / App Password / SMS / API-key fie
 - Every shop and admin page is rendered by React. Hand-written components live in `components/` (shop: Pages, Complaint,
   Account); the rest of `lib/admin/*.tsx` and `lib/views/*.tsx` is JSX made by `tools/html2jsx.ts` from the old
   html`…` templates, rendered with `toHtml(<…/>)` from `lib/react/render.tsx`. The router, security gate, country lock,
-  admin login and caching live in `lib/app.ts` (served through the App-Router route `app/api/legacy`; its text pages
+  admin login and caching live in `lib/site.ts` (served through the App-Router route `app/api/site`; its text pages
   load react-dom/server lazily — lib/react/render.tsx `loadRenderer()` — because Next.js refuses it imported up front).
 - New UI is JSX. Values from old helpers that return Raw go in as `<Val v={…}/>`; ready-made HTML as `<RawHtml html={…}/>`.
   Don't write new html`…` in lib/admin or lib/views (tests/admin-scripts.test.ts counts them). Page frames
@@ -55,31 +55,31 @@ uses that one setup. Never add a second Gmail / App Password / SMS / API-key fie
 - Next.js App Router (started 2026-10-17): customer pages move one by one into `app/(shop)/` (Next.js pages with
   `generateMetadata` → lib/next/meta.ts). `lib/next/routes.ts` lists the addresses already served there; proxy.ts runs
   the shop's front gate (`lib/gate.ts`: blocked IPs, hacking checks, country lock, blocked bots) for them and adds the
-  security headers. Everything else still goes to lib/app.ts (app/api/legacy), which uses the same gate helpers and
+  security headers. Everything else still goes to lib/site.ts (app/api/site), which uses the same gate helpers and
   the same React frame (`components/shop/chrome`). Page data loads through `lib/next/loaders.ts` / `shop-data.ts`.
 - Don't call notFound() to show a missing item: Next.js serves an empty page for it (github.com/vercel/next.js/issues/99793).
   Add the address to `drawableHere()` in lib/next/loaders.ts — proxy.ts then sends it to the shop's real 404 page.
 - A page that moved is drawn by one shared function both routers call (lib/shop/router.tsx: home/lists/products;
   lib/shop/more.tsx: live, cart, wishlist, compare, checkout, kits, order pages; lib/shop/blog.tsx: articles;
   lib/shop/forms.tsx: account, complaint, return, gift card) — change it there, once.
-  A form sent to an address that has a Next.js page still goes to lib/app.ts (proxy.ts, `hasNextPage`).
+  A form sent to an address that has a Next.js page still goes to lib/site.ts (proxy.ts, `hasNextPage`).
 - public/js/shop.js and i18n.js start after React has taken over a Next.js page (`smWhenReady`, components/shop/chrome/Hydrated.tsx).
 - tests/chrome.test.ts keeps the page frame identical to the old one (tests/golden/chrome-*.html).
 - Admin in Next.js (2026-10-17): every admin GET page is drawn by app/(admin)/admin/[[...path]] — lib/next/admin.ts runs
   the admin's own handler (lib/admin, unchanged) with `drawPage` catching the page's pieces, and the React frame
   (AdminBody / AdminBare in lib/admin/layout.tsx; tests/admin-frame.test.ts) draws them. proxy.ts makes the nonce and the
   script rule (lib/security adminHeaders) and runs the admin's front checks (lib/gate.ts adminGateOk). Forms (POST),
-  /admin/api, files and exports stay with lib/app.ts (`ADMIN_LEGACY` in lib/next/routes.ts); a handler that answers
-  with anything but a page is sent there too (?__legacy=1). After adding or changing an admin route run
+  /admin/api, files and exports stay with lib/site.ts (`ADMIN_SITE` in lib/next/routes.ts); a handler that answers
+  with anything but a page is sent there too (?__site=1). After adding or changing an admin route run
   `npx tsx tools/gen-admin-routes.ts` (lib/next/admin-routes.ts; tests/routes.test.ts checks it).
-- Pieces made with toHtml (lib/react/html) stay React; only lib/app.ts can turn them into text (`.s`). In code a
+- Pieces made with toHtml (lib/react/html) stay React; only lib/site.ts can turn them into text (`.s`). In code a
   Next.js page runs, never use a piece as text (String(x), `${x}`, attrProps(toHtml(…))) — keep it React (Val, or
   insertAfterTag to put something under a heading). RawHtml picks a wrapper the browser keeps in place (text / g / span / div).
 - Shop APIs, pictures, robots/sitemap/feeds, e-mail counters, payments, webhooks and the scheduled jobs are Next.js
   route handlers (app/api/…, app/media, app/pay, app/webhook …) with their code in lib/api/*.ts; `apiRoute()`
   (lib/next/api.ts) runs the shop's gate first (`{ bots: false }` for pictures and robots.txt). A method or address a
-  route doesn't handle goes to the original code (`otherMethods` / `toLegacy`), so its answer stays exactly the same.
-  What is left in lib/app.ts (through app/api/legacy, src/legacy/bridge.ts — no Node streams): shop and admin form
+  route doesn't handle goes to the original code (`otherMethods` / `toSite`), so its answer stays exactly the same.
+  What is left in lib/site.ts (through app/api/site, lib/site-answer.ts — no Node streams): shop and admin form
   POSTs, /admin/api and the admin's files, the shop's 404 / redirect answers, the country-lock page, verification files.
 - Database: only a dropped connection is retried (lib/pg isConnectionError); an order is retried on a deadlock (db.txRetry).
   Tests run one file at a time (`--test-concurrency=1`): the database tests share one throw-away database.

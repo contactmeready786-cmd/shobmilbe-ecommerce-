@@ -1,5 +1,5 @@
 // 🛒 More shop pages as data — live scores, cart, wishlist, compare, checkout, project kits, order pages — each with its title, React
-// body and page settings. Used by the Next.js pages (app/(shop)) and by the original router (lib/app.ts), so both always
+// body and page settings. Used by the Next.js pages (app/(shop)) and by the original router (lib/site.ts), so both always
 // show the same page. The code is the original router's, moved here unchanged.
 import * as catalog from '../models/catalog';
 import * as O from '../models/orders';

@@ -1,7 +1,7 @@
 // 🔌 The shop's small "do something" APIs the pages call (stock / price alerts, product questions, reviews, ♡, coupons,
 // gift card checks, offer notifications, the e-mail list, the checkout's draft and points, live scores, the English
 // switch, visitor counts, the admin's script-rule reports). Each one is served by its own route in app/api/…
-// (lib/next/api.ts runs the gate first). Moved here from lib/app.ts unchanged.
+// (lib/next/api.ts runs the gate first). Moved here from lib/site.ts unchanged.
 import * as db from '../db';
 import * as O from '../models/orders';
 import * as customers from '../models/customers';
