@@ -250,100 +250,14 @@ async function handlerInner(req: ShopRequest, res: ShopResponse) {
 
     // ---- API ----
     const ip = clientIp(req);
-    // small read-only lists the shop pages ask for: generous limits, only a flood is turned away
-    // (/api/cart, /api/suggest, /api/cards, /api/for-you, /api/search-suggest, /api/resume, /api/app/*: their own routes, lib/api/shop-read.ts)
-    if (path === '/api/quote' && !(await security.hit(db, 'readapi:' + ip, 600, 600))) return tooMany(req, res, true);
+    // (the other shop APIs are their own Next.js routes: app/api/… → lib/api/shop-read.ts, lib/api/shop-actions.ts)
     if (path === '/api/orders' && method === 'POST') {
       // stops fake-order floods: 10 orders per hour from one connection is far above any real customer
       if (!(await security.hit(db, 'order:' + ip, 10, 3600))) return tooMany(req, res, true);
       return await placeOrder(base);
     }
     if (path.startsWith('/api/checkout-otp/') && method === 'POST') return await checkoutOtpApi(base);
-    if (path === '/api/checkout-draft' && method === 'POST') {
-      if (!(await security.hit(db, 'draft:' + ip, 40, 600))) return json(res, 200, {});
-      return await draftApi(base);
-    }
-    if (path === '/api/review' && method === 'POST') return await reviewApi(base);
-    if (path === '/api/wish' && method === 'POST') return await wishApi(base);
-    if (path === '/api/points' && method === 'POST') return await pointsApi(base);
-    // 🔔 "স্টকে এলে জানাও" and ❓ a question on a product (both small forms on the product page)
-    if (path === '/api/stock-alert' && method === 'POST') {
-      if (settings.ui_restock_notify === '0') return json(res, 403, { error: 'এখন বন্ধ আছে।' });
-      const b = await parseBody(req);
-      if (b.website) return json(res, 200, { ok: true, message: 'ধন্যবাদ!' });
-      if (!(await security.hit(db, 'stockalert:' + ip, 12, 3600))) return tooMany(req, res, true);
-      const X = $models_extras;
-      try {
-        const r = await X.subscribeStock({ productId: b.product, phone: b.phone, ip });
-        return json(res, 200, { ok: true, message: `✅ ঠিক আছে! "${r.name}" স্টকে এলেই ${normalizePhone(b.phone)} নম্বরে SMS করে জানাব।` });
-      } catch (e) {
-        if (e instanceof X.UserError) return json(res, 400, { error: e.message });
-        throw e;
-      }
-    }
-    // 🔔 "দাম কমলে জানাও"
-    if (path === '/api/price-alert' && method === 'POST') {
-      if (settings.price_alert_on === '0') return json(res, 403, { error: 'এখন বন্ধ আছে।' });
-      const b = await parseBody(req);
-      if (b.website) return json(res, 200, { ok: true, message: 'ধন্যবাদ!' });
-      if (!(await security.hit(db, 'pricealert:' + ip, 12, 3600))) return tooMany(req, res, true);
-      const X = $models_extras;
-      try {
-        const r = await X.subscribePrice({ productId: b.product, phone: b.phone, ip });
-        return json(res, 200, { ok: true, message: `✅ ঠিক আছে! "${r.name}" এর দাম ৳${r.price} থেকে কমলেই ${normalizePhone(b.phone)} নম্বরে SMS করে জানাব।` });
-      } catch (e) {
-        if (e instanceof X.UserError) return json(res, 400, { error: e.message });
-        throw e;
-      }
-    }
-    if (path === '/api/question' && method === 'POST') {
-      if (settings.ui_qa === '0') return json(res, 403, { error: 'এখন প্রশ্ন নেওয়া হচ্ছে না।' });
-      const b = await parseBody(req);
-      if (b.website) return json(res, 200, { ok: true, message: 'ধন্যবাদ!' });
-      if (!(await security.hit(db, 'question:' + ip, 8, 3600))) return tooMany(req, res, true);
-      const X = $models_extras;
-      try {
-        const r = await X.askQuestion({ productId: b.product, name: b.name, phone: b.phone, question: b.question, ip });
-        if (!r.dup) {
-          notify.later($services_push.count().then((n) => (n ? $services_push.sendAll({ title: '❓ নতুন প্রশ্ন', body: `${r.product}: ${str(b.question, 90)}`, url: '/admin/questions', tag: 'question' }) : null)).catch(() => null));
-        }
-        return json(res, 200, { ok: true, message: 'ধন্যবাদ! আপনার প্রশ্ন পেয়েছি। উত্তর দেওয়ার পর এখানে দেখাবে' + (b.phone ? ', আর SMS-এ জানাব।' : '।') });
-      } catch (e) {
-        if (e instanceof X.UserError) return json(res, 400, { error: e.message });
-        throw e;
-      }
-    }
-    if (path === '/api/quote' && method === 'POST') {
-      const b = await parseBody(req);
-      return json(res, 200, await $services_pricing.quote(b.items));
-    }
-    // 🔔 offer notifications: this phone/computer said "yes" (or "no more")
-    if ((path === '/api/push/subscribe' || path === '/api/push/unsubscribe') && method === 'POST') {
-      if (settings.shoppush_on !== '1') return json(res, 404, { error: 'off' });
-      if (!(await security.hit(db, 'pushsub:' + ip, 20, 3600))) return tooMany(req, res, true);
-      const b = await parseBody(req);
-      const push = $services_push;
-      try {
-        if (path.endsWith('/unsubscribe')) { await push.shopUnsubscribe(b.endpoint); return json(res, 200, { ok: true }); }
-        const cu = await $models_accounts.current(req, settings).catch(() => null);
-        await push.shopSubscribe(b.sub, { customerId: cu ? cu.id : null, device: str(b.device, 60) });
-        return json(res, 200, { ok: true });
-      } catch (e) {
-        return json(res, 400, { error: 'এই ব্রাউজারে নোটিফিকেশন চালু করা গেল না।' });
-      }
-    }
-    // ---- 📧 ইমেইল মার্কেটিং: join the offer list (footer box), leave it, and the open / click counters in each mail ----
-    if (path === '/api/subscribe' && method === 'POST') {
-      if (settings.email_mkt_on !== '1') return json(res, 404, { error: 'off' });
-      if (!security.sameSite(req)) return json(res, 403, { error: 'অনুমতি নেই।' });
-      if (!(await security.hit(db, 'esub:' + ip, 8, 3600))) return tooMany(req, res, true);
-      const b = await parseBody(req);
-      if (str(b.website, 50)) return json(res, 200, { ok: true }); // the hidden box only robots fill in
-      const M = $services_mailer;
-      const r = await M.addSub(b.email, { name: str(b.name, 80), source: str(b.from, 20) === 'popup' ? 'popup' : 'footer' }).catch(() => null);
-      if (!r) return json(res, 400, { error: 'সঠিক ইমেইল ঠিকানা লিখুন।' });
-      return json(res, 200, { ok: true, message: r.fresh ? '✅ ধন্যবাদ! নতুন অফার আর পণ্যের খবর আপনার ইমেইলে যাবে।' : '✅ আপনি আগে থেকেই তালিকায় আছেন — ধন্যবাদ!' });
-    }
+    // ---- 📧 ইমেইল মার্কেটিং: leaving the offer list, and the open / click counters in each mail ----
     if (path === '/unsubscribe') {
       const M = $services_mailer;
       const t = str(query.get('t'), 60);
@@ -389,58 +303,11 @@ async function handlerInner(req: ShopRequest, res: ShopResponse) {
       }
       return redirect(res, safe);
     }
-    if (path === '/api/giftcard' && method === 'POST') {
-      if (settings.gift_on !== '1') return json(res, 200, { ok: false, message: 'এখন গিফট কার্ড নেওয়া হচ্ছে না।' });
-      // stops guessing codes: a few checks per connection
-      if (!(await security.hit(db, 'giftchk:' + ip, 15, 3600))) return tooMany(req, res, true);
-      const b = await parseBody(req);
-      const r = await $models_giftcards.check(b.code);
-      return json(res, 200, r.ok ? { ok: true, code: r.code, balance: r.balance, message: r.message } : { ok: false, message: r.message });
-    }
-    if (path === '/api/coupon' && method === 'POST') {
-      if (!(await security.hit(db, 'coupon:' + ip, 30, 600))) return tooMany(req, res, true);
-      return await couponApi(base);
-    }
-    if (path === '/api/v' && method === 'POST') {
-      // visitor-analytics beacon: a real visitor sends a handful per page; a flood is quietly ignored
-      if (!(await security.hit(db, 'beacon:' + ip, 240, 60))) return json(res, 200, {});
-      return await visitApi(base);
-    }
-    if (path === '/api/live/click' && method === 'POST') {
-      if (!(await security.hit(db, 'lclick:' + ip, 60, 60))) { res.statusCode = 204; return res.end(); }
-      return await liveClickApi(base);
-    }
-    m = path.match(/^\/api\/live\/(cricket|football)$/);
-    if (m && method === 'GET') return await liveApi(base, m[1]);
-    // English version: translations of the owner's texts (product names, descriptions…) for the বাংলা/English switch
-    if (path === '/api/i18n' && method === 'POST') {
-      if (settings.i18n_on !== '1') return json(res, 404, { error: 'off' });
-      if (!(await security.hit(db, 'i18n:' + ip, 80, 600))) return tooMany(req, res, true);
-      return i18nApi(base);
-    }
-    if (path === '/api/i18n/fix' && method === 'GET') return i18nFixApi(base);
 
     // ---- market research: one step of the round-the-clock work (GitHub every hour, Vercel cron daily).
     // Safe to call by anyone: it only reads other shops' public product lists, at most once per 90 seconds, and says nothing back.
     // ---- the shop's own daily backup (Vercel cron). Safe to call by anyone: it does nothing unless one is due.
     // the two scheduled jobs: anyone may knock, but one connection only a few times an hour (stops someone making the site work hard on purpose)
-    // ---- 🛡️ the admin's script rule blocked something (lib/security.ts adminCsp): counted on Admin → সার্ভার ও ডাটাবেস,
-    // so a button that stopped working because of the rule shows up there instead of failing silently.
-    if (path === '/api/csp-report' && method === 'POST') {
-      if (await security.hit(db, 'csp:' + ip, 20, 3600)) {
-        const text = await readBody(req, 16 * 1024).catch(() => '');
-        let r: Loose = null;
-        try { const j = JSON.parse(text); r = j['csp-report'] || (Array.isArray(j) ? j[0] && j[0].body : j.body || j); } catch (_) { r = null; }
-        let page = '';
-        try { page = new URL(String((r && (r['document-uri'] || r.documentURL)) || ''), 'https://x').pathname; } catch (_) { page = ''; }
-        if (r && (page === '/admin' || page.startsWith('/admin/'))) {
-          const dir = str(r['violated-directive'] || r.effectiveDirective || '', 60);
-          const blocked = str(r['blocked-uri'] || r.blockedURL || 'inline', 120);
-          $services_health.logError(new Error(`অ্যাডমিনে স্ক্রিপ্ট আটকানো হয়েছে (${dir}: ${blocked})`), { path: page, method: 'CSP' });
-        }
-      }
-      return send(res, 204, '', 'text/plain; charset=utf-8');
-    }
     if ((path === '/api/backup/tick' || path === '/api/research/tick') && !(await security.hit(db, 'tick:' + ip, 30, 3600))) return json(res, 429, { ok: false });
     if (path === '/api/backup/tick') {
       let r: Record<string, Loose> = {};
@@ -572,119 +439,8 @@ async function sitemap(req: ShopRequest, res: ShopResponse, settings: Settings) 
   send(res, 200, xml, 'application/xml; charset=utf-8', { 'Cache-Control': 'public, max-age=3600' });
 }
 
-// ---------------------------------------------------------------- API
-// Visitor analytics beacons from shop.js. Always answers fast; never breaks the page.
-async function visitApi({ req, res, settings }: Body) {
-  let out = null;
-  try {
-    const host = String(req.headers['x-forwarded-host'] || req.headers.host || '').split(':')[0].toLowerCase().replace(/^www\./, '');
-    out = await visitors.record({ req, settings, body: await readBody(req, 16 * 1024), ip: clientIp(req), ownHost: host });
-  } catch (e: Loose) {
-    console.error('visit beacon', e.message);
-  }
-  return json(res, 200, out || {});
-}
-
-// Live scores: cached a few seconds at Vercel's edge so every visitor gets them instantly.
-async function liveApi({ res, settings }: Body, sport?: Loose) {
-  if (!livescore.enabled(settings)[sport]) return json(res, 404, { error: 'off' });
-  try {
-    const data = await livescore.scores(sport, settings);
-    return send(res, 200, JSON.stringify(data), 'application/json; charset=utf-8',
-      { 'Cache-Control': 'public, max-age=5, s-maxage=10, stale-while-revalidate=30' });
-  } catch (e: Loose) {
-    console.error('live scores', e.message);
-    return json(res, 502, { error: 'স্কোর এই মুহূর্তে আনা যাচ্ছে না।' });
-  }
-}
-
-// A visitor tapped a match in the score box / score page: count it per competition per day (shown to the admin).
-async function liveClickApi({ req, res }: Body) {
-  try {
-    let b: Record<string, Loose> = {};
-    try { b = JSON.parse(await readBody(req, 2048) || '{}'); } catch (_) { b = {}; }
-    const sport = b.sport === 'football' ? 'football' : b.sport === 'cricket' ? 'cricket' : '';
-    const cat = String(b.cat || '');
-    const known = sport === 'cricket' ? livescore.CRICKET_LEAGUES.some(([k]) => k === cat) : livescore.FOOTBALL_LEAGUES.some(([k]) => k === cat);
-    if (sport && known) {
-      await db.q(`INSERT INTO live_clicks(day, sport, cat, n) VALUES ((now() AT TIME ZONE 'Asia/Dhaka')::date, $1, $2, 1)
-        ON CONFLICT (day, sport, cat) DO UPDATE SET n = live_clicks.n + 1`, [sport, cat]);
-    }
-  } catch (e: Loose) {
-    console.error('live click', e.message);
-  }
-  res.statusCode = 204;
-  return res.end();
-}
-
-// The visitor's browser sends the texts on the page that are not in the built-in word list; we answer
-// with saved translations and translate the new ones once (they are kept for everyone after that).
-async function i18nApi({ req, res, settings }: Body) {
-  let b: Record<string, Loose> = {};
-  try { b = JSON.parse(await readBody(req, 96 * 1024) || '{}'); } catch (_) { b = {}; }
-  let budget = 40000;
-  const texts = (Array.isArray(b.t) ? b.t : []).slice(0, 60).map((x?: Loose) => String(x || '')).filter((x?: Loose) => {
-    if (!x || x.length > translate.MAX_LEN || budget - x.length < 0) return false;
-    budget -= x.length;
-    return true;
-  });
-  let m: Record<string, Loose> = {};
-  try { m = await translate.lookup(texts, settings, { auto: settings.i18n_auto !== '0', deadline: Date.now() + 9000 }); } catch (e: Loose) { console.error('i18n', e.message); }
-  return json(res, 200, { m });
-}
-// Lines the owner corrected by hand. The URL carries a version number, so it can be cached at the edge.
-async function i18nFixApi({ res, settings }: Body) {
-  if (settings.i18n_on !== '1') return json(res, 404, { error: 'off' });
-  let m: Record<string, Loose> = {};
-  try { m = await translate.manualAll(); } catch (e: Loose) { console.error('i18n fix', e.message); }
-  return send(res, 200, JSON.stringify({ m }), 'application/json; charset=utf-8', { 'Cache-Control': 'public, max-age=300, s-maxage=86400' });
-}
 
 
-// Incomplete order: what the shopper typed at checkout so far (only with a full BD mobile number).
-async function draftApi({ req, res, settings }: Body) {
-  const b = await parseBody(req);
-  if (settings.draft_capture_on === '0') return json(res, 200, { off: 1 });
-  if (await customers.isBlocked(normalizePhone(b.phone), clientIp(req))) return json(res, 200, {});
-  return json(res, 200, await drafts.save({ b, ip: clientIp(req), settings }));
-}
-
-// A customer's review — only from the order page of a DELIVERED order that belongs to this browser
-// (the order was placed here, or opened with order number + mobile number on "অর্ডার ট্র্যাক").
-async function reviewApi({ req, res, settings }: Body) {
-  if (settings.reviews_on === '0') return json(res, 403, { error: 'রিভিউ এখন বন্ধ আছে।' });
-  const b = await parseBody(req);
-  const ip = clientIp(req);
-  if (b.website) return json(res, 200, { ok: true, message: 'ধন্যবাদ!' }); // a robot filled the hidden box
-  const code = str(b.code, 20).toUpperCase();
-  if (!code || !myOrders(req, settings).includes(code)) {
-    return json(res, 403, { error: 'রিভিউ দিতে আগে "অর্ডার ট্র্যাক" পেজে অর্ডার নম্বর আর মোবাইল নম্বর দিয়ে অর্ডারটা খুলুন।' });
-  }
-  if (!(await security.hit(db, 'review:' + ip, 10, 3600))) return json(res, 429, { error: 'অনেকগুলো রিভিউ পাঠানো হয়েছে। কিছুক্ষণ পর আবার চেষ্টা করুন।' });
-  const R = $models_reviews;
-  try {
-    const r = await R.submit({ code, productId: b.product, name: b.name, rating: b.rating, body: b.body, ip, photos: Array.isArray(b.photos) ? b.photos : [] }, settings);
-    if (r.status === 'pending') {
-      notify.later($services_push.count().then((n) => (n ? $services_push.sendAll({ title: '⭐ নতুন রিভিউ', body: `${r.product}: অনুমোদনের অপেক্ষায়`, url: '/admin/reviews?status=pending', tag: 'review' }) : null)).catch(() => null));
-    }
-    return json(res, 200, { ok: true, message: r.status === 'approved' ? 'ধন্যবাদ! আপনার রিভিউ যোগ হয়েছে।' : 'ধন্যবাদ! যাচাইয়ের পর আপনার রিভিউ পণ্যের পেজে দেখানো হবে।' });
-  } catch (e) {
-    if (e instanceof R.ReviewError) return json(res, 400, { error: e.message });
-    throw e;
-  }
-}
-// ♡ pressed or un-pressed: the owner sees which products people want most (no personal data is kept).
-async function wishApi({ req, res, settings }: Body) {
-  if (settings.wishlist_on === '0') return json(res, 200, {});
-  const b = await parseBody(req);
-  const id = int(b.id);
-  const on = b.on === true || b.on === 1 || b.on === '1';
-  if (id > 0 && await security.hit(db, `wish:${clientIp(req)}:${id}:${on ? 1 : 0}`, 3, 86400)) {
-    await db.q(`UPDATE products SET wish_count = greatest(0, wish_count + $1) WHERE id=$2 AND active`, [on ? 1 : -1, id]);
-  }
-  return json(res, 200, { ok: true });
-}
-// Checkout: how many loyalty points this mobile number has (a few lookups per hour per IP).
 // 🔐 চেকআউট OTP: /api/checkout-otp/status (does this number need a code?), /send (SMS a code), /verify (check it).
 // /smscheck: did the shop's phone really send the code? (tells the owner when the SMS app is off)
 async function checkoutOtpApi({ req, res, path, settings }: Body) {
@@ -723,37 +479,6 @@ async function checkoutOtpApi({ req, res, path, settings }: Body) {
   return json(res, 404, { error: 'নেই' });
 }
 
-async function pointsApi({ req, res, settings }: Body) {
-  const L = $models_loyalty;
-  const c = L.cfg(settings);
-  if (!c.on) return json(res, 200, { on: false });
-  const b = await parseBody(req);
-  const phone = normalizePhone(b.phone);
-  if (!validPhone(phone)) return json(res, 200, { on: true, points: 0 });
-  if (!(await security.hit(db, 'points:' + clientIp(req), 20, 3600))) return json(res, 429, { on: true, points: 0 });
-  const cu = await L.forPhone(phone);
-  return json(res, 200, { on: true, points: cu ? cu.points : 0, value: c.value, min: c.min, maxPct: c.maxPct, earnPer: c.earnPer });
-}
-
-async function couponApi({ req, res, settings }: Body) {
-  if (settings && settings.ui_co_coupon === '0') return json(res, 200, { ok: false, message: 'এখন কুপন নেওয়া হচ্ছে না।' });
-  const b = await parseBody(req);
-  // the cart's own prices are worked out here (never trusted from the browser): flash sale, quantity price, gifts
-  const qt = await $services_pricing.quote(Array.isArray(b.items) ? b.items.slice(0, 50) : []);
-  const lines = [...qt.lines.map((l) => ({ product_id: l.id, price: l.price, qty: l.qty, kind: l.kind })),
-    ...qt.gifts.map((g) => ({ product_id: g.id, price: g.price, qty: g.qty, kind: 'gift' }))];
-  const subtotal = lines.length ? qt.subtotal : amount(b.subtotal);
-  // a friend's referral code goes in the same box (when it is not one of the shop's coupons)
-  if (settings.ref_on === '1' && !(await db.one('SELECT 1 AS x FROM coupons WHERE upper(code)=upper($1)', [str(b.code, 40)]))) {
-    const G = $models_giftcards;
-    if (await G.referrerFor(b.code)) {
-      const r = await G.checkReferral(settings, b.code, b.phone, subtotal);
-      return json(res, 200, r.ok ? { ok: true, discount: r.discount, freeDelivery: false, code: G.cleanCode(b.code), message: r.message, referral: true } : { ok: false, message: r.message });
-    }
-  }
-  const c = await O.checkCoupon(str(b.code, 40), subtotal, b.phone ? normalizePhone(b.phone) : '', lines.length ? lines : null);
-  return json(res, 200, c.ok ? { ok: true, discount: c.discount, freeDelivery: c.freeDelivery, code: c.coupon.code, message: c.message } : { ok: false, message: c.message });
-}
 
 async function placeOrder({ req, res, settings }: Body) {
   const body = await parseBody(req);
