@@ -59,5 +59,8 @@ uses that one setup. Never add a second Gmail / App Password / SMS / API-key fie
   the same React frame (`components/shop/chrome`). Page data loads through `lib/next/loaders.ts` / `shop-data.ts`.
 - Don't call notFound() to show a missing item: Next.js serves an empty page for it (github.com/vercel/next.js/issues/99793).
   Add the address to `drawableHere()` in lib/next/loaders.ts — proxy.ts then sends it to the shop's real 404 page.
+- A page that moved is drawn by one shared function both routers call (lib/shop/router.tsx: home/lists/products;
+  lib/shop/more.tsx: live, cart, wishlist, compare, checkout, kits; lib/shop/blog.tsx: articles) — change it there, once.
+  A form sent to an address that has a Next.js page still goes to lib/app.ts (proxy.ts, `hasNextPage`).
 - public/js/shop.js and i18n.js start after React has taken over a Next.js page (`smWhenReady`, components/shop/chrome/Hydrated.tsx).
 - tests/chrome.test.ts keeps the page frame identical to the old one (tests/golden/chrome-*.html).

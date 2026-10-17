@@ -45,6 +45,7 @@ import * as $services_autopost from './services/autopost';
 import * as $services_fbreply from './services/fbreply';
 import * as $services_telegram from './services/telegram';
 import * as $shop_blog from './shop/blog';
+import * as $shop_more from './shop/more';
 import * as $services_autoblog from './services/autoblog';
 import * as $services_autocall from './services/autocall';
 import * as $models_reviews from './models/reviews';
@@ -1081,76 +1082,14 @@ async function shopRoutes({ req, res, path, method, query, settings }: Body) {
     return page(r.title, r.body, r.opts);
   }
   let m: RegExpMatchArray | null = null;
-  if (path === '/live' || (m = path.match(/^\/live\/(cricket|football)$/))) {
-    const on = livescore.enabled(settings);
-    const sport = m ? m[1] : (on.cricket ? 'cricket' : 'football');
-    if (!on[sport]) return notFound();
-    if (!m) return redirect(res, `/live/${sport}`);
-    const embed = settings[`live_${sport}_source`] === 'embed' && String(settings[`live_${sport}_embed`] || '').trim();
-    let data = null;
-    if (!embed) data = await Promise.race([livescore.scores(sport, settings), new Promise((r) => setTimeout(() => r(null), 3500))]).catch(() => null);
-    const title = sport === 'cricket' ? 'লাইভ ক্রিকেট স্কোর' : 'লাইভ ফুটবল স্কোর';
-    return page(title, shop.livePage({ sport, on, data, embed, settings }), {
-      active: 'live', canonical: `/live/${sport}`,
-      description: sport === 'cricket' ? 'বাংলাদেশসহ সব আন্তর্জাতিক ও লিগ ক্রিকেটের লাইভ স্কোর, প্রতি কয়েক সেকেন্ডে আপডেট।' : 'বিশ্বকাপ, প্রিমিয়ার লিগ, লা লিগা সহ সব বড় ফুটবল ম্যাচের লাইভ স্কোর।',
-    });
-  }
-  if (path === '/cart') return page('কার্ট', shop.cartPage({ settings }), { active: 'cart', noindex: true });
-  if (path === '/wishlist') {
-    // the list lives in the shopper's own browser; the page asks for /wishlist?ids=… and shows those products
-    const ids = (query.get('ids') || '').split(',').map((x?: Loose) => int(x)).filter((x?: Loose) => x > 0).slice(0, 60);
-    const prods = ids.length ? await catalog.getProductsByIds(ids, { public: true }) : [];
-    const pos = new Map(ids.map((id?: Loose, i?: Loose) => [id, i]));
-    return page('পছন্দের তালিকা', shop.wishlistPage({ products: prods.sort((a, b) => (pos.get(a.id) as number) - (pos.get(b.id) as number)), settings, asked: query.has('ids') }), { noindex: true, canonical: '/wishlist' });
-  }
-  if (path === '/compare') {
-    if (settings.ui_compare === '0') return notFound();
-    // ⚖️ the shopper's own comparison list (kept in the browser): /compare?ids=1,2,3
-    const ids = (query.get('ids') || '').split(',').map((x?: Loose) => int(x)).filter((x?: Loose) => x > 0).slice(0, 4);
-    const prods = ids.length ? (await Promise.all(ids.map((id?: Loose) => catalog.getProduct({ id, public: true })))).filter((p) => p && p.active && !p.parent_id) : [];
-    const rv = await Promise.all(prods.map((p) => (settings.reviews_on === '0' ? { stats: { count: 0 } } : $models_reviews.forProduct(p.id))));
-    prods.forEach((p, i) => { p.review_stats = rv[i].stats; });
-    return page('পণ্য তুলনা', shop.comparePage({ products: prods, settings, asked: query.has('ids') }), { noindex: true, canonical: '/compare' });
-  }
-  if (path === '/checkout') {
-    const A = $models_accounts;
-    const cu = await A.current(req, settings);
-    // a brand-new account gives its name (and an e-mail account its mobile number) first, then orders
-    if (cu && A.needsProfile(cu)) return redirect(res, '/account?tab=profile&welcome=1&next=/checkout');
-    const account = cu ? { name: cu.name, phone: A.deliveryPhone(cu), addresses: await A.addresses(cu.id) } : null;
-    const refCode = settings.ref_on === '1' ? ($shopx.refFromCookie(req) || (query.get('ref') || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 20)) : '';
-    return page('অর্ডার করুন', shop.checkoutPage({ settings, methods: payments.methods(settings), cityAreas: O.dhakaCityAreas(settings), zones: O.customZones(settings), account, refCode,
-      otp: $models_checkoutotp.active(settings) }),
-      { active: 'cart', noindex: true, track: { event: 'begin_checkout' } });
-  }
-  // 🧰 project kits
-  if (path === '/kits' && settings.kits_on !== '0') {
-    const kits = await $models_kits.list({ activeOnly: true });
-    return page('প্রজেক্ট কিট', shop.kitsPage({ kits, settings }), { canonical: '/kits', description: 'প্রজেক্ট বানাতে যা যা পার্টস লাগে — এক জায়গায়, এক চাপে কার্টে।' });
-  }
-  let km = path.match(/^\/kit\/([^/]+)$/);
-  if (km && settings.kits_on !== '0') {
-    const kit = await $models_kits.forShop(decodeURIComponent(km[1]));
-    if (!kit) return notFound();
-    // 🛠️ a kit with steps is a "how to build it" page for Google (HowTo): the parts are its supplies, with today's total
-    const K = $models_kits;
-    const steps = K.stepList(kit);
-    const base = siteUrl(req, settings).replace(/\/+$/, '');
-    const need = kit.items.filter((i?: Loose) => !i.optional);
-    const howTo = steps.length ? { '@context': 'https://schema.org', '@type': 'HowTo', name: kit.title, url: `${base}/kit/${kit.slug}`,
-      description: md.plain(kit.description, 300) || kit.title, image: kit.image_id ? `${base}/media/${kit.image_id}` : undefined,
-      estimatedCost: { '@type': 'MonetaryAmount', currency: 'BDT', value: Math.round(need.reduce((t?: Loose, i?: Loose) => t + Number(i.product.price) * i.qty, 0)) },
-      supply: kit.items.map((i?: Loose) => ({ '@type': 'HowToSupply', name: seo.cleanName(i.product.name), requiredQuantity: i.qty })),
-      step: steps.map((t, i) => ({ '@type': 'HowToStep', position: i + 1, name: seo.cut(t, 80), text: t, url: `${base}/kit/${kit.slug}#step-${i + 1}` })) } : null;
-    const crumbs = { '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: [
-      { '@type': 'ListItem', position: 1, name: settings.store_name, item: base + '/' },
-      { '@type': 'ListItem', position: 2, name: 'প্রজেক্ট কিট', item: base + '/kits' },
-      { '@type': 'ListItem', position: 3, name: kit.title, item: `${base}/kit/${kit.slug}` }] };
-    const title = !steps.length ? `${kit.title} — পার্টস লিস্ট ও দাম`
-      : /বানান|বানানো|বানাবেন|বানানোর/.test(kit.title) ? `${kit.title} — ধাপে ধাপে নিয়ম ও পার্টস লিস্ট` : `${kit.title} — বানানোর নিয়ম ও পার্টস লিস্ট`;
-    return page(title, shop.kitPage({ kit, settings }), { canonical: `/kit/${kit.slug}`,
-      description: seo.cut(`${md.plain(kit.description, 300) || kit.title} ${steps.length ? `${bn(steps.length)}টি ধাপে বানানোর নিয়ম, ` : ''}সব পার্টস এক চাপে কার্টে।`, 160),
-      image: kit.image_id ? `/media/${kit.image_id}` : '', jsonLd: howTo || undefined, jsonLdExtra: crumbs });
+  // live scores, cart, wishlist, compare, checkout, project kits: lib/shop/more.tsx (shared with the Next.js pages)
+  {
+    const r = await $shop_more.resolveMore({ path, query, settings, base: siteUrl(req, settings), req });
+    if (r) {
+      if (r.kind === 'notFound') return notFound();
+      if (r.kind === 'redirect') { res.writeHead(r.status, { Location: r.location, ...r.headers }); return res.end(); }
+      return page(r.title, r.body, r.opts);
+    }
   }
   m = path.match(/^\/order\/([A-Za-z0-9]+)(\/invoice)?$/);
   if (m) {

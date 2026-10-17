@@ -4,8 +4,13 @@ import { cache } from 'react';
 import * as db from '../db';
 import * as content from '../models/content';
 import * as catalog from '../models/catalog';
+import * as kits from '../models/kits';
+import * as accounts from '../models/accounts';
+import * as livescore from '../services/livescore';
 import { publishedPost } from '../shop/blog';
-import type { Loose } from '../types';
+import type { Loose, Settings, ShopRequest } from '../types';
+
+async function settingsNow(): Promise<Settings> { await db.ensureReady(); return db.getSettings(); }
 
 export const blogCategory = cache(async (slug: string) => {
   await db.ensureReady();
@@ -33,7 +38,7 @@ const safeDecode = (s: string) => { try { return decodeURIComponent(s); } catch 
  * (Next.js can't yet draw its "not found" page on the server — notFound() sends an empty page that only fills in with
  * JavaScript, github.com/vercel/next.js/issues/99793.)  The checks match the page's own (lib/shop/router.tsx).
  */
-export async function drawableHere(path: string): Promise<boolean> {
+export async function drawableHere(path: string, headers: Headers): Promise<boolean> {
   let m = /^\/blog\/category\/([^/]+)$/.exec(path);
   if (m) return !!(await blogCategory(safeDecode(m[1]))).category;
   m = /^\/blog\/([^/]+)$/.exec(path);
@@ -45,6 +50,20 @@ export async function drawableHere(path: string): Promise<boolean> {
     await db.ensureReady();
     const b = (await catalog.getBrand({ slug: m[1] })) as Loose;
     return !!(b && b.active);
+  }
+  // live scores, compare, kits: only when the owner has them on; /live itself opens the first sport (a redirect);
+  // the checkout first asks a brand-new account for its name (a redirect) — lib/shop/more.tsx
+  if (path === '/live') return false;
+  m = /^\/live\/(cricket|football)$/.exec(path);
+  if (m) return !!livescore.enabled(await settingsNow())[m[1]];
+  if (path === '/compare') return (await settingsNow()).ui_compare !== '0';
+  if (path === '/kits') return (await settingsNow()).kits_on !== '0';
+  m = /^\/kit\/([^/]+)$/.exec(path);
+  if (m) return (await settingsNow()).kits_on !== '0' && !!(await kits.forShop(safeDecode(m[1])));
+  if (path === '/checkout') {
+    const s = await settingsNow();
+    const cu = await accounts.current({ headers: { cookie: headers.get('cookie') || '' } } as ShopRequest, s);
+    return !(cu && accounts.needsProfile(cu));
   }
   m = /^\/p\/([^/]+)$/.exec(path);
   if (m) {

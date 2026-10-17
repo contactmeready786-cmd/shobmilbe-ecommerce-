@@ -6,7 +6,7 @@
 // In both cases the exact address the visitor asked for is passed on as x-shop-url — any copy the visitor sent is
 // overwritten, so it can't be faked.
 import { NextResponse, type NextRequest } from 'next/server';
-import { servedByNext } from './lib/next/routes';
+import { servedByNext, hasNextPage } from './lib/next/routes';
 import { drawableHere } from './lib/next/loaders';
 import { shopGate, refCookie, refToRemember } from './lib/gate';
 import { BASE_HEADERS } from './lib/security';
@@ -20,14 +20,15 @@ export async function proxy(request: NextRequest) {
   if (path.length > 1) path = path.replace(/\/+$/, '');
 
   if (!servedByNext(path, url.searchParams, request.method)) {
-    // an address a Next.js page also has, but this request belongs to the original code (e.g. /track?code=…&phone=…)
-    if (path === '/track') return NextResponse.rewrite(new URL('/api/legacy/track' + url.search, request.url), { request: { headers } });
+    // an address a Next.js page also has, but this request belongs to the original code (/track?code=…&phone=…,
+    // or a form sent to it): the original code answers, as always
+    if (hasNextPage(path)) return NextResponse.rewrite(new URL('/api/legacy' + url.pathname + url.search, request.url), { request: { headers } });
     return NextResponse.next({ request: { headers } });
   }
 
   // something that doesn't exist: the shop's own 404 page (the original code also runs the gate for it);
   // something that moved: its new address — exactly as the original code does
-  if (!(await drawableHere(path))) return NextResponse.rewrite(new URL('/api/legacy' + url.pathname + url.search, request.url), { request: { headers } });
+  if (!(await drawableHere(path, request.headers))) return NextResponse.rewrite(new URL('/api/legacy' + url.pathname + url.search, request.url), { request: { headers } });
 
   const plain: Record<string, string> = {};
   request.headers.forEach((v, k) => { plain[k] = v; });

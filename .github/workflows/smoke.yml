@@ -33,4 +33,7 @@ jobs:
           check / '200|403' '<html'                 # shop or the country page — never a server error
           check /blog '200|403' '<html'             # a Next.js page: its front gate (country lock) must answer too
           check /page/no-such-page '404|403' '<html'  # missing → the shop's own 404 page
+          check /cart '200|403' '<html'             # Next.js pages added later: cart and checkout open too
+          check /checkout '200|403' '<html'
+          check /kit/no-such-kit '404|403' '<html'
           exit $fail

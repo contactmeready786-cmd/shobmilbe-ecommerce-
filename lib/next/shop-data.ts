@@ -7,6 +7,8 @@ import * as catalog from '../models/catalog';
 import * as content from '../models/content';
 import { siteUrl } from '../gate';
 import { resolveShop, type Resolved } from '../shop/router';
+import { resolveMore } from '../shop/more';
+import { servesShopRouter } from './routes';
 import type { Loose, Settings } from '../types';
 
 export const getSettings = cache(async (): Promise<Settings> => {
@@ -44,10 +46,12 @@ export const getShopPath = cache(async (): Promise<string> => {
   return path.length > 1 ? path.replace(/\/+$/, '') : path;
 });
 
-/** The page at this address from lib/shop/router.tsx — loaded once per visit and shared by the frame, the head and the body. */
+/** The page at this address from lib/shop/router.tsx or lib/shop/more.tsx — loaded once per visit and shared by the frame, the head and the body. */
 export const currentShopPage = cache(async (): Promise<Resolved> => {
   const [{ settings, categories }, url, path, h] = await Promise.all([getChrome(), getRequestUrl(), getShopPath(), headers()]);
   const plain: Record<string, string> = {};
   h.forEach((v: string, k: string) => { plain[k] = v; });
-  return resolveShop({ path, query: url.searchParams, settings, categories, base: siteUrl({ headers: plain }, settings) });
+  const base = siteUrl({ headers: plain }, settings);
+  if (servesShopRouter(path)) return resolveShop({ path, query: url.searchParams, settings, categories, base });
+  return (await resolveMore({ path, query: url.searchParams, settings, base, req: { headers: plain } })) || { kind: 'notFound' };
 });
