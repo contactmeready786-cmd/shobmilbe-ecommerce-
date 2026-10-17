@@ -2,7 +2,7 @@
 // every other address still goes to the original code (lib/app.ts). Grows as pages move; when it covers everything,
 // the original router goes.
 const EXACT = new Set(['/', '/products', '/track', '/blog']);
-const PATTERNS = [/^\/brand\/[^/]+$/, /^\/p\/[^/]+$/, /^\/blog\/category\/[^/]+$/, /^\/page\/[^/]+$/];
+const PATTERNS = [/^\/brand\/[^/]+$/, /^\/p\/[^/]+$/, /^\/blog\/category\/[^/]+$/, /^\/blog\/[^/]+$/, /^\/page\/[^/]+$/];
 
 /** Addresses drawn by lib/shop/router.tsx (home, lists, product pages). */
 export function servesShopRouter(path: string): boolean {

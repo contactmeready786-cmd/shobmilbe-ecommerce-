@@ -64,7 +64,7 @@ function productCard(p: Loose, settings: Settings, badge: Loose = '', pri: Pri =
 const leadPri = (i: number, lead: number): Pri => (i < Math.min(lead, 2) ? 'high' : i < lead ? 'eager' : '');
 function productGrid(products: Loose, settings: Settings, emptyMsg?: Loose, lead = 0) {
   if (!products.length) return (<div className="empty"><p><Val v={emptyMsg || 'কোনো পণ্য পাওয়া যায়নি।'} /></p><a className="btn" href="/products">সব পণ্য দেখুন</a></div>);
-  return (<div className="grid"><Val v={products.map((p?: Loose, i: number) => productCard(p, settings, '', leadPri(i, lead)))} /></div>);
+  return (<div className="grid"><Val v={products.map((p: Loose, i: number) => productCard(p, settings, '', leadPri(i, lead)))} /></div>);
 }
 // The shop's four promises — small and in one row (inside the blue banner, or a thin strip under the pictures).
 function trustItems(s?: Loose, cls?: Loose) {
@@ -89,7 +89,7 @@ function catCrumbs(node?: Loose, last: Loose = true) {
 // auto = moves on by itself, one card at a time, and stops while someone is looking at it.
 function rail(title?: Loose, link?: Loose, products?: Loose, s?: Loose, { badge = '', auto = false, sub = '', chips = null, lead = 0 }: Body = {}) {
   if (!products || !products.length) return '';
-  return (<section className="home-sec rail-sec"><div className="section-head"><div><h2><Val v={title} /></h2>{(sub ? <p className="sec-sub"><Val v={sub} /></p> : null)}</div><div className="rail-head-r">{(link ? <a href={attrValue(link)}>সব দেখুন →</a> : null)}{' '}<button type="button" className="rail-btn" data-rail-prev="" {...({ "aria-label": "আগের পণ্য" } as Record<string, string>)}>‹</button><button type="button" className="rail-btn" data-rail-next="" {...({ "aria-label": "পরের পণ্য" } as Record<string, string>)}>›</button></div></div>{(chips && chips.length ? <div className="chips rail-chips">{jsxList(chips.map((c?: Loose) => <a className="chip" href={`/products?cat=${attrValue(c.slug)}`}><Val v={c.name} /></a>))}</div> : null)}<div className="rail" data-rail="" {...attrProps(auto ? raw('data-rail-auto') : '')}><Val v={products.map((p?: Loose, i: number) => productCard(p, s, typeof badge === 'function' ? badge(p) : badge, i < lead ? 'eager' : ''))} /></div></section>);
+  return (<section className="home-sec rail-sec"><div className="section-head"><div><h2><Val v={title} /></h2>{(sub ? <p className="sec-sub"><Val v={sub} /></p> : null)}</div><div className="rail-head-r">{(link ? <a href={attrValue(link)}>সব দেখুন →</a> : null)}{' '}<button type="button" className="rail-btn" data-rail-prev="" {...({ "aria-label": "আগের পণ্য" } as Record<string, string>)}>‹</button><button type="button" className="rail-btn" data-rail-next="" {...({ "aria-label": "পরের পণ্য" } as Record<string, string>)}>›</button></div></div>{(chips && chips.length ? <div className="chips rail-chips">{jsxList(chips.map((c?: Loose) => <a className="chip" href={`/products?cat=${attrValue(c.slug)}`}><Val v={c.name} /></a>))}</div> : null)}<div className="rail" data-rail="" {...attrProps(auto ? raw('data-rail-auto') : '')}><Val v={products.map((p: Loose, i: number) => productCard(p, s, typeof badge === 'function' ? badge(p) : badge, i < lead ? 'eager' : ''))} /></div></section>);
 }
 
 // ---------------------------------------------------------------- home
@@ -131,7 +131,7 @@ function home({ settings: s, sections, data }: Body) {
       const sub = c.row.sub;
       const rowLead = lead(c.products);
       if (c.row.style === 'grid') {
-        return (<div className="wrap"><section className="home-sec"><div className="section-head"><div><h2><Val v={c.row.title} /></h2>{(sub ? <p className="sec-sub"><Val v={sub} /></p> : null)}</div><a href={attrValue(c.link)}>সব দেখুন →</a></div><div className="grid"><Val v={c.products.map((p?: Loose, i: number) => productCard(p, s, c.row.badge, i < rowLead ? 'eager' : ''))} /></div></section></div>);
+        return (<div className="wrap"><section className="home-sec"><div className="section-head"><div><h2><Val v={c.row.title} /></h2>{(sub ? <p className="sec-sub"><Val v={sub} /></p> : null)}</div><a href={attrValue(c.link)}>সব দেখুন →</a></div><div className="grid"><Val v={c.products.map((p: Loose, i: number) => productCard(p, s, c.row.badge, i < rowLead ? 'eager' : ''))} /></div></section></div>);
       }
       return (<div className="wrap"><Val v={rail(c.row.title, c.link, c.products, s, { badge: c.row.badge, sub, lead: rowLead })} /></div>);
     }

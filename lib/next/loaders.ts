@@ -4,6 +4,7 @@ import { cache } from 'react';
 import * as db from '../db';
 import * as content from '../models/content';
 import * as catalog from '../models/catalog';
+import { publishedPost } from '../shop/blog';
 import type { Loose } from '../types';
 
 export const blogCategory = cache(async (slug: string) => {
@@ -18,6 +19,11 @@ export const ownerPage = cache(async (slug: string) => {
   return p && p.active ? p : null;
 });
 
+export const blogPostLive = cache(async (slug: string) => {
+  await db.ensureReady();
+  return publishedPost(slug);
+});
+
 const safeDecode = (s: string) => { try { return decodeURIComponent(s); } catch { return s; } };
 
 /**
@@ -30,6 +36,8 @@ const safeDecode = (s: string) => { try { return decodeURIComponent(s); } catch 
 export async function drawableHere(path: string): Promise<boolean> {
   let m = /^\/blog\/category\/([^/]+)$/.exec(path);
   if (m) return !!(await blogCategory(safeDecode(m[1]))).category;
+  m = /^\/blog\/([^/]+)$/.exec(path);
+  if (m) return !!(await blogPostLive(safeDecode(m[1])));
   m = /^\/page\/([^/]+)$/.exec(path);
   if (m) return !!(await ownerPage(safeDecode(m[1])));
   m = /^\/brand\/([^/]+)$/.exec(path);

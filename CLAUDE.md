@@ -58,6 +58,6 @@ uses that one setup. Never add a second Gmail / App Password / SMS / API-key fie
   security headers. Everything else still goes to lib/app.ts (pages/api/legacy), which uses the same gate helpers and
   the same React frame (`components/shop/chrome`). Page data loads through `lib/next/loaders.ts` / `shop-data.ts`.
 - Don't call notFound() to show a missing item: Next.js serves an empty page for it (github.com/vercel/next.js/issues/99793).
-  Add the address to `missing()` in lib/next/loaders.ts — proxy.ts then sends it to the shop's real 404 page.
+  Add the address to `drawableHere()` in lib/next/loaders.ts — proxy.ts then sends it to the shop's real 404 page.
 - public/js/shop.js and i18n.js start after React has taken over a Next.js page (`smWhenReady`, components/shop/chrome/Hydrated.tsx).
 - tests/chrome.test.ts keeps the page frame identical to the old one (tests/golden/chrome-*.html).

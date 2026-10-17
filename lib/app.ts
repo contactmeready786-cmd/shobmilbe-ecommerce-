@@ -44,6 +44,7 @@ import * as $services_autoseo from './services/autoseo';
 import * as $services_autopost from './services/autopost';
 import * as $services_fbreply from './services/fbreply';
 import * as $services_telegram from './services/telegram';
+import * as $shop_blog from './shop/blog';
 import * as $services_autoblog from './services/autoblog';
 import * as $services_autocall from './services/autocall';
 import * as $models_reviews from './models/reviews';
@@ -1192,20 +1193,10 @@ async function shopRoutes({ req, res, path, method, query, settings }: Body) {
   }
   m = path.match(/^\/blog\/([^/]+)$/);
   if (m) {
-    const post = await content.getPost({ slug: m[1] });
-    if (!post || post.status !== 'published' || new Date(post.published_at) > new Date()) return notFound();
-    db.q('UPDATE blog_posts SET views = views + 1 WHERE id=$1', [post.id]).catch(() => {});
-    let contentHtml = md.render(post.content, { productCard: true });
-    const slugs = [...contentHtml.matchAll(/<!--product:([^>]+)-->/g)].map((x) => x[1]).slice(0, 10);
-    for (const s of slugs) {
-      const p = await catalog.getProduct({ slug: s, public: true });
-      contentHtml = contentHtml.replace(`<!--product:${s}-->`, p && p.active ? `<div class="grid grid-inline">${toHtml(shop.productCard(p, settings)).s}</div>` : '');
-    }
-    const related = (await content.listPosts({ published: true, categorySlug: post.category_slug, limit: 4 })).filter((p) => p.id !== post.id).slice(0, 3);
-    return page(post.seo_title || post.title, shop.blogPost({ post, contentHtml, related }), {
-      active: 'blog', canonical: `/blog/${post.slug}`, description: post.seo_description || post.excerpt || md.plain(post.content), image: post.cover_id ? `/media/${post.cover_id}` : '', type: 'article',
-      jsonLd: { '@context': 'https://schema.org', '@type': 'BlogPosting', headline: post.title, datePublished: post.published_at, author: post.author_name ? { '@type': 'Person', name: post.author_name } : undefined },
-    });
+    const r = await $shop_blog.blogPostPage(m[1], settings);
+    if (!r) return notFound();
+    db.q('UPDATE blog_posts SET views = views + 1 WHERE id=$1', [r.post.id]).catch(() => {});
+    return page(r.title, r.body, r.opts);
   }
   m = path.match(/^\/page\/([^/]+)$/);
   if (m) {

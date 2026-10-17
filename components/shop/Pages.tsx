@@ -1,5 +1,6 @@
 // ⚛️ Simple shop pages: order tracking, "page not found", the owner's own pages (About, Return policy …) and the blog.
 // Moved from lib/views/shop.ts (2026-10-17); same HTML as before.
+import type { ReactNode } from 'react';
 import { RawHtml } from '../../lib/react/html';
 import { fmtDate } from '../../lib/util';
 import * as md from '../../lib/views/md';
@@ -56,7 +57,8 @@ export function BlogList({ posts, categories, category }: { posts: Loose[]; cate
   );
 }
 
-export function BlogPost({ post, contentHtml, related }: { post: Loose; contentHtml: string; related: Loose[] }) {
+/** content = the article as React (lib/shop/blog.tsx, with product cards); contentHtml = ready-made HTML instead. */
+export function BlogPost({ post, content, contentHtml, related }: { post: Loose; content?: ReactNode; contentHtml?: string; related: Loose[] }) {
   return (
     <div className="wrap section narrow">
       <nav className="crumbs"><a href="/">হোম</a> / <a href="/blog">ব্লগ</a>{post.category_slug ? <> / <a href={`/blog/category/${post.category_slug}`}>{post.category_name}</a></> : null}</nav>
@@ -64,7 +66,7 @@ export function BlogPost({ post, contentHtml, related }: { post: Loose; contentH
         <h1>{post.title}</h1>
         <p className="muted small">{fmtDate(post.published_at, false)}{post.author_name ? ` · ${post.author_name}` : ''}</p>
         {post.cover_id ? <img className="post-cover" src={`/media/${post.cover_id}`} alt="" draggable="false" /> : null}
-        <RawHtml html={contentHtml} />
+        {content ?? <RawHtml html={contentHtml} />}
       </article>
       {related.length ? <><h2>আরও পড়ুন</h2><div className="post-grid">{related.map((p) => <PostCard key={p.id ?? p.slug} p={p} />)}</div></> : null}
     </div>
