@@ -160,7 +160,7 @@ async function post(ctx: AdminCtx) {
     return page({ ...ctx, method: 'GET' }, bad && !ok ? { type: 'error', text: `❌ একটাও যায়নি (${bad}টি চেষ্টা)। নিচের তালিকায় কোম্পানির উত্তর দেখুন — সাধারণত ব্যালেন্স শেষ বা Key ভুল।` }
       : { text: `✅ ${bn(ok)} জনকে পাঠানো হয়েছে${bad ? `, ${bn(bad)}টি যায়নি` : ''}।${more}` });
   }
-  return ctx.redirect(ctx.res, BASE);
+  return ctx.redirect(BASE);
 }
 
 export const routes = [

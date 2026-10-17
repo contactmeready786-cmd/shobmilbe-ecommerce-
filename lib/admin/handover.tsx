@@ -61,21 +61,21 @@ async function lookup(ctx: AdminCtx) {
   const o = await findOrder(code);
   if (!o) {
     const p = await db.one('SELECT id, name, stock FROM products WHERE upper(barcode)=upper($1)', [str(code, 60).trim()]).catch(() => null);
-    if (p) return ctx.json(ctx.res, 200, { ok: false, product: p, error: `এটা একটা পণ্যের বারকোড: "${p.name}"। আগে ইনভয়েসের (অর্ডারের) বারকোড স্ক্যান করুন।` });
-    return ctx.json(ctx.res, 404, { ok: false, error: `"${str(code, 40)}" নম্বরে কোনো অর্ডার পাওয়া যায়নি।` });
+    if (p) return ctx.json(200, { ok: false, product: p, error: `এটা একটা পণ্যের বারকোড: "${p.name}"। আগে ইনভয়েসের (অর্ডারের) বারকোড স্ক্যান করুন।` });
+    return ctx.json(404, { ok: false, error: `"${str(code, 40)}" নম্বরে কোনো অর্ডার পাওয়া যায়নি।` });
   }
   await partsBarcodes(o);
-  return ctx.json(ctx.res, 200, { ok: true, order: await addLocations(view(o)) });
+  return ctx.json(200, { ok: true, order: await addLocations(view(o)) });
 }
 
 async function handover(ctx: AdminCtx) {
   const b = await ctx.body();
   const o = await findOrder(b.code);
-  if (!o) return ctx.json(ctx.res, 404, { ok: false, error: 'অর্ডার পাওয়া যায়নি।' });
-  if (o.status === 'shipped') return ctx.json(ctx.res, 409, { ok: false, already: true, error: `${o.code} আগেই কুরিয়ারে দেওয়া হয়েছে${o.handed_at ? ` (${fmtDate(o.handed_at)})` : ''}।` });
+  if (!o) return ctx.json(404, { ok: false, error: 'অর্ডার পাওয়া যায়নি।' });
+  if (o.status === 'shipped') return ctx.json(409, { ok: false, already: true, error: `${o.code} আগেই কুরিয়ারে দেওয়া হয়েছে${o.handed_at ? ` (${fmtDate(o.handed_at)})` : ''}।` });
   if (!READY.includes(o.status) && !(o.status === 'pending' && b.force)) {
-    if (o.status === 'pending') return ctx.json(ctx.res, 409, { ok: false, pending: true, error: `${o.code} এখনো কনফার্ম হয়নি। তবুও হ্যান্ডওভার করবেন?` });
-    return ctx.json(ctx.res, 409, { ok: false, error: `${o.code} এর অবস্থা "${O.STATUSES[o.status] || o.status}" — এটা কুরিয়ারে দেওয়া যাবে না।` });
+    if (o.status === 'pending') return ctx.json(409, { ok: false, pending: true, error: `${o.code} এখনো কনফার্ম হয়নি। তবুও হ্যান্ডওভার করবেন?` });
+    return ctx.json(409, { ok: false, error: `${o.code} এর অবস্থা "${O.STATUSES[o.status] || o.status}" — এটা কুরিয়ারে দেওয়া যাবে না।` });
   }
   // not booked with the courier yet → book it now with the default courier (when connected), then hand over
   const s = ctx.settings;
@@ -83,25 +83,25 @@ async function handover(ctx: AdminCtx) {
   let booked = '';
   if (!o.consignment_id && s.handover_book !== '0' && s.courier_default && courier.configured(s, s.courier_default)) {
     const r = await $orders.sendToCourier(ctx, o.id, s.courier_default, { handover: true });
-    if (!r.ok) return ctx.json(ctx.res, 502, { ok: false, error: `কুরিয়ারে বুকিং হয়নি: ${r.message} — অর্ডারটা হ্যান্ডওভার করা হয়নি, আবার চেষ্টা করুন বা অর্ডারের পাতা থেকে পাঠান।` });
+    if (!r.ok) return ctx.json(502, { ok: false, error: `কুরিয়ারে বুকিং হয়নি: ${r.message} — অর্ডারটা হ্যান্ডওভার করা হয়নি, আবার চেষ্টা করুন বা অর্ডারের পাতা থেকে পাঠান।` });
     booked = ` ${courier.label(s.courier_default)}-এ বুকিং হলো (${r.consignment_id})।`;
   }
   try {
     const cur = await db.one('SELECT status FROM orders WHERE id=$1', [o.id]);
     if (cur!.status !== 'shipped') await O.setStatus(o.id, 'shipped', ctx.user.id);
-  } catch (e: Loose) { return ctx.json(ctx.res, 400, { ok: false, error: e.message }); }
+  } catch (e: Loose) { return ctx.json(400, { ok: false, error: e.message }); }
   await db.q('UPDATE orders SET handed_at=now(), handed_by=$1 WHERE id=$2', [ctx.user.id, o.id]);
   await ctx.log('handover', 'order', o.id, `📦 কুরিয়ারে হ্যান্ডওভার (স্ক্যান)${b.verified ? ' — সব পণ্যের বারকোড মিলিয়ে' : ''}`);
-  return ctx.json(ctx.res, 200, { ok: true, code: o.code, message: `✅ ${o.code} কুরিয়ারে দেওয়া হলো — স্টক থেকে কমেছে।${booked}` });
+  return ctx.json(200, { ok: true, code: o.code, message: `✅ ${o.code} কুরিয়ারে দেওয়া হলো — স্টক থেকে কমেছে।${booked}` });
 }
 async function undo(ctx: AdminCtx) {
   const b = await ctx.body();
   const o = await findOrder(b.code);
-  if (!o || o.status !== 'shipped') return ctx.json(ctx.res, 409, { ok: false, error: 'এই অর্ডার এখন "কুরিয়ারে দেওয়া" অবস্থায় নেই।' });
+  if (!o || o.status !== 'shipped') return ctx.json(409, { ok: false, error: 'এই অর্ডার এখন "কুরিয়ারে দেওয়া" অবস্থায় নেই।' });
   await O.setStatus(o.id, 'processing', ctx.user.id);
   await db.q('UPDATE orders SET handed_at=NULL, handed_by=NULL WHERE id=$1', [o.id]);
   await ctx.log('handover_undo', 'order', o.id, '↩️ হ্যান্ডওভার বাতিল — আবার "প্যাকিং চলছে"');
-  return ctx.json(ctx.res, 200, { ok: true, message: `↩️ ${o.code} আবার "প্যাকিং চলছে" — স্টকে ফিরেছে।` });
+  return ctx.json(200, { ok: true, message: `↩️ ${o.code} আবার "প্যাকিং চলছে" — স্টকে ফিরেছে।` });
 }
 
 async function page(ctx: AdminCtx) {

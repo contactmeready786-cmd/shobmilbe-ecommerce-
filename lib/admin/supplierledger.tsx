@@ -60,7 +60,7 @@ async function duesPage(ctx: AdminCtx) {
 
 async function ledgerPage(ctx: AdminCtx, m?: Loose) {
   const s = await finance.getSupplier(int(m[1]));
-  if (!s) return ctx.redirect(ctx.res, '/admin/suppliers');
+  if (!s) return ctx.redirect('/admin/suppliers');
   const from = validYmd(ctx.query.get('from')) || '';
   const to = validYmd(ctx.query.get('to')) || '';
   const list = await entries(s.id);

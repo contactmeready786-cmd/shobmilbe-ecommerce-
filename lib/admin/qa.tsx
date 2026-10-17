@@ -40,7 +40,7 @@ async function answer(ctx: AdminCtx, m?: Loose) {
       note = r.ok ? ' কাস্টমারকে SMS-এ জানানো হয়েছে।' : ` (SMS যায়নি: ${r.msg})`;
     }
   }
-  return ctx.redirect(ctx.res, back + (back.includes('?') ? '&' : '?') + 'info=' + encodeURIComponent('সেভ হয়েছে।' + note));
+  return ctx.redirect(back + (back.includes('?') ? '&' : '?') + 'info=' + encodeURIComponent('সেভ হয়েছে।' + note));
 }
 async function removeQuestion(ctx: AdminCtx, m?: Loose) {
   const id = int(m[1]);
@@ -60,7 +60,7 @@ async function restockPage(ctx: AdminCtx) {
     }
     if (b.action === 'send') {
       const r = await X.restockSweep(ctx.settings, { limit: 60 });
-      return ctx.redirect(ctx.res, '/admin/marketing/restock?info=' + encodeURIComponent(r.waiting ? 'SMS চালু নেই — আগে "কাস্টমারকে SMS" পেজে SMS কোম্পানি সেটআপ করুন।' : `${bn(r.sent)} জনকে SMS পাঠানো হয়েছে।`));
+      return ctx.redirect('/admin/marketing/restock?info=' + encodeURIComponent(r.waiting ? 'SMS চালু নেই — আগে "কাস্টমারকে SMS" পেজে SMS কোম্পানি সেটআপ করুন।' : `${bn(r.sent)} জনকে SMS পাঠানো হয়েছে।`));
     }
     if (b.action === 'delete' && int(b.id)) {
       await db.q('DELETE FROM stock_alerts WHERE id=$1', [int(b.id)]);

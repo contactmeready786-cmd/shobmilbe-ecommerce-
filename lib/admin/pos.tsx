@@ -33,37 +33,37 @@ async function page(ctx: AdminCtx) {
 async function find(ctx: AdminCtx) {
   const q = str(ctx.query.get('q'), 100);
   const wh = int(ctx.query.get('wh'));
-  if (!q) return ctx.json(ctx.res, 200, { exact: null, list: [] });
+  if (!q) return ctx.json(200, { exact: null, list: [] });
   const shape = (p?: Loose, st?: Loose) => ({ id: p.id, name: p.name, sku: p.sku, barcode: p.barcode, price: Number(p.base_price ?? p.price), stock: p.stock,
     here: wh ? ((st.get(p.id) || { by: {} }).by[wh] || 0) : (st.get(p.id) || { main: p.stock }).main, image: p.image_id ? `/media/${p.image_id}/t` : null, emoji: p.emoji, active: p.active });
   const exact = await db.one(`SELECT id FROM products WHERE (upper(barcode)=upper($1) OR lower(sku)=lower($1)) AND variant_count = 0 LIMIT 1`, [q]);
   if (exact) {
     const p = await catalog.getProduct({ id: exact.id });
     const st = await W.stockFor([p!.id]);
-    return ctx.json(ctx.res, 200, { exact: shape(p, st), list: [] });
+    return ctx.json(200, { exact: shape(p, st), list: [] });
   }
   const list = await catalog.listProducts({ q, items: true, includeInactive: true, limit: 12, sort: 'name' });
   const st = await W.stockFor(list.map((p) => p.id));
-  return ctx.json(ctx.res, 200, { exact: null, list: list.map((p) => shape(p, st)) });
+  return ctx.json(200, { exact: null, list: list.map((p) => shape(p, st)) });
 }
 
 async function sale(ctx: AdminCtx) {
   const b = await ctx.body();
   const items = (Array.isArray(b.items) ? b.items : []).slice(0, 100).map((x) => ({ id: int(x.id), qty: Math.min(9999, int(x.qty)), price: x.price }))
     .filter((x) => x.id > 0 && x.qty > 0);
-  if (!items.length) return ctx.json(ctx.res, 400, { error: 'বিলে কোনো পণ্য নেই।' });
+  if (!items.length) return ctx.json(400, { error: 'বিলে কোনো পণ্য নেই।' });
   // only staff who may edit orders can change a price at the counter; others sell at the saved price
   if (!ctx.can('orders_edit')) {
     const prods = await catalog.getProductsByIds(items.map((x) => x.id), { includeInactive: true });
     items.forEach((x) => { const p = prods.find((y) => y.id === x.id); x.price = p ? Number(p.base_price) : 0; });
   }
   const phone = b.phone ? normalizePhone(b.phone) : '';
-  if (phone && !validPhone(phone)) return ctx.json(ctx.res, 400, { error: 'মোবাইল নম্বর ঠিক নেই (না দিলেও চলবে)।' });
+  if (phone && !validPhone(phone)) return ctx.json(400, { error: 'মোবাইল নম্বর ঠিক নেই (না দিলেও চলবে)।' });
   const pay = PAY.some(([k]) => k === b.payment) ? b.payment : 'cash';
   const wh = int(b.wh) || null;
   if (wh) {
     const w = await W.get(wh);
-    if (!w || !w.active) return ctx.json(ctx.res, 400, { error: 'দোকান/শাখা পাওয়া যায়নি।' });
+    if (!w || !w.active) return ctx.json(400, { error: 'দোকান/শাখা পাওয়া যায়নি।' });
   }
   let order;
   try {
@@ -71,7 +71,7 @@ async function sale(ctx: AdminCtx) {
       note: str(b.note, 200), payment: pay, source: 'pos', createdBy: ctx.user.id, discount: amount(b.discount), delivery: 0, warehouseId: wh,
       adminNote: wh ? '' : '' }, ctx.settings);
   } catch (e) {
-    if (e instanceof O.OrderError) return ctx.json(ctx.res, 400, { error: e.message });
+    if (e instanceof O.OrderError) return ctx.json(400, { error: e.message });
     throw e;
   }
   const given = round2(amount(b.given));
@@ -79,13 +79,13 @@ async function sale(ctx: AdminCtx) {
     [given, str(b.trx, 40), order.id]);
   await O.setStatus(order.id, 'delivered', ctx.user.id);
   await ctx.log('pos_sale', 'order', order.id, `দোকানে বিক্রি ${order.code}: ৳${order.total}`);
-  return ctx.json(ctx.res, 200, { ok: true, id: order.id, code: order.code, total: order.total, change: given ? round2(given - order.total) : 0 });
+  return ctx.json(200, { ok: true, id: order.id, code: order.code, total: order.total, change: given ? round2(given - order.total) : 0 });
 }
 
 // The cash memo (80 mm receipt printer; also fine on A4)
 async function memo(ctx: AdminCtx, m?: Loose) {
   const o = await O.getOrder({ id: int(m[1]) });
-  if (!o) return ctx.redirect(ctx.res, '/admin/pos');
+  if (!o) return ctx.redirect('/admin/pos');
   const s = ctx.settings;
   const w = o.warehouse_id ? await W.get(o.warehouse_id) : null;
   const bc = $services_barcode.svg(o.code, { height: 40, module: 1.6, fontSize: 11 });
@@ -123,7 +123,7 @@ table{width:100%;border-collapse:collapse;margin:6px 0}td{padding:2px 0;vertical
 </div>
 <script nonce="${cspNonce()}">${raw(ctx.query.get('print') === '1' ? 'window.addEventListener("load",function(){setTimeout(function(){window.print()},300)});' : '')}</script>
 <script src="/js/page-actions.js?v=${ASSET_V}" defer></script></body></html>`;
-  return ctx.send(ctx.res, 200, page.s || String(page));
+  return ctx.send(200, page.s || String(page));
 }
 
 export const routes = [

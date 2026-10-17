@@ -111,7 +111,7 @@ async function add(ctx: AdminCtx) {
 // "এখনই সব অনুবাদ করে রাখুন": the browser calls this again and again until nothing is left.
 async function fill(ctx: AdminCtx) {
   const r = await translate.fillBatch(ctx.settings, 50);
-  return ctx.json(ctx.res, 200, r);
+  return ctx.json(200, r);
 }
 
 export const routes = [

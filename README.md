@@ -178,11 +178,12 @@ Admin → স্টোর ডিজাইন → ভাষা → "অ্যা�
 ## ফোল্ডার
 | জায়গা | কী আছে |
 | --- | --- |
-| `app/` | Next.js App Router — প্রতিটা ঠিকানা `app/legacy/[[...path]]/route.ts` হয়ে দোকানের কোডে যায় |
+| `app/` | Next.js App Router — শপের পেজ `app/(shop)`, অ্যাডমিন পেজ `app/(admin)`, API ও ফাইল `app/api/…`, `app/media` …; ফর্ম আর বাকি উত্তর `app/api/site` |
 | `proxy.ts`, `next.config.ts`, `instrumentation.ts`, `sentry.server.config.ts` | Next.js সেটআপ, Sentry |
-| `lib/site-answer.ts` | Next.js-এর Request ↔ দোকানের কোডের req/res |
+| `lib/reply.ts` | একটা অনুরোধের উত্তর (স্ট্যাটাস, হেডার, বডি) → Web Response |
 | `lib/types.ts` | সব কোডের শেয়ার করা TypeScript টাইপ (`Loose` = এখনো পুরো টাইট করা হয়নি এমন জায়গা) |
-| `lib/site.ts` | দোকানের পেজ, API, পেমেন্ট, ওয়েবহুক |
+| `lib/site.ts` | শপ ও অ্যাডমিনের ফর্ম, অ্যাডমিনের ফাইল/এক্সপোর্ট, শপের ৪০৪, দেশ-লক পেজ |
+| `lib/api/` | শপের API, ছবি, পেমেন্ট, ওয়েবহুক, ফিড (Next.js route handler) |
 | `lib/admin/` | Admin Panel এর প্রতিটা মেনু |
 | `lib/models/` | ডাটাবেসের কাজ (পণ্য, অর্ডার, হিসাব…) |
 | `lib/services/` | কুরিয়ার, পেমেন্ট, Facebook/TikTok সার্ভার ইভেন্ট, পণ্য আমদানি (`importer.ts`, `safefetch.ts`) |

@@ -1,7 +1,8 @@
 // Real Excel files (.xlsx) without any outside library: a few XML files packed in a ZIP.
 // One or more sheets; first row = bold headers; numbers stay numbers (so Excel can add them up).
 import * as zlib from 'node:zlib';
-import type { Loose, Settings, ShopResponse } from '../types';
+import type { Loose, Settings } from '../types';
+import type { Reply } from '../reply';
 
 const escXml = (s?: Loose) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' } as Record<string, string>)[c])
   // characters Excel refuses inside XML
@@ -87,14 +88,13 @@ function zip(files?: Loose) {
 }
 
 // Send a workbook from an admin page.
-function send(res: ShopResponse, filename?: Loose, sheets?: Loose) {
+function send(reply: Reply, filename?: Loose, sheets?: Loose) {
   const buf = build(sheets);
-  res.writeHead(200, {
+  reply.answer(200, {
     'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     'Content-Disposition': `attachment; filename="${String(filename).replace(/[^\w.-]/g, '_')}"`,
     'Cache-Control': 'no-store', 'Content-Length': buf.length,
-  });
-  res.end(buf);
+  }, buf);
 }
 
 export { build, send, zip };

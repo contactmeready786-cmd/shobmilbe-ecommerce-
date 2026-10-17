@@ -11,7 +11,8 @@ import * as admin from '../admin';
 import * as security from '../security';
 import * as db from '../db';
 import { runFresh } from '../cache';
-import type { AdminDrawn, Base, Loose, ShopRequest, ShopResponse } from '../types';
+import { Reply } from '../reply';
+import type { AdminDrawn, Base, Loose, ShopRequest } from '../types';
 
 export type AdminOutcome =
   | ({ kind: 'page'; nonce: string } & AdminDrawn)
@@ -34,20 +35,14 @@ export const currentAdminPage = cache(async (): Promise<AdminOutcome> => {
   const settings = await runFresh(() => db.getSettings());
 
   let out: AdminOutcome = { kind: 'site' };
-  let cookie = false;
-  const req = { headers: plain, url: url.pathname + url.search, method: 'GET', socket: { remoteAddress: plain['x-real-ip'] || '' } } as unknown as ShopRequest;
-  const res = {
-    headersSent: false,
-    setHeader(k: string) { if (/^set-cookie$/i.test(k)) cookie = true; },
-    getHeader() { return undefined; },
-    writeHead() { return this; },
-    end() {},
-  } as unknown as ShopResponse;
+  const req: ShopRequest = { headers: plain, url: url.pathname + url.search, method: 'GET', socket: { remoteAddress: plain['x-real-ip'] || '' } };
+  // a page that sets a cookie or answers with a file (reply.answer) is left to lib/site.ts
+  const reply = new Reply();
   const base: Base = {
-    req, res, path, method: 'GET', query: url.searchParams as Loose, settings,
+    req, reply, path, method: 'GET', query: url.searchParams as Loose, settings,
     send: () => { out = { kind: 'site' }; },
     json: () => { out = { kind: 'site' }; },
-    redirect: (_r, to, extra) => { out = extra && Object.keys(extra).length ? { kind: 'site' } : { kind: 'redirect', location: String(to) }; },
+    redirect: (to, extra) => { out = extra && Object.keys(extra).length ? { kind: 'site' } : { kind: 'redirect', location: String(to) }; },
     drawPage: (p) => { out = p.status === 200 ? { kind: 'page', nonce, ...p } : { kind: 'site' }; },
   };
   try {
@@ -58,5 +53,6 @@ export const currentAdminPage = cache(async (): Promise<AdminOutcome> => {
     return { kind: 'site' };
   }
   const done = out as AdminOutcome; // (set by the callbacks above)
-  return cookie && done.kind === 'page' ? { kind: 'site' } : done;
+  if (reply.answered) return { kind: 'site' };
+  return reply.get('set-cookie') !== undefined && done.kind === 'page' ? { kind: 'site' } : done;
 });

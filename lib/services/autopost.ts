@@ -12,7 +12,7 @@ import * as C from '../data/fbcontent';
 import * as $dupcanon from './dupcanon';
 import * as $seo from './seo';
 import * as $models_kits from '../models/kits';
-import type { Body, Id, Loose, Settings, ShopResponse } from '../types';
+import type { Body, Id, Loose, Settings } from '../types';
 
 const GRAPH = 'https://graph.facebook.com/v21.0';
 const REPEAT_DAYS = 45;

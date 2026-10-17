@@ -133,7 +133,7 @@ async function pageForm(ctx: AdminCtx, m?: Loose) {
     return ctx.back(`/admin/design/pages/${pid}`, 'saved');
   }
   const p = id ? await content.getPage({ id }) : { active: true, in_footer: true, sort: 10 };
-  if (!p) return ctx.redirect(ctx.res, '/admin/design/pages');
+  if (!p) return ctx.redirect('/admin/design/pages');
   const body = toHtml(<><p className="crumbs"><a href="/admin/design/pages">← সব পেজ</a></p><h1>{(id ? <Val v={p.title} /> : "নতুন পেজ")}</h1><Val v={ui.flash(ctx.flash)} /><form method="post" action={attrValue(id ? `/admin/design/pages/${id}` : '/admin/design/pages/new')} className="form panel"><Val v={ui.field('শিরোনাম', ui.input('title', p.title || '', { required: true, maxlength: 120 }))} />{' '}{(id ? <p className="small">লিংক:{' '}<a href={`/page/${attrValue(p.slug)}`} target="_blank">/page/<Val v={p.slug} /></a></p> : <Val v={ui.field('লিংকের নাম (ইংরেজি, ঐচ্ছিক)', ui.input('slug', '', { maxlength: 60, placeholder: 'about-us' }))} />)}{' '}<Val v={ui.field('লেখা', ui.textarea('content', p.content || '', { rows: 16, maxlength: 100000, class: 'editor' }), 'ব্লগের মতো একই নিয়ম: ## শিরোনাম, - বুলেট, **মোটা**')} /><div className="field-row"><Val v={ui.field('ক্রম', ui.input('sort', p.sort || 0, { type: 'number' }))} /></div><Val v={ui.check('in_footer', p.in_footer, 'দোকানের নিচে ফুটারের "তথ্য" কলামে এই পেজের লিংক দেখাও')} />{' '}<Val v={ui.check('active', p.active, 'চালু')} />{' '}<button className="btn">সেভ করুন</button></form>{(id ? <form method="post" action={`/admin/design/pages/${attrValue(id)}/delete`} className="danger-zone" data-confirm="পেজটি মুছবেন?"><button className="btn btn-danger btn-sm">পেজ মুছুন</button></form> : null)}</>);
   return ctx.page('পেজ', body, 'pages');
 }

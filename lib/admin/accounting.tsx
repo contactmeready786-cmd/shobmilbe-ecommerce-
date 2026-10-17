@@ -59,7 +59,7 @@ async function transactions(ctx: AdminCtx) {
   if (ctx.query.get('csv') === '1') {
     const out = [['Date', 'Type', 'Category', 'Amount', 'Account', 'To account', 'VAT', 'Order', 'Purchase', 'Supplier', 'Note', 'By']];
     rows.forEach((t) => out.push([t.tx_date, t.type, t.category, t.amount, t.account_name, t.to_account_name, t.vat, t.order_code, t.purchase_code, t.supplier_name, t.note, t.staff_name]));
-    return ctx.send(ctx.res, 200, csv(out), 'text/csv; charset=utf-8', { 'Content-Disposition': `attachment; filename="transactions-${from}-${to}.csv"` });
+    return ctx.send(200, csv(out), 'text/csv; charset=utf-8', { 'Content-Disposition': `attachment; filename="transactions-${from}-${to}.csv"` });
   }
   const inc = rows.filter((t) => t.type === 'income').reduce((s, t) => s + t.amount, 0);
   const exp = rows.filter((t) => t.type === 'expense').reduce((s, t) => s + t.amount, 0);

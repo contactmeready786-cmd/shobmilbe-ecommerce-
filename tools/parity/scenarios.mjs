@@ -5,6 +5,8 @@
 //   node tools/parity/scenarios.mjs <base-url> <out-file>
 // Only for a LOCAL test server on a copy of the test template — it changes data.
 import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { normalise } from './normalise.mjs';
 
@@ -27,7 +29,9 @@ async function call(step, jar, method, path, body, type = 'form') {
     if (type === 'json') { headers['content-type'] = 'application/json'; payload = JSON.stringify(body); }
     else { headers['content-type'] = 'application/x-www-form-urlencoded'; payload = new URLSearchParams(body).toString(); }
   }
-  const res = await fetch(origin + path, { method, headers, body: payload, redirect: 'manual' });
+  let res;
+  try { res = await fetch(origin + path, { method, headers, body: payload, redirect: 'manual', signal: AbortSignal.timeout(30000) }); }
+  catch (e) { log.push({ step, method, path, status: 'no answer: ' + e.name }); return { res: null, text: '' }; }
   keep(jar, res);
   const text = await res.text();
   const ct = res.headers.get('content-type') || '';
@@ -37,6 +41,21 @@ async function call(step, jar, method, path, body, type = 'form') {
   return { res, text };
 }
 const id = (sql) => execFileSync('psql', ['-Atc', sql, process.env.PGDATABASE]).toString().trim();
+
+// Every admin form address (POST) from the admin's own route tables (tools/parity/routes.ts, bundled like coverage.mjs).
+// Addresses with an id get 1; ones that would end this login (log out, lock, passwords, two-step login) are left out.
+function adminFormPaths() {
+  const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../..');
+  const esbuild = process.env.ESBUILD || ['node_modules/.bin/esbuild', '/opt/npm-tools/node_modules/esbuild/bin/esbuild'].map((p) => path.resolve(root, p)).find((p) => fs.existsSync(p));
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'forms-'));
+  fs.writeFileSync(path.join(tmp, 'entry.ts'), `import { adminRoutes } from ${JSON.stringify(path.join(root, 'tools/parity/routes.ts'))};
+console.log(JSON.stringify(adminRoutes().filter((r) => r.method === 'POST' || r.method === '*').map((r) => (r.path instanceof RegExp ? { re: r.path.source } : r.path))));`);
+  execFileSync(esbuild, [path.join(tmp, 'entry.ts'), '--bundle', '--platform=node', '--format=cjs', `--alias:@=${root}`, '--external:pg-native', '--external:pg-cloudflare', '--external:cloudflare:sockets', '--log-level=error', '--outfile=' + path.join(tmp, 'out.cjs')]);
+  const list = JSON.parse(execFileSync('node', [path.join(tmp, 'out.cjs')], { env: { ...process.env, DATABASE_URL: process.env.DATABASE_URL || 'postgres://x@127.0.0.1:1/x' } }).toString());
+  const asPath = (r) => (typeof r === 'string' ? r : r.re.replace(/^\^/, '').replace(/\$$/, '').replace(/\\\//g, '/').replace(/\(\\d\+\)|\\d\+/g, '1'));
+  const ends = /logout|login|lock|passkey|webauthn|password|2fa|tfa|verify|reset|session|staff|setup/;
+  return [...new Set(list.map(asPath))].filter((p) => p.startsWith('/admin') && !/[\\[\](){}*+|?^$]/.test(p) && !ends.test(p)).sort();
+}
 
 // a 1x1 PNG
 const PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
@@ -120,6 +139,10 @@ async function main() {
   await call('order: bulk', 'admin', 'POST', '/admin/orders/bulk', { action: 'status', status: 'processing', 'ids[]': '1' });
   await call('product: hide', 'admin', 'POST', `/admin/products/${servo}/active`, { active: '0' });
   await call('product: delete (to bin)', 'admin', 'POST', `/admin/products/${id("select id from products where slug='1k-resistor'")}/delete`, {});
+  // every other admin form once, sent empty: the same check, message or redirect on both sites
+  const forms = adminFormPaths();
+  console.error(`scenarios: ${forms.length} admin forms`);
+  for (const p of forms) await call('admin form: ' + p, 'admin', 'POST', p, {});
   await call('logout', 'admin', 'POST', '/admin/logout', {});
 
   // ---------- resulting data ----------

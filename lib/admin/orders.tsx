@@ -100,8 +100,8 @@ async function bulk(ctx: AdminCtx) {
     await removeOrders(ctx, ids);
     return ctx.back('/admin/orders', 'order_deleted');
   }
-  if (b.action === 'invoice') return ctx.redirect(ctx.res, '/admin/orders/invoice?ids=' + ids.join(','));
-  if (b.action === 'checklist') return ctx.redirect(ctx.res, '/admin/orders/checklist?ids=' + ids.join(','));
+  if (b.action === 'invoice') return ctx.redirect('/admin/orders/invoice?ids=' + ids.join(','));
+  if (b.action === 'checklist') return ctx.redirect('/admin/orders/checklist?ids=' + ids.join(','));
   if (b.action === 'status') {
     if (!ctx.can('orders_edit')) return ctx.back('/admin/orders', 'noperm');
     if (!O.STATUSES[b.status]) return ctx.fail('/admin/orders', 'কোন অবস্থায় নেবেন তা বাছুন।');
@@ -140,15 +140,15 @@ async function exportCsv(ctx: AdminCtx, m?: Loose, excel: Loose = false) {
       courier.label(o.courier), o.consignment_id, o.zone_name || '', ...(seeCost ? [o.cost_total, o.total - o.cost_total - o.delivery] : []), o.note]);
   }
   await ctx.log('export', 'order', null, `${rows.length}টি অর্ডার ${excel ? 'Excel' : 'CSV'}`);
-  if (excel) return $services_xlsx.send(ctx.res, `orders-${new Date().toISOString().slice(0, 10)}.xlsx`, [{ name: 'Orders', rows: out }]);
-  return ctx.send(ctx.res, 200, csv(out), 'text/csv; charset=utf-8', { 'Content-Disposition': `attachment; filename="orders-${Date.now()}.csv"` });
+  if (excel) return $services_xlsx.send(ctx.reply, `orders-${new Date().toISOString().slice(0, 10)}.xlsx`, [{ name: 'Orders', rows: out }]);
+  return ctx.send(200, csv(out), 'text/csv; charset=utf-8', { 'Content-Disposition': `attachment; filename="orders-${Date.now()}.csv"` });
 }
 
 // ---------------------------------------------------------------- detail
 async function detail(ctx: AdminCtx, m?: Loose) {
   const id = int(m[1]);
   const order = await O.getOrder({ id });
-  if (!order) return ctx.redirect(ctx.res, '/admin/orders');
+  if (!order) return ctx.redirect('/admin/orders');
   const [refunds, gatewayPays] = await Promise.all([
     db.q('SELECT r.*, s.name AS staff_name FROM refunds r LEFT JOIN staff s ON s.id=r.staff_id WHERE r.order_id=$1 ORDER BY r.id', [id]),
     db.q(`SELECT method, amount, status, trx_id, created_at FROM payments WHERE order_id=$1 ORDER BY id`, [id]),
@@ -264,7 +264,7 @@ async function syncAll(ctx: AdminCtx) {
     const res = await syncOne(ctx, o);
     if (res.ok) n++;
   }
-  return ctx.redirect(ctx.res, `/admin/orders?status=shipped&msg=synced`);
+  return ctx.redirect(`/admin/orders?status=shipped&msg=synced`);
   void n;
 }
 async function paymentAction(ctx: AdminCtx, m?: Loose) {
@@ -343,9 +343,9 @@ async function printDocs(ctx: AdminCtx, kind?: Loose) {
   const ids = String(ctx.query.get('ids') || '').split(',').map((x) => int(x)).filter(Boolean).slice(0, 200);
   const list: Loose[] = [];
   for (const id of ids) { const o = await O.getOrder({ id }); if (o) list.push(o); }
-  if (!list.length) return ctx.redirect(ctx.res, '/admin/orders');
+  if (!list.length) return ctx.redirect('/admin/orders');
   await ctx.log(kind === 'invoice' ? 'print_invoice' : 'print_checklist', 'order', list.length === 1 ? list[0].id : null, `${kind === 'invoice' ? 'ইনভয়েস' : 'চেকলিস্ট'} প্রিন্ট (${list.length}টি)`);
-  return ctx.send(ctx.res, 200, kind === 'invoice' ? invoicePage(list, ctx.settings) : checklistPage(list, ctx.settings));
+  return ctx.send(200, kind === 'invoice' ? invoicePage(list, ctx.settings) : checklistPage(list, ctx.settings));
 }
 const invoices = (ctx: AdminCtx) => printDocs(ctx, 'invoice');
 const checklists = (ctx: AdminCtx) => printDocs(ctx, 'checklist');
@@ -422,7 +422,7 @@ async function describeItems(items?: Loose) {
 async function editOrder(ctx: AdminCtx, m?: Loose) {
   const id = int(m[1]);
   const order = await O.getOrder({ id });
-  if (!order) return ctx.redirect(ctx.res, '/admin/orders');
+  if (!order) return ctx.redirect('/admin/orders');
   if (ctx.method === 'POST') {
     const b = await ctx.body();
     const items = itemsFromBody(b);
@@ -448,28 +448,28 @@ async function editOrder(ctx: AdminCtx, m?: Loose) {
 async function productSearch(ctx: AdminCtx) {
   const q = str(ctx.query.get('q'), 60);
   const rows = await catalog.listProducts({ q, includeInactive: ctx.query.get('all') === '1', limit: 12, sort: 'name', type: ctx.query.get('type') || undefined, items: !ctx.query.get('type') });
-  return ctx.json(ctx.res, 200, { products: rows.map((p) => ({ id: p.id, name: p.name, sku: p.sku, price: p.price, cost: ctx.can('see_cost') ? p.cost_price : undefined, stock: p.stock, unit: p.unit, image: p.image_id ? `/media/${p.image_id}/t` : null, emoji: p.emoji, type: p.product_type })) });
+  return ctx.json(200, { products: rows.map((p) => ({ id: p.id, name: p.name, sku: p.sku, price: p.price, cost: ctx.can('see_cost') ? p.cost_price : undefined, stock: p.stock, unit: p.unit, image: p.image_id ? `/media/${p.image_id}/t` : null, emoji: p.emoji, type: p.product_type })) });
 }
 async function courierList(ctx: AdminCtx, m?: Loose) {
   const name = m[1];
   if (name === 'pathao') {
     const r = await courier.pathaoList(ctx.settings, ctx.query.get('kind') || 'cities', ctx.query.get('parent'));
-    return ctx.json(ctx.res, r.ok ? 200 : 502, r);
+    return ctx.json(r.ok ? 200 : 502, r);
   }
   if (name === 'redx') {
     const r = await courier.redxAreas(ctx.settings, ctx.query.get('district') || '');
-    return ctx.json(ctx.res, r.ok ? 200 : 502, r);
+    return ctx.json(r.ok ? 200 : 502, r);
   }
-  return ctx.json(ctx.res, 404, { ok: false, rows: [] });
+  return ctx.json(404, { ok: false, rows: [] });
 }
 // 🛡️ shop's own record + Pathao + FraudBD (whatever is set up) → one answer (services/fraud.js)
 async function fraudApi(ctx: AdminCtx) {
   const phone = normalizePhone(ctx.query.get('phone'));
-  if (!validPhone(phone)) return ctx.json(ctx.res, 400, { ok: false, message: 'ফোন নম্বর ঠিক নেই।' });
+  if (!validPhone(phone)) return ctx.json(400, { ok: false, message: 'ফোন নম্বর ঠিক নেই।' });
   try {
-    return ctx.json(ctx.res, 200, await $services_fraud.check(ctx.settings, phone, { fresh: ctx.query.get('fresh') === '1' }));
+    return ctx.json(200, await $services_fraud.check(ctx.settings, phone, { fresh: ctx.query.get('fresh') === '1' }));
   } catch (e: Loose) {
-    return ctx.json(ctx.res, 502, { ok: false, message: e.message });
+    return ctx.json(502, { ok: false, message: e.message });
   }
 }
 

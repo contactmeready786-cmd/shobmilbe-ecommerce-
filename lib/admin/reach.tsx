@@ -109,7 +109,7 @@ async function page(ctx: AdminCtx) {
 
 async function live(ctx: AdminCtx) {
   const n = await numbers();
-  return ctx.json(ctx.res, 200, { now: bn(n.live.now_online || 0) + ' জন', views: bn(n.live.views_today || 0), orders: bn(n.live.orders_today || 0) });
+  return ctx.json(200, { now: bn(n.live.now_online || 0) + ' জন', views: bn(n.live.views_today || 0), orders: bn(n.live.orders_today || 0) });
 }
 
 // Customer list for Facebook "Custom Audience → Customer list": phone (with country code), first name.
@@ -119,8 +119,7 @@ async function buyersCsv(ctx: AdminCtx) {
   const phone = (p?: Loose) => { const d = String(p || '').replace(/\D/g, ''); return d.startsWith('880') ? '+' + d : d.startsWith('0') ? '+88' + d : d ? '+880' + d : ''; };
   const csv = 'phone,fn,country\n' + rows.map((r) => [esc(phone(r.phone)), esc(String(r.name || '').split(/\s+/)[0]), 'BD'].join(',')).join('\n');
   await ctx.log('export', 'customers', null, `Facebook-এর জন্য ক্রেতার তালিকা (${rows.length} জন)`);
-  ctx.res.writeHead(200, { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename="shobmilbe-buyers.csv"', 'Cache-Control': 'no-store' });
-  return ctx.res.end('﻿' + csv);
+  return ctx.reply.answer(200, { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename="shobmilbe-buyers.csv"', 'Cache-Control': 'no-store' }, '﻿' + csv);
 }
 
 export const routes = [

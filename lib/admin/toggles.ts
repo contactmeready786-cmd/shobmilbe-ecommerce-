@@ -19,15 +19,15 @@ const KINDS: Record<string, Loose> = {
 async function toggle(ctx: AdminCtx, m?: Loose) {
   const K = KINDS[m[1]];
   const id = int(m[2]);
-  if (!K || !ctx.can(K.perm)) return ctx.json(ctx.res, 403, { error: 'অনুমতি নেই।' });
-  if (m[1] === 'staff' && id === ctx.user.id) return ctx.json(ctx.res, 400, { error: 'নিজেকে বন্ধ করতে পারবেন না।' });
+  if (!K || !ctx.can(K.perm)) return ctx.json(403, { error: 'অনুমতি নেই।' });
+  if (m[1] === 'staff' && id === ctx.user.id) return ctx.json(400, { error: 'নিজেকে বন্ধ করতে পারবেন না।' });
   const b = await ctx.body();
   const on = !!b.active && b.active !== '0';
   const r = await db.one(K.sql, [id, on]);
-  if (!r) return ctx.json(ctx.res, 404, { error: 'পাওয়া যায়নি।' });
+  if (!r) return ctx.json(404, { error: 'পাওয়া যায়নি।' });
   await ctx.log(on ? 'enable' : 'disable', K.entity, id, `${on ? 'চালু' : 'বন্ধ'}: ${r.name}`);
-  if (String(ctx.req.headers.accept || '').includes('application/json')) return ctx.json(ctx.res, 200, { ok: true, active: on });
-  return ctx.redirect(ctx.res, ctx.req.headers.referer || '/admin');
+  if (String(ctx.req.headers.accept || '').includes('application/json')) return ctx.json(200, { ok: true, active: on });
+  return ctx.redirect(ctx.req.headers.referer || '/admin');
 }
 
 export const routes = [{ method: 'POST', path: /^\/admin\/toggle\/(blog|page|staff|supplier|coupon|research|flash|offer)\/(\d+)$/, handler: toggle }];

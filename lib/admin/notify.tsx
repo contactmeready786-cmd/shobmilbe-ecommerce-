@@ -111,12 +111,12 @@ async function pushSubscribe(ctx: AdminCtx) {
   const b = await ctx.body();
   try {
     await push.subscribe(ctx.user.id, b.sub, b.device);
-  } catch (e: Loose) { return ctx.json(ctx.res, 400, { error: e.message }); }
+  } catch (e: Loose) { return ctx.json(400, { error: e.message }); }
   await ctx.log('settings', 'settings', null, `ফোনে নোটিফিকেশন চালু: ${str(b.device, 40)}`);
   try {
     await push.sendAll({ title: '✅ নোটিফিকেশন চালু হয়েছে', body: `${ctx.settings.store_name}: নতুন অর্ডার এলে এভাবেই এখানে জানানো হবে।`, url: '/admin/notify', tag: 'test' });
-  } catch (e: Loose) { return ctx.json(ctx.res, 200, { ok: true, warn: e.message }); }
-  return ctx.json(ctx.res, 200, { ok: true });
+  } catch (e: Loose) { return ctx.json(200, { ok: true, warn: e.message }); }
+  return ctx.json(200, { ok: true });
 }
 async function pushTest(ctx: AdminCtx) {
   try {

@@ -57,35 +57,34 @@ async function changePassword(ctx: AdminCtx) {
   await ctx.log('password', 'staff', u.id, 'নিজের পাসওয়ার্ড বদল');
   if (u.role === 'owner') await $services_notify.securityAlert(ctx.settings, 'মালিকের পাসওয়ার্ড বদলানো হয়েছে', `যেখান থেকে: ${ctx.ip}`).catch(() => {});
   const cookie = await ctx.newSession(fresh);
-  ctx.res.writeHead(303, { Location: '/admin/account?msg=password', 'Cache-Control': 'no-store', 'Set-Cookie': cookie });
-  return ctx.res.end();
+  return ctx.reply.answer(303, { Location: '/admin/account?msg=password', 'Cache-Control': 'no-store', 'Set-Cookie': cookie });
 }
 
 // ---------------------------------------------------------------- two-step login set-up (staff)
 async function twoFactor(ctx: AdminCtx) {
   const u = ctx.user;
-  if (u.role === 'owner') return ctx.redirect(ctx.res, '/admin/security/login');
+  if (u.role === 'owner') return ctx.redirect('/admin/security/login');
   const enabled = u.totp_on && !!u.totp_secret;
   if (ctx.method === 'POST') {
     const b = await ctx.body();
     if (!(await security.hit(db, 'tfa-setup:' + u.id, 20, 3600))) return ctx.fail('/admin/account', 'অনেকবার চেষ্টা হয়েছে, এক ঘণ্টা পর আবার চেষ্টা করুন।');
     if (b.action === 'disable') {
-      if (!enabled) return ctx.redirect(ctx.res, '/admin/account');
+      if (!enabled) return ctx.redirect('/admin/account');
       if (ctx.settings.staff_2fa_required === '1') return ctx.fail('/admin/account', 'মালিক দুই ধাপের লগইন বাধ্যতামূলক করেছেন, তাই বন্ধ করা যাবে না।');
       if (!verifyPassword(b.current || '', u.password)) return ctx.fail('/admin/account', 'পাসওয়ার্ড ভুল — দুই ধাপের লগইন বন্ধ হয়নি।');
       await db.q(`UPDATE staff SET totp_on=false, totp_secret='' WHERE id=$1`, [u.id]);
       await ctx.log('tfa_off', 'staff', u.id, 'নিজের দুই ধাপের লগইন বন্ধ');
       return ctx.back('/admin/account', 'tfa_off');
     }
-    if (enabled) return ctx.redirect(ctx.res, '/admin/account');
+    if (enabled) return ctx.redirect('/admin/account');
     const secret = security.decrypt(u.totp_secret);
     const step = totp.check(secret, b.code, 0);
-    if (!secret || !step) return ctx.redirect(ctx.res, '/admin/account/2fa?bad=1' + (ctx.query.get('need') ? '&need=1' : ''));
+    if (!secret || !step) return ctx.redirect('/admin/account/2fa?bad=1' + (ctx.query.get('need') ? '&need=1' : ''));
     await db.q('UPDATE staff SET totp_on=true, totp_last_step=$1 WHERE id=$2', [step, u.id]);
     await ctx.log('tfa_on', 'staff', u.id, 'নিজের দুই ধাপের লগইন চালু');
     return ctx.back('/admin/account', 'tfa_on');
   }
-  if (enabled) return ctx.redirect(ctx.res, '/admin/account');
+  if (enabled) return ctx.redirect('/admin/account');
   // a fresh secret is kept (locked) on the account until it is confirmed with a code
   let secret = security.decrypt(u.totp_secret);
   if (!secret || ctx.query.get('new') === '1') {
@@ -103,7 +102,7 @@ async function twoFactor(ctx: AdminCtx) {
 
 async function logoutOne(ctx: AdminCtx) {
   const b = await ctx.body();
-  if (String(b.id) === ctx.user.__session) return ctx.redirect(ctx.res, '/admin/account');
+  if (String(b.id) === ctx.user.__session) return ctx.redirect('/admin/account');
   const who = await sessions.revokeId(str(b.id, 100), ctx.user.id, 'নিজে অন্য ডিভাইস থেকে লগআউট করেছেন');
   if (who) await sessions.record(ctx.req, { staffId: ctx.user.id, login: ctx.user.username, event: 'revoked', ok: true, ip: ctx.ip, detail: 'নিজে একটা ডিভাইস লগআউট করেছেন' });
   return ctx.back('/admin/account', 'out_one');

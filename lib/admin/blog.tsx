@@ -27,7 +27,7 @@ async function form(ctx: AdminCtx, m?: Loose) {
     return ctx.back(`/admin/blog/${pid}`, 'saved');
   }
   const p = id ? await content.getPost({ id }) : {};
-  if (id && !p) return ctx.redirect(ctx.res, '/admin/blog');
+  if (id && !p) return ctx.redirect('/admin/blog');
   return ctx.page(id ? p!.title : 'নতুন পোস্ট', toHtml(<><Val v={ui.flash(ctx.flash)} /><Val v={postForm(p, cats)} /></>), 'blog');
 }
 async function remove(ctx: AdminCtx, m?: Loose) {

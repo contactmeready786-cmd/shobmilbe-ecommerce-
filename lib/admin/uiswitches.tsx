@@ -44,7 +44,7 @@ function featureRows(ctx: AdminCtx, keys?: Loose) {
 }
 
 function done(ctx: AdminCtx, ok?: Loose, msg?: Loose) {
-  if (String(ctx.req.headers.accept || '').includes('application/json')) return ctx.json(ctx.res, ok ? 200 : 400, ok ? { ok: true } : { error: msg });
+  if (String(ctx.req.headers.accept || '').includes('application/json')) return ctx.json(ok ? 200 : 400, ok ? { ok: true } : { error: msg });
   return ok ? ctx.back(BASE, 'saved') : ctx.fail(BASE, msg);
 }
 async function toggle(ctx: AdminCtx, m?: Loose) {

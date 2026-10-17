@@ -1,4 +1,4 @@
-import type { Id, Loose, ShopResponse } from '../types';
+import type { Id, Loose } from '../types';
 // Pictures live on ImageKit (free CDN), not inside the database — the database only keeps
 // each picture's address and fingerprints. Needs two Vercel environment variables:
 //   IMAGEKIT_PRIVATE_KEY   ImageKit → Developer options → API keys → Private key

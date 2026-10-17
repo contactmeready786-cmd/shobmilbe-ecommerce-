@@ -42,7 +42,7 @@ async function listPage(ctx: AdminCtx) {
 async function detail(ctx: AdminCtx, m?: Loose) {
   const id = int(m[1]);
   const c = await C.get(id);
-  if (!c) return ctx.redirect(ctx.res, BASE);
+  if (!c) return ctx.redirect(BASE);
   const back = `${BASE}/${id}`;
   if (ctx.method === 'POST') {
     const b = await ctx.body();
@@ -77,9 +77,8 @@ async function detail(ctx: AdminCtx, m?: Loose) {
 // a complaint's photo (private: only logged-in staff)
 async function photo(ctx: AdminCtx, m?: Loose) {
   const p = await db.one(`SELECT mime, data FROM media WHERE id=$1 AND owner_type='complaint'`, [int(m[1])]);
-  if (!p || !p.data) return ctx.send(ctx.res, 404, 'Not found', 'text/plain');
-  ctx.res.writeHead(200, { 'Content-Type': /^image\/(jpeg|png|webp)$/.test(p.mime) ? p.mime : 'application/octet-stream', 'Cache-Control': 'private, max-age=3600', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'; sandbox" });
-  return ctx.res.end(p.data);
+  if (!p || !p.data) return ctx.send(404, 'Not found', 'text/plain');
+  return ctx.reply.answer(200, { 'Content-Type': /^image\/(jpeg|png|webp)$/.test(p.mime) ? p.mime : 'application/octet-stream', 'Cache-Control': 'private, max-age=3600', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'; sandbox" }, p.data);
 }
 
 export const routes = [

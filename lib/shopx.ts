@@ -21,10 +21,10 @@ import type { Resolved } from './shop/router';
 import type { Body, Id, Loose, Settings, ShopRequest } from './types';
 
 
-async function route({ req, res, path, method, query, settings, page, notFound, redirect, ip }: Body) {
+async function route({ req, reply, path, method, query, settings, page, notFound, redirect, ip }: Body) {
   const isPost = method === 'POST';
   if (isPost && !security.sameSite(req)) return page('অনুমতি নেই', '<div class="wrap section"><p>এই ফর্ম অন্য ওয়েবসাইট থেকে পাঠানো হয়েছে।</p></div>', { status: 403, noindex: true });
-  const go = (to?: Loose, cookies?: Loose) => redirect(res, to, cookies ? { 'Set-Cookie': cookies } : {});
+  const go = (to?: Loose, cookies?: Loose) => redirect(to, cookies ? { 'Set-Cookie': cookies } : {});
   const shown = (r: Resolved | null) => (!r || r.kind !== 'page' ? notFound() : page(r.title, r.body, r.opts));
 
   // ---------------------------------------------------------------- 🙋 the customer cancels / changes their own order
@@ -181,7 +181,7 @@ async function route({ req, res, path, method, query, settings, page, notFound, 
     }
     // the dashboard (lib/shop/forms.tsx); their orders open in full on this browser (address, reviews, returns)
     const oc = await accountOrdersCookie(req, settings, cu);
-    if (oc) res.setHeader('Set-Cookie', oc);
+    if (oc) reply.header('Set-Cookie', oc);
     return shown(await resolveForms({ path, query, settings, req }));
   }
 

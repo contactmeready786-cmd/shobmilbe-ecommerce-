@@ -39,7 +39,7 @@ function template(ctx: AdminCtx) {
   const rows = [importer.TEMPLATE_HEADER,
     ['', 'PAM8403 Mini Amplifier Board', 'Generic', '150', '120', '70', '25', 'সার্কিট', 'https://example.com/pam8403.jpg', 'https://example.com/pam8403-2.jpg, https://example.com/pam8403-3.jpg',
       '৫ ভোল্টের ছোট স্টেরিও অ্যামপ্লিফায়ার', 'বিস্তারিত বিবরণ এখানে লিখুন', '', '20 g']];
-  return ctx.send(ctx.res, 200, csv(rows), 'text/csv; charset=utf-8', { 'Content-Disposition': 'attachment; filename="product-import-template.csv"' });
+  return ctx.send(200, csv(rows), 'text/csv; charset=utf-8', { 'Content-Disposition': 'attachment; filename="product-import-template.csv"' });
 }
 
 // ---------------------------------------------------------------- 1. read
@@ -86,7 +86,7 @@ async function readUrl(u?: Loose, { follow = true }: Body = {}): Promise<Loose> 
 }
 
 async function readApi(ctx: AdminCtx) {
-  if (!(await security.hit(db, 'impread:' + ctx.user.id, 4000, 3600))) return ctx.json(ctx.res, 429, { error: 'এক ঘণ্টায় অনেক বেশি পড়া হয়েছে, একটু পরে চেষ্টা করুন।' });
+  if (!(await security.hit(db, 'impread:' + ctx.user.id, 4000, 3600))) return ctx.json(429, { error: 'এক ঘণ্টায় অনেক বেশি পড়া হয়েছে, একটু পরে চেষ্টা করুন।' });
   const b = await ctx.body();
   let out;
   let source = '';
@@ -96,20 +96,20 @@ async function readApi(ctx: AdminCtx) {
       let buf;
       if (typeof b.file.base64 === 'string') buf = Buffer.from(b.file.base64, 'base64');
       else if (typeof b.file.text === 'string') buf = Buffer.from(b.file.text, 'utf8');
-      if (!buf || !buf.length) return ctx.json(ctx.res, 400, { error: 'ফাইলটি খালি।' });
-      if (buf.length > FILE_MAX) return ctx.json(ctx.res, 400, { error: 'ফাইলটি ৩ MB-এর বেশি বড়। দুই ভাগ করে দিন।' });
+      if (!buf || !buf.length) return ctx.json(400, { error: 'ফাইলটি খালি।' });
+      if (buf.length > FILE_MAX) return ctx.json(400, { error: 'ফাইলটি ৩ MB-এর বেশি বড়। দুই ভাগ করে দিন।' });
       out = importer.parseContent(buf, { name });
       source = '';
     } else {
       const u = str(b.url, 2000);
-      if (!u) return ctx.json(ctx.res, 400, { error: 'লিংক দিন।' });
+      if (!u) return ctx.json(400, { error: 'লিংক দিন।' });
       out = await readUrl(/^https?:\/\//i.test(u) ? u : 'https://' + u, { follow: !b.single });
       source = out.finalUrl || u;
     }
   } catch (e) {
-    return ctx.json(ctx.res, e instanceof FetchError ? 400 : 500, { error: e instanceof FetchError ? e.message : 'পড়তে গিয়ে সমস্যা হয়েছে।' });
+    return ctx.json(e instanceof FetchError ? 400 : 500, { error: e instanceof FetchError ? e.message : 'পড়তে গিয়ে সমস্যা হয়েছে।' });
   }
-  if (out.error) return ctx.json(ctx.res, 400, { error: out.error });
+  if (out.error) return ctx.json(400, { error: out.error });
   const items = importer.finish(out.items || [], source);
   // which of these were imported before
   const refs = items.map((i?: Loose) => i.ref);
@@ -118,7 +118,7 @@ async function readApi(ctx: AdminCtx) {
     const map = new Map(have.map((h) => [h.import_ref, h]));
     for (const it of items) { const h = map.get(it.ref); if (h) it.exists = { id: h.id, name: h.name, sku: h.sku }; }
   }
-  return ctx.json(ctx.res, 200, {
+  return ctx.json(200, {
     format: out.format, items, links: out.links || [], next: out.next || null, notes: out.notes || [],
     columns: out.columns || [], unknownColumns: !!out.unknownColumns,
   });
@@ -126,17 +126,17 @@ async function readApi(ctx: AdminCtx) {
 
 // ---------------------------------------------------------------- 2. picture from the other site
 async function imageApi(ctx: AdminCtx) {
-  if (!(await security.hit(db, 'impimg:' + ctx.user.id, 10000, 3600))) return ctx.json(ctx.res, 429, { error: 'অনেক বেশি ছবি, একটু পরে চেষ্টা করুন।' });
+  if (!(await security.hit(db, 'impimg:' + ctx.user.id, 10000, 3600))) return ctx.json(429, { error: 'অনেক বেশি ছবি, একটু পরে চেষ্টা করুন।' });
   const u = str(ctx.query.get('u'), 2000);
   try {
     const r = await safeFetch(u, { maxBytes: 12 * 1024 * 1024, timeoutMs: 12000, accept: 'image/webp,image/png,image/jpeg,image/gif;q=0.8,*/*;q=0.3' });
-    if (!r.ok) return ctx.json(ctx.res, 400, { error: `ছবি পাওয়া যায়নি (${r.status})` });
+    if (!r.ok) return ctx.json(400, { error: `ছবি পাওয়া যায়নি (${r.status})` });
     // The real first bytes decide: only true pictures pass, never scripts or pages.
     const mime = security.imageKind(r.body);
-    if (!mime || mime === 'image/x-icon') return ctx.json(ctx.res, 400, { error: 'এটা ছবি না, বা এই ধরনের ছবি চলে না।' });
-    return ctx.send(ctx.res, 200, r.body, mime, { 'Content-Disposition': 'inline', 'Content-Security-Policy': "default-src 'none'; sandbox" });
+    if (!mime || mime === 'image/x-icon') return ctx.json(400, { error: 'এটা ছবি না, বা এই ধরনের ছবি চলে না।' });
+    return ctx.send(200, r.body, mime, { 'Content-Disposition': 'inline', 'Content-Security-Policy': "default-src 'none'; sandbox" });
   } catch (e) {
-    return ctx.json(ctx.res, 400, { error: e instanceof FetchError ? e.message : 'ছবি আনা যায়নি।' });
+    return ctx.json(400, { error: e instanceof FetchError ? e.message : 'ছবি আনা যায়নি।' });
   }
 }
 
@@ -159,16 +159,16 @@ function categoryFinder(categories?: Loose) {
 }
 
 async function saveApi(ctx: AdminCtx) {
-  if (!(await security.hit(db, 'impsave:' + ctx.user.id, 8000, 3600))) return ctx.json(ctx.res, 429, { error: 'এক ঘণ্টায় অনেক বেশি পণ্য, একটু পরে চেষ্টা করুন।' });
+  if (!(await security.hit(db, 'impsave:' + ctx.user.id, 8000, 3600))) return ctx.json(429, { error: 'এক ঘণ্টায় অনেক বেশি পণ্য, একটু পরে চেষ্টা করুন।' });
   const b = await ctx.body();
   const it = b.item && typeof b.item === 'object' ? b.item : {};
   const opt = b.options && typeof b.options === 'object' ? b.options : {};
   const ref = str(it.ref, 300).toLowerCase();
   const name = str(it.title, 140);
   const price = shopPrice(amount(it.price));
-  if (!name) return ctx.json(ctx.res, 200, { result: 'error', message: 'পণ্যের নাম নেই' });
-  if (!(price > 0)) return ctx.json(ctx.res, 200, { result: 'error', message: 'দাম নেই' });
-  if (priceProblem(price)) return ctx.json(ctx.res, 200, { result: 'error', message: `দাম ৳${price} — দোকানে ৳০.৫০ থেকে ৳২০০০ পর্যন্ত পণ্যই রাখা হয়` });
+  if (!name) return ctx.json(200, { result: 'error', message: 'পণ্যের নাম নেই' });
+  if (!(price > 0)) return ctx.json(200, { result: 'error', message: 'দাম নেই' });
+  if (priceProblem(price)) return ctx.json(200, { result: 'error', message: `দাম ৳${price} — দোকানে ৳০.৫০ থেকে ৳২০০০ পর্যন্ত পণ্যই রাখা হয়` });
   const images = (Array.isArray(b.images) ? b.images : []).map((x) => int(x)).filter((x) => x > 0).slice(0, catalog.MAX_PRODUCT_IMAGES);
   const oldPrice = shopPrice(amount(it.old_price)) > price ? shopPrice(amount(it.old_price)) : null;
   const hasStock = it.stock !== null && it.stock !== undefined && it.stock !== '';
@@ -178,7 +178,7 @@ async function saveApi(ctx: AdminCtx) {
   if (ref) {
     const old = await db.one('SELECT id, name, sku, stock, product_type, price, old_price FROM products WHERE import_ref=$1', [ref]);
     if (old) {
-      if (opt.existing !== 'update') return ctx.json(ctx.res, 200, { result: 'exists', id: old.id, sku: old.sku, name: old.name });
+      if (opt.existing !== 'update') return ctx.json(200, { result: 'exists', id: old.id, sku: old.sku, name: old.name });
       await db.tx(async (t) => {
         await catalog.logPriceChange(t, old.id, old, { price, old_price: oldPrice }, ctx.user.id, 'আমদানি');
         await t.query('UPDATE products SET price=$1, old_price=$2, brand=CASE WHEN $3 <> \'\' THEN $3 ELSE brand END, updated_at=now() WHERE id=$4',
@@ -191,7 +191,7 @@ async function saveApi(ctx: AdminCtx) {
         // purchases, orders and stock adjustments, so every piece stays accounted for
       });
       await ctx.log('product_edit', 'product', old.id, `আমদানি থেকে দাম আপডেট: ${name}`);
-      return ctx.json(ctx.res, 200, { result: 'updated', id: old.id, sku: old.sku, name: old.name });
+      return ctx.json(200, { result: 'updated', id: old.id, sku: old.sku, name: old.name });
     }
   }
 
@@ -206,7 +206,7 @@ async function saveApi(ctx: AdminCtx) {
         .map((m) => ({ id: m.id, name: m.name, sku: m.sku, image: m.image, emoji: m.emoji,
           reasons: m.reasons.map((r) => r.replace('নিচের সুইচ চালু করুন', '"তবুও যোগ করুন" চাপুন')) }));
       await ctx.log('product_dup_blocked', 'product', null, `আমদানি: ${name.slice(0, 80)} ≈ ${matches.map((m) => '#' + m.id).join(', ')}`);
-      return ctx.json(ctx.res, 200, { result: 'duplicate', matches, images });
+      return ctx.json(200, { result: 'duplicate', matches, images });
     }
   }
 
@@ -236,7 +236,7 @@ async function saveApi(ctx: AdminCtx) {
   } catch (e: Loose) {
     if (/products_import_ref_uq|duplicate key/i.test(String(e && e.message))) {
       const old = await db.one('SELECT id, name, sku FROM products WHERE import_ref=$1', [ref]);
-      return ctx.json(ctx.res, 200, { result: 'exists', id: old && old.id, sku: old && old.sku, name: old && old.name });
+      return ctx.json(200, { result: 'exists', id: old && old.id, sku: old && old.sku, name: old && old.name });
     }
     throw e;
   }
@@ -246,7 +246,7 @@ async function saveApi(ctx: AdminCtx) {
   const p = await db.one('SELECT sku, slug FROM products WHERE id=$1', [pid]);
   await ctx.log('product_add', 'product', pid, `আমদানি: ${name.slice(0, 90)}`);
   if (allow) await ctx.log('product_dup_allow', 'product', pid, `ডুপ্লিকেট হলেও আমদানির অনুমতি: ${name.slice(0, 80)}`);
-  return ctx.json(ctx.res, 200, { result: 'added', id: pid, sku: p && p.sku, active });
+  return ctx.json(200, { result: 'added', id: pid, sku: p && p.sku, active });
 }
 
 export const routes = [

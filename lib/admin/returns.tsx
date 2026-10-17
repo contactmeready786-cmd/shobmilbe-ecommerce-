@@ -30,7 +30,7 @@ async function listPage(ctx: AdminCtx) {
       // the staff records a return a customer asked for by phone / in the shop
       const order = await O.getOrder({ code: str(b.order_code, 20).toUpperCase() });
       if (!order) return ctx.fail(BASE, 'এই নম্বরের অর্ডার পাওয়া যায়নি।');
-      return ctx.redirect(ctx.res, `${BASE}/new/${order.id}`);
+      return ctx.redirect(`${BASE}/new/${order.id}`);
     }
     return ctx.back(BASE);
   }
@@ -45,7 +45,7 @@ async function listPage(ctx: AdminCtx) {
 // staff records a return on behalf of the customer
 async function newPage(ctx: AdminCtx, m?: Loose) {
   const order = await O.getOrder({ id: int(m[1]) });
-  if (!order) return ctx.redirect(ctx.res, BASE);
+  if (!order) return ctx.redirect(BASE);
   const V = $views_account;
   if (ctx.method === 'POST') {
     const b = await ctx.body();
@@ -68,7 +68,7 @@ async function newPage(ctx: AdminCtx, m?: Loose) {
 async function detail(ctx: AdminCtx, m?: Loose) {
   const id = int(m[1]);
   const r = await R.get(id);
-  if (!r) return ctx.redirect(ctx.res, BASE);
+  if (!r) return ctx.redirect(BASE);
   const back = `${BASE}/${id}`;
   if (ctx.method === 'POST') {
     const b = await ctx.body();
@@ -126,9 +126,8 @@ async function detail(ctx: AdminCtx, m?: Loose) {
 // a return's photo (private: only logged-in staff)
 async function photo(ctx: AdminCtx, m?: Loose) {
   const p = await db.one(`SELECT mime, data FROM media WHERE id=$1 AND owner_type='return'`, [int(m[1])]);
-  if (!p || !p.data) return ctx.send(ctx.res, 404, 'Not found', 'text/plain');
-  ctx.res.writeHead(200, { 'Content-Type': /^image\/(jpeg|png|webp)$/.test(p.mime) ? p.mime : 'application/octet-stream', 'Cache-Control': 'private, max-age=3600', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'; sandbox" });
-  return ctx.res.end(p.data);
+  if (!p || !p.data) return ctx.send(404, 'Not found', 'text/plain');
+  return ctx.reply.answer(200, { 'Content-Type': /^image\/(jpeg|png|webp)$/.test(p.mime) ? p.mime : 'application/octet-stream', 'Cache-Control': 'private, max-age=3600', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'; sandbox" }, p.data);
 }
 
 void raw; void normalizePhone;

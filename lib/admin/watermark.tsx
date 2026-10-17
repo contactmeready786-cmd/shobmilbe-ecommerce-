@@ -69,23 +69,23 @@ async function page(ctx: AdminCtx) {
 // Background job (admin browser): which pictures still need the current mark, and how to draw it.
 async function pendingApi(ctx: AdminCtx) {
   const c = config(ctx.settings);
-  if (!c.on || !c.ver) return ctx.json(ctx.res, 200, { ids: [] });
+  if (!c.on || !c.ver) return ctx.json(200, { ids: [] });
   const rows = await catalog.mediaNeedingWatermark(c.ver, 6);
-  return ctx.json(ctx.res, 200, { ids: rows.map((r) => r.id), cfg: c });
+  return ctx.json(200, { ids: rows.map((r) => r.id), cfg: c });
 }
 async function saveApi(ctx: AdminCtx, m?: Loose) {
-  if (!(await security.hit(db, 'wm:' + ctx.user.id, 6000, 3600))) return ctx.json(ctx.res, 429, { error: 'অনেক বেশি, একটু পরে।' });
+  if (!(await security.hit(db, 'wm:' + ctx.user.id, 6000, 3600))) return ctx.json(429, { error: 'অনেক বেশি, একটু পরে।' });
   const b = await ctx.body();
   const c = config(ctx.settings);
-  if (!c.on || b.ver !== c.ver) return ctx.json(ctx.res, 409, { error: 'ওয়াটারমার্কের সেটিং বদলে গেছে।' });
+  if (!c.on || b.ver !== c.ver) return ctx.json(409, { error: 'ওয়াটারমার্কের সেটিং বদলে গেছে।' });
   // a picture the browser could not read: remember it, so it is not tried again (the normal picture shows)
-  if (b.skip) { await catalog.setWatermark(int(m[1]), c.ver, null); return ctx.json(ctx.res, 200, { ok: true }); }
+  if (b.skip) { await catalog.setWatermark(int(m[1]), c.ver, null); return ctx.json(200, { ok: true }); }
   const mm = String(b.data || '').match(/^data:image\/jpeg;base64,([A-Za-z0-9+/=]+)$/);
-  if (!mm) return ctx.json(ctx.res, 400, { error: 'ছবি পড়া যায়নি।' });
+  if (!mm) return ctx.json(400, { error: 'ছবি পড়া যায়নি।' });
   const data = Buffer.from(mm[1], 'base64');
-  if (data.length > 2.5 * 1024 * 1024 || security.imageKind(data) !== 'image/jpeg') return ctx.json(ctx.res, 400, { error: 'ছবি ঠিক নেই।' });
+  if (data.length > 2.5 * 1024 * 1024 || security.imageKind(data) !== 'image/jpeg') return ctx.json(400, { error: 'ছবি ঠিক নেই।' });
   await catalog.setWatermark(int(m[1]), c.ver, data);
-  return ctx.json(ctx.res, 200, { ok: true });
+  return ctx.json(200, { ok: true });
 }
 
 export const routes = [

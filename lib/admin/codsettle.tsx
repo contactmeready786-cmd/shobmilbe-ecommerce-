@@ -72,7 +72,7 @@ async function save(ctx: AdminCtx) {
     await db.q('UPDATE cod_settlements SET note = left(note || $1, 300) WHERE id=$2', [` [tx:${[tx1, tx2].filter(Boolean).map((x) => x.id || x).join(',')}]`, res.id]);
   }
   await ctx.log('cod_settle', 'settings', res.id, `${courier.label(b.courier)}: ${res.n}টি পার্সেল, পেয়েছেন ৳${received}`);
-  return ctx.redirect(ctx.res, back + '&info=' + encodeURIComponent(`✅ ${bn(res.n)}টি পার্সেল মিলানো হয়েছে — COD ${money(res.collected)}, চার্জ ${money(res.fee)}, পেয়েছেন ${money(received)}।`));
+  return ctx.redirect(back + '&info=' + encodeURIComponent(`✅ ${bn(res.n)}টি পার্সেল মিলানো হয়েছে — COD ${money(res.collected)}, চার্জ ${money(res.fee)}, পেয়েছেন ${money(received)}।`));
 }
 
 async function undo(ctx: AdminCtx) {

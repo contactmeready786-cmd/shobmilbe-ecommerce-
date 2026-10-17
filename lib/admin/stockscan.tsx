@@ -35,22 +35,22 @@ async function shape(rows?: Loose) {
 
 async function find(ctx: AdminCtx) {
   const code = str(ctx.query.get('q'), 100).trim();
-  if (!code) return ctx.json(ctx.res, 200, { exact: null, list: [] });
+  if (!code) return ctx.json(200, { exact: null, list: [] });
   const exact = await db.one(`SELECT id FROM products WHERE (upper(barcode)=upper($1) OR lower(sku)=lower($1)) AND variant_count = 0 AND product_type <> 'bundle' LIMIT 1`, [code]);
   if (exact) {
     const p = await catalog.getProduct({ id: exact.id });
-    return ctx.json(ctx.res, 200, { exact: (await shape([p]))[0], list: [] });
+    return ctx.json(200, { exact: (await shape([p]))[0], list: [] });
   }
   // a box name → everything in that box
   const inBox = await db.q(`SELECT id FROM products WHERE lower(location)=lower($1) AND variant_count = 0 AND product_type <> 'bundle' ORDER BY name LIMIT 200`, [catalog.cleanLocation(code)]);
   if (inBox.length) {
     const rows = await catalog.getProductsByIds(inBox.map((r) => r.id), { includeInactive: true });
-    return ctx.json(ctx.res, 200, { exact: null, box: catalog.cleanLocation(code), list: await shape(rows) });
+    return ctx.json(200, { exact: null, box: catalog.cleanLocation(code), list: await shape(rows) });
   }
   const list = await catalog.listProducts({ q: code, type: 'single', items: true, includeInactive: true, limit: 12, sort: 'name' });
   // looks like a barcode (no spaces, letters/digits) and nothing matched → offer to make it a new product
   const looksLikeCode = /^[\x21-\x7e]{4,40}$/.test(code);
-  return ctx.json(ctx.res, 200, { exact: null, list: await shape(list), unknown: looksLikeCode && !list.length ? code.toUpperCase() : '' });
+  return ctx.json(200, { exact: null, list: await shape(list), unknown: looksLikeCode && !list.length ? code.toUpperCase() : '' });
 }
 
 async function save(ctx: AdminCtx) {
@@ -58,18 +58,18 @@ async function save(ctx: AdminCtx) {
   const id = int(b.id);
   const mode = ['in', 'count', 'undo'].includes(b.mode) ? b.mode : 'in';
   const p = await db.one('SELECT id, name, stock, location FROM products WHERE id=$1 AND variant_count = 0 AND product_type <> \'bundle\'', [id]);
-  if (!p) return ctx.json(ctx.res, 404, { ok: false, error: 'পণ্যটি পাওয়া যায়নি।' });
+  if (!p) return ctx.json(404, { ok: false, error: 'পণ্যটি পাওয়া যায়নি।' });
 
   let change = 0;
   let reason = 'adjust';
   let short = 0;
   if (mode === 'in') {
     change = int(b.qty);
-    if (change < 1 || change > 100000) return ctx.json(ctx.res, 400, { ok: false, error: 'কতগুলো এসেছে লিখুন (১ বা বেশি)।' });
+    if (change < 1 || change > 100000) return ctx.json(400, { ok: false, error: 'কতগুলো এসেছে লিখুন (১ বা বেশি)।' });
   } else if (mode === 'count') {
     // the number typed is what is really on the shelf at home (pieces held for open orders are still on the shelf)
     const counted = int(b.qty, -1);
-    if (b.qty === '' || b.qty === undefined || counted < 0 || counted > 100000) return ctx.json(ctx.res, 400, { ok: false, error: 'গুনে কতগুলো পেলেন লিখুন (০ বা বেশি)।' });
+    if (b.qty === '' || b.qty === undefined || counted < 0 || counted > 100000) return ctx.json(400, { ok: false, error: 'গুনে কতগুলো পেলেন লিখুন (০ বা বেশি)।' });
     const [now] = await shape([await catalog.getProduct({ id })]);
     change = counted - now.shelf;
     reason = 'count';
@@ -77,7 +77,7 @@ async function save(ctx: AdminCtx) {
     if (counted < now.held) short = now.held - counted;
   } else {
     change = int(b.change); // taking back a scan made by mistake
-    if (!change) return ctx.json(ctx.res, 400, { ok: false, error: 'কিছু ফেরাতে হবে না।' });
+    if (!change) return ctx.json(400, { ok: false, error: 'কিছু ফেরাতে হবে না।' });
   }
 
   let ok: Loose = true;
@@ -87,7 +87,7 @@ async function save(ctx: AdminCtx) {
         mode === 'undo' ? `${NOTE} — ভুল ফেরত` : mode === 'count' ? `${NOTE} — গুনে মেলানো` : `${NOTE} — মাল এসেছে`, ctx.user.id, mode === 'undo' && change < 0);
     });
   }
-  if (!ok) return ctx.json(ctx.res, 409, { ok: false, error: `"${p.name}" — স্টকে এতগুলো নেই, কমানো গেল না।` });
+  if (!ok) return ctx.json(409, { ok: false, error: `"${p.name}" — স্টকে এতগুলো নেই, কমানো গেল না।` });
 
   // 📍 the box can be set at the same time
   if (b.location !== undefined && catalog.cleanLocation(b.location) !== p.location) {
@@ -103,7 +103,7 @@ async function save(ctx: AdminCtx) {
       : mode === 'undo' ? `↩️ "${p.name}" — ${bn(Math.abs(change))}টি ফেরানো হলো`
         : `✔ "${p.name}" +${bn(change)}টি স্টকে যোগ হলো`;
   const warn = short ? `⚠️ খোলা অর্ডারে ${bn(after.held)}টি রাখা আছে, কিন্তু তাকে পেলেন ${bn(after.held - short)}টি — ${bn(short)}টি কম। অর্ডারগুলো দেখে নিন।` : '';
-  return ctx.json(ctx.res, 200, { ok: true, change, product: after, message: msg, warn });
+  return ctx.json(200, { ok: true, change, product: after, message: msg, warn });
 }
 
 async function setLocation(ctx: AdminCtx) {
@@ -111,10 +111,10 @@ async function setLocation(ctx: AdminCtx) {
   const id = int(b.id);
   const loc = catalog.cleanLocation(b.location);
   const p = await db.one('SELECT id, name FROM products WHERE id=$1', [id]);
-  if (!p) return ctx.json(ctx.res, 404, { ok: false, error: 'পণ্যটি পাওয়া যায়নি।' });
+  if (!p) return ctx.json(404, { ok: false, error: 'পণ্যটি পাওয়া যায়নি।' });
   await db.q('UPDATE products SET location=$1, updated_at=now() WHERE id=$2', [loc, id]);
   await ctx.log('product_location', 'product', id, `${p.name}: 📍 ${loc || '(খালি)'}`);
-  return ctx.json(ctx.res, 200, { ok: true, location: loc, message: loc ? `📍 "${p.name}" — ${loc}` : `📍 "${p.name}" — বক্স মুছে দেওয়া হলো` });
+  return ctx.json(200, { ok: true, location: loc, message: loc ? `📍 "${p.name}" — ${loc}` : `📍 "${p.name}" — বক্স মুছে দেওয়া হলো` });
 }
 
 async function page(ctx: AdminCtx) {

@@ -44,7 +44,7 @@ async function page(ctx: AdminCtx) {
     await ctx.reloadSettings();
     await ctx.log('banner_save', 'banner', null, `রানিং স্লাইডার: ${on ? 'চালু' : 'বন্ধ'}, ${shown}টি ছবি, ${sec} সেকেন্ড`);
     const msg = on ? (shown ? `✅ সেভ হয়েছে — ${bn(shown)}টি ছবি হোমপেজে প্রতি ${bn(sec)} সেকেন্ডে বদলাবে।` : '✅ সেভ হয়েছে — তবে কোনো ছবি নেই, তাই হোমপেজে আগের নীল ব্যানার দেখাবে।') : '✅ সেভ হয়েছে — রানিং স্লাইডার বন্ধ।';
-    return ctx.redirect(ctx.res, BASE + '?info=' + encodeURIComponent(msg));
+    return ctx.redirect(BASE + '?info=' + encodeURIComponent(msg));
   }
   const slides = (await content.listBanners({ placement: 'slider' })).filter((x) => x.active && x.image_id).slice(0, MAX);
   const on = s.slider_on !== '0';

@@ -28,7 +28,7 @@ async function page(ctx: AdminCtx) {
       if (!/^01[3-9]\d{8}$/.test(phone)) return ctx.fail(BASE, 'পরীক্ষার জন্য ঠিক মোবাইল নম্বর দিন (01XXXXXXXXX)।');
       const r = await AC.call(ctx.settings, { id: 0, code: 'TEST', phone, customer_name: ctx.user.name, total: 250, items: [{ name: 'পরীক্ষার পণ্য' }] }, site(ctx), { test: true });
       await ctx.log('settings', 'autocall', null, `পরীক্ষার কল ${phone}: ${r.ok ? 'গেছে' : r.error}`);
-      return r.ok ? ctx.redirect(ctx.res, BASE + '?info=' + encodeURIComponent(`✅ কল কোম্পানি কলটা নিয়েছে${r.ref ? ` (Call ID ${r.ref})` : ''} — ${phone} নম্বরে ফোন আসার কথা।`)) : ctx.fail(BASE, 'কল যায়নি: ' + r.error);
+      return r.ok ? ctx.redirect(BASE + '?info=' + encodeURIComponent(`✅ কল কোম্পানি কলটা নিয়েছে${r.ref ? ` (Call ID ${r.ref})` : ''} — ${phone} নম্বরে ফোন আসার কথা।`)) : ctx.fail(BASE, 'কল যায়নি: ' + r.error);
     }
     if (b.form === 'token') {
       await db.setSetting('autocall_token', '');
@@ -75,7 +75,7 @@ async function callOrder(ctx: AdminCtx, m?: Loose) {
   const items = await db.q('SELECT name FROM order_items WHERE order_id=$1 LIMIT 3', [id]);
   const r = await AC.call(ctx.settings, { ...o, items }, site(ctx));
   await ctx.log('autocall', 'order', id, r.ok ? 'হাতে অটো কল পাঠানো' : `অটো কল যায়নি: ${r.error}`);
-  return r.ok ? ctx.redirect(ctx.res, `/admin/orders/${id}?info=` + encodeURIComponent('📞 কল পাঠানো হয়েছে — কাস্টমার চাপ দিলে ফলাফল এখানে আসবে।')) : ctx.fail(`/admin/orders/${id}`, 'কল যায়নি: ' + r.error);
+  return r.ok ? ctx.redirect(`/admin/orders/${id}?info=` + encodeURIComponent('📞 কল পাঠানো হয়েছে — কাস্টমার চাপ দিলে ফলাফল এখানে আসবে।')) : ctx.fail(`/admin/orders/${id}`, 'কল যায়নি: ' + r.error);
 }
 
 // small block for the order page

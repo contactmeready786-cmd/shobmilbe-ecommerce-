@@ -40,7 +40,7 @@ async function listPage(ctx: AdminCtx) {
         }
         let note = '';
         if (b.sms === '1' && card.recipient_phone) { const r = await G.sendCodeSms(ctx.settings, card); note = r.ok ? ' কোড SMS-এ পাঠানো হয়েছে।' : ` (SMS যায়নি: ${r.msg})`; }
-        return ctx.redirect(ctx.res, `${BASE}/${card.id}?info=` + encodeURIComponent(`গিফট কার্ড তৈরি হয়েছে: ${G.pretty(card.code)}.${note}`));
+        return ctx.redirect(`${BASE}/${card.id}?info=` + encodeURIComponent(`গিফট কার্ড তৈরি হয়েছে: ${G.pretty(card.code)}.${note}`));
       } catch (e) { if (!(e instanceof G.GiftError)) throw e; return ctx.fail(BASE, e.message); }
     }
     return ctx.back(BASE);
@@ -73,7 +73,7 @@ async function detail(ctx: AdminCtx, m?: Loose) {
           const r = await G.sendCodeSms(ctx.settings, c);
           note = r.ok ? ' কোড প্রাপককে SMS-এ পাঠানো হয়েছে।' : ` (SMS যায়নি: ${r.msg} — কোডটা নিজে জানিয়ে দিন)`;
         }
-        return ctx.redirect(ctx.res, `${back}?info=` + encodeURIComponent('সেভ হয়েছে।' + note));
+        return ctx.redirect(`${back}?info=` + encodeURIComponent('সেভ হয়েছে।' + note));
       }
       if (b.action === 'adjust') {
         const bal = await G.adjust(id, Number(b.change), b.note, ctx.user.id);
@@ -83,7 +83,7 @@ async function detail(ctx: AdminCtx, m?: Loose) {
       if (b.action === 'sms') {
         const c = await G.get(id);
         const r = await G.sendCodeSms(ctx.settings, c);
-        return ctx.redirect(ctx.res, `${back}?info=` + encodeURIComponent(r.ok ? 'SMS পাঠানো হয়েছে।' : `SMS যায়নি: ${r.msg}`));
+        return ctx.redirect(`${back}?info=` + encodeURIComponent(r.ok ? 'SMS পাঠানো হয়েছে।' : `SMS যায়নি: ${r.msg}`));
       }
       if (b.action === 'expiry') {
         await db.q('UPDATE gift_cards SET expires_on=$1 WHERE id=$2', [/^\d{4}-\d{2}-\d{2}$/.test(b.expires_on || '') ? b.expires_on : null, id]);
@@ -93,7 +93,7 @@ async function detail(ctx: AdminCtx, m?: Loose) {
     return ctx.back(back);
   }
   const c = await G.get(id);
-  if (!c) return ctx.redirect(ctx.res, BASE);
+  if (!c) return ctx.redirect(BASE);
   const [led, accounts] = await Promise.all([G.ledger(id), ctx.can('accounting') ? finance.listAccounts() : []]);
   const expired = c.expires_on && String(c.expires_on).slice(0, 10) < ymd();
   const body = toHtml(<><p className="crumbs"><a href={attrValue(BASE)}>← সব গিফট কার্ড</a></p><div className="title-row"><h1 className="mono"><Val v={G.pretty(c.code)} />{' '}<Val v={ui.pill(expired ? 'মেয়াদ শেষ' : G.STATUSES[c.status], PILL[c.status] || '')} /></h1></div><Val v={ui.flash(ctx.flash)} /><div className="kpis kpis-tight"><Val v={ui.kpi('বাকি', money(c.balance), `শুরুতে ${money(c.initial)}`, 'kpi-blue')} /><Val v={ui.kpi('মেয়াদ', c.expires_on ? String(c.expires_on).slice(0, 10) : 'নেই', '')} /><Val v={ui.kpi('দাম পেয়েছেন', money(c.price), c.pay_method ? `${c.pay_method} · ${c.pay_number}` : '')} /></div><div className="two-col"><section className="panel"><h2>তথ্য</h2><p><b>প্রাপক:</b>{' '}<Val v={c.recipient_name || '—'} />{' '}<span className="mono"><Val v={c.recipient_phone} /></span><br /><b>ক্রেতা:</b>{' '}<Val v={c.buyer_name || '—'} />{' '}<span className="mono"><Val v={c.buyer_phone} /></span>{' '}{(c.message ? <><br /><b>বার্তা:</b>{' '}<Val v={c.message} /></> : null)}{(c.trx_id ? <><br /><b>TrxID:</b>{' '}<span className="mono"><Val v={c.trx_id} /></span></> : null)}{(c.note ? <><br /><b>নোট:</b>{' '}<Val v={c.note} /></> : null)}</p>{(c.status === 'pending' ? <form method="post" action={attrValue(back)} className="form panel-inner"><input type="hidden" name="action" defaultValue="activate" /><p className="note">বিকাশ/নগদে{' '}<b><Val v={money(c.price)} /></b>{' '}এসেছে কিনা দেখুন (TrxID{' '}<b className="mono"><Val v={c.trx_id} /></b>, নম্বর{' '}<Val v={c.pay_number} />)। মিললে চালু করুন — প্রাপক SMS-এ কোড পাবেন।</p>{(accounts.length ? <Val v={ui.field('টাকা কোন অ্যাকাউন্টে এসেছে', ui.select('account_id', [['', '— হিসাবে লিখবেন না —'], ...accounts.filter((a) => a.active).map((a) => [a.id, a.name])], ''))} /> : null)}{' '}<button className="btn">✅ টাকা পেয়েছি — চালু করুন</button></form> : null)}<div className="row-actions mt">{(c.status === 'active' ? <form method="post" action={attrValue(back)} data-confirm="কার্ডটা বন্ধ করবেন? আর ব্যবহার করা যাবে না।"><input type="hidden" name="action" defaultValue="disable" /><button className="btn btn-sm btn-danger">⛔ বন্ধ করুন</button></form> : null)}{' '}{(c.status === 'disabled' ? <form method="post" action={attrValue(back)}><input type="hidden" name="action" defaultValue="enable" /><button className="btn btn-sm">আবার চালু</button></form> : null)}{' '}{(c.recipient_phone && c.status === 'active' ? <form method="post" action={attrValue(back)}><input type="hidden" name="action" defaultValue="sms" /><button className="btn btn-sm btn-ghost">📨 কোড আবার SMS করুন</button></form> : null)}</div><form method="post" action={attrValue(back)} className="form mt"><input type="hidden" name="action" defaultValue="adjust" /><div className="field-row"><Val v={ui.field('ব্যালেন্স বাড়ান/কমান (৳, কমাতে − দিন)', ui.input('change', '', { type: 'number', step: '0.01', required: true, class: 'w-num' }))} /><Val v={ui.field('কারণ', ui.input('note', '', { maxlength: 200 }))} /></div><button className="btn btn-sm btn-ghost">সেভ করুন</button></form><form method="post" action={attrValue(back)} className="form mt"><input type="hidden" name="action" defaultValue="expiry" />{' '}<Val v={ui.field('মেয়াদ বদলান', ui.input('expires_on', c.expires_on ? String(c.expires_on).slice(0, 10) : '', { type: 'date' }), 'খালি = মেয়াদ নেই')} /><button className="btn btn-sm btn-ghost">সেভ করুন</button></form></section><section className="panel table-wrap"><h2>হিসাব (কোথায় কত খরচ)</h2><table className="table compact"><thead><tr><th>সময়</th><th>কী</th><th className="num">টাকা</th><th className="num">বাকি</th></tr></thead><tbody>{jsxList(led.map((l) => <tr><td className="small nowrap"><Val v={fmtDate(l.created_at)} /></td><td className="small"><Val v={l.note} />{(l.order_code ? <>{' '}·{' '}<a href={`/admin/orders/${attrValue(l.order_id)}`}><Val v={l.order_code} /></a></> : null)}{(l.staff_name ? <Val v={` · ${l.staff_name}`} /> : null)}</td><td className={`num ${attrValue(Number(l.amount) < 0 ? 'warn' : 'good')}`}>{(Number(l.amount) ? <Val v={money(l.amount)} /> : "—")}</td><td className="num"><Val v={money(l.balance)} /></td></tr>))}</tbody></table></section></div></>);

@@ -63,14 +63,13 @@ async function contactProblem(id?: Id, phone?: Loose, email?: Loose) {
 // GET /admin/avatar/<staff id> — the picture, only for people logged in to the admin
 async function servePhoto(ctx: AdminCtx, m?: Loose) {
   const p = await S.photoOf(int(m[1]), ctx.query.get('full') !== '1');
-  if (!p) { ctx.res.writeHead(404, { 'Content-Type': 'text/plain' }); return ctx.res.end('Not found'); }
+  if (!p) { return ctx.reply.answer(404, { 'Content-Type': 'text/plain' }, 'Not found'); }
   const type = /^image\/(jpeg|png|webp|gif)$/.test(p.mime) ? p.mime : 'application/octet-stream';
-  ctx.res.writeHead(200, { 'Content-Type': type, 'Cache-Control': 'private, max-age=31536000, immutable', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'; sandbox" });
-  return ctx.res.end(p.data);
+  return ctx.reply.answer(200, { 'Content-Type': type, 'Cache-Control': 'private, max-age=31536000, immutable', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'; sandbox" }, p.data);
 }
 
 function answer(ctx: AdminCtx, ok?: Loose, back?: Loose, msg?: Loose) {
-  if (String(ctx.req.headers.accept || '').includes('application/json')) return ctx.json(ctx.res, ok ? 200 : 400, ok ? { ok: true } : { error: msg });
+  if (String(ctx.req.headers.accept || '').includes('application/json')) return ctx.json(ok ? 200 : 400, ok ? { ok: true } : { error: msg });
   return ok ? ctx.back(back, 'saved') : ctx.fail(back, msg);
 }
 async function changePhoto(ctx: AdminCtx, id?: Id, back?: Loose) {
@@ -111,7 +110,7 @@ async function saveMine(ctx: AdminCtx) {
   const data = { address: b.address, emergency_phone: b.emergency_phone, bio: b.bio, designation: owner ? b.designation : u.designation, joined_on: owner ? b.joined_on : ymd(u.joined_on) };
   await S.saveProfile(u.id, data);
   await ctx.log('profile', 'staff', u.id, 'নিজের প্রোফাইল আপডেট');
-  return ctx.redirect(ctx.res, '/admin/account?msg=profile#profile');
+  return ctx.redirect('/admin/account?msg=profile#profile');
 }
 
 // The "আমার প্রোফাইল" panel on the account page

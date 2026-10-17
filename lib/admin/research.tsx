@@ -107,7 +107,7 @@ async function page(ctx: AdminCtx) {
 // "এখনই আপডেট করুন": read one shop per call (the page calls it until all are fresh)
 async function runApi(ctx: AdminCtx) {
   const r = await R.tick({ force: true });
-  return ctx.json(ctx.res, 200, r);
+  return ctx.json(200, r);
 }
 
 export const routes = [

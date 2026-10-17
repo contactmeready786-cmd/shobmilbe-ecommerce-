@@ -86,8 +86,7 @@ async function auditCsv(ctx: AdminCtx) {
   await ctx.log('export', 'security', null, `অডিট লগ ডাউনলোড (${rows.length}টি)`);
   const out = csv([['সময়', 'কে', 'বিষয়', 'আইডি', 'কাজ', 'বিস্তারিত'],
     ...rows.map((a) => [new Date(a.created_at).toLocaleString('en-GB', { timeZone: 'Asia/Dhaka' }), a.staff_name || 'সিস্টেম', entityLabel(a.entity).replace(/^\S+\s/, ''), a.entity_id || '', actionLabel(a.action), a.detail])]);
-  ctx.res.writeHead(200, { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename="audit-log.csv"', 'Cache-Control': 'no-store' });
-  return ctx.res.end(out);
+  return ctx.reply.answer(200, { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename="audit-log.csv"', 'Cache-Control': 'no-store' }, out);
 }
 
 // ---------------------------------------------------------------- logins & devices
@@ -101,7 +100,7 @@ async function loginsPage(ctx: AdminCtx) {
     await db.setMany({ session_idle_hours: String(hours), staff_2fa_required: req2fa });
     await ctx.reloadSettings();
     await ctx.log('settings', 'security', null, `লগইন: ${hours} ঘণ্টা ব্যবহার না হলে লগআউট (আগে ${before.session_idle_hours}); স্টাফের দুই ধাপের লগইন ${req2fa === '1' ? 'বাধ্যতামূলক' : 'ঐচ্ছিক'}`);
-    return ctx.redirect(ctx.res, '/admin/security/logins?msg=saved#settings');
+    return ctx.redirect('/admin/security/logins?msg=saved#settings');
   }
   const f = {
     staffId: int(ctx.query.get('staff')) || null,
@@ -125,7 +124,7 @@ async function loginsPage(ctx: AdminCtx) {
 
 async function logoutDevice(ctx: AdminCtx) {
   const b = await ctx.body();
-  if (String(b.id) === ctx.user.__session) return ctx.redirect(ctx.res, '/admin/security/logins');
+  if (String(b.id) === ctx.user.__session) return ctx.redirect('/admin/security/logins');
   const who = await sessions.revokeId(str(b.id, 100), null, `মালিক লগআউট করিয়েছেন (${ctx.user.name})`);
   if (who) {
     const s = await db.one('SELECT name, username FROM staff WHERE id=$1', [who]);
@@ -133,12 +132,12 @@ async function logoutDevice(ctx: AdminCtx) {
     await ctx.log('staff_logout', 'staff', who, `${s ? s.name : ''}: একটা ডিভাইস থেকে লগআউট`);
   }
   const back = String(ctx.req.headers.referer || '').includes('/admin/staff/') ? `/admin/staff/${who}#security` : '/admin/security/logins';
-  return ctx.redirect(ctx.res, back);
+  return ctx.redirect(back);
 }
 async function logoutEveryone(ctx: AdminCtx) {
   const n = await sessions.revokeEveryone(`মালিক সবাইকে লগআউট করিয়েছেন (${ctx.user.name})`, ctx.user.__token);
   await ctx.log('staff_logout', 'security', null, `সবাইকে লগআউট: ${n}টি ডিভাইস`);
-  return ctx.redirect(ctx.res, '/admin/security/logins?info=' + encodeURIComponent(`${bn(n)}টি ডিভাইস থেকে লগআউট করা হয়েছে।`));
+  return ctx.redirect('/admin/security/logins?info=' + encodeURIComponent(`${bn(n)}টি ডিভাইস থেকে লগআউট করা হয়েছে।`));
 }
 
 export const routes = [

@@ -63,9 +63,9 @@ export function apiRoute(fn: (ctx: ApiCtx) => Promise<Response>, opts: { bots?: 
 
 /** Any other way of asking (OPTIONS, HEAD, a form sent where only GET is meant): the original code's answer, as always. */
 export async function otherMethods(request: Request): Promise<Response> {
-  const { answerWithSite } = await import('../site-answer');
+  const { siteAnswer } = await import('../site');
   const url = new URL(request.url);
-  return answerWithSite(request, url.pathname + url.search);
+  return siteAnswer(request, url.pathname + url.search);
 }
 
 /** Inside an API route: let the original code answer this request after all (its body was already read here). */

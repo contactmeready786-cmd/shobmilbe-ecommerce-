@@ -34,18 +34,18 @@ async function setStatus(ctx: AdminCtx, m?: Loose) {
   const b = await ctx.body();
   const r = await R.setStatus(int(m[1]), String(b.status || ''));
   if (r) await ctx.log('edit', 'product', r.product_id, `রিভিউ #${int(m[1])}: ${R.STATUS[b.status] || ''}`);
-  return ctx.redirect(ctx.res, `${back(ctx)}${back(ctx).includes('?') ? '&' : '?'}m=${b.status === 'approved' ? 'approved' : 'hidden'}`);
+  return ctx.redirect(`${back(ctx)}${back(ctx).includes('?') ? '&' : '?'}m=${b.status === 'approved' ? 'approved' : 'hidden'}`);
 }
 async function reply(ctx: AdminCtx, m?: Loose) {
   const b = await ctx.body();
   const r = await R.reply(int(m[1]), b.reply);
   if (r) await ctx.log('edit', 'product', r.product_id, `রিভিউ #${int(m[1])}-এ উত্তর`);
-  return ctx.redirect(ctx.res, `${back(ctx)}${back(ctx).includes('?') ? '&' : '?'}m=replied`);
+  return ctx.redirect(`${back(ctx)}${back(ctx).includes('?') ? '&' : '?'}m=replied`);
 }
 async function remove(ctx: AdminCtx, m?: Loose) {
   const r = await R.remove(int(m[1]));
   if (r) await ctx.log('delete', 'product', r.product_id, `রিভিউ #${int(m[1])} মুছা`);
-  return ctx.redirect(ctx.res, `${back(ctx)}${back(ctx).includes('?') ? '&' : '?'}m=gone`);
+  return ctx.redirect(`${back(ctx)}${back(ctx).includes('?') ? '&' : '?'}m=gone`);
 }
 async function saveSettings(ctx: AdminCtx) {
   const b = await ctx.body();
@@ -53,7 +53,7 @@ async function saveSettings(ctx: AdminCtx) {
   for (const k of ['reviews_on', 'reviews_auto_approve', 'wishlist_on', 'review_photos_on']) v[k] = b[k] ? '1' : '0';
   await db.setMany(v);
   await ctx.log('settings', 'settings', null, `রিভিউ/পছন্দের তালিকা: ${Object.entries(v).map(([k, x]) => `${k}=${x}`).join(', ')}`);
-  return ctx.redirect(ctx.res, `${BASE}?m=set`);
+  return ctx.redirect(`${BASE}?m=set`);
 }
 // back to the same list page (only our own page, never another site)
 function back(ctx: AdminCtx) {
@@ -67,9 +67,8 @@ function back(ctx: AdminCtx) {
 // a review's photo (also before the review is shown — only staff)
 async function photo(ctx: AdminCtx, m?: Loose) {
   const p = await db.one(`SELECT mime, data, ik_url FROM media WHERE id=$1 AND owner_type IN ('review','review_wait')`, [int(m[1])]);
-  if (!p || !p.data) return ctx.send(ctx.res, 404, 'Not found', 'text/plain');
-  ctx.res.writeHead(200, { 'Content-Type': /^image\/(jpeg|png|webp)$/.test(p.mime) ? p.mime : 'application/octet-stream', 'Cache-Control': 'private, max-age=3600', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'; sandbox" });
-  return ctx.res.end(p.data);
+  if (!p || !p.data) return ctx.send(404, 'Not found', 'text/plain');
+  return ctx.reply.answer(200, { 'Content-Type': /^image\/(jpeg|png|webp)$/.test(p.mime) ? p.mime : 'application/octet-stream', 'Cache-Control': 'private, max-age=3600', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'; sandbox" }, p.data);
 }
 
 export const routes = [

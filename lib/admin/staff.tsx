@@ -38,7 +38,7 @@ async function formPage(ctx: AdminCtx, m?: Loose) {
     }
   }
   const s = id ? await S.getStaff(id) : { active: true, permissions: [] };
-  if (!s) return ctx.redirect(ctx.res, '/admin/staff');
+  if (!s) return ctx.redirect('/admin/staff');
   const activity = id ? await S.activity({ staffId: id, limit: 40 }) : [];
   const devices = id ? await sessions.listFor(id, ctx.settings) : [];
   const logins = id ? await sessions.history({ staffId: id }, { limit: 10 }) : [];
@@ -51,7 +51,7 @@ async function resetTwoFactor(ctx: AdminCtx, m?: Loose) {
   if (!s || s.role === 'owner') return ctx.back('/admin/staff');
   await db.q(`UPDATE staff SET totp_on=false, totp_secret='', totp_last_step=0 WHERE id=$1`, [id]);
   await ctx.log('tfa_reset', 'staff', id, `${s.name}-এর দুই ধাপের লগইন রিসেট`);
-  return ctx.redirect(ctx.res, `/admin/staff/${id}?info=${encodeURIComponent('দুই ধাপের লগইন রিসেট হয়েছে।' + (ctx.settings.staff_2fa_required === '1' ? ' পরের লগইনে আবার সেটআপ করতে হবে।' : ''))}#security`);
+  return ctx.redirect(`/admin/staff/${id}?info=${encodeURIComponent('দুই ধাপের লগইন রিসেট হয়েছে।' + (ctx.settings.staff_2fa_required === '1' ? ' পরের লগইনে আবার সেটআপ করতে হবে।' : ''))}#security`);
 }
 async function logoutAll(ctx: AdminCtx, m?: Loose) {
   const id = int(m[1]);
@@ -60,7 +60,7 @@ async function logoutAll(ctx: AdminCtx, m?: Loose) {
   const n = await sessions.revokeAll(id, `মালিক লগআউট করিয়েছেন (${ctx.user.name})`);
   await sessions.record(ctx.req, { staffId: id, login: s.username, event: 'revoked', ok: true, ip: ctx.ip, detail: `মালিক ${n}টি ডিভাইস থেকে লগআউট করিয়েছেন` });
   await ctx.log('staff_logout', 'staff', id, `${s.name}: ${n}টি ডিভাইস থেকে লগআউট`);
-  return ctx.redirect(ctx.res, `/admin/staff/${id}?info=${encodeURIComponent(`${s.name} এখন সব ডিভাইস থেকে লগআউট।`)}#security`);
+  return ctx.redirect(`/admin/staff/${id}?info=${encodeURIComponent(`${s.name} এখন সব ডিভাইস থেকে লগআউট।`)}#security`);
 }
 
 async function remove(ctx: AdminCtx, m?: Loose) {

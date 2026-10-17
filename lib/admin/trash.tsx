@@ -42,7 +42,7 @@ async function page(ctx: AdminCtx) {
         if (r.ok) { ok++; await ctx.log('restore', ENTITY[r.kind] || r.kind, r.id, 'রিসাইকেল বিন থেকে ফেরত আনা হলো'); } else errors.push(r.error);
       }
       const text = `✅ ${bn(ok)}টি ফেরত আনা হয়েছে।${errors.length ? ' ' + errors.slice(0, 3).join(' ') : ''}`;
-      return ctx.redirect(ctx.res, '/admin/trash?' + (errors.length && !ok ? 'err=' : 'info=') + encodeURIComponent(text));
+      return ctx.redirect('/admin/trash?' + (errors.length && !ok ? 'err=' : 'info=') + encodeURIComponent(text));
     }
     // 🔐 deleting for good needs the code e-mailed to the shop's Gmail (restoring above needs nothing)
     const codeFor = (({ purge: 'trash_purge', empty: 'trash_empty', all_products: 'trash_all_products' } as Record<string, string>))[b.form];
@@ -56,19 +56,19 @@ async function page(ctx: AdminCtx) {
       if (!ids.length) return ctx.fail('/admin/trash', 'কিছু বাছা হয়নি।');
       const n = await T.purge(ids);
       await ctx.log('purge', 'trash', null, `${n}টি জিনিস স্থায়ীভাবে মুছে ফেলা হলো`);
-      return ctx.redirect(ctx.res, '/admin/trash?info=' + encodeURIComponent(`${bn(n)}টি জিনিস স্থায়ীভাবে মুছে ফেলা হয়েছে — আর ফেরত আনা যাবে না।`));
+      return ctx.redirect('/admin/trash?info=' + encodeURIComponent(`${bn(n)}টি জিনিস স্থায়ীভাবে মুছে ফেলা হয়েছে — আর ফেরত আনা যাবে না।`));
     }
     if (b.form === 'empty') {
       if (String(b.confirm || '').trim() !== 'খালি করুন') return ctx.fail('/admin/trash', 'ঘরে ঠিকভাবে "খালি করুন" লিখুন।');
       const n = await T.purgeAll();
       await ctx.log('purge', 'trash', null, `রিসাইকেল বিন খালি করা হলো (${n}টি)`);
-      return ctx.redirect(ctx.res, '/admin/trash?info=' + encodeURIComponent(`রিসাইকেল বিন খালি — ${bn(n)}টি জিনিস স্থায়ীভাবে মুছে গেছে।`));
+      return ctx.redirect('/admin/trash?info=' + encodeURIComponent(`রিসাইকেল বিন খালি — ${bn(n)}টি জিনিস স্থায়ীভাবে মুছে গেছে।`));
     }
     if (b.form === 'all_products') {
       if (String(b.confirm || '').replace(/\s+/g, ' ').trim() !== 'সব মুছুন') return ctx.fail('/admin/trash', 'ঘরে ঠিকভাবে "সব মুছুন" লিখুন।');
       const n = await T.moveAllProducts({ id: ctx.user.id, name: ctx.user.name, path: '/admin/trash', ip: ctx.ip });
       await ctx.log('product_delete', 'product', null, `সব পণ্য (${n}টি) রিসাইকেল বিনে পাঠানো হলো`);
-      return ctx.redirect(ctx.res, '/admin/trash?kind=product&info=' + encodeURIComponent(`${bn(n)}টি পণ্য দোকান থেকে সরিয়ে রিসাইকেল বিনে রাখা হয়েছে। এখান থেকে "স্থায়ীভাবে মুছুন" দিলে চিরতরে মুছে যাবে, আর তখন SKU আবার ১ থেকে শুরু হবে।`));
+      return ctx.redirect('/admin/trash?kind=product&info=' + encodeURIComponent(`${bn(n)}টি পণ্য দোকান থেকে সরিয়ে রিসাইকেল বিনে রাখা হয়েছে। এখান থেকে "স্থায়ীভাবে মুছুন" দিলে চিরতরে মুছে যাবে, আর তখন SKU আবার ১ থেকে শুরু হবে।`));
     }
     return ctx.back('/admin/trash');
   }
@@ -94,7 +94,7 @@ function valueOf(k?: Loose, v?: Loose, cats?: Loose) {
 
 async function detail(ctx: AdminCtx, m?: Loose) {
   const e = await T.get(m[1]);
-  if (!e) return ctx.redirect(ctx.res, '/admin/trash');
+  if (!e) return ctx.redirect('/admin/trash');
   const K = T.KINDS[e.kind] || { label: e.kind, icon: '🗑️' };
   const row = e.data.row || {};
   const cats = new Map((await db.q('SELECT id, name FROM categories')).map((c) => [c.id, c.name]));

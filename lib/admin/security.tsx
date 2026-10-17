@@ -109,7 +109,7 @@ async function showKey(ctx: AdminCtx) {
   $services_notify.securityAlert(ctx.settings, 'গোপন চাবি দেখা হলো',
     `কেউ Admin → নিরাপত্তা থেকে দোকানের গোপন চাবি (ENCRYPTION_KEY) দেখেছে।\nকে: ${ctx.user.name || ctx.user.username || ''}\nযেখান থেকে: ${ctx.ip || ''}`,
     { extraEmail: delcode.CODE_EMAIL }).catch(() => {});
-  ctx.res.setHeader('Cache-Control', 'no-store');
+  ctx.reply.header('Cache-Control', 'no-store');
   const body = toHtml(<><h1>🔑 দোকানের গোপন চাবি</h1><section className="panel">{(key ? <><p>এটা আপনার{' '}<b>ENCRYPTION_KEY</b>। কাগজে হুবহু লিখে (বা প্রিন্ট করে) বাসার নিরাপদ জায়গায় রাখুন। ফোনের গ্যালারি, WhatsApp বা কারো কাছে পাঠাবেন না।</p><p><code className="secret-box copy" style={styleOf("font-size:18px;word-break:break-all")}><Val v={key} /></code></p><p className="small muted">কখন লাগবে: Vercel থেকে চাবিটা কোনোভাবে মুছে গেলে বা নতুন সার্ভারে দোকান সরালে — তখন Vercel → Settings → Environment Variables →{' '}<code>ENCRYPTION_KEY</code>{' '}= এই লেখা → Redeploy। তাহলে সেভ করা সব পাসওয়ার্ড আবার পড়া যাবে।</p><p className="small muted">চাবি পরীক্ষার ছাপ:{' '}<code><Val v={security.keyFingerprint()} /></code>{' '}(লিখে রাখা চাবি ঠিক আছে কিনা Claude এটা দিয়ে মিলিয়ে দেখতে পারে)।</p></> : <p className="flash flash-error">Vercel-এ এখনো ENCRYPTION_KEY বসানো নেই — নিরাপত্তা পেজের "এক ধাপ বাকি" অংশ দেখুন।</p>)}<p><a className="btn btn-ghost" href="/admin/security">← নিরাপত্তায় ফিরুন</a></p></section></>);
   return ctx.page('গোপন চাবি', body, 'security');
 }

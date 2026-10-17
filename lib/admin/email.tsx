@@ -144,7 +144,7 @@ async function post(ctx: AdminCtx) {
     await ctx.log('settings', 'marketing', int(b.id), 'ইমেইল তালিকায় একজনের অবস্থা বদল');
     return ctx.back(BASE, 'saved');
   }
-  return ctx.redirect(ctx.res, BASE);
+  return ctx.redirect(BASE);
 }
 
 // what a mail looks like (the newest 4 products), opened in a new tab
@@ -161,7 +161,7 @@ async function preview(ctx: AdminCtx) {
     return rows.map((p) => ({ ...p, img: p.ik_url ? `${p.ik_url}${p.ik_url.includes('?') ? '&' : '?'}tr=f-jpg,w-400` : p.image_id ? `/media/${p.image_id}/t` : '', path: `/p/${encodeURIComponent(p.slug)}` }));
   })();
   const out = layout(s, { logId: null, sub, heading: 'ইমেইল দেখতে এমন হবে', intro: '{name}, এটা একটা নমুনা। ক্যাম্পেইনে আপনার লেখা এখানে বসবে।\n\nনিচে পণ্যগুলো এভাবে দেখাবে।', products: cards, button: { text: 'এখনই কিনুন', path: '/' }, utm });
-  return ctx.send(ctx.res, 200, out, 'text/html; charset=utf-8', { 'Content-Security-Policy': "sandbox; default-src 'none'; img-src https: http: data: 'self'; style-src 'unsafe-inline'" });
+  return ctx.send(200, out, 'text/html; charset=utf-8', { 'Content-Security-Policy': "sandbox; default-src 'none'; img-src https: http: data: 'self'; style-src 'unsafe-inline'" });
 }
 
 async function subsCsv(ctx: AdminCtx) {
@@ -170,8 +170,7 @@ async function subsCsv(ctx: AdminCtx) {
   const csv = 'email,name,phone,source,subscribed,joined,left\n' + rows.map((r) => [r.email, r.name, r.phone, r.source, r.on_list ? 'yes' : 'no',
     r.created_at ? new Date(r.created_at).toISOString().slice(0, 10) : '', r.unsub_at ? new Date(r.unsub_at).toISOString().slice(0, 10) : ''].map(esc).join(',')).join('\n');
   await ctx.log('export', 'marketing', null, `ইমেইল তালিকা ডাউনলোড (${rows.length} জন)`);
-  ctx.res.writeHead(200, { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename="shobmilbe-email-list.csv"', 'Cache-Control': 'no-store' });
-  return ctx.res.end('﻿' + csv);
+  return ctx.reply.answer(200, { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename="shobmilbe-email-list.csv"', 'Cache-Control': 'no-store' }, '﻿' + csv);
 }
 
 export const routes = [

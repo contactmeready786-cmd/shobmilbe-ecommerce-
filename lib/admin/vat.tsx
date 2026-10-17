@@ -74,7 +74,7 @@ async function returnPage(ctx: AdminCtx) {
     const rows = kind === 'sales'
       ? [['Date', 'Invoice (Order)', 'Buyer', 'Phone', 'Value (excl. VAT)', 'VAT', 'Total'], ...saleLines.map((o) => [String(o.at).slice(0, 10), o.code, o.customer_name, o.phone, r2(o.value), o.vat, r2(Number(o.value) + (s.vat_mode === 'exclusive' ? o.vat : s.vat_mode === 'inclusive' ? o.vat : 0))])]
       : [['Date', 'Purchase No', 'Supplier', 'Note / Challan', 'Value', 'VAT', 'Total'], ...buys.map((p) => [String(p.purchase_date).slice(0, 10), p.code, p.supplier, p.note || '', p.value, p.vat, p.total])];
-    return ctx.send(ctx.res, 200, csv(rows), 'text/csv; charset=utf-8', { 'Content-Disposition': `attachment; filename="mushak-${kind === 'sales' ? '6.2-sales' : '6.1-purchase'}-${month}.csv"` });
+    return ctx.send(200, csv(rows), 'text/csv; charset=utf-8', { 'Content-Disposition': `attachment; filename="mushak-${kind === 'sales' ? '6.2-sales' : '6.1-purchase'}-${month}.csv"` });
   }
   const months: Loose[] = [];
   for (let i = 0; i < 12; i++) { const d = new Date(); d.setUTCDate(1); d.setUTCMonth(d.getUTCMonth() - i); months.push(d.toISOString().slice(0, 7)); }
@@ -88,7 +88,7 @@ async function returnPage(ctx: AdminCtx) {
 async function mushak63(ctx: AdminCtx, m?: Loose) {
   const s = ctx.settings;
   const o = await $models_orders.getOrder({ id: int(m[1]) });
-  if (!o) return ctx.redirect(ctx.res, '/admin/orders');
+  if (!o) return ctx.redirect('/admin/orders');
   const rate = num(s.vat_rate, 15);
   const mode = s.vat_mode || 'none';
   const lines = (o.items || []).map((it?: Loose, i?: Loose) => {
@@ -137,7 +137,7 @@ table{width:100%;border-collapse:collapse;margin-top:10px}th,td{border:1px solid
   <p class="note">* উৎসে কর্তনযোগ্য সরবরাহের ক্ষেত্রে ফরমটি সমন্বিত কর চালানপত্র ও উৎসে কর কর্তন সনদপত্র হিসেবে বিবেচিত হবে এবং উহা উৎসে কর কর্তনযোগ্য সরবরাহের ক্ষেত্রে প্রযোজ্য হবে।</p>
 </div><script src="/js/page-actions.js?v=${PA_V}" defer></script></body></html>`.s;
   await ctx.log('mushak63', 'order', o.id, 'মূসক-৬.৩ চালান দেখা/প্রিন্ট');
-  return ctx.send(ctx.res, 200, page);
+  return ctx.send(200, page);
 }
 
 export const routes = [

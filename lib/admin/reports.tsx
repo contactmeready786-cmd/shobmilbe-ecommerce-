@@ -168,7 +168,7 @@ async function exportAll(ctx: AdminCtx) {
       ['Expenses', p!.expenses], ['Refunds', p!.refunds], ['Net profit (approx.)', gross - Number(p!.expenses) - Number(p!.refunds)], ['Delivery charges collected', p!.delivery]] });
   }
   await ctx.log('export', 'order', null, `রিপোর্ট Excel ${from} → ${to}`);
-  return xlsx.send(ctx.res, `report-${from}-to-${to}.xlsx`, sheets);
+  return xlsx.send(ctx.reply, `report-${from}-to-${to}.xlsx`, sheets);
 }
 
 async function staff(ctx: AdminCtx) {
@@ -177,7 +177,7 @@ async function staff(ctx: AdminCtx) {
   if (ctx.query.get('csv') === '1') {
     const out = [['Staff', 'Logins', 'Confirmed', 'Cancelled', 'Edits', 'Created', 'Sent to courier', 'All actions']];
     rows.forEach((s) => out.push([s.name, s.logins, s.confirmed, s.cancelled, s.edits, s.created, s.sent, s.actions]));
-    return ctx.send(ctx.res, 200, csv(out), 'text/csv; charset=utf-8', { 'Content-Disposition': `attachment; filename="staff-${from}-${to}.csv"` });
+    return ctx.send(200, csv(out), 'text/csv; charset=utf-8', { 'Content-Disposition': `attachment; filename="staff-${from}-${to}.csv"` });
   }
   const body = toHtml(<><p className="crumbs"><a href="/admin/reports">← রিপোর্ট</a></p><div className="title-row"><h1>স্টাফ রিপোর্ট</h1><a className="btn btn-ghost" href={`/admin/reports/staff?from=${attrValue(from)}&to=${attrValue(to)}&csv=1`}>⬇ CSV</a></div><Val v={ui.dateFilter('/admin/reports/staff', from, to)} /><section className="panel table-wrap"><table className="table"><thead><tr><th>স্টাফ</th><th className="num">লগইন</th><th className="num">অর্ডার কনফার্ম</th><th className="num">বাতিল</th><th className="num">অর্ডার এডিট</th><th className="num">নতুন অর্ডার তৈরি</th><th className="num">কুরিয়ারে পাঠানো</th><th className="num">মোট কাজ</th><th>শেষ লগইন</th></tr></thead><tbody>{jsxList(rows.map((s) => <tr className={attrValue(s.active ? '' : 'row-off')}><td>{(ctx.user.role === 'owner' ? <a href={`/admin/staff/${attrValue(s.id)}`}><Val v={s.name} /></a> : <Val v={s.name} />)}{(s.role === 'owner' ? <>{' '}<span className="pill">মালিক</span></> : null)}</td><td className="num"><Val v={bn(s.logins)} /></td><td className="num"><Val v={bn(s.confirmed)} /></td><td className="num"><Val v={bn(s.cancelled)} /></td><td className="num"><Val v={bn(s.edits)} /></td><td className="num"><Val v={bn(s.created)} /></td><td className="num"><Val v={bn(s.sent)} /></td><td className="num"><b><Val v={bn(s.actions)} /></b></td><td className="small">{(s.last_login ? <Val v={fmtDate(s.last_login)} /> : "—")}</td></tr>))}</tbody></table></section><section className="panel"><h2>কাজের তুলনা</h2><Val v={charts.hbars(rows.filter((r) => r.actions).map((r) => ({ label: r.name, value: r.actions, sub: `কনফার্ম ${bn(r.confirmed)}` })), { color: -1 })} /></section></>);
   return ctx.page('স্টাফ রিপোর্ট', body, 'reports');
@@ -190,7 +190,7 @@ async function legacyCsv(ctx: AdminCtx) {
   const products = await productRows(from, to);
   const out = [['Product', 'SKU', 'Qty', 'Revenue', ...(seeCost ? ['Cost', 'Profit'] : [])]];
   products.forEach((p) => out.push([p.name, p.sku, p.qty, p.revenue, ...(seeCost ? [p.cost, Number(p.revenue) - Number(p.cost)] : [])]));
-  return ctx.send(ctx.res, 200, csv(out), 'text/csv; charset=utf-8', { 'Content-Disposition': `attachment; filename="product-sales-${from}-${to}.csv"` });
+  return ctx.send(200, csv(out), 'text/csv; charset=utf-8', { 'Content-Disposition': `attachment; filename="product-sales-${from}-${to}.csv"` });
 }
 
 export const routes = [

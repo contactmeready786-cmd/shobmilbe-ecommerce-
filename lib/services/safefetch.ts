@@ -12,7 +12,7 @@ import * as https from 'node:https';
 import * as dns from 'node:dns';
 import * as net from 'node:net';
 import * as zlib from 'node:zlib';
-import type { Body, Loose, ShopResponse } from '../types';
+import type { Body, Loose } from '../types';
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36';
 const PORTS = new Set(['', '80', '443', '8080', '8443']);
 

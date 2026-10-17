@@ -250,7 +250,7 @@ function tfaPage({ settings, user, error, blocked }: Body) {
 }
 
 async function handle(base: Base) {
-  const { req, res, path, method, query, send, redirect, json } = base;
+  const { req, path, method, query, send, redirect, json } = base;
   let { settings } = base;
   const ip = security.clientIp(req);
   currentDb = db;
@@ -258,20 +258,20 @@ async function handle(base: Base) {
   // gets the whole page as text.
   const draw = base.drawPage;
   const bare = (title?: Loose, body?: Loose, status: Loose = 200) => (draw ? draw({ bare: true, settings, title, body, status })
-    : send(res, status, adminLayout({ settings, title, body, bare: true })));
+    : send(status, adminLayout({ settings, title, body, bare: true })));
 
   // Every form sent to the admin must come from this same website.
   // (Stops a trick page on another site from submitting forms using your login.)
   if (method !== 'GET' && method !== 'HEAD' && !security.sameSite(req)) {
     // logged once per 15 minutes per connection, so an attack can't flood the log
     if (await security.hit(db, 'log:xsite:' + ip, 1, 900)) await db.logActivity(null, 'blocked', 'security', null, `অন্য সাইট থেকে ফর্ম পাঠানোর চেষ্টা: ${path} (${ip})`).catch(() => {});
-    return send(res, 403, 'অনুমতি নেই: এই ফর্ম অন্য ওয়েবসাইট থেকে পাঠানো হয়েছে।', 'text/plain; charset=utf-8');
+    return send(403, 'অনুমতি নেই: এই ফর্ম অন্য ওয়েবসাইট থেকে পাঠানো হয়েছে।', 'text/plain; charset=utf-8');
   }
 
   // ----- public: setup, login, logout -----
   const staffCount = await staffModel.countStaff();
   if (path === '/admin/setup' || (path === '/admin/login' && !staffCount)) {
-    if (staffCount) return redirect(res, '/admin/login');
+    if (staffCount) return redirect('/admin/login');
     if (method === 'POST' && path === '/admin/setup') {
       if (!(await security.hit(db, 'setup:' + ip, 10, 3600))) return bare('অ্যাকাউন্ট তৈরি', authPage({ settings, mode: 'setup', error: 'অনেকবার চেষ্টা হয়েছে, কিছুক্ষণ পর আবার চেষ্টা করুন।' }), 429);
       const b = await parseBody(req);
@@ -285,7 +285,7 @@ async function handle(base: Base) {
       const user = await staffModel.getStaff(id);
       await db.logActivity(id, 'login', 'staff', id, 'প্রথম সেটআপ');
       await sessions.record(req, { staffId: id, login: username, event: 'login', ok: true, ip, detail: 'প্রথম সেটআপ' });
-      return redirect(res, '/admin', { 'Set-Cookie': await startSession(req, settings, user!) });
+      return redirect('/admin', { 'Set-Cookie': await startSession(req, settings, user!) });
     }
     return bare('অ্যাকাউন্ট তৈরি', authPage({ settings, mode: 'setup' }));
   }
@@ -327,7 +327,7 @@ ${link}
       if (await tooMany(ip)) return bare('রিসেট', mailResetPage({ settings, error: 'অনেকবার ভুল হয়েছে। ১৫ মিনিট পর আবার চেষ্টা করুন।' }), 429);
       if (!mailTokenOk(settings, b.t)) { await failed(ip); return bare('রিসেট', mailResetPage({ settings }), 400); }
       const owner = await db.one("SELECT id, username, name FROM staff WHERE role='owner' ORDER BY id LIMIT 1");
-      if (!owner) return redirect(res, '/admin/setup');
+      if (!owner) return redirect('/admin/setup');
       const error = passwordProblem(b.password, owner) || (b.password !== b.password2 ? 'দুটো পাসওয়ার্ড মিলছে না।' : null);
       if (error) return bare('রিসেট', mailResetPage({ settings, token: b.t, error }), 400);
       await db.setSetting('reset_mail_token', ''); // the link works only once
@@ -368,7 +368,7 @@ ${link}
         : passwordProblem(b.password, { username }) || (b.password !== b.password2 ? 'দুটো পাসওয়ার্ড মিলছে না।' : null);
       if (error) return bare('রিসেট', resetPage({ settings, enabled: true, error, values: vals }), 400);
       const owner = await db.one("SELECT id FROM staff WHERE role='owner' ORDER BY id LIMIT 1");
-      if (!owner) return redirect(res, '/admin/setup');
+      if (!owner) return redirect('/admin/setup');
       // a paper code works once: use it up now (if two tries race, only one wins)
       if (viaRecovery && !(await recovery.consume(given))) return bare('রিসেট', resetPage({ settings, enabled: true, error: 'এই কোড আগেই ব্যবহার হয়েছে। অন্য একটা কোড দিন।', values: vals }), 401);
       const clash = await db.one('SELECT id FROM staff WHERE lower(username)=$1 AND id<>$2', [username, owner.id]);
@@ -406,25 +406,25 @@ ${link}
         if (user.role === 'owner' && lock.isOn(settings)) {
           await db.logActivity(user.id, 'login_step', 'staff', user.id, `পাসওয়ার্ড ঠিক, এখন আঙুলের ছাপ যাচাই (${ip})`);
           await sessions.record(req, { staffId: user.id, login: b.login, event: 'step', ok: true, ip, detail: 'আঙুলের ছাপ যাচাই' });
-          return redirect(res, '/admin/verify', { 'Set-Cookie': preCookie(req, settings, user, {}) });
+          return redirect('/admin/verify', { 'Set-Cookie': preCookie(req, settings, user, {}) });
         }
         // Staff with the authenticator code on: the 6-digit code comes next.
         if (twoFactorOn(user)) {
           await sessions.record(req, { staffId: user.id, login: b.login, event: 'step', ok: true, ip, detail: 'অথেনটিকেটর কোড' });
-          return redirect(res, '/admin/2fa', { 'Set-Cookie': tfaCookie(req, settings, user) });
+          return redirect('/admin/2fa', { 'Set-Cookie': tfaCookie(req, settings, user) });
         }
         await staffModel.touchLogin(user.id);
         await db.logActivity(user.id, 'login', 'staff', user.id, ip);
         await sessions.record(req, { staffId: user.id, login: b.login, event: 'login', ok: true, ip });
         if (user.role === 'owner' && settings.notify_owner_login !== '0') await notify.securityAlert(settings, 'মালিকের অ্যাকাউন্টে লগইন হয়েছে', `যেখান থেকে: ${ip}\nডিভাইস: ${str(req.headers['user-agent'], 120)}`);
-        return redirect(res, firstAllowed(user), { 'Set-Cookie': await startSession(req, settings, user!) });
+        return redirect(firstAllowed(user), { 'Set-Cookie': await startSession(req, settings, user!) });
       }
       await failed(ip, b.login);
       await sessions.record(req, { staffId: user ? user.id : null, login: b.login, event: user && !user.active ? 'inactive' : 'fail', ip });
       const error = user && !user.active ? 'এই অ্যাকাউন্ট বন্ধ করা আছে। মালিকের সাথে কথা বলুন।' : 'ইউজারনেম বা পাসওয়ার্ড ভুল হয়েছে।';
       return bare('লগইন', authPage({ settings, error, values: b }), 401);
     }
-    if (await currentUser(req, settings)) return redirect(res, '/admin');
+    if (await currentUser(req, settings)) return redirect('/admin');
     return bare('লগইন', authPage({ settings }));
   }
   if (path === '/admin/verify' || path.startsWith('/admin/verify/')) return verifyRoutes();
@@ -436,13 +436,13 @@ ${link}
       await sessions.revoke(c.token, 'নিজে লগআউট');
       if (me) await sessions.record(req, { staffId: me.id, login: me.username, event: 'logout', ok: true, ip });
     }
-    return redirect(res, '/admin/login', { 'Set-Cookie': [CLEAR_ADMIN, CLEAR_PRE, CLEAR_CH, CLEAR_TFA] });
+    return redirect('/admin/login', { 'Set-Cookie': [CLEAR_ADMIN, CLEAR_PRE, CLEAR_CH, CLEAR_TFA] });
   }
 
   // ----- staff two-step login: the 6-digit code from the authenticator app -----
   async function twoFactorRoute() {
     const u = await tfaUser(req, settings);
-    if (!u) return redirect(res, '/admin/login', { 'Set-Cookie': CLEAR_TFA });
+    if (!u) return redirect('/admin/login', { 'Set-Cookie': CLEAR_TFA });
     const page = (error?: Loose, status: Loose = 200) => bare('যাচাই কোড', tfaPage({ settings, user: u, error }), status);
     if (method !== 'POST') return page();
     if (await security.blocked(db, 'mfa:' + u.id, 8)) {
@@ -463,38 +463,38 @@ ${link}
     await staffModel.touchLogin(u.id);
     await db.logActivity(u.id, 'login', 'staff', u.id, `${ip} · অথেনটিকেটর কোড`);
     await sessions.record(req, { staffId: u.id, login: u.username, event: 'login', ok: true, ip, detail: 'অথেনটিকেটর কোডসহ' });
-    return redirect(res, firstAllowed(u), { 'Set-Cookie': [await startSession(req, settings, u), CLEAR_TFA] });
+    return redirect(firstAllowed(u), { 'Set-Cookie': [await startSession(req, settings, u), CLEAR_TFA] });
   }
 
   // ----- owner login lock: the second check after the password -----
   async function verifyRoutes() {
     const pre = await preUser(req, settings);
     const wantsJson = path !== '/admin/verify' && path !== '/admin/verify/code' && path !== '/admin/verify/cancel';
-    if (path === '/admin/verify/cancel' && method === 'POST') return redirect(res, '/admin/login', { 'Set-Cookie': [CLEAR_PRE, CLEAR_CH] });
+    if (path === '/admin/verify/cancel' && method === 'POST') return redirect('/admin/login', { 'Set-Cookie': [CLEAR_PRE, CLEAR_CH] });
     if (!pre) {
-      if (wantsJson) return json(res, 401, { error: 'সময় শেষ হয়ে গেছে। আবার পাসওয়ার্ড দিয়ে লগইন করুন।', to: '/admin/login' });
-      return redirect(res, '/admin/login', { 'Set-Cookie': [CLEAR_PRE, CLEAR_CH] });
+      if (wantsJson) return json(401, { error: 'সময় শেষ হয়ে গেছে। আবার পাসওয়ার্ড দিয়ে লগইন করুন।', to: '/admin/login' });
+      return redirect('/admin/login', { 'Set-Cookie': [CLEAR_PRE, CLEAR_CH] });
     }
     const { user: owner, passed } = pre;
     const fail = async (why?: Loose, status: Loose = 400, extra: Loose = {}) => {
       await db.logActivity(owner.id, 'blocked', 'security', owner.id, `মালিকের লগইনে দ্বিতীয় যাচাই ব্যর্থ: ${why} (${ip})`).catch(() => {});
-      return json(res, status, { error: why, ...extra });
+      return json(status, { error: why, ...extra });
     };
     // A finished check: either the next step, or the real login.
     const next = async (how?: Loose) => {
       const need = lock.needs(settings, req, passed);
-      if (need) return json(res, 200, { next: need }, { 'Set-Cookie': [preCookie(req, settings, owner, passed), CLEAR_CH] });
+      if (need) return json(200, { next: need }, { 'Set-Cookie': [preCookie(req, settings, owner, passed), CLEAR_CH] });
       await security.clear(db, 'mfa:' + owner.id);
       await staffModel.touchLogin(owner.id);
       await db.logActivity(owner.id, 'login', 'staff', owner.id, `${ip} · ${how}`);
       await sessions.record(req, { staffId: owner.id, login: owner.username, event: 'login', ok: true, ip, detail: how });
       if (settings.notify_owner_login !== '0') await notify.securityAlert(settings, 'মালিকের অ্যাকাউন্টে লগইন হয়েছে', `যেখান থেকে: ${ip} · ${how}\nডিভাইস: ${str(req.headers['user-agent'], 120)}`);
-      return json(res, 200, { done: true, to: firstAllowed(owner) }, { 'Set-Cookie': [await startSession(req, settings, owner, true), CLEAR_PRE, CLEAR_CH] });
+      return json(200, { done: true, to: firstAllowed(owner) }, { 'Set-Cookie': [await startSession(req, settings, owner, true), CLEAR_PRE, CLEAR_CH] });
     };
     // Too many failed checks: the half-way login is thrown away.
     if (method === 'POST' && await security.blocked(db, 'mfa:' + owner.id, 10)) {
       const msg = 'অনেকবার ভুল হয়েছে। নিরাপত্তার জন্য ১৫ মিনিট পর আবার পাসওয়ার্ড দিয়ে লগইন করুন।';
-      if (wantsJson) return json(res, 429, { error: msg, to: '/admin/login' }, { 'Set-Cookie': [CLEAR_PRE, CLEAR_CH] });
+      if (wantsJson) return json(429, { error: msg, to: '/admin/login' }, { 'Set-Cookie': [CLEAR_PRE, CLEAR_CH] });
       return bare('যাচাই', lockView.verifyPage({ settings, error: msg, blocked: true }), 429);
     }
     const countFail = () => security.hit(db, 'mfa:' + owner.id, 10, 900);
@@ -504,25 +504,25 @@ ${link}
       if (!need) {
         // the lock was switched off in the meantime
         await staffModel.touchLogin(owner.id);
-        return redirect(res, firstAllowed(owner), { 'Set-Cookie': [await startSession(req, settings, owner, true), CLEAR_PRE] });
+        return redirect(firstAllowed(owner), { 'Set-Cookie': [await startSession(req, settings, owner, true), CLEAR_PRE] });
       }
       const keysHere = await lock.passkeysFor(owner.id, lock.rpId(req));
       const keysAll = await lock.passkeys(owner.id);
       return bare('যাচাই', lockView.verifyPage({ settings, need, mobile: lock.isMobile(req),
         hasPasskey: keysHere.length > 0, otherHosts: [...new Set(keysAll.map((k) => k.rp_id))].filter((h) => h !== lock.rpId(req)), error: query.get('err') }));
     }
-    if (method !== 'POST') return json(res, 405, { error: 'POST' });
+    if (method !== 'POST') return json(405, { error: 'POST' });
 
     if (path === '/admin/verify/passkey/options') {
       const ch = lock.newChallenge('get', owner.id);
       const opts = await lock.loginOptions(req, owner.id, ch.challenge);
-      if (!opts.allowCredentials.length) return json(res, 400, { error: 'এই ঠিকানায় কোনো পাসকি সেভ করা নেই।' });
-      return json(res, 200, opts, { 'Set-Cookie': challengeCookie(req, settings, ch.value) });
+      if (!opts.allowCredentials.length) return json(400, { error: 'এই ঠিকানায় কোনো পাসকি সেভ করা নেই।' });
+      return json(200, opts, { 'Set-Cookie': challengeCookie(req, settings, ch.value) });
     }
     if (path === '/admin/verify/passkey') {
       const c = lock.readChallenge(challengeValue(req, settings), 'get', owner.id);
-      if (!c) return json(res, 400, { error: 'সময় শেষ, আবার চাপুন।' });
-      if (!(await lock.useOnce(db, c.challenge))) return json(res, 400, { error: 'এই উত্তর আগেই ব্যবহার হয়েছে, আবার চাপুন।' });
+      if (!c) return json(400, { error: 'সময় শেষ, আবার চাপুন।' });
+      if (!(await lock.useOnce(db, c.challenge))) return json(400, { error: 'এই উত্তর আগেই ব্যবহার হয়েছে, আবার চাপুন।' });
       const b = await parseBody(req);
       try {
         await lock.checkPasskey(req, owner.id, c.challenge, b);
@@ -542,20 +542,20 @@ ${link}
         await staffModel.touchLogin(owner.id);
         await db.logActivity(owner.id, 'login', 'staff', owner.id, `${ip} · এক-বারের অনুমতি কোড`);
         await sessions.record(req, { staffId: owner.id, login: owner.username, event: 'login', ok: true, ip, detail: 'এক-বারের অনুমতি কোড' });
-        return redirect(res, '/admin/security/login?msg=bridged', { 'Set-Cookie': [await startSession(req, settings, owner, true), CLEAR_PRE, CLEAR_CH] });
+        return redirect('/admin/security/login?msg=bridged', { 'Set-Cookie': [await startSession(req, settings, owner, true), CLEAR_PRE, CLEAR_CH] });
       }
       await countFail();
       await db.logActivity(owner.id, 'blocked', 'security', owner.id, `মালিকের লগইনে ভুল অনুমতি কোড (${ip})`).catch(() => {});
-      return redirect(res, '/admin/verify?err=' + encodeURIComponent('কোডটা ভুল বা মেয়াদ শেষ।'));
+      return redirect('/admin/verify?err=' + encodeURIComponent('কোডটা ভুল বা মেয়াদ শেষ।'));
     }
-    return json(res, 404, { error: 'পাওয়া যায়নি' });
+    return json(404, { error: 'পাওয়া যায়নি' });
   }
 
   // ----- everything below needs a signed-in staff member -----
   const user = await currentUser(req, settings);
   if (!user) {
-    if (path.startsWith('/admin/api/')) return json(res, 401, { error: 'আবার লগইন করুন।' });
-    return redirect(res, '/admin/login');
+    if (path.startsWith('/admin/api/')) return json(401, { error: 'আবার লগইন করুন।' });
+    return redirect('/admin/login');
   }
   user.permissions = Array.isArray(user.permissions) ? user.permissions : [];
 
@@ -568,10 +568,10 @@ ${link}
     body: () => parseBody(req),
     page: (title?: Loose, body?: Loose, active?: Loose, opts: Body = {}) => (draw
       ? draw({ settings: ctx.settings, user, title, body: $testclear.decorate(ctx, active, body), active, readOnly: ctx.readOnly, path, status: opts.status || 200 })
-      : send(res, opts.status || 200, adminLayout({ settings: ctx.settings, user, title,
+      : send(opts.status || 200, adminLayout({ settings: ctx.settings, user, title,
         body: $testclear.decorate(ctx, active, body), active, readOnly: ctx.readOnly, path }))),
-    back: (to?: Loose, msgKey?: Loose) => redirect(res, to + (msgKey ? (to.includes('?') ? '&' : '?') + 'msg=' + msgKey : '')),
-    fail: (to?: Loose, text?: Loose) => redirect(res, to + (to.includes('?') ? '&' : '?') + 'err=' + encodeURIComponent(text)),
+    back: (to?: Loose, msgKey?: Loose) => redirect(to + (msgKey ? (to.includes('?') ? '&' : '?') + 'msg=' + msgKey : '')),
+    fail: (to?: Loose, text?: Loose) => redirect(to + (to.includes('?') ? '&' : '?') + 'err=' + encodeURIComponent(text)),
     log: (action?: Loose, entity?: Loose, entityId?: Id, detail?: Loose) => db.logActivity(user.id, action, entity, entityId, detail),
     // every delete goes to the recycle bin (Admin → রিসাইকেল বিন), with who / when / from where
     trash: (kind?: Loose, id?: Id) => $models_trash.move(kind, id, { id: user.id, name: user.name, ip,
@@ -586,8 +586,8 @@ ${link}
   // The owner can make the authenticator code compulsory for staff: until a staff member sets it up,
   // the only page they can open is the set-up page.
   if (user.role !== 'owner' && settings.staff_2fa_required === '1' && !twoFactorOn(user) && !path.startsWith('/admin/account')) {
-    if (path.startsWith('/admin/api/')) return json(res, 403, { error: 'আগে দুই ধাপের লগইন চালু করুন।' });
-    return redirect(res, '/admin/account/2fa?need=1');
+    if (path.startsWith('/admin/api/')) return json(403, { error: 'আগে দুই ধাপের লগইন চালু করুন।' });
+    return redirect('/admin/account/2fa?need=1');
   }
 
   // image upload used by every image picker
@@ -600,29 +600,29 @@ ${link}
     const b = await parseBody(req);
     // Product import copies many pictures at once, so it has its own (bigger) hourly allowance.
     const bulk = !!b.import && allowed(user, 'products');
-    if (!(await security.hit(db, (bulk ? 'upload-imp:' : 'upload:') + user.id, bulk ? 6000 : 300, 3600))) return json(res, 429, { error: 'এক ঘণ্টায় অনেক বেশি ছবি আপলোড হয়েছে, একটু পরে চেষ্টা করুন।' });
+    if (!(await security.hit(db, (bulk ? 'upload-imp:' : 'upload:') + user.id, bulk ? 6000 : 300, 3600))) return json(429, { error: 'এক ঘণ্টায় অনেক বেশি ছবি আপলোড হয়েছে, একটু পরে চেষ্টা করুন।' });
     const m = String(b.data || '').match(/^data:image\/[a-z+.-]+;base64,([A-Za-z0-9+/=]+)$/);
-    if (!m) return json(res, 400, { error: 'ছবিটি পড়া যায়নি। JPG, PNG বা WebP দিন।' });
+    if (!m) return json(400, { error: 'ছবিটি পড়া যায়নি। JPG, PNG বা WebP দিন।' });
     const data = Buffer.from(m[1], 'base64');
-    if (data.length > 1.5 * 1024 * 1024) return json(res, 400, { error: 'ছবিটি অনেক বড়। ছোট ছবি দিন।' });
+    if (data.length > 1.5 * 1024 * 1024) return json(400, { error: 'ছবিটি অনেক বড়। ছোট ছবি দিন।' });
     // The file's real first bytes decide the type — a virus or script renamed to .jpg is refused.
     const mime = security.imageKind(data);
-    if (!mime) return json(res, 400, { error: 'এটা আসল ছবির ফাইল না। শুধু JPG, PNG, WebP বা GIF ছবি দিন।' });
+    if (!mime) return json(400, { error: 'এটা আসল ছবির ফাইল না। শুধু JPG, PNG, WebP বা GIF ছবি দিন।' });
     const t = String(b.thumb || '').match(/^data:image\/[a-z+.-]+;base64,([A-Za-z0-9+/=]+)$/);
     const thumb = t ? Buffer.from(t[1], 'base64') : null;
     const okThumb = thumb && thumb.length < 600 * 1024 && /^image\/(jpeg|png|webp)$/.test(security.imageKind(thumb) || '') ? thumb : null;
     const id = await catalog.saveMedia({ mime, data, thumb: okThumb, width: int(b.width), height: int(b.height), phash: b.phash, phashM: b.phash_m, keepPrivate: !!b.private });
     if (Math.random() < 0.05) catalog.cleanupMedia().catch(() => {});
-    return json(res, 200, { id, url: `/media/${id}`, thumb: `/media/${id}/t` });
+    return json(200, { id, url: `/media/${id}`, thumb: `/media/${id}/t` });
   }
   // Older product pictures have no fingerprint yet: the admin's browser makes them quietly in the background.
   if (path === '/admin/api/media/fingerprints' && allowed(user, 'products')) {
-    if (method === 'GET') return json(res, 200, { ids: (await catalog.mediaWithoutHash(30)).map((r) => r.id) });
+    if (method === 'GET') return json(200, { ids: (await catalog.mediaWithoutHash(30)).map((r) => r.id) });
     if (method === 'POST') {
       const b = await parseBody(req);
       const items = Array.isArray(b.items) ? b.items.slice(0, 60) : [];
       for (const it of items) await catalog.setMediaHash(it && it.id, it && it.phash, it && it.phash_m);
-      return json(res, 200, { ok: true });
+      return json(200, { ok: true });
     }
   }
 
@@ -635,14 +635,14 @@ ${link}
     const perm = r.perm ? (typeof r.perm === 'function' ? r.perm(ctx) : r.perm) : null;
     // see / add / edit / delete: a staff member may open a page they can only see, but not change anything on it
     if (perm && !staffModel.routeAllows(user, perm, method, path)) {
-      if (path.startsWith('/admin/api/')) return json(res, 403, { error: 'অনুমতি নেই।' });
+      if (path.startsWith('/admin/api/')) return json(403, { error: 'অনুমতি নেই।' });
       if (method === 'GET') {
         const to = firstAllowed(user);
-        return redirect(res, (to === path ? '/admin/account' : to) + '?msg=noperm');
+        return redirect((to === path ? '/admin/account' : to) + '?msg=noperm');
       }
       // a form they may not send: back to the page they were on, with "no permission"
       const back = (() => { try { const u = new URL(req.headers.referer || ''); return u.pathname.startsWith('/admin') ? u.pathname : ''; } catch (_) { return ''; } })();
-      return redirect(res, (back || firstAllowed(user)) + '?msg=noperm');
+      return redirect((back || firstAllowed(user)) + '?msg=noperm');
     }
     ctx.readOnly = !!perm && staffModel.viewOnly(user, perm);
     return r.handler(ctx, match);

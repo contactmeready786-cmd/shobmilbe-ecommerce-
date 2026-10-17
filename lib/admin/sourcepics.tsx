@@ -62,7 +62,7 @@ async function excel(ctx: AdminCtx, host: Loose, f: Loose) {
   }
   const day = new Date().toISOString().slice(0, 10);
   const name = `${f === 'flag' ? 'watermark' : 'products'}-${host === ALL ? 'all' : host.replace(/[^a-z0-9.-]/gi, '')}-${day}.xlsx`;
-  return $services_xlsx.send(ctx.res, name, [{ name: f === 'flag' ? 'Watermark' : 'Products', rows: out }]);
+  return $services_xlsx.send(ctx.reply, name, [{ name: f === 'flag' ? 'Watermark' : 'Products', rows: out }]);
 }
 
 async function handle(ctx: AdminCtx) {
@@ -70,11 +70,11 @@ async function handle(ctx: AdminCtx) {
   if (ctx.method === 'POST') {
     const b = await ctx.body();
     const id = int(b.id);
-    if (!ctx.can('products')) return ctx.json(ctx.res, 403, { error: 'অনুমতি নেই' });
+    if (!ctx.can('products')) return ctx.json(403, { error: 'অনুমতি নেই' });
     if (b.action === 'mark' && id) {
       const flag = b.flag === '1';
       await db.q('UPDATE products SET src_wm=$2, src_wm_checked=true WHERE id=$1', [id, flag]);
-      if (String(ctx.req.headers.accept || '').includes('application/json')) return ctx.json(ctx.res, 200, { ok: true, flag });
+      if (String(ctx.req.headers.accept || '').includes('application/json')) return ctx.json(200, { ok: true, flag });
       return ctx.back(`${BASE}?host=${encodeURIComponent(str(b.host, 120))}&f=${encodeURIComponent(str(b.f, 10))}#p${id}`);
     }
     if (b.action === 'reset' && list.some((h) => h.host === b.host)) {

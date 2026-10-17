@@ -17,7 +17,7 @@ const SIZES: Record<string, Loose> = {
 
 async function labels(ctx: AdminCtx) {
   const ids = String(ctx.query.get('ids') || '').split(',').map((x) => int(x)).filter(Boolean).slice(0, 300);
-  if (!ids.length) return ctx.redirect(ctx.res, '/admin/products');
+  if (!ids.length) return ctx.redirect('/admin/products');
   const size = SIZES[ctx.query.get('size')] ? ctx.query.get('size') : (SIZES[ctx.settings.label_size as string] ? ctx.settings.label_size : '50x30');
   const copies = Math.min(100, Math.max(1, int(ctx.query.get('copies'), 1)));
   const byStock = ctx.query.get('stock') === '1';
@@ -63,7 +63,7 @@ async function labels(ctx: AdminCtx) {
 </div>
 <div class="sheet">${stickers.map((p) => toHtml(<div className="lab">{(showName ? <div className="nm"><Val v={str(p.name, 70)} /></div> : null)}{' '}<RawHtml html={BC.svg(p.barcode || BC.productCode(p.id), { height: 40, module: 2, fontSize: 12, quiet: 6 })} /><div className="row"><span>{(p.sku ? <Val v={`SKU ${p.sku}`} /> : null)}{(showLoc && p.location ? <Val v={` · 📍${p.location}`} /> : null)}</span>{(showPrice ? <span className="pr"><Val v={money(p.price)} />{(p.unit && p.unit !== 'পিস' ? <Val v={`/${p.unit}`} /> : null)}</span> : null)}</div></div>))}</div>
 <script src="/js/page-actions.js?v=${PA_V}" defer></script></body></html>`.s;
-  return ctx.send(ctx.res, 200, page);
+  return ctx.send(200, page);
 }
 
 export const routes = [{ method: 'GET', path: '/admin/products/labels', perm: 'products', handler: labels }];

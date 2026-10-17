@@ -50,7 +50,7 @@ async function detail(ctx: AdminCtx, m?: Loose) {
     return ctx.back(`/admin/customers/${id}`, 'saved');
   }
   const c = await C.getCustomer(id);
-  if (!c) return ctx.redirect(ctx.res, '/admin/customers');
+  if (!c) return ctx.redirect('/admin/customers');
   const [orders, addrs] = await Promise.all([O.listOrders({ phone: c.phone, limit: 100 }), C.addresses(c.phone)]);
   const avg = c.delivered ? Number(c.spent) / c.delivered : 0;
   const risk = C.riskOf({ orders: c.orders, delivered: c.delivered, failed: c.cancelled + c.returned });
@@ -64,15 +64,15 @@ async function exportCsv(ctx: AdminCtx, m?: Loose, excel: Loose = false) {
   rows.forEach((c) => out.push([c.name, c.phone, c.email, c.address, c.thana, c.district, c.grp, c.tags, c.orders, c.delivered, c.cancelled, c.returned, c.spent,
     c.last_order ? new Date(c.last_order).toISOString().slice(0, 10) : '', c.blocked ? 'yes' : '']));
   await ctx.log('export', 'customer', null, `${rows.length} জন কাস্টমার ${excel ? 'Excel' : 'CSV'}`);
-  if (excel) return $services_xlsx.send(ctx.res, `customers-${new Date().toISOString().slice(0, 10)}.xlsx`, [{ name: 'Customers', rows: out }]);
-  return ctx.send(ctx.res, 200, csv(out), 'text/csv; charset=utf-8', { 'Content-Disposition': `attachment; filename="customers-${Date.now()}.csv"` });
+  if (excel) return $services_xlsx.send(ctx.reply, `customers-${new Date().toISOString().slice(0, 10)}.xlsx`, [{ name: 'Customers', rows: out }]);
+  return ctx.send(200, csv(out), 'text/csv; charset=utf-8', { 'Content-Disposition': `attachment; filename="customers-${Date.now()}.csv"` });
 }
 async function saveSettings(ctx: AdminCtx) {
   const b = await ctx.body();
   const groups = String(b.customer_groups || '').split(',').map((x) => x.trim().slice(0, 40)).filter(Boolean).slice(0, 20).join(', ');
   await db.setMany({ customer_groups: groups, vip_spend: String(Math.max(0, int(b.vip_spend, 5000))) });
   await ctx.log('settings', 'customer', null, `কাস্টমার গ্রুপ: ${groups}; VIP ৳${int(b.vip_spend, 5000)}`);
-  return ctx.redirect(ctx.res, '/admin/customers?msg=saved');
+  return ctx.redirect('/admin/customers?msg=saved');
 }
 
 // ---------------------------------------------------------------- delete (owner only, switch on)

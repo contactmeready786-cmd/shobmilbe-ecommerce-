@@ -46,7 +46,7 @@ async function courierTest(ctx: AdminCtx) {
   const b = await ctx.body();
   const r = await courier.test(b.courier, ctx.settings);
   await db.logIntegration(b.courier, 'test', r.ok, r.message);
-  return r.ok ? ctx.redirect(ctx.res, '/admin/integrations/courier?msg=saved&info=' + encodeURIComponent(r.message)) : ctx.fail('/admin/integrations/courier', r.message);
+  return r.ok ? ctx.redirect('/admin/integrations/courier?msg=saved&info=' + encodeURIComponent(r.message)) : ctx.fail('/admin/integrations/courier', r.message);
 }
 
 // ---------------------------------------------------------------- payments
@@ -71,7 +71,7 @@ async function paymentsPage(ctx: AdminCtx) {
 async function paymentsTest(ctx: AdminCtx) {
   const r = await payments.bkashTest(ctx.settings);
   await db.logIntegration('bkash', 'test', r.ok, r.message);
-  return r.ok ? ctx.redirect(ctx.res, '/admin/integrations/payments?msg=saved&info=' + encodeURIComponent(r.message)) : ctx.fail('/admin/integrations/payments', r.message);
+  return r.ok ? ctx.redirect('/admin/integrations/payments?msg=saved&info=' + encodeURIComponent(r.message)) : ctx.fail('/admin/integrations/payments', r.message);
 }
 
 // ---------------------------------------------------------------- domain
@@ -116,7 +116,7 @@ async function domainAdd(ctx: AdminCtx) {
     msgs.push(`${name}: ${ok ? 'যোগ হয়েছে' : (r.data && r.data.error && r.data.error.message) || r.text}`);
     await db.logIntegration('vercel', 'add_domain', ok, msgs[msgs.length - 1]);
   }
-  return ctx.redirect(ctx.res, '/admin/integrations/domain?msg=saved&info=' + encodeURIComponent(msgs.join(' · ')));
+  return ctx.redirect('/admin/integrations/domain?msg=saved&info=' + encodeURIComponent(msgs.join(' · ')));
 }
 
 export const routes = [

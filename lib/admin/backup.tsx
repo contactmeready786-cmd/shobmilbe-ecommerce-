@@ -55,8 +55,7 @@ async function download(ctx: AdminCtx) {
     [r.buffer.length, r.tables, r.rows, r.encrypted, ctx.user.id]);
   await ctx.log('export', 'security', null, `ব্যাকআপ নামানো (${r.rows} সারি${r.encrypted ? ', তালাবদ্ধ' : ', তালা ছাড়া'})`);
   const name = `shobmilbe-backup-${new Date().toISOString().slice(0, 10)}${r.encrypted ? '.smbk' : '.json.gz'}`;
-  ctx.res.writeHead(200, { 'Content-Type': 'application/octet-stream', 'Content-Disposition': `attachment; filename="${name}"`, 'Content-Length': r.buffer.length, 'Cache-Control': 'no-store' });
-  return ctx.res.end(r.buffer);
+  return ctx.reply.answer(200, { 'Content-Type': 'application/octet-stream', 'Content-Disposition': `attachment; filename="${name}"`, 'Content-Length': r.buffer.length, 'Cache-Control': 'no-store' }, r.buffer);
 }
 
 export const routes = [

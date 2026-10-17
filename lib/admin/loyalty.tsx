@@ -30,7 +30,7 @@ async function save(ctx: AdminCtx) {
     if (Math.abs(pts) > 100000) return ctx.fail(`${BASE}?phone=${encodeURIComponent(b.phone || '')}`, 'এত বেশি পয়েন্ট একবারে বদলানো যাবে না।');
     await db.tx((t) => L.add(t, cid, pts, 'adjust', { note, staffId: ctx.user.id }));
     await ctx.log('customer_edit', 'customer', cid, `পয়েন্ট ${pts > 0 ? '+' : ''}${pts}: ${note}`);
-    return ctx.redirect(ctx.res, `${BASE}?phone=${encodeURIComponent(b.phone || '')}&msg=saved`);
+    return ctx.redirect(`${BASE}?phone=${encodeURIComponent(b.phone || '')}&msg=saved`);
   }
   const v = {
     loyalty_on: b.loyalty_on ? '1' : '0',

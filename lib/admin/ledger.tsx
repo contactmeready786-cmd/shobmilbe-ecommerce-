@@ -16,7 +16,7 @@ async function page(ctx: AdminCtx, m?: Loose) {
   const id = int(m[1]);
   const p = await db.one(`SELECT id, name, sku, price, cost_price, stock, damaged_stock, unit, product_type, parent_id, variant_label, variant_count
     FROM products WHERE id=$1`, [id]);
-  if (!p) return ctx.redirect(ctx.res, '/admin/products');
+  if (!p) return ctx.redirect('/admin/products');
   const self = `/admin/products/${id}/ledger`;
   if (p.variant_count > 0) return ctx.fail(`/admin/products/${id}/variants`, 'এই পণ্যের হিসাব প্রতিটা ভ্যারিয়েন্টে আলাদা — ভ্যারিয়েন্টের পাশে "📒 হিসাব" চাপুন।');
 

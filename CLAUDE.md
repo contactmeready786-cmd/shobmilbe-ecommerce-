@@ -79,8 +79,11 @@ uses that one setup. Never add a second Gmail / App Password / SMS / API-key fie
   route handlers (app/api/…, app/media, app/pay, app/webhook …) with their code in lib/api/*.ts; `apiRoute()`
   (lib/next/api.ts) runs the shop's gate first (`{ bots: false }` for pictures and robots.txt). A method or address a
   route doesn't handle goes to the original code (`otherMethods` / `toSite`), so its answer stays exactly the same.
-  What is left in lib/site.ts (through app/api/site, lib/site-answer.ts — no Node streams): shop and admin form
-  POSTs, /admin/api and the admin's files, the shop's 404 / redirect answers, the country-lock page, verification files.
+  What is left in lib/site.ts (app/api/site → siteAnswer(Request) → Response): shop and admin form POSTs, /admin/api
+  and the admin's files, the shop's 404 / redirect answers, the country-lock page, verification files.
+- Handlers answer through ctx.send(status, body, type?, headers?) / ctx.json(status, data) / ctx.redirect(to) and, for a
+  file, ctx.reply.answer(status, headers, body) (lib/reply.ts → a Web Response). There is no Node req/res anywhere:
+  ctx.req is a plain object (headers, url, method, socket.remoteAddress, the body text).
 - Database: only a dropped connection is retried (lib/pg isConnectionError); an order is retried on a deadlock (db.txRetry).
   Tests run one file at a time (`--test-concurrency=1`): the database tests share one throw-away database.
 - tools/parity/browser.mjs opens the Next.js pages in a real browser on every parity run: no script errors, React takes

@@ -17,8 +17,8 @@ function rowHtml(v: Loose, { seeCost, images, i, blank = false }: Body) {
 async function page(ctx: AdminCtx, m?: Loose) {
   const id = int(m[1]);
   const p = await catalog.getProduct({ id });
-  if (!p) return ctx.redirect(ctx.res, '/admin/products');
-  if (p.parent_id) return ctx.redirect(ctx.res, `/admin/products/${p.parent_id}/variants`);
+  if (!p) return ctx.redirect('/admin/products');
+  if (p.parent_id) return ctx.redirect(`/admin/products/${p.parent_id}/variants`);
   const seeCost = ctx.can('see_cost');
   const back = `/admin/products/${id}/variants`;
   if (ctx.method === 'POST') {

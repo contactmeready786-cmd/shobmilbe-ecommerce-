@@ -1,12 +1,19 @@
 // Types shared across the shop code.
-import type { IncomingMessage, ServerResponse } from 'node:http';
+import type { Reply, HeaderMap, ReplyBody } from './reply';
 
 /** Every admin setting, as stored in the settings table (all values are text; a missing one is undefined). */
 export type Settings = Record<string, string | undefined> & { store_name: string; session_secret: string };
 
-/** A request as the shop code sees it (Node request, plus the body once it has been read). */
-export type ShopRequest = IncomingMessage & { __body?: string; body?: unknown };
-export type ShopResponse = ServerResponse;
+/** A request as the shop code sees it: the visitor's headers (lower-case names), the address asked for, the method,
+ * the connection it came from and the body text (read once from the Web Request; parseBody in lib/util reads it). */
+export type ShopRequest = {
+  headers: Record<string, string | undefined>;
+  url?: string;
+  method?: string;
+  socket?: { remoteAddress?: string } | null;
+  __body?: string;
+};
+export type { Reply } from './reply';
 
 /**
  * A parsed form or JSON body. Values come from the visitor, so every field is checked before use
@@ -28,18 +35,19 @@ export type Loose = any;
 /** A row id as the code passes it around (from the database, a form or the address). */
 export type Id = number | string | null | undefined;
 
-type HeaderMap = Record<string, string | string[] | number | undefined>;
 /**
  * The address's ?query. get() really returns text or null; the old code passes the value straight on in many
  * places (where null and "missing" mean the same), so it is Loose until those places are tightened.
  */
 export type ShopQuery = Omit<URLSearchParams, 'get'> & { get(name: string): Loose };
-/** What every request handler in lib/site.ts gets. */
+/** What every form, admin and fallback handler gets (lib/site.ts, lib/next/admin.ts). */
 export type Base = {
-  req: ShopRequest; res: ShopResponse; path: string; method: string; query: ShopQuery; settings: Settings;
-  send: (res: ShopResponse, status: number, body: string | Buffer, type?: string, extra?: HeaderMap) => void;
-  json: (res: ShopResponse, status: number, data: unknown, extra?: HeaderMap) => void;
-  redirect: (res: ShopResponse, to: string, extra?: HeaderMap) => void;
+  req: ShopRequest; reply: Reply; path: string; method: string; query: ShopQuery; settings: Settings;
+  /** a page or text answer (with the shop's security headers) */
+  send: (status: number, body: ReplyBody, type?: string, extra?: HeaderMap) => void;
+  json: (status: number, data: unknown, extra?: HeaderMap) => void;
+  /** 303 to another address */
+  redirect: (to: string, extra?: HeaderMap) => void;
   /** Next.js admin pages: receives an admin page's pieces instead of the finished page (lib/next/admin.ts). */
   drawPage?: (p: AdminDrawn) => void;
 };

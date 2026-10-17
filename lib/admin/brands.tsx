@@ -26,7 +26,7 @@ async function page(ctx: AdminCtx, m?: Loose, error: Loose = null, values: Loose
   }
   const brands = await catalog.listBrands();
   const editing = values || (id ? brands.find((x) => x.id === id) : null);
-  if (id && !editing) return ctx.redirect(ctx.res, '/admin/brands');
+  if (id && !editing) return ctx.redirect('/admin/brands');
   const canEdit = ctx.can('products');
   const canDel = ctx.can('products_delete');
   const body = toHtml(<><div className="title-row"><h1>ব্র্যান্ড{' '}<small><Val v={bn(brands.length)} />টি</small></h1></div><Val v={ui.flash(ctx.flash)} />{' '}<Val v={ui.helpBox('ব্র্যান্ড কীভাবে কাজ করে', toHtml(<>পণ্য যোগ বা এডিট করার সময় "ব্র্যান্ড" ঘরে নাম লিখলেই সেটা এই তালিকায় চলে আসে। এখানে লোগো, বিবরণ আর SEO দিতে পারবেন। দোকানে প্রতিটা ব্র্যান্ডের নিজের পেজ থাকে (যেমন{' '}<b>/brand/philips</b>) — সেখানে সেই ব্র্যান্ডের সব পণ্য দেখায়, আর পণ্যের পেজে ব্র্যান্ডের নামে চাপ দিলে সেখানে যায়।</>))} /><div className={`two-col ${attrValue(editing && editing.id ? 'edit-first' : '')}`}><section className="panel table-wrap">{(brands.length ? <table className="table"><thead><tr><th>লোগো</th><th>নাম</th><th className="num">পণ্য</th><th>দোকানে দেখাবে</th><th>কাজ</th></tr></thead><tbody>{jsxList(brands.map((b) => <tr className={attrValue(b.active ? '' : 'row-off')}><td className="thumb">{(canEdit ? <a href={`/admin/brands/${attrValue(b.id)}#brand-form`} title="লোগো বদলান">{(b.logo_id ? <img src={`/media/${attrValue(b.logo_id)}/t`} alt="" loading="lazy" /> : <span>🏷️</span>)}</a> : (b.logo_id ? <img src={`/media/${attrValue(b.logo_id)}/t`} alt="" loading="lazy" /> : <span>🏷️</span>))}</td><td><b><Val v={b.name} /></b><br /><a className="small" href={`/brand/${attrValue(b.slug)}`} target="_blank" rel="noopener">/brand/<Val v={b.slug} />{' '}↗</a></td><td className="num"><a href={`/admin/products?brand=${attrValue(b.id)}`}><Val v={bn(b.product_count)} /></a>{(b.product_count !== b.active_count ? <><br /><span className="small muted">চালু{' '}<Val v={bn(b.active_count)} /></span></> : null)}</td><td>{(canEdit ? <Val v={ui.rowSwitch(`/admin/brands/${b.id}/active`, b.active, 'বন্ধ করলে দোকানে ব্র্যান্ডের পেজ দেখাবে না (পণ্যগুলো দেখাবে)')} /> : (b.active ? "চালু" : "বন্ধ"))}</td><Val v={ui.rowActions({ edit: canEdit ? `/admin/brands/${b.id}#brand-form` : '', del: canDel ? `/admin/brands/${b.id}/delete` : '',
@@ -40,7 +40,7 @@ async function setActive(ctx: AdminCtx, m?: Loose) {
   const on = !!b.active && b.active !== '0';
   const r = await $db.one('UPDATE brands SET active=$1 WHERE id=$2 RETURNING name', [on, id]);
   if (r) await ctx.log('brand_save', 'brand', id, `${r.name}: ${on ? 'চালু' : 'বন্ধ'}`);
-  if (String(ctx.req.headers.accept || '').includes('application/json')) return ctx.json(ctx.res, r ? 200 : 404, { ok: !!r, active: on });
+  if (String(ctx.req.headers.accept || '').includes('application/json')) return ctx.json(r ? 200 : 404, { ok: !!r, active: on });
   return ctx.back('/admin/brands', 'saved');
 }
 async function remove(ctx: AdminCtx, m?: Loose) {

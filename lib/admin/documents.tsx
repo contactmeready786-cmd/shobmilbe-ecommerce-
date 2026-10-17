@@ -31,7 +31,7 @@ async function page(ctx: AdminCtx) {
     else await db.setSetting(kind === 'invoice' ? 'doc_invoice' : 'doc_checklist', JSON.stringify(docs.fromForm(kind, b)));
     await ctx.reloadSettings();
     await ctx.log('settings', 'design', null, `${kind === 'invoice' ? 'ইনভয়েস' : 'চেকলিস্ট'} ডিজাইন ${b.reset === '1' ? 'আগের মতো করা হলো' : 'বদলানো হলো'}`);
-    return ctx.redirect(ctx.res, `${BASE}?tab=${kind}&msg=saved`);
+    return ctx.redirect(`${BASE}?tab=${kind}&msg=saved`);
   }
   const c = tab === 'invoice' ? docs.invoice(s) : docs.checklist(s);
   const parts = tab === 'invoice' ? docs.INVOICE_PARTS : docs.CHECKLIST_PARTS;
@@ -48,7 +48,7 @@ async function preview(ctx: AdminCtx) {
   const kind = b.kind === 'checklist' ? 'checklist' : 'invoice';
   const c = (kind === 'invoice' ? docs.invoice : docs.checklist)({ ...ctx.settings, [kind === 'invoice' ? 'doc_invoice' : 'doc_checklist']: JSON.stringify(docs.fromForm(kind, b)) });
   const o = await sampleOrder();
-  return ctx.send(ctx.res, 200, kind === 'invoice' ? invoicePage([o], ctx.settings, c, { embed: true }) : checklistPage([o], ctx.settings, c, { embed: true }));
+  return ctx.send(200, kind === 'invoice' ? invoicePage([o], ctx.settings, c, { embed: true }) : checklistPage([o], ctx.settings, c, { embed: true }));
 }
 
 export const routes = [

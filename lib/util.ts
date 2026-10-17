@@ -1,5 +1,4 @@
 import * as crypto from 'node:crypto';
-import * as $querystring from 'node:querystring';
 import type { Body, HtmlValue, Settings, ShopRequest } from './types';
 
 function esc(v: unknown): string {
@@ -86,38 +85,12 @@ function parseCookies(header: string | undefined): Record<string, string> {
   return out;
 }
 
-// Vercel's Node runtime reads the request body before our handler runs and
-// exposes it as req.body, so the stream is already empty. Turn that back into
-// text so parseBody works the same everywhere.
-function vercelBodyText(req: ShopRequest): string {
-  let b: unknown;
-  try { b = req.body; } catch (_) { return ''; } // malformed JSON throws on access
-  if (b === null || b === undefined) return '';
-  if (Buffer.isBuffer(b)) return b.toString('utf8');
-  if (typeof b === 'string') return b;
-  const type = (req.headers['content-type'] || '').split(';')[0].trim();
-  if (type === 'application/json') return JSON.stringify(b);
-  return $querystring.stringify(b as $querystring.ParsedUrlQueryInput);
-}
-
-function readBody(req: ShopRequest, limit = 4 * 1024 * 1024): Promise<string> {
-  if (req.__body !== undefined) return Promise.resolve(req.__body);
-  if (process.env.VERCEL && 'body' in req) {
-    req.__body = vercelBodyText(req);
-    return Promise.resolve(req.__body);
-  }
-  if (req.readableEnded) { req.__body = ''; return Promise.resolve(''); }
-  return new Promise((resolve, reject) => {
-    const chunks: Buffer[] = [];
-    let size = 0;
-    req.on('data', (c: Buffer) => {
-      size += c.length;
-      if (size > limit) { reject(new Error('Body too large')); req.destroy(); return; }
-      chunks.push(c);
-    });
-    req.on('end', () => { const text = Buffer.concat(chunks).toString('utf8'); req.__body = text; resolve(text); });
-    req.on('error', reject);
-  });
+/** The body text that came with the request (read once from the Web Request by lib/site.ts / lib/next/api.ts).
+ * A caller that gives a limit gets an error for a bigger body. */
+function readBody(req: ShopRequest, limit?: number): Promise<string> {
+  const text = req.__body ?? '';
+  if (limit !== undefined && Buffer.byteLength(text) > limit) return Promise.reject(new Error('Body too large'));
+  return Promise.resolve(text);
 }
 
 const BAD_KEYS = new Set(['__proto__', 'constructor', 'prototype']);

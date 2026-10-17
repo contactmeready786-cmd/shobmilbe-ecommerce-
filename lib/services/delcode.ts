@@ -124,15 +124,15 @@ async function check(ctx: AdminCtx, action?: Loose, typed?: Loose) {
 async function sendRoute(ctx: AdminCtx) {
   const b = await ctx.body();
   const action = String(b.action || '');
-  if (!ACTIONS[action]) return ctx.json(ctx.res, 400, { error: 'অজানা কাজ।' });
+  if (!ACTIONS[action]) return ctx.json(400, { error: 'অজানা কাজ।' });
   // the same people who may do the delete may ask for its code
   const need = action === 'test_clear' ? 'settings' : 'owner';
-  if (!(need === 'owner' ? ctx.user.role === 'owner' : ctx.can(need))) return ctx.json(ctx.res, 403, { error: 'অনুমতি নেই।' });
+  if (!(need === 'owner' ? ctx.user.role === 'owner' : ctx.can(need))) return ctx.json(403, { error: 'অনুমতি নেই।' });
   try {
     const r = await send(ctx, action, String(b.detail || '').slice(0, 200));
-    return ctx.json(ctx.res, 200, { ok: true, ...r });
+    return ctx.json(200, { ok: true, ...r });
   } catch (e: Loose) {
-    return ctx.json(ctx.res, 200, { error: e.message });
+    return ctx.json(200, { error: e.message });
   }
 }
 

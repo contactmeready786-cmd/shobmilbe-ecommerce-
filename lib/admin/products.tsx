@@ -81,12 +81,12 @@ async function bulkAction(ctx: AdminCtx) {
   const ids = [...new Set(list(b.ids).map((x) => int(x)).filter((x) => x > 0))].slice(0, 500);
   if (!ids.length) return ctx.fail(back, 'কোনো পণ্য বাছাই করা হয়নি।');
   const act = String(b.action || '');
-  if (act === 'labels') return ctx.redirect(ctx.res, '/admin/products/labels?ids=' + ids.join(','));
+  if (act === 'labels') return ctx.redirect('/admin/products/labels?ids=' + ids.join(','));
   if (act === 'delete') {
     if (!ctx.can('products_delete')) return ctx.back(back.split('?')[0], 'noperm');
     for (const id of ids) await ctx.trash('product', id);
     await ctx.log('product_bulk', 'product', null, `একসাথে ${ids.length}টি পণ্য মুছে রিসাইকেল বিনে`);
-    return ctx.redirect(ctx.res, back + (back.includes('?') ? '&' : '?') + 'info=' + encodeURIComponent(`${bn(ids.length)}টি পণ্য মুছে রিসাইকেল বিনে রাখা হয়েছে।`));
+    return ctx.redirect(back + (back.includes('?') ? '&' : '?') + 'info=' + encodeURIComponent(`${bn(ids.length)}টি পণ্য মুছে রিসাইকেল বিনে রাখা হয়েছে।`));
   }
   if (!ctx.can('products')) return ctx.back(back.split('?')[0], 'noperm');
   const simple: Record<string, Loose> = {
@@ -130,7 +130,7 @@ async function bulkAction(ctx: AdminCtx) {
   }).catch((e) => { what = ''; ctx.__err = e.message; });
   if (!what) return ctx.fail(back, ctx.__err || 'কাজটা করা যায়নি।');
   await ctx.log('product_bulk', 'product', null, `${ids.length}টি পণ্য: ${what}`);
-  return ctx.redirect(ctx.res, back + (back.includes('?') ? '&' : '?') + 'info=' + encodeURIComponent(`✅ ${bn(ids.length)}টি পণ্যে করা হয়েছে: ${what}`));
+  return ctx.redirect(back + (back.includes('?') ? '&' : '?') + 'info=' + encodeURIComponent(`✅ ${bn(ids.length)}টি পণ্যে করা হয়েছে: ${what}`));
 }
 
 // Small count chips above the list: total / on the shop / hidden / stock out / low stock. Each one is a filter.
@@ -166,12 +166,12 @@ const guardOn = (ctx: AdminCtx) => ctx.settings.dup_guard !== '0';
 
 // Live check while the form is being filled (name typed, picture added).
 async function dupCheckApi(ctx: AdminCtx) {
-  if (!(await security.hit(db, 'dupchk:' + ctx.user.id, 900, 3600))) return ctx.json(ctx.res, 429, { error: 'অনেক বেশি যাচাই হয়েছে, একটু পরে চেষ্টা করুন।' });
+  if (!(await security.hit(db, 'dupchk:' + ctx.user.id, 900, 3600))) return ctx.json(429, { error: 'অনেক বেশি যাচাই হয়েছে, একটু পরে চেষ্টা করুন।' });
   const b = await ctx.body();
-  if (!str(b.name) && !(Array.isArray(b.images) && b.images.length)) return ctx.json(ctx.res, 200, { blocked: false, matches: [] });
+  if (!str(b.name) && !(Array.isArray(b.images) && b.images.length)) return ctx.json(200, { blocked: false, matches: [] });
   const r = await dupes.findDuplicates({ id: b.id, name: str(b.name, 140), description: b.description, images: Array.isArray(b.images) ? b.images.slice(0, 10) : [],
     product_type: b.product_type, youtube_url: b.youtube_url }, ctx.settings);
-  return ctx.json(ctx.res, 200, { ...r, html: r.matches.length ? String(dupMatches(r.matches)) : '' });
+  return ctx.json(200, { ...r, html: r.matches.length ? String(dupMatches(r.matches)) : '' });
 }
 
 // On save. When editing, only NEW matches block — a product that already had a twin before this
@@ -274,7 +274,7 @@ async function formPage(ctx: AdminCtx, m?: Loose) {
   // a variant is edited on its main product's variants page
   if (id) {
     const v = await db.one('SELECT parent_id FROM products WHERE id=$1', [id]);
-    if (v && v.parent_id) return ctx.redirect(ctx.res, `/admin/products/${v.parent_id}/variants`);
+    if (v && v.parent_id) return ctx.redirect(`/admin/products/${v.parent_id}/variants`);
   }
   const categories = await catalog.listCategories();
   const seeCost = ctx.can('see_cost');
@@ -319,7 +319,7 @@ async function formPage(ctx: AdminCtx, m?: Loose) {
   }
   if (id) {
     const product = await catalog.getProduct({ id });
-    if (!product) return ctx.redirect(ctx.res, '/admin/products');
+    if (!product) return ctx.redirect('/admin/products');
     return ctx.page(product.name, toHtml(<><Val v={ui.flash(ctx.flash)} /><Val v={productForm({ product, categories, seeCost, canOverride: canOverride(ctx), guardOn: guardOn(ctx), settings: ctx.settings, ...extras })} /></>), product.product_type === 'bundle' ? 'bundles' : 'products');
   }
   const type = ctx.query.get('type') === 'bundle' ? 'bundle' : 'single';
@@ -358,7 +358,7 @@ async function setActive(ctx: AdminCtx, m?: Loose) {
   if (p && p.parent_id) await db.tx((t) => catalog.syncVariants(t, p.parent_id));
   if (p) await ctx.log('product_edit', 'product', id, `${on ? 'দোকানে চালু' : 'দোকান থেকে বন্ধ'}: ${p.name}`);
   if (String(ctx.req.headers.accept || '').includes('application/json')) {
-    return p ? ctx.json(ctx.res, 200, { ok: true, active: on }) : ctx.json(ctx.res, 404, { error: 'পণ্যটি পাওয়া যায়নি।' });
+    return p ? ctx.json(200, { ok: true, active: on }) : ctx.json(404, { error: 'পণ্যটি পাওয়া যায়নি।' });
   }
   return ctx.back(backTo(b), 'saved');
 }
@@ -463,7 +463,7 @@ async function autoPage(ctx: AdminCtx) {
     if (!ids.length) return ctx.fail('/admin/categories/auto', 'কোনো পণ্য বাছা হয়নি।');
     const r = await autocat.apply({ ids });
     await ctx.log('category_save', 'category', null, `স্বয়ংক্রিয় ক্যাটাগরি: ${r.moved}টি পণ্য সাজানো হলো`);
-    return ctx.redirect(ctx.res, '/admin/categories?info=' + encodeURIComponent(`✅ ${bn(r.moved)}টি পণ্য ঠিক ক্যাটাগরি / সাব-ক্যাটাগরিতে বসানো হয়েছে।`));
+    return ctx.redirect('/admin/categories?info=' + encodeURIComponent(`✅ ${bn(r.moved)}টি পণ্য ঠিক ক্যাটাগরি / সাব-ক্যাটাগরিতে বসানো হয়েছে।`));
   }
   const rows = await autocat.preview();
   const change = rows.filter((r) => r.to && !r.same);

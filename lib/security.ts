@@ -8,12 +8,11 @@
 // On Vercel the platform itself writes x-real-ip / x-vercel-forwarded-for, so a visitor can't fake them.
 import * as crypto from 'node:crypto';
 import { AsyncLocalStorage } from 'node:async_hooks';
-import type { IncomingMessage } from 'node:http';
 import type { DbRow, Param } from './pg';
 
 /** The two query helpers of lib/db (passed in, so this file doesn't import the database module). */
 type Db = { one: (sql: string, params?: Param[]) => Promise<DbRow | null>; q: (sql: string, params?: Param[]) => Promise<DbRow[]> };
-type Req = Pick<IncomingMessage, 'headers'> & { socket?: { remoteAddress?: string } | null };
+type Req = { headers: Record<string, string | undefined>; socket?: { remoteAddress?: string } | null };
 
 function clientIp(req: Req): string {
   const h = req.headers || {};

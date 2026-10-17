@@ -40,7 +40,7 @@ async function listPage(ctx: AdminCtx) {
         if (!p) return ctx.fail(back, `"${str(b.code, 40)}" দিয়ে একটা পণ্য পাওয়া যায়নি — SKU বা বারকোড দিন।`);
         await W.transfer({ productId: p.id, qty: b.qty, from: b.from, to: b.to, note: b.note }, ctx.user.id);
         await ctx.log('warehouse_move', 'product', p.id, `${p.name} ×${int(b.qty)} স্থানান্তর`);
-        return ctx.redirect(ctx.res, back + '?info=' + encodeURIComponent(`✅ "${p.name}" ${bn(int(b.qty))}টি সরানো হয়েছে।`));
+        return ctx.redirect(back + '?info=' + encodeURIComponent(`✅ "${p.name}" ${bn(int(b.qty))}টি সরানো হয়েছে।`));
       }
       if (b.action === 'count') {
         const r = await W.setCount(b.wh, b.product, b.qty, ctx.user.id);
@@ -73,7 +73,7 @@ function movesTable(moves?: Loose) {
 
 async function storePage(ctx: AdminCtx, m?: Loose) {
   const w = await W.get(int(m[1]));
-  if (!w) return ctx.redirect(ctx.res, BASE);
+  if (!w) return ctx.redirect(BASE);
   const q = str(ctx.query.get('q'), 60);
   const back = `${BASE}/${w.id}`;
   const [rows, stores, moves] = await Promise.all([W.storeStock(w.id, { q }), W.list(), W.moves({ whId: w.id, limit: 40 })]);

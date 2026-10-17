@@ -49,21 +49,21 @@ async function page(ctx: AdminCtx) {
 
 // ---------------------------------------------------------------- 1. which products
 async function planApi(ctx: AdminCtx) {
-  if (!(await security.hit(db, 'mpplan:' + ctx.user.id, 60, 3600))) return ctx.json(ctx.res, 429, { error: 'এক ঘণ্টায় অনেকবার চেষ্টা হয়েছে, একটু পরে আবার চেষ্টা করুন।' });
+  if (!(await security.hit(db, 'mpplan:' + ctx.user.id, 60, 3600))) return ctx.json(429, { error: 'এক ঘণ্টায় অনেকবার চেষ্টা হয়েছে, একটু পরে আবার চেষ্টা করুন।' });
   const b = await ctx.body();
   let u = str(b.url, 2000);
-  if (!u) return ctx.json(ctx.res, 400, { error: 'ফিড লিংক দিন।' });
+  if (!u) return ctx.json(400, { error: 'ফিড লিংক দিন।' });
   if (!/^https?:\/\//i.test(u)) u = 'https://' + u;
   const max = Math.min(catalog.MAX_PRODUCT_IMAGES, Math.max(2, int(b.max, catalog.MAX_PRODUCT_IMAGES)));
   let out;
   try {
     out = await readUrl(u, { follow: false });
   } catch (e) {
-    return ctx.json(ctx.res, 400, { error: e instanceof FetchError ? e.message : 'লিংকটা পড়া যায়নি।' });
+    return ctx.json(400, { error: e instanceof FetchError ? e.message : 'লিংকটা পড়া যায়নি।' });
   }
-  if (out.error) return ctx.json(ctx.res, 400, { error: out.error });
+  if (out.error) return ctx.json(400, { error: out.error });
   const items = importer.finish(out.items || [], out.finalUrl || u).filter((it?: Loose) => it.link);
-  if (!items.length) return ctx.json(ctx.res, 400, { error: 'এই লিংকে কোনো পণ্য (পেজের লিংকসহ) পাওয়া যায়নি। যে Facebook ফিড লিংক দিয়ে আমদানি করেছিলেন সেটাই দিন।' });
+  if (!items.length) return ctx.json(400, { error: 'এই লিংকে কোনো পণ্য (পেজের লিংকসহ) পাওয়া যায়নি। যে Facebook ফিড লিংক দিয়ে আমদানি করেছিলেন সেটাই দিন।' });
   await db.setMany({ morepics_feed: u });
   await ctx.reloadSettings();
 
@@ -88,7 +88,7 @@ async function planApi(ctx: AdminCtx) {
   let sitemap = { links: [], read: false };
   if (b.sitemap !== false) sitemap = await oldSiteLinks(items).catch(() => ({ links: [], read: false }));
   const extra = sitemap.links.filter((l) => !feedPaths.has(pathKey(l)));
-  return ctx.json(ctx.res, 200, {
+  return ctx.json(200, {
     feedItems: items.length, matched: rows.length, full, notInShop: items.length - rows.length, products: list, max,
     missing: missing.map(slimItem), inTrash, extra, sitemapRead: sitemap.read, sitemapCount: sitemap.links.length,
     oldTotal: items.length + extra.length,
@@ -137,24 +137,24 @@ async function oldSiteLinks(items?: Loose) {
 // ---------------------------------------------------------------- one old product page → the product itself
 // (for products that are on the old site but not in its feed)
 async function pageApi(ctx: AdminCtx) {
-  if (!(await security.hit(db, 'mpfind:' + ctx.user.id, 3000, 3600))) return ctx.json(ctx.res, 429, { error: 'অনেক বেশি পেজ পড়া হয়েছে, একটু পরে চেষ্টা করুন।' });
+  if (!(await security.hit(db, 'mpfind:' + ctx.user.id, 3000, 3600))) return ctx.json(429, { error: 'অনেক বেশি পেজ পড়া হয়েছে, একটু পরে চেষ্টা করুন।' });
   const b = await ctx.body();
   let link = str(b.link, 2000);
-  if (!/^https?:\/\//i.test(link)) return ctx.json(ctx.res, 400, { error: 'লিংক ঠিক নেই।' });
+  if (!/^https?:\/\//i.test(link)) return ctx.json(400, { error: 'লিংক ঠিক নেই।' });
   let out;
   try {
     out = await readUrl(link, { follow: false });
   } catch (e) {
-    return ctx.json(ctx.res, 200, { error: e instanceof FetchError ? e.message : 'পেজ পড়া যায়নি' });
+    return ctx.json(200, { error: e instanceof FetchError ? e.message : 'পেজ পড়া যায়নি' });
   }
-  if (out.error) return ctx.json(ctx.res, 200, { error: out.error });
+  if (out.error) return ctx.json(200, { error: out.error });
   const it = importer.finish(out.items || [], out.finalUrl || link)[0];
-  if (!it || !it.title) return ctx.json(ctx.res, 200, { error: 'এই পেজে কোনো পণ্য পাওয়া যায়নি' });
+  if (!it || !it.title) return ctx.json(200, { error: 'এই পেজে কোনো পণ্য পাওয়া যায়নি' });
   if (!it.link) it.link = out.finalUrl || link;
   const have = await db.one(`SELECT p.id, p.name, p.sku, p.image_id, (SELECT count(*)::int FROM media m WHERE m.owner_type='product' AND m.owner_id=p.id) AS pics
     FROM products p WHERE p.import_ref=$1`, [it.ref]);
   const trashed = !have && (await trashedRefs()).has(it.ref);
-  return ctx.json(ctx.res, 200, {
+  return ctx.json(200, {
     item: slimItem(it), trashed,
     exists: have ? { id: have.id, name: have.name, sku: have.sku, pics: have.pics, thumb: have.image_id ? `/media/${have.image_id}/t` : '' } : null,
   });
@@ -200,26 +200,26 @@ async function storexGallery(link?: Loose, main?: Loose) {
 
 // ---------------------------------------------------------------- 2. one old product page
 async function findApi(ctx: AdminCtx) {
-  if (!(await security.hit(db, 'mpfind:' + ctx.user.id, 3000, 3600))) return ctx.json(ctx.res, 429, { error: 'অনেক বেশি পেজ পড়া হয়েছে, একটু পরে চেষ্টা করুন।' });
+  if (!(await security.hit(db, 'mpfind:' + ctx.user.id, 3000, 3600))) return ctx.json(429, { error: 'অনেক বেশি পেজ পড়া হয়েছে, একটু পরে চেষ্টা করুন।' });
   const b = await ctx.body();
   let link = str(b.link, 2000);
-  if (!link) return ctx.json(ctx.res, 400, { error: 'লিংক দিন।' });
+  if (!link) return ctx.json(400, { error: 'লিংক দিন।' });
   if (!/^https?:\/\//i.test(link)) link = 'https://' + link;
   const main = str(b.main, 2000);
   try {
     const sx = await storexGallery(link, main).catch(() => null);
     if (sx) {
-      return ctx.json(ctx.res, 200, { images: sx.confirmed ? sx.images : [], rule: sx.rule, confirmed: sx.confirmed, error: sx.error,
+      return ctx.json(200, { images: sx.confirmed ? sx.images : [], rule: sx.rule, confirmed: sx.confirmed, error: sx.error,
         note: sx.confirmed ? '' : 'এই পণ্যের মূল ছবি পুরোনো সাইটের ছবির তালিকায় নেই, তাই নিরাপদ থাকতে কিছু নেওয়া হয়নি' });
     }
     const r = await safeFetch(link, { maxBytes: 6 * 1024 * 1024, timeoutMs: 12000, accept: 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.5' });
-    if (!r.ok) return ctx.json(ctx.res, 200, { images: [], error: r.status === 404 ? 'পেজটি আর নেই (404)' : `পেজ খোলেনি (${r.status})` });
+    if (!r.ok) return ctx.json(200, { images: [], error: r.status === 404 ? 'পেজটি আর নেই (404)' : `পেজ খোলেনি (${r.status})` });
     const text = r.body.toString('utf8');
     const g = importer.galleryImages(text, r.finalUrl, main);
-    return ctx.json(ctx.res, 200, { images: g.images, rule: g.rule, confirmed: g.confirmed,
+    return ctx.json(200, { images: g.images, rule: g.rule, confirmed: g.confirmed,
       note: g.confirmed ? '' : 'এই পেজে পণ্যটির মূল ছবি নেই — অন্য পেজ মনে হচ্ছে, তাই কিছু নেওয়া হয়নি' });
   } catch (e) {
-    return ctx.json(ctx.res, 200, { images: [], error: e instanceof FetchError ? e.message : 'পেজ পড়া যায়নি' });
+    return ctx.json(200, { images: [], error: e instanceof FetchError ? e.message : 'পেজ পড়া যায়নি' });
   }
 }
 
@@ -230,7 +230,7 @@ async function attachApi(ctx: AdminCtx) {
   const max = Math.min(catalog.MAX_PRODUCT_IMAGES, Math.max(2, int(b.max, catalog.MAX_PRODUCT_IMAGES)));
   const ids = (Array.isArray(b.ids) ? b.ids : []).map((x) => int(x)).filter((x) => x > 0).slice(0, 20);
   const p = await db.one('SELECT id, name FROM products WHERE id=$1', [pid]);
-  if (!p) return ctx.json(ctx.res, 404, { error: 'পণ্যটি পাওয়া যায়নি' });
+  if (!p) return ctx.json(404, { error: 'পণ্যটি পাওয়া যায়নি' });
   const result = await db.tx(async (t) => {
     // lock the product so two runs never add the same picture at the same moment
     await t.query('SELECT id FROM products WHERE id=$1 FOR UPDATE', [pid]);
@@ -260,7 +260,7 @@ async function attachApi(ctx: AdminCtx) {
     return { added, repeat, total: kept.length };
   });
   if (result.added) await ctx.log('product_edit', 'product', pid, `পুরোনো সাইট থেকে ${result.added}টি ছবি যোগ: ${p.name.slice(0, 80)}`);
-  return ctx.json(ctx.res, 200, result);
+  return ctx.json(200, result);
 }
 
 export const routes = [

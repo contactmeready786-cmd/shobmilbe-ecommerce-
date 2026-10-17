@@ -63,27 +63,26 @@ async function saveMode(ctx: AdminCtx) {
   await ctx.log('settings', 'security', ctx.user.id, `লগইন তালা: ${lock.MODE_NAMES[before]} → ${lock.MODE_NAMES[m]}`);
   // the owner set this up just now, so this login counts as verified (otherwise they'd be thrown out)
   await ctx.markVerified();
-  ctx.res.writeHead(303, { Location: BASE + '?msg=saved#mode', 'Cache-Control': 'no-store' });
-  return ctx.res.end();
+  return ctx.reply.answer(303, { Location: BASE + '?msg=saved#mode', 'Cache-Control': 'no-store' });
 }
 
 async function pkOptions(ctx: AdminCtx) {
   const ch = lock.newChallenge('create', ctx.user.id);
   const existing = await lock.passkeysFor(ctx.user.id, lock.rpId(ctx.req));
-  return ctx.json(ctx.res, 200, lock.registrationOptions(ctx.req, ctx.user, ctx.settings, ch.challenge, existing), { 'Set-Cookie': chCookie(ctx, ch.value) });
+  return ctx.json(200, lock.registrationOptions(ctx.req, ctx.user, ctx.settings, ch.challenge, existing), { 'Set-Cookie': chCookie(ctx, ch.value) });
 }
 async function pkAdd(ctx: AdminCtx) {
   const c = lock.readChallenge(chValue(ctx), 'create', ctx.user.id);
-  if (!c) return ctx.json(ctx.res, 400, { error: 'সময় শেষ, আবার চাপুন।' });
-  if (!(await lock.useOnce(db, c.challenge))) return ctx.json(ctx.res, 400, { error: 'আবার চাপুন।' });
+  if (!c) return ctx.json(400, { error: 'সময় শেষ, আবার চাপুন।' });
+  if (!(await lock.useOnce(db, c.challenge))) return ctx.json(400, { error: 'আবার চাপুন।' });
   const b = await ctx.body();
   try {
     const r = await lock.addPasskey(ctx.req, ctx.user, c.challenge, b);
     await ctx.log('passkey_add', 'security', ctx.user.id, `পাসকি যোগ: ${r.name} (${r.rp})`);
-    return ctx.json(ctx.res, 200, { ok: true });
+    return ctx.json(200, { ok: true });
   } catch (e: Loose) {
-    if (/duplicate key/.test(e.message)) return ctx.json(ctx.res, 400, { error: 'এই পাসকি আগেই যোগ করা আছে।' });
-    return ctx.json(ctx.res, 400, { error: 'যোগ করা যায়নি: ' + e.message });
+    if (/duplicate key/.test(e.message)) return ctx.json(400, { error: 'এই পাসকি আগেই যোগ করা আছে।' });
+    return ctx.json(400, { error: 'যোগ করা যায়নি: ' + e.message });
   }
 }
 async function pkDelete(ctx: AdminCtx, m?: Loose) {

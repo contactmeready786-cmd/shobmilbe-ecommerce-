@@ -166,9 +166,9 @@ async function build(channel: Loose, settings: Settings, base: Loose) {
 }
 
 // GET /feeds/google.xml?key=…  /feeds/facebook.csv?key=…
-async function serve({ res, query, settings, send, siteUrl, req }: Body, channel?: Loose, format?: Loose) {
+async function serve({ query, settings, send, siteUrl, req }: Body, channel?: Loose, format?: Loose) {
   const token = settings[`feed_${channel}_token`];
-  if (!token || query.get('key') !== token) return send(res, 404, 'Feed not found. Generate the feed link in Admin → মার্কেটিং → প্রোডাক্ট ফিড.', 'text/plain; charset=utf-8');
+  if (!token || query.get('key') !== token) return send(404, 'Feed not found. Generate the feed link in Admin → মার্কেটিং → প্রোডাক্ট ফিড.', 'text/plain; charset=utf-8');
   const base = siteUrl.replace(/\/+$/, '');
   const { items } = await build(channel, settings, base);
   // who read the feed, and when (once an hour) — shown on Admin → সংযোগের অবস্থা
@@ -180,9 +180,9 @@ async function serve({ res, query, settings, send, siteUrl, req }: Body, channel
     }
   } catch (_) { /* never block the feed */ }
   const cache = { 'Cache-Control': 'public, max-age=300, s-maxage=900', 'X-Robots-Tag': 'noindex' };
-  if (format === 'xml') return send(res, 200, toXml(items, channel, settings, base), 'application/xml; charset=utf-8', cache);
+  if (format === 'xml') return send(200, toXml(items, channel, settings, base), 'application/xml; charset=utf-8', cache);
   const sep = format === 'tsv' ? '\t' : ',';
-  return send(res, 200, toTable(items, channel, sep), `${format === 'tsv' ? 'text/tab-separated-values' : 'text/csv'}; charset=utf-8`,
+  return send(200, toTable(items, channel, sep), `${format === 'tsv' ? 'text/tab-separated-values' : 'text/csv'}; charset=utf-8`,
     { ...cache, 'Content-Disposition': `inline; filename="${channel}-products.${format}"` });
 }
 
