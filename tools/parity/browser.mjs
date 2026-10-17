@@ -43,7 +43,7 @@ async function check(ctx, path, admin) {
     if (admin && res.status() === 200 && !(await page.$('[data-side-toggle], .admin-bare'))) problems.push('no admin frame');
     if (admin && (await page.$('[data-side-toggle]'))) {
       // the menu button is admin.js's: it must work after React took over
-      await page.click('.burger').catch(() => {});
+      await page.evaluate(() => document.querySelector('.burger').click());
       const open = await page.evaluate(() => document.body.className);
       if (!/side-(open|hidden)/.test(open)) problems.push('admin menu button does nothing (admin.js not running?)');
     }

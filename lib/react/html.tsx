@@ -69,13 +69,20 @@ export function withSlots<T>(fn: (mine: string[]) => T): T {
   try { return fn(mine); } finally { slots = outer; }
 }
 
+const BLOCK_TAG = /<(?:div|p|ul|ol|li|dl|dt|dd|table|thead|tbody|tr|td|th|section|article|aside|nav|header|footer|main|form|fieldset|details|summary|h[1-6]|pre|blockquote|figure|hr|address|menu|option|select|textarea|svg|template|script|style)\b/i;
+
 /** Puts ready-made HTML (a string the shop made itself, or a legacy Raw) into a React page, unescaped — only HTML the shop made, never visitor text. */
 export function RawHtml({ html }: { html: unknown }): ReactNode {
   if (html instanceof ElementHtml) return html.el;
   if (isValidElement(html)) return html;
   const s = html instanceof Raw ? html.s : html === null || html === undefined || html === false ? '' : String(html);
   if (!s) return null;
-  if (!slots) return <div style={{ display: 'contents' }} data-unwrap="" dangerouslySetInnerHTML={{ __html: s }} />;
+  if (!slots) {
+    // A see-through wrapper. Words and small inline pieces get a <span>: a <div> inside a <p> would make the browser
+    // close the <p> early, and React would then find a different page than it drew.
+    const Tag = BLOCK_TAG.test(s) ? 'div' : 'span';
+    return <Tag style={{ display: 'contents' }} data-unwrap="" dangerouslySetInnerHTML={{ __html: s }} />;
+  }
   slots.push(s);
   return <template data-sm-raw={slots.length - 1} />;
 }

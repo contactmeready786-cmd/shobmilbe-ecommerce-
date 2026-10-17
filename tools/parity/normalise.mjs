@@ -111,15 +111,16 @@ export function nextNeutral(body) {
   return ld.length ? s.replace(/<\/body>/, `${ld.sort().map((j) => `<script type="application/ld+json">${j}</script>`).join('')}</body>`) : s;
 }
 function unwrap(s) {
-  for (let guard = 0; guard < 500; guard++) {
-    const m = /<div (?:style="display:\s*contents;?" data-unwrap(?:="")?|data-unwrap(?:="")? style="display:\s*contents;?")>/.exec(s);
+  for (let guard = 0; guard < 2000; guard++) {
+    const m = /<(div|span) (?:style="display:\s*contents;?" data-unwrap(?:="")?|data-unwrap(?:="")? style="display:\s*contents;?")>/.exec(s);
     if (!m) break;
+    const tag = m[1];
     let depth = 1; let i = m.index + m[0].length;
-    const re = /<div\b|<\/div>/g; re.lastIndex = i;
+    const re = new RegExp(`<${tag}\\b|</${tag}>`, 'g'); re.lastIndex = i;
     let end = -1;
-    for (let t; (t = re.exec(s));) { depth += t[0] === '</div>' ? -1 : 1; if (!depth) { end = t.index; break; } }
+    for (let t; (t = re.exec(s));) { depth += t[0] === `</${tag}>` ? -1 : 1; if (!depth) { end = t.index; break; } }
     if (end < 0) break;
-    s = s.slice(0, m.index) + s.slice(i, end) + s.slice(end + 6);
+    s = s.slice(0, m.index) + s.slice(i, end) + s.slice(end + tag.length + 3);
   }
   return s;
 }

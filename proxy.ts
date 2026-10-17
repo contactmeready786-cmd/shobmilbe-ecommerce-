@@ -70,9 +70,11 @@ async function adminProxy(request: NextRequest, path: string, headers: Headers) 
   // only scripts carrying this visit's nonce may run (lib/security.ts); Next.js puts it on its own scripts too
   const nonce = Buffer.from(crypto.getRandomValues(new Uint8Array(16))).toString('base64');
   headers.set('x-nonce', nonce);
-  headers.set('content-security-policy', adminCsp(nonce));
+  // (the development server needs eval for its error messages; the live site never allows it)
+  const csp = process.env.NODE_ENV === 'development' ? adminCsp(nonce).replace("script-src 'self'", "script-src 'self' 'unsafe-eval'") : adminCsp(nonce);
+  headers.set('content-security-policy', csp);
   const res = NextResponse.next({ request: { headers } });
-  for (const [k, v] of Object.entries({ ...BASE_HEADERS, ...adminHeaders(nonce) })) res.headers.set(k, v);
+  for (const [k, v] of Object.entries({ ...BASE_HEADERS, ...adminHeaders(nonce), 'Content-Security-Policy': csp })) res.headers.set(k, v);
   return res;
 }
 
