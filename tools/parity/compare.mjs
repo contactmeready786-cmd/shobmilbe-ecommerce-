@@ -55,8 +55,15 @@ for (const g of groups.values()) {
 const kinds = {};
 for (const x of problems) kinds[x.why.replace(/\d+/g, 'N')] = (kinds[x.why.replace(/\d+/g, 'N')] || 0) + 1;
 for (const [k, n] of Object.entries(kinds)) console.log(`  ${n} × ${k}`);
-// every difference, for the saved results (ci-results branch → compare-all.txt)
+// every difference, for the saved results (ci-results branch → compare-all.txt), and the first pages in full
 if (process.env.RUNNER_TEMP) {
+  const dir = path.join(process.env.RUNNER_TEMP, 'diff-pages');
+  fs.mkdirSync(dir, { recursive: true });
+  problems.filter((x) => x.why === 'content differs').slice(0, 12).forEach((x, i) => {
+    const ea = A.get(x.p), eb = B.get(x.p);
+    fs.writeFileSync(path.join(dir, `${i}-old.txt`), `${x.p}\n` + fs.readFileSync(path.join(a, ea.file + '.txt'), 'utf8'));
+    fs.writeFileSync(path.join(dir, `${i}-new.txt`), `${x.p}\n` + fs.readFileSync(path.join(b, eb.file + '.txt'), 'utf8'));
+  });
   fs.writeFileSync(path.join(process.env.RUNNER_TEMP, 'compare-all.txt'), problems.map((x) => `- ${x.p}: ${x.why}${x.old !== undefined ? `\n  old: ${JSON.stringify(x.old)}\n  new: ${JSON.stringify(x.new)}` : ''}`).join('\n'));
 }
 for (const x of problems.slice(0, show)) {
