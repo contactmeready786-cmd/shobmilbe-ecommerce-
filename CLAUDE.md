@@ -42,8 +42,8 @@ uses that one setup. Never add a second Gmail / App Password / SMS / API-key fie
 - Every shop and admin page is rendered by React. Hand-written components live in `components/` (shop: Pages, Complaint,
   Account); the rest of `lib/admin/*.tsx` and `lib/views/*.tsx` is JSX made by `tools/html2jsx.ts` from the old
   html`…` templates, rendered with `toHtml(<…/>)` from `lib/react/render.tsx`. The router, security gate, country lock,
-  admin login and caching still live in `lib/app.ts` (served through `pages/api/legacy` — Next.js forbids
-  react-dom/server in App-Router routes).
+  admin login and caching live in `lib/app.ts` (served through the App-Router route `app/api/legacy`; its text pages
+  load react-dom/server lazily — lib/react/render.tsx `loadRenderer()` — because Next.js refuses it imported up front).
 - New UI is JSX. Values from old helpers that return Raw go in as `<Val v={…}/>`; ready-made HTML as `<RawHtml html={…}/>`.
   Don't write new html`…` in lib/admin or lib/views (tests/admin-scripts.test.ts counts them). Page frames
   (<html>/<head>) stay as text on purpose — React 19 would reorder the head. <link>/<meta>/<title>/async <script> in a
@@ -55,7 +55,7 @@ uses that one setup. Never add a second Gmail / App Password / SMS / API-key fie
 - Next.js App Router (started 2026-10-17): customer pages move one by one into `app/(shop)/` (Next.js pages with
   `generateMetadata` → lib/next/meta.ts). `lib/next/routes.ts` lists the addresses already served there; proxy.ts runs
   the shop's front gate (`lib/gate.ts`: blocked IPs, hacking checks, country lock, blocked bots) for them and adds the
-  security headers. Everything else still goes to lib/app.ts (pages/api/legacy), which uses the same gate helpers and
+  security headers. Everything else still goes to lib/app.ts (app/api/legacy), which uses the same gate helpers and
   the same React frame (`components/shop/chrome`). Page data loads through `lib/next/loaders.ts` / `shop-data.ts`.
 - Don't call notFound() to show a missing item: Next.js serves an empty page for it (github.com/vercel/next.js/issues/99793).
   Add the address to `drawableHere()` in lib/next/loaders.ts — proxy.ts then sends it to the shop's real 404 page.

@@ -1,10 +1,12 @@
 // The switch under a page's heading (lib/admin/testclear.tsx) is put into the React page right after its first
 // </h1> — the same place the old text code put it.
-import { test } from 'node:test';
+import { test, before } from 'node:test';
 import assert from 'node:assert/strict';
-import '../lib/react/render';
 import { toHtml, Val, insertAfterTag } from '../lib/react/html';
 import { raw } from '../lib/util';
+import { loadRenderer } from '../lib/react/render';
+
+before(loadRenderer); // the original router's text renderer (lib/react/render.tsx)
 
 const TOP = <form id="top">switch</form>;
 const old = (s: string) => { const i = s.indexOf('</h1>'); return i < 0 ? '<form id="top">switch</form>' + s : s.slice(0, i + 5) + '<form id="top">switch</form>' + s.slice(i + 5); };

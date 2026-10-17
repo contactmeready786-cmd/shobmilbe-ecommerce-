@@ -1,5 +1,4 @@
 // The admin addresses that answer GET (shared by tools/gen-admin-routes.ts and tests/routes.test.ts).
-import '../../lib/react/render';
 import { MODULES } from '../../lib/admin/index';
 
 // handled in lib/admin/index.tsx itself, before the modules

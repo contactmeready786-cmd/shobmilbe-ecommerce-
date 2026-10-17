@@ -7,6 +7,7 @@
 import { Readable, Writable } from 'node:stream';
 import { handler as shopHandler } from '@/lib/app';
 import { flush as flushErrorReports } from '@/lib/services/errors';
+import { loadRenderer } from '@/lib/react/render';
 
 type NodeHandler = (req: unknown, res: unknown) => Promise<void> | void;
 const legacyHandler = (): NodeHandler => shopHandler as NodeHandler;
@@ -49,12 +50,6 @@ export class CollectingResponse extends Writable {
     cb();
   }
 
-  /** The collected answer, for writing straight into a Node response (pages/api/legacy). */
-  parts(): { status: number; statusText: string; headers: [string, HeaderValue][]; body: Buffer | null } {
-    const noBody = this.statusCode === 204 || this.statusCode === 304 || this.statusCode < 200;
-    return { status: this.statusCode, statusText: this.statusMessage, headers: [...this.headers.values()].map((h) => [h.name, h.value]), body: noBody ? null : Buffer.concat(this.chunks) };
-  }
-
   toResponse(): Response {
     const h = new Headers();
     for (const { name, value } of this.headers.values()) {
@@ -77,6 +72,7 @@ export async function runLegacy({ method, headers, bytes, url }: { method: strin
     socket: { remoteAddress: headers['x-real-ip'] || (headers['x-forwarded-for'] || '').split(',')[0].trim() || '127.0.0.1' },
   });
   const res = new CollectingResponse();
+  await loadRenderer(); // the original code's pages are text (lib/react/render.tsx)
   try {
     await legacyHandler()(req, res);
     await res.done;

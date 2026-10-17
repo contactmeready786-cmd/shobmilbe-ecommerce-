@@ -1,13 +1,15 @@
 // ⚛️ The admin page frame (menu, top bar, head tags) is React components now (lib/admin/layout.tsx: AdminHead,
 // AdminBody, AdminBare — the same ones the Next.js admin pages use). It must draw the same page as the old frame did:
 // tests/golden/admin-frame-*.html, recorded from the old code (tools/make-golden-admin-frame.ts).
-import { test } from 'node:test';
+import { test, before } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { normalise } from '../tools/parity/normalise.mjs';
-import '../lib/react/render';
 import { adminLayout } from '../lib/admin/layout';
 import { frames } from './fixtures/admin-frame';
+import { loadRenderer } from '../lib/react/render';
+
+before(loadRenderer); // the original router's text renderer (lib/react/render.tsx)
 
 for (const [name, props] of frames) {
   test(`admin frame unchanged: ${name}`, () => {

@@ -2,7 +2,7 @@
 // the samples in tests/fixtures/cases.ts (recorded just before each move); the React version must make the same page.
 // "The same" = identical for a browser (tools/parity/normalise.mjs → canonicalHtml ignores only spelling such as
 // &#x27; vs &#39;, attribute order and source indentation). Run: npm test
-import { test } from 'node:test';
+import { test, before } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { canonicalHtml } from '../tools/parity/normalise.mjs';
@@ -11,7 +11,9 @@ import * as shop from '../lib/views/shop';
 import * as complaint from '../lib/views/complaint';
 import * as account from '../lib/views/account';
 import { isValidElement } from 'react';
-import { toHtml } from '../lib/react/render';
+import { toHtml, loadRenderer } from '../lib/react/render';
+
+before(loadRenderer); // the original router's text renderer (lib/react/render.tsx)
 
 const views: Views = { shop, complaint, account };
 

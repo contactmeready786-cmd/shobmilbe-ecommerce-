@@ -1,10 +1,12 @@
 // 🖼️ Product pictures load fast: the first cards a customer sees load at once (the first two before anything else),
 // the rest wait until they scroll into view, and a picture stored on ImageKit is linked straight to ImageKit.
-import { test } from 'node:test';
+import { test, before } from 'node:test';
 import assert from 'node:assert/strict';
-import { toHtml } from '../lib/react/render';
+import { toHtml, loadRenderer } from '../lib/react/render';
 import * as shop from '../lib/views/shop';
 import type { Settings } from '../lib/types';
+
+before(loadRenderer); // the original router's text renderer (lib/react/render.tsx)
 
 const s = { store_name: 'সবমিলবে' } as unknown as Settings;
 const product = (i: number, extra: Record<string, unknown> = {}) => ({ id: i, name: `পণ্য ${i}`, slug: `p${i}`, price: 100, stock: 5, image_id: 10 + i, ...extra });
