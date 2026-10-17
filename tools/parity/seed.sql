@@ -65,3 +65,7 @@ ON CONFLICT (slug) DO NOTHING;
 INSERT INTO blog_posts (title, slug, excerpt, content, status, published_at, created_at)
 VALUES ('এলইডি জ্বালানোর নিয়ম', 'এলইডি-জ্বালানোর-নিয়ম', 'রেজিস্টর লাগবে', 'এলইডির সাথে রেজিস্টর দিন।', 'published', '2026-09-06 10:00+06', '2026-09-06 10:00+06')
 ON CONFLICT (slug) DO NOTHING;
+
+-- gift cards and return requests switched on, so their customer pages are compared too
+INSERT INTO settings (key, value) VALUES ('gift_on', '1'), ('returns_on', '1')
+ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;

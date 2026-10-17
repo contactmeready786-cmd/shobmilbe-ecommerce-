@@ -94,3 +94,5 @@
 /blog/category/no-such-category
 /page/no-such-page
 /blog/no-such-article
+/gift-card
+/order/TEST1002/return
