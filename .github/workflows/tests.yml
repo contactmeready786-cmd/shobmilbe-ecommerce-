@@ -61,4 +61,4 @@ jobs:
           if [ "$skipped" != "0" ]; then echo "::error::$skipped tests were skipped"; exit 1; fi
           exit $status
       - name: Build like Vercel
-        run: npx next build
+        run: npm run build

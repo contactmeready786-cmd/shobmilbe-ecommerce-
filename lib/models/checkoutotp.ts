@@ -13,6 +13,7 @@
 //
 // Abuse limits (each code costs an SMS): 3 codes / 10 min and 6 / day per number, 8 / hour per connection,
 // a daily total for the whole shop, 5 wrong tries per code. Blocked numbers get no code.
+import { emailHtml, PlainEmail } from '../emails';
 import * as crypto from 'node:crypto';
 import * as db from '../db';
 import * as security from '../security';
@@ -163,7 +164,7 @@ async function alertOwner(s?: Loose, title?: Loose, body?: Loose) {
   const N = $services_notify;
   const jobs: Promise<unknown>[] = [$services_push.sendAll({ title, body, url: '/admin/checkout-otp', tag: 'sms-phone' }).catch(() => null)];
   if (N.waConfig(s).ready) jobs.push(N.sendWhatsApp(s, `${title}\n${body}`).catch(() => null));
-  if (N.emailConfig(s).ready) jobs.push(N.sendEmail(s, title, body, `<p style="font-family:Arial,sans-serif;font-size:15px">${N.escapeHtml(body)}</p>`).catch(() => null));
+  if (N.emailConfig(s).ready) jobs.push(emailHtml(PlainEmail({ text: String(body), font: 'Arial,sans-serif' })).then((html) => N.sendEmail(s, title, body, html)).catch(() => null));
   await Promise.all(jobs);
 }
 async function phoneState(s?: Loose, row?: Loose) {

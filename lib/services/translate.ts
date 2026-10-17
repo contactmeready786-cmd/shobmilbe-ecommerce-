@@ -1,6 +1,6 @@
 // English version of the shop (বাংলা ⇄ English switch near the cart).
 //
-// The fixed words of the shop (buttons, headings, messages) are translated by hand in public/js/i18n.js.
+// The fixed words of the shop (buttons, headings, messages) are translated by hand in client/i18n/words.ts.
 // Everything the shop owner writes — product names, descriptions, categories, banners, blog, notice —
 // is translated here once, saved in the `translations` table and reused for every visitor. The owner can
 // correct any line in Admin → স্টোর ডিজাইন → ভাষা (বাংলা / English); a corrected line is never overwritten.

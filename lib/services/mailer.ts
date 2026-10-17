@@ -14,12 +14,12 @@ import { str, money } from '../util';
 import * as $autopost from './autopost';
 import * as $security from '../security';
 import type { Body, Id, Loose, Settings } from '../types';
+import { emailHtml, OfferEmail } from '../emails';
 
 const MAX_GMAIL_DAY = 80;
 const KINDS: Record<string, string> = { campaign: 'ক্যাম্পেইন', weekly: 'সাপ্তাহিক নতুন পণ্য', welcome: 'স্বাগতম', review: 'রিভিউ চাওয়া', winback: 'আবার আসুন', test: 'পরীক্ষা' };
 const AUDIENCES: Record<string, Loose> = { all: 'সবাই (লিস্টের সবাই)', buyers: 'যারা কিনেছেন', nonbuyers: 'যারা এখনো কেনেননি' };
 
-const esc = (v?: Loose) => notify.escapeHtml(v);
 const cleanEmail = (e?: Loose) => String(e || '').trim().toLowerCase().slice(0, 120);
 function siteBase(settings: Settings) { return String(settings.site_url || 'https://shobmilbe.com').replace(/\/+$/, ''); }
 function secret(settings: Settings) { return String(settings.session_secret || 'shobmilbe-mail'); }
@@ -89,10 +89,9 @@ async function productCards(settings: Settings, ids?: Loose, utm?: Loose) {
     path: `/p/${encodeURIComponent(p.slug)}?${utm}`,
   }));
 }
-// Plain text the owner typed → safe paragraphs (a blank line = new paragraph). {name} = the reader's first name.
-function paragraphs(text?: Loose, name?: Loose) {
-  return String(text || '').replace(/\{name\}/g, name || 'প্রিয় গ্রাহক').split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean)
-    .map((p) => `<p style="margin:0 0 14px;font-size:15px;line-height:1.7;color:#24324a">${esc(p).replace(/\n/g, '<br>')}</p>`).join('');
+// Plain text the owner typed → paragraphs (a blank line = new paragraph). {name} = the reader's first name.
+function paragraphs(text?: Loose, name?: Loose): string[] {
+  return String(text || '').replace(/\{name\}/g, name || 'প্রিয় গ্রাহক').split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
 }
 function textVersion(text?: Loose, name?: Loose, products?: Loose, site?: Loose) {
   const lines = [String(text || '').replace(/\{name\}/g, name || 'প্রিয় গ্রাহক')];
@@ -104,39 +103,22 @@ function trackLink(settings: Settings, logId?: Id, path?: Loose) {
   const p = String(path || '/').startsWith('/') && !String(path).startsWith('//') ? String(path) : '/';
   return `${siteBase(settings)}/e/c/${logId}/${mac(settings, `${logId}:${p}`)}?u=${encodeURIComponent(p)}`;
 }
-function layout(settings: Settings, { logId, sub, heading, intro, products, button, utm }: Body) {
+/** The offer / news mail (lib/emails.tsx draws it). */
+function layout(settings: Settings, { logId, sub, heading, intro, products, button, utm }: Body): Promise<string> {
   const site = siteBase(settings);
   const name = String(sub.name || '').split(/\s+/)[0];
   const link = (path?: Loose) => (logId ? trackLink(settings, logId, path) : site + path);
-  const cards = products.map((p?: Loose) => `<td width="50%" valign="top" style="padding:6px">
-      <a href="${esc(link(p.path))}" style="text-decoration:none;color:#14213d;display:block;border:1px solid #e3e8f0;border-radius:12px;overflow:hidden;background:#fff">
-        ${p.img ? `<img src="${esc(p.img)}" width="260" alt="${esc(p.name)}" style="display:block;width:100%;height:auto;max-height:200px;object-fit:contain;background:#f6f8fb">` : ''}
-        <div style="padding:10px 12px 12px"><div style="font-size:14px;line-height:1.4;height:40px;overflow:hidden">${esc(p.name)}</div>
-        <div style="margin-top:6px;font-size:16px;font-weight:bold;color:#0866D6">${esc(money(p.price))}${p.old_price > p.price ? ` <span style="font-size:12px;color:#8a94a6;text-decoration:line-through;font-weight:normal">${esc(money(p.old_price))}</span>` : ''}</div></div>
-      </a></td>`);
-  const rows: Loose[] = [];
-  for (let i = 0; i < cards.length; i += 2) rows.push(`<tr>${cards[i]}${cards[i + 1] || '<td width="50%"></td>'}</tr>`);
-  const btn = button && button.text ? `<p style="text-align:center;margin:22px 0 6px"><a href="${esc(link(button.path || '/'))}" style="display:inline-block;background:#f59e0b;color:#14213d;font-weight:bold;text-decoration:none;padding:13px 30px;border-radius:10px;font-size:16px">${esc(button.text)}</a></p>` : '';
-  const unsub = `${site}/unsubscribe?t=${encodeURIComponent(sub.token)}`;
-  const pixel = logId ? `<img src="${site}/e/o/${logId}/${mac(settings, String(logId))}.gif" width="1" height="1" alt="" style="display:block;border:0;width:1px;height:1px">` : '';
-  const contact = [settings.phone || settings.whatsapp, settings.address].filter(Boolean).map(esc).join(' · ');
-  return `<!doctype html><html lang="bn"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(heading)}</title></head>
-<body style="margin:0;padding:0;background:#eef2f7;font-family:'Hind Siliguri','Noto Sans Bengali',Arial,sans-serif">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#eef2f7"><tr><td align="center" style="padding:20px 10px">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:580px;background:#ffffff;border-radius:16px;overflow:hidden">
-<tr><td style="background:#0866D6;padding:18px 22px"><a href="${esc(link('/?' + utm))}" style="color:#fff;text-decoration:none;font-size:22px;font-weight:bold">🛍️ ${esc(settings.store_name || 'সবমিলবে')}</a></td></tr>
-<tr><td style="padding:24px 22px 8px">
-<h1 style="margin:0 0 14px;font-size:21px;line-height:1.4;color:#14213d">${esc(heading)}</h1>
-${paragraphs(intro, name)}
-</td></tr>
-${rows.length ? `<tr><td style="padding:0 16px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0">${rows.join('')}</table></td></tr>` : ''}
-<tr><td style="padding:4px 22px 22px">${btn}
-<p style="margin:16px 0 0;font-size:13px;color:#5b6475;text-align:center">🚚 সারা বাংলাদেশে হোম ডেলিভারি · ✅ ক্যাশ অন ডেলিভারি</p></td></tr>
-<tr><td style="background:#f6f8fb;padding:16px 22px;font-size:12px;line-height:1.6;color:#8a94a6;text-align:center">
-${contact ? `${contact}<br>` : ''}আপনি ${esc(settings.store_name || 'সবমিলবে')}-এর অফার ও নতুন পণ্যের খবর পেতে চেয়েছিলেন বলে এই ইমেইল পাচ্ছেন।<br>
-<a href="${esc(unsub)}" style="color:#5b6475">আর ইমেইল চাই না (আনসাবস্ক্রাইব)</a>
-</td></tr></table>${pixel}
-</td></tr></table></body></html>`;
+  return emailHtml(OfferEmail({ m: {
+    store: settings.store_name || 'সবমিলবে',
+    heading,
+    homeHref: link('/?' + utm),
+    paragraphs: paragraphs(intro, name),
+    cards: products.map((p?: Loose) => ({ name: p.name, price: money(p.price), oldPrice: p.old_price > p.price ? money(p.old_price) : undefined, img: p.img || undefined, href: link(p.path) })),
+    button: button && button.text ? { text: button.text, href: link(button.path || '/') } : null,
+    contact: [settings.phone || settings.whatsapp, settings.address].filter(Boolean).join(' · '),
+    unsubHref: `${site}/unsubscribe?t=${encodeURIComponent(sub.token)}`,
+    pixel: logId ? `${site}/e/o/${logId}/${mac(settings, String(logId))}.gif` : undefined,
+  } }), true);
 }
 
 // Send one mail to one subscriber. Never throws — returns { ok, msg } and writes email_log.
@@ -149,7 +131,7 @@ async function sendOne(settings: Settings, sub: Loose, { kind, subject, heading,
   try {
     if (!c.ready) throw new Error(c.why);
     const products = await productCards(settings, productIds, utm);
-    const htmlBody = layout(settings, { logId: log!.id, sub, heading: heading || subject, intro, products, button, utm });
+    const htmlBody = await layout(settings, { logId: log!.id, sub, heading: heading || subject, intro, products, button, utm });
     const text = textVersion(intro, String(sub.name || '').split(/\s+/)[0], products, siteBase(settings))
       + `\n\nআর ইমেইল না চাইলে: ${siteBase(settings)}/unsubscribe?t=${sub.token}`;
     const unsub = `${siteBase(settings)}/unsubscribe?t=${encodeURIComponent(sub.token)}`;

@@ -135,7 +135,7 @@ table{width:100%;border-collapse:collapse;margin-top:10px}th,td{border:1px solid
   <p class="note">ডেলিভারি চার্জ (${htmlValue(money(o.delivery))}) এই চালানের বাইরে। ¹ মূল্য সংযোজন কর ব্যতীত মূল্য। ${htmlValue(mode === 'margin' ? 'মার্জিন পদ্ধতিতে কর হিসাব করা হয়েছে।' : '')}</p>
   <div class="sig"><div>প্রতিষ্ঠান কর্তৃপক্ষের দায়িত্বপ্রাপ্ত ব্যক্তির নাম, পদবি ও স্বাক্ষর</div><div>সিল</div></div>
   <p class="note">* উৎসে কর্তনযোগ্য সরবরাহের ক্ষেত্রে ফরমটি সমন্বিত কর চালানপত্র ও উৎসে কর কর্তন সনদপত্র হিসেবে বিবেচিত হবে এবং উহা উৎসে কর কর্তনযোগ্য সরবরাহের ক্ষেত্রে প্রযোজ্য হবে।</p>
-</div><script src="/js/page-actions.js?v=${htmlValue(PA_V)}" defer></script></body></html>`;
+</div><script type="module" src="/js/admin/page-actions.js?v=${htmlValue(PA_V)}"></script></body></html>`;
   await ctx.log('mushak63', 'order', o.id, 'মূসক-৬.৩ চালান দেখা/প্রিন্ট');
   return ctx.send(200, page);
 }

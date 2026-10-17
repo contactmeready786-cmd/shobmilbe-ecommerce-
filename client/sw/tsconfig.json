@@ -1,0 +1,20 @@
+{
+  // The two service workers (shop offer notifications, admin phone notifications) → public/sw.js, public/admin-sw.js.
+  // A service worker must be one plain script at the site's root, so these are compiled on their own (no imports).
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ES2022",
+    "moduleResolution": "bundler",
+    "lib": ["webworker", "ES2022"],
+    "types": [],
+    "strict": true,
+    "noUnusedLocals": true,
+    "skipLibCheck": true,
+    "rootDir": ".",
+    "outDir": "../../public",
+    "noEmitOnError": true,
+    "moduleDetection": "legacy",
+    "incremental": false
+  },
+  "include": ["*.ts"]
+}

@@ -1,7 +1,7 @@
 // Shared by crawl.mjs and scenarios.mjs.
 // Anything that changes per request (random tokens, times, nonces) is blanked so only real differences remain.
 export function normalise(body) {
-  return canonicalHtml(nextNeutral(String(body))
+  return canonicalHtml(browserCodeNeutral(nextNeutral(String(body)))
     .replace(/\bSM[A-Z0-9]{6}\b/g, '«order-code»')
     .replace(/(https?:)?(\/\/)?(127\.0\.0\.1|localhost):\d+/g, '«host»')
     .replace(/nonce="[^"]*"/g, 'nonce=""')
@@ -130,4 +130,31 @@ function headSet(inner) {
   const re = /<(script|style|title|noscript)\b[^>]*>[\s\S]*?<\/\1>|<(meta|link|base)\b[^>]*>/g;
   for (let m; (m = re.exec(inner));) parts.push(canonicalHtml(m[0]).trim());
   return parts.sort().join('');
+}
+
+// 2026-10-18: the browser code moved from hand-written public/js/*.js files to TypeScript modules (client/ →
+// public/js/<part>/*.js, loaded with type="module", which runs after the page just like defer did), the district
+// list loads by itself where an address form is, and the few tiny boot scripts inside the page were rewritten in
+// modern JavaScript (lib/boot-scripts.ts). The same script on both sides is written one way here, so only real
+// differences remain.
+const MOVED = {
+  '/js/shop.js': '/js/shop/main.js', '/js/i18n.js': '/js/i18n/main.js', '/js/admin.js': '/js/admin/main.js',
+  '/js/page-actions.js': '/js/admin/page-actions.js', '/js/admin-i18n.js': '/js/admin/i18n.js', '/js/loginlock.js': '/js/admin/loginlock.js',
+  '/js/push.js': '/js/admin/push.js', '/js/pos.js': '/js/admin/pos.js', '/js/stockscan.js': '/js/admin/stockscan.js',
+};
+const BOOT = [
+  [/sm_admin_lang/, 'admin-lang'], [/sm_side_hidden/, 'admin-side'], [/sm_lang/, 'shop-lang'], [/embed\.tawk\.to/, 'tawk'],
+  [/\/pass'/, 'country-pass'], [/w=tz&z=/, 'country-clock'], [/__dbmove/, 'db-move'],
+];
+export function browserCodeNeutral(body) {
+  return String(body)
+    // the camera reader is part of the page's module now; the district list loads by itself
+    .replace(/<script\b[^>]*\bsrc="\/js\/(scan|bd-geo)\.js[^"]*"[^>]*><\/script>/g, '')
+    .replace(/<script\b([^>]*)\bsrc="(\/js\/[\w-]+\.js)(\?[^"]*)?"([^>]*)>/g, (m, a, src, q, b) => `<script${a}src="${MOVED[src] || src}${q || ''}"${b}>`)
+    .replace(/<script\b[^>]*\bsrc="\/js\/[^>]*>/g, (t) => t.replace(/\s(defer(="")?|type="module")(?=[\s>\/])/g, ''))
+    .replace(/(<script\b[^>]*>)([\s\S]*?)(<\/script>)/g, (m, open, code, close) => {
+      if (/\bsrc=|application\/(ld\+)?json/.test(open)) return m;
+      const hit = BOOT.find(([re]) => re.test(code));
+      return hit ? `${open}«boot:${hit[1]}»${close}` : m;
+    });
 }

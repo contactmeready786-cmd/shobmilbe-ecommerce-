@@ -7,6 +7,7 @@
 // A new account first gives its name (and, for e-mail accounts, a mobile number for delivery), then can order.
 // Logged in, a customer sees all their orders (and can order the same again), keeps delivery addresses,
 // and checkout fills itself in. Admin → কাস্টমার অ্যাকাউন্ট switches it on (it needs SMS or the shop's Gmail).
+import { emailHtml, AccountCodeEmail } from '../emails';
 import * as crypto from 'node:crypto';
 import * as db from '../db';
 import { str, int, normalizePhone, validPhone, sign, unsign, parseCookies, bn, hashPassword, verifyPassword } from '../util';
@@ -117,11 +118,7 @@ async function sendEmailCode(settings: Settings, email?: Loose, ip?: Loose, { pu
     [em, ehash(em, code, settings.session_secret), EMAIL_MIN, str(ip, 60), hashPassword(String(password)), purpose === 'reset' ? 'reset' : 'signup']);
   const shop = settings.store_name || 'সবমিলবে';
   const text = `${shop}: আপনার যাচাই কোড ${code}\n\nকোডটা ${bn(EMAIL_MIN)} মিনিট কাজ করবে। কাউকে বলবেন না — ${shop} কখনো ফোনে এই কোড চায় না।\n\nআপনি কোড না চেয়ে থাকলে এই ইমেইলটা উপেক্ষা করুন।`;
-  const htmlBody = `<div style="font-family:Arial,sans-serif;max-width:420px;margin:auto;padding:20px;border:1px solid #e5e7eb;border-radius:12px">
-<h2 style="margin:0 0 8px;font-size:18px">${N.escapeHtml(shop)}</h2>
-<p style="font-size:15px;margin:0 0 14px">আপনার অ্যাকাউন্টের যাচাই কোড:</p>
-<p style="font-size:32px;font-weight:bold;letter-spacing:8px;margin:0 0 14px;color:#111">${code}</p>
-<p style="font-size:14px;color:#555;margin:0">কোডটা ${bn(EMAIL_MIN)} মিনিট কাজ করবে। কাউকে বলবেন না।<br>আপনি কোড না চেয়ে থাকলে এই ইমেইলটা উপেক্ষা করুন।</p></div>`;
+  const htmlBody = await emailHtml(AccountCodeEmail({ shop, code, minutes: bn(EMAIL_MIN) }));
   try {
     await N.sendAcctEmail(settings, `${shop}: যাচাই কোড ${code}`, text, htmlBody, em);
   } catch (e: Loose) {

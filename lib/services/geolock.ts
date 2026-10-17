@@ -107,7 +107,7 @@ function count(country?: Loose, why?: Loose) {
 function headScript(s?: Loose) {
   const c = config(s);
   if (!c.on || !c.tzCheck) return '';
-  return `<script>(function(){try{var u=navigator.userAgent||'';if(/bot|crawl|spider|slurp|lighthouse|headless|preview|facebookexternalhit|meta-external|whatsapp|telegram/i.test(u))return;var z=Intl.DateTimeFormat().resolvedOptions().timeZone;if(!z||/^(Etc\\/|UTC$|GMT)/.test(z))return;var ok=${JSON.stringify([...c.zones]).replace(/</g, '\\u003c')};if(ok.indexOf(z)<0)location.replace('${BLOCK_PATH}?w=tz&z='+encodeURIComponent(z));}catch(e){}})();</script>`;
+  return `<script>(()=>{try{const u=navigator.userAgent||'';if(/bot|crawl|spider|slurp|lighthouse|headless|preview|facebookexternalhit|meta-external|whatsapp|telegram/i.test(u))return;const z=Intl.DateTimeFormat().resolvedOptions().timeZone;if(!z||/^(Etc\\/|UTC$|GMT)/.test(z))return;const ok=${JSON.stringify([...c.zones]).replace(/</g, '\\u003c')};if(!ok.includes(z))location.replace('${BLOCK_PATH}?w=tz&z='+encodeURIComponent(z));}catch{}})();</script>`;
 }
 
 function esc(v?: Loose) { return String(v ?? '').replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' } as Record<string, string>)[ch]); }
@@ -126,7 +126,7 @@ function blockedPage(s?: Loose, { country = '', why = 'country' }: Body = {}) {
     : `<p>VPN চালু থাকলে সেটা বন্ধ করে আবার চেষ্টা করুন।</p><p class="en">If you are using a VPN, please turn it off and try again.</p>`;
   // a visitor whose own clock is in a ticked country (e.g. a Bangladeshi on a VPN) gets let in, if the owner allows
   const passScript = why === 'country' && c.vpnHome
-    ? `<script>(function(){try{var z=Intl.DateTimeFormat().resolvedOptions().timeZone;if(!z||${JSON.stringify([...c.zones]).replace(/</g, '\\u003c')}.indexOf(z)<0)return;fetch('${BLOCK_PATH}/pass',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'tz='+encodeURIComponent(z),credentials:'same-origin'}).then(function(r){if(r.ok)location.reload();});}catch(e){}})();</script>`
+    ? `<script>(async()=>{try{const z=Intl.DateTimeFormat().resolvedOptions().timeZone;if(!z||!${JSON.stringify([...c.zones]).replace(/</g, '\\u003c')}.includes(z))return;const r=await fetch('${BLOCK_PATH}/pass',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'tz='+encodeURIComponent(z),credentials:'same-origin'});if(r.ok)location.reload();}catch{}})();</script>`
     : '';
   return `<!doctype html><html lang="bn"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>${shop} — এই দেশ থেকে খোলা যায় না</title>
 <style>body{margin:0;font-family:system-ui,'Noto Sans Bengali',sans-serif;background:#f5f7fb;color:#14213d;display:flex;min-height:100vh;align-items:center;justify-content:center;padding:20px;box-sizing:border-box}

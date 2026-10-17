@@ -29,7 +29,7 @@ uses that one setup. Never add a second Gmail / App Password / SMS / API-key fie
   logs every change for undo; the auto description is made at page view and never saved over the owner's text.
 - Admin script rule (2026-10-17): admin pages run only scripts that carry the page nonce. Every inline `<script>` in an
   admin template is written `<script nonce="${cspNonce()}">` (from `lib/security`), no `onclick="…"`-style handlers and no
-  `javascript:` links — use `data-print` / `data-autosubmit` / `data-back` (public/js/page-actions.js) or admin.js.
+  `javascript:` links — use `data-print` / `data-autosubmit` / `data-back` (client/admin/page-actions.ts) or client/admin.
   `tests/admin-scripts.test.ts` fails otherwise. Blocked scripts show up on Admin → সার্ভার ও ডাটাবেস (error list).
 - Tests (2026-10-17): every change must pass `.github/workflows/tests.yml` (typecheck + `npm test` + build) before it
   goes to main. New money, OTP, order or security code gets a test in `tests/`. Database tests (`*.db.test.ts`) run only on
@@ -74,7 +74,18 @@ uses that one setup. Never add a second Gmail / App Password / SMS / API-key fie
   lib/shop/more.tsx: live, cart, wishlist, compare, checkout, kits, order pages; lib/shop/blog.tsx: articles;
   lib/shop/forms.tsx: account, complaint, return, gift card) — change it there, once.
   A form sent to an address that has a Next.js page goes to lib/site.ts (proxy.ts, `hasNextPage`).
-- public/js/shop.js and i18n.js start after React has taken over a Next.js page (`smWhenReady`, components/shop/chrome/Hydrated.tsx).
+- The browser code is TypeScript in `client/` (2026-10-18: no hand-written .js files anywhere): `client/shop` (cart,
+  checkout, OTP, gallery, live scores, search …), `client/i18n` (বাংলা ⇄ English), `client/admin` (menus, uploads,
+  pickers, handover, POS, stock scan, import, login lock …), `client/sw` (the two service workers). `npm run build:client`
+  (part of `npm run build`, `npm run dev`) compiles it to `public/js/**` and `public/sw.js` / `public/admin-sw.js` —
+  generated, not kept in git. Pages load them with `<script type="module" src="/js/<part>/<file>.js">`.
+  Changes to the page are made with JSX (`client/jsx.ts`: `<div>{text}</div>` makes real DOM nodes, text is never
+  HTML) and `paint(el, …)` — never innerHTML strings; ready-made HTML from the shop's own API goes through
+  `serverHtml()`. tests/client.test.ts keeps it that way. They start after React has taken over a Next.js page
+  (`whenReady` in client/dom.ts, components/shop/chrome/Hydrated.tsx). The district list loads by itself where an
+  address form is (`loadGeo`, client/geo-data.ts — the same data as lib/data/bd-geo.json).
+- The only scripts inside a page are the tiny boot scripts that must run before it is drawn (lib/boot-scripts.ts:
+  language, side menu, Tawk) and the country-lock checks (services/geolock.ts) — modern JavaScript, tested to parse.
 - Admin in Next.js: every admin GET page is drawn by app/(admin)/admin/[[...path]] — lib/next/admin.ts runs the
   admin's own handler (lib/admin) with `drawPage` catching the page's pieces, and the React frame (AdminBody /
   AdminBare in lib/admin/layout.tsx; tests/admin-frame.test.ts) draws them. proxy.ts makes the nonce and the script
@@ -91,5 +102,9 @@ uses that one setup. Never add a second Gmail / App Password / SMS / API-key fie
   ctx.send(status, body, type?, headers?) / ctx.json(status, data) / ctx.redirect(to) and, for a file,
   ctx.reply.answer(status, headers, body) (lib/reply.ts → a Web Response). There is no Node req/res anywhere:
   ctx.req is a plain object (headers, url, method, socket.remoteAddress, the body text).
+- E-mails are drawn with React too (lib/emails.tsx: the offer mail, new order, delete code, account code, plain alerts)
+  and turned into HTML only when sent (`emailHtml`). A mail sent without its own HTML gets its text as a simple HTML mail.
+  The only hand-written HTML left is the handful of fixed emergency pages (database down, too many requests, country
+  closed, blocked visitor) that must still answer when nothing else works.
 - Database: only a dropped connection is retried (lib/pg isConnectionError); an order is retried on a deadlock (db.txRetry).
   Tests run one file at a time (`--test-concurrency=1`): the database tests share one throw-away database.

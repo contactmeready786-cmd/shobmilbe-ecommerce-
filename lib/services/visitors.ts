@@ -1,5 +1,5 @@
 // Visitor analytics: who visits the shop, from where, what they look at and for how long.
-// The browser (public/js/shop.js) sends small beacons to POST /api/v; this file stores them
+// The browser (client/shop/track.ts) sends small beacons to POST /api/v; this file stores them
 // and answers the questions the admin "ভিজিটর অ্যানালিটিক্স" page asks.
 //
 // Location comes from Vercel's geo-IP headers (x-vercel-ip-country / -country-region / -city),

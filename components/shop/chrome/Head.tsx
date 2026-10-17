@@ -6,6 +6,7 @@ import * as $services_geolock from '../../../lib/services/geolock';
 import { HeadHtml } from '../../../lib/react/head-html';
 import type { Settings } from '../../../lib/types';
 import { ASSET_V, customScripts } from './Chrome';
+import { shopLangBoot } from '../../../lib/boot-scripts';
 
 const inline = (code: string, key?: string) => <script key={key} dangerouslySetInnerHTML={{ __html: code }} />;
 
@@ -38,7 +39,7 @@ function LangBoot({ s }: { s: Settings }) {
   const def = s.i18n_default === 'en' ? 'en' : 'bn';
   return (
     <>
-      {inline(`(function(){var d=document.documentElement,l=${JSON.stringify(def)};try{var q=/[?&]lang=(en|bn)(?:&|$)/.exec(location.search);if(q){l=q[1];localStorage.setItem('sm_lang',l);}else{l=localStorage.getItem('sm_lang')||l;}}catch(e){}d.setAttribute('data-lang',l);if(l==='en'){d.lang='en';d.className+=' i18n-wait';setTimeout(function(){d.className=d.className.replace(' i18n-wait','');},1200);}})();`)}
+      {inline(shopLangBoot(def))}
       <style dangerouslySetInnerHTML={{ __html: 'html.i18n-wait body{visibility:hidden}' }} />
     </>
   );

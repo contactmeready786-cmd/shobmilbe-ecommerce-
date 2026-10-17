@@ -1,6 +1,7 @@
 // ⚛️ The frame around every shop page: top notice bar, header (logo, search, menu, cart), category menu, phone
 // drawer, footer, chat buttons, pop-up offer, and the scripts the page needs. One component for both the Next.js
 // pages (app/(shop)/layout.tsx) and the pages still answered by lib/site.ts (lib/views/layout.tsx).
+import { tawkLoader } from '../../../lib/boot-scripts';
 import type { ReactNode } from 'react';
 import * as U from '../../../lib/services/uiswitch';
 import * as security from '../../../lib/security';
@@ -205,9 +206,9 @@ export function ShopBody({ settings: s, categories, pages, popup = null, q = '',
       ) : null}
       <div className="toast" role="status" aria-live="polite" data-toast=""></div>
       <script dangerouslySetInnerHTML={{ __html: `window.SM=${JSON.stringify(cfg).replace(/</g, '\\u003c')};` }} />
-      {s.i18n_on === '1' ? <script src={`/js/i18n.js?v=${ASSET_V}`} defer></script> : null}
-      <script src={`/js/shop.js?v=${ASSET_V}`} defer></script>
-      {s.chat_tawk_property ? <script dangerouslySetInnerHTML={{ __html: `var Tawk_API=Tawk_API||{};(function(){var s1=document.createElement("script"),s0=document.getElementsByTagName("script")[0];s1.async=true;s1.src='https://embed.tawk.to/${encodeURI(String(s.chat_tawk_property))}/${encodeURI(String(s.chat_tawk_widget || 'default'))}';s1.charset='UTF-8';s1.setAttribute('crossorigin','*');s0.parentNode.insertBefore(s1,s0);})();` }} /> : null}
+      {s.i18n_on === '1' ? <script type="module" src={`/js/i18n/main.js?v=${ASSET_V}`}></script> : null}
+      <script type="module" src={`/js/shop/main.js?v=${ASSET_V}`}></script>
+      {s.chat_tawk_property ? <script dangerouslySetInnerHTML={{ __html: tawkLoader(String(s.chat_tawk_property), String(s.chat_tawk_widget || 'default')) }} /> : null}
       <BodyHtml html={(s.chat_script || '') + (s.custom_body || '') + customScripts(s, 'body')} />
     </>
   );

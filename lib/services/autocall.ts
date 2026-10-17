@@ -5,6 +5,7 @@
 //   • the company calls the customer and reads the message (Bangla text-to-speech or a recorded voice),
 //   • when the customer presses a key, the company calls back /webhook/autocall/<secret> with the result,
 //   • the order is confirmed / put on hold / cancelled (as the owner chose) and the owner is notified.
+import { emailHtml, PlainEmail } from '../emails';
 import * as crypto from 'node:crypto';
 import * as db from '../db';
 import { fetchJson, str } from '../util';
@@ -162,7 +163,7 @@ async function apply(s?: Loose, row?: Loose, result?: Loose) {
     jobs.push(push.count().then((n) => (n ? push.sendAll({ title: `${ic} অটো কল: ${label}`, body: `${row.code} · ${row.customer_name || ''}${did}`, url: `/admin/orders/${row.order_id}`, tag: 'autocall-' + row.order_id }) : null)).catch(() => null));
   } catch (_) { /* no push */ }
   if (notify.waConfig(s).ready && s.autocall_notify_wa !== '0') jobs.push(notify.sendWhatsApp(s, text).catch(() => null));
-  if (notify.emailConfig(s).ready && s.autocall_notify_email === '1') jobs.push(notify.sendEmail(s, `${ic} অটো কল ${row.code}: ${label}`, text, `<pre style="font-family:Arial,sans-serif;font-size:15px">${notify.escapeHtml(text)}</pre>`).catch(() => null));
+  if (notify.emailConfig(s).ready && s.autocall_notify_email === '1') jobs.push(notify.sendEmail(s, `${ic} অটো কল ${row.code}: ${label}`, text, await emailHtml(PlainEmail({ text, font: 'Arial,sans-serif' }))).catch(() => null));
   await Promise.all(jobs);
 }
 

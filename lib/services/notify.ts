@@ -3,6 +3,7 @@
 //  - security events (password reset, many wrong passwords, owner login) -> e-mail + WhatsApp
 // No npm packages: a tiny SMTP client over TLS (smtp.gmail.com:465) and one HTTPS call for WhatsApp.
 // Every setting lives in Admin → নোটিফিকেশন (owner only). Passwords/API keys are stored encrypted.
+import { emailHtml, OrderEmail, PlainEmail, type OrderMail } from '../emails';
 import * as tls from 'node:tls';
 import * as crypto from 'node:crypto';
 import * as $db from '../db';
@@ -88,7 +89,12 @@ function waConfig(settings: Settings) {
 }
 
 // ---------------------------------------------------------------- SMTP (Gmail)
-function smtpSend({ user, pass, to, subject, text, htmlBody, fromName, headers = {} }: Body) {
+/** Sends one mail through Gmail. A mail without its own HTML gets the text drawn as a simple HTML mail. */
+async function smtpSend(mail: Body) {
+  const htmlBody = mail.htmlBody || (await emailHtml(PlainEmail({ text: String(mail.text ?? '') })));
+  return smtpWire({ ...mail, htmlBody });
+}
+function smtpWire({ user, pass, to, subject, text, htmlBody, fromName, headers = {} }: Body) {
   return new Promise((resolve, reject) => {
     const sock = tls.connect({ host: SMTP_HOST, port: SMTP_PORT, servername: SMTP_HOST });
     let buf = '';
@@ -145,7 +151,7 @@ function smtpSend({ user, pass, to, subject, text, htmlBody, fromName, headers =
       'Content-Type: text/html; charset=UTF-8',
       'Content-Transfer-Encoding: base64',
       '',
-      wrap76(b64(htmlBody || `<pre style="font-family:sans-serif;white-space:pre-wrap">${escapeHtml(text)}</pre>`)),
+      wrap76(b64(htmlBody)),
       `--${boundary}--`,
       '',
     ].join('\r\n');
@@ -265,18 +271,14 @@ function newOrder(settings: Settings, site?: Loose, o?: Loose) {
     '',
     `অর্ডারটি প্রসেস করুন: ${link}`,
   ].filter((x, i, a) => !(x === '' && a[i - 1] === '')).join('\n');
-  const htmlBody = `<div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.6;color:#222">
-<h2 style="margin:0 0 8px;color:#0a7d3b">🛒 নতুন অর্ডার এসেছে — ${escapeHtml(o.code)}</h2>
-<p><b>কাস্টমার:</b> ${escapeHtml(o.name)}<br><b>মোবাইল:</b> ${escapeHtml(o.phone)}<br>
-<b>ঠিকানা:</b> ${escapeHtml(o.address)}, ${escapeHtml(o.thana)}, ${escapeHtml(o.district)}</p>
-<table style="border-collapse:collapse;width:100%;max-width:520px">${(o.lines || []).map((l?: Loose) => `<tr><td style="padding:4px 8px;border-bottom:1px solid #eee">${escapeHtml(l.name)}</td>
-<td style="padding:4px 8px;border-bottom:1px solid #eee;text-align:right">× ${l.qty}</td><td style="padding:4px 8px;border-bottom:1px solid #eee;text-align:right">${tk(l.price * l.qty)}</td></tr>`).join('')}
-<tr><td colspan="2" style="padding:6px 8px;text-align:right"><b>মোট</b></td><td style="padding:6px 8px;text-align:right"><b>${tk(o.total)}</b></td></tr></table>
-<p><b>পেমেন্ট:</b> ${escapeHtml(pay)}${o.note ? `<br><b>নোট:</b> ${escapeHtml(o.note)}` : ''}</p>
-<p><a href="${escapeHtml(link)}" style="display:inline-block;background:#0a7d3b;color:#fff;padding:10px 18px;border-radius:6px;text-decoration:none">অর্ডারটি খুলুন ও প্রসেস করুন</a></p></div>`;
+  const mail: OrderMail = {
+    code: o.code, name: o.name, phone: o.phone, address: o.address, thana: o.thana, district: o.district,
+    lines: (o.lines || []).map((l?: Loose) => ({ name: l.name, qty: l.qty, amount: tk(l.price * l.qty) })),
+    total: tk(o.total), pay, note: o.note || '', link,
+  };
   const jobs: Loose[] = [];
   if (settings.notify_order_email !== '0' && emailConfig(settings).ready) {
-    jobs.push(logResult('notify-email', 'order ' + o.code, () => sendEmail(settings, `🛒 নতুন অর্ডার ${o.code} — ${tk(o.total)}`, text, htmlBody)));
+    jobs.push(logResult('notify-email', 'order ' + o.code, async () => sendEmail(settings, `🛒 নতুন অর্ডার ${o.code} — ${tk(o.total)}`, text, await emailHtml(OrderEmail({ o: mail })))));
   }
   if (settings.notify_order_push !== '0') {
     const n = (o.lines || []).reduce((t?: Loose, l?: Loose) => t + Number(l.qty || 0), 0);
