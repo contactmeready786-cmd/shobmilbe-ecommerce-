@@ -142,8 +142,10 @@ export function htmlValue(v: unknown): string {
   return esc(v);
 }
 
-const ATTR_NAMES: Record<string, string> = { class: 'className', for: 'htmlFor', readonly: 'readOnly', autofocus: 'autoFocus', novalidate: 'noValidate', tabindex: 'tabIndex', maxlength: 'maxLength' };
-const BOOL_PROPS = new Set(['checked', 'selected', 'disabled', 'required', 'hidden', 'open', 'multiple', 'readOnly', 'autoFocus', 'noValidate', 'defer', 'async']);
+// A box ticked from the start is "defaultChecked" for React: the page shows checked="" exactly as before, and the box
+// stays the visitor's to change. (Written as checked, React would hold it ticked once it takes the page over.)
+const ATTR_NAMES: Record<string, string> = { class: 'className', for: 'htmlFor', readonly: 'readOnly', autofocus: 'autoFocus', novalidate: 'noValidate', tabindex: 'tabIndex', maxlength: 'maxLength', checked: 'defaultChecked' };
+const BOOL_PROPS = new Set(['defaultChecked', 'selected', 'disabled', 'required', 'hidden', 'open', 'multiple', 'readOnly', 'autoFocus', 'noValidate', 'defer', 'async']);
 /** Attributes written as text inside a tag, e.g. ${on ? raw('checked') : ''} or raw('aria-current="page"'), as JSX props. */
 export function attrProps(v: unknown): Record<string, string | boolean> {
   const s = v instanceof Raw ? v.s : attrValue(v);
