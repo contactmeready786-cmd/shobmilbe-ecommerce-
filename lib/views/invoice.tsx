@@ -46,7 +46,7 @@ const shell = (title?: Loose, css?: Loose, bodyHtml?: Loose, { embed }: Body = {
 <style>${(css)}</style></head><body class="${htmlValue(embed ? 'embed' : '')}">
 ${htmlValue(embed ? '' : raw('<div class="bar"><button type="button" data-print>🖨️ প্রিন্ট করুন</button><a href="/admin/orders" data-back>← ফিরে যান</a></div>'))}
 ${(renderHtml(bodyHtml))}
-${htmlValue(embed ? '' : raw(`<script src="/js/page-actions.js?v=${PA_V}" defer></script>`))}
+${htmlValue(embed ? '' : raw(`<script type="module" src="/js/admin/page-actions.js?v=${PA_V}"></script>`))}
 </body></html>`;
 const BASE_CSS = `*{box-sizing:border-box}body{font-family:'Noto Sans Bengali',sans-serif;color:#14213D;margin:0;background:#E9EEF5;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 body.embed{background:transparent}

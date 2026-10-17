@@ -236,25 +236,33 @@ function page() {
 <div style="background:#e5e7eb;border-radius:8px;height:18px;overflow:hidden"><div id="bar" style="background:#16a34a;height:100%;width:0%"></div></div>
 <p id="msg">শুরু হচ্ছে…</p>
 <script>
-(function run(){
-  fetch('/__dbmove', { method: 'POST' }).then(function (r) { return r.json(); }).then(function (d) {
-    var msg = document.getElementById('msg');
-    if (d.error) { msg.textContent = 'সমস্যা: ' + d.error + ' — ১০ সেকেন্ড পর আবার চেষ্টা হবে।'; return setTimeout(run, 10000); }
-    if (d.needKeys) { msg.innerHTML = '⏸️ ছবিগুলো ImageKit-এ যাবে, কিন্তু Vercel-এ ImageKit-এর চাবি (IMAGEKIT_PRIVATE_KEY ও IMAGEKIT_URL_ENDPOINT) এখনো বসানো হয়নি। চাবি বসিয়ে Redeploy দিলে নিজে থেকেই শুরু হবে।' + (d.why ? '<br><b>কারণ: ' + d.why + '</b>' : ''); return setTimeout(run, 30000); }
-    var pc = d.total ? Math.min(100, Math.round(d.copied * 100 / d.total)) : 100;
-    document.getElementById('bar').style.width = pc + '%';
-    if (d.retry) { msg.textContent = 'যাচাইয়ে অমিল পাওয়া গেছে, তাই আবার প্রথম থেকে নিখুঁতভাবে কপি হচ্ছে (চেষ্টা ' + (d.retry + 1) + ')…'; return run(); }
-    if (d.done) {
-      var v = d.verify || {};
-      msg.innerHTML = v.ok ? '✅ সম্পূর্ণ হয়েছে! ' + (v.tables || '') + 'টি টেবিলের ' + (v.rows || '') + 'টি তথ্য একটা একটা করে মিলিয়ে দেখা হয়েছে — ১০০% মিলেছে। দোকান খুলছে…'
-        : '⚠️ কপি শেষ, কিন্তু কিছু অমিল আছে: ' + (v.mismatches || []).join(', ') + '। পুরনো ডাটাবেস মুছবেন না — Claude-কে এই লেখার স্ক্রিনশট দিন।';
-      if (v.ok) setTimeout(function () { location.reload(); }, 4000);
-      return;
-    }
-    msg.textContent = pc + '% সম্পন্ন (' + d.copied + ' / ' + d.total + ')';
-    run();
-  }).catch(function () { setTimeout(run, 5000); });
-})();
+const msg = document.getElementById('msg');
+const say = (...parts) => { msg.replaceChildren(...parts.map((p) => (typeof p === 'string' ? document.createTextNode(p) : p))); };
+const bold = (t) => { const b = document.createElement('b'); b.textContent = t; return b; };
+const run = async () => {
+  let d;
+  try { d = await (await fetch('/__dbmove', { method: 'POST' })).json(); } catch { setTimeout(run, 5000); return; }
+  if (d.error) { say(\`সমস্যা: \${d.error} — ১০ সেকেন্ড পর আবার চেষ্টা হবে।\`); setTimeout(run, 10000); return; }
+  if (d.needKeys) {
+    say('⏸️ ছবিগুলো ImageKit-এ যাবে, কিন্তু Vercel-এ ImageKit-এর চাবি (IMAGEKIT_PRIVATE_KEY ও IMAGEKIT_URL_ENDPOINT) এখনো বসানো হয়নি। চাবি বসিয়ে Redeploy দিলে নিজে থেকেই শুরু হবে।',
+      ...(d.why ? [document.createElement('br'), bold(\`কারণ: \${d.why}\`)] : []));
+    setTimeout(run, 30000);
+    return;
+  }
+  const pc = d.total ? Math.min(100, Math.round((d.copied * 100) / d.total)) : 100;
+  document.getElementById('bar').style.width = \`\${pc}%\`;
+  if (d.retry) { say(\`যাচাইয়ে অমিল পাওয়া গেছে, তাই আবার প্রথম থেকে নিখুঁতভাবে কপি হচ্ছে (চেষ্টা \${d.retry + 1})…\`); run(); return; }
+  if (d.done) {
+    const v = d.verify || {};
+    say(v.ok ? \`✅ সম্পূর্ণ হয়েছে! \${v.tables || ''}টি টেবিলের \${v.rows || ''}টি তথ্য একটা একটা করে মিলিয়ে দেখা হয়েছে — ১০০% মিলেছে। দোকান খুলছে…\`
+      : \`⚠️ কপি শেষ, কিন্তু কিছু অমিল আছে: \${(v.mismatches || []).join(', ')}। পুরনো ডাটাবেস মুছবেন না — Claude-কে এই লেখার স্ক্রিনশট দিন।\`);
+    if (v.ok) setTimeout(() => location.reload(), 4000);
+    return;
+  }
+  say(\`\${pc}% সম্পন্ন (\${d.copied} / \${d.total})\`);
+  run();
+};
+run();
 </script></body></html>`;
 }
 

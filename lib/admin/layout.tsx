@@ -1,4 +1,5 @@
 import { Val, RawHtml, attrValue, htmlValue, jsxList, renderHtml } from '../react/html';
+import { adminLangBoot, adminSideBoot } from '../boot-scripts';
 import { cspNonce } from '../security';
 import type { ReactNode } from 'react';
 import { raw } from '../util';
@@ -226,7 +227,7 @@ function logoMark(settings: Settings) {
 const adminLangOn = (settings: Settings) => settings.admin_i18n_on !== '0';
 function langHead(settings: Settings) {
   if (!adminLangOn(settings)) return '';
-  return raw(`<script nonce="${cspNonce()}">(function(){try{if(localStorage.getItem('sm_admin_lang')==='en'){var d=document.documentElement;d.className+=' admin-i18n-wait';d.setAttribute('data-admin-lang','en');}}catch(e){}})();</script><style>html.admin-i18n-wait body{visibility:hidden}</style>`);
+  return raw(`<script nonce="${cspNonce()}">${adminLangBoot}</script><style>html.admin-i18n-wait body{visibility:hidden}</style>`);
 }
 function langSwitch(settings: Settings) {
   if (!adminLangOn(settings)) return '';
@@ -237,9 +238,9 @@ function langSwitch(settings: Settings) {
 function AdminScripts({ settings }: { settings: Settings }) {
   return (
     <>
-      <script src={`/js/admin.js?v=${ASSET_V}`} defer />
-      <script src={`/js/page-actions.js?v=${ASSET_V}`} defer />
-      {adminLangOn(settings) ? <script src={`/js/admin-i18n.js?v=${ASSET_V}`} defer data-admin-i18n="" data-v={ASSET_V} /> : null}
+      <script type="module" src={`/js/admin/main.js?v=${ASSET_V}`} />
+      <script type="module" src={`/js/admin/page-actions.js?v=${ASSET_V}`} />
+      {adminLangOn(settings) ? <script type="module" src={`/js/admin/i18n.js?v=${ASSET_V}`} data-admin-i18n="" data-v={ASSET_V} /> : null}
     </>
   );
 }
@@ -271,7 +272,7 @@ function AdminBody({ settings, user, active, readOnly, path = '', nonce, childre
   };
   return (
     <>
-      <script nonce={nonce} dangerouslySetInnerHTML={{ __html: "try{if(localStorage.getItem('sm_side_hidden')==='1')document.body.classList.add('side-hidden')}catch(e){}" }} />
+      <script nonce={nonce} dangerouslySetInnerHTML={{ __html: adminSideBoot }} />
       <aside className="side" id="side" aria-label="Admin মেনু">
         <button className="side-x" type="button" data-side-toggle="" aria-label="মেনু বন্ধ করুন" title="মেনু বন্ধ করুন">✕</button>{' '}
         <a className="side-logo logo" href="/admin" translate="no">{logoMark(settings)}<small>Admin</small></a>

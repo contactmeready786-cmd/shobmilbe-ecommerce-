@@ -1,5 +1,5 @@
 'use client';
-// Tells the shop's own scripts (public/js/shop.js, i18n.js) that React has finished taking over the page, so they can
+// Tells the shop's own scripts (client/shop, client/i18n) that React has finished taking over the page, so they can
 // start changing it (cart count, gallery, language) without React finding something it didn't draw.
 import { useEffect } from 'react';
 

@@ -5,10 +5,10 @@ import { Hydrated } from '@/components/shop/chrome/Hydrated';
 import { adminBodyClass, ASSET_V } from '@/lib/admin/layout';
 import { currentAdminPage } from '@/lib/next/admin';
 import { getSettings } from '@/lib/next/shop-data';
+import { adminLangBoot } from '@/lib/boot-scripts';
 
 export const dynamic = 'force-dynamic';
 
-const LANG_HEAD = "(function(){try{if(localStorage.getItem('sm_admin_lang')==='en'){var d=document.documentElement;d.className+=' admin-i18n-wait';d.setAttribute('data-admin-lang','en');}}catch(e){}})();";
 
 export default async function AdminRoot({ children }: { children: ReactNode }) {
   const cur = await currentAdminPage();
@@ -28,7 +28,7 @@ export default async function AdminRoot({ children }: { children: ReactNode }) {
         <link rel="manifest" href="/admin.webmanifest" />
         <link rel="apple-touch-icon" href="/icon-192.png" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
-        {s.admin_i18n_on !== '0' ? <><script nonce={nonce} dangerouslySetInnerHTML={{ __html: LANG_HEAD }} /><style dangerouslySetInnerHTML={{ __html: 'html.admin-i18n-wait body{visibility:hidden}' }} /></> : null}
+        {s.admin_i18n_on !== '0' ? <><script nonce={nonce} dangerouslySetInnerHTML={{ __html: adminLangBoot }} /><style dangerouslySetInnerHTML={{ __html: 'html.admin-i18n-wait body{visibility:hidden}' }} /></> : null}
       </head>
       <body className={adminBodyClass(cur.kind === 'page' && cur.bare)} suppressHydrationWarning>
         {children}

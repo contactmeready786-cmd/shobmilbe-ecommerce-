@@ -43,11 +43,13 @@ test('no inline event handlers or javascript: links in admin pages', () => {
       if (/href=["']\s*javascript:/i.test(line)) bad.push(`${f}:${i + 1}: javascript: link`);
     });
   }
-  assert.deepEqual(bad, [], 'use data-print / data-autosubmit / data-back (public/js/page-actions.js) instead');
+  assert.deepEqual(bad, [], 'use data-print / data-autosubmit / data-back (client/admin/page-actions.ts) instead');
 });
 
 test('the admin scripts the pages load also avoid inline handlers', () => {
-  for (const f of ['public/js/admin.js', 'public/js/page-actions.js']) {
+  const files = readdirSync(join(ROOT, 'client/admin')).filter((x) => /\.tsx?$/.test(x)).map((x) => `client/admin/${x}`);
+  assert.ok(files.length > 5, 'the admin browser code lives in client/admin');
+  for (const f of files) {
     const src = read(f);
     assert.ok(!/\son(click|change|input|submit|load|error)\s*=\s*\\?["']/i.test(src), `${f} writes an inline handler into the page`);
     assert.ok(!/\beval\s*\(|new Function\s*\(/.test(src), `${f} uses eval`);

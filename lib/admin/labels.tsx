@@ -62,7 +62,7 @@ async function labels(ctx: AdminCtx) {
   <a href="/admin" data-back>← ফিরে যান</a>
 </div>
 <div class="sheet">${htmlValue(stickers.map((p) => <div className="lab">{(showName ? <div className="nm">{str(p.name, 70)}</div> : null)}{' '}<RawHtml html={BC.svg(p.barcode || BC.productCode(p.id), { height: 40, module: 2, fontSize: 12, quiet: 6 })} /><div className="row"><span>{(p.sku ? `SKU ${p.sku}` : null)}{(showLoc && p.location ? ` · 📍${p.location}` : null)}</span>{(showPrice ? <span className="pr">{money(p.price)}{(p.unit && p.unit !== 'পিস' ? `/${p.unit}` : null)}</span> : null)}</div></div>))}</div>
-<script src="/js/page-actions.js?v=${htmlValue(PA_V)}" defer></script></body></html>`;
+<script type="module" src="/js/admin/page-actions.js?v=${htmlValue(PA_V)}"></script></body></html>`;
   return ctx.send(200, page);
 }
 

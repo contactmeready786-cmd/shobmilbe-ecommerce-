@@ -46,14 +46,14 @@ jobs:
           { npm ls next react react-dom typescript --depth=0; echo "latest on npm:"; for p in next react typescript @sentry/nextjs; do echo "$p $(npm view $p version)"; done; } | tee "$RUNNER_TEMP/versions.txt" || true
       - name: Type check
         working-directory: new
-        run: npx tsc --noEmit 2>&1 | tee "$RUNNER_TEMP/typecheck.txt"
+        run: npm run typecheck 2>&1 | tee "$RUNNER_TEMP/typecheck.txt"
       - name: Tests
         working-directory: new
         env: { LIVE_DNS: '1' }
         run: SM_STRICT_PIECES=throw npx tsx --test --test-concurrency=1 --test-force-exit tests/*.test.ts tests/*.test.tsx 2>&1 | tee "$RUNNER_TEMP/tests.txt"
       - name: Build
         working-directory: new
-        run: npx next build 2>&1 | tee "$RUNNER_TEMP/build.txt"
+        run: npm run build 2>&1 | tee "$RUNNER_TEMP/build.txt"
 
       # main is the live code. Since the move to Next.js it is built and started like the new side;
       # an older main (plain Node, server.js) is started the old way.
@@ -62,7 +62,7 @@ jobs:
         run: |
           if grep -q '"next"' package.json; then
             if [ -f package-lock.json ]; then npm ci --no-audit --no-fund; else npm install --no-audit --no-fund; fi
-            npx next build > "$RUNNER_TEMP/old-build.txt" 2>&1 || { tail -40 "$RUNNER_TEMP/old-build.txt"; exit 1; }
+            npm run build > "$RUNNER_TEMP/old-build.txt" 2>&1 || { tail -40 "$RUNNER_TEMP/old-build.txt"; exit 1; }
             echo "OLD_START=npx next start" >> "$GITHUB_ENV"  # the port comes from PORT, set by run.sh
           else
             echo "OLD_START=node server.js" >> "$GITHUB_ENV"

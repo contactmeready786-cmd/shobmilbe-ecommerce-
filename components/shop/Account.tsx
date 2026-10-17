@@ -214,7 +214,7 @@ export function Dashboard({ cu, orders, addresses, settings: s, tab = 'orders', 
               </details></li>))}</ul> : <p className="muted">কোনো ঠিকানা সেভ করা নেই। নিচে যোগ করুন — অর্ডারের সময় নিজে থেকে বসে যাবে।</p>}
             <h2 className="mt">+ নতুন ঠিকানা</h2>
             <AddressForm a={{ name: cu.name, phone: dPhone }} submit="ঠিকানা সেভ করুন" />
-          </section><script src="/js/bd-geo.js" defer></script>
+          </section>
         </>
       ) : null}
       {tab === 'profile' ? (

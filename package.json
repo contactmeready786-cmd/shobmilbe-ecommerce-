@@ -4,10 +4,11 @@
   "private": true,
   "description": "সবমিলবে — online shop (Next.js, TypeScript, Postgres, Vercel)",
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
+    "dev": "npm run build:client && next dev",
+    "build:client": "tsc -p client/tsconfig.json && tsc -p client/sw/tsconfig.json",
+    "build": "npm run build:client && next build",
     "start": "next start",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc -p client/tsconfig.json --noEmit && tsc -p client/sw/tsconfig.json --noEmit",
     "test": "SM_STRICT_PIECES=throw tsx --test --test-concurrency=1 --test-force-exit tests/*.test.ts tests/*.test.tsx"
   },
   "engines": {

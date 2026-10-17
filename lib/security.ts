@@ -128,7 +128,7 @@ const ADMIN_CSP = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-
 // Admin pages, stricter still (owner, 2026-10-17): no 'unsafe-inline' for scripts. Each admin page gets a fresh random
 // "nonce"; only the <script> tags our own templates write carry it (nonce="${cspNonce()}"), so a script someone
 // managed to slip into a product name, an order note or a review would not run even if escaping ever missed it.
-// Inline onclick="…" attributes are not allowed either — use data-print / data-autosubmit / data-back (public/js/page-actions.js).
+// Inline onclick="…" attributes are not allowed either — use data-print / data-autosubmit / data-back (client/admin/page-actions.ts).
 // tests/csp.test.ts checks every admin template for a <script> without the nonce and for on…= attributes.
 const nonceStore = new AsyncLocalStorage<{ nonce: string }>();
 /** Starts a nonce for this request (admin only); the rest of the request sees it through cspNonce(). */

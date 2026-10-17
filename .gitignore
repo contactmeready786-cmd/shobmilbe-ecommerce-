@@ -10,3 +10,7 @@ next-env.d.ts
 *.tsbuildinfo
 .localdev/
 lib/views/__old_*.ts
+# made from client/ by `npm run build:client` (the browser code is TypeScript)
+/public/js/**/*.js
+/public/sw.js
+/public/admin-sw.js
