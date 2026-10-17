@@ -43,6 +43,7 @@ jobs:
       - name: Tests (with a throw-away database)
         env:
           TEST_DATABASE_URL: postgres://postgres:ci-only@127.0.0.1:5432/shop_test?sslmode=disable
+          LIVE_DNS: '1' # GitHub's machines have internet: also check a real Googlebot address
         shell: bash
         run: |
           set -o pipefail
