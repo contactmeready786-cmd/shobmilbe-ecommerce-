@@ -7,7 +7,7 @@
 // overwritten, so it can't be faked.
 import { NextResponse, type NextRequest } from 'next/server';
 import { servedByNext } from './lib/next/routes';
-import { missing } from './lib/next/loaders';
+import { drawableHere } from './lib/next/loaders';
 import { shopGate, refCookie, refToRemember } from './lib/gate';
 import { BASE_HEADERS } from './lib/security';
 
@@ -25,8 +25,9 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next({ request: { headers } });
   }
 
-  // something that doesn't exist: the shop's own 404 page (the original code also runs the gate for it)
-  if (await missing(path)) return NextResponse.rewrite(new URL('/api/legacy' + url.pathname + url.search, request.url), { request: { headers } });
+  // something that doesn't exist: the shop's own 404 page (the original code also runs the gate for it);
+  // something that moved: its new address — exactly as the original code does
+  if (!(await drawableHere(path))) return NextResponse.rewrite(new URL('/api/legacy' + url.pathname + url.search, request.url), { request: { headers } });
 
   const plain: Record<string, string> = {};
   request.headers.forEach((v, k) => { plain[k] = v; });

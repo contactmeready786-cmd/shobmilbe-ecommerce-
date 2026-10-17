@@ -5,6 +5,8 @@ import { headers } from 'next/headers';
 import * as db from '../db';
 import * as catalog from '../models/catalog';
 import * as content from '../models/content';
+import { siteUrl } from '../gate';
+import { resolveShop, type Resolved } from '../shop/router';
 import type { Loose, Settings } from '../types';
 
 export const getSettings = cache(async (): Promise<Settings> => {
@@ -33,3 +35,19 @@ export function activeFor(pathname: string): string {
   const first = pathname.split('/')[1] || '';
   return ['blog', 'cart', 'live', 'products', 'track', 'account'].includes(first) ? first : '';
 }
+
+/** The address as the shop's router sees it: decoded, without a trailing slash. */
+export const getShopPath = cache(async (): Promise<string> => {
+  const url = await getRequestUrl();
+  let path = url.pathname;
+  try { path = decodeURIComponent(path); } catch { /* keep as sent */ }
+  return path.length > 1 ? path.replace(/\/+$/, '') : path;
+});
+
+/** The page at this address from lib/shop/router.tsx — loaded once per visit and shared by the frame, the head and the body. */
+export const currentShopPage = cache(async (): Promise<Resolved> => {
+  const [{ settings, categories }, url, path, h] = await Promise.all([getChrome(), getRequestUrl(), getShopPath(), headers()]);
+  const plain: Record<string, string> = {};
+  h.forEach((v: string, k: string) => { plain[k] = v; });
+  return resolveShop({ path, query: url.searchParams, settings, categories, base: siteUrl({ headers: plain }, settings) });
+});
