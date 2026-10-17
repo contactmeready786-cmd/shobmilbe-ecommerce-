@@ -1,5 +1,5 @@
-import { Val, attrValue, attrProps, jsxList } from '../react/html';
-import { raw, int, list, num, bn, money, qtyRule } from '../util';
+import { Val, attrValue, jsxList } from '../react/html';
+import { int, list, num, bn, money, qtyRule } from '../util';
 import * as O from '../models/orders';
 import * as ui from './ui';
 import { saveKeys } from './marketing';

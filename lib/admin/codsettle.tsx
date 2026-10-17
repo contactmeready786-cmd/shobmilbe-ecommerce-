@@ -11,7 +11,6 @@ import * as ui from './ui';
 import * as courier from '../services/courier';
 import * as finance from '../models/finance';
 import type { AdminCtx, Loose } from '../types';
-import type { Tx } from '../pg';
 
 const BASE = '/admin/accounts/cod';
 // what the courier collects for an order: the total minus what was paid before delivery (gift card, advance)

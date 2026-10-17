@@ -1,12 +1,12 @@
 // Admin → অর্ডার ও কাস্টমার → 🔐 চেকআউট OTP (ফেক অর্ডার বন্ধ): switch it on/off, the SMS text, how long a checked number is
 // remembered, what happens when SMS can't go, the daily limit — and what happened lately (codes, orders by how they were checked).
 import { Val, attrValue, jsxList } from '../react/html';
-import { raw, str, int, bn, fmtDate } from '../util';
+import { str, int, bn, fmtDate } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
 import * as CO from '../models/checkoutotp';
 import * as $services_sms from '../services/sms';
-import type { AdminCtx, Loose } from '../types';
+import type { AdminCtx } from '../types';
 
 const BASE = '/admin/checkout-otp';
 

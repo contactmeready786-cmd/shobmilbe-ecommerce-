@@ -6,7 +6,7 @@
 // only that phone's browser can read the message. Built with Node's crypto only (no npm packages).
 import * as crypto from 'node:crypto';
 import * as db from '../db';
-import type { Body, Id, Loose, Settings } from '../types';
+import type { Body, Id, Loose } from '../types';
 
 const b64u = (b?: Loose) => Buffer.from(b).toString('base64url');
 const fromB64u = (s?: Loose) => Buffer.from(String(s || ''), 'base64url');

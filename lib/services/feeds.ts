@@ -5,7 +5,7 @@
 import * as db from '../db';
 import * as $autoseo from './autoseo';
 import * as $security from '../security';
-import type { Base, Body, Id, Loose, Settings } from '../types';
+import type { Body, Loose, Settings } from '../types';
 
 const CHANNELS: Record<string, Loose> = {
   google: { title: 150, desc: 5000, extraImages: 10, label: 'Google Merchant Center' },

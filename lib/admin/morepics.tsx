@@ -22,7 +22,6 @@
 //   3. GET  /admin/api/import/image    — (existing) bring each picture safely; the browser
 //                                         resizes + fingerprints + uploads it
 //   4. POST /admin/api/morepics/attach — add the uploaded pictures to the product (no repeats)
-import { Val } from '../react/html';
 import { int, str } from '../util';
 import * as catalog from '../models/catalog';
 import { hamming } from '../models/duplicates';
@@ -32,8 +31,7 @@ import * as ui from './ui';
 import * as importer from '../services/importer';
 import { safeFetch, FetchError } from '../services/safefetch';
 import { readUrl } from './import';
-import type { AdminCtx, Body, Loose } from '../types';
-import type { Tx } from '../pg';
+import type { AdminCtx, Loose } from '../types';
 
 const SAME_PHOTO = 24; // fingerprint distance: same photo ≈ 0-30, different photo ≈ 80+
 

@@ -1,5 +1,5 @@
 // Admin: live cricket & football scores on the storefront (on/off switches, leagues, refresh speed).
-import { Val, attrValue, attrProps, jsxList } from '../react/html';
+import { Val, attrValue, jsxList } from '../react/html';
 import { raw, int, list } from '../util';
 import * as db from '../db';
 import * as ui from './ui';

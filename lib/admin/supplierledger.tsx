@@ -9,7 +9,7 @@ import { int, str, bn, money, fmtDate, ymd, validYmd, round2 } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
 import * as finance from '../models/finance';
-import type { AdminCtx, Body, Id, Loose } from '../types';
+import type { AdminCtx, Id, Loose } from '../types';
 async function entries(id?: Id) {
   return db.q(`SELECT * FROM (
       SELECT 'p' AS kind, p.id, p.purchase_date AS d, p.code AS ref, p.total AS amount, p.status, p.note, p.created_at AS at,

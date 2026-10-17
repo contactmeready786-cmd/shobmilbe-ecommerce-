@@ -7,7 +7,6 @@
 import * as db from '../db';
 import { str, int } from '../util';
 import type { Body, Id, Loose } from '../types';
-import type { Tx } from '../pg';
 
 class WhError extends Error {}
 

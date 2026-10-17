@@ -1,11 +1,11 @@
 // Admin → পণ্য → (a product) → 🎨 ভ্যারিয়েন্ট: the sizes / colours / models of one product.
 // Every row is a variant with its own price, stock, SKU and barcode. The shop shows a picker on the product page.
-import { Val, attrValue, attrProps, jsxList } from '../react/html';
-import { raw, int, str, bn, money } from '../util';
+import { Val, attrValue, jsxList } from '../react/html';
+import { int, str, bn, money } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
 import * as catalog from '../models/catalog';
-import type { AdminCtx, Body, Id, Loose } from '../types';
+import type { AdminCtx, Body, Loose } from '../types';
 
 const PRESET_TITLES = ['রং', 'সাইজ', 'মডেল', 'রং / সাইজ', 'ধরন', 'ভোল্টেজ', 'ক্ষমতা (ওয়াট)', 'দৈর্ঘ্য', 'প্যাক'];
 

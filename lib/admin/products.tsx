@@ -1,5 +1,5 @@
-import { Val, RawHtml, attrValue, attrProps, jsxList, renderHtml } from '../react/html';
-import { raw, money, bn, int, str, pageNum, list, youtubeId, pct, fmtDate, amount, qtyRule, shopPrice, priceProblem, PRICE_MIN, PRICE_MAX } from '../util';
+import { Val, RawHtml, attrValue, jsxList, renderHtml } from '../react/html';
+import { money, bn, int, str, pageNum, list, youtubeId, pct, fmtDate, amount, qtyRule, shopPrice, priceProblem, PRICE_MIN, PRICE_MAX } from '../util';
 import * as catalog from '../models/catalog';
 import * as dupes from '../models/duplicates';
 import * as security from '../security';
@@ -9,8 +9,7 @@ import * as $services_barcode from '../services/barcode';
 import * as $models_finance from '../models/finance';
 import * as $services_autocat from '../services/autocat';
 import * as $variants from './variants';
-import type { AdminCtx, Body, Id, Loose, Settings } from '../types';
-import type { Tx } from '../pg';
+import type { AdminCtx, Body, Id, Loose } from '../types';
 
 const PER_PAGE = 40;
 const ICONS = ['📦', '📟', '🧩', '🔋', '🔥', '🔌', '👕', '👗', '👟', '👜', '⌚', '📱', '💻', '🎧', '🔊', '📷', '🎮', '💡', '🔧', '🛠️', '⚙️',

@@ -3,9 +3,9 @@
 //  • মূসক-৬.২ বিক্রয় হিসাব পুস্তক (sales register) and মূসক-৬.১ ক্রয় হিসাব পুস্তক (purchase register), with CSV
 //  • মূসক-৬.৩ কর চালানপত্র (tax invoice) for any order, ready to print
 // The return itself is filed by the owner (or their VAT consultant) on vat.gov.bd — this page prepares the numbers.
-import { Val, attrValue, jsxList } from '../react/html';
+import { Val, attrValue, jsxList, htmlValue } from '../react/html';
 import { ASSET_V as PA_V } from './layout';
-import { html, raw, money, bn, fmtDate, int, ymd, csv, num, str } from '../util';
+import { raw, money, bn, fmtDate, int, ymd, csv, num, str } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
 import * as $models_orders from '../models/orders';
@@ -100,8 +100,8 @@ async function mushak63(ctx: AdminCtx, m?: Loose) {
   const disc = Number(o.discount || 0) + Number(o.points_discount || 0);
   const tot = lines.reduce((a?: Loose, l?: Loose) => ({ value: a.value + l.value, vat: a.vat + l.vat, gross: a.gross + l.gross }), { value: 0, vat: 0, gross: 0 });
   const discSplit = split(disc, s);
-  const page = '<!doctype html>' + html`<html lang="bn"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex">
-<title>মূসক-৬.৩ ${o.code}</title>
+  const page = '<!doctype html>' + `<html lang="bn"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex">
+<title>মূসক-৬.৩ ${htmlValue(o.code)}</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box}body{font-family:'Noto Sans Bengali',sans-serif;color:#111;margin:0;background:#EEF2F7;font-size:13px}
@@ -113,29 +113,29 @@ table{width:100%;border-collapse:collapse;margin-top:10px}th,td{border:1px solid
 .note{font-size:11.5px;color:#444;margin-top:12px}.warn{background:#fff7ed;border:1px solid #fdba74;padding:8px 10px;border-radius:6px;margin-bottom:10px}
 @media print{.bar,.warn{display:none}body{background:#fff}.m{margin:0;max-width:none;border-radius:0;padding:10mm}}
 </style></head><body>
-<div class="bar"><button type="button" data-print>🖨️ প্রিন্ট / PDF</button><a href="/admin/orders/${o.id}">← অর্ডারে ফিরুন</a></div>
+<div class="bar"><button type="button" data-print>🖨️ প্রিন্ট / PDF</button><a href="/admin/orders/${htmlValue(o.id)}">← অর্ডারে ফিরুন</a></div>
 <div class="m">
-  ${mode === 'none' || mode === 'turnover' ? <p className="warn">⚠️ আপনার ভ্যাট সেটিং এখন "<Val v={MODES[mode] || MODES.none} />"। মূসক-৬.৩ কর চালানপত্র সাধারণত ভ্যাট নিবন্ধিত (BIN আছে) ব্যবসার জন্য। দরকার হলে{' '}<a href="/admin/accounts/vat">ভ্যাট সেটিং</a>{' '}বদলান।</p> : ''}
-  ${!s.vat_bin ? <p className="warn">⚠️ BIN দেওয়া নেই —{' '}<a href="/admin/accounts/vat">ভ্যাট সেটিংস</a>-এ BIN দিন, তাহলে চালানে বসবে।</p> : ''}
+  ${htmlValue(mode === 'none' || mode === 'turnover' ? <p className="warn">⚠️ আপনার ভ্যাট সেটিং এখন "<Val v={MODES[mode] || MODES.none} />"। মূসক-৬.৩ কর চালানপত্র সাধারণত ভ্যাট নিবন্ধিত (BIN আছে) ব্যবসার জন্য। দরকার হলে{' '}<a href="/admin/accounts/vat">ভ্যাট সেটিং</a>{' '}বদলান।</p> : '')}
+  ${htmlValue(!s.vat_bin ? <p className="warn">⚠️ BIN দেওয়া নেই —{' '}<a href="/admin/accounts/vat">ভ্যাট সেটিংস</a>-এ BIN দিন, তাহলে চালানে বসবে।</p> : '')}
   <span class="f">মূসক-৬.৩</span>
   <p class="c h">গণপ্রজাতন্ত্রী বাংলাদেশ সরকার<br>জাতীয় রাজস্ব বোর্ড</p>
   <p class="c" style="font-size:16px;font-weight:700;margin:6px 0">কর চালানপত্র</p>
   <p class="c" style="margin:0">[বিধি ৪০ এর উপ-বিধি (১) এর দফা (গ) ও দফা (চ) দ্রষ্টব্য]</p>
   <table class="meta" style="margin-top:12px"><tr>
-    <td style="width:60%">নিবন্ধিত ব্যক্তির নাম: <b>${s.store_name}</b><br>নিবন্ধিত ব্যক্তির বিআইএন: <b>${s.vat_bin || '—'}</b><br>চালানপত্র ইস্যুর ঠিকানা: ${s.address || '—'}</td>
-    <td>চালানপত্র নম্বর: <b>${o.code}</b><br>ইস্যুর তারিখ: ${fmtDate(new Date().toISOString(), false)}<br>ইস্যুর সময়: ${new Date(Date.now() + 6 * 3600e3).toISOString().slice(11, 16)}</td>
+    <td style="width:60%">নিবন্ধিত ব্যক্তির নাম: <b>${htmlValue(s.store_name)}</b><br>নিবন্ধিত ব্যক্তির বিআইএন: <b>${htmlValue(s.vat_bin || '—')}</b><br>চালানপত্র ইস্যুর ঠিকানা: ${htmlValue(s.address || '—')}</td>
+    <td>চালানপত্র নম্বর: <b>${htmlValue(o.code)}</b><br>ইস্যুর তারিখ: ${htmlValue(fmtDate(new Date().toISOString(), false))}<br>ইস্যুর সময়: ${htmlValue(new Date(Date.now() + 6 * 3600e3).toISOString().slice(11, 16))}</td>
   </tr><tr>
-    <td>ক্রেতার নাম: <b translate="no">${o.customer_name}</b> (${o.phone})<br>ক্রেতার বিআইএন: —<br>সরবরাহের গন্তব্যস্থল: ${o.address}${o.thana ? `, ${o.thana}` : ''}${o.district ? `, ${o.district}` : ''}</td>
-    <td>যানবাহনের প্রকৃতি ও নম্বর: ${o.courier ? `${o.courier}${o.consignment_id ? ' · ' + o.consignment_id : ''}` : '—'}<br>অর্ডারের তারিখ: ${fmtDate(o.created_at, false)}</td>
+    <td>ক্রেতার নাম: <b translate="no">${htmlValue(o.customer_name)}</b> (${htmlValue(o.phone)})<br>ক্রেতার বিআইএন: —<br>সরবরাহের গন্তব্যস্থল: ${htmlValue(o.address)}${htmlValue(o.thana ? `, ${o.thana}` : '')}${htmlValue(o.district ? `, ${o.district}` : '')}</td>
+    <td>যানবাহনের প্রকৃতি ও নম্বর: ${htmlValue(o.courier ? `${o.courier}${o.consignment_id ? ' · ' + o.consignment_id : ''}` : '—')}<br>অর্ডারের তারিখ: ${htmlValue(fmtDate(o.created_at, false))}</td>
   </tr></table>
   <table><thead><tr><th>ক্রমিক</th><th>পণ্য বা সেবার বর্ণনা (প্রযোজ্য ক্ষেত্রে ব্র্যান্ড নামসহ)</th><th>সরবরাহের একক</th><th class="n">পরিমাণ</th><th class="n">একক মূল্য¹ (টাকায়)</th><th class="n">মোট মূল্য¹ (টাকায়)</th><th class="n">সম্পূরক শুল্কের হার</th><th class="n">মূল্য সংযোজন করের হার</th><th class="n">মূল্য সংযোজন করের পরিমাণ</th><th class="n">সকল প্রকার শুল্ক ও করসহ মূল্য</th></tr></thead>
-  <tbody>${lines.map((l?: Loose) => <tr><td className="c">{bn(l.i)}</td><td><Val v={l.name} /></td><td><Val v={l.unit} /></td><td className="n">{bn(l.qty)}</td><td className="n">{money(l.unitEx)}</td><td className="n">{money(l.value)}</td><td className="n">০%</td><td className="n">{(mode === 'margin' ? "মার্জিনে " : null)}{bn(rate)}%</td><td className="n">{money(l.vat)}</td><td className="n">{money(l.gross)}</td></tr>)}
-  ${disc ? <tr><td></td><td colSpan={4}>ছাড়{(o.coupon_code ? ` (${o.coupon_code})` : null)}</td><td className="n">−{' '}{money(discSplit.value)}</td><td></td><td></td><td className="n">−{' '}{money(discSplit.vat)}</td><td className="n">−{' '}{money(disc)}</td></tr> : ''}
-  <tr><td></td><td colspan="4"><b>সর্বমোট</b></td><td class="n"><b>${money(tot.value - discSplit.value)}</b></td><td></td><td></td><td class="n"><b>${money(tot.vat - discSplit.vat)}</b></td><td class="n"><b>${money(tot.gross - disc)}</b></td></tr></tbody></table>
-  <p class="note">ডেলিভারি চার্জ (${money(o.delivery)}) এই চালানের বাইরে। ¹ মূল্য সংযোজন কর ব্যতীত মূল্য। ${mode === 'margin' ? 'মার্জিন পদ্ধতিতে কর হিসাব করা হয়েছে।' : ''}</p>
+  <tbody>${htmlValue(lines.map((l?: Loose) => <tr><td className="c">{bn(l.i)}</td><td><Val v={l.name} /></td><td><Val v={l.unit} /></td><td className="n">{bn(l.qty)}</td><td className="n">{money(l.unitEx)}</td><td className="n">{money(l.value)}</td><td className="n">০%</td><td className="n">{(mode === 'margin' ? "মার্জিনে " : null)}{bn(rate)}%</td><td className="n">{money(l.vat)}</td><td className="n">{money(l.gross)}</td></tr>))}
+  ${htmlValue(disc ? <tr><td></td><td colSpan={4}>ছাড়{(o.coupon_code ? ` (${o.coupon_code})` : null)}</td><td className="n">−{' '}{money(discSplit.value)}</td><td></td><td></td><td className="n">−{' '}{money(discSplit.vat)}</td><td className="n">−{' '}{money(disc)}</td></tr> : '')}
+  <tr><td></td><td colspan="4"><b>সর্বমোট</b></td><td class="n"><b>${htmlValue(money(tot.value - discSplit.value))}</b></td><td></td><td></td><td class="n"><b>${htmlValue(money(tot.vat - discSplit.vat))}</b></td><td class="n"><b>${htmlValue(money(tot.gross - disc))}</b></td></tr></tbody></table>
+  <p class="note">ডেলিভারি চার্জ (${htmlValue(money(o.delivery))}) এই চালানের বাইরে। ¹ মূল্য সংযোজন কর ব্যতীত মূল্য। ${htmlValue(mode === 'margin' ? 'মার্জিন পদ্ধতিতে কর হিসাব করা হয়েছে।' : '')}</p>
   <div class="sig"><div>প্রতিষ্ঠান কর্তৃপক্ষের দায়িত্বপ্রাপ্ত ব্যক্তির নাম, পদবি ও স্বাক্ষর</div><div>সিল</div></div>
   <p class="note">* উৎসে কর্তনযোগ্য সরবরাহের ক্ষেত্রে ফরমটি সমন্বিত কর চালানপত্র ও উৎসে কর কর্তন সনদপত্র হিসেবে বিবেচিত হবে এবং উহা উৎসে কর কর্তনযোগ্য সরবরাহের ক্ষেত্রে প্রযোজ্য হবে।</p>
-</div><script src="/js/page-actions.js?v=${PA_V}" defer></script></body></html>`.s;
+</div><script src="/js/page-actions.js?v=${htmlValue(PA_V)}" defer></script></body></html>`;
   await ctx.log('mushak63', 'order', o.id, 'মূসক-৬.৩ চালান দেখা/প্রিন্ট');
   return ctx.send(200, page);
 }

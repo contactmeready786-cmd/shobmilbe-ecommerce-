@@ -1,5 +1,5 @@
 // Admin: security status page (owner only) — what protects the site, what still needs a step, and recent blocked attempts.
-import { Val, attrValue, htmlValue, attrProps, styleOf, jsxList } from '../react/html';
+import { Val, attrValue, htmlValue, styleOf, jsxList } from '../react/html';
 import { cspNonce } from '../security';
 import * as crypto from 'node:crypto';
 import { raw, fmtDate } from '../util';
@@ -14,7 +14,7 @@ import * as $services_imagekit from '../services/imagekit';
 import * as $pg from '../pg';
 import * as $services_notify from '../services/notify';
 import * as delcode from '../services/delcode';
-import type { AdminCtx, Body, Loose } from '../types';
+import type { AdminCtx, Loose } from '../types';
 
 function row(ok?: Loose, title?: Loose, desc?: Loose) {
   return <li className={`sec-row ${ok === true ? 'ok' : ok === false ? 'todo' : 'info'}`}><span className="sec-ic" aria-hidden="true">{(ok === true ? "✅" : (ok === false ? "⚠️" : "ℹ️"))}</span>{' '}<span><b><Val v={title} /></b><br /><span className="small muted"><Val v={desc} /></span></span></li>;

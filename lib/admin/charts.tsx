@@ -1,7 +1,7 @@
 // Server-rendered charts (SVG / HTML). No external libraries, so they load instantly.
 import { Val, RawHtml, attrValue, styleOf, jsxList } from '../react/html';
-import { raw, esc, bn, money } from '../util';
-import type { Body, Loose, Settings } from '../types';
+import { esc, bn, money } from '../util';
+import type { Body, Loose } from '../types';
 
 const PALETTE = ['#0866D6', '#F5A524', '#12804A', '#7C4DDB', '#E0513B', '#0FA3B1', '#B36B00', '#5B6B85', '#D63384', '#2E7D32'];
 const short = (n?: Loose) => {

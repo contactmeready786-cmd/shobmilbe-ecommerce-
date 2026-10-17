@@ -11,7 +11,6 @@ import * as $services_notify from '../services/notify';
 import * as $services_payments from '../services/payments';
 import * as $services_feeds from '../services/feeds';
 import * as $security from '../security';
-import * as $services_seo from '../services/seo';
 import type { AdminCtx, Loose } from '../types';
 
 const OK = 'ok'; const WARN = 'warn'; const OFF = 'off'; const BAD = 'bad';

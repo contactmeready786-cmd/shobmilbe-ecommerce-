@@ -10,7 +10,7 @@
 import * as crypto from 'node:crypto';
 import { q, one } from '../db';
 import * as security from '../security';
-import type { Body, Id, Loose, Settings, ShopRequest, StaffUser } from '../types';
+import type { Id, Loose, Settings, ShopRequest, StaffUser } from '../types';
 
 const MODES = ['off', 'passkey'];
 const MODE_NAMES: Record<string, string> = {

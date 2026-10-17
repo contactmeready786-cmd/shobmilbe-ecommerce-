@@ -2,8 +2,8 @@
 //  - one switch turns the English version on/off (the বাংলা | English button next to the cart appears / disappears)
 //  - which language a first-time visitor sees
 //  - every translated line of the owner's own texts, each one can be corrected by hand
-import { Val, attrValue, attrProps, jsxList } from '../react/html';
-import { raw, bn, int, str } from '../util';
+import { Val, attrValue, jsxList } from '../react/html';
+import { bn, int, str } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
 import * as translate from '../services/translate';

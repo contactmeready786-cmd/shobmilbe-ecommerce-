@@ -1,8 +1,8 @@
 // Admin → স্টোর ডিজাইন → হোমপেজের সারি: the owner's own rows on the home page — add, edit, switch on/off,
 // move up/down among all rows (built-in ones too) and delete (to the recycle bin).
-import { Val, attrValue, attrProps, jsxList } from '../react/html';
+import { Val, attrValue, jsxList } from '../react/html';
 import { cspNonce } from '../security';
-import { raw, int, bn, list as asList } from '../util';
+import { int, bn, list as asList } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
 import * as H from '../models/homerows';

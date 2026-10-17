@@ -7,7 +7,6 @@ import { str, int, slugify } from '../util';
 import * as $catalog from './catalog';
 import * as $data_guides from '../data/guides';
 import type { Body, Id, Loose } from '../types';
-import type { Tx } from '../pg';
 
 class KitError extends Error {}
 

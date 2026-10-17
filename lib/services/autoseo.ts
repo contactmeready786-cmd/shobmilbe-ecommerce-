@@ -13,13 +13,12 @@
 // Runs from the round-the-clock wake-up: a few dozen products every ~10 minutes, new and edited products first.
 import * as db from '../db';
 import * as md from '../views/md';
-import { bn, str } from '../util';
+import { bn } from '../util';
 import { kindOf } from '../data/partinfo';
 import * as $seo from './seo';
 import * as $util from '../util';
 import * as $admin_status from './seoscore';
 import type { Body, Id, Loose, Settings } from '../types';
-import type { Tx } from '../pg';
 
 const EVERY_MS = 9 * 60 * 1000;
 const PER_RUN = 40;

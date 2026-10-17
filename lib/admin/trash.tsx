@@ -1,12 +1,12 @@
 // Admin → স্থায়ীভাবে মুছে ফেলুন (রিসাইকেল বিন) — owner only.
 // Everything anyone deleted waits here with full details; the owner restores it or deletes it for good.
-import { Val, attrValue, attrProps, jsxList } from '../react/html';
-import { raw, bn, money, int, list, fmtDate } from '../util';
+import { Val, attrValue, jsxList } from '../react/html';
+import { bn, money, int, list, fmtDate } from '../util';
 import * as db from '../db';
 import * as T from '../models/trash';
 import * as ui from './ui';
 import * as delcode from '../services/delcode';
-import type { AdminCtx, Id, Loose } from '../types';
+import type { AdminCtx, Loose } from '../types';
 
 const PER_PAGE = 100;
 // friendly names for the details table

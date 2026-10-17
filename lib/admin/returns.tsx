@@ -10,7 +10,7 @@ import * as O from '../models/orders';
 import * as finance from '../models/finance';
 import * as $views_account from '../views/account';
 import * as $services_sms from '../services/sms';
-import type { AdminCtx, Id, Loose } from '../types';
+import type { AdminCtx, Loose } from '../types';
 
 const BASE = '/admin/returns';
 const PILL: Record<string, string> = { requested: 'pill-warn', approved: 'pill-blue', received: 'pill-blue', refunded: 'pill-ok', replaced: 'pill-ok', rejected: '', cancelled: '' };

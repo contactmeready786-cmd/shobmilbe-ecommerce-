@@ -4,7 +4,7 @@ import { Val, attrValue, jsxList } from '../react/html';
 import { bn, fmtDate, int } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
-import type { AdminCtx, Loose } from '../types';
+import type { AdminCtx } from '../types';
 
 const BASE = '/admin/reports/search';
 

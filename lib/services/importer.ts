@@ -12,7 +12,7 @@
 //   { ref, title, description, short_description, price, old_price, cost_price, images[], brand,
 //     category, stock, in_stock, link, youtube, weight_g, group }
 import * as zlib from 'node:zlib';
-import type { Body, Loose, Settings } from '../types';
+import type { Body, Loose } from '../types';
 
 const MAX_ITEMS = 5000;
 const MAX_IMAGES = 6;

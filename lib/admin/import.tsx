@@ -8,7 +8,7 @@
 //   2. GET  /admin/api/import/image  — bring one picture from the other site (safely) so the
 //                                       browser can resize it and make its fingerprint, then upload it
 //   3. POST /admin/api/import/save   — duplicate check + save one product
-import { Val, attrValue } from '../react/html';
+import { attrValue } from '../react/html';
 import { int, str, amount, csv, youtubeId, shopPrice, priceProblem } from '../util';
 import * as catalog from '../models/catalog';
 import * as dupes from '../models/duplicates';
@@ -19,7 +19,6 @@ import * as importer from '../services/importer';
 import { safeFetch, FetchError } from '../services/safefetch';
 import * as $services_autocat from '../services/autocat';
 import type { AdminCtx, Body, Loose } from '../types';
-import type { Tx } from '../pg';
 
 const FILE_MAX = 3 * 1024 * 1024; // what fits in one request
 

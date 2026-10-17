@@ -1,6 +1,6 @@
-import { Val, attrValue, attrProps, jsxList } from '../react/html';
+import { Val, attrValue, jsxList } from '../react/html';
 import { promises as dns } from 'node:dns';
-import { raw, fmtDate, int, str, fetchJson, randomCode } from '../util';
+import { fmtDate, int, str, fetchJson, randomCode } from '../util';
 import * as db from '../db';
 import * as courier from '../services/courier';
 import * as payments from '../services/payments';

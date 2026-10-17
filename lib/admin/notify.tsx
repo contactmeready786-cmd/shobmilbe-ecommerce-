@@ -1,7 +1,7 @@
 // Admin → নোটিফিকেশন (owner only): where new-order and security alerts go (e-mail + WhatsApp).
 // The e-mail here also receives the "forgot password" reset link, so changing it needs the owner's password.
-import { Val, attrValue, attrProps, styleOf, jsxList } from '../react/html';
-import { raw, verifyPassword, str } from '../util';
+import { Val, attrValue, styleOf, jsxList } from '../react/html';
+import { verifyPassword, str } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
 import * as N from '../services/notify';

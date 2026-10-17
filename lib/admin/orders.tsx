@@ -1,8 +1,8 @@
 
 // 🗑️ deleting orders: only the owner, and only while this switch is on (so nobody deletes by a slip of the finger).
 // A deleted order goes to the recycle bin (রিসাইকেল বিন) with its items and payments; its goods go back on the shelf.
-import { Val, attrValue, attrProps, jsxList } from '../react/html';
-import { raw, money, bn, fmtDate, int, str, csv, pageNum, normalizePhone, validPhone, validYmd, list, esc, amount as amt, roundOff, roundOffLabel } from '../util';
+import { Val, attrValue, jsxList } from '../react/html';
+import { money, bn, fmtDate, int, str, csv, pageNum, normalizePhone, validPhone, validYmd, list, amount as amt, roundOff, roundOffLabel } from '../util';
 import * as db from '../db';
 import * as O from '../models/orders';
 import * as catalog from '../models/catalog';
@@ -18,7 +18,6 @@ import * as $autocall from './autocall';
 import * as $services_drafts from '../services/drafts';
 import * as $services_stockalert from '../services/stockalert';
 import type { AdminCtx, Body, Id, Loose, ShopQuery } from '../types';
-import type { Tx } from '../pg';
 function canDelete(ctx: AdminCtx) { return ctx.user.role === 'owner' && ctx.settings.order_delete_on === '1'; }
 function deleteSwitch(ctx: AdminCtx) {
   if (ctx.user.role !== 'owner') return '';

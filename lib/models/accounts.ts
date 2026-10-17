@@ -16,7 +16,6 @@ import * as $security from '../security';
 import * as $customers from './customers';
 import * as $orders from './orders';
 import type { Body, Id, Loose, Settings, ShopRequest } from '../types';
-import type { Tx } from '../pg';
 
 const CODE_MIN = 5;          // a code works for 5 minutes
 const EMAIL_MIN = 10;        // an e-mail code works for 10 minutes (e-mail can be a little slow)

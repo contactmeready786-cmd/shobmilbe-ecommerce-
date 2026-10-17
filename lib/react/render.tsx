@@ -6,7 +6,7 @@
 import type { ReactElement } from 'react';
 import { withSlots, setRenderer } from './html';
 // the React helpers live in ./html (usable in Next.js pages); they are re-exported here for the original router's pages
-export { RawHtml, cx, Val, attrValue, htmlValue, attrProps, styleOf, jsxList, renderHtml } from './html';
+export { RawHtml, cx, Val, attrValue, htmlValue, styleOf, jsxList, renderHtml } from './html';
 
 // The original router's pages are text: this loads react-dom/server and registers it as the renderer that turns a
 // React piece into HTML (renderHtml in ./html). It is loaded when first needed (lib/site.ts's bridge awaits it before a

@@ -1,8 +1,8 @@
 // Admin → নিরাপত্তা → লগইন তালা (owner only):
 // passkeys (fingerprint / Windows Hello / phone QR), and whether the lock is on. (The camera face check was removed.)
 // Also builds the "second check" page shown after the owner's password (see admin/index.js → /admin/verify).
-import { Val, attrValue, attrProps, jsxList } from '../react/html';
-import { raw, sign, unsign, parseCookies, fmtDate, int } from '../util';
+import { Val, attrValue, jsxList } from '../react/html';
+import { sign, unsign, parseCookies, fmtDate, int } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
 import * as lock from '../models/loginlock';

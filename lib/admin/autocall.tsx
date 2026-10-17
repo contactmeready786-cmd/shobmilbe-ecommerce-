@@ -1,6 +1,6 @@
 // Admin → অর্ডার ও কাস্টমার → 📞 অটো কল (অর্ডার কনফার্ম). Settings, a test call, and the call history.
 import { Val, attrValue, jsxList } from '../react/html';
-import { raw, bn, fmtDate, int, str } from '../util';
+import { bn, fmtDate, int, str } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
 import * as AC from '../services/autocall';

@@ -5,7 +5,6 @@
 import * as crypto from 'node:crypto';
 import * as zlib from 'node:zlib';
 import type { Body, Loose } from '../types';
-import type { Tx } from '../pg';
 
 const MAGIC = Buffer.from('SMBK1');
 // big and not needed to run the shop — left out unless asked for

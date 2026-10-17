@@ -1,7 +1,7 @@
 
 // Deleting customers: only the owner, and only while the switch on the customers page is on.
-import { Val, attrValue, attrProps, jsxList } from '../react/html';
-import { raw, money, bn, fmtDate, int, str, pageNum, csv, normalizePhone, validPhone, list } from '../util';
+import { Val, attrValue, jsxList } from '../react/html';
+import { money, bn, fmtDate, int, str, pageNum, csv, normalizePhone, validPhone, list } from '../util';
 import * as C from '../models/customers';
 import * as O from '../models/orders';
 import * as ui from './ui';

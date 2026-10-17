@@ -1,7 +1,7 @@
 // Admin → মার্কেটিং → 🔔 ফোনে অফারের নোটিফিকেশন: customers who said "yes" get a notification on their phone/computer
 // (like an app) — the owner writes the offer here and sends it. Free: no SMS cost. Works in Chrome / Edge / Firefox
 // on Android and computers, and on iPhone when the shop is added to the home screen.
-import { Val, attrValue, attrProps, jsxList } from '../react/html';
+import { Val, attrValue, jsxList } from '../react/html';
 import { int, str, bn, fmtDate } from '../util';
 import * as db from '../db';
 import * as ui from './ui';

@@ -1,6 +1,6 @@
 
 // ---------------------------------------------------------------- inventory
-import { Val, RawHtml, attrValue, attrProps, jsxList } from '../react/html';
+import { Val, attrValue, jsxList } from '../react/html';
 import { raw, money, bn, fmtDate, int, str, list, ymd, pct, pageNum } from '../util';
 import * as catalog from '../models/catalog';
 import * as finance from '../models/finance';
@@ -8,7 +8,6 @@ import * as ui from './ui';
 import * as $db from '../db';
 import * as $services_stockalert from '../services/stockalert';
 import type { AdminCtx, Loose } from '../types';
-import type { Tx } from '../pg';
 const INV_PER_PAGE = 50;
 const ADJUST_REASONS = [['adjust', 'হাতে বদল'], ['count', 'গণনা ঠিক করা'], ['damage', 'নষ্ট/ভাঙা → নষ্ট স্টকে'], ['lost', 'হারানো'], ['return', 'কাস্টমার ফেরত (ভালো মাল)'],
   ['damage_out', 'নষ্ট মাল ফেলে দেওয়া'], ['repair', 'মেরামত হয়ে আবার বিক্রিযোগ্য']];

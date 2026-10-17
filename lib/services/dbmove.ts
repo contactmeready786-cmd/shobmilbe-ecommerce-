@@ -6,7 +6,7 @@
 import * as pg from '../pg';
 import * as db from '../db';
 import * as imagekit from './imagekit';
-import type { Body, Id, Loose } from '../types';
+import type { Loose } from '../types';
 import type { Tx } from '../pg';
 
 const qi = (n?: Loose) => '"' + String(n).replace(/"/g, '""') + '"';

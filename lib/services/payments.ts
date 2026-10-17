@@ -2,7 +2,6 @@
 import * as db from '../db';
 import { fetchJson, int } from '../util';
 import type { Body, Id, Loose, Settings } from '../types';
-import type { Tx } from '../pg';
 
 const MANUAL = { manual_bkash: ['বিকাশ', 'manual_bkash'], manual_nagad: ['নগদ', 'manual_nagad'], manual_rocket: ['রকেট', 'manual_rocket'], manual_upay: ['উপায়', 'manual_upay'] };
 

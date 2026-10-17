@@ -9,7 +9,6 @@ import * as db from '../db';
 import * as ui from './ui';
 import * as pricing from '../services/pricing';
 import type { AdminCtx, Loose } from '../types';
-import type { Tx } from '../pg';
 
 const BASE = '/admin/marketing/flash';
 const DHAKA_MS = 6 * 3600e3; // Bangladesh: UTC+6, no summer time

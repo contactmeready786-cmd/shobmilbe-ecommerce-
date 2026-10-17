@@ -1,7 +1,7 @@
 // Admin → স্টোর ডিজাইন → দোকানে কী দেখাবে: one page with an on/off switch for every part of the shop
 // (with a line on what it does) and small boxes for the texts on those parts. Switches save at once.
-import { Val, attrValue, attrProps, jsxList } from '../react/html';
-import { raw, str } from '../util';
+import { Val, attrValue, jsxList } from '../react/html';
+import { str } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
 import * as U from '../services/uiswitch';

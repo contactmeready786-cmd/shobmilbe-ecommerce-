@@ -5,7 +5,7 @@
 import { Val, attrValue, jsxList } from '../react/html';
 import { bn } from '../util';
 import * as db from '../db';
-import type { Body, Loose } from '../types';
+import type { Loose } from '../types';
 
 const DAY = 864e5;
 const BN_MONTHS = ['জানুয়ারি', 'ফেব্রুয়ারি', 'মার্চ', 'এপ্রিল', 'মে', 'জুন', 'জুলাই', 'আগস্ট', 'সেপ্টেম্বর', 'অক্টোবর', 'নভেম্বর', 'ডিসেম্বর'];

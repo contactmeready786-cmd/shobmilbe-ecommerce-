@@ -1,6 +1,6 @@
 // ⚛️ Ready-made HTML inside React (no react-dom/server here, so Next.js server components can use it too).
 import { cloneElement, createElement, Fragment, isValidElement, type ReactElement, type ReactNode } from 'react';
-import { Raw, setPieceHtml } from '../util';
+import { Raw } from '../util';
 
 // ---------------------------------------------------------------- renderHtml: a React piece as HTML text
 // The page pieces are React all the way. Only where HTML text is really needed — the whole pages lib/site.ts answers,
@@ -40,9 +40,6 @@ export function renderHtml(node: unknown): string {
   if (!renderer) throw new Error(`renderHtml needs lib/react/render (not available in a Next.js page — keep the piece as React): ${describe(el)}`);
   return renderer(el);
 }
-
-// html`…` (the print pages' text frames) writes a React piece as its HTML
-setPieceHtml((v) => (isValidElement(v) ? renderHtml(v) : null));
 
 // 🧪 Tests (SM_STRICT_PIECES=throw) and the parity check (=1): a React piece written into text by mistake — String(x),
 // `${x}`, x + '' — would show "[object Object]" on the page. It is reported (SM_PIECE_AS_TEXT: the test fails, or the
@@ -113,11 +110,11 @@ export function cx(...names: unknown[]): string {
   return names.filter((n) => typeof n === 'string' && n).join(' ');
 }
 
-// ---------------------------------------------------------------- helpers for pages converted from html`…`
-// tools/html2jsx turns html`…` templates into JSX. These helpers give the converted code exactly the same
-// meaning the template had: a value inside html`…` was escaped text, unless it was ready-made HTML (Raw).
+// ---------------------------------------------------------------- showing values whose type isn't known
+// Many values come straight from the database or the settings (any type). These helpers show such a value the one
+// safe way: as escaped text, unless it is the shop's own ready-made HTML (Raw) or a React piece.
 
-/** A value that used to sit inside html`…`: Raw stays HTML, a list is each item, false/null/undefined is nothing, the rest is escaped text. */
+/** A value of unknown type on the page: a React piece as it is, Raw as HTML, a list item by item, false/null/undefined as nothing, the rest as escaped text. */
 export function Val({ v }: { v: unknown }): ReactNode {
   if (isValidElement(v)) return v; // a piece that is React already
   if (v instanceof Raw) return <RawHtml html={v} />;
@@ -127,7 +124,7 @@ export function Val({ v }: { v: unknown }): ReactNode {
 }
 
 const unescape = (s: string) => s.replace(/&quot;/g, '"').replace(/&#0?39;|&#x27;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
-/** The text a value gave inside an attribute of html`…` (before escaping — React escapes it, so ready-made HTML is unescaped first). */
+/** A value of unknown type as an attribute's text (React escapes it, so the shop's ready-made HTML is unescaped first). */
 export function attrValue(v: unknown): string {
   if (v instanceof Raw) return unescape(v.s);
   if (isValidElement(v)) return unescape(renderHtml(v));
@@ -136,7 +133,7 @@ export function attrValue(v: unknown): string {
   return String(v);
 }
 
-/** The exact text html`…` would have put inside a <script> / <style> (escaped unless Raw). */
+/** A value of unknown type as HTML text (escaped unless it is ready-made HTML or a React piece): for text pages and <script> / <style>. */
 export function htmlValue(v: unknown): string {
   const esc = (x: unknown) => String(x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   if (v instanceof Raw) return v.s;
@@ -144,23 +141,6 @@ export function htmlValue(v: unknown): string {
   if (Array.isArray(v)) return v.map((x) => (x instanceof Raw ? x.s : isValidElement(x) ? renderHtml(x) : x === null || x === undefined ? '' : esc(x))).join('');
   if (v === false || v === null || v === undefined) return '';
   return esc(v);
-}
-
-// A box ticked from the start is "defaultChecked" for React: the page shows checked="" exactly as before, and the box
-// stays the visitor's to change. (Written as checked, React would hold it ticked once it takes the page over.)
-const ATTR_NAMES: Record<string, string> = { class: 'className', for: 'htmlFor', readonly: 'readOnly', autofocus: 'autoFocus', novalidate: 'noValidate', tabindex: 'tabIndex', maxlength: 'maxLength', checked: 'defaultChecked' };
-const BOOL_PROPS = new Set(['defaultChecked', 'selected', 'disabled', 'required', 'hidden', 'open', 'multiple', 'readOnly', 'autoFocus', 'noValidate', 'defer', 'async']);
-/** Attributes written as text inside a tag, e.g. ${on ? raw('checked') : ''} or raw('aria-current="page"'), as JSX props. */
-export function attrProps(v: unknown): Record<string, string | boolean> {
-  const s = v instanceof Raw ? v.s : isValidElement(v) ? renderHtml(v) : attrValue(v);
-  const out: Record<string, string | boolean> = {};
-  for (const m of s.matchAll(/([^\s=]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+)))?/g)) {
-    const name = ATTR_NAMES[m[1].toLowerCase()] || m[1].toLowerCase();
-    const val = m[2] ?? m[3] ?? m[4];
-    // a true/false attribute (checked, selected …) is on whatever its value; React needs true for it
-    out[name] = BOOL_PROPS.has(name) ? true : unescape(val ?? '');
-  }
-  return out;
 }
 
 /** style="a: b; c: d" text → the object React wants ({ a: 'b', c: 'd' }), keeping custom --properties. */
@@ -187,7 +167,7 @@ export function styleOf(text: unknown): Record<string, string> {
   return out;
 }
 
-/** A list of JSX pieces made by .map() in converted code (no "key" needed: they are passed as separate children). */
+/** A list of JSX pieces made by .map() (no "key" needed: they are passed as separate children). */
 export function jsxList(items: unknown): ReactNode {
   if (!Array.isArray(items)) return items instanceof Raw ? <Val v={items} /> : (items as ReactNode);
   // ready-made HTML among them is shown as it is

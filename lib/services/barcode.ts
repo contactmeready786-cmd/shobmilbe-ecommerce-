@@ -1,4 +1,4 @@
-import type { Body, Id, Loose, Settings } from '../types';
+import type { Body, Id, Loose } from '../types';
 // Code 128 barcodes (no outside library): text → SVG. Every phone scanner app, USB/Bluetooth barcode
 // gun and courier scanner reads Code 128. Uses code set B (all normal letters, digits and signs),
 // switching to code set C for long runs of digits so number-only codes stay short.

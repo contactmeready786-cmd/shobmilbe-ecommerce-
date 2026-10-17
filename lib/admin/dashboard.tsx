@@ -6,7 +6,7 @@ import * as ui from './ui';
 import * as security from '../security';
 import * as charts from './charts';
 import * as $db from '../db';
-import type { AdminCtx, Loose } from '../types';
+import type { AdminCtx } from '../types';
 import * as $health from '../services/health';
 
 async function dashboard(ctx: AdminCtx) {

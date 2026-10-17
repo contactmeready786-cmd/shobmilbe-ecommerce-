@@ -7,7 +7,7 @@ import * as db from '../db';
 import * as ui from './ui';
 import * as $services_sms from '../services/sms';
 import * as $services_notify from '../services/notify';
-import type { AdminCtx, Loose } from '../types';
+import type { AdminCtx } from '../types';
 
 const BASE = '/admin/customer-accounts';
 

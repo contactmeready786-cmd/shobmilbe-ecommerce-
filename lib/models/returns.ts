@@ -8,7 +8,6 @@ import { str, int, amount, round2, randomCode, normalizePhone, validPhone } from
 import * as catalog from './catalog';
 import * as $views_account from '../views/account';
 import type { Body, Id, Loose } from '../types';
-import type { Tx } from '../pg';
 
 class ReturnError extends Error {}
 const STATUSES: Record<string, Loose> = {

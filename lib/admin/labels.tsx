@@ -2,9 +2,9 @@
 // Opened from a product's page or from the product list ("বাছাই করা পণ্য → বারকোড লেবেল প্রিন্ট").
 
 // sticker sizes (mm). sheet = how many fit on one A4 page, or a roll printer (one per label)
-import { Val, RawHtml, attrValue } from '../react/html';
+import { Val, RawHtml, attrValue, htmlValue } from '../react/html';
 import { ASSET_V as PA_V } from './layout';
-import { html, raw, money, int, str, bn } from '../util';
+import { money, int, str, bn } from '../util';
 import * as db from '../db';
 import * as BC from '../services/barcode';
 import type { AdminCtx, Loose } from '../types';
@@ -33,8 +33,8 @@ async function labels(ctx: AdminCtx) {
     for (let i = 0; i < n; i++) stickers.push(p);
   }
   const qs = (k?: Loose, v?: Loose) => { const q = new URLSearchParams(ctx.query); q.set(k, v); return '?' + q.toString(); };
-  const page = '<!doctype html>' + html`<html lang="bn"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex">
-<title>বারকোড লেবেল (${bn(stickers.length)}টি)</title>
+  const page = '<!doctype html>' + `<html lang="bn"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex">
+<title>বারকোড লেবেল (${htmlValue(bn(stickers.length))}টি)</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@500;700&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box}body{font-family:'Noto Sans Bengali',sans-serif;margin:0;background:#E9EEF5;color:#111}
@@ -43,26 +43,26 @@ async function labels(ctx: AdminCtx) {
 .bar a.on{background:#F5A524;color:#111}.bar .go{background:#F5A524;color:#111;font-size:15px}
 .bar form{display:inline-flex;gap:6px;align-items:center}.bar input{width:60px;padding:5px;border-radius:6px;border:0}
 .sheet{display:flex;flex-wrap:wrap;gap:3mm;padding:6mm;justify-content:center}
-.lab{width:${z.w}mm;height:${z.h}mm;background:#fff;border:1px dashed #cbd5e1;padding:1.2mm 1.6mm;display:flex;flex-direction:column;justify-content:space-between;overflow:hidden;page-break-inside:avoid}
-.nm{font-size:${z.h < 30 ? 7 : 8.5}pt;font-weight:700;line-height:1.15;max-height:2.3em;overflow:hidden}
-.row{display:flex;justify-content:space-between;align-items:baseline;font-size:${z.h < 30 ? 7 : 8}pt}.pr{font-weight:700}
-.lab svg{width:100%;height:auto;max-height:${z.h * 0.58}mm;display:block}
-@media print{@page{size:${z.sheet ? 'A4' : `${z.w}mm ${z.h}mm`};margin:${z.sheet ? '10mm 6mm' : '0'}}body{background:#fff}.bar{display:none}
-  .sheet{padding:0;gap:${z.sheet ? '0' : '0'};justify-content:flex-start}.lab{border:${z.sheet ? '1px dashed #e5e7eb' : '0'};${z.sheet ? '' : 'page-break-after:always;'}}}
+.lab{width:${htmlValue(z.w)}mm;height:${htmlValue(z.h)}mm;background:#fff;border:1px dashed #cbd5e1;padding:1.2mm 1.6mm;display:flex;flex-direction:column;justify-content:space-between;overflow:hidden;page-break-inside:avoid}
+.nm{font-size:${htmlValue(z.h < 30 ? 7 : 8.5)}pt;font-weight:700;line-height:1.15;max-height:2.3em;overflow:hidden}
+.row{display:flex;justify-content:space-between;align-items:baseline;font-size:${htmlValue(z.h < 30 ? 7 : 8)}pt}.pr{font-weight:700}
+.lab svg{width:100%;height:auto;max-height:${htmlValue(z.h * 0.58)}mm;display:block}
+@media print{@page{size:${htmlValue(z.sheet ? 'A4' : `${z.w}mm ${z.h}mm`)};margin:${htmlValue(z.sheet ? '10mm 6mm' : '0')}}body{background:#fff}.bar{display:none}
+  .sheet{padding:0;gap:${htmlValue(z.sheet ? '0' : '0')};justify-content:flex-start}.lab{border:${htmlValue(z.sheet ? '1px dashed #e5e7eb' : '0')};${htmlValue(z.sheet ? '' : 'page-break-after:always;')}}}
 </style></head><body>
 <div class="bar">
-  <button type="button" class="go" data-print>🖨️ প্রিন্ট (${bn(stickers.length)}টি লেবেল)</button>
-  ${Object.entries(SIZES).map(([k, v]) => <a className={k === size ? 'on' : ''} href={attrValue(qs('size', k))}><Val v={v.label} /></a>)}
-  <form method="get">${['ids', 'size'].map((k) => <input type="hidden" name={attrValue(k)} defaultValue={attrValue(k === 'size' ? size : ctx.query.get(k))} />)}
-    প্রতিটা <input type="number" name="copies" min="1" max="100" value="${copies}"> কপি <button>✓</button></form>
-  <a class="${byStock ? 'on' : ''}" href="${qs('stock', byStock ? '0' : '1')}">${byStock ? '✓ ' : ''}স্টক যতটা, ততটা লেবেল</a>
-  <a class="${showPrice ? 'on' : ''}" href="${qs('price', showPrice ? '0' : '1')}">দাম ${showPrice ? 'দেখাচ্ছে' : 'লুকানো'}</a>
-  <a class="${showName ? 'on' : ''}" href="${qs('name', showName ? '0' : '1')}">নাম ${showName ? 'দেখাচ্ছে' : 'লুকানো'}</a>
-  ${rows.some((p) => p.location) ? <a className={showLoc ? 'on' : ''} href={attrValue(qs('loc', showLoc ? '0' : '1'))}>📍 বক্স{' '}{(showLoc ? "দেখাচ্ছে" : "লুকানো")}</a> : ''}
+  <button type="button" class="go" data-print>🖨️ প্রিন্ট (${htmlValue(bn(stickers.length))}টি লেবেল)</button>
+  ${htmlValue(Object.entries(SIZES).map(([k, v]) => <a className={k === size ? 'on' : ''} href={attrValue(qs('size', k))}><Val v={v.label} /></a>))}
+  <form method="get">${htmlValue(['ids', 'size'].map((k) => <input type="hidden" name={attrValue(k)} defaultValue={attrValue(k === 'size' ? size : ctx.query.get(k))} />))}
+    প্রতিটা <input type="number" name="copies" min="1" max="100" value="${htmlValue(copies)}"> কপি <button>✓</button></form>
+  <a class="${htmlValue(byStock ? 'on' : '')}" href="${htmlValue(qs('stock', byStock ? '0' : '1'))}">${htmlValue(byStock ? '✓ ' : '')}স্টক যতটা, ততটা লেবেল</a>
+  <a class="${htmlValue(showPrice ? 'on' : '')}" href="${htmlValue(qs('price', showPrice ? '0' : '1'))}">দাম ${htmlValue(showPrice ? 'দেখাচ্ছে' : 'লুকানো')}</a>
+  <a class="${htmlValue(showName ? 'on' : '')}" href="${htmlValue(qs('name', showName ? '0' : '1'))}">নাম ${htmlValue(showName ? 'দেখাচ্ছে' : 'লুকানো')}</a>
+  ${htmlValue(rows.some((p) => p.location) ? <a className={showLoc ? 'on' : ''} href={attrValue(qs('loc', showLoc ? '0' : '1'))}>📍 বক্স{' '}{(showLoc ? "দেখাচ্ছে" : "লুকানো")}</a> : '')}
   <a href="/admin" data-back>← ফিরে যান</a>
 </div>
-<div class="sheet">${stickers.map((p) => <div className="lab">{(showName ? <div className="nm">{str(p.name, 70)}</div> : null)}{' '}<RawHtml html={BC.svg(p.barcode || BC.productCode(p.id), { height: 40, module: 2, fontSize: 12, quiet: 6 })} /><div className="row"><span>{(p.sku ? `SKU ${p.sku}` : null)}{(showLoc && p.location ? ` · 📍${p.location}` : null)}</span>{(showPrice ? <span className="pr">{money(p.price)}{(p.unit && p.unit !== 'পিস' ? `/${p.unit}` : null)}</span> : null)}</div></div>)}</div>
-<script src="/js/page-actions.js?v=${PA_V}" defer></script></body></html>`.s;
+<div class="sheet">${htmlValue(stickers.map((p) => <div className="lab">{(showName ? <div className="nm">{str(p.name, 70)}</div> : null)}{' '}<RawHtml html={BC.svg(p.barcode || BC.productCode(p.id), { height: 40, module: 2, fontSize: 12, quiet: 6 })} /><div className="row"><span>{(p.sku ? `SKU ${p.sku}` : null)}{(showLoc && p.location ? ` · 📍${p.location}` : null)}</span>{(showPrice ? <span className="pr">{money(p.price)}{(p.unit && p.unit !== 'পিস' ? `/${p.unit}` : null)}</span> : null)}</div></div>))}</div>
+<script src="/js/page-actions.js?v=${htmlValue(PA_V)}" defer></script></body></html>`;
   return ctx.send(200, page);
 }
 

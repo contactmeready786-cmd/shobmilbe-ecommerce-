@@ -10,7 +10,7 @@ import * as crypto from 'node:crypto';
 import * as db from '../db';
 import { safeFetch } from './safefetch';
 import * as notify from './notify';
-import { str, money, bn } from '../util';
+import { str, money } from '../util';
 import * as $autopost from './autopost';
 import * as $security from '../security';
 import type { Body, Id, Loose, Settings } from '../types';

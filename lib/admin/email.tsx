@@ -13,7 +13,7 @@ import * as M from '../services/mailer';
 import * as notify from '../services/notify';
 import { secretInput } from './marketing';
 import * as $security from '../security';
-import type { AdminCtx, Body, Loose } from '../types';
+import type { AdminCtx, Loose } from '../types';
 
 const BASE = '/admin/marketing/email';
 const DAYS = [['6', 'শনিবার'], ['0', 'রবিবার'], ['1', 'সোমবার'], ['2', 'মঙ্গলবার'], ['3', 'বুধবার'], ['4', 'বৃহস্পতিবার'], ['5', 'শুক্রবার']];

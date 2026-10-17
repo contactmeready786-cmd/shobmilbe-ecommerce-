@@ -10,9 +10,10 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const ROOT = process.cwd(); // npm test runs from the project folder
-// the admin templates, plus the page-maker they use
+// the admin templates, plus the pages they use from lib/views (the print pages are sent with the admin's script rule)
 const FILES = [
   ...readdirSync(join(ROOT, 'lib/admin')).filter((f) => /\.tsx?$/.test(f)).map((f) => join('lib/admin', f)),
+  ...readdirSync(join(ROOT, 'lib/views')).filter((f) => /\.tsx?$/.test(f)).map((f) => join('lib/views', f)),
 ];
 const read = (f: string) => readFileSync(join(ROOT, f), 'utf8');
 // text that is shown as an example to the owner (inside a placeholder), not markup
@@ -53,16 +54,21 @@ test('the admin scripts the pages load also avoid inline handlers', () => {
   }
 });
 
-// ⚛️ Since 2026-10-17 every page is React (JSX). Only the page frames (<html>/<head>, kept as text so React doesn't
-// reorder the head) may still be html`…`. New screens are written in JSX — this stops html`…` from creeping back.
-test('pages are React: no new html`…` templates in lib/admin or lib/views', () => {
-  const ALLOWED: Record<string, number> = { 'lib/admin/labels.tsx': 1, 'lib/admin/pos.tsx': 1, 'lib/admin/vat.tsx': 1, 'lib/views/invoice.tsx': 1 };
+// ⚛️ Every page is React (JSX) — no html`…` templates, no toHtml wrapper, no attribute snippets ({...attrProps(…)}),
+// and no box React would hold ticked (checked= instead of defaultChecked=). This stops the old ways from creeping back.
+test('pages are React: no html`…`, toHtml, attribute snippets or held-ticked boxes', () => {
   const bad: string[] = [];
-  for (const dir of ['lib/admin', 'lib/views']) {
-    for (const f of readdirSync(join(ROOT, dir)).filter((x) => /\.tsx?$/.test(x) && !x.startsWith('__'))) {
+  const dirs = ['lib/admin', 'lib/views', 'lib/shop', 'components/shop', 'components/shop/chrome'];
+  for (const dir of dirs) {
+    for (const f of readdirSync(join(ROOT, dir)).filter((x) => /\.tsx?$/.test(x))) {
       const file = `${dir}/${f}`;
-      const n = (read(file).match(/\bhtml`/g) || []).length;
-      if (n > (ALLOWED[file] || 0)) bad.push(`${file}: ${n} html\`…\` (write JSX instead)`);
+      read(file).split('\n').forEach((line, i) => {
+        const at = `${file}:${i + 1}`;
+        if (/\bhtml`/.test(line)) bad.push(`${at}: html\`…\` (write JSX instead)`);
+        if (/\btoHtml\(/.test(line)) bad.push(`${at}: toHtml( (pieces stay React; renderHtml only where text is needed)`);
+        if (/\{\.\.\.attrProps\(/.test(line)) bad.push(`${at}: {...attrProps(…)} (write the prop itself)`);
+        if (/<input\b[^>]*\schecked(=\{|\s|\/|>)/.test(line)) bad.push(`${at}: checked on an <input> (use defaultChecked, or the box can't be changed)`);
+      });
     }
   }
   assert.deepEqual(bad, []);

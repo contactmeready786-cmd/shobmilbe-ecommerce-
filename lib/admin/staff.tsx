@@ -1,5 +1,5 @@
-import { Val, attrValue, attrProps, jsxList } from '../react/html';
-import { raw, bn, fmtDate, int, list } from '../util';
+import { Val, attrValue, jsxList } from '../react/html';
+import { bn, fmtDate, int, list } from '../util';
 import * as S from '../models/staff';
 import * as sessions from '../models/sessions';
 import * as db from '../db';

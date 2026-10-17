@@ -1,5 +1,5 @@
-import { Val, attrValue, attrProps, styleOf, jsxList } from '../react/html';
-import { raw, bn, int, str, list } from '../util';
+import { Val, attrValue, styleOf, jsxList } from '../react/html';
+import { bn, int, str, list } from '../util';
 import * as db from '../db';
 import * as content from '../models/content';
 import * as ui from './ui';

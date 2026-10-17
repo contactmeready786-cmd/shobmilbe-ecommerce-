@@ -18,7 +18,7 @@ import { safeFetch } from './safefetch';
 import * as dupes from '../models/duplicates';
 import { bn } from '../util';
 import * as importer from './importer';
-import type { Base, Body, Id, Loose } from '../types';
+import type { Body, Id, Loose } from '../types';
 
 const SEGMENTS: Record<string, string> = { electronics: 'ইলেকট্রনিক্স', electrical: 'ইলেকট্রিক্যাল', fashion: 'ফ্যাশন', other: 'অন্যান্য' };
 const UA_NAME = '*'; // follow the rules every robot must follow

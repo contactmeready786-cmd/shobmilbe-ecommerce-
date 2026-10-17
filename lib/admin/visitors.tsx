@@ -1,6 +1,6 @@
 // Admin → মার্কেটিং → ভিজিটর অ্যানালিটিক্স
 // Overview (how many, from where, what they look at), live visitors, every visit with its full journey, and settings.
-import { Val, RawHtml, attrValue, htmlValue, attrProps, styleOf, jsxList } from '../react/html';
+import { Val, RawHtml, attrValue, htmlValue, styleOf, jsxList } from '../react/html';
 import { cspNonce } from '../security';
 import { raw, bn, money, fmtDate, str, dateRange, pageNum, pct } from '../util';
 import * as db from '../db';
@@ -8,7 +8,7 @@ import * as V from '../services/visitors';
 import * as ui from './ui';
 import * as charts from './charts';
 import * as $services_geolock from '../services/geolock';
-import type { AdminCtx, Body, Loose, Settings } from '../types';
+import type { AdminCtx, Loose, Settings } from '../types';
 
 const BASE = '/admin/marketing/visitors';
 const PER_PAGE = 50;

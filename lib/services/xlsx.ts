@@ -1,7 +1,7 @@
 // Real Excel files (.xlsx) without any outside library: a few XML files packed in a ZIP.
 // One or more sheets; first row = bold headers; numbers stay numbers (so Excel can add them up).
 import * as zlib from 'node:zlib';
-import type { Loose, Settings } from '../types';
+import type { Loose } from '../types';
 import type { Reply } from '../reply';
 
 const escXml = (s?: Loose) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' } as Record<string, string>)[c])

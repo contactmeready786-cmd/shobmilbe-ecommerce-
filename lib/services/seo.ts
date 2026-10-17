@@ -10,7 +10,7 @@ import * as md from '../views/md';
 import * as $autoseo from './autoseo';
 import * as $db from '../db';
 import * as $dupcanon from './dupcanon';
-import type { Base, Loose, Settings } from '../types';
+import type { Loose, Settings } from '../types';
 const JUNK_START = /^\s*(?:product\s+details?\s+of|product\s+name\s*:)\s*/i;
 function cleanName(name?: Loose) {
   return String(name || '').replace(JUNK_START, '').replace(/\s*[|,–-]\s*$/, '').replace(/\s{2,}/g, ' ').trim() || String(name || '').trim();

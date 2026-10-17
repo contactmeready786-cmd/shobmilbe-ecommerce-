@@ -1,7 +1,7 @@
 // Admin → মার্কেটিং → 🤖 অটো মার্কেটিং: switches and log for the two things the shop now does by itself —
 //  1. a daily post of one product on the Facebook page (and Instagram), at the hours chosen here;
 //  2. a "দাম তালিকা" blog article for every main category, refreshed every week.
-import { Val, attrValue, attrProps, styleOf, jsxList } from '../react/html';
+import { Val, attrValue, styleOf, jsxList } from '../react/html';
 import { bn, fmtDate } from '../util';
 import * as db from '../db';
 import * as ui from './ui';

@@ -5,7 +5,7 @@
 //   a line "/p/slug" → product card placeholder (filled by the caller),
 //   | a | b | rows → a table (first row = heading; a |---| row is skipped) — used for size charts.
 import { esc, youtubeId } from '../util';
-import type { Body, Loose, Settings } from '../types';
+import type { Body, Loose } from '../types';
 
 function inline(s?: Loose) {
   return s

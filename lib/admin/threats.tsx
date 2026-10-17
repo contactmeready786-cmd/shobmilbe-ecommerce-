@@ -7,7 +7,7 @@ import * as db from '../db';
 import * as G from '../services/guard';
 import * as V from '../services/visitors';
 import * as ui from './ui';
-import type { AdminCtx, Body, Loose } from '../types';
+import type { AdminCtx, Loose } from '../types';
 
 const BASE = '/admin/security/threats';
 

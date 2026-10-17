@@ -1,7 +1,7 @@
 import * as security from '../security';
 import { createElement } from 'react';
 import { Fragment } from 'react';
-import { Val, RawHtml, attrValue, htmlValue, attrProps, styleOf, jsxList } from '../react/html';
+import { Val, RawHtml, attrValue, htmlValue, styleOf, jsxList } from '../react/html';
 import * as R from '../../components/shop/Pages';
 import { raw, esc, money, bn, fmtDate, youtubeId, contact, roundOff, roundOffLabel, qtyRule, minOrder } from '../util';
 import * as O from '../models/orders';

@@ -12,7 +12,7 @@ import { bn, fmtDate } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
 import * as $liveguide from './liveguide';
-import type { AdminCtx, Body, Loose } from '../types';
+import type { AdminCtx, Loose } from '../types';
 
 const BASE = '/admin/reach';
 

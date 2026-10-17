@@ -26,8 +26,6 @@ export type Body = Record<string, any>;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- columns vary by query
 export type Row = Record<string, any>;
 
-/** Anything that can appear inside html`...`: text (escaped), raw HTML, lists of those, or nothing. */
-export type HtmlValue = string | number | bigint | boolean | null | undefined | { toString(): string } | HtmlValue[];
 
 /** Old code that has not been given exact types yet. Searching for "Loose" finds every place still to tighten. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- legacy: type me

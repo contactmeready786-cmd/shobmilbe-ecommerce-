@@ -5,9 +5,9 @@
 
 // The same product on two lines (e.g. added twice while editing) is shown once with the quantities added up,
 // so each product's picture appears only once.
-import { Val, RawHtml, attrValue, jsxList, renderHtml } from '../react/html';
+import { Val, RawHtml, attrValue, jsxList, renderHtml, htmlValue } from '../react/html';
 import { ASSET_V as PA_V } from '../admin/layout';
-import { html, raw, money, bn, fmtDate, roundOff, roundOffLabel } from '../util';
+import { raw, money, bn, fmtDate, roundOff, roundOffLabel } from '../util';
 import * as ordersModel from '../models/orders';
 import * as docs from '../services/docs';
 import * as BC from '../services/barcode';
@@ -40,14 +40,14 @@ function qrSvg(s?: Loose, order?: Loose, px?: Loose) {
   const site = siteOf(s);
   return site ? $services_qr.svg(`${site}/track?code=${order.code}`, { px, label: 'অর্ডার ট্র্যাক' }) : '';
 }
-const shell = (title?: Loose, css?: Loose, bodyHtml?: Loose, { embed }: Body = {}) => '<!doctype html>' + html`<html lang="bn"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${title}</title><meta name="robots" content="noindex">
+const shell = (title?: Loose, css?: Loose, bodyHtml?: Loose, { embed }: Body = {}) => '<!doctype html>' + `<html lang="bn"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${htmlValue(title)}</title><meta name="robots" content="noindex">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<style>${raw(css)}</style></head><body class="${embed ? 'embed' : ''}">
-${embed ? '' : raw('<div class="bar"><button type="button" data-print>🖨️ প্রিন্ট করুন</button><a href="/admin/orders" data-back>← ফিরে যান</a></div>')}
-${raw(renderHtml(bodyHtml))}
-${embed ? '' : raw(`<script src="/js/page-actions.js?v=${PA_V}" defer></script>`)}
-</body></html>`.s;
+<style>${(css)}</style></head><body class="${htmlValue(embed ? 'embed' : '')}">
+${htmlValue(embed ? '' : raw('<div class="bar"><button type="button" data-print>🖨️ প্রিন্ট করুন</button><a href="/admin/orders" data-back>← ফিরে যান</a></div>'))}
+${(renderHtml(bodyHtml))}
+${htmlValue(embed ? '' : raw(`<script src="/js/page-actions.js?v=${PA_V}" defer></script>`))}
+</body></html>`;
 const BASE_CSS = `*{box-sizing:border-box}body{font-family:'Noto Sans Bengali',sans-serif;color:#14213D;margin:0;background:#E9EEF5;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 body.embed{background:transparent}
 .bar{display:flex;gap:10px;justify-content:center;padding:12px;background:#14213D}.bar button,.bar a{font:600 15px 'Noto Sans Bengali';padding:8px 16px;border-radius:8px;border:0;background:#F5A524;color:#14213D;cursor:pointer;text-decoration:none}

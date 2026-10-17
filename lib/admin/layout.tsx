@@ -1,4 +1,4 @@
-import { Val, RawHtml, attrValue, htmlValue, attrProps, jsxList, renderHtml } from '../react/html';
+import { Val, RawHtml, attrValue, htmlValue, jsxList, renderHtml } from '../react/html';
 import { cspNonce } from '../security';
 import type { ReactNode } from 'react';
 import { raw } from '../util';

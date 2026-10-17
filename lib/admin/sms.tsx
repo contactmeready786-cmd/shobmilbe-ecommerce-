@@ -1,7 +1,7 @@
 // Admin → মার্কেটিং → কাস্টমারকে SMS: the SMS company and key, automatic order messages (each with a switch
 // and its own text), a test message, a message to many customers at once, and the list of everything sent.
-import { Val, attrValue, attrProps, jsxList } from '../react/html';
-import { raw, bn, int, str, fmtDate, normalizePhone, validPhone } from '../util';
+import { Val, attrValue, jsxList } from '../react/html';
+import { bn, int, str, fmtDate, normalizePhone, validPhone } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
 import * as SMS from '../services/sms';

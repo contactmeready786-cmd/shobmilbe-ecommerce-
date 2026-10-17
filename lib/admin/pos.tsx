@@ -3,9 +3,9 @@
 // change quantity / price, discount, customer's mobile (optional), how they paid, cash given → change to return.
 // "বিক্রি সম্পন্ন" saves it as an order (source: দোকান, already delivered and paid) — stock goes down at once
 // (from the chosen branch, when there are branches) — and the cash memo opens for printing.
-import { Val, attrValue, attrProps, jsxList } from '../react/html';
+import { Val, attrValue, jsxList, htmlValue } from '../react/html';
 import { cspNonce } from '../security';
-import { html, raw, int, str, bn, money, fmtDate, amount, round2, normalizePhone, validPhone } from '../util';
+import { raw, int, str, bn, money, fmtDate, amount, round2, normalizePhone, validPhone } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
 import * as O from '../models/orders';
@@ -91,7 +91,7 @@ async function memo(ctx: AdminCtx, m?: Loose) {
   const bc = $services_barcode.svg(o.code, { height: 40, module: 1.6, fontSize: 11 });
   const sold = await db.one('SELECT name FROM staff WHERE id=$1', [o.created_by]);
   const change = Number(o.pos_tendered) ? round2(Number(o.pos_tendered) - Number(o.total)) : 0;
-  const page = html`<!doctype html><html lang="bn"><head><meta charset="utf-8"><title>মেমো ${o.code}</title><meta name="viewport" content="width=device-width,initial-scale=1">
+  const page = raw(`<!doctype html><html lang="bn"><head><meta charset="utf-8"><title>মেমো ${htmlValue(o.code)}</title><meta name="viewport" content="width=device-width,initial-scale=1">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box}body{font-family:'Noto Sans Bengali',sans-serif;margin:0;background:#eee;color:#000}
@@ -103,26 +103,26 @@ table{width:100%;border-collapse:collapse;margin:6px 0}td{padding:2px 0;vertical
 </style></head><body>
 <div class="noprint"><button type="button" data-print>🖨️ প্রিন্ট</button> <a href="/admin/pos">← নতুন বিক্রি</a></div>
 <div class="memo">
-  <h1>${s.store_name}</h1>
-  <p class="c s">${w && w.address ? w.address : s.address || ''}${(w && w.phone) || s.phone ? <><br />ফোন:{' '}<Val v={(w && w.phone) || s.phone} /></> : ''}${s.vat_bin ? <><br />BIN:{' '}<Val v={s.vat_bin} /></> : ''}</p>
+  <h1>${htmlValue(s.store_name)}</h1>
+  <p class="c s">${htmlValue(w && w.address ? w.address : s.address || '')}${htmlValue((w && w.phone) || s.phone ? <><br />ফোন:{' '}<Val v={(w && w.phone) || s.phone} /></> : '')}${htmlValue(s.vat_bin ? <><br />BIN:{' '}<Val v={s.vat_bin} /></> : '')}</p>
   <p class="c"><b>ক্যাশ মেমো</b></p>
-  <p class="s">মেমো: <b>${o.code}</b><br>তারিখ: ${fmtDate(o.created_at)}${w ? <><br />দোকান:{' '}<Val v={w.name} /></> : ''}${o.phone ? <><br />কাস্টমার:{' '}<Val v={o.customer_name} />{' '}(<Val v={o.phone} />)</> : ''}</p>
+  <p class="s">মেমো: <b>${htmlValue(o.code)}</b><br>তারিখ: ${htmlValue(fmtDate(o.created_at))}${htmlValue(w ? <><br />দোকান:{' '}<Val v={w.name} /></> : '')}${htmlValue(o.phone ? <><br />কাস্টমার:{' '}<Val v={o.customer_name} />{' '}(<Val v={o.phone} />)</> : '')}</p>
   <div class="line"></div>
-  <table><tbody>${o.items.map((it?: Loose) => <tr><td><Val v={it.name} />{(it.sku ? <>{' '}<span className="s">[<Val v={it.sku} />]</span></> : null)}<br /><span className="s">{bn(it.qty)}{' '}×{' '}{money(it.price)}</span></td><td className="n">{money(it.price * it.qty)}</td></tr>)}</tbody></table>
+  <table><tbody>${htmlValue(o.items.map((it?: Loose) => <tr><td><Val v={it.name} />{(it.sku ? <>{' '}<span className="s">[<Val v={it.sku} />]</span></> : null)}<br /><span className="s">{bn(it.qty)}{' '}×{' '}{money(it.price)}</span></td><td className="n">{money(it.price * it.qty)}</td></tr>))}</tbody></table>
   <div class="line"></div>
   <table><tbody>
-    <tr><td>পণ্যের দাম</td><td class="n">${money(o.subtotal)}</td></tr>
-    ${Number(o.discount) ? <tr><td>ছাড়</td><td className="n">−{' '}{money(o.discount)}</td></tr> : ''}
-    <tr class="tot"><td>মোট</td><td class="n">${money(o.total)}</td></tr>
-    <tr><td>পেমেন্ট</td><td class="n">${O.PAYMENT_METHODS[o.payment] || o.payment}</td></tr>
-    ${Number(o.pos_tendered) ? <><tr><td>দিয়েছেন</td><td className="n">{money(o.pos_tendered)}</td></tr><tr><td>ফেরত</td><td className="n">{money(Math.max(0, change))}</td></tr></> : ''}
+    <tr><td>পণ্যের দাম</td><td class="n">${htmlValue(money(o.subtotal))}</td></tr>
+    ${htmlValue(Number(o.discount) ? <tr><td>ছাড়</td><td className="n">−{' '}{money(o.discount)}</td></tr> : '')}
+    <tr class="tot"><td>মোট</td><td class="n">${htmlValue(money(o.total))}</td></tr>
+    <tr><td>পেমেন্ট</td><td class="n">${htmlValue(O.PAYMENT_METHODS[o.payment] || o.payment)}</td></tr>
+    ${htmlValue(Number(o.pos_tendered) ? <><tr><td>দিয়েছেন</td><td className="n">{money(o.pos_tendered)}</td></tr><tr><td>ফেরত</td><td className="n">{money(Math.max(0, change))}</td></tr></> : '')}
   </tbody></table>
   <div class="line"></div>
-  <p class="c s">ধন্যবাদ! আবার আসবেন।${s.site_url ? <><br />অনলাইনে অর্ডার:{' '}{String(s.site_url).replace(/^https?:\/\//, '')}</> : ''}${sold ? <><br />বিক্রেতা:{' '}<Val v={sold.name} /></> : ''}</p>
-  <div class="bc">${raw(bc)}</div>
+  <p class="c s">ধন্যবাদ! আবার আসবেন।${htmlValue(s.site_url ? <><br />অনলাইনে অর্ডার:{' '}{String(s.site_url).replace(/^https?:\/\//, '')}</> : '')}${htmlValue(sold ? <><br />বিক্রেতা:{' '}<Val v={sold.name} /></> : '')}</p>
+  <div class="bc">${(bc)}</div>
 </div>
-<script nonce="${cspNonce()}">${raw(ctx.query.get('print') === '1' ? 'window.addEventListener("load",function(){setTimeout(function(){window.print()},300)});' : '')}</script>
-<script src="/js/page-actions.js?v=${ASSET_V}" defer></script></body></html>`;
+<script nonce="${cspNonce()}">${(ctx.query.get('print') === '1' ? 'window.addEventListener("load",function(){setTimeout(function(){window.print()},300)});' : '')}</script>
+<script src="/js/page-actions.js?v=${htmlValue(ASSET_V)}" defer></script></body></html>`);
   return ctx.send(200, page.s || String(page));
 }
 

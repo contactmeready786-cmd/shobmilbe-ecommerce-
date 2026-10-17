@@ -1,14 +1,14 @@
 // Admin → মার্কেটিং → Google ও Facebook → 🤖 অটো SEO: what the automatic SEO engine (services/autoseo.js) has done,
 // the shop's SEO score day by day, its switches, every change with an undo button, and a preview of an auto description.
-import { Val, RawHtml, attrValue, attrProps, styleOf, jsxList } from '../react/html';
-import { raw, bn, fmtDate } from '../util';
+import { Val, RawHtml, attrValue, styleOf, jsxList } from '../react/html';
+import { bn, fmtDate } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
 import * as charts from './charts';
 import * as md from '../views/md';
 import * as A from '../services/autoseo';
 import * as $status from './status';
-import type { AdminCtx, Body, Loose } from '../types';
+import type { AdminCtx, Loose } from '../types';
 
 const BASE = '/admin/marketing/autoseo';
 
