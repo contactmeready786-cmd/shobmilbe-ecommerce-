@@ -1,4 +1,4 @@
-import { toHtml, Val, RawHtml, attrValue, htmlValue, attrProps, jsxList } from '../react/html';
+import { Val, RawHtml, attrValue, htmlValue, attrProps, jsxList, renderHtml } from '../react/html';
 import { cspNonce } from '../security';
 import type { ReactNode } from 'react';
 import { raw } from '../util';
@@ -185,7 +185,7 @@ const HOME_TABS = [
 function homeTabs(user: StaffUser, active?: Loose) {
   const tabs = HOME_TABS.filter((t) => visible(user, t[2]));
   if (tabs.length < 2) return '';
-  return toHtml(<nav className="home-tabs" aria-label="ড্যাশবোর্ডের ট্যাব">{jsxList(tabs.map(([href, label, , key, icon]: Loose[]) => <a href={attrValue(href)} className={`home-tab ${active === key ? 'on' : ''}`} {...attrProps(active === key ? raw(' aria-current="page"') : '')}><span aria-hidden="true"><Val v={icon} /></span>{' '}<Val v={label} /></a>))}</nav>);
+  return <nav className="home-tabs" aria-label="ড্যাশবোর্ডের ট্যাব">{jsxList(tabs.map(([href, label, , key, icon]: Loose[]) => <a href={attrValue(href)} className={`home-tab ${active === key ? 'on' : ''}`} {...attrProps(active === key ? raw(' aria-current="page"') : '')}><span aria-hidden="true"><Val v={icon} /></span>{' '}<Val v={label} /></a>))}</nav>;
 }
 
 // A menu entry for the user: a plain link stays as it is; a tab set becomes a link to its first tab the user may
@@ -205,20 +205,20 @@ function pageTabs(user: StaffUser, active?: Loose, path?: Loose) {
     if (!set.some((t?: Loose) => t[0].split('?')[0] === path)) continue;
     const tabs = set.filter((t?: Loose) => visible(user, t[2]));
     if (tabs.length < 2) return '';
-    return toHtml(<nav className="home-tabs page-tabs" aria-label="এই বিভাগের পেজ">{jsxList(tabs.map(([href, label, , key, icon]: Loose[]) => <a href={attrValue(href)} className={`home-tab ${active === key ? 'on' : ''}`} {...attrProps(active === key ? raw(' aria-current="page"') : '')}><span aria-hidden="true"><Val v={icon} /></span>{' '}<Val v={label} /></a>))}</nav>);
+    return <nav className="home-tabs page-tabs" aria-label="এই বিভাগের পেজ">{jsxList(tabs.map(([href, label, , key, icon]: Loose[]) => <a href={attrValue(href)} className={`home-tab ${active === key ? 'on' : ''}`} {...attrProps(active === key ? raw(' aria-current="page"') : '')}><span aria-hidden="true"><Val v={icon} /></span>{' '}<Val v={label} /></a>))}</nav>;
   }
   return '';
 }
 
 function head(title: Loose, settings: Settings) {
-  return toHtml(<><RawHtml html={`<meta charset="utf-8">`} /><RawHtml html={`<meta name="viewport" content="width=device-width, initial-scale=1">`} /><RawHtml html={`<title>${htmlValue(title)}</title>`} /><RawHtml html={`<meta name="robots" content="noindex, nofollow">`} /><RawHtml html={`<meta name="theme-color" content="#14213D">`} /><RawHtml html={`<link rel="icon" href="${htmlValue(settings.favicon_id ? `/media/${settings.favicon_id}/t` : '/brand/favicon-32.png')}">`} /><RawHtml html={`<link rel="preconnect" href="https://fonts.googleapis.com">`} /><RawHtml html={`<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>`} /><RawHtml html={`<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;500;600;700;800&display=swap" rel="stylesheet">`} /><RawHtml html={`<link rel="stylesheet" href="/css/style.css?v=${htmlValue(ASSET_V)}">`} /><RawHtml html={`<link rel="stylesheet" href="/css/admin.css?v=${htmlValue(ASSET_V)}">`} /><RawHtml html={`<link rel="manifest" href="/admin.webmanifest">`} /><RawHtml html={`<link rel="apple-touch-icon" href="/icon-192.png">`} /><RawHtml html={`<meta name="apple-mobile-web-app-capable" content="yes">`} /></>);
+  return <><RawHtml html={`<meta charset="utf-8">`} /><RawHtml html={`<meta name="viewport" content="width=device-width, initial-scale=1">`} /><RawHtml html={`<title>${htmlValue(title)}</title>`} /><RawHtml html={`<meta name="robots" content="noindex, nofollow">`} /><RawHtml html={`<meta name="theme-color" content="#14213D">`} /><RawHtml html={`<link rel="icon" href="${htmlValue(settings.favicon_id ? `/media/${settings.favicon_id}/t` : '/brand/favicon-32.png')}">`} /><RawHtml html={`<link rel="preconnect" href="https://fonts.googleapis.com">`} /><RawHtml html={`<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>`} /><RawHtml html={`<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;500;600;700;800&display=swap" rel="stylesheet">`} /><RawHtml html={`<link rel="stylesheet" href="/css/style.css?v=${htmlValue(ASSET_V)}">`} /><RawHtml html={`<link rel="stylesheet" href="/css/admin.css?v=${htmlValue(ASSET_V)}">`} /><RawHtml html={`<link rel="manifest" href="/admin.webmanifest">`} /><RawHtml html={`<link rel="apple-touch-icon" href="/icon-192.png">`} /><RawHtml html={`<meta name="apple-mobile-web-app-capable" content="yes">`} /></>;
 }
 
 function logoMark(settings: Settings) {
-  if (settings.logo_id) return toHtml(<img className="logo-img" src={`/media/${attrValue(settings.logo_id)}`} alt={attrValue(settings.store_name)} />);
+  if (settings.logo_id) return <img className="logo-img" src={`/media/${attrValue(settings.logo_id)}`} alt={attrValue(settings.store_name)} />;
   const name = settings.store_name || 'সবমিলবে';
-  if (name === 'সবমিলবে') return toHtml(<><span className="logo-a">সব</span><span className="logo-b">মিলবে</span></>);
-  return toHtml(<span className="logo-a"><Val v={name} /></span>);
+  if (name === 'সবমিলবে') return <><span className="logo-a">সব</span><span className="logo-b">মিলবে</span></>;
+  return <span className="logo-a"><Val v={name} /></span>;
 }
 
 // বাংলা ⇄ English for the admin itself (Admin → স্টোর ডিজাইন → ভাষা → "অ্যাডমিন প্যানেলেও বাংলা / English").
@@ -230,7 +230,7 @@ function langHead(settings: Settings) {
 }
 function langSwitch(settings: Settings) {
   if (!adminLangOn(settings)) return '';
-  return toHtml(<button type="button" className="lang-sw admin-lang-sw" role="switch" title="বাংলা / English" data-admin-lang-switch="" aria-checked="false" aria-label="English" translate="no">{' '}<span className="ls-l ls-bn">বাং</span><span className="ls-track" aria-hidden="true"><span className="ls-knob"></span></span><span className="ls-l ls-en">EN</span>{' '}</button>);
+  return <button type="button" className="lang-sw admin-lang-sw" role="switch" title="বাংলা / English" data-admin-lang-switch="" aria-checked="false" aria-label="English" translate="no">{' '}<span className="ls-l ls-bn">বাং</span><span className="ls-track" aria-hidden="true"><span className="ls-knob"></span></span><span className="ls-l ls-en">EN</span>{' '}</button>;
 }
 
 /** The scripts every admin page loads at the end (admin.js, page-actions.js, the English switch). */
@@ -326,11 +326,11 @@ const adminBodyClass = (bare?: boolean) => (bare ? 'admin admin-auth' : 'admin')
 
 // The whole admin page as text, for the original router (lib/site.ts). The Next.js admin pages use the same pieces.
 function adminLayout({ settings, user, title, body, active, bare, readOnly, path = '' }: Body) {
-  const headHtml = `${head(`${title} | Admin`, settings).s}${langHead(settings)}`;
+  const headHtml = `${renderHtml(head(`${title} | Admin`, settings))}${renderHtml(langHead(settings))}`;
   const inner = bare
     ? <AdminBare settings={settings}><Val v={body} /></AdminBare>
     : <AdminBody settings={settings} user={user} active={active} readOnly={readOnly} path={path} nonce={cspNonce()}><Val v={body} /></AdminBody>;
-  return `<!doctype html><html lang="bn"><head>${headHtml}</head><body class="${adminBodyClass(bare)}">${toHtml(inner).s}</body></html>`;
+  return `<!doctype html><html lang="bn"><head>${headHtml}</head><body class="${adminBodyClass(bare)}">${renderHtml(inner)}</body></html>`;
 }
 
 export { adminLayout, AdminBody, AdminBare, adminBodyClass, langHead, head as adminHeadTags, MENU, TABS, resolveItem, allowed, visible, logoMark, ASSET_V };

@@ -50,7 +50,7 @@ jobs:
       - name: Tests
         working-directory: new
         env: { LIVE_DNS: '1' }
-        run: npx tsx --test --test-concurrency=1 --test-force-exit tests/*.test.ts tests/*.test.tsx 2>&1 | tee "$RUNNER_TEMP/tests.txt"
+        run: SM_STRICT_PIECES=throw npx tsx --test --test-concurrency=1 --test-force-exit tests/*.test.ts tests/*.test.tsx 2>&1 | tee "$RUNNER_TEMP/tests.txt"
       - name: Build
         working-directory: new
         run: npx next build 2>&1 | tee "$RUNNER_TEMP/build.txt"
@@ -75,7 +75,7 @@ jobs:
         run: ../new/tools/parity/run.sh "$RUNNER_TEMP/old" 3102 $OLD_START
       - name: Crawl the Next.js site
         working-directory: new
-        run: tools/parity/run.sh "$RUNNER_TEMP/new" 3200 npx next start -p 3200
+        run: SM_STRICT_PIECES=1 tools/parity/run.sh "$RUNNER_TEMP/new" 3200 npx next start -p 3200
       - name: Compare every page
         working-directory: new
         run: node tools/parity/compare.mjs "$RUNNER_TEMP/old" "$RUNNER_TEMP/new" --show 40 | tee "$RUNNER_TEMP/compare.txt"
@@ -89,7 +89,7 @@ jobs:
           set -o pipefail
           {
             (cd old && SCENARIOS=1 ../new/tools/parity/run.sh "$RUNNER_TEMP/scen-old" 3102 $OLD_START) 2>&1 || echo "old site run failed"
-            (cd new && SCENARIOS=1 tools/parity/run.sh "$RUNNER_TEMP/scen-new" 3200 npx next start -p 3200) 2>&1 || echo "new site run failed"
+            (cd new && SCENARIOS=1 SM_STRICT_PIECES=1 tools/parity/run.sh "$RUNNER_TEMP/scen-new" 3200 npx next start -p 3200) 2>&1 || echo "new site run failed"
             tail -30 "$RUNNER_TEMP/scen-new.server.log" 2>/dev/null
           } > "$RUNNER_TEMP/scenarios.txt"
           if cmp -s "$RUNNER_TEMP/scen-old.json" "$RUNNER_TEMP/scen-new.json"; then echo "actions: identical" >> "$RUNNER_TEMP/scenarios.txt"
@@ -100,7 +100,14 @@ jobs:
         working-directory: new
         run: |
           npm i --no-save --no-audit --no-fund playwright-core@1.49.1 >/dev/null 2>&1
-          BROWSER=1 tools/parity/run.sh "$RUNNER_TEMP/browser" 3300 npx next start -p 3300 2>&1 | tee "$RUNNER_TEMP/browser.txt"
+          BROWSER=1 SM_STRICT_PIECES=1 tools/parity/run.sh "$RUNNER_TEMP/browser" 3300 npx next start -p 3300 2>&1 | tee "$RUNNER_TEMP/browser.txt"
+      # A React piece written into text by mistake ("[object Object]"): lib/react/html's tripwire logs SM_PIECE_AS_TEXT
+      - name: No page piece written as text
+        if: always()
+        run: |
+          grep -h "SM_PIECE_AS_TEXT" "$RUNNER_TEMP"/new.server.log "$RUNNER_TEMP"/scen-new.server.log "$RUNNER_TEMP"/browser.server.log 2>/dev/null | sort | uniq -c > "$RUNNER_TEMP/pieces.txt" || true
+          if [ -s "$RUNNER_TEMP/pieces.txt" ]; then echo "page pieces written as text:"; cat "$RUNNER_TEMP/pieces.txt"; exit 1; fi
+          echo "none" | tee "$RUNNER_TEMP/pieces.txt"
       # Results go to the separate "ci-results" branch (text only — no shop data, test data only).
       - name: Save results
         if: always()
@@ -108,7 +115,7 @@ jobs:
         run: |
           OUT="$RUNNER_TEMP/results"; mkdir -p "$OUT"
           cp package-lock.json "$OUT/" 2>/dev/null || true
-          for f in versions typecheck tests build compare compare-all coverage scenarios browser; do cp "$RUNNER_TEMP/$f.txt" "$OUT/" 2>/dev/null || true; done
+          for f in versions typecheck tests build compare compare-all coverage scenarios browser pieces; do cp "$RUNNER_TEMP/$f.txt" "$OUT/" 2>/dev/null || true; done
           [ -d "$RUNNER_TEMP/diff-pages" ] && cp -r "$RUNNER_TEMP/diff-pages" "$OUT/"
           for f in "$RUNNER_TEMP"/*.server.log; do [ -f "$f" ] && tail -c 20000 "$f" > "$OUT/$(basename "$f")"; done
           echo "${{ github.sha }} ${{ job.status }}" > "$OUT/RESULT"
@@ -117,4 +124,5 @@ jobs:
           git init -q && git checkout -q -b ci-results
           git -c user.name=ci -c user.email=ci@localhost add -A
           git -c user.name=ci -c user.email=ci@localhost commit -qm "parity results for ${{ github.sha }}"
-          git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" ci-results
+          BR=ci-results; [ "${{ github.ref_name }}" = nextjs-migration ] || BR="ci-results-$(echo '${{ github.ref_name }}' | tr '/' '-')"
+          git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" "ci-results:$BR"

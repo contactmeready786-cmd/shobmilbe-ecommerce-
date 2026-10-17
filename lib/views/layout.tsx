@@ -2,7 +2,7 @@
 // It draws exactly what the Next.js pages draw: the same React frame (components/shop/chrome) and head pieces; only the
 // title/description tags are written here instead of by Next.js's metadata. When the last page has moved to app/(shop),
 // this file goes.
-import { toHtml, Val } from '../react/render';
+import { renderHtml, Val } from '../react/render';
 import * as $services_seo from '../services/seo';
 import { esc } from '../util';
 import { ShopBody, Logo, ASSET_V } from '../../components/shop/chrome/Chrome';
@@ -10,7 +10,7 @@ import { ShopHeadExtras, JsonLd, colors } from '../../components/shop/chrome/Hea
 import type { Body, Id, Loose, Settings } from '../types';
 
 function mediaUrl(id?: Id, thumb?: Loose) { return id ? `/media/${id}${thumb ? '/t' : ''}` : ''; }
-function logo(settings: Settings) { return toHtml(<Logo settings={settings} />); }
+function logo(settings: Settings) { return <Logo settings={settings} />; }
 
 type HeadProps = { s: Settings; title: string; description?: string; keywords?: string; canonical?: string; image?: string; type?: string; noindex?: boolean };
 function HeadTags({ s, title, description, keywords, canonical, image, type = 'website', noindex }: HeadProps) {
@@ -45,13 +45,13 @@ function HeadTags({ s, title, description, keywords, canonical, image, type = 'w
 function shopLayout({ settings: s, title, description, keywords, body, q, active, canonical, image, jsonLd, jsonLdExtra, type, noindex, categories = [], pages = [], track = null, popup = null }: Body) {
   const full = title ? `${title} | ${s.store_name}` : $services_seo.homeTitle(s);
   const bodyClass = ['shop', s.copy_protect === '1' ? 'protect' : '', s.copy_title === '1' ? 'copy-title' : '', `cols-${s.grid_cols || '4'}`].filter(Boolean).join(' ');
-  const head = toHtml(<>
+  const head = renderHtml(<>
     <HeadTags s={s} title={full} description={description} keywords={keywords} canonical={canonical} image={image} type={type} noindex={noindex} />
     <ShopHeadExtras settings={s} />
     <JsonLd data={[jsonLd, jsonLdExtra]} />
   </>);
-  const page = toHtml(<ShopBody settings={s} categories={categories} pages={pages} popup={popup} q={q || ''} active={active || ''} track={track}><Val v={body} /></ShopBody>);
-  return `<!doctype html><html lang="bn"><head>${head.s}</head><body class="${esc(bodyClass)}">${page.s}</body></html>`;
+  const page = renderHtml(<ShopBody settings={s} categories={categories} pages={pages} popup={popup} q={q || ''} active={active || ''} track={track}><Val v={body} /></ShopBody>);
+  return `<!doctype html><html lang="bn"><head>${head}</head><body class="${esc(bodyClass)}">${page}</body></html>`;
 }
 
 export { shopLayout, logo, mediaUrl, ASSET_V };

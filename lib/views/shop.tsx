@@ -3,7 +3,7 @@ import { createElement } from 'react';
 import { Fragment } from 'react';
 import { Val, RawHtml, attrValue, htmlValue, attrProps, styleOf, jsxList } from '../react/html';
 import * as R from '../../components/shop/Pages';
-import { html, raw, esc, money, bn, fmtDate, youtubeId, contact, roundOff, roundOffLabel, qtyRule, minOrder } from '../util';
+import { raw, esc, money, bn, fmtDate, youtubeId, contact, roundOff, roundOffLabel, qtyRule, minOrder } from '../util';
 import * as O from '../models/orders';
 import * as md from './md';
 import { categoryTree } from '../models/catalog';

@@ -5,7 +5,7 @@ import * as catalog from '../models/catalog';
 import * as drafts from '../services/drafts';
 import * as shop from '../views/shop';
 import * as $services_search from '../services/search';
-import { loadRenderer, toHtml } from '../react/render';
+import { loadRenderer, renderHtml } from '../react/render';
 import { myOrders } from '../gate';
 import { int, str, contact } from '../util';
 import { allow, json, tooMany, type ApiCtx } from '../next/api';
@@ -18,7 +18,7 @@ const readLimit = (ctx: ApiCtx) => allow(ctx, 'readapi:', 600, 600);
 /** Product cards as HTML (the pages put them straight into a list). */
 async function cardsHtml(prods: Loose[], ctx: ApiCtx): Promise<string> {
   await loadRenderer();
-  return prods.map((p) => toHtml(shop.productCard(p, ctx.settings)).s).join('');
+  return prods.map((p) => renderHtml(shop.productCard(p, ctx.settings))).join('');
 }
 const sortLike = (prods: Loose[], order: number[]) => {
   const pos = new Map(order.map((id, i) => [id, i]));

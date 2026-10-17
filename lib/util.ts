@@ -14,11 +14,17 @@ function esc(v: unknown): string {
 // Tagged template that escapes interpolated values, except values wrapped with raw().
 class Raw { s: string; constructor(s: string) { this.s = s; } toString() { return this.s; } }
 function raw(s: unknown): Raw { return new Raw(s == null ? '' : String(s)); }
+// A React piece inside html`…` (the print pages' text frames) is its HTML: lib/react/html registers how (this file
+// doesn't load React).
+let pieceHtml: (v: unknown) => string | null = () => null;
+function setPieceHtml(fn: (v: unknown) => string | null): void { pieceHtml = fn; }
 function html(strings: TemplateStringsArray, ...values: HtmlValue[]): Raw {
   let out = strings[0];
+  const one = (x: unknown) => (x instanceof Raw ? x.s : pieceHtml(x) ?? esc(x));
   values.forEach((v, i) => {
-    if (Array.isArray(v)) out += v.map((x) => (x instanceof Raw ? x.s : esc(x))).join('');
+    if (Array.isArray(v)) out += v.map(one).join('');
     else if (v instanceof Raw) out += v.s;
+    else if (v !== false && v !== null && v !== undefined && pieceHtml(v) !== null) out += pieceHtml(v);
     else if (v === false || v === null || v === undefined) out += '';
     else out += esc(v);
     out += strings[i + 1];
@@ -300,4 +306,4 @@ function minOrder(s: Settings | null | undefined): number { return Math.max(0, N
 
 function pageNum(query: URLSearchParams): number { return Math.max(1, int(query.get('page'), 1)); }
 
-export { PRICE_MIN, PRICE_MAX, priceProblem, contact, qtyRule, amount, round2, roundOff, shopPrice, wholeTaka, roundOffLabel, esc, html, raw, Raw, bn, money, pct, slugify, randomCode, parseCookies, parseBody, readBody, list, hashPassword, verifyPassword, passwordProblem, sign, unsign, sha256, fmtDate, ymd, validYmd, dateRange, int, num, str, minOrder, normalizePhone, validPhone, csv, fetchJson, youtubeId, pageNum, TZ };
+export { PRICE_MIN, PRICE_MAX, priceProblem, contact, qtyRule, amount, round2, roundOff, shopPrice, wholeTaka, roundOffLabel, esc, html, raw, Raw, setPieceHtml, bn, money, pct, slugify, randomCode, parseCookies, parseBody, readBody, list, hashPassword, verifyPassword, passwordProblem, sign, unsign, sha256, fmtDate, ymd, validYmd, dateRange, int, num, str, minOrder, normalizePhone, validPhone, csv, fetchJson, youtubeId, pageNum, TZ };

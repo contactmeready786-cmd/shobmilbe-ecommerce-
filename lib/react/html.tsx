@@ -1,36 +1,15 @@
 // ⚛️ Ready-made HTML inside React (no react-dom/server here, so Next.js server components can use it too).
 import { cloneElement, createElement, Fragment, isValidElement, type ReactElement, type ReactNode } from 'react';
-import { Raw } from '../util';
+import { Raw, setPieceHtml } from '../util';
 
-// ---------------------------------------------------------------- toHtml: a React piece where HTML text is expected
-// Many helpers (made from the old html`…` templates) hand back a piece of page that the caller puts into a bigger
-// page. toHtml(<…/>) keeps the React piece as it is: inside another React page it stays React (Next.js pages), and
-// only when someone really needs the text (.s, an old html`…` template) is it turned into HTML — by the renderer the
-// original router registers (lib/react/render.tsx; Next.js pages may not load react-dom/server).
+// ---------------------------------------------------------------- renderHtml: a React piece as HTML text
+// The page pieces are React all the way. Only where HTML text is really needed — the whole pages lib/site.ts answers,
+// print pages, the cards the shop's API sends as HTML — is a piece turned into text, by the renderer lib/react/render.tsx
+// registers (Next.js pages never need it, and may not load react-dom/server).
 type Renderer = (el: ReactElement) => string;
 let renderer: Renderer | null = null;
 /** lib/react/render.tsx registers react-dom/server's renderer here. */
 export function setRenderer(fn: Renderer): void { renderer = fn; }
-
-export class ElementHtml extends Raw {
-  readonly el: ReactElement;
-  constructor(el: ReactElement) {
-    super('');
-    this.el = el;
-    let done: string | null = null;
-    Object.defineProperty(this, 's', {
-      get: () => {
-        if (done === null) {
-          const plain = plainText(el);
-          if (plain !== null) done = plain; // only words: no renderer needed
-          else if (!renderer) throw new Error(`toHtml(…).s needs lib/react/render (not available in a Next.js page — keep the piece as React): ${describe(el)}`);
-          else done = renderer(el);
-        }
-        return done;
-      },
-    });
-  }
-}
 
 // A piece that is only words (in fragments): its HTML text, escaped as React would; null = it has real tags.
 function plainText(node: unknown): string | null {
@@ -52,16 +31,41 @@ function describe(el: ReactElement): string {
   return `<${name}${cls}>` + (first && isValidElement(first) && name === 'fragment' ? ' ' + describe(first) : '');
 }
 
-/** A React piece that can also stand where ready-made HTML is expected (see above). */
-export function toHtml(el: ReactElement | Raw): Raw {
-  return el instanceof Raw ? el : new ElementHtml(el);
+/** A page piece (React, ready-made HTML or text) as HTML text. Needs lib/react/render's renderer unless it is only words. */
+export function renderHtml(node: unknown): string {
+  if (node instanceof Raw) return node.s;
+  const plain = plainText(node);
+  if (plain !== null) return plain;
+  const el = isValidElement(node) ? node : createElement(Fragment, null, node as ReactNode);
+  if (!renderer) throw new Error(`renderHtml needs lib/react/render (not available in a Next.js page — keep the piece as React): ${describe(el)}`);
+  return renderer(el);
 }
 
-// Inside toHtml() (lib/react/render.tsx) React leaves a marker and the HTML is spliced in after rendering, so the
+// html`…` (the print pages' text frames) writes a React piece as its HTML
+setPieceHtml((v) => (isValidElement(v) ? renderHtml(v) : null));
+
+// 🧪 Tests (SM_STRICT_PIECES=throw) and the parity check (=1): a React piece written into text by mistake — String(x),
+// `${x}`, x + '' — would show "[object Object]" on the page. It is reported (SM_PIECE_AS_TEXT: the test fails, or the
+// parity check finds it in the server's log) with the place. Never on in the live shop.
+const STRICT = typeof process !== 'undefined' && process.env ? process.env.SM_STRICT_PIECES : undefined;
+if (STRICT === '1' || STRICT === 'throw') {
+  const plain = Object.prototype.toString;
+  // eslint-disable-next-line no-extend-native -- test-only tripwire
+  Object.prototype.toString = function (this: unknown) {
+    if (this && typeof this === 'object' && isValidElement(this)) {
+      const msg = 'SM_PIECE_AS_TEXT ' + describe(this) + ' ' + String(new Error().stack || '').split('\n').slice(2, 7).map((l) => l.trim()).join(' < ');
+      if (STRICT === 'throw') throw new Error(msg); // the tests: fail right there
+      console.error(msg);
+    }
+    return plain.call(this);
+  };
+}
+
+// Inside renderHtml (lib/react/render.tsx) React leaves a marker and the HTML is spliced in after rendering, so the
 // page is exactly as before. In a Next.js page there is nothing to splice into: a see-through wrapper holds it.
 let slots: string[] | null = null;
 
-/** Runs fn with a fresh list of HTML pieces (used by toHtml). */
+/** Runs fn with a fresh list of HTML pieces (used by the renderer). */
 export function withSlots<T>(fn: (mine: string[]) => T): T {
   const outer = slots;
   const mine: string[] = [];
@@ -87,7 +91,6 @@ const BLOCK_TAG = /<(?:div|p|ul|ol|li|dl|dt|dd|table|thead|tbody|tr|td|th|sectio
 
 /** Puts ready-made HTML (a string the shop made itself, or a legacy Raw) into a React page, unescaped — only HTML the shop made, never visitor text. */
 export function RawHtml({ html }: { html: unknown }): ReactNode {
-  if (html instanceof ElementHtml) return html.el;
   if (isValidElement(html)) return html;
   const s = html instanceof Raw ? html.s : html === null || html === undefined || html === false ? '' : String(html);
   if (!s) return null;
@@ -117,9 +120,8 @@ export function cx(...names: unknown[]): string {
 /** A value that used to sit inside html`…`: Raw stays HTML, a list is each item, false/null/undefined is nothing, the rest is escaped text. */
 export function Val({ v }: { v: unknown }): ReactNode {
   if (isValidElement(v)) return v; // a piece that is React already
-  if (v instanceof ElementHtml) return v.el;
   if (v instanceof Raw) return <RawHtml html={v} />;
-  if (Array.isArray(v)) return createElement(Fragment, null, ...v.map((x) => (isValidElement(x) ? x : x instanceof ElementHtml ? x.el : x instanceof Raw ? <RawHtml html={x} /> : x === null || x === undefined || x === false ? null : String(x))));
+  if (Array.isArray(v)) return createElement(Fragment, null, ...v.map((x) => (isValidElement(x) ? x : x instanceof Raw ? <RawHtml html={x} /> : x === null || x === undefined || x === false ? null : String(x))));
   if (v === false || v === null || v === undefined) return null;
   return String(v);
 }
@@ -128,7 +130,8 @@ const unescape = (s: string) => s.replace(/&quot;/g, '"').replace(/&#0?39;|&#x27
 /** The text a value gave inside an attribute of html`…` (before escaping — React escapes it, so ready-made HTML is unescaped first). */
 export function attrValue(v: unknown): string {
   if (v instanceof Raw) return unescape(v.s);
-  if (Array.isArray(v)) return v.map((x) => (x instanceof Raw ? unescape(x.s) : x === null || x === undefined ? '' : String(x))).join('');
+  if (isValidElement(v)) return unescape(renderHtml(v));
+  if (Array.isArray(v)) return v.map((x) => (x instanceof Raw ? unescape(x.s) : isValidElement(x) ? unescape(renderHtml(x)) : x === null || x === undefined ? '' : String(x))).join('');
   if (v === false || v === null || v === undefined) return '';
   return String(v);
 }
@@ -137,7 +140,8 @@ export function attrValue(v: unknown): string {
 export function htmlValue(v: unknown): string {
   const esc = (x: unknown) => String(x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   if (v instanceof Raw) return v.s;
-  if (Array.isArray(v)) return v.map((x) => (x instanceof Raw ? x.s : x === null || x === undefined ? '' : esc(x))).join('');
+  if (isValidElement(v)) return renderHtml(v);
+  if (Array.isArray(v)) return v.map((x) => (x instanceof Raw ? x.s : isValidElement(x) ? renderHtml(x) : x === null || x === undefined ? '' : esc(x))).join('');
   if (v === false || v === null || v === undefined) return '';
   return esc(v);
 }
@@ -146,7 +150,7 @@ const ATTR_NAMES: Record<string, string> = { class: 'className', for: 'htmlFor',
 const BOOL_PROPS = new Set(['checked', 'selected', 'disabled', 'required', 'hidden', 'open', 'multiple', 'readOnly', 'autoFocus', 'noValidate', 'defer', 'async']);
 /** Attributes written as text inside a tag, e.g. ${on ? raw('checked') : ''} or raw('aria-current="page"'), as JSX props. */
 export function attrProps(v: unknown): Record<string, string | boolean> {
-  const s = v instanceof Raw ? v.s : attrValue(v);
+  const s = v instanceof Raw ? v.s : isValidElement(v) ? renderHtml(v) : attrValue(v);
   const out: Record<string, string | boolean> = {};
   for (const m of s.matchAll(/([^\s=]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+)))?/g)) {
     const name = ATTR_NAMES[m[1].toLowerCase()] || m[1].toLowerCase();
@@ -184,20 +188,16 @@ export function styleOf(text: unknown): Record<string, string> {
 /** A list of JSX pieces made by .map() in converted code (no "key" needed: they are passed as separate children). */
 export function jsxList(items: unknown): ReactNode {
   if (!Array.isArray(items)) return items instanceof Raw ? <Val v={items} /> : (items as ReactNode);
-  // a helper's piece (toHtml) or ready-made HTML among them is shown as it is
+  // ready-made HTML among them is shown as it is
   return createElement(Fragment, null, ...items.map((x) => (x instanceof Raw ? <Val v={x} /> : (x as ReactNode))));
 }
 
 /**
  * Puts extra right after the first <tag>…</tag> of a page piece (e.g. a switch under the page's <h1>), the way the old
- * text code did with indexOf('</h1>'). Works on React pieces (also inside Val / RawHtml / toHtml) and on ready-made
+ * text code did with indexOf('</h1>'). Works on React pieces (also inside Val / RawHtml) and on ready-made
  * HTML. found = false: there was no such tag (the piece comes back unchanged).
  */
 export function insertAfterTag(node: unknown, tag: string, extra: ReactNode): { node: unknown; found: boolean } {
-  if (node instanceof ElementHtml) {
-    const r = insertAfterTag(node.el, tag, extra);
-    return r.found ? { node: toHtml(r.node as ReactElement), found: true } : { node, found: false };
-  }
   if (node instanceof Raw) {
     const text = (node as Raw).s;
     const i = text.indexOf(`</${tag}>`);

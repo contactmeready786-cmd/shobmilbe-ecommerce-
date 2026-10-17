@@ -2,8 +2,8 @@
 // Every tip is worked out fresh from: the time right now in Dhaka, the day of the week, the season and
 // upcoming Bangladeshi occasions, and the shop's own live numbers (visitors, carts, incomplete orders,
 // stock, trending products). The panel refreshes itself every minute while the page is open.
-import { toHtml, Val, attrValue, jsxList } from '../react/html';
-import { html, bn } from '../util';
+import { Val, attrValue, jsxList } from '../react/html';
+import { bn } from '../util';
 import * as db from '../db';
 import type { Body, Loose } from '../types';
 
@@ -120,7 +120,7 @@ async function tips() {
 
 async function panel() {
   const g = await tips();
-  return toHtml(<section className="panel live-guide" data-live-refresh="60"><div className="lg-head"><h2>🧭 এখন কী করবেন{' '}<small>লাইভ গাইডলাইন — আপনার দোকানের এখনকার তথ্য, সময় আর মৌসুম দেখে</small></h2><span className="lg-stamp"><span className="lg-dot"></span>{' '}এখন সাইটে{' '}{bn(g.online)}{' '}জন · আপডেট{' '}<Val v={g.at} /></span></div><ul className="lg-list">{jsxList(g.list.map((x) => <li className={`lg-${attrValue(x.lv)}`}><span className="lg-ic"><Val v={x.ic} /></span><div><b>{(x.link ? <a href={attrValue(x.link)}><Val v={x.t} /></a> : <Val v={x.t} />)}</b><small><Val v={x.d} /></small></div></li>))}</ul></section>);
+  return <section className="panel live-guide" data-live-refresh="60"><div className="lg-head"><h2>🧭 এখন কী করবেন{' '}<small>লাইভ গাইডলাইন — আপনার দোকানের এখনকার তথ্য, সময় আর মৌসুম দেখে</small></h2><span className="lg-stamp"><span className="lg-dot"></span>{' '}এখন সাইটে{' '}{bn(g.online)}{' '}জন · আপডেট{' '}<Val v={g.at} /></span></div><ul className="lg-list">{jsxList(g.list.map((x) => <li className={`lg-${attrValue(x.lv)}`}><span className="lg-ic"><Val v={x.ic} /></span><div><b>{(x.link ? <a href={attrValue(x.link)}><Val v={x.t} /></a> : <Val v={x.t} />)}</b><small><Val v={x.d} /></small></div></li>))}</ul></section>;
 }
 
 export { panel, tips };

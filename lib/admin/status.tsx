@@ -1,8 +1,8 @@
 // Admin → সংযোগের অবস্থা: one page that shows whether every outside connection is set up and working —
 // Google / Facebook / TikTok tracking, product feeds, couriers, payments, notifications, backups —
 // plus the SEO checker (products that Google may show badly).
-import { toHtml, Val, attrValue } from '../react/html';
-import { html, bn, fmtDate } from '../util';
+import { Val, attrValue } from '../react/html';
+import { bn, fmtDate } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
 import * as $setupmarks from './setupmarks';
@@ -21,7 +21,7 @@ function row(state?: Loose, title?: Loose, detail?: Loose, link?: Loose, key?: L
   return { state, title, detail, link, key, setUp: setUp === undefined ? state === OK : setUp };
 }
 function line(r?: Loose, buttons?: Loose) {
-  return toHtml(<li className={`sec-row ${r.state === OK ? 'ok' : r.state === OFF ? 'info' : 'todo'}`}><span className="sec-ic" aria-hidden="true"><Val v={ICON[r.state]} /></span>{' '}<span><b><Val v={r.title} /></b><br /><span className="small muted"><Val v={r.detail} /></span>{(r.link ? <>{' '}<a className="small" href={attrValue(r.link[0])}><Val v={r.link[1]} />{' '}→</a></> : null)}{(buttons ? <><br /><Val v={buttons} /></> : null)}</span></li>);
+  return <li className={`sec-row ${r.state === OK ? 'ok' : r.state === OFF ? 'info' : 'todo'}`}><span className="sec-ic" aria-hidden="true"><Val v={ICON[r.state]} /></span>{' '}<span><b><Val v={r.title} /></b><br /><span className="small muted"><Val v={r.detail} /></span>{(r.link ? <>{' '}<a className="small" href={attrValue(r.link[0])}><Val v={r.link[1]} />{' '}→</a></> : null)}{(buttons ? <><br /><Val v={buttons} /></> : null)}</span></li>;
 }
 // a section: what needs looking at stays in view; ⚪ not set up (optional) and "দরকার নেই" go into a closed box
 function section(ctx: AdminCtx, title?: Loose, rows?: Loose) {
@@ -37,7 +37,7 @@ function section(ctx: AdminCtx, title?: Loose, rows?: Loose) {
     shown.push(line(r, owner && r.key && r.state !== OK ? M.buttons(r.key, '', back) : ''));
   }
   if (!shown.length && !quiet.length) return '';
-  return toHtml(<section className="panel"><h2><Val v={title} /></h2>{(shown.length ? <ul className="sec-list"><Val v={shown} /></ul> : <p className="muted small">সব ঠিক আছে — দেখার মতো কিছু নেই।</p>)}{' '}{(quiet.length ? <details className="sec-quiet"><summary className="small muted">⚪ চালু করা নেই / দরকার নেই ({bn(quiet.length)}টি) — দেখতে চাপুন</summary><ul className="sec-list"><Val v={quiet} /></ul></details> : null)}</section>);
+  return <section className="panel"><h2><Val v={title} /></h2>{(shown.length ? <ul className="sec-list"><Val v={shown} /></ul> : <p className="muted small">সব ঠিক আছে — দেখার মতো কিছু নেই।</p>)}{' '}{(quiet.length ? <details className="sec-quiet"><summary className="small muted">⚪ চালু করা নেই / দরকার নেই ({bn(quiet.length)}টি) — দেখতে চাপুন</summary><ul className="sec-list"><Val v={quiet} /></ul></details> : null)}</section>;
 }
 
 // latest success / failure per service from the integration log
@@ -74,7 +74,7 @@ async function statusPage(ctx: AdminCtx) {
   const ageDays = lastBackup ? (Date.now() - new Date(lastBackup.created_at).getTime()) / 864e5 : null;
   const feedSeen = (ch?: Loose) => { const x = (L[ch + '-feed'] || {}).good; return x ? `শেষবার ${x.message || 'কেউ'} পড়েছে: ${fmtDate(x.created_at)}` : 'এখনো কেউ ফিডটা পড়েনি (Merchant Center / Commerce Manager-এ লিংক দেওয়া হয়েছে কি না দেখুন)'; };
 
-  const body = toHtml(<><h1>🔌 সংযোগের অবস্থা</h1><Val v={ui.flash(ctx.flash)} /><p className="muted">বাইরের প্রতিটা সার্ভিস ঠিকমতো জোড়া আছে কি না, আর শেষবার কাজ করেছে কি না — এক জায়গায়। ❌ দেখলে পাশের লিংকে গিয়ে ঠিক করুন। অন্যভাবে করা থাকলে "✓ করা আছে", ব্যবহার না করলে "✕ দরকার নেই" চাপুন — তালিকা থেকে সরে যাবে।</p>{(ctx.user.role === 'owner' ? <p><a className="btn btn-ghost btn-sm" href="/admin/health">🩺 সার্ভার, ডাটাবেস ও ছবির জায়গা দেখুন →</a></p> : null)}{' '}<Val v={section(ctx, 'ওয়েবসাইট', [
+  const body = <><h1>🔌 সংযোগের অবস্থা</h1><Val v={ui.flash(ctx.flash)} /><p className="muted">বাইরের প্রতিটা সার্ভিস ঠিকমতো জোড়া আছে কি না, আর শেষবার কাজ করেছে কি না — এক জায়গায়। ❌ দেখলে পাশের লিংকে গিয়ে ঠিক করুন। অন্যভাবে করা থাকলে "✓ করা আছে", ব্যবহার না করলে "✕ দরকার নেই" চাপুন — তালিকা থেকে সরে যাবে।</p>{(ctx.user.role === 'owner' ? <p><a className="btn btn-ghost btn-sm" href="/admin/health">🩺 সার্ভার, ডাটাবেস ও ছবির জায়গা দেখুন →</a></p> : null)}{' '}<Val v={section(ctx, 'ওয়েবসাইট', [
   row(site ? OK : BAD, 'ওয়েবসাইটের ঠিকানা (site URL)', site ? site : 'দেওয়া নেই — Google-এর canonical লিংক, sitemap, শেয়ার ছবি আর পেমেন্ট ফেরার লিংক ঠিক হবে না।', ['/admin/marketing/seo', 'SEO']),
   // the domain may be added straight in Vercel (no token saved here): a site address that is not *.vercel.app counts too
   row(s.custom_domain || ownDomain ? OK : WARN, 'নিজের ডোমেইন', s.custom_domain || ownDomain || 'এখনো vercel.app ঠিকানায় চলছে', ['/admin/integrations/domain', 'ডোমেইন'], 'domain'),
@@ -104,7 +104,7 @@ async function statusPage(ctx: AdminCtx) {
   (() => { const r = fromLog(L, 'notify-email', notify.emailConfig(s).ready); return row(r.state, 'ইমেইল (Gmail)', r.note, ['/admin/notify', 'নোটিফিকেশন'], 'notify_email'); })(),
   (() => { const r = fromLog(L, 'notify-whatsapp', notify.waConfig(s).ready); return row(r.state, 'WhatsApp (CallMeBot)', r.note, ['/admin/notify', 'নোটিফিকেশন'], 'notify_wa'); })(),
   (() => { const r = fromLog(L, 'notify-push', true); return row(r.state === WARN ? OFF : r.state, 'ফোনে নোটিফিকেশন (push)', r.state === WARN ? 'এখনো কোনো ফোনে চালু হয়নি বা কিছু পাঠানো হয়নি' : r.note, ['/admin/notify', 'নোটিফিকেশন'], 'notify_push'); })(),
-])} /><p className="small muted">API কী আর পাসওয়ার্ড সার্ভারে এনক্রিপ্ট করে রাখা হয়, ব্রাউজার বা কাস্টমার কখনো দেখে না।{' '}<a href="/admin/marketing/seo?tab=check">SEO চেকার →</a></p></>);
+])} /><p className="small muted">API কী আর পাসওয়ার্ড সার্ভারে এনক্রিপ্ট করে রাখা হয়, ব্রাউজার বা কাস্টমার কখনো দেখে না।{' '}<a href="/admin/marketing/seo?tab=check">SEO চেকার →</a></p></>;
   return ctx.page('সংযোগের অবস্থা', body, 'status');
 }
 

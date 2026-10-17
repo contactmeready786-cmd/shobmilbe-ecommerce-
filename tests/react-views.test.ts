@@ -11,7 +11,7 @@ import * as shop from '../lib/views/shop';
 import * as complaint from '../lib/views/complaint';
 import * as account from '../lib/views/account';
 import { isValidElement } from 'react';
-import { toHtml, loadRenderer } from '../lib/react/render';
+import { renderHtml, loadRenderer } from '../lib/react/render';
 
 before(loadRenderer); // the original router's text renderer (lib/react/render.tsx)
 
@@ -20,10 +20,10 @@ const views: Views = { shop, complaint, account };
 for (const [name, make] of CASES) {
   test(`same page as before: ${name}`, () => {
     const file = `tests/golden/${name}.html`;
-    assert.ok(fs.existsSync(file), `no golden file for ${name} — run tools/make-golden.ts before moving the page`);
+    assert.ok(fs.existsSync(file), `no golden file for ${name} (tests/golden holds each page as it was before it moved to React)`);
     const want = canonicalHtml(fs.readFileSync(file, 'utf8'));
     const made = make(views);
-    const got = canonicalHtml(isValidElement(made) ? toHtml(made).s : String(made));
+    const got = canonicalHtml(isValidElement(made) ? renderHtml(made) : String(made));
     if (want !== got) {
       let i = 0; while (i < want.length && want[i] === got[i]) i++;
       assert.fail(`${name} differs at ${i}:\n  before: ${want.slice(Math.max(0, i - 80), i + 100)}\n  now:    ${got.slice(Math.max(0, i - 80), i + 100)}`);

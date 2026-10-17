@@ -1,6 +1,6 @@
 // Server-rendered charts (SVG / HTML). No external libraries, so they load instantly.
-import { toHtml, Val, RawHtml, attrValue, styleOf, jsxList } from '../react/html';
-import { html, raw, esc, bn, money } from '../util';
+import { Val, RawHtml, attrValue, styleOf, jsxList } from '../react/html';
+import { raw, esc, bn, money } from '../util';
 import type { Body, Loose, Settings } from '../types';
 
 const PALETTE = ['#0866D6', '#F5A524', '#12804A', '#7C4DDB', '#E0513B', '#0FA3B1', '#B36B00', '#5B6B85', '#D63384', '#2E7D32'];
@@ -22,7 +22,7 @@ function dayLabel(d?: Loose) {
 
 // Columns (bars) with an optional line on top. series: [{label, bar, line}]
 function combo(series?: Loose, { barName = '', lineName = '', barMoney = false, lineMoney = true, height = 260 }: Body = {}) {
-  if (!series.length) return toHtml(<p className="muted">কোনো ডাটা নেই।</p>);
+  if (!series.length) return <p className="muted">কোনো ডাটা নেই।</p>;
   const W = 760; const H = height; const L = 54; const R = 54; const T = 16; const B = 30;
   const iw = W - L - R; const ih = H - T - B;
   const bmax = niceMax(Math.max(...series.map((s?: Loose) => s.bar || 0)));
@@ -53,20 +53,20 @@ function combo(series?: Loose, { barName = '', lineName = '', barMoney = false, 
     const cx = L + step * i + step / 2;
     return `<circle cx="${cx}" cy="${T + ih - (ih * Math.max(0, s.line || 0)) / lmax}" r="${n > 40 ? 1.5 : 3}" class="ch-dot"><title>${esc(`${s.label}: ${lineName} ${lineMoney ? money(s.line) : bn(s.line || 0)}`)}</title></circle>`;
   }).join('') : '';
-  return toHtml(<figure className="chart"><svg viewBox={`0 0 ${attrValue(W)} ${attrValue(H)}`} role="img" aria-label={`${attrValue(barName)} ${attrValue(lineName)}`}><RawHtml html={grid + bars} />{(lineName ? <RawHtml html={`<path d="${pts}" class="ch-line"/>${dots}`} /> : null)}<RawHtml html={labels} /></svg><figcaption className="legend">{(barName ? <span><i className="sw" style={styleOf("background:var(--blue)")}></i><Val v={barName} /></span> : null)}{(lineName ? <span><i className="sw sw-line"></i><Val v={lineName} /></span> : null)}</figcaption></figure>);
+  return <figure className="chart"><svg viewBox={`0 0 ${attrValue(W)} ${attrValue(H)}`} role="img" aria-label={`${attrValue(barName)} ${attrValue(lineName)}`}><RawHtml html={grid + bars} />{(lineName ? <RawHtml html={`<path d="${pts}" class="ch-line"/>${dots}`} /> : null)}<RawHtml html={labels} /></svg><figcaption className="legend">{(barName ? <span><i className="sw" style={styleOf("background:var(--blue)")}></i><Val v={barName} /></span> : null)}{(lineName ? <span><i className="sw sw-line"></i><Val v={lineName} /></span> : null)}</figcaption></figure>;
 }
 
 // Horizontal bars: rows [{label, value, sub}]
 function hbars(rows?: Loose, { isMoney = false, color = 0 }: Body = {}) {
-  if (!rows.length) return toHtml(<p className="muted">কোনো ডাটা নেই।</p>);
+  if (!rows.length) return <p className="muted">কোনো ডাটা নেই।</p>;
   const max = Math.max(...rows.map((r?: Loose) => Number(r.value) || 0), 1);
-  return toHtml(<ul className="hbars">{jsxList(rows.map((r?: Loose, i?: Loose) => <li><span className="hb-label" title={attrValue(r.label)}><Val v={r.label} /></span>{' '}<span className="hb-track"><span className="hb-fill" style={styleOf(`width:${Math.max(2, (100 * (Number(r.value) || 0)) / max).toFixed(1)}%;background:${attrValue(PALETTE[(color === -1 ? i : color) % PALETTE.length])}`)}></span></span>{' '}<span className="hb-val">{(isMoney ? money(r.value) : bn(r.value))}{(r.sub ? <>{' '}<small><Val v={r.sub} /></small></> : null)}</span></li>))}</ul>);
+  return <ul className="hbars">{jsxList(rows.map((r?: Loose, i?: Loose) => <li><span className="hb-label" title={attrValue(r.label)}><Val v={r.label} /></span>{' '}<span className="hb-track"><span className="hb-fill" style={styleOf(`width:${Math.max(2, (100 * (Number(r.value) || 0)) / max).toFixed(1)}%;background:${attrValue(PALETTE[(color === -1 ? i : color) % PALETTE.length])}`)}></span></span>{' '}<span className="hb-val">{(isMoney ? money(r.value) : bn(r.value))}{(r.sub ? <>{' '}<small><Val v={r.sub} /></small></> : null)}</span></li>))}</ul>;
 }
 
 // Donut: rows [{label, value}]
 function donut(rows?: Loose, { center = '', centerSub = '' }: Body = {}) {
   const total = rows.reduce((s?: Loose, r?: Loose) => s + (Number(r.value) || 0), 0);
-  if (!total) return toHtml(<p className="muted">কোনো ডাটা নেই।</p>);
+  if (!total) return <p className="muted">কোনো ডাটা নেই।</p>;
   const R = 70; const C = 2 * Math.PI * R;
   let off = 0;
   const segs = rows.map((r?: Loose, i?: Loose) => {
@@ -76,7 +76,7 @@ function donut(rows?: Loose, { center = '', centerSub = '' }: Body = {}) {
     off += len;
     return s;
   }).join('');
-  return toHtml(<div className="donut"><svg viewBox="0 0 180 180" width="180" height="180" role="img"><g transform="rotate(-90 90 90)"><RawHtml html={segs} /></g>{' '}<text x="90" y="88" className="dn-c" text-anchor="middle"><Val v={center || bn(total)} /></text>{' '}<text x="90" y="108" className="dn-s" text-anchor="middle"><Val v={centerSub} /></text></svg><ul className="dn-legend">{jsxList(rows.map((r?: Loose, i?: Loose) => <li><i className="sw" style={styleOf(`background:${attrValue(PALETTE[i % PALETTE.length])}`)}></i><Val v={r.label} />{' '}<b>{bn(r.value)}</b>{' '}<small>({bn(Math.round((100 * r.value) / total))}%)</small></li>))}</ul></div>);
+  return <div className="donut"><svg viewBox="0 0 180 180" width="180" height="180" role="img"><g transform="rotate(-90 90 90)"><RawHtml html={segs} /></g>{' '}<text x="90" y="88" className="dn-c" text-anchor="middle"><Val v={center || bn(total)} /></text>{' '}<text x="90" y="108" className="dn-s" text-anchor="middle"><Val v={centerSub} /></text></svg><ul className="dn-legend">{jsxList(rows.map((r?: Loose, i?: Loose) => <li><i className="sw" style={styleOf(`background:${attrValue(PALETTE[i % PALETTE.length])}`)}></i><Val v={r.label} />{' '}<b>{bn(r.value)}</b>{' '}<small>({bn(Math.round((100 * r.value) / total))}%)</small></li>))}</ul></div>;
 }
 
 // 24-hour heat strip.
@@ -84,7 +84,7 @@ function hours(rows?: Loose, unit: Loose = 'টি অর্ডার') {
   const by = new Array(24).fill(0);
   rows.forEach((r?: Loose) => { by[r.h] = r.n; });
   const max = Math.max(...by, 1);
-  return toHtml(<div className="hours">{jsxList(by.map((n, h) => <span style={styleOf(`--a:${(0.08 + (0.92 * n) / max).toFixed(2)}`)} title={`${bn(h)}টা: ${bn(n)}${attrValue(unit)}`}><i>{bn(h)}</i></span>))}</div>);
+  return <div className="hours">{jsxList(by.map((n, h) => <span style={styleOf(`--a:${(0.08 + (0.92 * n) / max).toFixed(2)}`)} title={`${bn(h)}টা: ${bn(n)}${attrValue(unit)}`}><i>{bn(h)}</i></span>))}</div>;
 }
 
 export { combo, hbars, donut, hours, dayLabel, short, PALETTE };
