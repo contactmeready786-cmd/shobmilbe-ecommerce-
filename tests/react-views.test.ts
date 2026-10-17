@@ -10,6 +10,8 @@ import { CASES, type Views } from './fixtures/cases';
 import * as shop from '../lib/views/shop';
 import * as complaint from '../lib/views/complaint';
 import * as account from '../lib/views/account';
+import { isValidElement } from 'react';
+import { toHtml } from '../lib/react/render';
 
 const views: Views = { shop, complaint, account };
 
@@ -18,7 +20,8 @@ for (const [name, make] of CASES) {
     const file = `tests/golden/${name}.html`;
     assert.ok(fs.existsSync(file), `no golden file for ${name} — run tools/make-golden.ts before moving the page`);
     const want = canonicalHtml(fs.readFileSync(file, 'utf8'));
-    const got = canonicalHtml(String(make(views)));
+    const made = make(views);
+    const got = canonicalHtml(isValidElement(made) ? toHtml(made).s : String(made));
     if (want !== got) {
       let i = 0; while (i < want.length && want[i] === got[i]) i++;
       assert.fail(`${name} differs at ${i}:\n  before: ${want.slice(Math.max(0, i - 80), i + 100)}\n  now:    ${got.slice(Math.max(0, i - 80), i + 100)}`);

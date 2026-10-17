@@ -2,7 +2,7 @@
 // It draws exactly what the Next.js pages draw: the same React frame (components/shop/chrome) and head pieces; only the
 // title/description tags are written here instead of by Next.js's metadata. When the last page has moved to app/(shop),
 // this file goes.
-import { toHtml, RawHtml } from '../react/render';
+import { toHtml, Val } from '../react/render';
 import * as $services_seo from '../services/seo';
 import { esc } from '../util';
 import { ShopBody, Logo, ASSET_V } from '../../components/shop/chrome/Chrome';
@@ -50,7 +50,7 @@ function shopLayout({ settings: s, title, description, keywords, body, q, active
     <ShopHeadExtras settings={s} />
     <JsonLd data={[jsonLd, jsonLdExtra]} />
   </>);
-  const page = toHtml(<ShopBody settings={s} categories={categories} pages={pages} popup={popup} q={q || ''} active={active || ''} track={track}><RawHtml html={body} /></ShopBody>);
+  const page = toHtml(<ShopBody settings={s} categories={categories} pages={pages} popup={popup} q={q || ''} active={active || ''} track={track}><Val v={body} /></ShopBody>);
   return `<!doctype html><html lang="bn"><head>${head.s}</head><body class="${esc(bodyClass)}">${page.s}</body></html>`;
 }
 

@@ -8,14 +8,15 @@
 // The page's buttons keep working through the same public/js files as before.
 //
 // tools/parity compares every page's HTML before and after a move; tests/react-views.test.ts checks the moved pieces.
-import { createElement, Fragment, type ReactElement, type ReactNode } from 'react';
+import { createElement, Fragment, isValidElement, type ReactElement, type ReactNode } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { RawHtml, withSlots, cx } from './html';
 export { RawHtml, cx };
 import { raw, Raw } from '../util';
 
 /** Renders a React element to the shop's HTML (a Raw, so it can sit inside the html`…` pages that haven't moved yet). */
-export function toHtml(el: ReactElement): Raw {
+export function toHtml(el: ReactElement | Raw): Raw {
+  if (el instanceof Raw) return el;
   return withSlots((mine) => {
     // React 19 puts <link rel="preload" as="image"> hints for big pictures at the very start of its output. The shop
     // decides its own preloads (in the page head), so these are dropped — the page stays exactly as it was.
@@ -31,8 +32,9 @@ export function toHtml(el: ReactElement): Raw {
 
 /** A value that used to sit inside html`…`: Raw stays HTML, a list is each item, false/null/undefined is nothing, the rest is escaped text. */
 export function Val({ v }: { v: unknown }): ReactNode {
+  if (isValidElement(v)) return v; // a piece that is React already
   if (v instanceof Raw) return <RawHtml html={v} />;
-  if (Array.isArray(v)) return v.map((x, i) => (x instanceof Raw ? <RawHtml key={i} html={x} /> : x === null || x === undefined ? null : String(x)));
+  if (Array.isArray(v)) return createElement(Fragment, null, ...v.map((x) => (isValidElement(x) ? x : x instanceof Raw ? <RawHtml html={x} /> : x === null || x === undefined || x === false ? null : String(x))));
   if (v === false || v === null || v === undefined) return null;
   return String(v);
 }
