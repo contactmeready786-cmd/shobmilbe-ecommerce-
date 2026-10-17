@@ -1,7 +1,7 @@
 // Shared by crawl.mjs and scenarios.mjs.
 // Anything that changes per request (random tokens, times, nonces) is blanked so only real differences remain.
 export function normalise(body) {
-  return canonicalHtml(body)
+  return canonicalHtml(String(body)
     .replace(/\bSM[A-Z0-9]{6}\b/g, '<order-code>')
     .replace(/(https?:)?(\/\/)?(127\.0\.0\.1|localhost):\d+/g, '<host>')
     .replace(/nonce="[^"]*"/g, 'nonce=""')
@@ -24,7 +24,7 @@ export function normalise(body) {
     // secrets the app makes up the first time a page is opened, and the random tip of the day
     .replace(/data-reveal="[\w-]+"/g, 'data-reveal="<secret>"')
     .replace(/\/webhook\/autocall\/[\w-]+/g, '/webhook/autocall/<secret>')
-    .replace(/(💡 ইলেকট্রনিক্স টিপস\n\n)[^<]*/g, '$1<tip>');
+    .replace(/(💡 ইলেকট্রনিক্স টিপস\n\n)[^<]*/g, '$1<tip>'));
 }
 
 // ⚛️ Pages moved to React write the same page with tiny spelling differences that a browser treats as identical:
