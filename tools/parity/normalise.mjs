@@ -33,30 +33,44 @@ export function normalise(body) {
 const BLOCK = new Set(('html head body title meta link script style template noscript div p section article aside nav header footer main form fieldset legend '
   + 'h1 h2 h3 h4 h5 h6 ul ol li dl dt dd table thead tbody tfoot tr td th caption colgroup col hr br details summary figure figcaption '
   + 'blockquote dialog address menu option optgroup source track').split(' '));
-const BOOL_ATTRS = 'checked|selected|disabled|required|readonly|multiple|hidden|open|defer|async|autofocus|novalidate|download|reversed|playsinline|muted|controls|loop|autoplay|nomodule|inert|default|formnovalidate|allowfullscreen|itemscope';
+const decodeEnt = (v) => v.replace(/&quot;/g, '"').replace(/&#0?39;|&#x27;/gi, "'").replace(/&#x2F;/gi, '/').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+const TAG = /<([a-zA-Z][\w-]*)((?:\s+[^\s=>\/]+(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>"']+))?)*)\s*(\/?)>/g;
+
+// One start tag, written one way: lower-case attribute names in order, values decoded and double-quoted,
+// x="" written as bare x, style and class spacing tidied, React's empty src left out.
+function canonicalTag(tag, attrs) {
+  const list = [];
+  for (const m of attrs.matchAll(/\s+([^\s=>\/]+)(?:\s*=\s*("[^"]*"|'[^']*'|[^\s>"']+))?/g)) {
+    const name = m[1].toLowerCase();
+    let v = m[2] === undefined ? '' : decodeEnt(/^["']/.test(m[2]) ? m[2].slice(1, -1) : m[2]);
+    if (name === 'style') v = v.replace(/\s*([:;])\s*/g, '$1').replace(/;$/, '').trim();
+    if (name === 'class') v = v.trim().replace(/\s+/g, ' ');
+    if (v === '' && (name === 'class' || (name === 'src' && /^img$/i.test(tag)))) continue;
+    list.push(v === '' ? name : `${name}="${v.replace(/&/g, '&amp;').replace(/"/g, '&quot;')}"`);
+  }
+  return `<${tag.toLowerCase()}${list.length ? ' ' + list.sort().join(' ') : ''}>`;
+}
+
 export function canonicalHtml(body) {
-  return String(body)
-    .replace(/&#x27;|&#39;/g, "'")
-    .replace(/&quot;/g, '"')
-    .replace(/&#x2F;/gi, '/')
+  const src = String(body)
     .replace(/<\/option>/gi, '') // a closing </option> is optional in HTML (the next option or </select> closes it)
-    .replace(/<!--[\s\S]*?-->/g, '') // comments show nothing (React can't write them)
-    .replace(/\s*\/>/g, '>')
-    .replace(new RegExp(`\\s(${BOOL_ATTRS})=""`, 'g'), ' $1')
-    .replace(/\sstyle="([^"]*)"/g, (_, s) => ` style="${s.replace(/\s*([:;])\s*/g, '$1').replace(/;$/, '').trim()}"`)
-    .replace(/\sclass="([^"]*)"/g, (_, c) => ` class="${c.trim().replace(/\s+/g, ' ')}"`)
-    .replace(/\sclass=""/g, '')
-    // attribute order, the case of attribute names and x="" vs a bare x don't matter to a browser
-    // (React writes a form's action last, and data-flags / true-false attributes as x="")
-    .replace(/<([a-zA-Z][\w-]*)((?:\s+[^\s=>\/]+(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+))?)+)\s*(\/?)>/g, (_, tag, attrs, slash) => {
-      const list = [...attrs.matchAll(/\s+([^\s=>\/]+)(?:\s*=\s*("[^"]*"|'[^']*'|[^\s>]+))?/g)].map((m) => (m[2] === undefined || m[2] === '""' || m[2] === "''" ? m[1].toLowerCase() : `${m[1].toLowerCase()}=${m[2].replace(/&amp;/g, '&')}`));
-      return `<${tag} ${list.sort().join(' ')}${slash}>`;
-    })
+    .replace(/<!--[\s\S]*?-->/g, ''); // comments show nothing (React can't write them)
+  // tags one way; text between tags with one spelling of ' " /
+  let out = '';
+  let last = 0;
+  for (const m of src.matchAll(TAG)) {
+    out += decodeText(src.slice(last, m.index));
+    out += canonicalTag(m[1], m[2]);
+    last = m.index + m[0].length;
+  }
+  out += decodeText(src.slice(last));
+  return out
     // whitespace the way a browser shows it: next to a block (div, p, li, tr …) it shows nothing and is dropped;
     // between words or inline pieces (a, b, span, button …) any run — even a line break — shows as one space
-    .replace(/(<\/?([a-zA-Z][\w-]*)\b[^>]*>)\s+(?=<\/?([a-zA-Z][\w-]*))/g, (_, tag, a, b) => tag + (BLOCK.has(a.toLowerCase()) || BLOCK.has(b.toLowerCase()) ? '' : ' '))
-    .replace(/(<\/?([a-zA-Z][\w-]*)\b[^>]*>)\s+(?=[^<\s])/g, (_, tag, a) => tag + (BLOCK.has(a.toLowerCase()) ? '' : ' '))
+    .replace(/(<\/?([a-zA-Z][\w-]*)\b(?:[^>"]|"[^"]*")*>)\s+(?=<\/?([a-zA-Z][\w-]*))/g, (_, tag, a, b) => tag + (BLOCK.has(a.toLowerCase()) || BLOCK.has(b.toLowerCase()) ? '' : ' '))
+    .replace(/(<\/?([a-zA-Z][\w-]*)\b(?:[^>"]|"[^"]*")*>)\s+(?=[^<\s])/g, (_, tag, a) => tag + (BLOCK.has(a.toLowerCase()) ? '' : ' '))
     .replace(/([^>\s])\s+(?=<\/?([a-zA-Z][\w-]*))/g, (_, c, b) => c + (BLOCK.has(b.toLowerCase()) ? '' : ' '))
-    .replace(/\s+/g, ' ')
-    .replace(/ >/g, '>');
+    .replace(/\s+/g, ' ');
 }
+// text between tags: ' " / written one way (&lt; &gt; &amp; stay, they matter)
+function decodeText(t) { return t.replace(/&#0?39;|&#x27;/gi, "'").replace(/&quot;/g, '"').replace(/&#x2F;/gi, '/'); }
