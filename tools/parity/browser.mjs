@@ -76,9 +76,17 @@ async function check(ctx, path, admin) {
         const texts = [...document.querySelectorAll('input:not([type]), input[type=text], input[type=search], input[type=number], input[type=email], input[type=tel], textarea')]
           .filter((x) => !x.disabled && !x.readOnly).slice(0, 8);
         for (const t of texts) {
-          const was = t.value; const add = t.type === 'number' ? '7' : 'x';
-          t.value = was + add; t.dispatchEvent(new Event('input', { bubbles: true })); t.dispatchEvent(new Event('change', { bubbles: true }));
-          if (t.value !== was + add) out.push(`a text box snaps back when typed in: ${name(t)}`);
+          const was = t.value;
+          // a number inside the box's own limits (the shop's script keeps a quantity within the stock)
+          let want = was + 'x';
+          if (t.type === 'number') {
+            const lo = t.min !== '' ? Number(t.min) : 0; const hi = t.max !== '' ? Number(t.max) : lo + 10;
+            const pick = [lo, lo + 1, hi].find((v) => v >= lo && v <= hi && String(v) !== was);
+            if (pick === undefined) continue;
+            want = String(pick);
+          }
+          t.value = want; t.dispatchEvent(new Event('input', { bubbles: true })); t.dispatchEvent(new Event('change', { bubbles: true }));
+          if (t.value !== want) out.push(`a text box snaps back when typed in: ${name(t)}`);
           t.value = was;
         }
         return out;
