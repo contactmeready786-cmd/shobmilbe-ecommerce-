@@ -87,3 +87,7 @@
 /products?q=arduino
 /feeds/google.xml
 /feeds/facebook.csv
+/p/লাল-এলইডি-৫মিমি
+/products?cat=এলইডি-ও-লাইট
+/blog/এলইডি-জ্বালানোর-নিয়ম
+/p/%E0%A6%B2%E0%A6%BE%E0%A6%B2-%E0%A6%8F%E0%A6%B2%E0%A6%87%E0%A6%A1%E0%A6%BF-%E0%A7%AB%E0%A6%AE%E0%A6%BF%E0%A6%AE%E0%A6%BF

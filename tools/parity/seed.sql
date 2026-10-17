@@ -56,3 +56,12 @@ VALUES ('CMP-1', 'রহিম উদ্দিন', '01700000001', 'TEST1001', '
 INSERT INTO reviews (product_id, name, phone, rating, body, status, created_at)
 SELECT p.id, 'রহিম', '01700000001', 5, 'ভালো বোর্ড', 'approved', '2026-10-04 10:00+06' FROM products p WHERE p.slug = 'arduino-uno-r3'
 AND NOT EXISTS (SELECT 1 FROM reviews WHERE body = 'ভালো বোর্ড');
+
+-- Bangla addresses (slugify keeps Bangla letters): /p/<bangla>, /products?cat=<bangla>, /blog/<bangla>
+INSERT INTO categories (name, slug, icon, sort) VALUES ('এলইডি ও লাইট', 'এলইডি-ও-লাইট', '💡', 4) ON CONFLICT (slug) DO NOTHING;
+INSERT INTO products (name, slug, category_id, price, stock, description, short_description, sku, active)
+SELECT 'লাল এলইডি ৫মিমি', 'লাল-এলইডি-৫মিমি', c.id, 2, 200, 'সাধারণ লাল এলইডি।', '৫ মিমি', 'LED5R', true FROM categories c WHERE c.slug = 'এলইডি-ও-লাইট'
+ON CONFLICT (slug) DO NOTHING;
+INSERT INTO blog_posts (title, slug, excerpt, content, status, published_at, created_at)
+VALUES ('এলইডি জ্বালানোর নিয়ম', 'এলইডি-জ্বালানোর-নিয়ম', 'রেজিস্টর লাগবে', 'এলইডির সাথে রেজিস্টর দিন।', 'published', '2026-09-06 10:00+06', '2026-09-06 10:00+06')
+ON CONFLICT (slug) DO NOTHING;
