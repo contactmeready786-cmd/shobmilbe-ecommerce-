@@ -73,6 +73,7 @@ async function check(ctx, path, admin) {
   await page.close();
 }
 
+{ const r = await fetch(origin + '/api/probe-render').catch(() => null); if (r) console.log('probe-render', r.status, (await r.text()).slice(0, 300)); }
 const shop = await browser.newContext();
 for (const p of SHOP) await check(shop, p, false);
 
