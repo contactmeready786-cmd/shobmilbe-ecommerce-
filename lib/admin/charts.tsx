@@ -53,7 +53,7 @@ function combo(series?: Loose, { barName = '', lineName = '', barMoney = false, 
     const cx = L + step * i + step / 2;
     return `<circle cx="${cx}" cy="${T + ih - (ih * Math.max(0, s.line || 0)) / lmax}" r="${n > 40 ? 1.5 : 3}" class="ch-dot"><title>${esc(`${s.label}: ${lineName} ${lineMoney ? money(s.line) : bn(s.line || 0)}`)}</title></circle>`;
   }).join('') : '';
-  return toHtml(<figure className="chart"><svg viewBox={`0 0 ${attrValue(W)} ${attrValue(H)}`} role="img" {...({ "aria-label": `${attrValue(barName)} ${attrValue(lineName)}` } as Record<string, string>)}><RawHtml html={grid + bars} />{(lineName ? <RawHtml html={`<path d="${pts}" class="ch-line"/>${dots}`} /> : null)}<RawHtml html={labels} /></svg><figcaption className="legend">{(barName ? <span><i className="sw" style={styleOf("background:var(--blue)")}></i><Val v={barName} /></span> : null)}{(lineName ? <span><i className="sw sw-line"></i><Val v={lineName} /></span> : null)}</figcaption></figure>);
+  return toHtml(<figure className="chart"><svg viewBox={`0 0 ${attrValue(W)} ${attrValue(H)}`} role="img" aria-label={`${attrValue(barName)} ${attrValue(lineName)}`}><RawHtml html={grid + bars} />{(lineName ? <RawHtml html={`<path d="${pts}" class="ch-line"/>${dots}`} /> : null)}<RawHtml html={labels} /></svg><figcaption className="legend">{(barName ? <span><i className="sw" style={styleOf("background:var(--blue)")}></i><Val v={barName} /></span> : null)}{(lineName ? <span><i className="sw sw-line"></i><Val v={lineName} /></span> : null)}</figcaption></figure>);
 }
 
 // Horizontal bars: rows [{label, value, sub}]
@@ -76,7 +76,7 @@ function donut(rows?: Loose, { center = '', centerSub = '' }: Body = {}) {
     off += len;
     return s;
   }).join('');
-  return toHtml(<div className="donut"><svg viewBox="0 0 180 180" width="180" height="180" role="img"><g transform="rotate(-90 90 90)"><RawHtml html={segs} /></g>{' '}<text x="90" y="88" className="dn-c" {...({ "text-anchor": "middle" } as Record<string, string>)}><Val v={center || bn(total)} /></text>{' '}<text x="90" y="108" className="dn-s" {...({ "text-anchor": "middle" } as Record<string, string>)}><Val v={centerSub} /></text></svg><ul className="dn-legend">{jsxList(rows.map((r?: Loose, i?: Loose) => <li><i className="sw" style={styleOf(`background:${attrValue(PALETTE[i % PALETTE.length])}`)}></i><Val v={r.label} />{' '}<b><Val v={bn(r.value)} /></b>{' '}<small>(<Val v={bn(Math.round((100 * r.value) / total))} />%)</small></li>))}</ul></div>);
+  return toHtml(<div className="donut"><svg viewBox="0 0 180 180" width="180" height="180" role="img"><g transform="rotate(-90 90 90)"><RawHtml html={segs} /></g>{' '}<text x="90" y="88" className="dn-c" text-anchor="middle"><Val v={center || bn(total)} /></text>{' '}<text x="90" y="108" className="dn-s" text-anchor="middle"><Val v={centerSub} /></text></svg><ul className="dn-legend">{jsxList(rows.map((r?: Loose, i?: Loose) => <li><i className="sw" style={styleOf(`background:${attrValue(PALETTE[i % PALETTE.length])}`)}></i><Val v={r.label} />{' '}<b><Val v={bn(r.value)} /></b>{' '}<small>(<Val v={bn(Math.round((100 * r.value) / total))} />%)</small></li>))}</ul></div>);
 }
 
 // 24-hour heat strip.

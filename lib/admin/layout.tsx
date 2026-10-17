@@ -185,7 +185,7 @@ const HOME_TABS = [
 function homeTabs(user: StaffUser, active?: Loose) {
   const tabs = HOME_TABS.filter((t) => visible(user, t[2]));
   if (tabs.length < 2) return '';
-  return toHtml(<nav className="home-tabs" {...({ "aria-label": "ড্যাশবোর্ডের ট্যাব" } as Record<string, string>)}>{jsxList(tabs.map(([href, label, , key, icon]: Loose[]) => <a href={attrValue(href)} className={`home-tab ${attrValue(active === key ? 'on' : '')}`} {...attrProps(active === key ? raw(' aria-current="page"') : '')}><span {...({ "aria-hidden": "true" } as Record<string, string>)}><Val v={icon} /></span>{' '}<Val v={label} /></a>))}</nav>);
+  return toHtml(<nav className="home-tabs" aria-label="ড্যাশবোর্ডের ট্যাব">{jsxList(tabs.map(([href, label, , key, icon]: Loose[]) => <a href={attrValue(href)} className={`home-tab ${attrValue(active === key ? 'on' : '')}`} {...attrProps(active === key ? raw(' aria-current="page"') : '')}><span aria-hidden="true"><Val v={icon} /></span>{' '}<Val v={label} /></a>))}</nav>);
 }
 
 // A menu entry for the user: a plain link stays as it is; a tab set becomes a link to its first tab the user may
@@ -205,7 +205,7 @@ function pageTabs(user: StaffUser, active?: Loose, path?: Loose) {
     if (!set.some((t?: Loose) => t[0].split('?')[0] === path)) continue;
     const tabs = set.filter((t?: Loose) => visible(user, t[2]));
     if (tabs.length < 2) return '';
-    return toHtml(<nav className="home-tabs page-tabs" {...({ "aria-label": "এই বিভাগের পেজ" } as Record<string, string>)}>{jsxList(tabs.map(([href, label, , key, icon]: Loose[]) => <a href={attrValue(href)} className={`home-tab ${attrValue(active === key ? 'on' : '')}`} {...attrProps(active === key ? raw(' aria-current="page"') : '')}><span {...({ "aria-hidden": "true" } as Record<string, string>)}><Val v={icon} /></span>{' '}<Val v={label} /></a>))}</nav>);
+    return toHtml(<nav className="home-tabs page-tabs" aria-label="এই বিভাগের পেজ">{jsxList(tabs.map(([href, label, , key, icon]: Loose[]) => <a href={attrValue(href)} className={`home-tab ${attrValue(active === key ? 'on' : '')}`} {...attrProps(active === key ? raw(' aria-current="page"') : '')}><span aria-hidden="true"><Val v={icon} /></span>{' '}<Val v={label} /></a>))}</nav>);
   }
   return '';
 }
@@ -230,7 +230,7 @@ function langHead(settings: Settings) {
 }
 function langSwitch(settings: Settings) {
   if (!adminLangOn(settings)) return '';
-  return toHtml(<button type="button" className="lang-sw admin-lang-sw" role="switch" title="বাংলা / English" data-admin-lang-switch="" {...({ "aria-checked": "false", "aria-label": "English", "translate": "no" } as Record<string, string>)}>{' '}<span className="ls-l ls-bn">বাং</span><span className="ls-track" {...({ "aria-hidden": "true" } as Record<string, string>)}><span className="ls-knob"></span></span><span className="ls-l ls-en">EN</span>{' '}</button>);
+  return toHtml(<button type="button" className="lang-sw admin-lang-sw" role="switch" title="বাংলা / English" data-admin-lang-switch="" aria-checked="false" aria-label="English" translate="no">{' '}<span className="ls-l ls-bn">বাং</span><span className="ls-track" aria-hidden="true"><span className="ls-knob"></span></span><span className="ls-l ls-en">EN</span>{' '}</button>);
 }
 
 /** The scripts every admin page loads at the end (admin.js, page-actions.js, the English switch). */

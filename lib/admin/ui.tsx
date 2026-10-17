@@ -68,7 +68,7 @@ function check(name?: Loose, checked?: Loose, label?: Loose, value: Loose = '1')
 }
 // Big on/off switch with a title and explanation.
 function switchRow(name?: Loose, on?: Loose, title?: Loose, desc?: Loose) {
-  return toHtml(<label className="switch-row">{' '}<span className="switch-text"><b><Val v={title} /></b>{(desc ? <small><Val v={desc} /></small> : null)}</span>{' '}<span className="switch"><input type="checkbox" name={attrValue(name)} defaultValue="1" {...attrProps(on ? raw('checked') : '')} /><span className="switch-ui" {...({ "aria-hidden": "true" } as Record<string, string>)}></span></span>{' '}<span className="switch-state" data-on="চালু" data-off="বন্ধ"></span></label>);
+  return toHtml(<label className="switch-row">{' '}<span className="switch-text"><b><Val v={title} /></b>{(desc ? <small><Val v={desc} /></small> : null)}</span>{' '}<span className="switch"><input type="checkbox" name={attrValue(name)} defaultValue="1" {...attrProps(on ? raw('checked') : '')} /><span className="switch-ui" aria-hidden="true"></span></span>{' '}<span className="switch-state" data-on="চালু" data-off="বন্ধ"></span></label>);
 }
 // Image picker: uploads in the browser, keeps the media id in a hidden input.
 function imagePicker(name?: Loose, mediaId?: Id, { label = 'ছবি', hint = '', wide = false }: Body = {}) {
@@ -81,7 +81,7 @@ function pager(total?: Loose, page?: Loose, perPage?: Loose, baseUrl?: Loose) {
   const link = (p?: Loose) => baseUrl + (baseUrl.includes('?') ? '&' : '?') + 'page=' + p;
   const items = [];
   for (let p = Math.max(1, page - 2); p <= Math.min(pages, page + 2); p++) items.push(p);
-  return toHtml(<nav className="pager" {...({ "aria-label": "পেজ" } as Record<string, string>)}>{(page > 1 ? <a href={attrValue(link(page - 1))}>← আগের</a> : null)}{' '}{jsxList(items.map((p) => (p === page ? <b><Val v={bn(p)} /></b> : <a href={attrValue(link(p))}><Val v={bn(p)} /></a>)))}{' '}{(page < pages ? <a href={attrValue(link(page + 1))}>পরের →</a> : null)}{' '}<span className="muted small">মোট{' '}<Val v={bn(total)} />টি</span></nav>);
+  return toHtml(<nav className="pager" aria-label="পেজ">{(page > 1 ? <a href={attrValue(link(page - 1))}>← আগের</a> : null)}{' '}{jsxList(items.map((p) => (p === page ? <b><Val v={bn(p)} /></b> : <a href={attrValue(link(p))}><Val v={bn(p)} /></a>)))}{' '}{(page < pages ? <a href={attrValue(link(page + 1))}>পরের →</a> : null)}{' '}<span className="muted small">মোট{' '}<Val v={bn(total)} />টি</span></nav>);
 }
 
 function dateFilter(path?: Loose, from?: Loose, to?: Loose, extra: Loose = '') {
@@ -102,7 +102,7 @@ function catOpts(categories?: Loose) {
 
 // "কাজ" column for admin lists: ✏️ edit, optional on/off switch, optional 🗑️ delete (goes to the recycle bin).
 function rowSwitch(action?: Loose, on?: Loose, label?: Loose) {
-  return toHtml(<form method="post" action={attrValue(action)} className="prod-toggle"><label className="switch" title={attrValue(label)}><input type="checkbox" name="active" defaultValue="1" {...attrProps(on ? raw('checked') : '')} data-prod-toggle="" {...({ "aria-label": attrValue(label) } as Record<string, string>)} /><span className="switch-ui" {...({ "aria-hidden": "true" } as Record<string, string>)}></span></label>{' '}<span className="small prod-toggle-text" data-prod-toggle-text="">{(on ? "চালু" : "বন্ধ")}</span><noscript><button className="btn btn-sm btn-ghost">সেভ</button></noscript></form>);
+  return toHtml(<form method="post" action={attrValue(action)} className="prod-toggle"><label className="switch" title={attrValue(label)}><input type="checkbox" name="active" defaultValue="1" {...attrProps(on ? raw('checked') : '')} data-prod-toggle="" aria-label={attrValue(label)} /><span className="switch-ui" aria-hidden="true"></span></label>{' '}<span className="small prod-toggle-text" data-prod-toggle-text="">{(on ? "চালু" : "বন্ধ")}</span><noscript><button className="btn btn-sm btn-ghost">সেভ</button></noscript></form>);
 }
 function rowActions({ edit, del, delConfirm, editLabel = '✏️ এডিট' }: Body) {
   return toHtml(<td className="prod-actions">{(edit ? <a className="btn btn-sm btn-ghost" href={attrValue(edit)}><Val v={editLabel} /></a> : null)}{' '}{(del ? <form method="post" action={attrValue(del)} data-confirm={attrValue(delConfirm || 'মুছবেন? রিসাইকেল বিনে থাকবে, মালিক চাইলে ফেরত আনতে পারবেন।')}><button className="btn btn-sm btn-danger">🗑️ মুছুন</button></form> : null)}</td>);
@@ -114,7 +114,7 @@ function importTabs(current?: Loose) {
     ['import', '/admin/products/import', '📥', 'লিংক বা ফাইল থেকে আমদানি', 'ফিড লিংক, একটা পণ্যের লিংক, CSV / Excel'],
     ['old', '/admin/products/more-photos', '📸', 'পুরোনো সাইট থেকে সব পণ্য ও ছবি', 'বাকি পণ্য যোগ + প্রতিটা পণ্যের সব ছবি'],
   ];
-  return toHtml(<nav className="imp-tabs" {...({ "aria-label": "পণ্য আমদানির ধরন" } as Record<string, string>)}>{jsxList(tabs.map(([k, href, ic, t, d]) => <a href={attrValue(href)} className={`imp-tab ${attrValue(k === current ? 'on' : '')}`} {...attrProps(k === current ? raw(' aria-current="page"') : '')}><span className="imp-tab-ic"><Val v={ic} /></span><span><b><Val v={t} /></b><small><Val v={d} /></small></span></a>))}</nav>);
+  return toHtml(<nav className="imp-tabs" aria-label="পণ্য আমদানির ধরন">{jsxList(tabs.map(([k, href, ic, t, d]) => <a href={attrValue(href)} className={`imp-tab ${attrValue(k === current ? 'on' : '')}`} {...attrProps(k === current ? raw(' aria-current="page"') : '')}><span className="imp-tab-ic"><Val v={ic} /></span><span><b><Val v={t} /></b><small><Val v={d} /></small></span></a>))}</nav>);
 }
 
 function empty(text?: Loose, action?: Loose) {
