@@ -1,3 +1,5 @@
+import { ADMIN_GET_ROUTES } from './admin-routes';
+
 // Which customer addresses are already served by Next.js pages (app/(shop)). proxy.ts runs the security gate for these;
 // every other address still goes to the original code (lib/app.ts). Grows as pages move; when it covers everything,
 // the original router goes.
@@ -44,10 +46,12 @@ const ADMIN_LEGACY = [
   /^\/admin\/reports\/staff$/, /^\/admin\/accounts\/vat\/return$/, /^\/admin\/reach(\/live)?$/, /^\/admin\/design\/documents$/,
 ];
 
-/** Is this an admin page request drawn by Next.js (app/(admin))? Forms (POST) and files stay with the original code. */
+/** Is this an admin page request drawn by Next.js (app/(admin))? Forms (POST), files and addresses without a page
+ * (lib/next/admin-routes.ts) stay with the original code. */
 export function adminServedByNext(path: string, query: URLSearchParams, method: string): boolean {
   if (method !== 'GET' && method !== 'HEAD') return false;
   if (path !== '/admin' && !path.startsWith('/admin/')) return false;
   if (query.has('__legacy')) return false;
-  return !ADMIN_LEGACY.some((re) => re.test(path));
+  if (ADMIN_LEGACY.some((re) => re.test(path))) return false;
+  return ADMIN_GET_ROUTES.some((r) => (typeof r === 'string' ? r === path : r.test(path)));
 }

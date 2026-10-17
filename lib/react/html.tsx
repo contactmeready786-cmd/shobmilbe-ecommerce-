@@ -136,6 +136,7 @@ export function styleOf(text: unknown): Record<string, string> {
 
 /** A list of JSX pieces made by .map() in converted code (no "key" needed: they are passed as separate children). */
 export function jsxList(items: unknown): ReactNode {
-  if (!Array.isArray(items)) return items as ReactNode;
-  return createElement(Fragment, null, ...(items as ReactNode[]));
+  if (!Array.isArray(items)) return items instanceof Raw ? <Val v={items} /> : (items as ReactNode);
+  // a helper's piece (toHtml) or ready-made HTML among them is shown as it is
+  return createElement(Fragment, null, ...items.map((x) => (x instanceof Raw ? <Val v={x} /> : (x as ReactNode))));
 }

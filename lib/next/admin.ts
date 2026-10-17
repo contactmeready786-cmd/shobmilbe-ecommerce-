@@ -52,7 +52,7 @@ export const currentAdminPage = cache(async (): Promise<AdminOutcome> => {
     await security.withNonce(nonce, () => admin.handle(base));
   } catch (e) {
     // a page the Next.js side can't draw yet (e.g. it needs its HTML as text): the original code answers it
-    console.error('admin page via legacy:', path, (e as Error).message);
+    console.error('admin page via legacy:', path, (e as Error).message, String((e as Error).stack || '').split('\n').slice(1, 7).map((l) => l.trim()).join(' < '));
     return { kind: 'legacy' };
   }
   const done = out as AdminOutcome; // (set by the callbacks above)

@@ -5,6 +5,7 @@ export function normalise(body) {
     .replace(/\bSM[A-Z0-9]{6}\b/g, '«order-code»')
     .replace(/(https?:)?(\/\/)?(127\.0\.0\.1|localhost):\d+/g, '«host»')
     .replace(/nonce="[^"]*"/g, 'nonce=""')
+    .replace(/data-v="\d+"/g, 'data-v="«v»"') // the admin's script version (changes on purpose with an update)
     .replace(/'nonce-[A-Za-z0-9+/=]+'/g, "'nonce-'") // the admin's script rule: a fresh nonce per page
     .replace(/name="(csrf|_csrf|token|_t)" value="[^"]*"/g, 'name="$1" value=""')
     .replace(/\b[0-9a-f]{32,}\b/g, '«hex»')
@@ -96,7 +97,7 @@ export function nextNeutral(body) {
     .replace(/<script\b[^>]*\bsrc="[^"]*\/_next\/[^"]*"[^>]*>\s*<\/script>/g, '')
     .replace(/<script\b[^>]*>(?:(?!<\/script>)[\s\S])*?(?:self\.__next_f|__next_s|\$RC|\$RS|\$RX|requestAnimationFrame\(function\(\)\{\$RT)(?:(?!<\/script>)[\s\S])*<\/script>/g, '')
     .replace(/<link\b[^>]*\bhref="[^"]*\/_next\/[^"]*"[^>]*\/?>/g, '')
-    .replace(/<script id="_R_">\(globalThis\["TURBOPACK"\][\s\S]*?<\/script>/g, '') // Next's loader for its own files
+    .replace(/<script id="_R_"[^>]*>\(globalThis\["TURBOPACK"\][\s\S]*?<\/script>/g, '') // Next's loader for its own files
     .replace(/<meta name="next-size-adjust"[^>]*>/g, '')
     .replace(/<div hidden(?:="")?>\s*(?:<!--\$-->|<!--\/\$-->|<!--\$\?-->)*\s*<\/div>/g, '')
     .replace(/<!--\/?\$\??-->/g, '');

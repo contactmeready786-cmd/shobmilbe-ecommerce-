@@ -14,7 +14,10 @@ const headOnly = [];
 for (const [p, ea] of A) {
   const eb = B.get(p);
   if (!eb) { problems.push({ p, why: 'missing in new site' }); continue; }
-  if (ea.status !== eb.status) { problems.push({ p, why: `status ${ea.status} -> ${eb.status}` }); continue; }
+  // The crawler only asks with GET: a "see other" (303, the original code) and a "temporary" (307, Next.js's redirect())
+  // to the same address are the same for a browser — the next request is a GET of that address either way.
+  const st = (e) => (e.status === 307 && e.location ? 303 : e.status);
+  if (st(ea) !== st(eb)) { problems.push({ p, why: `status ${ea.status} -> ${eb.status}` }); continue; }
   if ((ea.type || '') !== (eb.type || '')) { problems.push({ p, why: `type ${ea.type} -> ${eb.type}` }); continue; }
   if (Boolean(ea.bytes) !== Boolean(eb.bytes)) { problems.push({ p, why: 'download empty in one site' }); continue; }
   if ((ea.location || '') !== (eb.location || '')){ problems.push({ p, why: `redirect ${ea.location} -> ${eb.location}` }); continue; }

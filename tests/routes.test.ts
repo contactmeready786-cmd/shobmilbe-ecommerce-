@@ -38,8 +38,14 @@ test('admin pages are drawn by Next.js; forms, files and data stay with the orig
   const { adminServedByNext } = await import('../lib/next/routes');
   const a = (p: string, q = '', m = 'GET') => adminServedByNext(p, new URLSearchParams(q), m);
   for (const p of ['/admin', '/admin/orders', '/admin/orders/5', '/admin/products', '/admin/settings', '/admin/login']) assert.ok(a(p), p);
-  for (const p of ['/admin/api/media', '/admin/orders/export.csv', '/admin/orders/invoice', '/admin/avatar/3', '/admin/pos/memo/4', '/admin/design/documents']) assert.equal(a(p), false, p);
+  for (const p of ['/admin/api/media', '/admin/orders/export.csv', '/admin/orders/invoice', '/admin/avatar/3', '/admin/pos/memo/4', '/admin/design/documents', '/admin/products/9/active', '/admin/no-such-page']) assert.equal(a(p), false, p);
   assert.equal(a('/admin/orders', '', 'POST'), false);
   assert.equal(a('/admin/orders', '__legacy=1'), false); // sent back by lib/next/admin.ts: the original code answers
   assert.equal(a('/products'), false);
+});
+
+test('lib/next/admin-routes.ts lists today\'s admin pages (run tools/gen-admin-routes.ts after changing admin routes)', async () => {
+  const { adminGetRoutes } = await import('./fixtures/admin-routes');
+  const { ADMIN_GET_ROUTES } = await import('../lib/next/admin-routes');
+  assert.deepEqual(ADMIN_GET_ROUTES.map(String), adminGetRoutes().map(String));
 });
