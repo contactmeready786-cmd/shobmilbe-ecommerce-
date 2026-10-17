@@ -20,14 +20,20 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 22, cache: npm }
       - run: npm ci --no-audit --no-fund
-      - run: npx next build > build.log 2>&1 || { tail -60 build.log; exit 1; }
-      - name: probe
+      - name: probe three setups
         run: |
-          npx next start -p 3300 > server.log 2>&1 &
-          for _ in $(seq 1 120); do curl -s -o /dev/null http://127.0.0.1:3300/robots.txt && break; sleep 0.5; done
-          for u in /zprobe-a/nope /zprobe-b/nope /zprobe-c/nope /blog/category/nope /page/nope /page/about /zprobe-a/yes; do
-            code=$(curl -s -o body.html -w '%{http_code}' "http://127.0.0.1:3300$u")
-            text=$(sed -E 's/<script[^>]*>[^<]*<\/script>//g; s/<link[^>]*>//g' body.html | tr '\n' ' ' | head -c 700)
-            echo "::notice title=$u ($code)::$text"
-          done
-          tail -30 server.log | while IFS= read -r l; do echo "::warning title=log::${l:0:600}"; done
+          probe() { # name
+            rm -rf .next; npx next build > build-$1.log 2>&1 || { echo "::error title=$1 build::$(tail -c 600 build-$1.log | tr '\n' ' ')"; return; }
+            npx next start -p 3300 > server-$1.log 2>&1 & P=$!
+            for _ in $(seq 1 120); do curl -s -o /dev/null http://127.0.0.1:3300/zprobe-a/yes && break; sleep 0.5; done
+            for u in /zprobe-a/nope /zprobe-b/nope /zprobe-c/nope; do
+              code=$(curl -s -o body.html -w '%{http_code}' "http://127.0.0.1:3300$u")
+              text=$(sed -E 's/<script[^>]*>[^<]*<\/script>//g; s/<link[^>]*>//g' body.html | tr '\n' ' ' | grep -oE '<body.{0,300}' | head -c 300)
+              echo "::notice title=$1 $u ($code)::$text"
+            done
+            kill $P; sleep 2
+          }
+          cp next.config.ts next.config.bak
+          sed -i '/htmlLimitedBots/d' next.config.ts; probe no-limited-bots
+          cp next.config.bak next.config.ts; mv pages pages.off; probe no-pages-dir
+          mv pages.off pages; probe as-is
