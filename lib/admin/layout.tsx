@@ -1,6 +1,7 @@
 import { toHtml, Val, RawHtml, attrValue, htmlValue, attrProps, jsxList } from '../react/html';
 import { cspNonce } from '../security';
-import { html, raw } from '../util';
+import type { ReactNode } from 'react';
+import { raw } from '../util';
 import { can, canSee } from '../models/staff';
 import * as $profile from './profile';
 import type { Body, Id, Loose, Settings, StaffUser } from '../types';
@@ -227,68 +228,109 @@ function langHead(settings: Settings) {
   if (!adminLangOn(settings)) return '';
   return raw(`<script nonce="${cspNonce()}">(function(){try{if(localStorage.getItem('sm_admin_lang')==='en'){var d=document.documentElement;d.className+=' admin-i18n-wait';d.setAttribute('data-admin-lang','en');}}catch(e){}})();</script><style>html.admin-i18n-wait body{visibility:hidden}</style>`);
 }
-function langScript(settings: Settings) {
-  if (!adminLangOn(settings)) return '';
-  return toHtml(<script src={`/js/admin-i18n.js?v=${attrValue(ASSET_V)}`} defer data-admin-i18n="" data-v={attrValue(ASSET_V)} />);
-}
 function langSwitch(settings: Settings) {
   if (!adminLangOn(settings)) return '';
   return toHtml(<button type="button" className="lang-sw admin-lang-sw" role="switch" title="বাংলা / English" data-admin-lang-switch="" {...({ "aria-checked": "false", "aria-label": "English", "translate": "no" } as Record<string, string>)}>{' '}<span className="ls-l ls-bn">বাং</span><span className="ls-track" {...({ "aria-hidden": "true" } as Record<string, string>)}><span className="ls-knob"></span></span><span className="ls-l ls-en">EN</span>{' '}</button>);
 }
 
-function adminLayout({ settings, user, title, body, active, bare, readOnly, path = '' }: Body) {
-  if (bare) {
-    return '<!doctype html>' + html`<html lang="bn"><head>${head(`${title} | Admin`, settings)}${langHead(settings)}</head>
-<body class="admin admin-auth">${adminLangOn(settings) ? toHtml(<div className="bare-lang"><Val v={langSwitch(settings)} /></div>) : ''}<main class="admin-bare">${body}</main>
-<script src="/js/admin.js?v=${ASSET_V}" defer></script><script src="/js/page-actions.js?v=${ASSET_V}" defer></script>${langScript(settings)}</body></html>`.s;
-  }
+/** The scripts every admin page loads at the end (admin.js, page-actions.js, the English switch). */
+function AdminScripts({ settings }: { settings: Settings }) {
+  return (
+    <>
+      <script src={`/js/admin.js?v=${ASSET_V}`} defer />
+      <script src={`/js/page-actions.js?v=${ASSET_V}`} defer />
+      {adminLangOn(settings) ? <script src={`/js/admin-i18n.js?v=${ASSET_V}`} defer data-admin-i18n="" data-v={ASSET_V} /> : null}
+    </>
+  );
+}
+
+/** The inside of <body class="admin admin-auth"> for login, set-up, reset and the other pages without the menu. */
+function AdminBare({ settings, children }: { settings: Settings; children?: ReactNode }) {
+  return (
+    <>
+      {adminLangOn(settings) ? <div className="bare-lang"><Val v={langSwitch(settings)} /></div> : null}
+      <main className="admin-bare">{children}</main>
+      <AdminScripts settings={settings} />
+    </>
+  );
+}
+
+type FrameProps = { settings: Settings; user: StaffUser; active?: string; readOnly?: boolean; path?: string; nonce: string; children?: ReactNode };
+/** The inside of <body class="admin">: the side menu, the top bar (search, English switch, the user's menu), the page. */
+function AdminBody({ settings, user, active, readOnly, path = '', nonce, children }: FrameProps) {
   const dashTabs = visible(user, 'dashboard') && visible(user, 'marketing'); // both tabs shown on the dashboard
   const groups = MENU.map((g) => ({ ...g, items: g.items.map((it) => resolveItem(user, it)).filter((it) => it && !(dashTabs && it[3] === 'visitors')) })).filter((g) => g.items.length);
   const onHome = dashTabs && (active === 'home' || active === 'visitors');
   const tabActive = active;
   if (onHome) active = 'home'; // visitor analytics lights up "ড্যাশবোর্ড" in the menu
-  return '<!doctype html>' + html`<html lang="bn"><head>${head(`${title} | Admin`, settings)}${langHead(settings)}</head>
-<body class="admin">
-<script nonce="${cspNonce()}">try{if(localStorage.getItem('sm_side_hidden')==='1')document.body.classList.add('side-hidden')}catch(e){}</script>
-<aside class="side" id="side" aria-label="Admin মেনু">
-  <button class="side-x" type="button" data-side-toggle aria-label="মেনু বন্ধ করুন" title="মেনু বন্ধ করুন">✕</button>
-  <a class="side-logo logo" href="/admin" translate="no">${logoMark(settings)}<small>Admin</small></a>
-  <nav>
-    ${groups.map((g) => {
-    const isOn = (it?: Loose) => it[3] === active || (it[5] || []).includes(active);
-    const link = (it?: Loose) => { const [href, label, , , icon] = it; const on = isOn(it); return toHtml(<a href={attrValue(href)} className={attrValue(on ? 'on' : '')} {...attrProps(on ? raw(' aria-current="page"') : '')}><span className="side-ic" {...({ "aria-hidden": "true" } as Record<string, string>)}><Val v={icon} /></span><Val v={label} /></a>); };
-    if (!g.title) return toHtml(<div className="side-group"><Val v={g.items.map(link)} /></div>);
-    const here = g.items.some(isOn);
-    return toHtml(<details className={`side-group side-drop ${attrValue(here ? 'has-on' : '')}`} data-side-group={attrValue(g.title)} {...attrProps(here ? raw('open') : '')}><summary><span className="side-ic" {...({ "aria-hidden": "true" } as Record<string, string>)}><Val v={g.icon || '•'} /></span><span className="side-label"><Val v={g.title} /></span><span className="side-arrow" {...({ "aria-hidden": "true" } as Record<string, string>)}><RawHtml html={'<svg viewBox="0 0 24 24" width="16" height="16"><path d="m9 6 6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>'} /></span></summary><div className="side-sub"><Val v={g.items.map(link)} /></div></details>);
-  })}
-  </nav>
-</aside>
-<div class="side-shade" data-side-close></div>
-<div class="main-col">
-  <header class="topbar">
-    <button class="burger" type="button" data-side-toggle aria-label="মেনু খুলুন / বন্ধ করুন" title="মেনু খুলুন / বন্ধ করুন" aria-controls="side">${raw('<svg viewBox="0 0 24 24" width="24" height="24"><path d="M3 6h18M3 12h18M3 18h18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>')}</button>
-    <form class="top-search" method="get" action="/admin/orders" role="search">
-      <input type="search" name="q" placeholder="অর্ডার নম্বর, ফোন বা নাম দিয়ে খুঁজুন" aria-label="অর্ডার খুঁজুন">
-    </form>
-    <div class="top-end">
-      ${langSwitch(settings)}
-      <a href="/" target="_blank" rel="noopener" class="top-link">দোকান দেখুন ↗</a>
-      <details class="user-menu">
-        <summary>${$profile.avatar(user)}<span class="uname" translate="no">${user.name}</span></summary>
-        <div class="user-pop">
-          <div class="user-pop-head">${$profile.avatar(user, 'avatar-lg')}<p><b translate="no">${user.name}</b><br><span class="muted small">${user.designation || (user.role === 'owner' ? 'মালিক (সব অনুমতি)' : 'স্টাফ')} · ${user.username}</span></p></div>
-          <a href="/admin/account#profile">👤 আমার প্রোফাইল</a>
-          <a href="/admin/account">🔑 পাসওয়ার্ড ও নিরাপত্তা</a>
-          <form method="post" action="/admin/logout"><button class="link-btn danger">লগআউট</button></form>
-        </div>
-      </details>
-    </div>
-  </header>
-  <main class="admin-main" id="main">${readOnly ? toHtml(<p className="flash read-only-note" role="note">👁️ এই পেজে আপনার শুধু{' '}<b>দেখার</b>{' '}অনুমতি আছে — কিছু সেভ, বদল বা মুছতে পারবেন না।</p>) : ''}${onHome ? homeTabs(user, tabActive) : pageTabs(user, active, path)}${body}</main>
-</div>
-<div class="toast" role="status" aria-live="polite" data-toast></div>
-<script src="/js/admin.js?v=${ASSET_V}" defer></script><script src="/js/page-actions.js?v=${ASSET_V}" defer></script>${langScript(settings)}
-</body></html>`.s;
+  const isOn = (it: Loose) => it[3] === active || (it[5] || []).includes(active);
+  const link = (it: Loose, i: number) => {
+    const [href, label, , , icon] = it;
+    const on = isOn(it);
+    return <a key={i} href={href} className={on ? 'on' : ''} aria-current={on ? 'page' : undefined}><span className="side-ic" aria-hidden="true">{icon}</span>{label}</a>;
+  };
+  return (
+    <>
+      <script nonce={nonce} dangerouslySetInnerHTML={{ __html: "try{if(localStorage.getItem('sm_side_hidden')==='1')document.body.classList.add('side-hidden')}catch(e){}" }} />
+      <aside className="side" id="side" aria-label="Admin মেনু">
+        <button className="side-x" type="button" data-side-toggle="" aria-label="মেনু বন্ধ করুন" title="মেনু বন্ধ করুন">✕</button>{' '}
+        <a className="side-logo logo" href="/admin" translate="no"><Val v={logoMark(settings)} /><small>Admin</small></a>
+        <nav>
+          {groups.map((g, gi) => {
+            if (!g.title) return <div key={gi} className="side-group">{g.items.map(link)}</div>;
+            const here = g.items.some(isOn);
+            return (
+              <details key={gi} className={`side-group side-drop ${here ? 'has-on' : ''}`} data-side-group={g.title} open={here || undefined}>
+                <summary><span className="side-ic" aria-hidden="true">{g.icon || '•'}</span><span className="side-label">{g.title}</span><span className="side-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" width="16" height="16"><path d="m9 6 6 6-6 6" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" /></svg></span></summary>
+                <div className="side-sub">{g.items.map(link)}</div>
+              </details>
+            );
+          })}
+        </nav>
+      </aside>
+      <div className="side-shade" data-side-close="" />
+      <div className="main-col">
+        <header className="topbar">
+          <button className="burger" type="button" data-side-toggle="" aria-label="মেনু খুলুন / বন্ধ করুন" title="মেনু খুলুন / বন্ধ করুন" aria-controls="side"><svg viewBox="0 0 24 24" width="24" height="24"><path d="M3 6h18M3 12h18M3 18h18" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" /></svg></button>
+          <form className="top-search" method="get" action="/admin/orders" role="search">
+            <input type="search" name="q" placeholder="অর্ডার নম্বর, ফোন বা নাম দিয়ে খুঁজুন" aria-label="অর্ডার খুঁজুন" />
+          </form>
+          <div className="top-end">
+            <Val v={langSwitch(settings)} />{' '}
+            <a href="/" target="_blank" rel="noopener" className="top-link">দোকান দেখুন ↗</a>
+            <details className="user-menu">
+              <summary><Val v={$profile.avatar(user)} /><span className="uname" translate="no">{user.name}</span></summary>
+              <div className="user-pop">
+                <div className="user-pop-head"><Val v={$profile.avatar(user, 'avatar-lg')} /><p><b translate="no">{user.name}</b><br /><span className="muted small">{user.designation || (user.role === 'owner' ? 'মালিক (সব অনুমতি)' : 'স্টাফ')} · {user.username}</span></p></div>
+                <a href="/admin/account#profile">👤 আমার প্রোফাইল</a>{' '}
+                <a href="/admin/account">🔑 পাসওয়ার্ড ও নিরাপত্তা</a>
+                <form method="post" action="/admin/logout"><button className="link-btn danger">লগআউট</button></form>
+              </div>
+            </details>
+          </div>
+        </header>
+        <main className="admin-main" id="main">
+          {readOnly ? <p className="flash read-only-note" role="note">👁️ এই পেজে আপনার শুধু{' '}<b>দেখার</b>{' '}অনুমতি আছে — কিছু সেভ, বদল বা মুছতে পারবেন না।</p> : null}
+          <Val v={onHome ? homeTabs(user, tabActive) : pageTabs(user, active, path)} />
+          {children}
+        </main>
+      </div>
+      <div className="toast" role="status" aria-live="polite" data-toast="" />
+      <AdminScripts settings={settings} />
+    </>
+  );
 }
 
-export { adminLayout, MENU, TABS, resolveItem, allowed, visible, logoMark, ASSET_V };
+/** The body tag's class: "admin", and "admin-auth" on the pages without the menu. */
+const adminBodyClass = (bare?: boolean) => (bare ? 'admin admin-auth' : 'admin');
+
+// The whole admin page as text, for the original router (lib/app.ts). The Next.js admin pages use the same pieces.
+function adminLayout({ settings, user, title, body, active, bare, readOnly, path = '' }: Body) {
+  const headHtml = `${head(`${title} | Admin`, settings).s}${langHead(settings)}`;
+  const inner = bare
+    ? <AdminBare settings={settings}><Val v={body} /></AdminBare>
+    : <AdminBody settings={settings} user={user} active={active} readOnly={readOnly} path={path} nonce={cspNonce()}><Val v={body} /></AdminBody>;
+  return `<!doctype html><html lang="bn"><head>${headHtml}</head><body class="${adminBodyClass(bare)}">${toHtml(inner).s}</body></html>`;
+}
+
+export { adminLayout, AdminBody, AdminBare, adminBodyClass, langHead, head as adminHeadTags, MENU, TABS, resolveItem, allowed, visible, logoMark, ASSET_V };

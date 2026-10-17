@@ -5,7 +5,7 @@
 
 // The same product on two lines (e.g. added twice while editing) is shown once with the quantities added up,
 // so each product's picture appears only once.
-import { toHtml, Val, RawHtml, attrValue, jsxList } from '../react/render';
+import { toHtml, Val, RawHtml, attrValue, jsxList } from '../react/html';
 import { html, raw, money, bn, fmtDate, roundOff, roundOffLabel } from '../util';
 import * as ordersModel from '../models/orders';
 import * as docs from '../services/docs';
