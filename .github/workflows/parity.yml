@@ -55,12 +55,24 @@ jobs:
         working-directory: new
         run: npx next build 2>&1 | tee "$RUNNER_TEMP/build.txt"
 
+      # main is the live code. Since the move to Next.js it is built and started like the new side;
+      # an older main (plain Node, server.js) is started the old way.
+      - name: Prepare the current site (main)
+        working-directory: old
+        run: |
+          if grep -q '"next"' package.json; then
+            if [ -f package-lock.json ]; then npm ci --no-audit --no-fund; else npm install --no-audit --no-fund; fi
+            npx next build > "$RUNNER_TEMP/old-build.txt" 2>&1 || { tail -40 "$RUNNER_TEMP/old-build.txt"; exit 1; }
+            echo "OLD_START=npx next start" >> "$GITHUB_ENV"  # the port comes from PORT, set by run.sh
+          else
+            echo "OLD_START=node server.js" >> "$GITHUB_ENV"
+          fi
       - name: Test database (template)
         working-directory: old
-        run: ../new/tools/parity/make-template.sh 3101 node server.js
+        run: ../new/tools/parity/make-template.sh 3101 $OLD_START
       - name: Crawl the current site (main)
         working-directory: old
-        run: ../new/tools/parity/run.sh "$RUNNER_TEMP/old" 3102 node server.js
+        run: ../new/tools/parity/run.sh "$RUNNER_TEMP/old" 3102 $OLD_START
       - name: Crawl the Next.js site
         working-directory: new
         run: tools/parity/run.sh "$RUNNER_TEMP/new" 3200 npx next start -p 3200
@@ -76,7 +88,7 @@ jobs:
         run: |
           set -o pipefail
           {
-            (cd old && SCENARIOS=1 ../new/tools/parity/run.sh "$RUNNER_TEMP/scen-old" 3102 node server.js) 2>&1 || echo "old site run failed"
+            (cd old && SCENARIOS=1 ../new/tools/parity/run.sh "$RUNNER_TEMP/scen-old" 3102 $OLD_START) 2>&1 || echo "old site run failed"
             (cd new && SCENARIOS=1 tools/parity/run.sh "$RUNNER_TEMP/scen-new" 3200 npx next start -p 3200) 2>&1 || echo "new site run failed"
             tail -30 "$RUNNER_TEMP/scen-new.server.log" 2>/dev/null
           } > "$RUNNER_TEMP/scenarios.txt"
