@@ -1,0 +1,32 @@
+name: probe
+on:
+  push:
+    branches: ['probe/**']
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env: { POSTGRES_PASSWORD: probe, POSTGRES_DB: shop }
+        ports: ['5432:5432']
+        options: --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 20
+    env: { NEXT_TELEMETRY_DISABLED: '1', DATABASE_URL: 'postgres://postgres:probe@127.0.0.1:5432/shop?sslmode=disable' }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci --no-audit --no-fund
+      - run: npx next build > build.log 2>&1 || { tail -60 build.log; exit 1; }
+      - name: probe
+        run: |
+          npx next start -p 3300 > server.log 2>&1 &
+          for _ in $(seq 1 120); do curl -s -o /dev/null http://127.0.0.1:3300/robots.txt && break; sleep 0.5; done
+          for u in /zprobe-a/nope /zprobe-b/nope /zprobe-c/nope /blog/category/nope /page/nope /page/about /zprobe-a/yes; do
+            echo "=== $u"; curl -s -o body.html -w 'status %{http_code}\n' "http://127.0.0.1:3300$u"
+            head -c 1500 body.html | sed 's/<script/\n<script/g' | grep -v '^<script' | head -c 900; echo
+          done
+          echo '=== server log'; tail -40 server.log

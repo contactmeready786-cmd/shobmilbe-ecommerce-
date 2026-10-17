@@ -2,7 +2,7 @@
 // every other address still goes to the original code (lib/app.ts). Grows as pages move; when it covers everything,
 // the original router goes.
 const EXACT = new Set(['/track', '/blog']);
-const PATTERNS = [/^\/blog\/category\/[^/]+$/, /^\/page\/[^/]+$/];
+const PATTERNS = [/^\/blog\/category\/[^/]+$/, /^\/page\/[^/]+$/, /^\/zprobe-[abc]\/[^/]+$/];
 
 /** Is this GET address drawn by a Next.js page? (forms and other methods still go to the original code) */
 export function servedByNext(path: string, query: URLSearchParams, method: string): boolean {
