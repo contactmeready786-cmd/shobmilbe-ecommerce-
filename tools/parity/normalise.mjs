@@ -100,7 +100,8 @@ export function nextNeutral(body) {
     .replace(/<script id="_R_"[^>]*>\(globalThis\["TURBOPACK"\][\s\S]*?<\/script>/g, '') // Next's loader for its own files
     .replace(/<meta name="next-size-adjust"[^>]*>/g, '')
     .replace(/<div hidden(?:="")?>\s*(?:<!--\$-->|<!--\/\$-->|<!--\$\?-->)*\s*<\/div>/g, '')
-    .replace(/<!--\/?\$\??-->/g, '');
+    .replace(/<!--\/?\$\??-->/g, '')
+    .replace(/<!-- -->/g, ''); // React's mark between two pieces of text (shows nothing)
   s = unwrap(s);
   // JSON-LD: wherever it is, compared as a set at the end
   const ld = [];

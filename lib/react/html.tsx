@@ -21,13 +21,24 @@ export class ElementHtml extends Raw {
     Object.defineProperty(this, 's', {
       get: () => {
         if (done === null) {
-          if (!renderer) throw new Error('toHtml(…).s needs lib/react/render (not available in a Next.js page — keep the piece as React)');
+          if (!renderer) throw new Error(`toHtml(…).s needs lib/react/render (not available in a Next.js page — keep the piece as React): ${describe(el)}`);
           done = renderer(el);
         }
         return done;
       },
     });
   }
+}
+
+// "<span class=pill>…" — which piece was asked for as text (to find the code that did it)
+function describe(el: ReactElement): string {
+  const t = el.type as unknown;
+  const props = (el.props || {}) as Record<string, unknown>;
+  const name = typeof t === 'string' ? t : typeof t === 'function' ? (t as { name?: string }).name || 'component' : t === Fragment ? 'fragment' : 'element';
+  const cls = typeof props.className === 'string' ? ` class=${props.className}` : '';
+  const kids = props.children;
+  const first = Array.isArray(kids) ? kids.find((k) => k && typeof k === 'object') : kids;
+  return `<${name}${cls}>` + (first && isValidElement(first) && name === 'fragment' ? ' ' + describe(first) : '');
 }
 
 /** A React piece that can also stand where ready-made HTML is expected (see above). */
