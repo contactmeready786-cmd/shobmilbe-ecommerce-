@@ -1,19 +1,15 @@
 // /blog/category/<slug> — the articles of one blog category.
 import type { Metadata, Viewport } from 'next';
 import { notFound } from 'next/navigation';
-import { cache } from 'react';
 import { BlogList } from '@/components/shop/Pages';
 import * as content from '@/lib/models/content';
+import { blogCategory } from '@/lib/next/loaders';
 import { getSettings } from '@/lib/next/shop-data';
 import { shopMetadata, shopViewport } from '@/lib/next/meta';
 import type { Loose } from '@/lib/types';
 
 type Props = { params: Promise<{ slug: string }> };
-const load = cache(async (slug: string) => {
-  await getSettings();
-  const cats = (await content.listBlogCategories()) as Loose[];
-  return { cats, category: cats.find((c) => c.slug === decodeURIComponent(slug)) || null };
-});
+const load = (slug: string) => blogCategory(decodeURIComponent(slug));
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { category } = await load((await params).slug);

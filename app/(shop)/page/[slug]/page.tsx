@@ -1,20 +1,14 @@
 // /page/<slug> — the owner's own pages (About us, Return policy, Privacy …), written in Markdown in the admin.
 import type { Metadata, Viewport } from 'next';
 import { notFound } from 'next/navigation';
-import { cache } from 'react';
 import { StaticPage } from '@/components/shop/Pages';
-import * as content from '@/lib/models/content';
+import { ownerPage } from '@/lib/next/loaders';
 import * as md from '@/lib/views/md';
 import { getSettings } from '@/lib/next/shop-data';
 import { shopMetadata, shopViewport } from '@/lib/next/meta';
-import type { Loose } from '@/lib/types';
 
 type Props = { params: Promise<{ slug: string }> };
-const load = cache(async (slug: string) => {
-  await getSettings();
-  const p = (await content.getPage({ slug: decodeURIComponent(slug) })) as Loose;
-  return p && p.active ? p : null;
-});
+const load = (slug: string) => ownerPage(decodeURIComponent(slug));
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const p = await load((await params).slug);
