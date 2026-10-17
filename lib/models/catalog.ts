@@ -219,6 +219,7 @@ const PUBLIC_COLS = `p.id, p.name, p.slug, p.category_id, ${PRICE_COLS}, ${STOCK
   p.allow_duplicate, (p.preorder OR coalesce((SELECT pp.preorder FROM products pp WHERE pp.id=p.parent_id), false)) AS preorder,
   greatest(p.preorder_days, coalesce((SELECT pp.preorder_days FROM products pp WHERE pp.id=p.parent_id), 0)) AS preorder_days, p.sold_count, p.wish_count, p.rating_avg, p.rating_count, p.created_at, p.updated_at,
   p.parent_id, p.variant_label, p.variant_count, p.variant_title,
+  (SELECT m.ik_url FROM media m WHERE m.id=p.image_id AND m.owner_type IS DISTINCT FROM 'staff') AS image_ik,
   c.name AS category_name, c.slug AS category_slug, c.icon AS category_icon`;
 // The admin also sees the buying price, damaged stock and the usual supplier.
 // The shop side (customers, robots, feeds) never even loads these — they are not in the public query at all.

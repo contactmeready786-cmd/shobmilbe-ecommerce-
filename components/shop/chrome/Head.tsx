@@ -1,6 +1,7 @@
 // ⚛️ What goes in every shop page's <head> besides the title/description tags (those come from lib/next/meta.ts):
 // the visitor-clock country check, fonts and the shop's style sheet with its two colours, the Bangla/English
 // start-up, page data for Google (JSON-LD), the tracking tags (Google, Facebook, TikTok) and the owner's own head code.
+import * as $services_imagekit from '../../../lib/services/imagekit';
 import * as $services_geolock from '../../../lib/services/geolock';
 import { HeadHtml } from '../../../lib/react/head-html';
 import type { Settings } from '../../../lib/types';
@@ -49,14 +50,21 @@ export function JsonLd({ data }: { data: unknown[] }) {
 }
 
 /** Everything in <head> except the tags Next.js writes from the page's metadata. */
+function imageOrigin(): string {
+  try { return $services_imagekit.configured() ? new URL($services_imagekit.endpoint()).origin : ''; } catch { return ''; }
+}
+
 export function ShopHeadExtras({ settings: s }: { settings: Settings }) {
   const { primary, accent } = colors(s);
   const tz = $services_geolock.headScript(s).replace(/^<script>|<\/script>$/g, '');
+  // the product pictures come from ImageKit: the browser opens that connection while the page is still arriving
+  const ik = imageOrigin();
   return (
     <>
       {tz ? inline(tz) : null}
       <link rel="preconnect" href="https://fonts.googleapis.com" />
       <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
+      {ik ? <link rel="preconnect" href={ik} /> : null}
       <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
       <link rel="stylesheet" href={`/css/style.css?v=${ASSET_V}`} />
       <style dangerouslySetInnerHTML={{ __html: `:root{--blue:${primary};--amber:${accent}}` }} />
