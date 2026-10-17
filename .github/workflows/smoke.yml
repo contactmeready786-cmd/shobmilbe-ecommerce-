@@ -31,4 +31,6 @@ jobs:
           check /robots.txt 200 'Sitemap:'
           check /sitemap.xml 200 '<urlset'          # reads the database
           check / '200|403' '<html'                 # shop or the country page — never a server error
+          check /blog '200|403' '<html'             # a Next.js page: its front gate (country lock) must answer too
+          check /page/no-such-page '404|403' '<html'  # missing → the shop's own 404 page
           exit $fail
