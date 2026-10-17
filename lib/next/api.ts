@@ -55,3 +55,10 @@ export function apiRoute(fn: (ctx: ApiCtx) => Promise<Response>) {
     }
   };
 }
+
+/** Any other way of asking (OPTIONS, HEAD, a form sent where only GET is meant): the original code's answer, as always. */
+export async function otherMethods(request: Request): Promise<Response> {
+  const { handleWithLegacy } = await import('../../src/legacy/bridge');
+  const url = new URL(request.url);
+  return handleWithLegacy(request, url.pathname + url.search);
+}
