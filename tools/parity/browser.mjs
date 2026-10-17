@@ -24,6 +24,23 @@ const browser = await chromium.launch({ executablePath: exe, args: ['--no-sandbo
 const results = [];
 let failed = 0;
 
+// React draws exactly the HTML it sent; if the browser had to re-arrange that HTML while reading it (a <div> inside a
+// <p>, a <form> inside a <form> …), React finds a different page. This finds the first place where that happened.
+async function whereHtmlWasFixed(page) {
+  return page.evaluate(async () => {
+    const raw = await (await fetch(location.href, { credentials: 'include' })).text();
+    const body = (raw.match(/<body[^>]*>([\s\S]*)<\/body>/) || [, ''])[1].replace(/<(script|style)\b[\s\S]*?<\/\1>/g, '');
+    const parsed = new DOMParser().parseFromString('<!doctype html><html><body>' + body + '</body></html>', 'text/html').body.innerHTML;
+    const VOID = /^(area|base|br|col|embed|hr|img|input|link|meta|source|track|wbr)$/i;
+    const tags = (h) => [...h.matchAll(/<(\/?)([a-zA-Z][\w-]*)/g)].filter((m) => !VOID.test(m[2])).map((m) => ({ t: m[1] + m[2].toLowerCase(), i: m.index }));
+    const a = tags(body), b = tags(parsed);
+    for (let k = 0; k < Math.min(a.length, b.length); k++) {
+      if (a[k].t !== b[k].t) return `sent <${a[k].t}> where the browser has <${b[k].t}>: …${body.slice(Math.max(0, a[k].i - 300), a[k].i + 120)}…`;
+    }
+    return a.length === b.length ? 'the HTML itself is not re-arranged (text differs?)' : `tag count ${a.length} vs ${b.length}`;
+  }).catch((e) => 'could not check: ' + e.message);
+}
+
 async function check(ctx, path, admin) {
   const page = await ctx.newPage();
   const problems = [];
@@ -43,11 +60,14 @@ async function check(ctx, path, admin) {
     if (admin && res.status() === 200 && !(await page.$('[data-side-toggle], .admin-bare'))) problems.push('no admin frame');
     if (admin && (await page.$('[data-side-toggle]'))) {
       // the menu button is admin.js's: it must work after React took over
+      // (the choice is remembered between pages, so the class may go either way — it must change)
+      const before = await page.evaluate(() => document.body.className);
       await page.evaluate(() => document.querySelector('.burger').click());
-      const open = await page.evaluate(() => document.body.className);
-      if (!/side-(open|hidden)/.test(open)) problems.push('admin menu button does nothing (admin.js not running?)');
+      const after = await page.evaluate(() => document.body.className);
+      if (before === after) problems.push('admin menu button does nothing (admin.js not running?)');
     }
   }
+  if (problems.some((p) => /#418|hydration/.test(p))) problems.push('where: ' + (await whereHtmlWasFixed(page)));
   results.push({ path, status: res ? res.status() : 'ERR', problems });
   if (problems.length) failed++;
   await page.close();
