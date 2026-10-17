@@ -40,7 +40,11 @@ export type Base = {
   send: (res: ShopResponse, status: number, body: string | Buffer, type?: string, extra?: HeaderMap) => void;
   json: (res: ShopResponse, status: number, data: unknown, extra?: HeaderMap) => void;
   redirect: (res: ShopResponse, to: string, extra?: HeaderMap) => void;
+  /** Next.js admin pages: receives an admin page's pieces instead of the finished page (lib/next/admin.ts). */
+  drawPage?: (p: AdminDrawn) => void;
 };
+/** An admin page's pieces: the frame around it (bare = no menu) and what goes inside. */
+export type AdminDrawn = { bare?: boolean; settings: Settings; user?: StaffUser; title: unknown; body: unknown; active?: string; readOnly?: boolean; path?: string; status: number };
 /** A signed-in admin user (a row of the staff table plus the session's marks). */
 // (columns: id, name, username, role, permissions[], active …; plus __session, __token, __verified from the login)
 export type StaffUser = Row;

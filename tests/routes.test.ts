@@ -33,3 +33,13 @@ test('the order page and the old invoice address share one address rule', async 
   const { ORDER_PAGE } = await import('../lib/shop/more');
   assert.ok(ORDER_PAGE.test('/order/SM1') && ORDER_PAGE.test('/order/SM1/invoice') && !ORDER_PAGE.test('/order/SM1/return'));
 });
+
+test('admin pages are drawn by Next.js; forms, files and data stay with the original code', async () => {
+  const { adminServedByNext } = await import('../lib/next/routes');
+  const a = (p: string, q = '', m = 'GET') => adminServedByNext(p, new URLSearchParams(q), m);
+  for (const p of ['/admin', '/admin/orders', '/admin/orders/5', '/admin/products', '/admin/settings', '/admin/login']) assert.ok(a(p), p);
+  for (const p of ['/admin/api/media', '/admin/orders/export.csv', '/admin/orders/invoice', '/admin/avatar/3', '/admin/pos/memo/4', '/admin/design/documents']) assert.equal(a(p), false, p);
+  assert.equal(a('/admin/orders', '', 'POST'), false);
+  assert.equal(a('/admin/orders', '__legacy=1'), false); // sent back by lib/next/admin.ts: the original code answers
+  assert.equal(a('/products'), false);
+});

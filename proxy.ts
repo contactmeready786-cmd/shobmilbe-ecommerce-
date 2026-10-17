@@ -6,11 +6,11 @@
 // In both cases the exact address the visitor asked for is passed on as x-shop-url — any copy the visitor sent is
 // overwritten, so it can't be faked.
 import { NextResponse, type NextRequest } from 'next/server';
-import { servedByNext, hasNextPage } from './lib/next/routes';
+import { servedByNext, hasNextPage, adminServedByNext } from './lib/next/routes';
 import { accountOrdersCookie } from './lib/shop/forms';
 import { drawableHere } from './lib/next/loaders';
-import { shopGate, refCookie, refToRemember } from './lib/gate';
-import { BASE_HEADERS } from './lib/security';
+import { shopGate, adminGateOk, refCookie, refToRemember } from './lib/gate';
+import { BASE_HEADERS, adminCsp, adminHeaders } from './lib/security';
 
 export async function proxy(request: NextRequest) {
   const url = request.nextUrl;
@@ -19,6 +19,9 @@ export async function proxy(request: NextRequest) {
   let path = url.pathname;
   try { path = decodeURIComponent(path); } catch { /* keep as sent */ }
   if (path.length > 1) path = path.replace(/\/+$/, '');
+
+  // 🔐 the admin panel: its pages are drawn by Next.js (app/(admin)); files, exports and forms by the original code
+  if (path === '/admin' || path.startsWith('/admin/')) return adminProxy(request, path, headers);
 
   if (!servedByNext(path, url.searchParams, request.method)) {
     // an address a Next.js page also has, but this request belongs to the original code (/track?code=…&phone=…,
@@ -46,6 +49,30 @@ export async function proxy(request: NextRequest) {
   }
   const ref = refToRemember(gate.settings, url.searchParams.get('ref'));
   if (ref) res.headers.append('Set-Cookie', refCookie({ headers: plain }, ref));
+  return res;
+}
+
+async function adminProxy(request: NextRequest, path: string, headers: Headers) {
+  const url = request.nextUrl;
+  const toLegacy = () => {
+    // the mark that sent this visit here (lib/next/admin.ts) is not passed on
+    const q = new URLSearchParams(url.searchParams);
+    q.delete('__legacy');
+    const search = q.toString();
+    headers.set('x-shop-url', url.pathname + (search ? '?' + search : ''));
+    return NextResponse.rewrite(new URL('/api/legacy' + url.pathname + (search ? '?' + search : ''), request.url), { request: { headers } });
+  };
+  if (!adminServedByNext(path, url.searchParams, request.method)) return toLegacy();
+  const plain: Record<string, string> = {};
+  request.headers.forEach((v, k) => { plain[k] = v; });
+  const gate = await adminGateOk({ headers: plain, socket: { remoteAddress: plain['x-real-ip'] || '' }, url: url.pathname + url.search }, request.method);
+  if (!gate.ok) return toLegacy();
+  // only scripts carrying this visit's nonce may run (lib/security.ts); Next.js puts it on its own scripts too
+  const nonce = Buffer.from(crypto.getRandomValues(new Uint8Array(16))).toString('base64');
+  headers.set('x-nonce', nonce);
+  headers.set('content-security-policy', adminCsp(nonce));
+  const res = NextResponse.next({ request: { headers } });
+  for (const [k, v] of Object.entries({ ...BASE_HEADERS, ...adminHeaders(nonce) })) res.headers.set(k, v);
   return res;
 }
 

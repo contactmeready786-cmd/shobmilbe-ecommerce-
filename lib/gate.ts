@@ -16,6 +16,7 @@ import * as $services_dbmove from './services/dbmove';
 import * as $services_geolock from './services/geolock';
 import * as $services_health from './services/health';
 import * as $services_mailer from './services/mailer';
+import * as $services_errors from './services/errors';
 import * as $models_extras from './models/extras';
 import { parseCookies, unsign } from './util';
 import type { Settings, ShopRequest } from './types';
@@ -113,4 +114,25 @@ export function refToRemember(settings: Settings, ref: string | null): string | 
 export function myOrders(req: Pick<ShopRequest, 'headers'>, settings: Settings): string[] {
   const v = unsign(parseCookies(req.headers.cookie as string).sm_orders, settings.session_secret);
   return v ? v.split('.').filter(Boolean) : [];
+}
+
+/**
+ * The admin's front checks, for an admin page drawn by Next.js: may Next.js draw it? false → the original code
+ * answers (it shows the same "setting up", customer-app, country-lock or bot answers as always).
+ */
+export async function adminGateOk(req: GateRequest, method: string): Promise<{ ok: true; settings: Settings } | { ok: false }> {
+  try {
+    await db.ensureReady();
+    if (await $services_dbmove.pending()) return { ok: false };
+  } catch { return { ok: false }; }
+  const settings = await db.getSettings();
+  const r = req as ShopRequest;
+  const ua = String(r.headers['user-agent'] || '');
+  if (/ShobmilbeApp\//.test(ua)) return { ok: false }; // the customer Android app never shows the admin panel
+  if ($services_geolock.adminBlocked(r, settings)) return { ok: false }; // 🔐 only from the countries the owner allows
+  const bad = blockedBots(settings);
+  if (ua && bad.length && bad.some((b) => ua.toLowerCase().includes(b.toLowerCase()))) return { ok: false };
+  $services_errors.ensure(settings); // Sentry on/off follows the key saved in Admin → আমার নোটিফিকেশন
+  if (method === 'GET') backgroundTick(r, settings);
+  return { ok: true, settings };
 }

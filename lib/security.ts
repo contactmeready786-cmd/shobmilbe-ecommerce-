@@ -145,6 +145,15 @@ function adminCsp(nonce: string): string {
   return ADMIN_CSP.replace("script-src 'self' 'unsafe-inline'", `script-src 'self' 'nonce-${nonce}'`) + "; script-src-attr 'none'; report-uri /api/csp-report";
 }
 
+/** Runs fn with this request's admin nonce current (Next.js admin pages: the nonce proxy.ts made). */
+function withNonce<T>(nonce: string, fn: () => T): T { return nonceStore.run({ nonce }, fn); }
+/** The extra headers of every admin page (on top of BASE_HEADERS): the script rule, no search engines, the camera. */
+function adminHeaders(nonce: string): Record<string, string> {
+  return { 'Content-Security-Policy': adminCsp(nonce), 'X-Robots-Tag': 'noindex, nofollow, noarchive, nosnippet, noimageindex', 'Referrer-Policy': 'same-origin',
+    // the admin may use the camera (barcode scanning); the shop pages never can
+    'Permissions-Policy': 'camera=(self), microphone=(), geolocation=(), usb=(), payment=(self)' };
+}
+
 // Forms in the admin must come from this same site (stops other websites from submitting forms as you).
 function sameSite(req: Req): boolean {
   const host = String(req.headers['x-forwarded-host'] || req.headers.host || '').split(',')[0].trim().toLowerCase();
@@ -159,4 +168,4 @@ function safeEqual(a: unknown, b: unknown): boolean {
   return crypto.timingSafeEqual(x, y) && String(a ?? '').length > 0;
 }
 
-export { startNonce, cspNonce, adminCsp, clientIp, hit, blocked, clear, encrypt, decrypt, isEncrypted, hasKey, keyFingerprint, safeUrl, imageKind, BASE_HEADERS, ADMIN_CSP, sameSite, safeEqual };
+export { startNonce, cspNonce, withNonce, adminHeaders, adminCsp, clientIp, hit, blocked, clear, encrypt, decrypt, isEncrypted, hasKey, keyFingerprint, safeUrl, imageKind, BASE_HEADERS, ADMIN_CSP, sameSite, safeEqual };

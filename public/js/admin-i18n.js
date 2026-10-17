@@ -8,6 +8,19 @@
  *
  * The choice is kept on this device (localStorage). Switching is instant, no reload.
  */
+// Next.js pages: start only after React has taken over the page (components/shop/chrome/Hydrated.tsx), so React never
+// finds something this script already changed. Pages drawn by lib/app.ts: start at once.
+(function (w) {
+  if (w.smWhenReady) return;
+  w.smWhenReady = function (fn) {
+    if (!w.__next_f || w.__smHydrated) { fn(); return; }
+    var done = false;
+    var go = function () { if (!done) { done = true; fn(); } };
+    w.addEventListener('sm:hydrated', go, { once: true });
+    setTimeout(go, 8000); // React never took over (a script error): run anyway rather than leave the page dead
+  };
+})(window);
+smWhenReady(function () {
 (function () {
   'use strict';
   var KEY = 'sm_admin_lang';
@@ -253,3 +266,4 @@
   setTimeout(function () { root.classList.remove('admin-i18n-wait'); }, 2500);
   window.smAdminT = function (s) { return lang === 'en' && dict ? tr(s) : s; };
 })();
+});

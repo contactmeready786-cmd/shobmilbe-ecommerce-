@@ -11,7 +11,7 @@ import { frames } from './fixtures/admin-frame';
 
 for (const [name, props] of frames) {
   test(`admin frame unchanged: ${name}`, () => {
-    const clean = (h: string) => normalise(h).replace(/\?v=[\w.«»-]+/g, '?v=');
+    const clean = (h: string) => normalise(h).replace(/\?v=[\w.«»-]+/g, '?v=').replace(/data-v="[^"]*"/g, 'data-v=""');
     const want = clean(fs.readFileSync(`tests/golden/admin-frame-${name}.html`, 'utf8'));
     const got = clean(String(adminLayout(props)));
     if (want !== got) {

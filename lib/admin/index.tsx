@@ -254,7 +254,11 @@ async function handle(base: Base) {
   let { settings } = base;
   const ip = security.clientIp(req);
   currentDb = db;
-  const bare = (title?: Loose, body?: Loose, status: Loose = 200) => send(res, status, adminLayout({ settings, title, body, bare: true }));
+  // A Next.js admin page (lib/next/admin.ts) takes the page's pieces and draws the frame itself; the original router
+  // gets the whole page as text.
+  const draw = base.drawPage;
+  const bare = (title?: Loose, body?: Loose, status: Loose = 200) => (draw ? draw({ bare: true, settings, title, body, status })
+    : send(res, status, adminLayout({ settings, title, body, bare: true })));
 
   // Every form sent to the admin must come from this same website.
   // (Stops a trick page on another site from submitting forms using your login.)
@@ -562,8 +566,10 @@ ${link}
     can: (p?: Loose) => allowed(user, p),
     flash: ui.flashFrom(query),
     body: () => parseBody(req),
-    page: (title?: Loose, body?: Loose, active?: Loose, opts: Body = {}) => send(res, opts.status || 200, adminLayout({ settings: ctx.settings, user, title,
-      body: $testclear.decorate(ctx, active, body), active, readOnly: ctx.readOnly, path })),
+    page: (title?: Loose, body?: Loose, active?: Loose, opts: Body = {}) => (draw
+      ? draw({ settings: ctx.settings, user, title, body: $testclear.decorate(ctx, active, body), active, readOnly: ctx.readOnly, path, status: opts.status || 200 })
+      : send(res, opts.status || 200, adminLayout({ settings: ctx.settings, user, title,
+        body: $testclear.decorate(ctx, active, body), active, readOnly: ctx.readOnly, path }))),
     back: (to?: Loose, msgKey?: Loose) => redirect(res, to + (msgKey ? (to.includes('?') ? '&' : '?') + 'msg=' + msgKey : '')),
     fail: (to?: Loose, text?: Loose) => redirect(res, to + (to.includes('?') ? '&' : '?') + 'err=' + encodeURIComponent(text)),
     log: (action?: Loose, entity?: Loose, entityId?: Id, detail?: Loose) => db.logActivity(user.id, action, entity, entityId, detail),

@@ -171,9 +171,7 @@ async function handlerInner(req: ShopRequest, res: ShopResponse) {
     $services_errors.ensure(settings); // Sentry on/off follows the key saved in Admin → আমার নোটিফিকেশন
     const isAdmin = path === '/admin' || path.startsWith('/admin/');
     const nonce = isAdmin ? security.startNonce() : ''; // only our own admin <script> tags may run (lib/security.ts)
-    const adminSend = (r?: Loose, status?: Loose, body?: Loose, type?: Loose, extra: Loose = {}) => send(r, status, body, type, { 'Content-Security-Policy': security.adminCsp(nonce), 'X-Robots-Tag': 'noindex, nofollow, noarchive, nosnippet, noimageindex', 'Referrer-Policy': 'same-origin',
-      // the admin may use the camera (barcode scanning); the shop pages never can
-      'Permissions-Policy': 'camera=(self), microphone=(), geolocation=(), usb=(), payment=(self)', ...extra });
+    const adminSend = (r?: Loose, status?: Loose, body?: Loose, type?: Loose, extra: Loose = {}) => send(r, status, body, type, { ...security.adminHeaders(nonce), ...extra });
     const base = { req, res, path, method, query, settings, send: isAdmin ? adminSend : send, json, redirect };
 
     // ---- the customer Android app never shows the admin panel (that is the separate admin app's job) ----
