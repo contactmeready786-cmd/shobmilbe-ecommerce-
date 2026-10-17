@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // Real-browser check of the Next.js pages (the crawl reads HTML; this one runs it): each page must open without a
 // script error, React must take the page over without "hydration" trouble, and the shop's / admin's own scripts
-// must start (the cart badge, the admin menu button). Runs on a LOCAL test server only.
+// must start (the cart badge, the admin menu button), and the form fields must still change (tick / untick, type).
+// Runs on a LOCAL test server only.
 //   node tools/parity/browser.mjs <base-url> <out-file>
 // Needs playwright-core and a Chrome / Chromium (CHROME_PATH, or the runner's google-chrome).
 import fs from 'node:fs';
@@ -58,6 +59,40 @@ async function check(ctx, path, admin) {
     if (st.next && !st.hydrated) problems.push('React never took the page over');
     if (!st.ready) problems.push("the site's own script did not start");
     if (admin && res.status() === 200 && !(await page.$('[data-side-toggle], .admin-bare'))) problems.push('no admin frame');
+    // form fields must still change after React took over (a field React "controls" snaps back: a ticked box that can't be
+    // unticked, a text box you can't type in). Forms are kept from being sent while trying.
+    if (st.next) {
+      const stuck = await page.evaluate(() => {
+        HTMLFormElement.prototype.submit = function () {}; HTMLFormElement.prototype.requestSubmit = function () {};
+        document.addEventListener('submit', (e) => e.preventDefault(), true);
+        window.fetch = () => new Promise(() => {});
+        const name = (el) => el.name || el.id || el.outerHTML.slice(0, 90);
+        const out = [];
+        for (const b of [...document.querySelectorAll('input[type=checkbox]')].filter((x) => !x.disabled).slice(0, 12)) {
+          const was = b.checked; b.click();
+          if (b.checked === was) out.push(`a ${was ? 'ticked' : 'unticked'} box can't be changed: ${name(b)}`);
+          else b.click();
+        }
+        const texts = [...document.querySelectorAll('input:not([type]), input[type=text], input[type=search], input[type=number], input[type=email], input[type=tel], textarea')]
+          .filter((x) => !x.disabled && !x.readOnly).slice(0, 8);
+        for (const t of texts) {
+          const was = t.value;
+          // a number inside the box's own limits (the shop's script keeps a quantity within the stock)
+          let want = was + 'x';
+          if (t.type === 'number') {
+            const lo = t.min !== '' ? Number(t.min) : 0; const hi = t.max !== '' ? Number(t.max) : lo + 10;
+            const pick = [lo, lo + 1, hi].find((v) => v >= lo && v <= hi && String(v) !== was);
+            if (pick === undefined) continue;
+            want = String(pick);
+          }
+          t.value = want; t.dispatchEvent(new Event('input', { bubbles: true })); t.dispatchEvent(new Event('change', { bubbles: true }));
+          if (t.value !== want) out.push(`a text box snaps back when typed in: ${name(t)}`);
+          t.value = was;
+        }
+        return out;
+      }).catch((e) => ['could not try the form fields: ' + e.message.slice(0, 120)]);
+      problems.push(...stuck);
+    }
     if (admin && (await page.$('[data-side-toggle]'))) {
       // the menu button is admin.js's: it must work after React took over
       // (the choice is remembered between pages, so the class may go either way — it must change)
