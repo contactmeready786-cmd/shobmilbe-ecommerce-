@@ -33,6 +33,10 @@ console.log(`pages compared: ${A.size}, differences: ${problems.length}`);
 const kinds = {};
 for (const x of problems) kinds[x.why.replace(/\d+/g, 'N')] = (kinds[x.why.replace(/\d+/g, 'N')] || 0) + 1;
 for (const [k, n] of Object.entries(kinds)) console.log(`  ${n} × ${k}`);
+// every difference, for the saved results (ci-results branch → compare-all.txt)
+if (process.env.RUNNER_TEMP) {
+  fs.writeFileSync(path.join(process.env.RUNNER_TEMP, 'compare-all.txt'), problems.map((x) => `- ${x.p}: ${x.why}${x.old !== undefined ? `\n  old: ${JSON.stringify(x.old)}\n  new: ${JSON.stringify(x.new)}` : ''}`).join('\n'));
+}
 for (const x of problems.slice(0, show)) {
   console.log(`\n- ${x.p}: ${x.why}`);
   if (x.old !== undefined) console.log(`  old: ${JSON.stringify(x.old)}\n  new: ${JSON.stringify(x.new)}`);

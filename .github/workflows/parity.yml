@@ -102,7 +102,7 @@ jobs:
         run: |
           OUT="$RUNNER_TEMP/results"; mkdir -p "$OUT"
           cp package-lock.json "$OUT/" 2>/dev/null || true
-          for f in versions typecheck tests build compare coverage scenarios; do cp "$RUNNER_TEMP/$f.txt" "$OUT/" 2>/dev/null || true; done
+          for f in versions typecheck tests build compare compare-all coverage scenarios; do cp "$RUNNER_TEMP/$f.txt" "$OUT/" 2>/dev/null || true; done
           for f in "$RUNNER_TEMP"/*.server.log; do [ -f "$f" ] && tail -c 20000 "$f" > "$OUT/$(basename "$f")"; done
           echo "${{ github.sha }} ${{ job.status }}" > "$OUT/RESULT"
           echo '{"git":{"deploymentEnabled":false}}' > "$OUT/vercel.json"  # Vercel must never build this branch
