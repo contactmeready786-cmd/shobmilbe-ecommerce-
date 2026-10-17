@@ -1,0 +1,128 @@
+// Small building blocks shared by admin pages.
+import { toHtml, Val, RawHtml, A, attrs, L } from '../react/render';
+import { html, raw, esc, bn, money } from '../util';
+import * as $models_catalog from '../models/catalog';
+import type { Body, Id, Loose } from '../types';
+
+const MESSAGES: Record<string, Loose> = {
+  saved: 'সেভ হয়েছে।',
+  added: 'যোগ হয়েছে।',
+  deleted: 'মুছে ফেলা হয়েছে — দোকান থেকে সরে গেছে, তবে রিসাইকেল বিনে আছে (মালিক চাইলে ফেরত আনতে পারবেন)।',
+  status: 'অবস্থা বদলানো হয়েছে।',
+  password: 'পাসওয়ার্ড বদলানো হয়েছে।',
+  sent: 'কুরিয়ারে পাঠানো হয়েছে।',
+  synced: 'কুরিয়ার থেকে আপডেট আনা হয়েছে।',
+  blocked: 'ব্লক লিস্টে যোগ হয়েছে।',
+  unblocked: 'ব্লক তুলে নেওয়া হয়েছে।',
+  paid: 'পেমেন্ট রেকর্ড হয়েছে।',
+  copied: 'কপি তৈরি হয়েছে (লুকানো অবস্থায়)। নাম আর ছবি ঠিক করে দোকানে দেখান।',
+  removed: 'মুছে ফেলা হয়েছে।',
+  order_deleted: 'অর্ডার মুছে ফেলা হয়েছে — রিসাইকেল বিনে আছে (পণ্য স্টকে ফেরত গেছে), দরকার হলে সেখান থেকে ফেরত আনতে পারবেন।',
+  cust_deleted: 'কাস্টমার মুছে ফেলা হয়েছে — রিসাইকেল বিনে আছে, দরকার হলে সেখান থেকে ফেরত আনতে পারবেন।',
+  noperm: { type: 'error', text: 'এই কাজের অনুমতি আপনার নেই। মালিকের সাথে কথা বলুন।' },
+};
+
+function flash(msg?: Loose) {
+  if (!msg) return '';
+  return toHtml(<p className={`flash ${A(msg.type === 'error' ? 'flash-error' : '')}`} role="status"><Val v={msg.text} /></p>);
+}
+function flashFrom(query: URLSearchParams) {
+  if (query.get('err')) return { type: 'error', text: query.get('err')!.slice(0, 300) };
+  if (query.get('info')) return { text: query.get('info')!.slice(0, 500) };
+  const m = MESSAGES[query.get('msg') || ''];
+  return m ? (typeof m === 'string' ? { text: m } : m) : null;
+}
+
+function pill(text?: Loose, cls: Loose = '') { return toHtml(<span className={`pill ${A(cls)}`}><Val v={text} /></span>); }
+
+// ---------- form fields ----------
+function field(label?: Loose, control?: Loose, hint?: Loose) {
+  return toHtml(<div className="field"><label><Val v={label} /><Val v={control} /></label>{(hint ? <small><Val v={hint} /></small> : null)}</div>);
+}
+// Money boxes accept paisa (৳0.25).
+const MONEY_FIELDS = new Set(['price', 'old_price', 'cost_price', 'amount', 'paid_amount', 'discount', 'delivery', 'shipping', 'other_cost',
+  'vat', 'paid_now', 'opening_due', 'opening_balance', 'small_max_price', 'small_min_value', 'small_max_value']);
+function input(name?: Loose, value?: Loose, attrs: Loose = {}) {
+  if (attrs.type === 'number' && MONEY_FIELDS.has(name) && attrs.step === undefined) {
+    attrs = { ...attrs, step: '0.01' };
+    if (Number(attrs.min) === 1) attrs.min = '0.01';
+  }
+  const a = Object.entries(attrs).filter(([, v]) => v !== false && v !== null && v !== undefined)
+    .map(([k, v]) => (v === true ? ` ${k}` : ` ${k}="${esc(v)}"`)).join('');
+  return raw(`<input name="${esc(name)}" value="${esc(value ?? '')}"${a}>`);
+}
+function textarea(name?: Loose, value?: Loose, attrs: Loose = {}) {
+  const a = Object.entries(attrs).filter(([, v]) => v !== false && v !== null && v !== undefined)
+    .map(([k, v]) => (v === true ? ` ${k}` : ` ${k}="${esc(v)}"`)).join('');
+  return raw(`<textarea name="${esc(name)}"${a}>${esc(value ?? '')}</textarea>`);
+}
+function select(name: Loose, options: Body, value?: Loose, attrs: Loose = {}) {
+  const a = Object.entries(attrs).filter(([, v]) => v !== false && v !== null && v !== undefined)
+    .map(([k, v]) => (v === true ? ` ${k}` : ` ${k}="${esc(v)}"`)).join('');
+  const opts = (Array.isArray(options) ? options : Object.entries(options))
+    .map(([v, l]) => `<option value="${esc(v)}"${String(v) === String(value ?? '') ? ' selected' : ''}>${esc(l)}</option>`).join('');
+  return raw(`<select name="${esc(name)}"${a}>${opts}</select>`);
+}
+function check(name?: Loose, checked?: Loose, label?: Loose, value: Loose = '1') {
+  return toHtml(<label className="check"><input type="checkbox" name={A(name)} defaultValue={A(value)} {...attrs(checked ? raw('checked') : '')} />{' '}<span><Val v={label} /></span></label>);
+}
+// Big on/off switch with a title and explanation.
+function switchRow(name?: Loose, on?: Loose, title?: Loose, desc?: Loose) {
+  return toHtml(<label className="switch-row">{' '}<span className="switch-text"><b><Val v={title} /></b>{(desc ? <small><Val v={desc} /></small> : null)}</span>{' '}<span className="switch"><input type="checkbox" name={A(name)} defaultValue="1" {...attrs(on ? raw('checked') : '')} /><span className="switch-ui" {...{ "aria-hidden": "true" }}></span></span>{' '}<span className="switch-state" data-on="চালু" data-off="বন্ধ"></span></label>);
+}
+// Image picker: uploads in the browser, keeps the media id in a hidden input.
+function imagePicker(name?: Loose, mediaId?: Id, { label = 'ছবি', hint = '', wide = false }: Body = {}) {
+  return toHtml(<div className={`field image-pick ${A(wide ? 'wide' : '')}`} data-image-pick=""><span className="label"><Val v={label} /></span><div className="pick-preview" data-pick-preview="">{(mediaId ? <img src={`/media/${A(mediaId)}/t`} alt="" /> : <span className="muted small">ছবি নেই</span>)}</div><p className={`pick-status ${A(mediaId ? 'is-live' : '')}`} data-pick-status="" data-live={A(mediaId ? '1' : '')}>{(mediaId ? "✅ এখন সাইটে এই ছবিটা চলছে" : "এখনো কোনো ছবি দেওয়া হয়নি")}</p><input type="hidden" name={A(name)} defaultValue={A(mediaId || '')} data-pick-value="" /><div className="pick-actions"><label className="btn btn-sm btn-ghost">{(mediaId ? "🔄 ছবি বদলান" : "📷 ছবি বাছুন")}<input type="file" accept="image/*" hidden data-pick-file="" {...attrs(wide ? raw('data-wide') : '')} /></label>{' '}{(mediaId ? <a className="btn btn-sm btn-ghost" href={`/media/${A(mediaId)}`} target="_blank" rel="noopener">🔍 বড় করে দেখুন</a> : null)}{' '}<button type="button" className="link-btn danger" data-pick-clear="" {...attrs(mediaId ? '' : raw('hidden'))}>🗑️ সরান</button></div>{(hint ? <small><Val v={hint} /></small> : null)}</div>);
+}
+
+function pager(total?: Loose, page?: Loose, perPage?: Loose, baseUrl?: Loose) {
+  const pages = Math.ceil(total / perPage);
+  if (pages <= 1) return '';
+  const link = (p?: Loose) => baseUrl + (baseUrl.includes('?') ? '&' : '?') + 'page=' + p;
+  const items = [];
+  for (let p = Math.max(1, page - 2); p <= Math.min(pages, page + 2); p++) items.push(p);
+  return toHtml(<nav className="pager" {...{ "aria-label": "পেজ" }}>{(page > 1 ? <a href={A(link(page - 1))}>← আগের</a> : null)}{' '}{L(items.map((p) => (p === page ? <b><Val v={bn(p)} /></b> : <a href={A(link(p))}><Val v={bn(p)} /></a>)))}{' '}{(page < pages ? <a href={A(link(page + 1))}>পরের →</a> : null)}{' '}<span className="muted small">মোট{' '}<Val v={bn(total)} />টি</span></nav>);
+}
+
+function dateFilter(path?: Loose, from?: Loose, to?: Loose, extra: Loose = '') {
+  const presets = [[7, '৭ দিন'], [30, '৩০ দিন'], [90, '৯০ দিন'], [365, '১ বছর']];
+  return toHtml(<form className="date-filter" method="get" action={A(path)}><RawHtml html={extra} /><div className="chips">{L(presets.map(([d, l]) => <a className="chip" href={`${A(path)}?days=${A(d)}`}><Val v={l} /></a>))}</div><label>থেকে{' '}<input type="date" name="from" defaultValue={A(from)} /></label>{' '}<label>পর্যন্ত{' '}<input type="date" name="to" defaultValue={A(to)} /></label>{' '}<button className="btn btn-sm">দেখুন</button></form>);
+}
+
+function kpi(label?: Loose, value?: Loose, sub?: Loose, cls: Loose = '', href: Loose = '') {
+  const body = toHtml(<><span className="kpi-label"><Val v={label} /></span><b className="kpi-value"><Val v={value} /></b>{(sub ? <span className="kpi-sub"><Val v={sub} /></span> : null)}</>);
+  return href ? toHtml(<a className={`kpi ${A(cls)}`} href={A(href)}><Val v={body} /></a>) : toHtml(<div className={`kpi ${A(cls)}`}><Val v={body} /></div>);
+}
+
+// Category choices as a tree: "📟 ইলেকট্রনিক্স", "　└ সার্কিট ও মডিউল", "　　└ অডিও অ্যামপ্লিফায়ার বোর্ড"
+function catOpts(categories?: Loose) {
+  const { categoryOptions } = $models_catalog;
+  return categoryOptions(categories).map((c) => [c.id, c.depth ? `${'\u3000'.repeat(c.depth)}└ ${c.name}` : `${c.icon} ${c.name}`]);
+}
+
+// "কাজ" column for admin lists: ✏️ edit, optional on/off switch, optional 🗑️ delete (goes to the recycle bin).
+function rowSwitch(action?: Loose, on?: Loose, label?: Loose) {
+  return toHtml(<form method="post" action={A(action)} className="prod-toggle"><label className="switch" title={A(label)}><input type="checkbox" name="active" defaultValue="1" {...attrs(on ? raw('checked') : '')} data-prod-toggle="" {...{ "aria-label": A(label) }} /><span className="switch-ui" {...{ "aria-hidden": "true" }}></span></label>{' '}<span className="small prod-toggle-text" data-prod-toggle-text="">{(on ? "চালু" : "বন্ধ")}</span><noscript><button className="btn btn-sm btn-ghost">সেভ</button></noscript></form>);
+}
+function rowActions({ edit, del, delConfirm, editLabel = '✏️ এডিট' }: Body) {
+  return toHtml(<td className="prod-actions">{(edit ? <a className="btn btn-sm btn-ghost" href={A(edit)}><Val v={editLabel} /></a> : null)}{' '}{(del ? <form method="post" action={A(del)} data-confirm={A(delConfirm || 'মুছবেন? রিসাইকেল বিনে থাকবে, মালিক চাইলে ফেরত আনতে পারবেন।')}><button className="btn btn-sm btn-danger">🗑️ মুছুন</button></form> : null)}</td>);
+}
+
+// One "পণ্য আমদানি" place with two ways in (tabs at the top of both pages)
+function importTabs(current?: Loose) {
+  const tabs = [
+    ['import', '/admin/products/import', '📥', 'লিংক বা ফাইল থেকে আমদানি', 'ফিড লিংক, একটা পণ্যের লিংক, CSV / Excel'],
+    ['old', '/admin/products/more-photos', '📸', 'পুরোনো সাইট থেকে সব পণ্য ও ছবি', 'বাকি পণ্য যোগ + প্রতিটা পণ্যের সব ছবি'],
+  ];
+  return toHtml(<nav className="imp-tabs" {...{ "aria-label": "পণ্য আমদানির ধরন" }}>{L(tabs.map(([k, href, ic, t, d]) => <a href={A(href)} className={`imp-tab ${A(k === current ? 'on' : '')}`} {...attrs(k === current ? raw(' aria-current="page"') : '')}><span className="imp-tab-ic"><Val v={ic} /></span><span><b><Val v={t} /></b><small><Val v={d} /></small></span></a>))}</nav>);
+}
+
+function empty(text?: Loose, action?: Loose) {
+  return toHtml(<div className="empty panel"><p><Val v={text} /></p><Val v={action || ''} /></div>);
+}
+
+function helpBox(title?: Loose, body?: Loose) {
+  return toHtml(<details className="help"><summary>💡{' '}<Val v={title} /></summary><div><Val v={body} /></div></details>);
+}
+
+export { importTabs, rowSwitch, rowActions, catOpts, MESSAGES, flash, flashFrom, pill, field, input, textarea, select, check, switchRow, imagePicker, pager, dateFilter, kpi, empty, helpBox, money, bn };

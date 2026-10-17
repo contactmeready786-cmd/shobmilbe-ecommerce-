@@ -1,0 +1,61 @@
+// Admin: product feed links for Google Merchant Center and Facebook Commerce Manager.
+import { toHtml, Val, A, L } from '../react/render';
+import * as crypto from 'node:crypto';
+import { html, bn, int } from '../util';
+import * as db from '../db';
+import * as ui from './ui';
+import { saveKeys } from './marketing';
+import * as feeds from '../services/feeds';
+import type { AdminCtx, Loose } from '../types';
+
+function baseUrl(ctx: AdminCtx) {
+  const s = ctx.settings;
+  if (s.site_url) return s.site_url.replace(/\/+$/, '');
+  const req = ctx.req;
+  const host = req.headers['x-forwarded-host'] || req.headers.host || 'localhost';
+  const proto = String(req.headers['x-forwarded-proto'] || (String(host).startsWith('localhost') ? 'http' : 'https')).split(',')[0];
+  return `${proto}://${host}`;
+}
+
+async function page(ctx: AdminCtx) {
+  const s = ctx.settings;
+  if (ctx.method === 'POST') {
+    const b = await ctx.body();
+    const ch = b.channel === 'facebook' ? 'facebook' : b.channel === 'google' ? 'google' : '';
+    if (b.action === 'generate' && ch) {
+      await db.setSetting(`feed_${ch}_token`, crypto.randomBytes(12).toString('hex'));
+      await ctx.reloadSettings();
+      await ctx.log('settings', 'marketing', null, `${ch} ফিড লিংক তৈরি`);
+      return ctx.back('/admin/marketing/feeds', 'saved');
+    }
+    if (b.action === 'revoke' && ch) {
+      await db.setSetting(`feed_${ch}_token`, '');
+      await ctx.reloadSettings();
+      await ctx.log('settings', 'marketing', null, `${ch} ফিড লিংক বন্ধ`);
+      return ctx.back('/admin/marketing/feeds', 'saved');
+    }
+    b.feed_condition = ['new', 'refurbished', 'used'].includes(b.feed_condition) ? b.feed_condition : 'new';
+    b.feed_google_category = String(b.feed_google_category || '').trim().replace(/[^0-9]/g, '').slice(0, 8);
+    const ship = String(b.feed_shipping || '').trim();
+    b.feed_shipping = ship === '' ? '' : ship.toLowerCase() === 'none' ? 'none' : String(Math.max(0, int(ship)));
+    await saveKeys(ctx, ['feed_brand', 'feed_condition', 'feed_include_out', 'feed_google_category', 'feed_shipping'], b, { checkboxes: ['feed_include_out'] });
+    await ctx.log('settings', 'marketing', null, 'প্রোডাক্ট ফিড সেটিংস');
+    return ctx.back('/admin/marketing/feeds', 'saved');
+  }
+
+  const base = baseUrl(ctx);
+  const [g, f] = await Promise.all([feeds.build('google', s, base), feeds.build('facebook', s, base)]);
+  const link = (ch?: Loose, fmt?: Loose) => `${base}/feeds/${ch}.${fmt}?key=${s[`feed_${ch}_token`]}`;
+  const card = (ch?: Loose, title?: Loose, built?: Loose, steps?: Loose) => {
+    const token = s[`feed_${ch}_token`];
+    return toHtml(<section className="panel feed-card"><h2><span className={`brand-dot ${A(ch === 'google' ? 'gg' : 'fb')}`}></span>{' '}<Val v={title} /></h2><p className="muted small">ফিডে যাবে{' '}<b><Val v={bn(built.report.included)} /></b>টি পণ্য (মোট চালু পণ্য{' '}<Val v={bn(built.report.total)} />টি)।</p>{(token ? <>{' '}<Val v={ui.field('ফিড লিংক (XML — এটাই দিন)', toHtml(<code className="copy feed-url" title="চাপলে কপি হবে"><Val v={link(ch, 'xml')} /></code>), 'লিংকের উপর চাপ দিলেই কপি হবে।')} /><p className="small">অন্য ফরম্যাট:{' '}<a href={A(link(ch, 'csv'))} target="_blank" rel="noopener">CSV (Excel এ খোলা যায়)</a>{' '}·{' '}<a href={A(link(ch, 'tsv'))} target="_blank" rel="noopener">TSV</a>{' '}·{' '}<a href={A(link(ch, 'xml'))} target="_blank" rel="noopener">XML দেখুন</a></p><div className="row-actions"><form method="post" action="/admin/marketing/feeds" data-confirm={`নতুন লিংক বানালে পুরনো লিংক আর কাজ করবে না — ${A(title)} এ নতুন লিংক বসাতে হবে। চালিয়ে যাবেন?`}><input type="hidden" name="action" defaultValue="generate" /><input type="hidden" name="channel" defaultValue={A(ch)} />{' '}<button className="btn btn-sm btn-ghost">নতুন লিংক বানান</button></form><form method="post" action="/admin/marketing/feeds" data-confirm={`ফিড বন্ধ করলে ${A(title)} আর পণ্য আপডেট পাবে না। বন্ধ করবেন?`}><input type="hidden" name="action" defaultValue="revoke" /><input type="hidden" name="channel" defaultValue={A(ch)} />{' '}<button className="link-btn danger small">বন্ধ করুন</button></form></div></> : <><form method="post" action="/admin/marketing/feeds"><input type="hidden" name="action" defaultValue="generate" /><input type="hidden" name="channel" defaultValue={A(ch)} />{' '}<button className="btn">🔗{' '}{(ch === 'google' ? "Google" : "Facebook")}{' '}ফিড লিংক তৈরি করুন</button></form></>)}<details className="feed-steps"><summary>কোথায় বসাবেন? (ধাপে ধাপে)</summary><ol className="small"><Val v={steps} /></ol></details>{(built.report.excluded.length ? <details className="feed-issues" open><summary className="warn">⚠️{' '}<Val v={bn(built.report.excluded.length)} />টি পণ্য ফিডে যাচ্ছে না</summary><ul className="small">{L(built.report.excluded.slice(0, 50).map((x?: Loose) => <li><a href={`/admin/products/${A(x.id)}`}><Val v={x.name} /></a>{' '}—{' '}<Val v={x.why.join(', ')} /></li>))}</ul></details> : null)}{' '}{(built.report.warnings.length ? <details className="feed-issues"><summary>ℹ️{' '}<Val v={bn(built.report.warnings.length)} />টি পণ্যে ছোট সমস্যা (তবুও ফিডে যাচ্ছে)</summary><ul className="small">{L(built.report.warnings.slice(0, 50).map((x?: Loose) => <li><a href={`/admin/products/${A(x.id)}`}><Val v={x.name} /></a>{' '}—{' '}<Val v={x.why.join(', ')} /></li>))}</ul></details> : null)}</section>);
+  };
+
+  const googleSteps = toHtml(<><li><a href="https://merchants.google.com" target="_blank" rel="noopener">merchants.google.com</a>{' '}এ ঢুকুন (Business info এ দেশ: Bangladesh, ওয়েবসাইট যাচাই করা থাকতে হবে — SEO পেজের Search Console কোড দিয়ে)।</li><li>Products →{' '}<b>Add products</b>{' '}→{' '}<b>Add products from a file</b>{' '}→{' '}<b>Add a file link</b>।</li><li>উপরের XML লিংকটা পেস্ট করুন। দেশ:{' '}<b>Bangladesh</b>, ভাষা: পণ্যের নাম যে ভাষায় (বাংলা হলে Bengali, ইংরেজি হলে English), মুদ্রা:{' '}<b>BDT</b>।</li><li>Fetch frequency:{' '}<b>Daily (প্রতিদিন)</b>{' '}দিন। এরপর নতুন পণ্য তুললে বা দাম/স্টক বদলালে Google নিজেই আপডেট নেবে।</li><li>Shipping: ফিডেই ডেলিভারি চার্জ দেওয়া আছে, Merchant Center এ আলাদা করে না দিলেও চলবে।</li></>);
+  const fbSteps = toHtml(<><li><a href="https://business.facebook.com/commerce" target="_blank" rel="noopener">business.facebook.com/commerce</a>{' '}→ আপনার ক্যাটালগ (না থাকলে Create catalog → E-commerce → Upload product info)।</li><li>Catalog →{' '}<b>Data sources</b>{' '}→{' '}<b>Add items</b>{' '}→{' '}<b>Data feed</b>{' '}→ Next।</li><li><b>Use a URL</b>{' '}বেছে উপরের XML লিংকটা পেস্ট করুন। Schedule:{' '}<b>Daily</b>। মুদ্রা:{' '}<b>BDT</b>।</li><li>Catalog →{' '}<b>Events</b>{' '}থেকে আপনার Pixel কানেক্ট করুন। সাইটের Pixel যে পণ্য ID পাঠায়, ফিডেও হুবহু সেই ID — তাই ডায়নামিক অ্যাড (যে যা দেখেছে তাকে সেটাই দেখানো) ঠিকঠাক কাজ করবে।</li></>);
+
+  const body = toHtml(<><h1>প্রোডাক্ট ফিড (Google ও Facebook)</h1><Val v={ui.flash(ctx.flash)} />{' '}<Val v={ui.helpBox('ফিড লিংক কী কাজে লাগে?', toHtml(<>দোকানের সব পণ্য (নাম, দাম, ছবি, স্টক) একটা লিংকে থাকে। এই লিংক Google Merchant Center আর Facebook ক্যাটালগে একবার বসালে তারা প্রতিদিন নিজে থেকেই পণ্যের তালিকা আপডেট নেবে। এরপর Google Shopping অ্যাড, Facebook/Instagram শপ আর ক্যাটালগ অ্যাড চালাতে পারবেন। দুইটা প্ল্যাটফর্মের সব বাধ্যতামূলক তথ্য (id, title, description, link, image_link, availability, condition, price, brand ইত্যাদি) সঠিক ফরম্যাটে দেওয়া আছে।{' '}{(s.site_url ? null : <><br /><b className="warn">⚠️ আগে{' '}<a href="/admin/marketing/seo">SEO পেজে</a>{' '}ওয়েবসাইটের ঠিকানা (যেমন https://shobmilbe.com) দিন — নাহলে লিংকে Vercel এর ঠিকানা চলে যাবে।</b></>)}</>))} /><div className="two-col"><Val v={card('google', 'Google Merchant Center', g, googleSteps)} />{' '}<Val v={card('facebook', 'Facebook / Instagram ক্যাটালগ', f, fbSteps)} /></div><form method="post" action="/admin/marketing/feeds" className="form panel"><h2>ফিড সেটিংস</h2><div className="field-row"><Val v={ui.field('ব্র্যান্ড (যেসব পণ্যে ব্র্যান্ড দেওয়া নেই)', ui.input('feed_brand', s.feed_brand, { maxlength: 70, placeholder: s.store_name }), 'দুই প্ল্যাটফর্মেই ব্র্যান্ড বাধ্যতামূলক। পণ্য এডিট পেজে আলাদা ব্র্যান্ড দিলে সেটাই যাবে।')} />{' '}<Val v={ui.field('পণ্যের অবস্থা', ui.select('feed_condition', [['new', 'নতুন (new)'], ['refurbished', 'রিফার্বিশড'], ['used', 'ব্যবহৃত (used)']], s.feed_condition))} /></div><div className="field-row"><Val v={ui.field('Google ক্যাটাগরি নম্বর (ঐচ্ছিক)', ui.input('feed_google_category', s.feed_google_category, { inputmode: 'numeric', placeholder: 'যেমন 222 = Electronics' }), 'Google এর তালিকা থেকে নম্বর: 222 ইলেকট্রনিক্স, 166 পোশাক, 536 ঘর-বাড়ি, 469 স্বাস্থ্য ও সৌন্দর্য। খালি রাখলে Google নিজেই ঠিক করে নেয়।')} />{' '}<Val v={ui.field('Google এ ডেলিভারি চার্জ (৳)', ui.input('feed_shipping', s.feed_shipping, { placeholder: `খালি = ঢাকার বাইরের চার্জ (${s.delivery_outside || 110})` }), 'Google বলে চার্জ কম দেখানো যাবে না, তাই ঢাকার বাইরের (বেশি) চার্জটাই দেওয়া নিরাপদ। "none" লিখলে ফিডে চার্জ যাবে না।')} /></div><Val v={ui.check('feed_include_out', s.feed_include_out !== '0', 'স্টকে নেই এমন পণ্যও ফিডে রাখুন ("out of stock" হিসেবে — অ্যাড বন্ধ থাকবে, স্টক এলে আবার চালু হবে)')} /><div className="form-actions"><button className="btn">সেভ করুন</button></div></form></>);
+  return ctx.page('প্রোডাক্ট ফিড', body, 'feeds');
+}
+
+export const routes = [{ method: '*', path: '/admin/marketing/feeds', perm: 'marketing', handler: page }];

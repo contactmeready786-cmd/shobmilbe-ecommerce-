@@ -1,0 +1,501 @@
+
+// 🗑️ deleting orders: only the owner, and only while this switch is on (so nobody deletes by a slip of the finger).
+// A deleted order goes to the recycle bin (রিসাইকেল বিন) with its items and payments; its goods go back on the shelf.
+import { toHtml, Val, A, attrs, L } from '../react/render';
+import { html, raw, money, bn, fmtDate, int, str, csv, pageNum, normalizePhone, validPhone, validYmd, list, esc, amount as amt, roundOff, roundOffLabel } from '../util';
+import * as db from '../db';
+import * as O from '../models/orders';
+import * as catalog from '../models/catalog';
+import * as customers from '../models/customers';
+import * as finance from '../models/finance';
+import * as courier from '../services/courier';
+import { invoicePage, checklistPage } from '../views/invoice';
+import * as ui from './ui';
+import * as $models_checkoutotp from '../models/checkoutotp';
+import * as $services_fraud from '../services/fraud';
+import * as $services_xlsx from '../services/xlsx';
+import * as $autocall from './autocall';
+import * as $services_drafts from '../services/drafts';
+import * as $services_stockalert from '../services/stockalert';
+import type { AdminCtx, Body, Id, Loose, ShopQuery } from '../types';
+import type { Tx } from '../pg';
+function canDelete(ctx: AdminCtx) { return ctx.user.role === 'owner' && ctx.settings.order_delete_on === '1'; }
+function deleteSwitch(ctx: AdminCtx) {
+  if (ctx.user.role !== 'owner') return '';
+  return toHtml(<form method="post" action="/admin/orders/delete-setting" className="panel switch-list cust-del-sw" data-autosubmit=""><Val v={ui.switchRow('order_delete_on', ctx.settings.order_delete_on === '1', '🗑️ অর্ডার মুছে ফেলার বাটন দেখান', 'শুধু আপনি (মালিক) দেখবেন। চালু করলে প্রতিটা অর্ডারের পাশে আর অর্ডারের পেজে "মুছুন" বাটন আসবে, আর টিক দিয়ে একসাথে অনেকগুলো মোছা যাবে। মোছা অর্ডার রিসাইকেল বিনে যায় (পণ্য স্টকে ফেরত যায়) — দরকার হলে সেখান থেকে ফেরত আনা যায়। কাজ শেষে বন্ধ করে রাখুন।')} /></form>);
+}
+async function deleteSetting(ctx: AdminCtx) {
+  if (ctx.user.role !== 'owner') return ctx.back('/admin/orders', 'noperm');
+  const b = await ctx.body();
+  await db.setSetting('order_delete_on', b.order_delete_on === '1' ? '1' : '0');
+  await ctx.log('settings', 'order', null, `অর্ডার মোছার বাটন ${b.order_delete_on === '1' ? 'চালু' : 'বন্ধ'}`);
+  return ctx.back('/admin/orders', 'saved');
+}
+async function removeOrders(ctx: AdminCtx, ids?: Loose) {
+  let n = 0;
+  for (const id of ids) {
+    const o = await db.one('SELECT id, code, customer_name, phone FROM orders WHERE id=$1', [id]);
+    if (!o) continue;
+    if (await ctx.trash('order', o.id)) { n += 1; await ctx.log('delete', 'order', o.id, `${o.code} — ${o.customer_name || ''} ${o.phone}`); }
+  }
+  return n;
+}
+async function deleteOne(ctx: AdminCtx, m?: Loose) {
+  if (!canDelete(ctx)) return ctx.back('/admin/orders', 'noperm');
+  await removeOrders(ctx, [int(m[1])]);
+  return ctx.back('/admin/orders', 'order_deleted');
+}
+
+// 🔐 how the customer's mobile number was checked at checkout (Admin → চেকআউট OTP)
+function otpPill(how?: Loose, long: Loose = false) {
+  const L = $models_checkoutotp.LABELS[how];
+  if (!L) return '';
+  return toHtml(<>{(long ? " " : <br />)}<span className={`pill ${A(how === 'skipped' ? 'pill-warn' : 'pill-ok')}`} title={A(L[1])}><Val v={L[0]} /></span>{(long ? <><br /><span className="small muted"><Val v={L[1]} /></span></> : null)}</>);
+}
+
+const PER_PAGE = 30;
+const statusPill = (s?: Loose) => ui.pill(O.STATUSES[s] || s, 'pill-' + s);
+const payPill = (s?: Loose) => ui.pill(O.PAYMENT_STATUSES[s] || s, 'pay-' + s);
+
+function filtersFrom(query: ShopQuery) {
+  return {
+    status: O.STATUSES[query.get('status')] ? query.get('status') : '',
+    q: str(query.get('q'), 80),
+    from: validYmd(query.get('from')) || '',
+    to: validYmd(query.get('to')) || '',
+    courier: ['steadfast', 'pathao', 'redx', 'none'].includes(query.get('courier')) ? query.get('courier') : '',
+    payment: O.PAYMENT_METHODS[query.get('payment')] ? query.get('payment') : '',
+    paymentStatus: O.PAYMENT_STATUSES[query.get('pstatus')] ? query.get('pstatus') : '',
+    phone: str(query.get('phone'), 20),
+  };
+}
+function qs(f: Body, extra: Loose = {}) {
+  const p = new URLSearchParams();
+  const map = { status: f.status, q: f.q, from: f.from, to: f.to, courier: f.courier, payment: f.payment, pstatus: f.paymentStatus, phone: f.phone, ...extra };
+  Object.entries(map).forEach(([k, v]) => { if (v) p.set(k, v as string); });
+  const s = p.toString();
+  return s ? '?' + s : '';
+}
+
+// ---------------------------------------------------------------- list
+async function listPage(ctx: AdminCtx) {
+  const f = filtersFrom(ctx.query);
+  const page = pageNum(ctx.query);
+  const [rows, total, counts] = await Promise.all([
+    O.listOrders({ ...f, limit: PER_PAGE, offset: (page - 1) * PER_PAGE }), O.countOrders(f), O.statusCounts(),
+  ]);
+  // 🛡️ a small risk mark beside each number (from the shop's own orders + any courier check done before — no API call here)
+  const risks = await $services_fraud.cachedLevels(rows.map((o) => o.phone)).catch(() => new Map());
+  const couriers = courier.available(ctx.settings);
+  const body = toHtml(<><div className="title-row"><h1>অর্ডার{' '}<small><Val v={bn(total)} />টি</small></h1><div className="row-actions">{(ctx.can('orders_edit') ? <a className="btn" href="/admin/orders/new">+ নতুন অর্ডার</a> : null)}{' '}{(ctx.can('reports') ? <><a className="btn btn-ghost" href={`/admin/orders/export.csv${A(qs(f))}`}>⬇ CSV</a><a className="btn btn-ghost" href={`/admin/orders/export.xlsx${A(qs(f))}`}>⬇ Excel</a></> : null)}</div></div><Val v={ui.flash(ctx.flash)} />{' '}<Val v={deleteSwitch(ctx)} /><div className="chips status-chips"><a className={`chip ${A(!f.status ? 'on' : '')}`} href={`/admin/orders${A(qs({ ...f, status: '' }))}`}>সব{' '}<b><Val v={bn(counts.all || 0)} /></b></a>{' '}{L(Object.entries(O.STATUSES).map(([k, v]) => <a className={`chip chip-${A(k)} ${A(f.status === k ? 'on' : '')}`} href={`/admin/orders${A(qs({ ...f, status: k }))}`}><Val v={v} />{' '}<b><Val v={bn(counts[k] || 0)} /></b></a>))}</div><form className="toolbar filters" method="get" action="/admin/orders">{(f.status ? <input type="hidden" name="status" defaultValue={A(f.status)} /> : null)}{' '}<input type="search" name="q" defaultValue={A(f.q)} placeholder="অর্ডার নম্বর, নাম, ফোন, পণ্য বা SKU" />{' '}<label>থেকে{' '}<input type="date" name="from" defaultValue={A(f.from)} /></label>{' '}<label>পর্যন্ত{' '}<input type="date" name="to" defaultValue={A(f.to)} /></label>{' '}<Val v={ui.select('courier', [['', 'সব কুরিয়ার'], ['none', 'কুরিয়ারে পাঠানো হয়নি'], ...Object.entries(courier.PROVIDERS).map(([k, v]) => [k, v.label])], f.courier)} />{' '}<Val v={ui.select('payment', [['', 'সব পেমেন্ট'], ...Object.entries(O.PAYMENT_METHODS)], f.payment)} />{' '}<Val v={ui.select('pstatus', [['', 'পেইড/বাকি সব'], ...Object.entries(O.PAYMENT_STATUSES)], f.paymentStatus)} />{' '}<button className="btn btn-sm">ফিল্টার</button>{' '}{(qs(f) ? <a href="/admin/orders" className="small">সব মুছুন</a> : null)}</form>{(rows.length ? <><form method="post" action="/admin/orders/bulk" data-bulk="">{(ctx.can('orders_edit') || ctx.can('courier') ? <div className="bulk-bar" data-bulk-bar="" hidden><b data-bulk-count="">০</b>টি বাছাই করা:{' '}{(ctx.can('orders_edit') ? <><Val v={ui.select('status', [['', 'অবস্থা বদলান…'], ...Object.entries(O.STATUSES)], '')} />{' '}<button className="btn btn-sm" name="action" value="status">প্রয়োগ</button></> : null)}{' '}{(ctx.can('courier') && couriers.length ? <><Val v={ui.select('courier', couriers.map((c) => [c, courier.PROVIDERS[c].label]), ctx.settings.courier_default || couriers[0])} />{' '}<button className="btn btn-sm btn-amber" name="action" value="courier">কুরিয়ারে পাঠান</button></> : null)}{' '}<button className="btn btn-sm btn-ghost" name="action" value="invoice" formTarget="_blank">🏷️ ইনভয়েস প্রিন্ট</button>{' '}<button className="btn btn-sm btn-ghost" name="action" value="checklist" formTarget="_blank">📋 চেকলিস্ট প্রিন্ট</button>{' '}{(canDelete(ctx) ? <button className="btn btn-sm btn-danger" name="action" value="delete" data-confirm-btn="বাছাই করা অর্ডারগুলো মুছবেন? রিসাইকেল বিনে যাবে, পণ্য স্টকে ফেরত যাবে।">🗑️ মুছুন</button> : null)}</div> : null)}<div className="table-wrap panel"><table className="table orders-table"><thead><tr><th><input type="checkbox" data-check-all="" {...{ "aria-label": "সব বাছুন" }} /></th><th>অর্ডার</th><th>কাস্টমার</th><th>পণ্য</th><th className="num">মোট</th><th>অবস্থা</th><th>পেমেন্ট</th><th>কুরিয়ার</th><th>কাজ</th></tr></thead><tbody>{L(rows.map((o) => <tr><td><input type="checkbox" name="ids[]" defaultValue={A(o.id)} {...{ "aria-label": "বাছুন" }} /></td><td><a href={`/admin/orders/${A(o.id)}`}><b><Val v={o.code} /></b></a><br /><span className="small muted"><Val v={fmtDate(o.created_at)} /></span>{(o.source === 'admin' ? <><br /><span className="pill">ম্যানুয়াল</span></> : null)}<Val v={otpPill(o.phone_check)} />{(o.preorder_qty > 0 ? <><br /><span className="pill pill-amber">⏳ প্রি-অর্ডার</span></> : null)}</td><td><span translate="no"><Val v={o.customer_name} /></span><br /><a className="small" href={`tel:${A(o.phone)}`}><Val v={o.phone} /></a><Val v={(() => { const r = risks.get(o.phone); return r && r.level !== 'new' && r.level !== 'low' ? toHtml(<>{' '}<span className={`risk-dot risk-${A(r.level)}`} title={`${A(r.label)}${A(r.rate !== null ? ` · সফল ${r.rate}%` : '')}`}>{(r.level === 'high' ? "⛔" : "⚠️")}</span></>) : ''; })()} /><br /><span className="small muted" translate={A(O.areaLabel(o) ? 'no' : 'yes')}><Val v={O.areaLabel(o) || (o.area === 'dhaka' ? 'ঢাকা' : 'ঢাকার বাইরে')} /></span></td><td className="small items-cell"><Val v={o.item_names || ''} />{(o.item_skus ? <><br /><span className="muted">SKU:{' '}<Val v={o.item_skus} /></span></> : null)}</td><td className="num"><b><Val v={money(o.total)} /></b>{(o.discount ? <><br /><span className="small muted">ছাড়{' '}<Val v={money(o.discount)} /></span></> : null)}</td><td><Val v={statusPill(o.status)} /></td><td className="small"><Val v={O.PAYMENT_METHODS[o.payment] || o.payment} /><br /><Val v={payPill(o.payment_status)} /></td><td className="small">{(o.courier ? <><Val v={courier.label(o.courier)} /><br /><span className="muted"><Val v={o.consignment_id} /></span></> : <span className="muted">—</span>)}</td><td className="row-acts">{(ctx.can('orders_edit') ? <a className="btn btn-sm btn-ghost" href={`/admin/orders/${A(o.id)}/edit`}>✏️ এডিট</a> : null)}{(canDelete(ctx) ? <button className="btn btn-sm btn-danger" formAction={`/admin/orders/${A(o.id)}/delete`} data-confirm-btn={`অর্ডার ${A(o.code)} মুছবেন? রিসাইকেল বিনে যাবে, পণ্য স্টকে ফেরত যাবে।`}>🗑️ মুছুন</button> : null)}</td></tr>))}</tbody></table></div></form><Val v={ui.pager(total, page, PER_PAGE, '/admin/orders' + qs(f))} /></> : <Val v={ui.empty('এই ফিল্টারে কোনো অর্ডার নেই।')} />)}</>);
+  return ctx.page('অর্ডার', body, 'orders');
+}
+
+async function bulk(ctx: AdminCtx) {
+  const b = await ctx.body();
+  const ids = list(b.ids).map((x) => int(x)).filter(Boolean).slice(0, 200);
+  if (!ids.length) return ctx.fail('/admin/orders', 'কোনো অর্ডার বাছাই করা হয়নি।');
+  if (b.action === 'delete') {
+    if (!canDelete(ctx)) return ctx.back('/admin/orders', 'noperm');
+    await removeOrders(ctx, ids);
+    return ctx.back('/admin/orders', 'order_deleted');
+  }
+  if (b.action === 'invoice') return ctx.redirect(ctx.res, '/admin/orders/invoice?ids=' + ids.join(','));
+  if (b.action === 'checklist') return ctx.redirect(ctx.res, '/admin/orders/checklist?ids=' + ids.join(','));
+  if (b.action === 'status') {
+    if (!ctx.can('orders_edit')) return ctx.back('/admin/orders', 'noperm');
+    if (!O.STATUSES[b.status]) return ctx.fail('/admin/orders', 'কোন অবস্থায় নেবেন তা বাছুন।');
+    const errors: Loose[] = [];
+    for (const id of ids) {
+      try {
+        const r = await O.setStatus(id, b.status, ctx.user.id);
+        if (r.changed) await ctx.log('order_status', 'order', id, `${r.prev} → ${b.status}`);
+      } catch (e: Loose) { errors.push(e.message); }
+    }
+    if (b.status === 'confirmed') for (const id of ids) await autoSend(ctx, id);
+    return errors.length ? ctx.fail('/admin/orders', `${bn(errors.length)}টি অর্ডার বদলানো যায়নি: ${errors[0]}`) : ctx.back('/admin/orders', 'status');
+  }
+  if (b.action === 'courier') {
+    if (!ctx.can('courier')) return ctx.back('/admin/orders', 'noperm');
+    let ok = 0;
+    const errors: Loose[] = [];
+    for (const id of ids) {
+      const r = await sendToCourier(ctx, id, b.courier, {});
+      if (r.ok) ok++; else errors.push(r.message);
+    }
+    return errors.length ? ctx.fail('/admin/orders', `${bn(ok)}টি পাঠানো হয়েছে, ${bn(errors.length)}টি যায়নি: ${errors[0]}`) : ctx.back('/admin/orders', 'sent');
+  }
+  return ctx.back('/admin/orders');
+}
+
+async function exportCsv(ctx: AdminCtx, m?: Loose, excel: Loose = false) {
+  const f = filtersFrom(ctx.query);
+  const rows = await O.listOrders({ ...f, limit: 10000 });
+  const seeCost = ctx.can('see_cost');
+  const out = [['Order', 'Date', 'Status', 'Customer', 'Phone', 'Address', 'Thana', 'District', 'Items', 'SKU', 'Subtotal', 'Discount', 'Delivery', 'Total',
+    'Paid', 'Refunded', 'Payment', 'Payment status', 'TrxID', 'Courier', 'Consignment', 'Zone', ...(seeCost ? ['Cost', 'Profit'] : []), 'Note']];
+  for (const o of rows) {
+    out.push([o.code, fmtDate(o.created_at).replace(/[০-৯]/g, (d) => String('০১২৩৪৫৬৭৮৯'.indexOf(d))), O.STATUSES[o.status], o.customer_name, o.phone, o.address, o.thana, o.district,
+      o.item_names, o.item_skus, o.subtotal, o.discount, o.delivery, o.total, o.paid_amount, o.refund_amount || 0, o.payment, o.payment_status, o.transaction_id,
+      courier.label(o.courier), o.consignment_id, o.zone_name || '', ...(seeCost ? [o.cost_total, o.total - o.cost_total - o.delivery] : []), o.note]);
+  }
+  await ctx.log('export', 'order', null, `${rows.length}টি অর্ডার ${excel ? 'Excel' : 'CSV'}`);
+  if (excel) return $services_xlsx.send(ctx.res, `orders-${new Date().toISOString().slice(0, 10)}.xlsx`, [{ name: 'Orders', rows: out }]);
+  return ctx.send(ctx.res, 200, csv(out), 'text/csv; charset=utf-8', { 'Content-Disposition': `attachment; filename="orders-${Date.now()}.csv"` });
+}
+
+// ---------------------------------------------------------------- detail
+async function detail(ctx: AdminCtx, m?: Loose) {
+  const id = int(m[1]);
+  const order = await O.getOrder({ id });
+  if (!order) return ctx.redirect(ctx.res, '/admin/orders');
+  const [refunds, gatewayPays] = await Promise.all([
+    db.q('SELECT r.*, s.name AS staff_name FROM refunds r LEFT JOIN staff s ON s.id=r.staff_id WHERE r.order_id=$1 ORDER BY r.id', [id]),
+    db.q(`SELECT method, amount, status, trx_id, created_at FROM payments WHERE order_id=$1 ORDER BY id`, [id]),
+  ]);
+  const [stats, blocked, history, txs, customer] = await Promise.all([
+    customers.phoneStats(order.phone),
+    customers.isBlocked(order.phone, order.ip),
+    db.q(`SELECT a.*, s.name AS staff_name FROM activity_log a LEFT JOIN staff s ON s.id=a.staff_id WHERE a.entity='order' AND a.entity_id=$1 ORDER BY a.created_at DESC LIMIT 50`, [id]),
+    ctx.can('accounting') ? db.q('SELECT t.*, a.name AS account_name FROM transactions t LEFT JOIN accounts a ON a.id=t.account_id WHERE order_id=$1 ORDER BY id', [id]) : [],
+    order.customer_id ? db.one('SELECT id FROM customers WHERE id=$1', [order.customer_id]) : null,
+  ]);
+  const prev = { ...stats, orders: stats!.orders - 1, delivered: stats!.delivered - (order.status === 'delivered' ? 1 : 0), failed: stats!.failed - (O.RELEASED.has(order.status) ? 1 : 0) };
+  const risk = customers.riskOf(prev);
+  const couriers = courier.available(ctx.settings);
+  const accounts = ctx.can('accounting') ? await finance.listAccounts() : [];
+  const due = Math.max(0, order.total - (order.paid_amount || 0));
+  const seeCost = ctx.can('see_cost');
+  const trackUrl = order.courier && courier.PROVIDERS[order.courier] ? courier.PROVIDERS[order.courier].track(order) : '';
+  const wa = order.phone.replace(/^0/, '880');
+
+  const body = toHtml(<><p className="crumbs"><a href="/admin/orders">← সব অর্ডার</a></p><div className="title-row"><h1>অর্ডার{' '}<Val v={order.code} />{' '}<Val v={statusPill(order.status)} /></h1><div className="row-actions">{(ctx.can('orders_edit') ? <a className="btn btn-ghost" href={`/admin/orders/${A(id)}/edit`}>✏️ এডিট</a> : null)}{' '}{(canDelete(ctx) ? <form method="post" action={`/admin/orders/${A(id)}/delete`} className="inline-form"><button className="btn btn-danger" data-confirm-btn={`অর্ডার ${A(order.code)} মুছবেন? রিসাইকেল বিনে যাবে, পণ্য স্টকে ফেরত যাবে।`}>🗑️ মুছুন</button></form> : null)}{' '}<a className="btn btn-ghost" href={`/admin/orders/invoice?ids=${A(id)}`} target="_blank" title="বক্সের উপরে লাগানোর জন্য — শুধু ডেলিভারির তথ্য">🏷️ ইনভয়েস</a>{' '}<a className="btn btn-ghost" href={`/admin/orders/checklist?ids=${A(id)}`} target="_blank" title="বক্সের ভেতরে কাস্টমারের জন্য — পণ্যের ছবি, ওয়ারেন্টি, দাম">📋 চেকলিস্ট</a>{' '}{(ctx.settings.vat_mode && !['none', 'turnover'].includes(ctx.settings.vat_mode) ? <a className="btn btn-ghost" href={`/admin/orders/${A(id)}/mushak`} target="_blank" title="ভ্যাট কর চালানপত্র">🧾 মূসক-৬.৩</a> : null)}</div></div><Val v={ui.flash(ctx.flash)} />{' '}{(blocked ? <p className="flash flash-error">⛔ এই কাস্টমার ব্লক লিস্টে আছে{(blocked.reason ? <Val v={`: ${blocked.reason}`} /> : null)}।</p> : null)}{' '}<Val v={await $autocall.orderBox(ctx, order)} /><div className="two-col"><div><section className="panel"><h2>পণ্যসমূহ</h2><table className="lines"><tbody>{L(order.items.map((it?: Loose) => <tr><td className="li-pic">{(it.image_id ? <img src={`/media/${A(it.image_id)}/t`} alt="" /> : <span><Val v={it.emoji || '📦'} /></span>)}</td><td>{(it.product_id ? <a href={`/admin/products/${A(it.product_id)}`}><Val v={it.name} /></a> : <Val v={it.name} />)}{(it.sku ? <><br /><span className="small muted">SKU:{' '}<Val v={it.sku} /></span></> : null)}{(it.preorder_qty > 0 ? <><br /><span className="pill pill-amber" title="অর্ডারের সময় স্টকে ছিল না — মাল এলে পাঠাতে হবে">⏳ প্রি-অর্ডার:{' '}<Val v={bn(it.preorder_qty)} />টি পরে আসবে</span></> : null)}{' '}{(it.components ? <><br /><span className="small muted">প্যাকেজ</span></> : null)}{' '}{(it.note ? <><br /><span className={`small item-note ${A(it.kind === 'gift' ? 'good' : '')}`}><Val v={it.note} /></span></> : null)}<br /><span className="muted small"><Val v={money(it.price)} />{' '}×{' '}<Val v={bn(it.qty)} />{(seeCost ? <>{' '}· কেনা{' '}<Val v={money(it.cost)} /></> : null)}</span></td><td className="num"><Val v={money(it.price * it.qty)} /></td></tr>))}</tbody><tfoot><tr><td colSpan={2}>পণ্যের দাম</td><td className="num"><Val v={money(order.subtotal)} /></td></tr>{(order.discount ? <tr><td colSpan={2}>ছাড়{' '}{(order.coupon_code ? <span className="pill"><Val v={order.coupon_code} /></span> : null)}</td><td className="num">−{' '}<Val v={money(order.discount)} /></td></tr> : null)}{' '}{(Number(order.points_discount) ? <tr><td colSpan={2}>লয়ালটি পয়েন্ট ছাড় (<Val v={bn(order.points_used)} />{' '}পয়েন্ট)</td><td className="num">−{' '}<Val v={money(order.points_discount)} /></td></tr> : null)}<tr><td colSpan={2}>ডেলিভারি ({(order.area === 'dhaka' ? "ঢাকা সিটি" : "ঢাকার বাইরে")})</td><td className="num"><Val v={money(order.delivery)} /></td></tr>{(roundOff(order) ? <tr><td colSpan={2}><Val v={roundOffLabel(roundOff(order))} /></td><td className="num">{(roundOff(order) > 0 ? "+ " : "− ")}<Val v={money(Math.abs(roundOff(order)))} /></td></tr> : null)}<tr className="total"><td colSpan={2}>মোট</td><td className="num"><Val v={money(order.total)} /></td></tr>{(order.paid_amount ? <tr><td colSpan={2}>পরিশোধিত</td><td className="num"><Val v={money(order.paid_amount)} /></td></tr> : null)}<tr><td colSpan={2}><b>কাস্টমারের কাছ থেকে নিতে হবে</b></td><td className="num"><b><Val v={money(due)} /></b></td></tr>{(order.points_earned ? <tr><td colSpan={3} className="small muted">🎖️ এই অর্ডারে কাস্টমার{' '}<Val v={bn(order.points_earned)} />{' '}পয়েন্ট পেয়েছেন</td></tr> : null)}{' '}{(seeCost ? <Val v={(() => { const pr = order.subtotal - order.discount - Number(order.points_discount || 0) - order.cost_total; return toHtml(<tr><td colSpan={2} className="muted">লাভ (পণ্যের দাম − কেনা দাম − ছাড়)</td><td className={`num ${A(pr >= 0 ? 'good' : 'warn')}`}><Val v={money(pr)} /></td></tr>); })()} /> : null)}</tfoot></table></section>{(ctx.can('orders_edit') ? <section className="panel"><h2>অবস্থা বদলান</h2><form method="post" action={`/admin/orders/${A(id)}/status`} className="status-form">{L(Object.entries(O.STATUSES).map(([k, v]) => <button name="status" value={A(k)} className={`btn btn-sm ${A(order.status === k ? 'is-current' : 'btn-ghost')} st-${A(k)}`} {...attrs(order.status === k ? raw('disabled') : '')}><Val v={v} /></button>))}{' '}{(order.status !== 'returned' ? <p className="small return-damaged"><Val v={ui.check('damaged', false, '"ফেরত এসেছে" চাপলে: মাল নষ্ট/ভাঙা অবস্থায় ফেরত এসেছে — বিক্রির স্টকে না দিয়ে আলাদা "নষ্ট স্টক"-এ রাখুন')} /></p> : null)}</form><p className="muted small">বাতিল বা ফেরত দিলে পণ্যগুলো আবার স্টকে যোগ হবে (নষ্ট টিক দিলে নষ্ট স্টকে)। ক্যাশ অন ডেলিভারি অর্ডার "ডেলিভারি সম্পন্ন" করলে পেমেন্ট পেইড হয়ে যাবে।</p>{(order.status === 'returned' ? <p className="small">{(order.returned_to === 'damaged' ? <>↩️ ফেরত আসা মাল{' '}<b>নষ্ট স্টকে</b>{' '}রাখা হয়েছে।</> : "↩️ ফেরত আসা মাল বিক্রির স্টকে ফেরত গেছে।")}</p> : null)}</section> : null)}<section className="panel"><h2>কুরিয়ার</h2>{(order.consignment_id ? <><p><Val v={courier.label(order.courier)} />{' '}·{' '}{(courier.PROVIDERS[order.courier] ? "ID" : "ট্র্যাকিং নম্বর")}:{' '}<b><Val v={order.consignment_id} /></b>{(order.tracking_code && order.tracking_code !== order.consignment_id ? <>{' '}· ট্র্যাকিং:{' '}<b><Val v={order.tracking_code} /></b></> : null)}</p><p>কুরিয়ারের স্ট্যাটাস:{' '}<b><Val v={order.courier_status || '—'} /></b>{' '}<span className="muted small">(<Val v={fmtDate(order.courier_sent_at)} />{' '}এ পাঠানো)</span></p><div className="row-actions">{(ctx.can('courier') ? <form method="post" action={`/admin/orders/${A(id)}/courier/sync`}><button className="btn btn-sm btn-ghost">🔄 স্ট্যাটাস আপডেট আনুন</button></form> : null)}{' '}{(trackUrl ? <a className="btn btn-sm btn-ghost" href={A(trackUrl)} target="_blank" rel="noopener">ট্র্যাক করুন ↗</a> : null)}</div></> : (ctx.can('courier') ? (couriers.length ? <><form method="post" action={`/admin/orders/${A(id)}/courier`} className="form courier-form" data-courier-form="" data-district={A(order.district)}><div className="field-row"><Val v={ui.field('কুরিয়ার', ui.select('courier', couriers.map((c) => [c, courier.PROVIDERS[c].label]), ctx.settings.courier_default || couriers[0], { 'data-courier-pick': true }))} />{' '}<Val v={ui.field('ওজন (কেজি)', ui.input('weight', '0.5', { type: 'number', step: '0.1', min: '0.1' }))} />{' '}<Val v={ui.field('COD (টাকা তুলবে)', ui.input('cod_show', due, { disabled: true }))} /></div><div className="field-row" data-courier-extra="pathao" hidden><Val v={ui.field('শহর (ঐচ্ছিক)', raw('<select name="city_id" data-pathao="cities"><option value="">অটো (ঠিকানা থেকে)</option></select>'))} />{' '}<Val v={ui.field('জোন (ঐচ্ছিক)', raw('<select name="zone_id" data-pathao="zones"><option value="">অটো</option></select>'))} /></div><div className="field-row" data-courier-extra="redx" hidden><Val v={ui.field('RedX ডেলিভারি এরিয়া', raw('<select name="area_id" data-redx-area><option value="">লোড হচ্ছে…</option></select><input type="hidden" name="area_name" data-redx-area-name>'))} /></div><Val v={ui.field('কুরিয়ারের জন্য নোট', ui.input('note', order.note || '', { maxlength: 250 }))} />{' '}<button className="btn btn-amber">🛵 কুরিয়ারে পাঠান</button></form></> : <p className="muted">কোনো কুরিয়ার API সেটআপ করা নেই।{' '}{(ctx.can('settings') ? <a href="/admin/integrations/courier">এখনই সেটআপ করুন</a> : "মালিককে সেটআপ করতে বলুন।")}</p>) : <p className="muted">এখনো কুরিয়ারে পাঠানো হয়নি।</p>))}{' '}{(ctx.can('courier') && !courier.PROVIDERS[order.courier] && !O.RELEASED.has(order.status) ? <details className="mt" {...attrs(order.consignment_id ? '' : '')}><summary className="link-btn">📝{' '}{(order.consignment_id ? "কুরিয়ার / ট্র্যাকিং নম্বর বদলান" : "অন্য কুরিয়ারে পাঠিয়েছি (হাতে লিখুন)")}</summary><form method="post" action={`/admin/orders/${A(id)}/manual-courier`} className="form"><div className="field-row"><Val v={ui.field('কুরিয়ার', ui.select('courier', Object.entries(courier.MANUAL), courier.MANUAL[order.courier] ? order.courier : 'sundarban'))} />{' '}<Val v={ui.field('ট্র্যাকিং / বুকিং নম্বর', ui.input('tracking', order.consignment_id || '', { maxlength: 80, required: true }))} /></div><Val v={ui.check('ship', !order.consignment_id && ['pending', 'confirmed', 'processing', 'hold'].includes(order.status), 'অর্ডারের অবস্থা "কুরিয়ারে দেওয়া হয়েছে" করুন')} />{' '}<button className="btn btn-sm">সেভ করুন</button><p className="small muted">কাস্টমার "অর্ডার ট্র্যাক" পেজে কুরিয়ারের নাম আর এই নম্বর দেখতে পাবেন।</p></form></details> : null)}</section><section className="panel"><h2>ইতিহাস</h2><ul className="timeline">{L(history.map((h) => <li><b><Val v={h.staff_name || 'সিস্টেম'} /></b>{' '}·{' '}<Val v={actionLabel(h)} /><br /><span className="small muted"><Val v={fmtDate(h.created_at)} /></span></li>))}<li><b>{(order.source === 'admin' ? <Val v={order.created_by_name || 'স্টাফ'} /> : "কাস্টমার")}</b>{' '}· অর্ডার করেছেন ({(order.source === 'admin' ? "ম্যানুয়াল" : "ওয়েবসাইট")})<Val v={otpPill(order.phone_check, true)} /><br /><span className="small muted"><Val v={fmtDate(order.created_at)} />{(order.ip ? <Val v={` · IP ${order.ip}`} /> : null)}</span></li></ul></section></div><div><section className="panel"><h2>কাস্টমার</h2><p className="big-name" translate="no"><Val v={order.customer_name} /></p><p><a href={`tel:${A(order.phone)}`}>📞{' '}<Val v={order.phone} /></a>{' '}·{' '}<a href={`https://wa.me/${A(wa)}`} target="_blank" rel="noopener">WhatsApp</a>{(order.email ? <>{' '}·{' '}<Val v={order.email} /></> : null)}</p><p translate="no"><Val v={order.address} /><br /><span className="muted"><Val v={O.areaLabel(order)} /></span></p>{(order.note ? <p className="note">📝{' '}<span translate="no"><Val v={order.note} /></span></p> : null)}{' '}{(customer && ctx.can('customers') ? <p><a href={`/admin/customers/${A(customer.id)}`}>কাস্টমারের সব অর্ডার →</a></p> : null)}<div className={`risk risk-${A(risk.level)}`}><b><Val v={risk.label} /></b>{' '}<span>আগের অর্ডার:{' '}<Val v={bn(prev.orders)} />টি · ডেলিভারি{' '}<Val v={bn(prev.delivered)} />{' '}· বাতিল/ফেরত{' '}<Val v={bn(prev.failed)} />{(risk.ratio !== null ? <Val v={` · সফলতা ${bn(risk.ratio)}%`} /> : null)}</span>{' '}{(stats!.last_day > 1 ? <span>⚠️ গত ২৪ ঘণ্টায় এই নম্বর থেকে{' '}<Val v={bn(stats!.last_day)} />টি অর্ডার</span> : null)}</div><button className="btn btn-sm btn-ghost" type="button" data-fraud-check={A(order.phone)}>🛡️ কুরিয়ার রেকর্ড / ফ্রড চেক</button><div className="small fraud-out" data-fraud-out=""></div>{(ctx.can('customers') ? (blocked ? null : <details className="mt"><summary className="link-btn danger">⛔ এই কাস্টমারকে ব্লক করুন</summary><form method="post" action={`/admin/orders/${A(id)}/block`} className="form"><Val v={ui.field('কারণ', ui.input('reason', 'ফেক অর্ডার / পণ্য নেয়নি', { maxlength: 300 }))} />{' '}<Val v={ui.check('block_ip', false, `IP ঠিকানাও ব্লক করুন (${order.ip || 'নেই'})`)} />{' '}<button className="btn btn-sm btn-danger">ব্লক করুন</button></form></details>) : null)}</section><section className="panel"><h2>পেমেন্ট</h2><p><Val v={O.PAYMENT_METHODS[order.payment] || order.payment} />{' '}·{' '}<Val v={payPill(order.payment_status)} /></p>{(order.transaction_id ? <p>TrxID:{' '}<b className="mono"><Val v={order.transaction_id} /></b>{(order.payment_number ? <>{' '}· নম্বর:{' '}<Val v={order.payment_number} /></> : null)}</p> : null)}{' '}{(O.RELEASED.has(order.status) && Number(order.paid_amount) > 0 ? <p className="note warn">⚠️ অর্ডারটা{' '}{(order.status === 'returned' ? "ফেরত এসেছে" : "বাতিল হয়েছে")}, কিন্তু কাস্টমারের দেওয়া{' '}<b><Val v={money(order.paid_amount)} /></b>{' '}এখনো ফেরত দেওয়া হয়নি। টাকা পাঠানোর পর নিচের "↩️ টাকা ফেরত দিন" চেপে রেকর্ড করুন।</p> : null)}{' '}{(order.payment.startsWith('manual_') && order.payment_status !== 'paid' ? <p className="note">কাস্টমার Send Money করেছেন বলে জানিয়েছেন। আপনার{' '}<Val v={order.payment.replace('manual_', '')} />{' '}অ্যাপে TrxID মিলিয়ে দেখে তারপর "টাকা পেয়েছি" চাপুন।</p> : null)}{' '}{(gatewayPays.length || txs.length || refunds.length ? <><h3 className="small">পেমেন্টের ইতিহাস</h3><ul className="small timeline">{L(gatewayPays.map((p) => <li>💳{' '}<Val v={O.PAYMENT_METHODS[p.method] || p.method} />{' '}·{' '}<Val v={money(p.amount)} />{' '}·{' '}{(p.status === 'success' || p.status === 'completed' ? "✅ সফল" : <Val v={p.status} />)}{(p.trx_id ? <>{' '}· TrxID{' '}<span className="mono"><Val v={p.trx_id} /></span></> : null)}<br /><span className="muted"><Val v={fmtDate(p.created_at)} /></span></li>))}{' '}{L(txs.map((t) => <li>{(t.type === 'expense' ? "↩️" : "💵")}{' '}<Val v={money(t.amount)} />{' '}{(t.type === 'expense' ? "←" : "→")}{' '}<Val v={t.account_name || '—'} />{' '}{(t.note ? <Val v={`(${t.note})`} /> : null)}<br /><span className="muted"><Val v={fmtDate(t.created_at)} /></span></li>))}{' '}{L(refunds.map((r) => <li className="warn">↩️ রিফান্ড{' '}<Val v={money(r.amount)} />{(r.method ? <Val v={` · ${O.PAYMENT_METHODS[r.method] || r.method}`} /> : null)}{(r.reference ? <>{' '}·{' '}<span className="mono"><Val v={r.reference} /></span></> : null)}{(r.note ? <Val v={` · ${r.note}`} /> : null)}<br /><span className="muted"><Val v={fmtDate(r.created_at)} />{' '}·{' '}<Val v={r.staff_name || ''} /></span></li>))}</ul></> : null)}{' '}{(order.refund_amount > 0 ? <p className="small warn">মোট ফেরত দেওয়া হয়েছে:{' '}<b><Val v={money(order.refund_amount)} /></b></p> : null)}{' '}{(ctx.can('orders_edit') && due > 0 ? <details {...attrs(order.payment.startsWith('manual_') ? raw('open') : '')}><summary className="link-btn">💵 টাকা পেয়েছি (পেমেন্ট রেকর্ড করুন)</summary><form method="post" action={`/admin/orders/${A(id)}/payment`} className="form"><div className="field-row"><Val v={ui.field('টাকা', ui.input('amount', due, { type: 'number', min: 1, required: true }))} />{' '}<Val v={ui.field('মাধ্যম', ui.select('method', Object.entries(O.PAYMENT_METHODS), order.payment))} /></div><Val v={ui.field('TrxID / রেফারেন্স', ui.input('trx', order.transaction_id || '', { maxlength: 80 }))} />{' '}{(accounts.length ? <Val v={ui.field('কোন অ্যাকাউন্টে জমা হলো (হিসাবে যোগ হবে)', ui.select('account_id', [['', 'হিসাবে যোগ করবেন না'], ...accounts.filter((a) => a.active).map((a) => [a.id, a.name])], ''))} /> : null)}{' '}<button className="btn btn-sm">সেভ করুন</button></form></details> : null)}{' '}{(ctx.can('orders_edit') && Number(order.paid_amount) > 0 ? <details className="mt"><summary className="link-btn danger">↩️ টাকা ফেরত দিন (রিফান্ড)</summary><form method="post" action={`/admin/orders/${A(id)}/refund`} className="form" data-confirm="টাকা ফেরত দেওয়া রেকর্ড করবেন?"><div className="field-row"><Val v={ui.field('কত টাকা ফেরত', ui.input('amount', order.paid_amount, { type: 'number', min: 0.01, step: '0.01', max: order.paid_amount, required: true }), `পরিশোধ হয়েছে ${money(order.paid_amount)}`)} />{' '}<Val v={ui.field('কীভাবে ফেরত দিলেন', ui.select('method', [['manual_bkash', 'বিকাশ'], ['manual_nagad', 'নগদ'], ['manual_rocket', 'রকেট'], ['cash', 'নগদ টাকা'], ['bank', 'ব্যাংক'], ['ssl', 'কার্ড (SSLCommerz)']], 'manual_bkash'))} /></div><Val v={ui.field('রেফারেন্স / TrxID (ঐচ্ছিক)', ui.input('reference', '', { maxlength: 80 }))} />{' '}<Val v={ui.field('কারণ', ui.input('note', order.status === 'returned' ? 'পণ্য ফেরত' : '', { maxlength: 200, placeholder: 'যেমন: পণ্য ফেরত, স্টকে ছিল না' }))} />{' '}{(accounts.length ? <Val v={ui.field('কোন অ্যাকাউন্ট থেকে গেল (হিসাবে খরচ হিসেবে যোগ হবে)', ui.select('account_id', [['', 'হিসাবে যোগ করবেন না'], ...accounts.filter((a) => a.active).map((a) => [a.id, a.name])], ''))} /> : null)}{' '}<button className="btn btn-sm btn-danger">রিফান্ড রেকর্ড করুন</button><p className="small muted">এটা শুধু হিসাব রাখে — টাকা আসলে আপনাকে বিকাশ/ব্যাংক থেকে পাঠাতে হবে। (অনলাইন পেমেন্টের রিফান্ড বিকাশ/SSLCommerz মার্চেন্ট প্যানেল থেকে করুন।)</p></form></details> : null)}</section><section className="panel"><h2>ভেতরের নোট (শুধু স্টাফ দেখবে)</h2><form method="post" action={`/admin/orders/${A(id)}/note`} className="form"><Val v={ui.textarea('admin_note', order.admin_note, { rows: 3, maxlength: 1000, placeholder: 'যেমন: কাস্টমার বিকেলে কল ধরতে বলেছেন' })} />{' '}{(ctx.can('orders_edit') ? <button className="btn btn-sm btn-ghost">নোট সেভ</button> : null)}</form></section></div></div><script src="/js/bd-geo.js" defer /></>);
+  return ctx.page(`অর্ডার ${order.code}`, body, 'orders');
+}
+
+const ACTIONS: Record<string, string> = {
+  order_status: 'অবস্থা বদলেছেন', order_edit: 'অর্ডার এডিট করেছেন', courier_send: 'কুরিয়ারে পাঠিয়েছেন', courier_sync: 'কুরিয়ার স্ট্যাটাস এনেছেন',
+  order_payment: 'পেমেন্ট রেকর্ড করেছেন', order_refund: 'টাকা ফেরত দিয়েছেন', order_note: 'নোট লিখেছেন', order_create: 'অর্ডার তৈরি করেছেন', block: 'ব্লক করেছেন', courier_auto: 'অটো কুরিয়ার',
+};
+function actionLabel(h?: Loose) {
+  let d = h.detail || '';
+  if (h.action === 'order_status') d = d.replace(/(\w+) → (\w+)/, (_?: Loose, a?: Loose, b?: Loose) => `${O.STATUSES[a] || a} → ${O.STATUSES[b] || b}`);
+  return `${ACTIONS[h.action] || h.action}${d ? ': ' + d : ''}`;
+}
+
+// ---------------------------------------------------------------- actions
+async function autoSend(ctx: AdminCtx, id?: Id) {
+  const s = ctx.settings;
+  if (s.courier_auto_send !== '1' || !s.courier_default || !courier.configured(s, s.courier_default)) return;
+  const o = await O.getOrder({ id });
+  if (!o || o.consignment_id || o.status !== 'confirmed') return;
+  const r = await sendToCourier(ctx, id, s.courier_default, {}, true);
+  if (!r.ok) await ctx.log('courier_auto', 'order', id, 'পাঠানো যায়নি: ' + r.message);
+}
+
+async function sendToCourier(ctx: AdminCtx, id?: Id, name?: Loose, extra?: Loose, auto: Loose = false) {
+  const order = await O.getOrder({ id });
+  if (!order) return { ok: false, message: 'অর্ডার পাওয়া যায়নি।' };
+  if (O.RELEASED.has(order.status) || order.status === 'delivered') return { ok: false, message: `${order.code}: এই অবস্থার অর্ডার কুরিয়ারে পাঠানো যায় না।` };
+  const r: Loose = await courier.send(order, name, ctx.settings, { ...extra, areaText: O.areaLabel(order) });
+  if (!r.ok) return { ok: false, message: `${order.code}: ${r.message}` };
+  await O.setCourierInfo(id as number, { courier: name, consignment_id: r.consignment_id, tracking_code: r.tracking_code, status: r.status });
+  await ctx.log(auto ? 'courier_auto' : 'courier_send', 'order', id, `${name} · ${r.consignment_id}`);
+  // When does the parcel count as "given to the courier" (goods leave the shelf)?
+  //  • 'handover' (default): only when it is scanned on কুরিয়ারে হ্যান্ডওভার — booking just marks it "প্যাকিং চলছে"
+  //  • 'booking': as soon as the courier booking is made (the old way)
+  const shipNow = ctx.settings.courier_ship_on === 'booking' || extra.handover;
+  if (['pending', 'confirmed', 'processing', 'hold'].includes(order.status)) {
+    const to = shipNow ? 'shipped' : (['pending', 'confirmed'].includes(order.status) ? 'processing' : null);
+    if (to) {
+      try {
+        const s = await O.setStatus(id as number, to, ctx.user.id);
+        if (s.changed) await ctx.log('order_status', 'order', id, `${s.prev} → ${to}`);
+      } catch (_) { /* keep going */ }
+    }
+  }
+  return { ok: true, consignment_id: r.consignment_id };
+}
+
+async function setStatusAction(ctx: AdminCtx, m?: Loose) {
+  const id = int(m[1]);
+  const b = await ctx.body();
+  try {
+    const r = await O.setStatus(id, b.status, ctx.user.id, { damaged: b.status === 'returned' && !!b.damaged });
+    if (r.changed) await ctx.log('order_status', 'order', id, `${r.prev} → ${b.status}${r.returnedTo === 'damaged' ? ' (মাল নষ্ট স্টকে)' : ''}`);
+    if (b.status === 'confirmed') await autoSend(ctx, id);
+  } catch (e: Loose) {
+    return ctx.fail(`/admin/orders/${id}`, e.message);
+  }
+  return ctx.back(`/admin/orders/${id}`, 'status');
+}
+async function courierAction(ctx: AdminCtx, m?: Loose) {
+  const id = int(m[1]);
+  const b = await ctx.body();
+  const r = await sendToCourier(ctx, id, b.courier, { weight: b.weight, note: b.note, city_id: b.city_id, zone_id: b.zone_id, area_id: b.area_id, area_name: b.area_name });
+  return r.ok ? ctx.back(`/admin/orders/${id}`, 'sent') : ctx.fail(`/admin/orders/${id}`, r.message as string);
+}
+async function syncOne(ctx: AdminCtx, order?: Loose) {
+  const r: Loose = await courier.status(order, ctx.settings);
+  if (!r.ok) return r;
+  await O.setCourierStatus(order.id, r.status);
+  const mapped = courier.mapStatus(order.courier, r.status);
+  if (mapped && mapped !== order.status) {
+    try {
+      const s = await O.setStatus(order.id, mapped, ctx.user ? ctx.user.id : null);
+      if (s.changed) await db.logActivity(ctx.user ? ctx.user.id : null, 'order_status', 'order', order.id, `${s.prev} → ${mapped}`);
+    } catch (_) { /* ignore */ }
+  }
+  return r;
+}
+async function syncAction(ctx: AdminCtx, m?: Loose) {
+  const id = int(m[1]);
+  const order = await O.getOrder({ id });
+  if (!order) return ctx.back('/admin/orders');
+  const r = await syncOne(ctx, order);
+  if (r.ok) await ctx.log('courier_sync', 'order', id, r.status);
+  return r.ok ? ctx.back(`/admin/orders/${id}`, 'synced') : ctx.fail(`/admin/orders/${id}`, r.message);
+}
+async function syncAll(ctx: AdminCtx) {
+  const rows = await db.q(`SELECT id FROM orders WHERE status='shipped' AND courier<>'' AND consignment_id<>'' ORDER BY courier_sent_at LIMIT 60`);
+  let n = 0;
+  for (const r of rows) {
+    const o = await O.getOrder({ id: r.id });
+    const res = await syncOne(ctx, o);
+    if (res.ok) n++;
+  }
+  return ctx.redirect(ctx.res, `/admin/orders?status=shipped&msg=synced`);
+  void n;
+}
+async function paymentAction(ctx: AdminCtx, m?: Loose) {
+  const id = int(m[1]);
+  const b = await ctx.body();
+  const order = await O.getOrder({ id });
+  if (!order) return ctx.back('/admin/orders');
+  const amount = amt(b.amount);
+  if (!amount) return ctx.fail(`/admin/orders/${id}`, 'টাকার পরিমাণ দিন।');
+  await O.markPaid(id, { amount: (order.paid_amount || 0) + amount, trxId: str(b.trx, 80), method: O.PAYMENT_METHODS[b.method] ? b.method : null });
+  if (int(b.account_id) && ctx.can('accounting')) {
+    await finance.addTransaction({ type: 'income', category: 'অর্ডার পেমেন্ট', amount, account_id: b.account_id, order_id: id, note: `${order.code} ${str(b.trx, 80)}` }, ctx.user.id);
+  }
+  await ctx.log('order_payment', 'order', id, `৳${amount} ${str(b.trx, 80)}`);
+  return ctx.back(`/admin/orders/${id}`, 'paid');
+}
+async function manualCourierAction(ctx: AdminCtx, m?: Loose) {
+  const id = int(m[1]);
+  const b = await ctx.body();
+  const order = await O.getOrder({ id });
+  if (!order) return ctx.back('/admin/orders');
+  const name = courier.MANUAL[b.courier] ? b.courier : 'other';
+  const tracking = str(b.tracking, 80);
+  if (!tracking) return ctx.fail(`/admin/orders/${id}`, 'ট্র্যাকিং / বুকিং নম্বর লিখুন।');
+  if (courier.PROVIDERS[order.courier] && order.consignment_id) return ctx.fail(`/admin/orders/${id}`, 'এই অর্ডার আগেই API দিয়ে কুরিয়ারে পাঠানো হয়েছে।');
+  await O.setCourierInfo(id as number, { courier: name, consignment_id: tracking, tracking_code: tracking, status: '' });
+  await ctx.log('courier_send', 'order', id, `${courier.label(name)} · ${tracking} (হাতে লেখা)`);
+  if (b.ship && ['pending', 'confirmed', 'processing', 'hold'].includes(order.status)) {
+    try {
+      const r = await O.setStatus(id, 'shipped', ctx.user.id);
+      if (r.changed) await ctx.log('order_status', 'order', id, `${r.prev} → shipped`);
+    } catch (e: Loose) { return ctx.fail(`/admin/orders/${id}`, e.message); }
+  }
+  return ctx.back(`/admin/orders/${id}`, 'saved');
+}
+async function refundAction(ctx: AdminCtx, m?: Loose) {
+  const id = int(m[1]);
+  const b = await ctx.body();
+  const order = await O.getOrder({ id });
+  if (!order) return ctx.back('/admin/orders');
+  const amount = amt(b.amount);
+  if (!(amount > 0) || amount > Number(order.paid_amount) + 0.001) return ctx.fail(`/admin/orders/${id}`, `ফেরতের পরিমাণ ৳০ থেকে ${money(order.paid_amount)} এর মধ্যে দিন।`);
+  const method = str(b.method, 30);
+  await db.tx(async (t) => {
+    await t.query('INSERT INTO refunds(order_id, amount, method, reference, note, staff_id) VALUES($1,$2,$3,$4,$5,$6)',
+      [id, amount, method, str(b.reference, 80), str(b.note, 200), ctx.user.id]);
+    await t.query(`UPDATE orders SET paid_amount = greatest(0, paid_amount - $1), refund_amount = refund_amount + $1, refunded_at = now(),
+      payment_status = CASE WHEN paid_amount - $1 <= 0.001 THEN 'refunded' ELSE 'partial' END, updated_at=now() WHERE id=$2`, [amount, id]);
+  });
+  if (int(b.account_id) && ctx.can('accounting')) {
+    await finance.addTransaction({ type: 'expense', category: 'রিফান্ড', amount, account_id: b.account_id, order_id: id, note: `${order.code} রিফান্ড ${str(b.reference, 80)}` }, ctx.user.id);
+  }
+  await ctx.log('order_refund', 'order', id, `৳${amount} ফেরত${b.note ? ` — ${str(b.note, 100)}` : ''}`);
+  return ctx.back(`/admin/orders/${id}`, 'saved');
+}
+async function noteAction(ctx: AdminCtx, m?: Loose) {
+  const id = int(m[1]);
+  const b = await ctx.body();
+  await db.q('UPDATE orders SET admin_note=$1, updated_at=now() WHERE id=$2', [str(b.admin_note, 1000), id]);
+  await ctx.log('order_note', 'order', id, str(b.admin_note, 120));
+  return ctx.back(`/admin/orders/${id}`, 'saved');
+}
+async function blockAction(ctx: AdminCtx, m?: Loose) {
+  const id = int(m[1]);
+  const b = await ctx.body();
+  const order = await O.getOrder({ id });
+  if (!order) return ctx.back('/admin/orders');
+  await customers.block('phone', order.phone, b.reason || '', ctx.user.id);
+  if (b.block_ip && order.ip) await customers.block('ip', order.ip, b.reason || '', ctx.user.id);
+  await ctx.log('block', 'order', id, `${order.phone} ${str(b.reason, 100)}`);
+  return ctx.back(`/admin/orders/${id}`, 'blocked');
+}
+
+// 🏷️ ইনভয়েস (on the parcel) and 📋 চেকলিস্ট (inside the box), one or many orders
+async function printDocs(ctx: AdminCtx, kind?: Loose) {
+  const ids = String(ctx.query.get('ids') || '').split(',').map((x) => int(x)).filter(Boolean).slice(0, 200);
+  const list: Loose[] = [];
+  for (const id of ids) { const o = await O.getOrder({ id }); if (o) list.push(o); }
+  if (!list.length) return ctx.redirect(ctx.res, '/admin/orders');
+  await ctx.log(kind === 'invoice' ? 'print_invoice' : 'print_checklist', 'order', list.length === 1 ? list[0].id : null, `${kind === 'invoice' ? 'ইনভয়েস' : 'চেকলিস্ট'} প্রিন্ট (${list.length}টি)`);
+  return ctx.send(ctx.res, 200, kind === 'invoice' ? invoicePage(list, ctx.settings) : checklistPage(list, ctx.settings));
+}
+const invoices = (ctx: AdminCtx) => printDocs(ctx, 'invoice');
+const checklists = (ctx: AdminCtx) => printDocs(ctx, 'checklist');
+
+// ---------------------------------------------------------------- create / edit form
+function orderForm({ order, settings, error, action, title, isNew }: Body) {
+  const o = order || { items: [], district: 'Dhaka', thana: '', payment: 'cod', payment_status: 'unpaid', status: 'confirmed' };
+  return toHtml(<><p className="crumbs"><a href={A(isNew ? '/admin/orders' : `/admin/orders/${o.id}`)}>← ফিরে যান</a></p><h1><Val v={title} /></h1>{(error ? <p className="flash flash-error"><Val v={error} /></p> : null)}<form method="post" action={A(action)} className="form" data-order-form="" data-dhaka={A(settings.delivery_dhaka)} data-outside={A(settings.delivery_outside)} data-free-min={A(settings.free_delivery_min)} data-city={A(JSON.stringify(O.dhakaCityAreas(settings)))} data-zones={A(JSON.stringify(O.customZones(settings)))}><div className="two-col"><section className="panel"><h2>পণ্য</h2><div className="item-picker"><input type="search" placeholder="পণ্যের নাম বা SKU লিখে খুঁজুন…" data-product-search="" autoComplete="off" /><ul className="picker-results" data-product-results="" hidden></ul></div><table className="table item-rows"><thead><tr><th>পণ্য</th><th className="num">দাম (৳)</th><th className="num">পরিমাণ</th><th className="num">মোট</th><th></th></tr></thead><tbody data-item-rows="">{L((o.items || []).map((it?: Loose) => <tr data-row=""><td><Val v={it.name} />{(it.sku ? <><br /><span className="small muted"><Val v={it.sku} /></span></> : null)}{(it.note ? <><br /><span className="small item-note"><Val v={it.note} /></span></> : null)}<input type="hidden" name="item_id[]" defaultValue={A(it.product_id)} />{' '}<input type="hidden" name="item_kind[]" defaultValue={A(it.kind === 'gift' ? 'gift' : '')} /><input type="hidden" name="item_note[]" defaultValue={A(it.kind === 'gift' ? it.note || '' : '')} /></td><td className="num"><input type="number" name="item_price[]" defaultValue={A(it.price)} min="0" step="0.01" className="w-num" data-price="" /></td><td className="num"><input type="number" name="item_qty[]" defaultValue={A(it.qty)} min="1" className="w-num" data-qty="" /></td><td className="num" data-line-total=""><Val v={money(it.price * it.qty)} /></td><td><button type="button" className="link-btn danger" data-remove-row="" {...{ "aria-label": "সরান" }}>✕</button></td></tr>))}</tbody></table><p className="muted small" data-no-items="" {...attrs(o.items && o.items.length ? raw('hidden') : '')}>উপরে খুঁজে পণ্য যোগ করুন।</p><div className="field-row"><Val v={ui.field('ডেলিভারি চার্জ (৳)', ui.input('delivery', o.delivery ?? settings.delivery_dhaka, { type: 'number', min: 0, 'data-delivery': true }), 'এলাকা বাছলে নিজে থেকে বসবে, চাইলে বদলাতে পারেন')} />{' '}<Val v={ui.field('ছাড় (৳)', ui.input('discount', o.discount || 0, { type: 'number', min: 0, 'data-discount': true }))} /></div><div className="order-total">মোট:{' '}<b data-grand=""><Val v={money(o.total || 0)} /></b></div></section><section className="panel"><h2>কাস্টমার</h2><Val v={ui.field('নাম', ui.input('customer_name', o.customer_name || '', { required: true, maxlength: 80 }))} />{' '}<Val v={ui.field('মোবাইল নম্বর', ui.input('phone', o.phone || '', { required: true, inputmode: 'tel', maxlength: 20, placeholder: '01XXXXXXXXX' }))} />{' '}<Val v={ui.field('ইমেইল (ঐচ্ছিক)', ui.input('email', o.email || '', { type: 'email', maxlength: 120 }))} /><div className="field-row"><Val v={ui.field('জেলা', raw(`<select name="district" data-district data-value="${esc(o.district || 'Dhaka')}"></select>`))} />{' '}<Val v={ui.field('থানা / এলাকা', raw(`<select name="thana" data-thana data-value="${esc(o.thana || '')}"></select>`))} /></div><Val v={ui.field('পূর্ণ ঠিকানা', ui.textarea('address', o.address || '', { rows: 2, required: true, maxlength: 400 }))} />{' '}<Val v={ui.field('কাস্টমারের নোট', ui.input('note', o.note || '', { maxlength: 300 }))} /><h2>পেমেন্ট</h2><div className="field-row"><Val v={ui.field('মাধ্যম', ui.select('payment', Object.entries(O.PAYMENT_METHODS), o.payment))} />{' '}<Val v={ui.field('অবস্থা', ui.select('payment_status', Object.entries(O.PAYMENT_STATUSES), o.payment_status))} /></div><div className="field-row"><Val v={ui.field('পরিশোধিত টাকা', ui.input('paid_amount', o.paid_amount || 0, { type: 'number', min: 0 }))} />{' '}<Val v={ui.field('TrxID', ui.input('transaction_id', o.transaction_id || '', { maxlength: 80 }))} /></div>{(isNew ? <Val v={ui.field('অর্ডারের অবস্থা', ui.select('status', Object.entries(O.STATUSES).filter(([k]) => !O.RELEASED.has(k)), 'confirmed'))} /> : null)}{' '}<Val v={ui.field('ভেতরের নোট', ui.textarea('admin_note', o.admin_note || '', { rows: 2, maxlength: 1000 }))} /></section></div><div className="form-actions sticky-actions"><button className="btn btn-lg">{(isNew ? "অর্ডার তৈরি করুন" : "পরিবর্তন সেভ করুন")}</button></div></form><script src="/js/bd-geo.js" defer /></>);
+}
+
+function itemsFromBody(b: Body) {
+  const ids = list(b.item_id);
+  const qtys = list(b.item_qty);
+  const prices = list(b.item_price);
+  const kinds = list(b.item_kind);
+  const notes = list(b.item_note);
+  // a gift line (from a "buy X get Y" offer) stays a separate gift line when the order is edited
+  return ids.map((id, i) => ({ id: int(id), qty: int(qtys[i]), price: prices[i], kind: kinds[i] === 'gift' ? 'gift' : '', note: kinds[i] === 'gift' ? str(notes[i], 120) : '' }));
+}
+
+async function newOrder(ctx: AdminCtx) {
+  if (ctx.method === 'POST') {
+    const b = await ctx.body();
+    const items = itemsFromBody(b);
+    const phone = normalizePhone(b.phone);
+    let error = null;
+    if (!str(b.customer_name)) error = 'কাস্টমারের নাম দিন।';
+    else if (!validPhone(phone)) error = 'সঠিক মোবাইল নম্বর দিন (01XXXXXXXXX)।';
+    else if (str(b.address).length < 4) error = 'ঠিকানা দিন।';
+    else if (!items.length) error = 'অন্তত একটি পণ্য যোগ করুন।';
+    if (!error) {
+      try {
+        const r = await O.createOrder({
+          items, name: str(b.customer_name, 80), phone, email: str(b.email, 120), address: str(b.address, 400),
+          district: str(b.district, 60), thana: str(b.thana, 60), note: str(b.note, 300), payment: O.PAYMENT_METHODS[b.payment] ? b.payment : 'cod',
+          trxId: str(b.transaction_id, 80), source: 'admin', createdBy: ctx.user.id, delivery: b.delivery, discount: b.discount,
+          status: b.status, adminNote: str(b.admin_note, 1000),
+        }, ctx.settings);
+        if (O.PAYMENT_STATUSES[b.payment_status] && b.payment_status !== 'unpaid') {
+          await O.markPaid(r.id, { amount: amt(b.paid_amount) || (b.payment_status === 'paid' ? r.total : 0), trxId: str(b.transaction_id, 80) });
+        }
+        await $services_drafts.markOrdered(phone, r.code);
+        await ctx.log('order_create', 'order', r.id, r.code);
+        $services_stockalert.check(ctx.settings, (r.lines || []).flatMap((l) => (l.components && l.components.length ? l.components.map((c) => c.product_id) : [l.product_id]))).catch(() => {});
+        if (b.status === 'confirmed') await autoSend(ctx, r.id);
+        return ctx.back(`/admin/orders/${r.id}`, 'added');
+      } catch (e) {
+        if (!(e instanceof O.OrderError)) throw e;
+        error = e.message;
+      }
+    }
+    const order = { ...b, phone: b.phone, items: await describeItems(items) };
+    return ctx.page('নতুন অর্ডার', orderForm({ order, settings: ctx.settings, error, action: '/admin/orders/new', title: 'নতুন অর্ডার তৈরি', isNew: true }), 'order-new', { status: 400 });
+  }
+  // from "অসম্পূর্ণ অর্ডার": the shopper's details and cart already filled in
+  const draft = ctx.query.get('draft') ? await $services_drafts.get(ctx.query.get('draft')) : null;
+  if (draft) {
+    const items = await describeItems((draft.items || []).map((i?: Loose) => ({ id: int(i.id), qty: int(i.qty, 1) })));
+    const order = { items, customer_name: draft.name, phone: draft.phone, address: draft.address, district: draft.district || 'Dhaka', thana: draft.thana,
+      note: draft.note, payment: 'cod', payment_status: 'unpaid', status: 'confirmed', admin_note: 'অসম্পূর্ণ অর্ডার থেকে (কল করে নেওয়া)' };
+    return ctx.page('নতুন অর্ডার', orderForm({ order, settings: ctx.settings, action: '/admin/orders/new', title: 'অসম্পূর্ণ অর্ডার থেকে নতুন অর্ডার', isNew: true }), 'order-new');
+  }
+  return ctx.page('নতুন অর্ডার', orderForm({ settings: ctx.settings, action: '/admin/orders/new', title: 'নতুন অর্ডার তৈরি (ফোন/ফেসবুক অর্ডার)', isNew: true }), 'order-new');
+}
+async function describeItems(items?: Loose) {
+  const prods = await catalog.getProductsByIds(items.map((i?: Loose) => i.id), { includeInactive: true });
+  return items.map((i?: Loose) => {
+    const p = prods.find((x) => x.id === i.id);
+    return p ? { product_id: p.id, name: p.name, sku: p.sku, price: i.price !== undefined && i.price !== '' ? amt(i.price) : p.price, qty: i.qty || 1,
+      kind: i.kind || '', note: i.note || '' } : null;
+  }).filter(Boolean);
+}
+
+async function editOrder(ctx: AdminCtx, m?: Loose) {
+  const id = int(m[1]);
+  const order = await O.getOrder({ id });
+  if (!order) return ctx.redirect(ctx.res, '/admin/orders');
+  if (ctx.method === 'POST') {
+    const b = await ctx.body();
+    const items = itemsFromBody(b);
+    const phone = normalizePhone(b.phone);
+    let error = !validPhone(phone) ? 'সঠিক মোবাইল নম্বর দিন।' : !items.length ? 'অন্তত একটি পণ্য রাখুন।' : null;
+    if (!error) {
+      try {
+        await O.updateOrder(id, { ...b, phone, items }, ctx.settings, ctx.user.id);
+        await ctx.log('order_edit', 'order', id, 'বিস্তারিত/পণ্য বদল');
+        return ctx.back(`/admin/orders/${id}`, 'saved');
+      } catch (e) {
+        if (!(e instanceof O.OrderError)) throw e;
+        error = e.message;
+      }
+    }
+    const merged = { ...order, ...b, id, items: await describeItems(items) };
+    return ctx.page('অর্ডার এডিট', orderForm({ order: merged, settings: ctx.settings, error, action: `/admin/orders/${id}/edit`, title: `অর্ডার ${order.code} এডিট` }), 'orders', { status: 400 });
+  }
+  return ctx.page('অর্ডার এডিট', orderForm({ order, settings: ctx.settings, action: `/admin/orders/${id}/edit`, title: `অর্ডার ${order.code} এডিট` }), 'orders');
+}
+
+// ---------------------------------------------------------------- small JSON APIs
+async function productSearch(ctx: AdminCtx) {
+  const q = str(ctx.query.get('q'), 60);
+  const rows = await catalog.listProducts({ q, includeInactive: ctx.query.get('all') === '1', limit: 12, sort: 'name', type: ctx.query.get('type') || undefined, items: !ctx.query.get('type') });
+  return ctx.json(ctx.res, 200, { products: rows.map((p) => ({ id: p.id, name: p.name, sku: p.sku, price: p.price, cost: ctx.can('see_cost') ? p.cost_price : undefined, stock: p.stock, unit: p.unit, image: p.image_id ? `/media/${p.image_id}/t` : null, emoji: p.emoji, type: p.product_type })) });
+}
+async function courierList(ctx: AdminCtx, m?: Loose) {
+  const name = m[1];
+  if (name === 'pathao') {
+    const r = await courier.pathaoList(ctx.settings, ctx.query.get('kind') || 'cities', ctx.query.get('parent'));
+    return ctx.json(ctx.res, r.ok ? 200 : 502, r);
+  }
+  if (name === 'redx') {
+    const r = await courier.redxAreas(ctx.settings, ctx.query.get('district') || '');
+    return ctx.json(ctx.res, r.ok ? 200 : 502, r);
+  }
+  return ctx.json(ctx.res, 404, { ok: false, rows: [] });
+}
+// 🛡️ shop's own record + Pathao + FraudBD (whatever is set up) → one answer (services/fraud.js)
+async function fraudApi(ctx: AdminCtx) {
+  const phone = normalizePhone(ctx.query.get('phone'));
+  if (!validPhone(phone)) return ctx.json(ctx.res, 400, { ok: false, message: 'ফোন নম্বর ঠিক নেই।' });
+  try {
+    return ctx.json(ctx.res, 200, await $services_fraud.check(ctx.settings, phone, { fresh: ctx.query.get('fresh') === '1' }));
+  } catch (e: Loose) {
+    return ctx.json(ctx.res, 502, { ok: false, message: e.message });
+  }
+}
+
+export const routes = [
+    { method: 'GET', path: '/admin/orders', perm: 'orders', handler: listPage },
+    { method: 'POST', path: '/admin/orders/bulk', perm: 'orders', handler: bulk },
+    { method: 'POST', path: '/admin/orders/delete-setting', perm: 'orders', handler: deleteSetting },
+    { method: 'POST', path: /^\/admin\/orders\/(\d+)\/delete$/, perm: 'orders', handler: deleteOne },
+    { method: 'GET', path: '/admin/orders/export.csv', perm: 'reports', handler: exportCsv },
+    { method: 'GET', path: '/admin/orders/export.xlsx', perm: 'reports', handler: (ctx: AdminCtx, m?: Loose) => exportCsv(ctx, m, true) },
+    { method: 'GET', path: '/admin/orders/invoice', perm: 'orders', handler: invoices },
+    { method: 'GET', path: '/admin/orders/checklist', perm: 'orders', handler: checklists },
+    { method: 'POST', path: '/admin/orders/sync', perm: 'courier', handler: syncAll },
+    { method: '*', path: '/admin/orders/new', perm: 'orders_edit', handler: newOrder },
+    { method: 'GET', path: /^\/admin\/orders\/(\d+)$/, perm: 'orders', handler: detail },
+    { method: '*', path: /^\/admin\/orders\/(\d+)\/edit$/, perm: 'orders_edit', handler: editOrder },
+    { method: 'POST', path: /^\/admin\/orders\/(\d+)\/status$/, perm: 'orders_edit', handler: setStatusAction },
+    { method: 'POST', path: /^\/admin\/orders\/(\d+)\/courier$/, perm: 'courier', handler: courierAction },
+    { method: 'POST', path: /^\/admin\/orders\/(\d+)\/courier\/sync$/, perm: 'courier', handler: syncAction },
+    { method: 'POST', path: /^\/admin\/orders\/(\d+)\/payment$/, perm: 'orders_edit', handler: paymentAction },
+    { method: 'POST', path: /^\/admin\/orders\/(\d+)\/note$/, perm: 'orders_edit', handler: noteAction },
+    { method: 'POST', path: /^\/admin\/orders\/(\d+)\/refund$/, perm: 'orders_edit', handler: refundAction },
+    { method: 'POST', path: /^\/admin\/orders\/(\d+)\/manual-courier$/, perm: 'courier', handler: manualCourierAction },
+    { method: 'POST', path: /^\/admin\/orders\/(\d+)\/block$/, perm: 'customers', handler: blockAction },
+    { method: 'GET', path: '/admin/api/products/search', perm: (ctx: AdminCtx) => (ctx.can('products') ? 'products' : ctx.can('inventory') ? 'inventory' : 'orders_edit'), handler: productSearch },
+    { method: 'GET', path: /^\/admin\/api\/courier\/(pathao|redx)$/, perm: 'courier', handler: courierList },
+    { method: 'GET', path: '/admin/api/fraud', perm: 'orders', handler: fraudApi },
+  ];
+export { sendToCourier, syncOne };

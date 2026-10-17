@@ -39,6 +39,8 @@ export function canonicalHtml(body) {
     .replace(/&#x27;|&#39;/g, "'")
     .replace(/&quot;/g, '"')
     .replace(/&#x2F;/gi, '/')
+    .replace(/<\/option>/gi, '') // a closing </option> is optional in HTML (the next option or </select> closes it)
+    .replace(/<!--[\s\S]*?-->/g, '') // comments show nothing (React can't write them)
     .replace(/\s*\/>/g, '>')
     .replace(new RegExp(`\\s(${BOOL_ATTRS})=""`, 'g'), ' $1')
     .replace(/\sstyle="([^"]*)"/g, (_, s) => ` style="${s.replace(/\s*([:;])\s*/g, '$1').replace(/;$/, '').trim()}"`)

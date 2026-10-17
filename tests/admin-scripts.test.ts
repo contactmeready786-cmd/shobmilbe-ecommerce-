@@ -12,7 +12,7 @@ import { join } from 'node:path';
 const ROOT = process.cwd(); // npm test runs from the project folder
 // the admin templates, plus the page-maker they use
 const FILES = [
-  ...readdirSync(join(ROOT, 'lib/admin')).filter((f) => f.endsWith('.ts')).map((f) => join('lib/admin', f)),
+  ...readdirSync(join(ROOT, 'lib/admin')).filter((f) => /\.tsx?$/.test(f)).map((f) => join('lib/admin', f)),
 ];
 const read = (f: string) => readFileSync(join(ROOT, f), 'utf8');
 // text that is shown as an example to the owner (inside a placeholder), not markup
@@ -23,10 +23,10 @@ test('every inline admin <script> carries the page nonce', () => {
   for (const f of FILES) {
     const src = read(f).replace(EXAMPLE, '');
     src.split('\n').forEach((line, i) => {
-      for (const m of line.matchAll(/<script\b([^>]*)>/gi)) {
+      for (const m of line.matchAll(/<script\b((?:[^>{]|\{[^}]*\})*)>/gi)) {
         const attrs = m[1];
         if (/\bsrc=/.test(attrs) || /type=["']?application\/(ld\+)?json/.test(attrs)) continue; // files from /js/ are allowed by 'self'
-        if (!/nonce="\$\{cspNonce\(\)\}"/.test(attrs)) bad.push(`${f}:${i + 1}: ${line.trim().slice(0, 100)}`);
+        if (!/nonce="\$\{cspNonce\(\)\}"|nonce=\{(A\()?cspNonce\(\)\)?\}/.test(attrs)) bad.push(`${f}:${i + 1}: ${line.trim().slice(0, 100)}`);
       }
     });
   }
@@ -37,7 +37,7 @@ test('no inline event handlers or javascript: links in admin pages', () => {
   const bad: string[] = [];
   for (const f of FILES) {
     read(f).split('\n').forEach((line, i) => {
-      if (/<[a-z][^>]*\son[a-z]+\s*=\s*["']/i.test(line) || /\bon(click|change|input|submit|load|error|focus|blur|keyup|keydown):\s*['"`]/.test(line)) bad.push(`${f}:${i + 1}: ${line.trim().slice(0, 100)}`);
+      if (/<[a-z][^>]*\son[a-z]+\s*=\s*["'{]/i.test(line) || /\bon(click|change|input|submit|load|error|focus|blur|keyup|keydown):\s*['"`]/.test(line)) bad.push(`${f}:${i + 1}: ${line.trim().slice(0, 100)}`);
       if (/href=["']\s*javascript:/i.test(line)) bad.push(`${f}:${i + 1}: javascript: link`);
     });
   }
