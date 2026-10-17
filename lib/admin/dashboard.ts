@@ -6,6 +6,7 @@ import * as security from '../security';
 import * as charts from './charts';
 import * as $db from '../db';
 import type { AdminCtx, Loose } from '../types';
+import * as $health from '../services/health';
 
 async function dashboard(ctx: AdminCtx) {
   const { from, to } = dateRange(ctx.query, 30);
@@ -19,6 +20,9 @@ async function dashboard(ctx: AdminCtx) {
       FROM complaints WHERE status IN ('open','working')`).catch(() => null) : null,
   ]);
   const k = d.k;
+  // 🩺 something about to run out (database space, backups, connections) — the owner sees it first thing
+  const healthNow = ctx.user.role === 'owner' ? await $health.measure(ctx.settings).catch(() => null) : null;
+  const healthWarn = healthNow ? $health.warnings(healthNow) : [];
   const live = d.live;
   const days = series.map((s) => ({ label: charts.dayLabel(s.day), bar: s.orders, line: s.sales }));
   const profitSeries = series.map((s) => ({ label: charts.dayLabel(s.day), bar: s.sales, line: s.profit }));
@@ -31,6 +35,7 @@ async function dashboard(ctx: AdminCtx) {
   const body = html`
 ${ctx.user.role === 'owner' && (!security.hasKey() || ctx.settings.__secrets_locked) ? html`<p class="flash flash-error">🛡️ নিরাপত্তার একটা ধাপ বাকি আছে — <a href="/admin/security">নিরাপত্তা পেজে দেখুন</a> (৫ মিনিটের কাজ)।</p>` : ''}
 ${cmp && (cmp.late || cmp.soon) ? html`<p class="flash ${cmp.late ? 'flash-error' : ''}">📮 ${cmp.late ? html`<b>${bn(cmp.late)}টি অভিযোগের ৭২ ঘণ্টা পার হয়ে গেছে!</b> ` : ''}${cmp.soon ? html`${bn(cmp.soon)}টির সময় ২৪ ঘণ্টারও কম বাকি। ` : ''}<a href="/admin/complaints">অভিযোগ দেখুন →</a></p>` : ''}
+${healthWarn.map((w) => html`<p class="flash ${w.level === 'bad' ? 'flash-error' : ''}">🩺 <b>${w.title}</b> — <a href="/admin/integrations/status#health">সার্ভার ও ডাটাবেস দেখুন →</a></p>`)}
 <div class="title-row"><h1>ড্যাশবোর্ড</h1><span class="muted">${fmtDate(from + 'T06:00:00Z', false)} থেকে ${fmtDate(to + 'T06:00:00Z', false)}</span></div>
 ${ui.flash(ctx.flash)}
 ${ui.dateFilter('/admin', from, to)}

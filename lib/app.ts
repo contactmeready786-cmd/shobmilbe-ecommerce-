@@ -34,6 +34,7 @@ import * as $services_push from './services/push';
 import * as $services_pricing from './services/pricing';
 import * as $models_accounts from './models/accounts';
 import * as $services_mailer from './services/mailer';
+import * as $services_health from './services/health';
 import * as $services_autobackup from './services/autobackup';
 import * as $services_research from './services/research';
 import * as $services_imagekit from './services/imagekit';
@@ -511,6 +512,7 @@ async function handlerInner(req: ShopRequest, res: ShopResponse) {
     if (path === '/api/backup/tick') {
       let r: Record<string, Loose> = {};
       try { r = await $services_autobackup.run(); } catch (_) { r = {}; }
+      await $services_health.checkAndAlert(settings);
       return json(res, 200, { ok: true, done: !!r.ok });
     }
     if (path === '/api/research/tick') {
@@ -771,6 +773,8 @@ let lastTick = 0;
 function backgroundTick(req: ShopRequest, settings: Settings) {
   if (Date.now() - lastTick < 5 * 60e3) return;
   lastTick = Date.now();
+  // 🩺 database space / backups / connections: e-mail the owner before something runs out (services/health.ts)
+  notify.later($services_health.checkAndAlert(settings), 8000).catch(() => {});
   const draftsOn = settings.draft_sms_on === '1';
   const priceOn = settings.price_alert_on !== '0';
   const mailOn = settings.email_mkt_on === '1';
