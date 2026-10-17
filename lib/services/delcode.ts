@@ -5,6 +5,7 @@
 //
 // Where the code goes is fixed here in the code, NOT in Admin → সেটিংস: a person inside the admin panel must not be able
 // to point the codes to their own mailbox. (Changing it needs a change on GitHub.)
+import { emailHtml, DeleteCodeEmail } from '../emails';
 import * as crypto from 'node:crypto';
 import * as db from '../db';
 import * as security from '../security';
@@ -74,13 +75,10 @@ async function send(ctx: AdminCtx, action?: Loose, detail: Loose = '') {
     + `সময়: ${when()} (ঢাকা)\n\n`
     + `কোডটি ${bn(MINUTES)} মিনিট চলবে, একবারই কাজ করবে।\n\n`
     + `⚠️ আপনি নিজে না চেয়ে থাকলে কেউ আপনার অ্যাডমিনে ঢুকে ${warnDo} চাইছে। কোডটি কাউকে দেবেন না — এখনই অ্যাডমিনের পাসওয়ার্ড বদলান আর Admin → নিরাপত্তা থেকে অন্য সব ডিভাইস লগআউট করুন।`;
-  const e = notify.escapeHtml;
-  const htmlBody = `<div style="font-family:sans-serif;font-size:15px;line-height:1.6">
-<p>${name}:</p><p style="font-size:30px;font-weight:700;letter-spacing:6px;margin:6px 0 14px">${code}</p>
-<p><b>${whatLabel}:</b> ${e(what)}<br><b>কে চাইলো:</b> ${e(ctx.user.name || ctx.user.username || 'অ্যাডমিন')}<br>
-<b>কোথা থেকে (IP):</b> ${e(ctx.ip || '—')}<br><b>ডিভাইস:</b> ${e(device(ctx) || '—')}<br><b>সময়:</b> ${e(when())} (ঢাকা)</p>
-<p>কোডটি ${bn(MINUTES)} মিনিট চলবে, একবারই কাজ করবে।</p>
-<p style="color:#b42318"><b>⚠️ আপনি নিজে না চেয়ে থাকলে</b> কেউ আপনার অ্যাডমিনে ঢুকে ${warnDo} চাইছে। কোডটি কাউকে দেবেন না — এখনই অ্যাডমিনের পাসওয়ার্ড বদলান আর Admin → নিরাপত্তা থেকে অন্য সব ডিভাইস লগআউট করুন।</p></div>`;
+  const htmlBody = await emailHtml(DeleteCodeEmail({ m: {
+    name, code, whatLabel, what, who: ctx.user.name || ctx.user.username || 'অ্যাডমিন', ip: ctx.ip || '—', device: device(ctx) || '—',
+    when: when(), minutes: bn(MINUTES), warnDo,
+  } }));
   try {
     await notify.sendEmail(ctx.settings, `🔐 ${name} ${code} — ${ctx.settings.store_name || 'সবমিলবে'}`, text, htmlBody, CODE_EMAIL);
   } catch (err: Loose) {

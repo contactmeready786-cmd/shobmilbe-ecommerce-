@@ -102,5 +102,9 @@ uses that one setup. Never add a second Gmail / App Password / SMS / API-key fie
   ctx.send(status, body, type?, headers?) / ctx.json(status, data) / ctx.redirect(to) and, for a file,
   ctx.reply.answer(status, headers, body) (lib/reply.ts → a Web Response). There is no Node req/res anywhere:
   ctx.req is a plain object (headers, url, method, socket.remoteAddress, the body text).
+- E-mails are drawn with React too (lib/emails.tsx: the offer mail, new order, delete code, account code, plain alerts)
+  and turned into HTML only when sent (`emailHtml`). A mail sent without its own HTML gets its text as a simple HTML mail.
+  The only hand-written HTML left is the handful of fixed emergency pages (database down, too many requests, country
+  closed, blocked visitor) that must still answer when nothing else works.
 - Database: only a dropped connection is retried (lib/pg isConnectionError); an order is retried on a deadlock (db.txRetry).
   Tests run one file at a time (`--test-concurrency=1`): the database tests share one throw-away database.

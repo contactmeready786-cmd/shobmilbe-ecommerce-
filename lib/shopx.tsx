@@ -23,7 +23,7 @@ import type { Body, Loose } from './types';
 
 async function route({ req, reply, path, method, query, settings, page, notFound, redirect, ip }: Body) {
   const isPost = method === 'POST';
-  if (isPost && !security.sameSite(req)) return page('অনুমতি নেই', '<div class="wrap section"><p>এই ফর্ম অন্য ওয়েবসাইট থেকে পাঠানো হয়েছে।</p></div>', { status: 403, noindex: true });
+  if (isPost && !security.sameSite(req)) return page('অনুমতি নেই', <div className="wrap section"><p>এই ফর্ম অন্য ওয়েবসাইট থেকে পাঠানো হয়েছে।</p></div>, { status: 403, noindex: true });
   const go = (to?: Loose, cookies?: Loose) => redirect(to, cookies ? { 'Set-Cookie': cookies } : {});
   const shown = (r: Resolved | null) => (!r || r.kind !== 'page' ? notFound() : page(r.title, r.body, r.opts));
 
@@ -189,7 +189,7 @@ async function route({ req, reply, path, method, query, settings, page, notFound
   let m = path.match(/^\/order\/([A-Za-z0-9]+)\/return$/);
   if (m) {
     if (settings.returns_on !== '1') return notFound();
-    if (!(await security.hit(db, 'orderview:' + ip, 60, 600))) return page('একটু অপেক্ষা করুন', '<div class="wrap section"><p>অনেক বেশি চেষ্টা হয়েছে।</p></div>', { status: 429, noindex: true });
+    if (!(await security.hit(db, 'orderview:' + ip, 60, 600))) return page('একটু অপেক্ষা করুন', <div className="wrap section"><p>অনেক বেশি চেষ্টা হয়েছে।</p></div>, { status: 429, noindex: true });
     const order = await O.getOrder({ code: m[1].toUpperCase() });
     if (!order) return notFound();
     const R = $models_returns;
