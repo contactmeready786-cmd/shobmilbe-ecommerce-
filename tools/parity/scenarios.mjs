@@ -54,7 +54,9 @@ console.log(JSON.stringify(adminRoutes().filter((r) => r.method === 'POST' || r.
   const list = JSON.parse(execFileSync('node', [path.join(tmp, 'out.cjs')], { env: { ...process.env, DATABASE_URL: process.env.DATABASE_URL || 'postgres://x@127.0.0.1:1/x' } }).toString());
   const asPath = (r) => (typeof r === 'string' ? r : r.re.replace(/^\^/, '').replace(/\$$/, '').replace(/\\\//g, '/').replace(/\(\\d\+\)|\\d\+/g, '1'));
   const ends = /logout|login|lock|passkey|webauthn|password|2fa|tfa|verify|reset|session|staff|setup/;
-  return [...new Set(list.map(asPath))].filter((p) => p.startsWith('/admin') && !/[\\[\](){}*+|?^$]/.test(p) && !ends.test(p)).sort();
+  // answers that depend on an outside service over the internet (machine translation, web research) differ run to run
+  const internet = /\/design\/language\/(fill|redo)$|\/api\/research\/run$/;
+  return [...new Set(list.map(asPath))].filter((p) => p.startsWith('/admin') && !/[\\[\](){}*+|?^$]/.test(p) && !ends.test(p) && !internet.test(p)).sort();
 }
 
 // a 1x1 PNG

@@ -45,7 +45,7 @@ function logLines(logs?: Loose) {
 async function courierTest(ctx: AdminCtx) {
   const b = await ctx.body();
   const r = await courier.test(b.courier, ctx.settings);
-  await db.logIntegration(b.courier, 'test', r.ok, r.message);
+  await db.logIntegration(String(b.courier || 'courier'), 'test', r.ok, r.message); // (a form without a courier name is still logged)
   return r.ok ? ctx.redirect('/admin/integrations/courier?msg=saved&info=' + encodeURIComponent(r.message)) : ctx.fail('/admin/integrations/courier', r.message);
 }
 
