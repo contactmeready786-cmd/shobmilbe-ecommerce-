@@ -11,7 +11,9 @@ export const dynamic = 'force-dynamic';
 const LANG_HEAD = "(function(){try{if(localStorage.getItem('sm_admin_lang')==='en'){var d=document.documentElement;d.className+=' admin-i18n-wait';d.setAttribute('data-admin-lang','en');}}catch(e){}})();";
 
 export default async function AdminRoot({ children }: { children: ReactNode }) {
-  const [cur, s] = await Promise.all([currentAdminPage(), getSettings()]);
+  const cur = await currentAdminPage();
+  // (the page's own fresh settings: what the owner just saved shows at once)
+  const s = cur.kind === 'page' ? cur.settings : await getSettings();
   const nonce = cur.kind === 'page' ? cur.nonce : '';
   return (
     // the language and menu scripts set attributes on <html> / <body> before React takes over

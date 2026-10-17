@@ -147,7 +147,9 @@ test('a status change sends the customer\'s SMS wherever it is made (no other fi
   try {
     const id = await product(120, 5);
     const r = await O.createOrder({ items: [{ id, qty: 1 }], name: 'এসএমএস টেস্ট', phone: '01710000088', address: 'বাসা ৯, রোড ১', district: 'Dhaka', thana: 'Banani', payment: 'cod', source: 'web', ip: '10.9.9.8' }, S());
-    await O.setStatus(r.id, 'confirmed', null);
+    // (as on the site: a change runs with fresh reads, lib/cache.ts)
+    const cache = await import('../lib/cache');
+    await cache.runFresh(() => O.setStatus(r.id, 'confirmed', null));
     for (let i = 0; i < 50 && !sent.length; i++) await new Promise((res) => setTimeout(res, 100));
     assert.equal(sent.length, 1);
     assert.match(sent[0], /^8801710000088: /);

@@ -9,7 +9,8 @@ import { cache } from 'react';
 import { headers } from 'next/headers';
 import * as admin from '../admin';
 import * as security from '../security';
-import { getSettings } from './shop-data';
+import * as db from '../db';
+import { runFresh } from '../cache';
 import type { AdminDrawn, Base, Loose, ShopRequest, ShopResponse } from '../types';
 
 export type AdminOutcome =
@@ -29,7 +30,8 @@ export const currentAdminPage = cache(async (): Promise<AdminOutcome> => {
   try { path = decodeURIComponent(path); } catch { /* keep as sent */ }
   if (path.length > 1) path = path.replace(/\/+$/, '');
   const nonce = plain['x-nonce'] || '';
-  const settings = await getSettings();
+  // admin pages always read fresh from the database (lib/cache.ts), so what the owner saved shows at once
+  const settings = await runFresh(() => db.getSettings());
 
   let out: AdminOutcome = { kind: 'legacy' };
   let cookie = false;
@@ -49,7 +51,7 @@ export const currentAdminPage = cache(async (): Promise<AdminOutcome> => {
     drawPage: (p) => { out = p.status === 200 ? { kind: 'page', nonce, ...p } : { kind: 'legacy' }; },
   };
   try {
-    await security.withNonce(nonce, () => admin.handle(base));
+    await runFresh(() => security.withNonce(nonce, () => admin.handle(base)));
   } catch (e) {
     // a page the Next.js side can't draw yet (e.g. it needs its HTML as text): the original code answers it
     console.error('admin page via legacy:', path, (e as Error).message, String((e as Error).stack || '').split('\n').slice(1, 7).map((l) => l.trim()).join(' < '));

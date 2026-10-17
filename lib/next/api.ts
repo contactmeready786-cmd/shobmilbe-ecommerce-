@@ -5,6 +5,7 @@ import * as db from '../db';
 import * as security from '../security';
 import * as guard from '../services/guard';
 import * as errors from '../services/errors';
+import * as cache from '../cache';
 import { shopGate } from '../gate';
 import { parseBody } from '../util';
 import type { Body, Settings, ShopRequest } from '../types';
@@ -46,8 +47,12 @@ export function apiRoute(fn: (ctx: ApiCtx) => Promise<Response>, opts: { bots?: 
     const gate = await shopGate(req, path, url.search, request.method, opts);
     if (!gate.ok) return new Response(gate.body, { status: gate.status, headers: { 'Content-Type': gate.type, 'Cache-Control': 'no-store', ...security.BASE_HEADERS, ...gate.headers } });
     const ctx: ApiCtx = { request, url, path, query: url.searchParams, settings: gate.settings, ip: security.clientIp(req), req, body: () => parseBody(req) };
+    // a request that changes something reads fresh data and empties the 15-second memory before and after (lib/cache.ts)
+    const changes = request.method !== 'GET' && request.method !== 'HEAD';
     try {
-      return await fn(ctx);
+      if (!changes) return await fn(ctx);
+      cache.clearAll();
+      try { return await cache.runFresh(() => fn(ctx)); } finally { cache.clearAll(); }
     } catch (e) {
       errors.report(e, { path, method: request.method });
       await errors.flush(); // goes out before the server may be paused
