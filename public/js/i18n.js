@@ -9,7 +9,19 @@
  *  - Lines the owner corrected in Admin → স্টোর ডিজাইন → ভাষা always win.
  *  - Anything marked translate="no" (logo, customer's name/phone/address) is never touched or sent anywhere.
  */
-(function () {
+// Next.js pages: start only after React has taken over the page (components/shop/chrome/Hydrated.tsx), so React never
+// finds text this script already changed. Pages still drawn by lib/app.ts: start at once.
+(function (w) {
+  if (w.smWhenReady) return;
+  w.smWhenReady = function (fn) {
+    if (!w.__next_f || w.__smHydrated) { fn(); return; }
+    var done = false;
+    var go = function () { if (!done) { done = true; fn(); } };
+    w.addEventListener('sm:hydrated', go, { once: true });
+    setTimeout(go, 8000); // React never took over (a script error): run anyway rather than leave the page dead
+  };
+})(window);
+smWhenReady(function () {
   'use strict';
   var CFG = window.SM && window.SM.i18n;
   if (!CFG || !document.body) return;
@@ -853,4 +865,4 @@
   var start = document.documentElement.getAttribute('data-lang') || CFG.def || 'bn';
   setLang(start, false);
   window.SMLang = { set: function (l) { setLang(l, true); }, get: function () { return lang; }, t: function (s) { return lang === 'en' ? (tr(s, null, false) || s) : s; } };
-})();
+});

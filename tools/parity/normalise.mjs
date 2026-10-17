@@ -1,7 +1,7 @@
 // Shared by crawl.mjs and scenarios.mjs.
 // Anything that changes per request (random tokens, times, nonces) is blanked so only real differences remain.
 export function normalise(body) {
-  return canonicalHtml(String(body)
+  return canonicalHtml(nextNeutral(String(body))
     .replace(/\bSM[A-Z0-9]{6}\b/g, '«order-code»')
     .replace(/(https?:)?(\/\/)?(127\.0\.0\.1|localhost):\d+/g, '«host»')
     .replace(/nonce="[^"]*"/g, 'nonce=""')
@@ -75,3 +75,46 @@ export function canonicalHtml(body) {
 }
 // text between tags: ' " / written one way (&lt; &gt; &amp; stay, they matter)
 function decodeText(t) { return t.replace(/&#0?39;|&#x27;/gi, "'").replace(/&quot;/g, '"').replace(/&#x2F;/gi, '/'); }
+
+// ⚛️ Pages served by Next.js carry Next's own parts that the old pages didn't: its scripts (/_next/…), the page data
+// for React (self.__next_f), a hidden boundary div; ready-made HTML sits in see-through wrappers (data-unwrap); the
+// <head> is written by Next.js's metadata in its own order and JSON-LD may sit in the body. None of that changes what
+// a visitor or Google sees, so: Next's parts are removed, wrappers unwrapped, the head compared as a sorted set, and
+// JSON-LD compared as a set at the end of the page.
+export function nextNeutral(body) {
+  let s = String(body).replace(/^<!DOCTYPE html>/i, '<!doctype html>');
+  if (!/<html[\s>]/i.test(s)) return unwrap(s); // a piece of a page (e.g. tests/golden) — only the wrappers
+  s = s
+    .replace(/<script\b[^>]*\bsrc="[^"]*\/_next\/[^"]*"[^>]*>\s*<\/script>/g, '')
+    .replace(/<script\b[^>]*>(?:(?!<\/script>)[\s\S])*?(?:self\.__next_f|__next_s|\$RC|\$RS|\$RX|requestAnimationFrame\(function\(\)\{\$RT)(?:(?!<\/script>)[\s\S])*<\/script>/g, '')
+    .replace(/<link\b[^>]*\bhref="[^"]*\/_next\/[^"]*"[^>]*\/?>/g, '')
+    .replace(/<meta name="next-size-adjust"[^>]*>/g, '')
+    .replace(/<div hidden(?:="")?>\s*(?:<!--\$-->|<!--\/\$-->|<!--\$\?-->)*\s*<\/div>/g, '')
+    .replace(/<!--\/?\$\??-->/g, '');
+  s = unwrap(s);
+  // JSON-LD: wherever it is, compared as a set at the end
+  const ld = [];
+  s = s.replace(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g, (_, j) => { ld.push(j); return ''; });
+  // the head as a sorted set of its tags
+  s = s.replace(/<head>([\s\S]*?)<\/head>/, (_, inner) => `<head>${headSet(inner)}</head>`);
+  return ld.length ? s.replace(/<\/body>/, `${ld.sort().map((j) => `<script type="application/ld+json">${j}</script>`).join('')}</body>`) : s;
+}
+function unwrap(s) {
+  for (let guard = 0; guard < 500; guard++) {
+    const m = /<div (?:style="display:\s*contents;?" data-unwrap(?:="")?|data-unwrap(?:="")? style="display:\s*contents;?")>/.exec(s);
+    if (!m) break;
+    let depth = 1; let i = m.index + m[0].length;
+    const re = /<div\b|<\/div>/g; re.lastIndex = i;
+    let end = -1;
+    for (let t; (t = re.exec(s));) { depth += t[0] === '</div>' ? -1 : 1; if (!depth) { end = t.index; break; } }
+    if (end < 0) break;
+    s = s.slice(0, m.index) + s.slice(i, end) + s.slice(end + 6);
+  }
+  return s;
+}
+function headSet(inner) {
+  const parts = [];
+  const re = /<(script|style|title|noscript)\b[^>]*>[\s\S]*?<\/\1>|<(meta|link|base)\b[^>]*>/g;
+  for (let m; (m = re.exec(inner));) parts.push(canonicalHtml(m[0]).trim());
+  return parts.sort().join('');
+}

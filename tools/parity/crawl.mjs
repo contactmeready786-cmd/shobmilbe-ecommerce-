@@ -81,6 +81,8 @@ async function main() {
     const entry = { path: u.pathname + u.search, status: res.status, type: type.split(';')[0], location: loc ? normalise(loc) : undefined, headers: {} };
     // security and caching headers must stay exactly the same too
     for (const h of KEEP_HEADERS) { const v = res.headers.get(h); if (v) entry.headers[h] = normalise(v); }
+    // Next.js says "never keep this page" in its own longer words: the same thing as no-store
+    if (/no-store/.test(entry.headers['cache-control'] || '')) entry.headers['cache-control'] = 'no-store';
     const sc = res.headers.getSetCookie?.() || [];
     if (sc.length) entry.headers['set-cookie'] = sc.map((c) => c.replace(/=[^;]*/, '=<v>').replace(/expires=[^;]*/i, 'expires=<d>')).sort().join(' | ');
     if (/^(text\/|application\/(json|xml|rss\+xml|ld\+json|javascript|manifest\+json))/.test(type)) {

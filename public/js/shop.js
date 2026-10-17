@@ -1,5 +1,17 @@
 // সবমিলবে — storefront: cart, checkout, gallery, tracking events, copy protection
-(function () {
+// Next.js pages: start only after React has taken over the page (components/shop/chrome/Hydrated.tsx), so React never
+// finds text this script already changed. Pages still drawn by lib/app.ts: start at once.
+(function (w) {
+  if (w.smWhenReady) return;
+  w.smWhenReady = function (fn) {
+    if (!w.__next_f || w.__smHydrated) { fn(); return; }
+    var done = false;
+    var go = function () { if (!done) { done = true; fn(); } };
+    w.addEventListener('sm:hydrated', go, { once: true });
+    setTimeout(go, 8000); // React never took over (a script error): run anyway rather than leave the page dead
+  };
+})(window);
+smWhenReady(function () {
   'use strict';
   // inside the সবমিলবে Android app: the app has its own bottom bar (হোম, কার্ট, অ্যাকাউন্ট…), so the site hides its copies
   if (/ShobmilbeApp\//.test(navigator.userAgent)) document.documentElement.classList.add('in-app');
@@ -2127,10 +2139,10 @@
     });
     kitSum();
   }
-})();
+});
 
 // 📧 footer: join the offer e-mail list
-(function () {
+smWhenReady(function () {
   var f = document.querySelector('[data-news-form]');
   if (!f) return;
   var msg = f.querySelector('[data-news-msg]');
@@ -2145,4 +2157,4 @@
       .catch(function () { msg.textContent = 'এখন যোগ করা গেল না, একটু পরে আবার চেষ্টা করুন।'; })
       .then(function () { btn.disabled = false; });
   });
-})();
+});

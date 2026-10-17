@@ -53,6 +53,7 @@ import * as $shopx from './shopx';
 import * as $models_homerows from './models/homerows';
 import * as $models_kits from './models/kits';
 import * as $services_errors from './services/errors';
+import { siteUrl, blockedBots, backgroundTick, SITE_BLOCKED_PAGE } from './gate';
 import type { Body, Id, Loose, Settings, ShopRequest, ShopResponse } from './types';
 
 const securityHeaders = security.BASE_HEADERS;
@@ -119,12 +120,6 @@ function tooMany(req: ShopRequest, res: ShopResponse, asJson?: Loose) {
   const text = 'অনেক বেশি চেষ্টা হয়েছে। কিছুক্ষণ পর আবার চেষ্টা করুন।';
   if (asJson) return send(res, 429, JSON.stringify({ error: text }), 'application/json; charset=utf-8', { 'Retry-After': '120' });
   return send(res, 429, `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>একটু অপেক্ষা করুন</title><body style="font-family:sans-serif;padding:40px;text-align:center"><h1>একটু অপেক্ষা করুন</h1><p>${text}</p><p><a href="/">হোমে ফিরে যান</a></p></body>`, 'text/html; charset=utf-8', { 'Retry-After': '120' });
-}
-function siteUrl(req: ShopRequest, settings: Settings) {
-  if (settings.site_url) return settings.site_url.replace(/\/+$/, '');
-  const host = String(req.headers['x-forwarded-host'] || req.headers.host || 'localhost');
-  const proto = String(req.headers['x-forwarded-proto'] || (host.startsWith('localhost') ? 'http' : 'https')).split(',')[0];
-  return `${proto}://${host}`;
 }
 
 // Admin pages and changes read fresh data; shop pages may share 15-second copies (lib/cache.ts).
@@ -199,7 +194,7 @@ async function handlerInner(req: ShopRequest, res: ShopResponse) {
     // ---- security watch: IPs the owner shut out get nothing (the admin panel always stays open) ----
     if (!isAdmin && settings.guard_on !== '0') {
       if (await guard.siteBlocked(clientIp(req))) {
-        return send(res, 403, '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>প্রবেশ বন্ধ</title><body style="font-family:sans-serif;padding:40px;text-align:center"><h1>দুঃখিত, এই সংযোগ থেকে সাইটে ঢোকা বন্ধ আছে</h1><p>ভুল হয়ে থাকলে আমাদের ফোন বা ফেসবুক পেজে যোগাযোগ করুন।</p></body>', 'text/html; charset=utf-8', { 'Cache-Control': 'no-store' });
+        return send(res, 403, SITE_BLOCKED_PAGE, 'text/html; charset=utf-8', { 'Cache-Control': 'no-store' });
       }
       guard.inspect(req, path, url.search, settings);
     }
@@ -626,11 +621,6 @@ async function serveWatermarked(res: ShopResponse, id: Id, settings: Settings, r
 // Robots: Google, Bing, Facebook, TikTok … are welcome on the shop (that is how customers find it).
 // Private parts are always closed. Optionally (Admin → গ্রোথ গাইড), competitor SEO-spy tools and
 // AI-training copiers are told to stay away — they never bring customers, so this costs no sales.
-const SPY_BOTS = ['AhrefsBot', 'SemrushBot', 'MJ12bot', 'DotBot', 'BLEXBot', 'DataForSeoBot', 'Barkrowler', 'serpstatbot', 'SEOkicks', 'MegaIndex', 'ZoominfoBot'];
-const AI_COPIERS = ['GPTBot', 'CCBot', 'Google-Extended', 'ClaudeBot', 'anthropic-ai', 'Bytespider', 'Applebot-Extended', 'meta-externalagent', 'Diffbot', 'cohere-ai', 'omgili'];
-function blockedBots(settings: Settings) {
-  return [...(settings.block_seo_spies !== '0' ? SPY_BOTS : []), ...(settings.block_ai_copy !== '0' ? AI_COPIERS : [])];
-}
 function robots(req: ShopRequest, res: ShopResponse, settings: Settings) {
   const base = siteUrl(req, settings);
   const closed = blockedBots(settings).map((b) => `User-agent: ${b}\nDisallow: /\n`).join('\n');
@@ -787,28 +777,6 @@ async function wishApi({ req, res, settings }: Body) {
   return json(res, 200, { ok: true });
 }
 // Checkout: how many loyalty points this mobile number has (a few lookups per hour per IP).
-// A page view starts the small background jobs: 📩 reminder SMS for unfinished checkouts, 🔔 price-drop SMS. Each server copy looks at most
-// every 5 minutes, and only one copy across all servers does the work in any 5 minutes. Never slows the page.
-let lastTick = 0;
-function backgroundTick(req: ShopRequest, settings: Settings) {
-  if (Date.now() - lastTick < 5 * 60e3) return;
-  lastTick = Date.now();
-  // 🩺 database space / backups / connections: e-mail the owner before something runs out (services/health.ts)
-  notify.later($services_health.checkAndAlert(settings), 8000).catch(() => {});
-  const draftsOn = settings.draft_sms_on === '1';
-  const priceOn = settings.price_alert_on !== '0';
-  const mailOn = settings.email_mkt_on === '1';
-  if (!draftsOn && !priceOn && !mailOn) return;
-  notify.later((async () => {
-    if (!(await security.hit(db, 'bg:tick', 1, 300))) return;
-    if (draftsOn) await drafts.remindDue(settings, siteUrl(req, settings)).catch(() => {});
-    // 🔔 prices that dropped: SMS the people who asked
-    if (priceOn) await $models_extras.priceSweep(settings).catch(() => {});
-    // 📧 campaigns go out in small parts through the day (the mailer itself works at most every 4 minutes)
-    if (mailOn) await $services_mailer.tick(settings).catch(() => {});
-  })(), 8000).catch(() => {});
-}
-
 // 🔐 চেকআউট OTP: /api/checkout-otp/status (does this number need a code?), /send (SMS a code), /verify (check it).
 // /smscheck: did the shop's phone really send the code? (tells the owner when the SMS app is off)
 async function checkoutOtpApi({ req, res, path, settings }: Body) {

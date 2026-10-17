@@ -1,6 +1,6 @@
 // ⚛️ Simple shop pages: order tracking, "page not found", the owner's own pages (About, Return policy …) and the blog.
 // Moved from lib/views/shop.ts (2026-10-17); same HTML as before.
-import { RawHtml } from '../../lib/react/render';
+import { RawHtml } from '../../lib/react/html';
 import { fmtDate } from '../../lib/util';
 import * as md from '../../lib/views/md';
 import type { Loose } from '../../lib/types';

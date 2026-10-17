@@ -1,6 +1,7 @@
 // Customer pages that take forms: 👤 আমার অ্যাকাউন্ট (OTP login, orders, addresses, profile, referral, gift cards),
 // ↩️ the return request on a delivered order, and 🎁 buying a gift card.
 // Every form here must come from this same site (checked) and the login cookie is SameSite=Lax.
+import { refCookie, refFromCookie } from './gate';
 import * as db from './db';
 import * as security from './security';
 import * as A from './models/accounts';
@@ -285,12 +286,5 @@ async function route({ req, res, path, method, query, settings, page, notFound, 
   }
   return null;
 }
-
-// The referral link (?ref=CODE) is remembered for 30 days, so the code is in the box at checkout.
-function refCookie(req: ShopRequest, code?: Loose) {
-  const secure = String(req.headers['x-forwarded-proto'] || '').includes('https') ? '; Secure' : '';
-  return `sm_ref=${encodeURIComponent(String(code).toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 20))}; Path=/; SameSite=Lax; Max-Age=${30 * 86400}${secure}`;
-}
-function refFromCookie(req: ShopRequest) { return String(parseCookies(req.headers.cookie).sm_ref || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 20); }
 
 export { route, refCookie, refFromCookie, safeNext };
