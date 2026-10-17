@@ -30,6 +30,9 @@ for (const [p, ea] of A) {
 }
 for (const p of B.keys()) if (!A.has(p)) problems.push({ p, why: 'only in new site' });
 console.log(`pages compared: ${A.size}, differences: ${problems.length}`);
+const kinds = {};
+for (const x of problems) kinds[x.why.replace(/\d+/g, 'N')] = (kinds[x.why.replace(/\d+/g, 'N')] || 0) + 1;
+for (const [k, n] of Object.entries(kinds)) console.log(`  ${n} × ${k}`);
 for (const x of problems.slice(0, show)) {
   console.log(`\n- ${x.p}: ${x.why}`);
   if (x.old !== undefined) console.log(`  old: ${JSON.stringify(x.old)}\n  new: ${JSON.stringify(x.new)}`);

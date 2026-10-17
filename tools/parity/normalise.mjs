@@ -5,6 +5,7 @@ export function normalise(body) {
     .replace(/\bSM[A-Z0-9]{6}\b/g, '<order-code>')
     .replace(/(https?:)?(\/\/)?(127\.0\.0\.1|localhost):\d+/g, '<host>')
     .replace(/nonce="[^"]*"/g, 'nonce=""')
+    .replace(/'nonce-[A-Za-z0-9+/=]+'/g, "'nonce-'") // the admin's script rule: a fresh nonce per page
     .replace(/name="(csrf|_csrf|token|_t)" value="[^"]*"/g, 'name="$1" value=""')
     .replace(/\b[0-9a-f]{32,}\b/g, '<hex>')
     .replace(/(?<![\w/.-])[A-Za-z0-9_-]{40,}(?![\w/.-])/g, '<b64>')
