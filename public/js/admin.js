@@ -12,6 +12,7 @@
   };
 })(window);
 smWhenReady(function () {
+window.__smAdminReady = true; // (tools/parity/browser.mjs checks the admin's script started)
 (function () {
   'use strict';
   var BN = '০১২৩৪৫৬৭৮৯';

@@ -31,12 +31,13 @@ async function check(ctx, path, admin) {
   page.on('console', (m) => {
     const t = m.text();
     if (m.type() === 'error' && !/favicon|Failed to load resource|ERR_|net::/.test(t)) problems.push('console: ' + t.slice(0, 200));
-    if (/hydrat|did not match|#418|#423|#425/i.test(t)) problems.push('hydration: ' + t.slice(0, 200));
+    if (/hydrat|did not match|#418|#423|#425/i.test(t)) problems.push('hydration: ' + t.slice(0, 1500));
   });
-  const res = await page.goto(origin + path, { waitUntil: 'load', timeout: 30000 }).catch((e) => { problems.push('open: ' + e.message.slice(0, 120)); return null; });
+  const res = await page.goto(origin + path, { waitUntil: 'load', timeout: 120000 }).catch((e) => { problems.push('open: ' + e.message.slice(0, 120)); return null; });
   if (res) {
-    await page.waitForTimeout(1500);
-    const st = await page.evaluate(() => ({ next: !!window.__next_f, hydrated: !!window.__smHydrated, ready: typeof window.smWhenReady === 'function' }));
+    await page.waitForTimeout(base.includes(':3301') ? 5000 : 1500);
+    const st = await page.evaluate(() => ({ next: !!window.__next_f, hydrated: !!window.__smHydrated, ready: typeof window.smWhenReady === 'function', admin: !!window.__smAdminReady }));
+    if (admin && !st.admin) problems.push("admin.js did not start");
     if (st.next && !st.hydrated) problems.push('React never took the page over');
     if (!st.ready) problems.push("the site's own script did not start");
     if (admin && res.status() === 200 && !(await page.$('[data-side-toggle], .admin-bare'))) problems.push('no admin frame');
