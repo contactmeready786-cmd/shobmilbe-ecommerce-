@@ -1,0 +1,8 @@
+scenarios: 65 steps, statuses 200,400,404,403,204,401,303
+scenarios: 65 steps, statuses 200,400,404,403,204,401,303
+▲ Next.js 16.4.2
+- Local:         http://localhost:3200
+- Network:       http://10.1.0.238:3200
+✓ Ready in 96ms
+✓ Running next.config.ts took 26ms
+actions: identical

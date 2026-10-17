@@ -1,0 +1,14 @@
+▲ Next.js 16.4.2
+- Local:         http://localhost:3200
+- Network:       http://10.1.0.238:3200
+✓ Ready in 86ms
+✓ Running next.config.ts took 26ms
+Error: Pathao লগইন হয়নি: The user credentials were incorrect
+    at g (.next/server/chunks/lib_services_courier_ts_1umhls-0c62l6._.js:1:3338)
+    at async k (.next/server/chunks/lib_services_courier_ts_1umhls-0c62l6._.js:1:3405)
+    at async Module.y [as pathaoList] (.next/server/chunks/lib_services_courier_ts_1umhls-0c62l6._.js:1:5102)
+    at async Object.K [as handler] (.next/server/chunks/_1lwgh61t3r6-o._.js:120:10972)
+    at async T (.next/server/chunks/_1lwgh61t3r6-o._.js:480:3911)
+    at async Module.f (.next/server/chunks/lib_0n16nztyceae-._.js:1:753)
+    at async r (.next/server/chunks/_1lwgh61t3r6-o._.js:475:21504)
+    at async d (.next/server/chunks/_1lwgh61t3r6-o._.js:475:21773)
