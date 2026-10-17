@@ -37,3 +37,20 @@ uses that one setup. Never add a second Gmail / App Password / SMS / API-key fie
   `sms.setFakeSender`.
 - The database certificate is checked with the bundled Supabase root (lib/data/supabase-ca.ts, valid to 2031-04-26);
   if a check ever fails the shop keeps running encrypted-unchecked and the owner is e-mailed — never remove that net.
+
+## ⚛️ React (2026-10-17)
+- Every shop and admin page is rendered by React. Hand-written components live in `components/` (shop: Pages, Complaint,
+  Account); the rest of `lib/admin/*.tsx` and `lib/views/*.tsx` is JSX made by `tools/html2jsx.ts` from the old
+  html`…` templates, rendered with `toHtml(<…/>)` from `lib/react/render.tsx`. The router, security gate, country lock,
+  admin login and caching still live in `lib/app.ts` (served through `pages/api/legacy` — Next.js forbids
+  react-dom/server in App-Router routes).
+- New UI is JSX. Values from old helpers that return Raw go in as `<Val v={…}/>`; ready-made HTML as `<RawHtml html={…}/>`.
+  Don't write new html`…` in lib/admin or lib/views (tests/admin-scripts.test.ts counts them). Page frames
+  (<html>/<head>) stay as text on purpose — React 19 would reorder the head. <link>/<meta>/<title>/async <script> in a
+  page body are written through RawHtml for the same reason (the converter does this).
+- Moving a page: record the old page first (copy to lib/views/__old_<name>.ts, add cases to tests/fixtures/cases.ts,
+  `npx tsx tools/make-golden.ts`), then change it; tests/react-views.test.ts must stay green. Every push to the
+  `nextjs-migration` branch runs tools/parity: all ~560 pages of a seeded shop compared with main (must be 0 differences,
+  actions identical) — only then merge to main.
+- Next stage (not done yet): split the converted JSX into reusable components and serve pages from Next.js App-Router
+  pages (moving the gate from lib/app.ts into proxy.ts / server code), then retire pages/api/legacy.
