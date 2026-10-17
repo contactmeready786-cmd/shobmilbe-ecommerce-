@@ -185,7 +185,7 @@ const HOME_TABS = [
 function homeTabs(user: StaffUser, active?: Loose) {
   const tabs = HOME_TABS.filter((t) => visible(user, t[2]));
   if (tabs.length < 2) return '';
-  return <nav className="home-tabs" aria-label="ড্যাশবোর্ডের ট্যাব">{jsxList(tabs.map(([href, label, , key, icon]: Loose[]) => <a href={attrValue(href)} className={`home-tab ${active === key ? 'on' : ''}`} {...attrProps(active === key ? raw(' aria-current="page"') : '')}><span aria-hidden="true"><Val v={icon} /></span>{' '}<Val v={label} /></a>))}</nav>;
+  return <nav className="home-tabs" aria-label="ড্যাশবোর্ডের ট্যাব">{jsxList(tabs.map(([href, label, , key, icon]: Loose[]) => <a href={attrValue(href)} className={`home-tab ${active === key ? 'on' : ''}`} aria-current={(active === key) ? "page" : undefined}><span aria-hidden="true"><Val v={icon} /></span>{' '}<Val v={label} /></a>))}</nav>;
 }
 
 // A menu entry for the user: a plain link stays as it is; a tab set becomes a link to its first tab the user may
@@ -205,7 +205,7 @@ function pageTabs(user: StaffUser, active?: Loose, path?: Loose) {
     if (!set.some((t?: Loose) => t[0].split('?')[0] === path)) continue;
     const tabs = set.filter((t?: Loose) => visible(user, t[2]));
     if (tabs.length < 2) return '';
-    return <nav className="home-tabs page-tabs" aria-label="এই বিভাগের পেজ">{jsxList(tabs.map(([href, label, , key, icon]: Loose[]) => <a href={attrValue(href)} className={`home-tab ${active === key ? 'on' : ''}`} {...attrProps(active === key ? raw(' aria-current="page"') : '')}><span aria-hidden="true"><Val v={icon} /></span>{' '}<Val v={label} /></a>))}</nav>;
+    return <nav className="home-tabs page-tabs" aria-label="এই বিভাগের পেজ">{jsxList(tabs.map(([href, label, , key, icon]: Loose[]) => <a href={attrValue(href)} className={`home-tab ${active === key ? 'on' : ''}`} aria-current={(active === key) ? "page" : undefined}><span aria-hidden="true"><Val v={icon} /></span>{' '}<Val v={label} /></a>))}</nav>;
   }
   return '';
 }
@@ -248,7 +248,7 @@ function AdminScripts({ settings }: { settings: Settings }) {
 function AdminBare({ settings, children }: { settings: Settings; children?: ReactNode }) {
   return (
     <>
-      {adminLangOn(settings) ? <div className="bare-lang"><Val v={langSwitch(settings)} /></div> : null}
+      {adminLangOn(settings) ? <div className="bare-lang">{langSwitch(settings)}</div> : null}
       <main className="admin-bare">{children}</main>
       <AdminScripts settings={settings} />
     </>
@@ -274,7 +274,7 @@ function AdminBody({ settings, user, active, readOnly, path = '', nonce, childre
       <script nonce={nonce} dangerouslySetInnerHTML={{ __html: "try{if(localStorage.getItem('sm_side_hidden')==='1')document.body.classList.add('side-hidden')}catch(e){}" }} />
       <aside className="side" id="side" aria-label="Admin মেনু">
         <button className="side-x" type="button" data-side-toggle="" aria-label="মেনু বন্ধ করুন" title="মেনু বন্ধ করুন">✕</button>{' '}
-        <a className="side-logo logo" href="/admin" translate="no"><Val v={logoMark(settings)} /><small>Admin</small></a>
+        <a className="side-logo logo" href="/admin" translate="no">{logoMark(settings)}<small>Admin</small></a>
         <nav>
           {groups.map((g, gi) => {
             if (!g.title) return <div key={gi} className="side-group">{g.items.map(link)}</div>;
@@ -296,12 +296,12 @@ function AdminBody({ settings, user, active, readOnly, path = '', nonce, childre
             <input type="search" name="q" placeholder="অর্ডার নম্বর, ফোন বা নাম দিয়ে খুঁজুন" aria-label="অর্ডার খুঁজুন" />
           </form>
           <div className="top-end">
-            <Val v={langSwitch(settings)} />{' '}
+            {langSwitch(settings)}{' '}
             <a href="/" target="_blank" rel="noopener" className="top-link">দোকান দেখুন ↗</a>
             <details className="user-menu">
-              <summary><Val v={$profile.avatar(user)} /><span className="uname" translate="no">{user.name}</span></summary>
+              <summary>{$profile.avatar(user)}<span className="uname" translate="no">{user.name}</span></summary>
               <div className="user-pop">
-                <div className="user-pop-head"><Val v={$profile.avatar(user, 'avatar-lg')} /><p><b translate="no">{user.name}</b><br /><span className="muted small">{user.designation || (user.role === 'owner' ? 'মালিক (সব অনুমতি)' : 'স্টাফ')} · {user.username}</span></p></div>
+                <div className="user-pop-head">{$profile.avatar(user, 'avatar-lg')}<p><b translate="no">{user.name}</b><br /><span className="muted small">{user.designation || (user.role === 'owner' ? 'মালিক (সব অনুমতি)' : 'স্টাফ')} · {user.username}</span></p></div>
                 <a href="/admin/account#profile">👤 আমার প্রোফাইল</a>{' '}
                 <a href="/admin/account">🔑 পাসওয়ার্ড ও নিরাপত্তা</a>
                 <form method="post" action="/admin/logout"><button className="link-btn danger">লগআউট</button></form>
@@ -311,7 +311,7 @@ function AdminBody({ settings, user, active, readOnly, path = '', nonce, childre
         </header>
         <main className="admin-main" id="main">
           {readOnly ? <p className="flash read-only-note" role="note">👁️ এই পেজে আপনার শুধু{' '}<b>দেখার</b>{' '}অনুমতি আছে — কিছু সেভ, বদল বা মুছতে পারবেন না।</p> : null}
-          <Val v={onHome ? homeTabs(user, tabActive) : pageTabs(user, active, path)} />
+          {onHome ? homeTabs(user, tabActive) : pageTabs(user, active, path)}
           {children}
         </main>
       </div>

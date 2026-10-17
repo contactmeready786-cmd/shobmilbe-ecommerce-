@@ -26,9 +26,9 @@ function markOf(s: Settings, key?: Loose, isSetUp?: Loose) {
 }
 function buttons(key?: Loose, mark?: Loose, back?: Loose) {
   const f = (val?: Loose, label?: Loose, title?: Loose) => <form method="post" action="/admin/setup-mark" className="mark-form"><input type="hidden" name="key" defaultValue={attrValue(key)} /><input type="hidden" name="val" defaultValue={attrValue(val)} /><input type="hidden" name="back" defaultValue={attrValue(back)} />{' '}<button className="link-btn small" title={attrValue(title)}><Val v={label} /></button></form>;
-  if (mark === 'done') return <><span className="small muted">✔ আপনি "করা আছে" দিয়েছেন</span>{' '}<Val v={f('', '↩️ ফেরান', 'আবার সাইটের নিজের যাচাই দেখাবে')} /></>;
+  if (mark === 'done') return <><span className="small muted">✔ আপনি "করা আছে" দিয়েছেন</span>{' '}{f('', '↩️ ফেরান', 'আবার সাইটের নিজের যাচাই দেখাবে')}</>;
   if (mark === 'skip') return f('', '↩️ তালিকায় ফেরান', 'আবার তালিকায় দেখাবে');
-  return <><Val v={f('done', '✓ করা আছে', 'অন্যভাবে (যেমন DNS দিয়ে) করা আছে — সাইট দেখতে পায় না')} />{' '}<Val v={f('skip', '✕ দরকার নেই', 'এই সার্ভিস ব্যবহার করি না — তালিকা থেকে সরান')} /></>;
+  return <>{f('done', '✓ করা আছে', 'অন্যভাবে (যেমন DNS দিয়ে) করা আছে — সাইট দেখতে পায় না')}{' '}{f('skip', '✕ দরকার নেই', 'এই সার্ভিস ব্যবহার করি না — তালিকা থেকে সরান')}</>;
 }
 
 async function save(ctx: AdminCtx) {

@@ -47,6 +47,32 @@ function alwaysPrimitive(e, sf) {
   }
   return false;
 }
+// A React piece (JSX.Element) or nothing (null / undefined / false / ''): shown exactly as <Val/> showed it.
+function isPieceType(t) {
+  const parts = t.isUnion() ? t.types : [t];
+  return parts.every((x) => {
+    if (x.flags & (ts.TypeFlags.Null | ts.TypeFlags.Undefined)) return true;
+    if (x.flags & ts.TypeFlags.BooleanLiteral) return ch.typeToString(x) === 'false';
+    if (x.flags & ts.TypeFlags.StringLiteral) return x.value === '';
+    const n = ch.typeToString(x);
+    return /^(JSX\.)?Element$/.test(n) || /^ReactElement</.test(n);
+  });
+}
+/** Is <Val v={E}/> exactly {E}? Text / numbers that are provably primitive, React pieces, nothing — and a ? b : c,
+ * a && b, a || b, a ?? b made of those. (Not true, not lists, not values of unknown type.) */
+function showsSame(e, sf) {
+  while (ts.isParenthesizedExpression(e)) e = e.expression;
+  if (alwaysPrimitive(e, sf)) return true;
+  if (ts.isJsxElement(e) || ts.isJsxSelfClosingElement(e) || ts.isJsxFragment(e)) return true;
+  if (ts.isConditionalExpression(e)) return showsSame(e.whenTrue, sf) && showsSame(e.whenFalse, sf);
+  if (ts.isBinaryExpression(e)) {
+    const k = e.operatorToken.kind;
+    // a && b: when a is falsy it is what shows (false / null / undefined / '' / 0 look the same either way)
+    if (k === ts.SyntaxKind.AmpersandAmpersandToken) return showsSame(e.right, sf);
+    if (k === ts.SyntaxKind.BarBarToken || k === ts.SyntaxKind.QuestionQuestionToken) return showsSame(e.left, sf) && showsSame(e.right, sf);
+  }
+  return isPieceType(ch.getTypeAtLocation(e));
+}
 // the identifier is the util.ts function (imported), not a local variable of the same name
 function fromUtil(id) {
   let sym = ch.getSymbolAtLocation(id);
@@ -93,8 +119,8 @@ for (const sf of prog.getSourceFiles()) {
       const a = n.attributes.properties[0];
       if (ts.isJsxAttribute(a) && a.name.getText(sf) === 'v' && a.initializer && ts.isJsxExpression(a.initializer) && a.initializer.expression) {
         const e = a.initializer.expression;
-        if (alwaysPrimitive(e, sf)) {
-          // a child of a tag: {E}; anywhere else (a ? <Val …/> : null, => <Val …/>): the text itself
+        if (showsSame(e, sf)) {
+          // a child of a tag: {E}; anywhere else (a ? <Val …/> : null, => <Val …/>): the value itself
           const child = ts.isJsxElement(n.parent) || ts.isJsxFragment(n.parent);
           if (child || flowsIntoChildren(n)) {
             edits.push([n.getStart(sf), n.getEnd(), child ? `{${e.getText(sf)}}` : wrap(e, sf)]);
