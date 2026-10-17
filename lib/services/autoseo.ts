@@ -17,7 +17,7 @@ import { bn, str } from '../util';
 import { kindOf } from '../data/partinfo';
 import * as $seo from './seo';
 import * as $util from '../util';
-import * as $admin_status from '../admin/status';
+import * as $admin_status from './seoscore';
 import type { Body, Id, Loose, Settings } from '../types';
 import type { Tx } from '../pg';
 
