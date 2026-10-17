@@ -36,4 +36,8 @@ jobs:
           check /cart '200|403' '<html'             # Next.js pages added later: cart and checkout open too
           check /checkout '200|403' '<html'
           check /kit/no-such-kit '404|403' '<html'
+          check /js/shop/main.js 200 'import'       # the browser code (built from client/ by npm run build:client)
+          check /js/i18n/main.js 200 'import'
+          check /js/admin/main.js 200 'import'
+          check /sw.js 200 'self'                   # the service worker
           exit $fail
