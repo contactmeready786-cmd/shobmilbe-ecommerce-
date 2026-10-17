@@ -60,6 +60,29 @@ async function main() {
   await call('stock alert', 'shop', 'POST', '/api/stock-alert', { product: id("select id from products where slug='arduino-nano'"), phone: '01722222222' }, 'json');
   await call('question', 'shop', 'POST', '/api/question', { product: uno, name: 'রাফি', phone: '01733333333', question: 'এটা কি অরিজিনাল?' }, 'json');
   await call('track', 'shop', 'GET', '/track?phone=01711111111');
+  // the small APIs the pages call (each now its own Next.js route — lib/api/)
+  await call('price alert', 'shop', 'POST', '/api/price-alert', { product: uno, phone: '01744444444' }, 'json');
+  await call('price alert: robot', 'shop', 'POST', '/api/price-alert', { product: uno, phone: '01744444444', website: 'x' }, 'json');
+  await call('wish on', 'shop', 'POST', '/api/wish', { id: uno, on: 1 }, 'json');
+  await call('points', 'shop', 'POST', '/api/points', { phone: '01711111111' }, 'json');
+  await call('gift card check', 'shop', 'POST', '/api/giftcard', { code: 'NOPE-1234' }, 'json');
+  await call('checkout draft', 'shop', 'POST', '/api/checkout-draft', { phone: '01755555555', name: 'সাকিব', items: [{ id: uno, qty: 1 }] }, 'json');
+  await call('review: not my order', 'shop', 'POST', '/api/review', { code: 'TEST1002', product: uno, rating: 5, body: 'ভালো' }, 'json');
+  await call('push subscribe: off', 'shop', 'POST', '/api/push/subscribe', { sub: {} }, 'json');
+  await call('i18n: off', 'shop', 'POST', '/api/i18n', { t: ['হ্যালো'] }, 'json');
+  await call('i18n fix: off', 'shop', 'GET', '/api/i18n/fix');
+  await call('live: off', 'shop', 'GET', '/api/live/cricket');
+  await call('live click', 'shop', 'POST', '/api/live/click', { sport: 'cricket', cat: 'bpl' }, 'json');
+  await call('visit beacon', 'shop', 'POST', '/api/v', { t: 'pv', p: '/' }, 'json');
+  await call('csp report', 'shop', 'POST', '/api/csp-report', { 'csp-report': { 'document-uri': 'https://x/admin', 'violated-directive': 'script-src', 'blocked-uri': 'inline' } }, 'json');
+  await call('suggest', 'shop', 'GET', `/api/suggest?ids=${uno}`);
+  await call('cards', 'shop', 'GET', `/api/cards?ids=${uno},${servo}`);
+  await call('for you', 'shop', 'GET', `/api/for-you?seen=${uno}`);
+  await call('search suggest', 'shop', 'GET', '/api/search-suggest?q=arduino');
+  await call('resume: unknown', 'shop', 'GET', '/api/resume?id=1');
+  await call('app offers', 'shop', 'GET', '/api/app/offers?after=1');
+  await call('app inbox', 'shop', 'GET', '/api/app/inbox');
+  await call('GET where POST is meant', 'shop', 'GET', '/api/coupon');
 
   // ---------- outside services calling in (payments, couriers, daily jobs) — fake data, must be refused alike ----------
   await call('steadfast webhook: no token', 'svc', 'POST', '/webhook/steadfast', { consignment_id: 1, status: 'delivered' }, 'json');
@@ -96,7 +119,7 @@ async function main() {
   await call('logout', 'admin', 'POST', '/admin/logout', {});
 
   // ---------- resulting data ----------
-  const tables = ['orders', 'order_items', 'products', 'categories', 'customers', 'stock_moves', 'activity_log', 'trash', 'email_subs', 'stock_alerts', 'product_questions', 'media'];
+  const tables = ['orders', 'order_items', 'products', 'categories', 'customers', 'stock_moves', 'activity_log', 'trash', 'email_subs', 'stock_alerts', 'product_questions', 'media', 'price_alerts', 'checkout_drafts', 'live_clicks', 'shop_push_subs'];
   const data = {};
   for (const t of tables) {
     const exists = id(`select to_regclass('public.${t}') is not null`) === 't';
