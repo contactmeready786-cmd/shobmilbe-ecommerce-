@@ -169,6 +169,7 @@ async function handlerInner(req: ShopRequest, res: ShopResponse) {
 
   try {
     const settings = await db.getSettings();
+    $services_errors.ensure(settings); // Sentry on/off follows the key saved in Admin → আমার নোটিফিকেশন
     const isAdmin = path === '/admin' || path.startsWith('/admin/');
     const adminSend = (r?: Loose, status?: Loose, body?: Loose, type?: Loose, extra: Loose = {}) => send(r, status, body, type, { 'Content-Security-Policy': security.ADMIN_CSP, 'X-Robots-Tag': 'noindex, nofollow, noarchive, nosnippet, noimageindex', 'Referrer-Policy': 'same-origin',
       // the admin may use the camera (owner's face check); the shop pages never can

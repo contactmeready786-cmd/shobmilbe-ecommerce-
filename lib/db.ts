@@ -1558,7 +1558,7 @@ for (const [k, v] of Object.entries($services_uiswitch.DEFAULTS)) if (!(k in DEF
 
 const SECRET_KEYS = new Set(['session_secret', 'admin_password', 'fb_capi_token', 'tiktok_events_token', 'bkash_app_secret',
   'bkash_password', 'ssl_store_password', 'steadfast_secret_key', 'pathao_client_secret', 'pathao_password',
-  'pathao_token', 'redx_token', 'vercel_token', 'gmail_app_password', 'acct_gmail_password', 'callmebot_key', 'reset_mail_token', 'push_vapid_private', 'i18n_google_key', 'sms_api_key', 'cf_api_token', 'autocall_api_key', 'fraudbd_api_key', 'autopost_page_token', 'autopost_app_secret', 'telegram_bot_token', 'brevo_api_key']);
+  'pathao_token', 'redx_token', 'vercel_token', 'gmail_app_password', 'acct_gmail_password', 'callmebot_key', 'reset_mail_token', 'push_vapid_private', 'i18n_google_key', 'sms_api_key', 'cf_api_token', 'autocall_api_key', 'fraudbd_api_key', 'autopost_page_token', 'autopost_app_secret', 'telegram_bot_token', 'brevo_api_key', 'sentry_dsn']);
 
 // Passwords and API keys are stored encrypted (AES-256-GCM) when ENCRYPTION_KEY is set in Vercel.
 // session_secret is left out on purpose: if the key were ever removed, nobody could log in.

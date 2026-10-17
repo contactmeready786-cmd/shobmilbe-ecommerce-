@@ -6,6 +6,7 @@
 // by one; when the last one has moved, this bridge is deleted.
 import { Readable, Writable } from 'node:stream';
 import { handler as shopHandler } from '@/lib/app';
+import { flush as flushErrorReports } from '@/lib/services/errors';
 
 type NodeHandler = (req: unknown, res: unknown) => Promise<void> | void;
 const legacyHandler = (): NodeHandler => shopHandler as NodeHandler;
@@ -79,6 +80,8 @@ export async function handleWithLegacy(request: Request, originalUrl: string): P
   } catch (e) {
     console.error('legacy handler failed', e);
     if (!res.writableEnded) return new Response('Server error', { status: 500 });
+  } finally {
+    await flushErrorReports(); // an error reported to Sentry goes out before the server may be paused
   }
   return res.toResponse();
 }

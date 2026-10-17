@@ -1,10 +1,14 @@
-// Sentry (error alerts) for the server. Switched on only when SENTRY_DSN is set in Vercel → Settings →
-// Environment Variables (the DSN comes from sentry.io → Project → Client Keys). Without it nothing is sent.
+// Sentry (error alerts) for the server. The owner pastes the key (DSN, from sentry.io → Project → Client Keys)
+// once in Admin → সেটিংস → আমার নোটিফিকেশন; lib/services/errors.ts starts Sentry with it on the next request.
+// (SENTRY_DSN in Vercel → Environment Variables also works and wins.) Without a key nothing is sent.
 import * as Sentry from '@sentry/nextjs';
-import { setReporter } from './lib/services/errors';
+import { setStarter, setFlusher, ensure } from './lib/services/errors';
 
-const dsn = process.env.SENTRY_DSN || '';
-if (dsn) {
+function start(dsn: string) {
+  if (!dsn) {
+    Sentry.getClient()?.close().catch(() => {});
+    return null;
+  }
   Sentry.init({
     dsn,
     environment: process.env.VERCEL_ENV || process.env.NODE_ENV,
@@ -23,5 +27,9 @@ if (dsn) {
       return event;
     },
   });
-  setReporter((error, context) => { Sentry.captureException(error, context ? { extra: context } : undefined); });
+  return (error: unknown, context?: Record<string, unknown>) => { Sentry.captureException(error, context ? { extra: context } : undefined); };
 }
+
+setStarter(start);
+setFlusher((ms) => Sentry.flush(ms));
+ensure(null); // a SENTRY_DSN set in Vercel starts at once; the admin's key starts with the first request

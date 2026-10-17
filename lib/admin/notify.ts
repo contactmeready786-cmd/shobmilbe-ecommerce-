@@ -5,6 +5,7 @@ import * as db from '../db';
 import * as ui from './ui';
 import * as N from '../services/notify';
 import * as push from '../services/push';
+import * as errors from '../services/errors';
 import { fmtDate, int } from '../util';
 import * as $layout from './layout';
 import type { AdminCtx, Loose } from '../types';
@@ -62,8 +63,18 @@ async function page(ctx: AdminCtx) {
     if (gToken) await db.setSetting('greenapi_token', gToken);
     if (provider !== 'greenapi' && key && !/^•+$/.test(key)) await db.setSetting(keyField, key);
     if (b.clear_wa) for (const k of ['callmebot_key', 'textmebot_key', 'greenapi_id', 'greenapi_token']) await db.setSetting(k, '');
+    // Sentry (error alerts): the key pasted here is the only place it is set
+    const dsn = String(b.sentry_dsn || '').trim();
+    const dsnChanged = !!dsn && !/^•+$/.test(dsn);
+    if (dsnChanged && !errors.validDsn(dsn)) return ctx.fail('/admin/notify', 'Sentry-র DSN ঠিক নেই। sentry.io → Project Settings → Client Keys (DSN) থেকে পুরো লিংকটা কপি করুন (https://…@….sentry.io/… এর মতো)।');
+    if (dsnChanged) await db.setSetting('sentry_dsn', dsn);
+    if (b.clear_sentry) await db.setSetting('sentry_dsn', '');
     if (b.more) for (const k of ['notify_order_email', 'notify_order_wa', 'notify_order_push', 'notify_security', 'notify_owner_login', 'notify_low_stock']) await db.setSetting(k, b[k] ? '1' : '0');
     await ctx.reloadSettings();
+    // Sentry starts at once on this server; a first test error shows the owner it works (Sentry e-mails new problems)
+    errors.ensure(ctx.settings);
+    if (dsnChanged && errors.isOn()) errors.report(new Error(`✅ ${ctx.settings.store_name}: Sentry চালু হয়েছে — এটা শুধু পরীক্ষা, কিছু করতে হবে না`), { test: true });
+    if (dsnChanged) await errors.flush(3000);
     // a channel that was just set up gets a test message at once, so the owner sees it working
     const waKeyChanged = (key && !/^•+$/.test(key)) || !!gId;
     const tried: Loose[] = [];
@@ -129,6 +140,17 @@ async function page(ctx: AdminCtx) {
     ${ui.field('CallMeBot কোড', ui.input('callmebot_key', dots(s.callmebot_key), { type: 'password', autocomplete: 'off', placeholder: s.callmebot_key ? 'সেভ করা আছে' : 'যেমন 123456' }))}
   </section>
 </div>
+<section class="panel">
+  <h2>🛠️ সাইটে কোনো এরর হলে খবর (Sentry) ${s.sentry_dsn || process.env.SENTRY_DSN ? ui.pill('✅ চালু', 'pill-delivered') : ui.pill('চালু হয়নি', 'pill-pending')}</h2>
+  <p class="muted">সাইটের কোনো পেজে সমস্যা (এরর) হলে Sentry আপনাকে ইমেইলে জানাবে — কোন পেজে, কখন। কাস্টমারের ফোন, ঠিকানা বা কুকি সেখানে যায় না। ফ্রি।</p>
+  <ol class="small">
+    <li><a href="https://sentry.io/signup/" target="_blank" rel="noopener">sentry.io</a>-তে ফ্রি অ্যাকাউন্ট খুলুন (Google দিয়ে)।</li>
+    <li>নতুন প্রজেক্ট: platform <b>Next.js</b>, নাম <b>shobmilbe</b>।</li>
+    <li>যে <b>DSN</b> দেখাবে সেটা কপি করে নিচে বসান (পরে পাবেন Project Settings → Client Keys-এ)।</li>
+  </ol>
+  ${ui.field('Sentry DSN', ui.input('sentry_dsn', dots(s.sentry_dsn), { type: 'password', autocomplete: 'off', placeholder: 'https://…@….ingest.sentry.io/…' }))}
+  ${s.sentry_dsn ? ui.check('clear_sentry', false, 'Sentry বন্ধ করুন (DSN মুছে দিন)') : ''}
+</section>
 <section class="panel">
   ${ui.field('আপনার অ্যাডমিন পাসওয়ার্ড', ui.input('current_password', '', { type: 'password', autocomplete: 'current-password' }), 'শুধু Gmail বা Google কোড বদলালে লাগে (নিরাপত্তার জন্য)।')}
   <button class="btn btn-block btn-lg">✅ সেভ করুন</button>
