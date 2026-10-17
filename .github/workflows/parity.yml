@@ -50,7 +50,7 @@ jobs:
       - name: Tests
         working-directory: new
         env: { LIVE_DNS: '1' }
-        run: npx tsx --test tests/*.test.ts tests/*.test.tsx 2>&1 | tee "$RUNNER_TEMP/tests.txt"
+        run: npx tsx --test --test-force-exit tests/*.test.ts tests/*.test.tsx 2>&1 | tee "$RUNNER_TEMP/tests.txt"
       - name: Build
         working-directory: new
         run: npx next build 2>&1 | tee "$RUNNER_TEMP/build.txt"
