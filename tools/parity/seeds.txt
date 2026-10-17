@@ -98,3 +98,9 @@
 /order/TEST1002/return
 /account
 /account?via=email
+/api/cart?ids=1,2,3
+/api/cards?ids=2,1
+/api/search-suggest?q=arduino
+/api/suggest?ids=1,2
+/api/for-you?seen=1,2&cart=3
+/api/app/offers?after=1

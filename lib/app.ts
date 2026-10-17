@@ -16,7 +16,6 @@ import * as feeds from './services/feeds';
 import * as translate from './services/translate';
 import * as admin from './admin';
 import { shopLayout } from './views/layout';
-import { toHtml } from './react/render';
 import { resolveShop } from './shop/router';
 import { scoped } from './cache';
 import * as shop from './views/shop';
@@ -252,20 +251,14 @@ async function handlerInner(req: ShopRequest, res: ShopResponse) {
     // ---- API ----
     const ip = clientIp(req);
     // small read-only lists the shop pages ask for: generous limits, only a flood is turned away
-    if ((path === '/api/cart' || path === '/api/suggest' || path === '/api/cards' || path === '/api/for-you' || path === '/api/quote') && !(await security.hit(db, 'readapi:' + ip, 600, 600))) return tooMany(req, res, true);
-    if (path === '/api/cart' && method === 'GET') return await cartApi(base);
+    // (/api/cart, /api/suggest, /api/cards, /api/for-you, /api/search-suggest, /api/resume, /api/app/*: their own routes, lib/api/shop-read.ts)
+    if (path === '/api/quote' && !(await security.hit(db, 'readapi:' + ip, 600, 600))) return tooMany(req, res, true);
     if (path === '/api/orders' && method === 'POST') {
       // stops fake-order floods: 10 orders per hour from one connection is far above any real customer
       if (!(await security.hit(db, 'order:' + ip, 10, 3600))) return tooMany(req, res, true);
       return await placeOrder(base);
     }
     if (path.startsWith('/api/checkout-otp/') && method === 'POST') return await checkoutOtpApi(base);
-    // 📩 the reminder SMS link: put the same products (and name / number) back into the checkout
-    if (path === '/api/resume' && method === 'GET') {
-      if (!(await security.hit(db, 'resume:' + ip, 30, 3600))) return json(res, 429, {});
-      const r = await drafts.resume(query.get('id'));
-      return json(res, 200, r ? { ok: true, ...r } : { ok: false }, { 'Cache-Control': 'no-store' });
-    }
     if (path === '/api/checkout-draft' && method === 'POST') {
       if (!(await security.hit(db, 'draft:' + ip, 40, 600))) return json(res, 200, {});
       return await draftApi(base);
@@ -273,22 +266,6 @@ async function handlerInner(req: ShopRequest, res: ShopResponse) {
     if (path === '/api/review' && method === 'POST') return await reviewApi(base);
     if (path === '/api/wish' && method === 'POST') return await wishApi(base);
     if (path === '/api/points' && method === 'POST') return await pointsApi(base);
-    // 🔎 instant results under the search box while typing (smart search: spelling mistakes, Bangla)
-    if (path === '/api/search-suggest' && method === 'GET') {
-      const q = str(query.get('q'), 80);
-      if (q.length < 2 || settings.ui_search === '0') return json(res, 200, { products: [] });
-      if (!(await security.hit(db, 'ssug:' + ip, 300, 3600))) return json(res, 200, { products: [] });
-      const ids = (await $services_search.find(q, { limit: 60 }).catch(() => [])) || [];
-      const hideOutS = settings.ui_show_out_of_stock === '0';
-      const rows = ids.length ? await catalog.listProducts({ public: true, ids, hideOut: hideOutS, limit: 6 }) : [];
-      return json(res, 200, { total: ids.length, products: rows.map((p) => ({ name: p.name, slug: p.slug, price: p.price, image: p.image_id ? `/media/${p.image_id}/t` : null, emoji: p.emoji, out: p.stock <= 0 })) },
-        { 'Cache-Control': 'public, max-age=60' });
-    }
-    if (path === '/api/suggest' && method === 'GET') {
-      const ids = (query.get('ids') || '').split(',').map((x) => int(x)).filter((x) => x > 0).slice(0, 50);
-      const rows = await catalog.crossFor(ids, 6);
-      return json(res, 200, { products: rows.map((p) => ({ id: p.id, name: p.name, slug: p.slug, price: p.price, image: p.image_id ? `/media/${p.image_id}/t` : null, emoji: p.emoji })) });
-    }
     // 🔔 "স্টকে এলে জানাও" and ❓ a question on a product (both small forms on the product page)
     if (path === '/api/stock-alert' && method === 'POST') {
       if (settings.ui_restock_notify === '0') return json(res, 403, { error: 'এখন বন্ধ আছে।' });
@@ -336,67 +313,9 @@ async function handlerInner(req: ShopRequest, res: ShopResponse) {
         throw e;
       }
     }
-    // product cards for lists the browser keeps itself (🕘 recently viewed)
-    if (path === '/api/cards' && method === 'GET') {
-      const ids = (query.get('ids') || '').split(',').map((x) => int(x)).filter((x) => x > 0).slice(0, 24);
-      const prods = ids.length ? (await catalog.getProductsByIds(ids, { public: true })).filter((p) => !p.parent_id) : [];
-      const pos = new Map(ids.map((id, i) => [id, i]));
-      prods.sort((a, b) => (pos.get(a.id) as number) - (pos.get(b.id) as number));
-      return json(res, 200, { ids: prods.map((p) => p.id), html: prods.map((p) => toHtml(shop.productCard(p, settings)).s).join('') });
-    }
-    // ✨ "আপনার জন্য": products picked for this shopper from what they viewed, have in the cart and bought before
-    //    (bought together by other customers first, then popular ones from the same categories)
-    if (path === '/api/for-you' && method === 'GET') {
-      if (settings.for_you_on === '0') return json(res, 200, { html: '' });
-      const list = (k?: Loose) => (query.get(k) || '').split(',').map((x) => int(x)).filter((x) => x > 0).slice(0, 30);
-      const codes = myOrders(req, settings);
-      const bought = codes.length ? (await db.q(`SELECT DISTINCT i.product_id FROM order_items i JOIN orders o ON o.id=i.order_id WHERE o.code = ANY($1::text[]) AND i.product_id IS NOT NULL`, [codes])).map((r) => r.product_id) : [];
-      const seeds = [...new Set([...list('cart'), ...list('seen'), ...bought])].slice(0, 40);
-      if (!seeds.length) return json(res, 200, { html: '' });
-      const rows = await db.q(`WITH seed AS (SELECT coalesce(p.parent_id, p.id) AS id, p.category_id FROM products p WHERE p.id = ANY($1::int[])),
-          together AS (SELECT coalesce(pp.id, i2.product_id) AS id, count(DISTINCT i2.order_id)::int AS n FROM order_items i1
-            JOIN order_items i2 ON i2.order_id=i1.order_id AND i2.product_id <> i1.product_id
-            LEFT JOIN products v ON v.id=i2.product_id LEFT JOIN products pp ON pp.id=v.parent_id
-            WHERE i1.product_id = ANY($1::int[]) GROUP BY 1),
-          cats AS (SELECT category_id, count(*)::int AS w FROM seed WHERE category_id IS NOT NULL GROUP BY 1)
-        SELECT p.id, coalesce(t.n, 0) * 10 + coalesce(c.w, 0) * 3 + least(5, coalesce(p.sold_count, 0) / 5.0) AS score
-        FROM products p LEFT JOIN together t ON t.id=p.id LEFT JOIN cats c ON c.category_id=p.category_id
-        WHERE p.active AND p.parent_id IS NULL AND NOT (p.id IN (SELECT id FROM seed)) AND (t.id IS NOT NULL OR c.category_id IS NOT NULL)
-          AND (p.stock > 0 OR p.product_type='bundle' OR p.variant_count > 0)
-        ORDER BY score DESC, p.sold_count DESC, p.id DESC LIMIT 8`, [seeds]);
-      const ids = rows.map((r) => r.id);
-      const prods = ids.length ? await catalog.getProductsByIds(ids, { public: true }) : [];
-      const pos = new Map(ids.map((id, i) => [id, i]));
-      prods.sort((a, b) => (pos.get(a.id) as number) - (pos.get(b.id) as number));
-      return json(res, 200, { html: prods.map((p) => toHtml(shop.productCard(p, settings)).s).join('') }, { 'Cache-Control': 'no-store' });
-    }
     if (path === '/api/quote' && method === 'POST') {
       const b = await parseBody(req);
       return json(res, 200, await $services_pricing.quote(b.items));
-    }
-    // 🔔 the customer Android app asks every ~30 min: "any new offer notification?" (same ones the owner sends from Admin)
-    if (path === '/api/app/offers' && method === 'GET') {
-      const after = Math.max(0, int(query.get('after')) || 0);
-      const last = await db.one('SELECT COALESCE(max(id),0)::int AS id FROM push_campaigns');
-      let items: Loose[] = [];
-      if (settings.shoppush_on === '1' && after > 0) {
-        // only the newest one, and only if it is fresh — never a pile of old offers
-        items = (await db.q(`SELECT id, title, body, url, image_id FROM push_campaigns WHERE id > $1 AND created_at > now() - interval '2 days' ORDER BY id DESC LIMIT 1`, [after]))
-          .map((c) => ({ id: c.id, title: c.title, body: c.body, url: c.url || '/', image: c.image_id ? `/media/${c.image_id}` : '' }));
-      }
-      return json(res, 200, { latest: last!.id, items }, { 'Cache-Control': 'no-store' });
-    }
-    // 📥 Android app's ইনবক্স tab: the shop's recent offer messages + how to reach the shop
-    if (path === '/api/app/inbox' && method === 'GET') {
-      const rows = await db.q(`SELECT id, title, body, url, image_id, created_at FROM push_campaigns WHERE created_at > now() - interval '30 days' ORDER BY id DESC LIMIT 30`);
-      const C = contact(settings);
-      return json(res, 200, {
-        shop: settings.store_name || '',
-        phone: C.phone || '',
-        wa: C.wa && C.wa.length >= 11 ? C.wa : '',
-        messenger: /^[\w.-]{1,80}$/.test(String(settings.chat_messenger_page || '')) ? 'https://m.me/' + settings.chat_messenger_page : '',
-        items: rows.map((c) => ({ id: c.id, title: c.title, body: c.body, url: c.url || '/', image: c.image_id ? `/media/${c.image_id}/t` : '', at: c.created_at })),
-      }, { 'Cache-Control': 'no-store' });
     }
     // 🔔 offer notifications: this phone/computer said "yes" (or "no more")
     if ((path === '/api/push/subscribe' || path === '/api/push/unsubscribe') && method === 'POST') {
@@ -721,16 +640,6 @@ async function i18nFixApi({ res, settings }: Body) {
   return send(res, 200, JSON.stringify({ m }), 'application/json; charset=utf-8', { 'Cache-Control': 'public, max-age=300, s-maxage=86400' });
 }
 
-async function cartApi({ res, query }: Body) {
-  const ids = (query.get('ids') || '').split(',').map((x?: Loose) => int(x)).filter((x?: Loose) => x > 0).slice(0, 100);
-  const products = await catalog.getProductsByIds(ids, { public: true });
-  return json(res, 200, {
-    products: products.map((p) => ({
-      id: p.id, name: p.name, slug: p.slug, price: p.price, stock: p.stock, preorder: !!p.preorder && p.product_type !== 'bundle', preorder_days: p.preorder_days || 0, emoji: p.emoji, sku: p.sku, weight: p.weight_g || 0,
-      category: p.category_name || '', image: p.image_id ? `/media/${p.image_id}/t` : null,
-    })),
-  });
-}
 
 // Incomplete order: what the shopper typed at checkout so far (only with a full BD mobile number).
 async function draftApi({ req, res, settings }: Body) {

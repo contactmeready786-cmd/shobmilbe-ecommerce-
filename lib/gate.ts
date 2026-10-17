@@ -65,7 +65,7 @@ export type GateResult =
   | { ok: true; settings: Settings }
   | { ok: false; status: number; body: string; type: string; headers: Record<string, string> };
 
-/** Runs the checks for one customer page (not the admin, not the API). */
+/** Runs the checks for one customer page or shop API call (not the admin). */
 export async function shopGate(req: GateRequest, path: string, search: string, method: string): Promise<GateResult> {
   const html = 'text/html; charset=utf-8';
   try {
@@ -88,9 +88,11 @@ export async function shopGate(req: GateRequest, path: string, search: string, m
   const shut = await geo.check(r, path, settings, method);
   if (shut) {
     geo.count(shut.country, 'country');
+    if (path.startsWith('/api/')) return { ok: false, status: 403, body: JSON.stringify({ error: 'region' }), type: 'application/json; charset=utf-8', headers: { 'Cache-Control': 'no-store' } };
     return { ok: false, status: 403, body: geo.blockedPage(settings, { country: shut.country }), type: html, headers: { 'X-Robots-Tag': 'noindex', 'Cache-Control': 'no-store' } };
   }
-  if (method === 'GET') backgroundTick(r, settings);
+  $services_errors.ensure(settings); // Sentry on/off follows the key saved in Admin → আমার নোটিফিকেশন
+  if (method === 'GET' && !path.startsWith('/api/') && !path.startsWith('/media/')) backgroundTick(r, settings);
   const ua = String(r.headers['user-agent'] || '');
   if (ua) {
     const bad = blockedBots(settings);
