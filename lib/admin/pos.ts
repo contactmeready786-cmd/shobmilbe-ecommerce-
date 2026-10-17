@@ -3,6 +3,7 @@
 // change quantity / price, discount, customer's mobile (optional), how they paid, cash given → change to return.
 // "বিক্রি সম্পন্ন" saves it as an order (source: দোকান, already delivered and paid) — stock goes down at once
 // (from the chosen branch, when there are branches) — and the cash memo opens for printing.
+import { cspNonce } from '../security';
 import { html, raw, int, str, bn, money, fmtDate, amount, round2, normalizePhone, validPhone } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
@@ -142,7 +143,7 @@ table{width:100%;border-collapse:collapse;margin:6px 0}td{padding:2px 0;vertical
 .line{border-top:1px dashed #000;margin:5px 0}.tot td{font-weight:700;font-size:14px}.bc{text-align:center;margin-top:6px}.bc svg{max-width:100%}
 .noprint{text-align:center;margin:10px}@media print{body{background:#fff}.memo{margin:0;width:auto}.noprint{display:none}@page{margin:2mm}}
 </style></head><body>
-<div class="noprint"><button onclick="window.print()">🖨️ প্রিন্ট</button> <a href="/admin/pos">← নতুন বিক্রি</a></div>
+<div class="noprint"><button type="button" data-print>🖨️ প্রিন্ট</button> <a href="/admin/pos">← নতুন বিক্রি</a></div>
 <div class="memo">
   <h1>${s.store_name}</h1>
   <p class="c s">${w && w.address ? w.address : s.address || ''}${(w && w.phone) || s.phone ? html`<br>ফোন: ${(w && w.phone) || s.phone}` : ''}${s.vat_bin ? html`<br>BIN: ${s.vat_bin}` : ''}</p>
@@ -162,8 +163,8 @@ table{width:100%;border-collapse:collapse;margin:6px 0}td{padding:2px 0;vertical
   <p class="c s">ধন্যবাদ! আবার আসবেন।${s.site_url ? html`<br>অনলাইনে অর্ডার: ${String(s.site_url).replace(/^https?:\/\//, '')}` : ''}${sold ? html`<br>বিক্রেতা: ${sold.name}` : ''}</p>
   <div class="bc">${raw(bc)}</div>
 </div>
-<script>${raw(ctx.query.get('print') === '1' ? 'window.addEventListener("load",function(){setTimeout(function(){window.print()},300)});' : '')}</script>
-</body></html>`;
+<script nonce="${cspNonce()}">${raw(ctx.query.get('print') === '1' ? 'window.addEventListener("load",function(){setTimeout(function(){window.print()},300)});' : '')}</script>
+<script src="/js/page-actions.js?v=${ASSET_V}" defer></script></body></html>`;
   return ctx.send(ctx.res, 200, page.s || String(page));
 }
 

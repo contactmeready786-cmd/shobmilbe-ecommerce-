@@ -1,0 +1,48 @@
+# ✅ Automatic checks on every change (owner, 2026-10-17): before anything reaches the live shop, GitHub
+#   1. checks the TypeScript for mistakes,
+#   2. runs every test in tests/ — the price rules, checkout OTP, placing orders, security locks — the database
+#      tests on a brand-new EMPTY Postgres made just for this run (never the shop's real database),
+#   3. builds the site exactly like Vercel does.
+# A red ❌ here means: don't put this change live. Nothing here touches the real shop, its database or its SMS.
+name: tests
+on:
+  push:
+    branches: ['**']
+  pull_request: {}
+  workflow_dispatch: {}
+permissions:
+  contents: read
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: ci-only
+          POSTGRES_DB: shop_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install
+        run: npm ci --no-audit --no-fund
+      - name: TypeScript check
+        run: npm run typecheck
+      - name: Tests (with a throw-away database)
+        env:
+          TEST_DATABASE_URL: postgres://postgres:ci-only@127.0.0.1:5432/shop_test?sslmode=disable
+        run: npm test
+      - name: Build like Vercel
+        run: npx next build

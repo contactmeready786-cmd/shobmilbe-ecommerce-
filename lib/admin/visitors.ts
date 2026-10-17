@@ -1,5 +1,6 @@
 // Admin → মার্কেটিং → ভিজিটর অ্যানালিটিক্স
 // Overview (how many, from where, what they look at), live visitors, every visit with its full journey, and settings.
+import { cspNonce } from '../security';
 import { html, raw, bn, money, fmtDate, str, dateRange, pageNum, pct } from '../util';
 import * as db from '../db';
 import * as V from '../services/visitors';
@@ -489,7 +490,7 @@ ${tabs('countries', live.length)}${ui.flash(ctx.flash)}
   </section>
 </div>
 </form>
-<script>${raw(`(function(){var f=document.querySelector('[data-geo-form]');if(!f)return;var rows=[].slice.call(f.querySelectorAll('[data-geo-row]')),q=f.querySelector('[data-geo-search]'),cnt=f.querySelector('[data-geo-count]'),only=false;
+<script nonce="${cspNonce()}">${raw(`(function(){var f=document.querySelector('[data-geo-form]');if(!f)return;var rows=[].slice.call(f.querySelectorAll('[data-geo-row]')),q=f.querySelector('[data-geo-search]'),cnt=f.querySelector('[data-geo-count]'),only=false;
 function upd(){var n=0,t=(q.value||'').trim().toLowerCase();rows.forEach(function(r){var c=r.querySelector('input').checked;if(c)n++;r.style.display=((!t||r.getAttribute('data-k').indexOf(t)>=0)&&(!only||c))?'':'none';});cnt.textContent='('+n+'টি টিক দেওয়া)';}
 q.addEventListener('input',upd);f.addEventListener('change',upd);
 f.querySelector('[data-geo-only]').addEventListener('click',function(){only=!only;this.textContent=only?'সব দেশ দেখুন':'শুধু টিক দেওয়াগুলো দেখুন';upd();});

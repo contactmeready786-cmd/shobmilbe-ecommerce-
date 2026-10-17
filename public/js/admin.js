@@ -471,18 +471,23 @@
     var action = host.getAttribute('data-delcode');
     var to = host.getAttribute('data-delcode-to') || '';
     var what = host.getAttribute('data-delcode-what') || '';
+    // a code-protected action that isn't a delete (e.g. seeing the secret key) brings its own words
+    var title = host.getAttribute('data-delcode-title') || '🔐 মোছার কোড';
+    var intro = host.getAttribute('data-delcode-intro') || 'স্থায়ীভাবে মোছার আগে একটা কোড লাগবে। কোড যাবে এই ইমেইলে:';
+    var goText = host.getAttribute('data-delcode-go') || '🗑️ মুছে ফেলুন';
+    var whatLabel = host.hasAttribute('data-delcode-title') ? 'যা হবে: ' : 'যা মুছবে: ';
     var dlg = document.createElement('dialog');
     dlg.className = 'delcode-dlg';
     dlg.innerHTML = '<form method="dialog" class="form delcode-box">' +
-      '<h2>🔐 মোছার কোড</h2>' +
-      '<p class="small">স্থায়ীভাবে মোছার আগে একটা কোড লাগবে। কোড যাবে এই ইমেইলে:</p>' +
+      '<h2>' + esc(title) + '</h2>' +
+      '<p class="small">' + esc(intro) + '</p>' +
       '<p class="delcode-to"><b>' + esc(to) + '</b></p>' +
-      (what ? '<p class="small muted">যা মুছবে: ' + esc(what) + '</p>' : '') +
+      (what ? '<p class="small muted">' + whatLabel + esc(what) + '</p>' : '') +
       '<p><button type="button" class="btn btn-sm" data-dc-send>📧 কোড পাঠান</button></p>' +
       '<p class="small" data-dc-msg role="status"></p>' +
       '<label class="field"><span class="label">ইমেইলে আসা ৬ সংখ্যার কোড</span>' +
       '<input type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9০-৯]{6}" placeholder="••••••" class="delcode-input" data-dc-code></label>' +
-      '<div class="row-actions"><button type="button" class="btn btn-danger" data-dc-go disabled>🗑️ মুছে ফেলুন</button>' +
+      '<div class="row-actions"><button type="button" class="btn ' + (host.hasAttribute('data-delcode-go') ? '' : 'btn-danger') + '" data-dc-go disabled>' + esc(goText) + '</button>' +
       '<button type="button" class="btn btn-ghost" data-dc-cancel>বাতিল</button></div></form>';
     document.body.appendChild(dlg);
     var msg = $('[data-dc-msg]', dlg), code = $('[data-dc-code]', dlg), go = $('[data-dc-go]', dlg), send = $('[data-dc-send]', dlg);

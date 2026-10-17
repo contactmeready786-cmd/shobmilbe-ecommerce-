@@ -54,7 +54,7 @@ async function duesPage(ctx: AdminCtx) {
   out.sort((a, b) => b.due - a.due);
   const tot = out.reduce((t, s) => ({ due: t.due + Math.max(0, s.due), a: t.a + s.ag.a, b: t.b + s.ag.b, c: t.c + s.ag.c, d: t.d + s.ag.d }), { due: 0, a: 0, b: 0, c: 0, d: 0 });
   const body = html`<p class="crumbs"><a href="/admin/suppliers">← সাপ্লায়ার</a></p>
-<div class="title-row"><h1>📒 সাপ্লায়ারের বাকির খাতা</h1><div class="row-actions"><button type="button" class="btn btn-ghost btn-sm" onclick="window.print()">🖨️ প্রিন্ট</button></div></div>
+<div class="title-row"><h1>📒 সাপ্লায়ারের বাকির খাতা</h1><div class="row-actions"><button type="button" class="btn btn-ghost btn-sm" data-print>🖨️ প্রিন্ট</button></div></div>
 <div class="kpis kpis-tight">
   ${ui.kpi('মোট বাকি (আপনি দেবেন)', money(tot.due), `${bn(out.filter((s) => s.due > 0.005).length)} জন সাপ্লায়ার`, tot.due > 0 ? 'kpi-alert' : 'kpi-green')}
   ${ui.kpi('৩০ দিনের ভেতরের', money(tot.a), '')}${ui.kpi('৩১–৬০ দিন', money(tot.b), '')}${ui.kpi('৬১–৯০ দিন', money(tot.c), '', tot.c > 0 ? 'kpi-alert' : '')}${ui.kpi('৯০ দিনের বেশি পুরোনো', money(tot.d), 'আগে এগুলো দিন', tot.d > 0 ? 'kpi-alert' : '')}
@@ -91,7 +91,7 @@ async function ledgerPage(ctx: AdminCtx, m?: Loose) {
   const sumP = rows.filter((r) => r.kind === 'p').reduce((t, r) => t + Number(r.amount), 0);
   const sumT = rows.filter((r) => r.kind === 't').reduce((t, r) => t + Number(r.amount), 0);
   const body = html`<p class="crumbs"><a href="/admin/suppliers/${s.id}">← ${s.name}</a> · <a href="/admin/suppliers/dues">সব বাকি</a></p>
-<div class="title-row"><h1>📒 খাতা — ${s.name}</h1><div class="row-actions"><button type="button" class="btn btn-ghost btn-sm" onclick="window.print()">🖨️ প্রিন্ট</button><a class="btn btn-sm" href="/admin/suppliers/${s.id}#pay">💵 টাকা দিন</a></div></div>
+<div class="title-row"><h1>📒 খাতা — ${s.name}</h1><div class="row-actions"><button type="button" class="btn btn-ghost btn-sm" data-print>🖨️ প্রিন্ট</button><a class="btn btn-sm" href="/admin/suppliers/${s.id}#pay">💵 টাকা দিন</a></div></div>
 <p class="muted">${s.company ? `${s.company} · ` : ''}${s.phone || ''}${s.address ? ` · ${s.address}` : ''}</p>
 <div class="kpis kpis-tight">
   ${ui.kpi('এখন বাকি', money(finance.supplierDue(s)), ag.oldest !== null ? `সবচেয়ে পুরোনো বাকি ${ag.oldest >= 999 ? 'শুরুর আগের' : `${bn(ag.oldest)} দিনের`}` : 'কোনো বাকি নেই', finance.supplierDue(s) > 0.005 ? 'kpi-alert' : 'kpi-green')}

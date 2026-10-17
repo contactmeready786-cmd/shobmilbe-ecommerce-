@@ -2,6 +2,7 @@
 // Opened from a product's page or from the product list ("বাছাই করা পণ্য → বারকোড লেবেল প্রিন্ট").
 
 // sticker sizes (mm). sheet = how many fit on one A4 page, or a roll printer (one per label)
+import { ASSET_V as PA_V } from './layout';
 import { html, raw, money, int, str, bn } from '../util';
 import * as db from '../db';
 import * as BC from '../services/barcode';
@@ -49,7 +50,7 @@ async function labels(ctx: AdminCtx) {
   .sheet{padding:0;gap:${z.sheet ? '0' : '0'};justify-content:flex-start}.lab{border:${z.sheet ? '1px dashed #e5e7eb' : '0'};${z.sheet ? '' : 'page-break-after:always;'}}}
 </style></head><body>
 <div class="bar">
-  <button class="go" onclick="window.print()">🖨️ প্রিন্ট (${bn(stickers.length)}টি লেবেল)</button>
+  <button type="button" class="go" data-print>🖨️ প্রিন্ট (${bn(stickers.length)}টি লেবেল)</button>
   ${Object.entries(SIZES).map(([k, v]) => html`<a class="${k === size ? 'on' : ''}" href="${qs('size', k)}">${v.label}</a>`)}
   <form method="get">${['ids', 'size'].map((k) => html`<input type="hidden" name="${k}" value="${k === 'size' ? size : ctx.query.get(k)}">`)}
     প্রতিটা <input type="number" name="copies" min="1" max="100" value="${copies}"> কপি <button>✓</button></form>
@@ -57,14 +58,14 @@ async function labels(ctx: AdminCtx) {
   <a class="${showPrice ? 'on' : ''}" href="${qs('price', showPrice ? '0' : '1')}">দাম ${showPrice ? 'দেখাচ্ছে' : 'লুকানো'}</a>
   <a class="${showName ? 'on' : ''}" href="${qs('name', showName ? '0' : '1')}">নাম ${showName ? 'দেখাচ্ছে' : 'লুকানো'}</a>
   ${rows.some((p) => p.location) ? html`<a class="${showLoc ? 'on' : ''}" href="${qs('loc', showLoc ? '0' : '1')}">📍 বক্স ${showLoc ? 'দেখাচ্ছে' : 'লুকানো'}</a>` : ''}
-  <a href="javascript:history.back()">← ফিরে যান</a>
+  <a href="/admin" data-back>← ফিরে যান</a>
 </div>
 <div class="sheet">${stickers.map((p) => html`<div class="lab">
   ${showName ? html`<div class="nm">${str(p.name, 70)}</div>` : ''}
   ${raw(BC.svg(p.barcode || BC.productCode(p.id), { height: 40, module: 2, fontSize: 12, quiet: 6 }))}
   <div class="row"><span>${p.sku ? `SKU ${p.sku}` : ''}${showLoc && p.location ? ` · 📍${p.location}` : ''}</span>${showPrice ? html`<span class="pr">${money(p.price)}${p.unit && p.unit !== 'পিস' ? `/${p.unit}` : ''}</span>` : ''}</div>
 </div>`)}</div>
-</body></html>`.s;
+<script src="/js/page-actions.js?v=${PA_V}" defer></script></body></html>`.s;
   return ctx.send(ctx.res, 200, page);
 }
 

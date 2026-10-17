@@ -3,6 +3,7 @@
 //  • মূসক-৬.২ বিক্রয় হিসাব পুস্তক (sales register) and মূসক-৬.১ ক্রয় হিসাব পুস্তক (purchase register), with CSV
 //  • মূসক-৬.৩ কর চালানপত্র (tax invoice) for any order, ready to print
 // The return itself is filed by the owner (or their VAT consultant) on vat.gov.bd — this page prepares the numbers.
+import { ASSET_V as PA_V } from './layout';
 import { html, raw, money, bn, fmtDate, int, ymd, csv, num, str } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
@@ -80,7 +81,7 @@ async function returnPage(ctx: AdminCtx) {
 
   const body = html`<p class="crumbs"><a href="/admin/accounts/vat">← ভ্যাট ও ট্যাক্স</a></p>
 <div class="title-row"><h1>🧾 ${turnover ? 'টার্নওভার ট্যাক্সের হিসাব' : 'মূসক-৯.১ মাসিক রিটার্নের হিসাব'} <small>${monthName(month)}</small></h1>
-  <form method="get" class="row-actions">${ui.select('month', months.map((m) => [m, monthName(m)]), month, { onchange: 'this.form.submit()' })}<noscript><button class="btn btn-sm">দেখুন</button></noscript></form></div>
+  <form method="get" class="row-actions">${ui.select('month', months.map((m) => [m, monthName(m)]), month, { 'data-autosubmit': '' })}<noscript><button class="btn btn-sm">দেখুন</button></noscript></form></div>
 ${ui.flash(ctx.flash)}
 ${s.vat_mode === 'none' || !s.vat_mode ? html`<p class="flash flash-error">⚠️ ভ্যাট হিসাব এখন বন্ধ। আগে <a href="/admin/accounts/vat">ভ্যাট ও ট্যাক্স</a> পেজে আপনার ধরন বাছুন — নিচের সংখ্যাগুলো তখনই ঠিক হবে।</p>` : ''}
 <div class="kpis kpis-tight">
@@ -161,7 +162,7 @@ table{width:100%;border-collapse:collapse;margin-top:10px}th,td{border:1px solid
 .note{font-size:11.5px;color:#444;margin-top:12px}.warn{background:#fff7ed;border:1px solid #fdba74;padding:8px 10px;border-radius:6px;margin-bottom:10px}
 @media print{.bar,.warn{display:none}body{background:#fff}.m{margin:0;max-width:none;border-radius:0;padding:10mm}}
 </style></head><body>
-<div class="bar"><button onclick="window.print()">🖨️ প্রিন্ট / PDF</button><a href="/admin/orders/${o.id}">← অর্ডারে ফিরুন</a></div>
+<div class="bar"><button type="button" data-print>🖨️ প্রিন্ট / PDF</button><a href="/admin/orders/${o.id}">← অর্ডারে ফিরুন</a></div>
 <div class="m">
   ${mode === 'none' || mode === 'turnover' ? html`<p class="warn">⚠️ আপনার ভ্যাট সেটিং এখন "${MODES[mode] || MODES.none}"। মূসক-৬.৩ কর চালানপত্র সাধারণত ভ্যাট নিবন্ধিত (BIN আছে) ব্যবসার জন্য। দরকার হলে <a href="/admin/accounts/vat">ভ্যাট সেটিং</a> বদলান।</p>` : ''}
   ${!s.vat_bin ? html`<p class="warn">⚠️ BIN দেওয়া নেই — <a href="/admin/accounts/vat">ভ্যাট সেটিংস</a>-এ BIN দিন, তাহলে চালানে বসবে।</p>` : ''}
@@ -183,7 +184,7 @@ table{width:100%;border-collapse:collapse;margin-top:10px}th,td{border:1px solid
   <p class="note">ডেলিভারি চার্জ (${money(o.delivery)}) এই চালানের বাইরে। ¹ মূল্য সংযোজন কর ব্যতীত মূল্য। ${mode === 'margin' ? 'মার্জিন পদ্ধতিতে কর হিসাব করা হয়েছে।' : ''}</p>
   <div class="sig"><div>প্রতিষ্ঠান কর্তৃপক্ষের দায়িত্বপ্রাপ্ত ব্যক্তির নাম, পদবি ও স্বাক্ষর</div><div>সিল</div></div>
   <p class="note">* উৎসে কর্তনযোগ্য সরবরাহের ক্ষেত্রে ফরমটি সমন্বিত কর চালানপত্র ও উৎসে কর কর্তন সনদপত্র হিসেবে বিবেচিত হবে এবং উহা উৎসে কর কর্তনযোগ্য সরবরাহের ক্ষেত্রে প্রযোজ্য হবে।</p>
-</div></body></html>`.s;
+</div><script src="/js/page-actions.js?v=${PA_V}" defer></script></body></html>`.s;
   await ctx.log('mushak63', 'order', o.id, 'মূসক-৬.৩ চালান দেখা/প্রিন্ট');
   return ctx.send(ctx.res, 200, page);
 }

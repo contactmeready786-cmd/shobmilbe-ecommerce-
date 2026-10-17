@@ -3,6 +3,7 @@
 // Here: per courier, which delivered parcels are still unpaid by the courier and how much that is; tick the parcels a
 // courier payment covers (or paste their consignment numbers from the courier's payment report), write what came in
 // → those parcels are marked settled, and the money (and the courier's charge) can go into the accounts.
+import { cspNonce } from '../security';
 import { html, raw, int, str, bn, money, fmtDate, ymd, round2, amount } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
@@ -84,7 +85,7 @@ ${!list.length ? ui.empty('এখনো কোনো কুরিয়ারে
     <td><form method="post" action="${BASE}/undo" data-confirm="এই পেমেন্ট মুছে পার্সেলগুলো আবার “টাকা আসেনি” তালিকায় ফেরত নেবেন? (হিসাবে লেখা এন্ট্রি থাকলে সেগুলোও মুছবে)"><input type="hidden" name="id" value="${c.id}"><button class="link-btn danger small">ফেরত নিন</button></form></td></tr>`)}
   </tbody></table>` : html`<p class="muted">এখনো কিছু নেই।</p>`}
 </section>
-<script>${raw(`(function(){var f=document.querySelector('[data-cod-form]');if(!f)return;var n=f.querySelector('[data-cod-n]'),s=f.querySelector('[data-cod-sum]'),rc=f.querySelector('[data-cod-received]'),fe=f.querySelector('[data-cod-fee]');
+<script nonce="${cspNonce()}">${raw(`(function(){var f=document.querySelector('[data-cod-form]');if(!f)return;var n=f.querySelector('[data-cod-n]'),s=f.querySelector('[data-cod-sum]'),rc=f.querySelector('[data-cod-received]'),fe=f.querySelector('[data-cod-fee]');
 function bn(x){return String(x).replace(/\\d/g,function(d){return '০১২৩৪৫৬৭৮৯'[d];});}
 function sum(){var t=0,c=0;f.querySelectorAll('[data-check-row]:checked').forEach(function(x){t+=Number(x.getAttribute('data-cod'))||0;c++;});n.textContent=bn(c);s.textContent='৳'+bn(Math.round(t*100)/100);if(fe&&rc&&rc.value!=='')fe.placeholder=bn(Math.max(0,Math.round((t-Number(rc.value))*100)/100));return t;}
 f.addEventListener('change',sum);if(rc)rc.addEventListener('input',sum);

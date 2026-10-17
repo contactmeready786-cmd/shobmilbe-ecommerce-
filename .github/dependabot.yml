@@ -1,0 +1,43 @@
+# 🔄 Dependabot (owner, 2026-10-17): GitHub watches the outside code the shop is built on (Next.js, React, the
+# database driver, Sentry, GitHub's own build steps, the Android build) and opens ONE grouped update a week.
+# Each update is tested automatically (.github/workflows/tests.yml) before anyone puts it live. Security fixes come
+# at once (not weekly) once GitHub → Settings → Code security → Dependabot alerts + security updates are switched on.
+# Nothing goes live by itself — ask Claude to check and merge the update.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: saturday
+      time: "04:00"
+      timezone: Asia/Dhaka
+    open-pull-requests-limit: 3
+    groups:
+      small-updates:
+        update-types: [minor, patch]
+    commit-message:
+      prefix: "⬆️ npm"
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+      timezone: Asia/Dhaka
+    groups:
+      actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: "⬆️ actions"
+
+  - package-ecosystem: gradle
+    directory: /android
+    schedule:
+      interval: monthly
+      timezone: Asia/Dhaka
+    open-pull-requests-limit: 2
+    groups:
+      android:
+        patterns: ["*"]
+    commit-message:
+      prefix: "⬆️ android"

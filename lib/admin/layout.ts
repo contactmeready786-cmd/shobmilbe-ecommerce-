@@ -1,9 +1,10 @@
+import { cspNonce } from '../security';
 import { html, raw } from '../util';
 import { can, canSee } from '../models/staff';
 import * as $profile from './profile';
 import type { Body, Id, Loose, Settings, StaffUser } from '../types';
 
-const ASSET_V = '53';
+const ASSET_V = '54';
 
 // 📑 Small jobs that belong together sit on one page as tabs (like browser tabs). Each tab is still its own
 // page with its own link (bookmarks and the phone app keep working); the menu shows one entry for the set.
@@ -236,7 +237,7 @@ function logoMark(settings: Settings) {
 const adminLangOn = (settings: Settings) => settings.admin_i18n_on !== '0';
 function langHead(settings: Settings) {
   if (!adminLangOn(settings)) return '';
-  return raw(`<script>(function(){try{if(localStorage.getItem('sm_admin_lang')==='en'){var d=document.documentElement;d.className+=' admin-i18n-wait';d.setAttribute('data-admin-lang','en');}}catch(e){}})();</script><style>html.admin-i18n-wait body{visibility:hidden}</style>`);
+  return raw(`<script nonce="${cspNonce()}">(function(){try{if(localStorage.getItem('sm_admin_lang')==='en'){var d=document.documentElement;d.className+=' admin-i18n-wait';d.setAttribute('data-admin-lang','en');}}catch(e){}})();</script><style>html.admin-i18n-wait body{visibility:hidden}</style>`);
 }
 function langScript(settings: Settings) {
   if (!adminLangOn(settings)) return '';
@@ -253,7 +254,7 @@ function adminLayout({ settings, user, title, body, active, bare, readOnly, path
   if (bare) {
     return '<!doctype html>' + html`<html lang="bn"><head>${head(`${title} | Admin`, settings)}${langHead(settings)}</head>
 <body class="admin admin-auth">${adminLangOn(settings) ? html`<div class="bare-lang">${langSwitch(settings)}</div>` : ''}<main class="admin-bare">${body}</main>
-<script src="/js/admin.js?v=${ASSET_V}" defer></script>${langScript(settings)}</body></html>`.s;
+<script src="/js/admin.js?v=${ASSET_V}" defer></script><script src="/js/page-actions.js?v=${ASSET_V}" defer></script>${langScript(settings)}</body></html>`.s;
   }
   const dashTabs = visible(user, 'dashboard') && visible(user, 'marketing'); // both tabs shown on the dashboard
   const groups = MENU.map((g) => ({ ...g, items: g.items.map((it) => resolveItem(user, it)).filter((it) => it && !(dashTabs && it[3] === 'visitors')) })).filter((g) => g.items.length);
@@ -262,7 +263,7 @@ function adminLayout({ settings, user, title, body, active, bare, readOnly, path
   if (onHome) active = 'home'; // visitor analytics lights up "ড্যাশবোর্ড" in the menu
   return '<!doctype html>' + html`<html lang="bn"><head>${head(`${title} | Admin`, settings)}${langHead(settings)}</head>
 <body class="admin">
-<script>try{if(localStorage.getItem('sm_side_hidden')==='1')document.body.classList.add('side-hidden')}catch(e){}</script>
+<script nonce="${cspNonce()}">try{if(localStorage.getItem('sm_side_hidden')==='1')document.body.classList.add('side-hidden')}catch(e){}</script>
 <aside class="side" id="side" aria-label="Admin মেনু">
   <button class="side-x" type="button" data-side-toggle aria-label="মেনু বন্ধ করুন" title="মেনু বন্ধ করুন">✕</button>
   <a class="side-logo logo" href="/admin" translate="no">${logoMark(settings)}<small>Admin</small></a>
@@ -303,7 +304,7 @@ function adminLayout({ settings, user, title, body, active, bare, readOnly, path
   <main class="admin-main" id="main">${readOnly ? html`<p class="flash read-only-note" role="note">👁️ এই পেজে আপনার শুধু <b>দেখার</b> অনুমতি আছে — কিছু সেভ, বদল বা মুছতে পারবেন না।</p>` : ''}${onHome ? homeTabs(user, tabActive) : pageTabs(user, active, path)}${body}</main>
 </div>
 <div class="toast" role="status" aria-live="polite" data-toast></div>
-<script src="/js/admin.js?v=${ASSET_V}" defer></script>${langScript(settings)}
+<script src="/js/admin.js?v=${ASSET_V}" defer></script><script src="/js/page-actions.js?v=${ASSET_V}" defer></script>${langScript(settings)}
 </body></html>`.s;
 }
 

@@ -7,6 +7,7 @@
 // ---------------------------------------------------------------- visitor IP
 // On Vercel the platform itself writes x-real-ip / x-vercel-forwarded-for, so a visitor can't fake them.
 import * as crypto from 'node:crypto';
+import { AsyncLocalStorage } from 'node:async_hooks';
 import type { IncomingMessage } from 'node:http';
 import type { DbRow, Param } from './pg';
 
@@ -125,6 +126,25 @@ const ADMIN_CSP = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-
   + "font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self'; frame-src 'self' https://www.youtube-nocookie.com https://www.youtube.com; "
   + "object-src 'none'; base-uri 'self'; frame-ancestors 'self'; form-action 'self'";
 
+// Admin pages, stricter still (owner, 2026-10-17): no 'unsafe-inline' for scripts. Each admin page gets a fresh random
+// "nonce"; only the <script> tags our own templates write carry it (nonce="${cspNonce()}"), so a script someone
+// managed to slip into a product name, an order note or a review would not run even if escaping ever missed it.
+// Inline onclick="…" attributes are not allowed either — use data-print / data-autosubmit / data-back (public/js/page-actions.js).
+// tests/csp.test.ts checks every admin template for a <script> without the nonce and for on…= attributes.
+const nonceStore = new AsyncLocalStorage<{ nonce: string }>();
+/** Starts a nonce for this request (admin only); the rest of the request sees it through cspNonce(). */
+function startNonce(): string {
+  const nonce = crypto.randomBytes(16).toString('base64');
+  nonceStore.enterWith({ nonce });
+  return nonce;
+}
+/** The current admin page's nonce ('' outside an admin request). */
+function cspNonce(): string { return nonceStore.getStore()?.nonce || ''; }
+function adminCsp(nonce: string): string {
+  if (!nonce) return ADMIN_CSP; // never break a page because no nonce was made
+  return ADMIN_CSP.replace("script-src 'self' 'unsafe-inline'", `script-src 'self' 'nonce-${nonce}'`) + "; script-src-attr 'none'; report-uri /api/csp-report";
+}
+
 // Forms in the admin must come from this same site (stops other websites from submitting forms as you).
 function sameSite(req: Req): boolean {
   const host = String(req.headers['x-forwarded-host'] || req.headers.host || '').split(',')[0].trim().toLowerCase();
@@ -139,4 +159,4 @@ function safeEqual(a: unknown, b: unknown): boolean {
   return crypto.timingSafeEqual(x, y) && String(a ?? '').length > 0;
 }
 
-export { clientIp, hit, blocked, clear, encrypt, decrypt, isEncrypted, hasKey, keyFingerprint, safeUrl, imageKind, BASE_HEADERS, ADMIN_CSP, sameSite, safeEqual };
+export { startNonce, cspNonce, adminCsp, clientIp, hit, blocked, clear, encrypt, decrypt, isEncrypted, hasKey, keyFingerprint, safeUrl, imageKind, BASE_HEADERS, ADMIN_CSP, sameSite, safeEqual };

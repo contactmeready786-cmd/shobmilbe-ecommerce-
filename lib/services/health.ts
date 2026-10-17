@@ -9,6 +9,8 @@ import * as N from './notify';
 import * as security from '../security';
 import { bn } from '../util';
 import * as ik from './imagekit';
+import * as SMS from './sms';
+import { databaseTls, type TlsState } from '../pg';
 import type { Settings } from '../types';
 
 export const DEFAULT_LIMIT_MB = 500; // Supabase free plan
@@ -24,6 +26,8 @@ export type Health = {
   connections: number | null; maxConnections: number | null; connLevel: Level;
   backupAt: Date | null; backupDays: number | null; backupLevel: Level;
   errors24: ErrorRow[]; errors7: ErrorRow[]; errorLevel: Level;
+  sms: SMS.PhoneStatus | null;
+  tls: TlsState; tlsLevel: Level;
   ik: null | { bandwidthBytes: number; bandwidthLimit: number; bwLevel: Level; storageBytes: number; storageLimit: number; storageLevel: Level; since: string };
   checkedAt: Date;
 };
@@ -43,6 +47,8 @@ export function errorLevel(rows: { n: number }[]): Level {
   const top = rows.reduce((m, r) => Math.max(m, Number(r.n) || 0), 0);
   return top >= 30 ? 'bad' : top >= 5 ? 'warn' : 'ok';
 }
+/** The database connection's certificate: checked = ok; a Supabase certificate that failed the check = bad. */
+export function tlsLevelFor(t: TlsState): Level { return t.problem ? 'bad' : 'ok'; }
 export function levelFor(share: number): Level { return share >= BAD_AT ? 'bad' : share >= WARN_AT ? 'warn' : 'ok'; }
 
 async function ping(): Promise<number | null> {
@@ -74,6 +80,7 @@ async function load(settings: Settings): Promise<Health> {
           GROUP BY path, message ORDER BY 3 DESC LIMIT 10`).catch(() => []),
     ik.usage().catch(() => null),
   ]);
+  const sms = await SMS.phoneStatus(settings).catch(() => null);
   const lims = ikLimits(settings);
   const dbBytes = Number(size?.bytes || 0);
   const lim = limitBytes(settings);
@@ -90,6 +97,8 @@ async function load(settings: Settings): Promise<Health> {
     connLevel: connections !== null && maxConnections ? levelFor(connections / maxConnections) : 'ok',
     backupAt, backupDays, backupLevel: backupDays === null ? 'bad' : backupDays > BACKUP_WARN_DAYS ? 'warn' : 'ok',
     errors24: errors24 as ErrorRow[], errors7: errors7 as ErrorRow[], errorLevel: errorLevel(errors24 as ErrorRow[]),
+    sms,
+    tls: databaseTls(), tlsLevel: tlsLevelFor(databaseTls()),
     ik: ikUse ? {
       bandwidthBytes: ikUse.bandwidthBytes, bandwidthLimit: lims.bandwidth, bwLevel: levelFor(ikUse.bandwidthBytes / lims.bandwidth),
       storageBytes: ikUse.storageBytes, storageLimit: lims.storage, storageLevel: levelFor(ikUse.storageBytes / lims.storage), since: ikUse.since,
@@ -165,6 +174,14 @@ export function warnings(h: Health): Warning[] {
     out.push({ key: 'errors', level: h.errorLevel, title: `${top[0]?.path || 'একটা পেজ'}-এ বারবার এরর হচ্ছে (২৪ ঘণ্টায় ${bn(top[0]?.n || 0)} বার)`,
       text: `যেসব পেজে কাস্টমার "একটা সমস্যা হয়েছে" দেখছেন:\n${top.map((r) => `• ${r.path} — ${bn(r.n)} বার: ${r.message}`).join('\n')}\nClaude-কে এই লেখাটা দেখালেই ঠিক করে দিতে পারবে।` });
   }
+  if (h.tlsLevel === 'bad') out.push({ key: 'db_tls', level: 'bad', title: 'ডাটাবেসের সার্টিফিকেট যাচাইয়ে মিলছে না',
+    text: `দোকান ডাটাবেসের সাথে এনক্রিপ্ট করেই কথা বলছে, কিন্তু অপর পাশে যে আসল Supabase, সেটা প্রমাণ হয়নি (${h.tls.problem})।\nসাধারণত এর মানে Supabase তাদের সার্টিফিকেট বদলেছে — তবে কেউ মাঝখানে বসার চেষ্টা করলেও এমন হয়।\nকরণীয়: Claude-কে এই ইমেইলটা দেখান; ততক্ষণ দোকান স্বাভাবিকভাবে চলবে।` });
+  if (h.sms && h.sms.on && (h.sms.phoneLevel === 'warn' || h.sms.phoneLevel === 'bad')) out.push({ key: 'sms_phone', level: h.sms.phoneLevel,
+    title: `SMS পাঠানোর ফোন: ${h.sms.phoneWhy}`,
+    text: 'এই ফোন থেকেই কাস্টমারের চেকআউট কোড (OTP) যায়। ফোন বন্ধ থাকলে গেস্ট কাস্টমার অর্ডার শেষ করতে পারবেন না।\nকরণীয়: ফোনটা চালু আছে কিনা, WiFi আছে কিনা, চার্জে আছে কিনা দেখুন, আর textbee অ্যাপটা একবার খুলুন।' });
+  if (h.sms && h.sms.on && h.sms.sendLevel !== 'ok') out.push({ key: 'sms_send', level: h.sms.sendLevel,
+    title: `গত ৬ ঘণ্টায় ${bn(h.sms.failed6h)}টা SMS যায়নি`,
+    text: `সফল: ${bn(h.sms.sent6h)}টা, ব্যর্থ: ${bn(h.sms.failed6h)}টা। চেকআউটের কোড না গেলে কাস্টমার অর্ডার করতে পারবেন না।\nকারণ দেখুন: Admin → মার্কেটিং → কাস্টমারকে মেসেজ → SMS (লগ)। ফোনের ব্যালেন্সও দেখুন।` });
   if (h.ik && h.ik.bwLevel !== 'ok') out.push({ key: 'ik_bw', level: h.ik.bwLevel, title: `ছবির ব্যান্ডউইথ এই মাসে ${bn(Math.round(100 * h.ik.bandwidthBytes / h.ik.bandwidthLimit))}% শেষ`,
     text: `ImageKit-এ এই মাসে ${bn(gb(h.ik.bandwidthBytes))} GB / ${bn(gb(h.ik.bandwidthLimit))} GB খরচ হয়েছে। শেষ হয়ে গেলে মাসের বাকি সময় ছবি না-ও দেখাতে পারে।` });
   if (h.ik && h.ik.storageLevel !== 'ok') out.push({ key: 'ik_storage', level: h.ik.storageLevel, title: `ImageKit-এর জায়গা ${bn(Math.round(100 * h.ik.storageBytes / h.ik.storageLimit))}% ভরা`,

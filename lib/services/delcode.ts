@@ -21,7 +21,11 @@ const ACTIONS: Record<string, string> = {
   trash_empty: 'পুরো রিসাইকেল বিন খালি করা',
   trash_all_products: 'দোকানের সব পণ্য একসাথে মুছে বিনে পাঠানো',
   test_clear: 'টেস্টের ইতিহাস স্থায়ীভাবে মোছা',
+  // not a delete, but just as dangerous in the wrong hands: seeing the shop's secret key (owner, 2026-10-17)
+  show_key: 'দোকানের গোপন চাবি (ENCRYPTION_KEY) দেখা',
 };
+// actions that don't delete anything: the e-mail calls the code what it is
+const NOT_DELETE = new Set(['show_key']);
 
 // "contact.shobmilbe@gmail.com" → "co••••••be@gmail.com"
 function masked(e: Loose = CODE_EMAIL) {
@@ -59,28 +63,31 @@ async function send(ctx: AdminCtx, action?: Loose, detail: Loose = '') {
     [uid, action, hash(code, salt), String(ctx.ip || '').slice(0, 60), MINUTES]);
 
   const what = ACTIONS[action] + (detail ? ` — ${String(detail).slice(0, 200)}` : '');
-  const text = `মোছার কোড: ${code}\n\n`
-    + `কী মোছা হবে: ${what}\n`
+  const name = NOT_DELETE.has(action) ? 'নিরাপত্তা কোড' : 'মোছার কোড';
+  const whatLabel = NOT_DELETE.has(action) ? 'কী করা হবে' : 'কী মোছা হবে';
+  const warnDo = NOT_DELETE.has(action) ? 'আপনার দোকানের গোপন তথ্য দেখতে' : 'কিছু মুছতে';
+  const text = `${name}: ${code}\n\n`
+    + `${whatLabel}: ${what}\n`
     + `কে চাইলো: ${ctx.user.name || ctx.user.username || 'অ্যাডমিন'}\n`
     + `কোথা থেকে (IP): ${ctx.ip || '—'}\n`
     + `ডিভাইস: ${device(ctx) || '—'}\n`
     + `সময়: ${when()} (ঢাকা)\n\n`
     + `কোডটি ${bn(MINUTES)} মিনিট চলবে, একবারই কাজ করবে।\n\n`
-    + `⚠️ আপনি নিজে না চেয়ে থাকলে কেউ আপনার অ্যাডমিনে ঢুকে কিছু মুছতে চাইছে। কোডটি কাউকে দেবেন না — এখনই অ্যাডমিনের পাসওয়ার্ড বদলান আর Admin → নিরাপত্তা থেকে অন্য সব ডিভাইস লগআউট করুন।`;
+    + `⚠️ আপনি নিজে না চেয়ে থাকলে কেউ আপনার অ্যাডমিনে ঢুকে ${warnDo} চাইছে। কোডটি কাউকে দেবেন না — এখনই অ্যাডমিনের পাসওয়ার্ড বদলান আর Admin → নিরাপত্তা থেকে অন্য সব ডিভাইস লগআউট করুন।`;
   const e = notify.escapeHtml;
   const htmlBody = `<div style="font-family:sans-serif;font-size:15px;line-height:1.6">
-<p>মোছার কোড:</p><p style="font-size:30px;font-weight:700;letter-spacing:6px;margin:6px 0 14px">${code}</p>
-<p><b>কী মোছা হবে:</b> ${e(what)}<br><b>কে চাইলো:</b> ${e(ctx.user.name || ctx.user.username || 'অ্যাডমিন')}<br>
+<p>${name}:</p><p style="font-size:30px;font-weight:700;letter-spacing:6px;margin:6px 0 14px">${code}</p>
+<p><b>${whatLabel}:</b> ${e(what)}<br><b>কে চাইলো:</b> ${e(ctx.user.name || ctx.user.username || 'অ্যাডমিন')}<br>
 <b>কোথা থেকে (IP):</b> ${e(ctx.ip || '—')}<br><b>ডিভাইস:</b> ${e(device(ctx) || '—')}<br><b>সময়:</b> ${e(when())} (ঢাকা)</p>
 <p>কোডটি ${bn(MINUTES)} মিনিট চলবে, একবারই কাজ করবে।</p>
-<p style="color:#b42318"><b>⚠️ আপনি নিজে না চেয়ে থাকলে</b> কেউ আপনার অ্যাডমিনে ঢুকে কিছু মুছতে চাইছে। কোডটি কাউকে দেবেন না — এখনই অ্যাডমিনের পাসওয়ার্ড বদলান আর Admin → নিরাপত্তা থেকে অন্য সব ডিভাইস লগআউট করুন।</p></div>`;
+<p style="color:#b42318"><b>⚠️ আপনি নিজে না চেয়ে থাকলে</b> কেউ আপনার অ্যাডমিনে ঢুকে ${warnDo} চাইছে। কোডটি কাউকে দেবেন না — এখনই অ্যাডমিনের পাসওয়ার্ড বদলান আর Admin → নিরাপত্তা থেকে অন্য সব ডিভাইস লগআউট করুন।</p></div>`;
   try {
-    await notify.sendEmail(ctx.settings, `🔐 মোছার কোড ${code} — ${ctx.settings.store_name || 'সবমিলবে'}`, text, htmlBody, CODE_EMAIL);
+    await notify.sendEmail(ctx.settings, `🔐 ${name} ${code} — ${ctx.settings.store_name || 'সবমিলবে'}`, text, htmlBody, CODE_EMAIL);
   } catch (err: Loose) {
     await db.logIntegration('notify-email', 'delete code', false, err.message).catch(() => {});
     throw new Error('কোডের ইমেইল পাঠানো গেল না: ' + err.message);
   }
-  await db.logActivity(uid, 'delete_code', 'security', null, `মোছার কোড পাঠানো হলো (${ACTIONS[action]}) · ${ctx.ip || ''}`).catch(() => {});
+  await db.logActivity(uid, 'delete_code', 'security', null, `${name} পাঠানো হলো (${ACTIONS[action]}) · ${ctx.ip || ''}`).catch(() => {});
   return { to: masked(), minutes: MINUTES };
 }
 
@@ -89,7 +96,7 @@ async function check(ctx: AdminCtx, action?: Loose, typed?: Loose) {
   const uid = ctx.user.id;
   const code = String(typed || '').replace(/[^\d০-৯]/g, '').replace(/[০-৯]/g, (d) => String('০১২৩৪৫৬৭৮৯'.indexOf(d))).slice(0, 6);
   if (await security.blocked(db, 'delcode-fail:' + uid, FAIL_MAX)) return 'অনেকবার ভুল কোড দেওয়া হয়েছে — এক ঘণ্টা মোছা বন্ধ থাকবে।';
-  if (code.length !== 6) return `মোছার কোড দিন — কোডটি ${masked()} ঠিকানায় যায়।`;
+  if (code.length !== 6) return `ইমেইলে আসা ৬ সংখ্যার কোড দিন — কোডটি ${masked()} ঠিকানায় যায়।`;
   const row = await db.one(`SELECT id, code_hash, tries FROM delete_codes WHERE staff_id=$1 AND action=$2 AND used_at IS NULL AND expires_at > now()
     ORDER BY id DESC LIMIT 1`, [uid, action]);
   if (!row) return 'কোডটির মেয়াদ শেষ বা আগেই ব্যবহার হয়েছে — নতুন কোড চান।';

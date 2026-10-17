@@ -6,6 +6,7 @@
 //  2. the groups of people (audiences) the shop already has, with exact steps to use them,
 //  3. which products to put money behind — worked out from the shop's own numbers (the "algorithm"),
 //  4. what is happening on the site right now.
+import { cspNonce } from '../security';
 import { html, bn, fmtDate } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
@@ -137,7 +138,7 @@ ${list('📈 এ সপ্তাহে চাহিদা বাড়ছে', '
 ${list('😴 স্টক আছে, কিন্তু কেউ দেখছে না', 'ভালো ছবি, ছোট ভিডিও বা ফ্ল্যাশ সেলে দিন — নইলে টাকা আটকে থাকবে।', r.unseen, 'সব পণ্যই কেউ না কেউ দেখছে। 👍')}
 
 <p class="small muted">হিসাব: আপনার নিজের সাইটের ভিজিটর আর অর্ডারের ডাটা থেকে, প্রতিবার এই পেজ খুললে নতুন করে। শেষ হিসাব: ${fmtDate(new Date())}</p>
-<script>
+<script nonce="${cspNonce()}">
 (function () {
   var box = document.querySelector('[data-live]'); if (!box) return;
   setInterval(function () {

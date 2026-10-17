@@ -10,6 +10,7 @@ const base = (over: Partial<H.Health> = {}): H.Health => ({
   pingMs: 4, pingLevel: 'ok', connections: 5, maxConnections: 60, connLevel: 'ok',
   backupAt: new Date(), backupDays: 0.3, backupLevel: 'ok', errors24: [], errors7: [], errorLevel: 'ok',
   ik: { bandwidthBytes: 2 * 1024 ** 3, bandwidthLimit: 20 * 1024 ** 3, bwLevel: 'ok', storageBytes: 0.5 * 1024 ** 3, storageLimit: 3 * 1024 ** 3, storageLevel: 'ok', since: '2026-10-01' },
+  sms: null, tls: { checked: true, supabase: true, problem: '', at: new Date() }, tlsLevel: 'ok',
   checkedAt: new Date(), ...over,
 });
 
@@ -79,4 +80,31 @@ test('ImageKit: free plan limits, warning before images stop', () => {
 
 test('ImageKit not reachable: no false warning', () => {
   assert.deepEqual(H.warnings(base({ ik: null })), []);
+});
+
+// ---- added 2026-10-17: database certificate and the SMS phone ----
+const phone = (over: Record<string, unknown> = {}) => ({
+  provider: 'textbee', on: true, lastSeen: new Date(), minutesAgo: 5, battery: 80, charging: false, model: 'Samsung A10',
+  phoneLevel: 'ok', phoneWhy: '', failed6h: 0, sent6h: 4, lastOk: new Date(), sendLevel: 'ok', ...over,
+}) as never;
+
+test('database certificate that failed the check is a red alarm', () => {
+  const tls = { checked: false, supabase: true, problem: 'SELF_SIGNED_CERT_IN_CHAIN', at: new Date() };
+  assert.equal(H.tlsLevelFor(tls), 'bad');
+  assert.equal(H.tlsLevelFor({ ...tls, checked: true, problem: '' }), 'ok');
+  const w = H.warnings(base({ tls, tlsLevel: 'bad' }));
+  assert.equal(w.length, 1);
+  assert.equal(w[0].key, 'db_tls');
+  assert.equal(w[0].level, 'bad');
+});
+
+test('SMS phone: quiet phone and failing codes are warned about, a healthy phone is not', () => {
+  assert.deepEqual(H.warnings(base({ sms: phone() })), []);
+  const quiet = H.warnings(base({ sms: phone({ phoneLevel: 'bad', phoneWhy: 'ফোনটা ৫ ঘণ্টা ধরে সাড়া দিচ্ছে না' }) }));
+  assert.equal(quiet[0].key, 'sms_phone');
+  assert.equal(quiet[0].level, 'bad');
+  const failing = H.warnings(base({ sms: phone({ sendLevel: 'bad', failed6h: 3, sent6h: 0 }) }));
+  assert.equal(failing[0].key, 'sms_send');
+  // SMS switched off: nothing to warn about
+  assert.deepEqual(H.warnings(base({ sms: phone({ on: false, phoneLevel: 'bad', sendLevel: 'bad' }) })), []);
 });

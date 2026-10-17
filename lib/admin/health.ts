@@ -36,6 +36,8 @@ ${warns.length ? html`${warns.map((w) => html`<p class="flash ${w.level === 'bad
     ${line(h.pingLevel, `গতি: ${h.pingMs === null ? 'সাড়া দিচ্ছে না!' : bn(h.pingMs) + ' মিলিসেকেন্ড'}`,
       h.pingMs === null ? 'ডাটাবেসে পৌঁছানো যাচ্ছে না।' : h.pingLevel === 'ok' ? 'দ্রুত — সাইট আর ডাটাবেস একই জায়গায় (সিঙ্গাপুর)।' : 'স্বাভাবিকের চেয়ে ধীর।')}
     ${h.connections !== null ? line(h.connLevel, `খোলা সংযোগ: ${bn(h.connections)} / ${bn(h.maxConnections)}`, 'সব শেষ হয়ে গেলে সাইট খুলবে না; সাধারণত অনেক কম থাকে।') : ''}
+    ${h.tls.supabase ? line(h.tlsLevel, h.tls.checked ? 'সংযোগ যাচাই করা: অপর পাশে আসল Supabase 🔒' : 'সংযোগ এনক্রিপ্টেড, কিন্তু সার্টিফিকেট মেলেনি',
+      h.tls.checked ? 'দোকান আর ডাটাবেসের মাঝখানে কেউ বসে তথ্য পড়তে বা বদলাতে পারবে না।' : `কারণ: ${h.tls.problem}। Supabase সার্টিফিকেট বদলালে এমন হয় — Claude-কে জানান।`) : ''}
     ${line(h.backupLevel, 'শেষ ভালো ব্যাকআপ', h.backupAt ? `${fmtDate(h.backupAt)} — প্রতিদিন রাতে নিজে থেকে হয়` : 'কোনো ব্যাকআপ নেই!', ['/admin/backup', 'ব্যাকআপ'])}
   </ul>
   <details><summary class="small"><b>সবচেয়ে বেশি জায়গা নিচ্ছে যেগুলো</b></summary>
@@ -60,6 +62,21 @@ ${warns.length ? html`${warns.map((w) => html`<p class="flash ${w.level === 'bad
   : html`<ul class="sec-list">${line('off', 'ImageKit-এর হিসাব পাওয়া যায়নি', ik.configured() ? 'ImageKit এই মুহূর্তে উত্তর দেয়নি — কিছুক্ষণ পর আবার মাপুন।' : `ImageKit জোড়া নেই: ${ik.problem()}`)}</ul>`}
 </section>
 </div>
+
+<section class="panel">
+  <h2>📱 SMS পাঠানোর ফোন (চেকআউট কোড)</h2>
+  <ul class="sec-list">
+  ${!h.sms || !h.sms.on ? line('off', 'SMS বন্ধ আছে', 'চালু করলে এখানে ফোনের অবস্থা দেখাবে।', ['/admin/marketing/sms', 'SMS সেটিংস'])
+    : html`${h.sms.provider === 'textbee'
+      ? line(h.sms.phoneLevel === 'off' ? 'off' : h.sms.phoneLevel,
+        h.sms.phoneLevel === 'ok' ? `ফোন চালু আছে${h.sms.model ? ` (${h.sms.model})` : ''}` : h.sms.phoneLevel === 'off' ? 'ফোনের খবর এই মুহূর্তে পাওয়া যায়নি' : h.sms.phoneWhy,
+        `${h.sms.lastSeen ? `শেষ সাড়া: ${fmtDate(h.sms.lastSeen)}` : ''}${h.sms.battery !== null ? ` · চার্জ ${bn(h.sms.battery)}%${h.sms.charging ? ' (চার্জ হচ্ছে)' : ''}` : ''} — ফোন দেড় ঘণ্টার বেশি চুপ থাকলে বা চার্জ ২০%-এর নিচে নামলে ইমেইলে জানানো হয়।`,
+        ['/admin/marketing/sms', 'SMS সেটিংস'])
+      : line('off', 'এই SMS কোম্পানির ফোনের অবস্থা দেখা যায় না', 'শুধু textbee-তে ফোনের অবস্থা দেখা যায়; নিচের হিসাব সব কোম্পানিতে কাজ করে।')}
+    ${line(h.sms.sendLevel, `গত ৬ ঘণ্টা: ${bn(h.sms.sent6h)}টা গেছে, ${bn(h.sms.failed6h)}টা যায়নি`,
+      `${h.sms.lastOk ? `শেষ সফল SMS: ${fmtDate(h.sms.lastOk)}। ` : ''}পরপর ৩টা কোড না গেলে আধা ঘণ্টার মধ্যে ইমেইলে জানানো হয়।`, ['/admin/marketing/sms', 'SMS লগ'])}`}
+  </ul>
+</section>
 
 <section class="panel">
   <h2>🐞 যেসব পেজে এরর হচ্ছে ${h.errors7.length ? ui.pill(`৭ দিনে ${bn(h.errors7.reduce((a, r) => a + Number(r.n), 0))} বার`, h.errorLevel === 'ok' ? 'pill-pending' : 'pill-cancelled') : ui.pill('কোনো এরর নেই', 'pill-delivered')}</h2>

@@ -46,11 +46,11 @@ const round2 = (n: unknown): number => Math.round(Number(n || 0) * 100) / 100;
 // A product price as the shop keeps it: below ৳10 paisa stay (৳0.25, ৳1.75); from ৳10 up any paisa go UP
 // to the next whole taka (৳10.04 → ৳11, ৳10.50 → ৳11). Used for typed, imported, bulk-changed and sale prices.
 function shopPrice(v: unknown): number {
-  const n = Math.max(0, round2(v));
+  const n = Math.max(0, round2(v) || 0); // not a number (e.g. "৳") → 0, never NaN
   return n >= 10 ? Math.ceil(n - 1e-9) : n;
 }
 // An order total in whole taka: paisa are dropped as a rounding discount (৳123.50 → ৳123), never added.
-function wholeTaka(v: unknown): number { return Math.max(0, Math.floor(round2(v) + 1e-9)); }
+function wholeTaka(v: unknown): number { return Math.max(0, Math.floor((round2(v) || 0) + 1e-9)); }
 // The words for the rounding line on checkout, order page and invoice.
 function roundOffLabel(r: number): string { return r > 0 ? 'রাউন্ড ফিগার' : 'রাউন্ড ফিগারের জন্য ছাড়'; }
 // The order total is rounded to whole taka; this is the difference (e.g. +0.25 or -0.25), 0 when none.

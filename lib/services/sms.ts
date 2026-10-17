@@ -4,7 +4,7 @@
 // Every SMS is written to sms_log (success or the company's error), so the owner can see what happened.
 import * as db from '../db';
 import { safeFetch } from './safefetch';
-import { normalizePhone, validPhone, str } from '../util';
+import { normalizePhone, validPhone, str, bn } from '../util';
 import type { Body, Id, Loose, Settings } from '../types';
 
 const PROVIDERS: Record<string, Loose> = {
@@ -69,6 +69,12 @@ function readAnswer(p?: Loose, status?: Loose, text?: Loose) {
   return /error|invalid|fail/i.test(t) ? { ok: false, msg: t.slice(0, 150) } : { ok: true, msg: t.slice(0, 120) || 'পাঠানো হয়েছে' };
 }
 
+// Tests only (tests/*.db.test.ts): replace the phone / SMS company with a fake, so a test can read the code that
+// "went out" without sending a real SMS. Never set by the shop itself.
+type FakeSender = (phone: string, text: string) => Promise<{ ok: boolean; msg: string; id?: string }>;
+let fakeSender: FakeSender | null = null;
+function setFakeSender(fn: FakeSender | null): void { fakeSender = fn; }
+
 // Send one SMS. Never throws — returns { ok, msg } and writes the log.
 async function send(settings: Settings, phone?: Loose, text?: Loose, { kind = 'manual', orderId = null, staffId = null }: Body = {}) {
   const r = ready(settings);
@@ -78,7 +84,9 @@ async function send(settings: Settings, phone?: Loose, text?: Loose, { kind = 'm
   if (!r.ok) result = { ok: false, msg: r.why };
   else if (!validPhone(ph)) result = { ok: false, msg: 'মোবাইল নম্বর ঠিক নেই' };
   else if (!message) result = { ok: false, msg: 'লেখা খালি' };
-  else {
+  else if (fakeSender) {
+    try { result = await fakeSender(ph, message); } catch (e: Loose) { result = { ok: false, msg: 'সংযোগ হয়নি: ' + String(e.message || e).slice(0, 120) }; }
+  } else {
     try {
       const res = r.p === 'textbee'
         ? await safeFetch('https://api.textbee.dev/api/v1/gateway/send-sms', {
@@ -153,4 +161,65 @@ async function androidState(settings: Settings, id?: Id) {
   return { state: String((j && j.state) || ''), error: rc.error ? String(rc.error).slice(0, 150) : '' };
 }
 
-export { PROVIDERS, ORDER_EVENTS, ready, send, orderEvent, fill, parts, androidState, mktLeft };
+// 📱 Is the phone that sends the SMS still alive? (owner, 2026-10-17: checkout codes stop the moment the old phone
+// switches off, loses WiFi or runs out of battery — the owner must hear about it before customers do.)
+//   textbee: its server keeps the phone's last "heartbeat" (the app checks in about every 30 minutes) and battery.
+//   any provider: the SMS log — several failed codes in a row and none sent means something is wrong.
+// Never throws; null fields = not known.
+type PhoneStatus = {
+  provider: string; on: boolean;
+  lastSeen: Date | null; minutesAgo: number | null; battery: number | null; charging: boolean | null; model: string;
+  phoneLevel: 'ok' | 'warn' | 'bad' | 'off'; phoneWhy: string;
+  failed6h: number; sent6h: number; lastOk: Date | null; sendLevel: 'ok' | 'warn' | 'bad';
+};
+/** Pure rule, so it can be tested: how worrying is a phone last seen `minutes` ago with this battery? */
+function phoneLevelFor(minutes: number | null, battery: number | null, charging: boolean | null, enabled = true): { level: 'ok' | 'warn' | 'bad'; why: string } {
+  if (!enabled) return { level: 'bad', why: 'textbee-তে ফোনটা বন্ধ (disabled) করা আছে' };
+  if (minutes === null) return { level: 'warn', why: 'ফোনটা কখনো textbee-তে সাড়া দেয়নি' };
+  if (minutes > 240) return { level: 'bad', why: `ফোনটা ${bn(Math.round(minutes / 60))} ঘণ্টা ধরে সাড়া দিচ্ছে না` };
+  if (minutes > 90) return { level: 'warn', why: `ফোনটা ${bn(Math.round(minutes))} মিনিট ধরে সাড়া দিচ্ছে না` };
+  if (battery !== null && battery <= 20 && charging === false) return { level: 'warn', why: `ফোনের চার্জ ${bn(battery)}% — চার্জারে লাগান` };
+  return { level: 'ok', why: '' };
+}
+/** Pure rule: failed vs sent codes in the last 6 hours. */
+function sendLevelFor(failed: number, sent: number): 'ok' | 'warn' | 'bad' {
+  if (failed >= 3 && sent === 0) return 'bad';
+  if (failed >= 2 && failed > sent) return 'warn';
+  return 'ok';
+}
+async function phoneStatus(settings: Settings): Promise<PhoneStatus> {
+  const p = String(settings.sms_provider || '');
+  const out: PhoneStatus = { provider: p, on: settings.sms_on === '1', lastSeen: null, minutesAgo: null, battery: null, charging: null, model: '',
+    phoneLevel: 'off', phoneWhy: '', failed6h: 0, sent6h: 0, lastOk: null, sendLevel: 'ok' };
+  const log = await db.one(`SELECT count(*) FILTER (WHERE NOT ok AND created_at > now() - interval '6 hours')::int AS f,
+      count(*) FILTER (WHERE ok AND created_at > now() - interval '6 hours')::int AS s, max(created_at) FILTER (WHERE ok) AS last_ok
+    FROM sms_log WHERE kind <> 'bulk' AND coalesce(detail, '') NOT IN ('SMS বন্ধ আছে', 'মোবাইল নম্বর ঠিক নেই', 'লেখা খালি') AND created_at > now() - interval '30 days'`).catch(() => null);
+  if (log) { out.failed6h = Number(log.f) || 0; out.sent6h = Number(log.s) || 0; out.lastOk = log.last_ok ? new Date(log.last_ok) : null; }
+  out.sendLevel = out.on ? sendLevelFor(out.failed6h, out.sent6h) : 'ok';
+  if (!out.on || p !== 'textbee' || !settings.sms_api_key) return out;
+  try {
+    const res = await safeFetch('https://api.textbee.dev/api/v1/gateway/devices', {
+      maxBytes: 256 * 1024, timeoutMs: 8000, maxRedirects: 0,
+      headers: { Accept: 'application/json', 'x-api-key': String(settings.sms_api_key || '').trim() },
+    });
+    if (res.status === 401 || res.status === 403) { out.phoneLevel = 'bad'; out.phoneWhy = 'textbee-র API Key মিলছে না'; return out; }
+    if (res.status < 200 || res.status >= 300) return out; // textbee itself busy: say nothing rather than a false alarm
+    const j = JSON.parse(res.body.toString('utf8'));
+    const list: Loose[] = Array.isArray(j?.data) ? j.data : [];
+    const want = String(settings.sms_sender_id || '').trim();
+    const d = list.find((x) => want && String(x._id) === want) || list.find((x) => x.isDefault && x.enabled) || list.find((x) => x.enabled) || list[0];
+    if (!d) { out.phoneLevel = 'bad'; out.phoneWhy = 'textbee-তে কোনো ফোন যুক্ত নেই'; return out; }
+    out.model = [d.brand, d.model].filter(Boolean).join(' ').slice(0, 60);
+    out.lastSeen = d.lastHeartbeat ? new Date(d.lastHeartbeat) : null;
+    out.minutesAgo = out.lastSeen && !Number.isNaN(out.lastSeen.getTime()) ? Math.max(0, (Date.now() - out.lastSeen.getTime()) / 60e3) : null;
+    const b = d.batteryInfo || {};
+    out.battery = Number.isFinite(Number(b.percentage)) && b.percentage !== null && b.percentage !== undefined ? Math.round(Number(b.percentage)) : null;
+    out.charging = typeof b.isCharging === 'boolean' ? b.isCharging : null;
+    const lv = phoneLevelFor(out.minutesAgo, out.battery, out.charging, d.enabled !== false);
+    out.phoneLevel = lv.level; out.phoneWhy = lv.why;
+  } catch (_) { /* unknown — no alarm */ }
+  return out;
+}
+
+export type { PhoneStatus };
+export { setFakeSender, phoneStatus, phoneLevelFor, sendLevelFor, PROVIDERS, ORDER_EVENTS, ready, send, orderEvent, fill, parts, androidState, mktLeft };

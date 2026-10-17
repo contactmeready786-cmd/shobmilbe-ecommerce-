@@ -1,5 +1,6 @@
 // Admin → স্টোর ডিজাইন → হোমপেজের সারি: the owner's own rows on the home page — add, edit, switch on/off,
 // move up/down among all rows (built-in ones too) and delete (to the recycle bin).
+import { cspNonce } from '../security';
 import { html, raw, int, bn, list as asList } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
@@ -127,7 +128,7 @@ ${r ? html`<section class="panel"><h2>👀 এই সারিতে এখন �
     : ui.empty('এই নিয়মে কোনো পণ্য পাওয়া যাচ্ছে না — ক্যাটাগরি/শব্দ/দাম বদলে দেখুন।')}
 </section>` : ''}
 ${r ? html`<form method="post" action="${BASE}/${r.id}/delete" data-confirm="&quot;${r.title}&quot; সারিটা মুছবেন? (রিসাইকেল বিনে যাবে)"><button class="btn btn-sm btn-danger">🗑️ এই সারি মুছুন</button></form>` : ''}
-<script>
+<script nonce="${cspNonce()}">
 (function () {
   var f = document.querySelector('[data-row-form]'); if (!f) return;
   var src = f.querySelector('[name=source]'), ref = f.querySelector('[data-ref]');

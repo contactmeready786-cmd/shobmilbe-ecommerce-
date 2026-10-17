@@ -10,6 +10,7 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import type { ConnectionOptions } from 'node:tls';
 import pg from 'pg';
+import { SUPABASE_ROOT_CA } from './data/supabase-ca';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- a row's columns depend on the query
 export type DbRow = Record<string, any>;
@@ -122,17 +123,29 @@ function parseConnectionString(str: string): ConnConfig {
   };
 }
 
-// Supabase signs its database certificates with its own root CA, which is not
-// in Node's default list. If DATABASE_CA_CERT (the PEM text from Supabase →
-// Database → SSL) is set, the certificate is fully checked against it.
-// Without it, Supabase connections stay encrypted but the certificate itself
-// is not verified.
-function tlsTrust(host: string): ConnectionOptions {
-  const ca = String(process.env.DATABASE_CA_CERT || '').replace(/\\n/g, '\n').trim();
-  if (ca) return { ca };
-  if (/supabase\.(com|co)$/.test(host)) return { rejectUnauthorized: false };
-  return {};
+// Is the database really the shop's Supabase, not someone in between? (owner, 2026-10-17)
+// Supabase signs its database certificates with its own root CA (Supabase Root 2021, bundled in lib/data/supabase-ca.ts,
+// public and the same for every project), so the certificate is now fully checked by default — nothing to set up.
+// DATABASE_CA_CERT in Vercel, when set, is used instead (e.g. after Supabase changes its root in 2031).
+// Safety net: if the check fails because of the certificate itself (never a wrong password or a network fault), the
+// shop does NOT go down — it connects encrypted-but-unchecked like before, and the owner is told at once
+// (Admin → সার্ভার ও ডাটাবেস shows ❌ and an e-mail goes out), because that is either Supabase changing its
+// certificate or someone trying to sit between the shop and its database.
+const CERT_ERRORS = /^(SELF_SIGNED_CERT_IN_CHAIN|DEPTH_ZERO_SELF_SIGNED_CERT|UNABLE_TO_VERIFY_LEAF_SIGNATURE|UNABLE_TO_GET_ISSUER_CERT(_LOCALLY)?|CERT_[A-Z_]+|ERR_TLS_CERT_ALTNAME_INVALID)$/;
+export function isCertError(e: unknown): boolean {
+  const code = String((e as { code?: unknown })?.code || '');
+  return CERT_ERRORS.test(code);
 }
+function tlsTrust(host: string, strict = true): ConnectionOptions {
+  const ca = String(process.env.DATABASE_CA_CERT || '').replace(/\\n/g, '\n').trim();
+  if (!/supabase\.(com|co)$/.test(host)) return ca ? { ca } : {};
+  if (!strict) return { rejectUnauthorized: false };
+  return { ca: ca || SUPABASE_ROOT_CA };
+}
+/** How the current database connection is protected — shown on Admin → সার্ভার ও ডাটাবেস. */
+export type TlsState = { checked: boolean; supabase: boolean; problem: string; at: Date | null };
+const tlsState: TlsState = { checked: false, supabase: false, problem: '', at: null };
+export function databaseTls(): TlsState { return { ...tlsState }; }
 
 // ---------- one connection ----------
 class Connection {
@@ -141,11 +154,13 @@ class Connection {
   private client: pg.Client;
   private queue: Promise<unknown> = Promise.resolve();
 
-  constructor(config: ConnConfig) {
+  strict: boolean;
+  constructor(config: ConnConfig, strict = true) {
     this.config = config;
+    this.strict = strict;
     this.client = new pg.Client({
       host: config.host, port: config.port, user: config.user, password: config.password, database: config.database,
-      ssl: config.ssl ? { servername: config.host, ...tlsTrust(config.host) } : false,
+      ssl: config.ssl ? { servername: config.host, ...tlsTrust(config.host, strict) } : false,
       types,
       connectionTimeoutMillis: 15000, // only the connecting itself may take at most 15 s
       keepAlive: true,
@@ -255,8 +270,25 @@ async function getConnection(): Promise<Connection> {
   if (!sharedPromise) {
     const url = pickDatabaseUrl();
     if (!url) throw new Error('DATABASE_URL is not set');
-    const conn = new Connection(parseConnectionString(url));
-    sharedPromise = conn.connect().then(() => { shared = conn; sharedPromise = null; return conn; },
+    const cfg = parseConnectionString(url);
+    const supabase = /supabase\.(com|co)$/.test(cfg.host);
+    const open = async (): Promise<Connection> => {
+      const conn = new Connection(cfg, true);
+      try {
+        await conn.connect();
+        Object.assign(tlsState, { checked: cfg.ssl, supabase, problem: '', at: new Date() });
+        return conn;
+      } catch (e) {
+        if (!cfg.ssl || !supabase || !isCertError(e)) throw e;
+        // the certificate didn't pass: keep the shop running (encrypted, unchecked) and raise the alarm
+        console.error('database certificate check failed', (e as { code?: string }).code);
+        const loose = new Connection(cfg, false);
+        await loose.connect();
+        Object.assign(tlsState, { checked: false, supabase, problem: String((e as { code?: string }).code || 'certificate'), at: new Date() });
+        return loose;
+      }
+    };
+    sharedPromise = open().then((conn) => { shared = conn; sharedPromise = null; return conn; },
       (e) => { sharedPromise = null; throw e; });
   }
   return sharedPromise;
@@ -290,4 +322,9 @@ export const transaction = <T>(fn: (tx: Tx) => Promise<T>): Promise<T> => {
   // Already inside a transaction: just run as part of it.
   return t ? fn(t) : withConnection((c) => c.transaction(fn));
 };
+/** Closes this server's database connection (tests and one-off tools; the shop itself never needs it). */
+export function closeConnection(): void {
+  if (shared) shared.end();
+  shared = null;
+}
 export { PgError, Connection, parseConnectionString, pickDatabaseUrl, databaseInfo };

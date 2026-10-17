@@ -51,8 +51,7 @@ ${fresh ? html`<section class="panel rc-fresh">
     <button class="btn btn-lg">${left ? '🔄 নতুন কোড বানান (আগেরগুলো বাতিল হবে)' : '✨ রিকভারি কোড বানান'}</button>
   </form>
   ${left && left <= 2 ? html`<p class="small" style="color:#8A5300">⚠️ কোড প্রায় শেষ। নতুন সেট বানিয়ে নিন।</p>` : ''}
-</section>
-<script>document.querySelectorAll('[data-print]').forEach(function(b){b.addEventListener('click',function(){window.print()})});</script>`;
+</section>`; // the print button works through public/js/page-actions.js (data-print)
   return ctx.page('জরুরি রিকভারি কোড', body, 'recovery');
 }
 

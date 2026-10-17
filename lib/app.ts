@@ -174,8 +174,9 @@ async function handlerInner(req: ShopRequest, res: ShopResponse) {
     const settings = await db.getSettings();
     $services_errors.ensure(settings); // Sentry on/off follows the key saved in Admin → আমার নোটিফিকেশন
     const isAdmin = path === '/admin' || path.startsWith('/admin/');
-    const adminSend = (r?: Loose, status?: Loose, body?: Loose, type?: Loose, extra: Loose = {}) => send(r, status, body, type, { 'Content-Security-Policy': security.ADMIN_CSP, 'X-Robots-Tag': 'noindex, nofollow, noarchive, nosnippet, noimageindex', 'Referrer-Policy': 'same-origin',
-      // the admin may use the camera (owner's face check); the shop pages never can
+    const nonce = isAdmin ? security.startNonce() : ''; // only our own admin <script> tags may run (lib/security.ts)
+    const adminSend = (r?: Loose, status?: Loose, body?: Loose, type?: Loose, extra: Loose = {}) => send(r, status, body, type, { 'Content-Security-Policy': security.adminCsp(nonce), 'X-Robots-Tag': 'noindex, nofollow, noarchive, nosnippet, noimageindex', 'Referrer-Policy': 'same-origin',
+      // the admin may use the camera (barcode scanning); the shop pages never can
       'Permissions-Policy': 'camera=(self), microphone=(), geolocation=(), usb=(), payment=(self)', ...extra });
     const base = { req, res, path, method, query, settings, send: isAdmin ? adminSend : send, json, redirect };
 
@@ -510,6 +511,23 @@ async function handlerInner(req: ShopRequest, res: ShopResponse) {
     // Safe to call by anyone: it only reads other shops' public product lists, at most once per 90 seconds, and says nothing back.
     // ---- the shop's own daily backup (Vercel cron). Safe to call by anyone: it does nothing unless one is due.
     // the two scheduled jobs: anyone may knock, but one connection only a few times an hour (stops someone making the site work hard on purpose)
+    // ---- 🛡️ the admin's script rule blocked something (lib/security.ts adminCsp): counted on Admin → সার্ভার ও ডাটাবেস,
+    // so a button that stopped working because of the rule shows up there instead of failing silently.
+    if (path === '/api/csp-report' && method === 'POST') {
+      if (await security.hit(db, 'csp:' + ip, 20, 3600)) {
+        const text = await readBody(req, 16 * 1024).catch(() => '');
+        let r: Loose = null;
+        try { const j = JSON.parse(text); r = j['csp-report'] || (Array.isArray(j) ? j[0] && j[0].body : j.body || j); } catch (_) { r = null; }
+        let page = '';
+        try { page = new URL(String((r && (r['document-uri'] || r.documentURL)) || ''), 'https://x').pathname; } catch (_) { page = ''; }
+        if (r && (page === '/admin' || page.startsWith('/admin/'))) {
+          const dir = str(r['violated-directive'] || r.effectiveDirective || '', 60);
+          const blocked = str(r['blocked-uri'] || r.blockedURL || 'inline', 120);
+          $services_health.logError(new Error(`অ্যাডমিনে স্ক্রিপ্ট আটকানো হয়েছে (${dir}: ${blocked})`), { path: page, method: 'CSP' });
+        }
+      }
+      return send(res, 204, '', 'text/plain; charset=utf-8');
+    }
     if ((path === '/api/backup/tick' || path === '/api/research/tick') && !(await security.hit(db, 'tick:' + ip, 30, 3600))) return json(res, 429, { ok: false });
     if (path === '/api/backup/tick') {
       let r: Record<string, Loose> = {};

@@ -1,4 +1,5 @@
 // Admin: security status page (owner only) — what protects the site, what still needs a step, and recent blocked attempts.
+import { cspNonce } from '../security';
 import * as crypto from 'node:crypto';
 import { html, raw, fmtDate } from '../util';
 import * as db from '../db';
@@ -11,6 +12,7 @@ import * as $services_dbmove from '../services/dbmove';
 import * as $services_imagekit from '../services/imagekit';
 import * as $pg from '../pg';
 import * as $services_notify from '../services/notify';
+import * as delcode from '../services/delcode';
 import type { AdminCtx, Body, Loose } from '../types';
 
 function row(ok?: Loose, title?: Loose, desc?: Loose) {
@@ -85,7 +87,7 @@ function adminCountryPanel(ctx: AdminCtx) {
     <button class="btn">✅ সেভ করুন</button>
   </form>
   <p class="small muted">🆘 বিদেশে গিয়ে খুলতে ভুলে গেলে: <b>vercel.com</b> → প্রজেক্ট → Settings → Environment Variables → Key: <code>ADMIN_GEO_LOCK</code>, Value: <code>off</code> → Save → Deployments → Redeploy। দেশে ফিরে ভেরিয়েবলটা মুছে আবার Redeploy দিন।</p>
-  <script>${raw(`(function(){var f=document.querySelector('[data-ac-form]');if(!f)return;var rows=[].slice.call(f.querySelectorAll('[data-ac-row]')),q=f.querySelector('[data-ac-search]'),cnt=f.querySelector('[data-ac-count]');
+  <script nonce="${cspNonce()}">${raw(`(function(){var f=document.querySelector('[data-ac-form]');if(!f)return;var rows=[].slice.call(f.querySelectorAll('[data-ac-row]')),q=f.querySelector('[data-ac-search]'),cnt=f.querySelector('[data-ac-count]');
 function upd(){var n=0,t=(q.value||'').trim().toLowerCase();rows.forEach(function(r){var c=r.querySelector('input').checked;if(c)n++;r.style.display=(!t||c||r.getAttribute('data-k').indexOf(t)>=0)?'':'none';});cnt.textContent=n?'('+n+'টি টিক দেওয়া)':'';}
 q.addEventListener('input',upd);f.addEventListener('change',upd);upd();})();`)}</script>
 </section>`;
@@ -114,6 +116,31 @@ async function saveAdminCountry(ctx: AdminCtx) {
   await ctx.reloadSettings();
   await ctx.log('settings', 'security', null, `অ্যাডমিন দেশ তালা: ${on ? 'চালু' : 'বন্ধ'} — বাংলাদেশ${picked.length ? ' + ' + picked.join(', ') + ' (' + until + ' পর্যন্ত)' : ''}`);
   return ctx.back('/admin/security', 'saved');
+}
+
+// 🔑 গোপন চাবির কপি (owner, 2026-10-17): ENCRYPTION_KEY lives only in Vercel. If it is ever lost, every saved
+// payment / courier / Gmail password becomes unreadable. The owner can see it here — but only with the 6-digit code
+// e-mailed to the shop's Gmail (the same guard as permanent deletes), and every look is logged and announced.
+async function showKey(ctx: AdminCtx) {
+  const b = await ctx.body();
+  const bad = await delcode.check(ctx, 'show_key', b.del_code);
+  if (bad) return ctx.fail('/admin/security#key-copy', bad);
+  const key = String(process.env.ENCRYPTION_KEY || '').trim();
+  await ctx.log('settings', 'security', null, 'গোপন চাবি (ENCRYPTION_KEY) দেখা হলো');
+  $services_notify.securityAlert(ctx.settings, 'গোপন চাবি দেখা হলো',
+    `কেউ Admin → নিরাপত্তা থেকে দোকানের গোপন চাবি (ENCRYPTION_KEY) দেখেছে।\nকে: ${ctx.user.name || ctx.user.username || ''}\nযেখান থেকে: ${ctx.ip || ''}`,
+    { extraEmail: delcode.CODE_EMAIL }).catch(() => {});
+  ctx.res.setHeader('Cache-Control', 'no-store');
+  const body = html`<h1>🔑 দোকানের গোপন চাবি</h1>
+<section class="panel">
+  ${key ? html`<p>এটা আপনার <b>ENCRYPTION_KEY</b>। কাগজে হুবহু লিখে (বা প্রিন্ট করে) বাসার নিরাপদ জায়গায় রাখুন। ফোনের গ্যালারি, WhatsApp বা কারো কাছে পাঠাবেন না।</p>
+  <p><code class="secret-box copy" style="font-size:18px;word-break:break-all">${key}</code></p>
+  <p class="small muted">কখন লাগবে: Vercel থেকে চাবিটা কোনোভাবে মুছে গেলে বা নতুন সার্ভারে দোকান সরালে — তখন Vercel → Settings → Environment Variables → <code>ENCRYPTION_KEY</code> = এই লেখা → Redeploy। তাহলে সেভ করা সব পাসওয়ার্ড আবার পড়া যাবে।</p>
+  <p class="small muted">চাবি পরীক্ষার ছাপ: <code>${security.keyFingerprint()}</code> (লিখে রাখা চাবি ঠিক আছে কিনা Claude এটা দিয়ে মিলিয়ে দেখতে পারে)।</p>`
+  : html`<p class="flash flash-error">Vercel-এ এখনো ENCRYPTION_KEY বসানো নেই — নিরাপত্তা পেজের "এক ধাপ বাকি" অংশ দেখুন।</p>`}
+  <p><a class="btn btn-ghost" href="/admin/security">← নিরাপত্তায় ফিরুন</a></p>
+</section>`;
+  return ctx.page('গোপন চাবি', body, 'security');
 }
 
 async function page(ctx: AdminCtx) {
@@ -151,10 +178,10 @@ ${locked && !hasKey ? html`<p class="flash flash-error">⚠️ Vercel থেক�
     ${(() => {
       const d = $pg.databaseInfo();
       if (d.provider !== 'Supabase') return '';
-      const caOn = !!String(process.env.DATABASE_CA_CERT || '').trim();
-      return row(caOn, 'ডাটাবেসের সার্টিফিকেট যাচাই (মাঝপথে নকল সার্ভার বসানো বন্ধ)', caOn
-        ? 'চালু: Supabase-এর আসল সার্টিফিকেট মিলিয়ে তবেই সংযোগ হয়।'
-        : html`এখনো বন্ধ — সংযোগ এনক্রিপ্টেড, কিন্তু সার্ভারটা সত্যিই Supabase কি না তা মেলানো হচ্ছে না। চালু করতে: Supabase → Project Settings → Database → <b>SSL Configuration</b> → <b>Download certificate</b>। ফাইলটা Notepad-এ খুলে পুরো লেখা কপি করুন → Vercel → Settings → Environment Variables → Key: <code>DATABASE_CA_CERT</code>, Value: পেস্ট → Save → Redeploy। এরপর দোকান খুলে দেখুন ঠিক চলছে কি না; না চললে ভেরিয়েবলটা মুছে আবার Redeploy দিন।`);
+      const t = $pg.databaseTls();
+      return row(!t.problem, 'ডাটাবেসের সার্টিফিকেট যাচাই (মাঝপথে নকল সার্ভার বসানো বন্ধ)', !t.problem
+        ? 'চালু: Supabase-এর আসল সার্টিফিকেট মিলিয়ে তবেই সংযোগ হয় — কিছু সেট করতে হয়নি, চাবিটা কোডের ভেতরেই আছে।'
+        : html`⚠️ এবার সার্টিফিকেট মেলেনি (${t.problem}), তাই দোকান চালু রাখতে আগের মতো শুধু এনক্রিপ্ট করে সংযোগ হয়েছে। সাধারণত Supabase সার্টিফিকেট বদলালে এমন হয় — Claude-কে জানান। <a href="/admin/health">বিস্তারিত →</a>`);
     })()}
     ${row(ikOn, 'ছবি রাখা হয় ImageKit-এ (ডাটাবেস হালকা থাকে)', ikOn ? html`চালু। ${dbLeft!.n ? html`${ui.bn(dbLeft!.n)}টি পুরনো ছবি এখনো ডাটাবেসে, প্রতি ঘণ্টায় একটু একটু করে ImageKit-এ সরে যাচ্ছে।` : 'সব ছবি ImageKit-এ।'}` : 'বন্ধ: Vercel-এ IMAGEKIT_PRIVATE_KEY ও IMAGEKIT_URL_ENDPOINT বসানো হয়নি, তাই ছবি ডাটাবেসেই থাকছে।')}
     ${move ? row(!!(move.done && move.verify && move.verify.ok), 'পুরনো Neon থেকে নতুন ডাটাবেসে তথ্য সরানো', move.done ? (move.verify && move.verify.ok ? html`✅ শেষ, ${ui.bn(move.verify.tables)}টি টেবিলের ${ui.bn(move.verify.rows)}টি তথ্য ১০০% মিলেছে (${fmtDate(move.finished_at)})। এখন Vercel থেকে Neon মুছে ফেলা নিরাপদ।` : html`⚠️ অমিল: ${(move.verify && move.verify.mismatches || []).join(', ')}। Neon মুছবেন না।`) : html`চলছে: ${ui.bn(move.copied || 0)} / ${ui.bn(move.total || 0)}`) : ''}
@@ -180,6 +207,16 @@ ${locked && !hasKey ? html`<p class="flash flash-error">⚠️ Vercel থেক�
 
 ${adminCountryPanel(ctx)}
 
+${hasKey ? html`<section class="panel" id="key-copy">
+  <h2>🔑 গোপন চাবির কপি নিজের কাছে রাখুন</h2>
+  <p class="small">দোকানের সব সেভ করা পাসওয়ার্ড (বিকাশ, কুরিয়ার, Gmail…) একটা চাবি দিয়ে তালা দেওয়া, চাবিটা শুধু Vercel-এ আছে। Vercel থেকে কোনোদিন মুছে গেলে সেগুলো আর পড়া যাবে না — তাই একবার দেখে কাগজে লিখে রাখুন।
+  দেখতে <b>${delcode.masked()}</b>-এ আসা কোড লাগবে, আর প্রতিবার দেখা হলে আপনাকে ইমেইলে জানানো হবে।</p>
+  <form method="post" action="/admin/security/key" class="form" data-delcode="show_key" data-delcode-to="${delcode.masked()}"
+    data-delcode-title="🔑 চাবি দেখার কোড" data-delcode-intro="গোপন চাবি দেখার আগে একটা কোড লাগবে। কোড যাবে এই ইমেইলে:" data-delcode-go="🔑 চাবি দেখান" data-delcode-what="গোপন চাবির কপি দেখা">
+    <button class="btn">🔑 চাবি দেখুন</button></form>
+  <p class="small muted">ব্যাকআপ খোলার পাসওয়ার্ড আলাদা — সেটা <a href="/admin/backup">ব্যাকআপ পেজে</a> আছে, সেটাও লিখে রাখুন। আর <a href="/admin/security/recovery">রিকভারি কোড</a> প্রিন্ট করে রাখুন।</p>
+</section>` : ''}
+
 ${hasKey ? '' : html`<section class="panel sec-step">
   <h2>⚠️ এক ধাপ বাকি: গোপন তথ্য এনক্রিপশন চালু করুন (৫ মিনিট)</h2>
   <p>এটা আপনাকে নিজে Vercel-এ একবার করতে হবে, কারণ চাবিটা ডাটাবেসের বাইরে রাখতে হয় — তাহলেই ডাটাবেস চুরি হলেও পাসওয়ার্ড পড়া যাবে না।</p>
@@ -200,7 +237,7 @@ ${hasKey ? '' : html`<section class="panel sec-step">
     ${row(null, 'স্টাফকে শুধু দরকারি অনুমতি দিন', 'কেউ চাকরি ছেড়ে দিলে সাথে সাথে "স্টাফ" মেনু থেকে তার অ্যাকাউন্ট বন্ধ করুন।')}
     ${row(null, 'Vercel আর GitHub অ্যাকাউন্টে টু-ফ্যাক্টর (2FA) চালু করুন', 'সাইটের আসল চাবি এই দুই অ্যাকাউন্টে। দুটোর Settings → Security থেকে 2FA চালু রাখলে পাসওয়ার্ড চুরি হলেও কেউ ঢুকতে পারবে না।')}
     ${row(null, 'বড় আক্রমণ হলে: Vercel Attack Challenge Mode', 'Vercel → প্রজেক্ট → Firewall → "Attack Challenge Mode" চালু করলে সন্দেহজনক ভিজিটরদের আগে যাচাই করা হয়। সাধারণ সময়ে বন্ধ রাখুন।')}
-    ${row(null, 'ডাটাবেসের ব্যাকআপ', 'Neon নিজে থেকেই কয়েকদিনের ব্যাকআপ রাখে (ভুল হলে আগের অবস্থায় ফেরানো যায়)। মাঝে মাঝে রিপোর্ট থেকে অর্ডারের CSV ডাউনলোড করে রাখা ভালো।')}
+    ${row(null, 'ডাটাবেসের ব্যাকআপ', html`দোকান প্রতিরাতে নিজে থেকে পুরো ডাটাবেসের তালাবদ্ধ ব্যাকআপ নেয় (শেষ ৩০টা থাকে)। ২ দিনের বেশি ব্যাকআপ না হলে ইমেইলে জানানো হয়। <a href="/admin/backup">ব্যাকআপ পেজ →</a>`)}
   </ul>
 </section>
 
@@ -221,4 +258,5 @@ ${hasKey ? '' : html`<section class="panel sec-step">
 }
 
 export const routes = [{ method: 'GET', path: '/admin/security', perm: 'owner', handler: page }, { method: 'POST', path: '/admin/security/forget-locked', perm: 'owner', handler: forgetLocked },
-  { method: 'POST', path: ADMIN_COUNTRY_PATH, perm: 'owner', handler: saveAdminCountry }];
+  { method: 'POST', path: ADMIN_COUNTRY_PATH, perm: 'owner', handler: saveAdminCountry },
+  { method: 'POST', path: '/admin/security/key', perm: 'owner', handler: showKey }];
