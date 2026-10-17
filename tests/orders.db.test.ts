@@ -82,10 +82,12 @@ test('not enough stock: refused, and nothing is taken', { skip }, async () => {
 test('one bad line stops the whole order (no half orders, no lost stock)', { skip }, async () => {
   const good = await product(100, 5);
   const bad = await product(100, 0);
-  const before = Number((await db.one('SELECT count(*)::int AS n FROM orders'))!.n);
+  // (only this file's orders are counted: other test files place orders on the same database at the same time)
+  const mine = async () => Number((await db.one("SELECT count(*)::int AS n FROM orders WHERE phone='01710000001'"))!.n);
+  const before = await mine();
   await assert.rejects(order([{ id: good, qty: 1 }, { id: bad, qty: 1 }]));
   assert.equal(await stockOf(good), 5);
-  assert.equal(Number((await db.one('SELECT count(*)::int AS n FROM orders'))!.n), before);
+  assert.equal(await mine(), before);
 });
 
 test('hidden products and empty carts are refused', { skip }, async () => {
