@@ -1,9 +1,9 @@
 // Which customer addresses are already served by Next.js pages (app/(shop)). proxy.ts runs the security gate for these;
 // every other address still goes to the original code (lib/app.ts). Grows as pages move; when it covers everything,
 // the original router goes.
-const EXACT = new Set(['/', '/products', '/track', '/blog', '/live', '/cart', '/wishlist', '/compare', '/checkout', '/kits']);
+const EXACT = new Set(['/', '/products', '/track', '/blog', '/live', '/cart', '/wishlist', '/compare', '/checkout', '/kits', '/complaint', '/complaint/status', '/gift-card']);
 const PATTERNS = [/^\/brand\/[^/]+$/, /^\/p\/[^/]+$/, /^\/blog\/category\/[^/]+$/, /^\/blog\/[^/]+$/, /^\/page\/[^/]+$/,
-  /^\/live\/(cricket|football)$/, /^\/kit\/[^/]+$/, /^\/order\/[A-Za-z0-9]+$/];
+  /^\/live\/(cricket|football)$/, /^\/kit\/[^/]+$/, /^\/order\/[A-Za-z0-9]+$/, /^\/order\/[A-Za-z0-9]+\/return$/];
 
 /** Addresses drawn by lib/shop/router.tsx (home, lists, product pages). */
 export function servesShopRouter(path: string): boolean {
@@ -13,6 +13,11 @@ export function servesShopRouter(path: string): boolean {
 /** Addresses drawn by lib/shop/more.tsx (live scores, cart, wishlist, compare, checkout, kits, order pages). */
 export function servesMore(path: string): boolean {
   return ['/live', '/cart', '/wishlist', '/compare', '/checkout', '/kits'].includes(path) || /^\/live\/(cricket|football)$/.test(path) || /^\/kit\/[^/]+$/.test(path) || /^\/order\/[A-Za-z0-9]+$/.test(path);
+}
+
+/** Addresses drawn by lib/shop/forms.tsx (complaint, complaint status, return request, gift card — opening them). */
+export function servesForms(path: string): boolean {
+  return ['/complaint', '/complaint/status', '/gift-card'].includes(path) || /^\/order\/[A-Za-z0-9]+\/return$/.test(path);
 }
 
 /** Does a Next.js page exist for this address (for some requests)? */
@@ -25,5 +30,7 @@ export function servedByNext(path: string, query: URLSearchParams, method: strin
   if (method !== 'GET' && method !== 'HEAD') return false;
   // /track with an order number AND a phone number: the original code checks it and opens the order
   if (path === '/track' && query.get('code') && query.get('phone')) return false;
+  // the same for a complaint's status (it counts tries)
+  if (path === '/complaint/status' && query.get('code') && query.get('phone')) return false;
   return hasNextPage(path);
 }

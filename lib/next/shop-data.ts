@@ -8,7 +8,8 @@ import * as content from '../models/content';
 import { siteUrl } from '../gate';
 import { resolveShop, type Resolved } from '../shop/router';
 import { resolveMore } from '../shop/more';
-import { servesShopRouter } from './routes';
+import { resolveForms } from '../shop/forms';
+import { servesShopRouter, servesForms } from './routes';
 import type { Loose, Settings } from '../types';
 
 export const getSettings = cache(async (): Promise<Settings> => {
@@ -53,5 +54,6 @@ export const currentShopPage = cache(async (): Promise<Resolved> => {
   h.forEach((v: string, k: string) => { plain[k] = v; });
   const base = siteUrl({ headers: plain }, settings);
   if (servesShopRouter(path)) return resolveShop({ path, query: url.searchParams, settings, categories, base });
+  if (servesForms(path)) return (await resolveForms({ path, query: url.searchParams, settings, req: { headers: plain } })) || { kind: 'notFound' };
   return (await resolveMore({ path, query: url.searchParams, settings, base, req: { headers: plain } })) || { kind: 'notFound' };
 });

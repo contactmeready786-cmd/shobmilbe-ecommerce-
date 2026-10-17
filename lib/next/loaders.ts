@@ -30,6 +30,16 @@ export const blogPostLive = cache(async (slug: string) => {
   return publishedPost(slug);
 });
 
+/** The order exists and this visit is under the limit for trying many order numbers (60 in 10 minutes per connection). */
+async function orderAllowed(code: string, headers: Headers): Promise<boolean> {
+  await db.ensureReady();
+  const plain: Record<string, string> = {};
+  headers.forEach((v, k) => { plain[k] = v; });
+  // a missing order goes to the original code without counting here (it counts the try itself, once)
+  if (!(await db.one('SELECT 1 FROM orders WHERE code=$1', [code.toUpperCase()]))) return false;
+  return security.hit(db, 'orderview:' + security.clientIp({ headers: plain } as ShopRequest), 60, 600);
+}
+
 const safeDecode = (s: string) => { try { return decodeURIComponent(s); } catch { return s; } };
 
 /**
@@ -66,15 +76,14 @@ export async function drawableHere(path: string, headers: Headers): Promise<bool
     const cu = await accounts.current({ headers: { cookie: headers.get('cookie') || '' } } as ShopRequest, s);
     return !(cu && accounts.needsProfile(cu));
   }
+  if (path === '/complaint' || path === '/complaint/status') return (await settingsNow()).complaints_on !== '0';
+  if (path === '/gift-card') return (await settingsNow()).gift_on === '1';
+  // a return request (when the owner takes returns): counts against the same limit as an order's page
+  m = /^\/order\/([A-Za-z0-9]+)\/return$/.exec(path);
+  if (m) return (await settingsNow()).returns_on === '1' && (await orderAllowed(m[1], headers));
   // an order's page: counts against the limit for trying many order numbers (over it → the original code's "wait" page)
   m = /^\/order\/([A-Za-z0-9]+)$/.exec(path);
-  if (m) {
-    await db.ensureReady();
-    const plain: Record<string, string> = {};
-    headers.forEach((v, k) => { plain[k] = v; });
-    if (!(await security.hit(db, 'orderview:' + security.clientIp({ headers: plain } as ShopRequest), 60, 600))) return false;
-    return !!(await db.one('SELECT 1 FROM orders WHERE code=$1', [m[1].toUpperCase()]));
-  }
+  if (m) return orderAllowed(m[1], headers);
   m = /^\/p\/([^/]+)$/.exec(path);
   if (m) {
     await db.ensureReady();

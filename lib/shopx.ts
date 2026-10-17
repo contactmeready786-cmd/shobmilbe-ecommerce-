@@ -16,7 +16,8 @@ import * as $services_sms from './services/sms';
 import * as $models_giftcards from './models/giftcards';
 import * as $models_returns from './models/returns';
 import * as $services_push from './services/push';
-import * as $services_payments from './services/payments';
+import { resolveForms, giftMethods } from './shop/forms';
+import type { Resolved } from './shop/router';
 import type { Body, Id, Loose, Settings, ShopRequest } from './types';
 
 const safeNext = (n?: Loose) => (/^\/(?!\/)[A-Za-z0-9/_?=&.%-]{0,200}$/.test(String(n || '')) && !String(n).startsWith('/account') ? String(n) : '');
@@ -33,6 +34,7 @@ async function route({ req, res, path, method, query, settings, page, notFound, 
   const isPost = method === 'POST';
   if (isPost && !security.sameSite(req)) return page('অনুমতি নেই', '<div class="wrap section"><p>এই ফর্ম অন্য ওয়েবসাইট থেকে পাঠানো হয়েছে।</p></div>', { status: 403, noindex: true });
   const go = (to?: Loose, cookies?: Loose) => redirect(res, to, cookies ? { 'Set-Cookie': cookies } : {});
+  const shown = (r: Resolved | null) => (!r || r.kind !== 'page' ? notFound() : page(r.title, r.body, r.opts));
 
   // ---------------------------------------------------------------- 🙋 the customer cancels / changes their own order
   let sm = path.match(/^\/order\/([A-Za-z0-9]+)\/(cancel|edit)$/);
@@ -71,20 +73,10 @@ async function route({ req, res, path, method, query, settings, page, notFound, 
         const c = await CM.forCustomer(code, phone);
         return page('অভিযোগের অবস্থা', CV.statusPage({ c, code, error: c ? '' : 'এই নম্বর আর মোবাইল নম্বর মিলছে না। আবার দেখে লিখুন।' }), { noindex: true });
       }
-      return page('অভিযোগের অবস্থা', CV.statusPage({ code }), { noindex: true });
+      return shown(await resolveForms({ path, query, settings, req }));
     }
-    if (!isPost) {
-      const oc = str(query.get('order'), 20).toUpperCase().replace(/[^A-Z0-9]/g, '');
-      const values = { order_code: oc };
-      // 🛡️ "ওয়ারেন্টি দাবি করুন" from an order's page: the product is named on the form
-      if (query.get('topic') === 'warranty' && oc) {
-        const order = await O.getOrder({ code: oc });
-        const items = CM.warrantyItems(order);
-        const it = items.find((x?: Loose) => x.product_id === int(query.get('item'))) || (items.length === 1 ? items[0] : null);
-        Object.assign(values, { topic: 'warranty', item: it ? it.product_id : '', item_name: it ? it.name : '', item_end: it && it.end instanceof Date ? it.end : null, items });
-      }
-      return page('অভিযোগ জানান', CV.complaintPage({ settings, values }), { canonical: '/complaint', description: 'অর্ডার, পণ্য, ডেলিভারি বা টাকা নিয়ে সমস্যা জানান — ৭২ ঘণ্টার মধ্যে সমাধান।' });
-    }
+    // just opening the form (lib/shop/forms.tsx, shared with the Next.js pages)
+    if (!isPost) return shown(await resolveForms({ path, query, settings, req }));
     const b = await parseBody(req);
     if (b.website) return go('/complaint'); // a robot filled the hidden box
     if (!(await security.hit(db, 'complaint:' + ip, 6, 3600))) return page('অভিযোগ জানান', CV.complaintPage({ settings, values: b, error: 'অনেকগুলো অভিযোগ পাঠানো হয়েছে। কিছুক্ষণ পর আবার চেষ্টা করুন, অথবা ফোন করুন।' }), { noindex: true, status: 429 });
@@ -245,13 +237,13 @@ async function route({ req, res, path, method, query, settings, page, notFound, 
         return page('রিটার্ন', V.returnForm({ order, existing, settings, mine, error: e.message }), { noindex: true, status: 400 });
       }
     }
-    return page('রিটার্ন / রিফান্ড', V.returnForm({ order, existing, settings, mine }), { noindex: true });
+    return shown(await resolveForms({ path, query, settings, req }));
   }
 
   // ---------------------------------------------------------------- gift card
   if (path === '/gift-card') {
     if (settings.gift_on !== '1') return notFound();
-    const methods = $services_payments.methods(settings).filter((x) => x.manual && x.number && settings.gift_sell_online !== '0');
+    const methods = giftMethods(settings);
     if (isPost) {
       const b = await parseBody(req);
       if (b.website) return go('/gift-card');
@@ -278,7 +270,7 @@ async function route({ req, res, path, method, query, settings, page, notFound, 
       $services_notify.later(push.count().then((n) => (n ? push.sendAll({ title: '💳 গিফট কার্ড কেনার অনুরোধ', body: `৳${Math.round(amt)} — TrxID ${trx}`, url: '/admin/giftcards?status=pending', tag: 'gift' }) : null)).catch(() => null));
       return page('গিফট কার্ড', V.giftPage({ settings, methods, done: { trx, to: normalizePhone(b.recipient_phone) } }), { noindex: true });
     }
-    return page('গিফট কার্ড', V.giftPage({ settings, methods }), { canonical: '/gift-card', description: `${settings.store_name} এর গিফট কার্ড — প্রিয়জনকে উপহার দিন।` });
+    return shown(await resolveForms({ path, query, settings, req }));
   }
   return null;
 }
