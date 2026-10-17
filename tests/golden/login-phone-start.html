@@ -1,0 +1,21 @@
+<div class="wrap section narrow acct-login">
+  <div class="panel">
+    <h1>👤 অ্যাকাউন্ট খুলুন / লগইন করুন</h1>
+    <p class="muted">মোবাইলে একটা কোড যাবে — শুধু একবার। এরপর এই ফোনে লগইন থাকবে, অর্ডার করতে আর কোড লাগবে না।</p>
+    <nav class="acct-tabs acct-login-tabs" aria-label="কীভাবে ঢুকবেন"><a href="/account?via=email&amp;next=%2Fd" class="" >📧 ইমেইল</a><a href="/account?via=phone&amp;next=%2Fd" class="on" aria-current="page">📱 মোবাইল নম্বর</a></nav>
+    
+    
+    <form method="post" action="/account/code" class="form">
+      <input type="hidden" name="next" value="/d">
+      <div class="field"><label for="aphone">মোবাইল নম্বর</label><input id="aphone" name="phone" inputmode="tel" autocomplete="tel" required maxlength="20" placeholder="01XXXXXXXXX" value="017" autofocus></div>
+      <button class="btn btn-block btn-lg">কোড পাঠান</button>
+    </form>
+    <ul class="acct-why small muted">
+      <li>✅ একবার যাচাই — পরের প্রতিটা অর্ডারে আর কোড লাগবে না</li>
+      <li>🧾 আগের সব অর্ডার এক জায়গায় — এক চাপে আবার অর্ডার</li>
+      <li>📍 ঠিকানা সেভ থাকে, অর্ডারের সময় আর লিখতে হয় না</li>
+      <li>↩️ ভুল/নষ্ট পণ্যের রিটার্ন আবেদন সহজে</li>
+    </ul>
+    <p class="center small muted">লগইন না করেও অর্ডার করা যায় (তখন প্রতিবার মোবাইলে কোড যাবে)।</p>
+  </div>
+</div>

@@ -30,6 +30,9 @@ export function normalise(body) {
 // ⚛️ Pages moved to React write the same page with tiny spelling differences that a browser treats as identical:
 // &#x27; instead of &#39;, <br/> instead of <br>, required="" instead of required, no line breaks + indentation between tags,
 // style="a:b;c:d" instead of style="a: b; c: d". These are made the same on both sides, so only real differences remain.
+const BLOCK = new Set(('html head body title meta link script style template noscript div p section article aside nav header footer main form fieldset legend '
+  + 'h1 h2 h3 h4 h5 h6 ul ol li dl dt dd table thead tbody tfoot tr td th caption colgroup col hr br details summary figure figcaption '
+  + 'blockquote dialog address menu option optgroup source track').split(' '));
 const BOOL_ATTRS = 'checked|selected|disabled|required|readonly|multiple|hidden|open|defer|async|autofocus|novalidate|download|reversed|playsinline|muted|controls|loop|autoplay|nomodule|inert|default|formnovalidate|allowfullscreen|itemscope';
 export function canonicalHtml(body) {
   return String(body)
@@ -44,13 +47,14 @@ export function canonicalHtml(body) {
     // attribute order, the case of attribute names and x="" vs a bare x don't matter to a browser
     // (React writes a form's action last, and data-flags / true-false attributes as x="")
     .replace(/<([a-zA-Z][\w-]*)((?:\s+[^\s=>\/]+(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+))?)+)\s*(\/?)>/g, (_, tag, attrs, slash) => {
-      const list = [...attrs.matchAll(/\s+([^\s=>\/]+)(?:\s*=\s*("[^"]*"|'[^']*'|[^\s>]+))?/g)].map((m) => (m[2] === undefined || m[2] === '""' || m[2] === "''" ? m[1].toLowerCase() : `${m[1].toLowerCase()}=${m[2]}`));
+      const list = [...attrs.matchAll(/\s+([^\s=>\/]+)(?:\s*=\s*("[^"]*"|'[^']*'|[^\s>]+))?/g)].map((m) => (m[2] === undefined || m[2] === '""' || m[2] === "''" ? m[1].toLowerCase() : `${m[1].toLowerCase()}=${m[2].replace(/&amp;/g, '&')}`));
       return `<${tag} ${list.sort().join(' ')}${slash}>`;
     })
-    // line breaks + indentation next to a tag are only source formatting (JSX drops them too);
-    // a plain space between two tags on one line is real (it shows as a gap) and is kept
-    .replace(/>[ \t]*\r?\n\s*/g, '>')
-    .replace(/\s*\r?\n[ \t]*</g, '<')
+    // whitespace the way a browser shows it: next to a block (div, p, li, tr …) it shows nothing and is dropped;
+    // between words or inline pieces (a, b, span, button …) any run — even a line break — shows as one space
+    .replace(/(<\/?([a-zA-Z][\w-]*)\b[^>]*>)\s+(?=<\/?([a-zA-Z][\w-]*))/g, (_, tag, a, b) => tag + (BLOCK.has(a.toLowerCase()) || BLOCK.has(b.toLowerCase()) ? '' : ' '))
+    .replace(/(<\/?([a-zA-Z][\w-]*)\b[^>]*>)\s+(?=[^<\s])/g, (_, tag, a) => tag + (BLOCK.has(a.toLowerCase()) ? '' : ' '))
+    .replace(/([^>\s])\s+(?=<\/?([a-zA-Z][\w-]*))/g, (_, c, b) => c + (BLOCK.has(b.toLowerCase()) ? '' : ' '))
     .replace(/\s+/g, ' ')
     .replace(/ >/g, '>');
 }

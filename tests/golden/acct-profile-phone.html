@@ -1,0 +1,22 @@
+<div class="wrap section acct">
+  <div class="title-row"><h1>আসসালামু আলাইকুম, <span translate="no">রাজন</span>!</h1>
+    <form method="post" action="/account/logout"><button class="btn btn-sm btn-ghost">লগআউট</button></form></div>
+  <p class="muted small">মোবাইল: <b translate="no">01712345678</b> · লয়ালটি পয়েন্ট: <b>১২০</b></p>
+  
+  <nav class="acct-tabs" aria-label="অ্যাকাউন্ট"><a href="/account?tab=orders" class="" >🧾 আমার অর্ডার</a><a href="/account?tab=addresses" class="" >📍 ঠিকানা</a><a href="/account?tab=profile" class="on" aria-current="page">👤 প্রোফাইল</a><a href="/account?tab=gift" class="" >💳 গিফট কার্ড</a></nav>
+  
+  
+  <section class="panel narrow-panel">
+    
+    <form method="post" action="/account/profile" class="form">
+      
+      <div class="field"><label>আপনার নাম</label><input name="name" maxlength="80" required value="রাজন হক" autocomplete="name" ></div>
+      <div class="field"><label>ইমেইল (ঐচ্ছিক)</label><input name="email" type="email" maxlength="120" value="r@x.com" autocomplete="email"></div>
+      <p class="small muted">মোবাইল নম্বর বদলাতে নতুন নম্বর দিয়ে আলাদা লগইন করুন, অথবা আমাদের জানান।</p>
+      <button class="btn ">সেভ করুন</button>
+    </form>
+    <form method="post" action="/account/logout-all" class="mt"><button class="link-btn small">🔒 সব ফোন/কম্পিউটার থেকে লগআউট করুন</button></form>
+  </section>
+  
+  
+</div>

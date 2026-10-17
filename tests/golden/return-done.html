@@ -1,0 +1,28 @@
+<div class="wrap section narrow">
+  <p class="crumbs"><a href="/order/SMAB12CD">← অর্ডার SMAB12CD</a></p>
+  <h1>↩️ রিটার্ন / রিফান্ড আবেদন</h1>
+  <div class="success-banner"><div class="tick" aria-hidden="true">✓</div><h2>আবেদন পেয়েছি — নম্বর <span class="mono">R1003</span></h2><p>আমরা দেখে শীঘ্রই আপনার সাথে যোগাযোগ করব। এই পেজে আবেদনের অবস্থা দেখতে পাবেন।</p></div>
+  
+  <form class="form panel" method="post" action="/order/SMAB12CD/return" data-return-form>
+    
+    <p class="muted small">পণ্য হাতে পাওয়ার ৭ দিনের মধ্যে আবেদন করা যায়। যে পণ্য ফেরত দিতে চান টিক দিন আর পরিমাণ লিখুন।</p>
+    <table class="lines"><tbody><tr><td><label class="check"><input type="checkbox" name="item" value="11"> <span>Arduino Uno</span></label></td>
+      <td class="num"><input type="number" name="qty_11" min="1" max="2" value="2" class="w-num" aria-label="পরিমাণ"> / ২</td></tr><tr><td><label class="check"><input type="checkbox" name="item" value="13"> <span>LED &lt;red&gt;</span></label></td>
+      <td class="num"><input type="number" name="qty_13" min="1" max="10" value="10" class="w-num" aria-label="পরিমাণ"> / ১০</td></tr></tbody></table>
+    <div class="field-row">
+      <div class="field"><label>কারণ</label><select name="reason" required><option value="broken">ভাঙা / নষ্ট পণ্য এসেছে</option><option value="wrong">ভুল পণ্য এসেছে</option><option value="missing">পণ্য কম এসেছে / পার্টস নেই</option><option value="not_working">কাজ করছে না</option><option value="not_as_described">ছবি/বিবরণের সাথে মিলছে না</option><option value="warranty">ওয়ারেন্টি দাবি</option><option value="other">অন্য কারণ</option></select></div>
+      <div class="field"><label>আপনি কী চান</label><select name="want"><option value="refund">💵 টাকা ফেরত</option><option value="replace">🔄 বদলে দিন (একই পণ্য)</option><option value="fix">🛠️ মেরামত / ওয়ারেন্টি সার্ভিস</option></select></div>
+    </div>
+    <div class="field"><label>বিস্তারিত লিখুন</label><textarea name="details" rows="3" maxlength="1000" required minlength="10" placeholder="কী সমস্যা হয়েছে, কবে খেয়াল করলেন…"></textarea></div>
+    <div class="field"><label>📷 ছবি (সমস্যাটা দেখা যায় এমন, সর্বোচ্চ ৪টা)</label><input type="file" accept="image/*" multiple data-return-photos>
+      <div class="ret-thumbs" data-return-thumbs></div><input type="hidden" name="photos" value="" data-return-photo-data>
+      <small>ছবি ছোট করে পাঠানো হয়। ছবি দিলে আবেদন দ্রুত যাচাই হয়।</small></div>
+    <div class="field-row">
+      <div class="field"><label>টাকা কোথায় নেবেন (টাকা ফেরত চাইলে)</label><select name="refund_method"><option value="bkash">বিকাশ</option><option value="nagad">নগদ</option><option value="rocket">রকেট</option><option value="bank">ব্যাংক</option><option value="cash">নগদ টাকা</option></select></div>
+      <div class="field"><label>সেই নম্বর / অ্যাকাউন্ট</label><input name="refund_number" maxlength="60" inputmode="tel" placeholder="01XXXXXXXXX"></div>
+    </div>
+    <input type="text" name="website" class="hp" tabindex="-1" autocomplete="off" aria-hidden="true">
+    <button class="btn btn-amber btn-lg btn-block" data-return-submit>আবেদন পাঠান</button>
+    <p class="small muted center">আবেদন পাঠানো মানেই রিটার্ন নিশ্চিত না — আমরা দেখে জানাব। <a href="/page/return-policy">রিটার্ন নীতি</a></p>
+  </form>
+</div>

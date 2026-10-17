@@ -9,8 +9,9 @@ import { canonicalHtml } from '../tools/parity/normalise.mjs';
 import { CASES, type Views } from './fixtures/cases';
 import * as shop from '../lib/views/shop';
 import * as complaint from '../lib/views/complaint';
+import * as account from '../lib/views/account';
 
-const views: Views = { shop, complaint };
+const views: Views = { shop, complaint, account };
 
 for (const [name, make] of CASES) {
   test(`same page as before: ${name}`, () => {

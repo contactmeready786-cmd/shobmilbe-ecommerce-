@@ -1,0 +1,27 @@
+<div class="wrap section narrow">
+  <h1>🎁 গিফট কার্ড</h1>
+  <p class="muted">প্রিয়জনকে উপহার দিন — তিনি নিজের পছন্দে সবমিলবে থেকে কিনবেন। গিফট কার্ডের কোড SMS-এ যাবে, চেকআউটে কোড দিলেই টাকা কাটা যাবে। </p>
+  
+  <form method="post" action="/gift-card" class="form panel" data-gift-form>
+    
+    <div class="field"><span class="label">পরিমাণ</span><div class="gift-amounts"><label class="gift-amt"><input type="radio" name="amount" value="750" checked><span>৳৭৫০</span></label>
+      <label class="gift-amt"><input type="radio" name="amount" value="custom" ><span>অন্য</span></label></div>
+      <input name="custom_amount" type="number" min="200" max="20000" value="" placeholder="২০০ – ২০০০০ টাকা" class="mt" data-gift-custom></div>
+    <h2>কাকে দেবেন</h2>
+    <div class="field-row">
+      <div class="field"><label>প্রাপকের নাম</label><input name="recipient_name" maxlength="80" required value=""></div>
+      <div class="field"><label>প্রাপকের মোবাইল (কোড এখানে যাবে)</label><input name="recipient_phone" inputmode="tel" maxlength="20" required value=""></div>
+    </div>
+    <div class="field"><label>শুভেচ্ছা বার্তা (ঐচ্ছিক)</label><input name="message" maxlength="120" value="" placeholder="যেমন: শুভ জন্মদিন!"></div>
+    <h2>আপনার তথ্য</h2>
+    <div class="field-row">
+      <div class="field"><label>আপনার নাম</label><input name="buyer_name" maxlength="80" required value="" autocomplete="name"></div>
+      <div class="field"><label>আপনার মোবাইল</label><input name="buyer_phone" inputmode="tel" maxlength="20" required value="" autocomplete="tel"></div>
+    </div>
+    <h2>পেমেন্ট (Send Money)</h2>
+    <p class="note">এখন অনলাইনে গিফট কার্ড বিক্রি বন্ধ আছে। কিনতে আমাদের কল করুন বা দোকানে আসুন।</p>
+  </form>
+  <section class="panel mt"><h2>গিফট কার্ডে কত আছে দেখুন</h2>
+    <form class="coupon-row" data-gift-check><input name="code" placeholder="গিফট কার্ডের কোড" maxlength="30" autocapitalize="characters"><button class="btn btn-sm btn-ghost">দেখুন</button></form>
+    <p class="small" data-gift-check-msg role="status"></p></section>
+</div>

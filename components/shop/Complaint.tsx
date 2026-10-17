@@ -72,10 +72,10 @@ export function ComplaintPage({ settings: s, values = {}, error = '', done = nul
         ) : null}
         <div className="field"><label htmlFor="c-msg">কী সমস্যা হয়েছে, বিস্তারিত লিখুন</label><textarea id="c-msg" name="message" rows={5} required minLength={10} maxLength={2000} defaultValue={values.message || ''} /></div>
         <div className="field"><label>📷 ছবি (থাকলে, সর্বোচ্চ ৪টা)</label><input type="file" accept="image/*" multiple data-return-photos="" />
-          <div className="ret-thumbs" data-return-thumbs=""></div><input type="hidden" name="photos" value="" data-return-photo-data="" />
+          <div className="ret-thumbs" data-return-thumbs=""></div><input type="hidden" name="photos" value="" data-return-photo-data="" />{' '}
           <small>ভাঙা/ভুল পণ্যের ছবি দিলে দ্রুত সমাধান হয়। ছবি শুধু আমাদের স্টাফ দেখতে পারেন।</small></div>
         <div className="field"><label htmlFor="c-email">ইমেইল (ঐচ্ছিক)</label><input id="c-email" name="email" type="email" maxLength={120} autoComplete="email" defaultValue={values.email || ''} /></div>
-        <input type="text" name="website" tabIndex={-1} autoComplete="off" className="hp" aria-hidden="true" />
+        <input type="text" name="website" tabIndex={-1} autoComplete="off" className="hp" aria-hidden="true" />{' '}
         <button className="btn btn-amber btn-lg btn-block">অভিযোগ জমা দিন</button>
         <p className="small muted">আপনার নাম, নম্বর ও লেখা শুধু এই অভিযোগ সমাধানের জন্য রাখা হয়। <a href="/page/privacy-policy">প্রাইভেসি পলিসি</a></p>
       </form>

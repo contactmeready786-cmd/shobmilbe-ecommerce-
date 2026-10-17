@@ -1,0 +1,23 @@
+<div class="wrap section acct">
+  <div class="title-row"><h1>আসসালামু আলাইকুম!</h1>
+    <form method="post" action="/account/logout"><button class="btn btn-sm btn-ghost">লগআউট</button></form></div>
+  <p class="muted small">ইমেইল: <b translate="no">rajon@gmail.com</b> · মোবাইল: <b translate="no">01812345678</b></p>
+  
+  
+  
+  
+  <section class="panel narrow-panel">
+    <div class="success-banner"><div class="tick" aria-hidden="true">✓</div><h2>ইমেইল যাচাই হয়েছে — অ্যাকাউন্ট তৈরি!</h2>
+      <p>শেষ ধাপ: আপনার নাম আর ডেলিভারির মোবাইল নম্বর দিন। এরপর যেকোনো পণ্য অর্ডার করতে পারবেন — আর কোনো কোড লাগবে না।</p></div>
+    <form method="post" action="/account/profile" class="form">
+      <input type="hidden" name="welcome" value="1"><input type="hidden" name="next" value="/checkout">
+      <div class="field"><label>আপনার নাম</label><input name="name" maxlength="80" required value="" autocomplete="name" autofocus></div>
+      <div class="field"><label>মোবাইল নম্বর (ডেলিভারি আর অর্ডার কনফার্মের জন্য)</label><input name="contact_phone" inputmode="tel" maxlength="20" required value="01812345678" autocomplete="tel" placeholder="01XXXXXXXXX"></div>
+      <p class="small muted">লগইনের ইমেইল: <b translate="no">rajon@gmail.com</b> (এটা বদলানো যায় না)</p>
+      <button class="btn btn-lg btn-block">সেভ করে অর্ডারে যান</button>
+    </form>
+    
+  </section>
+  
+  
+</div>

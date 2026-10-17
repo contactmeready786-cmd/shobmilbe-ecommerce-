@@ -9,7 +9,7 @@ function load(name: string) {
   // eslint-disable-next-line @typescript-eslint/no-require-imports -- a one-off tool: the old copy may or may not exist
   try { return require(`../lib/views/__old_${name}`); } catch { return require(`../lib/views/${name}`); }
 }
-const v: Views = { shop: load('shop'), complaint: load('complaint') };
+const v: Views = { shop: load('shop'), complaint: load('complaint'), account: load('account') };
 fs.mkdirSync('tests/golden', { recursive: true });
 let n = 0;
 for (const [name, make] of CASES) {

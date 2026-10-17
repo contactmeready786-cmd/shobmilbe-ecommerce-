@@ -2,9 +2,10 @@
 // new name (once, just before the move); tests/react-views.test.ts checks the React page against it, forever.
 import * as F from './shop';
 import * as FC from './complaint';
+import * as FA from './account';
 import type { Loose } from '../../lib/types';
 
-export type Views = { shop: Loose; complaint: Loose };
+export type Views = { shop: Loose; complaint: Loose; account: Loose };
 
 export const CASES: [string, (v: Views) => unknown][] = [
   // shop: simple pages + blog
@@ -28,4 +29,36 @@ export const CASES: [string, (v: Views) => unknown][] = [
   ['complaint-status-form', (v) => v.complaint.statusPage({ code: 'C1<2>', error: 'নম্বর মেলেনি' })],
   ['complaint-status-open', (v) => v.complaint.statusPage({ c: FC.open })],
   ['complaint-status-closed', (v) => v.complaint.statusPage({ c: FC.closed })],
+  // customer account: login (e-mail / mobile, every step), dashboard tabs, returns, gift cards
+  ['login-phone', (v) => v.account.loginPage({})],
+  ['login-none', (v) => v.account.loginPage({ phoneOn: false })],
+  ['login-both-email', (v) => v.account.loginPage({ via: 'email', emailOn: true, email: 'a"b@x.com', next: '/checkout?x=1&y=2', info: 'কোড পাঠানো হয়েছে', error: 'ভুল' })],
+  ['login-email-empty', (v) => v.account.loginPage({ via: 'email', emailOn: true, phoneOn: false })],
+  ['login-email-signup', (v) => v.account.loginPage({ via: 'email', emailOn: true, mode: 'signup', email: 'x@y.com' })],
+  ['login-email-reset', (v) => v.account.loginPage({ via: 'email', emailOn: true, mode: 'reset', next: '/a' })],
+  ['login-email-code', (v) => v.account.loginPage({ via: 'email', emailOn: true, step: 'code', mode: 'reset', email: 'x@y.com', next: '/b' })],
+  ['login-email-code-signup', (v) => v.account.loginPage({ via: 'email', emailOn: true, step: 'code', mode: 'weird', email: 'x@y.com' })],
+  ['login-phone-code', (v) => v.account.loginPage({ via: 'phone', emailOn: true, step: 'code', phone: '01712345678', next: '/c' })],
+  ['login-phone-start', (v) => v.account.loginPage({ via: 'phone', emailOn: true, phone: '017', next: '/d' })],
+  ['acct-orders', (v) => v.account.dashboard({ cu: FA.cuPhone, orders: FA.orders, addresses: [], settings: FA.s, referral: FA.referral, flash: 'সেভ হয়েছে', error: 'একটা ভুল' })],
+  ['acct-orders-empty', (v) => v.account.dashboard({ cu: FA.cuEmail, orders: [], addresses: [], settings: FA.sOff })],
+  ['acct-addresses', (v) => v.account.dashboard({ cu: FA.cuPhone, orders: [], addresses: FA.addresses, settings: FA.s, tab: 'addresses' })],
+  ['acct-addresses-empty', (v) => v.account.dashboard({ cu: FA.cuEmail, orders: [], addresses: [], settings: FA.s, tab: 'addresses' })],
+  ['acct-profile-phone', (v) => v.account.dashboard({ cu: FA.cuPhone, orders: [], addresses: [], settings: FA.s, tab: 'profile' })],
+  ['acct-profile-email-welcome', (v) => v.account.dashboard({ cu: FA.cuEmail, orders: [], addresses: [], settings: FA.s, tab: 'profile', welcome: true, next: '/checkout' })],
+  ['acct-profile-phone-welcome', (v) => v.account.dashboard({ cu: { ...FA.cuPhone, name: '' }, orders: [], addresses: [], settings: FA.s, tab: 'profile', welcome: true })],
+  ['acct-refer', (v) => v.account.dashboard({ cu: FA.cuPhone, orders: [], addresses: [], settings: FA.s, tab: 'refer', referral: FA.referral })],
+  ['acct-refer-nosite', (v) => v.account.dashboard({ cu: FA.cuPhone, orders: [], addresses: [], settings: FA.sOff, tab: 'refer', referral: { ...FA.referral, friendMin: 0 } })],
+  ['acct-gift', (v) => v.account.dashboard({ cu: FA.cuPhone, orders: [], addresses: [], settings: FA.s, tab: 'gift', cards: FA.cards })],
+  ['acct-gift-empty', (v) => v.account.dashboard({ cu: FA.cuPhone, orders: [], addresses: [], settings: FA.s, tab: 'gift' })],
+  ['return-form', (v) => v.account.returnForm({ order: FA.order, existing: FA.existing, settings: FA.s, error: 'কারণ লিখুন', mine: true })],
+  ['return-done', (v) => v.account.returnForm({ order: FA.order, settings: FA.sOff, done: 'R1003', mine: true })],
+  ['return-not-mine', (v) => v.account.returnForm({ order: FA.order, settings: FA.s, mine: false })],
+  ['return-not-mine-noacct', (v) => v.account.returnForm({ order: FA.order, settings: FA.sOff, mine: false })],
+  ['return-not-delivered', (v) => v.account.returnForm({ order: { ...FA.order, status: 'shipped' }, settings: FA.s, mine: true })],
+  ['gift-page', (v) => v.account.giftPage({ settings: FA.s, methods: FA.methods })],
+  ['gift-page-values', (v) => v.account.giftPage({ settings: FA.s, methods: FA.methods, error: 'TrxID দিন', values: { amount: 'custom', custom_amount: '300', recipient_name: 'মা "আম্মু"', recipient_phone: '017', message: 'শুভ <জন্মদিন>', buyer_name: 'R', buyer_phone: '018', pay_number: '019', trx: 'ABC' } })],
+  ['gift-page-amount', (v) => v.account.giftPage({ settings: FA.s, methods: FA.methods, values: { amount: '2000' } })],
+  ['gift-page-single', (v) => v.account.giftPage({ settings: FA.sOff, methods: [] })],
+  ['gift-page-done', (v) => v.account.giftPage({ settings: FA.s, done: { trx: 'TRX9', to: '01712345678' } })],
 ];

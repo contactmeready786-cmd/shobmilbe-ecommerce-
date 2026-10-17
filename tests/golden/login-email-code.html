@@ -1,0 +1,23 @@
+<div class="wrap section narrow acct-login">
+  <div class="panel">
+    <h1>👤 অ্যাকাউন্ট খুলুন / লগইন করুন</h1>
+    <p class="muted">ইমেইল আর পাসওয়ার্ড দিয়ে ঢুকুন। নতুন অ্যাকাউন্ট খোলার সময় ইমেইলে শুধু একবার একটা কোড যাবে।</p>
+    <nav class="acct-tabs acct-login-tabs" aria-label="কীভাবে ঢুকবেন"><a href="/account?via=email&amp;next=%2Fb" class="on" aria-current="page">📧 ইমেইল</a><a href="/account?via=phone&amp;next=%2Fb" class="" >📱 মোবাইল নম্বর</a></nav>
+    
+    
+    <form method="post" action="/account/email-verify" class="form">
+      <input type="hidden" name="email" value="x@y.com"><input type="hidden" name="mode" value="reset"><input type="hidden" name="next" value="/b">
+      <p><b translate="no">x@y.com</b> ঠিকানায় একটা ৬ অঙ্কের কোড পাঠানো হয়েছে। ইমেইল খুলে কোডটা নিচে বসান। <span class="small muted">(Inbox-এ না পেলে Spam / Promotions ফোল্ডার দেখুন)</span></p>
+      <div class="field"><label for="eotp">৬ অঙ্কের কোড</label><input id="eotp" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="7" required autofocus class="otp-input" placeholder="••••••"></div>
+      <button class="btn btn-block btn-lg">যাচাই করে নতুন পাসওয়ার্ড সেভ করুন</button>
+    </form>
+    <p class="center small mt">কোড পাননি? ১ মিনিট অপেক্ষা করে Spam ফোল্ডার দেখুন, তারপর <a href="/account?via=email&mode=reset&email=x%40y.com&amp;next=%2Fb">আবার চেষ্টা করুন</a>।</p>
+    <ul class="acct-why small muted">
+      <li>✅ একবার যাচাই — পরের প্রতিটা অর্ডারে আর কোড লাগবে না</li>
+      <li>🧾 আগের সব অর্ডার এক জায়গায় — এক চাপে আবার অর্ডার</li>
+      <li>📍 ঠিকানা সেভ থাকে, অর্ডারের সময় আর লিখতে হয় না</li>
+      <li>↩️ ভুল/নষ্ট পণ্যের রিটার্ন আবেদন সহজে</li>
+    </ul>
+    <p class="center small muted">লগইন না করেও অর্ডার করা যায় (তখন প্রতিবার মোবাইলে কোড যাবে)।</p>
+  </div>
+</div>

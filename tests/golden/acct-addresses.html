@@ -1,0 +1,66 @@
+<div class="wrap section acct">
+  <div class="title-row"><h1>আসসালামু আলাইকুম, <span translate="no">রাজন</span>!</h1>
+    <form method="post" action="/account/logout"><button class="btn btn-sm btn-ghost">লগআউট</button></form></div>
+  <p class="muted small">মোবাইল: <b translate="no">01712345678</b> · লয়ালটি পয়েন্ট: <b>১২০</b></p>
+  
+  <nav class="acct-tabs" aria-label="অ্যাকাউন্ট"><a href="/account?tab=orders" class="" >🧾 আমার অর্ডার</a><a href="/account?tab=addresses" class="on" aria-current="page">📍 ঠিকানা</a><a href="/account?tab=profile" class="" >👤 প্রোফাইল</a><a href="/account?tab=gift" class="" >💳 গিফট কার্ড</a></nav>
+  
+  <section class="panel">
+    <ul class="acct-addr"><li><details><summary><b>বাসা</b> <span class="pill">মূল</span><br>
+      <span class="small">রাজন, 01712345678, বাড়ি ১২, রোড ৩ &lt;A&gt;, বনানী, ঢাকা</span> <span class="small link-like">✏️ এডিট</span></summary>
+      <form method="post" action="/account/address" class="form addr-form" data-geo-form>
+    <input type="hidden" name="id" value="5">
+    <div class="field-row">
+      <div class="field"><label>নাম (ঐচ্ছিক, যেমন: বাসা / অফিস)</label><input name="label" maxlength="30" value="বাসা"></div>
+      <div class="field"><label>প্রাপকের নাম</label><input name="name" maxlength="80" value="রাজন" autocomplete="name"></div>
+      <div class="field"><label>প্রাপকের মোবাইল</label><input name="phone" inputmode="tel" maxlength="20" value="01712345678" autocomplete="tel"></div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>জেলা</label><select name="district" required data-district data-value="Dhaka"><option value="">লোড হচ্ছে…</option></select></div>
+      <div class="field"><label>থানা / উপজেলা</label><select name="thana" required data-thana data-value="Banani"><option value="">আগে জেলা বাছুন</option></select></div>
+    </div>
+    <div class="field"><label>পূর্ণ ঠিকানা</label><textarea name="address" rows="2" maxlength="400" required placeholder="বাসা নং, রোড, এলাকা">বাড়ি ১২, রোড ৩ &lt;A&gt;</textarea></div>
+    <label class="check"><input type="checkbox" name="is_default" value="1" checked> <span>এটাই আমার মূল ঠিকানা</span></label>
+    <button class="btn btn-sm">সেভ করুন</button>
+  </form>
+      <form method="post" action="/account/address/delete" class="mt" data-confirm-shop="ঠিকানাটা মুছবেন?"><input type="hidden" name="id" value="5"><button class="link-btn danger small">🗑️ মুছুন</button></form>
+    </details></li><li><details><summary><b>ঠিকানা</b><br>
+      <span class="small">অফিস, Sadar, বরিশাল</span> <span class="small link-like">✏️ এডিট</span></summary>
+      <form method="post" action="/account/address" class="form addr-form" data-geo-form>
+    <input type="hidden" name="id" value="6">
+    <div class="field-row">
+      <div class="field"><label>নাম (ঐচ্ছিক, যেমন: বাসা / অফিস)</label><input name="label" maxlength="30" value=""></div>
+      <div class="field"><label>প্রাপকের নাম</label><input name="name" maxlength="80" value="" autocomplete="name"></div>
+      <div class="field"><label>প্রাপকের মোবাইল</label><input name="phone" inputmode="tel" maxlength="20" value="" autocomplete="tel"></div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>জেলা</label><select name="district" required data-district data-value="Barisal"><option value="">লোড হচ্ছে…</option></select></div>
+      <div class="field"><label>থানা / উপজেলা</label><select name="thana" required data-thana data-value="Sadar"><option value="">আগে জেলা বাছুন</option></select></div>
+    </div>
+    <div class="field"><label>পূর্ণ ঠিকানা</label><textarea name="address" rows="2" maxlength="400" required placeholder="বাসা নং, রোড, এলাকা">অফিস</textarea></div>
+    <label class="check"><input type="checkbox" name="is_default" value="1" > <span>এটাই আমার মূল ঠিকানা</span></label>
+    <button class="btn btn-sm">সেভ করুন</button>
+  </form>
+      <form method="post" action="/account/address/delete" class="mt" data-confirm-shop="ঠিকানাটা মুছবেন?"><input type="hidden" name="id" value="6"><button class="link-btn danger small">🗑️ মুছুন</button></form>
+    </details></li></ul>
+    <h2 class="mt">+ নতুন ঠিকানা</h2>
+    <form method="post" action="/account/address" class="form addr-form" data-geo-form>
+    
+    <div class="field-row">
+      <div class="field"><label>নাম (ঐচ্ছিক, যেমন: বাসা / অফিস)</label><input name="label" maxlength="30" value=""></div>
+      <div class="field"><label>প্রাপকের নাম</label><input name="name" maxlength="80" value="রাজন হক" autocomplete="name"></div>
+      <div class="field"><label>প্রাপকের মোবাইল</label><input name="phone" inputmode="tel" maxlength="20" value="01712345678" autocomplete="tel"></div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>জেলা</label><select name="district" required data-district data-value="Dhaka"><option value="">লোড হচ্ছে…</option></select></div>
+      <div class="field"><label>থানা / উপজেলা</label><select name="thana" required data-thana data-value=""><option value="">আগে জেলা বাছুন</option></select></div>
+    </div>
+    <div class="field"><label>পূর্ণ ঠিকানা</label><textarea name="address" rows="2" maxlength="400" required placeholder="বাসা নং, রোড, এলাকা"></textarea></div>
+    <label class="check"><input type="checkbox" name="is_default" value="1" > <span>এটাই আমার মূল ঠিকানা</span></label>
+    <button class="btn btn-sm">ঠিকানা সেভ করুন</button>
+  </form>
+  </section><script src="/js/bd-geo.js" defer></script>
+  
+  
+  
+</div>
