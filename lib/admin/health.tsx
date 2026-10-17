@@ -13,7 +13,7 @@ function line(level: H.Level | 'off', title: Loose, detail: Loose, link?: [strin
   return toHtml(<li className={`sec-row ${attrValue(level === 'ok' ? 'ok' : level === 'off' ? 'info' : 'todo')}`}><span className="sec-ic" aria-hidden="true"><Val v={ICON[level]} /></span>{' '}<span><b><Val v={title} /></b><br /><span className="small muted"><Val v={detail} /></span>{(link ? <>{' '}<a className="small" href={attrValue(link[0])}><Val v={link[1]} />{' '}→</a></> : null)}</span></li>);
 }
 const pctOf = (a: number, b: number) => (b ? Math.round((100 * a) / b) : 0);
-const meter = (pct: number) => toHtml(<meter min="0" max="100" value={attrValue(Math.min(100, pct))} style={styleOf("width:100%;height:16px")} low="80" high="90" optimum="10"><Val v={bn(pct)} />%</meter>);
+const meter = (pct: number) => toHtml(<meter min="0" max="100" value={attrValue(Math.min(100, pct))} style={styleOf("width:100%;height:16px")} low={80} high={90} optimum={10}><Val v={bn(pct)} />%</meter>);
 
 async function page(ctx: AdminCtx) {
   if (ctx.query.get('fresh') === '1') H.forget();
