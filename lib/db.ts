@@ -14,6 +14,20 @@ const q = async <R extends DbRow = DbRow>(sql: string, params: Param[] = []): Pr
 /** The first row of a query, or null. */
 const one = async <R extends DbRow = DbRow>(sql: string, params: Param[] = []): Promise<R | null> => ((await pg.query(sql, params)).rows[0] as R | undefined) || null;
 const tx = <T>(fn: (t: Tx) => Promise<T>): Promise<T> => pg.transaction(fn);
+/** A transaction tried again (up to 3 times) when Postgres had to stop it to break a deadlock with another one
+ *  running at the same moment (two orders taking the same products' stock on two servers). Nothing is half-saved:
+ *  each try starts over from BEGIN. */
+async function txRetry<T>(fn: (t: Tx) => Promise<T>, tries = 3): Promise<T> {
+  for (let i = 1; ; i++) {
+    try {
+      return await tx(fn);
+    } catch (e) {
+      const code = (e as { code?: string }).code;
+      if (i >= tries || (code !== '40P01' && code !== '40001')) throw e;
+      await new Promise((r) => setTimeout(r, 40 * i + Math.random() * 80));
+    }
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Schema. BASE is the original v1 schema (kept so old databases line up);
@@ -1634,4 +1648,4 @@ async function uniqueSlug(table: string, base: string, exceptId: number | null =
   return `${base}-${randomCode(4).toLowerCase()}`;
 }
 
-export { pg, q, one, tx, ensureReady, lockPublicApi, getSettings, setSetting, setMany, jsonSetting, DEFAULT_SETTINGS, SECRET_KEYS, logActivity, logIntegration, uniqueSlug };
+export { pg, q, one, tx, txRetry, ensureReady, lockPublicApi, getSettings, setSetting, setMany, jsonSetting, DEFAULT_SETTINGS, SECRET_KEYS, logActivity, logIntegration, uniqueSlug };

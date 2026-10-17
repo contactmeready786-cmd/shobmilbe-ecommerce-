@@ -117,3 +117,18 @@ test('the same product twice in the cart is one line', { skip }, async () => {
   assert.equal(r.lines[0].qty, 3);
   assert.equal(r.total, 180);
 });
+
+test('a deadlock with another order is tried again, other errors are not', { skip }, async () => {
+  let n = 0;
+  const r = await db.txRetry(async (t) => {
+    n++;
+    await t.query('SELECT 1');
+    if (n === 1) throw Object.assign(new Error('deadlock detected'), { code: '40P01' });
+    return 'done';
+  });
+  assert.equal(r, 'done');
+  assert.equal(n, 2);
+  let m = 0;
+  await assert.rejects(db.txRetry(async () => { m++; throw Object.assign(new Error('other'), { code: '23505' }); }), /other/);
+  assert.equal(m, 1);
+});

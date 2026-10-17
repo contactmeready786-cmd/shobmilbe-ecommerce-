@@ -1,5 +1,5 @@
 // Orders: create, edit, status changes (with stock), delivery zones, coupons.
-import { q, one, tx, jsonSetting } from '../db';
+import { q, one, tx, txRetry, jsonSetting } from '../db';
 import { int, str, randomCode, bn, normalizePhone, ymd, amount, round2, money, qtyRule, contact, minOrder, wholeTaka } from '../util';
 import * as catalog from './catalog';
 import * as customers from './customers';
@@ -283,7 +283,8 @@ async function createOrder(input: Body, settings: Settings) {
   const zone = input.district ? zoneFor(settings, input.district, input.thana) : (input.area === 'dhaka' ? 'dhaka' : 'outside');
   const dz = input.district ? deliveryZone(settings, input.district, input.thana) : null;
 
-  return tx(async (t) => {
+  // (tried again if Postgres broke a deadlock with another order placed at the same moment)
+  return txRetry(async (t) => {
     // The order row comes first so stock movements can point at it.
     const prefix = (settings.order_prefix || 'SM').replace(/[^A-Za-z0-9]/g, '').slice(0, 4).toUpperCase() || 'SM';
     let found: DbRow | undefined;
