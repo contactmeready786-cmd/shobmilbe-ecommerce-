@@ -447,11 +447,18 @@ async function statusCounts(): Promise<Record<string, number>> {
 type StatusListener = (id: number, status: string, prev: string) => unknown;
 const statusListeners: StatusListener[] = [];
 function onStatusChange(fn: StatusListener): void { statusListeners.push(fn); }
+// the shop's own listeners (lib/models/order-events.ts) are loaded the first time they are needed, by whichever
+// route changed the status — so they never depend on some other file having been loaded first
+let statusEvents: Promise<unknown> | null = null;
+const loadStatusEvents = () => (statusEvents ??= import('./order-events').catch((e) => { statusEvents = null; console.error('order events', e); }));
 type StatusOpts = { damaged?: boolean };
 type StatusResult = { changed: boolean; prev: string; returnedTo?: string };
 async function setStatus(id: number, status: string, staffId: number | null | undefined, opts: StatusOpts = {}): Promise<StatusResult> {
   const r = await setStatusTx(id, status, staffId, opts);
-  if (r.changed) for (const fn of statusListeners) { try { await fn(id, status, r.prev); } catch (e) { console.error('status listener', e && (e as Error).message); } }
+  if (r.changed) {
+    await loadStatusEvents();
+    for (const fn of statusListeners) { try { await fn(id, status, r.prev); } catch (e) { console.error('status listener', e && (e as Error).message); } }
+  }
   return r;
 }
 async function setStatusTx(id: number, status: string, staffId: number | null | undefined, opts: StatusOpts = {}): Promise<StatusResult> {

@@ -50,6 +50,8 @@ export function isOn(): boolean { return !!reporter; }
 export function report(error: unknown, context?: Record<string, unknown>): void {
   console.error(error);
   if (store) { try { store(error, context); } catch { /* never break a page */ } }
+  // by default: the site's own error log (Admin → সার্ভার ও ডাটাবেস), on every route
+  else import('./health').then((h) => h.logError(error, context)).catch(() => { /* never break a page */ });
   if (!reporter) return;
   try { reporter(error, context); unsent = true; } catch { /* reporting must never break a page */ }
 }

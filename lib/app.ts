@@ -62,41 +62,6 @@ import type { Body, Id, Loose, Settings, ShopRequest, ShopResponse } from './typ
 
 const securityHeaders = security.BASE_HEADERS;
 
-// Customer SMS when an order is confirmed / handed to the courier / delivered (Admin → মার্কেটিং → কাস্টমারকে SMS).
-O.onStatusChange(async (id, status) => {
-  const ev = { confirmed: 'confirmed', shipped: 'shipped', delivered: 'delivered' }[status];
-  if (!ev) return;
-  const settings = await db.getSettings();
-  if (settings.sms_on !== '1' || settings[`sms_on_${ev}`] !== '1') return;
-  const o = await db.one('SELECT id, code, phone, customer_name, total, tracking_code, points_earned, source FROM orders WHERE id=$1', [id]);
-  if (!o || o.source === 'pos' || !o.phone) return; // counter sales: the customer is standing in the shop
-  await notify.later($services_sms.orderEvent(settings, ev, o, settings.site_url || ''));
-});
-// 💳 gift card money back when an order is cancelled / returned (taken again if it is switched back on),
-// 🎁 the referral reward when a referred first order is delivered, 🏬 a branch's pieces back on its shelf.
-O.onStatusChange(async (id, status, prev) => {
-  const G = $models_giftcards;
-  if (O.RELEASED.has(status)) {
-    await G.refundOrder(id).catch((e) => console.error('gift refund', e.message));
-    const o = await db.one('SELECT warehouse_id FROM orders WHERE id=$1', [id]);
-    if (o && o.warehouse_id && !O.RELEASED.has(prev)) {
-      const items = await db.q('SELECT product_id, qty, components FROM order_items WHERE order_id=$1 AND product_id IS NOT NULL', [id]);
-      for (const it of items) {
-        for (const part of (it.components && it.components.length ? it.components : [{ product_id: it.product_id, qty: it.qty }])) {
-          await db.q(`INSERT INTO warehouse_stock(warehouse_id, product_id, qty) SELECT $1, $2, $3 WHERE EXISTS (SELECT 1 FROM warehouses WHERE id=$1) AND EXISTS (SELECT 1 FROM products WHERE id=$2)
-            ON CONFLICT (warehouse_id, product_id) DO UPDATE SET qty = warehouse_stock.qty + EXCLUDED.qty`, [o.warehouse_id, part.product_id, part.qty]);
-          await db.q('INSERT INTO warehouse_moves(product_id, from_wh, to_wh, qty, reason, ref_id) VALUES($1,NULL,$2,$3,$4,$5)', [part.product_id, o.warehouse_id, part.qty, 'sale_cancel', id]);
-        }
-      }
-    }
-  } else if (O.RELEASED.has(prev)) {
-    await G.respendOrder(id).catch((e) => console.error('gift respend', e.message));
-  }
-  if (status === 'delivered') {
-    const settings = await db.getSettings();
-    await G.rewardReferral(settings, id).catch((e) => console.error('referral reward', e.message));
-  }
-});
 // The home page, top to bottom (Admin → স্টোর ডিজাইন can switch rows on/off and change the order).
 const HOME_DEFAULT = ['slider', 'trust', 'categories', 'new', 'offers', 'bestsellers', 'popular', 'promo', 'cat_rows', 'budget', 'featured'];
 function send(res: ShopResponse, status?: Loose, body?: Loose, type: Loose = 'text/html; charset=utf-8', extra: Loose = {}) {
@@ -118,8 +83,6 @@ function tooMany(req: ShopRequest, res: ShopResponse, asJson?: Loose) {
 
 // Admin pages and changes read fresh data; shop pages may share 15-second copies (lib/cache.ts).
 const handler = scoped(handlerInner);
-// every reported error is also counted in the site's own error log (Admin → সার্ভার ও ডাটাবেস)
-$services_errors.setStore($services_health.logError);
 async function handlerInner(req: ShopRequest, res: ShopResponse) {
   const url = new URL(req.url || '/', 'http://local');
   let path = url.searchParams.get('__p');

@@ -138,3 +138,21 @@ test('an error thrown on purpose inside a transaction is not run a second time',
   await assert.rejects(db.tx(async (t) => { n++; await t.query('SELECT 1'); throw new Error('এখন স্টকে নেই'); }), /স্টকে নেই/);
   assert.equal(n, 1);
 });
+
+test('a status change sends the customer\'s SMS wherever it is made (no other file needs to be loaded first)', { skip }, async () => {
+  const sms = await import('../lib/services/sms');
+  const sent: string[] = [];
+  sms.setFakeSender(async (phone, text) => { sent.push(`${phone}: ${text}`); return { ok: true, msg: 'ok' }; });
+  for (const [k, v] of Object.entries({ sms_on: '1', sms_provider: 'custom', sms_custom_url: 'https://sms.test/send', sms_on_confirmed: '1' })) await db.setSetting(k, v);
+  try {
+    const id = await product(120, 5);
+    const r = await O.createOrder({ items: [{ id, qty: 1 }], name: 'এসএমএস টেস্ট', phone: '01710000088', address: 'বাসা ৯, রোড ১', district: 'Dhaka', thana: 'Banani', payment: 'cod', source: 'web', ip: '10.9.9.8' }, S());
+    await O.setStatus(r.id, 'confirmed', null);
+    for (let i = 0; i < 50 && !sent.length; i++) await new Promise((res) => setTimeout(res, 100));
+    assert.equal(sent.length, 1);
+    assert.match(sent[0], /^8801710000088: /);
+  } finally {
+    await db.setSetting('sms_on', '0');
+    sms.setFakeSender(null);
+  }
+});
