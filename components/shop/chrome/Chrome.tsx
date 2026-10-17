@@ -31,8 +31,8 @@ export function customScripts(s: Settings, place: 'head' | 'body'): string {
 // The small on/off switch in the top bar (বাং ◯ EN): tap it and the whole shop changes language, no reload.
 function LangSwitch() {
   return (
-    <button type="button" className="lang-sw" role="switch" aria-checked="false" aria-label="English" title="বাংলা / English" translate="no" data-lang-switch="">
-      <span className="ls-l ls-bn" data-lang="bn">বাং</span><span className="ls-track" aria-hidden="true"><span className="ls-knob"></span></span><span className="ls-l ls-en" data-lang="en">EN</span>
+    <button type="button" className="lang-sw" role="switch" aria-checked="false" aria-label="English" title="বাংলা / English" translate="no" data-lang-switch="">{' '}
+      <span className="ls-l ls-bn" data-lang="bn">বাং</span><span className="ls-track" aria-hidden="true"><span className="ls-knob"></span></span><span className="ls-l ls-en" data-lang="en">EN</span>{' '}
     </button>
   );
 }
@@ -120,19 +120,19 @@ export function ShopBody({ settings: s, categories, pages, popup = null, q = '',
       ) : null}
       <header className="site-header">
         <div className="wrap header-row">
-          <button className="menu-btn" type="button" data-drawer-open="" aria-label="মেনু" aria-controls="drawer"><MenuIcon /></button>
-          <a className="logo" href="/" aria-label={`${s.store_name} হোম`} translate="no"><Logo settings={s} /></a>
+          <button className="menu-btn" type="button" data-drawer-open="" aria-label="মেনু" aria-controls="drawer"><MenuIcon /></button>{' '}
+          <a className="logo" href="/" aria-label={`${s.store_name} হোম`} translate="no"><Logo settings={s} /></a>{' '}
           {U.on(s, 'ui_search') ? (
             <form className="search" action="/products" method="get" role="search">
-              <label className="sr" htmlFor="q">পণ্য খুঁজুন</label>
-              <input id="q" name="q" type="search" defaultValue={q} placeholder={U.text(s, 'uit_search_ph')} autoComplete="off" />
-              <button type="submit" aria-label="খুঁজুন"><SearchIcon /></button>
+              <label className="sr" htmlFor="q">পণ্য খুঁজুন</label>{' '}
+              <input id="q" name="q" type="search" defaultValue={q} placeholder={U.text(s, 'uit_search_ph')} autoComplete="off" />{' '}
+              <button type="submit" aria-label="খুঁজুন"><SearchIcon /></button>{' '}
             </form>
           ) : <span className="search-off" aria-hidden="true"></span>}
           <nav className="header-nav" aria-label="প্রধান মেনু">
-            {menu.map((m: Loose, i: number) => <a key={i} href={security.safeUrl(m.url)} className={active && m.url.startsWith('/' + active) ? 'on' : ''}>{m.label}</a>)}
-            {showLiveNav ? <a href="/live" className={cx('live-link', active === 'live' && 'on')}><span className="live-dot" aria-hidden="true"></span>{liveLabel}</a> : null}
-            {s.acct_on === '1' && s.nav_account !== '0' ? <a href="/account" className={cx('acct-link', active === 'account' && 'on')} aria-label="আমার অ্যাকাউন্ট" title="আমার অ্যাকাউন্ট"><UserIcon /><span className="acct-word">অ্যাকাউন্ট</span></a> : null}
+            {menu.map((m: Loose, i: number) => <a key={i} href={security.safeUrl(m.url)} className={active && m.url.startsWith('/' + active) ? 'on' : ''}>{m.label}</a>)}{' '}
+            {showLiveNav ? <a href="/live" className={cx('live-link', active === 'live' && 'on')}><span className="live-dot" aria-hidden="true"></span>{liveLabel}</a> : null}{' '}
+            {s.acct_on === '1' && s.nav_account !== '0' ? <a href="/account" className={cx('acct-link', active === 'account' && 'on')} aria-label="আমার অ্যাকাউন্ট" title="আমার অ্যাকাউন্ট"><UserIcon /><span className="acct-word">অ্যাকাউন্ট</span></a> : null}{' '}
             {showCart ? <a href="/cart" className={cx('cart-link', active === 'cart' && 'on')} aria-label="কার্ট"><CartIcon /><span className="cart-word">কার্ট</span><b className="cart-count" data-cart-count="" hidden>0</b></a> : null}
           </nav>
         </div>
@@ -164,23 +164,23 @@ export function ShopBody({ settings: s, categories, pages, popup = null, q = '',
           {shopLinks.length ? (
             <div>
               <h2>কেনাকাটা</h2>
-              {shopLinks.map(([url, label]) => (url === '#offers-on' ? <a key={url} href="#" data-push-ask="">{label}</a> : <a key={url} href={security.safeUrl(url)}>{label}</a>))}
+              {shopLinks.map(([url, label]) => (url === '#offers-on' ? <a key={url} href="#" data-push-ask="">{label}</a> : <a key={url} href={security.safeUrl(url)}>{label}</a>))}{' '}
             </div>
           ) : null}
           {infoPages.length ? (
             <div>
               <h2>তথ্য</h2>
-              {infoPages.map((p) => <a key={p.slug} href={`/page/${p.slug}`}>{p.title}</a>)}
+              {infoPages.map((p) => <a key={p.slug} href={`/page/${p.slug}`}>{p.title}</a>)}{' '}
             </div>
           ) : null}
           {s.foot_contact !== '0' && (C.phone || C.wa || s.email || s.address || s.complaints_on !== '0') ? (
             <div>
               <h2>যোগাযোগ</h2>
-              {C.phone ? <a href={`tel:${C.phone}`}>📞 {C.phone}</a> : null}
-              {C.wa ? <a href={`https://wa.me/${C.wa}`} rel="noopener" target="_blank">💬 WhatsApp</a> : null}
-              {s.email ? <a href={`mailto:${s.email}`}>✉ {s.email}</a> : null}
-              {s.complaints_on !== '0' ? <a href="/complaint">📮 অভিযোগ / সমস্যা জানান</a> : null}
-              {s.address ? <span className="muted">{s.address}</span> : null}
+              {C.phone ? <a href={`tel:${C.phone}`}>📞 {C.phone}</a> : null}{' '}
+              {C.wa ? <a href={`https://wa.me/${C.wa}`} rel="noopener" target="_blank">💬 WhatsApp</a> : null}{' '}
+              {s.email ? <a href={`mailto:${s.email}`}>✉ {s.email}</a> : null}{' '}
+              {s.complaints_on !== '0' ? <a href="/complaint">📮 অভিযোগ / সমস্যা জানান</a> : null}{' '}
+              {s.address ? <span className="muted">{s.address}</span> : null}{' '}
             </div>
           ) : null}
         </div>
@@ -188,19 +188,19 @@ export function ShopBody({ settings: s, categories, pages, popup = null, q = '',
           <div className="news-box"><div className="wrap">
             <div><h2>🎁 অফার আর নতুন পণ্যের খবর</h2><p>ইমেইল দিন — সপ্তাহে একবারের বেশি নয়, যেকোনো সময় বন্ধ করা যায়।</p></div>
             <form className="news-form" data-news-form="" noValidate>
-              <input type="email" name="email" required maxLength={120} autoComplete="email" inputMode="email" placeholder="আপনার ইমেইল" aria-label="আপনার ইমেইল" />
+              <input type="email" name="email" required maxLength={120} autoComplete="email" inputMode="email" placeholder="আপনার ইমেইল" aria-label="আপনার ইমেইল" />{' '}
               <input type="text" name="website" className="hp" tabIndex={-1} autoComplete="off" aria-hidden="true" />{' '}
-              <button className="btn btn-amber" type="submit">যোগ দিন</button>
+              <button className="btn btn-amber" type="submit">যোগ দিন</button>{' '}
               <p className="news-msg" data-news-msg="" role="status"></p>
             </form>
           </div></div>
         ) : null}
         <div className="wrap footer-base">© {new Date().getFullYear()} {s.store_name} · সর্বস্বত্ব সংরক্ষিত{s.trade_license ? <span className="biz-id"> · ট্রেড লাইসেন্স: <span translate="no">{s.trade_license}</span></span> : null}{s.vat_bin ? <span className="biz-id"> · BIN: <span translate="no">{s.vat_bin}</span></span> : null}</div>
       </footer>
-      {s.chat_whatsapp_button === '1' && wa ? <a className="float-chat wa" href={`https://wa.me/${wa}`} target="_blank" rel="noopener" aria-label="WhatsApp এ চ্যাট করুন"><WhatsAppIcon /></a> : null}
-      {s.chat_messenger_page ? <a className={cx('float-chat ms', chatSecond && 'second')} href={`https://m.me/${s.chat_messenger_page}`} target="_blank" rel="noopener" aria-label="Messenger এ চ্যাট করুন"><MessengerIcon /></a> : null}
+      {s.chat_whatsapp_button === '1' && wa ? <a className="float-chat wa" href={`https://wa.me/${wa}`} target="_blank" rel="noopener" aria-label="WhatsApp এ চ্যাট করুন"><WhatsAppIcon /></a> : null}{' '}
+      {s.chat_messenger_page ? <a className={cx('float-chat ms', chatSecond && 'second')} href={`https://m.me/${s.chat_messenger_page}`} target="_blank" rel="noopener" aria-label="Messenger এ চ্যাট করুন"><MessengerIcon /></a> : null}{' '}
       {popup ? (
-        <div className="popup" data-popup={popup.id} hidden><div className="popup-box"><button type="button" className="popup-x" data-popup-close="" aria-label="বন্ধ করুন">✕</button>
+        <div className="popup" data-popup={popup.id} hidden><div className="popup-box"><button type="button" className="popup-x" data-popup-close="" aria-label="বন্ধ করুন">✕</button>{' '}
           <a href={security.safeUrl(popup.link)}><img src={`/media/${popup.image_id}`} alt={popup.title || 'অফার'} /></a></div></div>
       ) : null}
       <div className="toast" role="status" aria-live="polite" data-toast=""></div>

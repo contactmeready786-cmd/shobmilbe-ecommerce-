@@ -55,6 +55,7 @@ function canonicalTag(tag, attrs) {
 export function canonicalHtml(body) {
   const src = String(body)
     .replace(/<\/option>/gi, '') // a closing </option> is optional in HTML (the next option or </select> closes it)
+    .replace(/<\/(path|circle|rect|line|polyline|polygon|ellipse|stop|use)>/g, '') // SVG shapes: <path/> and <path></path> are the same
     .replace(/<!--[\s\S]*?-->/g, ''); // comments show nothing (React can't write them)
   // tags one way; text between tags with one spelling of ' " /
   let out = '';
