@@ -75,5 +75,13 @@ uses that one setup. Never add a second Gmail / App Password / SMS / API-key fie
 - Pieces made with toHtml (lib/react/html) stay React; only lib/app.ts can turn them into text (`.s`). In code a
   Next.js page runs, never use a piece as text (String(x), `${x}`, attrProps(toHtml(…))) — keep it React (Val, or
   insertAfterTag to put something under a heading). RawHtml picks a wrapper the browser keeps in place (text / g / span / div).
+- Shop APIs, pictures, robots/sitemap/feeds, e-mail counters, payments, webhooks and the scheduled jobs are Next.js
+  route handlers (app/api/…, app/media, app/pay, app/webhook …) with their code in lib/api/*.ts; `apiRoute()`
+  (lib/next/api.ts) runs the shop's gate first (`{ bots: false }` for pictures and robots.txt). A method or address a
+  route doesn't handle goes to the original code (`otherMethods` / `toLegacy`), so its answer stays exactly the same.
+  What is left in lib/app.ts (through app/api/legacy, src/legacy/bridge.ts — no Node streams): shop and admin form
+  POSTs, /admin/api and the admin's files, the shop's 404 / redirect answers, the country-lock page, verification files.
+- Database: only a dropped connection is retried (lib/pg isConnectionError); an order is retried on a deadlock (db.txRetry).
+  Tests run one file at a time (`--test-concurrency=1`): the database tests share one throw-away database.
 - tools/parity/browser.mjs opens the Next.js pages in a real browser on every parity run: no script errors, React takes
   over without hydration trouble, shop.js / admin.js start. It names any HTML the browser had to re-arrange.
