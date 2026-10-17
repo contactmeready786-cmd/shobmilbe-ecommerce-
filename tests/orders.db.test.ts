@@ -152,7 +152,7 @@ test('a status change sends the customer\'s SMS wherever it is made (no other fi
     await cache.runFresh(() => O.setStatus(r.id, 'confirmed', null));
     for (let i = 0; i < 50 && !sent.length; i++) await new Promise((res) => setTimeout(res, 100));
     assert.equal(sent.length, 1);
-    assert.match(sent[0], /^8801710000088: /);
+    assert.match(sent[0], /^01710000088: .*কনফার্ম/);
   } finally {
     await db.setSetting('sms_on', '0');
     sms.setFakeSender(null);
