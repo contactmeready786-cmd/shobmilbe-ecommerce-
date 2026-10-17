@@ -30,8 +30,9 @@ export function shopMetadata(s: Settings, m: PageMeta = {}): Metadata {
     robots: m.noindex ? { index: false } : undefined,
     alternates: url ? { canonical: url } : undefined,
     openGraph: {
-      // a product page says og:type "product" itself (Next.js knows only website / article) — lib/next/page.tsx
-      type: m.type === 'article' ? 'article' : m.type === 'product' ? undefined : 'website',
+      // a product page says og:type "product" itself (Next.js knows only website / article, and refuses an empty
+      // type — so the key is left out) — lib/next/page.tsx
+      ...(m.type === 'product' ? {} : { type: m.type === 'article' ? 'article' : 'website' }),
       title, description: desc, siteName: s.store_name, url,
       images: ogImage ? [{ url: abs(ogImage) }] : undefined,
     },
