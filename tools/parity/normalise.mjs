@@ -45,6 +45,7 @@ function canonicalTag(tag, attrs) {
     let v = m[2] === undefined ? '' : decodeEnt(/^["']/.test(m[2]) ? m[2].slice(1, -1) : m[2]);
     if (name === 'style') v = v.replace(/\s*([:;])\s*/g, '$1').replace(/;$/, '').trim();
     if (name === 'class') v = v.trim().replace(/\s+/g, ' ');
+    if (name === 'srcdoc') v = canonicalHtml(v); // a whole page inside an attribute (document previews)
     if (v === '' && (name === 'class' || (name === 'src' && /^img$/i.test(tag)))) continue;
     list.push(v === '' ? name : `${name}="${v.replace(/&/g, '&amp;').replace(/"/g, '&quot;')}"`);
   }
