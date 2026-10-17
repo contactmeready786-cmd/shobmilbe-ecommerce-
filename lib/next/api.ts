@@ -35,7 +35,7 @@ export function tooMany(ctx: ApiCtx): Response {
 /** At most `max` calls per `seconds` from this connection for `key` (lib/security hit). */
 export const allow = (ctx: ApiCtx, key: string, max: number, seconds: number) => security.hit(db, key + ctx.ip, max, seconds);
 
-export function apiRoute(fn: (ctx: ApiCtx) => Promise<Response>) {
+export function apiRoute(fn: (ctx: ApiCtx) => Promise<Response>, opts: { bots?: boolean } = {}) {
   return async (request: Request): Promise<Response> => {
     const url = new URL(request.url);
     const headers: Record<string, string> = {};
@@ -43,7 +43,7 @@ export function apiRoute(fn: (ctx: ApiCtx) => Promise<Response>) {
     const path = url.pathname.length > 1 ? url.pathname.replace(/\/+$/, '') : url.pathname;
     const text = request.method === 'GET' || request.method === 'HEAD' ? '' : await request.text();
     const req = { headers, url: url.pathname + url.search, method: request.method, socket: { remoteAddress: headers['x-real-ip'] || '' }, __body: text } as unknown as ShopRequest;
-    const gate = await shopGate(req, path, url.search, request.method);
+    const gate = await shopGate(req, path, url.search, request.method, opts);
     if (!gate.ok) return new Response(gate.body, { status: gate.status, headers: { 'Content-Type': gate.type, 'Cache-Control': 'no-store', ...security.BASE_HEADERS, ...gate.headers } });
     const ctx: ApiCtx = { request, url, path, query: url.searchParams, settings: gate.settings, ip: security.clientIp(req), req, body: () => parseBody(req) };
     try {

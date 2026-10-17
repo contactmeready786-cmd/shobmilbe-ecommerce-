@@ -217,26 +217,15 @@ async function handlerInner(req: ShopRequest, res: ShopResponse) {
     // ---- small jobs that must run now and then (Vercel's own schedule runs only once a day) ----
     if (method === 'GET' && !path.startsWith('/media/') && !path.startsWith('/api/')) backgroundTick(req, settings);
 
-    // ---- images ----
-    let m = path.match(/^\/media\/(\d+)(\/t)?$/);
-    if (m && method === 'GET') return await serveMedia(res, int(m[1]), !!m[2], query.get('raw') === '1');
-    m = path.match(/^\/media\/(\d+)\/w$/);
-    if (m && method === 'GET') return await serveWatermarked(res, int(m[1]), settings, query.get('raw') === '1');
-    m = path.match(/^\/img\/p\/(\d+)$/);
-    if (m) {
-      const p = await db.one('SELECT image_id FROM products WHERE id=$1', [int(m[1])]);
-      return p && p.image_id ? redirect(res, `/media/${p.image_id}`) : send(res, 404, 'Not found', 'text/plain');
-    }
 
     // ---- tools that ignore robots.txt: the blocked spy / copier bots get nothing at all ----
     const ua = String(req.headers['user-agent'] || '');
-    if (ua && path !== '/robots.txt') {
+    if (ua) {
       const bad = blockedBots(settings);
       if (bad.length && bad.some((b) => ua.toLowerCase().includes(b.toLowerCase()))) return send(res, 403, 'Forbidden', 'text/plain', { 'X-Robots-Tag': 'noindex' });
     }
     // ---- crawlers & verification ----
-    if (path === '/robots.txt') return await robots(req, res, settings);
-    if (path === '/sitemap.xml') return await sitemap(req, res, settings);
+    // (pictures, robots.txt, sitemap.xml, feeds, the e-mail counters, /unsubscribe and the scheduled jobs: lib/api/files.ts)
     // ⚡ IndexNow key file (Bing & co. check it belongs to this shop)
     if (/^\/[a-f0-9]{32}\.txt$/.test(path) && settings.indexnow_key && path === `/${settings.indexnow_key}.txt`) return send(res, 200, settings.indexnow_key, 'text/plain; charset=utf-8');
     const vf = db.jsonSetting(settings, 'verification_files', []).find((f?: Loose) => '/' + f.path === path);
@@ -245,93 +234,13 @@ async function handlerInner(req: ShopRequest, res: ShopResponse) {
     // ---- API ----
     const ip = clientIp(req);
     // (the other shop APIs are their own Next.js routes: app/api/… → lib/api/shop-read.ts, lib/api/shop-actions.ts)
-    // ---- 📧 ইমেইল মার্কেটিং: leaving the offer list, and the open / click counters in each mail ----
-    if (path === '/unsubscribe') {
-      const M = $services_mailer;
-      const t = str(query.get('t'), 60);
-      const page = (title?: Loose, msg?: Loose, extra: Loose = '') => send(res, 200, `<!doctype html><html lang="bn"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>${esc(title)}</title><body style="font-family:'Hind Siliguri',sans-serif;max-width:480px;margin:60px auto;padding:0 18px;text-align:center;color:#14213d"><div style="font-size:46px">📧</div><h1 style="font-size:22px">${esc(title)}</h1><p style="color:#5b6475;line-height:1.7">${msg}</p>${extra}<p><a href="/" style="display:inline-block;margin-top:14px;background:#0866D6;color:#fff;text-decoration:none;padding:11px 24px;border-radius:10px">দোকানে যান</a></p></body></html>`, 'text/html; charset=utf-8', { 'X-Robots-Tag': 'noindex' });
-      if (method === 'POST') {
-        // Gmail's one-click "Unsubscribe" button (RFC 8058) and the button on this page both POST here
-        if (!(await security.hit(db, 'unsub:' + ip, 30, 3600))) return tooMany(req, res);
-        const b: Body = await parseBody(req).catch(() => ({}));
-        const tok = t || str(b.t, 60);
-        if (str(b.again, 2) === '1') {
-          const sub = await M.bySubToken(tok);
-          if (sub) await M.addSub(sub.email, { explicit: true, source: sub.source });
-          return page('আবার তালিকায় যোগ হলেন', '✅ ধন্যবাদ! আবার অফারের খবর পাবেন।');
-        }
-        const r = await M.unsubscribe(tok);
-        if (!r) return page('লিংকটা ঠিক নেই', 'এই লিংকটা কাজ করছে না। ইমেইলের নিচের লিংকটা আবার চাপুন।');
-        return page('তালিকা থেকে বাদ দেওয়া হলো', `<b>${esc(r.email)}</b> ঠিকানায় আর অফারের ইমেইল যাবে না। অর্ডারের দরকারি ইমেইল আগের মতোই যাবে।`,
-          `<form method="post" action="/unsubscribe?t=${encodeURIComponent(tok)}"><input type="hidden" name="again" value="1"><button style="background:none;border:0;color:#0866D6;text-decoration:underline;cursor:pointer;font:inherit">ভুল করে চেপেছি — আবার ইমেইল চাই</button></form>`);
-      }
-      const sub = await M.bySubToken(t);
-      if (!sub) return page('লিংকটা ঠিক নেই', 'এই লিংকটা কাজ করছে না। ইমেইলের নিচের লিংকটা আবার চাপুন।');
-      if (!sub.on_list) return page('আপনি তালিকায় নেই', `<b>${esc(sub.email)}</b> ঠিকানায় অফারের ইমেইল আগেই বন্ধ করা হয়েছে।`);
-      // a mail scanner opening the link must not unsubscribe anyone — the person presses the button
-      return page('অফারের ইমেইল বন্ধ করবেন?', `<b>${esc(sub.email)}</b> ঠিকানায় ${esc(settings.store_name || '')}-এর অফার ও নতুন পণ্যের ইমেইল আর যাবে না।`,
-        `<form method="post" action="/unsubscribe?t=${encodeURIComponent(t)}"><button style="background:#e11d48;color:#fff;border:0;padding:12px 26px;border-radius:10px;font:inherit;cursor:pointer">হ্যাঁ, বন্ধ করুন</button></form>`);
-    }
-    m = path.match(/^\/e\/o\/(\d{1,15})\/([A-Za-z0-9_-]{16})\.gif$/);
-    if (m && method === 'GET') {
-      const M = $services_mailer;
-      if (M.macOk(settings, m[1], m[2])) {
-        db.q('UPDATE email_log SET opened_at=coalesce(opened_at, now()) WHERE id=$1', [int(m[1])]).catch(() => {});
-        db.q('UPDATE email_subs SET last_open_at=now() WHERE id=(SELECT sub_id FROM email_log WHERE id=$1)', [int(m[1])]).catch(() => {});
-      }
-      return send(res, 200, Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64'), 'image/gif', { 'Cache-Control': 'no-store, private' });
-    }
-    m = path.match(/^\/e\/c\/(\d{1,15})\/([A-Za-z0-9_-]{16})$/);
-    if (m && method === 'GET') {
-      const M = $services_mailer;
-      const to = String(query.get('u') || '/');
-      const safe = to.startsWith('/') && !to.startsWith('//') && !to.includes('\\') ? to.slice(0, 400) : '/';
-      if (M.macOk(settings, `${m[1]}:${to}`, m[2])) {
-        db.q('UPDATE email_log SET clicked_at=coalesce(clicked_at, now()), opened_at=coalesce(opened_at, now()) WHERE id=$1', [int(m[1])]).catch(() => {});
-      }
-      return redirect(res, safe);
-    }
 
-    // ---- market research: one step of the round-the-clock work (GitHub every hour, Vercel cron daily).
-    // Safe to call by anyone: it only reads other shops' public product lists, at most once per 90 seconds, and says nothing back.
-    // ---- the shop's own daily backup (Vercel cron). Safe to call by anyone: it does nothing unless one is due.
-    // the two scheduled jobs: anyone may knock, but one connection only a few times an hour (stops someone making the site work hard on purpose)
-    if ((path === '/api/backup/tick' || path === '/api/research/tick') && !(await security.hit(db, 'tick:' + ip, 30, 3600))) return json(res, 429, { ok: false });
-    if (path === '/api/backup/tick') {
-      let r: Record<string, Loose> = {};
-      try { r = await $services_autobackup.run(); } catch (_) { r = {}; }
-      await $services_health.checkAndAlert(settings);
-      return json(res, 200, { ok: true, done: !!r.ok });
-    }
-    if (path === '/api/research/tick') {
-      let r: Record<string, Loose> = {};
-      try { r = await $services_research.tick(); } catch (_) { r = {}; }
-      try { const ik = $services_imagekit; await ik.moveOld(db, 10); await ik.flushTrash(db, 30); } catch (_) { /* next time */ }
-      try { await $models_extras.restockSweep(settings); } catch (_) { /* next time */ }
-      try { await seo.indexNowSweep(settings); } catch (_) { /* next hour */ }
-      // 🤖 অটো মার্কেটিং: the day's Facebook / Instagram post at the owner's hours, and the weekly price-list articles
-      // 🤖 অটো SEO: model numbers and specifications for a few dozen products, and the daily score
-      try { await $services_autoseo.sweep(settings); } catch (e: Loose) { console.error('autoseo', e.message); }
-      try { await $services_autopost.tick(settings); } catch (e: Loose) { console.error('autopost', e.message); }
-      // 💬 "দাম কত?" under the page's posts → price + order link in the comment (every ~10 minutes, when switched on)
-      try { await $services_fbreply.run(settings); } catch (e: Loose) { console.error('fbreply', e.message); }
-      // ✈️ the same daily posts to the shop's Telegram channel (when one is connected)
-      try { await $services_telegram.tick(settings); } catch (e: Loose) { console.error('telegram', e.message); }
-      try { await $services_autoblog.run(settings, { max: 1 }); } catch (e: Loose) { console.error('autoblog', e.message); }
-      // 📧 ইমেইল মার্কেটিং: welcome / review / weekly new products / campaigns / 'we miss you' (within the day's allowance)
-      try { await $services_mailer.tick(settings); } catch (e: Loose) { console.error('mailer', e.message); }
-      try { await $services_autobackup.run(); } catch (_) { /* the daily one will try again */ }
-      return json(res, 200, { ok: true, done: !r.skipped && !r.idle });
-    }
-    // ---- product feeds for Google Merchant Center / Facebook catalog ----
-    m = path.match(/^\/feeds\/(google|facebook)\.(xml|csv|tsv)$/);
-    if (m && method === 'GET') return await feeds.serve({ ...base, siteUrl: siteUrl(req, settings) }, m[1], m[2]);
 
     // ---- payments & webhooks ----
     if (path.startsWith('/pay/')) return await paymentRoutes(base);
     if (path === '/webhook/steadfast' && method === 'POST') return await steadfastWebhook(base);
     if (path === '/webhook/pathao' && method === 'POST') return await pathaoWebhook(base);
-    m = path.match(/^\/webhook\/autocall\/([A-Za-z0-9_-]{10,80})$/);
+    const m = path.match(/^\/webhook\/autocall\/([A-Za-z0-9_-]{10,80})$/);
     if (m && (method === 'POST' || method === 'GET')) {
       // the call company tells us what the customer pressed (JSON, form or ?query)
       const b = method === 'POST' ? await parseBody(req) : {};
@@ -349,83 +258,7 @@ async function handlerInner(req: ShopRequest, res: ShopResponse) {
   }
 }
 
-// A picture on ImageKit: send the visitor straight there (fast CDN). raw=1 (admin tools that read the
-// pixels) gets the bytes through this site instead, because browsers only allow that for same-site pictures.
-async function sendFromImageKit(res: ShopResponse, url?: Loose, mime?: Loose, raw?: Loose) {
-  if (!raw) {
-    // s-maxage: Vercel's CDN keeps the redirect too, so a new visitor's pictures don't each wake the server and database
-    res.writeHead(302, { Location: url, 'Cache-Control': 'public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800', 'X-Content-Type-Options': 'nosniff' });
-    return res.end();
-  }
-  const r = await fetch(url, { signal: AbortSignal.timeout(12000) }).catch(() => null);
-  if (!r || !r.ok) return send(res, 502, 'Picture not reachable', 'text/plain');
-  const safeType = /^image\/(jpeg|png|webp|gif|x-icon)$/.test(mime) ? mime : 'application/octet-stream';
-  // never kept by the browser: the admin draws watermarks from this, and an old copy must never be reused
-  res.writeHead(200, { 'Content-Type': safeType, 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'; sandbox" });
-  return res.end(Buffer.from(await r.arrayBuffer()));
-}
 
-async function serveMedia(res: ShopResponse, id?: Id, thumb?: Loose, raw: Loose = false) {
-  const m = await catalog.getMedia(id, thumb);
-  if (!m) return send(res, 404, 'Not found', 'text/plain');
-  if (m.ik_url) return sendFromImageKit(res, thumb ? $services_imagekit.thumbUrl(m.ik_url, !raw) : m.ik_url, m.mime, raw);
-  const safeType = /^image\/(jpeg|png|webp|gif|x-icon)$/.test(m.mime) ? m.mime : 'application/octet-stream';
-  res.writeHead(200, { 'Content-Type': safeType, 'Cache-Control': 'public, max-age=31536000, s-maxage=31536000, immutable', 'X-Content-Type-Options': 'nosniff',
-    'Content-Security-Policy': "default-src 'none'; sandbox" });
-  return res.end(m.data);
-}
-
-// Product page's big picture with the shop's watermark. Until the marked copy is ready
-// the normal picture is sent, and only cached briefly so the marked one shows up soon.
-async function serveWatermarked(res: ShopResponse, id: Id, settings: Settings, raw: Loose = false) {
-  const ver = settings.wm_on === '1' ? String(settings.wm_ver || '') : '';
-  const m = ver ? await catalog.getWatermarked(id, ver) : await catalog.getMedia(id, false);
-  if (!m) return send(res, 404, 'Not found', 'text/plain');
-  if (m.wm_url) return sendFromImageKit(res, m.wm_url, 'image/jpeg', raw);
-  if (!m.wm && m.ik_url) return sendFromImageKit(res, m.ik_url, m.mime, raw);
-  const ready = !!(ver && m.wm);
-  const safeType = ready ? 'image/jpeg' : /^image\/(jpeg|png|webp|gif|x-icon)$/.test(m.mime) ? m.mime : 'application/octet-stream';
-  res.writeHead(200, { 'Content-Type': safeType, 'Cache-Control': ready ? 'public, max-age=31536000, s-maxage=31536000, immutable' : 'public, max-age=120, s-maxage=60', 'X-Content-Type-Options': 'nosniff',
-    'Content-Security-Policy': "default-src 'none'; sandbox" });
-  return res.end(ready ? m.wm : m.data);
-}
-
-// ---------------------------------------------------------------- crawlers
-// Robots: Google, Bing, Facebook, TikTok … are welcome on the shop (that is how customers find it).
-// Private parts are always closed. Optionally (Admin → গ্রোথ গাইড), competitor SEO-spy tools and
-// AI-training copiers are told to stay away — they never bring customers, so this costs no sales.
-function robots(req: ShopRequest, res: ShopResponse, settings: Settings) {
-  const base = siteUrl(req, settings);
-  const closed = blockedBots(settings).map((b) => `User-agent: ${b}\nDisallow: /\n`).join('\n');
-  send(res, 200, `${closed ? closed + '\n' : ''}User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /cart\nDisallow: /checkout\nDisallow: /order/\nDisallow: /api/\nDisallow: /pay/\nDisallow: /track\nDisallow: /*?q=\nDisallow: /*&q=\n\nSitemap: ${base}/sitemap.xml\n`,
-    'text/plain; charset=utf-8', { 'Cache-Control': 'public, max-age=3600' });
-}
-async function sitemap(req: ShopRequest, res: ShopResponse, settings: Settings) {
-  const base = siteUrl(req, settings);
-  const [products, categories, posts, pages, brands] = await Promise.all([
-    db.q('SELECT slug, updated_at, image_id, name FROM products WHERE active AND NOT noindex AND parent_id IS NULL ORDER BY id'),
-    db.q('SELECT slug FROM categories WHERE coalesce(active,true) AND NOT noindex ORDER BY sort'),
-    db.q(`SELECT slug, updated_at FROM blog_posts WHERE status='published' AND published_at <= now()`),
-    db.q('SELECT slug, updated_at FROM pages WHERE active'),
-    db.q('SELECT b.slug FROM brands b WHERE b.active AND NOT b.noindex AND EXISTS (SELECT 1 FROM products p WHERE p.brand_id=b.id AND p.active) ORDER BY b.sort, b.id'),
-  ]);
-  // 🧰 project kits / guides (when the kit pages are switched on)
-  const kits = settings.kits_on !== '0' ? await db.q('SELECT slug, updated_at, image_id FROM kits WHERE active ORDER BY sort, id').catch(() => []) : [];
-  // the same product listed twice: only its main page goes to Google
-  const dupSlugs = await dupcanon.copies().catch(() => new Map());
-  const u = (loc?: Loose, lastmod?: Loose, pri?: Loose, img?: Loose) => `<url><loc>${esc(base + loc)}</loc>${lastmod ? `<lastmod>${new Date(lastmod).toISOString().slice(0, 10)}</lastmod>` : ''}${pri ? `<priority>${pri}</priority>` : ''}${img ? `<image:image><image:loc>${esc(base + img)}</image:loc></image:image>` : ''}</url>`;
-  const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">${[
-    u('/', null, '1.0'), u('/products', null, '0.9'), u('/blog', null, '0.5'),
-    ...categories.map((c) => u(`/products?cat=${encodeURIComponent(c.slug)}`, null, '0.8')),
-    ...brands.map((b) => u(`/brand/${encodeURIComponent(b.slug)}`, null, '0.6')),
-    ...products.filter((p) => !dupSlugs.has(p.slug)).map((p) => u(`/p/${encodeURIComponent(p.slug)}`, p.updated_at, '0.7', p.image_id ? `/media/${p.image_id}` : '')),
-    ...posts.map((p) => u(`/blog/${encodeURIComponent(p.slug)}`, p.updated_at, '0.5')),
-    ...pages.map((p) => u(`/page/${encodeURIComponent(p.slug)}`, p.updated_at, '0.3')),
-    ...(kits.length ? [u('/kits', null, '0.6')] : []),
-    ...kits.map((k) => u(`/kit/${encodeURIComponent(k.slug)}`, k.updated_at, '0.7', k.image_id ? `/media/${k.image_id}` : '')),
-  ].join('')}</urlset>`;
-  send(res, 200, xml, 'application/xml; charset=utf-8', { 'Cache-Control': 'public, max-age=3600' });
-}
 
 
 

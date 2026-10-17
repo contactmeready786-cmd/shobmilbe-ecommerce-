@@ -66,7 +66,7 @@ export type GateResult =
   | { ok: false; status: number; body: string; type: string; headers: Record<string, string> };
 
 /** Runs the checks for one customer page or shop API call (not the admin). */
-export async function shopGate(req: GateRequest, path: string, search: string, method: string): Promise<GateResult> {
+export async function shopGate(req: GateRequest, path: string, search: string, method: string, opts: { bots?: boolean } = {}): Promise<GateResult> {
   const html = 'text/html; charset=utf-8';
   try {
     await db.ensureReady();
@@ -94,7 +94,8 @@ export async function shopGate(req: GateRequest, path: string, search: string, m
   $services_errors.ensure(settings); // Sentry on/off follows the key saved in Admin → আমার নোটিফিকেশন
   if (method === 'GET' && !path.startsWith('/api/') && !path.startsWith('/media/')) backgroundTick(r, settings);
   const ua = String(r.headers['user-agent'] || '');
-  if (ua) {
+  // (pictures and robots.txt are given even to the blocked bots — robots.txt is where they read they are not welcome)
+  if (ua && opts.bots !== false) {
     const bad = blockedBots(settings);
     if (bad.length && bad.some((b) => ua.toLowerCase().includes(b.toLowerCase()))) return { ok: false, status: 403, body: 'Forbidden', type: 'text/plain', headers: { 'X-Robots-Tag': 'noindex' } };
   }

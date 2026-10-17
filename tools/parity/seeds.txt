@@ -104,3 +104,11 @@
 /api/suggest?ids=1,2
 /api/for-you?seen=1,2&cart=3
 /api/app/offers?after=1
+/media/1
+/media/1/t
+/media/1/w
+/media/abc
+/img/p/1
+/feeds/google.xml
+/feeds/facebook.csv?key=wrong
+/unsubscribe?t=nope
