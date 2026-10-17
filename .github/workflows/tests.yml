@@ -43,6 +43,16 @@ jobs:
       - name: Tests (with a throw-away database)
         env:
           TEST_DATABASE_URL: postgres://postgres:ci-only@127.0.0.1:5432/shop_test?sslmode=disable
-        run: npm test
+        shell: bash
+        run: |
+          set -o pipefail
+          npm test 2>&1 | tee "$RUNNER_TEMP/tests.txt"
+          pass=$(grep -oE 'ℹ pass [0-9]+' "$RUNNER_TEMP/tests.txt" | awk '{s+=$3} END {print s+0}')
+          fail=$(grep -oE 'ℹ fail [0-9]+' "$RUNNER_TEMP/tests.txt" | awk '{s+=$3} END {print s+0}')
+          skipped=$(grep -oE 'ℹ skipped [0-9]+' "$RUNNER_TEMP/tests.txt" | awk '{s+=$3} END {print s+0}')
+          echo "::notice title=Tests::passed $pass, failed $fail, skipped $skipped"
+          echo "✅ Tests: $pass passed, $fail failed, $skipped skipped" >> "$GITHUB_STEP_SUMMARY"
+          # the database tests must really run here, never be skipped quietly
+          if [ "$skipped" != "0" ]; then echo "::error::$skipped tests were skipped"; exit 1; fi
       - name: Build like Vercel
         run: npx next build
