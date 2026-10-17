@@ -1,0 +1,11 @@
+<div class="wrap section narrow">
+  <h1>📮 অভিযোগের অবস্থা</h1>
+  <form class="form panel" method="get" action="/complaint/status">
+    <p class="form-error">নম্বর মেলেনি</p>
+    <div class="field-row">
+      <div class="field"><label for="s-code2">অভিযোগ নম্বর</label><input id="s-code2" name="code" required maxlength="12" autocapitalize="characters" placeholder="C123456" value="C1&lt;2&gt;"></div>
+      <div class="field"><label for="s-phone2">যে মোবাইল নম্বর দিয়েছিলেন</label><input id="s-phone2" name="phone" required inputmode="tel" maxlength="20" placeholder="01XXXXXXXXX"></div>
+    </div>
+    <button class="btn">দেখুন</button></form>
+  <p><a href="/complaint">+ নতুন অভিযোগ জানান</a></p>
+</div>

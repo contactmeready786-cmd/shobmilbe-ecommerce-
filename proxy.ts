@@ -1,6 +1,6 @@
 // Runs before every request (Next.js 16 "proxy", formerly "middleware").
 // Remembers the exact address the visitor asked for, so the original shop code (reached through a
-// rewrite to /legacy/...) sees the same URL it always saw. A visitor can't fake it: any incoming copy
+// rewrite to /api/legacy/...) sees the same URL it always saw. A visitor can't fake it: any incoming copy
 // of the header is overwritten here.
 import { NextResponse, type NextRequest } from 'next/server';
 

@@ -40,9 +40,10 @@ export function canonicalHtml(body) {
     .replace(/\sstyle="([^"]*)"/g, (_, s) => ` style="${s.replace(/\s*([:;])\s*/g, '$1').replace(/;$/, '').trim()}"`)
     .replace(/\sclass="([^"]*)"/g, (_, c) => ` class="${c.trim().replace(/\s+/g, ' ')}"`)
     .replace(/\sclass=""/g, '')
-    // attribute order and the case of attribute names don't matter to a browser (React writes a form's action last)
+    // attribute order, the case of attribute names and x="" vs a bare x don't matter to a browser
+    // (React writes a form's action last, and data-flags / true-false attributes as x="")
     .replace(/<([a-zA-Z][\w-]*)((?:\s+[^\s=>\/]+(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+))?)+)\s*(\/?)>/g, (_, tag, attrs, slash) => {
-      const list = [...attrs.matchAll(/\s+([^\s=>\/]+)(?:\s*=\s*("[^"]*"|'[^']*'|[^\s>]+))?/g)].map((m) => (m[2] === undefined ? m[1].toLowerCase() : `${m[1].toLowerCase()}=${m[2]}`));
+      const list = [...attrs.matchAll(/\s+([^\s=>\/]+)(?:\s*=\s*("[^"]*"|'[^']*'|[^\s>]+))?/g)].map((m) => (m[2] === undefined || m[2] === '""' || m[2] === "''" ? m[1].toLowerCase() : `${m[1].toLowerCase()}=${m[2]}`));
       return `<${tag} ${list.sort().join(' ')}${slash}>`;
     })
     // line breaks + indentation next to a tag are only source formatting (JSX drops them too);

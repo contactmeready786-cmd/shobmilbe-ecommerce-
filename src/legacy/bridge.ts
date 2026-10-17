@@ -13,7 +13,7 @@ const legacyHandler = (): NodeHandler => shopHandler as NodeHandler;
 
 type HeaderValue = string | number | readonly string[];
 
-class CollectingResponse extends Writable {
+export class CollectingResponse extends Writable {
   statusCode = 200;
   statusMessage = '';
   headersSent = false;
@@ -49,6 +49,12 @@ class CollectingResponse extends Writable {
     cb();
   }
 
+  /** The collected answer, for writing straight into a Node response (pages/api/legacy). */
+  parts(): { status: number; statusText: string; headers: [string, HeaderValue][]; body: Buffer | null } {
+    const noBody = this.statusCode === 204 || this.statusCode === 304 || this.statusCode < 200;
+    return { status: this.statusCode, statusText: this.statusMessage, headers: [...this.headers.values()].map((h) => [h.name, h.value]), body: noBody ? null : Buffer.concat(this.chunks) };
+  }
+
   toResponse(): Response {
     const h = new Headers();
     for (const { name, value } of this.headers.values()) {
@@ -61,14 +67,11 @@ class CollectingResponse extends Writable {
   }
 }
 
-export async function handleWithLegacy(request: Request, originalUrl: string): Promise<Response> {
-  const bytes = request.body ? Buffer.from(await request.arrayBuffer()) : Buffer.alloc(0);
-  const headers: Record<string, string> = {};
-  request.headers.forEach((v, k) => { headers[k] = v; });
-
+/** Runs the original shop code for one request and collects its answer. */
+export async function runLegacy({ method, headers, bytes, url }: { method: string; headers: Record<string, string>; bytes: Buffer; url: string }): Promise<CollectingResponse | null> {
   const req = Object.assign(Readable.from(bytes.length ? [bytes] : []), {
-    url: originalUrl,
-    method: request.method,
+    url,
+    method,
     headers,
     httpVersion: '1.1',
     socket: { remoteAddress: headers['x-real-ip'] || (headers['x-forwarded-for'] || '').split(',')[0].trim() || '127.0.0.1' },
@@ -79,9 +82,17 @@ export async function handleWithLegacy(request: Request, originalUrl: string): P
     await res.done;
   } catch (e) {
     console.error('legacy handler failed', e);
-    if (!res.writableEnded) return new Response('Server error', { status: 500 });
+    if (!res.writableEnded) return null;
   } finally {
     await flushErrorReports(); // an error reported to Sentry goes out before the server may be paused
   }
-  return res.toResponse();
+  return res;
+}
+
+export async function handleWithLegacy(request: Request, originalUrl: string): Promise<Response> {
+  const bytes = request.body ? Buffer.from(await request.arrayBuffer()) : Buffer.alloc(0);
+  const headers: Record<string, string> = {};
+  request.headers.forEach((v, k) => { headers[k] = v; });
+  const res = await runLegacy({ method: request.method, headers, bytes, url: originalUrl });
+  return res ? res.toResponse() : new Response('Server error', { status: 500 });
 }
