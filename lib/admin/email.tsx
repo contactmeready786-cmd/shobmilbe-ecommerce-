@@ -160,7 +160,7 @@ async function preview(ctx: AdminCtx) {
     const rows = await db.q(`SELECT p.id, p.name, p.slug, p.price, p.old_price, p.image_id, m.ik_url FROM products p LEFT JOIN media m ON m.id=p.image_id WHERE p.id = ANY($1::int[])`, [products]);
     return rows.map((p) => ({ ...p, img: p.ik_url ? `${p.ik_url}${p.ik_url.includes('?') ? '&' : '?'}tr=f-jpg,w-400` : p.image_id ? `/media/${p.image_id}/t` : '', path: `/p/${encodeURIComponent(p.slug)}` }));
   })();
-  const out = layout(s, { logId: null, sub, heading: 'ইমেইল দেখতে এমন হবে', intro: '{name}, এটা একটা নমুনা। ক্যাম্পেইনে আপনার লেখা এখানে বসবে।\n\nনিচে পণ্যগুলো এভাবে দেখাবে।', products: cards, button: { text: 'এখনই কিনুন', path: '/' }, utm });
+  const out = await layout(s, { logId: null, sub, heading: 'ইমেইল দেখতে এমন হবে', intro: '{name}, এটা একটা নমুনা। ক্যাম্পেইনে আপনার লেখা এখানে বসবে।\n\nনিচে পণ্যগুলো এভাবে দেখাবে।', products: cards, button: { text: 'এখনই কিনুন', path: '/' }, utm });
   return ctx.send(200, out, 'text/html; charset=utf-8', { 'Content-Security-Policy': "sandbox; default-src 'none'; img-src https: http: data: 'self'; style-src 'unsafe-inline'" });
 }
 
