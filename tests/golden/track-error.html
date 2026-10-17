@@ -1,0 +1,10 @@
+<div class="wrap section narrow">
+  <h1>অর্ডার ট্র্যাক করুন</h1>
+  <form class="form panel" method="get" action="/track">
+    <p class="muted">অর্ডার করার পর যে নম্বর পেয়েছিলেন (যেমন SM7K2P9Q) আর আপনার মোবাইল নম্বর দিন।</p>
+    <div class="field"><label for="code">অর্ডার নম্বর</label><input id="code" name="code" required value="SM12&lt;x&gt;" autocapitalize="characters" placeholder="SM…"></div>
+    <div class="field"><label for="tphone">মোবাইল নম্বর</label><input id="tphone" name="phone" required inputmode="tel" value="01712&#39;345678" placeholder="01XXXXXXXXX"></div>
+    <p class="form-error">অর্ডার পাওয়া যায়নি — &quot;SM12&quot; ভুল?</p>
+    <button class="btn btn-block" type="submit">অবস্থা দেখুন</button>
+  </form>
+</div>

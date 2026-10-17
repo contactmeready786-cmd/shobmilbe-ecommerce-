@@ -1,4 +1,7 @@
 import * as security from '../security';
+import { createElement } from 'react';
+import { toHtml } from '../react/render';
+import * as R from '../../components/shop/Pages';
 import { html, raw, esc, money, bn, fmtDate, youtubeId, contact, roundOff, roundOffLabel, qtyRule, minOrder } from '../util';
 import * as O from '../models/orders';
 import * as md from './md';
@@ -860,56 +863,13 @@ function selfPanel(order?: Loose, s?: Loose, otpActive?: Loose) {
 <script src="/js/bd-geo.js" defer></script>`;
 }
 
-function trackPage({ error, code, phone }: Body) {
-  return html`<div class="wrap section narrow">
-  <h1>অর্ডার ট্র্যাক করুন</h1>
-  <form class="form panel" method="get" action="/track">
-    <p class="muted">অর্ডার করার পর যে নম্বর পেয়েছিলেন (যেমন SM7K2P9Q) আর আপনার মোবাইল নম্বর দিন।</p>
-    <div class="field"><label for="code">অর্ডার নম্বর</label><input id="code" name="code" required value="${code || ''}" autocapitalize="characters" placeholder="SM…"></div>
-    <div class="field"><label for="tphone">মোবাইল নম্বর</label><input id="tphone" name="phone" required inputmode="tel" value="${phone || ''}" placeholder="01XXXXXXXXX"></div>
-    ${error ? html`<p class="form-error">${error}</p>` : ''}
-    <button class="btn btn-block" type="submit">অবস্থা দেখুন</button>
-  </form>
-</div>`;
-}
-
-// ---------------------------------------------------------------- blog & pages
-function postCard(p?: Loose) {
-  return html`<article class="post-card"><a href="/blog/${p.slug}" class="post-pic">${p.cover_id ? html`<img src="/media/${p.cover_id}/t" alt="" loading="lazy" draggable="false">` : html`<span>📝</span>`}</a>
-    <div><span class="small muted">${p.category_name || ''} · ${fmtDate(p.published_at, false)}</span><h3><a href="/blog/${p.slug}">${p.title}</a></h3><p>${p.excerpt}</p></div></article>`;
-}
-function blogList({ posts, categories, category }: Body) {
-  return html`<div class="wrap section">
-  <nav class="crumbs"><a href="/">হোম</a> / <a href="/blog">ব্লগ</a>${category ? html` / <span>${category.name}</span>` : ''}</nav>
-  <h1>${category ? category.name : 'ব্লগ ও টিপস'}</h1>
-  ${categories.length ? html`<div class="chips"><a class="chip ${!category ? 'on' : ''}" href="/blog">সব</a>${categories.map((c?: Loose) => html`<a class="chip ${category && category.id === c.id ? 'on' : ''}" href="/blog/category/${c.slug}">${c.name}</a>`)}</div>` : ''}
-  ${posts.length ? html`<div class="post-grid">${posts.map(postCard)}</div>` : html`<div class="empty"><p>এখনো কোনো লেখা নেই।</p></div>`}
-</div>`;
-}
-function blogPost({ post, contentHtml, related }: Body) {
-  return html`<div class="wrap section narrow">
-  <nav class="crumbs"><a href="/">হোম</a> / <a href="/blog">ব্লগ</a>${post.category_slug ? html` / <a href="/blog/category/${post.category_slug}">${post.category_name}</a>` : ''}</nav>
-  <article class="post rich">
-    <h1>${post.title}</h1>
-    <p class="muted small">${fmtDate(post.published_at, false)}${post.author_name ? ` · ${post.author_name}` : ''}</p>
-    ${post.cover_id ? html`<img class="post-cover" src="/media/${post.cover_id}" alt="" draggable="false">` : ''}
-    ${raw(contentHtml)}
-  </article>
-  ${related.length ? html`<h2>আরও পড়ুন</h2><div class="post-grid">${related.map(postCard)}</div>` : ''}
-</div>`;
-}
-function staticPage({ page }: Body) {
-  return html`<div class="wrap section narrow"><nav class="crumbs"><a href="/">হোম</a> / <span>${page.title}</span></nav>
-  <article class="post rich"><h1>${page.title}</h1>${raw(md.render(page.content))}</article></div>`;
-}
-
-function notFound() {
-  return html`<div class="wrap section narrow center">
-  <h1>পেজটি পাওয়া যায়নি</h1>
-  <p class="muted">লিংকটি ভুল হতে পারে, অথবা পণ্যটি সরিয়ে ফেলা হয়েছে।</p>
-  <p><a class="btn" href="/">হোমে ফিরে যান</a> <a class="btn btn-ghost" href="/products">সব পণ্য</a></p>
-</div>`;
-}
+// ⚛️ moved to React (components/shop/Pages.tsx) — same HTML, same callers
+function trackPage({ error, code, phone }: Body) { return toHtml(createElement(R.TrackPage, { error, code, phone })); }
+function blogList({ posts, categories, category }: Body) { return toHtml(createElement(R.BlogList, { posts, categories, category })); }
+function blogPost({ post, contentHtml, related }: Body) { return toHtml(createElement(R.BlogPost, { post, contentHtml, related })); }
+function staticPage({ page }: Body) { return toHtml(createElement(R.StaticPage, { page })); }
+function notFound() { return toHtml(createElement(R.NotFound)); }
+function postCard(p?: Loose) { return toHtml(createElement(R.PostCard, { p })); }
 
 // ---------------------------------------------------------------- live scores
 function livePage({ sport, on, data, embed, settings }: Body) {

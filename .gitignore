@@ -8,3 +8,5 @@ backups/
 .next
 next-env.d.ts
 *.tsbuildinfo
+.localdev/
+lib/views/__old_*.ts

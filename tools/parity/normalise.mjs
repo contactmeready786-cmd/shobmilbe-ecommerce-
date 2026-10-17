@@ -1,7 +1,7 @@
 // Shared by crawl.mjs and scenarios.mjs.
 // Anything that changes per request (random tokens, times, nonces) is blanked so only real differences remain.
 export function normalise(body) {
-  return body
+  return canonicalHtml(body)
     .replace(/\bSM[A-Z0-9]{6}\b/g, '<order-code>')
     .replace(/(https?:)?(\/\/)?(127\.0\.0\.1|localhost):\d+/g, '<host>')
     .replace(/nonce="[^"]*"/g, 'nonce=""')
@@ -24,4 +24,31 @@ export function normalise(body) {
     .replace(/data-reveal="[\w-]+"/g, 'data-reveal="<secret>"')
     .replace(/\/webhook\/autocall\/[\w-]+/g, '/webhook/autocall/<secret>')
     .replace(/(💡 ইলেকট্রনিক্স টিপস\n\n)[^<]*/g, '$1<tip>');
+}
+
+// ⚛️ Pages moved to React write the same page with tiny spelling differences that a browser treats as identical:
+// &#x27; instead of &#39;, <br/> instead of <br>, required="" instead of required, no line breaks + indentation between tags,
+// style="a:b;c:d" instead of style="a: b; c: d". These are made the same on both sides, so only real differences remain.
+const BOOL_ATTRS = 'checked|selected|disabled|required|readonly|multiple|hidden|open|defer|async|autofocus|novalidate|download|reversed|playsinline|muted|controls|loop|autoplay|nomodule|inert|default|formnovalidate|allowfullscreen|itemscope';
+export function canonicalHtml(body) {
+  return String(body)
+    .replace(/&#x27;|&#39;/g, "'")
+    .replace(/&quot;/g, '"')
+    .replace(/&#x2F;/gi, '/')
+    .replace(/\s*\/>/g, '>')
+    .replace(new RegExp(`\\s(${BOOL_ATTRS})=""`, 'g'), ' $1')
+    .replace(/\sstyle="([^"]*)"/g, (_, s) => ` style="${s.replace(/\s*([:;])\s*/g, '$1').replace(/;$/, '').trim()}"`)
+    .replace(/\sclass="([^"]*)"/g, (_, c) => ` class="${c.trim().replace(/\s+/g, ' ')}"`)
+    .replace(/\sclass=""/g, '')
+    // attribute order and the case of attribute names don't matter to a browser (React writes a form's action last)
+    .replace(/<([a-zA-Z][\w-]*)((?:\s+[^\s=>\/]+(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+))?)+)\s*(\/?)>/g, (_, tag, attrs, slash) => {
+      const list = [...attrs.matchAll(/\s+([^\s=>\/]+)(?:\s*=\s*("[^"]*"|'[^']*'|[^\s>]+))?/g)].map((m) => (m[2] === undefined ? m[1].toLowerCase() : `${m[1].toLowerCase()}=${m[2]}`));
+      return `<${tag} ${list.sort().join(' ')}${slash}>`;
+    })
+    // line breaks + indentation next to a tag are only source formatting (JSX drops them too);
+    // a plain space between two tags on one line is real (it shows as a gap) and is kept
+    .replace(/>[ \t]*\r?\n\s*/g, '>')
+    .replace(/\s*\r?\n[ \t]*</g, '<')
+    .replace(/\s+/g, ' ')
+    .replace(/ >/g, '>');
 }
