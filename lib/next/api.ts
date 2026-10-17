@@ -62,3 +62,10 @@ export async function otherMethods(request: Request): Promise<Response> {
   const url = new URL(request.url);
   return handleWithLegacy(request, url.pathname + url.search);
 }
+
+/** Inside an API route: let the original code answer this request after all (its body was already read here). */
+export function toLegacy(ctx: ApiCtx): Promise<Response> {
+  const m = ctx.request.method;
+  const body = m === 'GET' || m === 'HEAD' ? undefined : String((ctx.req as unknown as { __body?: string }).__body ?? '');
+  return otherMethods(new Request(ctx.request.url, { method: m, headers: ctx.request.headers, body }));
+}

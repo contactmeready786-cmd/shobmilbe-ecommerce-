@@ -236,18 +236,7 @@ async function handlerInner(req: ShopRequest, res: ShopResponse) {
     // (the other shop APIs are their own Next.js routes: app/api/… → lib/api/shop-read.ts, lib/api/shop-actions.ts)
 
 
-    // ---- payments & webhooks ----
-    if (path.startsWith('/pay/')) return await paymentRoutes(base);
-    if (path === '/webhook/steadfast' && method === 'POST') return await steadfastWebhook(base);
-    if (path === '/webhook/pathao' && method === 'POST') return await pathaoWebhook(base);
-    const m = path.match(/^\/webhook\/autocall\/([A-Za-z0-9_-]{10,80})$/);
-    if (m && (method === 'POST' || method === 'GET')) {
-      // the call company tells us what the customer pressed (JSON, form or ?query)
-      const b = method === 'POST' ? await parseBody(req) : {};
-      for (const [k, v] of query) if (!(k in b)) b[k] = v;
-      const r = await $services_autocall.hook(settings, m[1], b);
-      return json(res, r.status, r.body);
-    }
+    // (payments and webhooks: their own Next.js routes, lib/api/payments.ts)
 
     if (path === '/admin' || path.startsWith('/admin/')) return await admin.handle(base);
 
@@ -266,98 +255,7 @@ async function handlerInner(req: ShopRequest, res: ShopResponse) {
 
 
 // ---------------------------------------------------------------- payments
-async function paymentRoutes({ req, res, path, method, query, settings }: Body) {
-  const site = siteUrl(req, settings);
-  let m = path.match(/^\/pay\/([A-Z0-9]{4,12})$/i);
-  if (m && method === 'GET') {
-    const order = await O.getOrder({ code: m[1].toUpperCase() });
-    if (!order) return redirect(res, '/track');
-    if (order.payment_status === 'paid' || O.RELEASED.has(order.status)) return redirect(res, `/order/${order.code}`);
-    let r;
-    try {
-      r = order.payment === 'bkash' ? await payments.bkashCreate(order, settings, site)
-        : order.payment === 'ssl' ? await payments.sslCreate(order, settings, site) : { ok: false };
-    } catch (e: Loose) {
-      r = { ok: false, message: e.message };
-      await db.logIntegration(order.payment, 'create', false, e.message, order.code);
-    }
-    return r.ok ? redirect(res, r.url) : redirect(res, `/order/${order.code}?new=1&pay=failed`);
-  }
-  if (path === '/pay/bkash/callback') {
-    const paymentID = str(query.get('paymentID'), 80);
-    const status = query.get('status');
-    const p = paymentID ? await db.one(`SELECT * FROM payments WHERE gateway_ref=$1 AND method='bkash'`, [paymentID]) : null;
-    if (!p) return redirect(res, '/track');
-    const order = await O.getOrder({ id: p.order_id });
-    if (status === 'success') {
-      try {
-        const r = await payments.bkashExecute(paymentID, settings);
-        if (r.ok && r.amount >= Number(p.amount) - 1) {
-          await payments.recordSuccess(p, { trxID: r.trxID, amount: r.amount, raw: r.raw, label: 'বিকাশ' });
-          return redirect(res, `/order/${order!.code}?new=1`);
-        }
-        await db.logIntegration('bkash', 'execute', false, r.message, order!.code);
-      } catch (e: Loose) {
-        await db.logIntegration('bkash', 'execute', false, e.message, order!.code);
-      }
-    }
-    await db.q(`UPDATE payments SET status=$1, updated_at=now() WHERE id=$2 AND status<>'paid'`, [status === 'cancel' ? 'cancelled' : 'failed', p.id]);
-    return redirect(res, `/order/${order!.code}?new=1&pay=failed`);
-  }
-  m = path.match(/^\/pay\/ssl\/(success|fail|cancel|ipn)$/);
-  if (m) {
-    const b = method === 'POST' ? await parseBody(req) : Object.fromEntries(query);
-    const tranId = str(b.tran_id, 80);
-    const p = tranId ? await db.one(`SELECT * FROM payments WHERE gateway_ref=$1 AND method='ssl'`, [tranId]) : null;
-    if (!p) return m[1] === 'ipn' ? send(res, 200, 'ok', 'text/plain') : redirect(res, '/track');
-    const order = await O.getOrder({ id: p.order_id });
-    if ((m[1] === 'success' || m[1] === 'ipn') && b.val_id) {
-      const v = await payments.sslValidate(str(b.val_id, 120), settings);
-      if (v.ok && v.tranId === tranId && v.amount >= p.amount - 1) {
-        await payments.recordSuccess(p, { trxID: v.trxID, amount: v.amount, raw: v.raw, label: `কার্ড/মোবাইল (${v.cardType})` });
-        return m[1] === 'ipn' ? send(res, 200, 'ok', 'text/plain') : redirect(res, `/order/${order!.code}?new=1`);
-      }
-      await db.logIntegration('sslcommerz', 'validate', false, JSON.stringify(v.raw).slice(0, 300), order!.code);
-    }
-    if (m[1] !== 'ipn') await db.q(`UPDATE payments SET status=$1, updated_at=now() WHERE id=$2 AND status<>'paid'`, [m[1] === 'cancel' ? 'cancelled' : 'failed', p.id]);
-    return m[1] === 'ipn' ? send(res, 200, 'ok', 'text/plain') : redirect(res, `/order/${order!.code}?new=1&pay=failed`);
-  }
-  return redirect(res, '/');
-}
 
-// ---------------------------------------------------------------- courier webhooks
-async function applyCourierUpdate(orderRow?: Loose, courierName?: Loose, rawStatus?: Loose) {
-  await O.setCourierStatus(orderRow.id, rawStatus);
-  const mapped = courier.mapStatus(courierName, rawStatus);
-  if (mapped && mapped !== orderRow.status) {
-    try {
-      const s = await O.setStatus(orderRow.id, mapped, null);
-      if (s.changed) await db.logActivity(null, 'order_status', 'order', orderRow.id, `${s.prev} → ${mapped} (${courierName} ওয়েবহুক)`);
-    } catch (e: Loose) { await db.logIntegration(courierName, 'webhook', false, e.message, orderRow.code); }
-  }
-}
-async function steadfastWebhook({ req, res, settings }: Body) {
-  const auth = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '');
-  if (!settings.steadfast_webhook_token || !security.safeEqual(auth, settings.steadfast_webhook_token)) return json(res, 401, { status: 'error', message: 'Unauthorized' });
-  const b = await parseBody(req);
-  const cid = String(b.consignment_id || '');
-  const order = await db.one(`SELECT id, code, status FROM orders WHERE (consignment_id=$1 AND $1<>'') OR code=$2 LIMIT 1`, [cid, String(b.invoice || '')]);
-  if (order && b.status) await applyCourierUpdate(order, 'steadfast', String(b.status));
-  await db.logIntegration('steadfast', 'webhook', !!order, `${b.notification_type || ''} ${cid} ${b.status || ''}`, order ? order.code : '');
-  return json(res, 200, { status: 'success', message: 'Webhook received successfully.' });
-}
-async function pathaoWebhook({ req, res, settings }: Body) {
-  const sig = String(req.headers['x-pathao-signature'] || '');
-  const headers = { 'X-Pathao-Merchant-Webhook-Integration-Secret': 'f3992ecc-59da-4cbe-a049-a13da2018d51' };
-  if (!settings.pathao_webhook_secret || !security.safeEqual(sig, settings.pathao_webhook_secret)) return send(res, 401, '{"status":"unauthorized"}', 'application/json');
-  const b = await parseBody(req);
-  const cid = String(b.consignment_id || '');
-  const order = cid || b.merchant_order_id ? await db.one(`SELECT id, code, status FROM orders WHERE (consignment_id=$1 AND $1<>'') OR code=$2 LIMIT 1`, [cid, String(b.merchant_order_id || '')]) : null;
-  const st = b.order_status || b.order_status_slug || (b.event ? String(b.event).replace(/^order\./, '') : '');
-  if (order && st) await applyCourierUpdate(order, 'pathao', String(st));
-  await db.logIntegration('pathao', 'webhook', true, `${b.event || ''} ${cid} ${st}`, order ? order.code : '');
-  return send(res, 202, '{"status":"received"}', 'application/json; charset=utf-8', headers);
-}
 
 // ---------------------------------------------------------------- storefront
 async function shopRoutes({ req, res, path, method, query, settings }: Body) {
