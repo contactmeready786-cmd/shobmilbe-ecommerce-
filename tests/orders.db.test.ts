@@ -132,3 +132,9 @@ test('a deadlock with another order is tried again, other errors are not', { ski
   await assert.rejects(db.txRetry(async () => { m++; throw Object.assign(new Error('other'), { code: '23505' }); }), /other/);
   assert.equal(m, 1);
 });
+
+test('an error thrown on purpose inside a transaction is not run a second time', { skip }, async () => {
+  let n = 0;
+  await assert.rejects(db.tx(async (t) => { n++; await t.query('SELECT 1'); throw new Error('এখন স্টকে নেই'); }), /স্টকে নেই/);
+  assert.equal(n, 1);
+});

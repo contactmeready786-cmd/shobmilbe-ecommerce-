@@ -102,6 +102,8 @@ function toPgError(e: unknown): unknown {
     const d = e as Error & { code?: string; detail?: string; severity?: string };
     return new PgError({ M: d.message, C: d.code, D: d.detail, S: d.severity });
   }
+  // not an answer from Postgres: the connection itself failed (dropped socket, timeout, can't connect)
+  if (e && typeof e === 'object') (e as { __conn?: boolean }).__conn = true;
   return e;
 }
 
@@ -294,8 +296,10 @@ async function getConnection(): Promise<Connection> {
   return sharedPromise;
 }
 
+// Only a failure of the connection itself is tried again — never an error the code inside a transaction threw on
+// purpose (e.g. "out of stock"): that one goes straight back, and the connection stays open.
 function isConnectionError(e: unknown): boolean {
-  return !(e instanceof PgError);
+  return !!(e && typeof e === 'object' && (e as { __conn?: boolean }).__conn);
 }
 
 // Retry once on a dropped connection (e.g. the server closed an idle socket).
