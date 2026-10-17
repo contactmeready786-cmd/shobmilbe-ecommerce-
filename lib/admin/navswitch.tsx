@@ -3,7 +3,7 @@
 // and all of them together on "হেডার ও ফুটার মেনু".
 
 // Buttons that are not part of the editable link list.
-import { toHtml, Val, A, attrs, L } from '../react/render';
+import { toHtml, Val, attrValue, attrProps, jsxList } from '../react/render';
 import { html, raw, list, str } from '../util';
 import * as ui from './ui';
 import * as db from '../db';
@@ -39,9 +39,9 @@ function box(ctx: AdminCtx, { urls = [], fixed = [], footer = [], back, note }: 
   const items = [...top, ...bottom];
   if (!items.length) return '';
   // compact: one small chip per button, the long explanation sits in the chip's tooltip
-  const chip = (it?: Loose) => toHtml(<label className="nav-chip" title={A(it.desc)}>{' '}<span className="nav-chip-t"><Val v={it.title} /></span>{' '}<span className="switch switch-sm"><input type="checkbox" name={A('on_' + it.id)} defaultValue="1" {...attrs(it.on ? raw('checked') : '')} data-autosubmit="" /><span className="switch-ui" {...{ "aria-hidden": "true" }}></span></span>{' '}</label>);
+  const chip = (it?: Loose) => toHtml(<label className="nav-chip" title={attrValue(it.desc)}>{' '}<span className="nav-chip-t"><Val v={it.title} /></span>{' '}<span className="switch switch-sm"><input type="checkbox" name={attrValue('on_' + it.id)} defaultValue="1" {...attrProps(it.on ? raw('checked') : '')} data-autosubmit="" /><span className="switch-ui" {...({ "aria-hidden": "true" } as Record<string, string>)}></span></span>{' '}</label>);
   const group = (title?: Loose, list?: Loose) => (list.length ? toHtml(<div className="nav-chip-group"><span className="nav-chip-where"><Val v={title} /></span><Val v={list.map(chip)} /></div>) : '');
-  return toHtml(<details className="panel nav-switch-box nav-compact"><summary><span>🧭 দোকানে এর বাটন ও লিংক</span><span className="nav-chip-sum">{L(items.map((it) => <span className={`dot ${A(it.on ? 'on' : '')}`} title={`${A(it.title)}: ${A(it.on ? 'চালু' : 'বন্ধ')}`}></span>))}{' '}<Val v={items.filter((i) => i.on).length} />/<Val v={items.length} />{' '}চালু</span></summary><form method="post" action="/admin/design/menus/toggle"><input type="hidden" name="back" defaultValue={A(back)} />{' '}{L(items.map((it) => <input type="hidden" name="keys[]" defaultValue={A(it.id)} />))}{' '}<Val v={group('⬆ উপরের মেনু', top)} />{' '}<Val v={group('⬇ নিচের ফুটার', bottom)} /><p className="muted small nav-chip-note"><Val v={note || ''} />{' '}বন্ধ করলে শুধু লিংক লুকায়, পেজ মুছে যায় না। সব একসাথে:{' '}<a href="/admin/design/menus">হেডার ও ফুটার মেনু</a></p></form></details>);
+  return toHtml(<details className="panel nav-switch-box nav-compact"><summary><span>🧭 দোকানে এর বাটন ও লিংক</span><span className="nav-chip-sum">{jsxList(items.map((it) => <span className={`dot ${attrValue(it.on ? 'on' : '')}`} title={`${attrValue(it.title)}: ${attrValue(it.on ? 'চালু' : 'বন্ধ')}`}></span>))}{' '}<Val v={items.filter((i) => i.on).length} />/<Val v={items.length} />{' '}চালু</span></summary><form method="post" action="/admin/design/menus/toggle"><input type="hidden" name="back" defaultValue={attrValue(back)} />{' '}{jsxList(items.map((it) => <input type="hidden" name="keys[]" defaultValue={attrValue(it.id)} />))}{' '}<Val v={group('⬆ উপরের মেনু', top)} />{' '}<Val v={group('⬇ নিচের ফুটার', bottom)} /><p className="muted small nav-chip-note"><Val v={note || ''} />{' '}বন্ধ করলে শুধু লিংক লুকায়, পেজ মুছে যায় না। সব একসাথে:{' '}<a href="/admin/design/menus">হেডার ও ফুটার মেনু</a></p></form></details>);
 }
 
 async function toggle(ctx: AdminCtx) {

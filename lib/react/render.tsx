@@ -59,7 +59,7 @@ export function Val({ v }: { v: unknown }): ReactNode {
 
 const unescape = (s: string) => s.replace(/&quot;/g, '"').replace(/&#0?39;|&#x27;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
 /** The text a value gave inside an attribute of html`…` (before escaping — React escapes it, so ready-made HTML is unescaped first). */
-export function A(v: unknown): string {
+export function attrValue(v: unknown): string {
   if (v instanceof Raw) return unescape(v.s);
   if (Array.isArray(v)) return v.map((x) => (x instanceof Raw ? unescape(x.s) : x === null || x === undefined ? '' : String(x))).join('');
   if (v === false || v === null || v === undefined) return '';
@@ -67,7 +67,7 @@ export function A(v: unknown): string {
 }
 
 /** The exact text html`…` would have put inside a <script> / <style> (escaped unless Raw). */
-export function H(v: unknown): string {
+export function htmlValue(v: unknown): string {
   const esc = (x: unknown) => String(x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   if (v instanceof Raw) return v.s;
   if (Array.isArray(v)) return v.map((x) => (x instanceof Raw ? x.s : x === null || x === undefined ? '' : esc(x))).join('');
@@ -78,8 +78,8 @@ export function H(v: unknown): string {
 const ATTR_NAMES: Record<string, string> = { class: 'className', for: 'htmlFor', readonly: 'readOnly', autofocus: 'autoFocus', novalidate: 'noValidate', tabindex: 'tabIndex', maxlength: 'maxLength' };
 const BOOL_PROPS = new Set(['checked', 'selected', 'disabled', 'required', 'hidden', 'open', 'multiple', 'readOnly', 'autoFocus', 'noValidate', 'defer', 'async']);
 /** Attributes written as text inside a tag, e.g. ${on ? raw('checked') : ''} or raw('aria-current="page"'), as JSX props. */
-export function attrs(v: unknown): Record<string, string | boolean> {
-  const s = v instanceof Raw ? v.s : A(v);
+export function attrProps(v: unknown): Record<string, string | boolean> {
+  const s = v instanceof Raw ? v.s : attrValue(v);
   const out: Record<string, string | boolean> = {};
   for (const m of s.matchAll(/([^\s=]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+)))?/g)) {
     const name = ATTR_NAMES[m[1].toLowerCase()] || m[1].toLowerCase();
@@ -91,8 +91,8 @@ export function attrs(v: unknown): Record<string, string | boolean> {
 }
 
 /** style="a: b; c: d" text → the object React wants ({ a: 'b', c: 'd' }), keeping custom --properties. */
-export function css(text: unknown): Record<string, string> {
-  const s = A(text);
+export function styleOf(text: unknown): Record<string, string> {
+  const s = attrValue(text);
   const out: Record<string, string> = {};
   let depth = 0; let start = 0;
   const parts: string[] = [];
@@ -115,7 +115,7 @@ export function css(text: unknown): Record<string, string> {
 }
 
 /** A list of JSX pieces made by .map() in converted code (no "key" needed: they are passed as separate children). */
-export function L(items: unknown): ReactNode {
+export function jsxList(items: unknown): ReactNode {
   if (!Array.isArray(items)) return items as ReactNode;
   return createElement(Fragment, null, ...(items as ReactNode[]));
 }

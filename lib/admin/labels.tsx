@@ -2,7 +2,7 @@
 // Opened from a product's page or from the product list ("বাছাই করা পণ্য → বারকোড লেবেল প্রিন্ট").
 
 // sticker sizes (mm). sheet = how many fit on one A4 page, or a roll printer (one per label)
-import { toHtml, Val, RawHtml, A } from '../react/render';
+import { toHtml, Val, RawHtml, attrValue } from '../react/render';
 import { ASSET_V as PA_V } from './layout';
 import { html, raw, money, int, str, bn } from '../util';
 import * as db from '../db';
@@ -52,13 +52,13 @@ async function labels(ctx: AdminCtx) {
 </style></head><body>
 <div class="bar">
   <button type="button" class="go" data-print>🖨️ প্রিন্ট (${bn(stickers.length)}টি লেবেল)</button>
-  ${Object.entries(SIZES).map(([k, v]) => toHtml(<a className={A(k === size ? 'on' : '')} href={A(qs('size', k))}><Val v={v.label} /></a>))}
-  <form method="get">${['ids', 'size'].map((k) => toHtml(<input type="hidden" name={A(k)} defaultValue={A(k === 'size' ? size : ctx.query.get(k))} />))}
+  ${Object.entries(SIZES).map(([k, v]) => toHtml(<a className={attrValue(k === size ? 'on' : '')} href={attrValue(qs('size', k))}><Val v={v.label} /></a>))}
+  <form method="get">${['ids', 'size'].map((k) => toHtml(<input type="hidden" name={attrValue(k)} defaultValue={attrValue(k === 'size' ? size : ctx.query.get(k))} />))}
     প্রতিটা <input type="number" name="copies" min="1" max="100" value="${copies}"> কপি <button>✓</button></form>
   <a class="${byStock ? 'on' : ''}" href="${qs('stock', byStock ? '0' : '1')}">${byStock ? '✓ ' : ''}স্টক যতটা, ততটা লেবেল</a>
   <a class="${showPrice ? 'on' : ''}" href="${qs('price', showPrice ? '0' : '1')}">দাম ${showPrice ? 'দেখাচ্ছে' : 'লুকানো'}</a>
   <a class="${showName ? 'on' : ''}" href="${qs('name', showName ? '0' : '1')}">নাম ${showName ? 'দেখাচ্ছে' : 'লুকানো'}</a>
-  ${rows.some((p) => p.location) ? toHtml(<a className={A(showLoc ? 'on' : '')} href={A(qs('loc', showLoc ? '0' : '1'))}>📍 বক্স{' '}{(showLoc ? "দেখাচ্ছে" : "লুকানো")}</a>) : ''}
+  ${rows.some((p) => p.location) ? toHtml(<a className={attrValue(showLoc ? 'on' : '')} href={attrValue(qs('loc', showLoc ? '0' : '1'))}>📍 বক্স{' '}{(showLoc ? "দেখাচ্ছে" : "লুকানো")}</a>) : ''}
   <a href="/admin" data-back>← ফিরে যান</a>
 </div>
 <div class="sheet">${stickers.map((p) => toHtml(<div className="lab">{(showName ? <div className="nm"><Val v={str(p.name, 70)} /></div> : null)}{' '}<RawHtml html={BC.svg(p.barcode || BC.productCode(p.id), { height: 40, module: 2, fontSize: 12, quiet: 6 })} /><div className="row"><span>{(p.sku ? <Val v={`SKU ${p.sku}`} /> : null)}{(showLoc && p.location ? <Val v={` · 📍${p.location}`} /> : null)}</span>{(showPrice ? <span className="pr"><Val v={money(p.price)} />{(p.unit && p.unit !== 'পিস' ? <Val v={`/${p.unit}`} /> : null)}</span> : null)}</div></div>))}</div>

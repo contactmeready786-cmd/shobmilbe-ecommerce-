@@ -1,5 +1,5 @@
 // Admin panel: login, sessions, permissions and routing to the page modules.
-import { toHtml, Val, A } from '../react/render';
+import { toHtml, Val, attrValue } from '../react/render';
 import * as crypto from 'node:crypto';
 import * as db from '../db';
 import * as staffModel from '../models/staff';
@@ -241,12 +241,12 @@ function baseUrl(req: ShopRequest, settings: Settings) {
   return `${host.startsWith('localhost') ? 'http' : 'https'}://${host}`;
 }
 function mailResetPage({ settings, token, error, done }: Body) {
-  return toHtml(<div className="auth-card panel"><p className="logo auth-logo"><Val v={settings.store_name} /><small>{' '}Admin</small></p><h1>নতুন পাসওয়ার্ড দিন</h1>{(done ? <><p>পাসওয়ার্ড বদলানো হয়েছে। নিরাপত্তার জন্য সবাইকে লগআউট করা হয়েছে।</p><a className="btn btn-block btn-lg" href="/admin/login">লগইন করুন</a></> : (!token ? <><p className="form-error"><Val v={error || 'লিংকটা আর কাজ করছে না (মেয়াদ শেষ বা আগেই ব্যবহার হয়েছে)।'} /></p><a className="btn btn-block" href="/admin/reset">আবার লিংক নিন</a></> : <><form method="post" action="/admin/reset/email" className="form"><input type="hidden" name="t" defaultValue={A(token)} />{' '}<Val v={ui.field('নতুন পাসওয়ার্ড', ui.input('password', '', { type: 'password', minlength: 8, required: true, autocomplete: 'new-password', autofocus: true }), 'কমপক্ষে ৮ অক্ষর। কোথাও লিখে রাখুন।')} />{' '}<Val v={ui.field('আবার নতুন পাসওয়ার্ড', ui.input('password2', '', { type: 'password', minlength: 8, required: true, autocomplete: 'new-password' }))} />{' '}{(error ? <p className="form-error"><Val v={error} /></p> : null)}{' '}<button className="btn btn-block btn-lg">পাসওয়ার্ড সেভ করুন</button></form></>))}</div>);
+  return toHtml(<div className="auth-card panel"><p className="logo auth-logo"><Val v={settings.store_name} /><small>{' '}Admin</small></p><h1>নতুন পাসওয়ার্ড দিন</h1>{(done ? <><p>পাসওয়ার্ড বদলানো হয়েছে। নিরাপত্তার জন্য সবাইকে লগআউট করা হয়েছে।</p><a className="btn btn-block btn-lg" href="/admin/login">লগইন করুন</a></> : (!token ? <><p className="form-error"><Val v={error || 'লিংকটা আর কাজ করছে না (মেয়াদ শেষ বা আগেই ব্যবহার হয়েছে)।'} /></p><a className="btn btn-block" href="/admin/reset">আবার লিংক নিন</a></> : <><form method="post" action="/admin/reset/email" className="form"><input type="hidden" name="t" defaultValue={attrValue(token)} />{' '}<Val v={ui.field('নতুন পাসওয়ার্ড', ui.input('password', '', { type: 'password', minlength: 8, required: true, autocomplete: 'new-password', autofocus: true }), 'কমপক্ষে ৮ অক্ষর। কোথাও লিখে রাখুন।')} />{' '}<Val v={ui.field('আবার নতুন পাসওয়ার্ড', ui.input('password2', '', { type: 'password', minlength: 8, required: true, autocomplete: 'new-password' }))} />{' '}{(error ? <p className="form-error"><Val v={error} /></p> : null)}{' '}<button className="btn btn-block btn-lg">পাসওয়ার্ড সেভ করুন</button></form></>))}</div>);
 }
 
 // Second step of a staff login: the 6-digit code from Google Authenticator (or a similar app).
 function tfaPage({ settings, user, error, blocked }: Body) {
-  return toHtml(<div className="auth-card panel"><p className="logo auth-logo"><Val v={settings.store_name} /><small>{' '}Admin</small></p><h1>🔐 যাচাই কোড দিন</h1><p className="muted small"><b translate="no"><Val v={user.name} /></b>, ফোনের{' '}<b>Google Authenticator</b>{' '}(বা যে অ্যাপে সেটআপ করেছিলেন) খুলুন — "<Val v={settings.store_name} />" এর পাশে যে ৬ অঙ্কের কোড দেখাচ্ছে সেটা লিখুন। কোড প্রতি ৩০ সেকেন্ডে বদলায়।</p>{(error ? <p className="form-error"><Val v={error} /></p> : null)}{' '}{(blocked ? null : <form method="post" action="/admin/2fa" className="form"><Val v={ui.field('৬ অঙ্কের কোড', ui.input('code', '', { required: true, inputmode: 'numeric', autocomplete: 'one-time-code', pattern: '[0-9০-৯ ]{6,7}', maxlength: 7, autofocus: true, class: 'code-input' }))} />{' '}<button className="btn btn-block btn-lg">যাচাই করে ঢুকুন</button></form>)}<p className="muted small">ফোন হারিয়েছেন বা অ্যাপ মুছে গেছে? মালিককে বলুন — তিনি "স্টাফ" পেজ থেকে আপনার দুই ধাপের লগইন রিসেট করে দেবেন।</p><form method="post" action="/admin/logout"><button className="link-btn small">← অন্য অ্যাকাউন্টে লগইন</button></form></div>);
+  return toHtml(<div className="auth-card panel"><p className="logo auth-logo"><Val v={settings.store_name} /><small>{' '}Admin</small></p><h1>🔐 যাচাই কোড দিন</h1><p className="muted small"><b {...({ "translate": "no" } as Record<string, string>)}><Val v={user.name} /></b>, ফোনের{' '}<b>Google Authenticator</b>{' '}(বা যে অ্যাপে সেটআপ করেছিলেন) খুলুন — "<Val v={settings.store_name} />" এর পাশে যে ৬ অঙ্কের কোড দেখাচ্ছে সেটা লিখুন। কোড প্রতি ৩০ সেকেন্ডে বদলায়।</p>{(error ? <p className="form-error"><Val v={error} /></p> : null)}{' '}{(blocked ? null : <form method="post" action="/admin/2fa" className="form"><Val v={ui.field('৬ অঙ্কের কোড', ui.input('code', '', { required: true, inputmode: 'numeric', autocomplete: 'one-time-code', pattern: '[0-9০-৯ ]{6,7}', maxlength: 7, autofocus: true, class: 'code-input' }))} />{' '}<button className="btn btn-block btn-lg">যাচাই করে ঢুকুন</button></form>)}<p className="muted small">ফোন হারিয়েছেন বা অ্যাপ মুছে গেছে? মালিককে বলুন — তিনি "স্টাফ" পেজ থেকে আপনার দুই ধাপের লগইন রিসেট করে দেবেন।</p><form method="post" action="/admin/logout"><button className="link-btn small">← অন্য অ্যাকাউন্টে লগইন</button></form></div>);
 }
 
 async function handle(base: Base) {
@@ -641,7 +641,7 @@ ${link}
     ctx.readOnly = !!perm && staffModel.viewOnly(user, perm);
     return r.handler(ctx, match);
   }
-  return ctx.page('পাওয়া যায়নি', toHtml(<><h1>পেজটি পাওয়া যায়নি</h1><p><a href={A(firstAllowed(user))}>শুরুর পেজে ফিরে যান</a></p></>), '', { status: 404 });
+  return ctx.page('পাওয়া যায়নি', toHtml(<><h1>পেজটি পাওয়া যায়নি</h1><p><a href={attrValue(firstAllowed(user))}>শুরুর পেজে ফিরে যান</a></p></>), '', { status: 404 });
 }
 
 export { handle, currentUser, twoFactorOn, MODULES };

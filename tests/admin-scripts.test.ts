@@ -26,7 +26,7 @@ test('every inline admin <script> carries the page nonce', () => {
       for (const m of line.matchAll(/<script\b((?:[^>{]|\{[^}]*\})*)>/gi)) {
         const attrs = m[1];
         if (/\bsrc=/.test(attrs) || /type=["']?application\/(ld\+)?json/.test(attrs)) continue; // files from /js/ are allowed by 'self'
-        if (!/nonce="\$\{cspNonce\(\)\}"|nonce=\{(A\()?cspNonce\(\)\)?\}/.test(attrs)) bad.push(`${f}:${i + 1}: ${line.trim().slice(0, 100)}`);
+        if (!/nonce="\$\{cspNonce\(\)\}"|nonce=\{(attrValue\()?cspNonce\(\)\)?\}/.test(attrs)) bad.push(`${f}:${i + 1}: ${line.trim().slice(0, 100)}`);
       }
     });
   }

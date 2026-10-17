@@ -5,9 +5,9 @@
 // Every html`…` template in the file becomes toHtml(<JSX/>) with exactly the same meaning:
 //   • a value in the page (text) → <Val v={…}/> (escaped text, or ready-made HTML when it is a Raw) — or real JSX when
 //     it is itself html`…`, a ?: of html`…`, a .map() that returns html`…`, or raw(…)
-//   • a value inside an attribute → A(…) (React escapes it), style="…" → css(…), attributes written as text
-//     (${on ? raw('checked') : ''}) → {...attrs(…)}
-//   • <script>/<style> keep their exact text (dangerouslySetInnerHTML with H(…))
+//   • a value inside an attribute → attrValue(…) (React escapes it), style="…" → styleOf(…), attributes written as text
+//     (${on ? raw('checked') : ''}) → {...attrProps(…)}
+//   • <script>/<style> keep their exact text (dangerouslySetInnerHTML with htmlValue(…))
 // A template whose tags don't close inside it (a page built from pieces) is left as html`…` and reported.
 // The pages are then checked against the old ones by tools/parity (every page, real data).
 import fs from 'node:fs';
@@ -158,7 +158,7 @@ const RENAME: Record<string, string> = {
 const STRING_OK = new Set(('id className htmlFor name type href src alt title role rel target method action placeholder min max step pattern accept '
   + 'form list loading lang dir media sizes decoding autoComplete inputMode nonce width height download label srcSet crossOrigin encType acceptCharset '
   + 'referrerPolicy poster preload wrap scope headers accessKey charSet content httpEquiv itemProp itemType dateTime cite formAction formMethod formTarget '
-  + 'autoCapitalize enterKeyHint translate allow sandbox frameBorder viewBox xmlns d fill stroke cx cy r x y x1 x2 y1 y2 points transform '
+  + 'autoCapitalize enterKeyHint allow sandbox frameBorder viewBox xmlns d fill stroke cx cy r x y x1 x2 y1 y2 points transform '
   + 'color shape coords span abbr summary').split(' '));
 const NUMERIC = new Set('maxLength minLength tabIndex rows cols size colSpan rowSpan start'.split(' '));
 const BOOL = new Set(('required disabled checked selected multiple hidden open defer async autoFocus noValidate readOnly allowFullScreen playsInline muted '
@@ -178,12 +178,12 @@ function propsOf(el: El, exprs: string[]): string {
   const loose: string[] = [];
   const lname = el.tag.toLowerCase();
   for (const a of el.attrs) {
-    if ('spread' in a) { props.push(`{...attrs(${exprs[a.spread]})}`); continue; }
+    if ('spread' in a) { props.push(`{...attrProps(${exprs[a.spread]})}`); continue; }
     const raw = a.name;
     const low = raw.toLowerCase();
     if (/^on/.test(low)) throw new Unconvertible(`inline handler ${raw}`);
     if (low === 'style') {
-      props.push(`style={css(${a.value ? tmpl(a.value, exprs, 'A', true) : '""'})}`);
+      props.push(`style={styleOf(${a.value ? tmpl(a.value, exprs, 'attrValue', true) : '""'})}`);
       continue;
     }
     let name = RENAME[low] || (low.startsWith('data-') || low.startsWith('aria-') ? low : low);
@@ -197,7 +197,7 @@ function propsOf(el: El, exprs: string[]): string {
       continue;
     }
     const isStatic = a.value.every((p) => typeof p === 'string');
-    const val = tmpl(a.value, exprs, 'A', true);
+    const val = tmpl(a.value, exprs, 'attrValue', true);
     if (BOOL.has(name) || name === 'defaultChecked') {
       if (isStatic) props.push(name);
       else loose.push(`${q(low)}: ${val}`); // a value written into a true/false attribute: keep it as text
@@ -214,7 +214,8 @@ function propsOf(el: El, exprs: string[]): string {
     if (name === 'defaultValue' || name === 'value' || STRING_OK.has(name)) { props.push(`${name}=${plain(val)}`); continue; }
     loose.push(`${q(low)}: ${val}`);
   }
-  if (loose.length) props.push(`{...{ ${loose.join(', ')} }}`);
+  // attributes React's types don't know (or know as numbers): passed through as text, exactly as written
+  if (loose.length) props.push(`{...({ ${loose.join(', ')} } as Record<string, string>)}`);
   return props.length ? ' ' + props.join(' ') : '';
 }
 
@@ -264,10 +265,10 @@ function hoistable(el: El, inSvg: boolean): boolean {
   return t === 'script' && el.attrs.some((a) => 'name' in a && a.name.toLowerCase() === 'async');
 }
 function rawEl(el: El, ctx: Ctx): string {
-  const piece = (parts: Part[]) => parts.map((p) => (typeof p === 'number' ? `\${H(${ctx.exprs[p]})}` : p.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$\{/g, '\\${'))).join('');
+  const piece = (parts: Part[]) => parts.map((p) => (typeof p === 'number' ? `\${htmlValue(${ctx.exprs[p]})}` : p.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$\{/g, '\\${'))).join('');
   let s = `<${el.tag}`;
   for (const a of el.attrs) {
-    if ('spread' in a) s += ` \${H(${ctx.exprs[a.spread]})}`;
+    if ('spread' in a) s += ` \${htmlValue(${ctx.exprs[a.spread]})}`;
     else s += a.value === null ? ` ${a.name}` : ` ${a.name}="${piece(a.value)}"`;
   }
   s += '>';
@@ -288,16 +289,16 @@ function elJsx(el: El, ctx: Ctx, inSvg = false): string {
   if (lname === 'script' || lname === 'style') {
     const inner = el.children.length ? (el.children[0] as Text).parts : [];
     if (!inner.length) return `<${el.tag}${props} />`;
-    return `<${el.tag}${props} dangerouslySetInnerHTML={{ __html: ${tmpl(inner, ctx.exprs, 'H', false)} }} />`;
+    return `<${el.tag}${props} dangerouslySetInnerHTML={{ __html: ${tmpl(inner, ctx.exprs, 'htmlValue', false)} }} />`;
   }
   if (lname === 'title' && !inSvg && el.children.every((c) => c.kind === 'text')) {
     // React wants plain text inside <title>
     const parts = el.children.flatMap((c) => (c as Text).parts);
-    return `<title${props}>{${tmpl(parts.map((p) => (typeof p === 'string' ? p.replace(/\s+/g, ' ') : p)), ctx.exprs, 'A', true)}}</title>`;
+    return `<title${props}>{${tmpl(parts.map((p) => (typeof p === 'string' ? p.replace(/\s+/g, ' ') : p)), ctx.exprs, 'attrValue', true)}}</title>`;
   }
   if (lname === 'textarea') {
     const inner = el.children.length ? (el.children[0] as Text).parts : [];
-    return `<textarea${props}${inner.length ? ` defaultValue={${tmpl(inner, ctx.exprs, 'A', true)}}` : ''} />`;
+    return `<textarea${props}${inner.length ? ` defaultValue={${tmpl(inner, ctx.exprs, 'attrValue', true)}}` : ''} />`;
   }
   if (VOID.has(lname) || !el.children.length) return VOID.has(lname) ? `<${el.tag}${props} />` : `<${el.tag}${props}></${el.tag}>`;
   return `<${el.tag}${props}>${nodesJsx(el.children, BLOCK.has(lname), ctx, inSvg || lname === 'svg')}</${el.tag}>`;
@@ -345,7 +346,7 @@ function makeConverter(sf: ts.SourceFile, stats: Stats) {
     if (ts.isCallExpression(n) && ts.isPropertyAccessExpression(n.expression) && n.expression.name.text === 'map' && n.arguments.length >= 1) {
       const cb = n.arguments[0];
       if ((ts.isArrowFunction(cb) || ts.isFunctionExpression(cb)) && returnsJsxOnly(cb)) {
-        return `L(${rewrite(n.expression.expression)}.map(${callback(cb)}${n.arguments.length > 1 ? ', ' + n.arguments.slice(1).map(text).join(', ') : ''}))`;
+        return `jsxList(${rewrite(n.expression.expression)}.map(${callback(cb)}${n.arguments.length > 1 ? ', ' + n.arguments.slice(1).map(text).join(', ') : ''}))`;
       }
     }
     return `<Val v={${rewrite(n)}} />`;
@@ -440,11 +441,19 @@ function convertFile(file: string): Stats {
   for (const e of edits.sort((a, b) => b.start - a.start)) out = out.slice(0, e.start) + e.s + out.slice(e.end);
   // the helpers the converted code uses
   const rel = path.relative(path.dirname(file), 'lib/react/render').replace(/\\/g, '/');
-  const used = ['toHtml', 'Val', 'RawHtml', 'A', 'H', 'attrs', 'css', 'L'].filter((h) => new RegExp(`(?:^|[^\\w$.]|\\.\\.\\.)${h}\\(|<${h}[\\s/>]`).test(out));
+  const used = ['toHtml', 'Val', 'RawHtml', 'attrValue', 'htmlValue', 'attrProps', 'styleOf', 'jsxList'].filter((h) => new RegExp(`(?:^|[^\\w$.]|\\.\\.\\.)${h}\\(|<${h}[\\s/>]`).test(out));
   if (used.length) {
-    const imp = `import { ${used.join(', ')} } from '${rel.startsWith('.') ? rel : './' + rel}';\n`;
-    const firstImport = out.search(/^import /m);
-    out = firstImport >= 0 ? out.slice(0, firstImport) + imp + out.slice(firstImport) : imp + out;
+    const from = rel.startsWith('.') ? rel : './' + rel;
+    const existing = new RegExp(`^import \\{([^}]*)\\} from '${from.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')}';$`, 'm').exec(out);
+    if (existing) {
+      const have = existing[1].split(',').map((x) => x.trim()).filter(Boolean);
+      const all = [...have, ...used.filter((u) => !have.includes(u))];
+      out = out.replace(existing[0], `import { ${all.join(', ')} } from '${from}';`);
+    } else {
+      const imp = `import { ${used.join(', ')} } from '${from}';\n`;
+      const firstImport = out.search(/^import /m);
+      out = firstImport >= 0 ? out.slice(0, firstImport) + imp + out.slice(firstImport) : imp + out;
+    }
   }
   const target = file.replace(/\.ts$/, '.tsx');
   fs.writeFileSync(target, out);

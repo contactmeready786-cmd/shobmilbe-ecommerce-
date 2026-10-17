@@ -1,7 +1,7 @@
 // Admin → সংযোগের অবস্থা: one page that shows whether every outside connection is set up and working —
 // Google / Facebook / TikTok tracking, product feeds, couriers, payments, notifications, backups —
 // plus the SEO checker (products that Google may show badly).
-import { toHtml, Val, A } from '../react/render';
+import { toHtml, Val, attrValue } from '../react/render';
 import { html, bn, fmtDate } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
@@ -21,7 +21,7 @@ function row(state?: Loose, title?: Loose, detail?: Loose, link?: Loose, key?: L
   return { state, title, detail, link, key, setUp: setUp === undefined ? state === OK : setUp };
 }
 function line(r?: Loose, buttons?: Loose) {
-  return toHtml(<li className={`sec-row ${A(r.state === OK ? 'ok' : r.state === OFF ? 'info' : 'todo')}`}><span className="sec-ic" {...{ "aria-hidden": "true" }}><Val v={ICON[r.state]} /></span>{' '}<span><b><Val v={r.title} /></b><br /><span className="small muted"><Val v={r.detail} /></span>{(r.link ? <>{' '}<a className="small" href={A(r.link[0])}><Val v={r.link[1]} />{' '}→</a></> : null)}{(buttons ? <><br /><Val v={buttons} /></> : null)}</span></li>);
+  return toHtml(<li className={`sec-row ${attrValue(r.state === OK ? 'ok' : r.state === OFF ? 'info' : 'todo')}`}><span className="sec-ic" {...({ "aria-hidden": "true" } as Record<string, string>)}><Val v={ICON[r.state]} /></span>{' '}<span><b><Val v={r.title} /></b><br /><span className="small muted"><Val v={r.detail} /></span>{(r.link ? <>{' '}<a className="small" href={attrValue(r.link[0])}><Val v={r.link[1]} />{' '}→</a></> : null)}{(buttons ? <><br /><Val v={buttons} /></> : null)}</span></li>);
 }
 // a section: what needs looking at stays in view; ⚪ not set up (optional) and "দরকার নেই" go into a closed box
 function section(ctx: AdminCtx, title?: Loose, rows?: Loose) {

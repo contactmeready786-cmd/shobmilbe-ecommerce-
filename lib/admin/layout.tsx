@@ -1,4 +1,4 @@
-import { toHtml, Val, RawHtml, A, H, attrs, L } from '../react/render';
+import { toHtml, Val, RawHtml, attrValue, htmlValue, attrProps, jsxList } from '../react/render';
 import { cspNonce } from '../security';
 import { html, raw } from '../util';
 import { can, canSee } from '../models/staff';
@@ -184,7 +184,7 @@ const HOME_TABS = [
 function homeTabs(user: StaffUser, active?: Loose) {
   const tabs = HOME_TABS.filter((t) => visible(user, t[2]));
   if (tabs.length < 2) return '';
-  return toHtml(<nav className="home-tabs" {...{ "aria-label": "ড্যাশবোর্ডের ট্যাব" }}>{L(tabs.map(([href, label, , key, icon]: Loose[]) => <a href={A(href)} className={`home-tab ${A(active === key ? 'on' : '')}`} {...attrs(active === key ? raw(' aria-current="page"') : '')}><span {...{ "aria-hidden": "true" }}><Val v={icon} /></span>{' '}<Val v={label} /></a>))}</nav>);
+  return toHtml(<nav className="home-tabs" {...({ "aria-label": "ড্যাশবোর্ডের ট্যাব" } as Record<string, string>)}>{jsxList(tabs.map(([href, label, , key, icon]: Loose[]) => <a href={attrValue(href)} className={`home-tab ${attrValue(active === key ? 'on' : '')}`} {...attrProps(active === key ? raw(' aria-current="page"') : '')}><span {...({ "aria-hidden": "true" } as Record<string, string>)}><Val v={icon} /></span>{' '}<Val v={label} /></a>))}</nav>);
 }
 
 // A menu entry for the user: a plain link stays as it is; a tab set becomes a link to its first tab the user may
@@ -204,17 +204,17 @@ function pageTabs(user: StaffUser, active?: Loose, path?: Loose) {
     if (!set.some((t?: Loose) => t[0].split('?')[0] === path)) continue;
     const tabs = set.filter((t?: Loose) => visible(user, t[2]));
     if (tabs.length < 2) return '';
-    return toHtml(<nav className="home-tabs page-tabs" {...{ "aria-label": "এই বিভাগের পেজ" }}>{L(tabs.map(([href, label, , key, icon]: Loose[]) => <a href={A(href)} className={`home-tab ${A(active === key ? 'on' : '')}`} {...attrs(active === key ? raw(' aria-current="page"') : '')}><span {...{ "aria-hidden": "true" }}><Val v={icon} /></span>{' '}<Val v={label} /></a>))}</nav>);
+    return toHtml(<nav className="home-tabs page-tabs" {...({ "aria-label": "এই বিভাগের পেজ" } as Record<string, string>)}>{jsxList(tabs.map(([href, label, , key, icon]: Loose[]) => <a href={attrValue(href)} className={`home-tab ${attrValue(active === key ? 'on' : '')}`} {...attrProps(active === key ? raw(' aria-current="page"') : '')}><span {...({ "aria-hidden": "true" } as Record<string, string>)}><Val v={icon} /></span>{' '}<Val v={label} /></a>))}</nav>);
   }
   return '';
 }
 
 function head(title: Loose, settings: Settings) {
-  return toHtml(<><RawHtml html={`<meta charset="utf-8">`} /><RawHtml html={`<meta name="viewport" content="width=device-width, initial-scale=1">`} /><RawHtml html={`<title>${H(title)}</title>`} /><RawHtml html={`<meta name="robots" content="noindex, nofollow">`} /><RawHtml html={`<meta name="theme-color" content="#14213D">`} /><RawHtml html={`<link rel="icon" href="${H(settings.favicon_id ? `/media/${settings.favicon_id}/t` : '/brand/favicon-32.png')}">`} /><RawHtml html={`<link rel="preconnect" href="https://fonts.googleapis.com">`} /><RawHtml html={`<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>`} /><RawHtml html={`<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;500;600;700;800&display=swap" rel="stylesheet">`} /><RawHtml html={`<link rel="stylesheet" href="/css/style.css?v=${H(ASSET_V)}">`} /><RawHtml html={`<link rel="stylesheet" href="/css/admin.css?v=${H(ASSET_V)}">`} /><RawHtml html={`<link rel="manifest" href="/admin.webmanifest">`} /><RawHtml html={`<link rel="apple-touch-icon" href="/icon-192.png">`} /><RawHtml html={`<meta name="apple-mobile-web-app-capable" content="yes">`} /></>);
+  return toHtml(<><RawHtml html={`<meta charset="utf-8">`} /><RawHtml html={`<meta name="viewport" content="width=device-width, initial-scale=1">`} /><RawHtml html={`<title>${htmlValue(title)}</title>`} /><RawHtml html={`<meta name="robots" content="noindex, nofollow">`} /><RawHtml html={`<meta name="theme-color" content="#14213D">`} /><RawHtml html={`<link rel="icon" href="${htmlValue(settings.favicon_id ? `/media/${settings.favicon_id}/t` : '/brand/favicon-32.png')}">`} /><RawHtml html={`<link rel="preconnect" href="https://fonts.googleapis.com">`} /><RawHtml html={`<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>`} /><RawHtml html={`<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;500;600;700;800&display=swap" rel="stylesheet">`} /><RawHtml html={`<link rel="stylesheet" href="/css/style.css?v=${htmlValue(ASSET_V)}">`} /><RawHtml html={`<link rel="stylesheet" href="/css/admin.css?v=${htmlValue(ASSET_V)}">`} /><RawHtml html={`<link rel="manifest" href="/admin.webmanifest">`} /><RawHtml html={`<link rel="apple-touch-icon" href="/icon-192.png">`} /><RawHtml html={`<meta name="apple-mobile-web-app-capable" content="yes">`} /></>);
 }
 
 function logoMark(settings: Settings) {
-  if (settings.logo_id) return toHtml(<img className="logo-img" src={`/media/${A(settings.logo_id)}`} alt={A(settings.store_name)} />);
+  if (settings.logo_id) return toHtml(<img className="logo-img" src={`/media/${attrValue(settings.logo_id)}`} alt={attrValue(settings.store_name)} />);
   const name = settings.store_name || 'সবমিলবে';
   if (name === 'সবমিলবে') return toHtml(<><span className="logo-a">সব</span><span className="logo-b">মিলবে</span></>);
   return toHtml(<span className="logo-a"><Val v={name} /></span>);
@@ -229,11 +229,11 @@ function langHead(settings: Settings) {
 }
 function langScript(settings: Settings) {
   if (!adminLangOn(settings)) return '';
-  return toHtml(<script src={`/js/admin-i18n.js?v=${A(ASSET_V)}`} defer data-admin-i18n="" data-v={A(ASSET_V)} />);
+  return toHtml(<script src={`/js/admin-i18n.js?v=${attrValue(ASSET_V)}`} defer data-admin-i18n="" data-v={attrValue(ASSET_V)} />);
 }
 function langSwitch(settings: Settings) {
   if (!adminLangOn(settings)) return '';
-  return toHtml(<button type="button" className="lang-sw admin-lang-sw" role="switch" title="বাংলা / English" translate="no" data-admin-lang-switch="" {...{ "aria-checked": "false", "aria-label": "English" }}>{' '}<span className="ls-l ls-bn">বাং</span><span className="ls-track" {...{ "aria-hidden": "true" }}><span className="ls-knob"></span></span><span className="ls-l ls-en">EN</span>{' '}</button>);
+  return toHtml(<button type="button" className="lang-sw admin-lang-sw" role="switch" title="বাংলা / English" data-admin-lang-switch="" {...({ "aria-checked": "false", "aria-label": "English", "translate": "no" } as Record<string, string>)}>{' '}<span className="ls-l ls-bn">বাং</span><span className="ls-track" {...({ "aria-hidden": "true" } as Record<string, string>)}><span className="ls-knob"></span></span><span className="ls-l ls-en">EN</span>{' '}</button>);
 }
 
 function adminLayout({ settings, user, title, body, active, bare, readOnly, path = '' }: Body) {
@@ -256,10 +256,10 @@ function adminLayout({ settings, user, title, body, active, bare, readOnly, path
   <nav>
     ${groups.map((g) => {
     const isOn = (it?: Loose) => it[3] === active || (it[5] || []).includes(active);
-    const link = (it?: Loose) => { const [href, label, , , icon] = it; const on = isOn(it); return toHtml(<a href={A(href)} className={A(on ? 'on' : '')} {...attrs(on ? raw(' aria-current="page"') : '')}><span className="side-ic" {...{ "aria-hidden": "true" }}><Val v={icon} /></span><Val v={label} /></a>); };
+    const link = (it?: Loose) => { const [href, label, , , icon] = it; const on = isOn(it); return toHtml(<a href={attrValue(href)} className={attrValue(on ? 'on' : '')} {...attrProps(on ? raw(' aria-current="page"') : '')}><span className="side-ic" {...({ "aria-hidden": "true" } as Record<string, string>)}><Val v={icon} /></span><Val v={label} /></a>); };
     if (!g.title) return toHtml(<div className="side-group"><Val v={g.items.map(link)} /></div>);
     const here = g.items.some(isOn);
-    return toHtml(<details className={`side-group side-drop ${A(here ? 'has-on' : '')}`} data-side-group={A(g.title)} {...attrs(here ? raw('open') : '')}><summary><span className="side-ic" {...{ "aria-hidden": "true" }}><Val v={g.icon || '•'} /></span><span className="side-label"><Val v={g.title} /></span><span className="side-arrow" {...{ "aria-hidden": "true" }}><RawHtml html={'<svg viewBox="0 0 24 24" width="16" height="16"><path d="m9 6 6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>'} /></span></summary><div className="side-sub"><Val v={g.items.map(link)} /></div></details>);
+    return toHtml(<details className={`side-group side-drop ${attrValue(here ? 'has-on' : '')}`} data-side-group={attrValue(g.title)} {...attrProps(here ? raw('open') : '')}><summary><span className="side-ic" {...({ "aria-hidden": "true" } as Record<string, string>)}><Val v={g.icon || '•'} /></span><span className="side-label"><Val v={g.title} /></span><span className="side-arrow" {...({ "aria-hidden": "true" } as Record<string, string>)}><RawHtml html={'<svg viewBox="0 0 24 24" width="16" height="16"><path d="m9 6 6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>'} /></span></summary><div className="side-sub"><Val v={g.items.map(link)} /></div></details>);
   })}
   </nav>
 </aside>

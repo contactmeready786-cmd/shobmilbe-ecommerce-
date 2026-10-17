@@ -4,7 +4,7 @@
 // Profile pictures are private — they are only sent to people logged in to the admin.
 
 // 2026-03-01 from a date column (Date or text)
-import { toHtml, Val, A } from '../react/render';
+import { toHtml, Val, attrValue } from '../react/render';
 import { html, fmtDate, str, int, normalizePhone, validPhone } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
@@ -30,14 +30,14 @@ function since(v?: Loose) {
 
 // The round picture (or the first letter of the name when there is no picture)
 function avatar(u?: Loose, cls: Loose = '') {
-  if (!u) return toHtml(<span className={`avatar ${A(cls)}`}>?</span>);
-  if (u.photo_id) return toHtml(<span className={`avatar has-photo ${A(cls)}`}><img src={`/admin/avatar/${A(u.id)}?v=${A(u.photo_id)}`} alt={A(u.name)} loading="lazy" /></span>);
-  return toHtml(<span className={`avatar ${A(cls)}`} {...{ "aria-hidden": "true" }}><Val v={String(u.name || '?').trim().slice(0, 1).toUpperCase()} /></span>);
+  if (!u) return toHtml(<span className={`avatar ${attrValue(cls)}`}>?</span>);
+  if (u.photo_id) return toHtml(<span className={`avatar has-photo ${attrValue(cls)}`}><img src={`/admin/avatar/${attrValue(u.id)}?v=${attrValue(u.photo_id)}`} alt={attrValue(u.name)} loading="lazy" /></span>);
+  return toHtml(<span className={`avatar ${attrValue(cls)}`} {...({ "aria-hidden": "true" } as Record<string, string>)}><Val v={String(u.name || '?').trim().slice(0, 1).toUpperCase()} /></span>);
 }
 
 // Picture with "ছবি দিন / বদলান", "ক্যামেরায় তুলুন" and "মুছুন" — a new picture is shown first, then saved with its own "সেভ করুন"
 function photoBox(u?: Loose, action?: Loose) {
-  return toHtml(<div className="avatar-box" data-avatar-pick="" data-action={A(action)}><Val v={avatar(u, 'avatar-xl')} /><div className="avatar-box-act"><b>প্রোফাইল ছবি</b>{' '}<span className="row-actions">{' '}<label className={`btn btn-sm ${A(u.photo_id ? 'btn-ghost' : '')}`}>🖼️{' '}{(u.photo_id ? "ছবি বদলান" : "ছবি দিন")}<input type="file" accept="image/*" hidden data-avatar-file="" /></label>{' '}<button type="button" className="btn btn-sm btn-ghost" data-avatar-camera="">📸 ক্যামেরায় তুলুন</button>{' '}{(u.photo_id ? <button type="button" className="btn btn-sm btn-ghost danger-text" data-avatar-remove="">🗑️ ছবি মুছুন</button> : null)}{' '}</span>{' '}<span className="row-actions" data-avatar-confirm="" hidden>{' '}<button type="button" className="btn btn-sm" data-avatar-save="">💾 সেভ করুন</button>{' '}<button type="button" className="btn btn-sm btn-ghost" data-avatar-cancel="">বাতিল</button>{' '}</span>{' '}<small className="small muted" data-avatar-msg="">{(u.photo_id ? "নতুন ছবি দিলে আগেরটা বদলে যাবে।" : "মুখের পরিষ্কার ছবি দিন — মাঝখান থেকে গোল করে কেটে নেওয়া হবে।")}</small></div></div>);
+  return toHtml(<div className="avatar-box" data-avatar-pick="" data-action={attrValue(action)}><Val v={avatar(u, 'avatar-xl')} /><div className="avatar-box-act"><b>প্রোফাইল ছবি</b>{' '}<span className="row-actions">{' '}<label className={`btn btn-sm ${attrValue(u.photo_id ? 'btn-ghost' : '')}`}>🖼️{' '}{(u.photo_id ? "ছবি বদলান" : "ছবি দিন")}<input type="file" accept="image/*" hidden data-avatar-file="" /></label>{' '}<button type="button" className="btn btn-sm btn-ghost" data-avatar-camera="">📸 ক্যামেরায় তুলুন</button>{' '}{(u.photo_id ? <button type="button" className="btn btn-sm btn-ghost danger-text" data-avatar-remove="">🗑️ ছবি মুছুন</button> : null)}{' '}</span>{' '}<span className="row-actions" data-avatar-confirm="" hidden>{' '}<button type="button" className="btn btn-sm" data-avatar-save="">💾 সেভ করুন</button>{' '}<button type="button" className="btn btn-sm btn-ghost" data-avatar-cancel="">বাতিল</button>{' '}</span>{' '}<small className="small muted" data-avatar-msg="">{(u.photo_id ? "নতুন ছবি দিলে আগেরটা বদলে যাবে।" : "মুখের পরিষ্কার ছবি দিন — মাঝখান থেকে গোল করে কেটে নেওয়া হবে।")}</small></div></div>);
 }
 
 // The profile boxes inside a form. ownerEdit: the owner is filling it in (job title and joining date can be changed).
@@ -117,7 +117,7 @@ async function saveMine(ctx: AdminCtx) {
 // The "আমার প্রোফাইল" panel on the account page
 function myPanel(u?: Loose) {
   const owner = u.role === 'owner';
-  return toHtml(<section className="panel profile-panel" id="profile"><h2>👤 আমার প্রোফাইল</h2><Val v={photoBox(u, '/admin/account/photo')} /><form method="post" action="/admin/account/profile" className="form"><div className="field-row">{(owner ? <Val v={ui.field('নাম', ui.input('name', u.name || '', { required: true, maxlength: 80 }))} /> : <div className="field"><span className="label">নাম</span><p><b translate="no"><Val v={u.name} /></b>{' '}<span className="small muted">(নাম বদলাতে মালিককে বলুন)</span></p></div>)}<div className="field"><span className="label">ইউজারনেম</span><p className="mono" translate="no"><Val v={u.username} /></p></div></div><div className="field-row"><Val v={ui.field('মোবাইল (এটা দিয়েও লগইন করা যায়)', ui.input('phone', u.phone || '', { inputmode: 'tel', maxlength: 20 }))} /><Val v={ui.field('ইমেইল', ui.input('email', u.email || '', { type: 'email', maxlength: 120 }))} /></div><Val v={fields(u, { ownerEdit: owner })} />{' '}<button className="btn">প্রোফাইল সেভ করুন</button></form></section>);
+  return toHtml(<section className="panel profile-panel" id="profile"><h2>👤 আমার প্রোফাইল</h2><Val v={photoBox(u, '/admin/account/photo')} /><form method="post" action="/admin/account/profile" className="form"><div className="field-row">{(owner ? <Val v={ui.field('নাম', ui.input('name', u.name || '', { required: true, maxlength: 80 }))} /> : <div className="field"><span className="label">নাম</span><p><b {...({ "translate": "no" } as Record<string, string>)}><Val v={u.name} /></b>{' '}<span className="small muted">(নাম বদলাতে মালিককে বলুন)</span></p></div>)}<div className="field"><span className="label">ইউজারনেম</span><p className="mono" {...({ "translate": "no" } as Record<string, string>)}><Val v={u.username} /></p></div></div><div className="field-row"><Val v={ui.field('মোবাইল (এটা দিয়েও লগইন করা যায়)', ui.input('phone', u.phone || '', { inputmode: 'tel', maxlength: 20 }))} /><Val v={ui.field('ইমেইল', ui.input('email', u.email || '', { type: 'email', maxlength: 120 }))} /></div><Val v={fields(u, { ownerEdit: owner })} />{' '}<button className="btn">প্রোফাইল সেভ করুন</button></form></section>);
 }
 
 export const routes = [

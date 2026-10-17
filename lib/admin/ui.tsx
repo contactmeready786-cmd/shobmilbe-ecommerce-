@@ -1,5 +1,5 @@
 // Small building blocks shared by admin pages.
-import { toHtml, Val, RawHtml, A, attrs, L } from '../react/render';
+import { toHtml, Val, RawHtml, attrValue, attrProps, jsxList } from '../react/render';
 import { html, raw, esc, bn, money } from '../util';
 import * as $models_catalog from '../models/catalog';
 import type { Body, Id, Loose } from '../types';
@@ -24,7 +24,7 @@ const MESSAGES: Record<string, Loose> = {
 
 function flash(msg?: Loose) {
   if (!msg) return '';
-  return toHtml(<p className={`flash ${A(msg.type === 'error' ? 'flash-error' : '')}`} role="status"><Val v={msg.text} /></p>);
+  return toHtml(<p className={`flash ${attrValue(msg.type === 'error' ? 'flash-error' : '')}`} role="status"><Val v={msg.text} /></p>);
 }
 function flashFrom(query: URLSearchParams) {
   if (query.get('err')) return { type: 'error', text: query.get('err')!.slice(0, 300) };
@@ -33,7 +33,7 @@ function flashFrom(query: URLSearchParams) {
   return m ? (typeof m === 'string' ? { text: m } : m) : null;
 }
 
-function pill(text?: Loose, cls: Loose = '') { return toHtml(<span className={`pill ${A(cls)}`}><Val v={text} /></span>); }
+function pill(text?: Loose, cls: Loose = '') { return toHtml(<span className={`pill ${attrValue(cls)}`}><Val v={text} /></span>); }
 
 // ---------- form fields ----------
 function field(label?: Loose, control?: Loose, hint?: Loose) {
@@ -64,15 +64,15 @@ function select(name: Loose, options: Body, value?: Loose, attrs: Loose = {}) {
   return raw(`<select name="${esc(name)}"${a}>${opts}</select>`);
 }
 function check(name?: Loose, checked?: Loose, label?: Loose, value: Loose = '1') {
-  return toHtml(<label className="check"><input type="checkbox" name={A(name)} defaultValue={A(value)} {...attrs(checked ? raw('checked') : '')} />{' '}<span><Val v={label} /></span></label>);
+  return toHtml(<label className="check"><input type="checkbox" name={attrValue(name)} defaultValue={attrValue(value)} {...attrProps(checked ? raw('checked') : '')} />{' '}<span><Val v={label} /></span></label>);
 }
 // Big on/off switch with a title and explanation.
 function switchRow(name?: Loose, on?: Loose, title?: Loose, desc?: Loose) {
-  return toHtml(<label className="switch-row">{' '}<span className="switch-text"><b><Val v={title} /></b>{(desc ? <small><Val v={desc} /></small> : null)}</span>{' '}<span className="switch"><input type="checkbox" name={A(name)} defaultValue="1" {...attrs(on ? raw('checked') : '')} /><span className="switch-ui" {...{ "aria-hidden": "true" }}></span></span>{' '}<span className="switch-state" data-on="চালু" data-off="বন্ধ"></span></label>);
+  return toHtml(<label className="switch-row">{' '}<span className="switch-text"><b><Val v={title} /></b>{(desc ? <small><Val v={desc} /></small> : null)}</span>{' '}<span className="switch"><input type="checkbox" name={attrValue(name)} defaultValue="1" {...attrProps(on ? raw('checked') : '')} /><span className="switch-ui" {...({ "aria-hidden": "true" } as Record<string, string>)}></span></span>{' '}<span className="switch-state" data-on="চালু" data-off="বন্ধ"></span></label>);
 }
 // Image picker: uploads in the browser, keeps the media id in a hidden input.
 function imagePicker(name?: Loose, mediaId?: Id, { label = 'ছবি', hint = '', wide = false }: Body = {}) {
-  return toHtml(<div className={`field image-pick ${A(wide ? 'wide' : '')}`} data-image-pick=""><span className="label"><Val v={label} /></span><div className="pick-preview" data-pick-preview="">{(mediaId ? <img src={`/media/${A(mediaId)}/t`} alt="" /> : <span className="muted small">ছবি নেই</span>)}</div><p className={`pick-status ${A(mediaId ? 'is-live' : '')}`} data-pick-status="" data-live={A(mediaId ? '1' : '')}>{(mediaId ? "✅ এখন সাইটে এই ছবিটা চলছে" : "এখনো কোনো ছবি দেওয়া হয়নি")}</p><input type="hidden" name={A(name)} defaultValue={A(mediaId || '')} data-pick-value="" /><div className="pick-actions"><label className="btn btn-sm btn-ghost">{(mediaId ? "🔄 ছবি বদলান" : "📷 ছবি বাছুন")}<input type="file" accept="image/*" hidden data-pick-file="" {...attrs(wide ? raw('data-wide') : '')} /></label>{' '}{(mediaId ? <a className="btn btn-sm btn-ghost" href={`/media/${A(mediaId)}`} target="_blank" rel="noopener">🔍 বড় করে দেখুন</a> : null)}{' '}<button type="button" className="link-btn danger" data-pick-clear="" {...attrs(mediaId ? '' : raw('hidden'))}>🗑️ সরান</button></div>{(hint ? <small><Val v={hint} /></small> : null)}</div>);
+  return toHtml(<div className={`field image-pick ${attrValue(wide ? 'wide' : '')}`} data-image-pick=""><span className="label"><Val v={label} /></span><div className="pick-preview" data-pick-preview="">{(mediaId ? <img src={`/media/${attrValue(mediaId)}/t`} alt="" /> : <span className="muted small">ছবি নেই</span>)}</div><p className={`pick-status ${attrValue(mediaId ? 'is-live' : '')}`} data-pick-status="" data-live={attrValue(mediaId ? '1' : '')}>{(mediaId ? "✅ এখন সাইটে এই ছবিটা চলছে" : "এখনো কোনো ছবি দেওয়া হয়নি")}</p><input type="hidden" name={attrValue(name)} defaultValue={attrValue(mediaId || '')} data-pick-value="" /><div className="pick-actions"><label className="btn btn-sm btn-ghost">{(mediaId ? "🔄 ছবি বদলান" : "📷 ছবি বাছুন")}<input type="file" accept="image/*" hidden data-pick-file="" {...attrProps(wide ? raw('data-wide') : '')} /></label>{' '}{(mediaId ? <a className="btn btn-sm btn-ghost" href={`/media/${attrValue(mediaId)}`} target="_blank" rel="noopener">🔍 বড় করে দেখুন</a> : null)}{' '}<button type="button" className="link-btn danger" data-pick-clear="" {...attrProps(mediaId ? '' : raw('hidden'))}>🗑️ সরান</button></div>{(hint ? <small><Val v={hint} /></small> : null)}</div>);
 }
 
 function pager(total?: Loose, page?: Loose, perPage?: Loose, baseUrl?: Loose) {
@@ -81,17 +81,17 @@ function pager(total?: Loose, page?: Loose, perPage?: Loose, baseUrl?: Loose) {
   const link = (p?: Loose) => baseUrl + (baseUrl.includes('?') ? '&' : '?') + 'page=' + p;
   const items = [];
   for (let p = Math.max(1, page - 2); p <= Math.min(pages, page + 2); p++) items.push(p);
-  return toHtml(<nav className="pager" {...{ "aria-label": "পেজ" }}>{(page > 1 ? <a href={A(link(page - 1))}>← আগের</a> : null)}{' '}{L(items.map((p) => (p === page ? <b><Val v={bn(p)} /></b> : <a href={A(link(p))}><Val v={bn(p)} /></a>)))}{' '}{(page < pages ? <a href={A(link(page + 1))}>পরের →</a> : null)}{' '}<span className="muted small">মোট{' '}<Val v={bn(total)} />টি</span></nav>);
+  return toHtml(<nav className="pager" {...({ "aria-label": "পেজ" } as Record<string, string>)}>{(page > 1 ? <a href={attrValue(link(page - 1))}>← আগের</a> : null)}{' '}{jsxList(items.map((p) => (p === page ? <b><Val v={bn(p)} /></b> : <a href={attrValue(link(p))}><Val v={bn(p)} /></a>)))}{' '}{(page < pages ? <a href={attrValue(link(page + 1))}>পরের →</a> : null)}{' '}<span className="muted small">মোট{' '}<Val v={bn(total)} />টি</span></nav>);
 }
 
 function dateFilter(path?: Loose, from?: Loose, to?: Loose, extra: Loose = '') {
   const presets = [[7, '৭ দিন'], [30, '৩০ দিন'], [90, '৯০ দিন'], [365, '১ বছর']];
-  return toHtml(<form className="date-filter" method="get" action={A(path)}><RawHtml html={extra} /><div className="chips">{L(presets.map(([d, l]) => <a className="chip" href={`${A(path)}?days=${A(d)}`}><Val v={l} /></a>))}</div><label>থেকে{' '}<input type="date" name="from" defaultValue={A(from)} /></label>{' '}<label>পর্যন্ত{' '}<input type="date" name="to" defaultValue={A(to)} /></label>{' '}<button className="btn btn-sm">দেখুন</button></form>);
+  return toHtml(<form className="date-filter" method="get" action={attrValue(path)}><RawHtml html={extra} /><div className="chips">{jsxList(presets.map(([d, l]) => <a className="chip" href={`${attrValue(path)}?days=${attrValue(d)}`}><Val v={l} /></a>))}</div><label>থেকে{' '}<input type="date" name="from" defaultValue={attrValue(from)} /></label>{' '}<label>পর্যন্ত{' '}<input type="date" name="to" defaultValue={attrValue(to)} /></label>{' '}<button className="btn btn-sm">দেখুন</button></form>);
 }
 
 function kpi(label?: Loose, value?: Loose, sub?: Loose, cls: Loose = '', href: Loose = '') {
   const body = toHtml(<><span className="kpi-label"><Val v={label} /></span><b className="kpi-value"><Val v={value} /></b>{(sub ? <span className="kpi-sub"><Val v={sub} /></span> : null)}</>);
-  return href ? toHtml(<a className={`kpi ${A(cls)}`} href={A(href)}><Val v={body} /></a>) : toHtml(<div className={`kpi ${A(cls)}`}><Val v={body} /></div>);
+  return href ? toHtml(<a className={`kpi ${attrValue(cls)}`} href={attrValue(href)}><Val v={body} /></a>) : toHtml(<div className={`kpi ${attrValue(cls)}`}><Val v={body} /></div>);
 }
 
 // Category choices as a tree: "📟 ইলেকট্রনিক্স", "　└ সার্কিট ও মডিউল", "　　└ অডিও অ্যামপ্লিফায়ার বোর্ড"
@@ -102,10 +102,10 @@ function catOpts(categories?: Loose) {
 
 // "কাজ" column for admin lists: ✏️ edit, optional on/off switch, optional 🗑️ delete (goes to the recycle bin).
 function rowSwitch(action?: Loose, on?: Loose, label?: Loose) {
-  return toHtml(<form method="post" action={A(action)} className="prod-toggle"><label className="switch" title={A(label)}><input type="checkbox" name="active" defaultValue="1" {...attrs(on ? raw('checked') : '')} data-prod-toggle="" {...{ "aria-label": A(label) }} /><span className="switch-ui" {...{ "aria-hidden": "true" }}></span></label>{' '}<span className="small prod-toggle-text" data-prod-toggle-text="">{(on ? "চালু" : "বন্ধ")}</span><noscript><button className="btn btn-sm btn-ghost">সেভ</button></noscript></form>);
+  return toHtml(<form method="post" action={attrValue(action)} className="prod-toggle"><label className="switch" title={attrValue(label)}><input type="checkbox" name="active" defaultValue="1" {...attrProps(on ? raw('checked') : '')} data-prod-toggle="" {...({ "aria-label": attrValue(label) } as Record<string, string>)} /><span className="switch-ui" {...({ "aria-hidden": "true" } as Record<string, string>)}></span></label>{' '}<span className="small prod-toggle-text" data-prod-toggle-text="">{(on ? "চালু" : "বন্ধ")}</span><noscript><button className="btn btn-sm btn-ghost">সেভ</button></noscript></form>);
 }
 function rowActions({ edit, del, delConfirm, editLabel = '✏️ এডিট' }: Body) {
-  return toHtml(<td className="prod-actions">{(edit ? <a className="btn btn-sm btn-ghost" href={A(edit)}><Val v={editLabel} /></a> : null)}{' '}{(del ? <form method="post" action={A(del)} data-confirm={A(delConfirm || 'মুছবেন? রিসাইকেল বিনে থাকবে, মালিক চাইলে ফেরত আনতে পারবেন।')}><button className="btn btn-sm btn-danger">🗑️ মুছুন</button></form> : null)}</td>);
+  return toHtml(<td className="prod-actions">{(edit ? <a className="btn btn-sm btn-ghost" href={attrValue(edit)}><Val v={editLabel} /></a> : null)}{' '}{(del ? <form method="post" action={attrValue(del)} data-confirm={attrValue(delConfirm || 'মুছবেন? রিসাইকেল বিনে থাকবে, মালিক চাইলে ফেরত আনতে পারবেন।')}><button className="btn btn-sm btn-danger">🗑️ মুছুন</button></form> : null)}</td>);
 }
 
 // One "পণ্য আমদানি" place with two ways in (tabs at the top of both pages)
@@ -114,7 +114,7 @@ function importTabs(current?: Loose) {
     ['import', '/admin/products/import', '📥', 'লিংক বা ফাইল থেকে আমদানি', 'ফিড লিংক, একটা পণ্যের লিংক, CSV / Excel'],
     ['old', '/admin/products/more-photos', '📸', 'পুরোনো সাইট থেকে সব পণ্য ও ছবি', 'বাকি পণ্য যোগ + প্রতিটা পণ্যের সব ছবি'],
   ];
-  return toHtml(<nav className="imp-tabs" {...{ "aria-label": "পণ্য আমদানির ধরন" }}>{L(tabs.map(([k, href, ic, t, d]) => <a href={A(href)} className={`imp-tab ${A(k === current ? 'on' : '')}`} {...attrs(k === current ? raw(' aria-current="page"') : '')}><span className="imp-tab-ic"><Val v={ic} /></span><span><b><Val v={t} /></b><small><Val v={d} /></small></span></a>))}</nav>);
+  return toHtml(<nav className="imp-tabs" {...({ "aria-label": "পণ্য আমদানির ধরন" } as Record<string, string>)}>{jsxList(tabs.map(([k, href, ic, t, d]) => <a href={attrValue(href)} className={`imp-tab ${attrValue(k === current ? 'on' : '')}`} {...attrProps(k === current ? raw(' aria-current="page"') : '')}><span className="imp-tab-ic"><Val v={ic} /></span><span><b><Val v={t} /></b><small><Val v={d} /></small></span></a>))}</nav>);
 }
 
 function empty(text?: Loose, action?: Loose) {

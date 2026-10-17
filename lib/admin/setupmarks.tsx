@@ -7,7 +7,7 @@
 // Saved in settings.setup_marks as {"key": "done" | "skip"}; every mark can be taken back.
 
 // set up only when the shop runs paid ads — not a problem while they are empty
-import { toHtml, Val, A } from '../react/render';
+import { toHtml, Val, attrValue } from '../react/render';
 import { html } from '../util';
 import * as db from '../db';
 import type { AdminCtx, Loose, Settings } from '../types';
@@ -25,7 +25,7 @@ function markOf(s: Settings, key?: Loose, isSetUp?: Loose) {
   return '';
 }
 function buttons(key?: Loose, mark?: Loose, back?: Loose) {
-  const f = (val?: Loose, label?: Loose, title?: Loose) => toHtml(<form method="post" action="/admin/setup-mark" className="mark-form"><input type="hidden" name="key" defaultValue={A(key)} /><input type="hidden" name="val" defaultValue={A(val)} /><input type="hidden" name="back" defaultValue={A(back)} />{' '}<button className="link-btn small" title={A(title)}><Val v={label} /></button></form>);
+  const f = (val?: Loose, label?: Loose, title?: Loose) => toHtml(<form method="post" action="/admin/setup-mark" className="mark-form"><input type="hidden" name="key" defaultValue={attrValue(key)} /><input type="hidden" name="val" defaultValue={attrValue(val)} /><input type="hidden" name="back" defaultValue={attrValue(back)} />{' '}<button className="link-btn small" title={attrValue(title)}><Val v={label} /></button></form>);
   if (mark === 'done') return toHtml(<><span className="small muted">✔ আপনি "করা আছে" দিয়েছেন</span>{' '}<Val v={f('', '↩️ ফেরান', 'আবার সাইটের নিজের যাচাই দেখাবে')} /></>);
   if (mark === 'skip') return f('', '↩️ তালিকায় ফেরান', 'আবার তালিকায় দেখাবে');
   return toHtml(<><Val v={f('done', '✓ করা আছে', 'অন্যভাবে (যেমন DNS দিয়ে) করা আছে — সাইট দেখতে পায় না')} />{' '}<Val v={f('skip', '✕ দরকার নেই', 'এই সার্ভিস ব্যবহার করি না — তালিকা থেকে সরান')} /></>);

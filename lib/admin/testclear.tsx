@@ -4,7 +4,7 @@
 // products or money). Off by default; once the shop goes live the owner turns them off and history stays.
 
 // page (the admin menu key) → what its history is, and how to wipe it
-import { toHtml, Val, A } from '../react/render';
+import { toHtml, Val, attrValue } from '../react/render';
 import { html, raw } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
@@ -30,8 +30,8 @@ function decorate(ctx: AdminCtx, active?: Loose, body?: Loose) {
   const p = PAGES[active];
   if (!p || !ctx.can('settings')) return body;
   const on = ctx.settings[key(active)] === '1';
-  const top = toHtml(<form method="post" action={A(BASE)} className="panel form sms-clear-switch"><input type="hidden" name="page" defaultValue={A(active)} /><input type="hidden" name="action" defaultValue="switch" />{' '}<Val v={ui.switchRow('on', on, '🗑️ ইতিহাস মোছার বাটন', 'চালু করলে পেজের নিচে মোছার বাটন আসবে। দোকান আসলভাবে চালু করার পর বন্ধ করে দিন, তখন ইতিহাস থেকে যাবে।')} />{' '}<button className="btn btn-sm">সেভ করুন</button></form>);
-  const bottom = on ? toHtml(<section className="panel"><form method="post" action={A(BASE)} data-confirm={`এই পেজের ${A(p.what)} মুছে যাবে। আর ফেরত আনা যাবে না। মুছবেন?`} data-delcode="test_clear" data-delcode-to={A(delcode.masked())} data-delcode-what={A(p.what)}><input type="hidden" name="page" defaultValue={A(active)} /><input type="hidden" name="action" defaultValue="clear" />{' '}<button className="btn btn-sm btn-danger">🗑️ এই পেজের ইতিহাস মুছুন</button>{' '}<span className="small muted">যা মুছবে:{' '}<Val v={p.what} />। অর্ডার, কাস্টমার, পণ্য বা টাকার হিসাব মুছবে না। মুছতে{' '}<Val v={delcode.masked()} />{' '}ঠিকানায় যাওয়া কোড লাগবে।</span></form></section>) : '';
+  const top = toHtml(<form method="post" action={attrValue(BASE)} className="panel form sms-clear-switch"><input type="hidden" name="page" defaultValue={attrValue(active)} /><input type="hidden" name="action" defaultValue="switch" />{' '}<Val v={ui.switchRow('on', on, '🗑️ ইতিহাস মোছার বাটন', 'চালু করলে পেজের নিচে মোছার বাটন আসবে। দোকান আসলভাবে চালু করার পর বন্ধ করে দিন, তখন ইতিহাস থেকে যাবে।')} />{' '}<button className="btn btn-sm">সেভ করুন</button></form>);
+  const bottom = on ? toHtml(<section className="panel"><form method="post" action={attrValue(BASE)} data-confirm={`এই পেজের ${attrValue(p.what)} মুছে যাবে। আর ফেরত আনা যাবে না। মুছবেন?`} data-delcode="test_clear" data-delcode-to={attrValue(delcode.masked())} data-delcode-what={attrValue(p.what)}><input type="hidden" name="page" defaultValue={attrValue(active)} /><input type="hidden" name="action" defaultValue="clear" />{' '}<button className="btn btn-sm btn-danger">🗑️ এই পেজের ইতিহাস মুছুন</button>{' '}<span className="small muted">যা মুছবে:{' '}<Val v={p.what} />। অর্ডার, কাস্টমার, পণ্য বা টাকার হিসাব মুছবে না। মুছতে{' '}<Val v={delcode.masked()} />{' '}ঠিকানায় যাওয়া কোড লাগবে।</span></form></section>) : '';
   const s = String(body);
   const i = s.indexOf('</h1>');
   return raw(i < 0 ? String(top) + s + String(bottom) : s.slice(0, i + 5) + String(top) + s.slice(i + 5) + String(bottom));
