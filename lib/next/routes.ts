@@ -41,7 +41,7 @@ export function servedByNext(path: string, query: URLSearchParams, method: strin
 // Admin addresses that answer with a file, a picture, a print page or data rather than an admin page: always the
 // original code. (Any other admin page that turns out not to be a page is sent there too — lib/next/admin.ts.)
 const ADMIN_LEGACY = [
-  /^\/admin\/api\//, /\.(csv|xlsx|json|txt|xml|pdf)$/, /^\/admin\/avatar\//, /^\/admin\/(reviews|returns)\/photo\//,
+  /^\/admin\/api\//, /\.(csv|xlsx|json|txt|xml|pdf)$/, /^\/admin\/avatar\//, /\/photo\/\d+$/,
   /^\/admin\/orders\/(invoice|checklist)$/, /^\/admin\/orders\/\d+\/mushak$/, /^\/admin\/products\/labels$/, /^\/admin\/pos\/memo\//,
   /^\/admin\/reports\/staff$/, /^\/admin\/accounts\/vat\/return$/, /^\/admin\/reach(\/live)?$/, /^\/admin\/design\/documents$/,
 ];

@@ -1,5 +1,5 @@
 // ⚛️ Ready-made HTML inside React (no react-dom/server here, so Next.js server components can use it too).
-import { createElement, Fragment, isValidElement, type ReactElement, type ReactNode } from 'react';
+import { cloneElement, createElement, Fragment, isValidElement, type ReactElement, type ReactNode } from 'react';
 import { Raw } from '../util';
 
 // ---------------------------------------------------------------- toHtml: a React piece where HTML text is expected
@@ -150,4 +150,47 @@ export function jsxList(items: unknown): ReactNode {
   if (!Array.isArray(items)) return items instanceof Raw ? <Val v={items} /> : (items as ReactNode);
   // a helper's piece (toHtml) or ready-made HTML among them is shown as it is
   return createElement(Fragment, null, ...items.map((x) => (x instanceof Raw ? <Val v={x} /> : (x as ReactNode))));
+}
+
+/**
+ * Puts extra right after the first <tag>…</tag> of a page piece (e.g. a switch under the page's <h1>), the way the old
+ * text code did with indexOf('</h1>'). Works on React pieces (also inside Val / RawHtml / toHtml) and on ready-made
+ * HTML. found = false: there was no such tag (the piece comes back unchanged).
+ */
+export function insertAfterTag(node: unknown, tag: string, extra: ReactNode): { node: unknown; found: boolean } {
+  if (node instanceof ElementHtml) {
+    const r = insertAfterTag(node.el, tag, extra);
+    return r.found ? { node: toHtml(r.node as ReactElement), found: true } : { node, found: false };
+  }
+  if (node instanceof Raw) {
+    const text = (node as Raw).s;
+    const i = text.indexOf(`</${tag}>`);
+    if (i < 0) return { node, found: false };
+    const cut = i + tag.length + 3;
+    return { node: <>{<RawHtml html={text.slice(0, cut)} />}{extra}{<RawHtml html={text.slice(cut)} />}</>, found: true };
+  }
+  if (Array.isArray(node)) {
+    for (let k = 0; k < node.length; k++) {
+      const item = node[k];
+      if (isValidElement(item) && item.type === tag) return { node: [...node.slice(0, k + 1), extra, ...node.slice(k + 1)], found: true };
+      const r = insertAfterTag(item, tag, extra);
+      if (r.found) return { node: [...node.slice(0, k), r.node, ...node.slice(k + 1)], found: true };
+    }
+    return { node, found: false };
+  }
+  if (!isValidElement(node)) return { node, found: false };
+  const props = (node.props || {}) as Record<string, unknown>;
+  if (node.type === Val) {
+    const r = insertAfterTag(props.v, tag, extra);
+    return r.found ? { node: <Val v={r.node} />, found: true } : { node, found: false };
+  }
+  if (node.type === RawHtml) {
+    const r = insertAfterTag(props.html instanceof Raw ? props.html : new Raw(String(props.html ?? '')), tag, extra);
+    return r.found ? { node: r.node, found: true } : { node, found: false };
+  }
+  if (node.type === tag) return { node: <>{node}{extra}</>, found: true };
+  if (props.children === undefined) return { node, found: false };
+  const kids = Array.isArray(props.children) ? props.children : [props.children];
+  const r = insertAfterTag(kids, tag, extra);
+  return r.found ? { node: cloneElement(node, undefined, ...(r.node as ReactNode[])), found: true } : { node, found: false };
 }
