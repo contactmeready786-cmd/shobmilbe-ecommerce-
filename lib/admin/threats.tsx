@@ -1,7 +1,7 @@
 // Admin → স্টাফ ও নিরাপত্তা → সন্দেহজনক ভিজিটর
 // Who tried to harm the site (hacking-file scans, harmful code in links, wrong admin passwords, request floods),
 // from where, what exactly they tried — and one tap to shut that IP out of the whole shop (for 24 hours or for good).
-import { toHtml, Val, attrValue, jsxList } from '../react/render';
+import { toHtml, Val, attrValue, jsxList } from '../react/html';
 import { html, bn, fmtDate, str } from '../util';
 import * as db from '../db';
 import * as G from '../services/guard';

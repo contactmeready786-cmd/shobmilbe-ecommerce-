@@ -1,4 +1,4 @@
-import { toHtml, Val, RawHtml, attrValue, htmlValue, attrProps, jsxList } from '../react/render';
+import { toHtml, Val, RawHtml, attrValue, htmlValue, attrProps, jsxList } from '../react/html';
 import { cspNonce } from '../security';
 import { html, raw } from '../util';
 import { can, canSee } from '../models/staff';

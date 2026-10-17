@@ -1,6 +1,6 @@
 // Admin → রিপোর্ট → 🔎 কাস্টমার কী খুঁজছে: the words customers typed in the shop's search box and how many products came up.
 // "পাওয়া যায়নি" = people want it but the shop doesn't have it (or names it differently) — a list of what to buy / rename.
-import { toHtml, Val, attrValue, jsxList } from '../react/render';
+import { toHtml, Val, attrValue, jsxList } from '../react/html';
 import { html, bn, fmtDate, int } from '../util';
 import * as db from '../db';
 import * as ui from './ui';

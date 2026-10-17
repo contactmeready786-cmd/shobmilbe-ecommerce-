@@ -1,7 +1,7 @@
 // Admin → অর্ডার ও কাস্টমার → 📮 অভিযোগ (৭২ ঘণ্টা): every complaint with the hours left to solve it (the law asks for
 // 72 hours), late ones in red at the top. Open one to see the details and photos, write inside notes or a reply to the
 // customer (also by SMS), give it to a staff member, and mark it solved with what was done — all kept as a record.
-import { toHtml, Val, attrValue, jsxList } from '../react/render';
+import { toHtml, Val, attrValue, jsxList } from '../react/html';
 import { html, bn, fmtDate, int, str, pageNum } from '../util';
 import * as db from '../db';
 import * as ui from './ui';

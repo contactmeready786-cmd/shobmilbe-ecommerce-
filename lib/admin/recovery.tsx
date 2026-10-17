@@ -2,7 +2,7 @@
 // Six one-time codes the owner writes on paper. Any one of them opens /admin/reset when the phone is lost,
 // the camera is broken or the password is forgotten — no Vercel setting needed.
 // Only a slow hash (scrypt) of each code is stored; the codes are shown once, right after they are made.
-import { toHtml, Val, attrValue, styleOf, jsxList } from '../react/render';
+import { toHtml, Val, attrValue, styleOf, jsxList } from '../react/html';
 import * as crypto from 'node:crypto';
 import { html, fmtDate } from '../util';
 import * as db from '../db';

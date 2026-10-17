@@ -1,7 +1,7 @@
 // Admin → অর্ডার ও কাস্টমার → ↩️ রিটার্ন ও রিফান্ড.
 // Customers' return requests (and ones the staff record by phone): approve / reject with a reply, take the goods back
 // (each item to the shelf, to damaged stock, or nowhere), then refund (also written in the accounts if chosen) or replace.
-import { toHtml, Val, attrValue, jsxList } from '../react/render';
+import { toHtml, Val, attrValue, jsxList } from '../react/html';
 import { html, raw, int, str, bn, money, fmtDate, normalizePhone } from '../util';
 import * as db from '../db';
 import * as ui from './ui';

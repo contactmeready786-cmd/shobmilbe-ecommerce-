@@ -2,7 +2,7 @@
 // Every tip is worked out fresh from: the time right now in Dhaka, the day of the week, the season and
 // upcoming Bangladeshi occasions, and the shop's own live numbers (visitors, carts, incomplete orders,
 // stock, trending products). The panel refreshes itself every minute while the page is open.
-import { toHtml, Val, attrValue, jsxList } from '../react/render';
+import { toHtml, Val, attrValue, jsxList } from '../react/html';
 import { html, bn } from '../util';
 import * as db from '../db';
 import type { Body, Loose } from '../types';

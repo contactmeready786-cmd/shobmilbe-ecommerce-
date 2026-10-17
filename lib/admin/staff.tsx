@@ -1,4 +1,4 @@
-import { toHtml, Val, attrValue, attrProps, jsxList } from '../react/render';
+import { toHtml, Val, attrValue, attrProps, jsxList } from '../react/html';
 import { html, raw, bn, fmtDate, int, list } from '../util';
 import * as S from '../models/staff';
 import * as sessions from '../models/sessions';

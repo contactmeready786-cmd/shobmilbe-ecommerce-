@@ -2,7 +2,7 @@
 // Save the given setting keys from a form body. Secret fields left blank keep their old value.
 // Boxes where raw code (scripts) can be pasted. A script on the store runs with the same rights as the
 // person looking at it, so only the owner may change these — a staff account can't use them to take over.
-import { toHtml, Val, attrValue, attrProps, jsxList } from '../react/render';
+import { toHtml, Val, attrValue, attrProps, jsxList } from '../react/html';
 import { html, raw, money, bn, fmtDate, int, str, list } from '../util';
 import * as db from '../db';
 import * as content from '../models/content';

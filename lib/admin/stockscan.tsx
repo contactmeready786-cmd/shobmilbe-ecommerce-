@@ -5,7 +5,7 @@
 //   📍 which box it sits in can be set right there.
 // A code nobody has yet → "নতুন পণ্য হিসেবে যোগ করুন" (the new-product page opens with that barcode, box and count filled in).
 // Typing a box name ("বক্স ৩") lists everything kept in that box.
-import { toHtml, Val, attrValue, jsxList } from '../react/render';
+import { toHtml, Val, attrValue, jsxList } from '../react/html';
 import { html, raw, bn, int, str } from '../util';
 import * as db from '../db';
 import * as catalog from '../models/catalog';

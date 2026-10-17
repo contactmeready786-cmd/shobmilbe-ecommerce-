@@ -1,6 +1,6 @@
 // Admin → পণ্য → (a product) → 🎨 ভ্যারিয়েন্ট: the sizes / colours / models of one product.
 // Every row is a variant with its own price, stock, SKU and barcode. The shop shows a picker on the product page.
-import { toHtml, Val, attrValue, attrProps, jsxList } from '../react/render';
+import { toHtml, Val, attrValue, attrProps, jsxList } from '../react/html';
 import { html, raw, int, str, bn, money } from '../util';
 import * as db from '../db';
 import * as ui from './ui';

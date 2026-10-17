@@ -1,4 +1,4 @@
-import { toHtml, Val, attrValue, jsxList } from '../react/render';
+import { toHtml, Val, attrValue, jsxList } from '../react/html';
 import { html, bn, fmtDate, int, str } from '../util';
 import * as content from '../models/content';
 import * as ui from './ui';

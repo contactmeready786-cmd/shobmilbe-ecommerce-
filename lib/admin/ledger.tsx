@@ -3,7 +3,7 @@
 // earned and the profit — all worked out from purchases, orders and stock entries, nothing typed by hand.
 // The stock and the buying price can't be typed over on the product form any more; the only hand change here is a
 // "কেনা দাম সংশোধন" (a wrong price put right) and it needs a reason, which is kept in the price history.
-import { toHtml, Val, attrValue, jsxList } from '../react/render';
+import { toHtml, Val, attrValue, jsxList } from '../react/html';
 import { html, money, bn, int, str, fmtDate, pct } from '../util';
 import * as db from '../db';
 import * as ui from './ui';

@@ -1,7 +1,7 @@
 // Admin → অর্ডার ও কাস্টমার → অসম্পূর্ণ অর্ডার
 // Shoppers who typed their mobile number at checkout but never pressed "অর্ডার কনফার্ম".
 // Call them, turn the cart into an order in one tap, or drop it. The whole feature has an on/off switch at the top.
-import { toHtml, Val, attrValue, jsxList } from '../react/render';
+import { toHtml, Val, attrValue, jsxList } from '../react/html';
 import { html, bn, money, fmtDate, str, int, pageNum } from '../util';
 import * as db from '../db';
 import * as D from '../services/drafts';

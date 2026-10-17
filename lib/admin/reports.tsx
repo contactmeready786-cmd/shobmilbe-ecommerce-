@@ -1,6 +1,6 @@
 // Admin → রিপোর্ট: sales by day / week / month, products (best and slow sellers), categories, customers,
 // cancelled & returned orders, profit & margin (owner only), staff — any date range, CSV and Excel downloads.
-import { toHtml, Val, attrValue, jsxList } from '../react/render';
+import { toHtml, Val, attrValue, jsxList } from '../react/html';
 import { html, money, bn, pct, fmtDate, dateRange, csv } from '../util';
 import * as db from '../db';
 import * as F from '../models/finance';

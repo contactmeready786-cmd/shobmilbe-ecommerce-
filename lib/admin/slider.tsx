@@ -1,7 +1,7 @@
 // Admin → স্টোর ডিজাইন → 🎞️ রানিং স্লাইডার: the big moving picture banner at the top of the home page.
 // On/off switch, up to 5 pictures (each with an optional link), how many seconds each picture stays,
 // and how it moves. Pictures are kept as "slider" banners, so the old ব্যানার page keeps working too.
-import { toHtml, Val, attrValue, jsxList } from '../react/render';
+import { toHtml, Val, attrValue, jsxList } from '../react/html';
 import { html, raw, bn, int, str } from '../util';
 import * as db from '../db';
 import * as content from '../models/content';

@@ -4,7 +4,7 @@
 //                                for any dates — printable, to match with the supplier's own book.
 
 // All entries of one supplier, oldest first: purchases (we owe more) and payments (we owe less).
-import { toHtml, Val, attrValue, jsxList } from '../react/render';
+import { toHtml, Val, attrValue, jsxList } from '../react/html';
 import { html, int, str, bn, money, fmtDate, ymd, validYmd, round2 } from '../util';
 import * as db from '../db';
 import * as ui from './ui';

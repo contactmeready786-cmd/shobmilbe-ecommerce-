@@ -1,5 +1,5 @@
 // Admin → মার্কেটিং → লয়ালটি পয়েন্ট: the rules, who has the most points, and adding / taking points by hand.
-import { toHtml, Val, attrValue, jsxList } from '../react/render';
+import { toHtml, Val, attrValue, jsxList } from '../react/html';
 import { html, bn, int, str, money, fmtDate, normalizePhone, validPhone } from '../util';
 import * as db from '../db';
 import * as ui from './ui';

@@ -2,7 +2,7 @@
 // Opened from a product's page or from the product list ("বাছাই করা পণ্য → বারকোড লেবেল প্রিন্ট").
 
 // sticker sizes (mm). sheet = how many fit on one A4 page, or a roll printer (one per label)
-import { toHtml, Val, RawHtml, attrValue } from '../react/render';
+import { toHtml, Val, RawHtml, attrValue } from '../react/html';
 import { ASSET_V as PA_V } from './layout';
 import { html, raw, money, int, str, bn } from '../util';
 import * as db from '../db';

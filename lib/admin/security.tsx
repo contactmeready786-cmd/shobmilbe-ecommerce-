@@ -1,5 +1,5 @@
 // Admin: security status page (owner only) — what protects the site, what still needs a step, and recent blocked attempts.
-import { toHtml, Val, attrValue, htmlValue, attrProps, styleOf, jsxList } from '../react/render';
+import { toHtml, Val, attrValue, htmlValue, attrProps, styleOf, jsxList } from '../react/html';
 import { cspNonce } from '../security';
 import * as crypto from 'node:crypto';
 import { html, raw, fmtDate } from '../util';

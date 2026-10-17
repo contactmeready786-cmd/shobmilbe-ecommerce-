@@ -1,5 +1,5 @@
 // Admin → মার্কেট রিসার্চ (owner only). Nothing here is ever shown on the shop.
-import { toHtml, Val, attrValue, jsxList } from '../react/render';
+import { toHtml, Val, attrValue, jsxList } from '../react/html';
 import { html, raw, bn, money, int, str, fmtDate } from '../util';
 import * as db from '../db';
 import * as R from '../services/research';

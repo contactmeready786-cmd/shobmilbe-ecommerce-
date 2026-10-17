@@ -3,7 +3,7 @@
 //   স্টকে এলে জানাও: who is waiting for which out-of-stock product (most wanted first) and the SMS that goes out when it is back.
 
 // ---------------------------------------------------------------- questions
-import { toHtml, Val, attrValue, jsxList } from '../react/render';
+import { toHtml, Val, attrValue, jsxList } from '../react/html';
 import { html, int, str, bn, fmtDate } from '../util';
 import * as db from '../db';
 import * as ui from './ui';

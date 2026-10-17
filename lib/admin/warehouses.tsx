@@ -1,6 +1,6 @@
 // Admin → স্টক ও কেনাকাটা → 🏬 গুদাম ও শাখা: more than one place where goods are kept (a second store, a branch shop).
 // Each has its own count; the main store (where online orders are packed) is the rest of the total stock.
-import { toHtml, Val, attrValue, jsxList } from '../react/render';
+import { toHtml, Val, attrValue, jsxList } from '../react/html';
 import { html, int, str, bn, fmtDate } from '../util';
 import * as db from '../db';
 import * as ui from './ui';

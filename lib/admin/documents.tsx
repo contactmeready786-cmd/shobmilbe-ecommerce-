@@ -1,5 +1,5 @@
 // Admin → স্টোর ডিজাইন → 🖨️ ইনভয়েস ও চেকলিস্ট: everything on the two printed papers, with a live sample.
-import { toHtml, Val, attrValue, attrProps, jsxList } from '../react/render';
+import { toHtml, Val, attrValue, attrProps, jsxList } from '../react/html';
 import { html, raw, int } from '../util';
 import * as db from '../db';
 import * as ui from './ui';

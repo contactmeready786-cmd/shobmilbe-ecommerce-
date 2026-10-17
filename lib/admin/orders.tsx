@@ -1,7 +1,7 @@
 
 // 🗑️ deleting orders: only the owner, and only while this switch is on (so nobody deletes by a slip of the finger).
 // A deleted order goes to the recycle bin (রিসাইকেল বিন) with its items and payments; its goods go back on the shelf.
-import { toHtml, Val, attrValue, attrProps, jsxList } from '../react/render';
+import { toHtml, Val, attrValue, attrProps, jsxList } from '../react/html';
 import { html, raw, money, bn, fmtDate, int, str, csv, pageNum, normalizePhone, validPhone, validYmd, list, esc, amount as amt, roundOff, roundOffLabel } from '../util';
 import * as db from '../db';
 import * as O from '../models/orders';

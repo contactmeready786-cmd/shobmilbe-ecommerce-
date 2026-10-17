@@ -3,7 +3,7 @@
 // and all of them together on "হেডার ও ফুটার মেনু".
 
 // Buttons that are not part of the editable link list.
-import { toHtml, Val, attrValue, attrProps, jsxList } from '../react/render';
+import { toHtml, Val, attrValue, attrProps, jsxList } from '../react/html';
 import { html, raw, list, str } from '../util';
 import * as ui from './ui';
 import * as db from '../db';

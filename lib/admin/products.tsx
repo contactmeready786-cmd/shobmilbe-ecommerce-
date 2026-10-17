@@ -1,4 +1,4 @@
-import { toHtml, Val, RawHtml, attrValue, attrProps, jsxList } from '../react/render';
+import { toHtml, Val, RawHtml, attrValue, attrProps, jsxList } from '../react/html';
 import { html, raw, money, bn, int, str, pageNum, list, youtubeId, pct, fmtDate, amount, qtyRule, shopPrice, priceProblem, PRICE_MIN, PRICE_MAX } from '../util';
 import * as catalog from '../models/catalog';
 import * as dupes from '../models/duplicates';

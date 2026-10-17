@@ -5,7 +5,7 @@
 //  - campaigns: subject + text + products + a button, to everyone / buyers / not-yet-buyers; sent in parts within the
 //    day's allowance by the hourly job, with sent / opened / clicked
 //  - the list: added from the footer box, the checkout tick, or pasted by the owner; one-click leave in every mail
-import { toHtml, Val, attrValue, jsxList } from '../react/render';
+import { toHtml, Val, attrValue, jsxList } from '../react/html';
 import { html, bn, int, str, fmtDate } from '../util';
 import * as db from '../db';
 import * as ui from './ui';

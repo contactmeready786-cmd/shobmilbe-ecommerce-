@@ -1,6 +1,6 @@
 // Admin → স্থায়ীভাবে মুছে ফেলুন (রিসাইকেল বিন) — owner only.
 // Everything anyone deleted waits here with full details; the owner restores it or deletes it for good.
-import { toHtml, Val, attrValue, attrProps, jsxList } from '../react/render';
+import { toHtml, Val, attrValue, attrProps, jsxList } from '../react/html';
 import { html, raw, bn, money, int, list, fmtDate } from '../util';
 import * as db from '../db';
 import * as T from '../models/trash';

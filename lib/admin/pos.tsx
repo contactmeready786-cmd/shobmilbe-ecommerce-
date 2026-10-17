@@ -3,7 +3,7 @@
 // change quantity / price, discount, customer's mobile (optional), how they paid, cash given → change to return.
 // "বিক্রি সম্পন্ন" saves it as an order (source: দোকান, already delivered and paid) — stock goes down at once
 // (from the chosen branch, when there are branches) — and the cash memo opens for printing.
-import { toHtml, Val, attrValue, attrProps, jsxList } from '../react/render';
+import { toHtml, Val, attrValue, attrProps, jsxList } from '../react/html';
 import { cspNonce } from '../security';
 import { html, raw, int, str, bn, money, fmtDate, amount, round2, normalizePhone, validPhone } from '../util';
 import * as db from '../db';

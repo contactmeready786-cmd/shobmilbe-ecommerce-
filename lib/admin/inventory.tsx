@@ -1,6 +1,6 @@
 
 // ---------------------------------------------------------------- inventory
-import { toHtml, Val, RawHtml, attrValue, attrProps, jsxList } from '../react/render';
+import { toHtml, Val, RawHtml, attrValue, attrProps, jsxList } from '../react/html';
 import { html, raw, money, bn, fmtDate, int, str, list, ymd, pct, pageNum } from '../util';
 import * as catalog from '../models/catalog';
 import * as finance from '../models/finance';

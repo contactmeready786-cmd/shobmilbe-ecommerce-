@@ -3,7 +3,7 @@
 //  • মূসক-৬.২ বিক্রয় হিসাব পুস্তক (sales register) and মূসক-৬.১ ক্রয় হিসাব পুস্তক (purchase register), with CSV
 //  • মূসক-৬.৩ কর চালানপত্র (tax invoice) for any order, ready to print
 // The return itself is filed by the owner (or their VAT consultant) on vat.gov.bd — this page prepares the numbers.
-import { toHtml, Val, attrValue, jsxList } from '../react/render';
+import { toHtml, Val, attrValue, jsxList } from '../react/html';
 import { ASSET_V as PA_V } from './layout';
 import { html, raw, money, bn, fmtDate, int, ymd, csv, num, str } from '../util';
 import * as db from '../db';

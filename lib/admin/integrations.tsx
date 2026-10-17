@@ -1,4 +1,4 @@
-import { toHtml, Val, attrValue, attrProps, jsxList } from '../react/render';
+import { toHtml, Val, attrValue, attrProps, jsxList } from '../react/html';
 import { promises as dns } from 'node:dns';
 import { html, raw, fmtDate, int, str, fetchJson, randomCode } from '../util';
 import * as db from '../db';

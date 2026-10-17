@@ -1,5 +1,5 @@
 // Admin: product feed links for Google Merchant Center and Facebook Commerce Manager.
-import { toHtml, Val, attrValue, jsxList } from '../react/render';
+import { toHtml, Val, attrValue, jsxList } from '../react/html';
 import * as crypto from 'node:crypto';
 import { html, bn, int } from '../util';
 import * as db from '../db';

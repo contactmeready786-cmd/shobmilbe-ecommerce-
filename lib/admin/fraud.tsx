@@ -1,6 +1,6 @@
 // Admin → অর্ডার ও কাস্টমার → 🛡️ ফ্রড চেক: check any mobile number's parcel record (this shop + Pathao + FraudBD),
 // the FraudBD key, and what happens to new orders from risky numbers (a note, or "হোল্ড").
-import { toHtml, Val, attrValue, jsxList } from '../react/render';
+import { toHtml, Val, attrValue, jsxList } from '../react/html';
 import { html, str, bn, fmtDate, normalizePhone, validPhone } from '../util';
 import * as db from '../db';
 import * as ui from './ui';

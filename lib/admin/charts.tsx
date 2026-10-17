@@ -1,5 +1,5 @@
 // Server-rendered charts (SVG / HTML). No external libraries, so they load instantly.
-import { toHtml, Val, RawHtml, attrValue, styleOf, jsxList } from '../react/render';
+import { toHtml, Val, RawHtml, attrValue, styleOf, jsxList } from '../react/html';
 import { html, raw, esc, bn, money } from '../util';
 import type { Body, Loose, Settings } from '../types';
 

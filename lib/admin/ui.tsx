@@ -1,5 +1,5 @@
 // Small building blocks shared by admin pages.
-import { toHtml, Val, RawHtml, attrValue, attrProps, jsxList } from '../react/render';
+import { toHtml, Val, RawHtml, attrValue, attrProps, jsxList } from '../react/html';
 import { html, raw, esc, bn, money } from '../util';
 import * as $models_catalog from '../models/catalog';
 import type { Body, Id, Loose } from '../types';

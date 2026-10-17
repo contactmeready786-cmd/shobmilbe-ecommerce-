@@ -1,6 +1,6 @@
 // Admin → মার্কেটিং → রিভিউ ও পছন্দের তালিকা: approve / hide / answer / delete customer reviews,
 // the review switches, and which products customers put on their wishlist (♡) most.
-import { toHtml, Val, attrValue, jsxList } from '../react/render';
+import { toHtml, Val, attrValue, jsxList } from '../react/html';
 import { html, bn, int, str, fmtDate, pageNum } from '../util';
 import * as db from '../db';
 import * as ui from './ui';

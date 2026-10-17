@@ -4,7 +4,7 @@
 // products or money). Off by default; once the shop goes live the owner turns them off and history stays.
 
 // page (the admin menu key) → what its history is, and how to wipe it
-import { toHtml, Val, attrValue } from '../react/render';
+import { toHtml, Val, attrValue } from '../react/html';
 import { html, raw } from '../util';
 import * as db from '../db';
 import * as ui from './ui';

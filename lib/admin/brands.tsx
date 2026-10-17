@@ -1,5 +1,5 @@
 // Admin → পণ্য → ব্র্যান্ড: add / edit / hide / delete brands (logo, description, SEO). Each brand gets its own page in the shop (/brand/…).
-import { toHtml, Val, attrValue, jsxList } from '../react/render';
+import { toHtml, Val, attrValue, jsxList } from '../react/html';
 import { html, bn, int, str } from '../util';
 import * as catalog from '../models/catalog';
 import * as ui from './ui';

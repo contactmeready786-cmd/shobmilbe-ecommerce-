@@ -1,6 +1,6 @@
 // Admin → ব্যাকআপ ও রিস্টোর (owner only): download a backup now, see every backup made (by hand and the nightly
 // automatic one), and the step-by-step way to get the shop back from a backup.
-import { toHtml, Val, attrValue, jsxList } from '../react/render';
+import { toHtml, Val, attrValue, jsxList } from '../react/html';
 import { html, bn, fmtDate, str } from '../util';
 import * as db from '../db';
 import * as ui from './ui';

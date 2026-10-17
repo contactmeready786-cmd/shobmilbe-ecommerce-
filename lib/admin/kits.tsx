@@ -1,6 +1,6 @@
 // Admin → পণ্য → 🧰 প্রজেক্ট কিট: make a kit for a project ("ব্লুটুথ স্পিকার বানান"), list its parts (how many of each,
 // which are optional), and switch it on. Customers see it at /kits and add the parts to the cart together.
-import { toHtml, Val, attrValue, attrProps, jsxList } from '../react/render';
+import { toHtml, Val, attrValue, attrProps, jsxList } from '../react/html';
 import { html, raw, bn, money, int } from '../util';
 import * as ui from './ui';
 import * as K from '../models/kits';

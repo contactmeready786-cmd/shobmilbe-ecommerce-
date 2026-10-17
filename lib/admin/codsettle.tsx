@@ -3,7 +3,7 @@
 // Here: per courier, which delivered parcels are still unpaid by the courier and how much that is; tick the parcels a
 // courier payment covers (or paste their consignment numbers from the courier's payment report), write what came in
 // → those parcels are marked settled, and the money (and the courier's charge) can go into the accounts.
-import { toHtml, Val, attrValue, htmlValue, jsxList } from '../react/render';
+import { toHtml, Val, attrValue, htmlValue, jsxList } from '../react/html';
 import { cspNonce } from '../security';
 import { html, raw, int, str, bn, money, fmtDate, ymd, round2, amount } from '../util';
 import * as db from '../db';

@@ -1,6 +1,39 @@
 // ⚛️ Ready-made HTML inside React (no react-dom/server here, so Next.js server components can use it too).
-import { createElement, Fragment, isValidElement, type ReactNode } from 'react';
+import { createElement, Fragment, isValidElement, type ReactElement, type ReactNode } from 'react';
 import { Raw } from '../util';
+
+// ---------------------------------------------------------------- toHtml: a React piece where HTML text is expected
+// Many helpers (made from the old html`…` templates) hand back a piece of page that the caller puts into a bigger
+// page. toHtml(<…/>) keeps the React piece as it is: inside another React page it stays React (Next.js pages), and
+// only when someone really needs the text (.s, an old html`…` template) is it turned into HTML — by the renderer the
+// original router registers (lib/react/render.tsx; Next.js pages may not load react-dom/server).
+type Renderer = (el: ReactElement) => string;
+let renderer: Renderer | null = null;
+/** lib/react/render.tsx registers react-dom/server's renderer here. */
+export function setRenderer(fn: Renderer): void { renderer = fn; }
+
+export class ElementHtml extends Raw {
+  readonly el: ReactElement;
+  constructor(el: ReactElement) {
+    super('');
+    this.el = el;
+    let done: string | null = null;
+    Object.defineProperty(this, 's', {
+      get: () => {
+        if (done === null) {
+          if (!renderer) throw new Error('toHtml(…).s needs lib/react/render (not available in a Next.js page — keep the piece as React)');
+          done = renderer(el);
+        }
+        return done;
+      },
+    });
+  }
+}
+
+/** A React piece that can also stand where ready-made HTML is expected (see above). */
+export function toHtml(el: ReactElement | Raw): Raw {
+  return el instanceof Raw ? el : new ElementHtml(el);
+}
 
 // Inside toHtml() (lib/react/render.tsx) React leaves a marker and the HTML is spliced in after rendering, so the
 // page is exactly as before. In a Next.js page there is nothing to splice into: a see-through wrapper holds it.
@@ -16,6 +49,8 @@ export function withSlots<T>(fn: (mine: string[]) => T): T {
 
 /** Puts ready-made HTML (a string the shop made itself, or a legacy Raw) into a React page, unescaped — only HTML the shop made, never visitor text. */
 export function RawHtml({ html }: { html: unknown }): ReactNode {
+  if (html instanceof ElementHtml) return html.el;
+  if (isValidElement(html)) return html;
   const s = html instanceof Raw ? html.s : html === null || html === undefined || html === false ? '' : String(html);
   if (!s) return null;
   if (!slots) return <div style={{ display: 'contents' }} data-unwrap="" dangerouslySetInnerHTML={{ __html: s }} />;
@@ -35,8 +70,9 @@ export function cx(...names: unknown[]): string {
 /** A value that used to sit inside html`…`: Raw stays HTML, a list is each item, false/null/undefined is nothing, the rest is escaped text. */
 export function Val({ v }: { v: unknown }): ReactNode {
   if (isValidElement(v)) return v; // a piece that is React already
+  if (v instanceof ElementHtml) return v.el;
   if (v instanceof Raw) return <RawHtml html={v} />;
-  if (Array.isArray(v)) return createElement(Fragment, null, ...v.map((x) => (isValidElement(x) ? x : x instanceof Raw ? <RawHtml html={x} /> : x === null || x === undefined || x === false ? null : String(x))));
+  if (Array.isArray(v)) return createElement(Fragment, null, ...v.map((x) => (isValidElement(x) ? x : x instanceof ElementHtml ? x.el : x instanceof Raw ? <RawHtml html={x} /> : x === null || x === undefined || x === false ? null : String(x))));
   if (v === false || v === null || v === undefined) return null;
   return String(v);
 }

@@ -5,7 +5,7 @@
 // The marked copies are drawn in the admin's browser (it finds where the product sits on the white
 // background and blends the mark into it), then stored next to the original picture. Any admin page
 // that is open quietly finishes pictures that are new or were made with older settings.
-import { toHtml, Val, attrValue, attrProps, jsxList } from '../react/render';
+import { toHtml, Val, attrValue, attrProps, jsxList } from '../react/html';
 import * as crypto from 'node:crypto';
 import { html, raw, bn, int, str } from '../util';
 import * as db from '../db';

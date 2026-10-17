@@ -1,4 +1,4 @@
-import { toHtml, Val, attrValue, jsxList } from '../react/render';
+import { toHtml, Val, attrValue, jsxList } from '../react/html';
 import { html, money, bn, dateRange, fmtDate } from '../util';
 import * as finance from '../models/finance';
 import * as orders from '../models/orders';

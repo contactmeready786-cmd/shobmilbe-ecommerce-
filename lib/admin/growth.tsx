@@ -1,7 +1,7 @@
 // Admin → গ্রোথ গাইড (owner only): what to set up and what to do every day / week so the shop
 // reaches more people on Google and Facebook and sells more — checked against the shop's real state —
 // plus the privacy guard that keeps secrets away from robots.
-import { toHtml, Val, attrValue, attrProps, styleOf, jsxList } from '../react/render';
+import { toHtml, Val, attrValue, attrProps, styleOf, jsxList } from '../react/html';
 import { html, raw, bn, int } from '../util';
 import * as db from '../db';
 import * as ui from './ui';

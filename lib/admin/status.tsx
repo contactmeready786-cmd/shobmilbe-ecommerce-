@@ -1,7 +1,7 @@
 // Admin → সংযোগের অবস্থা: one page that shows whether every outside connection is set up and working —
 // Google / Facebook / TikTok tracking, product feeds, couriers, payments, notifications, backups —
 // plus the SEO checker (products that Google may show badly).
-import { toHtml, Val, attrValue } from '../react/render';
+import { toHtml, Val, attrValue } from '../react/html';
 import { html, bn, fmtDate } from '../util';
 import * as db from '../db';
 import * as ui from './ui';

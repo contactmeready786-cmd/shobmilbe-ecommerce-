@@ -1,7 +1,7 @@
 // Owner only: the audit log (who changed what, when) and the login history with every logged-in device.
 
 // What each kind of record is about, and what each action means — in plain Bangla.
-import { toHtml, Val, attrValue, jsxList } from '../react/render';
+import { toHtml, Val, attrValue, jsxList } from '../react/html';
 import { html, bn, fmtDate, int, str, csv, dateRange, pageNum, validYmd } from '../util';
 import * as db from '../db';
 import * as ui from './ui';

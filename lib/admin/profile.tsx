@@ -4,7 +4,7 @@
 // Profile pictures are private — they are only sent to people logged in to the admin.
 
 // 2026-03-01 from a date column (Date or text)
-import { toHtml, Val, attrValue } from '../react/render';
+import { toHtml, Val, attrValue } from '../react/html';
 import { html, fmtDate, str, int, normalizePhone, validPhone } from '../util';
 import * as db from '../db';
 import * as ui from './ui';

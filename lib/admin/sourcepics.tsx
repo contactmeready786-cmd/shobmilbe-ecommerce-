@@ -3,7 +3,7 @@
 // Here every product copied from one shop is shown with ALL its pictures; the owner taps "🚩 ওয়াটারমার্ক আছে" or
 // "✅ পরিষ্কার" on each (saved at once, no page reload), then downloads an Excel list of the flagged SKUs to fix them.
 // Which shop a product came from is known from its import reference ("techshopbd.com#…", set by পণ্য আমদানি).
-import { toHtml, Val, attrValue, jsxList } from '../react/render';
+import { toHtml, Val, attrValue, jsxList } from '../react/html';
 import { html, raw, bn, fmtDate, int, str } from '../util';
 import * as db from '../db';
 import * as ui from './ui';

@@ -2,7 +2,7 @@
 //   Gift cards: sell / give one here (code goes by SMS), check the shop's online requests (TrxID) and switch them on,
 //   see every card's balance and history, switch a card off or change its balance.
 //   Referral: switch on, what the new friend gets and what the sharer gets.
-import { toHtml, Val, attrValue, jsxList } from '../react/render';
+import { toHtml, Val, attrValue, jsxList } from '../react/html';
 import { html, int, str, bn, money, fmtDate, ymd } from '../util';
 import * as db from '../db';
 import * as ui from './ui';

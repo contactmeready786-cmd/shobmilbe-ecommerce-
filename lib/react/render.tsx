@@ -10,20 +10,22 @@
 // tools/parity compares every page's HTML before and after a move; tests/react-views.test.ts checks the moved pieces.
 import type { ReactElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { withSlots } from './html';
-import { raw, Raw } from '../util';
+import { withSlots, setRenderer, toHtml as lazyToHtml } from './html';
+import type { Raw } from '../util';
 // the React helpers live in ./html (usable in Next.js pages); they are re-exported here for the original router's pages
 export { RawHtml, cx, Val, attrValue, htmlValue, attrProps, styleOf, jsxList } from './html';
 
+// The original router's pages are text: register the renderer that turns a React piece into HTML (toHtml in ./html).
+// React 19 puts <link rel="preload" as="image"> hints for big pictures at the very start of its output. The shop
+// decides its own preloads (in the page head), so these are dropped — the page stays exactly as it was.
+setRenderer((el: ReactElement) => withSlots((mine) => {
+  const out = renderToStaticMarkup(el).replace(/^(?:<link rel="preload" as="image"[^>]*>)+/, '');
+  return out.replace(/<template data-sm-raw="(\d+)"><\/template>/g, (_, i: string) => mine[Number(i)] ?? '');
+}));
+
 /** Renders a React element to the shop's HTML (a Raw, so it can sit inside the html`…` pages that haven't moved yet). */
 export function toHtml(el: ReactElement | Raw): Raw {
-  if (el instanceof Raw) return el;
-  return withSlots((mine) => {
-    // React 19 puts <link rel="preload" as="image"> hints for big pictures at the very start of its output. The shop
-    // decides its own preloads (in the page head), so these are dropped — the page stays exactly as it was.
-    const out = renderToStaticMarkup(el).replace(/^(?:<link rel="preload" as="image"[^>]*>)+/, '');
-    return raw(out.replace(/<template data-sm-raw="(\d+)"><\/template>/g, (_, i: string) => mine[Number(i)] ?? ''));
-  });
+  const r = lazyToHtml(el);
+  void r.s; // made now, while this request's admin script code (cspNonce) is current
+  return r;
 }
-
-

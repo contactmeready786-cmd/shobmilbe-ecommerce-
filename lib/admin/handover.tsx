@@ -3,7 +3,7 @@
 // optionally scan every product's own barcode to check the box is packed right; press হ্যান্ডওভার →
 // the order becomes "কুরিয়ারে দেওয়া হয়েছে" and its goods leave the shelf count in the inventory.
 // A barcode gun (USB/Bluetooth) types into the box; the phone/laptop camera works too (public/js/scan.js).
-import { toHtml, Val, attrValue, jsxList } from '../react/render';
+import { toHtml, Val, attrValue, jsxList } from '../react/html';
 import { html, raw, bn, fmtDate, money, str } from '../util';
 import * as db from '../db';
 import * as O from '../models/orders';

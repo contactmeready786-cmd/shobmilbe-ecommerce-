@@ -1,7 +1,7 @@
 // Admin → অর্ডার ও কাস্টমার → 👤 কাস্টমার অ্যাকাউন্ট (OTP লগইন): switch customer login on/off, the SMS text,
 // and who logged in lately. Customers open an account with 📧 e-mail (code by the shop's Gmail, free) or
 // 📱 mobile (code by SMS) — once; logged in, they order without any more codes.
-import { toHtml, Val, attrValue, jsxList } from '../react/render';
+import { toHtml, Val, attrValue, jsxList } from '../react/html';
 import { html, str, bn, fmtDate } from '../util';
 import * as db from '../db';
 import * as ui from './ui';

@@ -1,7 +1,7 @@
 // Admin → স্টাফ ও নিরাপত্তা → 🩺 সার্ভার, ডাটাবেস ও ব্যাকআপ (owner only): everything the owner would otherwise
 // need a Supabase / Vercel / ImageKit login for — measured by the site itself (services/health.ts) — plus the pages
 // that keep failing. Warnings also go by e-mail before something runs out.
-import { toHtml, Val, attrValue, styleOf, jsxList } from '../react/render';
+import { toHtml, Val, attrValue, styleOf, jsxList } from '../react/html';
 import { html, bn, fmtDate } from '../util';
 import * as ui from './ui';
 import * as H from '../services/health';

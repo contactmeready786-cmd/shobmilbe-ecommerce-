@@ -1,5 +1,5 @@
 // Admin panel: login, sessions, permissions and routing to the page modules.
-import { toHtml, Val, attrValue } from '../react/render';
+import { toHtml, Val, attrValue } from '../react/html';
 import * as crypto from 'node:crypto';
 import * as db from '../db';
 import * as staffModel from '../models/staff';

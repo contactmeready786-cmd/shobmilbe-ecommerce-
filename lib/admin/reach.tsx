@@ -6,7 +6,7 @@
 //  2. the groups of people (audiences) the shop already has, with exact steps to use them,
 //  3. which products to put money behind — worked out from the shop's own numbers (the "algorithm"),
 //  4. what is happening on the site right now.
-import { toHtml, Val, attrValue, htmlValue, jsxList } from '../react/render';
+import { toHtml, Val, attrValue, htmlValue, jsxList } from '../react/html';
 import { cspNonce } from '../security';
 import { html, bn, fmtDate } from '../util';
 import * as db from '../db';

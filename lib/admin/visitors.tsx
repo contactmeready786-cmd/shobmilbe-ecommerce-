@@ -1,6 +1,6 @@
 // Admin → মার্কেটিং → ভিজিটর অ্যানালিটিক্স
 // Overview (how many, from where, what they look at), live visitors, every visit with its full journey, and settings.
-import { toHtml, Val, RawHtml, attrValue, htmlValue, attrProps, styleOf, jsxList } from '../react/render';
+import { toHtml, Val, RawHtml, attrValue, htmlValue, attrProps, styleOf, jsxList } from '../react/html';
 import { cspNonce } from '../security';
 import { html, raw, bn, money, fmtDate, str, dateRange, pageNum, pct } from '../util';
 import * as db from '../db';

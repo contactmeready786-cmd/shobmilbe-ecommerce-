@@ -3,7 +3,7 @@
 //     While it runs the sale price is the price everywhere in the shop; the home page shows a row with a countdown.
 //   • এটা কিনলে ওটা ফ্রি (Buy X Get Y): buy N of a product → get M of the same or another product free / % off.
 // The pricing itself lives in services/pricing.js (one discount per line, flash lines take no coupon).
-import { toHtml, Val, attrValue, jsxList } from '../react/render';
+import { toHtml, Val, attrValue, jsxList } from '../react/html';
 import { html, bn, int, str, list, money, amount, fmtDate, shopPrice } from '../util';
 import * as db from '../db';
 import * as ui from './ui';

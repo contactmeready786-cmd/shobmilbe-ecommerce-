@@ -7,7 +7,7 @@
 // Saved in settings.setup_marks as {"key": "done" | "skip"}; every mark can be taken back.
 
 // set up only when the shop runs paid ads — not a problem while they are empty
-import { toHtml, Val, attrValue } from '../react/render';
+import { toHtml, Val, attrValue } from '../react/html';
 import { html } from '../util';
 import * as db from '../db';
 import type { AdminCtx, Loose, Settings } from '../types';

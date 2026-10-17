@@ -22,7 +22,7 @@
 //   3. GET  /admin/api/import/image    — (existing) bring each picture safely; the browser
 //                                         resizes + fingerprints + uploads it
 //   4. POST /admin/api/morepics/attach — add the uploaded pictures to the product (no repeats)
-import { toHtml, Val } from '../react/render';
+import { toHtml, Val } from '../react/html';
 import { html, int, str } from '../util';
 import * as catalog from '../models/catalog';
 import { hamming } from '../models/duplicates';

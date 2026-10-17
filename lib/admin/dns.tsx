@@ -5,7 +5,7 @@
 // The orange-cloud "Proxy" switch is Cloudflare's: on = traffic passes through Cloudflare (hides the server,
 // adds DDoS protection and caching); off = "DNS only". The record works either way.
 // Also: Cloudflare's own security settings for the domain (security level / "under attack", HTTPS, SSL mode).
-import { toHtml, Val, attrValue, attrProps, jsxList } from '../react/render';
+import { toHtml, Val, attrValue, attrProps, jsxList } from '../react/html';
 import { html, raw, int, str, fmtDate, fetchJson, bn } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
