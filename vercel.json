@@ -48,7 +48,8 @@
   ],
   "git": {
     "deploymentEnabled": {
-      "nextjs-migration": false
+      "nextjs-migration": false,
+      "probe/notfound": false
     }
   }
 }
