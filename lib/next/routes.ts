@@ -1,7 +1,7 @@
 // Which customer addresses are already served by Next.js pages (app/(shop)). proxy.ts runs the security gate for these;
 // every other address still goes to the original code (lib/app.ts). Grows as pages move; when it covers everything,
 // the original router goes.
-const EXACT = new Set(['/', '/products', '/track', '/blog', '/live', '/cart', '/wishlist', '/compare', '/checkout', '/kits', '/complaint', '/complaint/status', '/gift-card']);
+const EXACT = new Set(['/', '/products', '/track', '/blog', '/live', '/cart', '/wishlist', '/compare', '/checkout', '/kits', '/complaint', '/complaint/status', '/gift-card', '/account']);
 const PATTERNS = [/^\/brand\/[^/]+$/, /^\/p\/[^/]+$/, /^\/blog\/category\/[^/]+$/, /^\/blog\/[^/]+$/, /^\/page\/[^/]+$/,
   /^\/live\/(cricket|football)$/, /^\/kit\/[^/]+$/, /^\/order\/[A-Za-z0-9]+$/, /^\/order\/[A-Za-z0-9]+\/return$/];
 
@@ -15,9 +15,9 @@ export function servesMore(path: string): boolean {
   return ['/live', '/cart', '/wishlist', '/compare', '/checkout', '/kits'].includes(path) || /^\/live\/(cricket|football)$/.test(path) || /^\/kit\/[^/]+$/.test(path) || /^\/order\/[A-Za-z0-9]+$/.test(path);
 }
 
-/** Addresses drawn by lib/shop/forms.tsx (complaint, complaint status, return request, gift card — opening them). */
+/** Addresses drawn by lib/shop/forms.tsx (my account, complaint, complaint status, return request, gift card — opening them). */
 export function servesForms(path: string): boolean {
-  return ['/complaint', '/complaint/status', '/gift-card'].includes(path) || /^\/order\/[A-Za-z0-9]+\/return$/.test(path);
+  return ['/complaint', '/complaint/status', '/gift-card', '/account'].includes(path) || /^\/order\/[A-Za-z0-9]+\/return$/.test(path);
 }
 
 /** Does a Next.js page exist for this address (for some requests)? */

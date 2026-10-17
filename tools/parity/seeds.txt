@@ -96,3 +96,5 @@
 /blog/no-such-article
 /gift-card
 /order/TEST1002/return
+/account
+/account?via=email

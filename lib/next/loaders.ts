@@ -78,6 +78,7 @@ export async function drawableHere(path: string, headers: Headers): Promise<bool
   }
   if (path === '/complaint' || path === '/complaint/status') return (await settingsNow()).complaints_on !== '0';
   if (path === '/gift-card') return (await settingsNow()).gift_on === '1';
+  if (path === '/account') return accounts.on(await settingsNow());
   // a return request (when the owner takes returns): counts against the same limit as an order's page
   m = /^\/order\/([A-Za-z0-9]+)\/return$/.exec(path);
   if (m) return (await settingsNow()).returns_on === '1' && (await orderAllowed(m[1], headers));

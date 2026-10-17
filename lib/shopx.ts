@@ -16,19 +16,10 @@ import * as $services_sms from './services/sms';
 import * as $models_giftcards from './models/giftcards';
 import * as $models_returns from './models/returns';
 import * as $services_push from './services/push';
-import { resolveForms, giftMethods } from './shop/forms';
+import { resolveForms, giftMethods, safeNext, ordersCookie, accountOrdersCookie } from './shop/forms';
 import type { Resolved } from './shop/router';
 import type { Body, Id, Loose, Settings, ShopRequest } from './types';
 
-const safeNext = (n?: Loose) => (/^\/(?!\/)[A-Za-z0-9/_?=&.%-]{0,200}$/.test(String(n || '')) && !String(n).startsWith('/account') ? String(n) : '');
-
-// The browser's "my orders" list (order page shows the full address / reviews / returns for these).
-function ordersCookie(req: ShopRequest, settings: Settings, codes?: Loose) {
-  const old = (() => { const v = unsign(parseCookies(req.headers.cookie).sm_orders, settings.session_secret); return v ? v.split('.').filter(Boolean) : []; })();
-  const all = [...new Set([...codes, ...old])].slice(0, 15);
-  const secure = String(req.headers['x-forwarded-proto'] || '').includes('https') ? '; Secure' : '';
-  return `sm_orders=${encodeURIComponent(sign(all.join('.'), settings.session_secret))}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${120 * 86400}${secure}`;
-}
 
 async function route({ req, res, path, method, query, settings, page, notFound, redirect, ip }: Body) {
   const isPost = method === 'POST';
@@ -168,7 +159,7 @@ async function route({ req, res, path, method, query, settings, page, notFound, 
     if (path === '/account/logout' && isPost) return go('/', A.CLEAR);
     if (!cu) {
       if (isPost) return go('/account');
-      return page('আমার অ্যাকাউন্ট', V.loginPage({ ...ways, next, via: query.get('via'), mode: query.get('mode') || 'login', email: str(query.get('email'), 120) }), { noindex: true, canonical: '/account' });
+      return shown(await resolveForms({ path, query, settings, req }));
     }
     if (isPost) {
       const b = await parseBody(req);
@@ -188,23 +179,10 @@ async function route({ req, res, path, method, query, settings, page, notFound, 
       }
       return go('/account');
     }
-    // a new account: name (and mobile) first — every other tab waits
-    const welcome = A.needsProfile(cu);
-    const tab = welcome ? 'profile' : ['orders', 'addresses', 'profile', 'refer', 'gift'].includes(query.get('tab')) ? query.get('tab') : 'orders';
-    const G = $models_giftcards;
-    const RC = G.refCfg(settings);
-    const [orders, addresses, cards] = await Promise.all([A.ordersOf(cu), A.addresses(cu.id), settings.gift_on === '1' && A.deliveryPhone(cu) ? G.forPhone(A.deliveryPhone(cu)) : []]);
-    let referral = null;
-    if (RC.on && RC.friendGets) {
-      const code = await G.refCodeFor(cu.id);
-      const st = await G.referralStats(cu.id);
-      referral = { code, friendGets: RC.friendGets, friendMin: RC.friendMin, youGet: RC.youGet, joined: st!.joined, rewarded: st!.rewarded };
-    }
-    // their orders open in full on this browser (address, reviews, returns)
-    const codes = orders.slice(0, 15).map((o) => o.code);
-    if (codes.length) res.setHeader('Set-Cookie', ordersCookie(req, settings, codes));
-    return page('আমার অ্যাকাউন্ট', V.dashboard({ cu, orders, addresses, settings, tab, referral, cards, welcome, next,
-      flash: query.get('ok') ? 'সেভ হয়েছে।' : '', error: str(query.get('err'), 200) }), { noindex: true, canonical: '/account' });
+    // the dashboard (lib/shop/forms.tsx); their orders open in full on this browser (address, reviews, returns)
+    const oc = await accountOrdersCookie(req, settings, cu);
+    if (oc) res.setHeader('Set-Cookie', oc);
+    return shown(await resolveForms({ path, query, settings, req }));
   }
 
   // ---------------------------------------------------------------- return request

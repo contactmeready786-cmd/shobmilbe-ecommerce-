@@ -7,6 +7,7 @@
 // overwritten, so it can't be faked.
 import { NextResponse, type NextRequest } from 'next/server';
 import { servedByNext, hasNextPage } from './lib/next/routes';
+import { accountOrdersCookie } from './lib/shop/forms';
 import { drawableHere } from './lib/next/loaders';
 import { shopGate, refCookie, refToRemember } from './lib/gate';
 import { BASE_HEADERS } from './lib/security';
@@ -38,6 +39,11 @@ export async function proxy(request: NextRequest) {
   }
   const res = NextResponse.next({ request: { headers } });
   for (const [k, v] of Object.entries(BASE_HEADERS)) res.headers.set(k, v);
+  // opening the account dashboard adds the customer's latest orders to this browser's order list (as it always did)
+  if (path === '/account') {
+    const oc = await accountOrdersCookie({ headers: plain }, gate.settings);
+    if (oc) res.headers.append('Set-Cookie', oc);
+  }
   const ref = refToRemember(gate.settings, url.searchParams.get('ref'));
   if (ref) res.headers.append('Set-Cookie', refCookie({ headers: plain }, ref));
   return res;
