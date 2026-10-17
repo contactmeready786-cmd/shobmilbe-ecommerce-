@@ -60,7 +60,20 @@ uses that one setup. Never add a second Gmail / App Password / SMS / API-key fie
 - Don't call notFound() to show a missing item: Next.js serves an empty page for it (github.com/vercel/next.js/issues/99793).
   Add the address to `drawableHere()` in lib/next/loaders.ts — proxy.ts then sends it to the shop's real 404 page.
 - A page that moved is drawn by one shared function both routers call (lib/shop/router.tsx: home/lists/products;
-  lib/shop/more.tsx: live, cart, wishlist, compare, checkout, kits; lib/shop/blog.tsx: articles) — change it there, once.
+  lib/shop/more.tsx: live, cart, wishlist, compare, checkout, kits, order pages; lib/shop/blog.tsx: articles;
+  lib/shop/forms.tsx: account, complaint, return, gift card) — change it there, once.
   A form sent to an address that has a Next.js page still goes to lib/app.ts (proxy.ts, `hasNextPage`).
 - public/js/shop.js and i18n.js start after React has taken over a Next.js page (`smWhenReady`, components/shop/chrome/Hydrated.tsx).
 - tests/chrome.test.ts keeps the page frame identical to the old one (tests/golden/chrome-*.html).
+- Admin in Next.js (2026-10-17): every admin GET page is drawn by app/(admin)/admin/[[...path]] — lib/next/admin.ts runs
+  the admin's own handler (lib/admin, unchanged) with `drawPage` catching the page's pieces, and the React frame
+  (AdminBody / AdminBare in lib/admin/layout.tsx; tests/admin-frame.test.ts) draws them. proxy.ts makes the nonce and the
+  script rule (lib/security adminHeaders) and runs the admin's front checks (lib/gate.ts adminGateOk). Forms (POST),
+  /admin/api, files and exports stay with lib/app.ts (`ADMIN_LEGACY` in lib/next/routes.ts); a handler that answers
+  with anything but a page is sent there too (?__legacy=1). After adding or changing an admin route run
+  `npx tsx tools/gen-admin-routes.ts` (lib/next/admin-routes.ts; tests/routes.test.ts checks it).
+- Pieces made with toHtml (lib/react/html) stay React; only lib/app.ts can turn them into text (`.s`). In code a
+  Next.js page runs, never use a piece as text (String(x), `${x}`, attrProps(toHtml(…))) — keep it React (Val, or
+  insertAfterTag to put something under a heading). RawHtml picks a wrapper the browser keeps in place (text / g / span / div).
+- tools/parity/browser.mjs opens the Next.js pages in a real browser on every parity run: no script errors, React takes
+  over without hydration trouble, shop.js / admin.js start. It names any HTML the browser had to re-arrange.
