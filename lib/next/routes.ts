@@ -43,7 +43,7 @@ export function servedByNext(path: string, query: URLSearchParams, method: strin
 const ADMIN_LEGACY = [
   /^\/admin\/api\//, /\.(csv|xlsx|json|txt|xml|pdf)$/, /^\/admin\/avatar\//, /\/photo\/\d+$/,
   /^\/admin\/orders\/(invoice|checklist)$/, /^\/admin\/orders\/\d+\/mushak$/, /^\/admin\/products\/labels$/, /^\/admin\/pos\/memo\//,
-  /^\/admin\/reports\/staff$/, /^\/admin\/accounts\/vat\/return$/, /^\/admin\/reach(\/live)?$/, /^\/admin\/design\/documents$/,
+  /^\/admin\/reports\/staff$/, /^\/admin\/accounts\/vat\/return$/, /^\/admin\/reach(\/live)?$/, /^\/admin\/design\/documents$/, /^\/admin\/marketing\/email\/preview$/,
 ];
 
 /** Is this an admin page request drawn by Next.js (app/(admin))? Forms (POST), files and addresses without a page
@@ -52,6 +52,8 @@ export function adminServedByNext(path: string, query: URLSearchParams, method: 
   if (method !== 'GET' && method !== 'HEAD') return false;
   if (path !== '/admin' && !path.startsWith('/admin/')) return false;
   if (query.has('__legacy')) return false;
+  // a page's download links (?excel=…, ?export=…) answer with a file
+  if (['excel', 'export', 'download', 'csv', 'xlsx'].some((k) => query.has(k))) return false;
   if (ADMIN_LEGACY.some((re) => re.test(path))) return false;
   return ADMIN_GET_ROUTES.some((r) => (typeof r === 'string' ? r === path : r.test(path)));
 }

@@ -21,13 +21,24 @@ export class ElementHtml extends Raw {
     Object.defineProperty(this, 's', {
       get: () => {
         if (done === null) {
-          if (!renderer) throw new Error(`toHtml(…).s needs lib/react/render (not available in a Next.js page — keep the piece as React): ${describe(el)}`);
-          done = renderer(el);
+          const plain = plainText(el);
+          if (plain !== null) done = plain; // only words: no renderer needed
+          else if (!renderer) throw new Error(`toHtml(…).s needs lib/react/render (not available in a Next.js page — keep the piece as React): ${describe(el)}`);
+          else done = renderer(el);
         }
         return done;
       },
     });
   }
+}
+
+// A piece that is only words (in fragments): its HTML text, escaped as React would; null = it has real tags.
+function plainText(node: unknown): string | null {
+  if (node === null || node === undefined || node === false || node === true) return '';
+  if (typeof node === 'string' || typeof node === 'number') return String(node).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#x27;');
+  if (Array.isArray(node)) { let out = ''; for (const x of node) { const t = plainText(x); if (t === null) return null; out += t; } return out; }
+  if (isValidElement(node) && node.type === Fragment) return plainText((node.props as { children?: unknown }).children);
+  return null;
 }
 
 // "<span class=pill>…" — which piece was asked for as text (to find the code that did it)

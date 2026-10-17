@@ -22,7 +22,10 @@ for (const [p, ea] of A) {
   if (!redirect && (ea.type || '') !== (eb.type || '')) { problems.push({ p, why: `type ${ea.type} -> ${eb.type}` }); continue; }
   if (Boolean(ea.bytes) !== Boolean(eb.bytes)) { problems.push({ p, why: 'download empty in one site' }); continue; }
   if ((ea.location || '') !== (eb.location || '')){ problems.push({ p, why: `redirect ${ea.location} -> ${eb.location}` }); continue; }
-  const ha = JSON.stringify(ea.headers || {}), hb = JSON.stringify(eb.headers || {});
+  // A redirect has no page to protect: the security headers Next.js adds to it (the original code sent none) change
+  // nothing; its cookies and caching still must match.
+  const pick = (h) => (redirect ? { 'cache-control': h['cache-control'], 'set-cookie': h['set-cookie'] } : h);
+  const ha = JSON.stringify(pick(ea.headers || {})), hb = JSON.stringify(pick(eb.headers || {}));
   if (ha !== hb) { problems.push({ p, why: 'headers differ', old: ha, new: hb }); continue; }
   if (ea.file && eb.file) {
     const ta = fs.readFileSync(path.join(a, ea.file + '.txt'), 'utf8');
