@@ -52,5 +52,12 @@ uses that one setup. Never add a second Gmail / App Password / SMS / API-key fie
   `npx tsx tools/make-golden.ts`), then change it; tests/react-views.test.ts must stay green. Every push to the
   `nextjs-migration` branch runs tools/parity: all ~560 pages of a seeded shop compared with main (must be 0 differences,
   actions identical) — only then merge to main.
-- Next stage (not done yet): split the converted JSX into reusable components and serve pages from Next.js App-Router
-  pages (moving the gate from lib/app.ts into proxy.ts / server code), then retire pages/api/legacy.
+- Next.js App Router (started 2026-10-17): customer pages move one by one into `app/(shop)/` (Next.js pages with
+  `generateMetadata` → lib/next/meta.ts). `lib/next/routes.ts` lists the addresses already served there; proxy.ts runs
+  the shop's front gate (`lib/gate.ts`: blocked IPs, hacking checks, country lock, blocked bots) for them and adds the
+  security headers. Everything else still goes to lib/app.ts (pages/api/legacy), which uses the same gate helpers and
+  the same React frame (`components/shop/chrome`). Page data loads through `lib/next/loaders.ts` / `shop-data.ts`.
+- Don't call notFound() to show a missing item: Next.js serves an empty page for it (github.com/vercel/next.js/issues/99793).
+  Add the address to `missing()` in lib/next/loaders.ts — proxy.ts then sends it to the shop's real 404 page.
+- public/js/shop.js and i18n.js start after React has taken over a Next.js page (`smWhenReady`, components/shop/chrome/Hydrated.tsx).
+- tests/chrome.test.ts keeps the page frame identical to the old one (tests/golden/chrome-*.html).
