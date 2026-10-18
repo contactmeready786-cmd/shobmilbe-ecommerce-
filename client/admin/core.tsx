@@ -1,7 +1,10 @@
 // সবমিলবে admin — what every admin page uses: messages, the save reminder, the side menu, refresh, confirmations,
 // the e-mailed delete code, and many small page helpers.
 import { h, Fragment, paint } from '../jsx.js';
-import { $, $all, bn, hit, type Loose } from '../dom.js';
+import { $, $all, bn, hit } from '../dom.js';
+import type { FraudReport } from '../api-types.js';
+/** the fields every admin JSON answer may carry when something went wrong */
+type Refusal = { error?: string; message?: string; rows?: unknown };
 
 void Fragment;
 
@@ -15,25 +18,25 @@ export function toast(text: string): void {
   toastTimer = window.setTimeout(() => t.classList.remove('show'), 3500);
 }
 /** GET the admin's JSON; a refusal (403, 500…) becomes an Error with the server's own message. */
-export async function getJSON<T = Loose>(url: string): Promise<T> {
+export async function getJSON<T = unknown>(url: string): Promise<T> {
   const r = await fetch(url, { headers: { Accept: 'application/json' }, credentials: 'same-origin' });
-  const j = await r.json();
+  const j = (await r.json()) as Refusal;
   if (!r.ok && !j.rows) throw new Error(j.error || j.message || 'সমস্যা হয়েছে');
-  return j as T;
+  return j as unknown as T;
 }
 /** POST JSON to the admin; a refusal becomes an Error with the server's own message. */
-export async function postJSON<T = Loose>(url: string, body: unknown, fallback = 'সমস্যা হয়েছে'): Promise<T> {
+export async function postJSON<T = unknown>(url: string, body: unknown, fallback = 'সমস্যা হয়েছে'): Promise<T> {
   const r = await fetch(url, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify(body) });
-  const j = await r.json().catch(() => ({ error: r.status === 413 ? 'ফাইলটি অনেক বড়।' : `সার্ভার থেকে উত্তর আসেনি (${r.status})।` }));
+  const j = (await r.json().catch(() => ({ error: r.status === 413 ? 'ফাইলটি অনেক বড়।' : `সার্ভার থেকে উত্তর আসেনি (${r.status})।` }))) as Refusal;
   if (!r.ok) throw new Error(j.error || fallback);
-  return j as T;
+  return j as unknown as T;
 }
 /** A form sent the classic way (urlencoded) but answered as JSON — the small "save at once" switches. */
-export async function postForm<T = Loose>(url: string, body: URLSearchParams, fallback = 'সেভ হয়নি'): Promise<T> {
+export async function postForm<T = unknown>(url: string, body: URLSearchParams, fallback = 'সেভ হয়নি'): Promise<T> {
   const r = await fetch(url, { method: 'POST', credentials: 'same-origin', headers: { Accept: 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' }, body: body.toString() });
-  const j = await r.json().catch(() => { throw new Error('সেভ হয়নি — পেজটা রিফ্রেশ করে আবার চেষ্টা করুন।'); });
+  const j = (await r.json().catch(() => { throw new Error('সেভ হয়নি — পেজটা রিফ্রেশ করে আবার চেষ্টা করুন।'); })) as Refusal;
   if (!r.ok) throw new Error(j.error || fallback);
-  return j as T;
+  return j as unknown as T;
 }
 export const money = (n: unknown): string => {
   const v = Math.round(Number(n || 0) * 100) / 100;
@@ -222,7 +225,7 @@ function openDelCode(form: HTMLFormElement, btn: HTMLButtonElement | null, host:
     msg.textContent = 'পাঠানো হচ্ছে…';
     try {
       const r = await fetch('/admin/api/delete-code', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, detail: what }) });
-      const j = await r.json();
+      const j = (await r.json()) as { ok?: boolean; to?: string; minutes?: number; error?: string }; // lib/services/delcode.ts
       if (j.error) { msg.className = 'small warn'; msg.textContent = j.error; send.disabled = false; return; }
       msg.className = 'small good';
       msg.textContent = `✅ কোড পাঠানো হয়েছে ${j.to || to} ঠিকানায়। ${bn(j.minutes || 10)} মিনিট চলবে। না এলে Spam ফোল্ডার দেখুন।`;
@@ -563,9 +566,9 @@ function lists(): void {
     if (!out) return;
     out.textContent = 'চেক করা হচ্ছে…';
     try {
-      const j = await getJSON(`/admin/api/fraud?phone=${encodeURIComponent(b.getAttribute('data-fraud-check') || '')}${b.hasAttribute('data-fresh') ? '&fresh=1' : ''}`);
+      const j = await getJSON<FraudReport>(`/admin/api/fraud?phone=${encodeURIComponent(b.getAttribute('data-fraud-check') || '')}${b.hasAttribute('data-fresh') ? '&fresh=1' : ''}`);
       if (!j.ok) { out.textContent = j.message || 'তথ্য পাওয়া যায়নি'; return; }
-      const o = j.own || {};
+      const o = j.own;
       const rows: Node[] = [<li>🏪 এই দোকানে: ডেলিভারি <b>{bn(o.delivered || 0)}</b> · বাতিল/ফেরত <b>{bn(o.failed || 0)}</b>{o.open ? ` · চলমান ${bn(o.open)}` : ''}</li>];
       if (j.fraudbd?.ok) {
         for (const c of j.fraudbd.couriers || []) {
@@ -594,7 +597,8 @@ function jobs(): void {
     try {
       for (let done = 0; done < 30; done++) {
         const r = await fetch('/admin/api/research/run', { method: 'POST', credentials: 'same-origin', headers: { Accept: 'application/json' } });
-        const j = await r.json();
+        // lib/services/research.ts: one shop read, or idle (nothing due) / skipped (another run just now)
+        const j = (await r.json()) as { idle?: boolean; skipped?: boolean; source?: string; items?: number; pages?: number; error?: string };
         if (j.idle || !j.source || seen.has(j.source)) break;
         seen.add(j.source);
         msg.textContent = `⏳ ${j.source}${j.error ? ` — ${j.error}` : ` — ${bn(j.items || 0)}টি পণ্য পড়া হলো`}`;
@@ -620,7 +624,7 @@ function jobs(): void {
       for (let rounds = 0; rounds < 200; rounds++) {
         const r = await fetch('/admin/design/language/fill', { method: 'POST', credentials: 'same-origin', headers: { Accept: 'application/json' } });
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        const j = await r.json();
+        const j = (await r.json()) as { total: number; done: number; left: number; error?: string }; // lib/services/translate.ts
         prog.textContent = `⏳ ${bn(j.total - j.left)} / ${bn(j.total)} টি লেখা অনুবাদ হয়েছে…`;
         if (j.error && !j.done) throw new Error(j.error);
         if (!(j.left > 0 && j.done > 0)) break;

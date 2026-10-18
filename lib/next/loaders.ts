@@ -22,7 +22,7 @@ export const blogCategory = cache(async (slug: string) => {
 
 export const ownerPage = cache(async (slug: string) => {
   await db.ensureReady();
-  const p = (await content.getPage({ slug })) as Loose;
+  const p = (await content.getPage({ slug }));
   return p && p.active ? p : null;
 });
 
@@ -60,7 +60,7 @@ export async function drawableHere(path: string, headers: Headers): Promise<bool
   m = /^\/brand\/([^/]+)$/.exec(path);
   if (m) {
     await db.ensureReady();
-    const b = (await catalog.getBrand({ slug: m[1] })) as Loose;
+    const b = (await catalog.getBrand({ slug: m[1] }));
     return !!(b && b.active);
   }
   // live scores, compare, kits: only when the owner has them on; /live itself opens the first sport (a redirect);

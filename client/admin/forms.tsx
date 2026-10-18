@@ -1,7 +1,7 @@
 // সবমিলবে admin — product form (profit, cheap-part rule, YouTube, duplicate check), the product search picker,
 // and the forms built on it: orders, bundles / kits, purchases; plus the courier send form.
 import { h, Fragment, paint, serverHtml } from '../jsx.js';
-import { $, $all, bn, hit, type Loose } from '../dom.js';
+import { $, $all, bn, hit } from '../dom.js';
 import { fillGeo } from '../shop/geo.js';
 import { getJSON, markChanged, money, toast } from './core.js';
 
@@ -38,7 +38,8 @@ function dupCheck(): void {
     paint(out, <p className="muted small">🔍 যাচাই হচ্ছে — দোকানে একই পণ্য আছে কি না দেখা হচ্ছে…</p>);
     try {
       const r = await fetch('/admin/api/products/dup-check', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
-      const j = await r.json();
+      // lib/admin/products.tsx dupCheckApi: html = the look-alikes, drawn by the server (there whenever matches are)
+      const j = (await r.json()) as { error?: string; imagesWaiting?: number; blocked?: boolean; matches?: unknown[]; html?: string };
       if (my !== seq) return;
       dupBox.classList.remove('checking', 'is-block', 'is-warn');
       if (j.error) { paint(out, <p className="warn small">{j.error}</p>); return; }
@@ -49,7 +50,7 @@ function dupCheck(): void {
         // the list of look-alikes is drawn by the server (React) and sent as ready-made HTML
         dupBox.classList.add(j.blocked ? 'is-block' : 'is-warn');
         const list = <div />;
-        serverHtml(list, j.html);
+        serverHtml(list, j.html!);
         paint(out, <p className="dup-head">{j.blocked ? '⛔ এই পণ্যটি দোকানে আগে থেকেই আছে বলে মনে হচ্ছে। এভাবে সেভ দিলে আটকে যাবে:' : '⚠️ কাছাকাছি কিছু পণ্য আছে। একবার দেখে নিন (সেভ আটকাবে না):'}</p>, ...Array.from(list.childNodes), waiting);
       }
       if (allowRow) allowRow.hidden = !(j.blocked || allowInput?.checked);
@@ -129,7 +130,8 @@ function productForm(): void {
   // cheap parts: show how many a customer must buy at this price (Admin → সেটিংস → কম দামের পণ্যের নিয়ম)
   const ruleBox = $('[data-small-rule]', pform);
   if (ruleBox && price) {
-    let R: Loose = {};
+    // written by lib/admin/products.tsx (the shop's small-item rule); {} if missing
+    let R: { on?: false } | { on: true; cap: number; minVal: number; maxVal: number; maxQty: number } = {};
     try { R = JSON.parse(ruleBox.getAttribute('data-small-rule') || '{}'); } catch { R = {}; }
     const showRule = () => {
       const p = num(price);
@@ -373,7 +375,8 @@ function courierForm(): void {
   if (!cf) return;
   const pick = $<HTMLSelectElement>('[data-courier-pick]', cf)!;
   const loaded = new Set<string>();
-  const options = (rows: { id: number | string; name: string }[], first: string) => [<option value="">{first}</option>, ...rows.map((r) => <option value={String(r.id)}>{r.name}</option>)];
+  type CourierRows = { rows: { id: number | string; name: string }[] }; // the courier's cities / zones / areas
+  const options = (rows: CourierRows['rows'], first: string) => [<option value="">{first}</option>, ...rows.map((r) => <option value={String(r.id)}>{r.name}</option>)];
   const showExtra = () => {
     const c = pick.value;
     for (const x of $all('[data-courier-extra]', cf)) x.hidden = x.getAttribute('data-courier-extra') !== c;
@@ -381,20 +384,20 @@ function courierForm(): void {
       loaded.add('pathao');
       const citySel = $<HTMLSelectElement>('[data-pathao="cities"]', cf)!;
       const zoneSel = $<HTMLSelectElement>('[data-pathao="zones"]', cf)!;
-      getJSON('/admin/api/courier/pathao?kind=cities').then((j) => paint(citySel, options(j.rows, 'অটো (ঠিকানা থেকে)')))
-        .catch((e) => toast(`Pathao শহরের লিস্ট আনা যায়নি: ${e.message}`));
+      getJSON<CourierRows>('/admin/api/courier/pathao?kind=cities').then((j) => paint(citySel, options(j.rows, 'অটো (ঠিকানা থেকে)')))
+        .catch((e: Error) => toast(`Pathao শহরের লিস্ট আনা যায়নি: ${e.message}`));
       citySel.addEventListener('change', () => {
         paint(zoneSel, <option value="">অটো</option>);
         if (!citySel.value) return;
-        getJSON(`/admin/api/courier/pathao?kind=zones&parent=${citySel.value}`).then((j) => paint(zoneSel, options(j.rows, 'অটো'))).catch(() => {});
+        getJSON<CourierRows>(`/admin/api/courier/pathao?kind=zones&parent=${citySel.value}`).then((j) => paint(zoneSel, options(j.rows, 'অটো'))).catch(() => {});
       });
     }
     if (c === 'redx' && !loaded.has('redx')) {
       loaded.add('redx');
       const aSel = $<HTMLSelectElement>('[data-redx-area]', cf)!;
       const aName = $<HTMLInputElement>('[data-redx-area-name]', cf)!;
-      getJSON(`/admin/api/courier/redx?district=${encodeURIComponent(cf.getAttribute('data-district') || '')}`).then((j) => paint(aSel, options(j.rows, 'এরিয়া বাছুন')))
-        .catch((e) => { paint(aSel, <option value="">লোড হয়নি</option>); toast(e.message); });
+      getJSON<CourierRows>(`/admin/api/courier/redx?district=${encodeURIComponent(cf.getAttribute('data-district') || '')}`).then((j) => paint(aSel, options(j.rows, 'এরিয়া বাছুন')))
+        .catch((e: Error) => { paint(aSel, <option value="">লোড হয়নি</option>); toast(e.message); });
       aSel.addEventListener('change', () => { aName.value = aSel.options[aSel.selectedIndex].text; });
     }
   };

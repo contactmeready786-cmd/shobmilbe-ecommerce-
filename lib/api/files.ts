@@ -161,7 +161,7 @@ export async function unsubscribe(ctx: ApiCtx) {
   const M = $services_mailer;
   const settings = ctx.settings;
   const t = str(ctx.query.get('t'), 60);
-  const page = (title?: Loose, msg?: Loose, extra = '') => text(200, `<!doctype html><html lang="bn"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>${esc(title)}</title><body style="font-family:'Hind Siliguri',sans-serif;max-width:480px;margin:60px auto;padding:0 18px;text-align:center;color:#14213d"><div style="font-size:46px">📧</div><h1 style="font-size:22px">${esc(title)}</h1><p style="color:#5b6475;line-height:1.7">${msg}</p>${extra}<p><a href="/" style="display:inline-block;margin-top:14px;background:#0866D6;color:#fff;text-decoration:none;padding:11px 24px;border-radius:10px">দোকানে যান</a></p></body></html>`, 'text/html; charset=utf-8', { 'X-Robots-Tag': 'noindex' });
+  const page = (title?: unknown, msg?: unknown, extra = '') => text(200, `<!doctype html><html lang="bn"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>${esc(title)}</title><body style="font-family:'Hind Siliguri',sans-serif;max-width:480px;margin:60px auto;padding:0 18px;text-align:center;color:#14213d"><div style="font-size:46px">📧</div><h1 style="font-size:22px">${esc(title)}</h1><p style="color:#5b6475;line-height:1.7">${msg}</p>${extra}<p><a href="/" style="display:inline-block;margin-top:14px;background:#0866D6;color:#fff;text-decoration:none;padding:11px 24px;border-radius:10px">দোকানে যান</a></p></body></html>`, 'text/html; charset=utf-8', { 'X-Robots-Tag': 'noindex' });
   if (ctx.request.method === 'POST') {
     // Gmail's one-click "Unsubscribe" button (RFC 8058) and the button on this page both POST here
     if (!(await allow(ctx, 'unsub:', 30, 3600))) return tooManyPage(ctx);
@@ -194,7 +194,7 @@ function tooManyPage(ctx: ApiCtx): Response {
 // by anyone: they do nothing unless one is due; one connection may knock only a few times an hour.
 export async function backupTick(ctx: ApiCtx) {
   if (!(await allow(ctx, 'tick:', 30, 3600))) return json(429, { ok: false });
-  let r: Record<string, Loose> = {};
+  let r: Record<string, unknown> = {};
   try { r = await $services_autobackup.run(); } catch (_) { r = {}; }
   await $services_health.checkAndAlert(ctx.settings);
   return json(200, { ok: true, done: !!r.ok });
@@ -202,7 +202,7 @@ export async function backupTick(ctx: ApiCtx) {
 export async function researchTick(ctx: ApiCtx) {
   if (!(await allow(ctx, 'tick:', 30, 3600))) return json(429, { ok: false });
   const settings = ctx.settings;
-  let r: Record<string, Loose> = {};
+  let r: Record<string, unknown> = {};
   try { r = await $services_research.tick(); } catch (_) { r = {}; }
   try { const ik = $services_imagekit; await ik.moveOld(db, 10); await ik.flushTrash(db, 30); } catch (_) { /* next time */ }
   try { await $models_extras.restockSweep(settings); } catch (_) { /* next time */ }

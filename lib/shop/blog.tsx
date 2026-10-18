@@ -12,7 +12,7 @@ import type { Loose, Settings } from '../types';
 
 /** The article if it is published (and its time has come), else null. */
 export async function publishedPost(slug: string): Promise<Loose | null> {
-  const post = (await content.getPost({ slug })) as Loose;
+  const post = (await content.getPost({ slug }));
   return post && post.status === 'published' && new Date(post.published_at) <= new Date() ? post : null;
 }
 
@@ -22,9 +22,9 @@ export async function blogPostPage(slug: string, settings: Settings) {
   const parts = md.render(post.content, { productCard: true }).split(/<!--product:([^>]+)-->/);
   // the first 10 product lines become cards (any later ones show nothing)
   const slugs = [...new Set(parts.filter((_, i) => i % 2 && i < 20))];
-  const cards: Record<string, Loose> = {};
+  const cards: Record<string, unknown> = {};
   for (const s of slugs) {
-    const p = (await catalog.getProduct({ slug: s, public: true })) as Loose;
+    const p = (await catalog.getProduct({ slug: s, public: true }));
     if (p && p.active) cards[s] = p;
   }
   const body = (

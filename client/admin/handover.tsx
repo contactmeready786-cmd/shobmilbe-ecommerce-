@@ -1,11 +1,15 @@
 // সবমিলবে admin — 📦 কুরিয়ারে হ্যান্ডওভার: scan → check → hand over; and 📷 scanning a barcode into any search box.
 import { h, Fragment, paint } from '../jsx.js';
-import { $, $all, bn, type Loose } from '../dom.js';
+import { $, $all, bn } from '../dom.js';
 import { getJSON, money } from './core.js';
 import { beep, startCamera } from './scan.js';
 
 void Fragment;
 type Item = { product_id: number; name: string; qty: number; image?: string; location?: string; barcode?: string; sku?: string };
+/** GET /admin/api/handover?code=… (lib/admin/handover.tsx lookup) */
+type Lookup = { ok: true; order: Order } | { ok: false; product?: { name: string }; error: string };
+/** POST /admin/api/handover and …/undo (+ the HTTP status) */
+type HandAnswer = { ok?: boolean; message?: string; error?: string; pending?: boolean; already?: boolean; code?: string; status: number };
 type Order = { id: number; code: string; status: string; status_text: string; ready: boolean; customer: string; phone: string; address: string; area?: string; due: number; courier?: string; consignment?: string; items: Item[] };
 
 function handover(ho: HTMLElement): void {
@@ -20,7 +24,7 @@ function handover(ho: HTMLElement): void {
   verifyEl.addEventListener('change', () => { try { localStorage.setItem('sm_ho_verify', verifyEl.checked ? '1' : '0'); } catch { /* ignore */ } if (current) draw(); });
   autoEl.addEventListener('change', () => { try { localStorage.setItem('sm_ho_auto', autoEl.checked ? '1' : '0'); } catch { /* ignore */ } });
   const say = (t: string, kind = '') => { msg.textContent = t || ''; msg.className = `ho-msg ${kind}`; };
-  const post = async (url: string, data: unknown): Promise<Loose> => {
+  const post = async (url: string, data: unknown): Promise<HandAnswer> => {
     const r = await fetch(url, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify(data) });
     return { ...(await r.json()), status: r.status };
   };
@@ -64,8 +68,8 @@ function handover(ho: HTMLElement): void {
     if (!current) return;
     try {
       const j = await post('/admin/api/handover', { code: current.code, force, verified: verifyEl.checked && allPacked() });
-      if (j.ok) { beep(true); say(j.message, 'ok'); addToday(current); current = null; counts = {}; draw(); input.value = ''; input.focus(); return; }
-      if (j.pending && confirm(j.error)) { await hand(true); return; }
+      if (j.ok) { beep(true); say(j.message || '', 'ok'); addToday(current); current = null; counts = {}; draw(); input.value = ''; input.focus(); return; }
+      if (j.pending && confirm(j.error || '')) { await hand(true); return; }
       beep(false);
       say(j.error || 'হলো না', 'bad');
     } catch { beep(false); say('সংযোগে সমস্যা — আবার চেষ্টা করুন', 'bad'); }
@@ -91,10 +95,10 @@ function handover(ho: HTMLElement): void {
     }
     say('খোঁজা হচ্ছে…');
     try {
-      const j = await getJSON(`/admin/api/handover?code=${encodeURIComponent(code)}`);
+      const j = await getJSON<Lookup>(`/admin/api/handover?code=${encodeURIComponent(code)}`);
       if (!j.ok && j.product && current) { beep(false); say(`❌ "${j.product.name}" এই অর্ডারে নেই! বক্স থেকে সরান।`, 'bad'); return; }
       if (!j.ok) { beep(false); say(j.error, 'bad'); return; }
-      current = j.order as Order;
+      current = j.order;
       counts = {};
       beep(true);
       draw();
@@ -118,7 +122,7 @@ function handover(ho: HTMLElement): void {
     const u = (e.target as Element).closest?.('[data-ho-undo]');
     if (!u || !confirm(`${u.getAttribute('data-ho-undo')} — হ্যান্ডওভার বাতিল করে আবার "প্যাকিং চলছে" করবেন?`)) return;
     const j = await post('/admin/api/handover/undo', { code: u.getAttribute('data-ho-undo') });
-    say(j.message || j.error, j.ok ? 'ok' : 'bad');
+    say(j.message || j.error || '', j.ok ? 'ok' : 'bad');
     if (j.ok) u.closest('tr')?.remove();
   });
   // camera

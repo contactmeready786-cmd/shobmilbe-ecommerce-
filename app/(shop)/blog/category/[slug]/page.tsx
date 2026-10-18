@@ -21,6 +21,6 @@ export async function generateViewport(): Promise<Viewport> { return shopViewpor
 export default async function BlogCategory({ params }: Props) {
   const { cats, category } = await load((await params).slug);
   if (!category) notFound();
-  const posts = (await content.listPosts({ published: true, categorySlug: category.slug, limit: 60 })) as Loose[];
+  const posts = (await content.listPosts({ published: true, categorySlug: category.slug, limit: 60 })) as unknown[];
   return <BlogList posts={posts} categories={cats} category={category} />;
 }

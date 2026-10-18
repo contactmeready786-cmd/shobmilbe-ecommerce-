@@ -1,13 +1,15 @@
 // Small forms and boxes: reviews, "tell me when it's back", questions, price alerts, account, returns, gift cards,
 // offer notifications, delivery date, the order page's number check, sharing, project kits and the e-mail list.
 import { h, paint } from '../jsx.js';
-import { $, $all, bn, cleanPhone, copyText, hit, money, postJson, shrinkPhoto, store, type Loose } from '../dom.js';
+import { $, $all, bn, cleanPhone, copyText, hit, money, postJson, shrinkPhoto, store } from '../dom.js';
+import type { GiftcardAnswer, MessageAnswer, OtpAnswer } from '../api-types.js';
+import type { ShopConfig } from '../shop-config.js';
 import { readCart, toastLink, writeCart } from './cart.js';
 import { fillGeo } from './geo.js';
 import { track } from './track.js';
 
-const SM: Loose = window.SM || {};
-type Answer = { ok: boolean; j: Loose };
+const SM: Partial<ShopConfig> = window.SM || {};
+type Answer = { ok: boolean; j: MessageAnswer };
 
 export function startForms(): void {
   reviews();
@@ -25,7 +27,7 @@ export function startForms(): void {
 
 /** "পাঠানো হচ্ছে…" → the server's answer, in the form's message line. */
 function answerIn(msg: HTMLElement, x: Answer, fallback: string): void {
-  msg.textContent = x.ok ? x.j.message : x.j.error || fallback;
+  msg.textContent = x.ok ? x.j.message ?? null : x.j.error || fallback; // (no message → empty, as before)
   msg.className = `small ${x.ok ? 'good' : 'warn'}`;
 }
 const field = (f: HTMLFormElement, name: string) => f.elements.namedItem(name) as HTMLInputElement;
@@ -69,7 +71,7 @@ function reviews(): void {
       btn.disabled = true;
       msg.textContent = 'পাঠানো হচ্ছে…';
       try {
-        const x = await postJson('/api/review', d);
+        const x = await postJson<MessageAnswer>('/api/review', d);
         answerIn(msg, x, 'পাঠানো যায়নি।');
         if (x.ok) {
           for (const el of $all('fieldset, label, button', rf)) el.hidden = true;
@@ -97,7 +99,7 @@ function simpleForms(): void {
         msg.textContent = 'পাঠানো হচ্ছে…';
         msg.className = 'small';
         try {
-          const x = await postJson(url, { product: Number(f.getAttribute('data-product')), phone, website: field(f, 'website').value });
+          const x = await postJson<MessageAnswer>(url, { product: Number(f.getAttribute('data-product')), phone, website: field(f, 'website').value });
           answerIn(msg, x, 'হয়নি, আবার চেষ্টা করুন।');
           if (x.ok) after?.();
         } catch { msg.textContent = 'হয়নি, আবার চেষ্টা করুন।'; msg.className = 'small warn'; }
@@ -119,7 +121,7 @@ function simpleForms(): void {
       msg.textContent = 'পাঠানো হচ্ছে…';
       msg.className = 'small';
       try {
-        const x = await postJson('/api/question', d);
+        const x = await postJson<MessageAnswer>('/api/question', d);
         answerIn(msg, x, 'পাঠানো যায়নি।');
         if (x.ok) field(f, 'question').value = '';
       } catch { msg.textContent = 'পাঠানো যায়নি, আবার চেষ্টা করুন।'; }
@@ -159,7 +161,7 @@ function giftCards(): void {
     const out = $('[data-gift-check-msg]')!;
     out.textContent = 'দেখা হচ্ছে…';
     try {
-      const { j } = await postJson('/api/giftcard', { code: field(gc, 'code').value });
+      const { j } = await postJson<GiftcardAnswer>('/api/giftcard', { code: field(gc, 'code').value });
       out.textContent = j.message;
       out.className = `small ${j.ok ? 'good' : 'warn'}`;
     } catch { out.textContent = 'দেখা যায়নি।'; }
@@ -251,7 +253,7 @@ function orderPhoneCheck(): void {
     let len = 4;
     let busy = false;
     const say = (t: string, k?: string) => { msg.textContent = t; msg.className = `otp-msg small${k ? ` ${k}` : ''}`; };
-    const post = (w: string, b: unknown) => postJson(`/api/checkout-otp/${w}`, b).then((x) => x.j);
+    const post = (w: string, b: unknown) => postJson<OtpAnswer>(`/api/checkout-otp/${w}`, b).then((x) => x.j);
     const sync = () => { const p = cleanPhone(ph.value); box.hidden = p === orig || p === okPhone; if (p !== okPhone) tok.value = ''; };
     ph.addEventListener('input', sync);
     send.addEventListener('click', async () => {
@@ -385,7 +387,7 @@ function newsletter(): void {
     const btn = $<HTMLButtonElement>('button', f)!;
     btn.disabled = true;
     try {
-      const { j } = await postJson('/api/subscribe', { email, website: field(f, 'website').value });
+      const { j } = await postJson<MessageAnswer>('/api/subscribe', { email, website: field(f, 'website').value });
       msg.textContent = j.message || j.error || '';
       if (j.ok) field(f, 'email').value = '';
     } catch { msg.textContent = 'এখন যোগ করা গেল না, একটু পরে আবার চেষ্টা করুন।'; }

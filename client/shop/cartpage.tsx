@@ -1,13 +1,14 @@
 // The cart page (/cart) and "these go with it", plus loading the cart's products and real prices for checkout.
 import { h, Fragment, paint } from '../jsx.js';
-import { $, bn, getJson, hit, money, postJson, type Loose } from '../dom.js';
+import { $, bn, getJson, hit, money, postJson } from '../dom.js';
+import type { QuoteAnswer } from '../api-types.js';
 import { PRICES, limitText, minNote, minShort, minText, readCart, rule, say, writeCart, type Cart } from './cart.js';
 
 void Fragment;
 export type Product = { id: number | string; slug: string; name: string; price: number; stock: number; image?: string; emoji?: string; preorder?: boolean; preorder_days?: number; weight?: number };
 export type Tier = { min_qty: number; price: number };
 export type Line = { product: Product; qty: number; price: number; kind?: string; note?: string; base?: number; tiers?: Tier[] };
-export type Gift = { name: string; note: string; qty: number; price: number; image?: string; emoji?: string };
+export type Gift = { name: string; note: string; qty: number; price: number; image?: string | null; emoji?: string | null };
 export type Loaded = { cart: Cart; lines: Line[]; gifts: Gift[] };
 
 export async function loadCart(): Promise<Loaded> {
@@ -31,8 +32,8 @@ export async function loadCart(): Promise<Loaded> {
   if (!lines.length) return { cart, lines, gifts: [] };
   // the server works out the real price of each line: flash sale, cheaper price for more pieces, free gifts
   try {
-    const { j: qt } = await postJson<Loose>('/api/quote', { items: lines.map((l) => ({ id: l.product.id, qty: l.qty })) });
-    const byId = new Map<string, Loose>((qt.lines || []).map((x: Loose) => [String(x.id), x]));
+    const { j: qt } = await postJson<QuoteAnswer>('/api/quote', { items: lines.map((l) => ({ id: l.product.id, qty: l.qty })) });
+    const byId = new Map((qt.lines || []).map((x) => [String(x.id), x]));
     for (const l of lines) {
       const x = byId.get(String(l.product.id));
       if (!x) continue;
@@ -55,7 +56,7 @@ function nextTier(l: Line): string {
   return t ? `আরও ${bn(t.min_qty - l.qty)}টি নিলে প্রতিটা ${money(t.price)} করে পড়বে` : '';
 }
 export const giftTotal = (gifts: Gift[] = []): number => gifts.reduce((s, g) => s + g.price * g.qty, 0);
-export const Thumb = ({ p }: { p: { image?: string; emoji?: string } }) =>
+export const Thumb = ({ p }: { p: { image?: string | null; emoji?: string | null } }) =>
   <span className="cart-thumb">{p.image ? <img src={p.image} alt="" /> : (p.emoji || '📦')}</span>;
 
 export function giftRows(gifts: Gift[], tag: 'li' | 'div'): Node[] {

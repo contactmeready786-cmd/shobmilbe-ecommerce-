@@ -50,14 +50,14 @@ function judge(own?: Loose, pathao?: Loose, fbd?: Loose) {
   let burst = false;
   if (own.last_day >= 3 && (level === 'low' || level === 'new')) { level = 'medium'; burst = true; }
   const LBL: Record<string, string> = { new: '🆕 নতুন — আগে কোনো রেকর্ড নেই', low: '✅ বিশ্বস্ত', medium: '⚠️ সতর্ক থাকুন', high: '⛔ ঝুঁকিপূর্ণ' };
-  const ADV: Record<string, Loose> = { new: 'প্রথম অর্ডার — কল করে কনফার্ম করে নিন।', low: 'সাধারণত পণ্য নেন। পাঠিয়ে দিতে পারেন।',
+  const ADV: Record<string, unknown> = { new: 'প্রথম অর্ডার — কল করে কনফার্ম করে নিন।', low: 'সাধারণত পণ্য নেন। পাঠিয়ে দিতে পারেন।',
     medium: 'আগে কিছু পার্সেল ফেরত দিয়েছেন। কল করে কনফার্ম করুন, চাইলে ডেলিভারি চার্জ আগে নিন।',
     high: 'অনেক পার্সেল নেননি। ডেলিভারি চার্জ বা পুরো টাকা আগে না নিয়ে পাঠাবেন না।' };
   const advice = burst ? `২৪ ঘণ্টায় এই নম্বর থেকে ${own.last_day}টি অর্ডার — একই অর্ডার বারবার এসেছে কিনা কল করে দেখুন।` : ADV[level];
   return { level, label: LBL[level], advice, total, success: ok, rate };
 }
 
-async function check(settings: Settings, phoneRaw?: Loose, { fresh = false }: Body = {}): Promise<Loose> {
+async function check(settings: Settings, phoneRaw?: unknown, { fresh = false }: Body = {}): Promise<Loose> {
   const phone = normalizePhone(phoneRaw);
   if (!validPhone(phone)) return { ok: false, message: 'ফোন নম্বর ঠিক নেই।' };
   const ownStats = await customers.phoneStats(phone);
@@ -83,7 +83,7 @@ async function check(settings: Settings, phoneRaw?: Loose, { fresh = false }: Bo
 }
 // Only what is already known (no API call) — for lists.
 async function cachedLevels(phones?: Loose) {
-  const list = [...new Set((phones || []).map((p: Loose) => normalizePhone(p)).filter(validPhone))];
+  const list = [...new Set((phones || []).map((p: unknown) => normalizePhone(p)).filter(validPhone))];
   if (!list.length) return new Map();
   const rows = await db.q(`SELECT phone, data FROM fraud_checks WHERE phone = ANY($1::text[]) AND checked_at > now() - interval '7 days'`, [list]);
   const stats = await db.q(`SELECT phone, count(*) FILTER (WHERE status='delivered')::int AS delivered, count(*) FILTER (WHERE status IN ('cancelled','returned'))::int AS failed,

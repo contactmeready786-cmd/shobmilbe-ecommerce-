@@ -43,7 +43,7 @@ function start(box: HTMLElement, btn: HTMLButtonElement, note: HTMLElement): voi
         method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify({ sub: sub.toJSON(), device: device() }),
       });
-      const d = await r.json();
+      const d = (await r.json()) as { error?: string };
       if (!r.ok) throw new Error(d.error || 'সেভ হয়নি');
       say('✅ চালু হয়েছে! একটা টেস্ট নোটিফিকেশন পাঠানো হয়েছে, ফোনে দেখুন।');
       setTimeout(() => { location.href = `/admin/notify?msg=saved&t=${Date.now()}#push`; }, 2500);

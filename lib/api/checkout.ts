@@ -171,7 +171,7 @@ export async function placeOrder(ctx: ApiCtx) {
     const online = method.id === 'bkash' || method.id === 'ssl';
     return json(200, { code: order.code, redirect: online ? `/pay/${order.code}` : `/order/${order.code}?new=1` },
       { 'Set-Cookie': myOrdersCookie(ctx.req, settings, order.code) });
-  } catch (e: Loose) {
+  } catch (e: unknown) {
     if (e instanceof O.OrderError) return json(409, { error: e.message, field: e.field });
     throw e;
   }

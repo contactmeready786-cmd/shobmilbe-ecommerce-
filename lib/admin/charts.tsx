@@ -2,6 +2,7 @@
 import { Val, RawHtml, attrValue, styleOf, jsxList } from '../react/html';
 import { esc, bn, money } from '../util';
 import type { Body, Loose } from '../types';
+import type { Settings } from '../types';
 
 const PALETTE = ['#0866D6', '#F5A524', '#12804A', '#7C4DDB', '#E0513B', '#0FA3B1', '#B36B00', '#5B6B85', '#D63384', '#2E7D32'];
 const short = (n: number) => {
@@ -15,7 +16,7 @@ function niceMax(v: number) {
   const m = v / p;
   return (m <= 1 ? 1 : m <= 2 ? 2 : m <= 5 ? 5 : 10) * p;
 }
-function dayLabel(d?: Loose) {
+function dayLabel(d?: unknown) {
   const s = String(d instanceof Date ? d.toISOString() : d).slice(0, 10);
   return bn(s.slice(8, 10)) + '/' + bn(s.slice(5, 7));
 }
@@ -25,8 +26,8 @@ function combo(series?: Loose, { barName = '', lineName = '', barMoney = false, 
   if (!series.length) return <p className="muted">কোনো ডাটা নেই।</p>;
   const W = 760; const H = height; const L = 54; const R = 54; const T = 16; const B = 30;
   const iw = W - L - R; const ih = H - T - B;
-  const bmax = niceMax(Math.max(...series.map((s: Loose) => s.bar || 0)));
-  const lmax = niceMax(Math.max(...series.map((s: Loose) => s.line || 0)));
+  const bmax = niceMax(Math.max(...series.map((s: Settings) => s.bar || 0)));
+  const lmax = niceMax(Math.max(...series.map((s: Settings) => s.line || 0)));
   const n = series.length;
   const step = iw / n;
   const bw = Math.max(2, Math.min(28, step * 0.62));
@@ -60,7 +61,7 @@ function combo(series?: Loose, { barName = '', lineName = '', barMoney = false, 
 function hbars(rows?: Loose, { isMoney = false, color = 0 }: Body = {}) {
   if (!rows.length) return <p className="muted">কোনো ডাটা নেই।</p>;
   const max = Math.max(...rows.map((r: Loose) => Number(r.value) || 0), 1);
-  return <ul className="hbars">{jsxList(rows.map((r: Loose, i: Loose) => <li><span className="hb-label" title={attrValue(r.label)}>{(r.icon ? <>{r.icon}{' '}</> : null)}<Val v={r.label} /></span>{' '}<span className="hb-track"><span className="hb-fill" style={styleOf(`width:${Math.max(2, (100 * (Number(r.value) || 0)) / max).toFixed(1)}%;background:${attrValue(PALETTE[(color === -1 ? i : color) % PALETTE.length])}`)}></span></span>{' '}<span className="hb-val">{(isMoney ? money(r.value) : bn(r.value))}{(r.sub ? <>{' '}<small><Val v={r.sub} /></small></> : null)}</span></li>))}</ul>;
+  return <ul className="hbars">{jsxList(rows.map((r: Loose, i: unknown) => <li><span className="hb-label" title={attrValue(r.label)}>{(r.icon ? <>{r.icon}{' '}</> : null)}<Val v={r.label} /></span>{' '}<span className="hb-track"><span className="hb-fill" style={styleOf(`width:${Math.max(2, (100 * (Number(r.value) || 0)) / max).toFixed(1)}%;background:${attrValue(PALETTE[(color === -1 ? i : color) % PALETTE.length])}`)}></span></span>{' '}<span className="hb-val">{(isMoney ? money(r.value) : bn(r.value))}{(r.sub ? <>{' '}<small><Val v={r.sub} /></small></> : null)}</span></li>))}</ul>;
 }
 
 // Donut: rows [{label, value}]

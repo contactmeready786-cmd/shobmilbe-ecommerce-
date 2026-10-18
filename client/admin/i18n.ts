@@ -75,7 +75,7 @@ whenReady(() => {
     loading = fetch(`/js/admin-en.json?v=${encodeURIComponent(v || '1')}`, { credentials: 'same-origin' })
       .then((r) => { if (!r.ok) throw new Error(`dictionary ${r.status}`); return r.json(); })
       .then(build)
-      .catch((e) => { loading = null; throw e; });
+      .catch((e: unknown) => { loading = null; throw e; });
     return loading;
   }
 

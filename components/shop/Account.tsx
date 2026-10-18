@@ -173,7 +173,7 @@ function ReferralBox({ r, s }: { r: Loose; s: Settings }) {
   );
 }
 
-type DashProps = { cu: Loose; orders: Loose[]; addresses: Loose[]; settings: Settings; tab?: string; flash?: string; error?: string; referral?: Loose; cards?: Loose[]; welcome?: boolean; next?: string };
+type DashProps = { cu: Loose; orders: Loose[]; addresses: Loose[]; settings: Settings; tab?: string; flash?: string; error?: string; referral?: unknown; cards?: Loose[]; welcome?: boolean; next?: string };
 
 export function Dashboard({ cu, orders, addresses, settings: s, tab = 'orders', flash = '', error = '', referral = null, cards = [], welcome = false, next = '' }: DashProps) {
   const isEmail = !!cu.email_verified && !cu.phone;

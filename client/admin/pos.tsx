@@ -1,6 +1,6 @@
 /* সবমিলবে admin — 🧾 দোকানে বিক্রি (POS): scan → bill → paid → cash memo. */
 import { h, Fragment, paint } from '../jsx.js';
-import { bn, getJson, postJson, whenReady, type Loose } from '../dom.js';
+import { bn, getJson, postJson, whenReady } from '../dom.js';
 import { beep, startCamera } from './scan.js';
 
 void Fragment;
@@ -130,14 +130,15 @@ function start(root: HTMLElement): void {
     doneBtn.textContent = 'সেভ হচ্ছে…';
     const memoWin = window.open('about:blank', '_blank');
     try {
-      const x = await postJson<Loose>('/admin/api/pos/sale', {
+      // lib/admin/pos.tsx sale: the saved bill, or what is wrong
+      const x = await postJson<{ ok?: boolean; id?: number; code?: string; total?: number; change?: number; error?: string }>('/admin/api/pos/sale', {
         items: lines.map((l) => ({ id: l.id, qty: l.qty, price: l.price })), discount: t.disc, wh: wh(),
         phone: input('[data-pos-phone]').value.trim(), name: input('[data-pos-name]').value.trim(), payment: pay ? pay.value : 'cash', given, note: input('[data-pos-note]').value.trim(),
       });
       if (!x.ok) throw new Error(x.j.error || 'সেভ হয়নি');
       const memo = `/admin/pos/memo/${x.j.id}?print=1`;
       if (memoWin) memoWin.location.href = memo; else window.open(memo, '_blank');
-      say(`✅ বিক্রি সেভ হয়েছে — মেমো ${x.j.code}${x.j.change > 0 ? ` · ফেরত দিন ${money(x.j.change)}` : ''}`);
+      say(`✅ বিক্রি সেভ হয়েছে — মেমো ${x.j.code}${(x.j.change || 0) > 0 ? ` · ফেরত দিন ${money(x.j.change)}` : ''}`);
       lines = [];
       for (const s of ['[data-pos-disc]', '[data-pos-given]', '[data-pos-phone]', '[data-pos-name]', '[data-pos-note]']) input(s).value = s === '[data-pos-disc]' ? '0' : '';
       render();

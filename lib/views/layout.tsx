@@ -9,7 +9,7 @@ import { ShopBody, Logo, ASSET_V } from '../../components/shop/chrome/Chrome';
 import { ShopHeadExtras, JsonLd, colors } from '../../components/shop/chrome/Head';
 import type { Body, Id, Loose, Settings } from '../types';
 
-function mediaUrl(id?: Id, thumb?: Loose) { return id ? `/media/${id}${thumb ? '/t' : ''}` : ''; }
+function mediaUrl(id?: Id, thumb?: unknown) { return id ? `/media/${id}${thumb ? '/t' : ''}` : ''; }
 function logo(settings: Settings) { return <Logo settings={settings} />; }
 
 type HeadProps = { s: Settings; title: string; description?: string; keywords?: string; canonical?: string; image?: string; type?: string; noindex?: boolean };

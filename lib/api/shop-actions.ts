@@ -174,7 +174,7 @@ export async function live(ctx: ApiCtx) {
 export async function liveClick(ctx: ApiCtx) {
   if (!(await allow(ctx, 'lclick:', 60, 60))) return nothing();
   try {
-    let b: Record<string, Loose> = {};
+    let b: Record<string, unknown> = {};
     try { b = JSON.parse(await readBody(ctx.req, 2048) || '{}'); } catch (_) { b = {}; }
     const sport = b.sport === 'football' ? 'football' : b.sport === 'cricket' ? 'cricket' : '';
     const cat = String(b.cat || '');
@@ -195,7 +195,7 @@ export async function i18n(ctx: ApiCtx) {
   const settings = ctx.settings;
   if (settings.i18n_on !== '1') return json(404, { error: 'off' });
   if (!(await allow(ctx, 'i18n:', 80, 600))) return tooMany(ctx);
-  let b: Record<string, Loose> = {};
+  let b: Record<string, unknown> = {};
   try { b = JSON.parse(await readBody(ctx.req, 96 * 1024) || '{}'); } catch (_) { b = {}; }
   let budget = 40000;
   const texts = (Array.isArray(b.t) ? b.t : []).slice(0, 60).map((x) => String(x || '')).filter((x) => {
@@ -203,14 +203,14 @@ export async function i18n(ctx: ApiCtx) {
     budget -= x.length;
     return true;
   });
-  let m: Record<string, Loose> = {};
+  let m: Record<string, unknown> = {};
   try { m = await translate.lookup(texts, settings, { auto: settings.i18n_auto !== '0', deadline: Date.now() + 9000 }); } catch (e) { console.error('i18n', (e as Error).message); }
   return json(200, { m });
 }
 // Lines the owner corrected by hand. The URL carries a version number, so it can be cached at the edge.
 export async function i18nFix(ctx: ApiCtx) {
   if (ctx.settings.i18n_on !== '1') return json(404, { error: 'off' });
-  let m: Record<string, Loose> = {};
+  let m: Record<string, unknown> = {};
   try { m = await translate.manualAll(); } catch (e) { console.error('i18n fix', (e as Error).message); }
   return json(200, { m }, { 'Cache-Control': 'public, max-age=300, s-maxage=86400' });
 }

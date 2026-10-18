@@ -100,7 +100,7 @@ export async function resume(ctx: ApiCtx) {
 export async function appOffers(ctx: ApiCtx) {
   const after = Math.max(0, int(ctx.query.get('after')) || 0);
   const last = await db.one<{ id: number }>('SELECT COALESCE(max(id),0)::int AS id FROM push_campaigns');
-  let items: Loose[] = [];
+  let items: unknown[] = [];
   if (ctx.settings.shoppush_on === '1' && after > 0) {
     // only the newest one, and only if it is fresh — never a pile of old offers
     items = (await db.q<Pick<PushCampaignsRow, 'id' | 'title' | 'body' | 'url' | 'image_id'>>(`SELECT id, title, body, url, image_id FROM push_campaigns WHERE id > $1 AND created_at > now() - interval '2 days' ORDER BY id DESC LIMIT 1`, [after]))

@@ -124,7 +124,7 @@ function once(url: Loose, { maxBytes, timeoutMs, accept, deadline, method = 'GET
         clearTimeout(timer);
         resolve({ status, headers: res.headers, body: Buffer.concat(chunks), contentType: String(res.headers['content-type'] || '').toLowerCase() });
       });
-      stream.on('error', (e: Loose) => { clearTimeout(timer); reject(e); });
+      stream.on('error', (e: Error) => { clearTimeout(timer); reject(e); });
     });
     req.end(body || undefined);
   });

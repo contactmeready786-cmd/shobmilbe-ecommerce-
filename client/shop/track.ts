@@ -1,8 +1,9 @@
 // Tracking: one call sends to dataLayer (GTM/GA4), Facebook and TikTok, plus the shop's own visitor analytics
 // (Admin → মার্কেটিং → ভিজিটর অ্যানালিটিক্স).
-import { randomId, store, type Loose } from '../dom.js';
+import { randomId, store } from '../dom.js';
+import type { ShopConfig } from '../shop-config.js';
 
-const SM: Loose = window.SM || {};
+const SM: Partial<ShopConfig> = window.SM || {};
 
 type Item = { id: string | number; name?: string; price: number; qty?: number; category?: string };
 type TrackData = { items?: Item[]; value?: number; code?: string; q?: string; label?: string; method?: string };
@@ -53,7 +54,11 @@ export function track(event: string, d: TrackData = {}): void {
 }
 
 // ---------- visitor analytics ----------
-async function vaSend(data: Record<string, unknown>, beacon = false): Promise<Loose> {
+/** POST /api/v answers: off = the shop has visitor analytics switched off; pv = this page view's number */
+type VisitAnswer = { off?: boolean | number; pv?: number };
+/** Chrome's navigator.userAgentData (not in every browser, nor in TypeScript's own list yet) */
+type UAData = { mobile?: boolean; platform?: string; getHighEntropyValues?: (hints: string[]) => Promise<{ model?: string; platformVersion?: string; platform?: string }> };
+async function vaSend(data: Record<string, unknown>, beacon = false): Promise<VisitAnswer> {
   if (!VA.on) return {};
   const body = JSON.stringify({ ...data, vid: VA.vid, sid: VA.sid });
   try {
@@ -115,11 +120,11 @@ function startAnalytics(): void {
     if (j?.off) { VA.on = false; return; }
     VA.pv = j?.pv || 0;
     // New Chrome on Android hides the phone model; it tells it only when asked (no permission needed).
-    const uad = (navigator as Loose).userAgentData;
+    const uad = (navigator as Navigator & { userAgentData?: UAData }).userAgentData;
     let sent: string | null = VA.sid;
     try { sent = sessionStorage.getItem('sm_dev'); } catch { /* ignore */ }
     if (VA.pv && sent !== VA.sid && uad?.mobile && uad.getHighEntropyValues) {
-      uad.getHighEntropyValues(['model', 'platformVersion']).then((hv: Loose) => {
+      uad.getHighEntropyValues(['model', 'platformVersion']).then((hv) => {
         try { sessionStorage.setItem('sm_dev', VA.sid); } catch { /* ignore */ }
         if (hv && (hv.model || hv.platformVersion)) void vaSend({ t: 'dev', m: hv.model || '', pv: hv.platformVersion || '', pf: hv.platform || uad.platform || '' });
       }).catch(() => {});

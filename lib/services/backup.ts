@@ -15,16 +15,16 @@ const NEVER = new Set(['admin_sessions', 'login_lock_codes']); // live logins ar
 async function tableList(db: typeof import("../db")) {
   return (await db.q<{ table_name: string }>(`SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE' ORDER BY table_name`)).map((r) => r.table_name);
 }
-async function columnsOf(db: typeof import("../db"), table?: Loose) {
+async function columnsOf(db: typeof import("../db"), table?: unknown) {
   return db.q<{ name: string; type: string }>(`SELECT column_name AS name, data_type AS type FROM information_schema.columns WHERE table_schema='public' AND table_name=$1 ORDER BY ordinal_position`, [table]);
 }
-const qi = (n?: Loose) => '"' + String(n).replace(/"/g, '""') + '"';
+const qi = (n?: unknown) => '"' + String(n).replace(/"/g, '""') + '"';
 
 // { withImages, withAnalytics } → { buffer (gzip json), tables, rows }
 async function dump(db: typeof import("../db"), { withImages = false, withAnalytics = false, password = '' }: Body = {}) {
   const tables = (await tableList(db)).filter((t: string) => !NEVER.has(t) && (withAnalytics || !ANALYTICS.has(t)) && (withImages || t !== 'media'));
   const schema = await db.one<Pick<SettingsRow, 'value'>>("SELECT value FROM settings WHERE key='schema_version'");
-  const out = { app: 'shobmilbe', format: 1, schema_version: schema ? Number(schema.value) : null, created_at: new Date().toISOString(), with_images: !!withImages, tables: {} as Record<string, Loose> };
+  const out = { app: 'shobmilbe', format: 1, schema_version: schema ? Number(schema.value) : null, created_at: new Date().toISOString(), with_images: !!withImages, tables: {} as Record<string, unknown> };
   let rows = 0;
   for (const t of tables) {
     const cols = await columnsOf(db, t);
@@ -38,7 +38,7 @@ async function dump(db: typeof import("../db"), { withImages = false, withAnalyt
   return { buffer, tables: tables.length, rows, encrypted: !!password };
 }
 
-function lock(buf: NonSharedBuffer | crypto.BinaryLike, password?: Loose) {
+function lock(buf: NonSharedBuffer | crypto.BinaryLike, password?: unknown) {
   const salt = crypto.randomBytes(16);
   const key = crypto.scryptSync(String(password), salt, 32, { N: 16384, r: 8, p: 1 });
   const iv = crypto.randomBytes(12);
@@ -46,7 +46,7 @@ function lock(buf: NonSharedBuffer | crypto.BinaryLike, password?: Loose) {
   const enc = Buffer.concat([c.update(buf), c.final()]);
   return Buffer.concat([MAGIC, salt, iv, c.getAuthTag(), enc]);
 }
-function unlock(buf?: Loose, password?: Loose) {
+function unlock(buf?: Loose, password?: unknown) {
   if (!buf.subarray(0, 5).equals(MAGIC)) return buf; // not locked
   if (!password) throw new Error('এই ব্যাকআপ পাসওয়ার্ড দিয়ে তালাবদ্ধ — পাসওয়ার্ড দিন (--password)।');
   const salt = buf.subarray(5, 21); const iv = buf.subarray(21, 33); const tag = buf.subarray(33, 49);
@@ -55,7 +55,7 @@ function unlock(buf?: Loose, password?: Loose) {
   d.setAuthTag(tag);
   try { return Buffer.concat([d.update(buf.subarray(49)), d.final()]); } catch (_) { throw new Error('পাসওয়ার্ড ভুল, অথবা ফাইলটা নষ্ট।'); }
 }
-function read(buf?: Loose, password?: Loose) {
+function read(buf?: unknown, password?: unknown) {
   const data = JSON.parse(zlib.gunzipSync(unlock(buf, password)).toString('utf8'));
   if (data.app !== 'shobmilbe' || !data.tables) throw new Error('এটা এই দোকানের ব্যাকআপ ফাইল না।');
   return data;
@@ -67,13 +67,13 @@ async function fkOrder(db?: Loose, tables?: Loose) {
     JOIN pg_class tc ON tc.oid=c.conrelid JOIN pg_class tp ON tp.oid=c.confrelid JOIN pg_namespace n ON n.oid=tc.relnamespace
     WHERE c.contype='f' AND n.nspname='public'`);
   const set = new Set(tables); const done: Loose[] = []; const seen = new Set();
-  const visit = (t?: Loose, stack = new Set()) => {
+  const visit = (t?: unknown, stack = new Set()) => {
     if (seen.has(t) || stack.has(t)) return;
     stack.add(t);
     deps.filter((d: Loose) => d.child === t && d.parent !== t && set.has(d.parent)).forEach((d: Loose) => visit(d.parent, stack));
     seen.add(t); done.push(t);
   };
-  tables.forEach((t: Loose) => visit(t));
+  tables.forEach((t: unknown) => visit(t));
   return done;
 }
 
@@ -88,8 +88,8 @@ async function restore(db: Loose, data: Body, { log = () => {} }: Body = {}) {
     for (const name of order) {
       const T = data.tables[name];
       const have = new Set((await t.query(`SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name=$1`, [name])).rows.map((r: Loose) => r.column_name));
-      const cols = T.columns.filter((c: Loose) => have.has(c));
-      const idx = cols.map((c: Loose) => T.columns.indexOf(c));
+      const cols = T.columns.filter((c: unknown) => have.has(c));
+      const idx = cols.map((c: unknown) => T.columns.indexOf(c));
       const byteaCols = new Set(T.bytea || []);
       for (let i = 0; i < T.rows.length; i += 500) {
         const chunk = T.rows.slice(i, i + 500).map((r: Loose) => {

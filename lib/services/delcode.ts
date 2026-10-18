@@ -91,7 +91,7 @@ async function send(ctx: AdminCtx, action?: Loose, detail = '') {
 }
 
 // Check the code typed for this kind of delete. Returns null when it is right (and spends it), or the error to show.
-async function check(ctx: AdminCtx, action?: Loose, typed?: Loose) {
+async function check(ctx: AdminCtx, action?: Loose, typed?: unknown) {
   const uid = ctx.user.id;
   const code = String(typed || '').replace(/[^\d০-৯]/g, '').replace(/[০-৯]/g, (d) => String('০১২৩৪৫৬৭৮৯'.indexOf(d))).slice(0, 6);
   if (await security.blocked(db, 'delcode-fail:' + uid, FAIL_MAX)) return 'অনেকবার ভুল কোড দেওয়া হয়েছে — এক ঘণ্টা মোছা বন্ধ থাকবে।';

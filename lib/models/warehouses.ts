@@ -27,7 +27,7 @@ async function save(b: Body) {
 
 // How many pieces of these products each store has, plus the main store. → Map(product_id → { total, main, by: { whId: qty } })
 async function stockFor(productIds?: Loose) {
-  const ids = (productIds || []).map((x: Loose) => int(x)).filter((x: number) => x > 0);
+  const ids = (productIds || []).map((x: unknown) => int(x)).filter((x: number) => x > 0);
   if (!ids.length) return new Map();
   const [prods, rows] = await Promise.all([
     db.q<Pick<ProductsRow, 'id' | 'stock'>>('SELECT id, stock FROM products WHERE id = ANY($1::int[])', [ids]),
@@ -80,7 +80,7 @@ async function transfer({ productId, qty, from, to, note }: Body, staffId?: Id) 
   });
 }
 // A branch's count corrected after counting the shelf (the difference comes from / goes to the main store).
-async function setCount(whId?: Id, productId?: Id, qty?: Loose, staffId?: Id) {
+async function setCount(whId?: Id, productId?: Id, qty?: unknown, staffId?: Id) {
   const n = Math.max(0, int(qty));
   return db.tx(async (t) => {
     const p = (await t.query<Pick<ProductsRow, 'id' | 'name' | 'stock'>>('SELECT id, name, stock FROM products WHERE id=$1 FOR UPDATE', [int(productId)])).rows[0];

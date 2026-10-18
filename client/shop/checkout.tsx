@@ -1,7 +1,8 @@
 // Checkout (/checkout): order summary, delivery charge, coupon, gift card, points, the unfinished-order draft,
 // the checkout OTP (SMS code) and sending the order.
 import { h, Fragment, paint } from '../jsx.js';
-import { $, $all, bn, cleanPhone, getJson, money, phoneOk, postJson, randomId, readJson, replay, store, type Loose } from '../dom.js';
+import { $, $all, bn, cleanPhone, getJson, money, phoneOk, postJson, randomId, readJson, replay, store } from '../dom.js';
+import type { GiftcardAnswer, OrderAnswer, OtpAnswer, ResumeAnswer } from '../api-types.js';
 import { minNote, minShort, saveCartQuietly, writeCart } from './cart.js';
 import { Thumb, giftRows, giftTotal, loadCart, type Gift, type Line } from './cartpage.js';
 import { fillGeo } from './geo.js';
@@ -27,7 +28,7 @@ export function startCheckout(): void {
 
 async function resume(id: string): Promise<void> {
   try {
-    const j = await getJson<Loose>(`/api/resume?id=${id}`);
+    const j = await getJson<ResumeAnswer>(`/api/resume?id=${id}`);
     if (j?.ok && j.items?.length) {
       const c: Record<string, number> = {};
       for (const i of j.items) c[i.id] = (c[i.id] || 0) + i.qty;
@@ -263,7 +264,7 @@ function runCheckout(checkout: HTMLElement): void {
       if (navigator.sendBeacon && document.visibilityState === 'hidden') navigator.sendBeacon('/api/checkout-draft', new Blob([body], { type: 'application/json' }));
       else {
         fetch('/api/checkout-draft', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, keepalive: true })
-          .then((r) => r.json()).then((j) => { if (j?.off) draft.on = false; }).catch(() => {});
+          .then((r) => r.json() as Promise<{ off?: number } | null>).then((j) => { if (j?.off) draft.on = false; }).catch(() => {});
       }
     } catch { /* ignore */ }
   };
@@ -330,7 +331,7 @@ function runCheckout(checkout: HTMLElement): void {
       if (!code) { state.gift = null; gMsg.textContent = ''; renderSummary(); return; }
       gMsg.textContent = 'যাচাই হচ্ছে…';
       try {
-        const { j } = await postJson<Loose>('/api/giftcard', { code });
+        const { j } = await postJson<GiftcardAnswer>('/api/giftcard', { code });
         state.gift = j.ok ? { code: j.code, balance: Number(j.balance) } : null;
         gMsg.className = `small ${j.ok ? 'good' : 'warn'}`;
         gMsg.textContent = j.ok ? `${j.message} — এই অর্ডারে কাটা হবে।` : j.message;
@@ -402,7 +403,7 @@ function runCheckout(checkout: HTMLElement): void {
     submit.disabled = true;
     submit.textContent = 'অর্ডার পাঠানো হচ্ছে…';
     try {
-      const res = await postJson<Loose>('/api/orders', data);
+      const res = await postJson<OrderAnswer>('/api/orders', data);
       if (!res.ok) throw res.j;
       store('sm_customer', JSON.stringify({ name: data.name, phone: data.phone, address: data.address, district: data.district, thana: data.thana }));
       draft.on = false;
@@ -411,7 +412,7 @@ function runCheckout(checkout: HTMLElement): void {
       writeCart({});
       location.href = res.j.redirect || `/order/${res.j.code}?new=1`;
     } catch (err) {
-      const x = err as Loose;
+      const x = err as OrderAnswer | undefined; // the server's answer (thrown above), or a network error
       submit.disabled = false;
       renderSummary();
       if (x?.otp && otp) otp.rejected();
@@ -441,7 +442,7 @@ function checkoutOtp(
   const done = $('[data-otp-done]', form)!;
   const otp = { okPhone: '', token: '', asked: '', sentTo: '', timer: 0, watch: 0, busy: false, after: false, len: 4, abort: null as AbortController | null };
   const phone = () => cleanPhone(val('phone'));
-  const post = (what: string, body: unknown) => postJson<Loose>(`/api/checkout-otp/${what}`, body).then(({ ok, j }) => ({ ...j, httpOk: ok }));
+  const post = (what: string, body: unknown) => postJson<OtpAnswer>(`/api/checkout-otp/${what}`, body).then(({ ok, j }) => ({ ...j, httpOk: ok }));
   const sayOtp = (t: string, kind?: string) => { msg.textContent = t || ''; msg.className = `otp-msg small${kind ? ` ${kind}` : ''}`; };
   const shake = () => replay(box, 'shake');
   const sendAgain = (label: string, disabled: boolean) => { send.disabled = disabled; send.textContent = label; };
@@ -498,7 +499,7 @@ function checkoutOtp(
     if (!('OTPCredential' in window)) return;
     try {
       otp.abort = new AbortController();
-      (navigator.credentials.get({ otp: { transport: ['sms'] }, signal: otp.abort.signal } as CredentialRequestOptions) as Promise<Loose>)
+      (navigator.credentials.get({ otp: { transport: ['sms'] }, signal: otp.abort.signal } as CredentialRequestOptions) as Promise<(Credential & { code?: string }) | null>)
         .then((c) => { if (c?.code && !otp.okPhone) { code.value = c.code; void verify(); } })
         .catch(() => { /* the customer types it */ });
     } catch { /* not supported */ }

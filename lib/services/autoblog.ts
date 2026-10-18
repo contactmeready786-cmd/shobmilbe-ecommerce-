@@ -16,7 +16,7 @@ const MAX_ROWS = 40;
 const MONTHS = ['জানুয়ারি', 'ফেব্রুয়ারি', 'মার্চ', 'এপ্রিল', 'মে', 'জুন', 'জুলাই', 'আগস্ট', 'সেপ্টেম্বর', 'অক্টোবর', 'নভেম্বর', 'ডিসেম্বর'];
 
 const money = (n: number) => '৳' + bn(Math.round(Number(n) || 0).toLocaleString('en-IN'));
-const cell = (t?: Loose) => String(t || '').replace(/\|/g, '/').replace(/[\r\n]+/g, ' ').trim();
+const cell = (t?: unknown) => String(t || '').replace(/\|/g, '/').replace(/[\r\n]+/g, ' ').trim();
 
 function monthLabel(d = new Date()) {
   const parts = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Dhaka', year: 'numeric', month: 'numeric', day: 'numeric' }).formatToParts(d);

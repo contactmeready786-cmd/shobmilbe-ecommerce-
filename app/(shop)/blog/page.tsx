@@ -13,6 +13,6 @@ export async function generateViewport(): Promise<Viewport> { return shopViewpor
 
 export default async function Blog() {
   await getSettings();
-  const [cats, posts] = await Promise.all([content.listBlogCategories() as Promise<Loose[]>, content.listPosts({ published: true, limit: 60 }) as Promise<Loose[]>]);
+  const [cats, posts] = await Promise.all([content.listBlogCategories() as Promise<unknown[]>, content.listPosts({ published: true, limit: 60 }) as Promise<unknown[]>]);
   return <BlogList posts={posts} categories={cats} category={null} />;
 }

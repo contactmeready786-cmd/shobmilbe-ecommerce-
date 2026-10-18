@@ -38,7 +38,7 @@ const SITE_QUEUE_MAX = 8000; // pages remembered per shop
 const FRESH = `(i.last_seen > now() - interval '3 days' OR (s.kind = 'site' AND i.last_seen > now() - interval '12 days'))`;
 
 // ---------------------------------------------------------------- robots.txt
-function robotsRules(text?: Loose) {
+function robotsRules(text?: unknown) {
   // groups for "*" (and our own name); Allow / Disallow with * and $
   const groups: Loose[] = [];
   let cur: Loose = null;
@@ -90,7 +90,7 @@ async function allowed(url: string | URL) {
   return robotsAllow(robotsRules(row.robots), u.pathname + u.search);
 }
 
-async function robotsSitemaps(origin?: Loose) {
+async function robotsSitemaps(origin?: unknown) {
   const row = await one('SELECT robots FROM research_hosts WHERE host=$1', [origin]);
   return [...String(row ? row.robots : '').matchAll(/^\s*sitemap\s*:\s*(\S+)/gim)].map((m) => m[1]).filter((u) => /^https?:\/\//i.test(u));
 }
@@ -275,7 +275,7 @@ function pageLinks(html: Loose, base: string | URL | undefined) {
   return out;
 }
 // <url><loc>…</loc><lastmod>…</lastmod></url> → [{ url, lastmod }]; index → child sitemaps
-function readSitemap(xml: string, base: Loose) {
+function readSitemap(xml: string, base: unknown) {
   const isIndex = /<sitemapindex\b/i.test(xml.slice(0, 3000));
   const out: Loose[] = [];
   for (const m of xml.matchAll(/<(?:url|sitemap)\b[^>]*>([\s\S]*?)<\/(?:url|sitemap)>/gi)) {
@@ -327,7 +327,7 @@ async function seedSite(src: DbRow) {
   await q('UPDATE research_sources SET seeded_at=now() WHERE id=$1', [src.id]);
 }
 
-async function currentRank(srcId?: Id, url?: Loose) {
+async function currentRank(srcId?: Id, url?: unknown) {
   const r = await one('SELECT rank_hint FROM research_queue WHERE source_id=$1 AND url=$2', [srcId, url]);
   return r ? r.rank_hint : null;
 }
@@ -348,7 +348,7 @@ async function readSite(src: DbRow, started: number) {
     LIMIT $2`, [src.id, SITE_PAGES]);
   if (!batch.length) return { n: 0, pages: 0, failed: 0 };
   let n = 0, pages = 0, failed = 0, blocked = 0;
-  const lastErr: Loose[] = [];
+  const lastErr: unknown[] = [];
   const work = async (row: DbRow) => {
     if (Date.now() > until - 1500) return;
     try {
@@ -412,7 +412,7 @@ async function readSite(src: DbRow, started: number) {
       const links = pageLinks(text, r.finalUrl || row.url);
       const cards = links.filter((l) => l.img || l.near);
       const prod = (cards.length >= 4 ? cards : links).filter((l) => (productish(l.path) || l.near) && !(RANK_WORDS.test(l.text + ' ' + l.path) && !productish(l.path)));
-      const add: Loose[] = prod.slice(0, 300).map((l, i) => ({ url: l.url, kind: 'page', depth: row.depth + 1, pos: i + 1 }));
+      const add: unknown[] = prod.slice(0, 300).map((l, i) => ({ url: l.url, kind: 'page', depth: row.depth + 1, pos: i + 1 }));
       if (row.depth === 0) {
         // popular / best-selling lists on the home page or a category page
         for (const l of links) if (RANK_WORDS.test(l.text + ' ' + l.path) && !productish(l.path)) add.unshift({ url: l.url, kind: 'rank', depth: 0 });
@@ -446,7 +446,7 @@ async function readSite(src: DbRow, started: number) {
   let next = 0;
   await Promise.all(Array.from({ length: 4 }, async () => { while (next < rest.length && Date.now() < until - 1500) await work(rest[next++]); }));
   if (pages >= 3 && failed === pages) { // a single locked page is normal; every page refused means the shop blocks robots
-    const e: Loose = new Error(blocked ? `দোকানটি রোবটকে পড়তে দিচ্ছে না (${lastErr[0]}) — পরে আবার চেষ্টা হবে।` : `পেজ পড়া যায়নি: ${lastErr[0] || ''}`);
+    const e = new Error(blocked ? `দোকানটি রোবটকে পড়তে দিচ্ছে না (${lastErr[0]}) — পরে আবার চেষ্টা হবে।` : `পেজ পড়া যায়নি: ${lastErr[0] || ''}`);
     throw e;
   }
   return { n, pages, failed };
@@ -521,7 +521,7 @@ async function winners({ segment = '', limit = 60, margin = 30, mine = null }: B
   // 1) each item on its own
   for (const r of rows) {
     let s = 0;
-    const why: Loose[] = [];
+    const why: unknown[] = [];
     if (r.rank) { s += Math.max(0, 45 * (1 - (r.rank - 1) / 300)); if (r.rank <= 30) why.push(`${r.shop}-এ সবচেয়ে বেশি বিক্রির তালিকায় #${bn(r.rank)}`); }
     const climb = r.rank && r.rank_ref ? r.rank_ref - r.rank : 0;
     if (climb >= 15) { s += Math.min(15, climb / 4); why.push(`এক সপ্তাহে ${bn(climb)} ধাপ উপরে উঠেছে`); }
@@ -558,7 +558,7 @@ async function winners({ segment = '', limit = 60, margin = 30, mine = null }: B
     g.sell = niceDown(g.median * 0.98);
     g.buyMax = g.sell ? Math.floor(g.sell * (1 - margin / 100)) : null;
     g.term = searchText(g.lead.title);
-    g.best = g.items.reduce((a: Loose, b: Loose) => (Number(a.price) <= Number(b.price) ? a : b));
+    g.best = g.items.reduce((a: Loose, b: Body) => (Number(a.price) <= Number(b.price) ? a : b));
   }
   groups.sort((a, b) => b.score - a.score);
   const top = groups.slice(0, limit);
@@ -643,7 +643,7 @@ async function ourProducts(mine?: Loose) {
 }
 const hostOfUrl = (u?: Loose) => { try { return new URL(u).hostname.replace(/^www\./, '').toLowerCase(); } catch (_) { return ''; } };
 // last part of a product address, without .html / ids-only noise: "/product/universal-adapter-3pin/" → "universal-adapter-3pin"
-function slugOf(key?: Loose) {
+function slugOf(key?: unknown) {
   let k = String(key || '').toLowerCase().replace(/[?#].*$/, '').replace(/\/+$/, '');
   try { k = decodeURIComponent(k); } catch (_) { /* keep as is */ }
   const last = k.split('/').filter(Boolean).pop() || '';
@@ -660,9 +660,9 @@ function refsFor(item?: Loose) {
   try { slug = slugOf(new URL(item.url).pathname); } catch (_) { /* none */ }
   return { host, refs: [...refs].map((r) => r.slice(0, 300)), slug };
 }
-function matchOurs(prep?: Loose, oursPrep?: Loose, min = 0.72, item: Loose = null) {
+function matchOurs(prep?: Loose, oursPrep?: Loose, min = 0.72, item: unknown = null) {
   const found = new Map();
-  const put = (p?: Loose, match?: Loose, via?: Loose) => { if (!found.has(p.id) || found.get(p.id).match < match) found.set(p.id, { id: p.id, name: p.name, price: p.price, cost_price: p.cost_price, active: p.active, match, via }); };
+  const put = (p?: Loose, match?: Loose, via?: unknown) => { if (!found.has(p.id) || found.get(p.id).match < match) found.set(p.id, { id: p.id, name: p.name, price: p.price, cost_price: p.cost_price, active: p.active, match, via }); };
   // 1) copied from exactly this shop page / this shop's product
   if (item && oursPrep.byRef) {
     const { host, refs, slug } = refsFor(item);
@@ -752,7 +752,7 @@ function searchFit(sq?: Loose, title?: Loose) {
   }
   return score;
 }
-function termOk(termPrep?: Loose, titlePrep?: Loose, sq?: Loose) { return searchFit(sq || searchQuery(termPrep.ws.join(' ')), titlePrep.ws.join(' ')); }
+function termOk(termPrep?: Loose, titlePrep?: Loose, sq?: unknown) { return searchFit(sq || searchQuery(termPrep.ws.join(' ')), titlePrep.ws.join(' ')); }
 async function liveWoo(src?: Loose, term?: Loose) {
   const list = await getJson(`${src.url}/wp-json/wc/store/v1/products?search=${encodeURIComponent(term)}&per_page=30`);
   let n = 0;
@@ -783,7 +783,7 @@ async function liveShopify(src?: Loose, term?: Loose) {
   }
   return n;
 }
-async function liveSite(src?: Loose, term?: Loose, termPrep?: Loose, until?: Loose) {
+async function liveSite(src?: Loose, term?: Loose, termPrep?: unknown, until?: Loose) {
   const host = hostKey(src.url);
   const order = searchHint.has(host) ? [searchHint.get(host)] : SITE_SEARCH;
   for (const path of order) {
@@ -882,7 +882,7 @@ async function searchMarket(term: string, { live = true, fresh = false, budgetMs
   for (const r of items) {
     if (r.ours.length) continue;
     for (const k of known) {
-      if (sameProduct(r.prep, k.prep) >= 0.8) { r.ours = k.ours.filter((m: { via: string; }) => m.via === 'link').map((m: Loose) => ({ ...m, match: 0.88, via: 'other-shop' })); break; }
+      if (sameProduct(r.prep, k.prep) >= 0.8) { r.ours = k.ours.filter((m: { via: string; }) => m.via === 'link').map((m: RegExpMatchArray) => ({ ...m, match: 0.88, via: 'other-shop' })); break; }
     }
   }
   // the part itself, or a board / module / kit made with it?

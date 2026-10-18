@@ -122,12 +122,12 @@ function androidModel(ua: string) {
   const model = m ? m[1].trim() : '';
   return !model || /^K$|^wv$|^Mobile$|^Linux$|^U$/i.test(model) ? '' : model.slice(0, 60);
 }
-const IPHONES: Record<string, Loose> = {
+const IPHONES: Record<string, unknown> = {
   '320x568@2': 'iPhone SE (১ম) / 5s', '375x667@2': 'iPhone 6/7/8 / SE', '414x736@3': 'iPhone 6/7/8 Plus', '375x812@3': 'iPhone X/XS/11 Pro/12 mini/13 mini',
   '414x896@2': 'iPhone XR / 11', '414x896@3': 'iPhone XS Max / 11 Pro Max', '390x844@3': 'iPhone 12/13/14', '428x926@3': 'iPhone 12/13 Pro Max / 14 Plus',
   '393x852@3': 'iPhone 14 Pro / 15 / 16', '430x932@3': 'iPhone 15 Plus / 15 Pro Max / 16 Plus', '402x874@3': 'iPhone 16 Pro / 17', '440x956@3': 'iPhone 16 Pro Max / 17 Pro Max',
 };
-function iphoneModel(screen: string, dpr?: Loose) {
+function iphoneModel(screen: string, dpr?: unknown) {
   const m = String(screen || '').match(/^(\d+)x(\d+)$/);
   if (!m) return '';
   const [a, b] = [Number(m[1]), Number(m[2])].sort((x, y) => x - y);
@@ -141,7 +141,7 @@ function friendlyModel(model: string) {
   const s = m[4] === '7' ? 's' : '';
   return `Galaxy ${m[1].toUpperCase()}${m[2]}${m[3]}${s} (${model})`.slice(0, 80);
 }
-function deviceDetails(ua: string, screen: string, dpr?: Loose) {
+function deviceDetails(ua: string, screen: string, dpr?: unknown) {
   if (/iPhone/.test(ua)) return { brand: 'Apple', model: iphoneModel(screen, dpr) || 'iPhone' };
   if (/iPad/.test(ua) || (/Macintosh/.test(ua) && Number(dpr) >= 2 && /^(7[68]\d|8[0-3]\d|10[0-9]{2})x/.test(String(screen)))) return { brand: 'Apple', model: /iPad/.test(ua) ? 'iPad' : '' };
   if (/Android/.test(ua)) { const model = androidModel(ua); return { brand: brandOf(model), model: friendlyModel(model) }; }
@@ -213,7 +213,7 @@ function sourceOf({ referrer, params, ownHost, browser }: Body) {
 }
 
 // ---------------------------------------------------------------- recording
-function cleanPath(p?: Loose) {
+function cleanPath(p?: unknown) {
   let s = str(p, 300);
   if (!s.startsWith('/')) s = '/';
   // drop tracking params so the same page is counted together
@@ -413,7 +413,7 @@ function sessionWhere(f: Body, params?: Loose) {
   return where.length ? 'WHERE ' + where.join(' AND ') : '';
 }
 async function listSessions(f: Body, { limit = 50, offset = 0 }: Body = {}) {
-  const params: Loose[] = [];
+  const params: unknown[] = [];
   const where = sessionWhere(f, params);
   params.push(limit, offset);
   return q(`SELECT s.*, v.visits AS total_visits, v.name AS visitor_name, v.phone AS visitor_phone,
@@ -424,7 +424,7 @@ async function listSessions(f: Body, { limit = 50, offset = 0 }: Body = {}) {
     ORDER BY s.started_at DESC LIMIT $${params.length - 1} OFFSET $${params.length}`, params);
 }
 async function countSessions(f: Body) {
-  const params: Loose[] = [];
+  const params: unknown[] = [];
   const where = sessionWhere(f, params);
   return (await one(`SELECT count(*)::int AS n FROM visit_sessions s JOIN visitors v ON v.id = s.visitor_id ${where}`, params))!.n;
 }

@@ -1,10 +1,11 @@
 // The cart kept in this browser, the per-product piece limits, the toast message and the "add to cart" buttons.
 import { h, Fragment, paint } from '../jsx.js';
-import { $, $all, bn, hit, money, readJson, store, type Loose } from '../dom.js';
+import { $, $all, bn, hit, money, readJson, store } from '../dom.js';
+import type { ShopConfig } from '../shop-config.js';
 import { track } from './track.js';
 
 void Fragment;
-const SM: Loose = window.SM || {};
+const SM: Partial<ShopConfig> = window.SM || {};
 const KEY = 'sm_cart';
 export type Cart = Record<string, number>;
 

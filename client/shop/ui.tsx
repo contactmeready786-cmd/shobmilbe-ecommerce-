@@ -1,8 +1,9 @@
 // Page furniture: drawer, slider, tabs, pop-up, menus, home-page rows, the notice line, countdowns, copy protection.
 import { h, paint } from '../jsx.js';
-import { $, $all, bn, copyText, hit, store, type Loose } from '../dom.js';
+import { $, $all, bn, copyText, hit, store } from '../dom.js';
+import type { ShopConfig } from '../shop-config.js';
 
-const SM: Loose = window.SM || {};
+const SM: Partial<ShopConfig> = window.SM || {};
 
 export function startUi(): void {
   // inside the সবমিলবে Android app: the app has its own bottom bar (হোম, কার্ট, অ্যাকাউন্ট…), so the site hides its copies

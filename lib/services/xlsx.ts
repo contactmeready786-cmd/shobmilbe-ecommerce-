@@ -3,6 +3,7 @@
 import * as zlib from 'node:zlib';
 import type { Loose } from '../types';
 import type { Reply } from '../reply';
+import type { Settings } from '../types';
 
 const escXml = (s: string) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' } as Record<string, string>)[c])
   // characters Excel refuses inside XML
@@ -13,11 +14,11 @@ function colName(i: number) {
   while (n > 0) { const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); }
   return s;
 }
-const isNum = (v?: Loose) => typeof v === 'number' ? Number.isFinite(v) : (typeof v === 'string' && /^-?\d{1,15}(\.\d+)?$/.test(v) && !/^0\d/.test(v) && v.length < 16);
+const isNum = (v?: unknown) => typeof v === 'number' ? Number.isFinite(v) : (typeof v === 'string' && /^-?\d{1,15}(\.\d+)?$/.test(v) && !/^0\d/.test(v) && v.length < 16);
 
 function sheetXml(rows?: Loose) {
   const widths: Loose[] = [];
-  rows.forEach((r: Loose) => r.forEach((v: Loose, i: Loose) => { widths[i] = Math.min(60, Math.max(widths[i] || 8, String(v ?? '').length + 2)); }));
+  rows.forEach((r: Loose) => r.forEach((v: unknown, i: Loose) => { widths[i] = Math.min(60, Math.max(widths[i] || 8, String(v ?? '').length + 2)); }));
   const body = rows.map((r: (string | null | undefined)[], ri: number) => `<row r="${ri + 1}">${r.map((v: string | null | undefined, ci: number) => {
     const ref = colName(ci) + (ri + 1);
     const style = ri === 0 ? ' s="1"' : '';
@@ -33,19 +34,19 @@ function sheetXml(rows?: Loose) {
 
 // sheets: [{ name, rows: [[header…], [row…], …] }]
 function build(sheets?: Loose) {
-  const list = sheets.map((s: Loose, i: number) => ({ name: String(s.name || `Sheet${i + 1}`).replace(/[\\/?*[\]:]/g, ' ').slice(0, 31) || `Sheet${i + 1}`, rows: s.rows || [] }));
-  const files: Record<string, Loose> = {
+  const list = sheets.map((s: Settings, i: number) => ({ name: String(s.name || `Sheet${i + 1}`).replace(/[\\/?*[\]:]/g, ' ').slice(0, 31) || `Sheet${i + 1}`, rows: s.rows || [] }));
+  const files: Record<string, unknown> = {
     '[Content_Types].xml': `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/>
 <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>
-${list.map((_: Loose, i: number) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('')}</Types>`,
+${list.map((_: unknown, i: number) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('')}</Types>`,
     '_rels/.rels': `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`,
     'xl/workbook.xml': `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>
 ${list.map((s: Loose, i: number) => `<sheet name="${escXml(s.name)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join('')}</sheets></workbook>`,
     'xl/_rels/workbook.xml.rels': `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${list.map((_: Loose, i: number) => `<Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`).join('')}
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${list.map((_: unknown, i: number) => `<Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`).join('')}
 <Relationship Id="rId${list.length + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`,
     'xl/styles.xml': `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts>
@@ -53,7 +54,7 @@ ${list.map((s: Loose, i: number) => `<sheet name="${escXml(s.name)}" sheetId="${
 <borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
 <cellXfs count="2"><xf fontId="0" fillId="0" borderId="0" xfId="0"/><xf fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`,
   };
-  list.forEach((s: Loose, i: number) => { files[`xl/worksheets/sheet${i + 1}.xml`] = sheetXml(s.rows); });
+  list.forEach((s: Settings, i: number) => { files[`xl/worksheets/sheet${i + 1}.xml`] = sheetXml(s.rows); });
   return zip(files);
 }
 
@@ -88,7 +89,7 @@ function zip(files?: Loose) {
 }
 
 // Send a workbook from an admin page.
-function send(reply: Reply, filename: string, sheets?: Loose) {
+function send(reply: Reply, filename: string, sheets?: unknown) {
   const buf = build(sheets);
   reply.answer(200, {
     'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',

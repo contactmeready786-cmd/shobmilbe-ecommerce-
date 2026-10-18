@@ -3,8 +3,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- test data */
 import { raw } from '../../lib/util';
 
-const owner: any = { id: 1, name: 'রহিম "মালিক"', username: 'owner', role: 'owner', designation: '', photo_id: null, permissions: [] };
-const staff: any = { id: 7, name: 'Karim <staff>', username: 'karim', role: 'staff', designation: 'প্যাকিং', photo_id: 12, permissions: ['products', 'orders:view', 'customers'] };
+const owner: unknown = { id: 1, name: 'রহিম "মালিক"', username: 'owner', role: 'owner', designation: '', photo_id: null, permissions: [] };
+const staff: unknown = { id: 7, name: 'Karim <staff>', username: 'karim', role: 'staff', designation: 'প্যাকিং', photo_id: 12, permissions: ['products', 'orders:view', 'customers'] };
 const s: any = { store_name: 'সবমিলবে', favicon_id: '' };
 export const frames: [string, any][] = [
   ['bare', { settings: s, title: 'লগইন', body: raw('<form id="f">x</form>'), bare: true }],

@@ -1,10 +1,13 @@
 // সবমিলবে admin — 📷 স্ক্যান করে স্টক (lib/admin/stockscan.tsx)
 // scan → the product opens → type how many came / how many you counted → Enter. A barcode gun types the code and presses Enter.
 import { h, Fragment, paint } from '../jsx.js';
-import { bn, getJson, latin, postJson, store, whenReady, type Loose } from '../dom.js';
+import { bn, getJson, latin, postJson, store, whenReady } from '../dom.js';
 import { beep, startCamera } from './scan.js';
 
 void Fragment;
+/** lib/admin/stockscan.tsx answers: GET …/find, POST …/save (in, count, undo) */
+type Found = { exact: Item | null; list: Item[]; box?: string; unknown?: string };
+type Saved = { ok: true; change: number; product: Item; message: string; warn: string } | { ok: false; error: string };
 type Item = { id: number; name: string; image?: string; emoji?: string; barcode?: string; sku?: string; active?: boolean; main: number; held?: number; shelf: number; location?: string };
 
 whenReady(() => {
@@ -28,7 +31,7 @@ function start(root: HTMLElement): void {
   let lastCode = '';
   let lastAt = 0;
   const say = (t: string, kind = '') => { msg.textContent = t || ''; msg.className = `ho-msg ${kind}`; };
-  const post = (url: string, data: unknown) => postJson<Loose>(url, data).then((x) => x.j);
+  const post = (url: string, data: unknown) => postJson<Saved>(url, data).then((x) => x.j);
 
   // ---------- mode ----------
   const HELP = {
@@ -75,7 +78,7 @@ function start(root: HTMLElement): void {
     const q = card.querySelector<HTMLInputElement>('[data-ss-qty]');
     if (q) setTimeout(() => q.focus(), 30);
   }
-  async function save(qty: string | number, loc?: string): Promise<Loose> {
+  async function save(qty: string | number, loc?: string): Promise<Saved | undefined> {
     if (!current) return undefined;
     const p = current;
     const data: Record<string, unknown> = { id: p.id, mode, qty };
@@ -121,7 +124,7 @@ function start(root: HTMLElement): void {
     const b = (e.target as Element).closest('[data-ss-undo]');
     if (!b || !confirm('এই বদলটা ফেরাবেন?')) return;
     const j = await post('/admin/api/stock-scan/save', { id: b.getAttribute('data-ss-undo'), mode: 'undo', change: b.getAttribute('data-ss-change') });
-    say(j.message || j.error, j.ok ? 'ok' : 'bad');
+    say(j.ok ? j.message : j.error, j.ok ? 'ok' : 'bad');
     if (j.ok) { b.closest('tr')?.classList.add('row-off'); b.remove(); }
   });
 
@@ -144,7 +147,7 @@ function start(root: HTMLElement): void {
     }
     say('খোঁজা হচ্ছে…', '');
     try {
-      const j = await getJson<Loose>(`/admin/api/stock-scan/find?q=${encodeURIComponent(code)}`);
+      const j = await getJson<Found>(`/admin/api/stock-scan/find?q=${encodeURIComponent(code)}`);
       if (j.exact) {
         current = j.exact;
         if (oneByOne) { await save(1, boxNow.value.trim() || undefined); draw(); return; }

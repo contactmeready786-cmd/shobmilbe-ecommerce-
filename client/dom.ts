@@ -1,11 +1,10 @@
 // Small helpers shared by the shop's and the admin's browser code.
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-export type Loose = any;
+import type { ShopConfig } from './shop-config.js';
 
 declare global {
   interface Window {
-    SM?: Loose;
+    SM?: ShopConfig;
     BD_GEO?: { districts: { en: string; bn: string; division?: string; areas: [string, string][] }[] };
     dataLayer?: unknown[];
     gtag?: (...a: unknown[]) => void;
@@ -64,12 +63,12 @@ export const phoneOk = (p: string): boolean => /^01[3-9]\d{8}$/.test(p);
 export const sleep = (ms: number) => new Promise<void>((ok) => setTimeout(ok, ms));
 
 /** POST JSON, answer as JSON (with the HTTP status) — never throws on a bad JSON body. */
-export async function postJson<T = Loose>(url: string, body: unknown, init: RequestInit = {}): Promise<{ ok: boolean; j: T }> {
+export async function postJson<T = unknown>(url: string, body: unknown, init: RequestInit = {}): Promise<{ ok: boolean; j: T }> {
   const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify(body), credentials: 'same-origin', ...init });
   const j = (await r.json().catch(() => ({}))) as T;
   return { ok: r.ok, j };
 }
-export async function getJson<T = Loose>(url: string): Promise<T> {
+export async function getJson<T = unknown>(url: string): Promise<T> {
   const r = await fetch(url, { headers: { Accept: 'application/json' }, credentials: 'same-origin' });
   if (!r.ok) throw new Error(`HTTP ${r.status}`);
   return (await r.json()) as T;

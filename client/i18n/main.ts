@@ -9,7 +9,7 @@
  *  - Lines the owner corrected in Admin → স্টোর ডিজাইন → ভাষা always win.
  *  - Anything marked translate="no" (logo, customer's name/phone/address) is never touched or sent anywhere.
  */
-import { whenReady, type Loose } from '../dom.js';
+import { whenReady } from '../dom.js';
 import { WORDMAP, WORDS } from './words.js';
 
 declare global { interface Window { SMLang?: { set(l: string): void; get(): string; t(s: string): string } } }
@@ -50,8 +50,9 @@ for (const [raw, en] of Object.entries(WORDS)) {
 TPL.sort((a, b) => b.weight - a.weight);
 
 whenReady(() => {
-  const CFG: Loose = window.SM?.i18n;
-  if (!CFG || !document.body) return;
+  const cfg = window.SM?.i18n;
+  if (!cfg || !document.body) return;
+  const CFG = cfg; // (the functions below run later: they keep this checked one)
 
   let FIX: Dict = Object.create(null);    // owner's corrections
   let CACHE: Dict = Object.create(null);  // server translations
@@ -61,9 +62,10 @@ whenReady(() => {
 
   const STORE = 'sm_i18n';
   try {
-    const saved = JSON.parse(localStorage.getItem(STORE) || 'null');
+    type Saved = { r?: string; m?: Dict } | null; // what this page kept in the browser last time
+    const saved = JSON.parse(localStorage.getItem(STORE) || 'null') as Saved;
     if (saved && saved.r === CFG.rev && saved.m) CACHE = saved.m;
-    const savedFix = JSON.parse(localStorage.getItem(`${STORE}_fix`) || 'null');
+    const savedFix = JSON.parse(localStorage.getItem(`${STORE}_fix`) || 'null') as Saved;
     if (savedFix && savedFix.r === CFG.rev && savedFix.m) FIX = savedFix.m;
   } catch { /* private mode */ }
   const persist = () => {

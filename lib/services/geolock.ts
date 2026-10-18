@@ -44,7 +44,7 @@ function config(s: Settings) {
   let zonesComplete = true;
   for (const c of allow) {
     if (!(COUNTRIES as Loose)[c].length) zonesComplete = false;
-    (COUNTRIES as Loose)[c].forEach((z: Loose) => zones.add(z));
+    (COUNTRIES as Loose)[c].forEach((z: unknown) => zones.add(z));
   }
   return {
     on: s.geo_lock_on === '1' && allow.length > 0,
@@ -96,7 +96,7 @@ async function check(req: ShopRequest, path: string, s?: Loose, method = 'GET'):
 }
 
 // how many visits each country lost (shown on the admin page), one row per day + country + reason
-function count(country: string, why?: Loose) {
+function count(country: string, why?: unknown) {
   db.q(`INSERT INTO geo_blocks(day, country, why, n) VALUES((now() AT TIME ZONE 'Asia/Dhaka')::date, $1, $2, 1)
     ON CONFLICT (day, country, why) DO UPDATE SET n = geo_blocks.n + 1`, [String(country || '??').slice(0, 2), why]).catch(() => {});
   if (Math.random() < 0.01) db.q(`DELETE FROM geo_blocks WHERE day < (now() AT TIME ZONE 'Asia/Dhaka')::date - 90`).catch(() => {});

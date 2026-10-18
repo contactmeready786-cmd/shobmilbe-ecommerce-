@@ -114,7 +114,7 @@ function reachLive(): void {
   setInterval(async () => {
     try {
       const r = await fetch('/admin/reach/live', { credentials: 'same-origin', headers: { Accept: 'application/json' } });
-      const j = await r.json();
+      const j = (await r.json()) as { now: string; views: string; orders: string }; // lib/admin/reach.tsx live
       const v = $all('.kpi-value, .kpi b, .kpi strong', box);
       if (v.length >= 3) { v[0].textContent = j.now; v[1].textContent = j.views; v[2].textContent = j.orders; }
     } catch { /* next minute */ }

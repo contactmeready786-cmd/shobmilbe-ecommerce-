@@ -1,7 +1,7 @@
 // সবমিলবে admin — পণ্য আমদানি (product import from a file, a link or many links) and
 // "more pictures from the old site" (each product's own page).
 import { h, Fragment, paint } from '../jsx.js';
-import { $, $all, bn, sleep, type Loose } from '../dom.js';
+import { $, $all, bn, sleep } from '../dom.js';
 import { money, postJSON, toast } from './core.js';
 import { upload } from './images.js';
 
@@ -11,6 +11,14 @@ type Item = {
   stock?: number | null; in_stock?: boolean; exists?: { sku?: string } | null; _noPics?: boolean;
 };
 type Link = { url: string; kind?: string };
+// what the server answers (lib/admin/import.tsx, lib/admin/morepics.tsx)
+type ReadAnswer = { format?: string; items?: Item[]; links?: Link[]; next?: string | null; notes?: string[]; columns?: string[]; unknownColumns?: boolean };
+type Match = { id: number; name: string; sku?: string; image?: string; emoji?: string; reasons?: string[] };
+type SaveAnswer = { result: 'added' | 'updated' | 'exists' | 'duplicate' | 'error'; id?: number; sku?: string; name?: string; active?: boolean; matches?: Match[]; images?: number[]; message?: string };
+type PlanAnswer = { feedItems: number; matched: number; full: number; notInShop: number; products: Pics[]; max: number; missing?: Item[]; inTrash?: { title: string }[]; extra?: string[]; sitemapRead: boolean; sitemapCount: number; oldTotal: number };
+type FindAnswer = { images?: string[]; rule?: string; confirmed?: boolean; error?: string; note?: string };
+type AttachAnswer = { added: number; repeat: number; total: number };
+type PageAnswer = { error?: string; item: Item; trashed: boolean; exists: { id: number; name: string; sku: string; pics: number; thumb: string } | null };
 const Thumb = ({ it }: { it: { images?: string[] } }) => (it.images?.[0] ? <img src={it.images[0]} alt="" loading="lazy" referrerpolicy="no-referrer" /> : <span>📦</span>);
 const unloadGuard = (running: () => boolean) => window.addEventListener('beforeunload', (e) => { if (running()) { e.preventDefault(); e.returnValue = ''; } });
 
@@ -72,13 +80,13 @@ function importer(imp: HTMLElement): void {
 
   let found: Item[] = [];
   let notes: string[] = [];
-  const addResult = (j: Loose) => {
+  const addResult = (j: ReadAnswer) => {
     found.push(...(j.items || []));
     for (const n of j.notes || []) if (!notes.includes(n)) notes.push(n);
     if (j.unknownColumns) notes.push('⚠️ ফাইলের কলামের নাম চেনা যায়নি। প্রথম লাইনে title / name / পণ্যের নাম, price / দাম, image_link / ছবি — এমন নাম দিন (নমুনা ফাইল দেখুন)।');
   };
   const busy = (on: boolean) => { for (const b of $all<HTMLButtonElement>('[data-imp-read]', imp)) b.disabled = on || (b === fileBtn && !pickedFile); };
-  const read = (body: unknown) => postJSON('/admin/api/import/read', body);
+  const read = (body: unknown) => postJSON<ReadAnswer>('/admin/api/import/read', body);
 
   // Visit a list of pages (category pages, sitemaps, product pages) a few at a time.
   const crawl = async (start: Link[]) => {
@@ -94,7 +102,7 @@ function importer(imp: HTMLElement): void {
         try {
           const j = await read({ url: l.url, single: true });
           addResult(j);
-          for (const x of (j.links || []) as Link[]) if (!seen.has(x.url) && pages + queue.length < 6000) { seen.add(x.url); queue.push(x); }
+          for (const x of j.links || []) if (!seen.has(x.url) && pages + queue.length < 6000) { seen.add(x.url); queue.push(x); }
           if (j.next && !seen.has(j.next)) { seen.add(j.next); queue.push({ url: j.next, kind: 'list' }); }
         } catch { failed++; }
         pages++;
@@ -153,7 +161,7 @@ function importer(imp: HTMLElement): void {
         const binary = /\.(xlsx|xls)$/i.test(pickedFile.name) || /spreadsheet|excel/.test(pickedFile.type);
         const j = await read({ file: await readFile(pickedFile, binary) });
         addResult(j);
-        if ((j.links || []).length) await crawl(j.links);
+        if ((j.links || []).length) await crawl(j.links!);
       } else if (kind === 'many') {
         const lines = ($<HTMLTextAreaElement>('[data-imp-links]', imp)?.value || '').split(/\s+/).filter((x) => /^https?:\/\/\S+\.\S+/i.test(x));
         if (!lines.length) { busy(false); say('অন্তত একটা লিংক দিন (https:// দিয়ে শুরু)।', true); return; }
@@ -230,18 +238,18 @@ function importer(imp: HTMLElement): void {
   // bring each picture through our server, resize + fingerprint it in the browser, upload it
   const copyImages = (it: Item) => copyAll((it.images || []).slice(0, 6));
   let saveChain: Promise<unknown> = Promise.resolve();
-  const save = (it: Item, ids: number[], allow = false): Promise<Loose> => {
-    const job = saveChain.then(() => postJSON('/admin/api/import/save', { item: it, images: ids, options: opts(), allow_duplicate: allow ? 1 : 0 }));
+  const save = (it: Item, ids: number[], allow = false): Promise<SaveAnswer> => {
+    const job = saveChain.then(() => postJSON<SaveAnswer>('/admin/api/import/save', { item: it, images: ids, options: opts(), allow_duplicate: allow ? 1 : 0 }));
     saveChain = job.catch(() => {});
     return job;
   };
-  const handle = (it: Item, ids: number[], r: Loose) => {
+  const handle = (it: Item, ids: number[], r: SaveAnswer) => {
     if (r.result === 'duplicate') {
       st.k.duplicate++;
       const btn = canOverride ? <button type="button" className="btn btn-ghost btn-sm" data-imp-force="">তবুও যোগ করুন</button> as HTMLButtonElement : null;
       const li = (
         <li className="dup-item is-block"><span className="dup-thumb"><Thumb it={it} /></span><div className="dup-info"><b>{it.title}</b>
-          <span className="dup-why">⛔ দোকানে আগে থেকেই আছে: {(r.matches || []).flatMap((m: Loose, i: number) => [i ? <br /> : null,
+          <span className="dup-why">⛔ দোকানে আগে থেকেই আছে: {(r.matches || []).flatMap((m, i) => [i ? <br /> : null,
             <a href={`/admin/products/${m.id}`} target="_blank" rel="noopener">{m.name}{m.sku ? ` (SKU ${m.sku})` : ''}</a>, ` — ${(m.reasons || []).join(' · ')}`])}</span></div>{btn}</li>
       );
       btn?.addEventListener('click', async () => {
@@ -332,7 +340,7 @@ function morePictures(mp: HTMLElement): void {
   const say = (t: Node | string, bad = false) => { status.hidden = !t; paint(status, t); status.classList.toggle('warn', bad); };
   const K = { added: 0, done: 0, pics: 0, none: 0, error: 0 };
   const st = { list: [] as Task[], max: 12, running: false, paused: false, done: 0, k: K };
-  const post = (url: string, body: unknown) => postJSON(url, body);
+  const post = <T,>(url: string, body: unknown) => postJSON<T>(url, body);
   const draw = () => {
     for (const [k, n] of Object.entries(st.k)) { const el = $(`[data-mp-k="${k}"]`, mp); if (el) el.textContent = bn(n); }
     $('[data-mp-bar]', mp)!.style.width = `${st.list.length ? Math.round((st.done * 100) / st.list.length) : 0}%`;
@@ -359,7 +367,7 @@ function morePictures(mp: HTMLElement): void {
     planBtn.disabled = true;
     say('⏳ ফিড আর পুরোনো সাইটের পণ্যের তালিকা পড়া হচ্ছে… (এক মিনিট লাগতে পারে)');
     try {
-      const j = await post('/admin/api/morepics/plan', { url, max: $<HTMLInputElement>('[data-mp-max]', mp)?.value });
+      const j = await post<PlanAnswer>('/admin/api/morepics/plan', { url, max: $<HTMLInputElement>('[data-mp-max]', mp)?.value });
       planBtn.disabled = false;
       st.max = j.max;
       const missing: Item[] = j.missing || [];
@@ -368,7 +376,7 @@ function morePictures(mp: HTMLElement): void {
       // new products first (the most important), then pages only the sitemap knows, then more pictures
       st.list = [
         ...(addNew ? [...missing.map((it): Task => ({ kind: 'new', item: it })), ...extra.map((u): Task => ({ kind: 'link', link: u }))] : []),
-        ...(j.products as Pics[]).map((p): Task => ({ kind: 'pics', p })),
+        ...j.products.map((p): Task => ({ kind: 'pics', p })),
       ];
       say(<>✅ পুরোনো সাইটে মোট <b>{bn(j.oldTotal)}টি</b> পণ্য পাওয়া গেছে (ফিডে {bn(j.feedItems)}টি{extra.length ? `, ফিডের বাইরে সাইটে আরও ${bn(extra.length)}টি` : ''})।<br />
         এই দোকানে আছে {bn(j.matched)}টি{j.full ? ` (${bn(j.full)}টিতে আগে থেকেই সব ছবি আছে)` : ''}।{' '}
@@ -394,14 +402,14 @@ function morePictures(mp: HTMLElement): void {
   };
   // more pictures for a product already in the shop
   const one = async (p: Pics) => {
-    const f = await post('/admin/api/morepics/find', { link: p.link, main: p.main });
+    const f = await post<FindAnswer>('/admin/api/morepics/find', { link: p.link, main: p.main });
     if (f.error) { st.k.error++; log(p, 'is-warn', `⚠️ ${f.error}`); return; }
     if (!f.confirmed) { st.k.error++; log(p, 'is-warn', `⚠️ ${f.note}`); return; }
     const pics = uniq(f.images || []).slice(0, st.max + 3); // the whole old gallery (a few spare in case some are the same photo)
     if (!pics.length) { st.k.none++; return; }
     const ids = await copyAll(pics);
     if (!ids.length) { st.k.error++; log(p, 'is-warn', '⚠️ ছবিগুলো আনা যায়নি'); return; }
-    const r = await post('/admin/api/morepics/attach', { product_id: p.id, ids, max: st.max });
+    const r = await post<AttachAnswer>('/admin/api/morepics/attach', { product_id: p.id, ids, max: st.max });
     if (r.added) {
       st.k.done++;
       st.k.pics += r.added;
@@ -413,12 +421,12 @@ function morePictures(mp: HTMLElement): void {
   const addNew = async (it: Item) => {
     const row: Pics = { name: it.title, link: it.link };
     const feedPics = uniq(it.images || []);
-    const f: Loose = it.link ? await post('/admin/api/morepics/find', { link: it.link, main: feedPics[0] || '' }).catch(() => ({})) : {};
+    const f: FindAnswer = it.link ? await post<FindAnswer>('/admin/api/morepics/find', { link: it.link, main: feedPics[0] || '' }).catch(() => ({})) : {};
     const foundPics = f.confirmed ? uniq(f.images || []) : [];
     const mainUrl = feedPics[0] || foundPics[0] || '';
     const rest = uniq(foundPics.concat(feedPics.slice(1))).filter((u) => u.split('?')[0] !== mainUrl.split('?')[0]);
     const mainIds = await copyAll(mainUrl ? [mainUrl] : []);
-    const r = await post('/admin/api/import/save', { item: it, images: mainIds, allow_duplicate: 1,
+    const r = await post<SaveAnswer>('/admin/api/import/save', { item: it, images: mainIds, allow_duplicate: 1,
       options: { active: true, hide_no_image: true, cat_mode: 'auto', default_stock: 10, existing: 'skip' } });
     if (r.result === 'exists') { st.k.none++; return; }
     if (r.result === 'duplicate') {
@@ -431,10 +439,10 @@ function morePictures(mp: HTMLElement): void {
     st.k.added++;
     row.id = r.id;
     row.sku = r.sku;
-    let a: Loose = { added: 0, total: mainIds.length };
+    let a: Pick<AttachAnswer, 'added' | 'total'> = { added: 0, total: mainIds.length };
     if (rest.length) {
       const ids = await copyAll(rest.slice(0, st.max + 3));
-      if (ids.length) a = await post('/admin/api/morepics/attach', { product_id: r.id, ids, max: st.max });
+      if (ids.length) a = await post<AttachAnswer>('/admin/api/morepics/attach', { product_id: r.id, ids, max: st.max });
     }
     const total = a.total || mainIds.length;
     st.k.pics += total;
@@ -442,7 +450,7 @@ function morePictures(mp: HTMLElement): void {
   };
   // a page only the old site's sitemap knows: read it, then add it or fill its pictures
   const fromLink = async (link: string) => {
-    const r = await post('/admin/api/morepics/page', { link });
+    const r = await post<PageAnswer>('/admin/api/morepics/page', { link });
     if (r.error) { st.k.error++; log({ name: link, link }, 'is-warn', `⚠️ ${r.error}`); return; }
     if (r.trashed) { st.k.none++; log({ name: r.item.title, link }, 'is-skip', '🗑️ রিসাইকেল বিনে আছে — আনা হয়নি'); return; }
     if (r.exists) {
@@ -497,7 +505,7 @@ function morePictures(mp: HTMLElement): void {
     testBtn.disabled = true;
     paint(out, <p className="small muted">⏳ পেজ পড়া হচ্ছে…</p>);
     try {
-      const f = await post('/admin/api/morepics/find', { link });
+      const f = await post<FindAnswer>('/admin/api/morepics/find', { link });
       testBtn.disabled = false;
       if (f.error) { paint(out, <p className="warn">⚠️ {f.error}</p>); return; }
       const imgs: string[] = f.images || [];

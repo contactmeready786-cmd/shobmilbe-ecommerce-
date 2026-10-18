@@ -1,7 +1,7 @@
 // সবমিলবে admin — pictures: resizing and uploading, the picture fingerprint (finds the same photo again),
 // profile pictures, image pickers, the product's numbered picture slots, and the watermark.
 import { h, Fragment, paint } from '../jsx.js';
-import { $, $all, bn, hit, type Loose } from '../dom.js';
+import { $, $all, bn, hit } from '../dom.js';
 import { getJSON, show, toast } from './core.js';
 
 void Fragment;
@@ -147,7 +147,9 @@ function resize(file: Blob, max: number, quality: number, square?: boolean): Pro
   });
 }
 export type UploadOpts = { max?: number; thumb?: number; square?: boolean; import?: boolean; private?: boolean };
-export async function upload(file: Blob, opts: UploadOpts = {}): Promise<Loose> {
+/** what POST /admin/api/media answers for a saved picture (lib/admin/index.tsx) */
+export type Uploaded = { id: number; url: string; thumb: string };
+export async function upload(file: Blob, opts: UploadOpts = {}): Promise<Uploaded> {
   const max = opts.max || 1200;
   let full = await resize(file, max, 0.82, opts.square);
   // Big PNGs (photos saved as PNG) become JPEG to stay small.
@@ -159,7 +161,7 @@ export async function upload(file: Blob, opts: UploadOpts = {}): Promise<Loose> 
     body: JSON.stringify({ data: full.data, thumb: th.data, width: full.width, height: full.height,
       phash: fp ? fp.h : undefined, phash_m: fp ? fp.m : undefined, import: opts.import ? 1 : undefined, private: opts.private ? 1 : undefined }),
   });
-  const j = await r.json();
+  const j = (await r.json()) as Uploaded & { error?: string };
   if (!r.ok) throw new Error(j.error || 'আপলোড হয়নি');
   return j;
 }
@@ -229,9 +231,9 @@ function avatars(): void {
     const msg = $('[data-avatar-msg]', box);
     const action = box.getAttribute('data-action') || '';
     const say = (text: string, cls: string) => { if (msg) { msg.textContent = text; msg.className = cls; } };
-    const save = async (id: string) => {
+    const save = async (id: string | number) => {
       const r = await fetch(action, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify({ photo_id: id }) });
-      const j = await r.json();
+      const j = (await r.json()) as { error?: string };
       if (!r.ok) throw new Error(j.error || 'সেভ হয়নি');
       return j;
     };
@@ -313,7 +315,7 @@ function imagePickers(): void {
       paint(preview, <span className="muted small">আপলোড হচ্ছে…</span>);
       try {
         const j = await upload(f, { max: file.hasAttribute('data-wide') ? 1800 : 1000 });
-        value.value = j.id;
+        value.value = String(j.id);
         paint(preview, <img src={j.thumb} alt="" />);
         if (clear) clear.hidden = false;
         pickStatus(box, 'added');
@@ -335,11 +337,11 @@ function slots(): void {
   let busy = 0;
   const label = (i: number) => (i === 0 ? 'মূল ছবি' : `ছবি ${bn(i + 1)}`);
   const clearShown = (add: Element) => { for (const n of $all('img, .slot-plus, .slot-hint, .slot-wait', add)) n.remove(); };
-  const draw = (slot: HTMLElement, id: string | null, src?: string) => {
+  const draw = (slot: HTMLElement, id: string | number | null, src?: string) => {
     const i = Number(slot.getAttribute('data-slot'));
     const add = $('.slot-add', slot)!;
     const file = $('[data-slot-file]', slot)!;
-    slot.setAttribute('data-img', id || '');
+    slot.setAttribute('data-img', String(id || ''));
     slot.classList.toggle('filled', !!id);
     slot.classList.remove('busy');
     // keep the file input, replace what is shown
