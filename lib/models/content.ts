@@ -10,7 +10,12 @@ async function listBlogCategories() {
   return q(`SELECT c.*, (SELECT count(*) FROM blog_posts p WHERE p.category_id=c.id AND p.status='published')::int AS posts
             FROM blog_categories c ORDER BY sort, id`);
 }
-async function saveBlogCategory({ id, name, sort }: Body) {
+type SaveBlogCategoryOpts = {
+  id?: Loose;
+  name?: Loose;
+  sort?: Loose;
+};
+async function saveBlogCategory({ id, name, sort }: SaveBlogCategoryOpts) {
   if (int(id)) { await q('UPDATE blog_categories SET name=$1, sort=$2 WHERE id=$3', [str(name, 60), int(sort), int(id)]); return int(id); }
   const slug = await uniqueSlug('blog_categories', slugify(name));
   return (await one('INSERT INTO blog_categories(name, slug, sort) VALUES($1,$2,$3) RETURNING id', [str(name, 60), slug, int(sort)]))!.id;
@@ -19,7 +24,14 @@ async function deleteBlogCategory(id?: Id) { await q('DELETE FROM blog_categorie
 
 const POST_COLS = `p.id, p.title, p.slug, p.category_id, p.excerpt, p.cover_id, p.status, p.published_at, p.seo_title, p.seo_description,
   p.views, p.created_at, p.updated_at, c.name AS category_name, c.slug AS category_slug, s.name AS author_name`;
-async function listPosts({ published, categorySlug, q: search, limit = 50, offset = 0 }: Body = {}) {
+type ListPostsOpts = {
+  published?: boolean;
+  categorySlug?: Loose;
+  q?: Loose;
+  limit?: number;
+  offset?: number;
+};
+async function listPosts({ published, categorySlug, q: search, limit = 50, offset = 0 }: ListPostsOpts = {}) {
   const params = [];
   const where = [];
   if (published) where.push(`p.status='published' AND p.published_at <= now()`);
@@ -30,11 +42,26 @@ async function listPosts({ published, categorySlug, q: search, limit = 50, offse
             ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
             ORDER BY coalesce(p.published_at, p.created_at) DESC, p.id DESC LIMIT $${params.length - 1} OFFSET $${params.length}`, params);
 }
-async function getPost({ id, slug }: Body) {
+type GetPostOpts = {
+  id?: number;
+  slug?: string;
+};
+async function getPost({ id, slug }: GetPostOpts) {
   return one(`SELECT ${POST_COLS}, p.content FROM blog_posts p LEFT JOIN blog_categories c ON c.id=p.category_id
               LEFT JOIN staff s ON s.id=p.author_id WHERE ${id ? 'p.id=$1' : 'p.slug=$1'}`, [id || slug]);
 }
-async function savePost(data: Body, staffId?: Id) {
+type SavePostOpts = {
+  status?: Loose;
+  title?: Loose;
+  category_id?: Loose;
+  excerpt?: Loose;
+  content?: Loose;
+  cover_id?: Loose;
+  seo_title?: Loose;
+  seo_description?: Loose;
+  id: number | null;
+};
+async function savePost(data: SavePostOpts, staffId?: Id) {
   const status = data.status === 'published' ? 'published' : 'draft';
   const f = {
     title: str(data.title, 160), category_id: int(data.category_id) || null, excerpt: str(data.excerpt, 500),
@@ -64,11 +91,27 @@ async function deletePost(id?: Id) {
 }
 
 // ---------------------------------------------------------------- pages
-async function listPages({ active }: Body = {}) {
+type ListPagesOpts = {
+  active?: boolean;
+};
+async function listPages({ active }: ListPagesOpts = {}) {
   return memo(`pages:${!!active}`, () => q(`SELECT * FROM pages ${active ? 'WHERE active' : ''} ORDER BY sort, id`));
 }
-async function getPage({ id, slug }: Body) { return one(`SELECT * FROM pages WHERE ${id ? 'id=$1' : 'slug=$1'}`, [id || slug]); }
-async function savePage(data: Body) {
+type GetPageOpts = {
+  id?: number;
+  slug?: string;
+};
+async function getPage({ id, slug }: GetPageOpts) { return one(`SELECT * FROM pages WHERE ${id ? 'id=$1' : 'slug=$1'}`, [id || slug]); }
+type SavePageOpts = {
+  title?: Loose;
+  content?: Loose;
+  in_footer?: Loose;
+  active?: Loose;
+  sort?: Loose;
+  id: number | null;
+  slug?: Loose;
+};
+async function savePage(data: SavePageOpts) {
   const f = [str(data.title, 120), str(data.content, 100000), !!data.in_footer, !!data.active, int(data.sort)];
   if (int(data.id)) {
     await q('UPDATE pages SET title=$1, content=$2, in_footer=$3, active=$4, sort=$5, updated_at=now() WHERE id=$6', [...f, int(data.id)]);
@@ -81,7 +124,11 @@ async function deletePage(id?: Id) { await q('DELETE FROM pages WHERE id=$1', [i
 
 // ---------------------------------------------------------------- banners
 const PLACEMENTS: Record<string, string> = { slider: 'হোমপেজ স্লাইডার (বড় ব্যানার)', promo: 'হোমপেজ মাঝের ছোট ব্যানার', popup: 'পপআপ অফার' };
-async function listBanners({ active, placement }: Body = {}) {
+type ListBannersOpts = {
+  active?: boolean;
+  placement?: string;
+};
+async function listBanners({ active, placement }: ListBannersOpts = {}) {
   const params: unknown[] = [];
   const where: string[] = [];
   if (active) where.push('active AND image_id IS NOT NULL');
@@ -111,7 +158,24 @@ async function deleteBanner(id?: Id) {
 // ---------------------------------------------------------------- coupons
 const COUPON_TYPES: Record<string, string> = { percent: 'শতকরা ছাড় (%)', fixed: 'নির্দিষ্ট টাকা ছাড় (৳)', free_delivery: 'ফ্রি ডেলিভারি' };
 async function listCoupons() { return q<CouponsRow>('SELECT * FROM coupons ORDER BY active DESC, created_at DESC'); }
-async function saveCoupon(data: Body) {
+type SaveCouponOpts = {
+  code?: Loose;
+  type?: Loose;
+  value?: Loose;
+  min_order?: Loose;
+  max_discount?: Loose;
+  starts_on?: Loose;
+  ends_on?: Loose;
+  usage_limit?: Loose;
+  per_phone?: Loose;
+  active: Loose;
+  note?: Loose;
+  id?: Loose;
+  product_ids?: Loose;
+  category_ids?: Loose;
+  first_order?: Loose;
+};
+async function saveCoupon(data: SaveCouponOpts) {
   const code = str(data.code, 30).toUpperCase().replace(/[^A-Z0-9_-]/g, '');
   if (!code) throw new Error('কুপন কোড দিন (শুধু ইংরেজি অক্ষর ও সংখ্যা)।');
   const type = COUPON_TYPES[data.type] ? data.type : 'percent';

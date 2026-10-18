@@ -51,7 +51,16 @@ async function savePhotos(list?: unknown, visible?: unknown) {
   return out;
 }
 
-async function submit({ code, productId, name, rating, body, ip, photos }: Body, settings: Settings) {
+type SubmitOpts = {
+  code: string;
+  productId: Loose;
+  name: Loose;
+  rating: Loose;
+  body: Loose;
+  ip: string;
+  photos: Loose;
+};
+async function submit({ code, productId, name, rating, body, ip, photos }: SubmitOpts, settings: Settings) {
   const pid = int(productId);
   const r = int(rating);
   const text = str(body, 1500).replace(/\s+\n/g, '\n');

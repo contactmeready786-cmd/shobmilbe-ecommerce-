@@ -113,7 +113,11 @@ function article({ cat, items }: Body, settings: Settings) {
 }
 
 // Write / refresh the price-list articles that are due (at most `max` per call, so a wake-up stays short).
-async function run(settings: Settings, { force = false, max = 2 }: Body = {}) {
+type RunOpts = {
+  force?: boolean;
+  max?: number;
+};
+async function run(settings: Settings, { force = false, max = 2 }: RunOpts = {}) {
   if (!force && settings.autoblog_on !== '1') return { off: true };
   const groups = await categoriesWithProducts();
   if (!groups.length) return { none: true };

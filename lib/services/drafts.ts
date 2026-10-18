@@ -70,7 +70,11 @@ function where(f: Body, params?: Loose) {
   }
   return w.length ? 'WHERE ' + w.join(' AND ') : '';
 }
-async function list(f: Body, { limit = 50, offset = 0 }: Body = {}) {
+type ListOpts = {
+  limit?: number;
+  offset?: number;
+};
+async function list(f: Body, { limit = 50, offset = 0 }: ListOpts = {}) {
   const params: Loose[] = [];
   const w = where(f, params);
   params.push(limit, offset);

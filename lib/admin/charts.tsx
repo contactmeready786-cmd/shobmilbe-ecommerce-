@@ -22,7 +22,14 @@ function dayLabel(d?: unknown) {
 }
 
 // Columns (bars) with an optional line on top. series: [{label, bar, line}]
-function combo(series?: Loose, { barName = '', lineName = '', barMoney = false, lineMoney = true, height = 260 }: Body = {}) {
+type ComboProps_ = {
+  barName?: string;
+  lineName?: string;
+  barMoney?: boolean;
+  lineMoney?: boolean;
+  height?: number;
+};
+function combo(series?: Loose, { barName = '', lineName = '', barMoney = false, lineMoney = true, height = 260 }: ComboProps_ = {}) {
   if (!series.length) return <p className="muted">কোনো ডাটা নেই।</p>;
   const W = 760; const H = height; const L = 54; const R = 54; const T = 16; const B = 30;
   const iw = W - L - R; const ih = H - T - B;
@@ -65,7 +72,11 @@ function hbars(rows?: Loose, { isMoney = false, color = 0 }: Body = {}) {
 }
 
 // Donut: rows [{label, value}]
-function donut(rows?: Loose, { center = '', centerSub = '' }: Body = {}) {
+type DonutProps_ = {
+  center?: string;
+  centerSub?: string;
+};
+function donut(rows?: Loose, { center = '', centerSub = '' }: DonutProps_ = {}) {
   const total = rows.reduce((s: number, r: Loose) => s + (Number(r.value) || 0), 0);
   if (!total) return <p className="muted">কোনো ডাটা নেই।</p>;
   const R = 70; const C = 2 * Math.PI * R;

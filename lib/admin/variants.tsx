@@ -10,7 +10,25 @@ import type { ProductsRow } from '../data/rows';
 
 const PRESET_TITLES = ['রং', 'সাইজ', 'মডেল', 'রং / সাইজ', 'ধরন', 'ভোল্টেজ', 'ক্ষমতা (ওয়াট)', 'দৈর্ঘ্য', 'প্যাক'];
 
-function rowHtml(v: Loose, { seeCost, images, i, blank = false }: Body) {
+type RowHtmlProps_ = {
+  seeCost: boolean;
+  images: number[];
+  i: number;
+  blank?: boolean;
+};
+type RowHtmlProps = {
+  active?: boolean;
+  id?: number;
+  variant_label?: Loose;
+  price?: number | string;
+  old_price?: Loose;
+  cost_price?: number | null;
+  stock?: number;
+  sku?: Loose;
+  barcode?: Loose;
+  image_id?: number | null;
+};
+function rowHtml(v: RowHtmlProps, { seeCost, images, i, blank = false }: RowHtmlProps_) {
   const n = blank ? '' : i;
   return <tr className={v.active === false ? 'row-off' : ''} data-var-row=""><td><input type="hidden" name="vid" defaultValue={attrValue(v.id || '')} />{' '}<input name="vlabel" defaultValue={attrValue(v.variant_label || '')} maxLength={60} placeholder="যেমন: লাল / XL" className="w-md" required={!(blank)} aria-label={`ভ্যারিয়েন্টের নাম ${attrValue(n)}`} /></td><td><input name="vprice" type="number" step="0.01" min="0" defaultValue={attrValue(v.price ?? '')} className="w-num" aria-label="বিক্রির দাম" /></td><td><input name="vold" type="number" step="0.01" min="0" defaultValue={attrValue(v.old_price ?? '')} className="w-num" aria-label="আগের দাম" /></td>{(!seeCost ? null : (v.id ? <td><input type="hidden" name="vcost" defaultValue="" /><b>{(Number(v.cost_price) > 0 ? money(v.cost_price) : <span className="warn">—</span>)}</b><br /><a className="small" href={`/admin/products/${attrValue(v.id)}/ledger`}>📒 হিসাব</a></td> : <td><input name="vcost" type="number" step="0.01" min="0" defaultValue={attrValue(v.cost_price ?? '')} className="w-num" aria-label="কেনা দাম" /></td>))}{' '}{(v.id ? <td><input type="hidden" name="vstock" defaultValue="" /><b>{bn(v.stock ?? 0)}</b><br /><a className="small" href={`/admin/inventory?q=${attrValue(encodeURIComponent(v.sku || ''))}`}>ঠিক করুন</a></td> : <td><input name="vstock" type="number" min="0" defaultValue={attrValue(v.stock ?? '')} className="w-num" placeholder="শুরুর স্টক" aria-label="শুরুর স্টক" /></td>)}<td><input name="vsku" defaultValue={attrValue(v.sku || '')} maxLength={60} className="w-sm" placeholder="নিজে বসবে" aria-label="SKU" />{(v.barcode ? <><br /><span className="small muted mono"><Val v={v.barcode} /></span></> : null)}</td><td>{(images.length ? ui.select('vimage', [['', '— মূল ছবি —'], ...images.map((id: unknown, k: number) => [id, `ছবি ${bn(k + 1)}`])], v.image_id || '', { 'aria-label': 'ছবি', 'data-var-img': true }) : <><input type="hidden" name="vimage" defaultValue="" /><span className="small muted">ছবি নেই</span></>)}</td><td><label className="switch" title="বন্ধ = দোকানে এই অপশন দেখাবে না"><input type="checkbox" name={`vactive_${attrValue(blank ? 'new' : v.id || 'new')}`} defaultValue="1" defaultChecked={!(v.active === false)} data-var-active="" /><span className="switch-ui" aria-hidden="true"></span></label>{' '}<input type="hidden" name="vactive" defaultValue={v.active === false ? '0' : '1'} data-var-active-val="" /></td><td>{(v.id ? <label className="check small"><input type="checkbox" name="vremove" defaultValue={attrValue(v.id)} />{' '}<span>মুছুন</span></label> : <span className="small muted">নতুন</span>)}</td></tr>;
 }

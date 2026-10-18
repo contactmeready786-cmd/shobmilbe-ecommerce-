@@ -29,7 +29,11 @@ const TYPE_HELP: Record<string, unknown> = {
 };
 
 // ---------------------------------------------------------------- Cloudflare API
-async function cf(s: Settings, path: string, { method = 'GET', body }: Body = {}): Promise<Loose> {
+type CfProps = {
+  method?: string;
+  body?: Loose;
+};
+async function cf(s: Settings, path: string, { method = 'GET', body }: CfProps = {}): Promise<Loose> {
   if (!s.cf_api_token) return { ok: false, error: 'Cloudflare API Token দেওয়া নেই।' };
   const r = await fetchJson(API + path, {
     method,
@@ -67,7 +71,19 @@ async function zone(s: Settings) {
 }
 
 // ---------------------------------------------------------------- form → Cloudflare record
-function recordFrom(b: Body, zoneName: string) {
+type RecordFromProps = {
+  type?: Loose;
+  name?: Loose;
+  ttl?: Loose;
+  comment?: Loose;
+  content?: Loose;
+  target?: Loose;
+  port?: Loose;
+  weight?: Loose;
+  priority?: Loose;
+  proxied?: Loose;
+};
+function recordFrom(b: RecordFromProps, zoneName: string) {
   const type = TYPES.includes(String(b.type).toUpperCase()) ? String(b.type).toUpperCase() : null;
   if (!type) return { error: 'রেকর্ডের ধরন (Type) বাছুন।' };
   let name = str(b.name, 200).trim().toLowerCase().replace(/\.$/, '');

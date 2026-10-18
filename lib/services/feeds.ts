@@ -116,7 +116,10 @@ function item(p: FullProduct, channel: string, settings: Settings, base: string)
   };
 }
 
-function toXml(items: Loose, channel: string | number, settings: Settings, base: string) {
+type ToXmlOpts = {
+  map: Loose;
+};
+function toXml(items: ToXmlOpts, channel: string | number, settings: Settings, base: string) {
   const tag = (k: string, v: string | null | undefined) => (v === '' || v === null || v === undefined ? '' : `<g:${k}>${xml(v)}</g:${k}>`);
   const body = items.map((it: Loose) => '<item>' + [
     tag('id', it.id), tag('title', it.title), tag('description', it.description), tag('link', it.link),
@@ -168,7 +171,14 @@ async function build(channel: string, settings: Settings, base: string) {
 }
 
 // GET /feeds/google.xml?key=…  /feeds/facebook.csv?key=…
-async function serve({ query, settings, send, siteUrl, req }: Body, channel: string, format: string) {
+type ServeOpts = {
+  query?: Loose;
+  settings?: Loose;
+  send?: Loose;
+  siteUrl?: Loose;
+  req?: Loose;
+};
+async function serve({ query, settings, send, siteUrl, req }: ServeOpts, channel: string, format: string) {
   const token = settings[`feed_${channel}_token`];
   if (!token || query.get('key') !== token) return send(404, 'Feed not found. Generate the feed link in Admin → মার্কেটিং → প্রোডাক্ট ফিড.', 'text/plain; charset=utf-8');
   const base = siteUrl.replace(/\/+$/, '');

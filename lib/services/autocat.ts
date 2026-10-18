@@ -239,7 +239,10 @@ async function ensureCategories(t: Tx, wanted?: Loose) {
 }
 
 // What every product would get. Remote brands get a sub-category only when there are enough of them.
-async function plan({ ids = null }: Body = {}) {
+type PlanOpts = {
+  ids?: Loose;
+};
+async function plan({ ids = null }: PlanOpts = {}) {
   const products = await q(`SELECT p.id, p.name, p.category_id, c.slug AS category_slug, c.name AS category_name
     FROM products p LEFT JOIN categories c ON c.id=p.category_id WHERE p.parent_id IS NULL ${ids ? 'AND p.id = ANY($1::int[])' : ''} ORDER BY p.id`, ids ? [ids] : []);
   const rows: Loose[] = products.map((p) => ({ ...p, c: classify(p.name) }));
@@ -279,7 +282,10 @@ async function preview() {
 }
 
 // Move products. ids: only these products (null = all). onlyMatched: leave unknown products where they are.
-async function apply({ ids = null }: Body = {}) {
+type ApplyOpts = {
+  ids?: number[] | null;
+};
+async function apply({ ids = null }: ApplyOpts = {}) {
   const { rows, extra } = await plan({ ids });
   const todo = rows.filter((r) => r.to);
   if (!todo.length) return { moved: 0, unknown: rows.length };

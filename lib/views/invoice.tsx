@@ -40,7 +40,10 @@ function qrSvg(s?: Settings, order?: Loose, px?: unknown) {
   const site = siteOf(s);
   return site ? $services_qr.svg(`${site}/track?code=${order.code}`, { px, label: 'অর্ডার ট্র্যাক' }) : '';
 }
-const shell = (title?: unknown, css?: unknown, bodyHtml?: unknown, { embed }: Body = {}) => '<!doctype html>' + `<html lang="bn"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+type ShellProps = {
+  embed?: Loose;
+};
+const shell = (title?: unknown, css?: unknown, bodyHtml?: unknown, { embed }: ShellProps = {}) => '<!doctype html>' + `<html lang="bn"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${htmlValue(title)}</title><meta name="robots" content="noindex">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>${(css)}</style></head><body class="${htmlValue(embed ? 'embed' : '')}">

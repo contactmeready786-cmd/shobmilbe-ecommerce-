@@ -100,7 +100,12 @@ function rail(title: ReactNode, link: string, products: ShopProduct[] | null | u
 }
 
 // ---------------------------------------------------------------- home
-function home({ settings: s, sections, data }: Body) {
+type HomeProps = {
+  settings: Settings;
+  sections: Loose;
+  data: Loose;
+};
+function home({ settings: s, sections, data }: HomeProps) {
   // the first row of products on the page loads its first cards at once (the rest load as they scroll into view)
   let firstRow = true;
   const lead = (list?: Loose) => (firstRow && list && list.length ? ((firstRow = false), 4) : 0);
@@ -183,7 +188,18 @@ function delText(v: unknown, def: string): string {
 }
 
 // 🔎 Filter box on shop lists: price from–to, brands, only in stock. A plain form (works without JavaScript too).
-function filterBox({ listPath, category, brand, q, sort, filters, brandList, specFacets = [], nFilters }: Body) {
+type FilterBoxProps = {
+  listPath: string;
+  category: Loose;
+  brand: Loose;
+  q: Loose;
+  sort: Loose;
+  filters: Loose;
+  brandList: Loose;
+  specFacets?: Loose;
+  nFilters: Loose;
+};
+function filterBox({ listPath, category, brand, q, sort, filters, brandList, specFacets = [], nFilters }: FilterBoxProps) {
   const clear = new URLSearchParams();
   if (category && !brand) clear.set('cat', category.slug);
   if (q) clear.set('q', q);
@@ -286,14 +302,21 @@ function recentBox(s: Settings) {
 }
 
 // ---------------------------------------------------------------- cart & checkout
-function cartPage({ settings }: Body) {
+type CartPageProps = {
+  settings: Settings;
+};
+function cartPage({ settings }: CartPageProps) {
   return (<><div className="wrap section narrow"><h1>আপনার কার্ট</h1><div id="cart-root" data-cart-page="" data-free-min={attrValue(U.on(settings, 'ui_cart_free_msg') ? settings.free_delivery_min : 0)}><p className="muted">লোড হচ্ছে…</p></div>{(U.on(settings, 'ui_cart_suggest') ? cartSuggest(settings) : null)}</div>{(settings.for_you_on !== '0' ? <div className="wrap">{forYouBox()}</div> : null)}</>);
 }
 // 🧰 project kits: the list, and one kit with its parts (tick what you need → all into the cart)
 function kitsPage({ kits }: Body) {
   return (<div className="wrap section"><nav className="crumbs" aria-label="অবস্থান"><a href="/">হোম</a>{' '}/{' '}<span>প্রজেক্ট কিট</span></nav><h1>🧰 প্রজেক্ট কিট</h1><p className="muted">একটা প্রজেক্ট বানাতে যা যা লাগে, সব এক জায়গায়। যেটা আপনার কাছে আছে সেটা বাদ দিয়ে বাকি সব এক চাপে কার্টে নিন।</p>{(kits.length ? <div className="kit-grid">{jsxList(kits.map((k: Loose) => <a className="kit-card panel" href={`/kit/${attrValue(k.slug)}`}>{' '}<span className="kit-pic">{(k.image_id ? <img src={`/media/${attrValue(k.image_id)}/t`} alt="" loading="lazy" draggable="false" /> : <span><Val v={k.emoji} /></span>)}</span>{' '}<span className="kit-body"><b><Val v={k.title} /></b><span className="small muted">{bn(k.parts)}টি পার্টস · মোট প্রায়{' '}{money(k.base_total)}{(k.level ? ` · ${k.level}` : null)}</span></span></a>))}</div> : <p className="muted">শীঘ্রই আসছে।</p>)}</div>);
 }
-function kitPage({ kit: k, settings: s }: Body) {
+type KitPageProps = {
+  kit: DbRow;
+  settings: Settings;
+};
+function kitPage({ kit: k, settings: s }: KitPageProps) {
   const rule = (price?: unknown) => qtyRule(s, price);
   const steps = $models_kits.stepList(k);
   return (<div className="wrap section" data-kit-page=""><nav className="crumbs" aria-label="অবস্থান"><a href="/">হোম</a>{' '}/{' '}<a href="/kits">প্রজেক্ট কিট</a>{' '}/{' '}<span><Val v={k.title} /></span></nav><div className="kit-head">{(k.image_id ? <img className="kit-hero" src={`/media/${attrValue(k.image_id)}`} alt={attrValue(k.title)} draggable="false" /> : <span className="kit-emoji"><Val v={k.emoji} /></span>)}<div><h1><Val v={k.title} /></h1>{(k.level || k.duration || steps.length ? <p className="kit-meta small">{(k.level ? <span>📶{' '}<Val v={k.level} /></span> : null)}{(k.duration ? <span>⏱️{' '}<Val v={k.duration} /></span> : null)}<span>🔩{' '}{bn(k.items.length)}টি পার্টস</span>{(steps.length ? <span>📋{' '}{bn(steps.length)}টি ধাপ</span> : null)}</p> : null)}{' '}{(k.description ? <div className="rich"><RawHtml html={md.render(k.description)} /></div> : null)}</div></div><section className="panel"><h2>যা যা লাগবে</h2><p className="small muted">আপনার কাছে আগে থেকে যেটা আছে সেটার টিক তুলে দিন। পরিমাণ বদলাতে পারবেন।</p><ul className="kit-parts">{jsxList(k.items.map((i: Loose) => {
@@ -307,7 +330,12 @@ function forYouBox() {
   return (<section className="recent-box for-you" data-for-you="" hidden><div className="section-head"><h2>✨ আপনার জন্য</h2></div><div className="grid" data-for-you-list=""></div></section>);
 }
 
-function wishlistPage({ products, settings, asked }: Body) {
+type WishlistPageProps = {
+  products: $models_catalog.Product[];
+  settings: Settings;
+  asked: boolean;
+};
+function wishlistPage({ products, settings, asked }: WishlistPageProps) {
   return (<div className="wrap section" data-wish-page="" data-wish-load={(asked) ? undefined : ""}><h1>♡ পছন্দের তালিকা{' '}{(products.length ? <small>{bn(products.length)}টি</small> : null)}</h1><p className="muted small">এই তালিকা শুধু এই ফোন/কম্পিউটারের ব্রাউজারে রাখা থাকে। পণ্যের ♡ চিহ্নে চাপ দিয়ে যোগ করুন বা সরান।</p>{(asked ? productGrid(products, settings, 'পছন্দের তালিকা খালি। পছন্দের পণ্যের ছবির কোণে ♡ চাপ দিন।') : <p className="muted">লোড হচ্ছে…</p>)}</div>);
 }
 // ⚖️ products side by side: price, stock, rating, warranty, brand and every specification any of them has
@@ -372,15 +400,35 @@ function selfPanel(order?: Loose, s?: Settings, otpActive?: unknown) {
 }
 
 // ⚛️ moved to React (components/shop/Pages.tsx) — same HTML, same callers
-function trackPage({ error, code, phone }: Body) { return (createElement(R.TrackPage, { error, code, phone })); }
-function blogList({ posts, categories, category }: Body) { return (createElement(R.BlogList, { posts, categories, category })); }
+type TrackPageProps = {
+  error?: string;
+  code: string;
+  phone?: string;
+};
+function trackPage({ error, code, phone }: TrackPageProps) { return (createElement(R.TrackPage, { error, code, phone })); }
+type BlogListProps = {
+  posts: DbRow[];
+  categories: DbRow[];
+  category?: DbRow | null;
+};
+function blogList({ posts, categories, category }: BlogListProps) { return (createElement(R.BlogList, { posts, categories, category })); }
 function blogPost({ post, contentHtml, related }: Body) { return (createElement(R.BlogPost, { post, contentHtml, related })); }
-function staticPage({ page }: Body) { return (createElement(R.StaticPage, { page })); }
+type StaticPageProps = {
+  page: DbRow;
+};
+function staticPage({ page }: StaticPageProps) { return (createElement(R.StaticPage, { page })); }
 function notFound() { return (createElement(R.NotFound)); }
 function postCard(p?: unknown) { return (createElement(R.PostCard, { p })); }
 
 // ---------------------------------------------------------------- live scores
-function livePage({ sport, on, data, embed, settings }: Body) {
+type LivePageProps = {
+  sport: string;
+  on: Record<string, boolean>;
+  data: Loose;
+  embed: string | false;
+  settings: Settings;
+};
+function livePage({ sport, on, data, embed, settings }: LivePageProps) {
   const tabs = [['cricket', '🏏 ক্রিকেট'], ['football', '⚽ ফুটবল']].filter(([k]) => on[k]);
   const refresh = Math.min(120, Math.max(10, Number(settings.live_refresh) || 20));
   return (<div className="wrap section live"><div className="live-head"><h1>{(sport === 'cricket' ? "🏏 লাইভ ক্রিকেট স্কোর" : "⚽ লাইভ ফুটবল স্কোর")}</h1>{(tabs.length > 1 ? <nav className="live-sports" aria-label="খেলা">{jsxList(tabs.map(([k, l]) => <a href={`/live/${attrValue(k)}`} className={k === sport ? 'on' : ''}><Val v={l} /></a>))}</nav> : null)}</div>{(embed ? <div className="live-embed"><RawHtml html={embed} /></div> : <><div className="live-bar"><div className="chips live-filter" role="tablist"><button type="button" className="chip on" data-live-filter="all">সব</button>{' '}<button type="button" className="chip" data-live-filter="in"><span className="dot"></span>{' '}লাইভ{' '}<b data-live-count=""></b></button>{' '}<button type="button" className="chip" data-live-filter="pre">আসন্ন</button>{' '}<button type="button" className="chip" data-live-filter="post">শেষ</button></div><span className="live-updated small muted" data-live-updated="" aria-live="polite"></span></div><div className="live-list" data-live={attrValue(sport)} data-refresh={attrValue(refresh)}><p className="live-empty muted">স্কোর লোড হচ্ছে…</p></div><script type="application/json" data-live-initial="" dangerouslySetInnerHTML={{ __html: htmlValue(raw(JSON.stringify(data || null).replace(/</g, '\\u003c'))) }} /><noscript><p className="muted">লাইভ স্কোর দেখতে ব্রাউজারে JavaScript চালু রাখুন।</p></noscript></>)}</div>);

@@ -7,6 +7,7 @@ import { hashPassword, passwordProblem, str, int } from '../util';
 import * as $catalog from './catalog';
 import type { Param } from '../pg';
 import type { Body, Id, StaffUser } from '../types';
+import type { Loose } from '../types';
 
 /** A staff member who may be missing (not logged in, deleted). */
 type MaybeUser = StaffUser | null | undefined;
@@ -105,7 +106,18 @@ async function countStaff(): Promise<number> { return (await one<{ n: number }>(
 
 function cleanUsername(u: unknown): string { return String(u || '').trim().toLowerCase().replace(/[^a-z0-9._-]/g, '').slice(0, 40); }
 
-async function saveStaff(data: Body, { isOwnerEditing = true }: { isOwnerEditing?: boolean } = {}): Promise<number> {
+type SaveStaffOpts = {
+  id: number | null;
+  username?: Loose;
+  name?: Loose;
+  permissions: Loose;
+  active?: Loose;
+  password?: Loose;
+  phone?: Loose;
+  email?: Loose;
+  note?: Loose;
+};
+async function saveStaff(data: SaveStaffOpts, { isOwnerEditing = true }: { isOwnerEditing?: boolean } = {}): Promise<number> {
   const id = int(data.id);
   const username = cleanUsername(data.username);
   if (!str(data.name)) throw new Error('নাম লিখুন।');

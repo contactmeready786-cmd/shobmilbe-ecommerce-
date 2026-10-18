@@ -57,7 +57,10 @@ function nextPageUrl(u: string | URL, count: number) {
 }
 const PAGE_ACCEPT = 'text/html,application/xhtml+xml,application/xml;q=0.9,application/json;q=0.9,text/csv;q=0.8,*/*;q=0.5';
 
-async function readUrl(u: string, { follow = true }: Body = {}): Promise<Loose> {
+type ReadUrlProps = {
+  follow?: boolean;
+};
+async function readUrl(u: string, { follow = true }: ReadUrlProps = {}): Promise<Loose> {
   const r = await safeFetch(u, { maxBytes: 20 * 1024 * 1024, timeoutMs: follow ? 10000 : 9000, accept: PAGE_ACCEPT });
   if (!r.ok) {
     const why = r.status === 404 ? 'পেজটি পাওয়া যায়নি (404)' : r.status === 403 || r.status === 401 ? 'ওয়েবসাইটটি পড়তে দিচ্ছে না (অনুমতি নেই)' : `ওয়েবসাইট ভুল উত্তর দিয়েছে (${r.status})`;

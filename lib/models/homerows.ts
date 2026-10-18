@@ -43,7 +43,20 @@ async function skusOf(ids?: Loose) {
   return ids.map((i: unknown) => by.get(i)).filter(Boolean).join(', ');
 }
 
-function clean(b: Body) {
+type CleanOpts = {
+  title?: Loose;
+  sub?: Loose;
+  source?: Loose;
+  ref?: Loose;
+  min_price?: Loose;
+  max_price?: Loose;
+  sort?: Loose;
+  lim?: Loose;
+  badge?: Loose;
+  style?: Loose;
+  in_stock_only?: Loose;
+};
+function clean(b: CleanOpts) {
   const num = (v?: unknown) => { const n = Number(String(v ?? '').replace(/[^\d.]/g, '')); return String(v ?? '').trim() === '' || !Number.isFinite(n) ? null : n; };
   return {
     title: str(b.title, 80) || 'নতুন সারি',
@@ -75,7 +88,10 @@ async function save(id: Id, b: Body) {
 }
 
 // The products of one row, ready for the shop.
-async function productsFor(r: DbRow, { hideOut }: Body = {}) {
+type ProductsForOpts = {
+  hideOut?: boolean;
+};
+async function productsFor(r: DbRow, { hideOut }: ProductsForOpts = {}) {
   const catalog = $catalog;
   const limit = r.lim || 16;
   const base = { public: true, hideOut: hideOut || r.in_stock_only, sort: r.sort, limit };

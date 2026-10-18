@@ -187,7 +187,13 @@ function hostOf(u: string | URL) {
   try { return new URL(u).hostname.toLowerCase().replace(/^www\.|^m\.|^l\.|^lm\.|^mobile\./, ''); } catch (_) { return ''; }
 }
 // Decide where a visit came from. `params` are the landing page's query params.
-function sourceOf({ referrer, params, ownHost, browser }: Body) {
+type SourceOfOpts = {
+  referrer: string;
+  params: URLSearchParams;
+  ownHost: Loose;
+  browser: string;
+};
+function sourceOf({ referrer, params, ownHost, browser }: SourceOfOpts) {
   const p = (k: string) => str(params.get(k), 100);
   const out = { source: 'সরাসরি (Direct)', medium: 'direct', campaign: p('utm_campaign'), refHost: '' };
   const host = hostOf(referrer);
@@ -244,7 +250,14 @@ async function cleanup(settings: Settings) {
 }
 
 // One call per beacon. Returns a small object for the browser (or null).
-async function record({ req, settings, body, ip, ownHost }: Body) {
+type RecordOpts = {
+  req: ShopRequest;
+  settings: Settings;
+  body: string;
+  ip: string;
+  ownHost: string;
+};
+async function record({ req, settings, body, ip, ownHost }: RecordOpts) {
   const b = readJson(body);
   const vid = String(b.vid || '');
   const sid = String(b.sid || '');
@@ -412,7 +425,11 @@ function sessionWhere(f: Body, params?: Loose) {
   }
   return where.length ? 'WHERE ' + where.join(' AND ') : '';
 }
-async function listSessions(f: Body, { limit = 50, offset = 0 }: Body = {}) {
+type ListSessionsOpts = {
+  limit?: number;
+  offset?: number;
+};
+async function listSessions(f: Body, { limit = 50, offset = 0 }: ListSessionsOpts = {}) {
   const params: unknown[] = [];
   const where = sessionWhere(f, params);
   params.push(limit, offset);

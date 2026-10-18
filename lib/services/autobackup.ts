@@ -32,7 +32,10 @@ async function due() {
   return !last || Date.now() - new Date(last.created_at).getTime() > 20 * 3600 * 1000;
 }
 
-async function run({ force = false }: Body = {}) {
+type RunOpts = {
+  force?: boolean;
+};
+async function run({ force = false }: RunOpts = {}) {
   if (!imagekit.configured()) return { skipped: 'no-imagekit' };
   if (!force && !(await due())) return { skipped: 'not-due' };
   // one at a time across all running copies of the site

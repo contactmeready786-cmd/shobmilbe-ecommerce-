@@ -205,7 +205,13 @@ function firstAllowed(user: StaffUser) {
   return '/admin/account';
 }
 
-function authPage({ settings, mode, error, values = {} }: Body) {
+type AuthPageProps = {
+  settings: Settings;
+  mode?: string;
+  error?: string;
+  values?: Body;
+};
+function authPage({ settings, mode, error, values = {} }: AuthPageProps) {
   const setup = mode === 'setup';
   return <div className="auth-card panel"><p className="logo auth-logo"><Val v={settings.store_name} /><small>{' '}Admin</small></p>{(setup ? <><h1>প্রথমবার: মালিকের অ্যাকাউন্ট তৈরি করুন</h1><p className="muted">এই অ্যাকাউন্টে সব অনুমতি থাকবে। পরে "স্টাফ" মেনু থেকে কর্মচারীদের আলাদা অ্যাকাউন্ট দিতে পারবেন।</p><form method="post" action="/admin/setup" className="form">{ui.field('আপনার নাম', ui.input('name', values.name || '', { required: true, maxlength: 80 }))}{' '}{ui.field('ইউজারনেম (লগইনের জন্য)', ui.input('username', values.username || 'admin', { required: true, maxlength: 40, autocapitalize: 'none' }), 'ইংরেজি ছোট হাতের অক্ষর বা সংখ্যা')}{' '}{ui.field('পাসওয়ার্ড', ui.input('password', '', { type: 'password', minlength: 8, required: true, autocomplete: 'new-password' }), 'কমপক্ষে ৮ অক্ষর। কোথাও লিখে রাখুন।')}{' '}{ui.field('আবার পাসওয়ার্ড', ui.input('password2', '', { type: 'password', minlength: 8, required: true, autocomplete: 'new-password' }))}{' '}{(error ? <p className="form-error"><Val v={error} /></p> : null)}{' '}<button className="btn btn-block btn-lg">অ্যাকাউন্ট তৈরি করুন</button></form></> : <><h1>Admin লগইন</h1><form method="post" action="/admin/login" className="form">{ui.field('ইউজারনেম বা মোবাইল নম্বর', ui.input('login', values.login || '', { required: true, autocomplete: 'username', autocapitalize: 'none', autofocus: true }))}{' '}{ui.field('পাসওয়ার্ড', ui.input('password', '', { type: 'password', required: true, autocomplete: 'current-password' }))}{' '}{(error ? <p className="form-error"><Val v={error} /></p> : null)}{' '}<button className="btn btn-block btn-lg">লগইন</button></form><p className="muted small">আগের পাসওয়ার্ড দিয়ে ঢুকতে চাইলে ইউজারনেম লিখুন:{' '}<b>admin</b></p><p className="small"><a href="/admin/reset">পাসওয়ার্ড ভুলে গেছেন?</a></p></>)}<p className="center small"><a href="/">দোকানে ফিরে যান</a></p></div>;
 }
@@ -222,7 +228,15 @@ function sameSecret(a: string, b: string) {
   const y = crypto.createHash('sha256').update(String(b)).digest();
   return crypto.timingSafeEqual(x, y);
 }
-function resetPage({ settings, error, done, values = {}, enabled, mailMsg }: Body) {
+type ResetPageProps = {
+  settings: Settings;
+  error?: string;
+  done?: boolean;
+  values?: Loose;
+  enabled?: boolean;
+  mailMsg?: string;
+};
+function resetPage({ settings, error, done, values = {}, enabled, mailMsg }: ResetPageProps) {
   const mail = notify.emailConfig(settings);
   return <div className="auth-card panel"><p className="logo auth-logo"><Val v={settings.store_name} /><small>{' '}Admin</small></p><h1>মালিকের পাসওয়ার্ড রিসেট</h1>{(done ? <><p>পাসওয়ার্ড বদলানো হয়েছে। সবাইকে লগআউট করে দেওয়া হয়েছে।</p><p className="muted small">এই রিসেট কোড আর কাজ করবে না।</p><a className="btn btn-block btn-lg" href="/admin/login">লগইন করুন</a></> : <><h2 className="h3">১) ইমেইলে রিসেট লিংক (সবচেয়ে সহজ)</h2>{(mailMsg ? <p className="flash flash-success"><Val v={mailMsg} /></p> : (mail.ready ? <><p className="muted small">পাসওয়ার্ড ভুলে গেলে:{' '}<b><Val v={notify.maskEmail(mail.to)} /></b>{' '}ঠিকানায় একটা লিংক যাবে, সেটা ৩০ মিনিটের মধ্যে খুলে নতুন পাসওয়ার্ড দিন। (আঙুলের ছাপের তালা চালু থাকলে সেটা চালুই থাকবে।)</p><form method="post" action="/admin/reset/email-send" className="form"><button className="btn btn-block btn-outline">📧 ইমেইলে রিসেট লিংক পাঠান</button></form></> : <p className="muted small">ইমেইল এখনো সেটআপ করা হয়নি (Admin → নোটিফিকেশন)।</p>))}<h2 className="h3">২) গোপন রিসেট কোড দিয়ে (জরুরি অবস্থা)</h2><p className="muted small">ফোন হারিয়েছে বা ইমেইলেও ঢুকতে পারছেন না — তখন কাগজে লিখে রাখা{' '}<b>জরুরি রিকভারি কোড</b>{' '}দিয়ে পাসওয়ার্ড আর আঙুলের ছাপের তালা দুটোই রিসেট করা যায়।</p>{(!enabled ? <><p className="muted">কোড দিয়ে রিসেট এখন বন্ধ আছে। অ্যাডমিনে ঢুকে{' '}<b>নিরাপত্তা → জরুরি রিকভারি কোড</b>{' '}থেকে কোড বানিয়ে কাগজে লিখে রাখুন।</p></> : <><form method="post" action="/admin/reset" className="form">{ui.field('গোপন রিসেট কোড', ui.input('code', '', { required: true, autocomplete: 'off', autocapitalize: 'characters', spellcheck: 'false' }), 'কাগজে লেখা রিকভারি কোড (যেমন ABCD-EFGH-JKLM)। প্রতিটা কোড একবারই কাজ করে।')}{' '}{ui.field('নতুন ইউজারনেম', ui.input('username', values.username || 'admin', { required: true, maxlength: 40, autocapitalize: 'none' }), 'ইংরেজি ছোট হাতের অক্ষর বা সংখ্যা')}{' '}{ui.field('নতুন পাসওয়ার্ড', ui.input('password', '', { type: 'password', minlength: 8, required: true, autocomplete: 'new-password' }), 'কমপক্ষে ৮ অক্ষর। কোথাও লিখে রাখুন।')}{' '}{ui.field('আবার নতুন পাসওয়ার্ড', ui.input('password2', '', { type: 'password', minlength: 8, required: true, autocomplete: 'new-password' }))}{' '}{ui.check('lock_staff', values.lock_staff !== undefined ? !!values.lock_staff : true, 'বাকি সব স্টাফ অ্যাকাউন্ট বন্ধ করে দিন (পরে "স্টাফ" মেনু থেকে আবার চালু করা যাবে)')}{' '}{(lock.isOn(settings) ? ui.check('unlock_owner', !!values.unlock_owner, 'আঙুলের ছাপের তালা বন্ধ করে দিন (ফোন হারালে টিক দিন)') : null)}{' '}{(error ? <p className="form-error"><Val v={error} /></p> : null)}{' '}<button className="btn btn-block btn-lg">পাসওয়ার্ড রিসেট করুন</button></form></>)}</>)}<p className="center small"><a href="/admin/login">লগইন পেজে ফিরে যান</a></p></div>;
 }
@@ -242,12 +256,24 @@ function baseUrl(req: ShopRequest, settings: Settings) {
   const host = String(req.headers['x-forwarded-host'] || req.headers.host || 'localhost').split(',')[0].trim();
   return `${host.startsWith('localhost') ? 'http' : 'https'}://${host}`;
 }
-function mailResetPage({ settings, token, error, done }: Body) {
+type MailResetPageProps = {
+  settings: Settings;
+  token?: Loose;
+  error?: string;
+  done?: boolean;
+};
+function mailResetPage({ settings, token, error, done }: MailResetPageProps) {
   return <div className="auth-card panel"><p className="logo auth-logo"><Val v={settings.store_name} /><small>{' '}Admin</small></p><h1>নতুন পাসওয়ার্ড দিন</h1>{(done ? <><p>পাসওয়ার্ড বদলানো হয়েছে। নিরাপত্তার জন্য সবাইকে লগআউট করা হয়েছে।</p><a className="btn btn-block btn-lg" href="/admin/login">লগইন করুন</a></> : (!token ? <><p className="form-error"><Val v={error || 'লিংকটা আর কাজ করছে না (মেয়াদ শেষ বা আগেই ব্যবহার হয়েছে)।'} /></p><a className="btn btn-block" href="/admin/reset">আবার লিংক নিন</a></> : <><form method="post" action="/admin/reset/email" className="form"><input type="hidden" name="t" defaultValue={attrValue(token)} />{' '}{ui.field('নতুন পাসওয়ার্ড', ui.input('password', '', { type: 'password', minlength: 8, required: true, autocomplete: 'new-password', autofocus: true }), 'কমপক্ষে ৮ অক্ষর। কোথাও লিখে রাখুন।')}{' '}{ui.field('আবার নতুন পাসওয়ার্ড', ui.input('password2', '', { type: 'password', minlength: 8, required: true, autocomplete: 'new-password' }))}{' '}{(error ? <p className="form-error"><Val v={error} /></p> : null)}{' '}<button className="btn btn-block btn-lg">পাসওয়ার্ড সেভ করুন</button></form></>))}</div>;
 }
 
 // Second step of a staff login: the 6-digit code from Google Authenticator (or a similar app).
-function tfaPage({ settings, user, error, blocked }: Body) {
+type TfaPageProps = {
+  settings: Settings;
+  user: StaffUser;
+  error?: string;
+  blocked?: boolean;
+};
+function tfaPage({ settings, user, error, blocked }: TfaPageProps) {
   return <div className="auth-card panel"><p className="logo auth-logo"><Val v={settings.store_name} /><small>{' '}Admin</small></p><h1>🔐 যাচাই কোড দিন</h1><p className="muted small"><b translate="no"><Val v={user.name} /></b>, ফোনের{' '}<b>Google Authenticator</b>{' '}(বা যে অ্যাপে সেটআপ করেছিলেন) খুলুন — "<Val v={settings.store_name} />" এর পাশে যে ৬ অঙ্কের কোড দেখাচ্ছে সেটা লিখুন। কোড প্রতি ৩০ সেকেন্ডে বদলায়।</p>{(error ? <p className="form-error"><Val v={error} /></p> : null)}{' '}{(blocked ? null : <form method="post" action="/admin/2fa" className="form">{ui.field('৬ অঙ্কের কোড', ui.input('code', '', { required: true, inputmode: 'numeric', autocomplete: 'one-time-code', pattern: '[0-9০-৯ ]{6,7}', maxlength: 7, autofocus: true, class: 'code-input' }))}{' '}<button className="btn btn-block btn-lg">যাচাই করে ঢুকুন</button></form>)}<p className="muted small">ফোন হারিয়েছেন বা অ্যাপ মুছে গেছে? মালিককে বলুন — তিনি "স্টাফ" পেজ থেকে আপনার দুই ধাপের লগইন রিসেট করে দেবেন।</p><form method="post" action="/admin/logout"><button className="link-btn small">← অন্য অ্যাকাউন্টে লগইন</button></form></div>;
 }
 

@@ -21,7 +21,12 @@ async function columnsOf(db: typeof import("../db"), table?: unknown) {
 const qi = (n?: unknown) => '"' + String(n).replace(/"/g, '""') + '"';
 
 // { withImages, withAnalytics } → { buffer (gzip json), tables, rows }
-async function dump(db: typeof import("../db"), { withImages = false, withAnalytics = false, password = '' }: Body = {}) {
+type DumpOpts = {
+  withImages?: boolean;
+  withAnalytics?: boolean;
+  password?: string;
+};
+async function dump(db: typeof import("../db"), { withImages = false, withAnalytics = false, password = '' }: DumpOpts = {}) {
   const tables = (await tableList(db)).filter((t: string) => !NEVER.has(t) && (withAnalytics || !ANALYTICS.has(t)) && (withImages || t !== 'media'));
   const schema = await db.one<Pick<SettingsRow, 'value'>>("SELECT value FROM settings WHERE key='schema_version'");
   const out = { app: 'shobmilbe', format: 1, schema_version: schema ? Number(schema.value) : null, created_at: new Date().toISOString(), with_images: !!withImages, tables: {} as Record<string, unknown> };

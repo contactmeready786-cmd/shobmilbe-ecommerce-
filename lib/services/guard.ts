@@ -52,7 +52,15 @@ function record(event: Body): Promise<void> {
 async function settled(): Promise<void> {
   while (running.size) await Promise.allSettled([...running]);
 }
-async function recordNow({ req, ip, kind, detail = '', path = '', settings }: Body) {
+type RecordNowOpts = {
+  req?: Loose;
+  ip?: Loose;
+  kind?: Loose;
+  detail?: string;
+  path?: string;
+  settings?: Loose;
+};
+async function recordNow({ req, ip, kind, detail = '', path = '', settings }: RecordNowOpts) {
   try {
     if (!KINDS[kind]) return;
     const s = settings || (await db.getSettings());

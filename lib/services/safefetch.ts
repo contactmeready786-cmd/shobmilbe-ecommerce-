@@ -81,7 +81,16 @@ function checkUrl(u: string) {
   return url;
 }
 
-function once(url: Loose, { maxBytes, timeoutMs, accept, deadline, method = 'GET', headers = {}, body = null }: Body) {
+type OnceOpts = {
+  maxBytes: Loose;
+  timeoutMs: Loose;
+  accept: Loose;
+  deadline: Loose;
+  method?: Loose;
+  headers?: Loose;
+  body?: Loose;
+};
+function once(url: Loose, { maxBytes, timeoutMs, accept, deadline, method = 'GET', headers = {}, body = null }: OnceOpts) {
   return new Promise((resolve, reject) => {
     const mod = url.protocol === 'https:' ? https : http;
     const left = Math.max(1000, Math.min(timeoutMs, deadline - Date.now()));
@@ -131,7 +140,16 @@ function once(url: Loose, { maxBytes, timeoutMs, accept, deadline, method = 'GET
 }
 
 // Returns { status, ok, body (Buffer), contentType, finalUrl }. Throws FetchError with a Bangla message.
-async function safeFetch(u: string, { maxBytes = 15 * 1024 * 1024, timeoutMs = 12000, accept, maxRedirects = 5, method = 'GET', headers = {}, body = null }: Body = {}) {
+type SafeFetchOpts = {
+  maxBytes?: number;
+  timeoutMs?: number;
+  accept?: string;
+  maxRedirects?: number;
+  method?: string;
+  headers?: Loose;
+  body?: string | null;
+};
+async function safeFetch(u: string, { maxBytes = 15 * 1024 * 1024, timeoutMs = 12000, accept, maxRedirects = 5, method = 'GET', headers = {}, body = null }: SafeFetchOpts = {}) {
   const deadline = Date.now() + timeoutMs;
   let url = checkUrl(u);
   for (let i = 0; i <= maxRedirects; i++) {

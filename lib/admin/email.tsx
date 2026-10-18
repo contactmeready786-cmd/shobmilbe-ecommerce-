@@ -38,7 +38,7 @@ async function newest(n = 6) {
     ORDER BY p.created_at DESC LIMIT $1`, [n])).map((r) => r.id);
 }
 
-async function page(ctx: AdminCtx, note: unknown = null) {
+async function page(ctx: AdminCtx, note: ui.Flash | null = null) {
   const s = ctx.settings;
   const c = M.cfg(s);
   const canSetup = ctx.can('settings');

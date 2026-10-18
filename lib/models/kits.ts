@@ -11,12 +11,19 @@ import type { KitsRow, ProductsRow } from '../data/rows';
 
 class KitError extends Error {}
 
-async function list({ activeOnly = false }: Body = {}) {
+type ListOpts = {
+  activeOnly?: boolean;
+};
+async function list({ activeOnly = false }: ListOpts = {}) {
   return db.q<{ id: number; slug: string; title: string; description: string; image_id: number | null; emoji: string; active: boolean; sort: number; created_at: Date; updated_at: Date; steps: string; level: string; duration: string; guide_key: string; parts: number; base_total: number | null }>(`SELECT k.*, (SELECT count(*)::int FROM kit_items i WHERE i.kit_id=k.id) AS parts,
       (SELECT coalesce(sum(p.price * i.qty), 0) FROM kit_items i JOIN products p ON p.id=i.product_id WHERE i.kit_id=k.id AND NOT i.optional) AS base_total
     FROM kits k ${activeOnly ? 'WHERE k.active' : ''} ORDER BY k.sort, k.id DESC`);
 }
-async function get({ id, slug }: Body) {
+type GetOpts = {
+  id?: string;
+  slug?: string;
+};
+async function get({ id, slug }: GetOpts) {
   const k = await db.one(`SELECT * FROM kits WHERE ${id ? 'id=$1' : 'slug=$1'}`, [id ? int(id) : String(slug || '')]);
   if (!k) return null;
   k.items = await db.q<{ id: number; product_id: number; qty: number; optional: boolean; note: string; name: string; slug: string; sku: string; price: number; stock: number; image_id: number | null; emoji: string; active: boolean; variant_count: number; product_type: string }>(`SELECT i.id, i.product_id, i.qty, i.optional, i.note, p.name, p.slug, p.sku, p.price, p.stock, p.image_id, p.emoji, p.active,
@@ -38,7 +45,29 @@ async function kitsWith(productId?: Id) {
   return db.q<Pick<KitsRow, 'id' | 'slug' | 'title'>>(`SELECT DISTINCT k.id, k.slug, k.title FROM kits k JOIN kit_items i ON i.kit_id=k.id WHERE k.active AND i.product_id=$1 ORDER BY k.title LIMIT 5`, [int(productId)]);
 }
 
-async function save(data: Body) {
+type SaveOpts = {
+  title?: Loose;
+  "bundle_id[]"?: Loose;
+  bundle_id?: Loose;
+  "bundle_qty[]"?: Loose;
+  bundle_qty?: Loose;
+  "kit_opt[]"?: Loose;
+  kit_opt?: Loose;
+  "kit_note[]"?: Loose;
+  kit_note?: Loose;
+  id?: number;
+  description?: Loose;
+  image_id?: Loose;
+  emoji?: Loose;
+  active?: boolean;
+  sort?: number;
+  steps?: Loose;
+  level?: Loose;
+  duration?: Loose;
+  slug?: Loose;
+  guide_key?: Loose;
+};
+async function save(data: SaveOpts) {
   const title = str(data.title, 120).trim();
   if (title.length < 3) throw new KitError('কিটের নাম লিখুন।');
   const ids = ([] as unknown[]).concat(data['bundle_id[]'] || data.bundle_id || []).map(int);

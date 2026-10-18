@@ -707,7 +707,12 @@ function sniff(buf: Buffer<ArrayBuffer>, name = '', contentType = '') {
 }
 
 // Parse already-downloaded content. Returns { items, links, next, format, notes }
-function parseContent(buf: Buffer<ArrayBuffer>, { name = '', contentType = '', baseUrl = '' }: Body = {}) {
+type ParseContentOpts = {
+  name?: string;
+  contentType?: Loose;
+  baseUrl?: Loose;
+};
+function parseContent(buf: Buffer<ArrayBuffer>, { name = '', contentType = '', baseUrl = '' }: ParseContentOpts = {}) {
   const notes: unknown[] = [];
   const kind = sniff(buf, name, contentType);
   if (kind === 'xls') return { items: [], format: 'xls', notes, error: 'পুরোনো .xls ফাইল পড়া যায় না। Excel-এ খুলে "Save As" → "Excel Workbook (.xlsx)" বা "CSV UTF-8" হিসেবে সেভ করে আবার দিন।' };

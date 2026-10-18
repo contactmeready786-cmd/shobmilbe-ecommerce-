@@ -5,6 +5,7 @@ import { int, str, num, randomCode, validYmd, ymd, amount, round2 } from '../uti
 import * as catalog from './catalog';
 import type { Body, Id, Settings } from '../types';
 import type { DbRow, Param, Tx } from '../pg';
+import type { Loose } from '../types';
 
 /** A day as YYYY-MM-DD (Dhaka), the way the report pages send it. */
 type Day = string;
@@ -42,7 +43,18 @@ async function getSupplier(id: Id) {
                         WHERE p.supplier_id=$1 AND p.status<>'cancelled' GROUP BY i.product_id, i.name ORDER BY last_date DESC`, [id]);
   return s;
 }
-async function saveSupplier(data: Body) {
+type SaveSupplierOpts = {
+  name?: Loose;
+  company?: Loose;
+  phone?: Loose;
+  email?: Loose;
+  address?: Loose;
+  note?: Loose;
+  opening_due?: Loose;
+  active: Loose;
+  id?: Loose;
+};
+async function saveSupplier(data: SaveSupplierOpts) {
   const f = [str(data.name, 100), str(data.company, 120), str(data.phone, 30), str(data.email, 120), str(data.address, 400),
     str(data.note, 1000), num(data.opening_due), data.active !== undefined ? !!data.active : true];
   if (int(data.id)) {
@@ -93,7 +105,20 @@ async function receiveItems(t: Tx, purchaseId: Id, items: PurchaseLine[], staffI
   }
 }
 
-async function savePurchase(data: Body, staffId?: Id): Promise<number> {
+type SavePurchaseOpts = {
+  items: Loose;
+  discount?: Loose;
+  shipping?: Loose;
+  other_cost?: Loose;
+  vat?: Loose;
+  status?: Loose;
+  purchase_date?: Loose;
+  supplier_id?: Loose;
+  note?: Loose;
+  paid_now?: Loose;
+  account_id?: Loose;
+};
+async function savePurchase(data: SavePurchaseOpts, staffId?: Id): Promise<number> {
   const items: PurchaseLine[] = [];
   for (const row of data.items || []) {
     const pid = int(row.product_id);
@@ -159,7 +184,15 @@ async function listAccounts() {
       + coalesce((SELECT sum(amount) FROM transactions t WHERE t.to_account_id=a.id AND t.type='transfer'),0) AS balance
     FROM accounts a ORDER BY a.active DESC, a.sort, a.id`);
 }
-async function saveAccount(data: Body) {
+type SaveAccountOpts = {
+  name?: Loose;
+  type?: Loose;
+  details?: Loose;
+  opening_balance?: Loose;
+  active: Loose;
+  id?: Loose;
+};
+async function saveAccount(data: SaveAccountOpts) {
   const f = [str(data.name, 80), ACCOUNT_TYPES[data.type] ? data.type : 'cash', str(data.details, 300), num(data.opening_balance), data.active !== undefined ? !!data.active : true];
   if (int(data.id)) {
     await q('UPDATE accounts SET name=$1, type=$2, details=$3, opening_balance=$4, active=$5 WHERE id=$6', [...f, int(data.id)]);

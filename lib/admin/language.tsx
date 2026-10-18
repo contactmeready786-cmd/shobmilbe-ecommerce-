@@ -71,7 +71,10 @@ async function page(ctx: AdminCtx) {
   return ctx.page('ভাষা (বাংলা / English)', body, 'language');
 }
 
-function backTo(b: Body) { const v = str(b.back, 400); return v.startsWith(BASE) ? v : BASE; }
+type BackToProps = {
+  back?: Loose;
+};
+function backTo(b: BackToProps) { const v = str(b.back, 400); return v.startsWith(BASE) ? v : BASE; }
 
 async function edit(ctx: AdminCtx) {
   const b = await ctx.body();

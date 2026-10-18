@@ -11,12 +11,25 @@ import type { Body, Id, Loose } from '../types';
 
 class WhError extends Error {}
 
-async function list({ activeOnly = false }: Body = {}) {
+type ListOpts = {
+  activeOnly?: boolean;
+};
+async function list({ activeOnly = false }: ListOpts = {}) {
   return db.q<{ id: number; name: string; address: string; phone: string; is_shop: boolean; active: boolean; sort: number; note: string; created_at: Date; units: number; products: number }>(`SELECT w.*, coalesce(sum(s.qty),0)::int AS units, count(s.product_id) FILTER (WHERE s.qty > 0)::int AS products
     FROM warehouses w LEFT JOIN warehouse_stock s ON s.warehouse_id=w.id ${activeOnly ? 'WHERE w.active' : ''} GROUP BY w.id ORDER BY w.sort, w.id`);
 }
 async function get(id?: Id) { return db.one<WarehousesRow>('SELECT * FROM warehouses WHERE id=$1', [int(id)]); }
-async function save(b: Body) {
+type SaveOpts = {
+  name?: Loose;
+  id?: Loose;
+  address?: Loose;
+  phone?: Loose;
+  is_shop?: Loose;
+  active?: Loose;
+  sort?: Loose;
+  note?: Loose;
+};
+async function save(b: SaveOpts) {
   const name = str(b.name, 80);
   if (name.length < 2) throw new WhError('গুদাম / শাখার নাম দিন।');
   const id = int(b.id);
@@ -38,7 +51,11 @@ async function stockFor(productIds?: Loose) {
   return m;
 }
 // One store's products (with the main store's count beside it).
-async function storeStock(whId?: Id, { q = '', limit = 200 }: Body = {}) {
+type StoreStockOpts = {
+  q?: string;
+  limit?: number;
+};
+async function storeStock(whId?: Id, { q = '', limit = 200 }: StoreStockOpts = {}) {
   const params: unknown[] = [int(whId)];
   let where = 's.warehouse_id=$1 AND s.qty > 0';
   if (q) { params.push(`%${q}%`); where += ` AND (p.name ILIKE $2 OR p.sku ILIKE $2 OR p.barcode ILIKE $2)`; }
@@ -49,7 +66,14 @@ async function storeStock(whId?: Id, { q = '', limit = 200 }: Body = {}) {
 }
 
 // Move pieces from one store to another (0 / null = the main store).
-async function transfer({ productId, qty, from, to, note }: Body, staffId?: Id) {
+type TransferOpts = {
+  productId: number;
+  qty: Loose;
+  from: Loose;
+  to: Loose;
+  note: Loose;
+};
+async function transfer({ productId, qty, from, to, note }: TransferOpts, staffId?: Id) {
   const n = int(qty);
   const f = int(from) || null; const tw = int(to) || null;
   if (n < 1) throw new WhError('কয়টা সরাবেন লিখুন।');
@@ -95,7 +119,11 @@ async function setCount(whId?: Id, productId?: Id, qty?: unknown, staffId?: Id) 
     return { name: p.name, was, now: n };
   });
 }
-async function moves({ whId = null, limit = 60 }: Body = {}) {
+type MovesOpts = {
+  whId?: number | null;
+  limit?: number;
+};
+async function moves({ whId = null, limit = 60 }: MovesOpts = {}) {
   const params = [];
   let where = '';
   if (whId) { params.push(int(whId)); where = 'WHERE m.from_wh=$1 OR m.to_wh=$1'; }

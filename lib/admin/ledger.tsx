@@ -11,7 +11,11 @@ import * as catalog from '../models/catalog';
 import type { AdminCtx, Body, Loose, RouteMatch, Caught } from '../types';
 import type { ProductsRow } from '../data/rows';
 
-const dateOf = (b: Body) => (b.purchase_date ? fmtDate(b.purchase_date + 'T06:00:00Z', false) : fmtDate(b.created_at, false));
+type DateOfProps = {
+  purchase_date?: Loose;
+  created_at?: Loose;
+};
+const dateOf = (b: DateOfProps) => (b.purchase_date ? fmtDate(b.purchase_date + 'T06:00:00Z', false) : fmtDate(b.created_at, false));
 
 async function page(ctx: AdminCtx, m: RouteMatch) {
   const id = int(m[1]);

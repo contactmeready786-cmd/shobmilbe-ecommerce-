@@ -114,7 +114,10 @@ function imageDistance(newImgs?: Loose, oldImgs?: Loose) {
 
 // ---------------------------------------------------------------- compare two products
 const bnNum = (n: number) => String(n).replace(/\d/g, (d) => BN[Number(d)]);
-function compare(a?: Loose, b?: Loose, lv?: Loose, { sameDesc = false }: Body = {}) {
+type CompareOpts = {
+  sameDesc?: boolean;
+};
+function compare(a?: Loose, b?: Loose, lv?: Loose, { sameDesc = false }: CompareOpts = {}) {
   const reasons = [];
   let block = false;
   let warn = false;
@@ -200,7 +203,10 @@ async function findDuplicates(data: Body, settings: Settings) {
 }
 
 // Whole-catalog scan: groups of products that look like copies of each other.
-async function scanCatalog(settings: Settings, { includeAllowed = false }: Body = {}) {
+type ScanCatalogOpts = {
+  includeAllowed?: boolean;
+};
+async function scanCatalog(settings: Settings, { includeAllowed = false }: ScanCatalogOpts = {}) {
   const lv = levelOf(settings);
   const pairsOut = [];
   for (const type of ['single', 'bundle']) {

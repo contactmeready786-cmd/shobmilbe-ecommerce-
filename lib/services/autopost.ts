@@ -137,7 +137,12 @@ async function imageUrl(p: { image_id: unknown; }, settings: Settings) {
 }
 
 // ---------------------------------------------------------------- Graph API
-async function graph(path: string, { method = 'GET', params = {}, token }: Body) {
+type GraphOpts = {
+  method?: string;
+  params?: Loose;
+  token?: Loose;
+};
+async function graph(path: string, { method = 'GET', params = {}, token }: GraphOpts) {
   const qs = new URLSearchParams({ ...params, access_token: token });
   const url = `${GRAPH}/${path}`;
   const r = method === 'GET'
@@ -154,7 +159,13 @@ async function graph(path: string, { method = 'GET', params = {}, token }: Body)
 
 // Owner pastes the token from Facebook (and optionally the app id + secret). Works out the page, a
 // page token that does not expire, and the linked Instagram account.
-async function connect({ token, appId, appSecret, pageId }: Body) {
+type ConnectOpts = {
+  token: string;
+  appId: string;
+  appSecret: string;
+  pageId: string;
+};
+async function connect({ token, appId, appSecret, pageId }: ConnectOpts) {
   let t = String(token || '').trim();
   if (!t) throw new Error('টোকেন দিন।');
   if (appId && appSecret) {
@@ -351,7 +362,11 @@ function engagementSlot(settings: Settings, hour: number, day: string) {
 }
 
 // Post one product now. Returns what happened on each channel.
-async function postOne(settings: Settings, { slot, productId }: Body = {}) {
+type PostOneOpts = {
+  slot?: string;
+  productId?: Loose;
+};
+async function postOne(settings: Settings, { slot, productId }: PostOneOpts = {}) {
   const now = dhakaNow();
   const p = productId
     ? await db.one<{ id: number; name: string; slug: string; category_id: number | null; price: number; old_price: number | null; stock: number; description: string; emoji: string; image: string | null; featured: boolean; active: boolean; created_at: Date; updated_at: Date; sku: string; short_description: string; cost_price: number; youtube_url: string; product_type: string; image_id: number | null; seo_title: string; seo_description: string; low_stock: number; weight_g: number; unit: string; brand: string; sold_count: number; seo_keywords: string; allow_duplicate: boolean; import_ref: string; brand_id: number | null; model: string; specs: unknown; is_new: boolean; damaged_stock: number; supplier_id: number | null; noindex: boolean; wish_count: number; rating_avg: number; rating_count: number; warranty: string; warranty_type: string; barcode: string; parent_id: number | null; variant_label: string; variant_count: number; variant_title: string; variant_sort: number; preorder: boolean; preorder_days: number; location: string; seo_auto_at: Date | null; src_wm: boolean; src_wm_checked: boolean; sold: number }>(`SELECT p.*, coalesce(p.sold_count,0)::int AS sold FROM products p WHERE p.id=$1 AND ${ELIGIBLE}`, [productId])

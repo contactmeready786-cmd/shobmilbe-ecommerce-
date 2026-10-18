@@ -111,7 +111,11 @@ async function subscribe(staffId?: Id, sub?: Loose, device?: unknown) {
 
 // ---------------------------------------------------------------- customers (offer notifications)
 // Customers who tapped "হ্যাঁ" on the shop's 🔔 box. Same Web Push, separate list (shop_push_subs).
-async function shopSubscribe(sub?: Loose, { customerId = null, device = '' }: Body = {}) {
+type ShopSubscribeOpts = {
+  customerId?: number | null;
+  device?: string;
+};
+async function shopSubscribe(sub?: Loose, { customerId = null, device = '' }: ShopSubscribeOpts = {}) {
   const endpoint = String(sub && sub.endpoint || '');
   const keys = (sub && sub.keys) || {};
   if (!okEndpoint(endpoint) || endpoint.length > 1000) throw new Error('bad endpoint');
@@ -123,7 +127,11 @@ async function shopSubscribe(sub?: Loose, { customerId = null, device = '' }: Bo
 async function shopUnsubscribe(endpoint?: unknown) { await db.q('DELETE FROM shop_push_subs WHERE endpoint=$1', [String(endpoint || '').slice(0, 1000)]); }
 async function shopCount() { return (await db.one<{ n: number }>('SELECT count(*)::int AS n FROM shop_push_subs'))!.n; }
 // One batch of a campaign: the next `limit` subscribers after `afterId`. Returns { sent, failed, lastId, done }.
-async function shopSendBatch(msg?: unknown, { afterId = 0, limit = 300 }: Body = {}) {
+type ShopSendBatchOpts = {
+  afterId?: number;
+  limit?: number;
+};
+async function shopSendBatch(msg?: unknown, { afterId = 0, limit = 300 }: ShopSendBatchOpts = {}) {
   const subs = await db.q<ShopPushSubsRow>('SELECT * FROM shop_push_subs WHERE id > $1 ORDER BY id LIMIT $2', [afterId, limit]);
   if (!subs.length) return { sent: 0, failed: 0, lastId: afterId, done: true };
   const v = await vapid();

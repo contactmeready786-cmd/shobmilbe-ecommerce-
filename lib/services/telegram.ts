@@ -47,7 +47,11 @@ async function connect(token: string, chatInput?: Loose) {
   return { chat: info.username ? '@' + info.username : String(info.id), title: info.title || '' };
 }
 
-async function send(settings: Settings, { text, product }: Body) {
+type SendOpts = {
+  text: string;
+  product: Loose;
+};
+async function send(settings: Settings, { text, product }: SendOpts) {
   const token = settings.telegram_bot_token;
   const chat = settings.telegram_chat;
   if (product && product.image_id) {
@@ -67,7 +71,10 @@ async function record(slot?: unknown, productId?: Id, ok?: unknown, postId?: Id,
 }
 
 // One product post (the same kind of caption as Facebook, with a Telegram link tag)
-async function postOne(settings: Settings, { slot }: Body = {}) {
+type PostOneOpts = {
+  slot?: string;
+};
+async function postOne(settings: Settings, { slot }: PostOneOpts = {}) {
   const p = await autopost.pickProduct(autopost.dhakaNow().weekday);
   if (!p) return { error: 'পোস্ট করার মতো পণ্য পাওয়া যায়নি (স্টকে আছে, ছবি আছে, দোকানে চালু — এমন পণ্য লাগবে)।' };
   const key = `${slot || `manual:${Date.now()}`}:tg`;

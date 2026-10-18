@@ -198,7 +198,11 @@ async function snapshot(force = false) {
   return { day, avg, perfect, total };
 }
 
-async function sweep(settings: Settings, { force = false, max = PER_RUN }: Body = {}) {
+type SweepOpts = {
+  force?: boolean;
+  max?: number | 40;
+};
+async function sweep(settings: Settings, { force = false, max = PER_RUN }: SweepOpts = {}) {
   if (settings.autoseo_on === '0') return { off: true };
   if (!force && Date.now() - (Number(settings.autoseo_try) || 0) < EVERY_MS) return { skipped: true };
   await db.setMany({ autoseo_try: String(Date.now()) });

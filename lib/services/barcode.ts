@@ -51,7 +51,15 @@ function widths(text: string) { return values(text).map((v) => P[v]).join('').sp
 function esc(s: string) { return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' } as Record<string, string>)[c]); }
 
 // SVG picture. module = width of the thinnest bar (in SVG units), height of bars, show the text below.
-function svg(text: string, { height = 60, module = 2, showText = true, fontSize = 14, quiet = 10, label }: Body = {}) {
+type SvgOpts = {
+  height?: number;
+  module?: number;
+  showText?: boolean;
+  fontSize?: number;
+  quiet?: number;
+  label?: Loose;
+};
+function svg(text: string, { height = 60, module = 2, showText = true, fontSize = 14, quiet = 10, label }: SvgOpts = {}) {
   const w = widths(text);
   let x = quiet * module;
   let rects = '';

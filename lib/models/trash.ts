@@ -121,7 +121,12 @@ async function moveAllProducts(who: Loose = {}) {
   });
 }
 
-async function list({ kind = '', limit = 200, offset = 0 }: Body = {}) {
+type ListOpts = {
+  kind?: string;
+  limit?: number;
+  offset?: number;
+};
+async function list({ kind = '', limit = 200, offset = 0 }: ListOpts = {}) {
   const params = [];
   let where = '';
   if (KINDS[kind]) { params.push(kind); where = 'WHERE kind=$1'; }

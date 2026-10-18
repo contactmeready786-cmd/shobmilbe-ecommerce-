@@ -4,6 +4,7 @@ import { normalizePhone, str, int } from '../util';
 import type { Body } from '../types';
 import type { DbRow, Param, Tx } from '../pg';
 import type { CustomersRow } from '../data/rows';
+import type { Loose } from '../types';
 
 type CustomerContact = { name: unknown; phone: string; email?: unknown; address?: unknown; district?: unknown; thana?: unknown };
 async function upsertCustomer(t: Tx, { name, phone, email, address, district, thana }: CustomerContact): Promise<number> {
@@ -81,7 +82,17 @@ function cleanTags(v: unknown): string {
     const k = t.toLowerCase(); if (!t || seen.has(k)) return false; seen.add(k); return true;
   }).slice(0, 12).join(', ');
 }
-async function updateCustomer(id: number, data: Body): Promise<void> {
+type UpdateCustomerOpts = {
+  name?: Loose;
+  email?: Loose;
+  address?: Loose;
+  district?: Loose;
+  thana?: Loose;
+  note?: Loose;
+  tags?: Loose;
+  grp?: Loose;
+};
+async function updateCustomer(id: number, data: UpdateCustomerOpts): Promise<void> {
   await q(`UPDATE customers SET name=$1, email=$2, address=$3, district=$4, thana=$5, note=$6, tags=$7, grp=$8, updated_at=now() WHERE id=$9`,
     [str(data.name, 80), str(data.email, 120), str(data.address, 400), str(data.district, 60), str(data.thana, 60), str(data.note, 1000),
       cleanTags(data.tags), str(data.grp, 40), id]);

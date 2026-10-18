@@ -18,6 +18,7 @@ import * as $customers from './customers';
 import * as $orders from './orders';
 import type { Body, Id, Settings, ShopRequest } from '../types';
 import type { CustomersRow, CustomerAddressesRow, CustomerOtpsRow, CustomerEmailOtpsRow } from '../data/rows';
+import type { Loose } from '../types';
 
 /** A customer account (a row of the customers table). An e-mail account has no login phone (phone null). */
 export type Customer = CustomersRow;
@@ -207,7 +208,17 @@ async function ordersOf(cu: Pick<Customer, 'id' | 'phone'>, limit = 50) {
 async function addresses(customerId?: Id) {
   return db.q<CustomerAddressesRow>('SELECT * FROM customer_addresses WHERE customer_id=$1 ORDER BY is_default DESC, id DESC', [int(customerId)]);
 }
-async function saveAddress(customerId: Id, b: Body) {
+type SaveAddressOpts = {
+  district?: Loose;
+  thana?: Loose;
+  address?: Loose;
+  phone?: Loose;
+  id?: Loose;
+  is_default?: Loose;
+  label?: Loose;
+  name?: Loose;
+};
+async function saveAddress(customerId: Id, b: SaveAddressOpts) {
   const O = $orders;
   const dist = O.findDistrict(str(b.district, 60));
   if (!dist) throw new AccountError('জেলা বাছাই করুন।');
@@ -233,7 +244,12 @@ async function saveAddress(customerId: Id, b: Body) {
   });
 }
 async function deleteAddress(customerId?: Id, id?: Id) { await db.q('DELETE FROM customer_addresses WHERE id=$1 AND customer_id=$2', [int(id), int(customerId)]); }
-async function saveProfile(cu: Pick<Customer, 'id' | 'email_verified'>, b: Body): Promise<void> {
+type SaveProfileOpts = {
+  name?: Loose;
+  contact_phone?: Loose;
+  email?: Loose;
+};
+async function saveProfile(cu: Pick<Customer, 'id' | 'email_verified'>, b: SaveProfileOpts): Promise<void> {
   const name = str(b.name, 80);
   if (name.length < 2) throw new AccountError('আপনার নাম লিখুন।');
   if (cu.email_verified) {

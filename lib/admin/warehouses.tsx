@@ -21,7 +21,12 @@ async function findProduct(code?: unknown) {
   return rows.length === 1 ? rows[0] : null;
 }
 
-function transferForm(stores?: Loose, { from = '', to = '', back = BASE }: Body = {}) {
+type TransferFormProps = {
+  from?: string;
+  to?: string;
+  back?: string | "/admin/warehouses";
+};
+function transferForm(stores?: Loose, { from = '', to = '', back = BASE }: TransferFormProps = {}) {
   const opts = [['0', '🏠 মূল গুদাম (অনলাইন)'], ...stores.filter((w: Loose) => w.active).map((w: Loose) => [w.id, `${w.is_shop ? '🏪' : '🏬'} ${w.name}`])];
   return <form method="post" action={attrValue(BASE)} className="form"><input type="hidden" name="action" defaultValue="transfer" /><input type="hidden" name="back" defaultValue={attrValue(back)} />{' '}{ui.field('পণ্য (SKU, বারকোড স্ক্যান বা নাম)', ui.input('code', '', { required: true, maxlength: 100, autocomplete: 'off', placeholder: 'যেমন 125 বা SB000125' }))}<div className="field-row">{ui.field('কোথা থেকে', ui.select('from', opts, from || '0'))}{ui.field('কোথায়', ui.select('to', opts, to || (stores[0] ? stores[0].id : '0')))}{' '}{ui.field('কয়টি', ui.input('qty', '1', { type: 'number', min: 1, required: true, class: 'w-num' }))}</div>{ui.field('নোট (ঐচ্ছিক)', ui.input('note', '', { maxlength: 200 }))}{' '}<button className="btn btn-sm">🔁 স্থানান্তর করুন</button></form>;
 }

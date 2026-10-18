@@ -52,7 +52,10 @@ const localPhone = (p: string) => { const d = String(p || '').replace(/\D/g, '')
 const intlPhone = (p: string) => { const l = localPhone(p); return l.startsWith('0') ? '880' + l.slice(1) : l; };
 const words = (n?: unknown) => String(Math.round(Number(n || 0)));
 
-function fill(tpl: string | undefined, vars: Record<string, string>, { json = false }: Body = {}) {
+type FillOpts = {
+  json?: boolean;
+};
+function fill(tpl: string | undefined, vars: Record<string, string>, { json = false }: FillOpts = {}) {
   return String(tpl || '').replace(/\{\{\s*(\w+)\s*\}\}/g, (_, k) => {
     const v = vars[k] == null ? '' : String(vars[k]);
     return json ? JSON.stringify(v).slice(1, -1) : v;
@@ -70,7 +73,10 @@ function varsFor(s: Settings, o?: Loose, site?: Loose, token?: Loose) {
 }
 
 // Place one call. Returns { ok, ref, error }.
-async function call(s: Settings, order?: Loose, site?: unknown, { test = false }: Body = {}) {
+type CallOpts = {
+  test?: boolean;
+};
+async function call(s: Settings, order?: Loose, site?: unknown, { test = false }: CallOpts = {}) {
   const token = await ensureSecret(s);
   const vars = varsFor(s, order, site, token);
   let body = fill(s.autocall_body || PRESETS.custom.body, vars, { json: true });

@@ -14,7 +14,17 @@ import type { CustomersRow, SmsCampaignsRow } from '../data/rows';
 const BASE = '/admin/marketing/sms';
 const BATCH = 200; // customers per click (a click takes well under a minute)
 
-async function audience(b: Body) {
+type AudienceProps = {
+  aud?: Loose;
+  grp?: Loose;
+  tag?: Loose;
+  days?: Loose;
+  segment?: Loose;
+  min_spent?: Loose;
+  district?: Loose;
+  category?: Loose;
+};
+async function audience(b: AudienceProps) {
   // customers who said "no offer SMS" (at checkout, or the owner noted it here) never get a bulk message
   const w = ["c.phone ~ '^01[3-9][0-9]{8}$'", "NOT EXISTS (SELECT 1 FROM blocklist bl WHERE bl.value=c.phone)", 'c.promo_sms'];
   const params: unknown[] = [];
@@ -54,7 +64,20 @@ async function audience(b: Body) {
 const AUD = [['buyers', 'যারা অন্তত একবার পণ্য পেয়েছেন'], ['inactive', '😴 অনেক দিন কেনেননি (নিচের "দিন" দেখে)'], ['recent', 'গত কিছু দিনে যারা কিনেছেন'],
   ['segment', 'তৈরি গ্রুপ (নতুন / আবার কিনেছেন / VIP / ঝুঁকিপূর্ণ…)'], ['spent', 'মোট এর বেশি টাকার কেনাকাটা করেছেন'], ['category', 'একটা ক্যাটাগরি থেকে কিনেছেন'],
   ['district', 'একটা জেলার কাস্টমার'], ['accounts', 'যারা অ্যাকাউন্টে লগইন করেছেন'], ['group', 'একটা গ্রুপ (হাতে দেওয়া)'], ['tag', 'একটা ট্যাগ'], ['all', 'সব কাস্টমার']];
-function audienceText(b: Body, cats: Loose = []) {
+type AudienceTextProps_ = {
+  find: Loose;
+};
+type AudienceTextProps = {
+  aud?: Loose;
+  days?: Loose;
+  segment?: Loose;
+  min_spent?: Loose;
+  category?: Loose;
+  district?: Loose;
+  grp?: Loose;
+  tag?: Loose;
+};
+function audienceText(b: AudienceTextProps, cats: AudienceTextProps_ = []) {
   const base = (AUD.find(([k]) => k === b.aud) || AUD[0])[1].replace(/\s*\(.*\)$/, '');
   const extra = b.aud === 'inactive' || b.aud === 'recent' ? ` — ${int(b.days, 90)} দিন` : b.aud === 'segment' && SEGMENTS[b.segment] ? ` — ${SEGMENTS[b.segment][0]}`
     : b.aud === 'spent' ? ` — ৳${int(b.min_spent, 5000)}+` : b.aud === 'category' ? ` — ${(cats.find((c: Loose) => c.id === int(b.category)) || {}).name || ''}`
@@ -62,7 +85,7 @@ function audienceText(b: Body, cats: Loose = []) {
   return (base + extra).slice(0, 200);
 }
 
-async function page(ctx: AdminCtx, note: unknown = null) {
+async function page(ctx: AdminCtx, note: ui.Flash | null = null) {
   const s = ctx.settings;
   const canSetup = ctx.can('settings');
   const r = SMS.ready(s);

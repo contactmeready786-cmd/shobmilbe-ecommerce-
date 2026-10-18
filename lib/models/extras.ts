@@ -10,7 +10,12 @@ import * as $services_sms from '../services/sms';
 import type { Body, Id, Loose, Settings } from '../types';
 class UserError extends Error {}
 
-async function subscribeStock({ productId, phone, ip }: Body) {
+type SubscribeStockOpts = {
+  productId: Loose;
+  phone: Loose;
+  ip: string;
+};
+async function subscribeStock({ productId, phone, ip }: SubscribeStockOpts) {
   const pid = int(productId);
   const ph = normalizePhone(phone);
   if (!validPhone(ph)) throw new UserError('সঠিক মোবাইল নম্বর দিন, যেমন 01712345678।');
@@ -26,7 +31,10 @@ async function subscribeStock({ productId, phone, ip }: Body) {
 
 // Products that came back: SMS everyone waiting for them (a few at a time; the rest next time).
 // Runs after admin work and on the hourly tick. Without SMS set up nothing is lost — they keep waiting.
-async function restockSweep(settings: Settings, { limit = 30 }: Body = {}) {
+type RestockSweepOpts = {
+  limit?: number;
+};
+async function restockSweep(settings: Settings, { limit = 30 }: RestockSweepOpts = {}) {
   const SMS = $services_sms;
   if (!SMS.ready(settings).ok) return { sent: 0, waiting: true };
   const rows = await db.q<{ id: number; phone: string; product_id: number | null; name: string | null; slug: string; vid: number | null; parent_id: number | null }>(`SELECT a.id, a.phone, p.id AS product_id, p.name, coalesce(pp.slug, p.slug) AS slug, p.id AS vid, p.parent_id
@@ -57,7 +65,12 @@ async function restockSweep(settings: Settings, { limit = 30 }: Body = {}) {
 // moment (a new lower price, or a flash sale) one SMS goes out. Checked now and then in the background.
 const FLASH_NOW = `(SELECT min(fi.price) FROM flash_items fi JOIN flash_sales fs ON fs.id=fi.sale_id
   WHERE fi.product_id=p.id AND fs.active AND now() >= fs.starts_at AND now() < fs.ends_at AND (fi.max_qty = 0 OR fi.sold < fi.max_qty) AND fi.price < p.price)`;
-async function subscribePrice({ productId, phone, ip }: Body) {
+type SubscribePriceOpts = {
+  productId: Loose;
+  phone: Loose;
+  ip: string;
+};
+async function subscribePrice({ productId, phone, ip }: SubscribePriceOpts) {
   const pid = int(productId);
   const ph = normalizePhone(phone);
   if (!validPhone(ph)) throw new UserError('সঠিক মোবাইল নম্বর দিন, যেমন 01712345678।');
@@ -93,7 +106,11 @@ async function priceAlertTop(limit = 20) {
     FROM price_alerts a JOIN products p ON p.id=a.product_id WHERE a.notified_at IS NULL GROUP BY p.id ORDER BY count(*) DESC, max(a.created_at) DESC LIMIT $1`, [limit]);
 }
 
-async function stockAlertList({ status = 'waiting', limit = 200 }: Body = {}) {
+type StockAlertListOpts = {
+  status?: "all" | "waiting" | "sent" | string;
+  limit?: number;
+};
+async function stockAlertList({ status = 'waiting', limit = 200 }: StockAlertListOpts = {}) {
   const where = status === 'sent' ? 'a.notified_at IS NOT NULL' : status === 'all' ? 'true' : 'a.notified_at IS NULL';
   return db.q<{ id: number; product_id: number; phone: string; name: string; ip: string; created_at: Date; notified_at: Date | null; result: string; sku: string; stock: number; image_id: number | null; emoji: string; edit_id: number }>(`SELECT a.*, p.name, p.sku, p.stock, p.image_id, p.emoji, coalesce(p.parent_id, p.id) AS edit_id
     FROM stock_alerts a JOIN products p ON p.id=a.product_id WHERE ${where} ORDER BY a.created_at DESC LIMIT $1`, [limit]);
@@ -108,7 +125,14 @@ async function stockAlertTop(limit = 15) {
 // ---------------------------------------------------------------- questions & answers
 const Q_STATUSES: Record<string, string> = { pending: 'উত্তরের অপেক্ষায়', published: 'দোকানে দেখাচ্ছে', hidden: 'লুকানো' };
 
-async function askQuestion({ productId, name, phone, question, ip }: Body) {
+type AskQuestionOpts = {
+  productId: Loose;
+  name: Loose;
+  phone: Loose;
+  question: Loose;
+  ip: string;
+};
+async function askQuestion({ productId, name, phone, question, ip }: AskQuestionOpts) {
   const text = str(question, 500).replace(/\s+/g, ' ');
   if (text.length < 5) throw new UserError('প্রশ্নটা একটু বিস্তারিত লিখুন।');
   if (/https?:\/\/|www\./i.test(text)) throw new UserError('প্রশ্নে লিংক দেওয়া যায় না।');
@@ -126,7 +150,12 @@ async function publishedQuestions(productId?: Id, limit = 30) {
   return db.q<Pick<ProductQuestionsRow, 'id' | 'name' | 'question' | 'answer' | 'created_at'>>(`SELECT id, name, question, answer, created_at FROM product_questions
     WHERE product_id=$1 AND status='published' AND answer<>'' ORDER BY answered_at DESC NULLS LAST, id DESC LIMIT $2`, [int(productId), limit]);
 }
-async function listQuestions({ status = 'pending', limit = 100, offset = 0 }: Body = {}) {
+type ListQuestionsOpts = {
+  status?: string;
+  limit?: number;
+  offset?: number;
+};
+async function listQuestions({ status = 'pending', limit = 100, offset = 0 }: ListQuestionsOpts = {}) {
   const params: unknown[] = [];
   let where = '';
   if (Q_STATUSES[status]) { params.push(status); where = `WHERE q.status=$1`; }
@@ -142,7 +171,12 @@ async function questionCounts() {
   return out;
 }
 // Save the shop's answer. publish=false keeps it hidden. Returns the question (for the "answered" SMS).
-async function answerQuestion(id: Id, { answer, publish, question }: Body, staffId?: Id) {
+type AnswerQuestionOpts = {
+  answer: Loose;
+  publish: boolean;
+  question: Loose;
+};
+async function answerQuestion(id: Id, { answer, publish, question }: AnswerQuestionOpts, staffId?: Id) {
   const a = str(answer, 1500);
   const q = await db.one<ProductQuestionsRow>('SELECT * FROM product_questions WHERE id=$1', [int(id)]);
   if (!q) throw new UserError('প্রশ্নটা পাওয়া যায়নি।');

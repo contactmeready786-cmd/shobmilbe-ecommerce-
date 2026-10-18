@@ -6,7 +6,9 @@ import type { Body, Id, Loose } from '../types';
 import type { JSX } from 'react/jsx-runtime';
 import type { DbRow } from '../pg';
 
-const MESSAGES: Record<string, Loose> = {
+/** A short message at the top of an admin page (a red one for errors). */
+export type Flash = { type?: 'error'; text: string };
+const MESSAGES: Record<string, string | Flash> = {
   saved: 'সেভ হয়েছে।',
   added: 'যোগ হয়েছে।',
   deleted: 'মুছে ফেলা হয়েছে — দোকান থেকে সরে গেছে, তবে রিসাইকেল বিনে আছে (মালিক চাইলে ফেরত আনতে পারবেন)।',
@@ -25,12 +27,12 @@ const MESSAGES: Record<string, Loose> = {
   noperm: { type: 'error', text: 'এই কাজের অনুমতি আপনার নেই। মালিকের সাথে কথা বলুন।' },
 };
 
-function flash(msg?: Loose) {
+function flash(msg?: Flash | null | '') {
   if (!msg) return '';
   return <p className={`flash ${msg.type === 'error' ? 'flash-error' : ''}`} role="status"><Val v={msg.text} /></p>;
 }
-function flashFrom(query: URLSearchParams) {
-  if (query.get('err')) return { type: 'error', text: query.get('err')!.slice(0, 300) };
+function flashFrom(query: URLSearchParams): Flash | null {
+  if (query.get('err')) return { type: 'error' as const, text: query.get('err')!.slice(0, 300) };
   if (query.get('info')) return { text: query.get('info')!.slice(0, 500) };
   const m = MESSAGES[query.get('msg') || ''];
   return m ? (typeof m === 'string' ? { text: m } : m) : null;
@@ -95,7 +97,12 @@ function switchRow(name?: Loose, on?: Loose, title?: Loose, desc?: Loose) {
   return <label className="switch-row">{' '}<span className="switch-text"><b><Val v={title} /></b>{(desc ? <small><Val v={desc} /></small> : null)}</span>{' '}<span className="switch"><input type="checkbox" name={attrValue(name)} defaultValue="1" defaultChecked={!!(on)} /><span className="switch-ui" aria-hidden="true"></span></span>{' '}<span className="switch-state" data-on="চালু" data-off="বন্ধ"></span></label>;
 }
 // Image picker: uploads in the browser, keeps the media id in a hidden input.
-function imagePicker(name?: Loose, mediaId?: Id, { label = 'ছবি', hint = '', wide = false }: Body = {}) {
+type ImagePickerProps = {
+  label?: string;
+  hint?: string;
+  wide?: boolean;
+};
+function imagePicker(name?: Loose, mediaId?: Id, { label = 'ছবি', hint = '', wide = false }: ImagePickerProps = {}) {
   return <div className={`field image-pick ${wide ? 'wide' : ''}`} data-image-pick=""><span className="label"><Val v={label} /></span><div className="pick-preview" data-pick-preview="">{(mediaId ? <img src={`/media/${attrValue(mediaId)}/t`} alt="" /> : <span className="muted small">ছবি নেই</span>)}</div><p className={`pick-status ${mediaId ? 'is-live' : ''}`} data-pick-status="" data-live={mediaId ? '1' : ''}>{(mediaId ? "✅ এখন সাইটে এই ছবিটা চলছে" : "এখনো কোনো ছবি দেওয়া হয়নি")}</p><input type="hidden" name={attrValue(name)} defaultValue={attrValue(mediaId || '')} data-pick-value="" /><div className="pick-actions"><label className="btn btn-sm btn-ghost">{(mediaId ? "🔄 ছবি বদলান" : "📷 ছবি বাছুন")}<input type="file" accept="image/*" hidden data-pick-file="" data-wide={(wide) ? "" : undefined} /></label>{' '}{(mediaId ? <a className="btn btn-sm btn-ghost" href={`/media/${attrValue(mediaId)}`} target="_blank" rel="noopener">🔍 বড় করে দেখুন</a> : null)}{' '}<button type="button" className="link-btn danger" data-pick-clear="" hidden={!(mediaId)}>🗑️ সরান</button></div>{(hint ? <small><Val v={hint} /></small> : null)}</div>;
 }
 
@@ -128,7 +135,13 @@ function catOpts(categories: DbRow[]) {
 function rowSwitch(action?: Loose, on?: Loose, label?: Loose) {
   return <form method="post" action={attrValue(action)} className="prod-toggle"><label className="switch" title={attrValue(label)}><input type="checkbox" name="active" defaultValue="1" defaultChecked={!!(on)} data-prod-toggle="" aria-label={attrValue(label)} /><span className="switch-ui" aria-hidden="true"></span></label>{' '}<span className="small prod-toggle-text" data-prod-toggle-text="">{(on ? "চালু" : "বন্ধ")}</span><noscript><button className="btn btn-sm btn-ghost">সেভ</button></noscript></form>;
 }
-function rowActions({ edit, del, delConfirm, editLabel = '✏️ এডিট' }: Body) {
+type RowActionsProps = {
+  edit: string;
+  del?: string;
+  delConfirm?: string;
+  editLabel?: string;
+};
+function rowActions({ edit, del, delConfirm, editLabel = '✏️ এডিট' }: RowActionsProps) {
   return <td className="prod-actions">{(edit ? <a className="btn btn-sm btn-ghost" href={attrValue(edit)}><Val v={editLabel} /></a> : null)}{' '}{(del ? <form method="post" action={attrValue(del)} data-confirm={attrValue(delConfirm || 'মুছবেন? রিসাইকেল বিনে থাকবে, মালিক চাইলে ফেরত আনতে পারবেন।')}><button className="btn btn-sm btn-danger">🗑️ মুছুন</button></form> : null)}</td>;
 }
 

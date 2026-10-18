@@ -87,7 +87,20 @@ function warrantyItems(order?: Loose) {
   }).filter((x: Loose) => x.end);
 }
 
-async function create({ name, phone, email, orderCode, topic, message, photos, ip, source = 'web', settings, productId }: Body) {
+type CreateOpts = {
+  name: Loose;
+  phone: Loose;
+  email: Loose;
+  orderCode: Loose;
+  topic: Loose;
+  message: Loose;
+  photos: unknown[];
+  ip: string;
+  source?: string;
+  settings: Settings;
+  productId: Loose;
+};
+async function create({ name, phone, email, orderCode, topic, message, photos, ip, source = 'web', settings, productId }: CreateOpts) {
   const nm = str(name, 80).trim();
   const ph = normalizePhone(phone);
   const msg = str(message, 2000).trim();
@@ -139,7 +152,11 @@ function where(f: Body, params?: Loose) {
   }
   return w.length ? 'WHERE ' + w.join(' AND ') : '';
 }
-async function list(f: Body = {}, { limit = 50, offset = 0 }: Body = {}) {
+type ListOpts = {
+  limit?: number;
+  offset?: number;
+};
+async function list(f: Body = {}, { limit = 50, offset = 0 }: ListOpts = {}) {
   const params: Loose[] = [];
   const w = where(f, params);
   return db.q(`SELECT c.*, s.name AS staff_name, (SELECT count(*)::int FROM complaint_notes n WHERE n.complaint_id=c.id) AS notes
@@ -167,7 +184,13 @@ async function get(id?: Id) {
 }
 
 // a note: inside only, or a reply that the customer sees (and gets by SMS when SMS works)
-async function addNote(id: Id, { staffId, body, toCustomer, settings }: Body) {
+type AddNoteOpts = {
+  staffId: number;
+  body: Loose;
+  toCustomer: boolean;
+  settings: Settings;
+};
+async function addNote(id: Id, { staffId, body, toCustomer, settings }: AddNoteOpts) {
   const c = await db.one<ComplaintsRow>('SELECT * FROM complaints WHERE id=$1', [int(id)]);
   if (!c) throw new ComplaintError('অভিযোগটি পাওয়া যায়নি।');
   const text = str(body, 1000).trim();
@@ -185,7 +208,13 @@ async function addNote(id: Id, { staffId, body, toCustomer, settings }: Body) {
     status = CASE WHEN status='open' THEN 'working' ELSE status END WHERE id=$1`, [c.id, !!toCustomer]);
   return { smsOk };
 }
-async function setStatus(id: Id, { status, resolution, staffId, settings }: Body) {
+type SetStatusOpts = {
+  status: Loose;
+  resolution: Loose;
+  staffId: number;
+  settings: Settings;
+};
+async function setStatus(id: Id, { status, resolution, staffId, settings }: SetStatusOpts) {
   if (!STATUS[status]) throw new ComplaintError('অবস্থা ঠিক নেই।');
   const c = await db.one<ComplaintsRow>('SELECT * FROM complaints WHERE id=$1', [int(id)]);
   if (!c) throw new ComplaintError('অভিযোগটি পাওয়া যায়নি।');

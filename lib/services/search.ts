@@ -243,7 +243,10 @@ function clearCache() { builtAt = 0; sig = ''; }
 
 // ---------------------------------------------------------------- search
 // → product ids, best match first (at most `limit`)
-async function find(query: string, { limit = 500 }: Body = {}) {
+type FindOpts = {
+  limit?: number;
+};
+async function find(query: string, { limit = 500 }: FindOpts = {}) {
   const typed = words(query).filter((w) => !STOP.has(w));
   // each typed word with the other ways it may be meant
   const groups = [];

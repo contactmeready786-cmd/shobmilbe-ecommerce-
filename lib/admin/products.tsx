@@ -56,7 +56,10 @@ async function listPage(ctx: AdminCtx) {
 
 // ---------------------------------------------------------------- bulk edit (many products at once)
 const canBulk = (ctx: AdminCtx) => ctx.can('products') || ctx.can('products_delete');
-function bulkBar(ctx: AdminCtx, categories: db.pg.DbRow[], brands: Loose = []) {
+type BulkBarProps = {
+  map: Loose;
+};
+function bulkBar(ctx: AdminCtx, categories: db.pg.DbRow[], brands: BulkBarProps = []) {
   if (!canBulk(ctx)) return '';
   const edit = ctx.can('products');
   const acts = [
@@ -135,7 +138,12 @@ async function bulkAction(ctx: AdminCtx) {
 }
 
 // Small count chips above the list: total / on the shop / hidden / stock out / low stock. Each one is a filter.
-function statChips(st: Loose, f: Body, isBundle: boolean) {
+type StatChipsProps_ = {
+  status: string;
+  outStock: boolean;
+  lowStock: boolean;
+};
+function statChips(st: Loose, f: StatChipsProps_, isBundle: boolean) {
   const base = isBundle ? '/admin/products?type=bundle' : '/admin/products';
   const link = (extra: string) => base + (extra ? (base.includes('?') ? '&' : '?') + extra : '');
   const none = !f.status && !f.outStock && !f.lowStock;
@@ -157,7 +165,13 @@ function dupMatches(matches?: Loose) {
 function dupActs(m?: Loose) {
   return <div className="dup-acts" data-dup-acts="" data-id={attrValue(m.id)} data-name={attrValue(m.name || m.title || '')}><button type="button" className="btn btn-sm btn-ghost" data-dup-act="toggle" data-on={m.active ? '1' : ''}>{(m.active ? "🚫 বন্ধ করুন" : "✅ চালু করুন")}</button>{' '}<button type="button" className="btn btn-sm btn-danger" data-dup-act="delete">🗑️ মুছুন</button></div>;
 }
-function dupPanel({ dup, canOverride, allow, id }: Body) {
+type DupPanelProps = {
+  dup: Loose;
+  canOverride: Loose;
+  allow: boolean;
+  id: Loose;
+};
+function dupPanel({ dup, canOverride, allow, id }: DupPanelProps) {
   const blocked = dup && dup.blocked;
   const showSwitch = blocked || allow;
   return <section className={`panel dup-box ${blocked ? 'is-block' : dup && dup.matches.length ? 'is-warn' : ''}`} data-dup-box="" data-dup-id={attrValue(id || '')} data-can-override={canOverride ? '1' : ''}><h2>🔍 ডুপ্লিকেট যাচাই</h2><div data-dup-result="">{(dup && dup.matches.length ? <><p className="dup-head">{(blocked ? "এই পণ্যটি দোকানে আগে থেকেই আছে বলে মনে হচ্ছে, তাই সেভ আটকানো হয়েছে। নিচের পণ্যগুলো দেখুন:" : "কাছাকাছি কিছু পণ্য পাওয়া গেছে। একবার দেখে নিন (সেভ আটকাবে না):")}</p>{dupMatches(dup.matches)}</> : <p className="muted small" data-dup-idle="">নাম লিখলে আর ছবি দিলে নিজে থেকেই যাচাই হবে — একই পণ্য আগে থেকে আছে কি না (নাম, ছবি আর বিবরণ মিলিয়ে)।</p>)}</div>{(!id ? <p className="dup-cancel small" data-dup-cancel="" hidden={!(blocked)}>এই নতুন পণ্যটা রাখতে না চাইলে{' '}<a className="btn btn-ghost btn-sm" href="/admin/products">✕ বাতিল করুন — সেভ হবে না</a></p> : null)}{' '}{(canOverride ? <div className="dup-allow" data-dup-allow="" hidden={!(showSwitch)}>{ui.switchRow('allow_duplicate', allow, 'এটা আলাদা পণ্য — তবুও প্রকাশ করুন', 'নিশ্চিত হলে চালু করুন (যেমন একই ছবির আলাদা রং/মাপ)। চালু করে সেভ দিলে এই পণ্যটি আর আটকাবে না।')}</div> : <p className="small muted dup-noperm" data-dup-noperm="" hidden={!(blocked)}>এটা সত্যিই আলাদা পণ্য হলে মালিককে বলুন — তিনি "তবুও প্রকাশ করুন" সুইচ চালু করতে পারবেন।</p>)}</section>;
@@ -337,7 +351,10 @@ async function formPage(ctx: AdminCtx, m: RouteMatch | null) {
 }
 
 // Where to go after a list action: back to the same list page (only our own product list).
-function backTo(b: Body) {
+type BackToProps = {
+  back?: Loose;
+};
+function backTo(b: BackToProps) {
   const v = String(b.back || '');
   return /^\/admin\/(products(\/duplicates)?|inventory)(\?[\w=&%.+-]*)?$/.test(v) ? v : '/admin/products';
 }
@@ -410,7 +427,11 @@ async function duplicatesPage(ctx: AdminCtx) {
 // ---------------------------------------------------------------- categories
 // Where categories show on the storefront: the bar above the banner (every page)
 // and the box grid on the home page (a home-page section).
-async function saveCategoryDisplay(ctx: AdminCtx, b: Body) {
+type SaveCategoryDisplayProps = {
+  show_cat_strip?: Loose;
+  show_cat_grid?: Loose;
+};
+async function saveCategoryDisplay(ctx: AdminCtx, b: SaveCategoryDisplayProps) {
   const top = b.show_cat_strip ? '1' : '0';
   await db.setSetting('show_cat_strip', top);
   const sections = db.jsonSetting(ctx.settings, 'home_sections', []).filter((x: string) => x !== 'categories');

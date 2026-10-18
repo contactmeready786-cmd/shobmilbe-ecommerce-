@@ -116,7 +116,11 @@ function countryName(code: string, lang = 'bn') {
 }
 
 // The page a shut-out visitor sees (Bangla + English, no shop design so it loads instantly).
-function blockedPage(s: Settings, { country = '', why = 'country' }: Body = {}) {
+type BlockedPageOpts = {
+  country?: string;
+  why?: string;
+};
+function blockedPage(s: Settings, { country = '', why = 'country' }: BlockedPageOpts = {}) {
   const c = config(s);
   const shop = esc(s.store_name || 'সবমিলবে');
   const where = c.list.map((x) => esc(countryName(x))).join(', ');

@@ -1,5 +1,6 @@
 // Types shared across the shop code.
 import type { Reply, HeaderMap, ReplyBody } from './reply';
+import type { Flash } from './admin/ui';
 
 /** Every admin setting, as stored in the settings table (all values are text; a missing one is undefined). */
 export type Settings = Record<string, string | undefined> & { store_name: string; session_secret: string };
@@ -59,7 +60,7 @@ export type RouteMatch = string[];
 export type AdminCtx = Base & {
   user: StaffUser; ip: string; readOnly?: boolean; __err?: string;
   can: (perm: string) => boolean;
-  flash: Loose;
+  flash: Flash | null;
   body: () => Promise<Body>;
   page: (title: string, body: unknown, active?: string, opts?: { status?: number }) => void;
   back: (to: string, msgKey?: string) => void;

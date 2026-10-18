@@ -94,7 +94,14 @@ async function save(src?: Loose, en?: unknown, origin = 'auto') {
 
 // Look up texts for a visitor; translate the missing ones (when allowed) within the time left.
 // Returns { [text]: english }.
-async function lookup(texts: Loose, settings: Settings, { auto = true, deadline = Date.now() + 8000 }: Body = {}) {
+type LookupOpts_ = {
+  auto?: boolean;
+  deadline?: number;
+};
+type LookupOpts = {
+  map: Loose;
+};
+async function lookup(texts: LookupOpts, settings: Settings, { auto = true, deadline = Date.now() + 8000 }: LookupOpts_ = {}) {
   const list: string[] = [...new Set<string>(texts.map(norm))].filter((t) => t && t.length <= MAX_LEN && hasBangla(t));
   const found = await getMany(list);
   const result: Record<string, unknown> = {};

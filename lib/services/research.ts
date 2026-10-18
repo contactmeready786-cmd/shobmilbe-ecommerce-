@@ -453,7 +453,10 @@ async function readSite(src: DbRow, started: number) {
 }
 
 // One step of the round-the-clock work: read the shop that was read longest ago.
-async function tick({ force = false }: Body = {}) {
+type TickOpts = {
+  force?: boolean;
+};
+async function tick({ force = false }: TickOpts = {}) {
   const started = Date.now();
   if (!force) {
     const last = await one(`SELECT value FROM settings WHERE key='research_tick_at'`);
@@ -511,7 +514,13 @@ const median = (a?: Loose) => { const s = [...a].sort((x, y) => x - y); return s
 function niceDown(n: number) { if (!n) return null; if (n < 60) return Math.floor(n); if (n < 200) return Math.floor(n / 5) * 5; if (n < 2000) return Math.floor(n / 10) * 10 - (n >= 100 ? 0 : 0); return Math.floor(n / 50) * 50; }
 function searchText(title?: Loose) { return dupes.words(title).filter((w) => !/^\d+$/.test(w)).slice(0, 6).join(' ') || title.slice(0, 50); }
 
-async function winners({ segment = '', limit = 60, margin = 30, mine = null }: Body = {}) {
+type WinnersOpts = {
+  segment?: string;
+  limit?: number;
+  margin?: number;
+  mine?: null;
+};
+async function winners({ segment = '', limit = 60, margin = 30, mine = null }: WinnersOpts = {}) {
   const rows = await q(`SELECT i.*, s.name AS shop, s.segment, s.kind, s.created_at AS source_since
     FROM research_items i JOIN research_sources s ON s.id=i.source_id
     WHERE s.active AND ${FRESH} ${segment ? 'AND s.segment=$1' : ''}`, segment ? [segment] : []);
@@ -598,12 +607,15 @@ function cover(a: Loose, b: Body) {
 }
 function prepFull(name: string) { const p: Loose = pairsOf(name); p.codes = modelCodes(p.ws); return p; }
 // 0 … 1: how sure we are that two names are the same product
+type SizesOpts = {
+  ws?: Loose;
+};
 function sameProduct(a: Body, b: Body) {
   if (!a.codes) a.codes = modelCodes(a.ws);
   if (!b.codes) b.codes = modelCodes(b.ws);
   let d = dice(a, b);
   // same kind of size with a different value (40W vs 60W, 12V vs 24V) → a different product
-  const sizes = (p: Body) => { const m = new Map(); for (const w of p.ws) { const x = w.match(/^(\d+(?:p\d+)?)([a-z]+)$/); if (x && UNIT_ONLY.test(w)) { if (!m.has(x[2])) m.set(x[2], new Set()); m.get(x[2]).add(x[1]); } } return m; };
+  const sizes = (p: SizesOpts) => { const m = new Map(); for (const w of p.ws) { const x = w.match(/^(\d+(?:p\d+)?)([a-z]+)$/); if (x && UNIT_ONLY.test(w)) { if (!m.has(x[2])) m.set(x[2], new Set()); m.get(x[2]).add(x[1]); } } return m; };
   const sa = sizes(a), sb = sizes(b);
   for (const [u, vals] of sa) if (sb.has(u) && ![...vals].some((v) => sb.get(u).has(v))) { d = Math.min(d, 0.6); return d; }
   if (a.codes.size && b.codes.size) {
@@ -821,7 +833,12 @@ async function liveSite(src?: Loose, term?: Loose, termPrep?: unknown, until?: L
   return 0;
 }
 
-async function searchMarket(term: string, { live = true, fresh = false, budgetMs = 24000 }: Body = {}) {
+type SearchMarketOpts = {
+  live?: boolean;
+  fresh?: boolean;
+  budgetMs?: number;
+};
+async function searchMarket(term: string, { live = true, fresh = false, budgetMs = 24000 }: SearchMarketOpts = {}) {
   term = String(term || '').replace(/\s+/g, ' ').trim().slice(0, 80);
   const termPrep = prepFull(term);
   const sq0 = searchQuery(term);
@@ -892,13 +909,20 @@ async function searchMarket(term: string, { live = true, fresh = false, budgetMs
   return { term, items: items.slice(0, 120), shops: shops.sort((a, b) => b.n - a.n), again, ms: Date.now() - started };
 }
 
-async function newInMarket({ segment = '', limit = 30 }: Body = {}) {
+type NewInMarketOpts = {
+  segment?: string;
+  limit?: number;
+};
+async function newInMarket({ segment = '', limit = 30 }: NewInMarketOpts = {}) {
   return q(`SELECT i.*, s.name AS shop, s.segment FROM research_items i JOIN research_sources s ON s.id=i.source_id
     WHERE s.active AND i.first_seen > now() - interval '7 days'
       AND i.first_seen > s.created_at + CASE WHEN s.kind='site' THEN interval '10 days' ELSE interval '1 day' END ${segment ? 'AND s.segment=$2' : ''}
     ORDER BY i.first_seen DESC LIMIT $1`, segment ? [limit, segment] : [limit]);
 }
-async function priceDrops({ limit = 20 }: Body = {}) {
+type PriceDropsOpts = {
+  limit?: number;
+};
+async function priceDrops({ limit = 20 }: PriceDropsOpts = {}) {
   return q(`SELECT i.*, s.name AS shop FROM research_items i JOIN research_sources s ON s.id=i.source_id
     WHERE s.active AND i.prev_price IS NOT NULL AND i.price < i.prev_price AND i.price_changed_at > now() - interval '7 days'
     ORDER BY (i.prev_price - i.price) / nullif(i.prev_price, 0) DESC LIMIT $1`, [limit]);

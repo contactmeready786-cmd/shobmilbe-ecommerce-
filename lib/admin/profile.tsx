@@ -42,7 +42,10 @@ function photoBox(u: Partial<StaffUser>, action?: unknown) {
 }
 
 // The profile boxes inside a form. ownerEdit: the owner is filling it in (job title and joining date can be changed).
-function fields(u: Partial<StaffUser>, { ownerEdit }: Body) {
+type FieldsProps = {
+  ownerEdit: boolean;
+};
+function fields(u: Partial<StaffUser>, { ownerEdit }: FieldsProps) {
   return <><div className="field-row">{(ownerEdit ? ui.field('পদবি / কাজ', ui.input('designation', u.designation || '', { maxlength: 60, placeholder: 'যেমন: ম্যানেজার, অর্ডার কনফার্ম, প্যাকিং' })) : <div className="field"><span className="label">পদবি / কাজ</span><p><Val v={u.designation || <span className="muted">—</span>} /></p></div>)}{' '}{(ownerEdit ? ui.field('যোগদানের তারিখ', ui.input('joined_on', ymd(u.joined_on), { type: 'date' }), u.joined_on ? since(u.joined_on) : '') : <div className="field"><span className="label">যোগদানের তারিখ</span><p>{(u.joined_on ? <>{fmtDate(ymd(u.joined_on), false)}{' '}<span className="small muted">(<Val v={since(u.joined_on)} />)</span></> : <span className="muted">—</span>)}</p></div>)}</div>{ui.field('ঠিকানা', ui.textarea('address', u.address || '', { rows: 2, maxlength: 300, placeholder: 'বাসার ঠিকানা' }))}{' '}{ui.field('জরুরি যোগাযোগের নম্বর', ui.input('emergency_phone', u.emergency_phone || '', { inputmode: 'tel', maxlength: 20, placeholder: 'পরিবারের কারো নম্বর' }), 'কোনো দরকারে যাকে ফোন করা যাবে (বাবা-মা, ভাই-বোন)।')}{' '}{ui.field('নিজের সম্পর্কে', ui.textarea('bio', u.bio || '', { rows: 2, maxlength: 500, placeholder: 'ছোট করে — যেমন কোন কাজে দক্ষ, কোন সময় কাজ করেন' }))}</>;
 }
 

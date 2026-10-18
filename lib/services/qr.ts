@@ -223,7 +223,11 @@ function encode(text: string) {
 }
 
 // SVG with a 4-module quiet zone. Dark = #000 on white, so any phone camera reads it.
-function svg(text: string, { px = 220, label = 'QR' }: Body = {}) {
+type SvgOpts = {
+  px?: unknown | number;
+  label?: string;
+};
+function svg(text: string, { px = 220, label = 'QR' }: SvgOpts = {}) {
   const { size, modules } = encode(text);
   const n = size + 8;
   let path = '';

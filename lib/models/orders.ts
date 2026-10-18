@@ -10,6 +10,7 @@ import * as $loyalty from './loyalty';
 import type { DbRow, Tx } from '../pg';
 import type { OrdersRow, OrderItemsRow, ProductsRow, FlashItemsRow, WarehouseStockRow } from '../data/rows';
 import type { Body, Settings } from '../types';
+import type { Loose } from '../types';
 
 /** A priced order line, as saved in order_items. */
 export type OrderLine = {
@@ -276,7 +277,32 @@ async function insertItems(t: Tx, orderId: number, lines: OrderLine[]): Promise<
 }
 
 // ---------------------------------------------------------------- create
-async function createOrder(input: Body, settings: Settings) {
+type CreateOrderOpts = {
+  items: Loose;
+  source: string;
+  phone: string;
+  district?: string;
+  thana?: string;
+  area?: string;
+  name: string;
+  address: string;
+  createdBy?: number;
+  coupon?: string;
+  discount?: Loose;
+  delivery?: Loose;
+  email?: string;
+  usePoints?: boolean;
+  note?: string;
+  payment: Loose;
+  trxId?: string;
+  paymentNumber?: string;
+  ip?: string;
+  status?: Loose;
+  adminNote?: string;
+  giftCode?: string;
+  warehouseId?: number | null;
+};
+async function createOrder(input: CreateOrderOpts, settings: Settings) {
   const wanted = mergeWanted(input.items);
   if (!wanted.length) throw new OrderError('কার্ট খালি। আগে পণ্য যোগ করুন।');
   const isAdmin = input.source === 'admin' || input.source === 'pos';
@@ -547,7 +573,25 @@ async function setStatusTx(id: number, status: string, staffId: number | null | 
 }
 
 // Edit an order's details and (optionally) its items. Stock is kept right.
-async function updateOrder(id: number, data: Body, settings: Settings, staffId: number | null | undefined): Promise<{ total: number }> {
+type UpdateOrderOpts = {
+  customer_name?: Loose;
+  phone: string;
+  email?: Loose;
+  address?: Loose;
+  district?: Loose;
+  thana?: Loose;
+  note?: Loose;
+  admin_note?: Loose;
+  payment?: Loose;
+  payment_status?: Loose;
+  paid_amount?: Loose;
+  transaction_id?: Loose;
+  payment_number?: Loose;
+  items: Loose;
+  discount?: Loose;
+  delivery?: Loose;
+};
+async function updateOrder(id: number, data: UpdateOrderOpts, settings: Settings, staffId: number | null | undefined): Promise<{ total: number }> {
   return tx(async (t) => {
     const o = (await t.query<OrdersRow>('SELECT * FROM orders WHERE id=$1 FOR UPDATE', [id])).rows[0];
     if (!o) throw new OrderError('অর্ডার পাওয়া যায়নি।');
