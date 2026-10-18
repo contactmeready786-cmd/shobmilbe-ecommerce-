@@ -110,7 +110,11 @@ async function check(ctx: BrowserContext, path: string, admin: boolean): Promise
   await page.close();
 }
 
+// tsx (esbuild) gives named inner functions a __name(…) helper; code sent into the page with page.evaluate carries
+// that call, so the page gets a do-nothing __name of its own
+const NAME_HELPER = 'globalThis.__name = (fn) => fn;';
 const shop = await browser.newContext();
+await shop.addInitScript(NAME_HELPER);
 for (const p of SHOP) await check(shop, p, false);
 
 // the admin: the owner of the test shop (made by the crawl's set-up), logged in
@@ -118,6 +122,7 @@ await form('/admin/setup', { name: 'Test Owner', username: 'owner', password: 'P
 const login = await form('/admin/login', { login: 'owner', password: 'Parity-Test-9271!' });
 const cookies = login.map((c) => { const [pair] = c.split(';'); const i = pair.indexOf('='); return { name: pair.slice(0, i), value: pair.slice(i + 1), url: origin }; }).filter((c) => c.value);
 const adm = await browser.newContext();
+await adm.addInitScript(NAME_HELPER);
 await adm.addCookies(cookies);
 for (const p of ADMIN) await check(adm, p, true);
 
