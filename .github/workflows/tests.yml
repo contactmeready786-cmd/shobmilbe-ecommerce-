@@ -67,6 +67,8 @@ jobs:
           if [ "$cancelled" != "0" ]; then echo "::error::$cancelled tests were cancelled before they finished"; exit 1; fi
           # every test that was found must have passed (none lost on the way)
           if [ "$pass" != "$total" ]; then echo "::error::only $pass of $total tests passed"; exit 1; fi
+          # and every test written in tests/ (with a fixed name) must be among them
+          npx tsx tools/check-test-run.ts "$RUNNER_TEMP/tests.txt" || exit 1
           exit $status
       - name: Build like Vercel
         run: npm run build
