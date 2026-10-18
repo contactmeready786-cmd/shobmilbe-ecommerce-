@@ -17,7 +17,7 @@ import * as $security from '../security';
 import * as $customers from './customers';
 import * as $orders from './orders';
 import type { Body, Id, Settings, ShopRequest } from '../types';
-import type { CustomersRow } from '../data/rows';
+import type { CustomersRow, CustomerAddressesRow } from '../data/rows';
 
 /** A customer account (a row of the customers table). An e-mail account has no login phone (phone null). */
 export type Customer = CustomersRow;

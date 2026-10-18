@@ -1,7 +1,6 @@
 // The owner's own home page rows ("নিজের সারি"): any title, filled from a category, a brand, a price
 // range, a search word, offers / new / best sellers / "আমাদের বাছাই", or products picked by SKU.
 // In the home page order (setting home_sections) each one is the key "x<id>", next to the built-in rows.
-import type { HomeRowsRow } from '../data/rows';
 import { q, one } from '../db';
 import { int, str } from '../util';
 import * as $catalog from './catalog';
@@ -25,8 +24,8 @@ const KEY_RE = /^x(\d{1,9})$/;
 const keyOf = (id?: Id) => 'x' + int(id);
 const idOf = (key?: Loose) => { const m = KEY_RE.exec(String(key)); return m ? int(m[1]) : 0; };
 
-async function list() { return q<HomeRowsRow>('SELECT * FROM home_rows ORDER BY id'); }
-async function get(id?: Id) { return one<HomeRowsRow>('SELECT * FROM home_rows WHERE id=$1', [int(id)]); }
+async function list() { return q('SELECT * FROM home_rows ORDER BY id'); }
+async function get(id?: Id) { return one('SELECT * FROM home_rows WHERE id=$1', [int(id)]); }
 
 // "12, 5 7" → SKUs → product ids (in the order typed)
 async function idsFromSkus(text?: Loose) {

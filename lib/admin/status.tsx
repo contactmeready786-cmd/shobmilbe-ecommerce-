@@ -1,7 +1,6 @@
 // Admin → সংযোগের অবস্থা: one page that shows whether every outside connection is set up and working —
 // Google / Facebook / TikTok tracking, product feeds, couriers, payments, notifications, backups —
 // plus the SEO checker (products that Google may show badly).
-import type { BackupsRow } from '../data/rows';
 import { Val, attrValue } from '../react/html';
 import { bn, fmtDate } from '../util';
 import * as db from '../db';
@@ -66,7 +65,7 @@ async function statusPage(ctx: AdminCtx) {
   const site = s.site_url || '';
   const methods = payments.methods(s).map((m) => m.label);
   const [lastBackup, feedReport] = await Promise.all([
-    db.one<BackupsRow>(`SELECT * FROM backups WHERE ok ORDER BY created_at DESC LIMIT 1`).catch(() => null),
+    db.one(`SELECT * FROM backups WHERE ok ORDER BY created_at DESC LIMIT 1`).catch(() => null),
     $services_feeds.build('google', s, site || 'https://example.com').then((r) => r.report).catch(() => null),
   ]);
   const ownDomain = /^https?:\/\//.test(site) && !/vercel\.app/.test(site) ? site.replace(/^https?:\/\//, '').replace(/\/.*$/, '') : '';

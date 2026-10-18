@@ -5,7 +5,6 @@
 // How: before the real delete, the row and the rows that belong to it are copied into `trash`
 // (as JSON); pictures are not copied, they are just set aside (owner_type 'trash:…'). Restoring puts
 // the same rows back with the same ids.
-import type { TrashRow } from '../data/rows';
 
 // What each kind of thing is, and what belongs to it.
 import { q, one, tx } from '../db';
@@ -133,7 +132,7 @@ async function list({ kind = '', limit = 200, offset = 0 }: Body = {}) {
 async function counts() {
   return q('SELECT kind, count(*)::int AS n FROM trash GROUP BY kind ORDER BY n DESC');
 }
-async function get(id?: Id) { return one<TrashRow>('SELECT * FROM trash WHERE id=$1', [int(id)]); }
+async function get(id?: Id) { return one('SELECT * FROM trash WHERE id=$1', [int(id)]); }
 
 // Put it back exactly as it was (same id). Returns { ok } or { error }.
 async function restore(id?: Id) {

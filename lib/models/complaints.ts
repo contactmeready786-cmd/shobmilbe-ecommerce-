@@ -3,7 +3,6 @@
 //  • the customer fills a short form (/complaint) — gets a complaint number by SMS and can see its status any time;
 //  • the owner gets a phone notification; Admin → অভিযোগ shows each one with the hours left (red when late);
 //  • staff write notes (inside only) or a reply to the customer (also sent by SMS), then mark it solved.
-import type { ComplaintsRow } from '../data/rows';
 import * as crypto from 'node:crypto';
 import * as db from '../db';
 import * as security from '../security';
@@ -122,7 +121,7 @@ async function create({ name, phone, email, orderCode, topic, message, photos, i
 
 // what the customer may see: the status and the replies sent to them (never the staff's inside notes)
 async function forCustomer(code?: Loose, phone?: Loose) {
-  const c = await db.one<ComplaintsRow>('SELECT * FROM complaints WHERE code=$1 AND phone=$2', [str(code, 12).toUpperCase().trim(), normalizePhone(phone)]);
+  const c = await db.one('SELECT * FROM complaints WHERE code=$1 AND phone=$2', [str(code, 12).toUpperCase().trim(), normalizePhone(phone)]);
   if (!c) return null;
   c.replies = await db.q('SELECT body, created_at FROM complaint_notes WHERE complaint_id=$1 AND to_customer ORDER BY id', [c.id]);
   return c;
@@ -168,7 +167,7 @@ async function get(id?: Id) {
 
 // a note: inside only, or a reply that the customer sees (and gets by SMS when SMS works)
 async function addNote(id: Id, { staffId, body, toCustomer, settings }: Body) {
-  const c = await db.one<ComplaintsRow>('SELECT * FROM complaints WHERE id=$1', [int(id)]);
+  const c = await db.one('SELECT * FROM complaints WHERE id=$1', [int(id)]);
   if (!c) throw new ComplaintError('অভিযোগটি পাওয়া যায়নি।');
   const text = str(body, 1000).trim();
   if (text.length < 2) throw new ComplaintError('কিছু লিখুন।');
@@ -187,7 +186,7 @@ async function addNote(id: Id, { staffId, body, toCustomer, settings }: Body) {
 }
 async function setStatus(id: Id, { status, resolution, staffId, settings }: Body) {
   if (!STATUS[status]) throw new ComplaintError('অবস্থা ঠিক নেই।');
-  const c = await db.one<ComplaintsRow>('SELECT * FROM complaints WHERE id=$1', [int(id)]);
+  const c = await db.one('SELECT * FROM complaints WHERE id=$1', [int(id)]);
   if (!c) throw new ComplaintError('অভিযোগটি পাওয়া যায়নি।');
   const res = str(resolution, 1000).trim();
   if ((status === 'solved' || status === 'closed') && res.length < 3) throw new ComplaintError('কী সমাধান হলো (বা কেন বন্ধ করছেন) ছোট করে লিখুন — রেকর্ডে থাকবে।');

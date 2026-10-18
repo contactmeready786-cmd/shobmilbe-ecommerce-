@@ -104,7 +104,7 @@ function areaLabel(order: { district?: string; thana?: string }): string {
 type LineForCoupon = { product_id: unknown; price: unknown; qty: unknown; kind?: string };
 type CouponCheck = { ok: false; message: string } | { ok: true; coupon: DbRow; discount: number; freeDelivery: boolean; partial: boolean; message: string };
 async function checkCoupon(code: unknown, subtotal: number, phone: unknown, lines: LineForCoupon[] | null = null, exceptOrderId: unknown = 0): Promise<CouponCheck> {
-  const c = await one<CouponsRow>(`SELECT * FROM coupons WHERE upper(code)=upper($1)`, [str(code, 40)]);
+  const c = await one(`SELECT * FROM coupons WHERE upper(code)=upper($1)`, [str(code, 40)]);
   const today = ymd();
   if (!c || !c.active) return { ok: false, message: 'এই কুপন কোডটি সঠিক নয়।' };
   if (c.starts_on && today < c.starts_on) return { ok: false, message: 'এই কুপন এখনো চালু হয়নি।' };
