@@ -138,7 +138,7 @@ function home({ settings: s, sections, data }: Body) {
       const sub = c.row.sub;
       const rowLead = lead(c.products);
       if (c.row.style === 'grid') {
-        return (<div className="wrap"><section className="home-sec"><div className="section-head"><div><h2><Val v={c.row.title} /></h2>{(sub ? <p className="sec-sub"><Val v={sub} /></p> : null)}</div><a href={attrValue(c.link)}>সব দেখুন →</a></div><div className="grid"><Val v={c.products.map((p, i) => productCard(p, s, c.row.badge, i < rowLead ? 'eager' : ''))} /></div></section></div>);
+        return (<div className="wrap"><section className="home-sec"><div className="section-head"><div><h2><Val v={c.row.title} /></h2>{(sub ? <p className="sec-sub"><Val v={sub} /></p> : null)}</div><a href={attrValue(c.link)}>সব দেখুন →</a></div><div className="grid"><Val v={c.products.map((p: ShopProduct, i: number) => productCard(p, s, c.row.badge, i < rowLead ? 'eager' : ''))} /></div></section></div>);
       }
       return (<div className="wrap">{rail(c.row.title, c.link, c.products, s, { badge: c.row.badge, sub, lead: rowLead })}</div>);
     }
