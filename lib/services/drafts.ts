@@ -4,7 +4,7 @@
 // Admin → অর্ডার ও কাস্টমার → অসম্পূর্ণ অর্ডার: call them, turn it into an order, or drop it. Can be switched off there.
 import * as db from '../db';
 import * as catalog from '../models/catalog';
-import { str, int, normalizePhone, validPhone } from '../util';
+import { str, int, normalizePhone, validPhone, fields } from '../util';
 import * as $sms from './sms';
 import * as $models_customers from '../models/customers';
 import type { Body, Id, Loose, Settings, Caught } from '../types';
@@ -18,20 +18,20 @@ const STATUSES: Record<string, Loose> = {
   closed: ['🚫', 'বাদ দেওয়া হয়েছে'],
 };
 
-async function save({ b, ip, settings }: Body) {
+async function save({ b, ip, settings }: { b: Body; ip: string; settings: Settings }) {
   if (settings.draft_capture_on === '0') return { off: 1 };
   const id = String(b.id || '');
   const phone = normalizePhone(b.phone);
   if (!ID_RE.test(id) || !validPhone(phone)) return {};
   // what was in the cart, with today's names and prices (the shopper's own numbers are never trusted)
   const wanted = (Array.isArray(b.items) ? b.items : []).slice(0, 30)
-    .map((i: Loose) => ({ id: int(i && i.id), qty: Math.min(999, Math.max(1, int(i && i.qty, 1))) })).filter((i: { id: number; }) => i.id > 0);
-  const prods = wanted.length ? await catalog.getProductsByIds(wanted.map((i: Loose) => i.id), { includeInactive: true }) : [];
-  const items = wanted.map((i: Loose) => {
+    .map((x: unknown) => { const i = fields(x); return { id: int(i && i.id), qty: Math.min(999, Math.max(1, int(i && i.qty, 1))) }; }).filter((i) => i.id > 0);
+  const prods = wanted.length ? await catalog.getProductsByIds(wanted.map((i) => i.id), { includeInactive: true }) : [];
+  const items = wanted.map((i) => {
     const p = prods.find((x) => x.id === i.id);
     return p ? { id: p.id, name: p.name, sku: p.sku || '', price: Number(p.price) || 0, qty: i.qty } : null;
-  }).filter(Boolean);
-  const subtotal = Math.round(items.reduce((s: number, i: { price: number; qty: number; }) => s + i.price * i.qty, 0));
+  }).filter((x) => x !== null);
+  const subtotal = Math.round(items.reduce((s: number, i) => s + i.price * i.qty, 0));
   const vid = ID_RE.test(String(b.vid || '')) ? String(b.vid) : '';
   const sid = ID_RE.test(String(b.sid || '')) ? String(b.sid) : '';
   // one open draft per number: a second visit with the same number updates the same row
@@ -60,8 +60,11 @@ async function markOrdered(phone?: unknown, code?: unknown) {
   } catch (caught) { const e = caught as Caught; console.error('drafts', e.message); }
 }
 
-function where(f: Body, params?: Loose) {
-  const w: Loose[] = [];
+/** a cart line kept with a draft (today's name and price when it was saved) */
+export type DraftItem = { id: number; name: string; sku: string; price: number; qty: number };
+type Filter = { status?: string; q?: string };
+function where(f: Filter, params: unknown[]) {
+  const w: string[] = [];
   if (f.status && STATUSES[f.status]) { params.push(f.status); w.push(`d.status = $${params.length}`); }
   if (f.q) {
     params.push(`%${f.q}%`);
@@ -74,18 +77,18 @@ type ListOpts = {
   limit?: number;
   offset?: number;
 };
-async function list(f: Body, { limit = 50, offset = 0 }: ListOpts = {}) {
-  const params: Loose[] = [];
+async function list(f: Filter, { limit = 50, offset = 0 }: ListOpts = {}) {
+  const params: unknown[] = [];
   const w = where(f, params);
   params.push(limit, offset);
-  return db.q(`SELECT d.*, c.id AS customer_id, s.name AS caller_name,
+  return db.q<Omit<CheckoutDraftsRow, 'items'> & { items: DraftItem[] | null; customer_id: number | null; caller_name: string | null; past_orders: number; still_here: boolean }>(`SELECT d.*, c.id AS customer_id, s.name AS caller_name,
       (SELECT count(*)::int FROM orders o WHERE o.phone = d.phone) AS past_orders,
       (d.updated_at > now() - interval '10 minutes' AND d.status = 'open') AS still_here
     FROM checkout_drafts d LEFT JOIN customers c ON c.phone = d.phone LEFT JOIN staff s ON s.id = d.called_by
     ${w} ORDER BY d.updated_at DESC LIMIT $${params.length - 1} OFFSET $${params.length}`, params);
 }
-async function count(f: Body) {
-  const params: Loose[] = [];
+async function count(f: Filter) {
+  const params: unknown[] = [];
   return (await db.one<{ n: number }>(`SELECT count(*)::int AS n FROM checkout_drafts d ${where(f, params)}`, params))!.n;
 }
 async function counts() {

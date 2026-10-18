@@ -67,7 +67,7 @@ async function twoFactor(ctx: AdminCtx) {
   if (u.role === 'owner') return ctx.redirect('/admin/security/login');
   const enabled = u.totp_on && !!u.totp_secret;
   if (ctx.method === 'POST') {
-    const b = await ctx.body();
+    const b = await ctx.body<'code'>();
     if (!(await security.hit(db, 'tfa-setup:' + u.id, 20, 3600))) return ctx.fail('/admin/account', 'অনেকবার চেষ্টা হয়েছে, এক ঘণ্টা পর আবার চেষ্টা করুন।');
     if (b.action === 'disable') {
       if (!enabled) return ctx.redirect('/admin/account');
@@ -79,7 +79,7 @@ async function twoFactor(ctx: AdminCtx) {
     }
     if (enabled) return ctx.redirect('/admin/account');
     const secret = security.decrypt(u.totp_secret);
-    const step = totp.check(secret, b.code, 0);
+    const step = totp.check(secret, b.code ?? '', 0);
     if (!secret || !step) return ctx.redirect('/admin/account/2fa?bad=1' + (ctx.query.get('need') ? '&need=1' : ''));
     await db.q('UPDATE staff SET totp_on=true, totp_last_step=$1 WHERE id=$2', [step, u.id]);
     await ctx.log('tfa_on', 'staff', u.id, 'নিজের দুই ধাপের লগইন চালু');

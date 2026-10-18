@@ -46,7 +46,7 @@ async function rootCategories() {
 
 const ELIGIBLE = `p.active AND p.parent_id IS NULL AND p.stock > 0 AND p.price > 0 AND p.image_id IS NOT NULL AND NOT coalesce(p.noindex,false)`;
 
-async function pickProduct(weekday: number, { exclude = [] }: Body = {}) {
+async function pickProduct(weekday: number, { exclude = [] }: { exclude?: unknown[] } = {}) {
   const rows = await db.q<{ id: number; name: string; slug: string; price: number; old_price: number | null; stock: number; image_id: number | null; category_id: number | null; short_description: string; description: string; brand: string; sold: number; featured: boolean; last_posted: Date | null }>(`SELECT p.id, p.name, p.slug, p.price, p.old_price, p.stock, p.image_id, p.category_id, p.short_description, p.description,
       p.brand, coalesce(p.sold_count,0)::int AS sold, coalesce(p.featured,false) AS featured,
       (SELECT max(sp.created_at) FROM social_posts sp WHERE sp.product_id=p.id AND sp.ok) AS last_posted

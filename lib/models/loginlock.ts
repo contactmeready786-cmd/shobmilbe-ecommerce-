@@ -11,6 +11,7 @@ import type { OwnerPasskeysRow } from '../data/rows';
 import * as crypto from 'node:crypto';
 import { q, one } from '../db';
 import * as security from '../security';
+import { fields } from '../util';
 import type { Body, Id, Loose, Settings, ShopRequest, StaffUser } from '../types';
 
 const MODES = ['off', 'passkey'];
@@ -47,7 +48,7 @@ function origin(req: ShopRequest) {
 
 // ---------------------------------------------------------------- base64url
 const b64u = (buf?: Loose) => Buffer.from(buf).toString('base64url');
-const fromB64u = (s: Settings) => Buffer.from(String(s || ''), 'base64url');
+const fromB64u = (s: unknown) => Buffer.from(String(s || ''), 'base64url');
 
 // ---------------------------------------------------------------- tiny CBOR reader (enough for WebAuthn)
 function cborDecode(buf?: Loose, start = 0) {
@@ -173,7 +174,7 @@ function registrationOptions(req: ShopRequest, user: StaffUser, settings: Settin
 }
 
 async function addPasskey(req: ShopRequest, user: StaffUser, challenge: string, body: Body) {
-  const resp = body && body.response;
+  const resp = body && fields(body.response);
   if (!resp || !resp.clientDataJSON || !resp.attestationObject) throw new Error('উত্তর অসম্পূর্ণ');
   checkClientData(fromB64u(resp.clientDataJSON), 'webauthn.create', challenge, req);
   const att = cborDecode(fromB64u(resp.attestationObject)).value;
@@ -207,7 +208,7 @@ async function loginOptions(req: ShopRequest, staffId?: Id, challenge?: string) 
 }
 
 async function checkPasskey(req: ShopRequest, staffId?: Id, challenge?: string, body?: Body) {
-  const resp = body && body.response;
+  const resp = body && fields(body.response);
   if (!resp || !resp.clientDataJSON || !resp.authenticatorData || !resp.signature) throw new Error('উত্তর অসম্পূর্ণ');
   const cred = await one<OwnerPasskeysRow>('SELECT * FROM owner_passkeys WHERE cred_id=$1 AND staff_id=$2', [String(body.id || ''), staffId]);
   if (!cred) throw new Error('এই পাসকি এই অ্যাকাউন্টের না');

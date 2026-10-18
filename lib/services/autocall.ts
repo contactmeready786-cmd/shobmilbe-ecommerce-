@@ -9,7 +9,7 @@ import type { AutocallsRow, OrderItemsRow } from '../data/rows';
 import { emailHtml, PlainEmail } from '../emails';
 import * as crypto from 'node:crypto';
 import * as db from '../db';
-import { fetchJson, str } from '../util';
+import { fetchJson, str, fields } from '../util';
 import * as $security from '../security';
 import * as $models_orders from '../models/orders';
 import * as $notify from './notify';
@@ -113,7 +113,7 @@ async function afterOrder(s: Settings, order?: Loose, site?: unknown) {
 // Accepts JSON or form data. Looks for the order (code / reference / call id / phone) and what was pressed.
 function pick(b: Body, keys: string[]) {
   for (const k of keys) {
-    const v = k.split('.').reduce((o, p: string | number) => (o && typeof o === 'object' ? o[p] : undefined), b);
+    const v = k.split('.').reduce<unknown>((o, p) => { const f = fields(o); return f ? f[p] : undefined; }, b);
     if (v !== undefined && v !== null && String(v) !== '') return String(v);
   }
   return '';

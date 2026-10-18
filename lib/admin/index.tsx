@@ -90,7 +90,7 @@ import * as $email from './email';
 import * as $services_guard from '../services/guard';
 import * as $models_trash from '../models/trash';
 import * as $models_extras from '../models/extras';
-import type { AdminCtx, Base, Body, Id, Loose, Settings, ShopRequest, StaffUser, Caught } from '../types';
+import type { AdminCtx, Base, Body, Form, Id, Loose, Settings, ShopRequest, StaffUser, Caught } from '../types';
 import type { JSX } from 'react/jsx-runtime';
 import type { StaffRow } from '../data/rows';
 
@@ -190,11 +190,11 @@ const IP_WINDOW = 15 * 60;
 const USER_MAX = 15;
 const USER_WINDOW = 60 * 60;
 let currentDb: Loose = null;
-async function tooMany(ip: string, login?: undefined) {
+async function tooMany(ip: string, login?: unknown) {
   if (await security.blocked(currentDb, 'login:ip:' + ip, IP_MAX)) return true;
   return !!login && security.blocked(currentDb, 'login:user:' + String(login).toLowerCase().trim().slice(0, 60), USER_MAX);
 }
-async function failed(ip: string, login?: undefined) {
+async function failed(ip: string, login?: unknown) {
   $services_guard.record({ ip, kind: 'login_fail', detail: login ? 'ইউজারনেম: ' + String(login).slice(0, 40) : 'রিসেট কোড' }).catch(() => {});
   await security.hit(currentDb, 'login:ip:' + ip, IP_MAX, IP_WINDOW);
   if (login) await security.hit(currentDb, 'login:user:' + String(login).toLowerCase().trim().slice(0, 60), USER_MAX, USER_WINDOW);
@@ -593,8 +593,8 @@ ${link}
     ip,
     can: (p?) => allowed(user, p),
     flash: ui.flashFrom(query),
-    body: () => parseBody(req),
-    page: (title?, body?, active?, opts: Body = {}) => (draw
+    body: <K extends string = never>() => parseBody(req) as Promise<Form<K>>,
+    page: (title?, body?, active?, opts: { status?: number } = {}) => (draw
       ? draw({ settings: ctx.settings, user, title, body: $testclear.decorate(ctx, active, body), active, readOnly: ctx.readOnly, path, status: opts.status || 200 })
       : send(opts.status || 200, adminLayout({ settings: ctx.settings, user, title,
         body: $testclear.decorate(ctx, active, body), active, readOnly: ctx.readOnly, path }))),

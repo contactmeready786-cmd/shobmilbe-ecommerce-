@@ -24,7 +24,7 @@ function form(s?: Loose, error?: unknown, isSelf?: unknown) {
 async function formPage(ctx: AdminCtx, m: RouteMatch | null) {
   const id = m && m[1] ? int(m[1]) : null;
   if (ctx.method === 'POST') {
-    const b = await ctx.body();
+    const b = await ctx.body<'email' | 'phone'>();
     try {
       const clash = await P.contactProblem(id, b.phone, b.email);
       if (clash) throw new Error(clash);

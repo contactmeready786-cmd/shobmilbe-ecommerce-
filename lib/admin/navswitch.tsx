@@ -26,7 +26,7 @@ function isOn(row: { on: boolean; }) { return row.on !== false; }
 
 // Small panel with switches for the given menu links (by url) and fixed buttons ('live', 'cart').
 // Every switch saves the moment it is clicked.
-function box(ctx: AdminCtx, { urls = [], fixed = [], footer = [], back, note }: Body = {}) {
+function box(ctx: AdminCtx, { urls = [], fixed = [], footer = [], back, note }: { urls?: string[]; fixed?: string[]; footer?: string[]; back?: string; note?: unknown } = {}) {
   if (!ctx.can('design')) return '';
   const s = ctx.settings;
   const rows = menuRows(s).filter((r) => urls.includes(r.url));
@@ -49,7 +49,7 @@ async function toggle(ctx: AdminCtx) {
   const rows = menuRows(ctx.settings);
   let rowsChanged = false;
   const fixedBody: Record<string, string> = {};
-  const fixedKeys: unknown[] = [];
+  const fixedKeys: string[] = [];
   for (const k of keys) {
     const on = !!b['on_' + k];
     if (k.startsWith('url:')) {

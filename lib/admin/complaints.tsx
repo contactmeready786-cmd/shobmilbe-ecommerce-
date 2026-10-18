@@ -46,7 +46,7 @@ async function detail(ctx: AdminCtx, m: RouteMatch) {
   if (!c) return ctx.redirect(BASE);
   const back = `${BASE}/${id}`;
   if (ctx.method === 'POST') {
-    const b = await ctx.body();
+    const b = await ctx.body<'action' | 'staff_id'>();
     try {
       if (b.action === 'note' || b.action === 'reply') {
         const r = await C.addNote(id, { staffId: ctx.user.id, body: b.body, toCustomer: b.action === 'reply', settings: ctx.settings });
@@ -54,9 +54,9 @@ async function detail(ctx: AdminCtx, m: RouteMatch) {
         if (b.action === 'reply' && r.smsOk === false) return ctx.fail(back, 'উত্তর সেভ হয়েছে, কিন্তু SMS যায়নি — কাস্টমারকে কল করে জানান।');
         return ctx.back(back, 'saved');
       }
-      if (C.STATUS[b.action]) {
-        await C.setStatus(id, { status: b.action, resolution: b.resolution, staffId: ctx.user.id, settings: ctx.settings });
-        await ctx.log('complaint_status', 'complaint', id, `${c.code}: ${C.STATUS[b.action][1]}`);
+      if (C.STATUS[b.action ?? '']) {
+        await C.setStatus(id, { status: b.action!, resolution: b.resolution, staffId: ctx.user.id, settings: ctx.settings });
+        await ctx.log('complaint_status', 'complaint', id, `${c.code}: ${C.STATUS[b.action!][1]}`);
         return ctx.back(back, 'status');
       }
       if (b.action === 'assign') {

@@ -18,15 +18,15 @@ function site(ctx: AdminCtx) {
 async function page(ctx: AdminCtx) {
   const s = ctx.settings;
   if (ctx.method === 'POST') {
-    const b = await ctx.body();
+    const b = await ctx.body<'preset' | 'test_phone'>();
     if (b.form === 'preset') {
-      const p = AC.PRESETS[b.preset];
+      const p = AC.PRESETS[b.preset ?? ''];
       if (p) await db.setMany({ autocall_provider: b.preset, autocall_url: p.url, autocall_header: p.header, autocall_body: p.body });
       await ctx.reloadSettings();
       return ctx.back(BASE, 'saved');
     }
     if (b.form === 'test') {
-      const phone = AC.localPhone(b.test_phone);
+      const phone = AC.localPhone(b.test_phone ?? '');
       if (!/^01[3-9]\d{8}$/.test(phone)) return ctx.fail(BASE, 'পরীক্ষার জন্য ঠিক মোবাইল নম্বর দিন (01XXXXXXXXX)।');
       const r = await AC.call(ctx.settings, { id: 0, code: 'TEST', phone, customer_name: ctx.user.name, total: 250, items: [{ name: 'পরীক্ষার পণ্য' }] }, site(ctx), { test: true });
       await ctx.log('settings', 'autocall', null, `পরীক্ষার কল ${phone}: ${r.ok ? 'গেছে' : r.error}`);

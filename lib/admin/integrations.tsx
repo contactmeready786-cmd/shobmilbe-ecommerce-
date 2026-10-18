@@ -44,8 +44,8 @@ function logLines(logs?: Loose) {
   return <section className="panel"><h2>সাম্প্রতিক লগ</h2><ul className="log">{jsxList(logs.map((l: Loose) => <li className={l.ok ? 'ok' : 'bad'}>{(l.ok ? "✅" : "❌")}{' '}{fmtDate(l.created_at)}{' '}·{' '}<Val v={l.service} />{' '}·{' '}<Val v={l.action} />{(l.ref ? ` · ${l.ref}` : null)}<br /><span className="small"><Val v={l.message} /></span></li>))}</ul></section>;
 }
 async function courierTest(ctx: AdminCtx) {
-  const b = await ctx.body();
-  const r = await courier.test(b.courier, ctx.settings);
+  const b = await ctx.body<'courier'>();
+  const r = await courier.test(b.courier ?? '', ctx.settings);
   await db.logIntegration(String(b.courier || 'courier'), 'test', r.ok, r.message); // (a form without a courier name is still logged)
   return r.ok ? ctx.redirect('/admin/integrations/courier?msg=saved&info=' + encodeURIComponent(r.message)) : ctx.fail('/admin/integrations/courier', r.message);
 }

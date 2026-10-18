@@ -107,7 +107,7 @@ export async function complaint(f: FormCtx): Promise<void> {
     if (b.website) return go('/complaint'); // a robot filled the hidden box
     if (!(await security.hit(db, 'complaint:' + ip, 6, 3600))) return page('অভিযোগ জানান', CV.complaintPage({ settings, values: b, error: 'অনেকগুলো অভিযোগ পাঠানো হয়েছে। কিছুক্ষণ পর আবার চেষ্টা করুন, অথবা ফোন করুন।' }), { noindex: true, status: 429 });
     let photos: unknown[] = [];
-    try { photos = JSON.parse(b.photos || '[]'); } catch (_) { photos = []; }
+    try { photos = JSON.parse(String(b.photos || '[]')); } catch (_) { photos = []; }
     try {
       const c = await CM.create({ name: b.name, phone: b.phone, email: b.email, orderCode: b.order_code, topic: b.topic, message: b.message, photos, ip, settings, productId: b.item });
       const site = (settings.site_url || `https://${req.headers['x-forwarded-host'] || req.headers.host}`).replace(/\/+$/, '');
@@ -213,7 +213,7 @@ export async function account(f: FormCtx): Promise<void> {
           return go(nxt || (b.welcome ? '/' : '/account?tab=profile&ok=1'));
         }
         if (path === '/account/address') { await A.saveAddress(cu.id, b); return go('/account?tab=addresses&ok=1'); }
-        if (path === '/account/address/delete') { await A.deleteAddress(cu.id, b.id); return go('/account?tab=addresses&ok=1'); }
+        if (path === '/account/address/delete') { await A.deleteAddress(cu.id, int(b.id)); return go('/account?tab=addresses&ok=1'); }
       } catch (e) {
         if (!(e instanceof A.AccountError)) throw e;
         const keep = path === '/account/profile' ? `${b.welcome ? '&welcome=1' : ''}${safeNext(b.next) ? '&next=' + encodeURIComponent(safeNext(b.next)) : ''}` : '';
@@ -251,7 +251,7 @@ export async function returnRequest(f: FormCtx): Promise<void> {
       if (!(await security.hit(db, 'retreq:' + ip, 6, 3600))) return page('রিটার্ন', V.returnForm({ order, existing, settings, mine, error: 'অনেকবার চেষ্টা হয়েছে, কিছুক্ষণ পর আবার চেষ্টা করুন।' }), { noindex: true, status: 429 });
       const ids = ([] as unknown[]).concat(b.item || []).map((x) => int(x));
       let photos: unknown[] = [];
-      try { photos = JSON.parse(b.photos || '[]'); } catch (_) { photos = []; }
+      try { photos = JSON.parse(String(b.photos || '[]')); } catch (_) { photos = []; }
       try {
         const cu = await A.current(req, settings);
         const r = await R.create({ order, wanted: ids.map((id) => ({ item_id: id, qty: int(b[`qty_${id}`], 1) })), reason: b.reason, want: b.want, details: b.details,

@@ -8,7 +8,7 @@ import * as db from '../db';
 import { bn, slugify } from '../util';
 import * as $seo from './seo';
 import type { Body, Id, Loose, Settings } from '../types';
-import type { BlogCategoriesRow, BlogPostsRow, CategoriesRow } from '../data/rows';
+import type { BlogCategoriesRow, BlogPostsRow, CategoriesRow, ProductsRow } from '../data/rows';
 
 const REFRESH_DAYS = 7;
 const MIN_PRODUCTS = 5;
@@ -32,24 +32,27 @@ async function blogCategory() {
 }
 
 // main categories, each with all products in it and its sub-categories
-async function categoriesWithProducts() {
-  const cats = await db.q('SELECT id, name, slug, parent_id FROM categories WHERE coalesce(active,true) AND NOT coalesce(noindex,false)');
+type BlogCat = Pick<CategoriesRow, 'id' | 'name' | 'slug' | 'parent_id'>;
+type BlogItem = Pick<ProductsRow, 'id' | 'name' | 'slug' | 'price' | 'old_price' | 'stock' | 'image_id' | 'category_id'> & { sold: number; sub: string };
+type CatGroup = { cat: BlogCat; items: BlogItem[] };
+async function categoriesWithProducts(): Promise<CatGroup[]> {
+  const cats = await db.q<BlogCat>('SELECT id, name, slug, parent_id FROM categories WHERE coalesce(active,true) AND NOT coalesce(noindex,false)');
   const byId = new Map(cats.map((c) => [c.id, c]));
-  const rootOf = (id?: Id) => { let c = byId.get(id); for (let i = 0; c && c.parent_id && i < 10; i++) c = byId.get(c.parent_id) || c; return c; };
-  const products = await db.q(`SELECT id, name, slug, price, old_price, stock, image_id, category_id, coalesce(sold_count,0)::int AS sold
+  const rootOf = (id: number | null) => { let c = id === null ? undefined : byId.get(id); for (let i = 0; c && c.parent_id && i < 10; i++) c = byId.get(c.parent_id) || c; return c; };
+  const products = await db.q<Omit<BlogItem, 'sub'>>(`SELECT id, name, slug, price, old_price, stock, image_id, category_id, coalesce(sold_count,0)::int AS sold
     FROM products WHERE active AND parent_id IS NULL AND price > 0 AND NOT coalesce(noindex,false)`);
-  const roots = new Map();
+  const roots = new Map<number, CatGroup>();
   for (const p of products) {
     const root = rootOf(p.category_id);
     if (!root) continue;
     if (!roots.has(root.id)) roots.set(root.id, { cat: root, items: [] });
-    const sub = byId.get(p.category_id);
-    roots.get(root.id).items.push({ ...p, sub: sub && sub.id !== root.id ? sub.name : '' });
+    const sub = p.category_id === null ? undefined : byId.get(p.category_id);
+    roots.get(root.id)!.items.push({ ...p, sub: sub && sub.id !== root.id ? sub.name : '' });
   }
   return [...roots.values()].filter((r) => r.items.length >= MIN_PRODUCTS);
 }
 
-function article({ cat, items }: Body, settings: Settings) {
+function article({ cat, items }: CatGroup, settings: Settings) {
   const store = settings.store_name || 'সবমিলবে';
   const { month, date } = monthLabel();
   const inStock = items.filter((p: { stock: number; }) => p.stock > 0);
@@ -59,7 +62,7 @@ function article({ cat, items }: Body, settings: Settings) {
   const lo = Math.min(...prices);
   const hi = Math.max(...prices);
   const cheapest = (inStock.length ? inStock : items).find((p: { price: number; }) => p.price === lo);
-  const top = [...inStock].sort((a, b) => b.sold - a.sold || Number(b.old_price > b.price) - Number(a.old_price > a.price)).slice(0, 3);
+  const top = [...inStock].sort((a, b) => b.sold - a.sold || Number(Number(b.old_price) > b.price) - Number(Number(a.old_price) > a.price)).slice(0, 3);
   const dhaka = Number(settings.delivery_dhaka) || 60;
   const outside = Number(settings.delivery_outside) || 110;
 
@@ -73,7 +76,7 @@ function article({ cat, items }: Body, settings: Settings) {
     '',
     '| পণ্য | দাম | অবস্থা |',
     '|---|---|---|',
-    ...rows.map((p) => `| [${cell(p.name)}](/p/${encodeURIComponent(p.slug)}) | ${money(p.price)}${p.old_price > p.price ? ` (আগে ${money(p.old_price)})` : ''} | ${p.stock > 0 ? 'স্টকে আছে' : 'স্টক শেষ'} |`),
+    ...rows.map((p) => `| [${cell(p.name)}](/p/${encodeURIComponent(p.slug)}) | ${money(p.price)}${Number(p.old_price) > p.price ? ` (আগে ${money(p.old_price!)})` : ''} | ${p.stock > 0 ? 'স্টকে আছে' : 'স্টক শেষ'} |`),
     '',
   ];
   if (items.length > rows.length) lines.push(`আরো ${bn(items.length - rows.length)}টা পণ্য দেখুন: [সব ${cat.name}](/products?cat=${encodeURIComponent(cat.slug)})`, '');

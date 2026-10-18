@@ -22,7 +22,7 @@ async function page(ctx: AdminCtx, error = null) {
 }
 
 async function save(ctx: AdminCtx) {
-  const b = await ctx.body();
+  const b = await ctx.body<'phone'>();
   if (b.action === 'adjust') {
     const pts = int(b.points);
     const cid = int(b.customer_id);

@@ -200,7 +200,7 @@ async function findDuplicates(data: Body, settings: Settings) {
     one<{ h: string | null }>(`SELECT CASE WHEN length(regexp_replace($1::text, '\\s', '', 'g')) >= 60
       THEN md5(lower(regexp_replace($1::text, '\\s', '', 'g'))) END AS h`, [str(data.description, 20000)]),
   ]);
-  const me: Comparable = { name: prepName(data.name), images: imgs.map(prepImage), youtube: youtubeKey(data.youtube_url) };
+  const me: Comparable = { name: prepName(String(data.name ?? '')), images: imgs.map(prepImage), youtube: youtubeKey(data.youtube_url) };
   const matches: { id: number; name: string; sku: string; slug: string; active: boolean; price: number; image: string | null; emoji: string; level: string; reasons: string[]; score: number }[] = [];
   for (const o of others) {
     const r = compare(me, o, lv, { sameDesc: !!(desc && desc.h && desc.h === o.desc_hash) });

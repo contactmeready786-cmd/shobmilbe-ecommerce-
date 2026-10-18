@@ -7,7 +7,7 @@
 //  - the list: added from the footer box, the checkout tick, or pasted by the owner; one-click leave in every mail
 import type { EmailLogRow, EmailSubsRow, ProductsRow, EmailCampaignsRow } from '../data/rows';
 import { Val, attrValue, jsxList } from '../react/html';
-import { bn, int, str, fmtDate } from '../util';
+import { bn, int, str, fmtDate, ifKey } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
 import * as M from '../services/mailer';
@@ -105,7 +105,7 @@ async function post(ctx: AdminCtx) {
   if (b.action === 'campaign') {
     const subject = str(b.subject, 150);
     const intro = str(b.intro, 4000);
-    const audience = M.AUDIENCES[b.audience] ? b.audience : 'all';
+    const audience = ifKey(M.AUDIENCES, b.audience, 'all');
     const n = await M.audienceCount(audience);
     if (b.go !== '1') return page({ ...ctx, method: 'GET' }, { text: `এই বাছাইয়ে তালিকার ${bn(n)} জন আছেন। আজ আর ${bn(await M.leftToday(s))}টি ইমেইল পাঠানো যাবে — বাকিরা পরের দিনগুলোতে নিজে থেকে পাবেন।` });
     if (!subject || !intro) return ctx.fail(BASE, 'বিষয় আর লেখা দুটোই দিন।');

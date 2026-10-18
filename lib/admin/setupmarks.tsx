@@ -34,7 +34,7 @@ function buttons(key?: Loose, mark?: Loose, back?: Loose) {
 async function save(ctx: AdminCtx) {
   const b = await ctx.body();
   const key = String(b.key || '').replace(/[^\w-]/g, '').slice(0, 40);
-  const back = /^\/admin\/(integrations\/status|growth)(#[\w-]+)?$/.test(String(b.back || '')) ? b.back : '/admin/integrations/status';
+  const back = /^\/admin\/(integrations\/status|growth)(#[\w-]+)?$/.test(String(b.back || '')) ? String(b.back) : '/admin/integrations/status';
   if (!key) return ctx.back(back);
   const m = marks(ctx.settings);
   // "↩️ ফেরান" on a paid-ad item that was skipped by the rule keeps it in the list ('show')

@@ -87,7 +87,7 @@ async function adjust(ctx: AdminCtx) {
     await ctx.log('stock_adjust', 'product', touched.length === 1 ? touched[0] : null, `${n}টি পণ্যের স্টক বদল${note ? ` (${note})` : ''}`);
     $services_stockalert.check(ctx.settings, touched).catch(() => {});
   }
-  const back = /^\/admin\/inventory(\?[\w=&%.+-]*)?$/.test(String(b.back || '')) ? b.back : '/admin/inventory';
+  const back = /^\/admin\/inventory(\?[\w=&%.+-]*)?$/.test(String(b.back || '')) ? String(b.back) : '/admin/inventory';
   if (problems.length) return ctx.fail(back, `${bn(n)}টি বদল হয়েছে। এগুলো হয়নি (যথেষ্ট নেই): ${problems.join('; ')}`);
   return ctx.back(back, 'saved');
 }
@@ -192,8 +192,8 @@ async function purchaseDetail(ctx: AdminCtx, m: RouteMatch) {
   return ctx.page(p.code, body, 'purchases');
 }
 async function purchaseStatus(ctx: AdminCtx, m: RouteMatch) {
-  const b = await ctx.body();
-  await finance.setPurchaseStatus(int(m[1]), b.status, ctx.user.id);
+  const b = await ctx.body<'status'>();
+  await finance.setPurchaseStatus(int(m[1]), b.status ?? '', ctx.user.id);
   await ctx.log('purchase_status', 'purchase', int(m[1]), b.status);
   return ctx.back(`/admin/purchases/${int(m[1])}`, 'status');
 }

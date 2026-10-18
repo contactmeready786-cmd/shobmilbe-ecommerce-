@@ -29,7 +29,7 @@ type SaveOpts = {
   sort?: Loose;
   note?: Loose;
 };
-async function save(b: SaveOpts) {
+async function save(b: SaveOpts & Body) {
   const name = str(b.name, 80);
   if (name.length < 2) throw new WhError('গুদাম / শাখার নাম দিন।');
   const id = int(b.id);

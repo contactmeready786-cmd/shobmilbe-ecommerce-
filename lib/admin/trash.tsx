@@ -32,7 +32,7 @@ function where(path?: Loose) {
 
 async function page(ctx: AdminCtx) {
   if (ctx.method === 'POST') {
-    const b = await ctx.body();
+    const b = await ctx.body<'form'>();
     const ids = list(b.id).map((x) => int(x)).filter(Boolean);
     if (b.form === 'restore') {
       if (!ids.length) return ctx.fail('/admin/trash', 'কিছু বাছা হয়নি।');
@@ -46,7 +46,7 @@ async function page(ctx: AdminCtx) {
       return ctx.redirect('/admin/trash?' + (errors.length && !ok ? 'err=' : 'info=') + encodeURIComponent(text));
     }
     // 🔐 deleting for good needs the code e-mailed to the shop's Gmail (restoring above needs nothing)
-    const codeFor = (({ purge: 'trash_purge', empty: 'trash_empty', all_products: 'trash_all_products' } as Record<string, string>))[b.form];
+    const codeFor = (({ purge: 'trash_purge', empty: 'trash_empty', all_products: 'trash_all_products' } as Record<string, string>))[b.form ?? ''];
     if (codeFor) {
       const back = ids.length === 1 && b.form === 'purge' && b.from_detail ? `/admin/trash/${ids[0]}` : '/admin/trash';
       if (b.form === 'purge' && !ids.length) return ctx.fail(back, 'কিছু বাছা হয়নি।');

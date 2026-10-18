@@ -1,7 +1,7 @@
 // Suppliers, purchases, money accounts, transactions and financial reports.
 import type { PurchasesRow, ProductsRow, PurchaseItemsRow } from '../data/rows';
 import { q, one, tx } from '../db';
-import { int, str, num, randomCode, validYmd, ymd, amount, round2 } from '../util';
+import { int, str, num, randomCode, validYmd, ymd, amount, round2, oneOf } from '../util';
 import * as catalog from './catalog';
 import type { Body, Id, Settings } from '../types';
 import type { DbRow, Param, Tx } from '../pg';
@@ -201,7 +201,7 @@ async function saveAccount(data: SaveAccountOpts) {
   return (await one('INSERT INTO accounts(name, type, details, opening_balance, active, sort) VALUES($1,$2,$3,$4,$5,(SELECT coalesce(max(sort),0)+1 FROM accounts)) RETURNING id', f))!.id;
 }
 async function addTransaction(data: Body, staffId?: Id) {
-  const type = ['income', 'expense', 'transfer'].includes(data.type) ? data.type : 'expense';
+  const type = oneOf(['income', 'expense', 'transfer'], data.type, 'expense');
   const amt = amount(data.amount);
   if (amt <= 0) throw new Error('টাকার পরিমাণ দিন।');
   if (type === 'transfer' && (!int(data.account_id) || !int(data.to_account_id) || int(data.account_id) === int(data.to_account_id))) {

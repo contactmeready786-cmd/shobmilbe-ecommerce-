@@ -1,7 +1,7 @@
 // Admin: product feed links for Google Merchant Center and Facebook Commerce Manager.
 import { Val, attrValue, jsxList } from '../react/html';
 import * as crypto from 'node:crypto';
-import { bn, int } from '../util';
+import { bn, int, oneOf } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
 import { saveKeys } from './marketing';
@@ -34,7 +34,7 @@ async function page(ctx: AdminCtx) {
       await ctx.log('settings', 'marketing', null, `${ch} ফিড লিংক বন্ধ`);
       return ctx.back('/admin/marketing/feeds', 'saved');
     }
-    b.feed_condition = ['new', 'refurbished', 'used'].includes(b.feed_condition) ? b.feed_condition : 'new';
+    b.feed_condition = oneOf(['new', 'refurbished', 'used'], b.feed_condition, 'new');
     b.feed_google_category = String(b.feed_google_category || '').trim().replace(/[^0-9]/g, '').slice(0, 8);
     const ship = String(b.feed_shipping || '').trim();
     b.feed_shipping = ship === '' ? '' : ship.toLowerCase() === 'none' ? 'none' : String(Math.max(0, int(ship)));

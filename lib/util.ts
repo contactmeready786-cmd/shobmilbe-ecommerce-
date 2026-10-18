@@ -211,9 +211,12 @@ function oneOf<T extends string, F>(list: readonly T[], v: unknown, fallback: F)
   return (list as readonly unknown[]).includes(v) ? (v as T) : fallback;
 }
 /** `v` when `table` has a (non-empty) entry for it, else `fallback`: a value checked against a lookup table. */
-function ifKey<F>(table: Record<string, unknown>, v: string | null | undefined, fallback: F): string | F {
+function ifKey<F>(table: Record<string, unknown>, v: unknown, fallback: F): string | F {
   return table[String(v)] ? (v as string) : fallback;
 }
+
+/** `v` as an object whose fields are still unchecked (JSON a browser sent), or null when it isn't an object. */
+function fields(v: unknown): Record<string, unknown> | null { return v && typeof v === 'object' ? (v as Record<string, unknown>) : null; }
 
 function normalizePhone(p: unknown): string {
   let d = String(p || '').replace(/[০-৯]/g, (c) => String(BN_DIGITS.indexOf(c))).replace(/\D/g, '');
@@ -298,4 +301,4 @@ function minOrder(s: Settings | null | undefined): number { return Math.max(0, N
 
 function pageNum(query: URLSearchParams): number { return Math.max(1, int(query.get('page'), 1)); }
 
-export { oneOf, ifKey, PRICE_MIN, PRICE_MAX, priceProblem, contact, qtyRule, amount, round2, roundOff, shopPrice, wholeTaka, roundOffLabel, esc, raw, Raw, bn, money, pct, slugify, randomCode, parseCookies, parseBody, readBody, list, hashPassword, verifyPassword, passwordProblem, sign, unsign, sha256, fmtDate, ymd, validYmd, dateRange, int, num, str, minOrder, normalizePhone, validPhone, csv, fetchJson, youtubeId, pageNum, TZ };
+export { fields, oneOf, ifKey, PRICE_MIN, PRICE_MAX, priceProblem, contact, qtyRule, amount, round2, roundOff, shopPrice, wholeTaka, roundOffLabel, esc, raw, Raw, bn, money, pct, slugify, randomCode, parseCookies, parseBody, readBody, list, hashPassword, verifyPassword, passwordProblem, sign, unsign, sha256, fmtDate, ymd, validYmd, dateRange, int, num, str, minOrder, normalizePhone, validPhone, csv, fetchJson, youtubeId, pageNum, TZ };

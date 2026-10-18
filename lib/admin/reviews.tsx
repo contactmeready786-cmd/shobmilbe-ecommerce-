@@ -32,9 +32,9 @@ async function page(ctx: AdminCtx) {
 }
 
 async function setStatus(ctx: AdminCtx, m: RouteMatch) {
-  const b = await ctx.body();
+  const b = await ctx.body<'status'>();
   const r = await R.setStatus(int(m[1]), String(b.status || ''));
-  if (r) await ctx.log('edit', 'product', r.product_id, `রিভিউ #${int(m[1])}: ${R.STATUS[b.status] || ''}`);
+  if (r) await ctx.log('edit', 'product', r.product_id, `রিভিউ #${int(m[1])}: ${R.STATUS[b.status ?? ''] || ''}`);
   return ctx.redirect(`${back(ctx)}${back(ctx).includes('?') ? '&' : '?'}m=${b.status === 'approved' ? 'approved' : 'hidden'}`);
 }
 async function reply(ctx: AdminCtx, m: RouteMatch) {

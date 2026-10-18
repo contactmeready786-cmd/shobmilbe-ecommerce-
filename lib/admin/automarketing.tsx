@@ -2,7 +2,7 @@
 //  1. a daily post of one product on the Facebook page (and Instagram), at the hours chosen here;
 //  2. a "দাম তালিকা" blog article for every main category, refreshed every week.
 import { Val, attrValue, styleOf, jsxList } from '../react/html';
-import { bn, fmtDate } from '../util';
+import { bn, fmtDate, oneOf } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
 import * as autopost from '../services/autopost';
@@ -113,7 +113,7 @@ async function post(ctx: AdminCtx) {
   }
   if (b.action === 'engage') {
     if (!s.autopost_page_token) return ctx.fail(BASE, 'আগে Facebook পেজ যুক্ত করুন।');
-    const kind = ['tip', 'quiz', 'question', 'answer', 'kit'].includes(b.kind) ? b.kind : undefined;
+    const kind = oneOf(['tip', 'quiz', 'question', 'answer', 'kit'], b.kind, undefined);
     const r = await autopost.postEngagement(s, null, kind);
     if (r.error) return ctx.fail(BASE, r.error);
     await ctx.log('create', 'marketing', null, `এনগেজমেন্ট পোস্ট (এখনই): ${r.engagement}`);

@@ -5,7 +5,7 @@ import type { Param } from '../pg';
 // ---------------------------------------------------------------- blog
 import { q, one, uniqueSlug } from '../db';
 import { memo } from '../cache';
-import { slugify, int, str, validYmd } from '../util';
+import { slugify, int, str, validYmd, ifKey } from '../util';
 import type { Body, Id } from '../types';
 async function listBlogCategories() {
   return q<BlogCategoriesRow & { posts: number }>(`SELECT c.*, (SELECT count(*) FROM blog_posts p WHERE p.category_id=c.id AND p.status='published')::int AS posts
@@ -143,7 +143,7 @@ async function listBanners({ active, placement }: ListBannersOpts = {}) {
 }
 async function saveBanner(data: Body) {
   const f = [int(data.image_id) || null, str(data.title, 120), str(data.subtitle, 200), str(data.link, 300), str(data.button, 40),
-    PLACEMENTS[data.placement] ? data.placement : 'slider', int(data.sort), !!data.active];
+    ifKey(PLACEMENTS, data.placement, 'slider'), int(data.sort), !!data.active];
   let id = int(data.id);
   if (id) {
     const before = await one<Pick<BannersRow, 'image_id'>>('SELECT image_id FROM banners WHERE id=$1', [id]);

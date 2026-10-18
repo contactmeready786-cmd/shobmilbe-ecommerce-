@@ -104,7 +104,7 @@ async function forProduct(productId?: Id, limit = 30): Promise<{ reviews: ShownR
 
 async function list({ status, q: search, productId, limit = 50, offset = 0 }: Body = {}) {
   const w = []; const params = [];
-  if (STATUS[status]) { params.push(status); w.push(`r.status=$${params.length}`); }
+  if (STATUS[String(status)]) { params.push(status); w.push(`r.status=$${params.length}`); }
   if (productId) { params.push(int(productId)); w.push(`r.product_id=$${params.length}`); }
   if (search) { params.push(`%${search}%`); w.push(`(r.body ILIKE $${params.length} OR r.name ILIKE $${params.length} OR p.name ILIKE $${params.length} OR p.sku ILIKE $${params.length})`); }
   const where = w.length ? 'WHERE ' + w.join(' AND ') : '';

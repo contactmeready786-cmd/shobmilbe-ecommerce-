@@ -8,7 +8,7 @@ import type { AdminCtx, Loose } from '../types';
 async function settingsPage(ctx: AdminCtx) {
   const s = ctx.settings;
   if (ctx.method === 'POST') {
-    const b = await ctx.body();
+    const b = await ctx.body<'cod_advance'>();
     for (const [k, lo, hi, def] of [['small_max_price', 0.01, 100000, 5], ['small_max_value', 0.01, 10000000, 100]] as [string, number, number, number][]) {
       if (k in b) b[k] = String(Math.min(hi, Math.max(lo, Math.round(num(b[k], def) * 100) / 100)));
     }
@@ -44,7 +44,7 @@ async function settingsPage(ctx: AdminCtx) {
     }
     if ('delivery_per_kg' in b) b.delivery_per_kg = String(Math.max(0, Math.round(num(b.delivery_per_kg, 0) * 100) / 100));
     if ('delivery_free_kg' in b) b.delivery_free_kg = String(Math.min(50, Math.max(0, num(b.delivery_free_kg, 1))));
-    if ('cod_advance' in b && !['off', 'new', 'all'].includes(b.cod_advance)) b.cod_advance = 'off';
+    if ('cod_advance' in b && !['off', 'new', 'all'].includes(b.cod_advance ?? '')) b.cod_advance = 'off';
     await saveKeys(ctx, ['store_name', 'phone', 'whatsapp', 'email', 'address', 'delivery_dhaka', 'delivery_outside', 'free_delivery_min',
       'dhaka_city_areas', 'min_order', 'max_orders_per_phone_day', 'block_message', 'order_prefix', 'low_stock_default', 'max_qty_per_item',
       'show_phone', 'small_qty_on', 'small_max_price', 'small_max_value', 'new_badge_days',

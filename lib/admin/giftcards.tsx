@@ -60,7 +60,7 @@ async function detail(ctx: AdminCtx, m: RouteMatch) {
   const id = int(m[1]);
   const back = `${BASE}/${id}`;
   if (ctx.method === 'POST') {
-    const b = await ctx.body();
+    const b = await ctx.body<'expires_on'>();
     try {
       if (b.action === 'activate' || b.action === 'disable' || b.action === 'enable') {
         const c = await G.setStatus(id, b.action === 'disable' ? 'disabled' : 'active', ctx.user.id, b.action === 'activate' ? 'পেমেন্ট যাচাই করে চালু' : '');

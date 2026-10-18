@@ -24,7 +24,7 @@ import type { OrderReviewItem, ReviewStats, ShownReview } from '../models/review
 import type { PayMethod } from '../services/payments';
 import type { BrandsRow, CustomerAddressesRow, KitsRow, ProductQuestionsRow } from '../data/rows';
 type Question = Pick<ProductQuestionsRow, 'id' | 'name' | 'question' | 'answer' | 'created_at'>;
-import type { PostSummary } from '../models/content';
+import type { Post, PostSummary } from '../models/content';
 import type { ReactNode } from 'react';
 
 /** A product as the shop's cards and pages read it. Any product query's row fits (the columns named here are typed). */
@@ -448,7 +448,7 @@ type BlogListProps = {
   category?: DbRow | null;
 };
 function blogList({ posts, categories, category }: BlogListProps) { return (createElement(R.BlogList, { posts, categories, category })); }
-function blogPost({ post, contentHtml, related }: Body) { return (createElement(R.BlogPost, { post, contentHtml, related })); }
+function blogPost({ post, contentHtml, related }: { post: Post & Record<string, unknown>; contentHtml?: string; related: PostSummary[] }) { return (createElement(R.BlogPost, { post, contentHtml, related })); }
 type StaticPageProps = {
   page: DbRow;
 };

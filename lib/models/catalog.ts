@@ -331,7 +331,7 @@ async function countProducts(opts: ProductFilter = {}): Promise<number> {
   return (await one(`SELECT count(*)::int AS n FROM products p LEFT JOIN categories c ON c.id=p.category_id ${where}`, params))!.n;
 }
 // Counts for the small summary chips above the admin product list.
-type ProductStats = { total: number; active: number; hidden: number; out: number; low: number };
+export type ProductStats = { total: number; active: number; hidden: number; out: number; low: number };
 async function productStats({ type }: { type?: string } = {}): Promise<ProductStats | null> {
   const params: Param[] = [];
   let where = 'WHERE p.parent_id IS NULL';
@@ -449,10 +449,13 @@ async function priceHistory(productId: number, { withCost = false, limit = 30 }:
 // 📒 One product's own book: every time stock came in (when, how many, at what price, from whom), every stock change,
 // and what its sales earned. Sales and profit come from the orders themselves (price and buying price are saved on
 // each order line when it is sold) — nobody types the profit. Cancelled / returned orders don't count.
+export type LedgerBuy = Pick<StockMovementsRow, 'id' | 'created_at' | 'change' | 'reason' | 'unit_cost' | 'note' | 'ref_type' | 'ref_id'>
+  & { purchase_code: string | null; purchase_date: string | null; purchase_status: string | null; supplier_id: number | null; supplier_name: string | null; staff_name: string | null };
+export type LedgerSales = { qty: number; orders: number; revenue: number; cost: number; no_cost_qty: number; delivered_qty: number; profit: number };
 async function productLedger(productId?: Id, { limit = 200 }: { limit?: number } = {}) {
   const id = int(productId);
   const [buys, moves, sales] = await Promise.all([
-    q(`SELECT m.id, m.created_at, m.change, m.reason, m.unit_cost, m.note, m.ref_type, m.ref_id,
+    q<LedgerBuy>(`SELECT m.id, m.created_at, m.change, m.reason, m.unit_cost, m.note, m.ref_type, m.ref_id,
          pu.code AS purchase_code, pu.purchase_date, pu.status AS purchase_status, su.id AS supplier_id, su.name AS supplier_name, st.name AS staff_name
        FROM stock_movements m
        LEFT JOIN purchases pu ON m.ref_type='purchase' AND pu.id=m.ref_id
@@ -460,9 +463,9 @@ async function productLedger(productId?: Id, { limit = 200 }: { limit?: number }
        LEFT JOIN staff st ON st.id=m.staff_id
        WHERE m.product_id=$1 AND m.reason IN ('opening','purchase') AND m.change > 0
        ORDER BY coalesce(pu.purchase_date, (m.created_at AT TIME ZONE 'Asia/Dhaka')::date) DESC, m.id DESC LIMIT $2`, [id, limit]),
-    q(`SELECT m.*, s.name AS staff_name FROM stock_movements m LEFT JOIN staff s ON s.id=m.staff_id
+    q<StockMovementsRow & { staff_name: string | null }>(`SELECT m.*, s.name AS staff_name FROM stock_movements m LEFT JOIN staff s ON s.id=m.staff_id
        WHERE m.product_id=$1 ORDER BY m.created_at DESC, m.id DESC LIMIT $2`, [id, limit]),
-    one(`SELECT coalesce(sum(i.qty),0)::int AS qty, count(DISTINCT o.id)::int AS orders,
+    one<LedgerSales>(`SELECT coalesce(sum(i.qty),0)::int AS qty, count(DISTINCT o.id)::int AS orders,
          coalesce(sum(i.qty*i.price),0)::numeric(14,2) AS revenue, coalesce(sum(i.qty*i.cost),0)::numeric(14,2) AS cost,
          coalesce(sum(i.qty) FILTER (WHERE coalesce(i.cost,0) = 0),0)::int AS no_cost_qty,
          coalesce(sum(i.qty) FILTER (WHERE o.status='delivered'),0)::int AS delivered_qty
@@ -471,7 +474,7 @@ async function productLedger(productId?: Id, { limit = 200 }: { limit?: number }
   ]);
   sales!.profit = Number(sales!.revenue) - Number(sales!.cost);
   // totals over all the buys (not only the rows shown): cancelled purchases don't count
-  const tot = await one(`SELECT coalesce(sum(m.change),0)::int AS qty,
+  const tot = await one<{ qty: number; priced_qty: number; spent: number }>(`SELECT coalesce(sum(m.change),0)::int AS qty,
       coalesce(sum(m.change) FILTER (WHERE m.unit_cost IS NOT NULL),0)::int AS priced_qty,
       coalesce(sum(m.change * m.unit_cost),0)::numeric(14,2) AS spent
     FROM stock_movements m LEFT JOIN purchases pu ON m.ref_type='purchase' AND pu.id=m.ref_id
@@ -633,7 +636,7 @@ async function findRedirect(path: string): Promise<string | null> {
 }
 
 // Create or update a product with its images and bundle parts. Returns the id.
-async function saveProduct(data: Body, staffId?: Id): Promise<number> {
+async function saveProduct(data: Body & { bundle?: { product_id: unknown; qty: unknown }[] }, staffId?: Id): Promise<number> {
   const type = data.product_type === 'bundle' ? 'bundle' : 'single';
   const hasVariants = int(data.id) ? !!(await one('SELECT 1 AS x FROM products WHERE id=$1 AND variant_count > 0', [int(data.id)])) : false;
   if (!hasVariants) { const pp = priceProblem(shopPrice(amount(data.price)), 'বিক্রির দাম'); if (pp) throw new Error(pp); }
@@ -687,11 +690,11 @@ async function saveProduct(data: Body, staffId?: Id): Promise<number> {
   if (data.warranty !== undefined) {
     const w = String(data.warranty || '');
     f.warranty = w === 'custom' ? (str(data.warranty_custom, 60) ? 'c:' + str(data.warranty_custom, 60) : '') : (WARRANTY[w] ? w : '');
-    f.warranty_type = f.warranty && WARRANTY_TYPES[data.warranty_type] ? data.warranty_type : '';
+    f.warranty_type = f.warranty && WARRANTY_TYPES[String(data.warranty_type)] ? data.warranty_type : '';
   }
   const images = (Array.isArray(data.images) ? data.images : String(data.images || '').split(','))
     .map((x) => int(x)).filter((x) => x > 0).filter((x, i, a) => a.indexOf(x) === i).slice(0, MAX_PRODUCT_IMAGES);
-  const parts: StockPart[] = (data.bundle || []).map((b: DbRow) => ({ product_id: int(b.product_id), qty: Math.max(1, int(b.qty, 1)) }))
+  const parts: StockPart[] = (data.bundle || []).map((b) => ({ product_id: int(b.product_id), qty: Math.max(1, int(b.qty, 1)) }))
     .filter((b: StockPart) => b.product_id > 0);
   const newStock = type === 'bundle' ? 0 : Math.max(0, int(data.stock));
   const id = int(data.id) || null;

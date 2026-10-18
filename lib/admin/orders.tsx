@@ -17,7 +17,7 @@ import * as $services_xlsx from '../services/xlsx';
 import * as $autocall from './autocall';
 import * as $services_drafts from '../services/drafts';
 import * as $services_stockalert from '../services/stockalert';
-import type { AdminCtx, Body, Id, Loose, ShopQuery, RouteMatch } from '../types';
+import type { AdminCtx, Body, Id, Loose, ShopQuery, RouteMatch, Settings } from '../types';
 import type { CustomersRow, OrdersRow, PaymentsRow } from '../data/rows';
 function canDelete(ctx: AdminCtx) { return ctx.user.role === 'owner' && ctx.settings.order_delete_on === '1'; }
 function deleteSwitch(ctx: AdminCtx) {
@@ -102,7 +102,7 @@ async function listPage(ctx: AdminCtx) {
 }
 
 async function bulk(ctx: AdminCtx) {
-  const b = await ctx.body();
+  const b = await ctx.body<'status' | 'courier'>();
   const ids = list(b.ids).map((x) => int(x)).filter(Boolean).slice(0, 200);
   if (!ids.length) return ctx.fail('/admin/orders', 'কোনো অর্ডার বাছাই করা হয়নি।');
   if (b.action === 'delete') {
@@ -114,11 +114,11 @@ async function bulk(ctx: AdminCtx) {
   if (b.action === 'checklist') return ctx.redirect('/admin/orders/checklist?ids=' + ids.join(','));
   if (b.action === 'status') {
     if (!ctx.can('orders_edit')) return ctx.back('/admin/orders', 'noperm');
-    if (!O.STATUSES[b.status]) return ctx.fail('/admin/orders', 'কোন অবস্থায় নেবেন তা বাছুন।');
+    if (!O.STATUSES[b.status ?? '']) return ctx.fail('/admin/orders', 'কোন অবস্থায় নেবেন তা বাছুন।');
     const errors: string[] = [];
     for (const id of ids) {
       try {
-        const r = await O.setStatus(id, b.status, ctx.user.id);
+        const r = await O.setStatus(id, b.status ?? '', ctx.user.id);
         if (r.changed) await ctx.log('order_status', 'order', id, `${r.prev} → ${b.status}`);
       } catch (e) { errors.push((e as Error).message); }
     }
@@ -130,7 +130,7 @@ async function bulk(ctx: AdminCtx) {
     let ok = 0;
     const errors: string[] = [];
     for (const id of ids) {
-      const r = await sendToCourier(ctx, id, b.courier, {});
+      const r = await sendToCourier(ctx, id, b.courier ?? '', {});
       if (r.ok) ok++; else errors.push(String(r.message || ''));
     }
     return errors.length ? ctx.fail('/admin/orders', `${bn(ok)}টি পাঠানো হয়েছে, ${bn(errors.length)}টি যায়নি: ${errors[0]}`) : ctx.back('/admin/orders', 'sent');
@@ -229,9 +229,9 @@ async function sendToCourier(ctx: AdminCtx, id: Id, name: string, extra: courier
 
 async function setStatusAction(ctx: AdminCtx, m: RouteMatch) {
   const id = int(m[1]);
-  const b = await ctx.body();
+  const b = await ctx.body<'status'>();
   try {
-    const r = await O.setStatus(id, b.status, ctx.user.id, { damaged: b.status === 'returned' && !!b.damaged });
+    const r = await O.setStatus(id, b.status ?? '', ctx.user.id, { damaged: b.status === 'returned' && !!b.damaged });
     if (r.changed) await ctx.log('order_status', 'order', id, `${r.prev} → ${b.status}${r.returnedTo === 'damaged' ? ' (মাল নষ্ট স্টকে)' : ''}`);
     if (b.status === 'confirmed') await autoSend(ctx, id);
   } catch (e) {
@@ -241,8 +241,8 @@ async function setStatusAction(ctx: AdminCtx, m: RouteMatch) {
 }
 async function courierAction(ctx: AdminCtx, m: RouteMatch) {
   const id = int(m[1]);
-  const b = await ctx.body();
-  const r = await sendToCourier(ctx, id, b.courier, { weight: b.weight, note: b.note, city_id: b.city_id, zone_id: b.zone_id, area_id: b.area_id, area_name: b.area_name });
+  const b = await ctx.body<'courier' | 'note' | 'area_name'>();
+  const r = await sendToCourier(ctx, id, b.courier ?? '', { weight: b.weight, note: b.note, city_id: b.city_id, zone_id: b.zone_id, area_id: b.area_id, area_name: b.area_name });
   return r.ok ? ctx.back(`/admin/orders/${id}`, 'sent') : ctx.fail(`/admin/orders/${id}`, r.message as string);
 }
 async function syncOne(ctx: AdminCtx, order: O.Order) {
@@ -280,12 +280,12 @@ async function syncAll(ctx: AdminCtx) {
 }
 async function paymentAction(ctx: AdminCtx, m: RouteMatch) {
   const id = int(m[1]);
-  const b = await ctx.body();
+  const b = await ctx.body<'method'>();
   const order = await O.getOrder({ id });
   if (!order) return ctx.back('/admin/orders');
   const amount = amt(b.amount);
   if (!amount) return ctx.fail(`/admin/orders/${id}`, 'টাকার পরিমাণ দিন।');
-  await O.markPaid(id, { amount: (order.paid_amount || 0) + amount, trxId: str(b.trx, 80), method: O.PAYMENT_METHODS[b.method] ? b.method : null });
+  await O.markPaid(id, { amount: (order.paid_amount || 0) + amount, trxId: str(b.trx, 80), method: ifKey(O.PAYMENT_METHODS, b.method, null) });
   if (int(b.account_id) && ctx.can('accounting')) {
     await finance.addTransaction({ type: 'income', category: 'অর্ডার পেমেন্ট', amount, account_id: b.account_id, order_id: id, note: `${order.code} ${str(b.trx, 80)}` }, ctx.user.id);
   }
@@ -294,10 +294,10 @@ async function paymentAction(ctx: AdminCtx, m: RouteMatch) {
 }
 async function manualCourierAction(ctx: AdminCtx, m: RouteMatch) {
   const id = int(m[1]);
-  const b = await ctx.body();
+  const b = await ctx.body<'courier'>();
   const order = await O.getOrder({ id });
   if (!order) return ctx.back('/admin/orders');
-  const name = courier.MANUAL[b.courier] ? b.courier : 'other';
+  const name = ifKey(courier.MANUAL, b.courier, 'other');
   const tracking = str(b.tracking, 80);
   if (!tracking) return ctx.fail(`/admin/orders/${id}`, 'ট্র্যাকিং / বুকিং নম্বর লিখুন।');
   if (courier.PROVIDERS[order.courier || ''] && order.consignment_id) return ctx.fail(`/admin/orders/${id}`, 'এই অর্ডার আগেই API দিয়ে কুরিয়ারে পাঠানো হয়েছে।');
@@ -362,19 +362,15 @@ const invoices = (ctx: AdminCtx) => printDocs(ctx, 'invoice');
 const checklists = (ctx: AdminCtx) => printDocs(ctx, 'checklist');
 
 // ---------------------------------------------------------------- create / edit form
-function orderForm({ order, settings, error, action, title, isNew }: Body) {
-  const o = order || { items: [], district: 'Dhaka', thana: '', payment: 'cod', payment_status: 'unpaid', status: 'confirmed' };
+/** What the order form shows: a saved order, a new one's starting values, or what was just sent (with an error). */
+type OrderDraft = Record<string, unknown> & { id?: Id | null; items?: unknown[]; district?: string | null; thana?: string | null };
+type OrderFormProps = { order?: OrderDraft | null; settings: Settings; error?: string | null; action: string; title: string; isNew?: boolean };
+function orderForm({ order, settings, error, action, title, isNew }: OrderFormProps) {
+  const o: OrderDraft = order || { items: [], district: 'Dhaka', thana: '', payment: 'cod', payment_status: 'unpaid', status: 'confirmed' };
   return <><p className="crumbs"><a href={isNew ? '/admin/orders' : `/admin/orders/${o.id}`}>← ফিরে যান</a></p><h1><Val v={title} /></h1>{(error ? <p className="flash flash-error"><Val v={error} /></p> : null)}<form method="post" action={attrValue(action)} className="form" data-order-form="" data-dhaka={attrValue(settings.delivery_dhaka)} data-outside={attrValue(settings.delivery_outside)} data-free-min={attrValue(settings.free_delivery_min)} data-city={attrValue(JSON.stringify(O.dhakaCityAreas(settings)))} data-zones={attrValue(JSON.stringify(O.customZones(settings)))}><div className="two-col"><section className="panel"><h2>পণ্য</h2><div className="item-picker"><input type="search" placeholder="পণ্যের নাম বা SKU লিখে খুঁজুন…" data-product-search="" autoComplete="off" /><ul className="picker-results" data-product-results="" hidden></ul></div><table className="table item-rows"><thead><tr><th>পণ্য</th><th className="num">দাম (৳)</th><th className="num">পরিমাণ</th><th className="num">মোট</th><th></th></tr></thead><tbody data-item-rows="">{jsxList((o.items || []).map((it: Loose) => <tr data-row=""><td><Val v={it.name} />{(it.sku ? <><br /><span className="small muted"><Val v={it.sku} /></span></> : null)}{(it.note ? <><br /><span className="small item-note"><Val v={it.note} /></span></> : null)}<input type="hidden" name="item_id[]" defaultValue={attrValue(it.product_id)} />{' '}<input type="hidden" name="item_kind[]" defaultValue={it.kind === 'gift' ? 'gift' : ''} /><input type="hidden" name="item_note[]" defaultValue={attrValue(it.kind === 'gift' ? it.note || '' : '')} /></td><td className="num"><input type="number" name="item_price[]" defaultValue={attrValue(it.price)} min="0" step="0.01" className="w-num" data-price="" /></td><td className="num"><input type="number" name="item_qty[]" defaultValue={attrValue(it.qty)} min="1" className="w-num" data-qty="" /></td><td className="num" data-line-total="">{money(it.price * it.qty)}</td><td><button type="button" className="link-btn danger" data-remove-row="" aria-label="সরান">✕</button></td></tr>))}</tbody></table><p className="muted small" data-no-items="" hidden={!!(o.items && o.items.length)}>উপরে খুঁজে পণ্য যোগ করুন।</p><div className="field-row">{ui.field('ডেলিভারি চার্জ (৳)', ui.input('delivery', o.delivery ?? settings.delivery_dhaka, { type: 'number', min: 0, 'data-delivery': true }), 'এলাকা বাছলে নিজে থেকে বসবে, চাইলে বদলাতে পারেন')}{' '}{ui.field('ছাড় (৳)', ui.input('discount', o.discount || 0, { type: 'number', min: 0, 'data-discount': true }))}</div><div className="order-total">মোট:{' '}<b data-grand="">{money(o.total || 0)}</b></div></section><section className="panel"><h2>কাস্টমার</h2>{ui.field('নাম', ui.input('customer_name', o.customer_name || '', { required: true, maxlength: 80 }))}{' '}{ui.field('মোবাইল নম্বর', ui.input('phone', o.phone || '', { required: true, inputmode: 'tel', maxlength: 20, placeholder: '01XXXXXXXXX' }))}{' '}{ui.field('ইমেইল (ঐচ্ছিক)', ui.input('email', o.email || '', { type: 'email', maxlength: 120 }))}<div className="field-row">{ui.field('জেলা', <select name="district" data-district="" data-value={o.district || 'Dhaka'}></select>)}{' '}{ui.field('থানা / এলাকা', <select name="thana" data-thana="" data-value={o.thana || ''}></select>)}</div>{ui.field('পূর্ণ ঠিকানা', ui.textarea('address', o.address || '', { rows: 2, required: true, maxlength: 400 }))}{' '}{ui.field('কাস্টমারের নোট', ui.input('note', o.note || '', { maxlength: 300 }))}<h2>পেমেন্ট</h2><div className="field-row">{ui.field('মাধ্যম', ui.select('payment', Object.entries(O.PAYMENT_METHODS), o.payment))}{' '}{ui.field('অবস্থা', ui.select('payment_status', Object.entries(O.PAYMENT_STATUSES), o.payment_status))}</div><div className="field-row">{ui.field('পরিশোধিত টাকা', ui.input('paid_amount', o.paid_amount || 0, { type: 'number', min: 0 }))}{' '}{ui.field('TrxID', ui.input('transaction_id', o.transaction_id || '', { maxlength: 80 }))}</div>{(isNew ? ui.field('অর্ডারের অবস্থা', ui.select('status', Object.entries(O.STATUSES).filter(([k]) => !O.RELEASED.has(k)), 'confirmed')) : null)}{' '}{ui.field('ভেতরের নোট', ui.textarea('admin_note', o.admin_note || '', { rows: 2, maxlength: 1000 }))}</section></div><div className="form-actions sticky-actions"><button className="btn btn-lg">{(isNew ? "অর্ডার তৈরি করুন" : "পরিবর্তন সেভ করুন")}</button></div></form></>;
 }
 
-type ItemsFromBodyProps = {
-  item_id?: Loose;
-  item_qty?: Loose;
-  item_price?: Loose;
-  item_kind?: Loose;
-  item_note?: Loose;
-};
-function itemsFromBody(b: ItemsFromBodyProps) {
+function itemsFromBody(b: Body) {
   const ids = list(b.item_id);
   const qtys = list(b.item_qty);
   const prices = list(b.item_price);
@@ -386,7 +382,7 @@ function itemsFromBody(b: ItemsFromBodyProps) {
 
 async function newOrder(ctx: AdminCtx) {
   if (ctx.method === 'POST') {
-    const b = await ctx.body();
+    const b = await ctx.body<'payment' | 'payment_status'>();
     const items = itemsFromBody(b);
     const phone = normalizePhone(b.phone);
     let error = null;
@@ -398,11 +394,11 @@ async function newOrder(ctx: AdminCtx) {
       try {
         const r = await O.createOrder({
           items, name: str(b.customer_name, 80), phone, email: str(b.email, 120), address: str(b.address, 400),
-          district: str(b.district, 60), thana: str(b.thana, 60), note: str(b.note, 300), payment: O.PAYMENT_METHODS[b.payment] ? b.payment : 'cod',
+          district: str(b.district, 60), thana: str(b.thana, 60), note: str(b.note, 300), payment: ifKey(O.PAYMENT_METHODS, b.payment, 'cod'),
           trxId: str(b.transaction_id, 80), source: 'admin', createdBy: ctx.user.id, delivery: b.delivery, discount: b.discount,
           status: b.status, adminNote: str(b.admin_note, 1000),
         }, ctx.settings);
-        if (O.PAYMENT_STATUSES[b.payment_status] && b.payment_status !== 'unpaid') {
+        if (O.PAYMENT_STATUSES[b.payment_status ?? ''] && b.payment_status !== 'unpaid') {
           await O.markPaid(r.id, { amount: amt(b.paid_amount) || (b.payment_status === 'paid' ? r.total : 0), trxId: str(b.transaction_id, 80) });
         }
         await $services_drafts.markOrdered(phone, r.code);

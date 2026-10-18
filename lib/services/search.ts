@@ -169,7 +169,7 @@ function bnVariants(w: string) {
 }
 
 // Damerau–Levenshtein distance, stops early once over `max`
-function dist(a: Loose, b: Body, max: number) {
+function dist(a: string, b: string, max: number) {
   if (Math.abs(a.length - b.length) > max) return max + 1;
   const m = a.length; const n = b.length;
   let prev2 = null; let prev = Array.from({ length: n + 1 }, (_, j) => j);
@@ -189,7 +189,7 @@ function dist(a: Loose, b: Body, max: number) {
   return prev[n];
 }
 // how well one typed word matches one product word (0 = not at all)
-function wordScore(q?: Loose, p?: Loose) {
+function wordScore(q: string, p: string) {
   if (q === p) return 10;
   const num = /^\d/.test(q);
   if (p.startsWith(q) && (q.length >= 2 || num)) return num ? 8 : 7 + Math.min(2, q.length / 4);

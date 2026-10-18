@@ -13,7 +13,7 @@ import * as $status from './status';
 import * as $models_catalog from '../models/catalog';
 import type { AdminCtx, Body, Loose, RouteMatch, Caught, VerificationFile, CustomScript } from '../types';
 const OWNER_ONLY_KEYS = new Set(['custom_scripts', 'custom_head', 'custom_body', 'chat_script', 'verification_files', 'live_cricket_embed', 'live_football_embed']);
-async function saveKeys(ctx: AdminCtx, keys?: Loose, body?: Loose, { secrets = [], checkboxes = [] }: Body = {}) {
+async function saveKeys(ctx: AdminCtx, keys: string[], body: Body, { secrets = [], checkboxes = [] }: { secrets?: string[]; checkboxes?: string[] } = {}) {
   const owner = ctx.user && ctx.user.role === 'owner';
   for (const k of keys) {
     if (OWNER_ONLY_KEYS.has(k) && !owner) continue;

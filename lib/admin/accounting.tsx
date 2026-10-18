@@ -100,8 +100,8 @@ async function pnlPage(ctx: AdminCtx) {
 
 async function vatPage(ctx: AdminCtx) {
   if (ctx.method === 'POST') {
-    const b = await ctx.body();
-    if (!['none', 'turnover', 'inclusive', 'exclusive', 'margin'].includes(b.vat_mode)) b.vat_mode = 'none';
+    const b = await ctx.body<'vat_mode'>();
+    if (!['none', 'turnover', 'inclusive', 'exclusive', 'margin'].includes(b.vat_mode ?? '')) b.vat_mode = 'none';
     b.vat_turnover_rate = String(Math.min(100, Math.max(0, num(b.vat_turnover_rate, 4))));
     b.vat_rate = String(Math.min(100, Math.max(0, num(b.vat_rate, 15))));
     await saveKeys(ctx, ['vat_mode', 'vat_rate', 'vat_turnover_rate', 'vat_bin', 'tin', 'trade_license'], b);

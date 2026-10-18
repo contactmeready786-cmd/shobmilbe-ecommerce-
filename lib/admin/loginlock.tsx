@@ -2,14 +2,14 @@
 // passkeys (fingerprint / Windows Hello / phone QR), and whether the lock is on. (The camera face check was removed.)
 // Also builds the "second check" page shown after the owner's password (see admin/index.js → /admin/verify).
 import { Val, attrValue, jsxList } from '../react/html';
-import { sign, unsign, parseCookies, fmtDate, int } from '../util';
+import { sign, unsign, parseCookies, fmtDate, int, oneOf } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
 import * as lock from '../models/loginlock';
 import * as security from '../security';
 import { ASSET_V } from './layout';
 import * as $recovery from './recovery';
-import type { AdminCtx, Body, Loose, ShopRequest, RouteMatch, Caught } from '../types';
+import type { AdminCtx, Body, Loose, ShopRequest, RouteMatch, Caught, Settings } from '../types';
 import type { OwnerPasskeysRow } from '../data/rows';
 
 const BASE = '/admin/security/login';
@@ -22,7 +22,8 @@ function chCookie(ctx: AdminCtx, value: string) {
 function chValue(ctx: AdminCtx) { return unsign(parseCookies(ctx.req.headers.cookie).sm_ch2, ctx.settings.session_secret); }
 
 // ---------------------------------------------------------------- the second-check page (after the password)
-function verifyPage({ settings, need, mode, mobile, hasPasskey, otherHosts = [], error, blocked }: Body) {
+type VerifyPageProps = { settings: Settings; need?: string | null; mode?: string; mobile?: boolean; hasPasskey?: boolean; otherHosts?: string[]; error?: string | null; blocked?: boolean };
+function verifyPage({ settings, need, mode, mobile, hasPasskey, otherHosts = [], error, blocked }: VerifyPageProps) {
   return <><div className="auth-card panel ll-verify" data-ll-verify="" data-need={attrValue(need || '')} data-mode={attrValue(mode || '')} data-mobile={mobile ? '1' : ''} data-has-passkey={hasPasskey ? '1' : ''}><p className="logo auth-logo"><Val v={settings.store_name} /><small>{' '}Admin</small></p><h1>🔐 মালিকের দ্বিতীয় যাচাই</h1>{(blocked ? <><p className="form-error"><Val v={error} /></p><p className="center"><a className="btn btn-block" href="/admin/login">আবার লগইন করুন</a></p></> : <><p className="muted">পাসওয়ার্ড ঠিক আছে ✅ এবার আঙুলের ছাপ দিয়ে নিজেকে যাচাই করুন।</p>{(error ? <p className="form-error"><Val v={error} /></p> : null)}<section className="ll-part" data-ll-pk="" hidden><h2>👆 আঙুলের ছাপ / পাসকি</h2>{(hasPasskey ? <><p className="small">{(mobile ? "নিচের বোতাম চাপুন, তারপর ফোনের আঙুলের ছাপ (বা ফোনের স্ক্রিন লক) দিন।" : "নিচের বোতাম চাপুন। ল্যাপটপে Windows Hello (মুখ/আঙুল/PIN) চাইবে। ল্যাপটপে না থাকলে \"অন্য ডিভাইস / ফোন\" বেছে নিন, স্ক্রিনের QR কোড ফোন দিয়ে স্ক্যান করে ফোনে আঙুল ছোঁয়ান।")}</p><button type="button" className="btn btn-block btn-lg" data-ll-pk-go="">👆 আঙুলের ছাপ দিয়ে যাচাই করুন</button></> : <><p className="form-error">এই ঠিকানায় কোনো পাসকি (আঙুলের ছাপ) সেভ করা নেই।</p>{(otherHosts.length ? <p className="small">আপনার পাসকি আছে এই ঠিকানায়:{' '}<b><Val v={otherHosts.join(', ')} /></b>। সেখানে লগইন করে "লগইন তালা" পেজ থেকে একটা{' '}<b>অনুমতি কোড</b>{' '}বানান, তারপর নিচে দিন।</p> : null)}</>)}</section><p className="form-error" data-ll-msg="" hidden></p><details className="ll-more"><summary>অন্য ঠিকানা থেকে পাওয়া অনুমতি কোড আছে?</summary><form method="post" action="/admin/verify/code" className="form">{ui.field('৮ সংখ্যার অনুমতি কোড', ui.input('code', '', { inputmode: 'numeric', autocomplete: 'one-time-code', maxlength: 12, required: true }))}{' '}<button className="btn btn-ghost btn-block">কোড দিয়ে ঢুকুন</button></form></details><form method="post" action="/admin/verify/cancel" className="center"><button className="link-btn">বাতিল করে লগইন পেজে ফিরুন</button></form><p className="center small"><a href="/admin/reset">ফোন হারিয়েছেন / আঙুলের ছাপ কাজ করছে না?</a></p></>)}</div><script type="module" src={`/js/admin/loginlock.js?v=${attrValue(ASSET_V)}`} /></>;
 }
 
@@ -55,8 +56,8 @@ async function page(ctx: AdminCtx, extra: Loose = {}) {
 
 // ---------------------------------------------------------------- handlers
 async function saveMode(ctx: AdminCtx) {
-  const b = await ctx.body();
-  const m = lock.MODES.includes(b.mode) ? b.mode : 'off';
+  const b = await ctx.body<'mode'>();
+  const m = oneOf(lock.MODES, b.mode, 'off');
   const why = m === 'off' ? null : await lock.readyFor(m, ctx.user.id, ctx.req);
   if (why) return ctx.fail(BASE, why);
   const before = lock.mode(ctx.settings);

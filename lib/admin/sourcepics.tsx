@@ -68,7 +68,7 @@ async function excel(ctx: AdminCtx, host: string, f: string) {
 async function handle(ctx: AdminCtx) {
   const list = await hosts();
   if (ctx.method === 'POST') {
-    const b = await ctx.body();
+    const b = await ctx.body<'host'>();
     const id = int(b.id);
     if (!ctx.can('products')) return ctx.json(403, { error: 'অনুমতি নেই' });
     if (b.action === 'mark' && id) {
@@ -78,9 +78,9 @@ async function handle(ctx: AdminCtx) {
       return ctx.back(`${BASE}?host=${encodeURIComponent(str(b.host, 120))}&f=${encodeURIComponent(str(b.f, 10))}#p${id}`);
     }
     if (b.action === 'reset' && list.some((h) => h.host === b.host)) {
-      await db.q(`UPDATE products p SET src_wm=false, src_wm_checked=false WHERE p.parent_id IS NULL AND ${hostCond(b.host)}`, hostArgs(b.host));
+      await db.q(`UPDATE products p SET src_wm=false, src_wm_checked=false WHERE p.parent_id IS NULL AND ${hostCond(b.host ?? '')}`, hostArgs(b.host ?? ''));
       await ctx.log('product_bulk', 'product', null, `অন্য দোকানের ছবি: ${b.host} — সব চিহ্ন মুছে নতুন করে শুরু`);
-      return ctx.back(`${BASE}?host=${encodeURIComponent(b.host)}`, 'saved');
+      return ctx.back(`${BASE}?host=${encodeURIComponent(b.host ?? '')}`, 'saved');
     }
     return ctx.back(BASE);
   }

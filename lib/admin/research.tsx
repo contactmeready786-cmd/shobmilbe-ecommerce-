@@ -63,14 +63,14 @@ async function page(ctx: AdminCtx) {
   const segment = ifKey(R.SEGMENTS, ctx.query.get('seg'), '');
   const margin = Math.min(80, Math.max(5, int(ctx.settings.research_margin, 30)));
   if (ctx.method === 'POST') {
-    const b = await ctx.body();
+    const b = await ctx.body<'segment'>();
     if (b.form === 'add_search') {
       const back = `/admin/research?tab=find&fresh=1&q=${encodeURIComponent(str(b.q, 80))}`;
       try { await R.addSource(str(b.url, 300), 'electronics', '', true); } catch (caught) { const e = caught as Caught; return ctx.fail(back, e.message); }
       return ctx.back(back, 'added');
     }
     if (b.form === 'add') {
-      try { await R.addSource(str(b.url, 300), b.segment, str(b.name, 60)); } catch (caught) { const e = caught as Caught; return ctx.fail('/admin/research?tab=sources', e.message); }
+      try { await R.addSource(str(b.url, 300), b.segment ?? '', str(b.name, 60)); } catch (caught) { const e = caught as Caught; return ctx.fail('/admin/research?tab=sources', e.message); }
       return ctx.back('/admin/research?tab=sources', 'added');
     }
     if (b.form === 'toggle' && int(b.id)) await db.q('UPDATE research_sources SET active = NOT active WHERE id=$1', [int(b.id)]);

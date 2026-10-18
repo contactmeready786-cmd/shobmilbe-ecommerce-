@@ -7,7 +7,9 @@ import * as $services_seo from '../services/seo';
 import { esc } from '../util';
 import { ShopBody, Logo, ASSET_V } from '../../components/shop/chrome/Chrome';
 import { ShopHeadExtras, JsonLd, colors } from '../../components/shop/chrome/Head';
-import type { Body, Id, Loose, Settings } from '../types';
+import type { ComponentProps, ReactNode } from 'react';
+import type { PageOpts } from '../shop/router';
+import type { Id, Settings } from '../types';
 
 function mediaUrl(id?: Id, thumb?: unknown) { return id ? `/media/${id}${thumb ? '/t' : ''}` : ''; }
 function logo(settings: Settings) { return <Logo settings={settings} />; }
@@ -42,7 +44,8 @@ function HeadTags({ s, title, description, keywords, canonical, image, type = 'w
   );
 }
 
-function shopLayout({ settings: s, title, description, keywords, body, q, active, canonical, image, jsonLd, jsonLdExtra, type, noindex, categories = [], pages = [], track = null, popup = null }: Body) {
+type ShopLayoutProps = PageOpts & { settings: Settings; title: string; body: ReactNode } & Partial<Pick<ComponentProps<typeof ShopBody>, 'categories' | 'pages' | 'popup'>>;
+function shopLayout({ settings: s, title, description, keywords, body, q, active, canonical, image, jsonLd, jsonLdExtra, type, noindex, categories = [], pages = [], track = null, popup = null }: ShopLayoutProps) {
   const full = title ? `${title} | ${s.store_name}` : $services_seo.homeTitle(s);
   const bodyClass = ['shop', s.copy_protect === '1' ? 'protect' : '', s.copy_title === '1' ? 'copy-title' : '', `cols-${s.grid_cols || '4'}`].filter(Boolean).join(' ');
   const head = renderHtml(<>

@@ -33,8 +33,8 @@ function transferForm(stores?: Loose, { from = '', to = '', back = BASE }: Trans
 
 async function listPage(ctx: AdminCtx) {
   if (ctx.method === 'POST') {
-    const b = await ctx.body();
-    const back = /^\/admin\/warehouses(\/\d+)?$/.test(String(b.back || '')) ? b.back : BASE;
+    const b = await ctx.body<'product' | 'wh'>();
+    const back = /^\/admin\/warehouses(\/\d+)?$/.test(String(b.back || '')) ? String(b.back) : BASE;
     try {
       if (b.action === 'save') {
         const id = await W.save(b);

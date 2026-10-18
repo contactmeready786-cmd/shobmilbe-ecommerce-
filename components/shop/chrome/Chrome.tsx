@@ -7,7 +7,11 @@ import * as U from '../../../lib/services/uiswitch';
 import * as security from '../../../lib/security';
 import { contact } from '../../../lib/util';
 import { jsonSetting } from '../../../lib/db';
-import { categoryTree } from '../../../lib/models/catalog';
+import { categoryTree, type Category } from '../../../lib/models/catalog';
+import type { BannersRow, PagesRow } from '../../../lib/data/rows';
+/** an info page as the footer lists it */
+type ShopPage = Pick<PagesRow, 'title' | 'slug' | 'in_footer'>;
+type Popup = Pick<BannersRow, 'id' | 'link' | 'image_id' | 'title'>;
 import { BodyHtml } from '../../../lib/react/head-html';
 import { cx } from '../../../lib/react/html';
 import type { CustomScript, Loose, MenuLink, Settings } from '../../../lib/types';
@@ -63,7 +67,7 @@ function DrawerCats({ nodes }: { nodes: Loose[] }) {
 }
 
 export type ChromeProps = {
-  settings: Settings; categories: Loose[]; pages: Loose[]; popup?: Loose; q?: string; active?: string; track?: unknown; children: ReactNode;
+  settings: Settings; categories: Category[]; pages: ShopPage[]; popup?: Popup | null; q?: string; active?: string; track?: unknown; children: ReactNode;
 };
 
 /** Everything inside <body>: the frame, the page (children) and the page's scripts. */

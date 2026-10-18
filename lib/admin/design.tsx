@@ -1,5 +1,5 @@
 import { Val, attrValue, styleOf, jsxList } from '../react/html';
-import { bn, int, str, list } from '../util';
+import { bn, int, str, list, oneOf } from '../util';
 import * as db from '../db';
 import * as content from '../models/content';
 import * as ui from './ui';
@@ -26,16 +26,16 @@ async function general(ctx: AdminCtx) {
     for (const k of ['logo_id', 'favicon_id']) {
       if (k in b) {
         const old = int(s[k]);
-        await claim(b[k]);
+        await claim(int(b[k]));
         if (old && old !== int(b[k])) await db.q(`DELETE FROM media WHERE id=$1 AND owner_type='setting'`, [old]);
       }
     }
-    for (const k of ['color_primary', 'color_accent']) if (b[k] && !/^#[0-9a-f]{6}$/i.test(b[k])) delete b[k];
+    for (const k of ['color_primary', 'color_accent']) if (b[k] && !/^#[0-9a-f]{6}$/i.test(String(b[k]))) delete b[k];
     const order = list(b.section_order);
     const on = list(b.section_on);
     const { labels } = await $homerows.allLabels();
     b.home_sections = JSON.stringify(order.filter((x) => labels[x] && on.includes(x)));
-    b.grid_cols = ['3', '4', '5'].includes(b.grid_cols) ? b.grid_cols : '4';
+    b.grid_cols = oneOf(['3', '4', '5'], b.grid_cols, '4');
     await saveKeys(ctx, ['store_name', 'tagline', 'hero_title', 'notice', 'logo_id', 'favicon_id', 'color_primary', 'color_accent', 'grid_cols',
       'home_sections', 'footer_about', 'copy_protect', 'copy_title', 'photo_download'], b, { checkboxes: ['copy_protect', 'copy_title', 'photo_download'] });
     await ctx.log('settings', 'design', null, 'লোগো ও ডিজাইন');

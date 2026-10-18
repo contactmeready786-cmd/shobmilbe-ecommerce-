@@ -5,7 +5,7 @@ import type { ReactNode } from 'react';
 import { raw } from '../util';
 import { can, canSee } from '../models/staff';
 import * as $profile from './profile';
-import type { Body, Id, Loose, Settings, StaffUser } from '../types';
+import type { AdminDrawn, Body, Id, Loose, Settings, StaffUser } from '../types';
 
 const ASSET_V = '56';
 
@@ -326,11 +326,11 @@ function AdminBody({ settings, user, active, readOnly, path = '', nonce, childre
 const adminBodyClass = (bare?: boolean) => (bare ? 'admin admin-auth' : 'admin');
 
 // The whole admin page as text, for the original router (lib/site.ts). The Next.js admin pages use the same pieces.
-function adminLayout({ settings, user, title, body, active, bare, readOnly, path = '' }: Body) {
+function adminLayout({ settings, user, title, body, active, bare, readOnly, path = '' }: Omit<AdminDrawn, 'status' | 'user'> & { user?: StaffUser | null }) {
   const headHtml = `${renderHtml(head(`${title} | Admin`, settings))}${renderHtml(langHead(settings))}`;
   const inner = bare
     ? <AdminBare settings={settings}><Val v={body} /></AdminBare>
-    : <AdminBody settings={settings} user={user} active={active} readOnly={readOnly} path={path} nonce={cspNonce()}><Val v={body} /></AdminBody>;
+    : <AdminBody settings={settings} user={user!} active={active} readOnly={readOnly} path={path} nonce={cspNonce()}><Val v={body} /></AdminBody>;
   return `<!doctype html><html lang="bn"><head>${headHtml}</head><body class="${adminBodyClass(bare)}">${renderHtml(inner)}</body></html>`;
 }
 

@@ -72,23 +72,23 @@ async function detail(ctx: AdminCtx, m: RouteMatch) {
   if (!r) return ctx.redirect(BASE);
   const back = `${BASE}/${id}`;
   if (ctx.method === 'POST') {
-    const b = await ctx.body();
+    const b = await ctx.body<'action'>();
     try {
-      if (['approved', 'rejected', 'replaced', 'cancelled'].includes(b.action)) {
-        const x = await R.decide(id, b.action, { reply: b.reply, note: b.note }, ctx.user.id);
-        await ctx.log('return_' + b.action, 'order', r.order_id, `${r.code}: ${R.STATUSES[b.action]}${b.reply ? ' — ' + str(b.reply, 80) : ''}`);
+      if (['approved', 'rejected', 'replaced', 'cancelled'].includes(b.action ?? '')) {
+        const x = await R.decide(id, b.action!, { reply: b.reply, note: b.note }, ctx.user.id);
+        await ctx.log('return_' + b.action, 'order', r.order_id, `${r.code}: ${R.STATUSES[b.action!]}${b.reply ? ' — ' + str(b.reply, 80) : ''}`);
         // tell the customer by SMS (when SMS is on)
         if (b.sms === '1' && x.phone) {
           const SMS = $services_sms;
           if (SMS.ready(ctx.settings).ok) {
-            const word = (({ approved: 'অনুমোদন করা হয়েছে', rejected: 'গ্রহণ করা যায়নি', replaced: 'বদলে দেওয়া হচ্ছে', cancelled: 'বাতিল হয়েছে' } as Record<string, string>))[b.action];
+            const word = (({ approved: 'অনুমোদন করা হয়েছে', rejected: 'গ্রহণ করা যায়নি', replaced: 'বদলে দেওয়া হচ্ছে', cancelled: 'বাতিল হয়েছে' } as Record<string, string>))[b.action ?? ''];
             await SMS.send(ctx.settings, x.phone, `${ctx.settings.store_name}: আপনার রিটার্ন আবেদন ${x.code} ${word}।${b.reply ? ' ' + str(b.reply, 120) : ''}`, { kind: 'return', orderId: r.order_id, staffId: ctx.user.id });
           }
         }
         return ctx.back(back, 'status');
       }
       if (b.action === 'receive') {
-        const acts: Record<string, string> = {};
+        const acts: Record<string, unknown> = {};
         (r.items || []).forEach((it: { item_id: string | number; }) => { acts[it.item_id] = b[`how_${it.item_id}`]; });
         const done = await R.receive(id, acts, ctx.user.id);
         await ctx.log('return_receive', 'order', r.order_id, `${r.code}: পণ্য ফেরত — ${done.map((d) => HOW[d.how].split(' ')[0]).join(' ')}`);

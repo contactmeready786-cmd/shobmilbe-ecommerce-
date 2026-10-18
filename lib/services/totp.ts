@@ -38,7 +38,7 @@ function codeAt(secret?: Loose, step?: Loose) {
 
 // Accepts the code of this 30-second window or the one before/after (phone clock a little off).
 // Returns the matched step (so the same code can't be used twice), or null.
-function check(secret: string, code: string, lastStep = 0) {
+function check(secret: string, code: unknown, lastStep = 0) {
   const c = String(code || '').replace(/[০-৯]/g, (d) => String('০১২৩৪৫৬৭৮৯'.indexOf(d))).replace(/\D/g, '');
   if (!secret || c.length !== 6) return null;
   const now = stepNow();

@@ -1,7 +1,7 @@
 // Admin → মার্কেটিং → কাস্টমারকে SMS: the SMS company and key, automatic order messages (each with a switch
 // and its own text), a test message, a message to many customers at once, and the list of everything sent.
 import { Val, attrValue, jsxList } from '../react/html';
-import { bn, int, str, fmtDate, normalizePhone, validPhone } from '../util';
+import { bn, int, str, fmtDate, normalizePhone, validPhone, ifKey } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
 import * as SMS from '../services/sms';
@@ -110,7 +110,7 @@ async function post(ctx: AdminCtx) {
   const b = await ctx.body();
   if (b.action === 'setup') {
     if (!ctx.can('settings')) return ctx.back(BASE, 'noperm');
-    const v: Record<string, Loose> = { sms_on: b.sms_on ? '1' : '0', sms_provider: SMS.PROVIDERS[b.sms_provider] ? b.sms_provider : 'bulksmsbd',
+    const v: Record<string, Loose> = { sms_on: b.sms_on ? '1' : '0', sms_provider: ifKey(SMS.PROVIDERS, b.sms_provider, 'bulksmsbd'),
       sms_sender_id: str(b.sms_sender_id, 60),
       sms_mkt_day: String(Math.max(0, Math.min(100000, int(b.sms_mkt_day, 0)))), sms_mkt_month: String(Math.max(0, Math.min(1000000, int(b.sms_mkt_month, 0)))), sms_custom_url: /^https:\/\/[^\s]+$/i.test(str(b.sms_custom_url, 400)) ? str(b.sms_custom_url, 400) : '' };
     if (str(b.sms_api_key, 200)) v.sms_api_key = str(b.sms_api_key, 200);

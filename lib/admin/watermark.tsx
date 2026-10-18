@@ -7,7 +7,7 @@
 // that is open quietly finishes pictures that are new or were made with older settings.
 import { Val, attrValue, jsxList } from '../react/html';
 import * as crypto from 'node:crypto';
-import { bn, int, str } from '../util';
+import { bn, int, str, ifKey } from '../util';
 import * as db from '../db';
 import * as catalog from '../models/catalog';
 import * as security from '../security';
@@ -38,7 +38,7 @@ async function page(ctx: AdminCtx) {
   const s = ctx.settings;
   if (ctx.method === 'POST') {
     const b = await ctx.body();
-    const type = TYPES[b.wm_type] ? b.wm_type : 'domain';
+    const type = ifKey(TYPES, b.wm_type, 'domain');
     const text = str(b.wm_text, 40);
     if (type === 'text' && !text) return ctx.fail('/admin/products/watermark', 'নিজের লেখা বাছলে লেখাটা দিন।');
     const logoId = int(b.wm_logo_id) || null;
@@ -46,7 +46,7 @@ async function page(ctx: AdminCtx) {
     if (type === 'logo' && !logoId && !int(s.logo_id)) return ctx.fail('/admin/products/watermark', 'লোগো বাছলে একটা লোগোর ছবি দিন।');
     const vals: Record<string, unknown> = {
       wm_on: b.wm_on ? '1' : '0', wm_type: type, wm_text: text, wm_domain: domainOf(ctx), wm_logo_id: logoId ? String(logoId) : '',
-      wm_strength: STRENGTH[b.wm_strength] ? b.wm_strength : 'normal', wm_size: SIZES[b.wm_size] ? b.wm_size : 'm', wm_place: PLACES[b.wm_place] ? b.wm_place : 'auto',
+      wm_strength: ifKey(STRENGTH, b.wm_strength, 'normal'), wm_size: ifKey(SIZES, b.wm_size, 'm'), wm_place: ifKey(PLACES, b.wm_place, 'auto'),
     };
     // same look → same version (nothing redrawn); any change → all pictures are redrawn
     const look = JSON.stringify([vals.wm_type, vals.wm_type === 'text' ? text : vals.wm_type === 'domain' ? vals.wm_domain : (logoId || s.logo_id),

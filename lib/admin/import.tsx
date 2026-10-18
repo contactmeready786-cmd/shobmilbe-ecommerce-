@@ -9,7 +9,7 @@
 //                                       browser can resize it and make its fingerprint, then upload it
 //   3. POST /admin/api/import/save   — duplicate check + save one product
 import { attrValue } from '../react/html';
-import { int, str, amount, csv, youtubeId, shopPrice, priceProblem } from '../util';
+import { fields, int, str, amount, csv, youtubeId, shopPrice, priceProblem } from '../util';
 import * as catalog from '../models/catalog';
 import * as dupes from '../models/duplicates';
 import * as security from '../security';
@@ -94,11 +94,12 @@ async function readApi(ctx: AdminCtx) {
   let out;
   let source = '';
   try {
-    if (b.file && typeof b.file === 'object') {
-      const name = str(b.file.name, 200);
+    const file = fields(b.file);
+    if (file) {
+      const name = str(file.name, 200);
       let buf;
-      if (typeof b.file.base64 === 'string') buf = Buffer.from(b.file.base64, 'base64');
-      else if (typeof b.file.text === 'string') buf = Buffer.from(b.file.text, 'utf8');
+      if (typeof file.base64 === 'string') buf = Buffer.from(file.base64, 'base64');
+      else if (typeof file.text === 'string') buf = Buffer.from(file.text, 'utf8');
       if (!buf || !buf.length) return ctx.json(400, { error: 'ফাইলটি খালি।' });
       if (buf.length > FILE_MAX) return ctx.json(400, { error: 'ফাইলটি ৩ MB-এর বেশি বড়। দুই ভাগ করে দিন।' });
       out = importer.parseContent(buf, { name });
@@ -164,8 +165,8 @@ function categoryFinder(categories: db.pg.DbRow[]) {
 async function saveApi(ctx: AdminCtx) {
   if (!(await security.hit(db, 'impsave:' + ctx.user.id, 8000, 3600))) return ctx.json(429, { error: 'এক ঘণ্টায় অনেক বেশি পণ্য, একটু পরে চেষ্টা করুন।' });
   const b = await ctx.body();
-  const it = b.item && typeof b.item === 'object' ? b.item : {};
-  const opt = b.options && typeof b.options === 'object' ? b.options : {};
+  const it = fields(b.item) || {};
+  const opt = fields(b.options) || {};
   const ref = str(it.ref, 300).toLowerCase();
   const name = str(it.title, 140);
   const price = shopPrice(amount(it.price));

@@ -1,7 +1,7 @@
 // Admin → নোটিফিকেশন (owner only): where new-order and security alerts go (e-mail + WhatsApp).
 // The e-mail here also receives the "forgot password" reset link, so changing it needs the owner's password.
 import { Val, attrValue, styleOf, jsxList } from '../react/html';
-import { verifyPassword, str } from '../util';
+import { verifyPassword, str, oneOf } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
 import * as N from '../services/notify';
@@ -17,7 +17,7 @@ const dots = (v: string | undefined) => (v ? '••••••••' : '');
 async function page(ctx: AdminCtx) {
   const s = ctx.settings;
   if (ctx.method === 'POST') {
-    const b = await ctx.body();
+    const b = await ctx.body<'wa_provider'>();
     const email = str(b.notify_email, 120).toLowerCase();
     const oldEmail = N.emailConfig(s).to;
     if (!N.validEmail(email)) return ctx.fail('/admin/notify', 'ইমেইল ঠিকানা ঠিক নেই।');
@@ -47,7 +47,7 @@ async function page(ctx: AdminCtx) {
     const gId = String(b.greenapi_id || '').replace(/\D/g, '');
     const provider = (gToken || (gId && gId !== String(s.greenapi_id || ''))) && !fresh(b.callmebot_key) ? 'greenapi'
       : fresh(b.callmebot_key) && !gToken ? 'callmebot'
-      : ['greenapi', 'callmebot'].includes(b.wa_provider) ? b.wa_provider : (s.wa_provider || 'callmebot');
+      : oneOf(['greenapi', 'callmebot'], b.wa_provider, null) ?? (s.wa_provider || 'callmebot');
     if (gId && !/^\d{6,15}$/.test(gId)) return ctx.fail('/admin/notify', 'idInstance শুধু সংখ্যা হয় (যেমন 7103123456)। আবার কপি করে দিন।');
     if (gToken && !/^[A-Za-z0-9]{20,80}$/.test(gToken)) return ctx.fail('/admin/notify', 'apiTokenInstance ঠিক নেই। Green-API কনসোল থেকে পুরোটা কপি করে দিন।');
     const keyField = provider === 'textmebot' ? 'textmebot_key' : 'callmebot_key';

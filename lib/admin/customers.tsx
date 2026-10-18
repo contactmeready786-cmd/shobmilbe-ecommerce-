@@ -121,7 +121,7 @@ async function blocklistPage(ctx: AdminCtx) {
   if (ctx.method === 'POST') {
     const b = await ctx.body();
     const kind = b.kind === 'ip' ? 'ip' : 'phone';
-    const back = String(b.back || '').startsWith('/admin/') ? b.back : '/admin/blocklist';
+    const back = String(b.back || '').startsWith('/admin/') ? String(b.back) : '/admin/blocklist';
     if (kind === 'phone' && !validPhone(normalizePhone(b.value))) return ctx.fail(back, 'সঠিক মোবাইল নম্বর দিন।');
     if (kind === 'ip' && !str(b.value)) return ctx.fail(back, 'IP ঠিকানা দিন।');
     await C.block(kind, b.value, b.reason, ctx.user.id);
@@ -136,7 +136,7 @@ async function unblock(ctx: AdminCtx, m: RouteMatch) {
   const b = await ctx.body();
   await C.unblock(int(m[1]));
   await ctx.log('unblock', 'customer', null, String(m[1]));
-  const back = String(b.back || '').startsWith('/admin/') ? b.back : '/admin/blocklist';
+  const back = String(b.back || '').startsWith('/admin/') ? String(b.back) : '/admin/blocklist';
   return ctx.back(back, 'unblocked');
 }
 

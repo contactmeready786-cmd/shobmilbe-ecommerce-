@@ -18,7 +18,7 @@ async function handle(ctx: AdminCtx) {
 }
 
 async function post(ctx: AdminCtx) {
-  const b = await ctx.body();
+  const b = await ctx.body<'id'>();
   const s = ctx.settings;
   if (b.action === 'save') {
     for (const k of ['autoseo_on', 'autoseo_model', 'autoseo_specs', 'autoseo_desc']) await db.setSetting(k, b[k] ? '1' : '0');

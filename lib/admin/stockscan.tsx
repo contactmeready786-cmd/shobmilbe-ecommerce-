@@ -6,7 +6,7 @@
 // A code nobody has yet → "নতুন পণ্য হিসেবে যোগ করুন" (the new-product page opens with that barcode, box and count filled in).
 // Typing a box name ("বক্স ৩") lists everything kept in that box.
 import { Val, attrValue, jsxList } from '../react/html';
-import { raw, bn, int, str } from '../util';
+import { raw, bn, int, str, oneOf } from '../util';
 import * as db from '../db';
 import * as catalog from '../models/catalog';
 import * as W from '../models/warehouses';
@@ -57,7 +57,7 @@ async function find(ctx: AdminCtx) {
 async function save(ctx: AdminCtx) {
   const b = await ctx.body();
   const id = int(b.id);
-  const mode = ['in', 'count', 'undo'].includes(b.mode) ? b.mode : 'in';
+  const mode = oneOf(['in', 'count', 'undo'], b.mode, 'in');
   const p = await db.one<Pick<ProductsRow, 'id' | 'name' | 'stock' | 'location'>>('SELECT id, name, stock, location FROM products WHERE id=$1 AND variant_count = 0 AND product_type <> \'bundle\'', [id]);
   if (!p) return ctx.json(404, { ok: false, error: 'পণ্যটি পাওয়া যায়নি।' });
 

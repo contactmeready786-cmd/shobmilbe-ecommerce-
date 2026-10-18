@@ -101,7 +101,7 @@ async function redo(ctx: AdminCtx) {
 }
 
 async function add(ctx: AdminCtx) {
-  const b = await ctx.body();
+  const b = await ctx.body<'en' | 'src'>();
   const src = translate.norm(b.src).slice(0, translate.MAX_LEN);
   const en = translate.norm(b.en).slice(0, translate.MAX_LEN * 2);
   if (!src || !en) return ctx.fail(BASE, 'বাংলা আর ইংরেজি দুটোই লিখুন।');

@@ -54,7 +54,7 @@ async function productInText(text: string) {
 }
 
 // What the post was about: the product (or kit) the shop posted there
-async function postSubject(postId?: Id) {
+async function postSubject(postId?: Id): Promise<Subject> {
   const sp = await db.one<Pick<SocialPostsRow, 'product_id' | 'kind' | 'ref'>>(`SELECT product_id, kind, ref FROM social_posts WHERE channel='facebook' AND ok AND post_id=$1 ORDER BY created_at DESC LIMIT 1`, [postId]).catch(() => null);
   if (!sp) return {};
   if (sp.kind === 'kit' && /^\d+$/.test(sp.ref || '')) {
@@ -68,11 +68,12 @@ async function postSubject(postId?: Id) {
   return { quiz: sp.kind === 'quiz' };
 }
 
-const pick = (list?: Loose, seed?: Loose) => list[Math.abs(seed) % list.length];
+const pick = (list: string[], seed: number) => list[Math.abs(seed) % list.length];
 function seedOf(id?: Id) { let h = 0; for (const ch of String(id)) h = (h * 31 + ch.charCodeAt(0)) | 0; return h; }
 
 // The answer. A few wordings in turn, so the page never posts the same sentence over and over.
-function replyText({ product: p, kit }: Body, settings: Settings, commentId?: Id) {
+type Subject = { product?: ProductsRow; kit?: Pick<KitsRow, 'id' | 'slug' | 'title'>; quiz?: boolean };
+function replyText({ product: p, kit }: Subject, settings: Settings, commentId?: Id) {
   const base = autopost.siteBase(settings);
   const seed = seedOf(commentId);
   const utm = 'utm_source=facebook&utm_medium=comment&utm_campaign=auto-reply';

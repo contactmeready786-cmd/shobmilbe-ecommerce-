@@ -20,8 +20,9 @@ export type { Reply } from './reply';
  * A parsed form or JSON body. Values come from the visitor, so every field is checked before use
  * (str(), int(), amount(), list() …). Form fields are text or, for repeated names, lists of text.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- visitor input: always run through str()/int()/list() first
-export type Body = Record<string, any>;
+export type Body = Record<string, unknown>;
+/** A sent HTML form: the named fields are text when present (an input sends its value as text); others stay unknown. */
+export type Form<K extends string = never> = Body & Partial<Record<K, string>>;
 
 /** A database row whose columns aren't described by a more specific type yet. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- columns vary by query
@@ -68,7 +69,8 @@ export type AdminCtx = Base & {
   user: StaffUser; ip: string; readOnly?: boolean; __err?: string;
   can: (perm: string) => boolean;
   flash: Flash | null;
-  body: () => Promise<Body>;
+  /** the sent form; the fields named in K are read as text (what an HTML form sends for one field) */
+  body: <K extends string = never>() => Promise<Form<K>>;
   page: (title: string, body: unknown, active?: string, opts?: { status?: number }) => void;
   back: (to: string, msgKey?: string) => void;
   fail: (to: string, text: string) => void;

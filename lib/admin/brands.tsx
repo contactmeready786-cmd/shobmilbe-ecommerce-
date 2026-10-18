@@ -26,7 +26,7 @@ function form(b: FormProps, error?: unknown) {
 async function page(ctx: AdminCtx, m: RouteMatch | null, error: unknown = null, values: Record<string, unknown> | null = null) {
   const id = m && m[1] ? int(m[1]) : null;
   if (ctx.method === 'POST' && !error) {
-    const b = await ctx.body();
+    const b = await ctx.body<'logo_id'>();
     try {
       const bid = await catalog.saveBrand({ id, name: b.name, logoId: b.logo_id, description: b.description, seoTitle: b.seo_title, seoDescription: b.seo_description, active: !!b.active, sort: b.sort, noindex: !!b.noindex });
       if (int(b.logo_id)) await catalog.claimMedia(b.logo_id, 'brand', bid);

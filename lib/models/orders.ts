@@ -18,7 +18,7 @@ export type OrderLine = {
   components?: { product_id: number; qty: number }[] | null; kind?: string; note?: string; ref_id?: number | null; preorder_qty?: number;
 };
 /** What a customer or the admin asked for: product id, pieces and (admin only) a typed price. */
-type Wanted = { id: number; qty: number; price?: unknown; kind?: string; note?: string };
+type Wanted = { id: number; qty: number; price?: unknown; kind?: string; note?: unknown };
 type District = { en: string; bn: string; division?: string; areas: [string, string][] };
 const GEO_DATA = GEO as unknown as { districts: District[]; dhakaCity: string[] };
 
