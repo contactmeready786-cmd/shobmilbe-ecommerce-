@@ -157,7 +157,7 @@ async function preview(ctx: AdminCtx) {
   const { layout } = M;
   const cards = await (async () => {
     // reuse the real layout (no open/click counters in a preview)
-    const rows = await db.q(`SELECT p.id, p.name, p.slug, p.price, p.old_price, p.image_id, m.ik_url FROM products p LEFT JOIN media m ON m.id=p.image_id WHERE p.id = ANY($1::int[])`, [products]);
+    const rows = await db.q<{ id: number; name: string; slug: string; price: number; old_price: number | null; image_id: number | null; ik_url: string | null }>(`SELECT p.id, p.name, p.slug, p.price, p.old_price, p.image_id, m.ik_url FROM products p LEFT JOIN media m ON m.id=p.image_id WHERE p.id = ANY($1::int[])`, [products]);
     return rows.map((p) => ({ ...p, img: p.ik_url ? `${p.ik_url}${p.ik_url.includes('?') ? '&' : '?'}tr=f-jpg,w-400` : p.image_id ? `/media/${p.image_id}/t` : '', path: `/p/${encodeURIComponent(p.slug)}` }));
   })();
   const out = await layout(s, { logId: null, sub, heading: 'ইমেইল দেখতে এমন হবে', intro: '{name}, এটা একটা নমুনা। ক্যাম্পেইনে আপনার লেখা এখানে বসবে।\n\nনিচে পণ্যগুলো এভাবে দেখাবে।', products: cards, button: { text: 'এখনই কিনুন', path: '/' }, utm });
