@@ -2,7 +2,8 @@
 //  • Pages served by Next.js (lib/next/routes.ts): the shop's security gate runs here first (lib/gate.ts — the same
 //    checks the original code does: blocked IPs, hacking attempts, the country lock, blocked bots), and the
 //    security headers are added. A visitor who is turned away gets the same page as before.
-//  • Everything else goes on to the original shop code (the fallback rewrite to /api/site in next.config.ts).
+//  • The admin's forms, files and exports go to app/api/admin (lib/next/admin-route.ts); the customer forms to their own
+//    routes (lib/shopx.tsx); everything else to the shop's 404 / redirect answers (the fallback rewrite to /api/site).
 // In both cases the exact address the visitor asked for is passed on as x-shop-url — any copy the visitor sent is
 // overwritten, so it can't be faked.
 import { NextResponse, type NextRequest } from 'next/server';
@@ -20,7 +21,7 @@ export async function proxy(request: NextRequest) {
   try { path = decodeURIComponent(path); } catch { /* keep as sent */ }
   if (path.length > 1) path = path.replace(/\/+$/, '');
 
-  // 🔐 the admin panel: its pages are drawn by Next.js (app/(admin)); files, exports and forms by the original code
+  // 🔐 the admin panel: its pages are drawn by Next.js (app/(admin)); files, exports and forms by app/api/admin
   if (path === '/admin' || path.startsWith('/admin/')) return adminProxy(request, path, headers);
 
   if (!servedByNext(path, url.searchParams, request.method)) {
@@ -60,19 +61,19 @@ function answeredBy(path: string, asked: string): string {
 
 async function adminProxy(request: NextRequest, path: string, headers: Headers) {
   const url = request.nextUrl;
-  const toSite = () => {
+  const toAdminRoute = () => {
     // the mark that sent this visit here (lib/next/admin.ts) is not passed on
     const q = new URLSearchParams(url.searchParams);
     q.delete('__site');
     const search = q.toString();
     headers.set('x-shop-url', url.pathname + (search ? '?' + search : ''));
-    return NextResponse.rewrite(new URL('/api/site' + url.pathname + (search ? '?' + search : ''), request.url), { request: { headers } });
+    return NextResponse.rewrite(new URL('/api/admin' + (search ? '?' + search : ''), request.url), { request: { headers } });
   };
-  if (!adminServedByNext(path, url.searchParams, request.method)) return toSite();
+  if (!adminServedByNext(path, url.searchParams, request.method)) return toAdminRoute();
   const plain: Record<string, string> = {};
   request.headers.forEach((v, k) => { plain[k] = v; });
   const gate = await adminGateOk({ headers: plain, socket: { remoteAddress: plain['x-real-ip'] || '' }, url: url.pathname + url.search }, request.method);
-  if (!gate.ok) return toSite();
+  if (!gate.ok) return toAdminRoute();
   // only scripts carrying this visit's nonce may run (lib/security.ts); Next.js puts it on its own scripts too
   const nonce = Buffer.from(crypto.getRandomValues(new Uint8Array(16))).toString('base64');
   headers.set('x-nonce', nonce);

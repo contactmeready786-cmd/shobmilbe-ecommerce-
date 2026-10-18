@@ -38,10 +38,10 @@ export function formRouteFor(path: string): string | null {
   return null;
 }
 
-/** Is this request drawn by a Next.js page? (forms and other methods still go to the original code) */
+/** Is this request drawn by a Next.js page? (forms, look-ups and other methods go to their routes — proxy.ts) */
 export function servedByNext(path: string, query: URLSearchParams, method: string): boolean {
   if (method !== 'GET' && method !== 'HEAD') return false;
-  // /track with an order number AND a phone number: the original code checks it and opens the order
+  // /track with an order number AND a phone number: its form route checks it and opens the order (lib/shopx.tsx)
   if (path === '/track' && query.get('code') && query.get('phone')) return false;
   // the same for a complaint's status (it counts tries)
   if (path === '/complaint/status' && query.get('code') && query.get('phone')) return false;
@@ -50,7 +50,7 @@ export function servedByNext(path: string, query: URLSearchParams, method: strin
 
 // ---------------------------------------------------------------- admin
 // Admin addresses that answer with a file, a picture, a print page or data rather than an admin page: always the
-// original code. (Any other admin page that turns out not to be a page is sent there too — lib/next/admin.ts.)
+// admin route (app/api/admin). (Any other admin page that turns out not to be a page is sent there too — lib/next/admin.ts.)
 const ADMIN_SITE = [
   /^\/admin\/api\//, /\.(csv|xlsx|json|txt|xml|pdf)$/, /^\/admin\/avatar\//, /\/photo\/\d+$/,
   /^\/admin\/orders\/(invoice|checklist)$/, /^\/admin\/orders\/\d+\/mushak$/, /^\/admin\/products\/labels$/, /^\/admin\/pos\/memo\//,
@@ -58,7 +58,7 @@ const ADMIN_SITE = [
 ];
 
 /** Is this an admin page request drawn by Next.js (app/(admin))? Forms (POST), files and addresses without a page
- * (lib/next/admin-routes.ts) stay with the original code. */
+ * (lib/next/admin-routes.ts) go to app/api/admin. */
 export function adminServedByNext(path: string, query: URLSearchParams, method: string): boolean {
   if (method !== 'GET' && method !== 'HEAD') return false;
   if (path !== '/admin' && !path.startsWith('/admin/')) return false;

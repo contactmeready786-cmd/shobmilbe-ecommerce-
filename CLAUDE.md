@@ -93,15 +93,17 @@ uses that one setup. Never add a second Gmail / App Password / SMS / API-key fie
   admin's own handler (lib/admin) with `drawPage` catching the page's pieces, and the React frame (AdminBody /
   AdminBare in lib/admin/layout.tsx; tests/admin-frame.test.ts) draws them. proxy.ts makes the nonce and the script
   rule (lib/security adminHeaders) and runs the admin's front checks (lib/gate.ts adminGateOk). Forms (POST),
-  /admin/api, files and exports go to lib/site.ts (`ADMIN_SITE` in lib/next/routes.ts); a handler that answers with
-  anything but a page is sent there too (?__site=1). After adding or changing an admin route run
+  /admin/api, files and exports go to app/api/admin (lib/next/admin-route.ts; `ADMIN_SITE` in lib/next/routes.ts);
+  a handler that answers with anything but a page is sent there too (?__site=1). After adding or changing an admin route run
   `npx tsx tools/gen-admin-routes.ts` (lib/next/admin-routes.ts; tests/routes.test.ts checks it).
 - Shop APIs, pictures, robots/sitemap/feeds, e-mail counters, payments, webhooks and the scheduled jobs are Next.js
   route handlers (app/api/…, app/media, app/pay, app/webhook …) with their code in lib/api/*.ts; `apiRoute()`
   (lib/next/api.ts) runs the shop's gate first (`{ bots: false }` for pictures and robots.txt). A method or address a
   route doesn't handle goes to lib/site.ts (`otherMethods` / `toSite`), so its answer stays exactly the same.
-- lib/site.ts (app/api/site → siteAnswer(Request) → Response) answers shop and admin form POSTs, /admin/api and the
-  admin's files, the shop's 404 / redirect answers, the country-lock page, verification files. Handlers answer through
+- lib/site.ts (app/api/site → siteAnswer(Request) → Response) answers only the shop's own 404 / redirect answers, a
+  page switched off, the country-lock page, verification files and methods a route doesn't take. The admin's forms
+  and files: lib/next/admin-route.ts (app/api/admin). The customer forms: lib/shopx.tsx. All of them share
+  lib/next/answers.ts (the request as the shop reads it, send/json/redirect, the fixed pages). Handlers answer through
   ctx.send(status, body, type?, headers?) / ctx.json(status, data) / ctx.redirect(to) and, for a file,
   ctx.reply.answer(status, headers, body) (lib/reply.ts → a Web Response). There is no Node req/res anywhere:
   ctx.req is a plain object (headers, url, method, socket.remoteAddress, the body text).

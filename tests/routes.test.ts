@@ -1,4 +1,4 @@
-// 🧭 Which addresses Next.js draws, and which still belong to the original code (lib/site.ts).
+// 🧭 Which addresses the Next.js pages draw, and which go to a route of their own (forms, look-ups, admin files).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { servedByNext, hasNextPage, servesMore, servesShopRouter, servesForms, formRouteFor } from '../lib/next/routes';
@@ -58,13 +58,13 @@ test('the order page and the old invoice address share one address rule', async 
   assert.ok(ORDER_PAGE.test('/order/SM1') && ORDER_PAGE.test('/order/SM1/invoice') && !ORDER_PAGE.test('/order/SM1/return'));
 });
 
-test('admin pages are drawn by Next.js; forms, files and data stay with the original code', async () => {
+test('admin pages are drawn by Next.js; forms, files and data go to app/api/admin', async () => {
   const { adminServedByNext } = await import('../lib/next/routes');
   const a = (p: string, q = '', m = 'GET') => adminServedByNext(p, new URLSearchParams(q), m);
   for (const p of ['/admin', '/admin/orders', '/admin/orders/5', '/admin/products', '/admin/settings', '/admin/login']) assert.ok(a(p), p);
   for (const p of ['/admin/api/media', '/admin/orders/export.csv', '/admin/orders/invoice', '/admin/avatar/3', '/admin/pos/memo/4', '/admin/design/documents', '/admin/products/9/active', '/admin/no-such-page']) assert.equal(a(p), false, p);
   assert.equal(a('/admin/orders', '', 'POST'), false);
-  assert.equal(a('/admin/orders', '__site=1'), false); // sent back by lib/next/admin.ts: the original code answers
+  assert.equal(a('/admin/orders', '__site=1'), false); // sent back by lib/next/admin.ts: app/api/admin answers
   assert.equal(a('/products'), false);
 });
 
@@ -72,4 +72,15 @@ test('lib/next/admin-routes.ts lists today\'s admin pages (run tools/gen-admin-r
   const { adminGetRoutes } = await import('./fixtures/admin-routes');
   const { ADMIN_GET_ROUTES } = await import('../lib/next/admin-routes');
   assert.deepEqual(ADMIN_GET_ROUTES.map(String), adminGetRoutes().map(String));
+});
+
+test('app/api/admin answers only admin addresses, for every way of asking', async () => {
+  const { readFileSync } = await import('node:fs');
+  const src = readFileSync('app/api/admin/route.ts', 'utf8');
+  for (const m of ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS']) assert.ok(src.includes(`adminAnswer as ${m}`), m);
+  const { adminAnswer, isAdminPath } = await import('../lib/next/admin-route');
+  assert.ok(isAdminPath('/admin') && isAdminPath('/admin/orders') && !isAdminPath('/administrator') && !isAdminPath('/api/admin'));
+  // opened directly (proxy.ts records /api/admin itself as the address asked for): nothing there
+  const r = await adminAnswer(new Request('http://local/api/admin', { headers: { 'x-shop-url': '/api/admin' } }));
+  assert.equal(r.status, 404);
 });

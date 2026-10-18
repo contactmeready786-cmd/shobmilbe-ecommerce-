@@ -15,7 +15,8 @@ import * as shop from '../views/shop';
 import { shopGate } from '../gate';
 import { shopLayout } from '../views/layout';
 import { loadRenderer } from '../react/render';
-import { Reply, type HeaderMap, type ReplyBody } from '../reply';
+import { Reply, type HeaderMap } from '../reply';
+import { answers, askedFor, shopPath, shopRequest, ERROR_PAGE } from './answers';
 import type { ReactNode } from 'react';
 import type { PageOpts } from '../shop/router';
 import type { Settings, ShopRequest } from '../types';
@@ -38,39 +39,15 @@ export type FormCtx = {
   redirect: (to: string, extra?: HeaderMap) => void;
 };
 
-// the same answer the original code gives when something breaks (lib/site.ts)
-const ERROR_PAGE = '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>সমস্যা</title><body style="font-family:sans-serif;padding:40px;text-align:center"><h1>একটা সমস্যা হয়েছে</h1><p>কিছুক্ষণ পর আবার চেষ্টা করুন।</p><p><a href="/">হোমে ফিরে যান</a></p></body>';
-
-/** The address the visitor asked for: proxy.ts's x-shop-url, else the request's own. */
-export function askedFor(request: Request): URL {
-  const url = new URL(request.url);
-  const original = request.headers.get('x-shop-url');
-  return original ? new URL(original, url.origin) : url;
-}
-
-/** The shop's path rules (lib/site.ts): decoded, and no slash at the end. */
-export function shopPath(url: URL): string {
-  let path = url.pathname;
-  try { path = decodeURIComponent(path); } catch { /* keep as sent */ }
-  return path.length > 1 ? path.replace(/\/+$/, '') : path;
-}
-
 /** Turns one customer form (lib/shopx.tsx) into a Next.js route handler. */
 export function formRoute(fn: (f: FormCtx) => Promise<unknown>) {
   return async (request: Request): Promise<Response> => {
     const url = askedFor(request);
     const path = shopPath(url);
     const method = request.method;
-    const headers: Record<string, string> = {};
-    request.headers.forEach((v, k) => { headers[k] = v; });
-    const req: ShopRequest = {
-      url: url.pathname + url.search, method, headers,
-      socket: { remoteAddress: headers['x-real-ip'] || (headers['x-forwarded-for'] || '').split(',')[0].trim() || '127.0.0.1' },
-      __body: method === 'GET' || method === 'HEAD' ? '' : await request.text(),
-    };
+    const req = await shopRequest(request, url);
     const reply = new Reply();
-    const send = (status: number, body: ReplyBody, type = 'text/html; charset=utf-8', extra: HeaderMap = {}) =>
-      reply.answer(status, { 'Content-Type': type, 'Cache-Control': 'no-store', ...security.BASE_HEADERS, ...extra }, body);
+    const { send, redirect } = answers(reply);
 
     const gate = await shopGate(req, path, url.search, method);
     if (!gate.ok) {
@@ -89,7 +66,7 @@ export function formRoute(fn: (f: FormCtx) => Promise<unknown>) {
       const ctx: FormCtx = {
         req, reply, path, method, query: url.searchParams, settings, ip: security.clientIp(req), page,
         notFound: () => page('পাওয়া যায়নি', shop.notFound(), { status: 404, noindex: true }),
-        redirect: (to, extra = {}) => reply.answer(303, { Location: to, 'Cache-Control': 'no-store', ...extra }),
+        redirect,
       };
       await fn(ctx);
       if (!reply.answered) ctx.notFound(); // (every form answers; this only guards against a forgotten answer)

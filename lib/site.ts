@@ -1,12 +1,12 @@
-// 🧭 The shop's answers that are not a Next.js page or route of their own: forms sent to the shop and the admin,
-// /admin/api and the admin's files and exports, the shop's own 404 page and redirects, the country-lock page and the
-// verification files. Served by app/api/site (proxy.ts and the fallback rewrite in next.config.ts send them there):
-// siteAnswer() takes the Web Request and gives back a Web Response (lib/reply.ts).
+// 🧭 The shop's own answers for addresses no Next.js page or route draws: the shop's 404 page, things that moved
+// (redirects), a page switched off, the country-lock page and its "I'm at home" check, the verification files, and any
+// other way of asking a shop route doesn't handle (lib/next/api.ts otherMethods). Served by app/api/site (proxy.ts and
+// the fallback rewrite in next.config.ts send them there): siteAnswer() takes the Web Request and gives back a Web
+// Response. (The admin's forms and files: lib/next/admin-route.ts. The customer forms: lib/shopx.tsx.)
 import * as db from './db';
 import * as catalog from './models/catalog';
 import * as content from './models/content';
 import * as guard from './services/guard';
-import * as admin from './admin';
 import { shopLayout } from './views/layout';
 import { resolveShop } from './shop/router';
 import { scoped } from './cache';
@@ -20,43 +20,19 @@ import * as $shop_more from './shop/more';
 import { ORDER_PAGE } from './shop/more';
 import * as $services_errors from './services/errors';
 import { siteUrl, blockedBots, backgroundTick, SITE_BLOCKED_PAGE, refCookie } from './gate';
-import { Reply, type HeaderMap, type ReplyBody } from './reply';
+import { Reply } from './reply';
 import { loadRenderer } from './react/render';
+import { answers, shopPath, tooMany, setupErrorPage, verificationFile, ERROR_PAGE } from './next/answers';
 import type { Body, Loose, ShopRequest } from './types';
 
-const securityHeaders = security.BASE_HEADERS;
-
-/** The three ways of answering, bound to one request's reply. */
-function answers(reply: Reply) {
-  const send = (status: number, body: ReplyBody, type = 'text/html; charset=utf-8', extra: HeaderMap = {}) =>
-    reply.answer(status, { 'Content-Type': type, 'Cache-Control': 'no-store', ...securityHeaders, ...extra }, body);
-  const json = (status: number, data: unknown, extra: HeaderMap = {}) => send(status, JSON.stringify(data), 'application/json; charset=utf-8', extra);
-  const redirect = (to: string, extra: HeaderMap = {}) => reply.answer(303, { Location: to, 'Cache-Control': 'no-store', ...extra });
-  return { send, json, redirect };
-}
-
 const clientIp = security.clientIp;
-// Too many requests from one visitor: polite message, nothing else happens.
-function tooMany(req: ShopRequest, reply: Reply) {
-  guard.record({ req, kind: 'flood', path: String(req.url || '').slice(0, 200) }).catch(() => {});
-  const text = 'অনেক বেশি চেষ্টা হয়েছে। কিছুক্ষণ পর আবার চেষ্টা করুন।';
-  return answers(reply).send(429, `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>একটু অপেক্ষা করুন</title><body style="font-family:sans-serif;padding:40px;text-align:center"><h1>একটু অপেক্ষা করুন</h1><p>${text}</p><p><a href="/">হোমে ফিরে যান</a></p></body>`, 'text/html; charset=utf-8', { 'Retry-After': '120' });
-}
 
-// Admin pages and changes read fresh data; shop pages may share 15-second copies (lib/cache.ts).
+// Shop pages may share 15-second copies; a request that changes something reads fresh data (lib/cache.ts).
 const handler = scoped(handlerInner);
 async function handlerInner(req: ShopRequest, reply: Reply) {
   const { send, json, redirect } = answers(reply);
   const url = new URL(req.url || '/', 'http://local');
-  let path = url.searchParams.get('__p');
-  if (path !== null) {
-    url.searchParams.delete('__p');
-    path = '/' + path.replace(/^\/+/, '');
-  } else {
-    path = url.pathname;
-  }
-  try { path = decodeURIComponent(path); } catch (_) { /* keep raw */ }
-  if (path.length > 1) path = path.replace(/\/+$/, '');
+  const path = shopPath(url);
   const method = req.method || 'GET';
   const query = url.searchParams;
 
@@ -70,61 +46,39 @@ async function handlerInner(req: ShopRequest, reply: Reply) {
   try {
     const settings = await db.getSettings();
     $services_errors.ensure(settings); // Sentry on/off follows the key saved in Admin → আমার নোটিফিকেশন
-    const isAdmin = path === '/admin' || path.startsWith('/admin/');
-    const nonce = isAdmin ? security.startNonce() : ''; // only our own admin <script> tags may run (lib/security.ts)
-    const adminSend = (status: number, body: ReplyBody, type?: string, extra: HeaderMap = {}) => send(status, body, type, { ...security.adminHeaders(nonce), ...extra });
-    const base = { req, reply, path, method, query, settings, send: isAdmin ? adminSend : send, json, redirect };
+    const base = { req, reply, path, method, query, settings, send, json, redirect };
 
-    // ---- the customer Android app never shows the admin panel (that is the separate admin app's job) ----
-    if (isAdmin && /ShobmilbeApp\//.test(String(req.headers['user-agent'] || ''))) {
-      return send(403, '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>সবমিলবে</title><body style="font-family:sans-serif;padding:40px 20px;text-align:center;color:#14213d"><div style="font-size:48px">🛍️</div><h2>এই পেজটা এখানে খোলে না</h2><p style="color:#5b6475">কেনাকাটা চালিয়ে যান।</p><p><a href="/" style="display:inline-block;background:#0866D6;color:#fff;text-decoration:none;padding:12px 26px;border-radius:10px;font-weight:bold">হোমে যান</a></p></body>', 'text/html; charset=utf-8', { 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex' });
-    }
-
-    // ---- 🔐 the admin panel opens only from Bangladesh (+ countries the owner opened for a trip, until its last day) ----
-    if (isAdmin) {
-      const geo = $services_geolock;
-      const shutCountry = geo.adminBlocked(req, settings);
-      if (shutCountry) {
-        geo.count(shutCountry, 'admin');
-        guard.record({ req, kind: 'probe', path: ('অ্যাডমিন (দেশ বন্ধ): ' + path).slice(0, 200) }).catch(() => {});
-        return send(404, geo.adminBlockedPage(), 'text/html; charset=utf-8', { 'X-Robots-Tag': 'noindex' });
-      }
-    }
-
-    // ---- security watch: IPs the owner shut out get nothing (the admin panel always stays open) ----
-    if (!isAdmin && settings.guard_on !== '0') {
+    // ---- security watch: IPs the owner shut out get nothing ----
+    if (settings.guard_on !== '0') {
       if (await guard.siteBlocked(clientIp(req))) {
         return send(403, SITE_BLOCKED_PAGE, 'text/html; charset=utf-8', { 'Cache-Control': 'no-store' });
       }
       guard.inspect(req, path, url.search, settings);
     }
 
-    // ---- 🌍 দেশ ব্লক: only the countries the owner ticked may open the shop (services/geolock.js) ----
-    if (!isAdmin) {
-      const geo = $services_geolock;
-      if (path === geo.BLOCK_PATH && method === 'GET') {
-        const why = query.get('w') === 'tz' ? 'tz' : 'country';
-        if (geo.config(settings).on) geo.count(geo.countryOf(req) || '??', why);
-        return send(403, geo.blockedPage(settings, { country: geo.countryOf(req), why }), 'text/html; charset=utf-8', { 'X-Robots-Tag': 'noindex' });
-      }
-      // a visitor whose own clock is in a ticked country (e.g. a Bangladeshi on a VPN) — only when the owner allows it
-      if (path === geo.BLOCK_PATH + '/pass' && method === 'POST') {
-        const c = geo.config(settings);
-        const b: Body = await parseBody(req).catch(() => ({}));
-        if (!c.on || !c.vpnHome || !c.zones.has(String(b.tz || '')) || !(await security.hit(db, 'geopass:' + clientIp(req), 10, 3600))) return json(403, { ok: false });
-        return json(200, { ok: true }, { 'Set-Cookie': geo.passCookie(req, settings) });
-      }
-      const shut = await geo.check(req, path, settings, method);
-      if (shut) {
-        geo.count(shut.country, 'country');
-        if (path.startsWith('/api/')) return json(403, { error: 'region' });
-        return send(403, geo.blockedPage(settings, { country: shut.country }), 'text/html; charset=utf-8', { 'X-Robots-Tag': 'noindex' });
-      }
+    // ---- 🌍 দেশ ব্লক: only the countries the owner ticked may open the shop (services/geolock.ts) ----
+    const geo = $services_geolock;
+    if (path === geo.BLOCK_PATH && method === 'GET') {
+      const why = query.get('w') === 'tz' ? 'tz' : 'country';
+      if (geo.config(settings).on) geo.count(geo.countryOf(req) || '??', why);
+      return send(403, geo.blockedPage(settings, { country: geo.countryOf(req), why }), 'text/html; charset=utf-8', { 'X-Robots-Tag': 'noindex' });
+    }
+    // a visitor whose own clock is in a ticked country (e.g. a Bangladeshi on a VPN) — only when the owner allows it
+    if (path === geo.BLOCK_PATH + '/pass' && method === 'POST') {
+      const c = geo.config(settings);
+      const b: Body = await parseBody(req).catch(() => ({}));
+      if (!c.on || !c.vpnHome || !c.zones.has(String(b.tz || '')) || !(await security.hit(db, 'geopass:' + clientIp(req), 10, 3600))) return json(403, { ok: false });
+      return json(200, { ok: true }, { 'Set-Cookie': geo.passCookie(req, settings) });
+    }
+    const shut = await geo.check(req, path, settings, method);
+    if (shut) {
+      geo.count(shut.country, 'country');
+      if (path.startsWith('/api/')) return json(403, { error: 'region' });
+      return send(403, geo.blockedPage(settings, { country: shut.country }), 'text/html; charset=utf-8', { 'X-Robots-Tag': 'noindex' });
     }
 
     // ---- small jobs that must run now and then (Vercel's own schedule runs only once a day) ----
     if (method === 'GET' && !path.startsWith('/media/') && !path.startsWith('/api/')) backgroundTick(req, settings);
-
 
     // ---- tools that ignore robots.txt: the blocked spy / copier bots get nothing at all ----
     const ua = String(req.headers['user-agent'] || '');
@@ -133,37 +87,16 @@ async function handlerInner(req: ShopRequest, reply: Reply) {
       if (bad.length && bad.some((b) => ua.toLowerCase().includes(b.toLowerCase()))) return send(403, 'Forbidden', 'text/plain', { 'X-Robots-Tag': 'noindex' });
     }
     // ---- crawlers & verification ----
-    // (pictures, robots.txt, sitemap.xml, feeds, the e-mail counters, /unsubscribe and the scheduled jobs: lib/api/files.ts)
-    // ⚡ IndexNow key file (Bing & co. check it belongs to this shop)
-    if (/^\/[a-f0-9]{32}\.txt$/.test(path) && settings.indexnow_key && path === `/${settings.indexnow_key}.txt`) return send(200, settings.indexnow_key, 'text/plain; charset=utf-8');
-    const vf = db.jsonSetting(settings, 'verification_files', []).find((f?: Loose) => '/' + f.path === path);
-    if (vf) return send(200, vf.content, vf.path.endsWith('.html') ? 'text/html; charset=utf-8' : 'text/plain; charset=utf-8', { 'Content-Security-Policy': "sandbox; default-src 'none'" });
-
-    // ---- API ----
-    const ip = clientIp(req);
-    // (the other shop APIs are their own Next.js routes: app/api/… → lib/api/shop-read.ts, lib/api/shop-actions.ts)
-
-
-    // (payments and webhooks: their own Next.js routes, lib/api/payments.ts)
-
-    if (path === '/admin' || path.startsWith('/admin/')) return await admin.handle(base);
+    // (pictures, robots.txt, sitemap.xml, feeds, the e-mail counters, /unsubscribe and the scheduled jobs: lib/api/files.ts;
+    //  the other shop APIs, payments and webhooks: their own Next.js routes, lib/api/…)
+    if (verificationFile(path, settings, reply)) return;
 
     return await shopRoutes(base);
   } catch (e) {
     $services_errors.report(e, { path, method });
-    return send(500, '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>সমস্যা</title><body style="font-family:sans-serif;padding:40px;text-align:center"><h1>একটা সমস্যা হয়েছে</h1><p>কিছুক্ষণ পর আবার চেষ্টা করুন।</p><p><a href="/">হোমে ফিরে যান</a></p></body>');
+    return send(500, ERROR_PAGE);
   }
 }
-
-
-
-
-
-
-
-
-// ---------------------------------------------------------------- payments
-
 
 // ---------------------------------------------------------------- storefront
 async function shopRoutes({ req, reply, path, method, query, settings }: Body) {
@@ -223,18 +156,6 @@ async function shopRoutes({ req, reply, path, method, query, settings }: Body) {
     return page(p.title, shop.staticPage({ page: p }), { canonical: `/page/${p.slug}`, description: md.plain(p.content) });
   }
   return notFound();
-}
-
-function setupErrorPage(e?: Loose) {
-  const missing = /DATABASE_URL/.test(e.message);
-  return `<!doctype html><html lang="bn"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>সেটআপ বাকি</title>
-<body style="font-family:'Noto Sans Bengali',sans-serif;max-width:560px;margin:60px auto;padding:0 20px;line-height:1.7;color:#14213D">
-<h1>ওয়েবসাইট ডাটাবেসের সাথে যুক্ত হতে পারছে না</h1>
-${missing
-    ? '<p>Vercel-এ ডাটাবেস এখনো এই প্রজেক্টের সাথে যুক্ত হয়নি। Vercel → প্রজেক্ট → Storage থেকে ডাটাবেসটি (Supabase) এই প্রজেক্টে Connect করুন, তারপর Deployments থেকে Redeploy দিন।</p>'
-    : '<p>ডাটাবেস সাময়িকভাবে সাড়া দিচ্ছে না। কিছুক্ষণ পর পেজটি রিফ্রেশ করুন।</p>'}
-</body></html>`;
 }
 
 /** Answers one request (the Web Request Next.js gives app/api/site) for the address the visitor asked for. */
