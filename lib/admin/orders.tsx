@@ -179,7 +179,7 @@ const ACTIONS: Record<string, string> = {
 function actionLabel(h: { action?: string; detail?: string | null }) {
   let d = h.detail || '';
   if (h.action === 'order_status') d = d.replace(/(\w+) → (\w+)/, (_: string, a: string, b: string) => `${O.STATUSES[a] || a} → ${O.STATUSES[b] || b}`);
-  return `${ACTIONS[h.action] || h.action}${d ? ': ' + d : ''}`;
+  return `${ACTIONS[h.action || ''] || h.action}${d ? ': ' + d : ''}`;
 }
 
 // ---------------------------------------------------------------- actions
