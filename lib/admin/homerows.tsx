@@ -7,7 +7,7 @@ import * as ui from './ui';
 import * as H from '../models/homerows';
 import * as catalog from '../models/catalog';
 import * as $design from './design';
-import type { AdminCtx, Loose } from '../types';
+import type { AdminCtx, Loose, RouteMatch } from '../types';
 
 const BASE = '/admin/design/rows';
 // The list of rows lives on "লোগো, রং ও হোমপেজ" — this file only makes / edits / deletes the owner's own rows.
@@ -46,7 +46,7 @@ async function saveOrder(ctx: AdminCtx) {
   return ctx.back(HOME, 'saved');
 }
 
-async function form(ctx: AdminCtx, m?: Loose) {
+async function form(ctx: AdminCtx, m: RouteMatch) {
   const id = m ? int(m[1]) : 0;
   const r = id ? await H.get(id) : null;
   if (id && !r) return ctx.fail(HOME, 'সারিটা পাওয়া যায়নি।');
@@ -74,7 +74,7 @@ async function form(ctx: AdminCtx, m?: Loose) {
   return ctx.page(r ? 'সারি এডিট' : 'নতুন সারি', body, 'design');
 }
 
-async function remove(ctx: AdminCtx, m?: Loose) {
+async function remove(ctx: AdminCtx, m: RouteMatch) {
   const id = int(m[1]);
   await ctx.trash('home_row', id);
   const list = db.jsonSetting(ctx.settings, 'home_sections', []).filter((k?: Loose) => k !== H.keyOf(id));

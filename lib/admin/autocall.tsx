@@ -5,7 +5,7 @@ import * as db from '../db';
 import * as ui from './ui';
 import * as AC from '../services/autocall';
 import { saveKeys, secretInput } from './marketing';
-import type { AdminCtx, Loose } from '../types';
+import type { AdminCtx, Loose, RouteMatch } from '../types';
 
 const BASE = '/admin/autocall';
 function site(ctx: AdminCtx) {
@@ -67,7 +67,7 @@ async function page(ctx: AdminCtx) {
 }
 
 // "📞 অটো কল করুন" on an order's page
-async function callOrder(ctx: AdminCtx, m?: Loose) {
+async function callOrder(ctx: AdminCtx, m: RouteMatch) {
   const id = int(m[1]);
   const o = await db.one('SELECT id, code, phone, customer_name, total, payment FROM orders WHERE id=$1', [id]);
   if (!o) return ctx.back('/admin/orders');

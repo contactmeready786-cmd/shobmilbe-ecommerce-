@@ -7,7 +7,7 @@ import * as V from '../services/visitors';
 import * as ui from './ui';
 import * as charts from './charts';
 import * as $services_geolock from '../services/geolock';
-import type { AdminCtx, Loose, Settings } from '../types';
+import type { AdminCtx, Loose, Settings, RouteMatch } from '../types';
 
 const BASE = '/admin/marketing/visitors';
 const PER_PAGE = 50;
@@ -164,7 +164,7 @@ async function sessionsPage(ctx: AdminCtx) {
 }
 
 // ---------------------------------------------------------------- one visit
-async function sessionPage(ctx: AdminCtx, m?: Loose) {
+async function sessionPage(ctx: AdminCtx, m: RouteMatch) {
   const x: Loose = await V.getSession(m[1]);
   if (!x) return ctx.back(`${BASE}?tab=sessions`);
   const s = ctx.settings;

@@ -9,7 +9,7 @@ import * as $services_barcode from '../services/barcode';
 import * as $models_finance from '../models/finance';
 import * as $services_autocat from '../services/autocat';
 import * as $variants from './variants';
-import type { AdminCtx, Body, Id, Loose } from '../types';
+import type { AdminCtx, Body, Id, Loose, RouteMatch } from '../types';
 
 const PER_PAGE = 40;
 const ICONS = ['📦', '📟', '🧩', '🔋', '🔥', '🔌', '👕', '👗', '👟', '👜', '⌚', '📱', '💻', '🎧', '🔊', '📷', '🎮', '💡', '🔧', '🛠️', '⚙️',
@@ -269,7 +269,7 @@ function extrasBox(p?: Loose, tiers?: Loose, links?: Loose, settings: Loose = {}
   const row = (t?: Loose) => <div className="field-row tier-row">{ui.field('কমপক্ষে কয়টা নিলে', ui.input('tier_qty[]', t.min_qty || '', { type: 'number', min: 2, class: 'w-num', placeholder: 'যেমন 10' }))}{' '}{ui.field('প্রতি পিস দাম (৳)', ui.input('tier_price[]', t.price ?? '', { type: 'number', min: 0.01, step: '0.01', class: 'w-num', placeholder: 'যেমন 4.5' }))}</div>;
   return <><section className="panel"><h2>📦 বেশি কিনলে কম দাম{' '}<small>পাইকারি দাম</small></h2>{(p.flash_price ? <p className="flash">⚡ এই পণ্যে এখন ফ্ল্যাশ সেল চলছে — দোকানে দাম{' '}{money(p.flash_price)}।{' '}<a href="/admin/marketing/flash">ফ্ল্যাশ সেল দেখুন →</a></p> : null)}<p className="muted small">যেমন "১০টি বা বেশি নিলে ৳৪.৫০ করে", "৫০টি বা বেশি নিলে ৳৪ করে"। কাস্টমার কার্টে পরিমাণ বাড়ালে কম দাম নিজে থেকে বসবে, আর পণ্যের পেজে একটা ছোট টেবিল দেখাবে। খালি রাখলে কিছু হবে না। ফ্ল্যাশ সেলের সাথে মিলিয়ে দুইবার ছাড় হয় না — যেটা কম সেটাই বসে।</p>{(Number(p.price) > 0 ? <p className="small warn">মনে রাখবেন: অনলাইনে এই পণ্য একবারে সর্বোচ্চ{' '}{bn(qtyRule(settings, p.price).max)}টি অর্ডার করা যায় (সেটিংস থেকে বদলানো যায়) — তার বেশির ধাপ কাস্টমার পাবে না।</p> : null)}<div data-repeat="tiers"><Val v={rows.map(row)} /><Val v={Array.from({ length: blank }, () => row({}))} /></div><button type="button" className="btn btn-sm btn-ghost" data-repeat-add="tiers">+ আরও ধাপ</button></section><section className="panel"><h2>🔗 সাথে দেখানোর পণ্য</h2><p className="muted small">পণ্যের SKU কমা দিয়ে লিখুন (যেমন: 12, 45, 101)। খালি রাখলে "একই রকম আরও পণ্য" একই ক্যাটাগরি থেকে নিজে থেকে আসবে।</p>{ui.field('এর সাথে যা লাগবে (ক্রস-সেল)', ui.input('cross_skus', links.cross.join(', '), { maxlength: 400, placeholder: 'যেমন সোল্ডারিং আয়রনের সাথে তার, ফ্লাক্স' }), 'পণ্যের পেজে আর কার্টে "এগুলোও লাগতে পারে" হিসেবে দেখাবে')}{' '}{ui.field('আরও ভালো বিকল্প (আপসেল)', ui.input('upsell_skus', links.upsell.join(', '), { maxlength: 400, placeholder: 'একটু দামি কিন্তু ভালো মডেল' }))}{' '}{ui.field('একই রকম পণ্য (নিজে বেছে দিন)', ui.input('related_skus', links.related.join(', '), { maxlength: 400 }))}</section></>;
 }
-async function formPage(ctx: AdminCtx, m?: Loose) {
+async function formPage(ctx: AdminCtx, m: RouteMatch) {
   const id = m && m[1] ? int(m[1]) : null;
   // a variant is edited on its main product's variants page
   if (id) {
@@ -340,7 +340,7 @@ function backTo(b: Body) {
   const v = String(b.back || '');
   return /^\/admin\/(products(\/duplicates)?|inventory)(\?[\w=&%.+-]*)?$/.test(v) ? v : '/admin/products';
 }
-async function remove(ctx: AdminCtx, m?: Loose) {
+async function remove(ctx: AdminCtx, m: RouteMatch) {
   const id = int(m[1]);
   const b = await ctx.body();
   const p = await catalog.getProduct({ id });
@@ -351,7 +351,7 @@ async function remove(ctx: AdminCtx, m?: Loose) {
   return ctx.back(backTo(b), 'deleted');
 }
 // Show / hide one product on the shop (the switch in the product list). SKU and everything else stay the same.
-async function setActive(ctx: AdminCtx, m?: Loose) {
+async function setActive(ctx: AdminCtx, m: RouteMatch) {
   const id = int(m[1]);
   const b = await ctx.body();
   const on = !!b.active && b.active !== '0';
@@ -364,7 +364,7 @@ async function setActive(ctx: AdminCtx, m?: Loose) {
   }
   return ctx.back(backTo(b), 'saved');
 }
-async function duplicate(ctx: AdminCtx, m?: Loose) {
+async function duplicate(ctx: AdminCtx, m: RouteMatch) {
   const nid = await catalog.duplicateProduct(int(m[1]), ctx.user.id);
   if (!nid) return ctx.back('/admin/products');
   await ctx.log('product_add', 'product', nid, 'কপি');
@@ -477,7 +477,7 @@ async function autoPage(ctx: AdminCtx) {
   return ctx.page('স্বয়ংক্রিয় ক্যাটাগরি', body, 'categories');
 }
 
-async function deleteCategory(ctx: AdminCtx, m?: Loose) {
+async function deleteCategory(ctx: AdminCtx, m: RouteMatch) {
   await ctx.trash('category', int(m[1]));
   await ctx.log('category_delete', 'category', int(m[1]), '');
   return ctx.back('/admin/categories', 'deleted');
@@ -490,7 +490,7 @@ export const routes = [
     { method: 'POST', path: '/admin/api/products/dup-check', perm: 'products', handler: dupCheckApi },
     { method: '*', path: '/admin/products/new', perm: 'products', handler: (ctx: AdminCtx) => formPage(ctx, null) },
     { method: '*', path: /^\/admin\/products\/(\d+)$/, perm: 'products', handler: formPage },
-    { method: '*', path: /^\/admin\/products\/(\d+)\/variants$/, perm: 'products', handler: (ctx: AdminCtx, m?: Loose) => $variants.page(ctx, m) },
+    { method: '*', path: /^\/admin\/products\/(\d+)\/variants$/, perm: 'products', handler: (ctx: AdminCtx, m: RouteMatch) => $variants.page(ctx, m) },
     { method: 'POST', path: /^\/admin\/products\/(\d+)\/active$/, perm: 'products', handler: setActive },
     { method: 'POST', path: /^\/admin\/products\/(\d+)\/delete$/, perm: 'products', handler: remove },
     { method: 'POST', path: /^\/admin\/products\/(\d+)\/duplicate$/, perm: 'products', handler: duplicate },

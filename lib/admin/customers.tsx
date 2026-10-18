@@ -7,7 +7,7 @@ import * as O from '../models/orders';
 import * as ui from './ui';
 import * as db from '../db';
 import * as $services_xlsx from '../services/xlsx';
-import type { AdminCtx, Loose } from '../types';
+import type { AdminCtx, Loose, RouteMatch } from '../types';
 function canDelete(ctx: AdminCtx) { return ctx.user.role === 'owner' && ctx.settings.customer_delete_on === '1'; }
 function deleteSwitch(ctx: AdminCtx) {
   if (ctx.user.role !== 'owner') return '';
@@ -41,7 +41,7 @@ async function listPage(ctx: AdminCtx) {
   return ctx.page('কাস্টমার', body, 'customers');
 }
 
-async function detail(ctx: AdminCtx, m?: Loose) {
+async function detail(ctx: AdminCtx, m: RouteMatch) {
   const id = int(m[1]);
   if (ctx.method === 'POST') {
     const b = await ctx.body();
@@ -58,7 +58,7 @@ async function detail(ctx: AdminCtx, m?: Loose) {
   return ctx.page(c.name || c.phone, body, 'customers');
 }
 
-async function exportCsv(ctx: AdminCtx, m?: Loose, excel: Loose = false) {
+async function exportCsv(ctx: AdminCtx, m: RouteMatch, excel: Loose = false) {
   const rows = await C.listCustomers({ ...listFilters(ctx), limit: 100000 });
   const out = [['Name', 'Phone', 'Email', 'Address', 'Thana', 'District', 'Group', 'Tags', 'Orders', 'Delivered', 'Cancelled', 'Returned', 'Spent', 'Last order', 'Blocked']];
   rows.forEach((c) => out.push([c.name, c.phone, c.email, c.address, c.thana, c.district, c.grp, c.tags, c.orders, c.delivered, c.cancelled, c.returned, c.spent,
@@ -93,7 +93,7 @@ async function removeCustomers(ctx: AdminCtx, ids?: Loose, withOrders?: Loose) {
   }
   return { n, orders };
 }
-async function deleteOne(ctx: AdminCtx, m?: Loose) {
+async function deleteOne(ctx: AdminCtx, m: RouteMatch) {
   if (!canDelete(ctx)) return ctx.back('/admin/customers', 'noperm');
   const b = await ctx.body();
   await removeCustomers(ctx, [int(m[1])], b.with_orders === '1' || ctx.query.get('with_orders') === '1');
@@ -131,7 +131,7 @@ async function blocklistPage(ctx: AdminCtx) {
   const body = <><h1>ব্লক লিস্ট (ফ্রড কাস্টমার){' '}<small>{bn(rows.length)}টি</small></h1>{ui.flash(ctx.flash)}{' '}{ui.helpBox('ব্লক লিস্ট কীভাবে কাজ করে', <>এখানে যে মোবাইল নম্বর বা IP ঠিকানা রাখবেন, সেখান থেকে ওয়েবসাইটে অর্ডার করতে গেলে অর্ডার নেওয়া হবে না, একটা বার্তা দেখাবে (বার্তাটা{' '}<a href="/admin/settings">সেটিংস</a>{' '}থেকে বদলাতে পারবেন)। প্রতিটা অর্ডারের পেজে কাস্টমারের আগের রেকর্ড (কতবার পণ্য নেয়নি) দেখায়, সেখান থেকেও এক চাপে ব্লক করতে পারবেন। কেউ সাইটের ক্ষতি করার চেষ্টা করলে তাকে পুরো সাইট থেকে ব্লক করতে{' '}<a href="/admin/security/threats">🚨 সন্দেহজনক ভিজিটর</a>{' '}পেজে যান।</>)}<div className="two-col"><section className="panel table-wrap">{(rows.length ? <table className="table"><thead><tr><th>নম্বর / IP</th><th>কারণ</th><th>কে, কবে</th><th></th></tr></thead><tbody>{jsxList(rows.map((r) => <tr><td><b><Val v={r.value} /></b>{' '}<span className={`pill ${r.kind === 'site' ? 'pill-red' : ''}`}>{(r.kind === 'ip' ? "IP (অর্ডার)" : (r.kind === 'site' ? "IP (পুরো সাইট)" : "ফোন"))}</span>{(r.expires_at ? <><br /><small className="muted">{(new Date(r.expires_at) > new Date() ? (fmtDate(r.expires_at) + ' পর্যন্ত') : "মেয়াদ শেষ")}</small></> : null)}{(r.customer_id ? <><br /><a className="small" href={`/admin/customers/${attrValue(r.customer_id)}`}><Val v={r.customer_name} /></a></> : null)}</td><td className="small"><Val v={r.reason || '—'} /></td><td className="small"><Val v={r.staff_name || '—'} /><br />{fmtDate(r.created_at)}</td><td><form method="post" action={`/admin/blocklist/${attrValue(r.id)}/delete`}><button className="link-btn">ব্লক তুলুন</button></form></td></tr>))}</tbody></table> : <p className="muted">কেউ ব্লক করা নেই।</p>)}</section><section className="panel"><h2>নতুন ব্লক</h2><form method="post" action="/admin/blocklist" className="form">{ui.field('ধরন', ui.select('kind', [['phone', 'মোবাইল নম্বর'], ['ip', 'IP ঠিকানা']], 'phone'))}{' '}{ui.field('নম্বর / IP', ui.input('value', '', { required: true, maxlength: 64 }))}{' '}{ui.field('কারণ', ui.input('reason', '', { maxlength: 300 }))}{' '}<button className="btn btn-danger">ব্লক করুন</button></form></section></div></>;
   return ctx.page('ব্লক লিস্ট', body, 'blocklist');
 }
-async function unblock(ctx: AdminCtx, m?: Loose) {
+async function unblock(ctx: AdminCtx, m: RouteMatch) {
   const b = await ctx.body();
   await C.unblock(int(m[1]));
   await ctx.log('unblock', 'customer', null, String(m[1]));
@@ -142,7 +142,7 @@ async function unblock(ctx: AdminCtx, m?: Loose) {
 export const routes = [
     { method: 'GET', path: '/admin/customers', perm: 'customers', handler: listPage },
     { method: 'GET', path: '/admin/customers/export.csv', perm: 'reports', handler: exportCsv },
-    { method: 'GET', path: '/admin/customers/export.xlsx', perm: 'reports', handler: (ctx: AdminCtx, m?: Loose) => exportCsv(ctx, m, true) },
+    { method: 'GET', path: '/admin/customers/export.xlsx', perm: 'reports', handler: (ctx: AdminCtx, m: RouteMatch) => exportCsv(ctx, m, true) },
     { method: 'POST', path: '/admin/customers/settings', perm: 'customers', handler: saveSettings },
     { method: 'POST', path: '/admin/customers/delete-setting', perm: 'customers', handler: deleteSetting },
     { method: 'POST', path: '/admin/customers/bulk-delete', perm: 'customers', handler: deleteMany },

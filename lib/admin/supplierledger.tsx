@@ -9,7 +9,7 @@ import { int, str, bn, money, fmtDate, ymd, validYmd, round2 } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
 import * as finance from '../models/finance';
-import type { AdminCtx, Id, Loose } from '../types';
+import type { AdminCtx, Id, Loose, RouteMatch } from '../types';
 async function entries(id?: Id) {
   return db.q(`SELECT * FROM (
       SELECT 'p' AS kind, p.id, p.purchase_date AS d, p.code AS ref, p.total AS amount, p.status, p.note, p.created_at AS at,
@@ -58,7 +58,7 @@ async function duesPage(ctx: AdminCtx) {
   return ctx.page('সাপ্লায়ারের বাকির খাতা', body, 'supplier-dues');
 }
 
-async function ledgerPage(ctx: AdminCtx, m?: Loose) {
+async function ledgerPage(ctx: AdminCtx, m: RouteMatch) {
   const s = await finance.getSupplier(int(m[1]));
   if (!s) return ctx.redirect('/admin/suppliers');
   const from = validYmd(ctx.query.get('from')) || '';

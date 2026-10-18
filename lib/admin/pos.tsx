@@ -12,7 +12,7 @@ import * as catalog from '../models/catalog';
 import * as W from '../models/warehouses';
 import { ASSET_V } from './layout';
 import * as $services_barcode from '../services/barcode';
-import type { AdminCtx, Loose } from '../types';
+import type { AdminCtx, Loose, RouteMatch } from '../types';
 
 const PAY = [['cash', '💵 নগদ'], ['manual_bkash', 'বিকাশ'], ['manual_nagad', 'নগদ (মোবাইল)'], ['manual_rocket', 'রকেট'], ['card', '💳 কার্ড']];
 
@@ -82,7 +82,7 @@ async function sale(ctx: AdminCtx) {
 }
 
 // The cash memo (80 mm receipt printer; also fine on A4)
-async function memo(ctx: AdminCtx, m?: Loose) {
+async function memo(ctx: AdminCtx, m: RouteMatch) {
   const o = await O.getOrder({ id: int(m[1]) });
   if (!o) return ctx.redirect('/admin/pos');
   const s = ctx.settings;

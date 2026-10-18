@@ -4,14 +4,14 @@ import { bn, int, str } from '../util';
 import * as catalog from '../models/catalog';
 import * as ui from './ui';
 import * as $db from '../db';
-import type { AdminCtx, Body, Loose } from '../types';
+import type { AdminCtx, Body, Loose, RouteMatch } from '../types';
 
 function form(b: Body, error?: Loose) {
   const isNew = !b.id;
   return <form method="post" action={isNew ? '/admin/brands' : `/admin/brands/${b.id}`} className={`form panel ${isNew ? '' : 'is-editing'}`} id="brand-form"><h2>{(isNew ? "নতুন ব্র্যান্ড" : `এডিট: ${b.name}`)}</h2>{(error ? <p className="flash flash-error"><Val v={error} /></p> : null)}{' '}{ui.field('ব্র্যান্ডের নাম', ui.input('name', b.name || '', { required: true, maxlength: 60, placeholder: 'যেমন: Philips, Walton, Arduino' }))}{' '}{ui.imagePicker('logo_id', b.logo_id, { label: isNew ? 'লোগো (ঐচ্ছিক)' : 'লোগো — বদলাতে "🔄 ছবি বদলান" চাপুন, তারপর নিচে "সেভ করুন"', hint: 'স্কয়ার বা চওড়া, সাদা ব্যাকগ্রাউন্ড হলে ভালো দেখায়' })}{' '}{ui.field('ব্র্যান্ড সম্পর্কে (ঐচ্ছিক)', ui.textarea('description', b.description || '', { rows: 3, maxlength: 3000 }), 'ব্র্যান্ডের পেজে পণ্যের উপরে দেখাবে।')}<details className="help"><summary>SEO (গুগলে কেমন দেখাবে)</summary><div>{ui.field('SEO টাইটেল', ui.input('seo_title', b.seo_title || '', { maxlength: 120, placeholder: 'খালি রাখলে: "<নাম> পণ্য — দাম ও অর্ডার"' }))}{' '}{ui.field('SEO বিবরণ', ui.textarea('seo_description', b.seo_description || '', { rows: 2, maxlength: 300 }))}{' '}{ui.check('noindex', !!b.noindex, 'গুগল সার্চে এই ব্র্যান্ডের পেজ দেখাবে না (noindex)')}</div></details><div className="field-row">{ui.field('ক্রম', ui.input('sort', b.sort ?? 0, { type: 'number', class: 'w-num' }), 'ছোট সংখ্যা আগে')}</div>{ui.check('active', isNew ? true : b.active, 'দোকানে ব্র্যান্ডের পেজ দেখাও')}<div className="row-actions"><button className="btn">{(isNew ? "যোগ করুন" : "সেভ করুন")}</button>{(isNew ? null : <a className="btn btn-ghost" href="/admin/brands">বাতিল</a>)}</div></form>;
 }
 
-async function page(ctx: AdminCtx, m?: Loose, error: Loose = null, values: Loose = null) {
+async function page(ctx: AdminCtx, m: RouteMatch, error: Loose = null, values: Loose = null) {
   const id = m && m[1] ? int(m[1]) : null;
   if (ctx.method === 'POST' && !error) {
     const b = await ctx.body();
@@ -34,7 +34,7 @@ async function page(ctx: AdminCtx, m?: Loose, error: Loose = null, values: Loose
   return ctx.page('ব্র্যান্ড', body, 'brands', { status: error ? 400 : 200 });
 }
 
-async function setActive(ctx: AdminCtx, m?: Loose) {
+async function setActive(ctx: AdminCtx, m: RouteMatch) {
   const id = int(m[1]);
   const b = await ctx.body();
   const on = !!b.active && b.active !== '0';
@@ -43,7 +43,7 @@ async function setActive(ctx: AdminCtx, m?: Loose) {
   if (String(ctx.req.headers.accept || '').includes('application/json')) return ctx.json(r ? 200 : 404, { ok: !!r, active: on });
   return ctx.back('/admin/brands', 'saved');
 }
-async function remove(ctx: AdminCtx, m?: Loose) {
+async function remove(ctx: AdminCtx, m: RouteMatch) {
   const id = int(m[1]);
   const b = await catalog.getBrand({ id });
   await ctx.trash('brand', id);

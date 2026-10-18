@@ -9,7 +9,7 @@ import { raw, money, bn, fmtDate, int, ymd, csv, num, str } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
 import * as $models_orders from '../models/orders';
-import type { AdminCtx, Loose } from '../types';
+import type { AdminCtx, Loose, RouteMatch } from '../types';
 
 const MODES = {
   none: 'ভ্যাট হিসাব করব না',
@@ -85,7 +85,7 @@ async function returnPage(ctx: AdminCtx) {
 }
 
 // ---------------------------------------------------------------- মূসক-৬.৩ কর চালানপত্র (printable)
-async function mushak63(ctx: AdminCtx, m?: Loose) {
+async function mushak63(ctx: AdminCtx, m: RouteMatch) {
   const s = ctx.settings;
   const o = await $models_orders.getOrder({ id: int(m[1]) });
   if (!o) return ctx.redirect('/admin/orders');

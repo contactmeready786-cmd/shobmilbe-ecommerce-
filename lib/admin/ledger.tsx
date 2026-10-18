@@ -8,11 +8,11 @@ import { money, bn, int, str, fmtDate, pct } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
 import * as catalog from '../models/catalog';
-import type { AdminCtx, Body, Loose } from '../types';
+import type { AdminCtx, Body, Loose, RouteMatch } from '../types';
 
 const dateOf = (b: Body) => (b.purchase_date ? fmtDate(b.purchase_date + 'T06:00:00Z', false) : fmtDate(b.created_at, false));
 
-async function page(ctx: AdminCtx, m?: Loose) {
+async function page(ctx: AdminCtx, m: RouteMatch) {
   const id = int(m[1]);
   const p = await db.one(`SELECT id, name, sku, price, cost_price, stock, damaged_stock, unit, product_type, parent_id, variant_label, variant_count
     FROM products WHERE id=$1`, [id]);

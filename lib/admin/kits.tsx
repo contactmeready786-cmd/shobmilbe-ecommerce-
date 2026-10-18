@@ -5,7 +5,7 @@ import { bn, money, int } from '../util';
 import * as ui from './ui';
 import * as K from '../models/kits';
 import * as $db from '../db';
-import type { AdminCtx, Loose } from '../types';
+import type { AdminCtx, Loose, RouteMatch } from '../types';
 
 const BASE = '/admin/kits';
 
@@ -36,7 +36,7 @@ async function listPage(ctx: AdminCtx) {
   return ctx.page('প্রজেক্ট কিট', body, 'kits');
 }
 
-async function editPage(ctx: AdminCtx, m?: Loose) {
+async function editPage(ctx: AdminCtx, m: RouteMatch) {
   const isNew = m[1] === 'new';
   const back = isNew ? `${BASE}/new` : `${BASE}/${int(m[1])}`;
   if (ctx.method === 'POST') {

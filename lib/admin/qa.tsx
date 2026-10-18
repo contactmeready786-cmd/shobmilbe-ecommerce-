@@ -10,7 +10,7 @@ import * as ui from './ui';
 import * as X from '../models/extras';
 import * as $uiswitches from './uiswitches';
 import * as $services_sms from '../services/sms';
-import type { AdminCtx, Loose } from '../types';
+import type { AdminCtx, Loose, RouteMatch } from '../types';
 async function questionsPage(ctx: AdminCtx) {
   const status = X.Q_STATUSES[ctx.query.get('status')] || ctx.query.get('status') === 'all' ? ctx.query.get('status') : 'pending';
   const page = Math.max(1, int(ctx.query.get('page'), 1));
@@ -20,7 +20,7 @@ async function questionsPage(ctx: AdminCtx) {
   return ctx.page('প্রশ্ন-উত্তর', body, 'questions');
 }
 
-async function answer(ctx: AdminCtx, m?: Loose) {
+async function answer(ctx: AdminCtx, m: RouteMatch) {
   const id = int(m[1]);
   const b = await ctx.body();
   const back = (ctx.req.headers.referer && new URL(ctx.req.headers.referer).pathname === '/admin/questions') ? new URL(ctx.req.headers.referer).pathname + new URL(ctx.req.headers.referer).search : '/admin/questions';
@@ -42,7 +42,7 @@ async function answer(ctx: AdminCtx, m?: Loose) {
   }
   return ctx.redirect(back + (back.includes('?') ? '&' : '?') + 'info=' + encodeURIComponent('সেভ হয়েছে।' + note));
 }
-async function removeQuestion(ctx: AdminCtx, m?: Loose) {
+async function removeQuestion(ctx: AdminCtx, m: RouteMatch) {
   const id = int(m[1]);
   await ctx.trash('question', id);
   await ctx.log('question_delete', 'question', id, 'প্রশ্ন মুছে ফেলা');

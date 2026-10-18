@@ -7,7 +7,7 @@ import { saveKeys } from './marketing';
 import * as $homerows from './homerows';
 import * as $navswitch from './navswitch';
 import * as $models_catalog from '../models/catalog';
-import type { AdminCtx, Body, Id, Loose } from '../types';
+import type { AdminCtx, Body, Id, Loose, RouteMatch } from '../types';
 
 const SECTIONS = {
   slider: 'বড় ব্যানার স্লাইডার', trust: 'ভরসার বার (ডেলিভারি, ক্যাশ অন ডেলিভারি, রিটার্ন)', categories: 'ক্যাটাগরি বক্স', flash: '⚡ ফ্ল্যাশ সেল (চলার সময় দেখায়)',
@@ -63,7 +63,7 @@ async function banners(ctx: AdminCtx) {
   const body = <><h1>ব্যানার</h1>{ui.flash(ctx.flash)}{' '}{ui.helpBox('ব্যানারের মাপ', <><b>স্লাইডার:</b>{' '}১৬০০×৬০০ পিক্সেল (মোবাইলে মাঝের অংশ দেখাবে, তাই জরুরি লেখা মাঝখানে রাখুন)।<br /><b>মাঝের ছোট ব্যানার:</b>{' '}৮০০×৪০০।<br /><b>পপআপ অফার:</b>{' '}৬০০×৬০০ — সাইটে ঢুকলে একবার দেখাবে।<br />Canva দিয়ে সহজে বানাতে পারেন।</>)}<div className="banner-list">{jsxList(rows.map((r) => <form method="post" action="/admin/design/banners" className={`panel banner-row ${r.active ? '' : 'row-off'}`}><input type="hidden" name="id" defaultValue={attrValue(r.id)} />{' '}{ui.imagePicker('image_id', r.image_id, { label: 'ছবি', wide: true })}<div><div className="field-row">{ui.field('কোথায়', ui.select('placement', Object.entries(content.PLACEMENTS), r.placement))}{' '}{ui.field('ক্রম', ui.input('sort', r.sort, { type: 'number', class: 'w-num' }))}</div>{ui.field('লিংক (ক্লিক করলে কোথায় যাবে)', ui.input('link', r.link, { placeholder: '/products?sort=offer বা /p/পণ্যের-লিংক' }))}<div className="field-row">{ui.field('লেখা (ঐচ্ছিক)', ui.input('title', r.title, { maxlength: 120 }))}{' '}{ui.field('বাটনের লেখা', ui.input('button', r.button, { maxlength: 40, placeholder: 'এখনই কিনুন' }))}</div>{ui.field('ছোট লেখা', ui.input('subtitle', r.subtitle, { maxlength: 200 }))}{' '}{ui.check('active', r.active, 'দেখাও')}<div className="row-actions"><button className="btn btn-sm">সেভ</button>{' '}<button className="link-btn danger" formAction={`/admin/design/banners/${attrValue(r.id)}/delete`} data-confirm-btn="ব্যানারটি মুছবেন?">মুছুন</button></div></div></form>))}</div><form method="post" action="/admin/design/banners" className="panel banner-row"><h2>নতুন ব্যানার</h2>{ui.imagePicker('image_id', null, { label: 'ছবি', wide: true })}<div><div className="field-row">{ui.field('কোথায়', ui.select('placement', Object.entries(content.PLACEMENTS), 'slider'))}{' '}{ui.field('ক্রম', ui.input('sort', rows.length, { type: 'number', class: 'w-num' }))}</div>{ui.field('লিংক', ui.input('link', '', { placeholder: '/products?sort=offer' }))}<div className="field-row">{ui.field('লেখা (ঐচ্ছিক)', ui.input('title', '', { maxlength: 120 }))}{ui.field('বাটনের লেখা', ui.input('button', '', { maxlength: 40 }))}</div>{ui.field('ছোট লেখা', ui.input('subtitle', '', { maxlength: 200 }))}{' '}<button className="btn">ব্যানার যোগ করুন</button></div></form></>;
   return ctx.page('ব্যানার', body, 'banners');
 }
-async function deleteBanner(ctx: AdminCtx, m?: Loose) {
+async function deleteBanner(ctx: AdminCtx, m: RouteMatch) {
   await ctx.trash('banner', int(m[1]));
   await ctx.log('banner_delete', 'banner', int(m[1]), '');
   return ctx.back('/admin/design/banners', 'deleted');
@@ -116,14 +116,14 @@ async function pages(ctx: AdminCtx) {
   const body = <><div className="title-row"><h1>পেজ{' '}<small>{bn(rows.length)}টি</small></h1><a className="btn" href="/admin/design/pages/new">+ নতুন পেজ</a></div>{ui.flash(ctx.flash)}{' '}{ui.helpBox('এই পেজগুলো দোকানের কোথায় দেখায়?', <>দোকানের প্রতিটা পেজের{' '}<b>একদম নিচে (ফুটারে)</b>{' '}<b>"তথ্য"</b>{' '}নামের কলামে এদের লিংক থাকে — যেমন আমাদের সম্পর্কে, রিটার্ন ও রিফান্ড পলিসি, প্রাইভেসি পলিসি, শর্তাবলী। নিচের{' '}<b>"ফুটারে দেখাবে"</b>{' '}সুইচ চাপলেই সাথে সাথে লিংকটা চালু বা বন্ধ হবে। বন্ধ করলে পেজ মুছে যায় না, শুধু ফুটার থেকে লিংক লুকায়। সব ফুটার লিংক একসাথে:{' '}<a href="/admin/design/menus">হেডার ও ফুটার মেনু</a></>)}<section className="panel table-wrap"><table className="table"><thead><tr><th>শিরোনাম</th><th>লিংক</th><th>ফুটারের "তথ্য" কলামে দেখাবে</th><th>পেজ চালু</th><th>কাজ</th></tr></thead><tbody>{jsxList(rows.map((p) => <tr className={p.active ? '' : 'row-off'}><td><b><Val v={p.title} /></b></td><td><a href={`/page/${attrValue(p.slug)}`} target="_blank" className="small">/page/<Val v={p.slug} /></a></td><td><form method="post" action={`/admin/design/pages/${attrValue(p.id)}/footer`} className="inline-switch"><label className="switch"><input type="checkbox" name="in_footer" defaultValue="1" defaultChecked={!!(p.in_footer)} data-autosubmit="" aria-label={`${attrValue(p.title)} ফুটারে দেখাবে`} /><span className="switch-ui" aria-hidden="true"></span></label>{' '}<span className={`small ${p.in_footer ? 'ok' : 'muted'}`}>{(p.in_footer ? "চালু" : "বন্ধ")}</span></form></td><td>{ui.rowSwitch(`/admin/toggle/page/${p.id}`, p.active, 'বন্ধ করলে পেজটা দোকান থেকে লুকাবে')}</td>{ui.rowActions({ edit: `/admin/design/pages/${p.id}`, del: `/admin/design/pages/${p.id}/delete` })}</tr>))}</tbody></table></section></>;
   return ctx.page('পেজ', body, 'pages');
 }
-async function pageFooter(ctx: AdminCtx, m?: Loose) {
+async function pageFooter(ctx: AdminCtx, m: RouteMatch) {
   const b = await ctx.body();
   const id = int(m[1]);
   await db.q('UPDATE pages SET in_footer=$1, updated_at=now() WHERE id=$2', [!!b.in_footer, id]);
   await ctx.log('page_save', 'page', id, b.in_footer ? 'ফুটারে চালু' : 'ফুটারে বন্ধ');
   return ctx.back('/admin/design/pages', 'saved');
 }
-async function pageForm(ctx: AdminCtx, m?: Loose) {
+async function pageForm(ctx: AdminCtx, m: RouteMatch) {
   const id = m && m[1] ? int(m[1]) : null;
   if (ctx.method === 'POST') {
     const b = await ctx.body();
@@ -137,7 +137,7 @@ async function pageForm(ctx: AdminCtx, m?: Loose) {
   const body = <><p className="crumbs"><a href="/admin/design/pages">← সব পেজ</a></p><h1>{(id ? <Val v={p.title} /> : "নতুন পেজ")}</h1>{ui.flash(ctx.flash)}<form method="post" action={id ? `/admin/design/pages/${id}` : '/admin/design/pages/new'} className="form panel">{ui.field('শিরোনাম', ui.input('title', p.title || '', { required: true, maxlength: 120 }))}{' '}{(id ? <p className="small">লিংক:{' '}<a href={`/page/${attrValue(p.slug)}`} target="_blank">/page/<Val v={p.slug} /></a></p> : ui.field('লিংকের নাম (ইংরেজি, ঐচ্ছিক)', ui.input('slug', '', { maxlength: 60, placeholder: 'about-us' })))}{' '}{ui.field('লেখা', ui.textarea('content', p.content || '', { rows: 16, maxlength: 100000, class: 'editor' }), 'ব্লগের মতো একই নিয়ম: ## শিরোনাম, - বুলেট, **মোটা**')}<div className="field-row">{ui.field('ক্রম', ui.input('sort', p.sort || 0, { type: 'number' }))}</div>{ui.check('in_footer', p.in_footer, 'দোকানের নিচে ফুটারের "তথ্য" কলামে এই পেজের লিংক দেখাও')}{' '}{ui.check('active', p.active, 'চালু')}{' '}<button className="btn">সেভ করুন</button></form>{(id ? <form method="post" action={`/admin/design/pages/${attrValue(id)}/delete`} className="danger-zone" data-confirm="পেজটি মুছবেন?"><button className="btn btn-danger btn-sm">পেজ মুছুন</button></form> : null)}</>;
   return ctx.page('পেজ', body, 'pages');
 }
-async function deletePage(ctx: AdminCtx, m?: Loose) {
+async function deletePage(ctx: AdminCtx, m: RouteMatch) {
   await ctx.trash('page', int(m[1]));
   await ctx.log('page_delete', 'page', int(m[1]), '');
   return ctx.back('/admin/design/pages', 'deleted');

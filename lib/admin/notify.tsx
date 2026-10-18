@@ -9,7 +9,7 @@ import * as push from '../services/push';
 import * as errors from '../services/errors';
 import { fmtDate, int } from '../util';
 import * as $layout from './layout';
-import type { AdminCtx, Loose } from '../types';
+import type { AdminCtx, Loose, RouteMatch } from '../types';
 
 const dots = (v?: Loose) => (v ? '••••••••' : '');
 
@@ -128,7 +128,7 @@ async function pushTest(ctx: AdminCtx) {
     return ctx.fail('/admin/notify', 'নোটিফিকেশন যায়নি: ' + e.message);
   }
 }
-async function pushDelete(ctx: AdminCtx, m?: Loose) {
+async function pushDelete(ctx: AdminCtx, m: RouteMatch) {
   await db.q('DELETE FROM push_subs WHERE id=$1 AND staff_id=$2', [int(m[1]), ctx.user.id]);
   return ctx.back('/admin/notify', 'saved');
 }

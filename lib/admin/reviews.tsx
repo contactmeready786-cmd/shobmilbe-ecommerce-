@@ -5,7 +5,7 @@ import { bn, int, str, fmtDate, pageNum } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
 import * as R from '../models/reviews';
-import type { AdminCtx, Loose } from '../types';
+import type { AdminCtx, Loose, RouteMatch } from '../types';
 
 const BASE = '/admin/reviews';
 const PER = 30;
@@ -30,19 +30,19 @@ async function page(ctx: AdminCtx) {
   return ctx.page('রিভিউ', body, 'reviews');
 }
 
-async function setStatus(ctx: AdminCtx, m?: Loose) {
+async function setStatus(ctx: AdminCtx, m: RouteMatch) {
   const b = await ctx.body();
   const r = await R.setStatus(int(m[1]), String(b.status || ''));
   if (r) await ctx.log('edit', 'product', r.product_id, `রিভিউ #${int(m[1])}: ${R.STATUS[b.status] || ''}`);
   return ctx.redirect(`${back(ctx)}${back(ctx).includes('?') ? '&' : '?'}m=${b.status === 'approved' ? 'approved' : 'hidden'}`);
 }
-async function reply(ctx: AdminCtx, m?: Loose) {
+async function reply(ctx: AdminCtx, m: RouteMatch) {
   const b = await ctx.body();
   const r = await R.reply(int(m[1]), b.reply);
   if (r) await ctx.log('edit', 'product', r.product_id, `রিভিউ #${int(m[1])}-এ উত্তর`);
   return ctx.redirect(`${back(ctx)}${back(ctx).includes('?') ? '&' : '?'}m=replied`);
 }
-async function remove(ctx: AdminCtx, m?: Loose) {
+async function remove(ctx: AdminCtx, m: RouteMatch) {
   const r = await R.remove(int(m[1]));
   if (r) await ctx.log('delete', 'product', r.product_id, `রিভিউ #${int(m[1])} মুছা`);
   return ctx.redirect(`${back(ctx)}${back(ctx).includes('?') ? '&' : '?'}m=gone`);
@@ -65,7 +65,7 @@ function back(ctx: AdminCtx) {
 }
 
 // a review's photo (also before the review is shown — only staff)
-async function photo(ctx: AdminCtx, m?: Loose) {
+async function photo(ctx: AdminCtx, m: RouteMatch) {
   const p = await db.one(`SELECT mime, data, ik_url FROM media WHERE id=$1 AND owner_type IN ('review','review_wait')`, [int(m[1])]);
   if (!p || !p.data) return ctx.send(404, 'Not found', 'text/plain');
   return ctx.reply.answer(200, { 'Content-Type': /^image\/(jpeg|png|webp)$/.test(p.mime) ? p.mime : 'application/octet-stream', 'Cache-Control': 'private, max-age=3600', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'; sandbox" }, p.data);

@@ -12,7 +12,7 @@ import * as db from '../db';
 import * as catalog from '../models/catalog';
 import * as security from '../security';
 import * as ui from './ui';
-import type { AdminCtx, Loose } from '../types';
+import type { AdminCtx, Loose, RouteMatch } from '../types';
 
 const TYPES: Record<string, Loose> = { domain: 'ওয়েবসাইটের ডোমেইন নাম', text: 'নিজের লেখা', logo: 'লোগো (ছবি)' };
 const STRENGTH: Record<string, Loose> = { soft: 'খুব হালকা (প্রায় চোখে পড়ে না)', normal: 'হালকা (প্রস্তাবিত)', clear: 'একটু স্পষ্ট' };
@@ -73,7 +73,7 @@ async function pendingApi(ctx: AdminCtx) {
   const rows = await catalog.mediaNeedingWatermark(c.ver, 6);
   return ctx.json(200, { ids: rows.map((r) => r.id), cfg: c });
 }
-async function saveApi(ctx: AdminCtx, m?: Loose) {
+async function saveApi(ctx: AdminCtx, m: RouteMatch) {
   if (!(await security.hit(db, 'wm:' + ctx.user.id, 6000, 3600))) return ctx.json(429, { error: 'অনেক বেশি, একটু পরে।' });
   const b = await ctx.body();
   const c = config(ctx.settings);

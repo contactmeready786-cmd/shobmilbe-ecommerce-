@@ -9,7 +9,7 @@ import { fmtDate, str, int, normalizePhone, validPhone } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
 import * as S from '../models/staff';
-import type { AdminCtx, Body, Id, Loose } from '../types';
+import type { AdminCtx, Body, Id, Loose, RouteMatch } from '../types';
 function ymd(v?: Loose) {
   if (!v) return '';
   if (v instanceof Date) return Number.isNaN(v.getTime()) ? '' : `${v.getFullYear()}-${String(v.getMonth() + 1).padStart(2, '0')}-${String(v.getDate()).padStart(2, '0')}`;
@@ -61,7 +61,7 @@ async function contactProblem(id?: Id, phone?: Loose, email?: Loose) {
 }
 
 // GET /admin/avatar/<staff id> — the picture, only for people logged in to the admin
-async function servePhoto(ctx: AdminCtx, m?: Loose) {
+async function servePhoto(ctx: AdminCtx, m: RouteMatch) {
   const p = await S.photoOf(int(m[1]), ctx.query.get('full') !== '1');
   if (!p) { return ctx.reply.answer(404, { 'Content-Type': 'text/plain' }, 'Not found'); }
   const type = /^image\/(jpeg|png|webp|gif)$/.test(p.mime) ? p.mime : 'application/octet-stream';
@@ -85,7 +85,7 @@ async function changePhoto(ctx: AdminCtx, id?: Id, back?: Loose) {
   return answer(ctx, true, back);
 }
 // the owner changes anyone's picture
-async function staffPhoto(ctx: AdminCtx, m?: Loose) {
+async function staffPhoto(ctx: AdminCtx, m: RouteMatch) {
   const id = int(m[1]);
   if (!(await S.getStaff(id))) return answer(ctx, false, '/admin/staff', 'স্টাফ পাওয়া যায়নি।');
   return changePhoto(ctx, id, `/admin/staff/${id}`);

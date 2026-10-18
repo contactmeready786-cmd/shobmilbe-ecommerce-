@@ -10,7 +10,7 @@ import * as O from '../models/orders';
 import * as finance from '../models/finance';
 import * as $views_account from '../views/account';
 import * as $services_sms from '../services/sms';
-import type { AdminCtx, Loose } from '../types';
+import type { AdminCtx, Loose, RouteMatch } from '../types';
 
 const BASE = '/admin/returns';
 const PILL: Record<string, string> = { requested: 'pill-warn', approved: 'pill-blue', received: 'pill-blue', refunded: 'pill-ok', replaced: 'pill-ok', rejected: '', cancelled: '' };
@@ -43,7 +43,7 @@ async function listPage(ctx: AdminCtx) {
 }
 
 // staff records a return on behalf of the customer
-async function newPage(ctx: AdminCtx, m?: Loose) {
+async function newPage(ctx: AdminCtx, m: RouteMatch) {
   const order = await O.getOrder({ id: int(m[1]) });
   if (!order) return ctx.redirect(BASE);
   const V = $views_account;
@@ -65,7 +65,7 @@ async function newPage(ctx: AdminCtx, m?: Loose) {
   return ctx.page('নতুন রিটার্ন', body, 'returns');
 }
 
-async function detail(ctx: AdminCtx, m?: Loose) {
+async function detail(ctx: AdminCtx, m: RouteMatch) {
   const id = int(m[1]);
   const r = await R.get(id);
   if (!r) return ctx.redirect(BASE);
@@ -124,7 +124,7 @@ async function detail(ctx: AdminCtx, m?: Loose) {
 }
 
 // a return's photo (private: only logged-in staff)
-async function photo(ctx: AdminCtx, m?: Loose) {
+async function photo(ctx: AdminCtx, m: RouteMatch) {
   const p = await db.one(`SELECT mime, data FROM media WHERE id=$1 AND owner_type='return'`, [int(m[1])]);
   if (!p || !p.data) return ctx.send(404, 'Not found', 'text/plain');
   return ctx.reply.answer(200, { 'Content-Type': /^image\/(jpeg|png|webp)$/.test(p.mime) ? p.mime : 'application/octet-stream', 'Cache-Control': 'private, max-age=3600', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'; sandbox" }, p.data);

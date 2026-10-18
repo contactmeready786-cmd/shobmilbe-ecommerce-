@@ -8,7 +8,7 @@ import * as db from '../db';
 import * as ui from './ui';
 import * as G from '../models/giftcards';
 import * as finance from '../models/finance';
-import type { AdminCtx, Loose } from '../types';
+import type { AdminCtx, Loose, RouteMatch } from '../types';
 
 const BASE = '/admin/giftcards';
 const PILL: Record<string, string> = { pending: 'pill-warn', active: 'pill-ok', used: '', disabled: '', expired: '' };
@@ -56,7 +56,7 @@ async function listPage(ctx: AdminCtx) {
   return ctx.page('গিফট কার্ড ও রেফারেল', body, 'giftcards');
 }
 
-async function detail(ctx: AdminCtx, m?: Loose) {
+async function detail(ctx: AdminCtx, m: RouteMatch) {
   const id = int(m[1]);
   const back = `${BASE}/${id}`;
   if (ctx.method === 'POST') {

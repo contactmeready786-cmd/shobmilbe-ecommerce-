@@ -54,6 +54,8 @@ export type AdminDrawn = { bare?: boolean; settings: Settings; user?: StaffUser;
 /** A signed-in admin user (a row of the staff table plus the session's marks). */
 // (columns: id, name, username, role, permissions[], active …; plus __session, __token, __verified from the login)
 export type StaffUser = Row & { id: number; name: string; username: string; role: string; permissions: string[] | null; active: boolean };
+/** The parts of the address an admin route matched: [whole path, ...the regex's groups] (lib/admin/index.tsx). */
+export type RouteMatch = string[];
 /** What every admin page handler gets (built in lib/admin/index.ts). */
 export type AdminCtx = Base & {
   user: StaffUser; ip: string; readOnly?: boolean; __err?: string;

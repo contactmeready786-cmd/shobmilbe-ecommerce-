@@ -5,7 +5,7 @@ import { int, str, bn, fmtDate } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
 import * as W from '../models/warehouses';
-import type { AdminCtx, Body, Loose } from '../types';
+import type { AdminCtx, Body, Loose, RouteMatch } from '../types';
 
 const BASE = '/admin/warehouses';
 const REASON: Record<string, string> = { transfer: '🔁 স্থানান্তর', sale: '🧾 দোকানে বিক্রি', sale_cancel: '↩️ বিক্রি বাতিল', count: '🔢 গণনা ঠিক' };
@@ -71,7 +71,7 @@ function movesTable(moves?: Loose) {
   return <table className="table compact"><thead><tr><th>সময়</th><th>পণ্য</th><th className="num">পরিমাণ</th><th>কোথা থেকে → কোথায়</th><th>কী</th><th>কে</th></tr></thead><tbody>{jsxList(moves.map((m?: Loose) => <tr><td className="small nowrap">{fmtDate(m.created_at)}</td><td><Val v={m.name || '—'} />{' '}<span className="small muted"><Val v={m.sku || ''} /></span></td><td className="num">{bn(m.qty)}</td><td className="small">{(m.from_wh ? <Val v={m.from_name || '—'} /> : (m.reason === 'sale_cancel' ? "ক্রেতা" : "🏠 মূল"))}{' '}→{' '}{(m.to_wh ? <Val v={m.to_name || '—'} /> : (m.reason === 'sale' ? "ক্রেতা" : "🏠 মূল"))}</td><td className="small"><Val v={REASON[m.reason] || m.reason} />{(m.order_code ? <>{' '}<a href={`/admin/orders/${attrValue(m.ref_id)}`}><Val v={m.order_code} /></a></> : null)}{(m.note ? ` · ${m.note}` : null)}</td><td className="small"><Val v={m.staff_name || ''} /></td></tr>))}</tbody></table>;
 }
 
-async function storePage(ctx: AdminCtx, m?: Loose) {
+async function storePage(ctx: AdminCtx, m: RouteMatch) {
   const w = await W.get(int(m[1]));
   if (!w) return ctx.redirect(BASE);
   const q = str(ctx.query.get('q'), 60);

@@ -2,7 +2,7 @@
 // row fades when off. Same behaviour as the product list switch.
 import { int } from '../util';
 import * as db from '../db';
-import type { AdminCtx, Loose } from '../types';
+import type { AdminCtx, Loose, RouteMatch } from '../types';
 
 const KINDS: Record<string, Loose> = {
   blog: { perm: 'blog', entity: 'blog', sql: `UPDATE blog_posts SET status=CASE WHEN $2 THEN 'published' ELSE 'draft' END,
@@ -16,7 +16,7 @@ const KINDS: Record<string, Loose> = {
   offer: { perm: 'marketing', entity: 'marketing', sql: 'UPDATE offers SET active=$2 WHERE id=$1 RETURNING coalesce(nullif(title,\'\'), \'অফার #\' || id) AS name' },
 };
 
-async function toggle(ctx: AdminCtx, m?: Loose) {
+async function toggle(ctx: AdminCtx, m: RouteMatch) {
   const K = KINDS[m[1]];
   const id = int(m[2]);
   if (!K || !ctx.can(K.perm)) return ctx.json(403, { error: 'অনুমতি নেই।' });

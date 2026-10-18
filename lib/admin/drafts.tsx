@@ -7,7 +7,7 @@ import * as db from '../db';
 import * as D from '../services/drafts';
 import * as ui from './ui';
 import * as $services_sms from '../services/sms';
-import type { AdminCtx, Id, Loose } from '../types';
+import type { AdminCtx, Id, Loose, RouteMatch } from '../types';
 
 const BASE = '/admin/orders/incomplete';
 const PER_PAGE = 50;
@@ -62,13 +62,13 @@ async function listPage(ctx: AdminCtx) {
   return ctx.page('অসম্পূর্ণ অর্ডার', body, 'drafts');
 }
 
-async function statusAction(ctx: AdminCtx, m?: Loose) {
+async function statusAction(ctx: AdminCtx, m: RouteMatch) {
   const b = await ctx.body();
   await D.setStatus(m[1], String(b.status || ''), ctx.user.id);
   await ctx.log('draft_status', 'order', null, `${m[1]} → ${str(b.status, 20)}`);
   return ctx.back(BASE + (b.status === 'open' ? '?status=open' : ''), 'status');
 }
-async function deleteAction(ctx: AdminCtx, m?: Loose) {
+async function deleteAction(ctx: AdminCtx, m: RouteMatch) {
   await D.remove(m[1]);
   await ctx.log('draft_delete', 'order', null, m[1]);
   return ctx.back(BASE, 'removed');

@@ -9,7 +9,7 @@ import * as lock from '../models/loginlock';
 import * as security from '../security';
 import { ASSET_V } from './layout';
 import * as $recovery from './recovery';
-import type { AdminCtx, Body, Loose, ShopRequest } from '../types';
+import type { AdminCtx, Body, Loose, ShopRequest, RouteMatch } from '../types';
 
 const BASE = '/admin/security/login';
 
@@ -85,7 +85,7 @@ async function pkAdd(ctx: AdminCtx) {
     return ctx.json(400, { error: 'যোগ করা যায়নি: ' + e.message });
   }
 }
-async function pkDelete(ctx: AdminCtx, m?: Loose) {
+async function pkDelete(ctx: AdminCtx, m: RouteMatch) {
   const id = int(m[1]);
   const k = await db.one('SELECT id, name, rp_id FROM owner_passkeys WHERE id=$1 AND staff_id=$2', [id, ctx.user.id]);
   if (!k) return ctx.back(BASE);

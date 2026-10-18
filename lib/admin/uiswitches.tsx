@@ -6,7 +6,7 @@ import * as db from '../db';
 import * as ui from './ui';
 import * as U from '../services/uiswitch';
 import * as $homerows from './homerows';
-import type { AdminCtx, Loose } from '../types';
+import type { AdminCtx, Loose, RouteMatch } from '../types';
 
 const BASE = '/admin/design/switches';
 const HOME_LABELS: Record<string, Loose> = {
@@ -47,7 +47,7 @@ function done(ctx: AdminCtx, ok?: Loose, msg?: Loose) {
   if (String(ctx.req.headers.accept || '').includes('application/json')) return ctx.json(ok ? 200 : 400, ok ? { ok: true } : { error: msg });
   return ok ? ctx.back(BASE, 'saved') : ctx.fail(BASE, msg);
 }
-async function toggle(ctx: AdminCtx, m?: Loose) {
+async function toggle(ctx: AdminCtx, m: RouteMatch) {
   const key = m[1];
   if (!U.KEYS.has(key)) return done(ctx, false, 'অজানা সুইচ।');
   const b = await ctx.body();
@@ -56,7 +56,7 @@ async function toggle(ctx: AdminCtx, m?: Loose) {
   await ctx.log('settings', 'design', null, `দোকানে কী দেখাবে: ${key} ${on ? 'চালু' : 'বন্ধ'}`);
   return done(ctx, true);
 }
-async function homeToggle(ctx: AdminCtx, m?: Loose) {
+async function homeToggle(ctx: AdminCtx, m: RouteMatch) {
   const key = m[1];
   const LBL = (await $homerows.allLabels()).labels;
   if (!LBL[key]) return done(ctx, false, 'অজানা সারি।');

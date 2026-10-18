@@ -17,7 +17,7 @@ import * as $services_xlsx from '../services/xlsx';
 import * as $autocall from './autocall';
 import * as $services_drafts from '../services/drafts';
 import * as $services_stockalert from '../services/stockalert';
-import type { AdminCtx, Body, Id, Loose, ShopQuery } from '../types';
+import type { AdminCtx, Body, Id, Loose, ShopQuery, RouteMatch } from '../types';
 function canDelete(ctx: AdminCtx) { return ctx.user.role === 'owner' && ctx.settings.order_delete_on === '1'; }
 function deleteSwitch(ctx: AdminCtx) {
   if (ctx.user.role !== 'owner') return '';
@@ -30,7 +30,7 @@ async function deleteSetting(ctx: AdminCtx) {
   await ctx.log('settings', 'order', null, `অর্ডার মোছার বাটন ${b.order_delete_on === '1' ? 'চালু' : 'বন্ধ'}`);
   return ctx.back('/admin/orders', 'saved');
 }
-async function removeOrders(ctx: AdminCtx, ids?: Loose) {
+async function removeOrders(ctx: AdminCtx, ids: unknown[]) {
   let n = 0;
   for (const id of ids) {
     const o = await db.one('SELECT id, code, customer_name, phone FROM orders WHERE id=$1', [id]);
@@ -39,22 +39,22 @@ async function removeOrders(ctx: AdminCtx, ids?: Loose) {
   }
   return n;
 }
-async function deleteOne(ctx: AdminCtx, m?: Loose) {
+async function deleteOne(ctx: AdminCtx, m: RouteMatch) {
   if (!canDelete(ctx)) return ctx.back('/admin/orders', 'noperm');
   await removeOrders(ctx, [int(m[1])]);
   return ctx.back('/admin/orders', 'order_deleted');
 }
 
 // 🔐 how the customer's mobile number was checked at checkout (Admin → চেকআউট OTP)
-function otpPill(how?: Loose, long: Loose = false) {
+function otpPill(how: unknown, long = false) {
   const L = $models_checkoutotp.LABELS[how];
   if (!L) return '';
   return <>{(long ? " " : <br />)}<span className={`pill ${how === 'skipped' ? 'pill-warn' : 'pill-ok'}`} title={attrValue(L[1])}><Val v={L[0]} /></span>{(long ? <><br /><span className="small muted"><Val v={L[1]} /></span></> : null)}</>;
 }
 
 const PER_PAGE = 30;
-const statusPill = (s?: Loose) => ui.pill(O.STATUSES[s] || s, 'pill-' + s);
-const payPill = (s?: Loose) => ui.pill(O.PAYMENT_STATUSES[s] || s, 'pay-' + s);
+const statusPill = (s: string) => ui.pill(O.STATUSES[s] || s, 'pill-' + s);
+const payPill = (s: string) => ui.pill(O.PAYMENT_STATUSES[s] || s, 'pay-' + s);
 
 function filtersFrom(query: ShopQuery) {
   return {
@@ -68,7 +68,7 @@ function filtersFrom(query: ShopQuery) {
     phone: str(query.get('phone'), 20),
   };
 }
-function qs(f: Body, extra: Loose = {}) {
+function qs(f: Body, extra: Record<string, unknown> = {}) {
   const p = new URLSearchParams();
   const map = { status: f.status, q: f.q, from: f.from, to: f.to, courier: f.courier, payment: f.payment, pstatus: f.paymentStatus, phone: f.phone, ...extra };
   Object.entries(map).forEach(([k, v]) => { if (v) p.set(k, v as string); });
@@ -104,12 +104,12 @@ async function bulk(ctx: AdminCtx) {
   if (b.action === 'status') {
     if (!ctx.can('orders_edit')) return ctx.back('/admin/orders', 'noperm');
     if (!O.STATUSES[b.status]) return ctx.fail('/admin/orders', 'কোন অবস্থায় নেবেন তা বাছুন।');
-    const errors: Loose[] = [];
+    const errors: string[] = [];
     for (const id of ids) {
       try {
         const r = await O.setStatus(id, b.status, ctx.user.id);
         if (r.changed) await ctx.log('order_status', 'order', id, `${r.prev} → ${b.status}`);
-      } catch (e: Loose) { errors.push(e.message); }
+      } catch (e) { errors.push((e as Error).message); }
     }
     if (b.status === 'confirmed') for (const id of ids) await autoSend(ctx, id);
     return errors.length ? ctx.fail('/admin/orders', `${bn(errors.length)}টি অর্ডার বদলানো যায়নি: ${errors[0]}`) : ctx.back('/admin/orders', 'status');
@@ -117,7 +117,7 @@ async function bulk(ctx: AdminCtx) {
   if (b.action === 'courier') {
     if (!ctx.can('courier')) return ctx.back('/admin/orders', 'noperm');
     let ok = 0;
-    const errors: Loose[] = [];
+    const errors: string[] = [];
     for (const id of ids) {
       const r = await sendToCourier(ctx, id, b.courier, {});
       if (r.ok) ok++; else errors.push(r.message);
@@ -127,7 +127,7 @@ async function bulk(ctx: AdminCtx) {
   return ctx.back('/admin/orders');
 }
 
-async function exportCsv(ctx: AdminCtx, m?: Loose, excel: Loose = false) {
+async function exportCsv(ctx: AdminCtx, m: RouteMatch, excel = false) {
   const f = filtersFrom(ctx.query);
   const rows = await O.listOrders({ ...f, limit: 10000 });
   const seeCost = ctx.can('see_cost');
@@ -144,7 +144,7 @@ async function exportCsv(ctx: AdminCtx, m?: Loose, excel: Loose = false) {
 }
 
 // ---------------------------------------------------------------- detail
-async function detail(ctx: AdminCtx, m?: Loose) {
+async function detail(ctx: AdminCtx, m: RouteMatch) {
   const id = int(m[1]);
   const order = await O.getOrder({ id });
   if (!order) return ctx.redirect('/admin/orders');
@@ -176,9 +176,9 @@ const ACTIONS: Record<string, string> = {
   order_status: 'অবস্থা বদলেছেন', order_edit: 'অর্ডার এডিট করেছেন', courier_send: 'কুরিয়ারে পাঠিয়েছেন', courier_sync: 'কুরিয়ার স্ট্যাটাস এনেছেন',
   order_payment: 'পেমেন্ট রেকর্ড করেছেন', order_refund: 'টাকা ফেরত দিয়েছেন', order_note: 'নোট লিখেছেন', order_create: 'অর্ডার তৈরি করেছেন', block: 'ব্লক করেছেন', courier_auto: 'অটো কুরিয়ার',
 };
-function actionLabel(h?: Loose) {
+function actionLabel(h: { action: string; detail?: string | null }) {
   let d = h.detail || '';
-  if (h.action === 'order_status') d = d.replace(/(\w+) → (\w+)/, (_?: Loose, a?: Loose, b?: Loose) => `${O.STATUSES[a] || a} → ${O.STATUSES[b] || b}`);
+  if (h.action === 'order_status') d = d.replace(/(\w+) → (\w+)/, (_: string, a: string, b: string) => `${O.STATUSES[a] || a} → ${O.STATUSES[b] || b}`);
   return `${ACTIONS[h.action] || h.action}${d ? ': ' + d : ''}`;
 }
 
@@ -192,11 +192,11 @@ async function autoSend(ctx: AdminCtx, id?: Id) {
   if (!r.ok) await ctx.log('courier_auto', 'order', id, 'পাঠানো যায়নি: ' + r.message);
 }
 
-async function sendToCourier(ctx: AdminCtx, id?: Id, name?: Loose, extra?: Loose, auto: Loose = false) {
+async function sendToCourier(ctx: AdminCtx, id: Id, name: string, extra: courier.ParcelExtra & { handover?: boolean } = {}, auto = false) {
   const order = await O.getOrder({ id });
   if (!order) return { ok: false, message: 'অর্ডার পাওয়া যায়নি।' };
   if (O.RELEASED.has(order.status) || order.status === 'delivered') return { ok: false, message: `${order.code}: এই অবস্থার অর্ডার কুরিয়ারে পাঠানো যায় না।` };
-  const r: Loose = await courier.send(order, name, ctx.settings, { ...extra, areaText: O.areaLabel(order) });
+  const r = await courier.send(order, name, ctx.settings, { ...extra, areaText: O.areaLabel(order) });
   if (!r.ok) return { ok: false, message: `${order.code}: ${r.message}` };
   await O.setCourierInfo(id as number, { courier: name, consignment_id: r.consignment_id, tracking_code: r.tracking_code, status: r.status });
   await ctx.log(auto ? 'courier_auto' : 'courier_send', 'order', id, `${name} · ${r.consignment_id}`);
@@ -216,26 +216,26 @@ async function sendToCourier(ctx: AdminCtx, id?: Id, name?: Loose, extra?: Loose
   return { ok: true, consignment_id: r.consignment_id };
 }
 
-async function setStatusAction(ctx: AdminCtx, m?: Loose) {
+async function setStatusAction(ctx: AdminCtx, m: RouteMatch) {
   const id = int(m[1]);
   const b = await ctx.body();
   try {
     const r = await O.setStatus(id, b.status, ctx.user.id, { damaged: b.status === 'returned' && !!b.damaged });
     if (r.changed) await ctx.log('order_status', 'order', id, `${r.prev} → ${b.status}${r.returnedTo === 'damaged' ? ' (মাল নষ্ট স্টকে)' : ''}`);
     if (b.status === 'confirmed') await autoSend(ctx, id);
-  } catch (e: Loose) {
-    return ctx.fail(`/admin/orders/${id}`, e.message);
+  } catch (e) {
+    return ctx.fail(`/admin/orders/${id}`, (e as Error).message);
   }
   return ctx.back(`/admin/orders/${id}`, 'status');
 }
-async function courierAction(ctx: AdminCtx, m?: Loose) {
+async function courierAction(ctx: AdminCtx, m: RouteMatch) {
   const id = int(m[1]);
   const b = await ctx.body();
   const r = await sendToCourier(ctx, id, b.courier, { weight: b.weight, note: b.note, city_id: b.city_id, zone_id: b.zone_id, area_id: b.area_id, area_name: b.area_name });
   return r.ok ? ctx.back(`/admin/orders/${id}`, 'sent') : ctx.fail(`/admin/orders/${id}`, r.message as string);
 }
-async function syncOne(ctx: AdminCtx, order?: Loose) {
-  const r: Loose = await courier.status(order, ctx.settings);
+async function syncOne(ctx: AdminCtx, order: O.Order) {
+  const r = await courier.status(order, ctx.settings);
   if (!r.ok) return r;
   await O.setCourierStatus(order.id, r.status);
   const mapped = courier.mapStatus(order.courier, r.status);
@@ -247,7 +247,7 @@ async function syncOne(ctx: AdminCtx, order?: Loose) {
   }
   return r;
 }
-async function syncAction(ctx: AdminCtx, m?: Loose) {
+async function syncAction(ctx: AdminCtx, m: RouteMatch) {
   const id = int(m[1]);
   const order = await O.getOrder({ id });
   if (!order) return ctx.back('/admin/orders');
@@ -266,7 +266,7 @@ async function syncAll(ctx: AdminCtx) {
   return ctx.redirect(`/admin/orders?status=shipped&msg=synced`);
   void n;
 }
-async function paymentAction(ctx: AdminCtx, m?: Loose) {
+async function paymentAction(ctx: AdminCtx, m: RouteMatch) {
   const id = int(m[1]);
   const b = await ctx.body();
   const order = await O.getOrder({ id });
@@ -280,7 +280,7 @@ async function paymentAction(ctx: AdminCtx, m?: Loose) {
   await ctx.log('order_payment', 'order', id, `৳${amount} ${str(b.trx, 80)}`);
   return ctx.back(`/admin/orders/${id}`, 'paid');
 }
-async function manualCourierAction(ctx: AdminCtx, m?: Loose) {
+async function manualCourierAction(ctx: AdminCtx, m: RouteMatch) {
   const id = int(m[1]);
   const b = await ctx.body();
   const order = await O.getOrder({ id });
@@ -295,11 +295,11 @@ async function manualCourierAction(ctx: AdminCtx, m?: Loose) {
     try {
       const r = await O.setStatus(id, 'shipped', ctx.user.id);
       if (r.changed) await ctx.log('order_status', 'order', id, `${r.prev} → shipped`);
-    } catch (e: Loose) { return ctx.fail(`/admin/orders/${id}`, e.message); }
+    } catch (e) { return ctx.fail(`/admin/orders/${id}`, (e as Error).message); }
   }
   return ctx.back(`/admin/orders/${id}`, 'saved');
 }
-async function refundAction(ctx: AdminCtx, m?: Loose) {
+async function refundAction(ctx: AdminCtx, m: RouteMatch) {
   const id = int(m[1]);
   const b = await ctx.body();
   const order = await O.getOrder({ id });
@@ -319,14 +319,14 @@ async function refundAction(ctx: AdminCtx, m?: Loose) {
   await ctx.log('order_refund', 'order', id, `৳${amount} ফেরত${b.note ? ` — ${str(b.note, 100)}` : ''}`);
   return ctx.back(`/admin/orders/${id}`, 'saved');
 }
-async function noteAction(ctx: AdminCtx, m?: Loose) {
+async function noteAction(ctx: AdminCtx, m: RouteMatch) {
   const id = int(m[1]);
   const b = await ctx.body();
   await db.q('UPDATE orders SET admin_note=$1, updated_at=now() WHERE id=$2', [str(b.admin_note, 1000), id]);
   await ctx.log('order_note', 'order', id, str(b.admin_note, 120));
   return ctx.back(`/admin/orders/${id}`, 'saved');
 }
-async function blockAction(ctx: AdminCtx, m?: Loose) {
+async function blockAction(ctx: AdminCtx, m: RouteMatch) {
   const id = int(m[1]);
   const b = await ctx.body();
   const order = await O.getOrder({ id });
@@ -338,9 +338,9 @@ async function blockAction(ctx: AdminCtx, m?: Loose) {
 }
 
 // 🏷️ ইনভয়েস (on the parcel) and 📋 চেকলিস্ট (inside the box), one or many orders
-async function printDocs(ctx: AdminCtx, kind?: Loose) {
+async function printDocs(ctx: AdminCtx, kind: string) {
   const ids = String(ctx.query.get('ids') || '').split(',').map((x) => int(x)).filter(Boolean).slice(0, 200);
-  const list: Loose[] = [];
+  const list: O.Order[] = [];
   for (const id of ids) { const o = await O.getOrder({ id }); if (o) list.push(o); }
   if (!list.length) return ctx.redirect('/admin/orders');
   await ctx.log(kind === 'invoice' ? 'print_invoice' : 'print_checklist', 'order', list.length === 1 ? list[0].id : null, `${kind === 'invoice' ? 'ইনভয়েস' : 'চেকলিস্ট'} প্রিন্ট (${list.length}টি)`);
@@ -402,23 +402,23 @@ async function newOrder(ctx: AdminCtx) {
   // from "অসম্পূর্ণ অর্ডার": the shopper's details and cart already filled in
   const draft = ctx.query.get('draft') ? await $services_drafts.get(ctx.query.get('draft')) : null;
   if (draft) {
-    const items = await describeItems((draft.items || []).map((i?: Loose) => ({ id: int(i.id), qty: int(i.qty, 1) })));
+    const items = await describeItems((draft.items || []).map((i: { id: unknown; qty: unknown }) => ({ id: int(i.id), qty: int(i.qty, 1) })));
     const order = { items, customer_name: draft.name, phone: draft.phone, address: draft.address, district: draft.district || 'Dhaka', thana: draft.thana,
       note: draft.note, payment: 'cod', payment_status: 'unpaid', status: 'confirmed', admin_note: 'অসম্পূর্ণ অর্ডার থেকে (কল করে নেওয়া)' };
     return ctx.page('নতুন অর্ডার', orderForm({ order, settings: ctx.settings, action: '/admin/orders/new', title: 'অসম্পূর্ণ অর্ডার থেকে নতুন অর্ডার', isNew: true }), 'order-new');
   }
   return ctx.page('নতুন অর্ডার', orderForm({ settings: ctx.settings, action: '/admin/orders/new', title: 'নতুন অর্ডার তৈরি (ফোন/ফেসবুক অর্ডার)', isNew: true }), 'order-new');
 }
-async function describeItems(items?: Loose) {
-  const prods = await catalog.getProductsByIds(items.map((i?: Loose) => i.id), { includeInactive: true });
-  return items.map((i?: Loose) => {
+async function describeItems(items: { id: number; qty: number }[]) {
+  const prods = await catalog.getProductsByIds(items.map((i) => i.id), { includeInactive: true });
+  return items.map((i) => {
     const p = prods.find((x) => x.id === i.id);
     return p ? { product_id: p.id, name: p.name, sku: p.sku, price: i.price !== undefined && i.price !== '' ? amt(i.price) : p.price, qty: i.qty || 1,
       kind: i.kind || '', note: i.note || '' } : null;
   }).filter(Boolean);
 }
 
-async function editOrder(ctx: AdminCtx, m?: Loose) {
+async function editOrder(ctx: AdminCtx, m: RouteMatch) {
   const id = int(m[1]);
   const order = await O.getOrder({ id });
   if (!order) return ctx.redirect('/admin/orders');
@@ -449,7 +449,7 @@ async function productSearch(ctx: AdminCtx) {
   const rows = await catalog.listProducts({ q, includeInactive: ctx.query.get('all') === '1', limit: 12, sort: 'name', type: ctx.query.get('type') || undefined, items: !ctx.query.get('type') });
   return ctx.json(200, { products: rows.map((p) => ({ id: p.id, name: p.name, sku: p.sku, price: p.price, cost: ctx.can('see_cost') ? p.cost_price : undefined, stock: p.stock, unit: p.unit, image: p.image_id ? `/media/${p.image_id}/t` : null, emoji: p.emoji, type: p.product_type })) });
 }
-async function courierList(ctx: AdminCtx, m?: Loose) {
+async function courierList(ctx: AdminCtx, m: RouteMatch) {
   const name = m[1];
   if (name === 'pathao') {
     const r = await courier.pathaoList(ctx.settings, ctx.query.get('kind') || 'cities', ctx.query.get('parent'));
@@ -467,8 +467,8 @@ async function fraudApi(ctx: AdminCtx) {
   if (!validPhone(phone)) return ctx.json(400, { ok: false, message: 'ফোন নম্বর ঠিক নেই।' });
   try {
     return ctx.json(200, await $services_fraud.check(ctx.settings, phone, { fresh: ctx.query.get('fresh') === '1' }));
-  } catch (e: Loose) {
-    return ctx.json(502, { ok: false, message: e.message });
+  } catch (e) {
+    return ctx.json(502, { ok: false, message: (e as Error).message });
   }
 }
 
@@ -478,7 +478,7 @@ export const routes = [
     { method: 'POST', path: '/admin/orders/delete-setting', perm: 'orders', handler: deleteSetting },
     { method: 'POST', path: /^\/admin\/orders\/(\d+)\/delete$/, perm: 'orders', handler: deleteOne },
     { method: 'GET', path: '/admin/orders/export.csv', perm: 'reports', handler: exportCsv },
-    { method: 'GET', path: '/admin/orders/export.xlsx', perm: 'reports', handler: (ctx: AdminCtx, m?: Loose) => exportCsv(ctx, m, true) },
+    { method: 'GET', path: '/admin/orders/export.xlsx', perm: 'reports', handler: (ctx: AdminCtx, m: RouteMatch) => exportCsv(ctx, m, true) },
     { method: 'GET', path: '/admin/orders/invoice', perm: 'orders', handler: invoices },
     { method: 'GET', path: '/admin/orders/checklist', perm: 'orders', handler: checklists },
     { method: 'POST', path: '/admin/orders/sync', perm: 'courier', handler: syncAll },

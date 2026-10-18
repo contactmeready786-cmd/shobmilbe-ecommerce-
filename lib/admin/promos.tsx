@@ -8,7 +8,7 @@ import { bn, int, str, list, money, amount, fmtDate, shopPrice } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
 import * as pricing from '../services/pricing';
-import type { AdminCtx, Loose } from '../types';
+import type { AdminCtx, Loose, RouteMatch } from '../types';
 
 const BASE = '/admin/marketing/flash';
 const DHAKA_MS = 6 * 3600e3; // Bangladesh: UTC+6, no summer time
@@ -103,7 +103,7 @@ async function saveFlash(ctx: AdminCtx) {
   await ctx.log('settings', 'marketing', sid, `ফ্ল্যাশ সেল "${title}": ${items.size}টি পণ্য, ${fmtDate(starts)} → ${fmtDate(ends)}`);
   return ctx.back(BASE, 'saved');
 }
-async function deleteFlash(ctx: AdminCtx, m?: Loose) {
+async function deleteFlash(ctx: AdminCtx, m: RouteMatch) {
   const r = await db.one('DELETE FROM flash_sales WHERE id=$1 RETURNING title', [int(m[1])]);
   if (r) await ctx.log('delete', 'marketing', int(m[1]), `ফ্ল্যাশ সেল মুছা: ${r.title}`);
   return ctx.back(BASE, 'removed');
@@ -147,7 +147,7 @@ async function saveOffer(ctx: AdminCtx): Promise<Loose> {
   await ctx.log('settings', 'marketing', oid, `অফার: ${v.buy_qty}× ${buy!.name} কিনলে ${v.get_qty}× ${get ? get.name : 'একই পণ্য'} ${v.get_percent >= 100 ? 'ফ্রি' : v.get_percent + '% ছাড়ে'}`);
   return ctx.back(`${BASE}?tab=offers`, 'saved');
 }
-async function deleteOffer(ctx: AdminCtx, m?: Loose) {
+async function deleteOffer(ctx: AdminCtx, m: RouteMatch) {
   const r = await db.one('DELETE FROM offers WHERE id=$1 RETURNING id', [int(m[1])]);
   if (r) await ctx.log('delete', 'marketing', r.id, 'অফার মুছা');
   return ctx.back(`${BASE}?tab=offers`, 'removed');

@@ -6,7 +6,7 @@ import * as db from '../db';
 import * as T from '../models/trash';
 import * as ui from './ui';
 import * as delcode from '../services/delcode';
-import type { AdminCtx, Loose } from '../types';
+import type { AdminCtx, Loose, RouteMatch } from '../types';
 
 const PER_PAGE = 100;
 // friendly names for the details table
@@ -92,7 +92,7 @@ function valueOf(k?: Loose, v?: Loose, cats?: Loose) {
   return s.length > 400 ? <details><summary>{s.slice(0, 160)}…</summary><div className="trash-long"><Val v={s} /></div></details> : s;
 }
 
-async function detail(ctx: AdminCtx, m?: Loose) {
+async function detail(ctx: AdminCtx, m: RouteMatch) {
   const e = await T.get(m[1]);
   if (!e) return ctx.redirect('/admin/trash');
   const K = T.KINDS[e.kind] || { label: e.kind, icon: '🗑️' };
