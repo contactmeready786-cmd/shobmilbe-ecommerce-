@@ -8,7 +8,7 @@ import * as H from '../models/homerows';
 import * as catalog from '../models/catalog';
 import * as $design from './design';
 import type { AdminCtx, Loose, RouteMatch } from '../types';
-import type { BrandsRow } from '../data/rows';
+import type { BrandsRow, HomeRowsRow } from '../data/rows';
 
 const BASE = '/admin/design/rows';
 // The list of rows lives on "লোগো, রং ও হোমপেজ" — this file only makes / edits / deletes the owner's own rows.
@@ -27,7 +27,7 @@ async function allLabels() {
 async function page(ctx: AdminCtx) {
   const s = ctx.settings;
   const { labels, own } = await allLabels();
-  const enabled = db.jsonSetting(s, 'home_sections', []).filter((k: string | number) => labels[k]);
+  const enabled = db.jsonSetting<string[]>(s, 'home_sections', []).filter((k) => labels[k]);
   const ordered = [...enabled, ...Object.keys(labels).filter((k) => !enabled.includes(k))];
   const counts = new Map(await Promise.all(own.map(async (r): Promise<[Loose, number]> => [r.id, (await H.productsFor(r, {}).catch(() => [])).length])));
   const body = <><h1>🏠 হোমপেজের সারি</h1>{ui.flash(ctx.flash)}<p className="muted">হোমপেজে কোন কোন সারি দেখাবে, কোনটা আগে-পরে — সব এখানে। আগে থেকে থাকা সারির পাশাপাশি{' '}<b>নিজের নতুন সারি</b>{' '}বানাতে পারবেন (যেমন "শীতের অফার", "৳৫০ এর নিচে রিমোট", "নতুন সোল্ডারিং টুলস")।</p><p><a className="btn" href={`${attrValue(BASE)}/new`}>➕ নতুন সারি বানান</a></p><section className="panel"><h2>সব সারি — ক্রম ও চালু/বন্ধ</h2><p className="small muted">▲▼ দিয়ে ক্রম বদলান, টিক দিয়ে চালু/বন্ধ করুন, তারপর "ক্রম সেভ করুন" চাপুন। ✨ চিহ্ন = আপনার নিজের সারি।</p><form method="post" action={`${attrValue(BASE)}/order`} className="form"><ul className="sortable" data-sortable="">{jsxList(ordered.map((k) => {
@@ -56,14 +56,14 @@ async function form(ctx: AdminCtx, m: RouteMatch | null) {
     const { row, missing } = await H.save(id, b);
     if (!id) {
       // a new row goes on the home page straight away, at the end
-      const list = db.jsonSetting(ctx.settings, 'home_sections', []);
+      const list = db.jsonSetting<string[]>(ctx.settings, 'home_sections', []);
       if (!list.includes(H.keyOf(row!.id))) await db.setSetting('home_sections', JSON.stringify([...list, H.keyOf(row!.id)]));
     }
     await ctx.log(id ? 'home_row_edit' : 'home_row_add', 'home_row', row!.id, row!.title);
     if (missing.length) return ctx.fail(`${BASE}/${row!.id}`, `সেভ হয়েছে, কিন্তু এই SKU গুলো পাওয়া যায়নি: ${missing.join(', ')}`);
     return ctx.back(`${BASE}/${row!.id}`, 'saved');
   }
-  const v = r || { title: '', sub: '', source: 'category', ref: '', sort: 'popular', lim: 16, badge: '', style: 'rail', in_stock_only: false, product_ids: [] };
+  const v: Partial<HomeRowsRow> = r || { title: '', sub: '', source: 'category', ref: '', sort: 'popular', lim: 16, badge: '', style: 'rail', in_stock_only: false, product_ids: [] };
   const [cats, brands, skus, preview] = await Promise.all([
     catalog.listCategories({ includeInactive: false }),
     db.q<Pick<BrandsRow, 'id' | 'name'>>('SELECT id, name FROM brands ORDER BY name').catch(() => []),
@@ -78,7 +78,7 @@ async function form(ctx: AdminCtx, m: RouteMatch | null) {
 async function remove(ctx: AdminCtx, m: RouteMatch) {
   const id = int(m[1]);
   await ctx.trash('home_row', id);
-  const list = db.jsonSetting(ctx.settings, 'home_sections', []).filter((k: string) => k !== H.keyOf(id));
+  const list = db.jsonSetting<string[]>(ctx.settings, 'home_sections', []).filter((k) => k !== H.keyOf(id));
   await db.setSetting('home_sections', JSON.stringify(list));
   await ctx.log('home_row_delete', 'home_row', id, '');
   return ctx.back(HOME, 'deleted');

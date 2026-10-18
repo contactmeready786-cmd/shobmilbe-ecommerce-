@@ -4,8 +4,9 @@
 import { q, one } from '../db';
 import { int, str } from '../util';
 import * as $catalog from './catalog';
-import type { Body, Id, Loose } from '../types';
-import type { DbRow } from '../pg';
+import type { Body, Id } from '../types';
+import type { HomeRowsRow, ProductsRow } from '../data/rows';
+import type { Product } from './catalog';
 
 const SOURCES: Record<string, string> = {
   category: 'একটা ক্যাটাগরির পণ্য',
@@ -25,49 +26,49 @@ const KEY_RE = /^x(\d{1,9})$/;
 const keyOf = (id?: Id) => 'x' + int(id);
 const idOf = (key?: unknown) => { const m = KEY_RE.exec(String(key)); return m ? int(m[1]) : 0; };
 
-async function list() { return q('SELECT * FROM home_rows ORDER BY id'); }
-async function get(id?: Id) { return one('SELECT * FROM home_rows WHERE id=$1', [int(id)]); }
+async function list() { return q<HomeRowsRow>('SELECT * FROM home_rows ORDER BY id'); }
+async function get(id?: Id) { return one<HomeRowsRow>('SELECT * FROM home_rows WHERE id=$1', [int(id)]); }
 
 // "12, 5 7" → SKUs → product ids (in the order typed)
 async function idsFromSkus(text?: unknown) {
   const skus = [...new Set(String(text || '').split(/[\s,;।]+/).map((x) => x.trim()).filter(Boolean))].slice(0, 60);
   if (!skus.length) return { ids: [], missing: [] };
-  const rows = await q('SELECT id, sku FROM products WHERE sku = ANY($1::text[])', [skus]);
+  const rows = await q<Pick<ProductsRow, 'id' | 'sku'>>('SELECT id, sku FROM products WHERE sku = ANY($1::text[])', [skus]);
   const by = new Map(rows.map((r) => [String(r.sku), r.id]));
   return { ids: skus.map((k) => by.get(k)).filter(Boolean), missing: skus.filter((k) => !by.has(k)) };
 }
-async function skusOf(ids?: Loose) {
+async function skusOf(ids?: number[] | null) {
   if (!ids || !ids.length) return '';
-  const rows = await q('SELECT id, sku FROM products WHERE id = ANY($1::int[])', [ids]);
+  const rows = await q<Pick<ProductsRow, 'id' | 'sku'>>('SELECT id, sku FROM products WHERE id = ANY($1::int[])', [ids]);
   const by = new Map(rows.map((r) => [r.id, r.sku]));
-  return ids.map((i: unknown) => by.get(i)).filter(Boolean).join(', ');
+  return ids.map((i) => by.get(i)).filter(Boolean).join(', ');
 }
 
 type CleanOpts = {
-  title?: Loose;
-  sub?: Loose;
-  source?: Loose;
-  ref?: Loose;
-  min_price?: Loose;
-  max_price?: Loose;
-  sort?: Loose;
-  lim?: Loose;
-  badge?: Loose;
-  style?: Loose;
-  in_stock_only?: Loose;
+  title?: unknown;
+  sub?: unknown;
+  source?: unknown;
+  ref?: unknown;
+  min_price?: unknown;
+  max_price?: unknown;
+  sort?: unknown;
+  lim?: unknown;
+  badge?: unknown;
+  style?: unknown;
+  in_stock_only?: unknown;
 };
 function clean(b: CleanOpts) {
   const num = (v?: unknown) => { const n = Number(String(v ?? '').replace(/[^\d.]/g, '')); return String(v ?? '').trim() === '' || !Number.isFinite(n) ? null : n; };
   return {
     title: str(b.title, 80) || 'নতুন সারি',
     sub: str(b.sub, 160),
-    source: SOURCES[b.source] ? b.source : 'category',
+    source: SOURCES[String(b.source)] ? (b.source as string) : 'category',
     ref: str(b.ref, 120),
     min_price: num(b.min_price), max_price: num(b.max_price),
-    sort: SORTS[b.sort] ? b.sort : 'popular',
+    sort: SORTS[String(b.sort)] ? (b.sort as string) : 'popular',
     lim: Math.min(32, Math.max(4, int(b.lim) || 16)),
     badge: str(b.badge, 20),
-    style: STYLES[b.style] ? b.style : 'rail',
+    style: STYLES[String(b.style)] ? (b.style as string) : 'rail',
     in_stock_only: !!b.in_stock_only && b.in_stock_only !== '0',
   };
 }
@@ -76,12 +77,12 @@ async function save(id: Id, b: Body) {
   const v = clean(b);
   const { ids, missing } = v.source === 'products' ? await idsFromSkus(b.skus) : { ids: [], missing: [] };
   const vals = [v.title, v.sub, v.source, v.ref, ids, v.min_price, v.max_price, v.sort, v.lim, v.badge, v.style, v.in_stock_only];
-  let row;
+  let row: HomeRowsRow | null;
   if (int(id)) {
-    row = await one(`UPDATE home_rows SET title=$1, sub=$2, source=$3, ref=$4, product_ids=$5, min_price=$6, max_price=$7, sort=$8, lim=$9, badge=$10,
+    row = await one<HomeRowsRow>(`UPDATE home_rows SET title=$1, sub=$2, source=$3, ref=$4, product_ids=$5, min_price=$6, max_price=$7, sort=$8, lim=$9, badge=$10,
       style=$11, in_stock_only=$12, updated_at=now() WHERE id=$13 RETURNING *`, [...vals, int(id)]);
   } else {
-    row = await one(`INSERT INTO home_rows(title, sub, source, ref, product_ids, min_price, max_price, sort, lim, badge, style, in_stock_only)
+    row = await one<HomeRowsRow>(`INSERT INTO home_rows(title, sub, source, ref, product_ids, min_price, max_price, sort, lim, badge, style, in_stock_only)
       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`, vals);
   }
   return { row, missing };
@@ -91,14 +92,14 @@ async function save(id: Id, b: Body) {
 type ProductsForOpts = {
   hideOut?: boolean;
 };
-async function productsFor(r: DbRow, { hideOut }: ProductsForOpts = {}) {
+async function productsFor(r: HomeRowsRow, { hideOut }: ProductsForOpts = {}): Promise<Product[]> {
   const catalog = $catalog;
   const limit = r.lim || 16;
   const base = { public: true, hideOut: hideOut || r.in_stock_only, sort: r.sort, limit };
-  let items: Loose[] = [];
+  let items: Product[] = [];
   if (r.source === 'products') {
     const got = await catalog.getProductsByIds(r.product_ids || [], { public: true });
-    const pos = new Map<Loose, number>((r.product_ids || []).map((id: unknown, i: number) => [id, i]));
+    const pos = new Map<number, number>((r.product_ids || []).map((id, i) => [id, i]));
     items = got.filter((p) => !base.hideOut || p.stock > 0).sort((a, b) => pos.get(a.id)! - pos.get(b.id)!).slice(0, limit);
   } else if (r.source === 'category') {
     items = r.ref ? await catalog.listProducts({ ...base, category: r.ref }) : [];
@@ -121,7 +122,7 @@ async function productsFor(r: DbRow, { hideOut }: ProductsForOpts = {}) {
 }
 
 // Where "সব দেখুন" goes for this row.
-function linkFor(r?: Loose) {
+function linkFor(r: Pick<HomeRowsRow, 'source' | 'ref'>) {
   if (r.source === 'category' && r.ref) return `/products?cat=${encodeURIComponent(r.ref)}`;
   if (r.source === 'search' && r.ref) return `/products?q=${encodeURIComponent(r.ref)}`;
   if (r.source === 'offers') return '/products?sort=offer';

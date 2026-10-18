@@ -33,6 +33,8 @@ type CfProps = {
   method?: string;
   body?: Loose;
 };
+/** a DNS record the owner deleted here (kept so it can be put back) */
+type DeletedRecord = { rec: Record<string, unknown> & { type: string; name: string }; at: string; by: string };
 async function cf(s: Settings, path: string, { method = 'GET', body }: CfProps = {}): Promise<Loose> {
   if (!s.cf_api_token) return { ok: false, error: 'Cloudflare API Token দেওয়া নেই।' };
   type CfAnswer = { success?: boolean; result?: unknown; result_info?: unknown; errors?: { message?: string; error_chain?: { message?: string }[] }[] };
@@ -181,7 +183,7 @@ async function page(ctx: AdminCtx) {
     }
   }
   const zoneName = z ? z.name : (s.custom_domain || 'shobmilbe.com');
-  const deleted = db.jsonSetting(s, 'dns_deleted', []);
+  const deleted = db.jsonSetting<DeletedRecord[]>(s, 'dns_deleted', []);
   const editId = str(ctx.query.get('edit'), 40);
   const editing = editId ? records.find((r: { id: string; }) => r.id === editId) : null;
   const pre = presetFrom(ctx.query.get('preset'), s, zoneName);
@@ -262,7 +264,7 @@ async function remove(ctx: AdminCtx) {
     if (x.data && (x.type === 'SRV' || x.type === 'CAA')) rec.data = x.data; else rec.content = x.content;
     if (x.type === 'MX') rec.priority = x.priority;
     if (PROXYABLE.has(x.type)) rec.proxied = !!x.proxied;
-    const list = [{ rec, at: new Date().toISOString(), by: ctx.user.name }, ...db.jsonSetting(ctx.settings, 'dns_deleted', [])].slice(0, 20);
+    const list = [{ rec, at: new Date().toISOString(), by: ctx.user.name }, ...db.jsonSetting<DeletedRecord[]>(ctx.settings, 'dns_deleted', [])].slice(0, 20);
     await db.setSetting('dns_deleted', JSON.stringify(list));
     await ctx.reloadSettings();
     await ctx.log('settings', 'dns', null, `মোছা: ${x.type} ${x.name} → ${contentOf(x)}`);
@@ -271,7 +273,7 @@ async function remove(ctx: AdminCtx) {
 }
 async function restore(ctx: AdminCtx) {
   const b = await ctx.body();
-  const list = db.jsonSetting(ctx.settings, 'dns_deleted', []);
+  const list = db.jsonSetting<DeletedRecord[]>(ctx.settings, 'dns_deleted', []);
   const i = int(b.i, -1);
   if (!list[i]) return ctx.back(BASE);
   try {

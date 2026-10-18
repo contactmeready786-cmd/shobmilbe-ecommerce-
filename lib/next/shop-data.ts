@@ -20,9 +20,9 @@ export const getSettings = cache(async (): Promise<Settings> => {
 export const getChrome = cache(async () => {
   const settings = await getSettings();
   const [categories, pages, popups] = await Promise.all([
-    catalog.listCategories({ includeInactive: false }) as Promise<unknown[]>,
-    content.listPages({ active: true }) as Promise<unknown[]>,
-    content.listBanners({ active: true, placement: 'popup' }) as Promise<unknown[]>,
+    catalog.listCategories({ includeInactive: false }),
+    content.listPages({ active: true }),
+    content.listBanners({ active: true, placement: 'popup' }),
   ]);
   return { settings, categories, pages, popup: popups[0] || null };
 });

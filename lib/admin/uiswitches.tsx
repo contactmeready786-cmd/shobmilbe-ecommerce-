@@ -25,7 +25,7 @@ function textForm(s: Settings, key?: Loose, t?: Loose) {
 
 async function page(ctx: AdminCtx) {
   const s = ctx.settings;
-  const home = db.jsonSetting(s, 'home_sections', []);
+  const home = db.jsonSetting<string[]>(s, 'home_sections', []);
   const row = (it?: Loose) => <li className={`ui-row ${it.key && !U.on(s, it.key) ? 'row-off' : ''}`}><div className="ui-row-main"><div className="ui-row-text"><b><Val v={it.label} /></b><span className="small muted"><Val v={it.desc} /></span></div>{(it.link ? <a className="btn btn-sm btn-ghost" href={attrValue(it.link)}>ওখানে যান →</a> : switchForm(`${BASE}/toggle/${it.key}`, U.on(s, it.key), it.label))}</div>{(it.text ? textForm(s, it.text.key, it.text) : null)}</li>;
   const LBL: Record<string, unknown> = { ...HOME_LABELS, ...(await $homerows.allLabels()).labels };
   for (const k of Object.keys(HOME_LABELS)) LBL[k] = HOME_LABELS[k];
@@ -62,7 +62,7 @@ async function homeToggle(ctx: AdminCtx, m: RouteMatch) {
   if (!LBL[key]) return done(ctx, false, 'অজানা সারি।');
   const b = await ctx.body();
   const on = !!b.active && b.active !== '0';
-  const list = db.jsonSetting(ctx.settings, 'home_sections', []).filter((k: string) => LBL[k] && k !== key);
+  const list = db.jsonSetting<string[]>(ctx.settings, 'home_sections', []).filter((k) => LBL[k] && k !== key);
   if (on) {
     // back in its usual place: just after the row that comes before it in the default order
     const order = Object.keys(HOME_LABELS);

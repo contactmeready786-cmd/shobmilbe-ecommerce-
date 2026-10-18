@@ -10,14 +10,17 @@ import * as imagekit from '../services/imagekit';
 import * as $crypto from 'node:crypto';
 import type { DbRow, Param, Tx } from '../pg';
 import type { Body } from '../types';
-import type { BrandsRow, BundleItemsRow, MediaRow, ProductsRow } from '../data/rows';
+import type { BrandsRow, BundleItemsRow, CategoriesRow, MediaRow, ProductsRow } from '../data/rows';
 
 type Id = number | string | null | undefined;
 /** A category row plus what categoryTree() adds. */
-export type CategoryNode = DbRow & { id: number; parent_id: number | null; children: CategoryNode[]; depth?: number; path?: CategoryNode[]; total_count?: number };
+/** a category with the number of its own active products */
+export type Category = CategoriesRow & { product_count: number };
+/** a category in the tree: its sub-categories, how deep it is, the way from the top, and its products with all below it */
+export type CategoryNode = Category & { children: CategoryNode[]; depth?: number; path?: CategoryNode[]; total_count?: number };
 /** Product list filters (shop and admin). */
 export type ProductFilter = {
-  hideOut?: boolean; category?: string; categoryId?: Id; brandId?: Id; brandIds?: unknown[] | null; damaged?: boolean; supplierId?: Id; q?: string;
+  hideOut?: boolean; category?: string | null; categoryId?: Id; brandId?: Id; brandIds?: unknown[] | null; damaged?: boolean; supplierId?: Id; q?: string;
   featured?: boolean; includeInactive?: boolean; type?: string; lowStock?: boolean; offer?: boolean; maxPrice?: unknown; minPrice?: unknown;
   status?: string; outStock?: boolean; inStock?: boolean; isNew?: boolean; newDays?: unknown; items?: boolean; ids?: unknown[] | null;
   specs?: Record<string, unknown[]> | null; sort?: string; limit?: number; offset?: number; public?: boolean;
@@ -109,25 +112,26 @@ async function cleanupMedia(): Promise<void> {
 // ---------------------------------------------------------------- categories
 // Every category (flat, in display order). product_count = this category's own products;
 // total_count (added by categoryTree) = its own + all its sub-categories'.
-function listCategories({ includeInactive = true }: { includeInactive?: boolean } = {}): Promise<DbRow[]> {
+function listCategories({ includeInactive = true }: { includeInactive?: boolean } = {}): Promise<Category[]> {
   return memo(`categories:${includeInactive}`, () => loadCategories(includeInactive));
 }
-async function loadCategories(includeInactive: boolean): Promise<DbRow[]> {
-  const rows = await q(`SELECT c.*, (SELECT count(*)::int FROM products p WHERE p.category_id=c.id AND p.active AND p.parent_id IS NULL) AS product_count
+async function loadCategories(includeInactive: boolean): Promise<Category[]> {
+  const rows = await q<Category>(`SELECT c.*, (SELECT count(*)::int FROM products p WHERE p.category_id=c.id AND p.active AND p.parent_id IS NULL) AS product_count
             FROM categories c ${includeInactive ? '' : 'WHERE coalesce(c.active, true)'} ORDER BY sort, id`);
   // a sub-category whose main category is hidden is hidden too
   if (!includeInactive) {
     const ids = new Set(rows.map((r) => r.id));
-    const all = await q('SELECT id, parent_id, coalesce(active,true) AS active FROM categories');
+    type Link = { id: number; parent_id: number | null; active: boolean };
+    const all = await q<Link>('SELECT id, parent_id, coalesce(active,true) AS active FROM categories');
     const byId = new Map(all.map((r) => [r.id, r]));
-    const visible = (c: DbRow | undefined) => { let x: DbRow | null | undefined = c; for (let i = 0; x && i < 20; i++) { if (!x.active) return false; x = x.parent_id ? byId.get(x.parent_id) : null; } return true; };
+    const visible = (c: Link | undefined) => { let x: Link | null | undefined = c; for (let i = 0; x && i < 20; i++) { if (!x.active) return false; x = x.parent_id ? byId.get(x.parent_id) : null; } return true; };
     return rows.filter((r) => visible(byId.get(r.id)) && (!r.parent_id || ids.has(r.parent_id)));
   }
   return rows;
 }
 // Flat list → tree. Each node gets: children[], depth, path (main → … → this), total_count.
-function categoryTree(list: DbRow[]): { roots: CategoryNode[]; byId: Map<number, CategoryNode> } {
-  const byId = new Map<number, CategoryNode>(list.map((c) => [c.id, { ...c, children: [] } as unknown as CategoryNode]));
+function categoryTree(list: Category[]): { roots: CategoryNode[]; byId: Map<number, CategoryNode> } {
+  const byId = new Map<number, CategoryNode>(list.map((c) => [c.id, { ...c, children: [] }]));
   const roots: CategoryNode[] = [];
   for (const c of byId.values()) {
     const parent = c.parent_id && byId.get(c.parent_id);
@@ -150,7 +154,7 @@ function categoryTree(list: DbRow[]): { roots: CategoryNode[]; byId: Map<number,
   return { roots, byId };
 }
 // Tree as a flat list in menu order (for selects): [{…, depth}]
-function categoryOptions(list: DbRow[]): CategoryNode[] {
+function categoryOptions(list: Category[]): CategoryNode[] {
   const { roots } = categoryTree(list);
   const out: CategoryNode[] = [];
   const walk = (nodes: CategoryNode[]): void => nodes.forEach((n) => { out.push(n); walk(n.children); });
@@ -284,11 +288,27 @@ const SORTS: Record<string, string> = {
   sku: `(CASE WHEN p.sku ~ '^[0-9]{1,15}$' THEN p.sku::bigint END) ASC NULLS LAST, lower(coalesce(p.sku, '')) ASC, p.id ASC`,
   sku_desc: `(CASE WHEN p.sku ~ '^[0-9]{1,15}$' THEN p.sku::bigint END) DESC NULLS LAST, lower(coalesce(p.sku, '')) DESC`,
 };
-/** A product as the product queries return it (colsFor). The columns named here are typed — prices are numbers (lib/pg);
- * the cost price is not read for the shop side, so it may be missing. The rest are still read loosely for now. */
-export type Product = DbRow & {
-  id: number; name: string; slug: string; category_id: number | null; price: number; stock: number; active: boolean;
-  product_type: string; parent_id: number | null; image_id: number | null; cost_price?: number | null;
+/** A product as the product queries return it (PUBLIC_COLS / PRODUCT_COLS above; checked against Postgres).
+ * Shop side: price is what customers pay now (a running flash-sale price), old_price the crossed-out one.
+ * The buying price, damaged stock, supplier and shelf place are read only for the admin (PRODUCT_COLS). */
+export type Product = {
+  id: number; name: string; slug: string; category_id: number | null;
+  price: number; old_price: number | null; flash_ends: Date | null; base_price: number;
+  /** what can be sold now (variants: their sum; bundles: what the parts allow) */
+  stock: number; own_stock: number;
+  description: string; short_description: string; emoji: string; image_id: number | null; has_image: boolean; image_ik: string | null;
+  featured: boolean; active: boolean; sku: string; youtube_url: string; product_type: string;
+  seo_title: string; seo_description: string; seo_keywords: string; low_stock: number; weight_g: number; unit: string;
+  brand: string; brand_id: number | null; brand_slug: string | null; model: string;
+  /** [name, value] rows, as cleanSpecs saves them */
+  specs: [string, string][] | null;
+  is_new: boolean; noindex: boolean; warranty: string; warranty_type: string; barcode: string; allow_duplicate: boolean;
+  preorder: boolean; preorder_days: number; sold_count: number; wish_count: number; rating_avg: number; rating_count: number;
+  created_at: Date; updated_at: Date;
+  parent_id: number | null; variant_label: string; variant_count: number; variant_title: string;
+  category_name: string | null; category_slug: string | null; category_icon: string | null;
+  // the admin's query only
+  flash_price?: number | null; cost_price?: number | null; damaged_stock?: number; supplier_id?: number | null; location?: string;
 };
 /** One product with its pictures, its bundle parts and its variants (getProduct). */
 export type FullProduct = Product & { images: number[]; bundle: DbRow[]; variants: Product[] };

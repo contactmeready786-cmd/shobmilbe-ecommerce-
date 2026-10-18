@@ -19,14 +19,14 @@ import { kindOf } from '../data/partinfo';
 import * as $seo from './seo';
 import * as $util from '../util';
 import * as $admin_status from './seoscore';
-import type { Body, Id, Loose, Settings, Caught } from '../types';
-import type { FullProduct } from '../models/catalog';
+import type { Id, Settings, Caught } from '../types';
+import type { Product } from '../models/catalog';
 
 const EVERY_MS = 9 * 60 * 1000;
 const PER_RUN = 40;
 const OWN_TEXT_ENOUGH = 150; // own description at least this long → no auto text
 
-const money = (n: number) => '৳' + bn(Math.round(Number(n) || 0).toLocaleString('en-IN'));
+const money = (n: unknown) => '৳' + bn(Math.round(Number(n) || 0).toLocaleString('en-IN'));
 const cleanName = (n: string) => $seo.cleanName(n);
 
 // ---------------------------------------------------------------- 1. model / part number from the name
@@ -49,26 +49,26 @@ function extractModel(name: string) {
 
 // ---------------------------------------------------------------- 2. specifications from the name and text
 const NUM = '(\\d+(?:\\.\\d+)?)';
-const SPEC_RULES = [
-  ['ভোল্টেজ', new RegExp(`(?:DC|AC)?\\s*${NUM}\\s*V(?:DC|AC)?(?:\\s*(?:-|~|to|থেকে)\\s*${NUM}\\s*V(?:DC|AC)?)?(?![a-z])`, 'i'), (m?: Loose) => m[0].replace(/\s+/g, ' ').trim()],
-  ['কারেন্ট', new RegExp(`${NUM}\\s*(mA|A)(?![a-z])`, 'i'), (m?: Loose) => `${m[1]}${/^ma$/i.test(m[2]) ? 'mA' : 'A'}`],
-  ['পাওয়ার', new RegExp(`(?:(\\d+)\\s*[x×]\\s*)?${NUM}\\s*W(?:att)?(?![a-z])`, 'i'), (m?: Loose) => (m[1] ? `${m[1]}×${m[2]}W` : `${m[2]}W`)],
-  ['ক্যাপাসিটি', new RegExp(`${NUM}\\s*mAh(?![a-z])`, 'i'), (m?: Loose) => `${m[1]}mAh`],
-  ['রেজিস্ট্যান্স', new RegExp(`${NUM}\\s*(K|M)?\\s*(?:ohms?|Ω)`, 'i'), (m?: Loose) => `${m[1]}${m[2] ? m[2].toUpperCase() : ''}Ω`],
-  ['ক্যাপাসিট্যান্স', new RegExp(`${NUM}\\s*(uF|µF|μF|nF|pF)(?![a-z])`, 'i'), (m?: Loose) => `${m[1]}${m[2].replace(/^u|μ/i, 'µ').replace(/f$/i, 'F').replace(/^n/i, 'n').replace(/^p/i, 'p')}`],
-  ['ফ্রিকোয়েন্সি', new RegExp(`${NUM}\\s*(GHz|MHz|KHz|Hz)(?![a-z])`, 'i'), (m?: Loose) => `${m[1]}${(<Record<string, string>>{ ghz: 'GHz', mhz: 'MHz', khz: 'kHz', hz: 'Hz' })[m[2].toLowerCase()]}`],
-  ['ডিসপ্লে', /(?<![\d.])(16x2|16x1|20x4|128x64|128x32|240x320|320x480|8x8)(?![\d])/i, (m?: Loose) => m[1].toLowerCase()],
-  ['স্ক্রিন সাইজ', new RegExp(`${NUM}\\s*(?:inch|in|")(?![a-z])`, 'i'), (m?: Loose) => `${m[1]} ইঞ্চি`],
-  ['চ্যানেল', /(?<![\d.])(\d{1,2})\s*-?\s*(?:channel|ch)(?![a-z])/i, (m?: Loose) => `${m[1]} চ্যানেল`],
-  ['পিন', /(?<![\d.])(\d{1,3})\s*-?\s*pins?(?![a-z])/i, (m?: Loose) => `${m[1]} পিন`],
-  ['গতি', new RegExp(`${NUM}\\s*RPM(?![a-z])`, 'i'), (m?: Loose) => `${m[1]} RPM`],
-  ['ব্লুটুথ ভার্সন', /bluetooth\s*(?:v|ver(?:sion)?)?\s*(\d\.\d)/i, (m?: Loose) => m[1]],
-  ['প্যাকে', /(?<![\d.])(\d{1,4})\s*(?:pcs|pc|pieces|piece|টি|টা|পিস)(?![a-z])/i, (m?: Loose) => `${m[1]} পিস`],
+const SPEC_RULES: [string, RegExp, (m: RegExpMatchArray) => string][] = [
+  ['ভোল্টেজ', new RegExp(`(?:DC|AC)?\\s*${NUM}\\s*V(?:DC|AC)?(?:\\s*(?:-|~|to|থেকে)\\s*${NUM}\\s*V(?:DC|AC)?)?(?![a-z])`, 'i'), (m) => m[0].replace(/\s+/g, ' ').trim()],
+  ['কারেন্ট', new RegExp(`${NUM}\\s*(mA|A)(?![a-z])`, 'i'), (m) => `${m[1]}${/^ma$/i.test(m[2]) ? 'mA' : 'A'}`],
+  ['পাওয়ার', new RegExp(`(?:(\\d+)\\s*[x×]\\s*)?${NUM}\\s*W(?:att)?(?![a-z])`, 'i'), (m) => (m[1] ? `${m[1]}×${m[2]}W` : `${m[2]}W`)],
+  ['ক্যাপাসিটি', new RegExp(`${NUM}\\s*mAh(?![a-z])`, 'i'), (m) => `${m[1]}mAh`],
+  ['রেজিস্ট্যান্স', new RegExp(`${NUM}\\s*(K|M)?\\s*(?:ohms?|Ω)`, 'i'), (m) => `${m[1]}${m[2] ? m[2].toUpperCase() : ''}Ω`],
+  ['ক্যাপাসিট্যান্স', new RegExp(`${NUM}\\s*(uF|µF|μF|nF|pF)(?![a-z])`, 'i'), (m) => `${m[1]}${m[2].replace(/^u|μ/i, 'µ').replace(/f$/i, 'F').replace(/^n/i, 'n').replace(/^p/i, 'p')}`],
+  ['ফ্রিকোয়েন্সি', new RegExp(`${NUM}\\s*(GHz|MHz|KHz|Hz)(?![a-z])`, 'i'), (m) => `${m[1]}${(<Record<string, string>>{ ghz: 'GHz', mhz: 'MHz', khz: 'kHz', hz: 'Hz' })[m[2].toLowerCase()]}`],
+  ['ডিসপ্লে', /(?<![\d.])(16x2|16x1|20x4|128x64|128x32|240x320|320x480|8x8)(?![\d])/i, (m) => m[1].toLowerCase()],
+  ['স্ক্রিন সাইজ', new RegExp(`${NUM}\\s*(?:inch|in|")(?![a-z])`, 'i'), (m) => `${m[1]} ইঞ্চি`],
+  ['চ্যানেল', /(?<![\d.])(\d{1,2})\s*-?\s*(?:channel|ch)(?![a-z])/i, (m) => `${m[1]} চ্যানেল`],
+  ['পিন', /(?<![\d.])(\d{1,3})\s*-?\s*pins?(?![a-z])/i, (m) => `${m[1]} পিন`],
+  ['গতি', new RegExp(`${NUM}\\s*RPM(?![a-z])`, 'i'), (m) => `${m[1]} RPM`],
+  ['ব্লুটুথ ভার্সন', /bluetooth\s*(?:v|ver(?:sion)?)?\s*(\d\.\d)/i, (m) => m[1]],
+  ['প্যাকে', /(?<![\d.])(\d{1,4})\s*(?:pcs|pc|pieces|piece|টি|টা|পিস)(?![a-z])/i, (m) => `${m[1]} পিস`],
 ];
-function extractSpecs(...texts: Loose[]) {
+function extractSpecs(...texts: unknown[]) {
   const text = texts.map((t) => String(t || '')).join(' \n ');
-  const out: Loose[] = [];
-  for (const [label, re, fmt] of SPEC_RULES as Loose[]) {
+  const out: [string, string][] = [];
+  for (const [label, re, fmt] of SPEC_RULES) {
     const m = text.match(re);
     if (!m) continue;
     const v = fmt(m);
@@ -78,14 +78,15 @@ function extractSpecs(...texts: Loose[]) {
 }
 
 // ---------------------------------------------------------------- 3. the description
-const pick = (list?: Loose, seed?: Loose) => list[Math.abs(seed) % list.length];
+const pick = <T,>(list: T[], seed: number) => list[Math.abs(seed) % list.length];
 function seedOf(id?: Id) { let h = 7; for (const ch of String(id)) h = (h * 31 + ch.charCodeAt(0)) | 0; return h; }
-function ownTextLength(p: db.pg.DbRow) { return md.plain(`${p.short_description || ''} ${p.description || ''}`, 5000).trim().length; }
-function needsAuto(p: db.pg.DbRow, settings: Settings = {} as Settings) { return settings.autoseo_desc !== '0' && ownTextLength(p) < OWN_TEXT_ENOUGH; }
-function cheapRule(settings: Settings, price?: Loose) { try { return $util.qtyRule(settings, price).cheap; } catch (_) { return false; } }
+type OwnText = { short_description?: string | null; description?: string | null };
+function ownTextLength(p: OwnText) { return md.plain(`${p.short_description || ''} ${p.description || ''}`, 5000).trim().length; }
+function needsAuto(p: OwnText, settings: Settings = {} as Settings) { return settings.autoseo_desc !== '0' && ownTextLength(p) < OWN_TEXT_ENOUGH; }
+function cheapRule(settings: Settings, price?: unknown) { try { return $util.qtyRule(settings, price).cheap; } catch (_) { return false; } }
 
 // a short paragraph — meta description, feeds, Google's product description
-function summary(p: FullProduct) {
+function summary(p: Pick<Product, 'name' | 'category_name' | 'model'>) {
   const name = cleanName(p.name);
   const k = kindOf(name, p.category_name);
   const what = k ? k.what : p.category_name ? `${p.category_name} ক্যাটাগরির পণ্য` : 'পণ্য';
@@ -93,7 +94,7 @@ function summary(p: FullProduct) {
 }
 
 // for the Google snippet, after "<name> কিনুন ৳…।": what it is and what it is for
-function metaLine(p: FullProduct, room = 999) {
+function metaLine(p: Pick<Product, 'name' | 'category_name' | 'model'>, room = 999) {
   const k = kindOf(cleanName(p.name), p.category_name);
   if (!k) return '';
   const full = `${k.what}${p.model ? ` (${p.model})` : ''}। ${k.uses}`.replace(/\s+/g, ' ').trim();
@@ -101,17 +102,17 @@ function metaLine(p: FullProduct, room = 999) {
 }
 
 // The full description (markdown). With settings, the price and delivery charges of today are in the questions.
-function describe(p: db.pg.DbRow, settings: Settings = {} as Settings) {
+function describe(p: Pick<Product, 'id' | 'name' | 'category_name' | 'brand' | 'model' | 'price' | 'old_price' | 'stock'> & { specs: unknown }, settings: Settings = {} as Settings) {
   const name = cleanName(p.name);
   const shop = settings.store_name || 'সবমিলবে';
   const k = kindOf(name, p.category_name);
   const seed = seedOf(p.id || name);
   const brand = p.brand && !/^(made\s*in|china|chinese|generic|no\s*brand|unbranded|চায়না|চাইনিজ)/i.test(String(p.brand).trim()) ? p.brand : '';
   const what = k ? k.what : p.category_name ? `${p.category_name} ক্যাটাগরির পণ্য` : 'পণ্য';
-  const specs = (Array.isArray(p.specs) ? p.specs : []).filter((r) => Array.isArray(r) && r[0] && r[1]).slice(0, 12);
+  const specs = (Array.isArray(p.specs) ? (p.specs as unknown[]) : []).filter((r): r is [string, string] => Array.isArray(r) && !!r[0] && !!r[1]).slice(0, 12);
   const dhaka = Number(settings.delivery_dhaka) || 60;
   const outside = Number(settings.delivery_outside) || 110;
-  const lines: Loose[] = [];
+  const lines: string[] = [];
   lines.push(`## ${name} — ${pick(['বিস্তারিত', 'পণ্য পরিচিতি', 'যা জানা দরকার'], seed)}`);
   lines.push([
     pick([`**${name}** একটি ${what}${brand ? `, ব্র্যান্ড ${brand}` : ''}।`, `**${name}** হলো ${brand ? `${brand}-এর ` : ''}একটি ${what}।`], seed),
@@ -120,7 +121,7 @@ function describe(p: db.pg.DbRow, settings: Settings = {} as Settings) {
   ].filter(Boolean).join(' '));
   if (specs.length) {
     lines.push('', `### ${pick(['মূল বৈশিষ্ট্য', 'স্পেসিফিকেশন এক নজরে', 'বৈশিষ্ট্য'], seed >> 2)}`);
-    specs.forEach(([a, b]: Loose[]) => lines.push(`- **${a}:** ${b}`));
+    specs.forEach(([a, b]) => lines.push(`- **${a}:** ${b}`));
   }
   lines.push('', `### ${pick(['কেনার আগে জেনে নিন', 'ব্যবহারের টিপস', 'যা খেয়াল রাখবেন'], seed >> 4)}`);
   if (k) lines.push(`- ${k.tip}`);
@@ -133,7 +134,7 @@ function describe(p: db.pg.DbRow, settings: Settings = {} as Settings) {
   lines.push('', '### সাধারণ প্রশ্ন');
   if (p.price > 0) {
     lines.push(`**${pick([`বাংলাদেশে ${name} এর দাম কত?`, `${name} এর দাম কত?`], seed >> 7)}**`);
-    lines.push(`${shop} অনলাইন শপে এখন ${name} এর দাম ${money(p.price)}${p.old_price > p.price ? ` (আগে ছিল ${money(p.old_price)})` : ''}। ${p.stock > 0 ? 'স্টকে আছে।' : 'এই মুহূর্তে স্টকে নেই — "স্টকে এলে জানাও" চাপলে SMS পাবেন।'}`);
+    lines.push(`${shop} অনলাইন শপে এখন ${name} এর দাম ${money(p.price)}${Number(p.old_price) > p.price ? ` (আগে ছিল ${money(p.old_price)})` : ''}। ${p.stock > 0 ? 'স্টকে আছে।' : 'এই মুহূর্তে স্টকে নেই — "স্টকে এলে জানাও" চাপলে SMS পাবেন।'}`);
     lines.push('');
   }
   lines.push(`**${name} price in Bangladesh?**`);
@@ -148,8 +149,9 @@ function describe(p: db.pg.DbRow, settings: Settings = {} as Settings) {
 // ---------------------------------------------------------------- the round-the-clock sweep
 const LOG_FIELDS: Record<string, string> = { model: 'মডেল নম্বর', specs: 'স্পেসিফিকেশন' };
 
-async function processOne(p: db.pg.DbRow, settings: Settings) {
-  const changes: Loose[] = [];
+type Change = { field: string; old: string; value: string; next?: unknown[] };
+async function processOne(p: { id: number; name: string; model: string; specs: unknown; short_description: string; description: string }, settings: Settings) {
+  const changes: Change[] = [];
   const past = await db.q<Pick<SeoAutoLogRow, 'field' | 'new_value'>>(`SELECT field, new_value FROM seo_auto_log WHERE product_id=$1`, [p.id]);
   // 🔢 model: only when empty, and never again after the owner removed / changed one we filled
   if (settings.autoseo_model !== '0' && !String(p.model || '').trim() && !past.some((l) => l.field === 'model')) {
@@ -158,13 +160,13 @@ async function processOne(p: db.pg.DbRow, settings: Settings) {
   }
   // ⚙️ specs: add only labels that are missing, never a label we added before (the owner may have taken it out)
   if (settings.autoseo_specs !== '0') {
-    const cur = (Array.isArray(p.specs) ? p.specs : []).filter((r) => Array.isArray(r) && r[0]);
+    const cur = (Array.isArray(p.specs) ? (p.specs as unknown[]) : []).filter((r): r is unknown[] => Array.isArray(r) && !!r[0]);
     const have = new Set(cur.map((r) => String(r[0]).trim().toLowerCase()));
-    const addedBefore = new Set(past.filter((l) => l.field === 'specs').flatMap((l) => { try { return JSON.parse(l.new_value).map((r: Loose) => String(r[0]).toLowerCase()); } catch (_) { return []; } }));
+    const addedBefore = new Set(past.filter((l) => l.field === 'specs').flatMap((l) => { try { return (JSON.parse(l.new_value) as unknown[][]).map((r) => String(r[0]).toLowerCase()); } catch (_) { return []; } }));
     // the owner's own English labels mean the same thing
-    const same: Record<string, Loose> = { 'ভোল্টেজ': ['voltage', 'input voltage', 'operating voltage', 'working voltage'], 'কারেন্ট': ['current', 'output current'], 'পাওয়ার': ['power', 'output power'], 'ক্যাপাসিটি': ['capacity'] };
+    const same: Record<string, string[]> = { 'ভোল্টেজ': ['voltage', 'input voltage', 'operating voltage', 'working voltage'], 'কারেন্ট': ['current', 'output current'], 'পাওয়ার': ['power', 'output power'], 'ক্যাপাসিটি': ['capacity'] };
     const add = extractSpecs(cleanName(p.name), md.plain(`${p.short_description || ''} ${p.description || ''}`, 1500))
-      .filter(([label]) => !have.has(label.toLowerCase()) && !addedBefore.has(label.toLowerCase()) && !(same[label] || []).some((x: string) => have.has(x)))
+      .filter(([label]) => !have.has(label.toLowerCase()) && !addedBefore.has(label.toLowerCase()) && !(same[label] || []).some((x) => have.has(x)))
       .slice(0, 8);
     if (add.length) changes.push({ field: 'specs', old: JSON.stringify(cur), value: JSON.stringify(add), next: [...cur, ...add] });
   }
@@ -200,7 +202,7 @@ async function snapshot(force = false) {
 
 type SweepOpts = {
   force?: boolean;
-  max?: number | 40;
+  max?: number;
 };
 async function sweep(settings: Settings, { force = false, max = PER_RUN }: SweepOpts = {}) {
   if (settings.autoseo_on === '0') return { off: true };
@@ -229,11 +231,11 @@ async function undo(logId?: Id) {
   if (p) {
     if (l.field === 'model' && String(p.model || '') === l.new_value) await db.q(`UPDATE products SET model='', updated_at=now(), seo_auto_at=now() WHERE id=$1`, [p.id]);
     if (l.field === 'specs') {
-      let added: Loose[] = [];
+      let added: unknown[][] = [];
       try { added = JSON.parse(l.new_value); } catch (_) { added = []; }
-      const key = (r?: Loose) => `${r[0]}\u0001${r[1]}`;
+      const key = (r: unknown[]) => `${r[0]}\u0001${r[1]}`;
       const drop = new Set(added.map(key));
-      const keep = (Array.isArray(p.specs) ? p.specs : []).filter((r) => !(Array.isArray(r) && drop.has(key(r))));
+      const keep = (Array.isArray(p.specs) ? (p.specs as unknown[]) : []).filter((r) => !(Array.isArray(r) && drop.has(key(r))));
       await db.q('UPDATE products SET specs=$2::jsonb, updated_at=now(), seo_auto_at=now() WHERE id=$1', [p.id, JSON.stringify(keep)]);
     }
   }
@@ -247,7 +249,7 @@ async function undoAll() {
   return n;
 }
 
-async function stats(): Promise<Loose> {
+async function stats() {
   const [a, b, hist] = await Promise.all([
     db.one<{ done: number; total: number }>(`SELECT count(*) FILTER (WHERE seo_auto_at IS NOT NULL AND seo_auto_at >= updated_at)::int AS done, count(*)::int AS total
       FROM products WHERE active AND parent_id IS NULL`),
@@ -257,7 +259,7 @@ async function stats(): Promise<Loose> {
   ]);
   const own = await db.q<Pick<ProductsRow, 'short_description' | 'description'>>(`SELECT short_description, description FROM products WHERE active AND parent_id IS NULL`);
   const autoDesc = own.filter((p) => ownTextLength(p) < OWN_TEXT_ENOUGH).length;
-  return { ...a, ...b, autoDesc, hist };
+  return { ...a!, ...b!, autoDesc, hist }; // (counts: always one row)
 }
 async function recent(limit = 40) {
   return db.q<{ id: number; product_id: number; field: string; old_value: string; new_value: string; undone: boolean; created_at: Date; name: string; slug: string }>(`SELECT l.*, p.name, p.slug FROM seo_auto_log l JOIN products p ON p.id=l.product_id ORDER BY l.id DESC LIMIT $1`, [limit]);

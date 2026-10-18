@@ -128,7 +128,7 @@ export async function feed(ctx: ApiCtx) {
   const m = ctx.path.match(/^\/feeds\/(google|facebook)\.(xml|csv|tsv)$/)!;
   let out: Response = notFound();
   const send = (status: number, body: string, type?: string, extra: Record<string, string> = {}) => { out = text(status, body, type, extra); };
-  await feeds.serve({ req: ctx.req, query: ctx.query, settings: ctx.settings, send, siteUrl: siteUrl(ctx.req, ctx.settings) } as Body, m[1], m[2]);
+  await feeds.serve({ req: ctx.req, query: ctx.query, settings: ctx.settings, send, siteUrl: siteUrl(ctx.req, ctx.settings) }, m[1], m[2]);
   return out;
 }
 

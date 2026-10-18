@@ -31,6 +31,13 @@ export type Row = Record<string, any>;
 /** Old code that has not been given exact types yet. Searching for "Loose" finds every place still to tighten. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- legacy: type me
 export type Loose = any;
+// What some admin pages save as JSON in the settings (read with db.jsonSetting<…>)
+/** Admin → মেনু: one header menu button or footer link */
+export type MenuLink = { label: string; url: string; on?: boolean };
+/** a file a search engine or another service asks for, to check the shop is ours */
+export type VerificationFile = { path: string; content: string };
+/** Admin → পিক্সেল ও ট্র্যাকিং → "যেকোনো স্ক্রিপ্ট বসান" */
+export type CustomScript = { name?: string; place: 'head' | 'body' | string; code: string; on?: boolean };
 /** What a `catch` receives: an Error (with the database's or a network's `code` when they set one). */
 export type Caught = Error & { code?: string; status?: number };
 /** A row id as the code passes it around (from the database, a form or the address). */

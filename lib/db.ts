@@ -1617,9 +1617,10 @@ async function setSetting(key: string, value: unknown): Promise<void> {
 async function setMany(obj: Record<string, unknown>): Promise<void> {
   for (const [k, v] of Object.entries(obj)) await setSetting(k, v);
 }
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- the stored JSON's shape depends on the setting
-function jsonSetting(settings: Settings, key: string, fallback: any = []): any {
-  try { const v = JSON.parse(settings[key] || ''); return v ?? fallback; } catch (_) { return fallback; }
+/** a setting the admin saves as JSON (a list, a map …), or the fallback when it is missing or broken. The caller says
+ * what shape that admin page saves (T); without one it is unknown. */
+function jsonSetting<T = unknown>(settings: Settings, key: string, fallback: T | unknown[] = []): T {
+  try { const v = JSON.parse(settings[key] || ''); return (v ?? fallback) as T; } catch (_) { return fallback as T; }
 }
 
 // ---------------------------------------------------------------------------

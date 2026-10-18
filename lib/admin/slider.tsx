@@ -38,7 +38,7 @@ async function page(ctx: AdminCtx) {
     await db.setMany({ slider_on: on ? '1' : '0', slider_interval: String(sec), slider_effect: b.slider_effect === 'fade' ? 'fade' : 'slide' });
     // switching it on puts the slider at the top of the home page if it was taken off there
     if (on) {
-      const secs = db.jsonSetting(ctx.settings, 'home_sections', []);
+      const secs = db.jsonSetting<string[]>(ctx.settings, 'home_sections', []);
       if (Array.isArray(secs) && secs.length && !secs.includes('slider')) await db.setSetting('home_sections', JSON.stringify(['slider', ...secs]));
     }
     await ctx.reloadSettings();

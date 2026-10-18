@@ -126,7 +126,7 @@ function kpi(label?: Loose, value?: Loose, sub?: Loose, cls = '', href = '') {
 }
 
 // Category choices as a tree: "📟 ইলেকট্রনিক্স", "　└ সার্কিট ও মডিউল", "　　└ অডিও অ্যামপ্লিফায়ার বোর্ড"
-function catOpts(categories: DbRow[]) {
+function catOpts(categories: $models_catalog.Category[]) {
   const { categoryOptions } = $models_catalog;
   return categoryOptions(categories).map((c) => [c.id, c.depth ? `${'\u3000'.repeat(c.depth)}└ ${c.name}` : `${c.icon} ${c.name}`]);
 }

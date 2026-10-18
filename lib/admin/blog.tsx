@@ -27,9 +27,9 @@ async function form(ctx: AdminCtx, m: RouteMatch | null) {
     await ctx.log(id ? 'post_edit' : 'post_add', 'blog', pid, str(b.title, 80));
     return ctx.back(`/admin/blog/${pid}`, 'saved');
   }
-  const p = id ? await content.getPost({ id }) : {};
+  const p: Partial<content.Post> | null = id ? await content.getPost({ id }) : {};
   if (id && !p) return ctx.redirect('/admin/blog');
-  return ctx.page(id ? p!.title : 'নতুন পোস্ট', <>{ui.flash(ctx.flash)}{postForm(p, cats)}</>, 'blog');
+  return ctx.page(id ? p!.title! : 'নতুন পোস্ট', <>{ui.flash(ctx.flash)}{postForm(p, cats)}</>, 'blog');
 }
 async function remove(ctx: AdminCtx, m: RouteMatch) {
   await ctx.trash('blog_post', int(m[1]));

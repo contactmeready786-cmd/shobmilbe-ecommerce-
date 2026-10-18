@@ -18,6 +18,9 @@ import * as $models_selfservice from '../models/selfservice';
 import * as $models_complaints from '../models/complaints';
 import type { Body, Id, Loose, Settings } from '../types';
 import type { DbRow } from '../pg';
+import type { BannersRow, FlashSalesRow, HomeRowsRow } from '../data/rows';
+import type { CategoryNode, Product } from '../models/catalog';
+import type { PostSummary } from '../models/content';
 import type { ReactNode } from 'react';
 
 /** A product as the shop's cards and pages read it. Any product query's row fits (the columns named here are typed). */
@@ -82,7 +85,7 @@ function section(title: ReactNode, link: string, content: ReactNode) {
   return (<section className="home-sec"><div className="section-head"><h2><Val v={title} /></h2>{(link ? <a href={attrValue(link)}>সব দেখুন →</a> : null)}</div><Val v={content} /></section>);
 }
 // Home page boxes: only the main categories (no drop-downs); the count includes their sub-categories.
-function catGrid(categories: DbRow[]) {
+function catGrid(categories: $models_catalog.Category[]) {
   const { roots } = categoryTree(categories);
   return (<nav className="cat-grid" aria-label="ক্যাটাগরি">{jsxList(roots.map((c) => <a className="cat-box" href={`/products?cat=${attrValue(c.slug)}`}>{' '}<span className="cat-ic" aria-hidden="true">{(c.image_id ? <img src={`/media/${attrValue(c.image_id)}/t`} alt="" draggable="false" /> : <Val v={c.icon} />)}</span>{' '}<span className="cat-name"><Val v={c.name} /></span><span className="cat-count">{bn(c.total_count)}টি</span></a>))}</nav>);
 }
@@ -100,10 +103,20 @@ function rail(title: ReactNode, link: string, products: ShopProduct[] | null | u
 }
 
 // ---------------------------------------------------------------- home
+/** what the home page shows (made in lib/shop/router.tsx; a box the owner switched off gets an empty list) */
+export type HomeData = {
+  slides: BannersRow[]; promos: BannersRow[]; categories: $models_catalog.Category[]; posts: PostSummary[];
+  catRows: { cat: CategoryNode; chips: CategoryNode[]; products: Product[] }[];
+  flash: { sale: FlashSalesRow; products: Product[] } | null;
+  /** the owner's own rows, by their key (x12) */
+  custom: Record<string, { row: HomeRowsRow; link: string; products: Product[] }>;
+  latest: Product[]; offers: Product[]; best: Product[]; popular: Product[]; featured: Product[]; budget: Product[];
+};
 type HomeProps = {
   settings: Settings;
-  sections: Loose;
-  data: Loose;
+  /** the home page's boxes, in the owner's order */
+  sections: string[];
+  data: HomeData;
 };
 function home({ settings: s, sections, data }: HomeProps) {
   // the first row of products on the page loads its first cards at once (the rest load as they scroll into view)

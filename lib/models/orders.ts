@@ -48,7 +48,7 @@ class OrderError extends Error {
 
 // ---------------------------------------------------------------- delivery zones
 function dhakaCityAreas(settings: Settings): string[] {
-  const custom = jsonSetting(settings, 'dhaka_city_areas', null);
+  const custom = jsonSetting<string[] | null>(settings, 'dhaka_city_areas', null);
   return Array.isArray(custom) && custom.length ? custom : GEO_DATA.dhakaCity;
 }
 function findDistrict(name: unknown): District | null {
@@ -68,9 +68,10 @@ function deliveryFee(settings: Settings, zone: string, subtotal: number): number
 // Extra delivery zones the owner made (Admin → সেটিংস → ডেলিভারি জোন), e.g. "ঢাকার আশেপাশে" ৳১০০ for Gazipur, Narayanganj…
 type Zone = { name: string; fee: number; districts: string[] };
 function customZones(settings: Settings): Zone[] {
-  const z = jsonSetting(settings, 'delivery_zones', []);
-  return (Array.isArray(z) ? z : []).filter((x: DbRow) => x && str(x.name) && Array.isArray(x.districts) && x.districts.length)
-    .map((x: DbRow) => ({ name: str(x.name, 60), fee: Math.max(0, amount(x.fee)), districts: x.districts.map((d: unknown) => String(d)) }));
+  type Saved = { name?: unknown; fee?: unknown; districts?: unknown[] };
+  const z = jsonSetting<Saved[]>(settings, 'delivery_zones', []);
+  return (Array.isArray(z) ? z : []).filter((x) => x && str(x.name) && Array.isArray(x.districts) && x.districts.length)
+    .map((x) => ({ name: str(x.name, 60), fee: Math.max(0, amount(x.fee)), districts: x.districts!.map((d) => String(d)) }));
 }
 // Which zone an address is in, and its charge (before weight and free delivery).
 function deliveryZone(settings: Settings, district: unknown, thana: unknown): { area: 'dhaka' | 'outside'; name: string; fee: number } {

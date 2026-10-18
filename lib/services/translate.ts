@@ -10,7 +10,7 @@
 import * as crypto from 'node:crypto';
 import * as db from '../db';
 import * as security from '../security';
-import type { Body, Id, Loose, Settings, Caught } from '../types';
+import type { Body, Id, Loose, Settings, Caught, MenuLink } from '../types';
 import type { TranslationsRow } from '../data/rows';
 
 const BN = /[\u0980-\u09E5\u09F0-\u09F2\u09F4-\u09FF]/; // Bangla letters (digits and ৳ alone don't need translating)
@@ -160,7 +160,7 @@ async function siteTexts(settings: Settings) {
   });
   rows.forEach((r) => add(r.t));
   ['store_name', 'tagline', 'hero_title', 'notice', 'footer_about', 'manual_note', 'pay_cod_note', 'live_nav_label', 'block_message'].forEach((k) => add(settings[k]));
-  for (const k of ['header_menu', 'footer_links']) db.jsonSetting(settings, k, []).forEach((m: Loose) => add(m && m.label));
+  for (const k of ['header_menu', 'footer_links']) db.jsonSetting<MenuLink[]>(settings, k, []).forEach((m) => add(m && m.label));
   return [...out];
 }
 

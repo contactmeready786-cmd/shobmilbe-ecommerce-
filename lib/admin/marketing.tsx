@@ -11,7 +11,7 @@ import * as ui from './ui';
 import * as $services_seo from '../services/seo';
 import * as $status from './status';
 import * as $models_catalog from '../models/catalog';
-import type { AdminCtx, Body, Loose, RouteMatch, Caught } from '../types';
+import type { AdminCtx, Body, Loose, RouteMatch, Caught, VerificationFile, CustomScript } from '../types';
 const OWNER_ONLY_KEYS = new Set(['custom_scripts', 'custom_head', 'custom_body', 'chat_script', 'verification_files', 'live_cricket_embed', 'live_football_embed']);
 async function saveKeys(ctx: AdminCtx, keys?: Loose, body?: Loose, { secrets = [], checkboxes = [] }: Body = {}) {
   const owner = ctx.user && ctx.user.role === 'owner';
@@ -70,9 +70,9 @@ async function tracking(ctx: AdminCtx) {
     await ctx.log('settings', 'marketing', null, 'ট্র্যাকিং');
     return ctx.back('/admin/marketing/tracking', 'saved');
   }
-  const files = db.jsonSetting(s, 'verification_files', []);
+  const files = db.jsonSetting<VerificationFile[]>(s, 'verification_files', []);
   const logs = await db.q<IntegrationLogsRow>(`SELECT * FROM integration_logs WHERE service IN ('facebook','tiktok') ORDER BY created_at DESC LIMIT 10`);
-  const scripts = db.jsonSetting(s, 'custom_scripts', []);
+  const scripts = db.jsonSetting<CustomScript[]>(s, 'custom_scripts', []);
   const owner = ctx.user.role === 'owner';
   const st = [
     ['Facebook Pixel', !!s.fb_pixel_id, '#fb'], ['Conversions API', !!s.fb_capi_token, '#fb'], ['FB ডোমেইন ভেরিফিকেশন', !!s.fb_domain_verification, '#fb'],

@@ -32,7 +32,7 @@ export type Resolved =
   | { kind: 'page'; title: string; body: ReactNode; opts: PageOpts }
   | { kind: 'redirect'; status: 301 | 302 | 303; location: string; headers: Record<string, string> }
   | { kind: 'notFound' };
-export type ShopCtx = { path: string; query: URLSearchParams; settings: Settings; categories: Loose[]; base: string };
+export type ShopCtx = { path: string; query: URLSearchParams; settings: Settings; categories: catalog.Category[]; base: string };
 
 const NOT_FOUND: Resolved = { kind: 'notFound' };
 const done = (title: string, body: ReactNode, opts: PageOpts = {}): Resolved => ({ kind: 'page', title, body, opts });
@@ -43,12 +43,12 @@ export async function resolveShop(ctx: ShopCtx): Promise<Resolved> {
   // Admin → দোকানে কী দেখাবে → "স্টক শেষ পণ্য তালিকায় দেখাও" off: lists, home rows and search skip them
   const hideOut = settings.ui_show_out_of_stock === '0';
   if (path === '/') {
-    let sections = db.jsonSetting(settings, 'home_sections', HOME_DEFAULT);
+    let sections = db.jsonSetting<string[]>(settings, 'home_sections', HOME_DEFAULT);
     // 🎞️ running slider switched on (Admin → স্টোর ডিজাইন → রানিং স্লাইডার) → always at the top
     if (settings.slider_on === '1' && Array.isArray(sections) && !sections.includes('slider')) sections = ['slider', ...sections];
     const want = (k: string) => sections.includes(k);
     const ROW = 16;
-    const inStockFirst = (a?: Loose) => [...a.filter((p: { stock: number; }) => p.stock > 0), ...a.filter((p: { stock: number; }) => p.stock <= 0)];
+    const inStockFirst = <P extends { stock: number }>(a: P[]) => [...a.filter((p) => p.stock > 0), ...a.filter((p) => p.stock <= 0)];
     // most looked-at products of the last 30 days (real visitors)
     const viewedIds = want('popular') ? (await db.q<Pick<PageViewsRow, 'product_id'>>(`SELECT product_id FROM page_views WHERE product_id IS NOT NULL AND created_at > now() - interval '30 days'
       GROUP BY product_id ORDER BY count(DISTINCT visitor_id) DESC LIMIT $1`, [ROW * 2])).map((r) => r.product_id) : [];
@@ -66,7 +66,7 @@ export async function resolveShop(ctx: ShopCtx): Promise<Resolved> {
     const order = new Map(viewedIds.map((id, i) => [id, i]));
     const popularList = viewed.sort((a, b) => (order.get(a.id) as number) - (order.get(b.id) as number));
     // category rows: each main category with its best products
-    let catRows: unknown[] = [];
+    let catRows: shop.HomeData['catRows'] = [];
     if (want('cat_rows')) {
       const { roots } = catalog.categoryTree(categories);
       const mains = roots.filter((c) => c.total_count! >= 4).slice(0, 8);
@@ -89,16 +89,16 @@ export async function resolveShop(ctx: ShopCtx): Promise<Resolved> {
       }
     }
     // the owner's own rows
-    const custom: Record<string, unknown> = {};
-    const customKeys = sections.filter((k: string) => /^x\d+$/.test(k));
+    const custom: shop.HomeData['custom'] = {};
+    const customKeys = sections.filter((k) => /^x\d+$/.test(k));
     if (customKeys.length) {
       const H = $models_homerows;
-      const rows = await db.q<HomeRowsRow>('SELECT * FROM home_rows WHERE id = ANY($1::int[])', [customKeys.map((k: unknown) => H.idOf(k))]).catch(() => []);
+      const rows = await db.q<HomeRowsRow>('SELECT * FROM home_rows WHERE id = ANY($1::int[])', [customKeys.map((k) => H.idOf(k))]).catch(() => []);
       await Promise.all(rows.map(async (r) => {
         custom[H.keyOf(r.id)] = { row: r, link: H.linkFor(r), products: await H.productsFor(r, { hideOut }).catch(() => []) };
       }));
     }
-    const data = {
+    const data: shop.HomeData = {
       slides, promos, categories, posts, catRows, flash, custom,
       latest: latest.slice(0, ROW),
       offers: take(offers),

@@ -125,7 +125,7 @@ const KINDS = [
 ];
 
 // The kind for a product: name first, then category name
-function kindOf(name: string, categoryName = '') {
+function kindOf(name: string, categoryName: string | null = '') {
   const tryText = (t: string) => {
     const low = ` ${String(t || '').toLowerCase()} `;
     return KINDS.find((k) => k.words.some((w) => {
@@ -137,7 +137,7 @@ function kindOf(name: string, categoryName = '') {
       return low.includes(word);
     }));
   };
-  return tryText(name) || tryText(categoryName) || null;
+  return tryText(name) || tryText(categoryName as string) || null; // (tryText reads null as no text)
 }
 
 export { KINDS, kindOf };

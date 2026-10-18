@@ -10,7 +10,7 @@ import { jsonSetting } from '../../../lib/db';
 import { categoryTree } from '../../../lib/models/catalog';
 import { BodyHtml } from '../../../lib/react/head-html';
 import { cx } from '../../../lib/react/html';
-import type { Loose, Settings } from '../../../lib/types';
+import type { CustomScript, Loose, MenuLink, Settings } from '../../../lib/types';
 import { SearchIcon, CartIcon, UserIcon, MenuIcon, WhatsAppIcon, MessengerIcon, SOCIAL_ICONS } from './icons';
 
 export const ASSET_V = '46';
@@ -24,7 +24,7 @@ export function Logo({ settings }: { settings: Settings }) {
 
 // Admin → পিক্সেল ও ট্র্যাকিং → "যেকোনো স্ক্রিপ্ট বসান": only the owner can save these, each with its own on/off
 export function customScripts(s: Settings, place: 'head' | 'body'): string {
-  let list: Loose[] = [];
+  let list: CustomScript[] = [];
   try { list = JSON.parse(s.custom_scripts || '[]'); } catch { list = []; }
   return (Array.isArray(list) ? list : []).filter((x) => x && x.on && x.place === place && x.code).map((x) => `\n<!-- ${String(x.name || '').replace(/--/g, '')} -->\n${x.code}`).join('');
 }
@@ -69,9 +69,9 @@ export type ChromeProps = {
 /** Everything inside <body>: the frame, the page (children) and the page's scripts. */
 export function ShopBody({ settings: s, categories, pages, popup = null, q = '', active = '', track = null, children }: ChromeProps) {
   const { roots } = categoryTree(categories);
-  const menu = jsonSetting(s, 'header_menu', []).filter((m: { on: boolean; }) => m.on !== false); // admin can switch each button off
+  const menu = jsonSetting<MenuLink[]>(s, 'header_menu', []).filter((m) => m.on !== false); // admin can switch each button off
   const showCart = s.nav_cart !== '0';
-  const footerLinks = jsonSetting(s, 'footer_links', []).filter((l: { on: boolean; }) => l.on !== false);
+  const footerLinks = jsonSetting<MenuLink[]>(s, 'footer_links', []).filter((l) => l.on !== false);
   // footer "কেনাকাটা" column — each link can be switched off from the admin
   const shopLinks = [
     ['/products', 'সব পণ্য', 'foot_products'], ['/products?sort=offer', 'অফার', 'foot_offer'],
@@ -80,7 +80,7 @@ export function ShopBody({ settings: s, categories, pages, popup = null, q = '',
     ...(s.gift_on === '1' ? [['/gift-card', '🎁 গিফট কার্ড', 'foot_gift']] : []),
     ...(s.ui_compare !== '0' ? [['/compare', '⚖️ পণ্য তুলনা', 'foot_compare']] : []),
     ...(s.shoppush_on === '1' && s.push_vapid_public ? [['#offers-on', '🔔 অফারের খবর পান', 'foot_push']] : []),
-  ].filter(([, , k]) => s[k] !== '0').concat(footerLinks.map((l: Loose) => [l.url, l.label]));
+  ].filter(([, , k]) => s[k] !== '0').concat(footerLinks.map((l) => [l.url, l.label]));
   const infoPages = pages.filter((p) => p.in_footer);
   const socials = Object.keys(SOCIAL_ICONS).filter((k) => s[k]);
   const liveLinks = [['cricket', '🏏 ক্রিকেট স্কোর'], ['football', '⚽ ফুটবল স্কোর']].filter(([k]) => s[`live_${k}`] === '1');
@@ -131,7 +131,7 @@ export function ShopBody({ settings: s, categories, pages, popup = null, q = '',
             </form>
           ) : <span className="search-off" aria-hidden="true"></span>}
           <nav className="header-nav" aria-label="প্রধান মেনু">
-            {menu.map((m: Loose, i: number) => <a key={i} href={security.safeUrl(m.url)} className={active && m.url.startsWith('/' + active) ? 'on' : ''}>{m.label}</a>)}{' '}
+            {menu.map((m, i) => <a key={i} href={security.safeUrl(m.url)} className={active && m.url.startsWith('/' + active) ? 'on' : ''}>{m.label}</a>)}{' '}
             {showLiveNav ? <a href="/live" className={cx('live-link', active === 'live' && 'on')}><span className="live-dot" aria-hidden="true"></span>{liveLabel}</a> : null}{' '}
             {s.acct_on === '1' && s.nav_account !== '0' ? <a href="/account" className={cx('acct-link', active === 'account' && 'on')} aria-label="আমার অ্যাকাউন্ট" title="আমার অ্যাকাউন্ট"><UserIcon /><span className="acct-word">অ্যাকাউন্ট</span></a> : null}{' '}
             {showCart ? <a href="/cart" className={cx('cart-link', active === 'cart' && 'on')} aria-label="কার্ট"><CartIcon /><span className="cart-word">কার্ট</span><b className="cart-count" data-cart-count="" hidden>0</b></a> : null}
@@ -142,7 +142,7 @@ export function ShopBody({ settings: s, categories, pages, popup = null, q = '',
       <aside className="drawer" id="drawer" aria-label="মেনু" hidden>
         <div className="drawer-head"><a className="logo logo-sm" href="/" translate="no"><Logo settings={s} /></a><button type="button" className="drawer-x" data-drawer-close="" aria-label="বন্ধ করুন">✕</button></div>
         <nav>
-          {menu.map((m: Loose, i: number) => <a key={i} href={security.safeUrl(m.url)}>{m.label}</a>)}
+          {menu.map((m, i) => <a key={i} href={security.safeUrl(m.url)}>{m.label}</a>)}
           {s.acct_on === '1' ? <a href="/account">👤 আমার অ্যাকাউন্ট</a> : null}
           {showCart ? <a href="/cart">কার্ট</a> : null}
           {s.wishlist_on !== '0' ? <a href="/wishlist">♡ পছন্দের তালিকা</a> : null}

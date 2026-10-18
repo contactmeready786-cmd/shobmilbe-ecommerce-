@@ -11,9 +11,9 @@ import type { PageOpts } from './router';
 import type { Loose, Settings } from '../types';
 
 /** The article if it is published (and its time has come), else null. */
-export async function publishedPost(slug: string): Promise<Loose | null> {
+export async function publishedPost(slug: string): Promise<content.Post | null> {
   const post = (await content.getPost({ slug }));
-  return post && post.status === 'published' && new Date(post.published_at) <= new Date() ? post : null;
+  return post && post.status === 'published' && new Date(post.published_at!) <= new Date() ? post : null;
 }
 
 export async function blogPostPage(slug: string, settings: Settings) {

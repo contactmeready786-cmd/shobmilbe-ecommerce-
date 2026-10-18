@@ -5,35 +5,34 @@
 import * as db from '../db';
 import * as $autoseo from './autoseo';
 import * as $security from '../security';
-import type { Body, Loose, Settings } from '../types';
-import type { FullProduct } from '../models/catalog';
+import type { Settings, ShopRequest } from '../types';
 import type { MediaRow } from '../data/rows';
 
-const CHANNELS: Record<string, Loose> = {
+const CHANNELS: Record<string, { title: number; desc: number; extraImages: number; label: string }> = {
   google: { title: 150, desc: 5000, extraImages: 10, label: 'Google Merchant Center' },
   facebook: { title: 200, desc: 9999, extraImages: 20, label: 'Facebook / Instagram ক্যাটালগ' },
 };
-const MIN_IMAGE: Record<string, Loose> = { google: 100, facebook: 500 };
+const MIN_IMAGE: Record<string, number> = { google: 100, facebook: 500 };
 
 // XML 1.0 can't carry control characters; strip them so the feed never breaks.
-function cleanText(v: string) {
+function cleanText(v: unknown) {
   return String(v ?? '').replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F￾￿]/g, '');
 }
-function xml(v: string) {
+function xml(v: unknown) {
   return cleanText(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
 }
-function csvCell(v?: Loose) {
+function csvCell(v?: unknown) {
   const s = cleanText(v).replace(/\r?\n/g, ' ');
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
-function tsvCell(v?: Loose) { return cleanText(v).replace(/[\t\r\n]+/g, ' '); }
+function tsvCell(v?: unknown) { return cleanText(v).replace(/[\t\r\n]+/g, ' '); }
 function cut(s: string, max: number) {
   const t = String(s || '').trim();
   if (t.length <= max) return t;
   return t.slice(0, max - 1).replace(/\s+\S*$/, '').trim() + '…';
 }
 // Product descriptions are written in simple markdown; feeds need plain text.
-function plainText(md?: Loose) {
+function plainText(md?: unknown) {
   return String(md || '')
     .replace(/^\s*\/p\/\S+\s*$/gm, ' ')               // embedded product cards
     .replace(/!\[[^\]]*\]\([^)]*\)/g, ' ')            // images
@@ -47,7 +46,7 @@ function plainText(md?: Loose) {
     .replace(/\s+/g, ' ')
     .trim();
 }
-function priceStr(n: number) { return `${(Math.max(0, Number(n) || 0)).toFixed(2)} BDT`; }
+function priceStr(n: unknown) { return `${(Math.max(0, Number(n) || 0)).toFixed(2)} BDT`; }
 
 async function loadProducts(settings: Settings) {
   const includeOut = settings.feed_include_out !== '0';
@@ -63,29 +62,31 @@ async function loadProducts(settings: Settings) {
     WHERE p.active AND p.parent_id IS NULL ORDER BY p.id`);
   const ids = rows.map((r) => r.id);
   const media = ids.length ? await db.q<Pick<MediaRow, 'id' | 'owner_id'>>(`SELECT id, owner_id FROM media WHERE owner_type='product' AND owner_id = ANY($1::int[]) ORDER BY owner_id, sort, id`, [ids]) : [];
-  const imgs = new Map();
-  for (const m of media) { if (!imgs.has(m.owner_id)) imgs.set(m.owner_id, []); imgs.get(m.owner_id).push(m.id); }
+  const imgs = new Map<number | null, number[]>();
+  for (const m of media) { if (!imgs.has(m.owner_id)) imgs.set(m.owner_id, []); imgs.get(m.owner_id)!.push(m.id); }
   return rows.map((p) => {
     const all = imgs.get(p.id) || [];
     const main = p.image_id || all[0] || null;
-    return { ...p, main_image: main, extra_images: all.filter((x: Loose) => x !== main), in_stock: Number(p.stock) > 0, includeOut };
+    return { ...p, main_image: main, extra_images: all.filter((x) => x !== main), in_stock: Number(p.stock) > 0, includeOut };
   });
 }
 
+/** one shop product, ready for the feeds */
+type FeedProduct = Awaited<ReturnType<typeof loadProducts>>[number];
 // Which products go in the feed, and why the others are left out (shown in the admin).
-function check(p?: Loose, channel?: Loose) {
-  const problems: Loose[] = [];
+function check(p: FeedProduct, channel: string) {
+  const problems: string[] = [];
   if (!p.main_image) problems.push('ছবি নেই');
   if (!(Number(p.price) > 0)) problems.push('দাম ০');
   if (!p.includeOut && !p.in_stock) problems.push('স্টকে নেই');
-  const warnings: Loose[] = [];
+  const warnings: string[] = [];
   const min = MIN_IMAGE[channel];
   if (p.main_image && p.img_w && p.img_h && (p.img_w < min || p.img_h < min)) warnings.push(`ছবি ছোট (${p.img_w}×${p.img_h}, কমপক্ষে ${min}×${min} দরকার)`);
   if (!plainText(p.description || p.short_description)) warnings.push('বিবরণ নেই (নাম দিয়ে চালানো হচ্ছে)');
   return { ok: !problems.length, problems, warnings };
 }
 
-function item(p: FullProduct, channel: string, settings: Settings, base: string) {
+function item(p: FeedProduct, channel: string, settings: Settings, base: string) {
   const lim = CHANNELS[channel];
   const sale = p.old_price && Number(p.old_price) > Number(p.price);
   const brand = cut(p.brand || settings.feed_brand || settings.store_name || 'Generic', channel === 'google' ? 70 : 100);
@@ -97,7 +98,7 @@ function item(p: FullProduct, channel: string, settings: Settings, base: string)
     description: desc,
     link: `${base}/p/${encodeURIComponent(p.slug)}`,
     image_link: `${base}/media/${p.main_image}`,
-    additional_image_link: p.extra_images.slice(0, lim.extraImages).map((id: Loose) => `${base}/media/${id}`),
+    additional_image_link: p.extra_images.slice(0, lim.extraImages).map((id) => `${base}/media/${id}`),
     availability: channel === 'google' ? (p.in_stock ? 'in_stock' : 'out_of_stock') : (p.in_stock ? 'in stock' : 'out of stock'),
     condition: ['new', 'refurbished', 'used'].includes(settings.feed_condition as string) ? settings.feed_condition : 'new',
     price: priceStr(sale ? p.old_price : p.price),
@@ -116,14 +117,13 @@ function item(p: FullProduct, channel: string, settings: Settings, base: string)
   };
 }
 
-type ToXmlOpts = {
-  map: Loose;
-};
-function toXml(items: ToXmlOpts, channel: string | number, settings: Settings, base: string) {
+/** one product line of a feed */
+type FeedItem = ReturnType<typeof item>;
+function toXml(items: FeedItem[], channel: string, settings: Settings, base: string) {
   const tag = (k: string, v: string | null | undefined) => (v === '' || v === null || v === undefined ? '' : `<g:${k}>${xml(v)}</g:${k}>`);
-  const body = items.map((it: Loose) => '<item>' + [
+  const body = items.map((it) => '<item>' + [
     tag('id', it.id), tag('title', it.title), tag('description', it.description), tag('link', it.link),
-    tag('image_link', it.image_link), ...it.additional_image_link.map((u: string | null | undefined) => tag('additional_image_link', u)),
+    tag('image_link', it.image_link), ...it.additional_image_link.map((u) => tag('additional_image_link', u)),
     tag('availability', it.availability), tag('condition', it.condition), tag('price', it.price), tag('sale_price', it.sale_price),
     tag('brand', it.brand), tag('mpn', it.mpn), tag('identifier_exists', it.identifier_exists), tag('product_type', it.product_type),
     tag('google_product_category', it.google_product_category), tag('inventory', it.inventory),
@@ -142,25 +142,25 @@ ${body}
 `;
 }
 
-function toTable(items?: Loose, channel?: Loose, sep?: Loose) {
+function toTable(items: FeedItem[], channel: string, sep: string) {
   const cols = ['id', 'title', 'description', 'availability', 'condition', 'price', 'sale_price', 'link', 'image_link', 'additional_image_link', 'brand', 'mpn']
     .concat(channel === 'google' ? ['identifier_exists', 'product_type', 'google_product_category', 'shipping', 'shipping_weight']
       : ['product_type', 'google_product_category', 'inventory'])
     .concat(['custom_label_0', 'custom_label_1']);
   const cell = sep === '\t' ? tsvCell : csvCell;
-  const val = (it?: Loose, c?: Loose) => {
+  const val = (it: FeedItem, c: string) => {
     if (c === 'additional_image_link') return it.additional_image_link.join(',');
     if (c === 'shipping') return it.shipping ? `${it.shipping.country}::${it.shipping.service}:${it.shipping.price}` : '';
-    return it[c] ?? '';
+    return it[c as keyof FeedItem] ?? '';
   };
-  return [cols.join(sep), ...items.map((it: Loose) => cols.map((c) => cell(val(it, c))).join(sep))].join('\n') + '\n';
+  return [cols.join(sep), ...items.map((it) => cols.map((c) => cell(val(it, c))).join(sep))].join('\n') + '\n';
 }
 
 async function build(channel: string, settings: Settings, base: string) {
   const products = await loadProducts(settings);
-  const report = { total: products.length, included: 0, excluded: [] as Loose[], warnings: [] as Loose[] };
-  const items: Loose[] = [];
-  for (const p of products as Loose[]) {
+  const report = { total: products.length, included: 0, excluded: [] as { id: number; name: string; why: string[] }[], warnings: [] as { id: number; name: string; why: string[] }[] };
+  const items: FeedItem[] = [];
+  for (const p of products) {
     const c = check(p, channel);
     if (!c.ok) { report.excluded.push({ id: p.id, name: p.name, why: c.problems }); continue; }
     if (c.warnings.length) report.warnings.push({ id: p.id, name: p.name, why: c.warnings });
@@ -172,11 +172,11 @@ async function build(channel: string, settings: Settings, base: string) {
 
 // GET /feeds/google.xml?key=…  /feeds/facebook.csv?key=…
 type ServeOpts = {
-  query?: Loose;
-  settings?: Loose;
-  send?: Loose;
-  siteUrl?: Loose;
-  req?: Loose;
+  query: URLSearchParams;
+  settings: Settings;
+  send: (status: number, body: string, type?: string, extra?: Record<string, string>) => void;
+  siteUrl: string;
+  req?: ShopRequest;
 };
 async function serve({ query, settings, send, siteUrl, req }: ServeOpts, channel: string, format: string) {
   const token = settings[`feed_${channel}_token`];

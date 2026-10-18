@@ -6,7 +6,7 @@ import * as db from '../db';
 import * as security from '../security';
 import * as guard from '../services/guard';
 import { Reply, type HeaderMap, type ReplyBody } from '../reply';
-import type { Settings, ShopRequest } from '../types';
+import type { Settings, ShopRequest, VerificationFile } from '../types';
 
 /** The address the visitor asked for: proxy.ts's x-shop-url (always set there, so it can't be faked), else the request's own. */
 export function askedFor(request: Request): URL {
@@ -75,7 +75,7 @@ export function verificationFile(path: string, settings: Settings, reply: Reply)
     send(200, settings.indexnow_key, 'text/plain; charset=utf-8');
     return true;
   }
-  const vf = (db.jsonSetting(settings, 'verification_files', []) as { path: string; content: string }[]).find((f) => '/' + f.path === path);
+  const vf = db.jsonSetting<VerificationFile[]>(settings, 'verification_files', []).find((f) => '/' + f.path === path);
   if (!vf) return false;
   send(200, vf.content, vf.path.endsWith('.html') ? 'text/html; charset=utf-8' : 'text/plain; charset=utf-8', { 'Content-Security-Policy': "sandbox; default-src 'none'" });
   return true;

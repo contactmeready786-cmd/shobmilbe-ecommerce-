@@ -7,7 +7,7 @@ import { Val, attrValue, jsxList } from '../react/html';
 import { list, str } from '../util';
 import * as db from '../db';
 import * as $marketing from './marketing';
-import type { AdminCtx, Body, Loose, Settings } from '../types';
+import type { AdminCtx, Body, Loose, Settings, MenuLink } from '../types';
 const FIXED: Record<string, Loose> = {
   live: { key: 'nav_live', label: 'লাইভ স্কোর', desc: 'ক্রিকেট বা ফুটবল স্কোর চালু থাকলে তবেই এই বাটন দেখা যায়' },
   cart: { key: 'nav_cart', label: 'কার্ট', desc: 'বন্ধ করলে উপরের কার্ট আইকন লুকাবে। "কার্টে যোগ" আর "এখনই কিনুন" বাটন আগের মতোই কাজ করবে' },
@@ -21,7 +21,7 @@ const FOOTER: Record<string, Loose> = {
   contact: { key: 'foot_contact', label: 'যোগাযোগ (ফোন, WhatsApp, ইমেইল, ঠিকানা)', where: 'ফুটারের ডান পাশের "যোগাযোগ" কলাম' },
 };
 
-function menuRows(s: Settings) { return db.jsonSetting(s, 'header_menu', []); }
+function menuRows(s: Settings) { return db.jsonSetting<MenuLink[]>(s, 'header_menu', []); }
 function isOn(row: { on: boolean; }) { return row.on !== false; }
 
 // Small panel with switches for the given menu links (by url) and fixed buttons ('live', 'cart').
