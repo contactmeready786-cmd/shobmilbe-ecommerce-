@@ -390,11 +390,24 @@ async function createOrder(input: Body, settings: Settings) {
 }
 
 // ---------------------------------------------------------------- read
-async function getOrder({ id, code }: { id?: number | string | null; code?: string | null }): Promise<DbRow | null> {
-  const order = await one(`SELECT o.*, s.name AS created_by_name FROM orders o LEFT JOIN staff s ON s.id=o.created_by
+/** An order line as getOrder returns it (with a few of its product's columns). Money columns are numbers (lib/pg).
+ * The columns named here are typed; the rest are still read loosely, one step at a time. */
+export type OrderItem = DbRow & {
+  id: number; order_id: number; product_id: number | null; name: string; price: number; qty: number;
+  components?: { product_id: number; qty: number }[] | null;
+};
+/** An order as getOrder returns it, with its lines. */
+export type Order = DbRow & {
+  id: number; code: string; customer_name: string; phone: string; address: string; district: string; thana: string;
+  status: string; payment: string; subtotal: number; delivery: number; total: number; created_at: Date; updated_at: Date;
+  items: OrderItem[];
+};
+
+async function getOrder({ id, code }: { id?: number | string | null; code?: string | null }): Promise<Order | null> {
+  const order = await one<Order>(`SELECT o.*, s.name AS created_by_name FROM orders o LEFT JOIN staff s ON s.id=o.created_by
                            WHERE ${id ? 'o.id=$1' : 'o.code=$1'}`, [id || code]);
   if (!order) return null;
-  order.items = await q(`SELECT i.*, p.image_id, p.slug, p.emoji, p.warranty, p.warranty_type, p.barcode, coalesce(p.weight_g, 0) AS weight_g FROM order_items i LEFT JOIN products p ON p.id=i.product_id
+  order.items = await q<OrderItem>(`SELECT i.*, p.image_id, p.slug, p.emoji, p.warranty, p.warranty_type, p.barcode, coalesce(p.weight_g, 0) AS weight_g FROM order_items i LEFT JOIN products p ON p.id=i.product_id
                          WHERE i.order_id=$1 ORDER BY i.id`, [order.id]);
   return order;
 }
