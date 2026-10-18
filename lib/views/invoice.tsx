@@ -36,11 +36,11 @@ function brandMark(s?: Loose, cls = '') {
   const name = s.store_name || 'সবমিলবে';
   return <><img className={`dc-mark ${attrValue(cls)}`} src="/brand/favicon-192.png" alt="" aria-hidden="true" /><span className="dc-word">{(name === 'সবমিলবে' ? <><b className="a">সব</b><b className="b">মিলবে</b></> : <b className="a"><Val v={name} /></b>)}</span></>;
 }
-function qrSvg(s?: Loose, order?: Loose, px?: Loose) {
+function qrSvg(s?: Settings, order?: Loose, px?: unknown) {
   const site = siteOf(s);
   return site ? $services_qr.svg(`${site}/track?code=${order.code}`, { px, label: 'অর্ডার ট্র্যাক' }) : '';
 }
-const shell = (title?: Loose, css?: Loose, bodyHtml?: Loose, { embed }: Body = {}) => '<!doctype html>' + `<html lang="bn"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+const shell = (title?: unknown, css?: unknown, bodyHtml?: unknown, { embed }: Body = {}) => '<!doctype html>' + `<html lang="bn"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${htmlValue(title)}</title><meta name="robots" content="noindex">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>${(css)}</style></head><body class="${htmlValue(embed ? 'embed' : '')}">
@@ -108,7 +108,7 @@ function checklistCss(c?: Loose) {
 @media print{@page{size:${c.paper};margin:8mm}body{background:#fff}.bar{display:none}.iv{margin:0;border-radius:0;box-shadow:none;max-width:none}tr{page-break-inside:avoid}}`;
 }
 function checklistPage(orders?: Loose, s?: Loose, c = docs.checklist(s), opts: Body = {}) {
-  return shell(`${c.title} ${orders.length === 1 ? orders[0].code : `(${bn(orders.length)}টি)`}`, checklistCss(c), <><Val v={orders.map((o: Loose) => checklistBody(o, s, c))} /></>, opts);
+  return shell(`${c.title} ${orders.length === 1 ? orders[0].code : `(${bn(orders.length)}টি)`}`, checklistCss(c), <><Val v={orders.map((o: unknown) => checklistBody(o, s, c))} /></>, opts);
 }
 
 // ================================================================ 🏷️ ইনভয়েস (on the parcel)
@@ -169,7 +169,7 @@ function labelCss(c?: Loose) {
   .sheet{padding:0;gap:0;justify-content:flex-start}.lb{box-shadow:none;border-radius:0;height:${z.h}mm;${z.sheet ? 'outline:1px dashed #CBD5E1;' : 'page-break-after:always;'}}}`;
 }
 function invoicePage(orders?: Loose, s?: Loose, c = docs.invoice(s), opts: Body = {}) {
-  return shell(`${c.title} ${orders.length === 1 ? orders[0].code : `(${bn(orders.length)}টি)`}`, labelCss(c), <div className="sheet"><Val v={orders.map((o: Loose) => labelBody(o, s, c))} /></div>, opts);
+  return shell(`${c.title} ${orders.length === 1 ? orders[0].code : `(${bn(orders.length)}টি)`}`, labelCss(c), <div className="sheet"><Val v={orders.map((o: unknown) => labelBody(o, s, c))} /></div>, opts);
 }
 
 export { invoicePage, checklistPage, labelBody, checklistBody, mergedItems };

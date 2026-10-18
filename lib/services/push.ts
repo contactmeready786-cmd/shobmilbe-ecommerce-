@@ -66,7 +66,7 @@ function okEndpoint(u: string | URL) {
   try { const x = new URL(u); return x.protocol === 'https:' && PUSH_HOSTS.test(x.hostname); } catch (_) { return false; }
 }
 
-async function sendOne(sub: db.pg.DbRow, msg: { title: string; body: string; url: string; tag: string; } | undefined, v?: Loose) {
+async function sendOne(sub: db.pg.DbRow, msg: { title: string; body: string; url: string; tag: string; } | undefined, v?: unknown) {
   const body = encrypt(sub, JSON.stringify(msg));
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), 8000);
@@ -98,7 +98,7 @@ async function sendAll(msg?: { title: string; body: string; url: string; tag: st
 }
 async function count() { return (await db.one<{ n: number }>("SELECT count(*)::int AS n FROM push_subs p JOIN staff s ON s.id=p.staff_id WHERE s.role='owner'"))!.n; }
 
-async function subscribe(staffId?: Id, sub?: Loose, device?: Loose) {
+async function subscribe(staffId?: Id, sub?: Loose, device?: unknown) {
   const endpoint = String(sub && sub.endpoint || '');
   const keys = (sub && sub.keys) || {};
   if (!okEndpoint(endpoint) || endpoint.length > 1000) throw new Error('এই ব্রাউজারের নোটিফিকেশন ঠিকানা চেনা যায়নি');
@@ -120,10 +120,10 @@ async function shopSubscribe(sub?: Loose, { customerId = null, device = '' }: Bo
     ON CONFLICT (endpoint) DO UPDATE SET p256dh=EXCLUDED.p256dh, auth=EXCLUDED.auth, customer_id=coalesce(EXCLUDED.customer_id, shop_push_subs.customer_id), fails=0`,
   [endpoint, String(keys.p256dh), String(keys.auth), customerId, String(device || '').slice(0, 60)]);
 }
-async function shopUnsubscribe(endpoint?: Loose) { await db.q('DELETE FROM shop_push_subs WHERE endpoint=$1', [String(endpoint || '').slice(0, 1000)]); }
+async function shopUnsubscribe(endpoint?: unknown) { await db.q('DELETE FROM shop_push_subs WHERE endpoint=$1', [String(endpoint || '').slice(0, 1000)]); }
 async function shopCount() { return (await db.one<{ n: number }>('SELECT count(*)::int AS n FROM shop_push_subs'))!.n; }
 // One batch of a campaign: the next `limit` subscribers after `afterId`. Returns { sent, failed, lastId, done }.
-async function shopSendBatch(msg?: Loose, { afterId = 0, limit = 300 }: Body = {}) {
+async function shopSendBatch(msg?: unknown, { afterId = 0, limit = 300 }: Body = {}) {
   const subs = await db.q<ShopPushSubsRow>('SELECT * FROM shop_push_subs WHERE id > $1 ORDER BY id LIMIT $2', [afterId, limit]);
   if (!subs.length) return { sent: 0, failed: 0, lastId: afterId, done: true };
   const v = await vapid();

@@ -4,7 +4,7 @@ import { createElement } from 'react';
 import * as R from '../../components/shop/Account';
 import type { Body, Loose } from '../types';
 
-function maskPhone(p?: Loose) { const s = String(p || ''); return s.length > 6 ? s.slice(0, 3) + '•'.repeat(s.length - 6) + s.slice(-3) : '•••'; }
+function maskPhone(p?: unknown) { const s = String(p || ''); return s.length > 6 ? s.slice(0, 3) + '•'.repeat(s.length - 6) + s.slice(-3) : '•••'; }
 
 // ⚛️ moved to React (components/shop/Account.tsx) — same HTML, same callers; returns a React element (usable by Next.js pages too)
 function loginPage(props: Body) { return createElement(R.LoginPage, props); }

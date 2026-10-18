@@ -71,7 +71,7 @@ const DEFAULT_CRICKET = CRICKET_LEAGUES.map(([k]) => k); // everything on by def
 const CRICKET_CODES = new Set(DEFAULT_CRICKET);
 const CRICKET_BN = Object.fromEntries(CRICKET_LEAGUES.map(([k, l]) => [k, l]));
 const COUNTRIES = /^(afghanistan|australia|bangladesh|england|india|ireland|new zealand|pakistan|south africa|sri lanka|west indies|zimbabwe|netherlands|scotland|nepal|oman|namibia|canada|usa|united states( of america)?|united arab emirates|uae|hong kong|papua new guinea|png|kenya|uganda|italy|jersey|germany)( a| xi| u-?19| under-?19s?)?$/i;
-function cricketCategory(league?: Loose, title?: Loose, teams?: Loose) {
+function cricketCategory(league?: unknown, title?: unknown, teams?: Loose) {
   const text = `${league} ${title}`;
   for (const [code, , re] of CRICKET_LEAGUES) if (re && (re as RegExp).test(text)) return code;
   if (teams.length >= 2 && teams.every((t: Loose) => COUNTRIES.test(String(t.name).trim()))) return 'intl';
@@ -88,10 +88,10 @@ async function cached(key: string, loader?: Loose) {
   const c = cache.get(key);
   if (c && c.data && Date.now() - c.at < FRESH_MS) return c.data;
   if (c && c.pending) return c.pending;
-  const pending = loader().then((data?: Loose) => {
+  const pending = loader().then((data?: unknown) => {
     cache.set(key, { at: Date.now(), data });
     return data;
-  }).catch((e?: Loose) => {
+  }).catch((e?: Error) => {
     if (c && c.data) { // keep showing the last good scores, try again a little later
       cache.set(key, { at: Date.now() - FRESH_MS + 5000, data: c.data });
       return { ...c.data, stale: true };
@@ -180,7 +180,7 @@ async function loadLeague(code: string | number) {
     const comp = (e.competitions && e.competitions[0]) || {};
     const status = comp.status || e.status || {};
     const st = stateOf(status);
-    const teams = (comp.competitors || []).map(footballTeam).sort((a: Loose, b: Loose) => (b.home ? 1 : 0) - (a.home ? 1 : 0));
+    const teams = (comp.competitors || []).map(footballTeam).sort((a: Loose, b: Body) => (b.home ? 1 : 0) - (a.home ? 1 : 0));
     const goals = (comp.details || []).filter((d: Loose) => d && d.scoringPlay && d.clock).slice(-8).map((d: Loose) => ({
       min: d.clock.displayValue || '', team: d.team && d.team.id, who: (d.athletesInvolved && d.athletesInvolved[0] && d.athletesInvolved[0].shortName) || '',
     }));

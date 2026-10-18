@@ -43,7 +43,7 @@ async function newCode() {
 }
 
 // photos: data:image URLs made small in the browser (max 4) — kept private (only staff see them)
-async function savePhotos(list?: Loose) {
+async function savePhotos(list?: unknown) {
   const catalog = $catalog;
   const out: Loose[] = [];
   for (const d of (Array.isArray(list) ? list : []).slice(0, 4)) {
@@ -121,7 +121,7 @@ async function create({ name, phone, email, orderCode, topic, message, photos, i
 }
 
 // what the customer may see: the status and the replies sent to them (never the staff's inside notes)
-async function forCustomer(code?: Loose, phone?: Loose) {
+async function forCustomer(code?: unknown, phone?: unknown) {
   const c = await db.one('SELECT * FROM complaints WHERE code=$1 AND phone=$2', [str(code, 12).toUpperCase().trim(), normalizePhone(phone)]);
   if (!c) return null;
   c.replies = await db.q('SELECT body, created_at FROM complaint_notes WHERE complaint_id=$1 AND to_customer ORDER BY id', [c.id]);

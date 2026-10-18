@@ -35,7 +35,7 @@ async function settingsPage(ctx: AdminCtx) {
       const names = list(b.zone_name);
       const fees = list(b.zone_fee);
       const known = new Set(O.GEO.districts.map((d) => d.en));
-      const zones: Loose[] = [];
+      const zones: unknown[] = [];
       names.forEach((n, i) => {
         const ds = list(b['zone_d_' + i]).filter((d) => known.has(d));
         if (String(n || '').trim() && ds.length) zones.push({ name: String(n).trim().slice(0, 60), fee: Math.max(0, Math.round(num(fees[i], 0) * 100) / 100), districts: [...new Set(ds)] });

@@ -43,7 +43,7 @@ async function page(ctx: AdminCtx) {
 
 async function save(ctx: AdminCtx) {
   const b = await ctx.body();
-  const ids = ([] as Loose[]).concat(b.ids || []).map((x) => int(x)).filter(Boolean).slice(0, 1000);
+  const ids = ([] as unknown[]).concat(b.ids || []).map((x) => int(x)).filter(Boolean).slice(0, 1000);
   const back = `${BASE}?courier=${encodeURIComponent(str(b.courier, 30))}`;
   if (!ids.length) return ctx.fail(back, 'যে পার্সেলগুলোর টাকা পেয়েছেন সেগুলোয় টিক দিন।');
   const received = round2(amount(b.received));

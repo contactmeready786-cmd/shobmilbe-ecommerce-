@@ -8,7 +8,7 @@ import type { AdminCtx, Loose } from '../types';
 
 const TABS = [['winning', '🏆 উইনিং প্রোডাক্ট'], ['find', '🔍 প্রোডাক্ট খুঁজুন'], ['new', '🆕 বাজারে নতুন'], ['drops', '📉 দাম কমেছে'], ['demand', '🔎 আপনার কাস্টমার যা খুঁজছে'], ['sources', '🏪 যেসব দোকান দেখা হচ্ছে']];
 
-function pic(src?: Loose) { return src ? <img src={attrValue(src)} alt="" loading="lazy" referrerPolicy="no-referrer" /> : <span>📦</span>; }
+function pic(src?: unknown) { return src ? <img src={attrValue(src)} alt="" loading="lazy" referrerPolicy="no-referrer" /> : <span>📦</span>; }
 function ago(d: string | number | Date) {
   if (!d) return 'এখনো না';
   const m = Math.round((Date.now() - new Date(d).getTime()) / 60000);
@@ -17,7 +17,7 @@ function ago(d: string | number | Date) {
 
 function winningCard(g?: Loose, i?: Loose, segment = '') {
   const links = R.sourcingLinks(g.term);
-  return <article className="rs-card"><div className="rs-rank">{bn(i + 1)}</div><a className="rs-pic" href={attrValue(g.best.url)} target="_blank" rel="noopener noreferrer">{pic(g.lead.image)}</a><div className="rs-body"><h3><a href={attrValue(g.lead.url)} target="_blank" rel="noopener noreferrer"><Val v={g.lead.title} /></a></h3><p className="rs-why">{jsxList(g.why.slice(0, 4).map((w: Loose) => <span><Val v={w} /></span>))}</p><div className="rs-nums"><div><small>বাজারে দাম</small><b>{(g.min === g.max ? money(g.min) : <>{money(g.min)}{' '}–{' '}{money(g.max)}</>)}</b><small>সবচেয়ে কম:{' '}<Val v={g.best.shop} /></small></div><div><small>আপনি বিক্রি করতে পারেন</small><b className="good">{(g.sell ? money(g.sell) : "—")}</b><small>বাজারের মাঝামাঝি দামের সামান্য কম</small></div><div><small>এর চেয়ে কমে কিনলে লাভ</small><b className="warn">{(g.buyMax ? money(g.buyMax) : "—")}</b><small>কেনা দাম এর মধ্যে রাখুন</small></div><div><small>আপনার দোকানে</small>{oursCell(g.oursAll || [], g.best.url, g.min, g.max, `/admin/research${segment ? `?seg=${segment}` : ''}`)}</div></div><p className="rs-src"><small>কোথা থেকে কিনবেন খুঁজুন:</small>{' '}{jsxList(links.map(([l, u]) => <a href={attrValue(u)} target="_blank" rel="noopener noreferrer"><Val v={l} /></a>))}</p><p className="rs-shops small muted">যে দোকানে আছে:{' '}{jsxList(g.items.slice(0, 5).map((x: { url: unknown; shop: unknown; price: unknown; rank: unknown; }) => <><a href={attrValue(x.url)} target="_blank" rel="noopener noreferrer"><Val v={x.shop} />{' '}({money(x.price)}{(x.rank ? `, #${bn(x.rank)}` : null)})</a>{' '}</>))}</p></div></article>;
+  return <article className="rs-card"><div className="rs-rank">{bn(i + 1)}</div><a className="rs-pic" href={attrValue(g.best.url)} target="_blank" rel="noopener noreferrer">{pic(g.lead.image)}</a><div className="rs-body"><h3><a href={attrValue(g.lead.url)} target="_blank" rel="noopener noreferrer"><Val v={g.lead.title} /></a></h3><p className="rs-why">{jsxList(g.why.slice(0, 4).map((w: unknown) => <span><Val v={w} /></span>))}</p><div className="rs-nums"><div><small>বাজারে দাম</small><b>{(g.min === g.max ? money(g.min) : <>{money(g.min)}{' '}–{' '}{money(g.max)}</>)}</b><small>সবচেয়ে কম:{' '}<Val v={g.best.shop} /></small></div><div><small>আপনি বিক্রি করতে পারেন</small><b className="good">{(g.sell ? money(g.sell) : "—")}</b><small>বাজারের মাঝামাঝি দামের সামান্য কম</small></div><div><small>এর চেয়ে কমে কিনলে লাভ</small><b className="warn">{(g.buyMax ? money(g.buyMax) : "—")}</b><small>কেনা দাম এর মধ্যে রাখুন</small></div><div><small>আপনার দোকানে</small>{oursCell(g.oursAll || [], g.best.url, g.min, g.max, `/admin/research${segment ? `?seg=${segment}` : ''}`)}</div></div><p className="rs-src"><small>কোথা থেকে কিনবেন খুঁজুন:</small>{' '}{jsxList(links.map(([l, u]) => <a href={attrValue(u)} target="_blank" rel="noopener noreferrer"><Val v={l} /></a>))}</p><p className="rs-shops small muted">যে দোকানে আছে:{' '}{jsxList(g.items.slice(0, 5).map((x: { url: unknown; shop: unknown; price: unknown; rank: unknown; }) => <><a href={attrValue(x.url)} target="_blank" rel="noopener noreferrer"><Val v={x.shop} />{' '}({money(x.price)}{(x.rank ? `, #${bn(x.rank)}` : null)})</a>{' '}</>))}</p></div></article>;
 }
 
 // "is it in our shop?" — every matching product, with a link; unsure matches say so
@@ -33,7 +33,7 @@ function oursCell(list?: Loose, url?: Loose, min?: Loose, max?: Loose, back = '/
 }
 
 // another shop seen on Google: paste its link once, every later search includes it
-function addShop(term?: Loose) {
+function addShop(term?: unknown) {
   const g = `https://www.google.com/search?q=${encodeURIComponent(term + ' price in Bangladesh')}`;
   return <section className="panel rs-addshop"><h2>আরও দোকানে খুঁজতে চান?</h2><p className="small muted"><a href={attrValue(g)} target="_blank" rel="noopener noreferrer">Google-এ "<Val v={term} />{' '}price in Bangladesh" খুলুন →</a>{' '}যে দোকানে পণ্যটা দেখবেন, তার লিংক নিচে দিন। এরপর থেকে প্রতিটা সার্চে ওই দোকানেও খোঁজা হবে (সারাদিন পড়া হবে না, শুধু আপনি খুঁজলে)।</p><form method="post" action="/admin/research" className="toolbar"><input type="hidden" name="form" defaultValue="add_search" /><input type="hidden" name="q" defaultValue={attrValue(term)} />{' '}<input type="url" name="url" placeholder="https://দোকানের-ঠিকানা.com" required maxLength={300} /><button className="btn btn-sm">➕ সার্চে যোগ করুন</button></form></section>;
 }
@@ -80,7 +80,7 @@ async function page(ctx: AdminCtx) {
   }
   const st = await R.status();
   const segChips = <div className="chips">{jsxList([['', 'সব'], ...Object.entries(R.SEGMENTS)].map(([k, l]) => <a className={`chip ${segment === k ? 'on' : ''}`} href={`/admin/research?tab=${attrValue(tab)}${k ? `&seg=${k}` : ''}`}><Val v={l} /></a>))}</div>;
-  let content: Loose = '';
+  let content: unknown = '';
   if (tab === 'find') {
     content = await findTab(ctx);
   } else if (tab === 'winning') {

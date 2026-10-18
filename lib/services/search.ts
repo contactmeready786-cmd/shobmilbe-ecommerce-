@@ -206,7 +206,7 @@ function wordScore(q?: Loose, p?: Loose) {
 }
 
 // ---------------------------------------------------------------- the product list in memory
-let INDEX: Loose = null; let builtAt = 0; let sig = ''; let building: Loose = null;
+let INDEX: Loose = null; let builtAt = 0; let sig = ''; let building: unknown = null;
 async function index() {
   const fresh = INDEX && Date.now() - builtAt < 60e3;
   if (fresh) return INDEX;
@@ -227,7 +227,7 @@ async function index() {
           [words(`${r.cat || ''} ${r.seo_keywords || ''}`), 0.6],
           [words(String(r.short_description || '').slice(0, 300)), 0.35],
         ].map(([ws, wt]: Loose[]) => {
-          const all = new Set<Loose>(ws as Loose);
+          const all = new Set<Loose>(ws);
           for (const w of ws) for (const v of bnVariants(w)) all.add(v);
           return [[...all], wt];
         });
@@ -280,7 +280,7 @@ async function find(query: string, { limit = 500 }: Body = {}) {
 }
 
 // What people searched for (Admin → সার্চ রিপোর্ট): the words and how many products were found.
-async function log(query: string, found?: Loose) {
+async function log(query: string, found?: unknown) {
   const q = norm(query).replace(/\s+/g, ' ').trim().slice(0, 80);
   if (q.length < 2) return;
   await db.q(`INSERT INTO search_log(q, found) VALUES($1,$2)`, [q, found]).catch(() => {});

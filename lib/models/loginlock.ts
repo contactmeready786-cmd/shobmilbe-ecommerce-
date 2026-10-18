@@ -60,7 +60,7 @@ function cborDecode(buf?: Loose, start = 0) {
     if (info === 27) { const v = Number(buf.readBigUInt64BE(pos)); pos += 8; return v; }
     throw new Error('CBOR: unsupported length');
   }
-  function item(): Loose {
+  function item(): unknown {
     if (pos >= buf.length) throw new Error('CBOR: truncated');
     const b = buf.readUInt8(pos++);
     const major = b >> 5;
@@ -104,9 +104,9 @@ function coseToKey(cose?: Loose) {
   return { key: crypto.createPublicKey({ key: jwk, format: 'jwk' }), alg };
 }
 
-function parseAuthData(ad?: Loose): Loose {
+function parseAuthData(ad?: unknown): Loose {
   if (!Buffer.isBuffer(ad) || ad.length < 37) throw new Error('authenticator data too short');
-  const out: { rpIdHash: Buffer; flags: number; signCount: number; up?: boolean; uv?: boolean; credId?: Buffer; cose?: Loose } = { rpIdHash: ad.subarray(0, 32), flags: ad[32], signCount: ad.readUInt32BE(33) };
+  const out: { rpIdHash: Buffer; flags: number; signCount: number; up?: boolean; uv?: boolean; credId?: Buffer; cose?: unknown } = { rpIdHash: ad.subarray(0, 32), flags: ad[32], signCount: ad.readUInt32BE(33) };
   out.up = !!(out.flags & 0x01);
   out.uv = !!(out.flags & 0x04);
   if (out.flags & 0x40) {

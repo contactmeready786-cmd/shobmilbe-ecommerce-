@@ -58,7 +58,7 @@ async function adjust(ctx: AdminCtx) {
   const reasons = list(b.reason);
   const note = str(b.note, 200);
   let n = 0;
-  const problems: Loose[] = [];
+  const problems: unknown[] = [];
   const touched: Loose[] = [];
   const { tx } = $db;
   await tx(async (t) => {
@@ -68,7 +68,7 @@ async function adjust(ctx: AdminCtx) {
       const pid = int(pids[i]);
       const reason = catalog.STOCK_REASONS[reasons[i]] ? reasons[i] : 'adjust';
       const qty = Math.abs(ch);
-      let ok: Loose = true;
+      let ok: unknown = true;
       // damaged goods: kept apart from the stock that can be sold
       if (reason === 'damage') ok = await catalog.changeDamaged(t, pid, { stock: -qty, damaged: qty }, 'damage', 'manual', null, note, ctx.user.id);
       else if (reason === 'damage_out') ok = await catalog.changeDamaged(t, pid, { damaged: -qty }, 'damage_out', 'manual', null, note, ctx.user.id);
@@ -130,7 +130,7 @@ async function supplierPay(ctx: AdminCtx, m: RouteMatch) {
 }
 
 // ---------------------------------------------------------------- purchases
-function purchasesTable(rows?: Loose, seeCost?: Loose) {
+function purchasesTable(rows?: Loose, seeCost?: unknown) {
   if (!rows.length) return <p className="muted">কোনো পারচেজ নেই।</p>;
   return <div className="table-wrap"><table className="table compact"><thead><tr><th>নম্বর</th><th>তারিখ</th><th>সাপ্লায়ার</th><th className="num">পরিমাণ</th>{(seeCost ? <th className="num">মোট</th> : null)}<th>অবস্থা</th></tr></thead><tbody>{jsxList(rows.map((p: Loose) => <tr><td><a href={`/admin/purchases/${attrValue(p.id)}`}><b><Val v={p.code} /></b></a></td><td className="small">{fmtDate(p.purchase_date + 'T06:00:00Z', false)}</td><td><Val v={p.supplier_name || '—'} /></td><td className="num">{bn(p.units || 0)}</td>{(seeCost ? <td className="num">{money(p.total)}</td> : null)}<td>{ui.pill(finance.PURCHASE_STATUSES[p.status], 'pur-' + p.status)}</td></tr>))}</tbody></table></div>;
 }
@@ -176,7 +176,7 @@ async function purchaseNew(ctx: AdminCtx) {
   }
   // started from "কী কিনবেন": those products are put in the form already
   const addIds = [...new Set(list(ctx.query.getAll ? ctx.query.getAll('add') : ctx.query.get('add')).map((x) => int(x)).filter((x) => x > 0))].slice(0, 40);
-  const prefill: Loose[] = [];
+  const prefill: unknown[] = [];
   for (const id of addIds) {
     const p = await catalog.getProduct({ id }).catch(() => null);
     if (p && p.product_type !== 'bundle') prefill.push({ id: p.id, name: p.name, sku: p.sku, stock: p.stock, price: p.price, cost: ctx.can('see_cost') ? p.cost_price : '' });

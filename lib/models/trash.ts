@@ -56,7 +56,7 @@ async function orderStock(t: Tx, items?: Loose, sign?: Loose, orderId?: Id, note
   }
 }
 
-async function rowsOf(t: Tx, table?: Loose, col?: Loose, id?: Id) {
+async function rowsOf(t: Tx, table?: unknown, col?: unknown, id?: Id) {
   return (await t.query(`SELECT row_to_json(x) AS r FROM ${table} x WHERE ${col}=$1`, [id])).rows.map((x) => x.r);
 }
 
@@ -70,7 +70,7 @@ async function move(kind?: Loose, id?: Id, who: Loose = {}) {
     if (!row) return null;
     const r = row.r;
     if (K.guard && !K.guard(r)) return null;
-    const data: { row: Loose; children: Record<string, Loose[]>; refs: Record<string, number[]>; released?: boolean } = { row: r, children: {}, refs: {} };
+    const data: { row: unknown; children: Record<string, unknown[]>; refs: Record<string, number[]>; released?: boolean } = { row: r, children: {}, refs: {} };
     for (const [table, col] of K.children || []) data.children[`${table}.${col}`] = await rowsOf(t, table, col, id);
     for (const [table, col] of K.refs || []) {
       data.refs[`${table}.${col}`] = (await t.query(`SELECT id FROM ${table} WHERE ${col}=$1`, [id])).rows.map((x) => x.id);
@@ -142,7 +142,7 @@ async function restore(id?: Id) {
   const K = KINDS[e.kind];
   try {
     await tx(async (t) => {
-      const ins = async (table: string, r?: Loose) => t.query(`INSERT INTO ${table} SELECT * FROM jsonb_populate_record(NULL::${table}, $1::jsonb) ON CONFLICT DO NOTHING`, [JSON.stringify(r)]);
+      const ins = async (table: string, r?: unknown) => t.query(`INSERT INTO ${table} SELECT * FROM jsonb_populate_record(NULL::${table}, $1::jsonb) ON CONFLICT DO NOTHING`, [JSON.stringify(r)]);
       const row = { ...e.data.row };
       // a category whose main category is gone goes back to the top level
       if (e.kind === 'category' && row.parent_id) {
@@ -199,7 +199,7 @@ async function restore(id?: Id) {
 }
 
 // Gone for good. When no products are left anywhere (shop or bin), SKU numbers start again from 1.
-async function purge(ids?: Loose) {
+async function purge(ids?: unknown) {
   const clean = (Array.isArray(ids) ? ids : [ids]).map((x) => int(x)).filter(Boolean);
   if (!clean.length) return 0;
   const n = await tx(async (t) => {

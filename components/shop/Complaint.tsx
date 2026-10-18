@@ -96,7 +96,7 @@ export function ComplaintPage({ settings: s, values = {}, error = '', done = nul
   );
 }
 
-export function StatusPage({ c = null, code = '', error = '' }: { c?: Loose; code?: string; error?: string }) {
+export function StatusPage({ c = null, code = '', error = '' }: { c?: unknown; code?: string; error?: string }) {
   return (
     <div className="wrap section narrow">
       <h1>📮 অভিযোগের অবস্থা</h1>

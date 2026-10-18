@@ -50,7 +50,7 @@ async function ensureSecret(s: Settings) {
 function callbackUrl(site: string, token: string) { return `${String(site || '').replace(/\/+$/, '')}/webhook/autocall/${token}`; }
 const localPhone = (p: string) => { const d = String(p || '').replace(/\D/g, ''); return d.startsWith('880') ? '0' + d.slice(3) : d; };
 const intlPhone = (p: string) => { const l = localPhone(p); return l.startsWith('0') ? '880' + l.slice(1) : l; };
-const words = (n?: Loose) => String(Math.round(Number(n || 0)));
+const words = (n?: unknown) => String(Math.round(Number(n || 0)));
 
 function fill(tpl: string | undefined, vars: Record<string, string>, { json = false }: Body = {}) {
   return String(tpl || '').replace(/\{\{\s*(\w+)\s*\}\}/g, (_, k) => {
@@ -70,7 +70,7 @@ function varsFor(s: Settings, o?: Loose, site?: Loose, token?: Loose) {
 }
 
 // Place one call. Returns { ok, ref, error }.
-async function call(s: Settings, order?: Loose, site?: Loose, { test = false }: Body = {}) {
+async function call(s: Settings, order?: Loose, site?: unknown, { test = false }: Body = {}) {
   const token = await ensureSecret(s);
   const vars = varsFor(s, order, site, token);
   let body = fill(s.autocall_body || PRESETS.custom.body, vars, { json: true });
@@ -95,7 +95,7 @@ async function call(s: Settings, order?: Loose, site?: Loose, { test = false }: 
 }
 
 // After a new order (from the checkout)
-async function afterOrder(s: Settings, order?: Loose, site?: Loose) {
+async function afterOrder(s: Settings, order?: Loose, site?: unknown) {
   if (!on(s)) return null;
   if (s.autocall_only_cod !== '0' && order.payment && order.payment !== 'cod') return null;
   return call(s, order, site);
@@ -158,7 +158,7 @@ async function apply(s: Settings, row: db.pg.DbRow, result: string) {
   const notify = $notify;
   const site = String(s.site_url || '').replace(/\/+$/, '');
   const text = `${ic} অটো কল — অর্ডার ${row.code}\n${row.customer_name || ''} (${localPhone(row.o_phone)}) · ৳${row.total}\nফলাফল: ${label}${did}\n${site}/admin/orders/${row.order_id}`;
-  const jobs: Loose[] = [];
+  const jobs: unknown[] = [];
   try {
     const push = $push;
     jobs.push(push.count().then((n) => (n ? push.sendAll({ title: `${ic} অটো কল: ${label}`, body: `${row.code} · ${row.customer_name || ''}${did}`, url: `/admin/orders/${row.order_id}`, tag: 'autocall-' + row.order_id }) : null)).catch(() => null));

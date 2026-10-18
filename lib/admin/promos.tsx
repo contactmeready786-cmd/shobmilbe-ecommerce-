@@ -14,13 +14,13 @@ import type { FlashSalesRow, OffersRow, ProductsRow } from '../data/rows';
 const BASE = '/admin/marketing/flash';
 const DHAKA_MS = 6 * 3600e3; // Bangladesh: UTC+6, no summer time
 const toLocalInput = (d: string | number | Date) => (d ? new Date(new Date(d).getTime() + DHAKA_MS).toISOString().slice(0, 16) : '');
-function fromLocalInput(v?: Loose) {
+function fromLocalInput(v?: unknown) {
   const m = String(v || '').match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})$/);
   if (!m) return null;
   const d = new Date(`${m[1]}T${m[2]}:00+06:00`);
   return Number.isNaN(d.getTime()) ? null : d;
 }
-const validDate = (v?: Loose) => (/^\d{4}-\d{2}-\d{2}$/.test(String(v || '')) ? String(v) : null);
+const validDate = (v?: unknown) => (/^\d{4}-\d{2}-\d{2}$/.test(String(v || '')) ? String(v) : null);
 
 function tabs(tab: string) {
   return <nav className="rs-tabs"><a className={`tab ${tab === 'flash' ? 'on' : ''}`} href={attrValue(BASE)}>⚡ ফ্ল্যাশ সেল</a>{' '}<a className={`tab ${tab === 'offers' ? 'on' : ''}`} href={`${attrValue(BASE)}?tab=offers`}>🎁 এটা কিনলে ওটা ফ্রি</a>{' '}<a className="tab" href="/admin/marketing/coupons">🏷️ কুপন</a></nav>;
@@ -47,7 +47,7 @@ async function flashPage(ctx: AdminCtx) {
     WHERE fi.sale_id=$1 ORDER BY fi.id`, [editing.id]) : [];
   return ctx.page('ফ্ল্যাশ সেল', flashBody(ctx, sales, editing, items), 'flash');
 }
-function flashBody(ctx: AdminCtx, sales?: Loose, editing?: Loose, items?: Loose, error: Loose = null) {
+function flashBody(ctx: AdminCtx, sales?: Loose, editing?: Loose, items?: Loose, error: unknown = null) {
   const e = editing || { title: '', show_home: true, active: true };
   const now = new Date();
   const start = editing ? toLocalInput(e.starts_at) : toLocalInput(now);
@@ -65,7 +65,7 @@ async function saveFlash(ctx: AdminCtx) {
   const starts = fromLocalInput(b.starts_at);
   const ends = fromLocalInput(b.ends_at);
   const skus = list(b.sku); const prices = list(b.sale_price); const maxes = list(b.max_qty);
-  const problems: Loose[] = [];
+  const problems: unknown[] = [];
   const items = new Map();
   for (let i = 0; i < skus.length; i++) {
     const sku = str(skus[i], 40);
@@ -81,7 +81,7 @@ async function saveFlash(ctx: AdminCtx) {
   if (error) {
     const sales = await db.q<{ id: number; title: string; starts_at: Date; ends_at: Date; active: boolean; show_home: boolean; created_at: Date; items: number; sold: number }>('SELECT fs.*, 0 AS items, 0 AS sold FROM flash_sales fs ORDER BY fs.starts_at DESC LIMIT 100');
     const editing = { id, title, starts_at: starts || new Date(), ends_at: ends || new Date(), show_home: !!b.show_home, active: id ? !!b.active : true };
-    const rows: Loose[] = [];
+    const rows: unknown[] = [];
     for (let i = 0; i < skus.length; i++) if (str(skus[i])) rows.push({ sku: skus[i], price: prices[i], max_qty: maxes[i] });
     return ctx.page('ফ্ল্যাশ সেল', flashBody(ctx, sales, id ? editing : { ...editing, id: null }, rows, error), 'flash', { status: 400 });
   }
@@ -111,7 +111,7 @@ async function deleteFlash(ctx: AdminCtx, m: RouteMatch) {
 }
 
 // ---------------------------------------------------------------- buy X get Y
-async function offersPage(ctx: AdminCtx, error: Loose = null, values: Loose = null): Promise<Loose> {
+async function offersPage(ctx: AdminCtx, error: unknown = null, values: Loose = null): Promise<Loose> {
   if (ctx.method === 'POST' && !error) return saveOffer(ctx);
   const editId = int(ctx.query.get('edit')) || null;
   const offers = await db.q<{ id: number; title: string; buy_product_id: number; buy_qty: number; get_product_id: number; get_qty: number; get_percent: number; max_times: number; starts_on: string; ends_on: string; active: boolean; created_at: Date; buy_name: string; buy_sku: string; get_name: string; get_sku: string; given: number }>(`SELECT o.*, b.name AS buy_name, b.sku AS buy_sku, g.name AS get_name, g.sku AS get_sku,

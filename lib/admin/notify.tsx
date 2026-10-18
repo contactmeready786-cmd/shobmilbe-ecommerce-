@@ -42,7 +42,7 @@ async function page(ctx: AdminCtx) {
       }
     }
     // a freshly typed code decides the service by itself (no need to also pick the right button)
-    const fresh = (v?: Loose) => { const x = str(v, 60).trim(); return x && !/^•+$/.test(x) ? x : ''; };
+    const fresh = (v?: unknown) => { const x = str(v, 60).trim(); return x && !/^•+$/.test(x) ? x : ''; };
     const gToken = fresh(b.greenapi_token);
     const gId = String(b.greenapi_id || '').replace(/\D/g, '');
     const provider = (gToken || (gId && gId !== String(s.greenapi_id || ''))) && !fresh(b.callmebot_key) ? 'greenapi'
@@ -82,7 +82,7 @@ async function page(ctx: AdminCtx) {
     const tried: Loose[] = [];
     if (emailChanged && !passChanged && N.emailConfig(ctx.settings).ready) tried.push(['email', () => N.sendEmail(ctx.settings, `✅ ${ctx.settings.store_name}: ইমেইল নোটিফিকেশন চালু হয়েছে`, 'অভিনন্দন! এখন থেকে নতুন অর্ডার এলে এই ইমেইলে জানানো হবে।')]);
     if ((waKeyChanged || providerChanged || phone !== String(s.wa_notify_phone || '')) && N.waConfig(ctx.settings).ready) tried.push(['wa', () => N.sendWhatsApp(ctx.settings, `✅ ${ctx.settings.store_name}: WhatsApp নোটিফিকেশন চালু হয়েছে। নতুন অর্ডার এলে এখানে মেসেজ আসবে।`)]);
-    const failedCh: Loose[] = [];
+    const failedCh: unknown[] = [];
     for (const [ch, fn] of tried) {
       try { await fn(); await db.logIntegration(ch === 'wa' ? 'notify-whatsapp' : 'notify-email', 'test', true, 'পাঠানো হয়েছে'); }
       catch (e: Loose) { failedCh.push(ch === 'wa' ? 'WhatsApp: ' + e.message : 'ইমেইল: ' + e.message); await db.logIntegration(ch === 'wa' ? 'notify-whatsapp' : 'notify-email', 'test', false, e.message); }

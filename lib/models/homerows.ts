@@ -23,13 +23,13 @@ const STYLES: Record<string, string> = { rail: 'এক লাইনে, পা�
 
 const KEY_RE = /^x(\d{1,9})$/;
 const keyOf = (id?: Id) => 'x' + int(id);
-const idOf = (key?: Loose) => { const m = KEY_RE.exec(String(key)); return m ? int(m[1]) : 0; };
+const idOf = (key?: unknown) => { const m = KEY_RE.exec(String(key)); return m ? int(m[1]) : 0; };
 
 async function list() { return q('SELECT * FROM home_rows ORDER BY id'); }
 async function get(id?: Id) { return one('SELECT * FROM home_rows WHERE id=$1', [int(id)]); }
 
 // "12, 5 7" → SKUs → product ids (in the order typed)
-async function idsFromSkus(text?: Loose) {
+async function idsFromSkus(text?: unknown) {
   const skus = [...new Set(String(text || '').split(/[\s,;।]+/).map((x) => x.trim()).filter(Boolean))].slice(0, 60);
   if (!skus.length) return { ids: [], missing: [] };
   const rows = await q('SELECT id, sku FROM products WHERE sku = ANY($1::text[])', [skus]);
@@ -40,11 +40,11 @@ async function skusOf(ids?: Loose) {
   if (!ids || !ids.length) return '';
   const rows = await q('SELECT id, sku FROM products WHERE id = ANY($1::int[])', [ids]);
   const by = new Map(rows.map((r) => [r.id, r.sku]));
-  return ids.map((i: Loose) => by.get(i)).filter(Boolean).join(', ');
+  return ids.map((i: unknown) => by.get(i)).filter(Boolean).join(', ');
 }
 
 function clean(b: Body) {
-  const num = (v?: Loose) => { const n = Number(String(v ?? '').replace(/[^\d.]/g, '')); return String(v ?? '').trim() === '' || !Number.isFinite(n) ? null : n; };
+  const num = (v?: unknown) => { const n = Number(String(v ?? '').replace(/[^\d.]/g, '')); return String(v ?? '').trim() === '' || !Number.isFinite(n) ? null : n; };
   return {
     title: str(b.title, 80) || 'নতুন সারি',
     sub: str(b.sub, 160),
@@ -82,7 +82,7 @@ async function productsFor(r: DbRow, { hideOut }: Body = {}) {
   let items: Loose[] = [];
   if (r.source === 'products') {
     const got = await catalog.getProductsByIds(r.product_ids || [], { public: true });
-    const pos = new Map<Loose, number>((r.product_ids || []).map((id: Loose, i: number) => [id, i]));
+    const pos = new Map<Loose, number>((r.product_ids || []).map((id: unknown, i: number) => [id, i]));
     items = got.filter((p) => !base.hideOut || p.stock > 0).sort((a, b) => pos.get(a.id)! - pos.get(b.id)!).slice(0, limit);
   } else if (r.source === 'category') {
     items = r.ref ? await catalog.listProducts({ ...base, category: r.ref }) : [];

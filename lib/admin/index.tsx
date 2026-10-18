@@ -231,7 +231,7 @@ function resetPage({ settings, error, done, values = {}, enabled, mailMsg }: Bod
 // A random 32-byte link token; only its SHA-256 + expiry is saved (encrypted). Works once, for 30 minutes.
 // Resets the owner's password only — the fingerprint / face lock (if on) stays on.
 const MAIL_TOKEN_MIN = 30;
-function mailTokenOk(settings: Settings, token?: Loose) {
+function mailTokenOk(settings: Settings, token?: unknown) {
   const [hash, exp] = String(settings.reset_mail_token || '').split(':');
   if (!hash || !exp || Date.now() > Number(exp) || !/^[A-Za-z0-9_-]{40,60}$/.test(String(token || ''))) return false;
   return sameSecret(crypto.createHash('sha256').update(String(token)).digest('hex'), hash);

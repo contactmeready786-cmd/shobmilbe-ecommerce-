@@ -87,7 +87,7 @@ function fromForm(kind: string, b: Body) {
   return out;
 }
 // {shop} {phone} {site} in the texts
-function fill(text: Loose, s: Settings) {
+function fill(text: unknown, s: Settings) {
   const site = String(s.site_url || '').replace(/^https?:\/\//, '').replace(/\/+$/, '');
   return String(text || '').replace(/\{shop\}/g, s.store_name || 'সবমিলবে').replace(/\{phone\}/g, s.phone || '').replace(/\{site\}/g, site)
     .replace(/\s*·\s*$/, '').replace(/^\s*·\s*/, '');

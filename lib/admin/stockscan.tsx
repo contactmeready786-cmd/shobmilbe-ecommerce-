@@ -81,7 +81,7 @@ async function save(ctx: AdminCtx) {
     if (!change) return ctx.json(400, { ok: false, error: 'কিছু ফেরাতে হবে না।' });
   }
 
-  let ok: Loose = true;
+  let ok: unknown = true;
   if (change) {
     await db.tx(async (t) => {
       ok = await catalog.moveStock(t, id, change, reason, 'manual', null,

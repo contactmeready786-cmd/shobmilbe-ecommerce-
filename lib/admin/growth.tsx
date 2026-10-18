@@ -46,7 +46,7 @@ async function page(ctx: AdminCtx) {
       return ctx.back('/admin/growth', 'saved');
     }
     if (b.form === 'week') {
-      const done = ([] as Loose[]).concat(b.done || []).filter((k) => WEEKLY.some((w) => w[0] === k));
+      const done = ([] as unknown[]).concat(b.done || []).filter((k) => WEEKLY.some((w) => w[0] === k));
       await db.setSetting(weekKey, JSON.stringify(done));
       return ctx.back('/admin/growth#week', 'saved');
     }
@@ -131,7 +131,7 @@ async function page(ctx: AdminCtx) {
     p!.total && pct(p!.with_video, p!.total) < 10 ? ['🎬', `মাত্র ${bn(p!.with_video)}টি পণ্যে ভিডিও আছে`, 'চালু অবস্থার ছোট ভিডিও থাকলে বিক্রি বাড়ে আর ফেরত কমে।', '/admin/products'] : null,
   ].filter(Boolean);
 
-  let weekDone: Loose[] = [];
+  let weekDone: unknown[] = [];
   try { weekDone = JSON.parse(s[weekKey] || '[]'); } catch (_) { weekDone = []; }
   const spies = s.block_seo_spies !== '0';
   const aiCopy = s.block_ai_copy !== '0';

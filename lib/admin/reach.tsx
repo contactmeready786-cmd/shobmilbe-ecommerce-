@@ -70,7 +70,7 @@ function rank(products?: Loose) {
   return { retarget, winners, trending, unseen };
 }
 
-function list(title?: Loose, help?: Loose, items?: Loose, empty?: Loose) {
+function list(title?: unknown, help?: unknown, items?: Loose, empty?: unknown) {
   return <section className="panel"><h2><Val v={title} /></h2><p className="small muted"><Val v={help} /></p>{(items.length ? <div className="row-preview">{jsxList(items.map((p: Loose) => <a className="rp" href={`/admin/products/${attrValue(p.id)}`}>{' '}<img src={p.image_id ? `/media/${p.image_id}/t` : ''} alt="" loading="lazy" /><span><Val v={p.name} /></span><b><Val v={ui.money(p.price)} /></b><small className="muted"><Val v={p.why} /></small></a>))}</div> : <p className="muted small"><Val v={empty} /></p>)}</section>;
 }
 

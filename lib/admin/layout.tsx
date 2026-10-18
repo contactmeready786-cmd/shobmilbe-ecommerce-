@@ -186,7 +186,7 @@ const HOME_TABS = [
 function homeTabs(user: StaffUser, active: string | undefined) {
   const tabs = HOME_TABS.filter((t) => visible(user, t[2]));
   if (tabs.length < 2) return '';
-  return <nav className="home-tabs" aria-label="ড্যাশবোর্ডের ট্যাব">{jsxList(tabs.map(([href, label, , key, icon]: Loose[]) => <a href={attrValue(href)} className={`home-tab ${active === key ? 'on' : ''}`} aria-current={(active === key) ? "page" : undefined}><span aria-hidden="true"><Val v={icon} /></span>{' '}<Val v={label} /></a>))}</nav>;
+  return <nav className="home-tabs" aria-label="ড্যাশবোর্ডের ট্যাব">{jsxList(tabs.map(([href, label, , key, icon]: unknown[]) => <a href={attrValue(href)} className={`home-tab ${active === key ? 'on' : ''}`} aria-current={(active === key) ? "page" : undefined}><span aria-hidden="true"><Val v={icon} /></span>{' '}<Val v={label} /></a>))}</nav>;
 }
 
 // A menu entry for the user: a plain link stays as it is; a tab set becomes a link to its first tab the user may
@@ -206,12 +206,12 @@ function pageTabs(user: StaffUser, active: string | undefined, path: string) {
     if (!set.some((t: string[]) => t[0].split('?')[0] === path)) continue;
     const tabs = set.filter((t: string[]) => visible(user, t[2]));
     if (tabs.length < 2) return '';
-    return <nav className="home-tabs page-tabs" aria-label="এই বিভাগের পেজ">{jsxList(tabs.map(([href, label, , key, icon]: Loose[]) => <a href={attrValue(href)} className={`home-tab ${active === key ? 'on' : ''}`} aria-current={(active === key) ? "page" : undefined}><span aria-hidden="true"><Val v={icon} /></span>{' '}<Val v={label} /></a>))}</nav>;
+    return <nav className="home-tabs page-tabs" aria-label="এই বিভাগের পেজ">{jsxList(tabs.map(([href, label, , key, icon]: unknown[]) => <a href={attrValue(href)} className={`home-tab ${active === key ? 'on' : ''}`} aria-current={(active === key) ? "page" : undefined}><span aria-hidden="true"><Val v={icon} /></span>{' '}<Val v={label} /></a>))}</nav>;
   }
   return '';
 }
 
-function head(title: Loose, settings: Settings) {
+function head(title: unknown, settings: Settings) {
   return <><RawHtml html={`<meta charset="utf-8">`} /><RawHtml html={`<meta name="viewport" content="width=device-width, initial-scale=1">`} /><RawHtml html={`<title>${htmlValue(title)}</title>`} /><RawHtml html={`<meta name="robots" content="noindex, nofollow">`} /><RawHtml html={`<meta name="theme-color" content="#14213D">`} /><RawHtml html={`<link rel="icon" href="${htmlValue(settings.favicon_id ? `/media/${settings.favicon_id}/t` : '/brand/favicon-32.png')}">`} /><RawHtml html={`<link rel="preconnect" href="https://fonts.googleapis.com">`} /><RawHtml html={`<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>`} /><RawHtml html={`<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;500;600;700;800&display=swap" rel="stylesheet">`} /><RawHtml html={`<link rel="stylesheet" href="/css/style.css?v=${htmlValue(ASSET_V)}">`} /><RawHtml html={`<link rel="stylesheet" href="/css/admin.css?v=${htmlValue(ASSET_V)}">`} /><RawHtml html={`<link rel="manifest" href="/admin.webmanifest">`} /><RawHtml html={`<link rel="apple-touch-icon" href="/icon-192.png">`} /><RawHtml html={`<meta name="apple-mobile-web-app-capable" content="yes">`} /></>;
 }
 

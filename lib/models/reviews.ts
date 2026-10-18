@@ -35,7 +35,7 @@ async function forOrder(orderId?: Id) {
 // A review is accepted only from a customer whose order was DELIVERED and has this product —
 // one review per product per order. The caller has already checked that the order belongs to this browser.
 // 📸 photos with a review (max 3, made small in the browser). They stay hidden ('review_wait') until the review is shown.
-async function savePhotos(list?: Loose, visible?: Loose) {
+async function savePhotos(list?: unknown, visible?: unknown) {
   const security = $security;
   const catalog = $catalog;
   const out = [];
@@ -118,7 +118,7 @@ async function setStatus(id?: Id, status?: Loose) {
     return r;
   });
 }
-async function reply(id?: Id, text?: Loose) {
+async function reply(id?: Id, text?: unknown) {
   return one('UPDATE reviews SET reply=$1 WHERE id=$2 RETURNING product_id', [str(text, 1000), int(id)]);
 }
 async function remove(id?: Id) {

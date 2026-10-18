@@ -20,7 +20,7 @@ async function check(settings: Settings, productIds?: Loose) {
   const lines = fresh.slice(0, 15).map((r) => `• ${String(r.name).slice(0, 70)}${r.sku ? ` (SKU ${r.sku})` : ''} — ${r.stock <= 0 ? 'স্টক শেষ!' : `বাকি ${r.stock}টি`}`);
   const more = fresh.length > 15 ? `\n…আরও ${fresh.length - 15}টি` : '';
   const text = `⚠️ স্টক কমে গেছে\n\n${lines.join('\n')}${more}\n\nনতুন মাল কিনে পারচেজ এন্ট্রি দিন: Admin → স্টক ও কেনাকাটা`;
-  const jobs: Loose[] = [];
+  const jobs: unknown[] = [];
   if (notify.emailConfig(settings).ready) {
     jobs.push(notify.sendEmail(settings, `⚠️ স্টক কম: ${fresh.length}টি পণ্য`, text).then(() => db.logIntegration('notify-email', 'low stock', true, 'পাঠানো হয়েছে'))
       .catch((e) => db.logIntegration('notify-email', 'low stock', false, e.message)));

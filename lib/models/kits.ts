@@ -41,10 +41,10 @@ async function kitsWith(productId?: Id) {
 async function save(data: Body) {
   const title = str(data.title, 120).trim();
   if (title.length < 3) throw new KitError('কিটের নাম লিখুন।');
-  const ids = ([] as Loose[]).concat(data['bundle_id[]'] || data.bundle_id || []).map(int);
-  const qtys = ([] as Loose[]).concat(data['bundle_qty[]'] || data.bundle_qty || []).map((x) => Math.max(1, Math.min(999, int(x, 1))));
-  const opt = new Set(([] as Loose[]).concat(data['kit_opt[]'] || data.kit_opt || []).map(int));
-  const notes = ([] as Loose[]).concat(data['kit_note[]'] || data.kit_note || []);
+  const ids = ([] as unknown[]).concat(data['bundle_id[]'] || data.bundle_id || []).map(int);
+  const qtys = ([] as unknown[]).concat(data['bundle_qty[]'] || data.bundle_qty || []).map((x) => Math.max(1, Math.min(999, int(x, 1))));
+  const opt = new Set(([] as unknown[]).concat(data['kit_opt[]'] || data.kit_opt || []).map(int));
+  const notes = ([] as unknown[]).concat(data['kit_note[]'] || data.kit_note || []);
   const rows: Loose[] = []; const seen = new Set();
   ids.forEach((pid, i) => { if (pid > 0 && !seen.has(pid)) { seen.add(pid); rows.push({ pid, qty: qtys[i] || 1, optional: opt.has(pid), note: str(notes[i], 120), sort: i }); } });
   if (!rows.length) throw new KitError('কিটে অন্তত একটা পণ্য যোগ করুন।');
@@ -73,7 +73,7 @@ async function save(data: Body) {
 async function remove(id?: Id) { await db.q('DELETE FROM kits WHERE id=$1', [int(id)]); }
 
 // "কীভাবে বানাবেন": one step per line (a leading "1." / "-" is dropped — the page numbers them itself)
-function cleanSteps(text?: Loose) {
+function cleanSteps(text?: unknown) {
   return String(text || '').split(/\r?\n/).map((l) => l.replace(/^\s*(?:\d+[.)।]|[-*•])\s*/, '').trim()).filter(Boolean).slice(0, 30)
     .map((l) => l.slice(0, 600)).join('\n');
 }
@@ -83,8 +83,8 @@ function stepList(k: db.pg.DbRow) { return String((k && k.steps) || '').split('\
 // Finds the shop's product for one part of a guide: the name must contain one of the words, none of the "not"
 // words; switched on, a single product (no bundle / options). In stock and best-selling first; earlier words win.
 async function matchPart(part?: Loose) {
-  const like = part.find.map((w: Loose) => '%' + String(w).replace(/[%_\\]/g, '') + '%');
-  const notLike = (part.not || []).map((w: Loose) => '%' + String(w).replace(/[%_\\]/g, '') + '%');
+  const like = part.find.map((w: unknown) => '%' + String(w).replace(/[%_\\]/g, '') + '%');
+  const notLike = (part.not || []).map((w: unknown) => '%' + String(w).replace(/[%_\\]/g, '') + '%');
   const rows = await db.q<Pick<ProductsRow, 'id' | 'name' | 'price' | 'stock'>>(`SELECT p.id, p.name, p.price, p.stock FROM products p
     WHERE p.active AND p.parent_id IS NULL AND coalesce(p.product_type,'single') <> 'bundle' AND coalesce(p.variant_count,0) = 0
       AND p.name ILIKE ANY($1::text[]) AND NOT (p.name ILIKE ANY($2::text[]))

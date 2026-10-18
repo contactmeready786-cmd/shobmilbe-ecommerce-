@@ -65,7 +65,7 @@ function encode(text: string) {
   if (ver > MAX_VERSION) throw new Error('QR: text too long');
 
   // data bits
-  const bits: Loose[] = [];
+  const bits: unknown[] = [];
   const put = (val: number, len: number) => { for (let i = len - 1; i >= 0; i--) bits.push((val >>> i) & 1); };
   put(0x4, 4);
   put(bytes.length, ver <= 9 ? 8 : 16);
@@ -172,7 +172,7 @@ function encode(text: string) {
   }
 
   const MASKS = [
-    (x?: Loose, y?: Loose) => (x + y) % 2 === 0, (x?: Loose, y?: Loose) => y % 2 === 0, (x?: Loose) => x % 3 === 0, (x?: Loose, y?: Loose) => (x + y) % 3 === 0,
+    (x?: Loose, y?: unknown) => (x + y) % 2 === 0, (x?: unknown, y?: Loose) => y % 2 === 0, (x?: Loose) => x % 3 === 0, (x?: Loose, y?: unknown) => (x + y) % 3 === 0,
     (x?: Loose, y?: Loose) => (Math.floor(x / 3) + Math.floor(y / 2)) % 2 === 0, (x?: Loose, y?: Loose) => ((x * y) % 2) + ((x * y) % 3) === 0,
     (x?: Loose, y?: Loose) => (((x * y) % 2) + ((x * y) % 3)) % 2 === 0, (x?: Loose, y?: Loose) => (((x + y) % 2) + ((x * y) % 3)) % 2 === 0,
   ];

@@ -79,7 +79,7 @@ async function priceSweep(settings: Settings, { limit = 25 }: Body = {}) {
   for (const r of rows) {
     const mine = await db.one<Pick<PriceAlertsRow, 'id'>>(`UPDATE price_alerts SET notified_at=now(), result='পাঠানো হচ্ছে' WHERE id=$1 AND notified_at IS NULL RETURNING id`, [r.id]);
     if (!mine) continue;
-    const tk = (n?: Loose) => '৳' + (Math.round(Number(n) * 100) / 100);
+    const tk = (n?: unknown) => '৳' + (Math.round(Number(n) * 100) / 100);
     const text = `${settings.store_name || ''}: সুখবর! "${String(r.name).slice(0, 50)}" এর দাম কমেছে — ${tk(r.price_at)} থেকে এখন ${tk(r.now_price)}। ${base ? base + '/p/' + encodeURIComponent(r.slug) : ''}`.trim();
     const res = await SMS.send(settings, r.phone, text, { kind: 'price_drop' });
     await db.q('UPDATE price_alerts SET result=$1 WHERE id=$2', [res.ok ? '✅ SMS গেছে' : `❌ ${String(res.msg || '').slice(0, 120)}`, r.id]);
@@ -127,7 +127,7 @@ async function publishedQuestions(productId?: Id, limit = 30) {
     WHERE product_id=$1 AND status='published' AND answer<>'' ORDER BY answered_at DESC NULLS LAST, id DESC LIMIT $2`, [int(productId), limit]);
 }
 async function listQuestions({ status = 'pending', limit = 100, offset = 0 }: Body = {}) {
-  const params: Loose[] = [];
+  const params: unknown[] = [];
   let where = '';
   if (Q_STATUSES[status]) { params.push(status); where = `WHERE q.status=$1`; }
   params.push(limit, offset);

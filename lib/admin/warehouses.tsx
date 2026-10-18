@@ -12,7 +12,7 @@ const BASE = '/admin/warehouses';
 const REASON: Record<string, string> = { transfer: '🔁 স্থানান্তর', sale: '🧾 দোকানে বিক্রি', sale_cancel: '↩️ বিক্রি বাতিল', count: '🔢 গণনা ঠিক' };
 
 // "SKU / barcode / name" typed or scanned → one product (variants are separate products)
-async function findProduct(code?: Loose) {
+async function findProduct(code?: unknown) {
   const c = str(code, 100);
   if (!c) return null;
   const exact = await db.one<Pick<ProductsRow, 'id' | 'name' | 'stock' | 'variant_count'>>(`SELECT id, name, stock, variant_count FROM products WHERE (upper(barcode)=upper($1) OR lower(sku)=lower($1)) AND variant_count = 0 LIMIT 1`, [c]);

@@ -17,9 +17,9 @@ async function page(ctx: AdminCtx) {
   if (ctx.method === 'POST') {
     const b = await ctx.body();
     const current = (await content.listBanners({ placement: 'slider' })).slice(0, MAX);
-    const ids = ([] as Loose[]).concat(b.slide_id || []);
-    const imgs = ([] as Loose[]).concat(b.slide_image || []);
-    const links = ([] as Loose[]).concat(b.slide_link || []);
+    const ids = ([] as unknown[]).concat(b.slide_id || []);
+    const imgs = ([] as unknown[]).concat(b.slide_image || []);
+    const links = ([] as unknown[]).concat(b.slide_link || []);
     let shown = 0;
     for (let i = 0; i < MAX; i++) {
       const id = int(ids[i]);

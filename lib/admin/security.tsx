@@ -15,7 +15,7 @@ import * as delcode from '../services/delcode';
 import type { AdminCtx, Loose } from '../types';
 import type { ActivityLogRow, SettingsRow, StaffRow } from '../data/rows';
 
-function row(ok: boolean | null, title?: Loose, desc?: Loose) {
+function row(ok: boolean | null, title?: unknown, desc?: unknown) {
   return <li className={`sec-row ${ok === true ? 'ok' : ok === false ? 'todo' : 'info'}`}><span className="sec-ic" aria-hidden="true">{(ok === true ? "✅" : (ok === false ? "⚠️" : "ℹ️"))}</span>{' '}<span><b><Val v={title} /></b><br /><span className="small muted"><Val v={desc} /></span></span></li>;
 }
 
@@ -72,7 +72,7 @@ async function saveAdminCountry(ctx: AdminCtx) {
   const G = $services_geolock;
   const b = await ctx.body();
   const on = !!b.on;
-  const picked = [...new Set(([] as Loose[]).concat(b.c || []).map((x) => String(x).toUpperCase()).filter((x) => Object.hasOwn(G.COUNTRIES, x) && x !== G.ADMIN_HOME))];
+  const picked = [...new Set(([] as unknown[]).concat(b.c || []).map((x) => String(x).toUpperCase()).filter((x) => Object.hasOwn(G.COUNTRIES, x) && x !== G.ADMIN_HOME))];
   let until = String(b.until || '').trim();
   if (until && !/^\d{4}-\d{2}-\d{2}$/.test(until)) return ctx.fail('/admin/security', 'তারিখটা ঠিক নেই।');
   if (picked.length && !until) return ctx.fail('/admin/security', 'বাছাই করা দেশ কোন তারিখ পর্যন্ত খোলা থাকবে, সেটা দিন।');

@@ -39,7 +39,7 @@ function box(ctx: AdminCtx, { urls = [], fixed = [], footer = [], back, note }: 
   if (!items.length) return '';
   // compact: one small chip per button, the long explanation sits in the chip's tooltip
   const chip = (it?: Loose) => <label className="nav-chip" title={attrValue(it.desc)}>{' '}<span className="nav-chip-t"><Val v={it.title} /></span>{' '}<span className="switch switch-sm"><input type="checkbox" name={'on_' + it.id} defaultValue="1" defaultChecked={!!(it.on)} data-autosubmit="" /><span className="switch-ui" aria-hidden="true"></span></span>{' '}</label>;
-  const group = (title?: Loose, list?: Loose) => (list.length ? <div className="nav-chip-group"><span className="nav-chip-where"><Val v={title} /></span><Val v={list.map(chip)} /></div> : '');
+  const group = (title?: unknown, list?: Loose) => (list.length ? <div className="nav-chip-group"><span className="nav-chip-where"><Val v={title} /></span><Val v={list.map(chip)} /></div> : '');
   return <details className="panel nav-switch-box nav-compact"><summary><span>🧭 দোকানে এর বাটন ও লিংক</span><span className="nav-chip-sum">{jsxList(items.map((it) => <span className={`dot ${it.on ? 'on' : ''}`} title={`${attrValue(it.title)}: ${it.on ? 'চালু' : 'বন্ধ'}`}></span>))}{' '}<Val v={items.filter((i) => i.on).length} />/<Val v={items.length} />{' '}চালু</span></summary><form method="post" action="/admin/design/menus/toggle"><input type="hidden" name="back" defaultValue={attrValue(back)} />{' '}{jsxList(items.map((it) => <input type="hidden" name="keys[]" defaultValue={attrValue(it.id)} />))}{' '}{group('⬆ উপরের মেনু', top)}{' '}{group('⬇ নিচের ফুটার', bottom)}<p className="muted small nav-chip-note"><Val v={note || ''} />{' '}বন্ধ করলে শুধু লিংক লুকায়, পেজ মুছে যায় না। সব একসাথে:{' '}<a href="/admin/design/menus">হেডার ও ফুটার মেনু</a></p></form></details>;
 }
 
@@ -49,7 +49,7 @@ async function toggle(ctx: AdminCtx) {
   const rows = menuRows(ctx.settings);
   let rowsChanged = false;
   const fixedBody: Record<string, string> = {};
-  const fixedKeys: Loose[] = [];
+  const fixedKeys: unknown[] = [];
   for (const k of keys) {
     const on = !!b['on_' + k];
     if (k.startsWith('url:')) {

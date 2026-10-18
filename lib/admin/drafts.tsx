@@ -19,14 +19,14 @@ function ago(d: string | number | Date) {
   if (s < 86400) return bn(Math.floor(s / 3600)) + ' ঘণ্টা আগে';
   return bn(Math.floor(s / 86400)) + ' দিন আগে';
 }
-function waLink(phone?: Loose) { return 'https://wa.me/88' + String(phone || '').replace(/\D/g, ''); }
+function waLink(phone?: unknown) { return 'https://wa.me/88' + String(phone || '').replace(/\D/g, ''); }
 
 function statusPill(d: db.pg.DbRow) {
   const st = D.STATUSES[d.status] || ['', d.status];
   const cls = (({ open: 'pill-amber', called: 'pill-blue', ordered: 'pill-green', closed: 'pill-grey' } as Record<string, string>))[d.status] || '';
   return <span className={`pill ${attrValue(cls)}`}><Val v={st[0]} />{' '}<Val v={st[1]} /></span>;
 }
-function actButton(id?: Id, status?: Loose, label?: Loose, cls = 'btn-ghost') {
+function actButton(id?: Id, status?: unknown, label?: unknown, cls = 'btn-ghost') {
   return <form method="post" action={`${attrValue(BASE)}/${attrValue(id)}/status`}><input type="hidden" name="status" defaultValue={attrValue(status)} /><button className={`btn btn-sm ${attrValue(cls)}`}><Val v={label} /></button></form>;
 }
 

@@ -6,7 +6,7 @@ import * as $security from '../security';
 import type { Loose, Settings, ShopRequest } from '../types';
 import type { OrderLine } from '../models/orders';
 
-function phoneE164(p?: Loose) { return '88' + String(p || '').replace(/\D/g, '').replace(/^88/, ''); }
+function phoneE164(p?: unknown) { return '88' + String(p || '').replace(/\D/g, '').replace(/^88/, ''); }
 
 async function facebookPurchase(order: Loose, settings: Settings, req: ShopRequest) {
   if (!settings.fb_pixel_id || !settings.fb_capi_token) return;
@@ -35,7 +35,7 @@ async function facebookPurchase(order: Loose, settings: Settings, req: ShopReque
         currency: 'BDT', value: order.total, order_id: order.code,
         content_type: 'product', content_ids: (order.lines || []).map((l: Loose) => String(l.product_id)),
         contents: (order.lines || []).map((l: Loose) => ({ id: String(l.product_id), quantity: l.qty, item_price: l.price })),
-        num_items: (order.lines || []).reduce((n: Loose, l: Loose) => n + l.qty, 0),
+        num_items: (order.lines || []).reduce((n: unknown, l: Loose) => n + l.qty, 0),
       },
     }],
   };
@@ -46,7 +46,7 @@ async function facebookPurchase(order: Loose, settings: Settings, req: ShopReque
   else await logOk('facebook', 'capi_purchase', order.code);
 }
 // Success is written at most once an hour (enough for the "সংযোগের অবস্থা" page, without filling the log).
-async function logOk(service: string, action: string, ref?: Loose) {
+async function logOk(service: string, action: string, ref?: unknown) {
   if (await $security.hit(db, 'log:ok:' + service, 1, 3600)) await db.logIntegration(service, action, true, 'ইভেন্ট পাঠানো হয়েছে', ref);
 }
 
@@ -76,7 +76,7 @@ async function tiktokPurchase(order: Loose, settings: Settings, req: ShopRequest
 }
 
 // Fire both; never let a tracking problem break an order.
-async function purchase(order: Loose, settings: Settings, req: ShopRequest) {
+async function purchase(order: unknown, settings: Settings, req: ShopRequest) {
   await Promise.allSettled([facebookPurchase(order, settings, req), tiktokPurchase(order, settings, req)]);
 }
 

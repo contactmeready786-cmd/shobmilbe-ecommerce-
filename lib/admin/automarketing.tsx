@@ -103,7 +103,7 @@ async function post(ctx: AdminCtx) {
     if (!s.autopost_page_token) return ctx.fail(BASE, 'আগে Facebook পেজ যুক্ত করুন।');
     const r = await autopost.postOne(s, {});
     if (r.error) return ctx.fail(BASE, r.error);
-    const parts: Loose[] = [];
+    const parts: unknown[] = [];
     if (r.fb) parts.push('Facebook ✅');
     if (r.fbError) parts.push('Facebook ❌ ' + r.fbError);
     if (r.ig) parts.push('Instagram ✅');

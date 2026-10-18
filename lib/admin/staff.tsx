@@ -14,7 +14,7 @@ async function listPage(ctx: AdminCtx) {
   return ctx.page('স্টাফ', body, 'staff');
 }
 
-function form(s?: Loose, error?: Loose, isSelf?: Loose) {
+function form(s?: Loose, error?: unknown, isSelf?: unknown) {
   const isNew = !s.id;
   const owner = s.role === 'owner';
   const perms = s.permissions || [];

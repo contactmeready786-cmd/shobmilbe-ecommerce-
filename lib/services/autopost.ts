@@ -72,7 +72,7 @@ async function pickProduct(weekday: number, { exclude = [] }: Body = {}) {
   const group = ordered[weekday % ordered.length];
   // within the category: offers, best sellers and featured first, with some chance so it never feels repetitive
   const score = (p?: Loose) => (p.old_price > p.price ? 3 : 0) + Math.min(p.sold, 20) / 4 + (p.featured ? 2 : 0) + (p.last_posted ? 0 : 1.5) + Math.random() * 4;
-  const best = group.items.map((p: Loose) => ({ p, s: score(p) })).sort((a: { s: number; }, b: { s: number; }) => b.s - a.s)[0].p;
+  const best = group.items.map((p: unknown) => ({ p, s: score(p) })).sort((a: { s: number; }, b: { s: number; }) => b.s - a.s)[0].p;
   best.category = group.name;
   return best;
 }
@@ -206,7 +206,7 @@ async function postInstagram(p: { image_id: unknown; }, settings: Settings) {
   throw lastErr || new Error('Instagram পোস্ট হলো না');
 }
 
-async function record(slot?: Loose, channel?: Loose, productId?: Id, ok?: Loose, postId?: Id, message?: string, kind = 'product', ref = '') {
+async function record(slot?: unknown, channel?: unknown, productId?: Id, ok?: unknown, postId?: Id, message?: string, kind = 'product', ref = '') {
   await db.q(`INSERT INTO social_posts(slot, channel, product_id, ok, post_id, message, kind, ref) VALUES($1,$2,$3,$4,$5,$6,$7,$8)
     ON CONFLICT (slot) DO UPDATE SET product_id=EXCLUDED.product_id, ok=EXCLUDED.ok, post_id=EXCLUDED.post_id, message=EXCLUDED.message,
       kind=EXCLUDED.kind, ref=EXCLUDED.ref, created_at=now()`,
@@ -234,7 +234,7 @@ async function nextKind() {
   return ROTATION[n % ROTATION.length];
 }
 // the item of a list that was used longest ago (never-used first)
-async function freshIndex(kind?: Loose, length?: Loose) {
+async function freshIndex(kind?: unknown, length?: unknown) {
   const used = await db.q<{ ref: string; at: Date }>(`SELECT ref, max(created_at) AS at FROM social_posts WHERE kind=$1 AND ok GROUP BY ref`, [kind]).catch(() => []);
   const at = new Map(used.map((r) => [String(r.ref), new Date(r.at).getTime()]));
   const order = [...Array(length).keys()].sort((a, b) => (at.get(String(a)) || 0) - (at.get(String(b)) || 0) || Math.random() - 0.5);
@@ -242,7 +242,7 @@ async function freshIndex(kind?: Loose, length?: Loose) {
 }
 async function productFor(words?: Loose) {
   if (!words || !words.length) return null;
-  const like = words.map((w: Loose) => '%' + String(w).replace(/[%_]/g, '') + '%');
+  const like = words.map((w: unknown) => '%' + String(w).replace(/[%_]/g, '') + '%');
   return db.one<{ id: number; name: string; slug: string; category_id: number | null; price: number; old_price: number | null; stock: number; description: string; emoji: string; image: string | null; featured: boolean; active: boolean; created_at: Date; updated_at: Date; sku: string; short_description: string; cost_price: number; youtube_url: string; product_type: string; image_id: number | null; seo_title: string; seo_description: string; low_stock: number; weight_g: number; unit: string; brand: string; sold_count: number; seo_keywords: string; allow_duplicate: boolean; import_ref: string; brand_id: number | null; model: string; specs: unknown; is_new: boolean; damaged_stock: number; supplier_id: number | null; noindex: boolean; wish_count: number; rating_avg: number; rating_count: number; warranty: string; warranty_type: string; barcode: string; parent_id: number | null; variant_label: string; variant_count: number; variant_title: string; variant_sort: number; preorder: boolean; preorder_days: number; location: string; seo_auto_at: Date | null; src_wm: boolean; src_wm_checked: boolean; sold: number }>(`SELECT p.*, coalesce(p.sold_count,0)::int AS sold FROM products p WHERE ${ELIGIBLE} AND p.name ILIKE ANY($1::text[])
     ORDER BY coalesce(p.sold_count,0) DESC, random() LIMIT 1`, [like]).catch(() => null);
 }

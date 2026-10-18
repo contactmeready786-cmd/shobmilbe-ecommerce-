@@ -38,7 +38,7 @@ async function newest(n = 6) {
     ORDER BY p.created_at DESC LIMIT $1`, [n])).map((r) => r.id);
 }
 
-async function page(ctx: AdminCtx, note: Loose = null) {
+async function page(ctx: AdminCtx, note: unknown = null) {
   const s = ctx.settings;
   const c = M.cfg(s);
   const canSetup = ctx.can('settings');
@@ -64,7 +64,7 @@ async function post(ctx: AdminCtx) {
   const s = ctx.settings;
   if (b.action === 'setup') {
     if (!ctx.can('settings')) return ctx.back(BASE, 'noperm');
-    const v: Record<string, Loose> = {
+    const v: Record<string, unknown> = {
       email_mkt_on: b.email_mkt_on ? '1' : '0', email_mkt_provider: b.email_mkt_provider === 'gmail' ? 'gmail' : 'brevo',
       email_mkt_from: notify.validEmail(str(b.email_mkt_from, 120)) ? str(b.email_mkt_from, 120) : '', email_mkt_from_name: str(b.email_mkt_from_name, 60),
       email_mkt_day: String(Math.max(1, Math.min(100000, int(b.email_mkt_day, 280)))),
@@ -151,7 +151,7 @@ async function post(ctx: AdminCtx) {
 // what a mail looks like (the newest 4 products), opened in a new tab
 async function preview(ctx: AdminCtx) {
   const s = ctx.settings;
-  const products: Loose[] = [];
+  const products: unknown[] = [];
   for (const id of await newest(4)) products.push(id);
   const sub = { email: 'test@example.com', name: ctx.user.name || 'রহিম', token: 'preview' };
   const utm = 'utm_source=email';
@@ -167,7 +167,7 @@ async function preview(ctx: AdminCtx) {
 
 async function subsCsv(ctx: AdminCtx) {
   const rows = await db.q<Pick<EmailSubsRow, 'email' | 'name' | 'phone' | 'source' | 'on_list' | 'created_at' | 'unsub_at'>>('SELECT email, name, phone, source, on_list, created_at, unsub_at FROM email_subs ORDER BY id');
-  const esc = (v?: Loose) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const esc = (v?: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
   const csv = 'email,name,phone,source,subscribed,joined,left\n' + rows.map((r) => [r.email, r.name, r.phone, r.source, r.on_list ? 'yes' : 'no',
     r.created_at ? new Date(r.created_at).toISOString().slice(0, 10) : '', r.unsub_at ? new Date(r.unsub_at).toISOString().slice(0, 10) : ''].map(esc).join(',')).join('\n');
   await ctx.log('export', 'marketing', null, `ইমেইল তালিকা ডাউনলোড (${rows.length} জন)`);

@@ -16,7 +16,7 @@ const OK = `o.status NOT IN ('cancelled','returned')`;
 const TABS = [['sales', '📈 বিক্রি'], ['products', '📦 পণ্য'], ['categories', '🗂️ ক্যাটাগরি'], ['customers', '👤 কাস্টমার'], ['returns', '↩️ বাতিল ও ফেরত'], ['profit', '💰 লাভ ও মার্জিন']];
 
 // ---------------------------------------------------------------- data
-async function salesBy(from?: Loose, to?: Loose, unit?: Loose) {
+async function salesBy(from?: unknown, to?: unknown, unit?: unknown) {
   const trunc = unit === 'month' ? 'month' : unit === 'week' ? 'week' : 'day';
   return db.q(`SELECT date_trunc('${trunc}', ${DAY})::date AS period,
       count(*)::int AS orders,
@@ -27,7 +27,7 @@ async function salesBy(from?: Loose, to?: Loose, unit?: Loose) {
       coalesce(sum(o.discount + o.points_discount) FILTER (WHERE ${OK}),0)::numeric(14,2) AS discount
     FROM orders o WHERE ${DAY} BETWEEN $1 AND $2 GROUP BY 1 ORDER BY 1`, [from, to]);
 }
-async function productRows(from?: Loose, to?: Loose) {
+async function productRows(from?: unknown, to?: unknown) {
   return db.q(`SELECT i.product_id, i.name, max(i.sku) AS sku, sum(i.qty)::int AS qty, sum(i.qty*i.price)::numeric(14,2) AS revenue,
       sum(i.qty*i.cost)::numeric(14,2) AS cost, count(DISTINCT o.id)::int AS orders,
       (SELECT count(*) FROM page_views v WHERE v.product_id=i.product_id AND (v.created_at AT TIME ZONE 'Asia/Dhaka')::date BETWEEN $1 AND $2)::int AS views
@@ -35,7 +35,7 @@ async function productRows(from?: Loose, to?: Loose) {
     GROUP BY i.product_id, i.name ORDER BY revenue DESC LIMIT 500`, [from, to]);
 }
 // Products on the shop that sold nothing in the range — the most viewed first (people look but don't buy).
-async function slowRows(from?: Loose, to?: Loose) {
+async function slowRows(from?: unknown, to?: unknown) {
   return db.q(`SELECT p.id, p.name, p.sku, p.price, p.stock, p.created_at,
       (SELECT count(*) FROM page_views v WHERE v.product_id=p.id AND (v.created_at AT TIME ZONE 'Asia/Dhaka')::date BETWEEN $1 AND $2)::int AS views,
       (SELECT max(o.created_at) FROM order_items i JOIN orders o ON o.id=i.order_id WHERE i.product_id=p.id AND ${OK}) AS last_sold
@@ -43,13 +43,13 @@ async function slowRows(from?: Loose, to?: Loose) {
       WHERE i.product_id=p.id AND ${DAY} BETWEEN $1 AND $2 AND ${OK})
     ORDER BY views DESC, p.stock DESC, p.id LIMIT 200`, [from, to]);
 }
-async function categoryRows(from?: Loose, to?: Loose) {
+async function categoryRows(from?: unknown, to?: unknown) {
   return db.q<{ name: string; qty: number | null; revenue: number | null; profit: number | null; orders: number }>(`SELECT coalesce(c.name,'ক্যাটাগরি নেই') AS name, sum(i.qty)::int AS qty, sum(i.qty*i.price)::numeric(14,2) AS revenue,
       sum(i.qty*(i.price-i.cost))::numeric(14,2) AS profit, count(DISTINCT o.id)::int AS orders
     FROM order_items i JOIN orders o ON o.id=i.order_id LEFT JOIN products p ON p.id=i.product_id LEFT JOIN categories c ON c.id=p.category_id
     WHERE ${DAY} BETWEEN $1 AND $2 AND ${OK} GROUP BY 1 ORDER BY revenue DESC`, [from, to]);
 }
-async function customerRows(from?: Loose, to?: Loose) {
+async function customerRows(from?: unknown, to?: unknown) {
   const top = await db.q(`SELECT o.phone, max(o.customer_name) AS name, count(*)::int AS orders, sum(o.total) FILTER (WHERE ${OK})::numeric(14,2) AS spent,
       count(*) FILTER (WHERE o.status IN ('cancelled','returned'))::int AS failed, max(c.id) AS customer_id
     FROM orders o LEFT JOIN customers c ON c.phone=o.phone WHERE ${DAY} BETWEEN $1 AND $2 GROUP BY o.phone ORDER BY spent DESC NULLS LAST LIMIT 100`, [from, to]);
@@ -60,7 +60,7 @@ async function customerRows(from?: Loose, to?: Loose) {
     FROM orders o WHERE ${DAY} BETWEEN $1 AND $2 GROUP BY 1 ORDER BY 2 DESC LIMIT 20`, [from, to]);
   return { top, mix, districts };
 }
-async function returnRows(from?: Loose, to?: Loose) {
+async function returnRows(from?: unknown, to?: unknown) {
   const orders = await db.q<Pick<OrdersRow, 'id' | 'code' | 'customer_name' | 'phone' | 'district' | 'status' | 'total' | 'courier' | 'courier_status' | 'returned_to' | 'created_at'>>(`SELECT o.id, o.code, o.customer_name, o.phone, o.district, o.status, o.total, o.courier, o.courier_status, o.returned_to, o.created_at
     FROM orders o WHERE ${DAY} BETWEEN $1 AND $2 AND o.status IN ('cancelled','returned') ORDER BY o.created_at DESC LIMIT 300`, [from, to]);
   const products = await db.q(`SELECT i.product_id, i.name, sum(i.qty)::int AS qty, count(DISTINCT o.id)::int AS orders,
@@ -72,7 +72,7 @@ async function returnRows(from?: Loose, to?: Loose) {
     FROM orders o WHERE ${DAY} BETWEEN $1 AND $2 GROUP BY 1 HAVING count(*) >= 3 ORDER BY (count(*) FILTER (WHERE o.status IN ('cancelled','returned')))::float / count(*) DESC LIMIT 15`, [from, to]);
   return { orders, products, districts };
 }
-async function profitRow(from?: Loose, to?: Loose) {
+async function profitRow(from?: unknown, to?: unknown) {
   return db.one(`SELECT coalesce(sum(o.subtotal) FILTER (WHERE ${OK}),0)::numeric(14,2) AS goods,
       coalesce(sum(o.discount + o.points_discount) FILTER (WHERE ${OK}),0)::numeric(14,2) AS discount,
       coalesce(sum(o.delivery) FILTER (WHERE ${OK}),0)::numeric(14,2) AS delivery,
@@ -85,12 +85,12 @@ async function profitRow(from?: Loose, to?: Loose) {
 }
 
 // ---------------------------------------------------------------- page
-const periodLabel = (d?: Loose, unit?: Loose) => {
+const periodLabel = (d?: unknown, unit?: unknown) => {
   const s = String(d instanceof Date ? d.toISOString() : d).slice(0, 10);
   if (unit === 'month') return bn(s.slice(0, 7));
   return fmtDate(s + 'T06:00:00Z', false) + (unit === 'week' ? ' থেকে' : '');
 };
-const margin = (rev?: Loose, cost?: Loose) => (Number(rev) > 0 ? ((Number(rev) - Number(cost)) / Number(rev)) * 100 : null);
+const margin = (rev?: unknown, cost?: unknown) => (Number(rev) > 0 ? ((Number(rev) - Number(cost)) / Number(rev)) * 100 : null);
 
 async function page(ctx: AdminCtx) {
   const { from, to } = dateRange(ctx.query, 30);
@@ -99,7 +99,7 @@ async function page(ctx: AdminCtx) {
   const tab = tabs.some(([k]) => k === ctx.query.get('tab')) ? ctx.query.get('tab') : 'sales';
   const unit = ['day', 'week', 'month'].includes(ctx.query.get('by')) ? ctx.query.get('by') : 'day';
   const qs = (extra?: Loose) => '?' + new URLSearchParams({ from, to, tab, ...(unit !== 'day' ? { by: unit } : {}), ...extra });
-  let content: Loose = '';
+  let content: unknown = '';
 
   if (tab === 'sales') {
     const rows = await salesBy(from, to, unit);
@@ -148,7 +148,7 @@ async function exportAll(ctx: AdminCtx) {
   const seeCost = ctx.can('see_cost');
   const [days, months, products, slow, cats, cust, ret] = await Promise.all([
     salesBy(from, to, 'day'), salesBy(from, to, 'month'), productRows(from, to), slowRows(from, to), categoryRows(from, to), customerRows(from, to), returnRows(from, to)]);
-  const d10 = (d?: Loose) => String(d instanceof Date ? d.toISOString() : d).slice(0, 10);
+  const d10 = (d?: unknown) => String(d instanceof Date ? d.toISOString() : d).slice(0, 10);
   const sheets = [
     { name: 'Daily sales', rows: [['Date', 'Orders', 'Delivered', 'Cancelled/Returned', 'Discount', 'Sales', ...(seeCost ? ['Profit'] : [])],
       ...days.map((d) => [d10(d.period), d.orders, d.delivered, d.failed, d.discount, d.sales, ...(seeCost ? [d.profit] : [])])] },

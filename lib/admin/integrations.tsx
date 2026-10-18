@@ -108,7 +108,7 @@ async function domainPage(ctx: AdminCtx) {
 async function domainAdd(ctx: AdminCtx) {
   const s = ctx.settings;
   if (!s.custom_domain || !s.vercel_token || !s.vercel_project) return ctx.fail('/admin/integrations/domain', 'ডোমেইন, Vercel Token আর প্রজেক্টের নাম দিন।');
-  const msgs: Loose[] = [];
+  const msgs: unknown[] = [];
   for (const name of [s.custom_domain, 'www.' + s.custom_domain]) {
     const body = name.startsWith('www.') ? { name, redirect: s.custom_domain, redirectStatusCode: 308 } : { name };
     const r = await fetchJson(`https://api.vercel.com/v10/projects/${encodeURIComponent(s.vercel_project)}/domains`,

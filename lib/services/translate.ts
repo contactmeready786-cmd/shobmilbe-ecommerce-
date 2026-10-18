@@ -25,7 +25,7 @@ function hasBangla(s: string) { return BN.test(s); }
 const latinDigits = (s: string) => String(s).replace(/[০-৯]/g, (d) => String(BN_DIGITS.indexOf(d)));
 
 // ---------------------------------------------------------------- machine translation
-async function googleCloud(texts?: Loose, key?: Loose) {
+async function googleCloud(texts?: unknown, key?: Loose) {
   const r = await fetch(`https://translation.googleapis.com/language/translate/v2?key=${encodeURIComponent(key)}`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ q: texts, source: 'bn', target: 'en', format: 'text' }),
@@ -40,12 +40,12 @@ async function googleFree(text: string | number | boolean) {
   const r = await fetch(u, { signal: AbortSignal.timeout(6000), headers: { 'User-Agent': 'Mozilla/5.0' } });
   if (!r.ok) throw new Error(`translate ${r.status}`);
   const j = await r.json();
-  return (Array.isArray(j && j[0]) ? j[0] : []).map((x: Loose) => (Array.isArray(x) ? x[0] || '' : '')).join('');
+  return (Array.isArray(j && j[0]) ? j[0] : []).map((x: unknown) => (Array.isArray(x) ? x[0] || '' : '')).join('');
 }
 
 // The shop's name and Bangla digits are fixed before sending, so they always come back right.
 function prep(s?: Loose) { let t = latinDigits(norm(s)); for (const [b, e] of BRAND) t = t.split(b).join(e); return t; }
-function tidy(src: string, out?: Loose) {
+function tidy(src: string, out?: unknown) {
   let t = String(out || '').replace(/\s+([,.!?;:%)])/g, '$1').replace(/([(])\s+/g, '$1').replace(/\s{2,}/g, ' ').trim();
   // keep the leading emoji / symbol exactly as it was (Google sometimes drops or moves it)
   const lead = src.match(/^[^\p{L}\p{N}"'(]+/u);
@@ -62,7 +62,7 @@ async function machine(texts: Loose, settings: Settings, deadline: number) {
     // Cloud API takes many at once (max 128 per call)
     for (let i = 0; i < sent.length && Date.now() < deadline; i += 100) {
       const part = await googleCloud(sent.slice(i, i + 100), key);
-      part.forEach((t: Loose, j: number) => { out[i + j] = tidy(texts[i + j], t); });
+      part.forEach((t: unknown, j: number) => { out[i + j] = tidy(texts[i + j], t); });
     }
     return out;
   }
@@ -85,7 +85,7 @@ async function getMany(texts?: Loose) {
   if (rows.length) db.q('UPDATE translations SET hits = hits + 1, last_seen = now() WHERE hash = ANY($1::text[])', [rows.map((r) => r.hash)]).catch(() => {});
   return new Map(rows.map((r) => [r.hash, r.en]));
 }
-async function save(src?: Loose, en?: Loose, origin = 'auto') {
+async function save(src?: Loose, en?: unknown, origin = 'auto') {
   const s = norm(src);
   await db.q(`INSERT INTO translations(hash, src, en, origin) VALUES ($1, $2, $3, $4)
     ON CONFLICT (hash) DO UPDATE SET en = EXCLUDED.en, origin = EXCLUDED.origin, updated_at = now()
@@ -97,8 +97,8 @@ async function save(src?: Loose, en?: Loose, origin = 'auto') {
 async function lookup(texts: Loose, settings: Settings, { auto = true, deadline = Date.now() + 8000 }: Body = {}) {
   const list: string[] = [...new Set<string>(texts.map(norm))].filter((t) => t && t.length <= MAX_LEN && hasBangla(t));
   const found = await getMany(list);
-  const result: Record<string, Loose> = {};
-  const missing: Loose[] = [];
+  const result: Record<string, unknown> = {};
+  const missing: unknown[] = [];
   for (const t of list) {
     const en = found.get(hash(t));
     if (en) result[t] = en; else missing.push(t);
@@ -111,7 +111,7 @@ async function lookup(texts: Loose, settings: Settings, { auto = true, deadline 
       allowed.push(t);
     }
     if (allowed.length) {
-      let out: Loose[] = [];
+      let out: unknown[] = [];
       try { out = await machine(allowed, settings, deadline); } catch (e: Loose) { console.error('translate', e.message); out = []; }
       for (let i = 0; i < allowed.length; i++) {
         if (!out[i] || out[i] === prep(allowed[i])) continue;
@@ -126,7 +126,7 @@ async function lookup(texts: Loose, settings: Settings, { auto = true, deadline 
 // Lines the owner corrected by hand: sent to every English visitor (they win over the built-in words too).
 async function manualAll() {
   const rows = await db.q<Pick<TranslationsRow, 'src' | 'en'>>("SELECT src, en FROM translations WHERE origin = 'manual' AND en <> '' ORDER BY updated_at DESC LIMIT 4000");
-  const m: Record<string, Loose> = {};
+  const m: Record<string, unknown> = {};
   for (const r of rows) m[r.src] = r.en;
   return m;
 }
@@ -166,7 +166,7 @@ async function fillBatch(settings: Settings, size = 60) {
   let done = 0;
   let error = '';
   if (batch.length) {
-    let out: Loose[] = [];
+    let out: unknown[] = [];
     try { out = await machine(batch, settings, Date.now() + 9000); } catch (e: Loose) { error = e.message; }
     for (let i = 0; i < batch.length; i++) {
       if (!out[i] || out[i] === prep(batch[i])) continue;

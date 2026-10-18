@@ -22,7 +22,7 @@ async function entries(id?: Id) {
 }
 
 // What is still unpaid, oldest purchases first (payments clear the oldest debt first).
-function aging(opening?: Loose, list?: Loose) {
+function aging(opening?: unknown, list?: Loose) {
   const debts: Loose[] = [];
   if (Number(opening) > 0) debts.push({ d: null, left: Number(opening) });
   let credit = 0;

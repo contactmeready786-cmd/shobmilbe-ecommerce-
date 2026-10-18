@@ -50,7 +50,7 @@ function filters(query: ShopQuery) {
   };
 }
 function where(f: Body, params?: Loose) {
-  const w: Loose[] = [];
+  const w: unknown[] = [];
   if (f.staffId) { params.push(f.staffId); w.push(`a.staff_id=$${params.length}`); }
   if (f.entity) { params.push(f.entity); w.push(`a.entity=$${params.length}`); }
   if (f.action) { params.push(f.action); w.push(`a.action=$${params.length}`); }
@@ -64,7 +64,7 @@ const PER = 50;
 async function auditPage(ctx: AdminCtx) {
   const f = filters(ctx.query);
   const page = pageNum(ctx.query);
-  const params: Loose[] = [];
+  const params: unknown[] = [];
   const w = where(f, params);
   const [rows, total, staff] = await Promise.all([
     db.q(`SELECT a.*, s.name AS staff_name FROM activity_log a LEFT JOIN staff s ON s.id=a.staff_id ${w}
@@ -81,7 +81,7 @@ async function auditPage(ctx: AdminCtx) {
 
 async function auditCsv(ctx: AdminCtx) {
   const f = filters(ctx.query);
-  const params: Loose[] = [];
+  const params: unknown[] = [];
   const rows = await db.q(`SELECT a.*, s.name AS staff_name FROM activity_log a LEFT JOIN staff s ON s.id=a.staff_id ${where(f, params)}
     ORDER BY a.created_at DESC, a.id DESC LIMIT 20000`, params);
   await ctx.log('export', 'security', null, `অডিট লগ ডাউনলোড (${rows.length}টি)`);

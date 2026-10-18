@@ -15,10 +15,10 @@ import * as ui from './ui';
 import type { AdminCtx, Loose, RouteMatch, Settings } from '../types';
 import type { MediaRow } from '../data/rows';
 
-const TYPES: Record<string, Loose> = { domain: 'ওয়েবসাইটের ডোমেইন নাম', text: 'নিজের লেখা', logo: 'লোগো (ছবি)' };
-const STRENGTH: Record<string, Loose> = { soft: 'খুব হালকা (প্রায় চোখে পড়ে না)', normal: 'হালকা (প্রস্তাবিত)', clear: 'একটু স্পষ্ট' };
+const TYPES: Record<string, unknown> = { domain: 'ওয়েবসাইটের ডোমেইন নাম', text: 'নিজের লেখা', logo: 'লোগো (ছবি)' };
+const STRENGTH: Record<string, unknown> = { soft: 'খুব হালকা (প্রায় চোখে পড়ে না)', normal: 'হালকা (প্রস্তাবিত)', clear: 'একটু স্পষ্ট' };
 const SIZES: Record<string, string> = { s: 'ছোট', m: 'মাঝারি', l: 'বড়' };
-const PLACES: Record<string, Loose> = { auto: 'স্বয়ংক্রিয় — পণ্যের গায়ে (প্রস্তাবিত)', center: 'ছবির ঠিক মাঝখানে', corner: 'পণ্যের নিচের ডান কোণে' };
+const PLACES: Record<string, unknown> = { auto: 'স্বয়ংক্রিয় — পণ্যের গায়ে (প্রস্তাবিত)', center: 'ছবির ঠিক মাঝখানে', corner: 'পণ্যের নিচের ডান কোণে' };
 
 function domainOf(ctx: AdminCtx) {
   const s = ctx.settings;
@@ -44,7 +44,7 @@ async function page(ctx: AdminCtx) {
     const logoId = int(b.wm_logo_id) || null;
     if (logoId) await db.q(`UPDATE media SET owner_type='setting', owner_id=0 WHERE id=$1 AND owner_type IS NULL`, [logoId]);
     if (type === 'logo' && !logoId && !int(s.logo_id)) return ctx.fail('/admin/products/watermark', 'লোগো বাছলে একটা লোগোর ছবি দিন।');
-    const vals: Record<string, Loose> = {
+    const vals: Record<string, unknown> = {
       wm_on: b.wm_on ? '1' : '0', wm_type: type, wm_text: text, wm_domain: domainOf(ctx), wm_logo_id: logoId ? String(logoId) : '',
       wm_strength: STRENGTH[b.wm_strength] ? b.wm_strength : 'normal', wm_size: SIZES[b.wm_size] ? b.wm_size : 'm', wm_place: PLACES[b.wm_place] ? b.wm_place : 'auto',
     };

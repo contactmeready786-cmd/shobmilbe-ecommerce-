@@ -157,11 +157,11 @@ function compare(a?: Loose, b?: Loose, lv?: Loose, { sameDesc = false }: Body = 
 }
 
 // ---------------------------------------------------------------- loading
-const youtubeKey = (u?: Loose) => { const m = String(u || '').match(/[?&]v=([A-Za-z0-9_-]{11})/); return m ? m[1] : ''; };
+const youtubeKey = (u?: unknown) => { const m = String(u || '').match(/[?&]v=([A-Za-z0-9_-]{11})/); return m ? m[1] : ''; };
 const DESC_HASH = `md5(lower(regexp_replace(coalesce(description,''), '\\s', '', 'g')))`;
 const DESC_LEN = `length(regexp_replace(coalesce(description,''), '\\s', '', 'g'))`;
 
-async function loadCatalog(type?: Loose, exceptId: Id = 0): Promise<Loose[]> {
+async function loadCatalog(type?: unknown, exceptId: Id = 0): Promise<Loose[]> {
   const rows = await q(`SELECT p.id, p.name, p.sku, p.slug, p.active, p.price, p.image_id, p.emoji, p.youtube_url, p.allow_duplicate,
       p.created_at, CASE WHEN ${DESC_LEN} >= 60 THEN ${DESC_HASH} ELSE NULL END AS desc_hash
     FROM products p WHERE p.product_type=$1 AND p.id<>$2 AND p.parent_id IS NULL`, [type, int(exceptId)]);
@@ -243,8 +243,8 @@ async function scanCatalog(settings: Settings, { includeAllowed = false }: Body 
   }
   // join pairs into groups
   const parent = new Map();
-  const find = (x?: Loose) => { while (parent.get(x) !== x) { parent.set(x, parent.get(parent.get(x))); x = parent.get(x); } return x; };
-  const unite = (x?: Loose, y?: Loose) => { [x, y].forEach((v) => { if (!parent.has(v)) parent.set(v, v); }); parent.set(find(x), find(y)); };
+  const find = (x?: unknown) => { while (parent.get(x) !== x) { parent.set(x, parent.get(parent.get(x))); x = parent.get(x); } return x; };
+  const unite = (x?: unknown, y?: unknown) => { [x, y].forEach((v) => { if (!parent.has(v)) parent.set(v, v); }); parent.set(find(x), find(y)); };
   pairsOut.forEach((p) => unite(p.older.id, p.newer.id));
   const groups = new Map();
   for (const p of pairsOut) {

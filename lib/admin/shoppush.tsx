@@ -12,7 +12,7 @@ import type { AdminCtx, Loose, Settings } from '../types';
 const BASE = '/admin/marketing/push';
 const BATCH = 300; // phones per click
 
-async function page(ctx: AdminCtx, note: Loose = null) {
+async function page(ctx: AdminCtx, note: unknown = null) {
   const s = ctx.settings;
   await push.publicKey(); // makes the site's key pair once
   const [count, camps, week] = await Promise.all([push.shopCount(), db.q<{ id: number; title: string; body: string; url: string; image_id: number | null; total: number; sent: number; failed: number; staff_id: number | null; created_at: Date; staff_name: string | null }>(`SELECT c.*, st.name AS staff_name FROM push_campaigns c LEFT JOIN staff st ON st.id=c.staff_id ORDER BY c.id DESC LIMIT 20`),

@@ -147,7 +147,7 @@ function categoryFinder(categories: db.pg.DbRow[]) {
     byName.set(String(c.name).toLowerCase().trim(), c.id);
     if (c.slug) byName.set(String(c.slug).toLowerCase(), c.id);
   }
-  return (text?: Loose) => {
+  return (text?: unknown) => {
     const first = String(text || '').split(/[,|;]/)[0];
     const parts = first.split(/>|»|\//).map((x) => x.replace(/\s+/g, ' ').trim()).filter(Boolean);
     for (let i = parts.length - 1; i >= 0; i--) {

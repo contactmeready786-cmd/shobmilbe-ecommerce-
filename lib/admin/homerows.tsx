@@ -19,7 +19,7 @@ function builtIns() { return $design.SECTIONS; }
 
 async function allLabels() {
   const own = await H.list();
-  const labels: Record<string, Loose> = { ...builtIns() };
+  const labels: Record<string, unknown> = { ...builtIns() };
   for (const r of own) labels[H.keyOf(r.id)] = `✨ ${r.title}`;
   return { labels, own };
 }

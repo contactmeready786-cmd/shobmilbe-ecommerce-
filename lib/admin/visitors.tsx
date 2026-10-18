@@ -19,7 +19,7 @@ const EVENT_LABELS: Record<string, Loose> = {
 };
 
 // ---------------------------------------------------------------- small helpers
-function dur(sec?: Loose) {
+function dur(sec?: unknown) {
   const s = Math.max(0, Math.round(Number(sec) || 0));
   if (s < 60) return bn(s) + ' সে';
   if (s < 3600) return bn(Math.floor(s / 60)) + ' মি' + (s % 60 ? ' ' + bn(s % 60) + ' সে' : '');
@@ -66,7 +66,7 @@ function deviceCell(row: db.pg.DbRow, extra?: boolean | undefined) {
   const name = phoneName(row);
   return <>{device(row.device)}{(name ? <><br /><b className="small" translate="no"><Val v={name} /></b></> : null)}<br /><small className="muted"><Val v={row.browser} />{(extra ? (' · ' + row.os) : null)}</small></>;
 }
-function pageName(path: Loose, title: Loose, settings: Settings) {
+function pageName(path: unknown, title: unknown, settings: Settings) {
   const store = settings.store_name || '';
   let t = String(title || '').replace(new RegExp('\\s*\\|\\s*' + store.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '.*$'), '').trim();
   const p = String(path || '');
@@ -77,7 +77,7 @@ function pageName(path: Loose, title: Loose, settings: Settings) {
   else if (p.startsWith('/track')) t = 'অর্ডার ট্র্যাক';
   return t || p;
 }
-function pageCell(path: Loose, title: Loose, settings: Settings) {
+function pageCell(path: Loose, title: unknown, settings: Settings) {
   return <a href={attrValue(path)} target="_blank" rel="noopener" className="va-page"><b><Val v={pageName(path, title, settings)} /></b><small><Val v={decodeSafe(path)} /></small></a>;
 }
 function decodeSafe(p: string) { try { return decodeURI(p); } catch (_) { return p; } }
@@ -91,11 +91,11 @@ function who(row: db.pg.DbRow) {
 }
 function rate(a: number, b: number) { return b ? pct((100 * a) / b) : '—'; }
 
-function tabs(active: string, live?: Loose) {
+function tabs(active: string, live?: unknown) {
   const items = [['', '📊 সারাংশ'], ['live', `🟢 এখন লাইভ${live !== undefined ? ` (${bn(live)})` : ''}`], ['sessions', '🧭 সব ভিজিট'], ['countries', '🌍 দেশ ব্লক'], ['settings', '⚙️ সেটিংস']];
   return <nav className="tabs va-tabs">{jsxList(items.map(([k, l]) => <a className={`tab ${active === k ? 'on' : ''}`} href={attrValue(k === 'countries' ? COUNTRY_PATH : BASE + (k ? '?tab=' + k : ''))}><Val v={l} /></a>))}</nav>;
 }
-function rangeChips(from?: Loose, to?: Loose, extra = '') {
+function rangeChips(from?: unknown, to?: unknown, extra = '') {
   const presets = [[1, 'আজ'], [7, '৭ দিন'], [30, '৩০ দিন'], [90, '৯০ দিন']];
   return <form className="date-filter" method="get" action={attrValue(BASE)}><RawHtml html={extra} /><div className="chips">{jsxList(presets.map(([d, l]) => <a className="chip" href={`${attrValue(BASE)}?days=${attrValue(d)}`}><Val v={l} /></a>))}</div><label>থেকে{' '}<input type="date" name="from" defaultValue={attrValue(from)} /></label>{' '}<label>পর্যন্ত{' '}<input type="date" name="to" defaultValue={attrValue(to)} /></label>{' '}<button className="btn btn-sm">দেখুন</button></form>;
 }
@@ -193,7 +193,7 @@ async function settingsPage(ctx: AdminCtx) {
     return ctx.back(`${BASE}?tab=settings`, 'saved');
   }
   const live = await V.liveSessions();
-  const sw = (name?: Loose, on?: Loose, title?: Loose, desc?: Loose) => <label className="switch-row">{' '}<span className="switch-text"><b><Val v={title} /></b><small><Val v={desc} /></small></span>{' '}<span className="switch"><input type="checkbox" name={attrValue(name)} defaultValue="1" defaultChecked={!!(on)} /><span className="switch-ui" aria-hidden="true"></span></span>{' '}<span className="switch-state" data-on="চালু" data-off="বন্ধ"></span></label>;
+  const sw = (name?: unknown, on?: unknown, title?: unknown, desc?: unknown) => <label className="switch-row">{' '}<span className="switch-text"><b><Val v={title} /></b><small><Val v={desc} /></small></span>{' '}<span className="switch"><input type="checkbox" name={attrValue(name)} defaultValue="1" defaultChecked={!!(on)} /><span className="switch-ui" aria-hidden="true"></span></span>{' '}<span className="switch-state" data-on="চালু" data-off="বন্ধ"></span></label>;
   const size = await db.one<{ views: number; sessions: number; size: string }>(`SELECT (SELECT count(*) FROM page_views)::int AS views, (SELECT count(*) FROM visit_sessions)::int AS sessions,
     pg_size_pretty(pg_total_relation_size('page_views') + pg_total_relation_size('visit_sessions') + pg_total_relation_size('visit_events') + pg_total_relation_size('visitors')) AS size`);
   const body = <><div className="title-row"><h1>ভিজিটর অ্যানালিটিক্স</h1></div>{tabs('settings', live.length)}{ui.flash(ctx.flash)}<div className="two-col"><form method="post" action={attrValue(BASE)} className="form panel"><h2>সেটিংস</h2><div className="switch-list">{sw('visitor_tracking', s.visitor_tracking !== '0', 'ভিজিটর ট্র্যাকিং চালু', 'বন্ধ করলে নতুন ভিজিটরের তথ্য আর জমা হবে না (আগের তথ্য থেকে যাবে)।')}{' '}{sw('visitor_exclude_admin', s.visitor_exclude_admin !== '0', 'আমার নিজের ভিজিট গুনবে না', 'যে ব্রাউজারে Admin প্যানেলে লগইন করা আছে, সেখান থেকে দোকান দেখলে সেটা হিসাবে ধরবে না — তাহলে আসল কাস্টমারের হিসাব ঠিক থাকবে।')}</div>{ui.field('তথ্য কতদিন রাখবে', ui.select('visitor_keep_days', [['30', '৩০ দিন'], ['60', '৬০ দিন (পরামর্শ)'], ['90', '৯০ দিন'], ['180', '১৮০ দিন'], ['365', '১ বছর']], s.visitor_keep_days || '60'),
@@ -209,7 +209,7 @@ async function countriesPage(ctx: AdminCtx) {
   const mine = G.countryOf(ctx.req);
   if (ctx.method === 'POST') {
     const b = await ctx.body();
-    const picked = [...new Set(([] as Loose[]).concat(b.c || []).map((x) => String(x).toUpperCase()).filter((x) => Object.prototype.hasOwnProperty.call(G.COUNTRIES, x)))];
+    const picked = [...new Set(([] as unknown[]).concat(b.c || []).map((x) => String(x).toUpperCase()).filter((x) => Object.prototype.hasOwnProperty.call(G.COUNTRIES, x)))];
     const on = !!b.geo_lock_on;
     if (on && !picked.length) return ctx.fail(COUNTRY_PATH, 'চালু করতে অন্তত একটা দেশে টিক দিন (যেমন বাংলাদেশ)।');
     await db.setMany({ geo_lock_on: on ? '1' : '0', geo_allow: picked.join(','), geo_tz_check: b.geo_tz_check ? '1' : '0', geo_vpn_home: b.geo_vpn_home ? '1' : '0' });
@@ -231,7 +231,7 @@ async function countriesPage(ctx: AdminCtx) {
   const list = Object.keys(G.COUNTRIES).map((c) => ({ c, bn: V.countryName(c), en: G.countryName(c, 'en'), n: seen[c] || 0, on: allow.has(c) }))
     .sort((a, b) => (Number(b.on) - Number(a.on)) || (b.n - a.n) || a.en.localeCompare(b.en));
   const topVisits = Math.max(1, ...list.map((r) => r.n));
-  const sw = (name?: Loose, on?: Loose, title?: Loose, desc?: Loose) => <label className="switch-row">{' '}<span className="switch-text"><b><Val v={title} /></b><small><Val v={desc} /></small></span>{' '}<span className="switch"><input type="checkbox" name={attrValue(name)} defaultValue="1" defaultChecked={!!(on)} /><span className="switch-ui" aria-hidden="true"></span></span>{' '}<span className="switch-state" data-on="চালু" data-off="বন্ধ"></span></label>;
+  const sw = (name?: unknown, on?: unknown, title?: unknown, desc?: unknown) => <label className="switch-row">{' '}<span className="switch-text"><b><Val v={title} /></b><small><Val v={desc} /></small></span>{' '}<span className="switch"><input type="checkbox" name={attrValue(name)} defaultValue="1" defaultChecked={!!(on)} /><span className="switch-ui" aria-hidden="true"></span></span>{' '}<span className="switch-state" data-on="চালু" data-off="বন্ধ"></span></label>;
   const body = <><div className="title-row"><h1>ভিজিটর অ্যানালিটিক্স</h1></div>{tabs('countries', live.length)}{ui.flash(ctx.flash)}<div className="kpis kpis-tight">{ui.kpi('অবস্থা', cfg.on ? '🔒 চালু' : '⚪ বন্ধ', cfg.on ? <span className="flag-row">খোলা:{' '}{jsxList(cfg.list.map((c) => ui.flag(c)))}</span> : 'এখন সব দেশ থেকে ঢোকা যায়')}{' '}{ui.kpi('খোলা দেশ', bn(allow.size), '')}{' '}{ui.kpi('গত ৭ দিনে আটকানো', bn(blockedTotal), tzBlocked ? `এর মধ্যে VPN (ঘড়ি মেলেনি) ${bn(tzBlocked)}` : '')}{' '}{ui.kpi('আপনি এখন আছেন', mine ? <span className="flag-big">{ui.flag(mine)}{' '}<Val v={V.countryName(mine)} /></span> : 'জানা যায়নি', mine && cfg.on && !allow.has(mine) ? 'এই দেশে টিক নেই' : '')}</div><form method="post" action={attrValue(COUNTRY_PATH)} className="form" data-geo-form=""><div className="two-col"><section className="panel"><h2>🌍 শুধু টিক দেওয়া দেশ থেকে সাইটে ঢোকা যাবে</h2><div className="switch-list">{sw('geo_lock_on', s.geo_lock_on === '1', 'দেশ ব্লক চালু', 'চালু করলে টিক না দেওয়া দেশের কেউ দোকান খুললে দেখবে "দুঃখিত, আপনার দেশ থেকে খোলা যায় না"।')}{' '}{sw('geo_tz_check', s.geo_tz_check !== '0', 'VPN দিয়ে লুকিয়ে আসা বিদেশি ধরুন', 'বিদেশি কেউ বাংলাদেশের VPN দিয়ে এলেও তার ফোন/কম্পিউটারের ঘড়ি নিজের দেশের সময়ে থাকে। ঘড়ি টিক দেওয়া দেশের না হলে আটকে যাবে।')}{' '}{sw('geo_vpn_home', s.geo_vpn_home === '1', 'VPN চালু রাখা দেশি কাস্টমারকে ঢুকতে দিন', 'বন্ধ থাকলে (পরামর্শ) বাংলাদেশে বসে VPN চালিয়ে এলে বিদেশি হিসেবেই আটকে যাবে — VPN বন্ধ করলেই ঢুকতে পারবে। চালু করলে ঘড়ি বাংলাদেশের সময়ে থাকলে ঢুকতে দেবে।')}</div><h3 className="h3">দেশ বাছাই করুন{' '}<span className="muted small" data-geo-count=""></span></h3><div className="field-row"><div className="field"><input type="search" placeholder="দেশ খুঁজুন… (যেমন India / ভারত)" data-geo-search="" aria-label="দেশ খুঁজুন" /></div><div className="field"><button type="button" className="btn btn-sm btn-ghost" data-geo-only="">শুধু টিক দেওয়াগুলো দেখুন</button>{' '}<button type="button" className="btn btn-sm btn-ghost" data-geo-none="">সব টিক তুলে দিন</button></div></div><div className="geo-list">{jsxList(list.map((r) => <label className={`check geo-row${r.on ? ' is-on' : ''}`} data-geo-row="" data-k={(r.bn + ' ' + r.en + ' ' + r.c).toLowerCase()}>{' '}<input type="checkbox" name="c" defaultValue={attrValue(r.c)} defaultChecked={!!(r.on)} />{' '}{ui.flag(r.c)}{' '}<span className="geo-name"><b><Val v={r.bn} /></b>{' '}<span className="small muted"><Val v={r.en} /></span></span>{' '}{(r.n ? <span className="geo-visits" title="গত ৩০ দিনের ভিজিট"><span className="geo-bar" style={{ width: `${Math.max(6, Math.round(r.n / topVisits * 100))}%` }}></span><b>{bn(r.n)}</b>{' '}ভিজিট</span> : null)}</label>))}</div><p className="small muted">প্রথমে টিক দেওয়া দেশ, তারপর গত ৩০ দিনে যেসব দেশ থেকে ভিজিটর এসেছে (বেশি থেকে কম), তারপর বাকি সব দেশ।</p><button className="btn btn-block btn-lg">✅ সেভ করুন</button></section><section className="panel"><h2>গত ৭ দিনে যাদের আটকানো হয়েছে</h2>{(blocked.length ? <table className="table compact"><thead><tr><th>দেশ</th><th>কারণ</th><th className="num">বার</th></tr></thead><tbody>{jsxList(blocked.slice(0, 30).map((r) => <tr><td>{ui.flag(r.country === '??' ? '' : r.country)}{' '}{(r.country === '??' ? "অজানা" : <Val v={V.countryName(r.country)} />)}</td><td className="small">{(r.why === 'tz' ? "🛡️ VPN (ঘড়ি মেলেনি)" : (r.why === 'admin' ? "🔐 অ্যাডমিনে ঢোকার চেষ্টা" : "🌍 দেশ"))}</td><td className="num">{bn(r.n)}</td></tr>))}</tbody></table> : <p className="muted">{(cfg.on ? "এখনো কাউকে আটকাতে হয়নি।" : "দেশ ব্লক বন্ধ আছে।")}</p>)}<h2>যা কখনো আটকাবে না</h2><ul className="checklist small"><li>🔐 অ্যাডমিন প্যানেলের দেশ আলাদা ঠিক করা হয় (শুধু বাংলাদেশ, বিদেশ যাওয়ার আগে খুলে নিতে হয়):{' '}<a href="/admin/security#admin-country">নিরাপত্তা → অ্যাডমিন কোন দেশ থেকে খুলবে</a>। অ্যাডমিনে লগইন করা ব্রাউজারে দোকানও খুলবে।</li><li>✅ Google, Facebook, Bing-এর রোবট — এরা আমেরিকা/ইউরোপ থেকে আসে। আটকালে দোকান Google সার্চ, Merchant Center আর ফেসবুক পোস্টের ছবি থেকে হারিয়ে যেত।</li><li>✅ বিকাশ/পেমেন্ট, Pathao/Steadfast কুরিয়ারের অটো-আপডেট আর প্রতিদিনের অটো কাজ।</li><li>✅ পণ্যের ছবি আর প্রোডাক্ট ফিড।</li></ul><p className="small muted">দেশ বোঝা হয় ভিজিটরের IP থেকে (Vercel নিজে বলে দেয়)। কোনো কারণে দেশ জানা না গেলে তাকে ঢুকতে দেওয়া হয়, যাতে ভুলে পুরো দোকান বন্ধ না হয়।</p></section></div></form></>;
   return ctx.page('দেশ ব্লক', body, 'visitors');
 }

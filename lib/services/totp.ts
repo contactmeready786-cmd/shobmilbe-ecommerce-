@@ -51,11 +51,11 @@ function check(secret: string, code: string, lastStep = 0) {
 }
 
 // The link the authenticator app reads (shown as a QR code).
-function uri(secret?: Loose, account?: Loose, issuer?: Loose) {
+function uri(secret?: unknown, account?: Loose, issuer?: unknown) {
   const iss = String(issuer || 'Shop').replace(/:/g, '');
   return `otpauth://totp/${encodeURIComponent(iss)}:${encodeURIComponent(account)}?secret=${secret}&issuer=${encodeURIComponent(iss)}&algorithm=SHA1&digits=6&period=${STEP}`;
 }
 // "JBSW Y3DP EHPK …" — easier to type by hand
-const pretty = (secret?: Loose) => String(secret).replace(/(.{4})/g, '$1 ').trim();
+const pretty = (secret?: unknown) => String(secret).replace(/(.{4})/g, '$1 ').trim();
 
 export { newSecret, check, codeAt, stepNow, uri, pretty, base32, unbase32 };

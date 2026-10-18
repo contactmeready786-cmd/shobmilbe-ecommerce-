@@ -77,7 +77,7 @@ async function recordNow({ req, ip, kind, detail = '', path = '', settings }: Bo
 }
 
 // After an event: tell the owner once, and (if allowed) shut out an IP that keeps trying to hack.
-async function react(ip?: Loose, kind?: Loose, s?: Loose) {
+async function react(ip?: unknown, kind?: Loose, s?: Loose) {
   const r = await db.one<{ hack: number; n: number }>(`SELECT count(*) FILTER (WHERE kind IN ('probe','attack'))::int AS hack, count(*)::int AS n
     FROM security_events WHERE ip = $1 AND created_at > now() - interval '1 hour'`, [ip]);
   if (!r) return;
@@ -155,7 +155,7 @@ async function suspects({ days = 7, ip = '' }: Body = {}) {
     LEFT JOIN blocklist b ON b.kind = 'site' AND b.value = g.ip AND (b.expires_at IS NULL OR b.expires_at > now())
     ORDER BY g.last_at DESC LIMIT 200`, params);
 }
-async function events(ip?: Loose, limit = 200) {
+async function events(ip?: unknown, limit = 200) {
   return db.q<SecurityEventsRow>(`SELECT * FROM security_events WHERE ip = $1 ORDER BY id DESC LIMIT $2`, [ip, limit]);
 }
 async function summary(days = 7) {

@@ -66,7 +66,7 @@ export async function resolveShop(ctx: ShopCtx): Promise<Resolved> {
     const order = new Map(viewedIds.map((id, i) => [id, i]));
     const popularList = viewed.sort((a, b) => (order.get(a.id) as number) - (order.get(b.id) as number));
     // category rows: each main category with its best products
-    let catRows: Loose[] = [];
+    let catRows: unknown[] = [];
     if (want('cat_rows')) {
       const { roots } = catalog.categoryTree(categories);
       const mains = roots.filter((c) => c.total_count! >= 4).slice(0, 8);
@@ -89,11 +89,11 @@ export async function resolveShop(ctx: ShopCtx): Promise<Resolved> {
       }
     }
     // the owner's own rows
-    const custom: Record<string, Loose> = {};
+    const custom: Record<string, unknown> = {};
     const customKeys = sections.filter((k: string) => /^x\d+$/.test(k));
     if (customKeys.length) {
       const H = $models_homerows;
-      const rows = await db.q<HomeRowsRow>('SELECT * FROM home_rows WHERE id = ANY($1::int[])', [customKeys.map((k: Loose) => H.idOf(k))]).catch(() => []);
+      const rows = await db.q<HomeRowsRow>('SELECT * FROM home_rows WHERE id = ANY($1::int[])', [customKeys.map((k: unknown) => H.idOf(k))]).catch(() => []);
       await Promise.all(rows.map(async (r) => {
         custom[H.keyOf(r.id)] = { row: r, link: H.linkFor(r), products: await H.productsFor(r, { hideOut }).catch(() => []) };
       }));
@@ -221,7 +221,7 @@ export async function resolveShop(ctx: ShopCtx): Promise<Resolved> {
       : [];
     const offers = offerRows.map((o) => ({ label: pricing.offerTitle(o, bn), ends_on: o.ends_on ? String(o.ends_on).slice(0, 10) : '' }));
     const slugs = [...String(product.description || '').matchAll(/^\s*\/p\/([A-Za-z0-9ঀ-৿-]+)\s*$/gm)].map((x) => x[1]).slice(0, 6);
-    const inlineProducts: Record<string, Loose> = {};
+    const inlineProducts: Record<string, unknown> = {};
     for (const s of slugs) { const ip = await catalog.getProduct({ slug: s, public: true }); if (ip && ip.active) inlineProducts[s] = ip; }
     // full https:// links, so Google can read pictures and prices even when "site_url" is not set
     const base = ctx.base.replace(/\/+$/, '');

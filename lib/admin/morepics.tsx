@@ -72,7 +72,7 @@ async function planApi(ctx: AdminCtx) {
     FROM products p WHERE p.import_ref = ANY($1::text[]) ORDER BY p.id`, [[...byRef.keys()]]);
   const trashed = await trashedRefs();
   const inShop = new Set(rows.map((r) => r.import_ref));
-  const list: Loose[] = [];
+  const list: unknown[] = [];
   let full = 0;
   for (const r of rows) {
     const it = byRef.get(r.import_ref);
@@ -125,7 +125,7 @@ async function oldSiteLinks(items?: Loose) {
     links = links.concat((sub.links || []).filter((l: { kind: string; }) => l.kind === 'page').map((l: Loose) => l.url));
   }
   const seen = new Set();
-  links = links.filter((l: Loose) => {
+  links = links.filter((l: unknown) => {
     const k = pathKey(l);
     if (!k || !importer.PRODUCT_PATH.test(k) || seen.has(k)) return false;
     seen.add(k); return true;
@@ -188,7 +188,7 @@ async function storexGallery(link: string | URL, main: string) {
   try { d = JSON.parse(r.body.toString('utf8')).data; } catch (_) { return null; }
   if (!d || !Array.isArray(d.gallery) || !/^[a-z0-9]{6,60}$/i.test(String(d.gallery_folder || ''))) return null;
   const files = d.gallery.filter((f: string) => typeof f === 'string' && /^[\w.%-]{3,200}\.(webp|jpe?g|png|gif)$/i.test(f));
-  const images = files.map((f: Loose) => `${STOREX_CDN}/${tenant}/images/products/${d.gallery_folder}/${f}`);
+  const images = files.map((f: unknown) => `${STOREX_CDN}/${tenant}/images/products/${d.gallery_folder}/${f}`);
   // the product's own picture list — sure it's this product when its main picture is in the list
   const name = (x: string) => decodeURIComponent(String(x || '').split('?')[0].split('/').pop() || '').toLowerCase();
   const mainName = name(main);

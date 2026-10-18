@@ -53,7 +53,7 @@ async function save({ b, ip, settings }: Body) {
 }
 
 // An order was placed with this number: its drafts are done.
-async function markOrdered(phone?: Loose, code?: Loose) {
+async function markOrdered(phone?: unknown, code?: unknown) {
   try {
     await db.q(`UPDATE checkout_drafts SET status = 'ordered', order_code = $2, updated_at = now()
       WHERE phone = $1 AND status IN ('open','called') AND created_at > now() - interval '14 days'`, [normalizePhone(phone), String(code || '')]);
@@ -143,7 +143,7 @@ async function setStatus(id?: Id, status?: Loose, staffId?: Id) {
     called_by = CASE WHEN $2 = 'called' THEN $3::int ELSE called_by END, called_at = CASE WHEN $2 = 'called' THEN now() ELSE called_at END
     WHERE id = $1`, [id, status, staffId || null]);
 }
-async function setNote(id?: Id, note?: Loose) { if (ID_RE.test(String(id))) await db.q('UPDATE checkout_drafts SET admin_note = $2 WHERE id = $1', [id, str(note, 500)]); }
+async function setNote(id?: Id, note?: unknown) { if (ID_RE.test(String(id))) await db.q('UPDATE checkout_drafts SET admin_note = $2 WHERE id = $1', [id, str(note, 500)]); }
 async function remove(id?: Id) { if (ID_RE.test(String(id))) await db.q('DELETE FROM checkout_drafts WHERE id = $1', [id]); }
 
 export { remindDue, resume, dhakaHour, STATUSES, ID_RE, save, markOrdered, list, count, counts, get, setStatus, setNote, remove };

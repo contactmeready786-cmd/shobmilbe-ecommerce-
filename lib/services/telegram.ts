@@ -14,7 +14,7 @@ import type { SocialPostsRow } from '../data/rows';
 const API = 'https://api.telegram.org';
 const ROTATION = ['tip', 'kit', 'tip', 'question'];
 
-async function call(token: string | undefined, method: string, params?: Loose) {
+async function call(token: string | undefined, method: string, params?: unknown) {
   if (!/^\d{5,}:[A-Za-z0-9_-]{30,}$/.test(String(token || ''))) throw new Error('বটের টোকেন ঠিক নেই — @BotFather যেটা দিয়েছে পুরোটা কপি করুন (যেমন 123456789:AA…)।');
   const r = await fetchJson(`${API}/bot${token}/${method}`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(params || {}),
@@ -59,7 +59,7 @@ async function send(settings: Settings, { text, product }: Body) {
   return r.message_id;
 }
 
-async function record(slot?: Loose, productId?: Id, ok?: Loose, postId?: Id, message?: Loose, kind = 'product', ref = '') {
+async function record(slot?: unknown, productId?: Id, ok?: unknown, postId?: Id, message?: unknown, kind = 'product', ref = '') {
   await db.q(`INSERT INTO social_posts(slot, channel, product_id, ok, post_id, message, kind, ref) VALUES($1,'telegram',$2,$3,$4,$5,$6,$7)
     ON CONFLICT (slot) DO UPDATE SET product_id=EXCLUDED.product_id, ok=EXCLUDED.ok, post_id=EXCLUDED.post_id, message=EXCLUDED.message,
       kind=EXCLUDED.kind, ref=EXCLUDED.ref, created_at=now()`,

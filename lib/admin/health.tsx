@@ -9,7 +9,7 @@ import * as ik from '../services/imagekit';
 import type { AdminCtx, Loose } from '../types';
 
 const ICON: Record<H.Level | 'off', string> = { ok: '✅', warn: '⚠️', bad: '❌', off: '⚪' };
-function line(level: H.Level | 'off', title: Loose, detail: Loose, link?: [string, string]) {
+function line(level: H.Level | 'off', title: unknown, detail: unknown, link?: [string, string]) {
   return <li className={`sec-row ${level === 'ok' ? 'ok' : level === 'off' ? 'info' : 'todo'}`}><span className="sec-ic" aria-hidden="true"><Val v={ICON[level]} /></span>{' '}<span><b><Val v={title} /></b><br /><span className="small muted"><Val v={detail} /></span>{(link ? <>{' '}<a className="small" href={attrValue(link[0])}><Val v={link[1]} />{' '}→</a></> : null)}</span></li>;
 }
 const pctOf = (a: number, b: number) => (b ? Math.round((100 * a) / b) : 0);

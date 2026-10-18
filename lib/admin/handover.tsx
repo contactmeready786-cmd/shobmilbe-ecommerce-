@@ -17,7 +17,7 @@ import type { OrdersRow, ProductsRow } from '../data/rows';
 const BASE = '/admin/handover';
 const READY = ['confirmed', 'processing', 'hold'];
 
-async function findOrder(code?: Loose) {
+async function findOrder(code?: unknown) {
   const c = str(code, 60).trim().toUpperCase();
   if (!c) return null;
   const r = await db.one<Pick<OrdersRow, 'id'>>(`SELECT id FROM orders WHERE upper(code)=$1 OR (consignment_id<>'' AND upper(consignment_id)=$1) OR (coalesce(tracking_code,'')<>'' AND upper(tracking_code)=$1) ORDER BY id DESC LIMIT 1`, [c]);
@@ -26,7 +26,7 @@ async function findOrder(code?: Loose) {
 function view(o?: Loose) {
   const due = Math.max(0, Number(o.total) - Number(o.paid_amount || 0));
   // each product line with what its barcode is (bundles: the parts inside)
-  const lines: Loose[] = [];
+  const lines: unknown[] = [];
   for (const it of o.items) {
     if (Array.isArray(it.components) && it.components.length) {
       for (const c of it.components) lines.push({ product_id: c.product_id, name: `${c.name || it.name} (প্যাকেজের ভেতরে)`, qty: c.qty * (it.qty || 1), barcode: c.barcode || '', image: it.image_id ? `/media/${it.image_id}/t` : '' });
@@ -40,7 +40,7 @@ function view(o?: Loose) {
 }
 async function partsBarcodes(order: O.Order) {
   // bundle parts need their own product barcodes
-  const ids: Loose[] = [];
+  const ids: unknown[] = [];
   for (const it of order.items) if (Array.isArray(it.components)) it.components.forEach((c) => ids.push(c.product_id));
   if (!ids.length) return;
   const rows = await db.q<Pick<ProductsRow, 'id' | 'name' | 'barcode'>>('SELECT id, name, barcode FROM products WHERE id = ANY($1::int[])', [ids]);

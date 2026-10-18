@@ -11,6 +11,7 @@ import * as qr from '../services/qr';
 import * as $profile from './profile';
 import * as $services_notify from '../services/notify';
 import type { AdminCtx, Loose } from '../types';
+import type { Settings } from '../types';
 
 const MSG: Record<string, string> = {
   password: 'পাসওয়ার্ড বদলানো হয়েছে। নিরাপত্তার জন্য অন্য সব ডিভাইস থেকে লগআউট করা হয়েছে।',
@@ -25,12 +26,12 @@ function flash(ctx: AdminCtx) {
   return m ? ui.flash({ text: m }) : ui.flash(ctx.flash);
 }
 
-function devicesTable(rows?: Loose, me?: Loose, action?: Loose) {
+function devicesTable(rows?: Loose, me?: unknown, action?: unknown) {
   if (!rows.length) return <p className="muted">কোনো ডিভাইসে লগইন নেই।</p>;
-  return <div className="table-wrap"><table className="table compact"><thead><tr><th>ডিভাইস</th><th>কোথা থেকে</th><th>লগইন</th><th>শেষ ব্যবহার</th><th></th></tr></thead><tbody>{jsxList(rows.map((s: Loose) => <tr><td><Val v={s.device || '—'} />{(s.id === me ? <>{' '}<span className="pill pill-delivered">এই ডিভাইস</span></> : null)}</td><td className="small"><Val v={s.place || ''} />{(s.place ? <br /> : null)}<span className="muted mono"><Val v={s.ip} /></span></td><td className="small">{fmtDate(s.created_at)}</td><td className="small">{fmtDate(s.last_seen)}</td><td>{(s.id === me ? null : <form method="post" action={attrValue(action)} data-confirm="এই ডিভাইস থেকে লগআউট করবেন?"><input type="hidden" name="id" defaultValue={attrValue(s.id)} /><button className="btn btn-sm btn-ghost">লগআউট করুন</button></form>)}</td></tr>))}</tbody></table></div>;
+  return <div className="table-wrap"><table className="table compact"><thead><tr><th>ডিভাইস</th><th>কোথা থেকে</th><th>লগইন</th><th>শেষ ব্যবহার</th><th></th></tr></thead><tbody>{jsxList(rows.map((s: Settings) => <tr><td><Val v={s.device || '—'} />{(s.id === me ? <>{' '}<span className="pill pill-delivered">এই ডিভাইস</span></> : null)}</td><td className="small"><Val v={s.place || ''} />{(s.place ? <br /> : null)}<span className="muted mono"><Val v={s.ip} /></span></td><td className="small">{fmtDate(s.created_at)}</td><td className="small">{fmtDate(s.last_seen)}</td><td>{(s.id === me ? null : <form method="post" action={attrValue(action)} data-confirm="এই ডিভাইস থেকে লগআউট করবেন?"><input type="hidden" name="id" defaultValue={attrValue(s.id)} /><button className="btn btn-sm btn-ghost">লগআউট করুন</button></form>)}</td></tr>))}</tbody></table></div>;
 }
 
-async function page(ctx: AdminCtx, error?: Loose) {
+async function page(ctx: AdminCtx, error?: unknown) {
   const u = ctx.user;
   const mine = await sessions.listFor(u.id, ctx.settings);
   const history = await sessions.history({ staffId: u.id }, { limit: 12 });

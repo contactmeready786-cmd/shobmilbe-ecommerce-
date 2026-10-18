@@ -11,14 +11,14 @@ import * as ui from './ui';
 import * as S from '../models/staff';
 import type { AdminCtx, Body, Id, Loose, RouteMatch, StaffUser } from '../types';
 import type { MediaRow, StaffRow } from '../data/rows';
-function ymd(v?: Loose) {
+function ymd(v?: unknown) {
   if (!v) return '';
   if (v instanceof Date) return Number.isNaN(v.getTime()) ? '' : `${v.getFullYear()}-${String(v.getMonth() + 1).padStart(2, '0')}-${String(v.getDate()).padStart(2, '0')}`;
   const m = String(v).match(/^(\d{4}-\d{2}-\d{2})/);
   return m ? m[1] : '';
 }
 // how long someone has been with the shop: "২ বছর ৩ মাস"
-function since(v?: Loose) {
+function since(v?: unknown) {
   const d = ymd(v);
   if (!d) return '';
   const [y, m] = d.split('-').map(Number);
@@ -37,7 +37,7 @@ function avatar(u: db.pg.DbRow, cls = '') {
 }
 
 // Picture with "ছবি দিন / বদলান", "ক্যামেরায় তুলুন" and "মুছুন" — a new picture is shown first, then saved with its own "সেভ করুন"
-function photoBox(u: Partial<StaffUser>, action?: Loose) {
+function photoBox(u: Partial<StaffUser>, action?: unknown) {
   return <div className="avatar-box" data-avatar-pick="" data-action={attrValue(action)}>{avatar(u, 'avatar-xl')}<div className="avatar-box-act"><b>প্রোফাইল ছবি</b>{' '}<span className="row-actions">{' '}<label className={`btn btn-sm ${u.photo_id ? 'btn-ghost' : ''}`}>🖼️{' '}{(u.photo_id ? "ছবি বদলান" : "ছবি দিন")}<input type="file" accept="image/*" hidden data-avatar-file="" /></label>{' '}<button type="button" className="btn btn-sm btn-ghost" data-avatar-camera="">📸 ক্যামেরায় তুলুন</button>{' '}{(u.photo_id ? <button type="button" className="btn btn-sm btn-ghost danger-text" data-avatar-remove="">🗑️ ছবি মুছুন</button> : null)}{' '}</span>{' '}<span className="row-actions" data-avatar-confirm="" hidden>{' '}<button type="button" className="btn btn-sm" data-avatar-save="">💾 সেভ করুন</button>{' '}<button type="button" className="btn btn-sm btn-ghost" data-avatar-cancel="">বাতিল</button>{' '}</span>{' '}<small className="small muted" data-avatar-msg="">{(u.photo_id ? "নতুন ছবি দিলে আগেরটা বদলে যাবে।" : "মুখের পরিষ্কার ছবি দিন — মাঝখান থেকে গোল করে কেটে নেওয়া হবে।")}</small></div></div>;
 }
 

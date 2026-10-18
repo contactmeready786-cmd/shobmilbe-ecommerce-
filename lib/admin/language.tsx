@@ -53,8 +53,8 @@ async function page(ctx: AdminCtx) {
   const q = str(ctx.query.get('q'), 100);
   const show = ['manual', 'auto'].includes(ctx.query.get('show')) ? ctx.query.get('show') : '';
   const pageNo = Math.max(1, int(ctx.query.get('page')) || 1);
-  const where: Loose[] = [];
-  const params: Loose[] = [];
+  const where: unknown[] = [];
+  const params: unknown[] = [];
   if (q) { params.push('%' + q.replace(/[%_\\]/g, '\\$&') + '%'); where.push(`(src ILIKE $${params.length} OR en ILIKE $${params.length})`); }
   if (show) { params.push(show); where.push(`origin = $${params.length}`); }
   const w = where.length ? 'WHERE ' + where.join(' AND ') : '';
