@@ -21,10 +21,8 @@ import type { DbRow } from '../pg';
 import type { ReactNode } from 'react';
 
 /** A product as the shop's cards and pages read it. Any product query's row fits (the columns named here are typed). */
-type ShopProduct = DbRow & {
-  id?: number; name?: string; slug?: string; price?: number; old_price?: number | null; stock?: number;
-  image_id?: number | null; image_ik?: string | null; emoji?: string | null; is_new?: boolean; created_at?: Date | string;
-};
+// (read: id, name, slug, price, old_price, stock, image_id / image_ik, emoji, is_new, created_at …)
+type ShopProduct = DbRow;
 
 // A product picture. Small card pictures link straight to ImageKit when the picture lives there (one step less than
 // /media/<id>/t, which only forwards to the same address). pri: 'high' = the first pictures a customer sees (load at
@@ -96,7 +94,7 @@ function catCrumbs(node?: Loose, last: Loose = true) {
 
 // A row of products that slides sideways (arrows on computers, swipe on phones).
 // auto = moves on by itself, one card at a time, and stops while someone is looking at it.
-function rail(title: ReactNode, link: string, products: ShopProduct[] | null | undefined, s: Settings, { badge = '', auto = false, sub = '', chips = null, lead = 0 }: { badge?: string; auto?: boolean; sub?: ReactNode; chips?: ReactNode; lead?: number } = {}) {
+function rail(title: ReactNode, link: string, products: ShopProduct[] | null | undefined, s: Settings, { badge = '', auto = false, sub = '', chips = null, lead = 0 }: { badge?: string | ((p: ShopProduct) => string); auto?: boolean; sub?: ReactNode; chips?: DbRow[] | null; lead?: number } = {}) {
   if (!products || !products.length) return '';
   return (<section className="home-sec rail-sec"><div className="section-head"><div><h2><Val v={title} /></h2>{(sub ? <p className="sec-sub"><Val v={sub} /></p> : null)}</div><div className="rail-head-r">{(link ? <a href={attrValue(link)}>সব দেখুন →</a> : null)}{' '}<button type="button" className="rail-btn" data-rail-prev="" aria-label="আগের পণ্য">‹</button><button type="button" className="rail-btn" data-rail-next="" aria-label="পরের পণ্য">›</button></div></div>{(chips && chips.length ? <div className="chips rail-chips">{jsxList(chips.map((c: Loose) => <a className="chip" href={`/products?cat=${attrValue(c.slug)}`}><Val v={c.name} /></a>))}</div> : null)}<div className="rail" data-rail="" data-rail-auto={(auto) ? "" : undefined}><Val v={products.map((p, i) => productCard(p, s, typeof badge === 'function' ? badge(p) : badge, i < lead ? 'eager' : ''))} /></div></section>);
 }
