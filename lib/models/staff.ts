@@ -5,7 +5,11 @@
 import { q, one } from '../db';
 import { hashPassword, passwordProblem, str, int } from '../util';
 import * as $catalog from './catalog';
-import type { Body, Id, Loose, StaffUser } from '../types';
+import type { Param } from '../pg';
+import type { Body, Id, StaffUser } from '../types';
+
+/** A staff member who may be missing (not logged in, deleted). */
+type MaybeUser = StaffUser | null | undefined;
 const PERMISSIONS = [
   ['dashboard', 'ড্যাশবোর্ড ও বিক্রির গ্রাফ', 'বিক্রি আর অর্ডারের সংখ্যা দেখতে পারবে (লাভ শুধু মালিক দেখেন)', 'সাধারণ'],
   ['orders', 'অর্ডার দেখা', 'অর্ডার লিস্ট আর ডিটেইলস দেখতে পারবে', 'অর্ডার'],
@@ -31,7 +35,7 @@ const PERMISSIONS = [
 ];
 const PERMISSION_KEYS = PERMISSIONS.map((p) => p[0]);
 // Ready-made roles to fill the checkboxes quickly.
-const PRESETS = {
+const PRESETS: Record<string, { label: string; perms: string[] }> = {
   super_admin: { label: 'সুপার অ্যাডমিন (সব কাজ)', perms: PERMISSION_KEYS.slice() },
   order_manager: { label: 'অর্ডার ম্যানেজার', perms: ['dashboard', 'orders', 'orders_edit', 'courier', 'customers_view', 'customers', 'products_view', 'pos'] },
   cashier: { label: 'ক্যাশিয়ার (দোকানে বিক্রি)', perms: ['pos', 'orders', 'products_view', 'inventory_view', 'customers_view'] },
@@ -45,7 +49,7 @@ const PRESETS = {
 // Buying prices, profit and profit-loss are the owner's secret: no staff member can ever get them,
 // even if an old account still has the old "see_cost" tick saved.
 const OWNER_ONLY = new Set(['see_cost', 'owner']);
-function can(user: StaffUser, perm?: Loose) {
+function can(user: MaybeUser, perm: string): boolean {
   if (!user) return false;
   if (user.role === 'owner') return true;
   if (OWNER_ONLY.has(perm)) return false;
@@ -53,62 +57,62 @@ function can(user: StaffUser, perm?: Loose) {
 }
 
 // The finer levels behind a page permission. "products" itself = edit.
-const LEVELS: Record<string, Loose> = {
+const LEVELS: Record<string, { view?: string; add?: string; del?: string }> = {
   products: { view: 'products_view', add: 'products_add', del: 'products_delete' },
   inventory: { view: 'inventory_view' },
   customers: { view: 'customers_view' },
 };
-const isDeletePath = (path?: Loose) => /\/(delete|bulk-delete|remove)$/.test(path);
-const isAddPath = (path?: Loose) => /\/(new|duplicate)$|\/import(\/|$)|\/dup-check$/.test(path);
+const isDeletePath = (path: string) => /\/(delete|bulk-delete|remove)$/.test(path);
+const isAddPath = (path: string) => /\/(new|duplicate)$|\/import(\/|$)|\/dup-check$/.test(path);
 // May this person use this route? Pages (GET) open with any level; a change needs the matching level.
-function routeAllows(user: StaffUser, perm?: Loose, method?: Loose, path?: Loose) {
+function routeAllows(user: MaybeUser, perm: string, method: string, path: string): boolean {
   if (perm === 'owner') return !!user && user.role === 'owner';
   if (!user) return false;
   if (user.role === 'owner') return true;
   const L = LEVELS[perm];
   const write = method !== 'GET' && method !== 'HEAD';
   if (!L) return can(user, perm);
-  if (!write) return [perm, ...Object.values(L)].some((p) => can(user, p));
+  if (!write) return [perm, ...Object.values(L)].some((p) => !!p && can(user, p));
   if (L.del && isDeletePath(path)) return can(user, L.del);
   if (L.add && isAddPath(path)) return can(user, L.add) || can(user, perm);
   return can(user, perm);
 }
 // Only the "see" tick for this page (nothing can be changed) — the page shows a small notice.
-function viewOnly(user: StaffUser, perm?: Loose) {
+function viewOnly(user: MaybeUser, perm: string): boolean {
   const L = LEVELS[perm];
   if (!L || !user || user.role === 'owner' || can(user, perm)) return false;
-  return !Object.entries(L).some(([k, p]) => k !== 'view' && can(user, p));
+  return !Object.entries(L).some(([k, p]) => k !== 'view' && !!p && can(user, p));
 }
 // Shown in the menu when any level of the permission is given.
-function canSee(user: StaffUser, perm?: Loose) {
+function canSee(user: MaybeUser, perm: string): boolean {
   if (perm === 'owner') return !!user && user.role === 'owner';
   const L = LEVELS[perm];
-  return can(user, perm) || (!!L && Object.values(L).some((p) => can(user, p)));
+  return can(user, perm) || (!!L && Object.values(L).some((p) => !!p && can(user, p)));
 }
 
 async function listStaff() {
   return q('SELECT id, name, username, phone, email, role, permissions, active, note, last_login, created_at, totp_on, photo_id, designation, joined_on FROM staff ORDER BY role=\'owner\' DESC, active DESC, name');
 }
-async function getStaff(id?: Id) {
-  return one('SELECT * FROM staff WHERE id=$1', [id]);
+async function getStaff(id: Id): Promise<StaffUser | null> {
+  return one<StaffUser>('SELECT * FROM staff WHERE id=$1', [id]);
 }
-async function findLogin(login?: Loose) {
+async function findLogin(login: unknown): Promise<StaffUser | null> {
   const l = String(login || '').trim().toLowerCase();
   if (!l) return null;
-  return one(`SELECT * FROM staff WHERE lower(username)=$1 OR (phone<>'' AND phone=$1) OR (email<>'' AND lower(email)=$1) LIMIT 1`, [l]);
+  return one<StaffUser>(`SELECT * FROM staff WHERE lower(username)=$1 OR (phone<>'' AND phone=$1) OR (email<>'' AND lower(email)=$1) LIMIT 1`, [l]);
 }
-async function countStaff() { return (await one('SELECT count(*)::int AS n FROM staff'))!.n; }
+async function countStaff(): Promise<number> { return (await one<{ n: number }>('SELECT count(*)::int AS n FROM staff'))!.n; }
 
-function cleanUsername(u?: Loose) { return String(u || '').trim().toLowerCase().replace(/[^a-z0-9._-]/g, '').slice(0, 40); }
+function cleanUsername(u: unknown): string { return String(u || '').trim().toLowerCase().replace(/[^a-z0-9._-]/g, '').slice(0, 40); }
 
-async function saveStaff(data: Body, { isOwnerEditing = true }: Body = {}) {
+async function saveStaff(data: Body, { isOwnerEditing = true }: { isOwnerEditing?: boolean } = {}): Promise<number> {
   const id = int(data.id);
   const username = cleanUsername(data.username);
   if (!str(data.name)) throw new Error('নাম লিখুন।');
   if (username.length < 3) throw new Error('ইউজারনেম কমপক্ষে ৩ অক্ষরের দিন (ইংরেজি ছোট হাতের অক্ষর/সংখ্যা)।');
   const clash = await one('SELECT id FROM staff WHERE lower(username)=$1 AND id<>$2', [username, id]);
   if (clash) throw new Error('এই ইউজারনেম আগে থেকেই আছে, অন্য একটা দিন।');
-  const perms = [].concat(data.permissions || []).filter((p) => PERMISSION_KEYS.includes(p));
+  const perms = ([] as unknown[]).concat(data.permissions || []).filter((p): p is string => typeof p === 'string' && PERMISSION_KEYS.includes(p));
   const existing = id ? await getStaff(id) : null;
   const role = existing && existing.role === 'owner' ? 'owner' : 'staff';
   const active = role === 'owner' ? true : !!data.active;
@@ -129,13 +133,13 @@ async function saveStaff(data: Body, { isOwnerEditing = true }: Body = {}) {
 // ---------------------------------------------------------------- profile (picture, job title, address …)
 // Used by the owner (Admin → স্টাফ) for anyone, and by each person for themself (Admin → আমার প্রোফাইল).
 const PROFILE_FIELDS = ['designation', 'address', 'emergency_phone', 'joined_on', 'bio'];
-function cleanDate(v?: Loose) {
+function cleanDate(v: unknown): string | null {
   const m = String(v || '').trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (!m) return null;
   const d = new Date(`${m[1]}-${m[2]}-${m[3]}T00:00:00Z`);
   return Number.isNaN(d.getTime()) || d.getUTCFullYear() < 1950 || d > new Date(Date.now() + 366 * 864e5) ? null : `${m[1]}-${m[2]}-${m[3]}`;
 }
-async function saveProfile(id: Id, data: Body) {
+async function saveProfile(id: Id, data: Body): Promise<void> {
   if (!('designation' in data) && !('photo_id' in data)) return;
   if ('designation' in data) {
     await q(`UPDATE staff SET designation=$1, address=$2, emergency_phone=$3, joined_on=$4, bio=$5 WHERE id=$6`,
@@ -144,8 +148,8 @@ async function saveProfile(id: Id, data: Body) {
   if ('photo_id' in data) await setPhoto(id, data.photo_id);
 }
 // New picture (a just-uploaded media id) or '' to remove it. The old picture is deleted.
-async function setPhoto(id?: Id, photoId?: Id) {
-  const cur = await one('SELECT photo_id FROM staff WHERE id=$1', [id]);
+async function setPhoto(id: Id, photoId: unknown): Promise<void> {
+  const cur = await one<{ photo_id: number | null }>('SELECT photo_id FROM staff WHERE id=$1', [id]);
   if (!cur) return;
   const next = int(photoId) || null;
   if (next === cur.photo_id) return;
@@ -157,21 +161,21 @@ async function setPhoto(id?: Id, photoId?: Id) {
   await q('UPDATE staff SET photo_id=$1 WHERE id=$2', [next, id]);
   if (cur.photo_id) await q(`DELETE FROM media WHERE id=$1 AND owner_type='staff'`, [cur.photo_id]);
 }
-async function photoOf(staffId?: Id, thumb?: Loose) {
+async function photoOf(staffId: Id, thumb?: boolean) {
   return one(`SELECT m.mime, ${thumb ? 'coalesce(m.thumb, m.data)' : 'm.data'} AS data, m.id FROM staff s JOIN media m ON m.id=s.photo_id AND m.owner_type='staff' WHERE s.id=$1`, [staffId]);
 }
 
-async function createOwner({ name, username, password }: Body) {
+async function createOwner({ name, username, password }: { name: unknown; username: unknown; password: unknown }): Promise<number> {
   return (await one(`INSERT INTO staff(name, username, password, role, permissions) VALUES($1,$2,$3,'owner','[]') RETURNING id`,
-    [str(name, 80) || 'মালিক', cleanUsername(username) || 'admin', hashPassword(password)]))!.id;
+    [str(name, 80) || 'মালিক', cleanUsername(username) || 'admin', hashPassword(String(password))]))!.id;
 }
-async function setPassword(id?: Id, password?: Loose) { await q('UPDATE staff SET password=$1, password_changed_at=now() WHERE id=$2', [hashPassword(password), id]); }
+async function setPassword(id: Id, password: unknown): Promise<void> { await q('UPDATE staff SET password=$1, password_changed_at=now() WHERE id=$2', [hashPassword(String(password)), id]); }
 async function deleteStaff(id?: Id) { await q(`DELETE FROM staff WHERE id=$1 AND role<>'owner'`, [id]); }
 async function touchLogin(id?: Id) { await q('UPDATE staff SET last_login=now() WHERE id=$1', [id]); }
 
-async function activity({ staffId, entity, entityId, limit = 100 }: Body = {}) {
-  const params = [];
-  const where = [];
+async function activity({ staffId, entity, entityId, limit = 100 }: { staffId?: Id; entity?: string; entityId?: Id; limit?: number } = {}) {
+  const params: Param[] = [];
+  const where: string[] = [];
   if (staffId) { params.push(staffId); where.push(`a.staff_id=$${params.length}`); }
   if (entity) { params.push(entity); where.push(`a.entity=$${params.length}`); }
   if (entityId) { params.push(entityId); where.push(`a.entity_id=$${params.length}`); }

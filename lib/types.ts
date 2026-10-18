@@ -53,7 +53,7 @@ export type Base = {
 export type AdminDrawn = { bare?: boolean; settings: Settings; user?: StaffUser; title: unknown; body: unknown; active?: string; readOnly?: boolean; path?: string; status: number };
 /** A signed-in admin user (a row of the staff table plus the session's marks). */
 // (columns: id, name, username, role, permissions[], active …; plus __session, __token, __verified from the login)
-export type StaffUser = Row;
+export type StaffUser = Row & { id: number; name: string; username: string; role: string; permissions: string[] | null; active: boolean };
 /** What every admin page handler gets (built in lib/admin/index.ts). */
 export type AdminCtx = Base & {
   user: StaffUser; ip: string; readOnly?: boolean; __err?: string;
