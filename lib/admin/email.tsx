@@ -95,7 +95,7 @@ async function post(ctx: AdminCtx) {
     const to = str(b.to, 120);
     if (!notify.validEmail(to)) return ctx.fail(BASE, 'সঠিক ইমেইল ঠিকানা দিন।');
     if (!(await $security.hit(db, 'mailtest:' + ctx.user.id, 10, 3600))) return ctx.fail(BASE, 'এক ঘণ্টায় অনেক পরীক্ষা হয়েছে, একটু পরে চেষ্টা করুন।');
-    const sub = (await db.one('SELECT * FROM email_subs WHERE lower(email)=lower($1)', [to])) || { id: null, email: to, name: ctx.user.name || '', token: 'test-link-not-a-real-unsubscribe' };
+    const sub = (await db.one<M.Subscriber>('SELECT * FROM email_subs WHERE lower(email)=lower($1)', [to])) || { id: null, email: to, name: ctx.user.name || '', token: 'test-link-not-a-real-unsubscribe' };
     const r = await M.sendOne(s, sub, { kind: 'test', subject: `🧪 ${s.store_name || 'সবমিলবে'}: পরীক্ষামূলক ইমেইল`, heading: 'পরীক্ষামূলক ইমেইল',
       intro: '{name}, এটা দোকানের ইমেইল মার্কেটিং-এর পরীক্ষা। এটা ইনবক্সে এলে সব ঠিক আছে। স্প্যাম বা Promotions ফোল্ডারে গেলে Brevo-তে ডোমেইন যাচাই (DNS) সম্পূর্ণ করুন।',
       productIds: await newest(4), button: { text: 'দোকানে যান', path: '/' } });

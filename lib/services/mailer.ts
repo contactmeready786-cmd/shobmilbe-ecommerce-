@@ -13,18 +13,30 @@ import * as notify from './notify';
 import { str, money } from '../util';
 import * as $autopost from './autopost';
 import * as $security from '../security';
-import type { Body, Id, Loose, Settings } from '../types';
+import type { Id, Settings } from '../types';
+
+/** Someone on the offer-mail list (a row of email_subs, or the buyer a review mail goes to). */
+export type Subscriber = { id?: number | null; email: string; name?: string | null; token: string };
+/** One offer / news mail to one person. */
+export type OneMail = {
+  kind: string; subject: string; heading?: string; intro: string; productIds?: unknown[] | null;
+  button?: { text: string; path?: string } | null; campaignId?: number | null; orderId?: number | null;
+};
+/** A product card in the mail. */
+type Card = { id: number; name: string; slug: string; price: number; old_price: number | null; img: string; path: string };
+/** A new campaign as the owner writes it (or the weekly mail). */
+type NewCampaign = { subject: string; intro: string; productIds?: number[]; buttonText?: string; buttonPath?: string; audience?: string; kind?: string; staffId?: Id };
 import { emailHtml, OfferEmail } from '../emails';
 
 const MAX_GMAIL_DAY = 80;
 const KINDS: Record<string, string> = { campaign: 'ক্যাম্পেইন', weekly: 'সাপ্তাহিক নতুন পণ্য', welcome: 'স্বাগতম', review: 'রিভিউ চাওয়া', winback: 'আবার আসুন', test: 'পরীক্ষা' };
-const AUDIENCES: Record<string, Loose> = { all: 'সবাই (লিস্টের সবাই)', buyers: 'যারা কিনেছেন', nonbuyers: 'যারা এখনো কেনেননি' };
+const AUDIENCES: Record<string, string> = { all: 'সবাই (লিস্টের সবাই)', buyers: 'যারা কিনেছেন', nonbuyers: 'যারা এখনো কেনেননি' };
 
-const cleanEmail = (e?: Loose) => String(e || '').trim().toLowerCase().slice(0, 120);
+const cleanEmail = (e: unknown) => String(e || '').trim().toLowerCase().slice(0, 120);
 function siteBase(settings: Settings) { return String(settings.site_url || 'https://shobmilbe.com').replace(/\/+$/, ''); }
 function secret(settings: Settings) { return String(settings.session_secret || 'shobmilbe-mail'); }
-function mac(settings: Settings, value?: Loose) { return crypto.createHmac('sha256', secret(settings)).update('mail:' + value).digest('base64url').slice(0, 16); }
-function macOk(settings: Settings, value?: Loose, given?: Loose) {
+function mac(settings: Settings, value: unknown): string { return crypto.createHmac('sha256', secret(settings)).update('mail:' + value).digest('base64url').slice(0, 16); }
+function macOk(settings: Settings, value: unknown, given: unknown): boolean {
   const a = Buffer.from(mac(settings, value)); const b = Buffer.from(String(given || ''));
   return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
@@ -42,7 +54,7 @@ function cfg(settings: Settings) {
   return { on: settings.email_mkt_on === '1', provider, perDay, from, fromName, ready: !why, why };
 }
 async function sentToday() {
-  const r = await db.one(`SELECT count(*)::int AS n FROM email_log WHERE ok AND kind<>'test'
+  const r = await db.one<{ n: number }>(`SELECT count(*)::int AS n FROM email_log WHERE ok AND kind<>'test'
     AND created_at >= date_trunc('day', now() AT TIME ZONE 'Asia/Dhaka') AT TIME ZONE 'Asia/Dhaka'`).catch(() => ({ n: 0 }));
   return r!.n;
 }
@@ -51,7 +63,7 @@ async function leftToday(settings: Settings) { return Math.max(0, cfg(settings).
 // ---------------------------------------------------------------- the list
 // Add (or bring back) someone who asked for the mails. `explicit` = they ticked / typed it just now, so an
 // earlier "unsubscribe" is undone; otherwise (e.g. imported by the owner) someone who left stays out.
-async function addSub(email?: Loose, { name = '', phone = '', source = '', explicit = true }: Body = {}) {
+async function addSub(email: unknown, { name = '', phone = '', source = '', explicit = true }: { name?: unknown; phone?: unknown; source?: string; explicit?: boolean } = {}) {
   const em = cleanEmail(email);
   if (!notify.validEmail(em)) return null;
   const token = crypto.randomBytes(18).toString('base64url');
@@ -65,55 +77,55 @@ async function addSub(email?: Loose, { name = '', phone = '', source = '', expli
     RETURNING *, (xmax = 0) AS fresh`, [em, str(name, 80), str(phone, 20), str(source, 30), token, !!explicit]);
   return row;
 }
-async function unsubscribe(token?: Loose) {
+async function unsubscribe(token: unknown) {
   const t = String(token || '').slice(0, 60);
   if (!/^[A-Za-z0-9_-]{20,40}$/.test(t)) return null;
   return db.one('UPDATE email_subs SET on_list=false, unsub_at=coalesce(unsub_at, now()) WHERE token=$1 RETURNING email', [t]);
 }
-async function bySubToken(token?: Loose) {
+async function bySubToken(token: unknown) {
   const t = String(token || '').slice(0, 60);
   if (!/^[A-Za-z0-9_-]{20,40}$/.test(t)) return null;
   return db.one('SELECT * FROM email_subs WHERE token=$1', [t]);
 }
 
 // ---------------------------------------------------------------- the mail itself
-async function productCards(settings: Settings, ids?: Loose, utm?: Loose) {
-  const list = (ids || []).map(Number).filter((n?: Loose) => Number.isInteger(n) && n > 0).slice(0, 12);
+async function productCards(settings: Settings, ids: unknown[] | null | undefined, utm: string): Promise<Card[]> {
+  const list = (ids || []).map(Number).filter((n) => Number.isInteger(n) && n > 0).slice(0, 12);
   if (!list.length) return [];
-  const rows = await db.q(`SELECT p.id, p.name, p.slug, p.price, p.old_price, p.stock, p.image_id, m.ik_url
+  const rows = await db.q<{ id: number; name: string; slug: string; price: number; old_price: number | null; stock: number; image_id: number | null; ik_url: string | null }>(`SELECT p.id, p.name, p.slug, p.price, p.old_price, p.stock, p.image_id, m.ik_url
     FROM products p LEFT JOIN media m ON m.id=p.image_id WHERE p.id = ANY($1::int[]) AND p.active`, [list]);
   const byId = new Map(rows.map((r) => [r.id, r]));
-  return list.map((id?: Loose) => byId.get(id)).filter(Boolean).map((p?: Loose) => ({
+  return list.map((id) => byId.get(id)).filter((p) => !!p).map((p) => ({
     ...p,
     img: p.ik_url ? `${p.ik_url}${p.ik_url.includes('?') ? '&' : '?'}tr=f-jpg,w-400,h-400,c-at_max` : p.image_id ? `${siteBase(settings)}/media/${p.image_id}/t` : '',
     path: `/p/${encodeURIComponent(p.slug)}?${utm}`,
   }));
 }
 // Plain text the owner typed → paragraphs (a blank line = new paragraph). {name} = the reader's first name.
-function paragraphs(text?: Loose, name?: Loose): string[] {
+function paragraphs(text: unknown, name: string | null | undefined): string[] {
   return String(text || '').replace(/\{name\}/g, name || 'প্রিয় গ্রাহক').split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
 }
-function textVersion(text?: Loose, name?: Loose, products?: Loose, site?: Loose) {
+function textVersion(text: unknown, name: string, products: Card[], site: string): string {
   const lines = [String(text || '').replace(/\{name\}/g, name || 'প্রিয় গ্রাহক')];
   for (const p of products) lines.push(`• ${p.name} — ${money(p.price)}: ${site}${p.path}`);
   return lines.join('\n\n');
 }
 // Links in the mail go through /e/c/… (counts the click), then to the shop's own page. Only the shop's own paths are allowed.
-function trackLink(settings: Settings, logId?: Id, path?: Loose) {
+function trackLink(settings: Settings, logId: Id, path: unknown): string {
   const p = String(path || '/').startsWith('/') && !String(path).startsWith('//') ? String(path) : '/';
   return `${siteBase(settings)}/e/c/${logId}/${mac(settings, `${logId}:${p}`)}?u=${encodeURIComponent(p)}`;
 }
 /** The offer / news mail (lib/emails.tsx draws it). */
-function layout(settings: Settings, { logId, sub, heading, intro, products, button, utm }: Body): Promise<string> {
+function layout(settings: Settings, { logId, sub, heading, intro, products, button, utm }: { logId?: number | null; sub: Pick<Subscriber, 'name' | 'token'>; heading: string; intro: string; products: Card[]; button?: OneMail['button']; utm: string }): Promise<string> {
   const site = siteBase(settings);
   const name = String(sub.name || '').split(/\s+/)[0];
-  const link = (path?: Loose) => (logId ? trackLink(settings, logId, path) : site + path);
+  const link = (path: string) => (logId ? trackLink(settings, logId, path) : site + path);
   return emailHtml(OfferEmail({ m: {
     store: settings.store_name || 'সবমিলবে',
     heading,
     homeHref: link('/?' + utm),
     paragraphs: paragraphs(intro, name),
-    cards: products.map((p?: Loose) => ({ name: p.name, price: money(p.price), oldPrice: p.old_price > p.price ? money(p.old_price) : undefined, img: p.img || undefined, href: link(p.path) })),
+    cards: products.map((p) => ({ name: p.name, price: money(p.price), oldPrice: (p.old_price || 0) > p.price ? money(p.old_price) : undefined, img: p.img || undefined, href: link(p.path) })),
     button: button && button.text ? { text: button.text, href: link(button.path || '/') } : null,
     contact: [settings.phone || settings.whatsapp, settings.address].filter(Boolean).join(' · '),
     unsubHref: `${site}/unsubscribe?t=${encodeURIComponent(sub.token)}`,
@@ -122,12 +134,12 @@ function layout(settings: Settings, { logId, sub, heading, intro, products, butt
 }
 
 // Send one mail to one subscriber. Never throws — returns { ok, msg } and writes email_log.
-async function sendOne(settings: Settings, sub: Loose, { kind, subject, heading, intro, productIds = [], button = null, campaignId = null, orderId = null }: Body) {
+async function sendOne(settings: Settings, sub: Subscriber, { kind, subject, heading, intro, productIds = [], button = null, campaignId = null, orderId = null }: OneMail): Promise<{ ok: boolean; msg: string }> {
   const c = cfg(settings);
-  const log = await db.one('INSERT INTO email_log(sub_id, email, kind, campaign_id, order_id) VALUES($1,$2,$3,$4,$5) RETURNING id',
+  const log = await db.one<{ id: number }>('INSERT INTO email_log(sub_id, email, kind, campaign_id, order_id) VALUES($1,$2,$3,$4,$5) RETURNING id',
     [sub.id || null, sub.email, kind, campaignId, orderId]);
   const utm = `utm_source=email&utm_medium=email&utm_campaign=${encodeURIComponent(kind + (campaignId ? '-' + campaignId : ''))}`;
-  let result;
+  let result: { ok: boolean; msg: string };
   try {
     if (!c.ready) throw new Error(c.why);
     const products = await productCards(settings, productIds, utm);
@@ -153,8 +165,8 @@ async function sendOne(settings: Settings, sub: Loose, { kind, subject, heading,
       if (res.status < 200 || res.status >= 300) throw new Error(`Brevo: ${(j && (j.message || j.code)) || 'HTTP ' + res.status}`);
       result = { ok: true, msg: 'Brevo দিয়ে পাঠানো হয়েছে' };
     }
-  } catch (e: Loose) {
-    result = { ok: false, msg: String(e.message || e).slice(0, 250) };
+  } catch (e) {
+    result = { ok: false, msg: String((e as Error)?.message || e).slice(0, 250) };
   }
   await db.q('UPDATE email_log SET ok=$1, detail=$2 WHERE id=$3', [result.ok, result.msg, log!.id]).catch(() => {});
   // an address that keeps failing (wrong / closed mailbox) is taken off the list after 3 tries, so it doesn't hurt the shop's name
@@ -166,24 +178,24 @@ async function sendOne(settings: Settings, sub: Loose, { kind, subject, heading,
 }
 
 // ---------------------------------------------------------------- campaigns
-function audienceSql(aud?: Loose) {
+function audienceSql(aud: unknown): string {
   const bought = `(EXISTS (SELECT 1 FROM orders o WHERE o.status='delivered' AND (lower(o.email)=lower(s.email) OR (s.phone<>'' AND o.phone=s.phone)))
     OR EXISTS (SELECT 1 FROM orders o JOIN customers c ON c.id=o.account_id WHERE o.status='delivered' AND lower(c.email)=lower(s.email)))`;
   if (aud === 'buyers') return bought;
   if (aud === 'nonbuyers') return `NOT ${bought}`;
   return 'true';
 }
-async function audienceCount(aud?: Loose) {
-  return (await db.one(`SELECT count(*)::int AS n FROM email_subs s WHERE s.on_list AND ${audienceSql(aud)}`))!.n;
+async function audienceCount(aud: unknown): Promise<number> {
+  return (await db.one<{ n: number }>(`SELECT count(*)::int AS n FROM email_subs s WHERE s.on_list AND ${audienceSql(aud)}`))!.n;
 }
-async function createCampaign(settings: Settings, { subject, intro, productIds = [], buttonText = '', buttonPath = '', audience = 'all', kind = 'manual', staffId = null }: Body) {
+async function createCampaign(settings: Settings, { subject, intro, productIds = [], buttonText = '', buttonPath = '', audience = 'all', kind = 'manual', staffId = null }: NewCampaign) {
   const total = await audienceCount(audience);
   return db.one(`INSERT INTO email_campaigns(subject, intro, product_ids, button_text, button_url, audience, kind, total, staff_id)
     VALUES($1,$2,$3::int[],$4,$5,$6,$7,$8,$9) RETURNING *`,
   [str(subject, 150), str(intro, 4000), productIds.slice(0, 12), str(buttonText, 40), safePath(buttonPath), AUDIENCES[audience] ? audience : 'all', kind, total, staffId]);
 }
 // "/offers" or "https://shobmilbe.com/offers" → "/offers"; anything outside the shop → "/"
-function safePath(v?: Loose, settings: Settings = {} as Settings) {
+function safePath(v: unknown, settings: Settings = {} as Settings): string {
   let s = String(v || '').trim();
   if (!s) return '/';
   const site = siteBase(settings);
@@ -191,14 +203,14 @@ function safePath(v?: Loose, settings: Settings = {} as Settings) {
   return s.startsWith('/') && !s.startsWith('//') ? s.slice(0, 300) : '/';
 }
 // Send the next part of every campaign that is still going, within today's allowance. Returns how many went.
-async function runCampaigns(settings: Settings, budget?: Loose) {
+async function runCampaigns(settings: Settings, budget: number): Promise<number> {
   let done = 0;
   const camps = await db.q("SELECT * FROM email_campaigns WHERE status='sending' ORDER BY id LIMIT 5");
   for (const camp of camps) {
     if (done >= budget) break;
     // the automatic weekly mail waits for anyone who got a mail in the last 20 hours (e.g. the welcome) — they get it tomorrow
     const rest = camp.kind === 'weekly' ? "AND NOT EXISTS (SELECT 1 FROM email_log r WHERE r.sub_id=s.id AND r.ok AND r.kind<>'test' AND r.created_at > now() - interval '20 hours')" : '';
-    const subs = await db.q(`SELECT s.* FROM email_subs s WHERE s.on_list AND ${audienceSql(camp.audience)} ${rest}
+    const subs = await db.q<Subscriber>(`SELECT s.* FROM email_subs s WHERE s.on_list AND ${audienceSql(camp.audience)} ${rest}
       AND NOT EXISTS (SELECT 1 FROM email_log l WHERE l.campaign_id=$1 AND l.sub_id=s.id) ORDER BY s.id LIMIT $2`, [camp.id, budget - done]);
     if (!subs.length) {
       // a weekly mail still waiting for someone (20-hour rule) stays open; it closes after 3 days in any case
@@ -225,9 +237,9 @@ async function runCampaigns(settings: Settings, budget?: Loose) {
 const ELIGIBLE = 'p.active AND p.parent_id IS NULL AND p.stock > 0 AND p.price > 0 AND p.image_id IS NOT NULL';
 function dhakaNow() { return $autopost.dhakaNow(); }
 
-async function welcome(settings: Settings, budget?: Loose) {
+async function welcome(settings: Settings, budget: number): Promise<number> {
   if (settings.email_auto_welcome === '0' || budget <= 0) return 0;
-  const subs = await db.q(`SELECT s.* FROM email_subs s WHERE s.on_list AND s.created_at > now() - interval '7 days'
+  const subs = await db.q<Subscriber>(`SELECT s.* FROM email_subs s WHERE s.on_list AND s.created_at > now() - interval '7 days'
     AND NOT EXISTS (SELECT 1 FROM email_log l WHERE l.sub_id=s.id AND l.kind='welcome') ORDER BY s.id LIMIT $1`, [Math.min(budget, 40)]);
   if (!subs.length) return 0;
   const picks = await db.q(`SELECT p.id FROM products p WHERE ${ELIGIBLE} ORDER BY coalesce(p.featured,false) DESC, coalesce(p.sold_count,0) DESC, p.id DESC LIMIT 4`);
@@ -241,7 +253,7 @@ async function welcome(settings: Settings, budget?: Loose) {
   return n;
 }
 
-async function review(settings: Settings, budget?: Loose) {
+async function review(settings: Settings, budget: number): Promise<number> {
   if (settings.email_auto_review === '0' || budget <= 0) return 0;
   // delivered 2–10 days ago, the buyer's e-mail is on the list, not asked before
   const rows = await db.q(`SELECT o.id, o.code, o.customer_name, s.id AS sub_id, s.email, s.name, s.token,
@@ -263,10 +275,10 @@ async function review(settings: Settings, budget?: Loose) {
   return n;
 }
 
-async function winback(settings: Settings, budget?: Loose) {
+async function winback(settings: Settings, budget: number): Promise<number> {
   if (settings.email_auto_winback === '0' || budget <= 0) return 0;
   const days = Math.max(20, Math.min(365, Number(settings.email_winback_days) || 60));
-  const subs = await db.q(`SELECT s.* FROM email_subs s WHERE s.on_list
+  const subs = await db.q<Subscriber>(`SELECT s.* FROM email_subs s WHERE s.on_list
       AND (SELECT max(o.created_at) FROM orders o WHERE o.status='delivered' AND (lower(o.email)=lower(s.email) OR (s.phone<>'' AND o.phone=s.phone)))
         < now() - make_interval(days => $1)
       AND NOT EXISTS (SELECT 1 FROM email_log l WHERE l.sub_id=s.id AND l.kind='winback' AND l.created_at > now() - interval '90 days')
@@ -316,7 +328,7 @@ async function tick(settings: Settings) {
   if (!(await $security.hit(db, 'mail:tick', 1, 240))) return { busy: true };
   await weekly(settings).catch((e) => console.error('mail weekly', e.message));
   let left = Math.min(await leftToday(settings), 120); // one run stays well inside the 60-second limit
-  const out: Record<string, Loose> = {};
+  const out: Record<string, number> = {};
   out.welcome = await welcome(settings, left).catch(() => 0); left -= out.welcome;
   out.review = await review(settings, left).catch(() => 0); left -= out.review;
   out.campaigns = await runCampaigns(settings, left).catch((e) => { console.error('mail campaigns', e.message); return 0; }); left -= out.campaigns;
