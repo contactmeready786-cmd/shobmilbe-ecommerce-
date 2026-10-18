@@ -14,13 +14,22 @@ import * as BC from '../services/barcode';
 import * as $services_courier from '../services/courier';
 import * as $services_qr from '../services/qr';
 import * as $models_catalog from '../models/catalog';
-import type { Body, Loose, Settings } from '../types';
-function mergedItems(items?: Loose) {
-  const out: Loose[] = [];
-  const seen = new Map();
+import type { Settings } from '../types';
+import type { PaperDoc } from '../services/docs';
+
+/** One line of a printed order (a real order's line, or the settings page's made-up sample). */
+export type PrintItem = { product_id?: number | null; name: string; price: number; qty: number; sku?: string | null; image_id?: number | null; emoji?: string | null;
+  note?: string | null; weight_g?: number | null; warranty?: string | null; warranty_type?: string | null };
+/** An order as the two papers read it. */
+export type PrintOrder = Pick<ordersModel.Order, 'code' | 'created_at' | 'customer_name' | 'phone' | 'address' | 'payment' | 'payment_status' | 'subtotal' | 'discount' | 'delivery' | 'total'>
+  & { id?: number; area?: string; district?: string; thana?: string; note?: string | null; paid_amount?: number | null; points_discount?: number | null; courier?: string | null;
+    consignment_id?: string | null; coupon_code?: string | null; weight_g?: number | null; items: PrintItem[] };
+function mergedItems(items?: PrintItem[] | null): PrintItem[] {
+  const out: PrintItem[] = [];
+  const seen = new Map<string, PrintItem>();
   for (const it of items || []) {
     const key = it.product_id ? `${it.product_id}:${it.price}` : null;
-    if (key && seen.has(key)) { seen.get(key).qty += it.qty; continue; }
+    if (key && seen.has(key)) { seen.get(key)!.qty += it.qty; continue; }
     const row = { ...it };
     out.push(row);
     if (key) seen.set(key, row);
@@ -28,20 +37,20 @@ function mergedItems(items?: Loose) {
   return out;
 }
 const courierName = (c: string | number) => (($services_courier.PROVIDERS || {})[c] || {}).label || c;
-const siteOf = (s?: Loose) => String(s.site_url || '').replace(/\/+$/, '');
+const siteOf = (s: Settings) => String(s.site_url || '').replace(/\/+$/, '');
 const bare = (u: string) => u.replace(/^https?:\/\//, '');
 // The shop's mark: the uploaded logo, or the "সব" tile + two-colour "সবমিলবে" wordmark
-function brandMark(s?: Loose, cls = '') {
+function brandMark(s: Settings, cls = '') {
   if (s.logo_id) return <img className={`dc-logo-img ${attrValue(cls)}`} src={`/media/${attrValue(s.logo_id)}`} alt={attrValue(s.store_name)} />;
   const name = s.store_name || 'সবমিলবে';
   return <><img className={`dc-mark ${attrValue(cls)}`} src="/brand/favicon-192.png" alt="" aria-hidden="true" /><span className="dc-word">{(name === 'সবমিলবে' ? <><b className="a">সব</b><b className="b">মিলবে</b></> : <b className="a"><Val v={name} /></b>)}</span></>;
 }
-function qrSvg(s?: Settings, order?: Loose, px?: unknown) {
+function qrSvg(s: Settings, order: PrintOrder, px?: number) {
   const site = siteOf(s);
   return site ? $services_qr.svg(`${site}/track?code=${order.code}`, { px, label: 'অর্ডার ট্র্যাক' }) : '';
 }
 type ShellProps = {
-  embed?: Loose;
+  embed?: boolean;
 };
 const shell = (title?: unknown, css?: unknown, bodyHtml?: unknown, { embed }: ShellProps = {}) => '<!doctype html>' + `<html lang="bn"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${htmlValue(title)}</title><meta name="robots" content="noindex">
@@ -61,19 +70,19 @@ body.embed{background:transparent}
 .bc{display:block;max-width:100%;height:auto}`;
 
 // ================================================================ 📋 চেকলিস্ট (inside the box)
-function checklistBody(order?: Loose, s?: Loose, c?: Loose) {
+function checklistBody(order: PrintOrder, s: Settings, c: PaperDoc) {
   const on = c.show;
   const items = mergedItems(order.items);
   const area = ordersModel.areaLabel(order);
   const due = Math.max(0, order.total - (order.paid_amount || 0));
-  const wt = (it: { warranty?: string; warranty_type?: string; } | null | undefined) => $models_catalog.warrantyText(it);
+  const wt = (it: PrintItem) => $models_catalog.warrantyText(it);
   const anyWarranty = on.warranty_terms && items.some((it) => wt(it));
   const site = siteOf(s);
   const units = items.reduce((n, it) => n + Number(it.qty || 0), 0);
   const tag = c.tagline || s.tagline;
   return <section className="iv"><div className="iv-strip"></div><header className="iv-head"><div className="iv-brand">{(on.logo ? <div className="iv-logo">{brandMark(s)}</div> : <p className="iv-shop"><Val v={s.store_name} /></p>)}{' '}{(on.tagline && tag ? <p className="iv-tag"><Val v={tag} /></p> : null)}{' '}{(on.contact || on.address ? <p className="iv-contact">{(on.contact ? <>{(s.phone ? <>📞{' '}<Val v={s.phone} /></> : null)}{(s.whatsapp ? <>{' '}· WhatsApp{' '}<Val v={s.whatsapp} /></> : null)}{(site ? <>{' '}· 🌐{' '}<Val v={bare(site)} /></> : null)}</> : null)}{(on.address && s.address ? <>{(on.contact ? <RawHtml html={'<br>'} /> : null)}📍{' '}<Val v={s.address} /></> : null)}</p> : null)}</div><div className="iv-title"><h1><Val v={c.title} /></h1><p className="iv-no">#{' '}<b><Val v={order.code} /></b></p><p className="iv-date">{fmtDate(order.created_at)}</p>{(on.barcode ? <div className="iv-bc"><RawHtml html={BC.svg(order.code, { height: 34, module: 1.6, fontSize: 0.1, showText: false })} /></div> : null)}</div></header>{(on.receiver || on.order_info || on.qr ? <div className="iv-cards">{(on.receiver ? <div className="iv-card iv-to"><p className="iv-label">📦 প্রাপক</p><p translate="no"><b className="iv-cname"><Val v={order.customer_name} /></b><br /><b><Val v={order.phone} /></b><br /><Val v={order.address} />{(area ? <><br /><Val v={area} /></> : null)}</p>{(order.note ? <p className="iv-note">নোট:{' '}<span translate="no"><Val v={order.note} /></span></p> : null)}</div> : null)}{' '}{(on.order_info ? <div className="iv-card"><p className="iv-label">🧾 অর্ডারের তথ্য</p><p>পেমেন্ট:{' '}<b><Val v={ordersModel.PAYMENT_METHODS[order.payment] || order.payment} /></b>{' '}·{' '}<Val v={ordersModel.PAYMENT_STATUSES[order.payment_status] || ''} /><br />পণ্য:{' '}<b>{bn(items.length)}</b>{' '}ধরনের, মোট{' '}<b>{bn(units)}</b>টি{(order.courier ? <><br />কুরিয়ার:{' '}<b><Val v={courierName(order.courier)} /></b>{(order.consignment_id ? <>{' '}·{' '}<Val v={order.consignment_id} /></> : null)}</> : null)}</p></div> : null)}{' '}{(on.qr && qrSvg(s, order, 84) ? <div className="iv-qr"><RawHtml html={qrSvg(s, order, 84)} /><span>স্ক্যান করে<br />অর্ডার ট্র্যাক</span></div> : null)}</div> : null)}<table className="iv-table"><thead><tr><th className="c">#</th>{(on.pictures ? <th>ছবি</th> : null)}<th>পণ্যের নাম</th>{(on.prices ? <th className="num">দাম</th> : null)}<th className="num">পরিমাণ</th>{(on.prices ? <th className="num">মোট</th> : null)}<th className="c iv-tick">✓</th></tr></thead><tbody>{jsxList(items.map((it, i) => <tr><td className="c iv-sl">{bn(i + 1)}</td>{(on.pictures ? <td className="iv-pic">{(it.image_id ? <img src={`/media/${attrValue(it.image_id)}/t`} alt="" /> : <span><Val v={it.emoji || '📦'} /></span>)}</td> : null)}<td><b className="iv-pname"><Val v={it.name} /></b>{' '}{((on.sku && it.sku) || it.note ? <span className="iv-sub">{(on.sku && it.sku ? <>SKU{' '}<Val v={it.sku} /></> : null)}{(it.note ? <>{' '}·{' '}<Val v={it.note} /></> : null)}</span> : null)}{' '}{(on.warranty && wt(it) ? <span className="iv-war">🛡️{' '}<Val v={wt(it)} /></span> : null)}</td>{(on.prices ? <td className="num">{money(it.price)}</td> : null)}<td className="num"><b>{bn(it.qty)}</b></td>{(on.prices ? <td className="num"><b>{money(it.price * it.qty)}</b></td> : null)}<td className="c iv-tick"><span className="iv-box-tick"></span></td></tr>))}</tbody></table>{(anyWarranty || on.note_box || on.totals ? <div className={`iv-bottom ${on.totals ? '' : 'no-sum'}`}><div className="iv-left">{(anyWarranty ? <div className="iv-box iv-wbox"><p className="iv-label"><Val v={c.warranty_title} /></p><p><Val v={docs.fill(c.warranty_text, s)} /></p></div> : null)}{' '}{(on.note_box ? <div className="iv-box"><p className="iv-label"><Val v={c.note_title} /></p><p><Val v={docs.fill(c.note_text, s)} /></p></div> : null)}</div>{(on.totals ? <table className="iv-sum"><tr><td>পণ্যের দাম</td><td className="num">{money(order.subtotal)}</td></tr>{(order.discount ? <tr><td>ছাড়{(order.coupon_code ? ` (${order.coupon_code})` : null)}</td><td className="num">−{' '}{money(order.discount)}</td></tr> : null)}{' '}{(Number(order.points_discount) ? <tr><td>পয়েন্ট ছাড়</td><td className="num">−{' '}{money(order.points_discount)}</td></tr> : null)}<tr><td>ডেলিভারি চার্জ</td><td className="num">{(order.delivery ? money(order.delivery) : "ফ্রি")}</td></tr>{(roundOff(order) ? <tr><td>{roundOffLabel(roundOff(order))}</td><td className="num">{(roundOff(order) > 0 ? "+ " : "− ")}{money(Math.abs(roundOff(order)))}</td></tr> : null)}<tr className="iv-total"><td>সর্বমোট</td><td className="num">{money(order.total)}</td></tr>{(order.paid_amount ? <tr><td>আগে পরিশোধিত</td><td className="num">−{' '}{money(order.paid_amount)}</td></tr> : null)}{' '}{(on.cod_box ? <tr className={due ? 'iv-due' : 'iv-paid'}><td>{(due ? "ডেলিভারির সময় দিতে হবে" : "পুরো টাকা পরিশোধিত")}</td><td className="num">{(due ? money(due) : "✅")}</td></tr> : null)}</table> : null)}</div> : null)}{' '}{(on.thanks || on.footer ? <footer className="iv-foot">{(on.thanks ? <p className="iv-thanks"><Val v={docs.fill(c.thanks_text, s)} /></p> : null)}{' '}{(on.footer && docs.fill(c.footer_text, s) ? <p><Val v={docs.fill(c.footer_text, s)} /></p> : null)}</footer> : null)}</section>;
 }
-function checklistCss(c?: Loose) {
+function checklistCss(c: PaperDoc) {
   return `${BASE_CSS}
 :root{--p:${c.primary};--a:${c.accent}}
 .iv{background:#fff;max-width:${c.paper === 'A5' ? '600px' : '820px'};margin:18px auto;border-radius:14px;overflow:hidden;box-shadow:0 8px 28px rgba(20,33,61,.10);page-break-after:always;position:relative}
@@ -110,25 +119,25 @@ function checklistCss(c?: Loose) {
 .iv-table{width:calc(100% - 32px);margin:0 16px;font-size:12px}.iv-table th,.iv-table td{padding:6px 5px}.iv-pic{width:48px}.iv-pic img,.iv-pic span{width:42px;height:42px}.iv-bottom{grid-template-columns:1fr;padding:12px 16px}.dc-word{font-size:30px}.dc-mark{width:46px;height:46px}}
 @media print{@page{size:${c.paper};margin:8mm}body{background:#fff}.bar{display:none}.iv{margin:0;border-radius:0;box-shadow:none;max-width:none}tr{page-break-inside:avoid}}`;
 }
-function checklistPage(orders?: Loose, s?: Loose, c = docs.checklist(s), opts: Body = {}) {
-  return shell(`${c.title} ${orders.length === 1 ? orders[0].code : `(${bn(orders.length)}টি)`}`, checklistCss(c), <><Val v={orders.map((o: unknown) => checklistBody(o, s, c))} /></>, opts);
+function checklistPage(orders: PrintOrder[], s: Settings, c: PaperDoc = docs.checklist(s), opts: ShellProps = {}) {
+  return shell(`${c.title} ${orders.length === 1 ? orders[0].code : `(${bn(orders.length)}টি)`}`, checklistCss(c), <><Val v={orders.map((o) => checklistBody(o, s, c))} /></>, opts);
 }
 
 // ================================================================ 🏷️ ইনভয়েস (on the parcel)
-function labelBody(order?: Loose, s?: Loose, c?: Loose) {
+function labelBody(order: PrintOrder, s: Settings, c: PaperDoc) {
   const on = c.show;
   const area = ordersModel.areaLabel(order);
   const due = Math.max(0, order.total - (order.paid_amount || 0));
-  const units = (order.items || []).reduce((n: number, it: Loose) => n + Number(it.qty || 0), 0);
-  const weight = (order.items || []).reduce((g: number, it: Loose) => g + Number(it.weight_g || 0) * Number(it.qty || 0), 0) || Number(order.weight_g || 0);
+  const units = (order.items || []).reduce((n: number, it) => n + Number(it.qty || 0), 0);
+  const weight = (order.items || []).reduce((g: number, it) => g + Number(it.weight_g || 0) * Number(it.qty || 0), 0) || Number(order.weight_g || 0);
   const site = siteOf(s);
-  const z = docs.LABEL_SIZES[c.size] || docs.LABEL_SIZES.a4x6;
+  const z = docs.LABEL_SIZES[String(c.size)] || docs.LABEL_SIZES.a4x6;
   const compact = z.h < 120;
   const qr = on.qr ? qrSvg(s, order, compact ? 58 : 74) : '';
   return <section className={`lb ${compact ? 'lb-compact' : ''} ${z.h < 80 ? 'lb-mini' : ''} ${on.mono ? 'lb-mono' : ''}`}><div className="lb-strip"></div><header className="lb-head"><div className="lb-brand">{(on.logo ? brandMark(s, 'lb-sm') : null)}{(on.sender ? <p className="lb-from"><span>প্রেরক</span>{' '}<b><Val v={s.store_name} /></b>{(s.phone ? <>{' '}·{' '}<Val v={s.phone} /></> : null)}{(on.sender_address && s.address ? <><br /><Val v={s.address} /></> : null)}</p> : null)}</div><div className="lb-title"><b><Val v={c.title} /></b>{(on.code_date ? <><span>#{' '}<Val v={order.code} /></span><small>{fmtDate(order.created_at, false)}</small></> : null)}</div></header>{(on.barcode ? <div className="lb-bc"><RawHtml html={BC.svg(order.code, { height: compact ? 44 : 64, module: 2.4, fontSize: compact ? 15 : 18 })} /></div> : null)}<div className="lb-mid">{(on.receiver ? <div className="lb-to"><p className="lb-k">প্রাপক</p><p className="lb-name" translate="no"><Val v={order.customer_name} /></p><p className="lb-phone">📞{' '}<Val v={order.phone} /></p><p className="lb-addr" translate="no"><Val v={order.address} />{(area ? <><br /><b><Val v={area} /></b></> : null)}</p></div> : null)}<div className="lb-row">{(on.cod ? <div className={`lb-cod ${due ? '' : 'paid'}`}><span>{(due ? "নিতে হবে (COD)" : "টাকা পরিশোধিত")}</span><b>{(due ? money(due) : "৳০ ✅")}</b>{' '}{(on.payment ? <small><Val v={ordersModel.PAYMENT_METHODS[order.payment] || order.payment} />{' '}·{' '}<Val v={ordersModel.PAYMENT_STATUSES[order.payment_status] || ''} /></small> : null)}</div> : null)}{' '}{(qr ? <div className="lb-qr"><RawHtml html={qr} /></div> : null)}</div></div>{(on.courier && order.courier ? <div className="lb-courier"><span>🛵{' '}<Val v={courierName(order.courier)} /></span>{(order.consignment_id ? <b><Val v={order.consignment_id} /></b> : null)}{' '}{(on.consignment_barcode && order.consignment_id ? <div className="lb-cbc"><RawHtml html={BC.svg(String(order.consignment_id), { height: compact ? 26 : 38, module: 1.7, fontSize: compact ? 10 : 12 })} /></div> : null)}</div> : null)}{' '}{(on.item_count || (on.weight && weight) ? <p className="lb-meta">{(on.item_count ? <>📦 পণ্য:{' '}<b>{bn(units)}</b>টি</> : null)}{(on.weight && weight ? <>{(on.item_count ? " · " : null)}⚖️ ওজন:{' '}<b>{bn(weight >= 1000 ? (weight / 1000).toFixed(2) + ' কেজি' : weight + ' গ্রাম')}</b></> : null)}</p> : null)}{' '}{(on.customer_note && order.note ? <p className="lb-note">📝{' '}<Val v={order.note} /></p> : null)}{' '}{(on.handling && c.handling_text ? <p className="lb-handle"><Val v={docs.fill(c.handling_text, s)} /></p> : null)}{' '}{((on.return_note && c.return_text) || c.footer_text ? <footer className="lb-foot">{(on.return_note && c.return_text ? <p><Val v={docs.fill(c.return_text, s)} />{(s.address ? <>{' '}·{' '}<Val v={s.address} /></> : null)}</p> : null)}{(c.footer_text ? <p><Val v={docs.fill(c.footer_text, s)} /></p> : null)}{(site ? <p className="lb-site"><Val v={bare(site)} /></p> : null)}</footer> : null)}</section>;
 }
-function labelCss(c?: Loose) {
-  const z = docs.LABEL_SIZES[c.size];
+function labelCss(c: PaperDoc) {
+  const z = docs.LABEL_SIZES[String(c.size)];
   return `${BASE_CSS}
 :root{--p:${c.primary};--a:${c.accent}}
 .sheet{display:flex;flex-wrap:wrap;gap:14px;justify-content:center;padding:16px}
@@ -171,8 +180,8 @@ function labelCss(c?: Loose) {
 @media print{@page{size:${z.sheet ? 'A4' : `${z.w}mm ${z.h}mm`};margin:0}body{background:#fff}.bar{display:none}
   .sheet{padding:0;gap:0;justify-content:flex-start}.lb{box-shadow:none;border-radius:0;height:${z.h}mm;${z.sheet ? 'outline:1px dashed #CBD5E1;' : 'page-break-after:always;'}}}`;
 }
-function invoicePage(orders?: Loose, s?: Loose, c = docs.invoice(s), opts: Body = {}) {
-  return shell(`${c.title} ${orders.length === 1 ? orders[0].code : `(${bn(orders.length)}টি)`}`, labelCss(c), <div className="sheet"><Val v={orders.map((o: unknown) => labelBody(o, s, c))} /></div>, opts);
+function invoicePage(orders: PrintOrder[], s: Settings, c: PaperDoc = docs.invoice(s), opts: ShellProps = {}) {
+  return shell(`${c.title} ${orders.length === 1 ? orders[0].code : `(${bn(orders.length)}টি)`}`, labelCss(c), <div className="sheet"><Val v={orders.map((o) => labelBody(o, s, c))} /></div>, opts);
 }
 
 export { invoicePage, checklistPage, labelBody, checklistBody, mergedItems };

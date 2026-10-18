@@ -400,7 +400,7 @@ const MAX_PRODUCT_IMAGES = 6;
 // Warranty choices (owner: from 7 days up to 5 years). Stored as the key; a typed one is kept as "c:<text>".
 const WARRANTY: Record<string, string> = { '7d': '৭ দিন', '15d': '১৫ দিন', '1m': '১ মাস', '3m': '৩ মাস', '6m': '৬ মাস', '1y': '১ বছর', '2y': '২ বছর', '3y': '৩ বছর', '4y': '৪ বছর', '5y': '৫ বছর' };
 const WARRANTY_TYPES: Record<string, string> = { replace: 'রিপ্লেসমেন্ট', service: 'সার্ভিস', brand: 'ব্র্যান্ড/কোম্পানি' };
-function warrantyText(p: { warranty?: string; warranty_type?: string } | null | undefined): string {
+function warrantyText(p: { warranty?: string | null; warranty_type?: string | null } | null | undefined): string {
   const w = String((p && p.warranty) || '');
   if (!w) return '';
   const len = w.startsWith('c:') ? w.slice(2) : WARRANTY[w];

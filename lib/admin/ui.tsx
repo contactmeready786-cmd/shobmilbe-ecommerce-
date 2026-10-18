@@ -47,10 +47,10 @@ function flag(code: string) {
   return <img className="flag" src={`/flags/${c.toLowerCase()}.svg`} alt={emoji} width={20} height={15} loading="lazy" decoding="async" />;
 }
 
-function pill(text?: Loose, cls = '') { return <span className={`pill ${attrValue(cls)}`}><Val v={text} /></span>; }
+function pill(text?: unknown, cls = '') { return <span className={`pill ${attrValue(cls)}`}><Val v={text} /></span>; }
 
 // ---------- form fields ----------
-function field(label?: Loose, control?: Loose, hint?: Loose) {
+function field(label?: unknown, control?: unknown, hint?: unknown) {
   return <div className="field"><label><Val v={label} /><Val v={control} /></label>{(hint ? <small><Val v={hint} /></small> : null)}</div>;
 }
 // Money boxes accept paisa (৳0.25).
@@ -62,7 +62,8 @@ const MONEY_FIELDS = new Set(['price', 'old_price', 'cost_price', 'amount', 'pai
 const PROP: Record<string, string> = { class: 'className', autocomplete: 'autoComplete', autofocus: 'autoFocus', autocapitalize: 'autoCapitalize',
   inputmode: 'inputMode', maxlength: 'maxLength', minlength: 'minLength', readonly: 'readOnly', spellcheck: 'spellCheck', tabindex: 'tabIndex', for: 'htmlFor' };
 const ON_OFF = new Set(['required', 'disabled', 'autoFocus', 'readOnly', 'multiple', 'hidden']);
-function propsOf(attrs: Loose): Record<string, unknown> {
+type Attrs = Record<string, unknown>;
+function propsOf(attrs: Attrs | null | undefined): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(attrs || {})) {
     if (v === false || v === null || v === undefined) continue;
@@ -75,25 +76,25 @@ function propsOf(attrs: Loose): Record<string, unknown> {
 }
 const text = (v: unknown) => (v === null || v === undefined ? '' : String(v));
 // (the box keeps what the owner types: defaultValue, never a value React would hold)
-function input(name?: Loose, value?: Loose, attrs: Loose = {}) {
-  if (attrs.type === 'number' && MONEY_FIELDS.has(name) && attrs.step === undefined) {
+function input(name?: unknown, value?: unknown, attrs: Attrs = {}) {
+  if (attrs.type === 'number' && typeof name === 'string' && MONEY_FIELDS.has(name) && attrs.step === undefined) {
     attrs = { ...attrs, step: '0.01' };
     if (Number(attrs.min) === 1) attrs.min = '0.01';
   }
   return <input name={text(name)} defaultValue={text(value)} {...propsOf(attrs)} />;
 }
-function textarea(name?: Loose, value?: Loose, attrs = {}) {
+function textarea(name?: unknown, value?: unknown, attrs: Attrs = {}) {
   return <textarea name={text(name)} defaultValue={text(value)} {...propsOf(attrs)} />;
 }
-function select(name: Loose, options: Body, value?: Loose, attrs = {}) {
-  const opts = Array.isArray(options) ? options : Object.entries(options);
-  return <select name={text(name)} defaultValue={text(value)} {...propsOf(attrs)}>{jsxList(opts.map(([v, l]: Loose[]) => <option value={text(v)}>{text(l)}</option>))}</select>;
+function select(name: unknown, options: readonly (readonly unknown[])[] | Record<string, unknown>, value?: unknown, attrs: Attrs = {}) {
+  const opts: readonly (readonly unknown[])[] = Array.isArray(options) ? options : Object.entries(options);
+  return <select name={text(name)} defaultValue={text(value)} {...propsOf(attrs)}>{jsxList(opts.map(([v, l]) => <option value={text(v)}>{text(l)}</option>))}</select>;
 }
-function check(name?: Loose, checked?: Loose, label?: Loose, value = '1') {
+function check(name?: unknown, checked?: unknown, label?: unknown, value = '1') {
   return <label className="check"><input type="checkbox" name={attrValue(name)} defaultValue={attrValue(value)} defaultChecked={!!(checked)} />{' '}<span><Val v={label} /></span></label>;
 }
 // Big on/off switch with a title and explanation.
-function switchRow(name?: Loose, on?: Loose, title?: Loose, desc?: Loose) {
+function switchRow(name?: unknown, on?: unknown, title?: unknown, desc?: unknown) {
   return <label className="switch-row">{' '}<span className="switch-text"><b><Val v={title} /></b>{(desc ? <small><Val v={desc} /></small> : null)}</span>{' '}<span className="switch"><input type="checkbox" name={attrValue(name)} defaultValue="1" defaultChecked={!!(on)} /><span className="switch-ui" aria-hidden="true"></span></span>{' '}<span className="switch-state" data-on="চালু" data-off="বন্ধ"></span></label>;
 }
 // Image picker: uploads in the browser, keeps the media id in a hidden input.
@@ -102,11 +103,11 @@ type ImagePickerProps = {
   hint?: string;
   wide?: boolean;
 };
-function imagePicker(name?: Loose, mediaId?: Id, { label = 'ছবি', hint = '', wide = false }: ImagePickerProps = {}) {
+function imagePicker(name?: unknown, mediaId?: Id, { label = 'ছবি', hint = '', wide = false }: ImagePickerProps = {}) {
   return <div className={`field image-pick ${wide ? 'wide' : ''}`} data-image-pick=""><span className="label"><Val v={label} /></span><div className="pick-preview" data-pick-preview="">{(mediaId ? <img src={`/media/${attrValue(mediaId)}/t`} alt="" /> : <span className="muted small">ছবি নেই</span>)}</div><p className={`pick-status ${mediaId ? 'is-live' : ''}`} data-pick-status="" data-live={mediaId ? '1' : ''}>{(mediaId ? "✅ এখন সাইটে এই ছবিটা চলছে" : "এখনো কোনো ছবি দেওয়া হয়নি")}</p><input type="hidden" name={attrValue(name)} defaultValue={attrValue(mediaId || '')} data-pick-value="" /><div className="pick-actions"><label className="btn btn-sm btn-ghost">{(mediaId ? "🔄 ছবি বদলান" : "📷 ছবি বাছুন")}<input type="file" accept="image/*" hidden data-pick-file="" data-wide={(wide) ? "" : undefined} /></label>{' '}{(mediaId ? <a className="btn btn-sm btn-ghost" href={`/media/${attrValue(mediaId)}`} target="_blank" rel="noopener">🔍 বড় করে দেখুন</a> : null)}{' '}<button type="button" className="link-btn danger" data-pick-clear="" hidden={!(mediaId)}>🗑️ সরান</button></div>{(hint ? <small><Val v={hint} /></small> : null)}</div>;
 }
 
-function pager(total?: Loose, page?: Loose, perPage?: Loose, baseUrl?: Loose) {
+function pager(total: number, page: number, perPage: number, baseUrl: string) {
   const pages = Math.ceil(total / perPage);
   if (pages <= 1) return '';
   const link = (p: string | number) => baseUrl + (baseUrl.includes('?') ? '&' : '?') + 'page=' + p;
@@ -115,12 +116,12 @@ function pager(total?: Loose, page?: Loose, perPage?: Loose, baseUrl?: Loose) {
   return <nav className="pager" aria-label="পেজ">{(page > 1 ? <a href={attrValue(link(page - 1))}>← আগের</a> : null)}{' '}{jsxList(items.map((p) => (p === page ? <b>{bn(p)}</b> : <a href={attrValue(link(p))}>{bn(p)}</a>)))}{' '}{(page < pages ? <a href={attrValue(link(page + 1))}>পরের →</a> : null)}{' '}<span className="muted small">মোট{' '}{bn(total)}টি</span></nav>;
 }
 
-function dateFilter(path?: Loose, from?: Loose, to?: Loose, extra = '') {
+function dateFilter(path?: unknown, from?: unknown, to?: unknown, extra = '') {
   const presets = [[7, '৭ দিন'], [30, '৩০ দিন'], [90, '৯০ দিন'], [365, '১ বছর']];
   return <form className="date-filter" method="get" action={attrValue(path)}><RawHtml html={extra} /><div className="chips">{jsxList(presets.map(([d, l]) => <a className="chip" href={`${attrValue(path)}?days=${attrValue(d)}`}><Val v={l} /></a>))}</div><label>থেকে{' '}<input type="date" name="from" defaultValue={attrValue(from)} /></label>{' '}<label>পর্যন্ত{' '}<input type="date" name="to" defaultValue={attrValue(to)} /></label>{' '}<button className="btn btn-sm">দেখুন</button></form>;
 }
 
-function kpi(label?: Loose, value?: Loose, sub?: Loose, cls = '', href = '') {
+function kpi(label?: unknown, value?: unknown, sub?: unknown, cls = '', href = '') {
   const body = <><span className="kpi-label"><Val v={label} /></span><b className="kpi-value"><Val v={value} /></b>{(sub ? <span className="kpi-sub"><Val v={sub} /></span> : null)}</>;
   return href ? <a className={`kpi ${attrValue(cls)}`} href={attrValue(href)}>{body}</a> : <div className={`kpi ${attrValue(cls)}`}>{body}</div>;
 }
@@ -132,7 +133,7 @@ function catOpts(categories: $models_catalog.Category[]) {
 }
 
 // "কাজ" column for admin lists: ✏️ edit, optional on/off switch, optional 🗑️ delete (goes to the recycle bin).
-function rowSwitch(action?: Loose, on?: Loose, label?: Loose) {
+function rowSwitch(action?: unknown, on?: unknown, label?: unknown) {
   return <form method="post" action={attrValue(action)} className="prod-toggle"><label className="switch" title={attrValue(label)}><input type="checkbox" name="active" defaultValue="1" defaultChecked={!!(on)} data-prod-toggle="" aria-label={attrValue(label)} /><span className="switch-ui" aria-hidden="true"></span></label>{' '}<span className="small prod-toggle-text" data-prod-toggle-text="">{(on ? "চালু" : "বন্ধ")}</span><noscript><button className="btn btn-sm btn-ghost">সেভ</button></noscript></form>;
 }
 type RowActionsProps = {
@@ -154,11 +155,11 @@ function importTabs(current: string) {
   return <nav className="imp-tabs" aria-label="পণ্য আমদানির ধরন">{jsxList(tabs.map(([k, href, ic, t, d]) => <a href={attrValue(href)} className={`imp-tab ${k === current ? 'on' : ''}`} aria-current={(k === current) ? "page" : undefined}><span className="imp-tab-ic"><Val v={ic} /></span><span><b><Val v={t} /></b><small><Val v={d} /></small></span></a>))}</nav>;
 }
 
-function empty(text?: Loose, action?: JSX.Element | undefined) {
+function empty(text?: unknown, action?: JSX.Element | undefined) {
   return <div className="empty panel"><p><Val v={text} /></p><Val v={action || ''} /></div>;
 }
 
-function helpBox(title?: Loose, body?: Loose) {
+function helpBox(title?: unknown, body?: unknown) {
   return <details className="help"><summary>💡{' '}<Val v={title} /></summary><div><Val v={body} /></div></details>;
 }
 
