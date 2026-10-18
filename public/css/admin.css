@@ -1240,3 +1240,25 @@ img[data-zoomable] { cursor: zoom-in; }
 .pic-zoom { position: fixed; inset: 0; z-index: 9999; background: rgba(15, 23, 42, .85); display: flex; align-items: center; justify-content: center; padding: 16px; cursor: zoom-out; }
 .pic-zoom img { max-width: min(92vw, 900px); max-height: 88vh; object-fit: contain; background: #fff; border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,.4); }
 .pic-zoom button { position: absolute; top: 12px; right: 12px; width: 44px; height: 44px; border-radius: 50%; border: 0; background: #fff; font-size: 1.4rem; cursor: pointer; }
+
+/* 🏳️ country flags (pictures — same look on every phone and computer) */
+.flag { display: inline-block; width: 1.4em; height: 1.05em; vertical-align: -.18em; border-radius: 3px; object-fit: cover; box-shadow: 0 0 0 1px rgba(15, 23, 42, .12); background: var(--paper, #f4f6fa); flex: none; }
+.flag-none { box-shadow: none; background: none; text-align: center; line-height: 1; }
+.flag-row .flag { margin-right: 3px; }
+.flag-big .flag { width: 1.6em; height: 1.2em; }
+.hb-label .flag, .va-place .flag { margin-right: 2px; }
+
+/* 🌍 country block list */
+.geo-list { max-height: 460px; overflow: auto; border: 1px solid var(--line, #e3e8f0); border-radius: 12px; padding: 4px; background: var(--card, #fff); }
+.geo-row { display: flex; gap: 10px; align-items: center; padding: 8px 10px; margin: 2px 0; border-radius: 9px; cursor: pointer; transition: background .15s, box-shadow .15s, transform .15s; }
+.geo-row:hover { background: var(--blue-l, #eef4ff); }
+.geo-row:active { transform: scale(.995); }
+.geo-row .flag { width: 1.75em; height: 1.3em; border-radius: 4px; transition: transform .15s; }
+.geo-row:hover .flag { transform: scale(1.08); }
+.geo-row.is-on, .geo-row:has(input:checked) { background: #ecfdf3; box-shadow: inset 3px 0 0 #16a34a; }
+.geo-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.geo-visits { position: relative; flex: none; min-width: 74px; padding: 3px 9px; border-radius: 999px; background: var(--paper, #f1f5f9); font-size: .8rem; color: var(--muted, #64748b); text-align: right; overflow: hidden; }
+.geo-visits b { position: relative; color: var(--ink, #0f172a); }
+.geo-bar { position: absolute; inset: 0 auto 0 0; background: linear-gradient(90deg, rgba(37, 99, 235, .18), rgba(37, 99, 235, .06)); border-radius: inherit; }
+.geo-visits > :not(.geo-bar) { position: relative; }
+@media (max-width: 600px) { .geo-row { padding: 9px 8px; } .geo-name .small { display: none; } }

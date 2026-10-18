@@ -60,7 +60,7 @@ function combo(series?: Loose, { barName = '', lineName = '', barMoney = false, 
 function hbars(rows?: Loose, { isMoney = false, color = 0 }: Body = {}) {
   if (!rows.length) return <p className="muted">কোনো ডাটা নেই।</p>;
   const max = Math.max(...rows.map((r?: Loose) => Number(r.value) || 0), 1);
-  return <ul className="hbars">{jsxList(rows.map((r?: Loose, i?: Loose) => <li><span className="hb-label" title={attrValue(r.label)}><Val v={r.label} /></span>{' '}<span className="hb-track"><span className="hb-fill" style={styleOf(`width:${Math.max(2, (100 * (Number(r.value) || 0)) / max).toFixed(1)}%;background:${attrValue(PALETTE[(color === -1 ? i : color) % PALETTE.length])}`)}></span></span>{' '}<span className="hb-val">{(isMoney ? money(r.value) : bn(r.value))}{(r.sub ? <>{' '}<small><Val v={r.sub} /></small></> : null)}</span></li>))}</ul>;
+  return <ul className="hbars">{jsxList(rows.map((r?: Loose, i?: Loose) => <li><span className="hb-label" title={attrValue(r.label)}>{(r.icon ? <>{r.icon}{' '}</> : null)}<Val v={r.label} /></span>{' '}<span className="hb-track"><span className="hb-fill" style={styleOf(`width:${Math.max(2, (100 * (Number(r.value) || 0)) / max).toFixed(1)}%;background:${attrValue(PALETTE[(color === -1 ? i : color) % PALETTE.length])}`)}></span></span>{' '}<span className="hb-val">{(isMoney ? money(r.value) : bn(r.value))}{(r.sub ? <>{' '}<small><Val v={r.sub} /></small></> : null)}</span></li>))}</ul>;
 }
 
 // Donut: rows [{label, value}]

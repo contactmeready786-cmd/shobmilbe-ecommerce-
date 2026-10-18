@@ -28,7 +28,7 @@ function kindPills(kinds?: Loose) {
 function place(r?: Loose) {
   if (!r.country) return <span className="muted">অজানা</span>;
   const p = V.place({ country: r.country, region: '', city: r.city });
-  return <span title={attrValue(p.country)}><Val v={p.flag} />{' '}<Val v={p.text} /></span>;
+  return <span title={attrValue(p.country)}>{ui.flag(r.country)}{' '}<Val v={p.text} /></span>;
 }
 function blockButtons(ip?: Loose, blocked?: Loose, until?: Loose) {
   if (blocked) {

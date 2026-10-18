@@ -34,6 +34,15 @@ function flashFrom(query: URLSearchParams) {
   return m ? (typeof m === 'string' ? { text: m } : m) : null;
 }
 
+// 🏳️ A country's flag as a small picture (public/flags, from flag-icons — MIT): emoji flags don't show on Windows
+// and look different on every phone, so the admin draws the same picture everywhere. The emoji stays as its alt text.
+function flag(code?: Loose) {
+  const c = String(code || '').toUpperCase();
+  if (!/^[A-Z]{2}$/.test(c)) return <span className="flag flag-none" aria-hidden="true">🌐</span>;
+  const emoji = String.fromCodePoint(...[...c].map((ch) => 0x1F1E6 + ch.charCodeAt(0) - 65));
+  return <img className="flag" src={`/flags/${c.toLowerCase()}.svg`} alt={emoji} width={20} height={15} loading="lazy" decoding="async" />;
+}
+
 function pill(text?: Loose, cls: Loose = '') { return <span className={`pill ${attrValue(cls)}`}><Val v={text} /></span>; }
 
 // ---------- form fields ----------
@@ -138,4 +147,4 @@ function helpBox(title?: Loose, body?: Loose) {
   return <details className="help"><summary>💡{' '}<Val v={title} /></summary><div><Val v={body} /></div></details>;
 }
 
-export { importTabs, rowSwitch, rowActions, catOpts, MESSAGES, flash, flashFrom, pill, field, input, textarea, select, check, switchRow, imagePicker, pager, dateFilter, kpi, empty, helpBox, money, bn };
+export { flag, importTabs, rowSwitch, rowActions, catOpts, MESSAGES, flash, flashFrom, pill, field, input, textarea, select, check, switchRow, imagePicker, pager, dateFilter, kpi, empty, helpBox, money, bn };

@@ -7,7 +7,7 @@ import { can, canSee } from '../models/staff';
 import * as $profile from './profile';
 import type { Body, Id, Loose, Settings, StaffUser } from '../types';
 
-const ASSET_V = '55';
+const ASSET_V = '56';
 
 // 📑 Small jobs that belong together sit on one page as tabs (like browser tabs). Each tab is still its own
 // page with its own link (bookmarks and the phone app keep working); the menu shows one entry for the set.
