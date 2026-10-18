@@ -224,7 +224,8 @@ function csv(rows: unknown[][]): string {
 
 // fetch with a timeout; returns { ok, status, data, text }
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- whatever JSON the other service sends
-type FetchResult = { ok: boolean; status: number; data: any; text: string };
+/** What fetchJson gives back: the HTTP answer, its JSON (as the other company sent it — not typed here) and its text. */
+export type FetchResult = { ok: boolean; status: number; data: any; text: string };
 async function fetchJson(url: string | URL, opts: RequestInit = {}, timeoutMs = 12000): Promise<FetchResult> {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), timeoutMs);
