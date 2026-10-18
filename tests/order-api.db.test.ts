@@ -35,7 +35,7 @@ before(async () => {
   await db.ensureReady();
   await db.setSetting('min_order', '10');
   await db.setSetting('co_otp_on', '0');
-  const r = await db.one("INSERT INTO products(name, slug, price, stock, active) VALUES('API টেস্ট পণ্য', $1, 300, 50, true) RETURNING id", [`api-test-${Date.now()}`]);
+  const r = await db.one<{ id: number }>("INSERT INTO products(name, slug, price, stock, active) VALUES('API টেস্ট পণ্য', $1, 300, 50, true) RETURNING id", [`api-test-${Date.now()}`]);
   pid = r!.id;
 });
 // the shop records some things in the background (the security log after a refused order): let them finish first

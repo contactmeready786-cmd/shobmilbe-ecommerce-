@@ -61,7 +61,7 @@ async function page(ctx: AdminCtx) {
   const [st, count, rows] = await Promise.all([
     stats(s),
     db.one<{ n: number }>(`SELECT count(*)::int AS n FROM translations ${w}`, params),
-    db.q(`SELECT id, src, en, origin, hits FROM translations ${w} ORDER BY (origin = 'manual') DESC, hits DESC, id DESC LIMIT ${PER} OFFSET ${(pageNo - 1) * PER}`, params),
+    db.q<Pick<TranslationsRow, 'id' | 'src' | 'en' | 'origin' | 'hits'>>(`SELECT id, src, en, origin, hits FROM translations ${w} ORDER BY (origin = 'manual') DESC, hits DESC, id DESC LIMIT ${PER} OFFSET ${(pageNo - 1) * PER}`, params),
   ]);
   const on = s.i18n_on === '1';
   const listUrl = `${BASE}?${new URLSearchParams({ ...(q ? { q } : {}), ...(show ? { show } : {}) })}`;

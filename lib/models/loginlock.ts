@@ -156,7 +156,7 @@ async function useOnce(db: typeof import("../db"), challenge: string) { return s
 
 // ---------------------------------------------------------------- passkeys
 async function passkeys(staffId?: Id) {
-  return q('SELECT id, cred_id, rp_id, name, transports, created_at, last_used FROM owner_passkeys WHERE staff_id=$1 ORDER BY id', [staffId]);
+  return q<Pick<OwnerPasskeysRow, 'id' | 'cred_id' | 'rp_id' | 'name' | 'transports' | 'created_at' | 'last_used'>>('SELECT id, cred_id, rp_id, name, transports, created_at, last_used FROM owner_passkeys WHERE staff_id=$1 ORDER BY id', [staffId]);
 }
 async function passkeysFor(staffId?: Id, rp?: string) { return (await passkeys(staffId)).filter((k) => k.rp_id === rp); }
 

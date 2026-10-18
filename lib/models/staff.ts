@@ -2,6 +2,7 @@
 
 // Every permission a staff member can be given. The owner always has all of them.
 // [key, label, hint, group] — for products, stock and customers there are separate see / add / edit / delete ticks.
+import type { ActivityLogRow, StaffRow } from '../data/rows';
 import { q, one } from '../db';
 import { hashPassword, passwordProblem, str, int } from '../util';
 import * as $catalog from './catalog';
@@ -92,7 +93,7 @@ function canSee(user: MaybeUser, perm: string): boolean {
 }
 
 async function listStaff() {
-  return q('SELECT id, name, username, phone, email, role, permissions, active, note, last_login, created_at, totp_on, photo_id, designation, joined_on FROM staff ORDER BY role=\'owner\' DESC, active DESC, name');
+  return q<Omit<Pick<StaffRow, 'id' | 'name' | 'username' | 'phone' | 'email' | 'role' | 'active' | 'note' | 'last_login' | 'created_at' | 'totp_on' | 'photo_id' | 'designation' | 'joined_on'>, never> & { permissions: string[] | null }>('SELECT id, name, username, phone, email, role, permissions, active, note, last_login, created_at, totp_on, photo_id, designation, joined_on FROM staff ORDER BY role=\'owner\' DESC, active DESC, name');
 }
 async function getStaff(id: Id): Promise<StaffUser | null> {
   return one<StaffUser>('SELECT * FROM staff WHERE id=$1', [id]);
@@ -122,7 +123,7 @@ async function saveStaff(data: SaveStaffOpts, { isOwnerEditing = true }: { isOwn
   const username = cleanUsername(data.username);
   if (!str(data.name)) throw new Error('নাম লিখুন।');
   if (username.length < 3) throw new Error('ইউজারনেম কমপক্ষে ৩ অক্ষরের দিন (ইংরেজি ছোট হাতের অক্ষর/সংখ্যা)।');
-  const clash = await one('SELECT id FROM staff WHERE lower(username)=$1 AND id<>$2', [username, id]);
+  const clash = await one<{ id: number }>('SELECT id FROM staff WHERE lower(username)=$1 AND id<>$2', [username, id]);
   if (clash) throw new Error('এই ইউজারনেম আগে থেকেই আছে, অন্য একটা দিন।');
   const perms = ([] as unknown[]).concat(data.permissions || []).filter((p): p is string => typeof p === 'string' && PERMISSION_KEYS.includes(p));
   const existing = id ? await getStaff(id) : null;
@@ -138,7 +139,7 @@ async function saveStaff(data: SaveStaffOpts, { isOwnerEditing = true }: { isOwn
     if (data.password) await q('UPDATE staff SET password=$1, password_changed_at=now() WHERE id=$2', [hashPassword(String(data.password)), id]);
     return id;
   }
-  return (await one(`INSERT INTO staff(name, username, phone, email, password, role, permissions, active, note)
+  return (await one<{ id: number }>(`INSERT INTO staff(name, username, phone, email, password, role, permissions, active, note)
     VALUES($1,$2,$3,$4,$5,'staff',$6,$7,$8) RETURNING id`,
   [str(data.name, 80), username, str(data.phone, 20), str(data.email, 120), hashPassword(String(data.password)), JSON.stringify(perms), !!data.active, str(data.note, 500)]))!.id;
 }
@@ -174,11 +175,11 @@ async function setPhoto(id: Id, photoId: unknown): Promise<void> {
   if (cur.photo_id) await q(`DELETE FROM media WHERE id=$1 AND owner_type='staff'`, [cur.photo_id]);
 }
 async function photoOf(staffId: Id, thumb?: boolean) {
-  return one(`SELECT m.mime, ${thumb ? 'coalesce(m.thumb, m.data)' : 'm.data'} AS data, m.id FROM staff s JOIN media m ON m.id=s.photo_id AND m.owner_type='staff' WHERE s.id=$1`, [staffId]);
+  return one<{ mime: string; data: Buffer | null; id: number }>(`SELECT m.mime, ${thumb ? 'coalesce(m.thumb, m.data)' : 'm.data'} AS data, m.id FROM staff s JOIN media m ON m.id=s.photo_id AND m.owner_type='staff' WHERE s.id=$1`, [staffId]);
 }
 
 async function createOwner({ name, username, password }: { name: unknown; username: unknown; password: unknown }): Promise<number> {
-  return (await one(`INSERT INTO staff(name, username, password, role, permissions) VALUES($1,$2,$3,'owner','[]') RETURNING id`,
+  return (await one<{ id: number }>(`INSERT INTO staff(name, username, password, role, permissions) VALUES($1,$2,$3,'owner','[]') RETURNING id`,
     [str(name, 80) || 'মালিক', cleanUsername(username) || 'admin', hashPassword(String(password))]))!.id;
 }
 async function setPassword(id: Id, password: unknown): Promise<void> { await q('UPDATE staff SET password=$1, password_changed_at=now() WHERE id=$2', [hashPassword(String(password)), id]); }
@@ -192,7 +193,7 @@ async function activity({ staffId, entity, entityId, limit = 100 }: { staffId?: 
   if (entity) { params.push(entity); where.push(`a.entity=$${params.length}`); }
   if (entityId) { params.push(entityId); where.push(`a.entity_id=$${params.length}`); }
   params.push(limit);
-  return q(`SELECT a.*, s.name AS staff_name FROM activity_log a LEFT JOIN staff s ON s.id=a.staff_id
+  return q<ActivityLogRow & { staff_name: string | null }>(`SELECT a.*, s.name AS staff_name FROM activity_log a LEFT JOIN staff s ON s.id=a.staff_id
             ${where.length ? 'WHERE ' + where.join(' AND ') : ''} ORDER BY a.created_at DESC, a.id DESC LIMIT $${params.length}`, params);
 }
 

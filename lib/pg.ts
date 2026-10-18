@@ -13,7 +13,7 @@ import pg from 'pg';
 import { SUPABASE_ROOT_CA } from './data/supabase-ca';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- a row's columns depend on the query
-export type DbRow = Record<string, any>;
+export type DbRow = Record<string, unknown>;
 export type QueryResult<R = DbRow> = { rows: R[]; rowCount: number; command: string };
 /** A query parameter: sent as text (Dates as ISO, Buffers as bytea, arrays as Postgres arrays, objects as JSON). */
 export type Param = unknown;

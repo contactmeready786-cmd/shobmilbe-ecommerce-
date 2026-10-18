@@ -37,14 +37,14 @@ async function saveMedia({ mime, data, thumb, width, height, ownerType = null, o
   if (!keepPrivate && ownerType !== 'staff' && imagekit.configured()) {
     try { ik = await imagekit.upload(data, mime, sha.slice(0, 16)); } catch (e) { console.error('ImageKit upload failed, kept in database:', (e as Error).message); }
   }
-  const row = await one(
+  const row = await one<{ id: number }>(
     `INSERT INTO media(mime, data, thumb, width, height, owner_type, owner_id, sha, phash, phash_m, ik_url, ik_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING id`,
     [mime, ik ? null : data, ik ? null : (thumb || null), width || null, height || null, ownerType, ownerId, sha, cleanHash(phash), cleanHash(phashM), ik ? ik.url : null, ik ? ik.fileId : null]);
   return row!.id;
 }
 // A picture that has to stay private (staff photo): bring it back from ImageKit into the database.
 async function keepPrivate(id?: Id): Promise<void> {
-  const m = await one('SELECT ik_url, ik_id FROM media WHERE id=$1', [int(id)]);
+  const m = await one<Pick<MediaRow, 'ik_url' | 'ik_id'>>('SELECT ik_url, ik_id FROM media WHERE id=$1', [int(id)]);
   if (!m || !m.ik_url) return;
   const r = await fetch(m.ik_url, { signal: AbortSignal.timeout(15000) });
   if (!r.ok) throw new Error('picture could not be read back');
@@ -163,7 +163,7 @@ function categoryOptions(list: Category[]): CategoryNode[] {
 }
 // ids of a category and everything inside it
 async function categorySubtree(id?: Id): Promise<number[]> {
-  return (await q(`WITH RECURSIVE t AS (SELECT id FROM categories WHERE id=$1
+  return (await q<{ id: number }>(`WITH RECURSIVE t AS (SELECT id FROM categories WHERE id=$1
     UNION SELECT c.id FROM categories c JOIN t ON c.parent_id=t.id) SELECT id FROM t`, [int(id)])).map((r) => r.id);
 }
 type CategoryInput = { id?: number | null; name: unknown; icon?: unknown; sort?: unknown; active?: boolean; imageId?: unknown; parentId?: unknown; seo?: { title?: unknown; description?: unknown; text?: unknown; bannerId?: unknown; noindex?: boolean }; sizeChart?: unknown };
@@ -189,7 +189,7 @@ async function saveCategory({ id, name, icon, sort, active, imageId, parentId, s
     return id;
   }
   const slug = await uniqueSlug('categories', slugify(name));
-  const nid = (await one('INSERT INTO categories(name,icon,sort,active,image_id,slug,parent_id) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING id', [...vals, slug, parent || null]))!.id;
+  const nid = (await one<{ id: number }>('INSERT INTO categories(name,icon,sort,active,image_id,slug,parent_id) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING id', [...vals, slug, parent || null]))!.id;
   await saveSeo(nid);
   return nid;
 }
@@ -328,7 +328,7 @@ async function listProducts(opts: ProductFilter = {}): Promise<Product[]> {
 async function countProducts(opts: ProductFilter = {}): Promise<number> {
   const params: Param[] = [];
   const where = productWhere(opts, params);
-  return (await one(`SELECT count(*)::int AS n FROM products p LEFT JOIN categories c ON c.id=p.category_id ${where}`, params))!.n;
+  return (await one<{ n: number }>(`SELECT count(*)::int AS n FROM products p LEFT JOIN categories c ON c.id=p.category_id ${where}`, params))!.n;
 }
 // Counts for the small summary chips above the admin product list.
 export type ProductStats = { total: number; active: number; hidden: number; out: number; low: number };
@@ -560,7 +560,7 @@ async function saveBrand({ id, name, logoId, description, seoTitle, seoDescripti
     return int(id);
   }
   const slug = await uniqueSlug('brands', slugify(n) === 'item' ? 'brand' : slugify(n));
-  return (await one('INSERT INTO brands(name, logo_id, description, seo_title, seo_description, active, sort, slug, noindex) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id', [...vals, slug, !!noindex]))!.id;
+  return (await one<{ id: number }>('INSERT INTO brands(name, logo_id, description, seo_title, seo_description, active, sort, slug, noindex) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id', [...vals, slug, !!noindex]))!.id;
 }
 // The brand with this name (any letter case) — made on the spot when it doesn't exist yet.
 async function brandIdFor(t: Tx, name: unknown): Promise<number | null> {
@@ -591,7 +591,7 @@ function cleanSpecs(keys: unknown, vals: unknown): [string, string][] {
 // (also suggested in the cart), upsell = "আরও ভালো বিকল্প".
 const LINK_KINDS: Record<string, string> = { related: 'একই রকম পণ্য', cross: 'এর সাথে যা লাগবে (ক্রস-সেল)', upsell: 'আরও ভালো বিকল্প (আপসেল)' };
 async function linkedSkus(productId?: Id): Promise<Record<string, string[]>> {
-  const rows = await q(`SELECT l.kind, p.sku FROM product_links l JOIN products p ON p.id=l.linked_id WHERE l.product_id=$1 ORDER BY l.kind, l.sort`, [int(productId)]);
+  const rows = await q<{ kind: string; sku: string }>(`SELECT l.kind, p.sku FROM product_links l JOIN products p ON p.id=l.linked_id WHERE l.product_id=$1 ORDER BY l.kind, l.sort`, [int(productId)]);
   const out: Record<string, string[]> = { related: [], cross: [], upsell: [] };
   rows.forEach((r) => { if (out[r.kind]) out[r.kind].push(r.sku); });
   return out;
@@ -630,7 +630,7 @@ async function addRedirect(t: Tx, from: string, to: string): Promise<void> {
   await t.query(`INSERT INTO redirects(from_path, to_path) VALUES($1,$2) ON CONFLICT (from_path) DO UPDATE SET to_path=EXCLUDED.to_path`, [from, to]);
 }
 async function findRedirect(path: string): Promise<string | null> {
-  const r = await one('SELECT to_path FROM redirects WHERE from_path=$1', [path]);
+  const r = await one<{ to_path: string }>('SELECT to_path FROM redirects WHERE from_path=$1', [path]);
   if (r) q('UPDATE redirects SET hits=hits+1 WHERE from_path=$1', [path]).catch(() => {});
   return r ? r.to_path : null;
 }
@@ -728,7 +728,7 @@ async function saveProduct(data: Body & { bundle?: { product_id: unknown; qty: u
     } else {
       if (!f.sku) f.sku = await takeSku(t);
       const slug = await uniqueSlug('products', slugify(f.name) === 'item' ? 'product' : slugify(f.name));
-      pid = (await t.query(`INSERT INTO products(${cols.join(',')}, slug, stock) VALUES(${cols.map((_, i) => `$${i + 1}`).join(',')}, $${cols.length + 1}, 0) RETURNING id`,
+      pid = (await t.query<{ id: number }>(`INSERT INTO products(${cols.join(',')}, slug, stock) VALUES(${cols.map((_, i) => `$${i + 1}`).join(',')}, $${cols.length + 1}, 0) RETURNING id`,
         [...cols.map((c) => f[c]), slug])).rows[0].id;
       if (data.import_ref) await t.query('UPDATE products SET import_ref=$1 WHERE id=$2', [str(data.import_ref, 300), pid]);
       if (type === 'single' && newStock > 0) await moveStock(t, pid, newStock, 'opening', 'product', pid, 'শুরুর স্টক', staffId, false, f.cost_price || null);

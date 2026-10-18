@@ -17,7 +17,7 @@ const BASE = '/admin/accounts/cod';
 const COD_EXPR = `greatest(0, o.total - o.gift_amount - CASE WHEN o.payment IN ('bkash','ssl') OR o.payment LIKE 'manual_%' THEN o.total ELSE 0 END)`;
 
 async function summary() {
-  return db.q(`SELECT o.courier, count(*) FILTER (WHERE o.cod_settlement_id IS NULL)::int AS open_n,
+  return db.q<{ courier: string; open_n: number; open_amount: number; oldest: Date | null; done_n: number }>(`SELECT o.courier, count(*) FILTER (WHERE o.cod_settlement_id IS NULL)::int AS open_n,
       coalesce(sum(${COD_EXPR}) FILTER (WHERE o.cod_settlement_id IS NULL),0)::numeric(14,2) AS open_amount,
       min(coalesce(o.delivered_at, o.updated_at)) FILTER (WHERE o.cod_settlement_id IS NULL) AS oldest,
       count(*) FILTER (WHERE o.cod_settlement_id IS NOT NULL)::int AS done_n
@@ -29,7 +29,7 @@ async function page(ctx: AdminCtx) {
   const list = await summary();
   const cur = str(ctx.query.get('courier'), 30) || (list.find((x) => x.open_n) || list[0] || {}).courier || '';
   const [open, settlements, accounts, month] = await Promise.all([
-    cur ? db.q(`SELECT o.id, o.code, o.customer_name, o.consignment_id, o.tracking_code, o.total, o.delivery, o.gift_amount, o.payment, coalesce(o.delivered_at, o.updated_at) AS at, ${COD_EXPR} AS cod
+    cur ? db.q<{ id: number; code: string; customer_name: string; consignment_id: string; tracking_code: string; total: number; delivery: number; gift_amount: number; payment: string; at: Date; cod: number }>(`SELECT o.id, o.code, o.customer_name, o.consignment_id, o.tracking_code, o.total, o.delivery, o.gift_amount, o.payment, coalesce(o.delivered_at, o.updated_at) AS at, ${COD_EXPR} AS cod
       FROM orders o WHERE o.status='delivered' AND o.courier=$1 AND o.cod_settlement_id IS NULL AND o.source <> 'pos' ORDER BY coalesce(o.delivered_at, o.updated_at) LIMIT 500`, [cur]) : [],
     db.q<{ id: number; courier: string; ref: string; settled_on: string; collected: number; fee: number; received: number; account_id: number | null; order_count: number; note: string; staff_id: number | null; created_at: Date; staff_name: string | null; account_name: string | null }>(`SELECT c.*, s.name AS staff_name, a.name AS account_name FROM cod_settlements c LEFT JOIN staff s ON s.id=c.staff_id LEFT JOIN accounts a ON a.id=c.account_id ORDER BY c.id DESC LIMIT 30`),
     finance.listAccounts(),
@@ -64,7 +64,7 @@ async function save(ctx: AdminCtx) {
     const note = `${courier.label(b.courier)} COD${b.ref ? ` #${str(b.ref, 60)}` : ''} (${res.n}টি পার্সেল)`;
     const tx1 = await finance.addTransaction({ type: 'income', category: 'কুরিয়ার থেকে COD টাকা', amount: res.collected, account_id: b.account_id, tx_date: b.settled_on, note }, ctx.user.id).catch(() => null);
     const tx2 = res.fee > 0 ? await finance.addTransaction({ type: 'expense', category: 'কুরিয়ার চার্জ', amount: res.fee, account_id: b.account_id, tx_date: b.settled_on, note }, ctx.user.id).catch(() => null) : null;
-    await db.q('UPDATE cod_settlements SET note = left(note || $1, 300) WHERE id=$2', [` [tx:${[tx1, tx2].filter(Boolean).map((x) => x.id || x).join(',')}]`, res.id]);
+    await db.q('UPDATE cod_settlements SET note = left(note || $1, 300) WHERE id=$2', [` [tx:${[tx1, tx2].filter(Boolean).join(',')}]`, res.id]);
   }
   await ctx.log('cod_settle', 'settings', res.id, `${courier.label(b.courier)}: ${res.n}টি পার্সেল, পেয়েছেন ৳${received}`);
   return ctx.redirect(back + '&info=' + encodeURIComponent(`✅ ${bn(res.n)}টি পার্সেল মিলানো হয়েছে — COD ${money(res.collected)}, চার্জ ${money(res.fee)}, পেয়েছেন ${money(received)}।`));

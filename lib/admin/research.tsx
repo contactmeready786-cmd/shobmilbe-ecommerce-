@@ -9,7 +9,7 @@ import type { AdminCtx, Loose, Caught } from '../types';
 const TABS = [['winning', '🏆 উইনিং প্রোডাক্ট'], ['find', '🔍 প্রোডাক্ট খুঁজুন'], ['new', '🆕 বাজারে নতুন'], ['drops', '📉 দাম কমেছে'], ['demand', '🔎 আপনার কাস্টমার যা খুঁজছে'], ['sources', '🏪 যেসব দোকান দেখা হচ্ছে']];
 
 function pic(src?: unknown) { return src ? <img src={attrValue(src)} alt="" loading="lazy" referrerPolicy="no-referrer" /> : <span>📦</span>; }
-function ago(d: string | number | Date) {
+function ago(d: string | number | Date | null) {
   if (!d) return 'এখনো না';
   const m = Math.round((Date.now() - new Date(d).getTime()) / 60000);
   return m < 1 ? 'এইমাত্র' : m < 60 ? `${bn(m)} মিনিট আগে` : m < 1440 ? `${bn(Math.round(m / 60))} ঘণ্টা আগে` : `${bn(Math.round(m / 1440))} দিন আগে`;

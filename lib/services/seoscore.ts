@@ -1,11 +1,14 @@
 // 📈 SEO score of every product (Admin → মার্কেটিং → SEO, and the daily অটো SEO score): what Google needs to rank a
 // product page and how much each part is worth. Kept apart from the admin pages so the shop's services can use it.
+import type { ProductsRow } from '../data/rows';
 import * as db from '../db';
 import * as $services_seo from './seo';
 import type { Loose } from '../types';
 
 const SEO_WEIGHTS = { image: 20, text: 20, textLong: 10, model: 12, specs: 10, category: 10, gallery: 6, brand: 4, title: 4, reviews: 4 };
-function seoScore(p: db.pg.DbRow, seo: typeof $services_seo) {
+type SeoRow = Pick<ProductsRow, 'id' | 'name' | 'sku' | 'seo_title' | 'seo_description' | 'short_description' | 'description' | 'image_id' | 'category_id' | 'noindex' | 'model' | 'brand' | 'rating_count'>
+  & { specs: unknown; pics: number; same_name: number; auto_desc?: boolean; score?: number };
+function seoScore(p: SeoRow, seo: typeof $services_seo) {
   const textLen = String(p.description || '').trim().length + String(p.short_description || '').trim().length;
   const W = SEO_WEIGHTS;
   let n = 0;
@@ -23,7 +26,7 @@ function seoScore(p: db.pg.DbRow, seo: typeof $services_seo) {
   return Math.min(100, n);
 }
 async function seoProblems() {
-  const rows = await db.q(`SELECT p.id, p.name, p.sku, p.seo_title, p.seo_description, p.short_description, p.description, p.image_id, p.category_id, p.noindex,
+  const rows = await db.q<SeoRow>(`SELECT p.id, p.name, p.sku, p.seo_title, p.seo_description, p.short_description, p.description, p.image_id, p.category_id, p.noindex,
       p.model, p.specs, p.brand, p.rating_count,
       (SELECT count(*) FROM media m WHERE m.owner_type='product' AND m.owner_id=p.id)::int AS pics,
       (SELECT count(*) FROM products x WHERE x.active AND lower(x.name)=lower(p.name) AND x.id<>p.id)::int AS same_name
@@ -37,7 +40,7 @@ async function seoProblems() {
     p.auto_desc = autoOn;
     const title = seo.productTitle(p);
     p.score = seoScore(p, seo);
-    sum += p.score;
+    sum += p.score!;
     if (!p.image_id) why.push(['bad', 'ছবি নেই']);
     if (!String(p.description || '').trim() && !String(p.short_description || '').trim()) why.push(autoOn ? ['info', 'নিজের লেখা বিবরণ নেই — 🤖 অটো বিবরণ দেখানো হচ্ছে (নিজে লিখলে আরও ভালো)'] : ['bad', 'কোনো বিবরণ নেই']);
     if (seo.needsNameFix(p.name)) why.push(['warn', 'নামের শুরুতে অন্য সাইটের লেখা ("Product details of …") — উপরের বাটনে একসাথে ঠিক করুন']);
@@ -55,7 +58,7 @@ async function seoProblems() {
     if (p.noindex) why.push(['info', 'noindex — গুগলে দেখাবে না']);
     if (why.length) out.push({ ...p, why });
   }
-  return { total: rows.length, list: out, avg: rows.length ? Math.round(sum / rows.length) : 0, perfect: rows.filter((p) => p.score >= 90).length };
+  return { total: rows.length, list: out, avg: rows.length ? Math.round(sum / rows.length) : 0, perfect: rows.filter((p) => p.score! >= 90).length };
 }
 
 export { seoProblems, seoScore, SEO_WEIGHTS };

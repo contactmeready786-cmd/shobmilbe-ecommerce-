@@ -7,7 +7,7 @@ import * as db from '../db';
 import * as ui from './ui';
 import * as sessions from '../models/sessions';
 import type { AdminCtx, Body, Loose, ShopQuery } from '../types';
-import type { StaffRow } from '../data/rows';
+import type { ActivityLogRow, StaffRow } from '../data/rows';
 const ENTITIES: Record<string, string> = {
   product: '📦 পণ্য', order: '🧾 অর্ডার', customer: '👤 কাস্টমার', category: '🗂️ ক্যাটাগরি', brand: '🏷️ ব্র্যান্ড', staff: '🧑‍💼 স্টাফ',
   security: '🛡️ নিরাপত্তা', settings: '⚙️ সেটিংস', marketing: '📣 মার্কেটিং', coupon: '🏷️ কুপন', blog: '📝 ব্লগ', page: '📄 পেজ', banner: '🖼️ ব্যানার',
@@ -32,7 +32,7 @@ const ACTIONS: Record<string, Loose> = {
 const actionLabel = (a: string) => ACTIONS[a] || a;
 const entityLabel = (e: string) => ENTITIES[e] || e || '—';
 
-function link(a: db.pg.DbRow) {
+function link(a: Pick<ActivityLogRow, 'entity_id' | 'entity'>) {
   if (!a.entity_id) return '';
   const to: string | undefined = (({ product: `/admin/products/${a.entity_id}`, order: `/admin/orders/${a.entity_id}`, customer: `/admin/customers/${a.entity_id}`,
     staff: `/admin/staff/${a.entity_id}`, supplier: `/admin/suppliers/${a.entity_id}`, purchase: `/admin/purchases/${a.entity_id}` } as Record<string, string>))[a.entity];
@@ -67,7 +67,7 @@ async function auditPage(ctx: AdminCtx) {
   const params: unknown[] = [];
   const w = where(f, params);
   const [rows, total, staff] = await Promise.all([
-    db.q(`SELECT a.*, s.name AS staff_name FROM activity_log a LEFT JOIN staff s ON s.id=a.staff_id ${w}
+    db.q<ActivityLogRow & { staff_name: string | null }>(`SELECT a.*, s.name AS staff_name FROM activity_log a LEFT JOIN staff s ON s.id=a.staff_id ${w}
       ORDER BY a.created_at DESC, a.id DESC LIMIT ${PER} OFFSET ${(page - 1) * PER}`, params),
     db.one<{ n: number }>(`SELECT count(*)::int AS n FROM activity_log a ${w}`, params).then((r) => r!.n),
     db.q<Pick<StaffRow, 'id' | 'name'>>('SELECT id, name FROM staff ORDER BY role=\'owner\' DESC, name'),
@@ -82,7 +82,7 @@ async function auditPage(ctx: AdminCtx) {
 async function auditCsv(ctx: AdminCtx) {
   const f = filters(ctx.query);
   const params: unknown[] = [];
-  const rows = await db.q(`SELECT a.*, s.name AS staff_name FROM activity_log a LEFT JOIN staff s ON s.id=a.staff_id ${where(f, params)}
+  const rows = await db.q<ActivityLogRow & { staff_name: string | null }>(`SELECT a.*, s.name AS staff_name FROM activity_log a LEFT JOIN staff s ON s.id=a.staff_id ${where(f, params)}
     ORDER BY a.created_at DESC, a.id DESC LIMIT 20000`, params);
   await ctx.log('export', 'security', null, `অডিট লগ ডাউনলোড (${rows.length}টি)`);
   const out = csv([['সময়', 'কে', 'বিষয়', 'আইডি', 'কাজ', 'বিস্তারিত'],

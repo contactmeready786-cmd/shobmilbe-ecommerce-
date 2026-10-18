@@ -4,7 +4,7 @@
 //
 // Location comes from Vercel's geo-IP headers (x-vercel-ip-country / -country-region / -city),
 // so it works on Vercel without any paid service. Locally these headers are missing.
-import type { VisitEventsRow } from '../data/rows';
+import type { PageViewsRow, VisitEventsRow, VisitSessionsRow } from '../data/rows';
 import * as db from '../db';
 import { parseCookies, str, int } from '../util';
 import type { Body, Id, Loose, Settings, ShopRequest } from '../types';
@@ -45,7 +45,7 @@ function regionName(country: string, region: string | number) {
   }
   return region;
 }
-function place(row: db.pg.DbRow) {
+function place(row: { city?: string; country: string; region: string }) {
   const parts = [row.city, regionName(row.country, row.region)].filter(Boolean);
   // "Dhaka, ঢাকা" -> keep both: city in English as Vercel sends it, district in Bangla
   return { flag: flag(row.country), text: parts.length ? parts.join(', ') : countryName(row.country), country: countryName(row.country) };
@@ -267,7 +267,7 @@ async function record({ req, settings, body, ip, ownHost }: RecordOpts) {
   if (b.t === 'pv') {
     const path = cleanPath(b.p);
     const title = str(b.ti, 160);
-    let sess = await one('SELECT id FROM visit_sessions WHERE id=$1', [sid]);
+    let sess = await one<{ id: string }>('SELECT id FROM visit_sessions WHERE id=$1', [sid]);
     if (!sess) {
       const ua = String(req.headers['user-agent'] || '').slice(0, 400);
       const { device, os, browser } = parseUA(ua);
@@ -324,7 +324,7 @@ async function record({ req, settings, body, ip, ownHost }: RecordOpts) {
   if (b.t === 'ev') {
     const event = String(b.e || '');
     if (!EVENTS.has(event)) return null;
-    const exists = await one('SELECT id FROM visit_sessions WHERE id=$1', [sid]);
+    const exists = await one<{ id: string }>('SELECT id FROM visit_sessions WHERE id=$1', [sid]);
     if (!exists) return null;
     const label = str(b.lb, 200);
     const ref = str(b.ref, 60);
@@ -332,7 +332,7 @@ async function record({ req, settings, body, ip, ownHost }: RecordOpts) {
       [sid, vid, event, label, ref, Math.max(0, int(b.v)), cleanPath(b.p)]);
     if (event === 'purchase' && ref) {
       // Link the order to this visit, so the admin sees who the visitor was.
-      const order = await one(`SELECT code, customer_name, phone FROM orders WHERE code=$1 AND created_at > now() - interval '2 days'`, [ref]);
+      const order = await one<{ code: string; customer_name: string; phone: string | null }>(`SELECT code, customer_name, phone FROM orders WHERE code=$1 AND created_at > now() - interval '2 days'`, [ref]);
       if (order) {
         const first = await one(`UPDATE visit_sessions SET order_code = $2 WHERE id = $1 AND order_code = '' RETURNING id`, [sid, order.code]);
         await q(`UPDATE visitors SET name = $2, phone = $3, orders = orders + $4 WHERE id = $1`, [vid, order.customer_name, order.phone, first ? 1 : 0]);
@@ -349,55 +349,58 @@ const RANGE = (col: string, a = 1) => `${DAY(col)} BETWEEN $${a}::date AND $${a 
 async function overview(from: string, to: string) {
   const r = [from, to];
   const [k, live, daily, hours, pages, products, sources, cities, regions, countries, devices, browsers, oses, referrers, campaigns, funnel, contacts, brands, models, net] = await Promise.all([
-    one(`SELECT count(*)::int AS sessions, count(DISTINCT visitor_id)::int AS visitors, count(*) FILTER (WHERE is_new)::int AS new_visitors,
+    one<Record<'sessions' | 'visitors' | 'new_visitors' | 'pageviews' | 'avg_duration' | 'bounces' | 'orders', number>>(`SELECT count(*)::int AS sessions, count(DISTINCT visitor_id)::int AS visitors, count(*) FILTER (WHERE is_new)::int AS new_visitors,
       coalesce(sum(pageviews),0)::int AS pageviews, coalesce(round(avg(duration)),0)::int AS avg_duration,
       count(*) FILTER (WHERE pageviews <= 1)::int AS bounces, count(*) FILTER (WHERE order_code <> '')::int AS orders
       FROM visit_sessions WHERE ${RANGE('started_at')}`, r),
-    one(`SELECT count(*)::int AS n FROM visit_sessions WHERE last_seen > now() - interval '${LIVE_MINUTES} minutes'`),
-    q(`SELECT d::date AS day, coalesce(s.visitors,0)::int AS visitors, coalesce(s.pageviews,0)::int AS pageviews
+    one<{ n: number }>(`SELECT count(*)::int AS n FROM visit_sessions WHERE last_seen > now() - interval '${LIVE_MINUTES} minutes'`),
+    q<{ day: string; visitors: number; pageviews: number }>(`SELECT d::date AS day, coalesce(s.visitors,0)::int AS visitors, coalesce(s.pageviews,0)::int AS pageviews
        FROM generate_series($1::date, $2::date, interval '1 day') d
        LEFT JOIN (SELECT ${DAY('started_at')} AS day, count(DISTINCT visitor_id) AS visitors, sum(pageviews) AS pageviews
                   FROM visit_sessions WHERE ${RANGE('started_at')} GROUP BY 1) s ON s.day = d::date ORDER BY d`, r),
-    q(`SELECT extract(hour FROM started_at AT TIME ZONE 'Asia/Dhaka')::int AS h, count(*)::int AS n FROM visit_sessions WHERE ${RANGE('started_at')} GROUP BY 1`, r),
-    q(`SELECT path, (array_agg(title ORDER BY id DESC))[1] AS title, count(*)::int AS views, count(DISTINCT session_id)::int AS visits,
+    q<{ h: number; n: number }>(`SELECT extract(hour FROM started_at AT TIME ZONE 'Asia/Dhaka')::int AS h, count(*)::int AS n FROM visit_sessions WHERE ${RANGE('started_at')} GROUP BY 1`, r),
+    q<{ path: string; title: string | null; views: number; visits: number; avg_time: number }>(`SELECT path, (array_agg(title ORDER BY id DESC))[1] AS title, count(*)::int AS views, count(DISTINCT session_id)::int AS visits,
        coalesce(round(avg(duration) FILTER (WHERE duration > 0)),0)::int AS avg_time
        FROM page_views WHERE ${RANGE('created_at')} GROUP BY path ORDER BY views DESC LIMIT 15`, r),
-    q(`SELECT p.id, p.name, p.slug, v.views, v.viewers, coalesce(c.carts,0)::int AS carts, coalesce(v.avg_time,0)::int AS avg_time
+    q<{ id: number; name: string; slug: string; views: number; viewers: number; carts: number; avg_time: number }>(`SELECT p.id, p.name, p.slug, v.views, v.viewers, coalesce(c.carts,0)::int AS carts, coalesce(v.avg_time,0)::int AS avg_time
        FROM (SELECT product_id, count(*)::int AS views, count(DISTINCT visitor_id)::int AS viewers, round(avg(duration) FILTER (WHERE duration > 0)) AS avg_time
              FROM page_views WHERE product_id IS NOT NULL AND ${RANGE('created_at')} GROUP BY product_id) v
        JOIN products p ON p.id = v.product_id
        LEFT JOIN (SELECT ref, count(*) AS carts FROM visit_events WHERE event='add_to_cart' AND ${RANGE('created_at')} GROUP BY ref) c ON c.ref = p.id::text
        ORDER BY v.views DESC LIMIT 15`, r),
-    q(`SELECT source, count(*)::int AS n, count(*) FILTER (WHERE order_code <> '')::int AS orders FROM visit_sessions WHERE ${RANGE('started_at')} GROUP BY source ORDER BY n DESC LIMIT 12`, r),
-    q(`SELECT country, region, city, count(*)::int AS n, count(DISTINCT visitor_id)::int AS visitors FROM visit_sessions
+    q<{ source: string; n: number; orders: number }>(`SELECT source, count(*)::int AS n, count(*) FILTER (WHERE order_code <> '')::int AS orders FROM visit_sessions WHERE ${RANGE('started_at')} GROUP BY source ORDER BY n DESC LIMIT 12`, r),
+    q<{ country: string; region: string; city: string; n: number; visitors: number }>(`SELECT country, region, city, count(*)::int AS n, count(DISTINCT visitor_id)::int AS visitors FROM visit_sessions
        WHERE ${RANGE('started_at')} GROUP BY 1,2,3 ORDER BY n DESC LIMIT 15`, r),
-    q(`SELECT country, region, count(*)::int AS n FROM visit_sessions WHERE ${RANGE('started_at')} AND region <> '' GROUP BY 1,2 ORDER BY n DESC LIMIT 15`, r),
-    q(`SELECT country, count(*)::int AS n FROM visit_sessions WHERE ${RANGE('started_at')} GROUP BY 1 ORDER BY n DESC LIMIT 10`, r),
-    q(`SELECT device, count(*)::int AS n FROM visit_sessions WHERE ${RANGE('started_at')} GROUP BY 1 ORDER BY n DESC`, r),
-    q(`SELECT browser, count(*)::int AS n FROM visit_sessions WHERE ${RANGE('started_at')} GROUP BY 1 ORDER BY n DESC LIMIT 10`, r),
-    q(`SELECT os, count(*)::int AS n FROM visit_sessions WHERE ${RANGE('started_at')} GROUP BY 1 ORDER BY n DESC LIMIT 10`, r),
-    q(`SELECT ref_host, count(*)::int AS n FROM visit_sessions WHERE ${RANGE('started_at')} AND ref_host <> '' GROUP BY 1 ORDER BY n DESC LIMIT 10`, r),
-    q(`SELECT campaign, source, count(*)::int AS n, count(*) FILTER (WHERE order_code <> '')::int AS orders FROM visit_sessions
+    q<{ country: string; region: string; n: number }>(`SELECT country, region, count(*)::int AS n FROM visit_sessions WHERE ${RANGE('started_at')} AND region <> '' GROUP BY 1,2 ORDER BY n DESC LIMIT 15`, r),
+    q<{ country: string; n: number }>(`SELECT country, count(*)::int AS n FROM visit_sessions WHERE ${RANGE('started_at')} GROUP BY 1 ORDER BY n DESC LIMIT 10`, r),
+    q<{ device: string; n: number }>(`SELECT device, count(*)::int AS n FROM visit_sessions WHERE ${RANGE('started_at')} GROUP BY 1 ORDER BY n DESC`, r),
+    q<{ browser: string; n: number }>(`SELECT browser, count(*)::int AS n FROM visit_sessions WHERE ${RANGE('started_at')} GROUP BY 1 ORDER BY n DESC LIMIT 10`, r),
+    q<{ os: string; n: number }>(`SELECT os, count(*)::int AS n FROM visit_sessions WHERE ${RANGE('started_at')} GROUP BY 1 ORDER BY n DESC LIMIT 10`, r),
+    q<{ ref_host: string; n: number }>(`SELECT ref_host, count(*)::int AS n FROM visit_sessions WHERE ${RANGE('started_at')} AND ref_host <> '' GROUP BY 1 ORDER BY n DESC LIMIT 10`, r),
+    q<{ campaign: string; source: string; n: number; orders: number }>(`SELECT campaign, source, count(*)::int AS n, count(*) FILTER (WHERE order_code <> '')::int AS orders FROM visit_sessions
        WHERE ${RANGE('started_at')} AND campaign <> '' GROUP BY 1,2 ORDER BY n DESC LIMIT 10`, r),
-    one(`SELECT count(*)::int AS all_sessions,
+    one<Record<'all_sessions' | 'viewed' | 'carted' | 'checkout' | 'ordered', number>>(`SELECT count(*)::int AS all_sessions,
        count(*) FILTER (WHERE EXISTS (SELECT 1 FROM page_views pv WHERE pv.session_id = s.id AND pv.product_id IS NOT NULL))::int AS viewed,
        count(*) FILTER (WHERE EXISTS (SELECT 1 FROM visit_events e WHERE e.session_id = s.id AND e.event = 'add_to_cart'))::int AS carted,
        count(*) FILTER (WHERE EXISTS (SELECT 1 FROM visit_events e WHERE e.session_id = s.id AND e.event = 'begin_checkout'))::int AS checkout,
        count(*) FILTER (WHERE s.order_code <> '')::int AS ordered
        FROM visit_sessions s WHERE ${RANGE('s.started_at')}`, r),
-    q(`SELECT label, count(*)::int AS n FROM visit_events WHERE event='contact' AND ${RANGE('created_at')} GROUP BY 1 ORDER BY n DESC`, r),
-    q(`SELECT CASE WHEN brand <> '' THEN brand WHEN device = 'desktop' THEN 'কম্পিউটার/ল্যাপটপ' ELSE 'অজানা' END AS brand, count(*)::int AS n
+    q<{ label: string; n: number }>(`SELECT label, count(*)::int AS n FROM visit_events WHERE event='contact' AND ${RANGE('created_at')} GROUP BY 1 ORDER BY n DESC`, r),
+    q<{ brand: string; n: number }>(`SELECT CASE WHEN brand <> '' THEN brand WHEN device = 'desktop' THEN 'কম্পিউটার/ল্যাপটপ' ELSE 'অজানা' END AS brand, count(*)::int AS n
        FROM visit_sessions WHERE ${RANGE('started_at')} GROUP BY 1 ORDER BY n DESC LIMIT 12`, r),
-    q(`SELECT brand, model, count(*)::int AS n FROM visit_sessions WHERE ${RANGE('started_at')} AND model <> '' GROUP BY 1,2 ORDER BY n DESC LIMIT 15`, r),
-    one(`SELECT count(*) FILTER (WHERE country = 'BD')::int AS bd, count(*) FILTER (WHERE net = 'vpn')::int AS vpn,
+    q<{ brand: string; model: string; n: number }>(`SELECT brand, model, count(*)::int AS n FROM visit_sessions WHERE ${RANGE('started_at')} AND model <> '' GROUP BY 1,2 ORDER BY n DESC LIMIT 15`, r),
+    one<Record<'bd' | 'vpn' | 'abroad' | 'unknown', number>>(`SELECT count(*) FILTER (WHERE country = 'BD')::int AS bd, count(*) FILTER (WHERE net = 'vpn')::int AS vpn,
        count(*) FILTER (WHERE net = 'abroad')::int AS abroad, count(*) FILTER (WHERE country = '')::int AS unknown
        FROM visit_sessions WHERE ${RANGE('started_at')}`, r),
   ]);
   return { k, live: live!.n, daily, hours, pages, products, sources, cities, regions, countries, devices, browsers, oses, referrers, campaigns, funnel, contacts, brands, models, net };
 }
 
+/** a visit with its visitor's totals, the order it led to (if any) and whether its IP looked like an attack */
+export type SessionListed = VisitSessionsRow & { total_visits: number; visitor_name: string; visitor_phone: string;
+  o_district: string | null; o_thana: string | null; o_address: string | null; suspicious: boolean };
 async function liveSessions() {
-  return q(`SELECT s.*, extract(epoch FROM (s.last_seen - s.started_at))::int AS on_site,
+  return q<SessionListed & { on_site: number; exit_title: string | null }>(`SELECT s.*, extract(epoch FROM (s.last_seen - s.started_at))::int AS on_site,
       (SELECT title FROM page_views pv WHERE pv.session_id = s.id ORDER BY pv.id DESC LIMIT 1) AS exit_title,
       v.visits AS total_visits, v.name AS visitor_name, v.phone AS visitor_phone, oa.*, (s.ip <> '' AND EXISTS (SELECT 1 FROM security_events se WHERE se.ip = s.ip AND se.created_at > now() - interval '30 days')) AS suspicious
     FROM visit_sessions s JOIN visitors v ON v.id = s.visitor_id
@@ -406,8 +409,8 @@ async function liveSessions() {
     WHERE s.last_seen > now() - interval '${LIVE_MINUTES} minutes' ORDER BY s.last_seen DESC LIMIT 200`);
 }
 
-function sessionWhere(f: Body, params?: Loose) {
-  const where = [];
+function sessionWhere(f: Body, params: unknown[]) {
+  const where: string[] = [];
   if (f.from) { params.push(f.from); where.push(`${DAY('s.started_at')} >= $${params.length}::date`); }
   if (f.to) { params.push(f.to); where.push(`${DAY('s.started_at')} <= $${params.length}::date`); }
   if (f.source) { params.push(f.source); where.push(`s.source = $${params.length}`); }
@@ -433,7 +436,7 @@ async function listSessions(f: Body, { limit = 50, offset = 0 }: ListSessionsOpt
   const params: unknown[] = [];
   const where = sessionWhere(f, params);
   params.push(limit, offset);
-  return q(`SELECT s.*, v.visits AS total_visits, v.name AS visitor_name, v.phone AS visitor_phone,
+  return q<SessionListed & { carts: number }>(`SELECT s.*, v.visits AS total_visits, v.name AS visitor_name, v.phone AS visitor_phone,
       (SELECT count(*) FROM visit_events e WHERE e.session_id = s.id AND e.event = 'add_to_cart')::int AS carts, oa.*, (s.ip <> '' AND EXISTS (SELECT 1 FROM security_events se WHERE se.ip = s.ip AND se.created_at > now() - interval '30 days')) AS suspicious
     FROM visit_sessions s JOIN visitors v ON v.id = s.visitor_id
     LEFT JOIN LATERAL (SELECT o.district AS o_district, o.thana AS o_thana, o.address AS o_address FROM orders o
@@ -443,23 +446,23 @@ async function listSessions(f: Body, { limit = 50, offset = 0 }: ListSessionsOpt
 async function countSessions(f: Body) {
   const params: unknown[] = [];
   const where = sessionWhere(f, params);
-  return (await one(`SELECT count(*)::int AS n FROM visit_sessions s JOIN visitors v ON v.id = s.visitor_id ${where}`, params))!.n;
+  return (await one<{ n: number }>(`SELECT count(*)::int AS n FROM visit_sessions s JOIN visitors v ON v.id = s.visitor_id ${where}`, params))!.n;
 }
 async function sourceList() {
-  return (await q(`SELECT DISTINCT source FROM visit_sessions WHERE started_at > now() - interval '90 days' ORDER BY source LIMIT 60`)).map((r) => r.source);
+  return (await q<{ source: string }>(`SELECT DISTINCT source FROM visit_sessions WHERE started_at > now() - interval '90 days' ORDER BY source LIMIT 60`)).map((r) => r.source);
 }
 
 async function getSession(id?: Id) {
-  const s = await one(`SELECT s.*, v.first_seen, v.visits AS total_visits, v.pageviews AS total_pageviews, v.name AS visitor_name,
+  const s = await one<SessionListed & { first_seen: Date; total_pageviews: number; total_orders: number }>(`SELECT s.*, v.first_seen, v.visits AS total_visits, v.pageviews AS total_pageviews, v.name AS visitor_name,
       v.phone AS visitor_phone, v.orders AS total_orders, oa.*, (s.ip <> '' AND EXISTS (SELECT 1 FROM security_events se WHERE se.ip = s.ip AND se.created_at > now() - interval '30 days')) AS suspicious
     FROM visit_sessions s JOIN visitors v ON v.id = s.visitor_id
     LEFT JOIN LATERAL (SELECT o.district AS o_district, o.thana AS o_thana, o.address AS o_address FROM orders o
       WHERE o.code = s.order_code OR (v.phone <> '' AND o.phone = v.phone) ORDER BY (o.code = s.order_code) DESC, o.created_at DESC LIMIT 1) oa ON true WHERE s.id = $1`, [id]);
   if (!s) return null;
   const [views, events, others] = await Promise.all([
-    q(`SELECT pv.*, p.name AS product_name FROM page_views pv LEFT JOIN products p ON p.id = pv.product_id WHERE pv.session_id = $1 ORDER BY pv.id`, [id]),
+    q<PageViewsRow & { product_name: string | null }>(`SELECT pv.*, p.name AS product_name FROM page_views pv LEFT JOIN products p ON p.id = pv.product_id WHERE pv.session_id = $1 ORDER BY pv.id`, [id]),
     q<VisitEventsRow>(`SELECT * FROM visit_events WHERE session_id = $1 ORDER BY id`, [id]),
-    q(`SELECT id, started_at, pageviews, duration, source, order_code FROM visit_sessions WHERE visitor_id = $1 AND id <> $2 ORDER BY started_at DESC LIMIT 20`, [s.visitor_id, id]),
+    q<Pick<VisitSessionsRow, 'id' | 'started_at' | 'pageviews' | 'duration' | 'source' | 'order_code'>>(`SELECT id, started_at, pageviews, duration, source, order_code FROM visit_sessions WHERE visitor_id = $1 AND id <> $2 ORDER BY started_at DESC LIMIT 20`, [s.visitor_id, id]),
   ]);
   return { ...s, views, events, others };
 }

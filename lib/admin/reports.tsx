@@ -18,7 +18,7 @@ const TABS = [['sales', '📈 বিক্রি'], ['products', '📦 পণ্
 // ---------------------------------------------------------------- data
 async function salesBy(from?: unknown, to?: unknown, unit?: unknown) {
   const trunc = unit === 'month' ? 'month' : unit === 'week' ? 'week' : 'day';
-  return db.q(`SELECT date_trunc('${trunc}', ${DAY})::date AS period,
+  return db.q<{ period: string; orders: number; delivered: number; failed: number; sales: number; profit: number; discount: number }>(`SELECT date_trunc('${trunc}', ${DAY})::date AS period,
       count(*)::int AS orders,
       count(*) FILTER (WHERE o.status='delivered')::int AS delivered,
       count(*) FILTER (WHERE o.status IN ('cancelled','returned'))::int AS failed,
@@ -28,7 +28,7 @@ async function salesBy(from?: unknown, to?: unknown, unit?: unknown) {
     FROM orders o WHERE ${DAY} BETWEEN $1 AND $2 GROUP BY 1 ORDER BY 1`, [from, to]);
 }
 async function productRows(from?: unknown, to?: unknown) {
-  return db.q(`SELECT i.product_id, i.name, max(i.sku) AS sku, sum(i.qty)::int AS qty, sum(i.qty*i.price)::numeric(14,2) AS revenue,
+  return db.q<{ product_id: number | null; name: string; sku: string | null; qty: number; revenue: number; cost: number | null; orders: number; views: number }>(`SELECT i.product_id, i.name, max(i.sku) AS sku, sum(i.qty)::int AS qty, sum(i.qty*i.price)::numeric(14,2) AS revenue,
       sum(i.qty*i.cost)::numeric(14,2) AS cost, count(DISTINCT o.id)::int AS orders,
       (SELECT count(*) FROM page_views v WHERE v.product_id=i.product_id AND (v.created_at AT TIME ZONE 'Asia/Dhaka')::date BETWEEN $1 AND $2)::int AS views
     FROM order_items i JOIN orders o ON o.id=i.order_id WHERE ${DAY} BETWEEN $1 AND $2 AND ${OK}
@@ -36,7 +36,7 @@ async function productRows(from?: unknown, to?: unknown) {
 }
 // Products on the shop that sold nothing in the range — the most viewed first (people look but don't buy).
 async function slowRows(from?: unknown, to?: unknown) {
-  return db.q(`SELECT p.id, p.name, p.sku, p.price, p.stock, p.created_at,
+  return db.q<{ id: number; name: string; sku: string; price: number; stock: number; created_at: Date; views: number; last_sold: Date | null }>(`SELECT p.id, p.name, p.sku, p.price, p.stock, p.created_at,
       (SELECT count(*) FROM page_views v WHERE v.product_id=p.id AND (v.created_at AT TIME ZONE 'Asia/Dhaka')::date BETWEEN $1 AND $2)::int AS views,
       (SELECT max(o.created_at) FROM order_items i JOIN orders o ON o.id=i.order_id WHERE i.product_id=p.id AND ${OK}) AS last_sold
     FROM products p WHERE p.active AND NOT EXISTS (SELECT 1 FROM order_items i JOIN orders o ON o.id=i.order_id
@@ -50,20 +50,20 @@ async function categoryRows(from?: unknown, to?: unknown) {
     WHERE ${DAY} BETWEEN $1 AND $2 AND ${OK} GROUP BY 1 ORDER BY revenue DESC`, [from, to]);
 }
 async function customerRows(from?: unknown, to?: unknown) {
-  const top = await db.q(`SELECT o.phone, max(o.customer_name) AS name, count(*)::int AS orders, sum(o.total) FILTER (WHERE ${OK})::numeric(14,2) AS spent,
+  const top = await db.q<{ phone: string; name: string | null; orders: number; spent: number | null; failed: number; customer_id: number | null }>(`SELECT o.phone, max(o.customer_name) AS name, count(*)::int AS orders, sum(o.total) FILTER (WHERE ${OK})::numeric(14,2) AS spent,
       count(*) FILTER (WHERE o.status IN ('cancelled','returned'))::int AS failed, max(c.id) AS customer_id
     FROM orders o LEFT JOIN customers c ON c.phone=o.phone WHERE ${DAY} BETWEEN $1 AND $2 GROUP BY o.phone ORDER BY spent DESC NULLS LAST LIMIT 100`, [from, to]);
-  const mix = await db.one(`SELECT count(DISTINCT o.phone)::int AS buyers,
+  const mix = await db.one<{ buyers: number; new_buyers: number }>(`SELECT count(DISTINCT o.phone)::int AS buyers,
       count(DISTINCT o.phone) FILTER (WHERE NOT EXISTS (SELECT 1 FROM orders x WHERE x.phone=o.phone AND x.created_at < ($1::date)::timestamp AT TIME ZONE 'Asia/Dhaka'))::int AS new_buyers
     FROM orders o WHERE ${DAY} BETWEEN $1 AND $2`, [from, to]);
-  const districts = await db.q(`SELECT coalesce(nullif(o.district,''),'অজানা') AS district, count(*)::int AS orders, sum(o.total) FILTER (WHERE ${OK})::numeric(14,2) AS sales
+  const districts = await db.q<{ district: string; orders: number; sales: number | null }>(`SELECT coalesce(nullif(o.district,''),'অজানা') AS district, count(*)::int AS orders, sum(o.total) FILTER (WHERE ${OK})::numeric(14,2) AS sales
     FROM orders o WHERE ${DAY} BETWEEN $1 AND $2 GROUP BY 1 ORDER BY 2 DESC LIMIT 20`, [from, to]);
   return { top, mix, districts };
 }
 async function returnRows(from?: unknown, to?: unknown) {
   const orders = await db.q<Pick<OrdersRow, 'id' | 'code' | 'customer_name' | 'phone' | 'district' | 'status' | 'total' | 'courier' | 'courier_status' | 'returned_to' | 'created_at'>>(`SELECT o.id, o.code, o.customer_name, o.phone, o.district, o.status, o.total, o.courier, o.courier_status, o.returned_to, o.created_at
     FROM orders o WHERE ${DAY} BETWEEN $1 AND $2 AND o.status IN ('cancelled','returned') ORDER BY o.created_at DESC LIMIT 300`, [from, to]);
-  const products = await db.q(`SELECT i.product_id, i.name, sum(i.qty)::int AS qty, count(DISTINCT o.id)::int AS orders,
+  const products = await db.q<{ product_id: number; name: string; qty: number; orders: number; sold: number }>(`SELECT i.product_id, i.name, sum(i.qty)::int AS qty, count(DISTINCT o.id)::int AS orders,
       (SELECT sum(j.qty) FROM order_items j JOIN orders x ON x.id=j.order_id WHERE j.product_id=i.product_id AND (x.created_at AT TIME ZONE 'Asia/Dhaka')::date BETWEEN $1 AND $2)::int AS sold
     FROM order_items i JOIN orders o ON o.id=i.order_id WHERE ${DAY} BETWEEN $1 AND $2 AND o.status IN ('cancelled','returned')
     GROUP BY i.product_id, i.name ORDER BY qty DESC LIMIT 50`, [from, to]);
@@ -73,7 +73,7 @@ async function returnRows(from?: unknown, to?: unknown) {
   return { orders, products, districts };
 }
 async function profitRow(from?: unknown, to?: unknown) {
-  return db.one(`SELECT coalesce(sum(o.subtotal) FILTER (WHERE ${OK}),0)::numeric(14,2) AS goods,
+  return db.one<{ goods: number; discount: number; delivery: number; cost: number; total: number; refunds: number; expenses: number | null }>(`SELECT coalesce(sum(o.subtotal) FILTER (WHERE ${OK}),0)::numeric(14,2) AS goods,
       coalesce(sum(o.discount + o.points_discount) FILTER (WHERE ${OK}),0)::numeric(14,2) AS discount,
       coalesce(sum(o.delivery) FILTER (WHERE ${OK}),0)::numeric(14,2) AS delivery,
       coalesce(sum(o.cost_total) FILTER (WHERE ${OK}),0)::numeric(14,2) AS cost,
@@ -176,7 +176,7 @@ async function staff(ctx: AdminCtx) {
   const { from, to } = dateRange(ctx.query, 30);
   const rows = await F.staffReport(from, to);
   if (ctx.query.get('csv') === '1') {
-    const out = [['Staff', 'Logins', 'Confirmed', 'Cancelled', 'Edits', 'Created', 'Sent to courier', 'All actions']];
+    const out: unknown[][] = [['Staff', 'Logins', 'Confirmed', 'Cancelled', 'Edits', 'Created', 'Sent to courier', 'All actions']];
     rows.forEach((s) => out.push([s.name, s.logins, s.confirmed, s.cancelled, s.edits, s.created, s.sent, s.actions]));
     return ctx.send(200, csv(out), 'text/csv; charset=utf-8', { 'Content-Disposition': `attachment; filename="staff-${from}-${to}.csv"` });
   }
@@ -189,7 +189,7 @@ async function legacyCsv(ctx: AdminCtx) {
   const { from, to } = dateRange(ctx.query, 30);
   const seeCost = ctx.can('see_cost');
   const products = await productRows(from, to);
-  const out = [['Product', 'SKU', 'Qty', 'Revenue', ...(seeCost ? ['Cost', 'Profit'] : [])]];
+  const out: unknown[][] = [['Product', 'SKU', 'Qty', 'Revenue', ...(seeCost ? ['Cost', 'Profit'] : [])]];
   products.forEach((p) => out.push([p.name, p.sku, p.qty, p.revenue, ...(seeCost ? [p.cost, Number(p.revenue) - Number(p.cost)] : [])]));
   return ctx.send(200, csv(out), 'text/csv; charset=utf-8', { 'Content-Disposition': `attachment; filename="product-sales-${from}-${to}.csv"` });
 }

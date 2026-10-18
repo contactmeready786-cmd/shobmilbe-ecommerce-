@@ -29,6 +29,10 @@ export type NewReturn = {
 };
 /** Where each returned item went: back on the shelf, to damaged stock, or nowhere. */
 type Restock = { item_id: number; how: 'stock' | 'damaged' | 'none' };
+/** a return request with its lines and restock list read as lists */
+export type ReturnRow = Omit<ReturnRequestsRow, 'items' | 'restock'> & { items: ReturnItem[] | null; restock: Restock[] | null };
+export type ReturnListed = ReturnRow & { order_code: string; customer_name: string; order_total: number; staff_name: string | null };
+export type ReturnFull = ReturnListed & Pick<OrdersRow, 'paid_amount' | 'payment'> & { order_status: string };
 
 class ReturnError extends Error {}
 const STATUSES: Record<string, string> = {
@@ -96,7 +100,7 @@ async function create({ order, wanted, reason, want, details, photos, refundMeth
 }
 
 async function forOrder(orderId: Id) {
-  return db.q<ReturnRequestsRow>('SELECT * FROM return_requests WHERE order_id=$1 ORDER BY id DESC', [orderId]);
+  return db.q<ReturnRow>('SELECT * FROM return_requests WHERE order_id=$1 ORDER BY id DESC', [orderId]);
 }
 async function list({ status = 'open', q = '', limit = 50, offset = 0 }: { status?: string; q?: string; limit?: number; offset?: number } = {}) {
   const params: Param[] = [];
@@ -105,7 +109,7 @@ async function list({ status = 'open', q = '', limit = 50, offset = 0 }: { statu
   else if (STATUSES[status]) { params.push(status); where.push(`r.status=$${params.length}`); }
   if (q) { params.push(`%${q}%`); where.push(`(r.code ILIKE $${params.length} OR o.code ILIKE $${params.length} OR r.phone ILIKE $${params.length} OR o.customer_name ILIKE $${params.length})`); }
   params.push(limit, offset);
-  return db.q(`SELECT r.*, o.code AS order_code, o.customer_name, o.total AS order_total, s.name AS staff_name FROM return_requests r JOIN orders o ON o.id=r.order_id
+  return db.q<ReturnListed>(`SELECT r.*, o.code AS order_code, o.customer_name, o.total AS order_total, s.name AS staff_name FROM return_requests r JOIN orders o ON o.id=r.order_id
     LEFT JOIN staff s ON s.id=r.handled_by ${where.length ? 'WHERE ' + where.join(' AND ') : ''} ORDER BY r.created_at DESC LIMIT $${params.length - 1} OFFSET $${params.length}`, params);
 }
 async function counts() {
@@ -115,7 +119,7 @@ async function counts() {
   return out;
 }
 async function get(id: Id) {
-  return db.one(`SELECT r.*, o.code AS order_code, o.customer_name, o.total AS order_total, o.paid_amount, o.payment, o.status AS order_status, s.name AS staff_name
+  return db.one<ReturnFull>(`SELECT r.*, o.code AS order_code, o.customer_name, o.total AS order_total, o.paid_amount, o.payment, o.status AS order_status, s.name AS staff_name
     FROM return_requests r JOIN orders o ON o.id=r.order_id LEFT JOIN staff s ON s.id=r.handled_by WHERE r.id=$1`, [int(id)]);
 }
 

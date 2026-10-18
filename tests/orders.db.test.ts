@@ -21,7 +21,7 @@ const S = (over: Record<string, string> = {}) => ({
 let seq = 0;
 async function product(price: number, stock: number, extra: Record<string, unknown> = {}): Promise<number> {
   const slug = `test-${Date.now()}-${++seq}`;
-  const r = await db.one('INSERT INTO products(name, slug, price, stock, active) VALUES($1,$2,$3,$4,true) RETURNING id', [`টেস্ট পণ্য ${seq}`, slug, price, stock]);
+  const r = await db.one<{ id: number }>('INSERT INTO products(name, slug, price, stock, active) VALUES($1,$2,$3,$4,true) RETURNING id', [`টেস্ট পণ্য ${seq}`, slug, price, stock]);
   for (const [k, v] of Object.entries(extra)) await db.q(`UPDATE products SET ${k}=$1 WHERE id=$2`, [v, r!.id]);
   return r!.id;
 }

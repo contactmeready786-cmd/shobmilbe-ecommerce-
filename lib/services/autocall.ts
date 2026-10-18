@@ -134,10 +134,10 @@ async function hook(s: Settings, token: string, b: Body) {
   const callId = pick(b, ['call_id', 'id', 'callId', 'uuid', 'CallSid', 'data.call_id']);
   const phone = localPhone(pick(b, ['phone', 'phone_number', 'to', 'msisdn', 'To', 'data.phone']));
   let row = null;
-  if (code) row = await db.one<{ id: number; order_id: number | null; phone: string; state: string; digit: string; ref: string; attempt: number; detail: string; created_at: Date; updated_at: Date; code: string; order_status: string; total: number; customer_name: string; o_phone: string }>(`SELECT a.*, o.code, o.status AS order_status, o.total, o.customer_name, o.phone AS o_phone FROM autocalls a JOIN orders o ON o.id=a.order_id
+  if (code) row = await db.one<CallRow>(`SELECT a.*, o.code, o.status AS order_status, o.total, o.customer_name, o.phone AS o_phone FROM autocalls a JOIN orders o ON o.id=a.order_id
     WHERE o.code=$1 ORDER BY a.id DESC LIMIT 1`, [code.toUpperCase()]);
-  if (!row && callId) row = await db.one<{ id: number; order_id: number | null; phone: string; state: string; digit: string; ref: string; attempt: number; detail: string; created_at: Date; updated_at: Date; code: string; order_status: string; total: number; customer_name: string; o_phone: string }>(`SELECT a.*, o.code, o.status AS order_status, o.total, o.customer_name, o.phone AS o_phone FROM autocalls a JOIN orders o ON o.id=a.order_id WHERE a.ref=$1 ORDER BY a.id DESC LIMIT 1`, [callId]);
-  if (!row && phone) row = await db.one<{ id: number; order_id: number | null; phone: string; state: string; digit: string; ref: string; attempt: number; detail: string; created_at: Date; updated_at: Date; code: string; order_status: string; total: number; customer_name: string; o_phone: string }>(`SELECT a.*, o.code, o.status AS order_status, o.total, o.customer_name, o.phone AS o_phone FROM autocalls a JOIN orders o ON o.id=a.order_id
+  if (!row && callId) row = await db.one<CallRow>(`SELECT a.*, o.code, o.status AS order_status, o.total, o.customer_name, o.phone AS o_phone FROM autocalls a JOIN orders o ON o.id=a.order_id WHERE a.ref=$1 ORDER BY a.id DESC LIMIT 1`, [callId]);
+  if (!row && phone) row = await db.one<CallRow>(`SELECT a.*, o.code, o.status AS order_status, o.total, o.customer_name, o.phone AS o_phone FROM autocalls a JOIN orders o ON o.id=a.order_id
     WHERE a.phone=$1 AND a.created_at > now() - interval '2 days' ORDER BY a.id DESC LIMIT 1`, [phone]);
   const result = resultOf(b);
   await db.logIntegration('autocall', 'webhook', !!(row && result), `${result || 'অজানা ফলাফল'} · ${str(JSON.stringify(b), 250)}`, row ? row.code : code).catch(() => {});
@@ -150,15 +150,17 @@ async function hook(s: Settings, token: string, b: Body) {
 }
 
 // What happens to the order, and telling the owner
-async function apply(s: Settings, row: db.pg.DbRow, result: string) {
+/** a call with its order */
+type CallRow = { id: number; order_id: number | null; phone: string; state: string; digit: string; ref: string; attempt: number; detail: string; created_at: Date; updated_at: Date; code: string; order_status: string; total: number; customer_name: string; o_phone: string };
+async function apply(s: Settings, row: CallRow, result: string) {
   const O = $models_orders;
   const [ic, label] = STATES[result] || ['ℹ️', result];
   let did = '';
   if (row.order_status === 'pending') {
     try {
-      if (result === 'confirmed' && s.autocall_on_confirm !== 'note') { await O.setStatus(row.order_id, 'confirmed', null); did = ' → অর্ডার "কনফার্ম" করা হলো'; }
-      if (result === 'cancelled' && s.autocall_on_cancel === 'cancel') { await O.setStatus(row.order_id, 'cancelled', null); did = ' → অর্ডার বাতিল করা হলো'; }
-      if (result === 'cancelled' && (s.autocall_on_cancel || 'hold') === 'hold') { await O.setStatus(row.order_id, 'hold', null); did = ' → অর্ডার "হোল্ডে" রাখা হলো (একবার ফোন করে নিশ্চিত হোন)'; }
+      if (result === 'confirmed' && s.autocall_on_confirm !== 'note') { await O.setStatus(row.order_id!, 'confirmed', null); did = ' → অর্ডার "কনফার্ম" করা হলো'; }
+      if (result === 'cancelled' && s.autocall_on_cancel === 'cancel') { await O.setStatus(row.order_id!, 'cancelled', null); did = ' → অর্ডার বাতিল করা হলো'; }
+      if (result === 'cancelled' && (s.autocall_on_cancel || 'hold') === 'hold') { await O.setStatus(row.order_id!, 'hold', null); did = ' → অর্ডার "হোল্ডে" রাখা হলো (একবার ফোন করে নিশ্চিত হোন)'; }
     } catch (caught) { const e = caught as Caught; did = ` (অবস্থা বদলানো যায়নি: ${e.message})`; }
   }
   await db.logActivity(null, 'autocall', 'order', row.order_id, `${ic} অটো কল: ${label}${did}`).catch(() => {});

@@ -12,7 +12,21 @@ import type { FraudChecksRow } from '../data/rows';
 
 const CACHE_HOURS = 24;
 
-async function fraudbd(s: Settings, phone: string) {
+/** one courier's line in FraudBD's answer */
+type FbdCourier = { name: string; type: string; total: number; success: number; cancel: number; rating: string; risk: string; message: string };
+export type FraudBdResult = { ok: true; couriers: FbdCourier[]; total: number; success: number; cancel: number; rate: number | null } | { ok: false; message: string };
+type PathaoRecord = { ok: boolean; total: number; success: number; rating: string; message: string };
+/** what is kept in fraud_checks.data */
+export type FraudData = { pathao: PathaoRecord | null; fraudbd: FraudBdResult | null; cached_at?: Date };
+type OwnRecord = { delivered: number; failed: number; last_day: number };
+/** FraudBD's answer (someone else's JSON: every field can be missing) */
+type FbdSummary = { data_type?: string; total?: unknown; success?: unknown; cancel?: unknown; customer_rating?: string; risk_level?: string; message?: string };
+type FbdAnswer = { status?: boolean; message?: string; data?: { Summaries?: Record<string, FbdSummary>; totalSummary?: { total?: unknown; success?: unknown; cancel?: unknown; successRate?: unknown } } };
+export type Verdict = { level: string; label: string; advice: unknown; total: number; success: number; rate: number | null };
+export type FraudCheck = { ok: false; message: string } | ({ ok: true; phone: string; own: OwnRecord & { orders: number; open: number }; pathao: PathaoRecord | null;
+  fraudbd: FraudBdResult | null; cached_at: Date | null; sources: { pathao: boolean; fraudbd: boolean } } & Verdict);
+
+async function fraudbd(s: Settings, phone: string): Promise<FraudBdResult | null> {
   const key = String(s.fraudbd_api_key || '').trim();
   if (!key) return null;
   const ctrl = new AbortController();
@@ -20,14 +34,14 @@ async function fraudbd(s: Settings, phone: string) {
   try {
     const r = await fetch('https://fraudbd.com/api/check-courier-info', { method: 'POST', signal: ctrl.signal,
       headers: { 'Content-Type': 'application/json', Accept: 'application/json', api_key: key }, body: JSON.stringify({ phone_number: phone }) });
-    const j = await r.json().catch(() => null);
+    const j = (await r.json().catch(() => null)) as FbdAnswer | null;
     if (!r.ok || !j || j.status === false) return { ok: false, message: (j && j.message) || `FraudBD: HTTP ${r.status}` };
     const d = j.data || {};
-    const couriers = Object.entries(d.Summaries || {}).map(([name, x]: [string, Loose]) => ({
+    const couriers = Object.entries(d.Summaries || {}).map(([name, x]) => ({
       name, type: x.data_type || 'delivery', total: Number(x.total) || 0, success: Number(x.success) || 0, cancel: Number(x.cancel) || 0,
       rating: x.customer_rating || '', risk: x.risk_level || '', message: x.message || '',
     }));
-    const t = d.totalSummary || {};
+    const t: NonNullable<NonNullable<FbdAnswer['data']>['totalSummary']> = d.totalSummary || {};
     return { ok: true, couriers, total: Number(t.total) || 0, success: Number(t.success) || 0, cancel: Number(t.cancel) || 0, rate: t.successRate !== undefined ? Number(t.successRate) : null };
   } catch (caught) { const e = caught as Caught;
     return { ok: false, message: e.name === 'AbortError' ? 'FraudBD সময়মতো উত্তর দেয়নি' : e.message };
@@ -35,7 +49,7 @@ async function fraudbd(s: Settings, phone: string) {
 }
 
 // One answer from everything: level = new / low / medium / high, plus a sentence in Bangla.
-function judge(own?: Loose, pathao?: Loose, fbd?: Loose) {
+function judge(own: OwnRecord, pathao?: PathaoRecord | null, fbd?: FraudBdResult | null): Verdict {
   const ownDone = own.delivered + own.failed;
   let total = 0; let ok = 0;
   if (fbd && fbd.ok) { total += fbd.total; ok += fbd.success; }
@@ -45,7 +59,7 @@ function judge(own?: Loose, pathao?: Loose, fbd?: Loose) {
   let level = 'new';
   if (total) level = rate! < 50 && total >= 2 ? 'high' : rate! < 75 ? 'medium' : 'low';
   // a Pathao "risky" rating or many recent orders lift the level
-  const pathaoRisk = [pathao && pathao.rating, ...((fbd && fbd.couriers) || []).map((c: Loose) => c.risk || c.rating)].join(' ').toLowerCase();
+  const pathaoRisk = [pathao && pathao.rating, ...((fbd && fbd.ok ? fbd.couriers : null) || []).map((c) => c.risk || c.rating)].join(' ').toLowerCase();
   if (/high|fraud|risky|bad/.test(pathaoRisk) && level !== 'high') level = 'high';
   let burst = false;
   if (own.last_day >= 3 && (level === 'low' || level === 'new')) { level = 'medium'; burst = true; }
@@ -60,19 +74,19 @@ function judge(own?: Loose, pathao?: Loose, fbd?: Loose) {
 type CheckOpts = {
   fresh?: boolean;
 };
-async function check(settings: Settings, phoneRaw?: unknown, { fresh = false }: CheckOpts = {}): Promise<Loose> {
+async function check(settings: Settings, phoneRaw?: unknown, { fresh = false }: CheckOpts = {}): Promise<FraudCheck> {
   const phone = normalizePhone(phoneRaw);
   if (!validPhone(phone)) return { ok: false, message: 'ফোন নম্বর ঠিক নেই।' };
   const ownStats = await customers.phoneStats(phone);
   const own = { orders: ownStats!.orders, delivered: ownStats!.delivered, failed: ownStats!.failed, open: ownStats!.open, last_day: ownStats!.last_day };
-  let ext = null;
+  let ext: FraudData | null = null;
   if (!fresh) {
-    const c = await db.one(`SELECT data, checked_at FROM fraud_checks WHERE phone=$1 AND checked_at > now() - make_interval(hours => $2)`, [phone, CACHE_HOURS]);
+    const c = await db.one<{ data: FraudData; checked_at: Date }>(`SELECT data, checked_at FROM fraud_checks WHERE phone=$1 AND checked_at > now() - make_interval(hours => $2)`, [phone, CACHE_HOURS]);
     if (c) ext = { ...c.data, cached_at: c.checked_at };
   }
   if (!ext) {
-    const [pathao, fbd]: Loose[] = await Promise.all([
-      courier.configured(settings, 'pathao') ? courier.pathaoSuccess(phone, settings).catch((e) => ({ ok: false, message: e.message })) : null,
+    const [pathao, fbd] = await Promise.all([
+      courier.configured(settings, 'pathao') ? courier.pathaoSuccess(phone, settings).catch((e: Error): courier.PathaoRecord => ({ ok: false, message: e.message })) : null,
       fraudbd(settings, phone),
     ]);
     ext = { pathao: pathao ? { ok: pathao.ok, total: pathao.total || 0, success: pathao.success || 0, rating: pathao.rating || '', message: pathao.message || '' } : null, fraudbd: fbd };
@@ -85,14 +99,14 @@ async function check(settings: Settings, phoneRaw?: unknown, { fresh = false }: 
     sources: { pathao: courier.configured(settings, 'pathao'), fraudbd: !!String(settings.fraudbd_api_key || '').trim() } };
 }
 // Only what is already known (no API call) — for lists.
-async function cachedLevels(phones?: Loose) {
-  const list = [...new Set((phones || []).map((p: unknown) => normalizePhone(p)).filter(validPhone))];
-  if (!list.length) return new Map();
-  const rows = await db.q(`SELECT phone, data FROM fraud_checks WHERE phone = ANY($1::text[]) AND checked_at > now() - interval '7 days'`, [list]);
-  const stats = await db.q(`SELECT phone, count(*) FILTER (WHERE status='delivered')::int AS delivered, count(*) FILTER (WHERE status IN ('cancelled','returned'))::int AS failed,
+async function cachedLevels(phones?: unknown[] | null): Promise<Map<string, Verdict>> {
+  const list = [...new Set((phones || []).map((p) => normalizePhone(p)).filter(validPhone))];
+  if (!list.length) return new Map<string, Verdict>();
+  const rows = await db.q<{ phone: string; data: FraudData }>(`SELECT phone, data FROM fraud_checks WHERE phone = ANY($1::text[]) AND checked_at > now() - interval '7 days'`, [list]);
+  const stats = await db.q<OwnRecord & { phone: string }>(`SELECT phone, count(*) FILTER (WHERE status='delivered')::int AS delivered, count(*) FILTER (WHERE status IN ('cancelled','returned'))::int AS failed,
       count(*) FILTER (WHERE created_at > now() - interval '1 day')::int AS last_day FROM orders WHERE phone = ANY($1::text[]) GROUP BY phone`, [list]);
   const sm = new Map(stats.map((r) => [r.phone, r]));
-  const out = new Map();
+  const out = new Map<string, Verdict>();
   for (const ph of list) {
     const r = rows.find((x) => x.phone === ph);
     const st = sm.get(ph) || { delivered: 0, failed: 0, last_day: 0 };

@@ -6,6 +6,7 @@ import { Val, attrValue, jsxList } from '../react/html';
 import { bn } from '../util';
 import * as db from '../db';
 import type { Loose } from '../types';
+import type { DbRow } from '../pg';
 
 const DAY = 864e5;
 const BN_MONTHS = ['জানুয়ারি', 'ফেব্রুয়ারি', 'মার্চ', 'এপ্রিল', 'মে', 'জুন', 'জুলাই', 'আগস্ট', 'সেপ্টেম্বর', 'অক্টোবর', 'নভেম্বর', 'ডিসেম্বর'];
@@ -54,23 +55,24 @@ function timeTip(t?: Loose) {
 }
 
 async function liveNumbers() {
-  const one = async (sql: string) => { try { return (await db.q(sql))[0] || {}; } catch (_) { return {}; } };
-  const many = async (sql: string) => { try { return await db.q(sql); } catch (_) { return []; } };
+  // a number the database could not give (the query failed) is simply left out
+  const one = async <R extends DbRow>(sql: string): Promise<Partial<R>> => { try { return (await db.q<R>(sql))[0] || {}; } catch (_) { return {}; } };
+  const many = async <R extends DbRow>(sql: string): Promise<R[]> => { try { return await db.q<R>(sql); } catch (_) { return []; } };
   const [now, carts, drafts, pending, trend, emptyHot] = await Promise.all([
-    one(`SELECT (SELECT count(*) FROM visit_sessions WHERE last_seen > now() - interval '5 minutes')::int AS online,
+    one<{ online: number; visitors24: number; orders24: number }>(`SELECT (SELECT count(*) FROM visit_sessions WHERE last_seen > now() - interval '5 minutes')::int AS online,
       (SELECT count(DISTINCT visitor_id) FROM page_views WHERE created_at > now() - interval '24 hours')::int AS visitors24,
       (SELECT count(*) FROM orders WHERE created_at > now() - interval '24 hours')::int AS orders24`),
-    one(`SELECT count(DISTINCT e.visitor_id)::int AS n FROM visit_events e WHERE e.event IN ('add_to_cart','begin_checkout') AND e.created_at > now() - interval '24 hours'
+    one<{ n: number }>(`SELECT count(DISTINCT e.visitor_id)::int AS n FROM visit_events e WHERE e.event IN ('add_to_cart','begin_checkout') AND e.created_at > now() - interval '24 hours'
       AND NOT EXISTS (SELECT 1 FROM visit_events p WHERE p.visitor_id=e.visitor_id AND p.event='purchase' AND p.created_at > e.created_at)`),
-    one(`SELECT count(*)::int AS n FROM checkout_drafts WHERE status='open' AND updated_at > now() - interval '3 days'`),
-    one(`SELECT count(*)::int AS n, count(*) FILTER (WHERE created_at < now() - interval '1 hour')::int AS late FROM orders WHERE status='pending'`),
-    many(`SELECT p.id, p.name, count(DISTINCT v.visitor_id) FILTER (WHERE v.created_at > now() - interval '2 days')::int AS recent,
+    one<{ n: number }>(`SELECT count(*)::int AS n FROM checkout_drafts WHERE status='open' AND updated_at > now() - interval '3 days'`),
+    one<{ n: number; late: number }>(`SELECT count(*)::int AS n, count(*) FILTER (WHERE created_at < now() - interval '1 hour')::int AS late FROM orders WHERE status='pending'`),
+    many<{ id: number; name: string; recent: number; before: number }>(`SELECT p.id, p.name, count(DISTINCT v.visitor_id) FILTER (WHERE v.created_at > now() - interval '2 days')::int AS recent,
         count(DISTINCT v.visitor_id) FILTER (WHERE v.created_at <= now() - interval '2 days')::int AS before
       FROM page_views v JOIN products p ON p.id=v.product_id
       WHERE v.created_at > now() - interval '14 days' AND p.active GROUP BY p.id, p.name
       HAVING count(DISTINCT v.visitor_id) FILTER (WHERE v.created_at > now() - interval '2 days') >= 3
       ORDER BY count(DISTINCT v.visitor_id) FILTER (WHERE v.created_at > now() - interval '2 days') DESC LIMIT 3`),
-    many(`SELECT p.id, p.name, count(DISTINCT v.visitor_id)::int AS n FROM page_views v JOIN products p ON p.id=v.product_id
+    many<{ id: number; name: string; n: number }>(`SELECT p.id, p.name, count(DISTINCT v.visitor_id)::int AS n FROM page_views v JOIN products p ON p.id=v.product_id
       WHERE v.created_at > now() - interval '7 days' AND p.active AND p.stock <= 0 AND p.product_type='single'
       GROUP BY p.id, p.name HAVING count(DISTINCT v.visitor_id) >= 3 ORDER BY 3 DESC LIMIT 3`),
   ]);
@@ -89,8 +91,8 @@ async function tips() {
   for (const p of n.trend) {
     if (p.recent > p.before) list.push({ ic: '📈', lv: 'good', t: `"${p.name}" এখন বেশি দেখা হচ্ছে (২ দিনে ${bn(p.recent)} জন)`, d: 'এই পণ্যের একটা পোস্ট/ভিডিও দিন বা ছোট বুস্ট করুন — গরম থাকতে থাকতে।', link: `/admin/products/${p.id}` });
   }
-  if (n.now.visitors24 >= 30) {
-    const rate = (n.now.orders24 * 100) / n.now.visitors24;
+  if (Number(n.now.visitors24) >= 30) {
+    const rate = (Number(n.now.orders24) * 100) / Number(n.now.visitors24);
     if (rate < 1) list.push({ ic: '🔍', lv: 'warm', t: `২৪ ঘণ্টায় ${bn(n.now.visitors24)} জন এসেছে, অর্ডার মাত্র ${bn(n.now.orders24)}টি`, d: 'মানুষ আসছে কিন্তু কিনছে না — দাম, ডেলিভারি চার্জ, ছবি আর বিবরণ দেখুন; WhatsApp বাটন চালু রাখুন।', link: '/admin/marketing/visitors' });
   }
   // 2. the clock right now

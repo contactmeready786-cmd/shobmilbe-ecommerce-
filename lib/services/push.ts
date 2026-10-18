@@ -4,7 +4,7 @@
 //
 // Standard Web Push: VAPID (RFC 8292) to prove the message is from this site, and aes128gcm (RFC 8291) so
 // only that phone's browser can read the message. Built with Node's crypto only (no npm packages).
-import type { ShopPushSubsRow, PushSubsRow } from '../data/rows';
+import type { PushSubsRow, ShopPushSubsRow } from '../data/rows';
 import * as crypto from 'node:crypto';
 import * as db from '../db';
 import type { Body, Id, Loose } from '../types';
@@ -66,7 +66,7 @@ function okEndpoint(u: string | URL) {
   try { const x = new URL(u); return x.protocol === 'https:' && PUSH_HOSTS.test(x.hostname); } catch (_) { return false; }
 }
 
-async function sendOne(sub: db.pg.DbRow, msg: { title: string; body: string; url: string; tag: string; } | undefined, v?: unknown) {
+async function sendOne(sub: Pick<PushSubsRow, 'endpoint' | 'p256dh' | 'auth'> & { id: number }, msg: { title: string; body: string; url: string; tag: string; } | undefined, v?: unknown) {
   const body = encrypt(sub, JSON.stringify(msg));
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), 8000);

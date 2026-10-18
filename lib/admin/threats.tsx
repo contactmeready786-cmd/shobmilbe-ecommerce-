@@ -25,7 +25,7 @@ function kindPills(kinds?: unknown) {
     return <span className={`pill ${attrValue(cls)}`} title={attrValue(x[1])}><Val v={x[0]} />{' '}<Val v={x[1]} />{' '}×{' '}{bn(n)}</span>;
   }))}</span>;
 }
-function place(r: db.pg.DbRow) {
+function place(r: { country: string; city?: string }) {
   if (!r.country) return <span className="muted">অজানা</span>;
   const p = V.place({ country: r.country, region: '', city: r.city });
   return <span title={attrValue(p.country)}>{ui.flag(r.country)}{' '}<Val v={p.text} /></span>;

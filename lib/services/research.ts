@@ -138,7 +138,7 @@ async function getJson(url: string): Promise<unknown> {
 
 // ---------------------------------------------------------------- sources
 async function listSources() {
-  return q(`SELECT s.*, (SELECT count(*)::int FROM research_items i WHERE i.source_id=s.id AND ${FRESH}) AS live_items,
+  return q<ResearchSourcesRow & { live_items: number; queued: number; waiting: number }>(`SELECT s.*, (SELECT count(*)::int FROM research_items i WHERE i.source_id=s.id AND ${FRESH}) AS live_items,
       (SELECT count(*)::int FROM research_queue rq WHERE rq.source_id=s.id) AS queued,
       (SELECT count(*)::int FROM research_queue rq WHERE rq.source_id=s.id AND rq.checked_at IS NULL AND rq.fails < 3) AS waiting
     FROM research_sources s ORDER BY s.segment, s.name`);
@@ -958,7 +958,7 @@ type NewInMarketOpts = {
   limit?: number;
 };
 async function newInMarket({ segment = '', limit = 30 }: NewInMarketOpts = {}) {
-  return q(`SELECT i.*, s.name AS shop, s.segment FROM research_items i JOIN research_sources s ON s.id=i.source_id
+  return q<ResearchItemsRow & { shop: string; segment: string }>(`SELECT i.*, s.name AS shop, s.segment FROM research_items i JOIN research_sources s ON s.id=i.source_id
     WHERE s.active AND i.first_seen > now() - interval '7 days'
       AND i.first_seen > s.created_at + CASE WHEN s.kind='site' THEN interval '10 days' ELSE interval '1 day' END ${segment ? 'AND s.segment=$2' : ''}
     ORDER BY i.first_seen DESC LIMIT $1`, segment ? [limit, segment] : [limit]);
@@ -967,12 +967,12 @@ type PriceDropsOpts = {
   limit?: number;
 };
 async function priceDrops({ limit = 20 }: PriceDropsOpts = {}) {
-  return q(`SELECT i.*, s.name AS shop FROM research_items i JOIN research_sources s ON s.id=i.source_id
+  return q<ResearchItemsRow & { shop: string }>(`SELECT i.*, s.name AS shop FROM research_items i JOIN research_sources s ON s.id=i.source_id
     WHERE s.active AND i.prev_price IS NOT NULL AND i.price < i.prev_price AND i.price_changed_at > now() - interval '7 days'
     ORDER BY (i.prev_price - i.price) / nullif(i.prev_price, 0) DESC LIMIT $1`, [limit]);
 }
 async function status() {
-  return one(`SELECT (SELECT count(*)::int FROM research_sources WHERE active AND NOT search_only) AS sources,
+  return one<{ sources: number; search_shops: number; items: number; last_ok: Date | null }>(`SELECT (SELECT count(*)::int FROM research_sources WHERE active AND NOT search_only) AS sources,
     (SELECT count(*)::int FROM research_sources WHERE active AND search_only) AS search_shops,
     (SELECT count(*)::int FROM research_items i JOIN research_sources s ON s.id=i.source_id WHERE ${FRESH}) AS items,
     (SELECT max(last_ok) FROM research_sources) AS last_ok`);

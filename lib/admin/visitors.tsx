@@ -33,7 +33,7 @@ function ago(d?: Loose) {
   return fmtDate(d);
 }
 function device(d: string | number) { const x = DEVICES[d] || ['🖥️', d || 'অজানা']; return <span title={attrValue(x[1])}><Val v={x[0]} />{' '}<Val v={x[1]} /></span>; }
-function where(row: db.pg.DbRow) {
+function where(row: V.SessionListed) {
   const p = V.place(row);
   return <><span className="va-place" title={attrValue(p.country)}>{ui.flag(row.country)}{' '}<Val v={p.text} /></span>{netBadge(row)}{(row.suspicious ? <>{' '}<a className="pill pill-red va-alert" href={`/admin/security/threats?ip=${attrValue(encodeURIComponent(row.ip))}`} title="এই IP থেকে সাইটের ক্ষতি করার চেষ্টা হয়েছে — দেখুন">🚨 সন্দেহজনক</a></> : null)}</>;
 }
@@ -42,19 +42,19 @@ const NET: Record<string, Loose> = {
   vpn: ['🛡️', 'VPN / প্রক্সি', 'IP বিদেশের, কিন্তু ফোন/কম্পিউটারের ঘড়ি বাংলাদেশের সময়ে — সম্ভবত বাংলাদেশ থেকেই VPN বা প্রক্সি দিয়ে এসেছে', 'pill-amber'],
   abroad: ['🌍', 'বিদেশ থেকে', 'IP আর ঘড়ি দুটোই বিদেশের — দেশের বাইরে থেকে এসেছে', 'pill-blue'],
 };
-function netBadge(row: db.pg.DbRow) {
+function netBadge(row: V.SessionListed) {
   const n = NET[row.net];
   return n ? <>{' '}<span className={`pill ${attrValue(n[3])}`} title={attrValue(n[2])}><Val v={n[0]} />{' '}<Val v={n[1]} /></span></> : '';
 }
 // the delivery address the visitor gave when ordering (this visit or an earlier one)
-function orderAddr(row: db.pg.DbRow, long?: undefined) {
+function orderAddr(row: V.SessionListed, long?: undefined) {
   const parts = [row.o_thana, row.o_district].filter(Boolean).join(', ');
   const addr = String(row.o_address || '');
   if (!parts && !addr) return '';
   const text = long ? [addr, parts].filter(Boolean).join(', ') : parts || (addr.length > 40 ? addr.slice(0, 40) + '…' : addr);
   return <><br /><small className="va-addr" title={attrValue(addr)} translate="no">🏠{' '}<Val v={text} /></small></>;
 }
-function phoneName(row: db.pg.DbRow) {
+function phoneName(row: { brand: string; model: string }) {
   const brand = row.brand || '';
   const model = row.model || '';
   // "Apple" + "iPhone 13" → "iPhone 13"; "Samsung" + "SM-A536E" → "Samsung SM-A536E"; "Xiaomi" + "Redmi Note 12" → as is
@@ -62,7 +62,7 @@ function phoneName(row: db.pg.DbRow) {
   if (brand && model.toLowerCase().startsWith(brand.toLowerCase())) return model;
   return [brand, model].filter(Boolean).join(' ');
 }
-function deviceCell(row: db.pg.DbRow, extra?: boolean | undefined) {
+function deviceCell(row: V.SessionListed, extra?: boolean | undefined) {
   const name = phoneName(row);
   return <>{device(row.device)}{(name ? <><br /><b className="small" translate="no"><Val v={name} /></b></> : null)}<br /><small className="muted"><Val v={row.browser} />{(extra ? (' · ' + row.os) : null)}</small></>;
 }
@@ -77,15 +77,15 @@ function pageName(path: unknown, title: unknown, settings: Settings) {
   else if (p.startsWith('/track')) t = 'অর্ডার ট্র্যাক';
   return t || p;
 }
-function pageCell(path: Loose, title: unknown, settings: Settings) {
+function pageCell(path: string, title: unknown, settings: Settings) {
   return <a href={attrValue(path)} target="_blank" rel="noopener" className="va-page"><b><Val v={pageName(path, title, settings)} /></b><small><Val v={decodeSafe(path)} /></small></a>;
 }
 function decodeSafe(p: string) { try { return decodeURI(p); } catch (_) { return p; } }
-function sourcePill(row: db.pg.DbRow) {
+function sourcePill(row: V.SessionListed) {
   const cls = (({ social: 'pill-blue', organic: 'pill-green', cpc: 'pill-amber', paid: 'pill-amber', referral: '', direct: 'pill-grey' } as Record<string, string>))[row.medium] || '';
   return <span className={`pill ${attrValue(cls)}`} title={`${attrValue(row.medium || '')}${row.campaign ? ' · ' + row.campaign : ''}`}><Val v={row.source || 'অজানা'} /></span>;
 }
-function who(row: db.pg.DbRow) {
+function who(row: V.SessionListed) {
   if (row.visitor_name || row.visitor_phone) return <span className="va-who">👤{' '}<b><Val v={row.visitor_name || ''} /></b>{' '}{(row.visitor_phone ? <small><Val v={row.visitor_phone} /></small> : null)}</span>;
   return <span className="muted small">{(row.total_visits > 1 ? `পুরনো ভিজিটর · ${bn(row.total_visits)}বার এসেছে` : (row.is_new ? "নতুন ভিজিটর" : "পুরনো ভিজিটর"))}</span>;
 }

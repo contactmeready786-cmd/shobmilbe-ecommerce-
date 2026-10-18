@@ -26,9 +26,9 @@ O.onStatusChange(async (id, status, prev) => {
   const G = $models_giftcards;
   if (O.RELEASED.has(status)) {
     await G.refundOrder(id).catch((e) => console.error('gift refund', e.message));
-    const o = await db.one('SELECT warehouse_id FROM orders WHERE id=$1', [id]);
+    const o = await db.one<Pick<OrdersRow, 'warehouse_id'>>('SELECT warehouse_id FROM orders WHERE id=$1', [id]);
     if (o && o.warehouse_id && !O.RELEASED.has(prev)) {
-      const items = await db.q('SELECT product_id, qty, components FROM order_items WHERE order_id=$1 AND product_id IS NOT NULL', [id]);
+      const items = await db.q<{ product_id: number; qty: number; components: { product_id: number; qty: number }[] | null }>('SELECT product_id, qty, components FROM order_items WHERE order_id=$1 AND product_id IS NOT NULL', [id]);
       for (const it of items) {
         for (const part of (it.components && it.components.length ? it.components : [{ product_id: it.product_id, qty: it.qty }])) {
           await db.q(`INSERT INTO warehouse_stock(warehouse_id, product_id, qty) SELECT $1, $2, $3 WHERE EXISTS (SELECT 1 FROM warehouses WHERE id=$1) AND EXISTS (SELECT 1 FROM products WHERE id=$2)

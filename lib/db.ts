@@ -1246,7 +1246,7 @@ const MIGRATION_STEPS: Record<number, () => Promise<void>> = {
   },
   // the flash-sale row goes at the top of the home page (owner can move it in Admin → ডিজাইন)
   25: async () => {
-    const r = await one("SELECT value FROM settings WHERE key='home_sections'");
+    const r = await one<{ value: string }>("SELECT value FROM settings WHERE key='home_sections'");
     let list = [];
     try { list = JSON.parse(r ? r.value : DEFAULT_SETTINGS.home_sections); } catch (_) { list = []; }
     if (Array.isArray(list) && !list.includes('flash')) {
@@ -1255,14 +1255,14 @@ const MIGRATION_STEPS: Record<number, () => Promise<void>> = {
       await setSetting('home_sections', JSON.stringify(list));
     }
     // reviews got their own permission: whoever could manage marketing keeps managing reviews
-    for (const st of await q(`SELECT id, permissions FROM staff WHERE role<>'owner'`)) {
+    for (const st of await q<{ id: number; permissions: unknown }>(`SELECT id, permissions FROM staff WHERE role<>'owner'`)) {
       const have = Array.isArray(st.permissions) ? st.permissions : [];
       if (have.includes('marketing') && !have.includes('reviews')) await q('UPDATE staff SET permissions=$1 WHERE id=$2', [JSON.stringify([...have, 'reviews']), st.id]);
     }
   },
   // Every brand name already typed on products becomes a brand (one per name, any letter case) and is linked.
   21: async () => {
-    const names = await q(`SELECT min(trim(brand)) AS name FROM products WHERE trim(coalesce(brand,'')) <> '' GROUP BY lower(trim(brand)) ORDER BY 1`);
+    const names = await q<{ name: string }>(`SELECT min(trim(brand)) AS name FROM products WHERE trim(coalesce(brand,'')) <> '' GROUP BY lower(trim(brand)) ORDER BY 1`);
     for (const { name } of names) {
       const slug = await uniqueSlug('brands', slugify(name) === 'item' ? 'brand' : slugify(name));
       await q(`INSERT INTO brands(name, slug) VALUES($1,$2) ON CONFLICT DO NOTHING`, [name.slice(0, 60), slug]);

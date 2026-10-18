@@ -58,7 +58,7 @@ async function transactions(ctx: AdminCtx) {
   const accountId = int(ctx.query.get('account')) || null;
   const [rows, accounts] = await Promise.all([F.listTransactions({ from, to, type, accountId, limit: 1000 }), F.listAccounts()]);
   if (ctx.query.get('csv') === '1') {
-    const out = [['Date', 'Type', 'Category', 'Amount', 'Account', 'To account', 'VAT', 'Order', 'Purchase', 'Supplier', 'Note', 'By']];
+    const out: unknown[][] = [['Date', 'Type', 'Category', 'Amount', 'Account', 'To account', 'VAT', 'Order', 'Purchase', 'Supplier', 'Note', 'By']];
     rows.forEach((t) => out.push([t.tx_date, t.type, t.category, t.amount, t.account_name, t.to_account_name, t.vat, t.order_code, t.purchase_code, t.supplier_name, t.note, t.staff_name]));
     return ctx.send(200, csv(out), 'text/csv; charset=utf-8', { 'Content-Disposition': `attachment; filename="transactions-${from}-${to}.csv"` });
   }

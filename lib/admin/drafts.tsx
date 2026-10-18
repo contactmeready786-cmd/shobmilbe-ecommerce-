@@ -21,7 +21,7 @@ function ago(d: string | number | Date) {
 }
 function waLink(phone?: unknown) { return 'https://wa.me/88' + String(phone || '').replace(/\D/g, ''); }
 
-function statusPill(d: db.pg.DbRow) {
+function statusPill(d: { status: string }) {
   const st = D.STATUSES[d.status] || ['', d.status];
   const cls = (({ open: 'pill-amber', called: 'pill-blue', ordered: 'pill-green', closed: 'pill-grey' } as Record<string, string>))[d.status] || '';
   return <span className={`pill ${attrValue(cls)}`}><Val v={st[0]} />{' '}<Val v={st[1]} /></span>;

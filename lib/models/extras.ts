@@ -1,7 +1,7 @@
 // Small shop helpers that customers use on the product page:
 //   🔔 "স্টকে এলে জানাও" — a mobile number left on an out-of-stock product; an SMS goes out when it is back
 //   ❓ প্রশ্ন-উত্তর      — customers ask about a product; the shop answers; answered questions show on the page
-import type { ProductQuestionsRow, ProductsRow, StockAlertsRow, PriceAlertsRow } from '../data/rows';
+import type { PriceAlertsRow, ProductQuestionsRow, ProductsRow, StockAlertsRow } from '../data/rows';
 
 // ---------------------------------------------------------------- stock alerts
 import * as db from '../db';
@@ -74,7 +74,7 @@ async function subscribePrice({ productId, phone, ip }: SubscribePriceOpts) {
   const pid = int(productId);
   const ph = normalizePhone(phone);
   if (!validPhone(ph)) throw new UserError('সঠিক মোবাইল নম্বর দিন, যেমন 01712345678।');
-  const p = await db.one(`SELECT p.id, p.name, coalesce(${FLASH_NOW}, p.price) AS now_price FROM products p WHERE p.id=$1 AND p.active`, [pid]);
+  const p = await db.one<{ id: number; name: string; now_price: number }>(`SELECT p.id, p.name, coalesce(${FLASH_NOW}, p.price) AS now_price FROM products p WHERE p.id=$1 AND p.active`, [pid]);
   if (!p) throw new UserError('পণ্যটা পাওয়া যায়নি।');
   await db.q(`INSERT INTO price_alerts(product_id, phone, price_at, ip) VALUES($1,$2,$3,$4)
     ON CONFLICT (product_id, phone) DO UPDATE SET price_at=EXCLUDED.price_at, notified_at=NULL, result='', created_at=now()`, [p.id, ph, p.now_price, str(ip, 60)]);
@@ -83,7 +83,7 @@ async function subscribePrice({ productId, phone, ip }: SubscribePriceOpts) {
 async function priceSweep(settings: Settings, { limit = 25 }: Body = {}) {
   const SMS = $services_sms;
   if (settings.price_alert_on === '0' || !SMS.ready(settings).ok) return { sent: 0 };
-  const rows = await db.q(`SELECT a.id, a.phone, a.price_at, p.id AS product_id, p.name, p.slug, coalesce(${FLASH_NOW}, p.price) AS now_price
+  const rows = await db.q<{ id: number; phone: string; price_at: number; product_id: number; name: string; slug: string; now_price: number }>(`SELECT a.id, a.phone, a.price_at, p.id AS product_id, p.name, p.slug, coalesce(${FLASH_NOW}, p.price) AS now_price
     FROM price_alerts a JOIN products p ON p.id=a.product_id
     WHERE a.notified_at IS NULL AND p.active AND a.created_at > now() - interval '120 days' AND coalesce(${FLASH_NOW}, p.price) < a.price_at
     ORDER BY a.id LIMIT $1`, [limit]);
@@ -160,7 +160,7 @@ async function listQuestions({ status = 'pending', limit = 100, offset = 0 }: Li
   let where = '';
   if (Q_STATUSES[status]) { params.push(status); where = `WHERE q.status=$1`; }
   params.push(limit, offset);
-  return db.q(`SELECT q.*, p.name AS product_name, p.slug, p.image_id, p.emoji, s.name AS answered_by_name FROM product_questions q
+  return db.q<ProductQuestionsRow & Pick<ProductsRow, 'slug' | 'image_id' | 'emoji'> & { product_name: string; answered_by_name: string | null }>(`SELECT q.*, p.name AS product_name, p.slug, p.image_id, p.emoji, s.name AS answered_by_name FROM product_questions q
     JOIN products p ON p.id=q.product_id LEFT JOIN staff s ON s.id=q.answered_by ${where}
     ORDER BY q.created_at DESC LIMIT $${params.length - 1} OFFSET $${params.length}`, params);
 }

@@ -602,7 +602,7 @@ ${link}
     fail: (to?: Loose, text?: Loose) => redirect(to + (to.includes('?') ? '&' : '?') + 'err=' + encodeURIComponent(text)),
     log: (action?: Loose, entity?, entityId?: Id, detail?) => db.logActivity(user.id, action, entity, entityId, detail),
     // every delete goes to the recycle bin (Admin → রিসাইকেল বিন), with who / when / from where
-    trash: (kind?, id?: Id) => $models_trash.move(kind, id, { id: user.id, name: user.name, ip,
+    trash: (kind: string, id: Id) => $models_trash.move(kind, id, { id: user.id, name: user.name, ip,
       path: (() => { try { return new URL(req.headers.referer || '').pathname; } catch (_) { return path; } })() }),
     // this login passed the fingerprint / face step (the owner just set the lock up on this device)
     markVerified: () => db.q('UPDATE admin_sessions SET verified=true WHERE id=$1', [user.__session]),

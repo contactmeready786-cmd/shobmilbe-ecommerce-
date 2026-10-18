@@ -138,12 +138,12 @@ async function remindDue(settings: Settings, site = '') {
 // The link in the reminder: the products and name/number to fill the checkout again (no address — it may be a shared link).
 async function resume(id?: Id) {
   if (!ID_RE.test(String(id))) return null;
-  const d = await db.one(`SELECT name, phone, items, status FROM checkout_drafts WHERE id=$1 AND created_at > now() - interval '7 days'`, [id]);
+  const d = await db.one<Pick<CheckoutDraftsRow, 'name' | 'phone' | 'status'> & { items: DraftItem[] | null }>(`SELECT name, phone, items, status FROM checkout_drafts WHERE id=$1 AND created_at > now() - interval '7 days'`, [id]);
   if (!d || d.status === 'ordered') return null;
-  return { name: d.name, phone: d.phone, items: (d.items || []).map((i: { id: unknown; qty: unknown; }) => ({ id: int(i.id), qty: int(i.qty, 1) })).filter((i: { id: number; }) => i.id > 0) };
+  return { name: d.name, phone: d.phone, items: (d.items || []).map((i) => ({ id: int(i.id), qty: int(i.qty, 1) })).filter((i) => i.id > 0) };
 }
 
-async function get(id?: Id) { return ID_RE.test(String(id)) ? db.one('SELECT * FROM checkout_drafts WHERE id = $1', [id]) : null; }
+async function get(id?: Id) { return ID_RE.test(String(id)) ? db.one<Omit<CheckoutDraftsRow, 'items'> & { items: DraftItem[] | null }>('SELECT * FROM checkout_drafts WHERE id = $1', [id]) : null; }
 async function setStatus(id?: Id, status?: Loose, staffId?: Id) {
   if (!STATUSES[status] || !ID_RE.test(String(id))) return;
   await db.q(`UPDATE checkout_drafts SET status = $2, updated_at = now(),

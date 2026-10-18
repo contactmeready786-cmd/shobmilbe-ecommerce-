@@ -13,6 +13,7 @@
 //
 // Abuse limits (each code costs an SMS): 3 codes / 10 min and 6 / day per number, 8 / hour per connection,
 // a daily total for the whole shop, 5 wrong tries per code. Blocked numbers get no code.
+import type { CheckoutOtpsRow } from '../data/rows';
 import { emailHtml, PlainEmail } from '../emails';
 import * as crypto from 'node:crypto';
 import * as db from '../db';
@@ -214,7 +215,7 @@ async function checkOrder(req: ShopRequest, s: Settings, phone: string, tok: unk
 
 // ---------- for Admin ----------
 async function stats() {
-  return db.one(`SELECT
+  return db.one<Record<'sent24' | 'ok24' | 'fail24' | 'sent30' | 'ok30' | 'never30', number> & { orders30: Record<string, number> | null }>(`SELECT
       count(*) FILTER (WHERE sent_ok AND created_at > now() - interval '1 day')::int AS sent24,
       count(*) FILTER (WHERE verified_at > now() - interval '1 day')::int AS ok24,
       count(*) FILTER (WHERE NOT sent_ok AND created_at > now() - interval '1 day')::int AS fail24,
@@ -226,7 +227,7 @@ async function stats() {
     FROM checkout_otps`);
 }
 async function recent(limit = 30) {
-  return db.q(`SELECT phone, sent_ok, verified_at, tries, created_at, (verified_at IS NULL AND NOT sent_ok) AS failed FROM checkout_otps ORDER BY id DESC LIMIT $1`, [limit]);
+  return db.q<Pick<CheckoutOtpsRow, 'phone' | 'sent_ok' | 'verified_at' | 'tries' | 'created_at'> & { failed: boolean }>(`SELECT phone, sent_ok, verified_at, tries, created_at, (verified_at IS NULL AND NOT sent_ok) AS failed FROM checkout_otps ORDER BY id DESC LIMIT $1`, [limit]);
 }
 // the pill shown on orders in Admin
 const LABELS: Record<string, [label: string, explanation: string]> = {

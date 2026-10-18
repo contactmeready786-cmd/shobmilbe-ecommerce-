@@ -12,7 +12,7 @@ import type { DbRow, Param } from './pg';
 import type { RateLimitsRow } from './data/rows';
 
 /** The two query helpers of lib/db (passed in, so this file doesn't import the database module). */
-type Db = { one: (sql: string, params?: Param[]) => Promise<DbRow | null>; q: (sql: string, params?: Param[]) => Promise<DbRow[]> };
+type Db = { one: <R extends DbRow = DbRow>(sql: string, params?: Param[]) => Promise<R | null>; q: <R extends DbRow = DbRow>(sql: string, params?: Param[]) => Promise<R[]> };
 type Req = { headers: Record<string, string | undefined>; socket?: { remoteAddress?: string } | null };
 
 function clientIp(req: Req): string {
@@ -27,7 +27,7 @@ function clientIp(req: Req): string {
 let lastCleanup = 0;
 async function hit(db: Db, key: string, max: number, windowSec: number): Promise<boolean> {
   try {
-    const row = await db.one(`INSERT INTO rate_limits(k, n, reset_at) VALUES ($1, 1, now() + make_interval(secs => $2))
+    const row = await db.one<{ n: number }>(`INSERT INTO rate_limits(k, n, reset_at) VALUES ($1, 1, now() + make_interval(secs => $2))
       ON CONFLICT (k) DO UPDATE SET
         n = CASE WHEN rate_limits.reset_at < now() THEN 1 ELSE rate_limits.n + 1 END,
         reset_at = CASE WHEN rate_limits.reset_at < now() THEN excluded.reset_at ELSE rate_limits.reset_at END
@@ -45,7 +45,7 @@ async function hit(db: Db, key: string, max: number, windowSec: number): Promise
 // Only checks (does not count) — used before a password check so a correct login isn't counted.
 async function blocked(db: Db, key: string, max: number): Promise<boolean> {
   try {
-    const row = await db.one('SELECT n FROM rate_limits WHERE k=$1 AND reset_at > now()', [String(key).slice(0, 200)]);
+    const row = await db.one<{ n: number }>('SELECT n FROM rate_limits WHERE k=$1 AND reset_at > now()', [String(key).slice(0, 200)]);
     return !!row && row.n >= max;
   } catch (_) { return false; }
 }

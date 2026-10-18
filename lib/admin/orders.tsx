@@ -142,7 +142,7 @@ async function exportCsv(ctx: AdminCtx, m: RouteMatch, excel = false) {
   const f = filtersFrom(ctx.query);
   const rows = await O.listOrders({ ...f, limit: 10000 });
   const seeCost = ctx.can('see_cost');
-  const out = [['Order', 'Date', 'Status', 'Customer', 'Phone', 'Address', 'Thana', 'District', 'Items', 'SKU', 'Subtotal', 'Discount', 'Delivery', 'Total',
+  const out: unknown[][] = [['Order', 'Date', 'Status', 'Customer', 'Phone', 'Address', 'Thana', 'District', 'Items', 'SKU', 'Subtotal', 'Discount', 'Delivery', 'Total',
     'Paid', 'Refunded', 'Payment', 'Payment status', 'TrxID', 'Courier', 'Consignment', 'Zone', ...(seeCost ? ['Cost', 'Profit'] : []), 'Note']];
   for (const o of rows) {
     out.push([o.code, fmtDate(o.created_at).replace(/[০-৯]/g, (d) => String('০১২৩৪৫৬৭৮৯'.indexOf(d))), O.STATUSES[o.status], o.customer_name, o.phone, o.address, o.thana, o.district,
@@ -417,7 +417,7 @@ async function newOrder(ctx: AdminCtx) {
   // from "অসম্পূর্ণ অর্ডার": the shopper's details and cart already filled in
   const draft = ctx.query.get('draft') ? await $services_drafts.get(ctx.query.get('draft')) : null;
   if (draft) {
-    const items = await describeItems((draft.items || []).map((i: { id: unknown; qty: unknown }) => ({ id: int(i.id), qty: int(i.qty, 1) })));
+    const items = await describeItems((draft.items || []).map((i) => ({ id: int(i.id), qty: int(i.qty, 1) })));
     const order = { items, customer_name: draft.name, phone: draft.phone, address: draft.address, district: draft.district || 'Dhaka', thana: draft.thana,
       note: draft.note, payment: 'cod', payment_status: 'unpaid', status: 'confirmed', admin_note: 'অসম্পূর্ণ অর্ডার থেকে (কল করে নেওয়া)' };
     return ctx.page('নতুন অর্ডার', orderForm({ order, settings: ctx.settings, action: '/admin/orders/new', title: 'অসম্পূর্ণ অর্ডার থেকে নতুন অর্ডার', isNew: true }), 'order-new');

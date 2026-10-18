@@ -8,7 +8,7 @@ import * as $services_pricing from '../services/pricing';
 import * as $giftcards from './giftcards';
 import * as $loyalty from './loyalty';
 import type { DbRow, Tx } from '../pg';
-import type { OrdersRow, OrderItemsRow, ProductsRow, FlashItemsRow, WarehouseStockRow } from '../data/rows';
+import type { CouponsRow, OrdersRow, OrderItemsRow, ProductsRow, FlashItemsRow, WarehouseStockRow } from '../data/rows';
 import type { Body, Settings } from '../types';
 import type { Loose } from '../types';
 
@@ -104,9 +104,9 @@ function areaLabel(order: { district?: string; thana?: string }): string {
 // ---------------------------------------------------------------- coupons
 // lines: [{ product_id, price, qty }] — needed when the coupon is only for some products / categories.
 type LineForCoupon = { product_id: unknown; price: unknown; qty: unknown; kind?: string };
-type CouponCheck = { ok: false; message: string } | { ok: true; coupon: DbRow; discount: number; freeDelivery: boolean; partial: boolean; message: string };
+type CouponCheck = { ok: false; message: string } | { ok: true; coupon: CouponsRow; discount: number; freeDelivery: boolean; partial: boolean; message: string };
 async function checkCoupon(code: unknown, subtotal: number, phone: unknown, lines: LineForCoupon[] | null = null, exceptOrderId: unknown = 0): Promise<CouponCheck> {
-  const c = await one(`SELECT * FROM coupons WHERE upper(code)=upper($1)`, [str(code, 40)]);
+  const c = await one<CouponsRow>(`SELECT * FROM coupons WHERE upper(code)=upper($1)`, [str(code, 40)]);
   const today = ymd();
   if (!c || !c.active) return { ok: false, message: 'এই কুপন কোডটি সঠিক নয়।' };
   if (c.starts_on && today < c.starts_on) return { ok: false, message: 'এই কুপন এখনো চালু হয়নি।' };
@@ -116,13 +116,13 @@ async function checkCoupon(code: unknown, subtotal: number, phone: unknown, line
     return { ok: false, message: `এই কুপন ব্যবহার করতে কমপক্ষে ৳${bn(c.min_order)} এর পণ্য কিনতে হবে।` };
   }
   if (c.per_phone > 0 && phone) {
-    const used = await one(`SELECT count(*)::int AS n FROM orders WHERE upper(coupon_code)=upper($1) AND phone=$2 AND status<>'cancelled'`, [c.code, normalizePhone(phone)]);
+    const used = await one<{ n: number }>(`SELECT count(*)::int AS n FROM orders WHERE upper(coupon_code)=upper($1) AND phone=$2 AND status<>'cancelled'`, [c.code, normalizePhone(phone)]);
     if (used!.n >= c.per_phone) return { ok: false, message: 'আপনি এই কুপন আগেই ব্যবহার করেছেন।' };
   }
   if (c.first_order) {
     if (!phone) return { ok: false, message: 'এই কুপন শুধু প্রথম অর্ডারে — আগে মোবাইল নম্বর লিখুন, তারপর কুপন দিন।' };
     // (the order being placed right now is already saved inside the same transaction — it doesn't count)
-    const before = await one(`SELECT count(*)::int AS n FROM orders WHERE phone=$1 AND status NOT IN ('cancelled') AND id <> $2`, [normalizePhone(phone), int(exceptOrderId)]);
+    const before = await one<{ n: number }>(`SELECT count(*)::int AS n FROM orders WHERE phone=$1 AND status NOT IN ('cancelled') AND id <> $2`, [normalizePhone(phone), int(exceptOrderId)]);
     if (before!.n > 0) return { ok: false, message: 'এই কুপন শুধু প্রথম অর্ডারের জন্য।' };
   }
   // flash-sale lines and gifts never take a coupon (no double discount)
@@ -242,7 +242,9 @@ async function takeGift(t: Tx, g: $services_pricing.GiftLine, { refId, staffId }
   return null;
 }
 // Put the stock of saved order items back on the shelf.
-async function releaseLines(t: Tx, items: DbRow[], reason: string, refId: number, staffId: number | null | undefined): Promise<void> {
+/** an order line as saved, its bundle parts read as a list */
+export type SavedLine = Omit<OrderItemsRow, 'components'> & { components: { product_id: number; qty: number }[] | null };
+async function releaseLines(t: Tx, items: SavedLine[], reason: string, refId: number, staffId: number | null | undefined): Promise<void> {
   for (const it of items) {
     if (it.kind === 'flash' && it.ref_id) await t.query('UPDATE flash_items SET sold = greatest(0, sold - $1) WHERE id=$2', [it.qty, it.ref_id]);
     if (!it.product_id) continue;
@@ -315,7 +317,7 @@ async function createOrder(input: CreateOrderOpts, settings: Settings) {
   return txRetry(async (t) => {
     // The order row comes first so stock movements can point at it.
     const prefix = (settings.order_prefix || 'SM').replace(/[^A-Za-z0-9]/g, '').slice(0, 4).toUpperCase() || 'SM';
-    let found: DbRow | undefined;
+    let found: Pick<OrdersRow, 'id' | 'code'> | undefined;
     for (let i = 0; i < 6 && !found; i++) {
       found = (await t.query<Pick<OrdersRow, 'id' | 'code'>>(
         `INSERT INTO orders(code, customer_name, phone, address, area, subtotal, delivery, total)
@@ -355,7 +357,7 @@ async function createOrder(input: CreateOrderOpts, settings: Settings) {
         const r = await G.checkReferral(settings, input.coupon, phone, subtotal, order.id);
         if (!r.ok) throw new OrderError(r.message, 'coupon');
         discount = r.discount!;
-        ref = { code: r.referrer!.ref_code, by: r.referrer!.id, discount: r.discount! };
+        ref = { code: r.referrer!.ref_code!, by: r.referrer!.id, discount: r.discount! };
       } else {
         const c = await checkCoupon(input.coupon, subtotal, phone, lines, order.id);
         if (!c.ok) throw new OrderError(c.message, 'coupon');
@@ -439,7 +441,7 @@ async function getOrder({ id, code }: { id?: number | string | null; code?: stri
   return order;
 }
 
-export type OrderFilter = { status?: string; q?: string; from?: string; to?: string; courier?: string; payment?: string; paymentStatus?: string; phone?: string; source?: string; limit?: number; offset?: number };
+export type OrderFilter = { status?: string; q?: string; from?: string; to?: string; courier?: string; payment?: string; paymentStatus?: string; phone?: string | null; source?: string; limit?: number; offset?: number };
 function orderWhere({ status, q: search, from, to, courier, payment, paymentStatus, phone, source }: OrderFilter, params: unknown[]): string {
   const where: string[] = [];
   if (status) { params.push(status); where.push(`o.status=$${params.length}`); }
@@ -459,11 +461,12 @@ function orderWhere({ status, q: search, from, to, courier, payment, paymentStat
   if (source) { params.push(source); where.push(`o.source=$${params.length}`); }
   return where.length ? 'WHERE ' + where.join(' AND ') : '';
 }
-async function listOrders(opts: OrderFilter = {}): Promise<DbRow[]> {
+export type OrderListed = OrdersRow & { item_count: number | null; item_names: string | null; preorder_qty: number; item_skus: string | null };
+async function listOrders(opts: OrderFilter = {}): Promise<OrderListed[]> {
   const params: (string | number)[] = [];
   const where = orderWhere(opts, params);
   params.push(opts.limit || 50, opts.offset || 0);
-  return q(`SELECT o.*, (SELECT sum(qty)::int FROM order_items WHERE order_id=o.id) AS item_count,
+  return q<OrderListed>(`SELECT o.*, (SELECT sum(qty)::int FROM order_items WHERE order_id=o.id) AS item_count,
               (SELECT string_agg(name || ' ×' || qty, ', ' ORDER BY id) FROM order_items WHERE order_id=o.id) AS item_names,
               (SELECT coalesce(sum(preorder_qty), 0)::int FROM order_items WHERE order_id=o.id) AS preorder_qty,
               (SELECT string_agg(NULLIF(sku,''), ', ' ORDER BY id) FROM order_items WHERE order_id=o.id) AS item_skus
@@ -472,10 +475,10 @@ async function listOrders(opts: OrderFilter = {}): Promise<DbRow[]> {
 async function countOrders(opts: OrderFilter = {}): Promise<number> {
   const params: (string | number)[] = [];
   const where = orderWhere(opts, params);
-  return (await one(`SELECT count(*)::int AS n FROM orders o ${where}`, params))!.n;
+  return (await one<{ n: number }>(`SELECT count(*)::int AS n FROM orders o ${where}`, params))!.n;
 }
 async function statusCounts(): Promise<Record<string, number>> {
-  const rows = await q('SELECT status, count(*)::int AS n FROM orders GROUP BY status');
+  const rows = await q<{ status: string; n: number }>('SELECT status, count(*)::int AS n FROM orders GROUP BY status');
   const out: Record<string, number> = { all: 0 };
   rows.forEach((r) => { out[r.status] = r.n; out.all += r.n; });
   return out;
@@ -507,10 +510,10 @@ async function setStatusTx(id: number, status: string, staffId: number | null | 
     const o = (await t.query<Pick<OrdersRow, 'id' | 'status' | 'payment' | 'payment_status' | 'paid_amount' | 'total' | 'returned_to' | 'coupon_code'>>('SELECT id, status, payment, payment_status, paid_amount, total, returned_to, coupon_code FROM orders WHERE id=$1 FOR UPDATE', [id])).rows[0];
     if (!o) throw new OrderError('অর্ডার পাওয়া যায়নি।');
     if (o.status === status) return { changed: false, prev: o.status };
-    const items = (await t.query<OrderItemsRow>('SELECT * FROM order_items WHERE order_id=$1', [id])).rows;
+    const items = (await t.query<SavedLine>('SELECT * FROM order_items WHERE order_id=$1', [id])).rows;
     const wasReleased = RELEASED.has(o.status);
     const nowReleased = RELEASED.has(status);
-    const partsOf = (it: DbRow): { product_id: number; qty: number }[] => (it.components && it.components.length ? it.components : [{ product_id: it.product_id, qty: it.qty }]);
+    const partsOf = (it: SavedLine): { product_id: number; qty: number }[] => (it.components && it.components.length ? it.components : [{ product_id: it.product_id!, qty: it.qty }]); // (only called for lines that have a product)
     let returnedTo = o.returned_to;
     if (!wasReleased && nowReleased) {
       if (status === 'returned' && opts.damaged) {
@@ -619,7 +622,7 @@ async function updateOrder(id: number, data: UpdateOrderOpts, settings: Settings
     if (Array.isArray(data.items)) {
       const wanted = mergeWanted(data.items);
       if (!wanted.length) throw new OrderError('অর্ডারে অন্তত একটি পণ্য থাকতে হবে।');
-      const oldItems = (await t.query<OrderItemsRow>('SELECT * FROM order_items WHERE order_id=$1', [id])).rows;
+      const oldItems = (await t.query<SavedLine>('SELECT * FROM order_items WHERE order_id=$1', [id])).rows;
       const released = RELEASED.has(o.status);
       if (!released) await releaseLines(t, oldItems, 'edit', id, staffId);
       let lines: OrderLine[];

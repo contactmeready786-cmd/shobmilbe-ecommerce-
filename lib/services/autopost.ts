@@ -264,7 +264,7 @@ async function productFor(words?: Loose) {
     ORDER BY coalesce(p.sold_count,0) DESC, random() LIMIT 1`, [like]).catch(() => null);
 }
 const shortName = (n: string) => { const x = $seo.cleanName(n); return x.length > 70 ? x.slice(0, 70).replace(/\s+\S*$/, '') + '…' : x; };
-const productLink = (p: db.pg.DbRow, settings: Settings, campaign: string) => `${siteBase(settings)}/p/${encodeURIComponent(p.slug)}?utm_source=facebook&utm_medium=social&utm_campaign=${campaign}`;
+const productLink = (p: { slug: string }, settings: Settings, campaign: string) => `${siteBase(settings)}/p/${encodeURIComponent(p.slug)}?utm_source=facebook&utm_medium=social&utm_campaign=${campaign}`;
 const BN_ABC = ['ক', 'খ', 'গ'];
 
 // Builds the post (text + optional product photo). Nothing is sent here, so the admin page can preview it.
@@ -282,7 +282,7 @@ async function buildEngagement(settings: Settings, kind: string) {
   }
   if (kind === 'kit') {
     if (settings.kits_on === '0') return buildEngagement(settings, 'tip');
-    const kits = await db.q(`SELECT k.id, k.slug FROM kits k WHERE k.active AND k.steps <> ''
+    const kits = await db.q<Pick<KitsRow, 'id' | 'slug'>>(`SELECT k.id, k.slug FROM kits k WHERE k.active AND k.steps <> ''
       AND EXISTS (SELECT 1 FROM kit_items i JOIN products p ON p.id=i.product_id WHERE i.kit_id=k.id AND p.active)`).catch(() => []);
     if (!kits.length) return buildEngagement(settings, 'tip');
     const used = await db.q<{ ref: string; at: Date }>(`SELECT ref, max(created_at) AS at FROM social_posts WHERE kind='kit' AND ok GROUP BY ref`).catch(() => []);
@@ -313,7 +313,7 @@ async function buildEngagement(settings: Settings, kind: string) {
     const p = await pickProduct(dhakaNow().weekday);
     if (!p) return null;
     // two wrong answers: parts from the shop with a different name
-    const others = await db.q(`SELECT p.name FROM products p WHERE ${ELIGIBLE} AND p.id <> $1 AND coalesce(p.category_id,0) <> coalesce($2,0) ORDER BY random() LIMIT 6`, [p.id, p.category_id]).catch(() => []);
+    const others = await db.q<Pick<ProductsRow, 'name'>>(`SELECT p.name FROM products p WHERE ${ELIGIBLE} AND p.id <> $1 AND coalesce(p.category_id,0) <> coalesce($2,0) ORDER BY random() LIMIT 6`, [p.id, p.category_id]).catch(() => []);
     const wrong = [...new Set(others.map((o) => shortName(o.name)).filter((n) => n && n !== shortName(p.name)))].slice(0, 2);
     if (wrong.length < 2) return buildEngagement(settings, 'tip');
     const right = Math.floor(Math.random() * 3);

@@ -8,7 +8,7 @@ import { int, str } from '../util';
 import * as $db from '../db';
 import type { DbRow, Tx } from '../pg';
 import type { Settings } from '../types';
-import type { CustomersRow, OrdersRow } from '../data/rows';
+import type { CustomersRow, LoyaltyLedgerRow, OrdersRow } from '../data/rows';
 
 type Id = number | null | undefined;
 
@@ -79,21 +79,23 @@ async function onStatus(t: Tx, orderId: number, prev: string, next: string): Pro
   }
 }
 
-async function forPhone(phone: string): Promise<DbRow | null> {
-  return one('SELECT id, name, points FROM customers WHERE phone=$1', [phone]);
+async function forPhone(phone: string): Promise<Pick<CustomersRow, 'id' | 'name' | 'points'> | null> {
+  return one<Pick<CustomersRow, 'id' | 'name' | 'points'>>('SELECT id, name, points FROM customers WHERE phone=$1', [phone]);
 }
-async function history(customerId: number, limit = 50): Promise<DbRow[]> {
-  return q(`SELECT l.*, o.code AS order_code, s.name AS staff_name FROM loyalty_ledger l LEFT JOIN orders o ON o.id=l.order_id
+export type LedgerLine = LoyaltyLedgerRow & { order_code: string | null; staff_name: string | null };
+async function history(customerId: number, limit = 50): Promise<LedgerLine[]> {
+  return q<LedgerLine>(`SELECT l.*, o.code AS order_code, s.name AS staff_name FROM loyalty_ledger l LEFT JOIN orders o ON o.id=l.order_id
     LEFT JOIN staff s ON s.id=l.staff_id WHERE l.customer_id=$1 ORDER BY l.created_at DESC, l.id DESC LIMIT $2`, [customerId, limit]);
 }
-async function summary(): Promise<DbRow | null> {
-  return one(`SELECT (SELECT coalesce(sum(points),0)::int FROM customers) AS outstanding,
+type LoyaltySummary = { outstanding: number; holders: number; earned30: number; spent30: number };
+async function summary(): Promise<LoyaltySummary | null> {
+  return one<LoyaltySummary>(`SELECT (SELECT coalesce(sum(points),0)::int FROM customers) AS outstanding,
     (SELECT count(*)::int FROM customers WHERE points > 0) AS holders,
     (SELECT coalesce(sum(points),0)::int FROM loyalty_ledger WHERE kind='earn' AND created_at > now() - interval '30 days') AS earned30,
     (SELECT coalesce(-sum(points),0)::int FROM loyalty_ledger WHERE kind='redeem' AND created_at > now() - interval '30 days') AS spent30`);
 }
-async function top(limit = 20): Promise<DbRow[]> {
-  return q('SELECT id, name, phone, points FROM customers WHERE points > 0 ORDER BY points DESC, id LIMIT $1', [limit]);
+async function top(limit = 20): Promise<Pick<CustomersRow, 'id' | 'name' | 'phone' | 'points'>[]> {
+  return q<Pick<CustomersRow, 'id' | 'name' | 'phone' | 'points'>>('SELECT id, name, phone, points FROM customers WHERE points > 0 ORDER BY points DESC, id LIMIT $1', [limit]);
 }
 const KINDS: Record<string, string> = { earn: '➕ অর্ডারে পাওয়া', redeem: '➖ অর্ডারে খরচ', refund: '↩️ বাতিল অর্ডারের পয়েন্ট ফেরত', reverse: '↩️ ফেরত অর্ডারের পয়েন্ট বাদ', respend: '➖ অর্ডার আবার চালু', adjust: '✏️ হাতে বদল' };
 

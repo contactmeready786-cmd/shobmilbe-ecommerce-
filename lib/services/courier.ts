@@ -185,7 +185,9 @@ async function pathaoList(s: Settings, kind: string, parentId?: Id): Promise<Cou
   };
 }
 // Delivery success rate of a phone number across Pathao merchants.
-async function pathaoSuccess(phone: string, s: Settings) {
+/** a number's delivery record at Pathao */
+export type PathaoRecord = { ok: boolean; message?: string; total?: number; success?: number; rating?: string; raw?: unknown };
+async function pathaoSuccess(phone: string, s: Settings): Promise<PathaoRecord> {
   const r = await pathaoFetch(s, '/aladdin/api/v1/user/success', { method: 'POST', body: JSON.stringify({ phone }) });
   if (!r.ok || !r.data) return { ok: false, message: errorText(r) };
   const d = (r.data.data || r.data) as NonNullable<PhAnswer['data']>;

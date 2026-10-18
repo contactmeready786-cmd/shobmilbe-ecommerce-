@@ -7,7 +7,7 @@ import * as $security from '../security';
 import * as $catalog from './catalog';
 import type { Body, Id, Loose, Settings } from '../types';
 import type { Tx } from '../pg';
-import type { ReviewsRow } from '../data/rows';
+import type { OrdersRow, ProductsRow, ReviewsRow } from '../data/rows';
 
 const STATUS: Record<string, string> = { pending: 'অনুমোদনের অপেক্ষায়', approved: 'দেখানো হচ্ছে', hidden: 'লুকানো' };
 
@@ -68,10 +68,10 @@ async function submit({ code, productId, name, rating, body, ip, photos }: Submi
   if (!(r >= 1 && r <= 5)) throw new ReviewError('১ থেকে ৫ এর মধ্যে রেটিং দিন।');
   if (text.length < 5) throw new ReviewError('আপনার মতামত একটু লিখুন।');
   if (/(https?:\/\/|www\.)/i.test(text)) throw new ReviewError('রিভিউতে লিংক দেওয়া যাবে না।');
-  const o = await one('SELECT id, phone, customer_id, customer_name, status FROM orders WHERE code=$1', [str(code, 20).toUpperCase()]);
+  const o = await one<Pick<OrdersRow, 'id' | 'phone' | 'customer_id' | 'customer_name' | 'status'>>('SELECT id, phone, customer_id, customer_name, status FROM orders WHERE code=$1', [str(code, 20).toUpperCase()]);
   if (!o) throw new ReviewError('অর্ডারটি পাওয়া যায়নি।');
   if (o.status !== 'delivered') throw new ReviewError('পণ্য হাতে পাওয়ার (ডেলিভারি হওয়ার) পরে রিভিউ দেওয়া যাবে।');
-  const p = await one('SELECT id, name FROM products WHERE id=$1', [pid]);
+  const p = await one<Pick<ProductsRow, 'id' | 'name'>>('SELECT id, name FROM products WHERE id=$1', [pid]);
   if (!p || !(await orderHas(o.id, pid))) throw new ReviewError('এই পণ্যটি এই অর্ডারে নেই।');
   if (await one('SELECT 1 FROM reviews WHERE order_id=$1 AND product_id=$2', [o.id, pid])) throw new ReviewError('এই অর্ডারের এই পণ্যের রিভিউ আগেই দেওয়া হয়েছে। ধন্যবাদ!');
   const who = str(name, 60) || String(o.customer_name || '').trim().split(/\s+/)[0] || 'কাস্টমার';
@@ -108,13 +108,13 @@ async function list({ status, q: search, productId, limit = 50, offset = 0 }: Bo
   if (productId) { params.push(int(productId)); w.push(`r.product_id=$${params.length}`); }
   if (search) { params.push(`%${search}%`); w.push(`(r.body ILIKE $${params.length} OR r.name ILIKE $${params.length} OR p.name ILIKE $${params.length} OR p.sku ILIKE $${params.length})`); }
   const where = w.length ? 'WHERE ' + w.join(' AND ') : '';
-  const rows = await q(`SELECT r.*, p.name AS product_name, p.slug AS product_slug, p.sku, p.image_id FROM reviews r JOIN products p ON p.id=r.product_id
+  const rows = await q<ReviewsRow & { product_name: string; product_slug: string; sku: string; image_id: number | null }>(`SELECT r.*, p.name AS product_name, p.slug AS product_slug, p.sku, p.image_id FROM reviews r JOIN products p ON p.id=r.product_id
     ${where} ORDER BY (r.status='pending') DESC, r.created_at DESC LIMIT ${int(limit)} OFFSET ${int(offset)}`, params);
-  const total = (await one(`SELECT count(*)::int AS n FROM reviews r JOIN products p ON p.id=r.product_id ${where}`, params))!.n;
+  const total = (await one<{ n: number }>(`SELECT count(*)::int AS n FROM reviews r JOIN products p ON p.id=r.product_id ${where}`, params))!.n;
   return { rows, total };
 }
 async function counts() {
-  const rows = await q(`SELECT status, count(*)::int AS n FROM reviews GROUP BY status`);
+  const rows = await q<{ status: string; n: number }>(`SELECT status, count(*)::int AS n FROM reviews GROUP BY status`);
   const c: Record<string, number> = { pending: 0, approved: 0, hidden: 0, all: 0 };
   rows.forEach((r) => { c[r.status] = r.n; c.all += r.n; });
   return c;
@@ -131,7 +131,7 @@ async function setStatus(id?: Id, status?: Loose) {
   });
 }
 async function reply(id?: Id, text?: unknown) {
-  return one('UPDATE reviews SET reply=$1 WHERE id=$2 RETURNING product_id', [str(text, 1000), int(id)]);
+  return one<Pick<ReviewsRow, 'product_id'>>('UPDATE reviews SET reply=$1 WHERE id=$2 RETURNING product_id', [str(text, 1000), int(id)]);
 }
 async function remove(id?: Id) {
   return tx(async (t) => {

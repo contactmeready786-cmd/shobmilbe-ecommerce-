@@ -8,7 +8,7 @@ import { str } from '../util';
 import * as $services_visitors from '../services/visitors';
 import type { Param } from '../pg';
 import type { Id, Settings, ShopRequest } from '../types';
-import type { AdminSessionsRow } from '../data/rows';
+import type { AdminSessionsRow, LoginHistoryRow, StaffRow } from '../data/rows';
 
 /** One logged-in device (a row of admin_sessions; id is the SHA-256 of the browser's token). */
 export type AdminSession = AdminSessionsRow;
@@ -81,12 +81,12 @@ async function revokeEveryone(why: string, exceptToken: string | null = null): P
 }
 
 async function listFor(staffId: Id, settings: Settings) {
-  return q(`SELECT id, device, ip, place, created_at, last_seen, verified FROM admin_sessions
+  return q<Pick<AdminSessionsRow, 'id' | 'device' | 'ip' | 'place' | 'created_at' | 'last_seen' | 'verified'>>(`SELECT id, device, ip, place, created_at, last_seen, verified FROM admin_sessions
     WHERE staff_id=$1 AND revoked_at IS NULL AND expires_at > now() AND last_seen > now() - make_interval(hours => $2)
     ORDER BY last_seen DESC LIMIT 30`, [staffId, idleHours(settings)]);
 }
 async function listActive(settings: Settings) {
-  return q(`SELECT a.id, a.staff_id, a.device, a.ip, a.place, a.created_at, a.last_seen, s.name, s.username, s.role
+  return q<Pick<AdminSessionsRow, 'id' | 'staff_id' | 'device' | 'ip' | 'place' | 'created_at' | 'last_seen'> & Pick<StaffRow, 'name' | 'username' | 'role'>>(`SELECT a.id, a.staff_id, a.device, a.ip, a.place, a.created_at, a.last_seen, s.name, s.username, s.role
     FROM admin_sessions a JOIN staff s ON s.id=a.staff_id
     WHERE a.revoked_at IS NULL AND a.expires_at > now() AND a.last_seen > now() - make_interval(hours => $1)
     ORDER BY a.last_seen DESC LIMIT 200`, [idleHours(settings)]);
@@ -119,7 +119,7 @@ async function history(f: HistoryFilter = {}, { limit = 100, offset = 0 }: { lim
   const params: Param[] = [];
   const where = historyWhere(f, params);
   params.push(limit, offset);
-  return q(`SELECT h.*, s.name AS staff_name FROM login_history h LEFT JOIN staff s ON s.id=h.staff_id ${where}
+  return q<LoginHistoryRow & { staff_name: string | null }>(`SELECT h.*, s.name AS staff_name FROM login_history h LEFT JOIN staff s ON s.id=h.staff_id ${where}
     ORDER BY h.created_at DESC, h.id DESC LIMIT $${params.length - 1} OFFSET $${params.length}`, params);
 }
 async function countHistory(f: HistoryFilter = {}): Promise<number> {
@@ -128,7 +128,7 @@ async function countHistory(f: HistoryFilter = {}): Promise<number> {
 }
 // Wrong passwords in the last 24 hours, grouped by where they came from.
 async function failedSummary() {
-  return q(`SELECT ip, max(place) AS place, count(*)::int AS n, max(created_at) AS last, string_agg(DISTINCT nullif(login,''), ', ') AS logins
+  return q<{ ip: string; place: string | null; n: number; last: Date; logins: string | null }>(`SELECT ip, max(place) AS place, count(*)::int AS n, max(created_at) AS last, string_agg(DISTINCT nullif(login,''), ', ') AS logins
     FROM login_history WHERE NOT ok AND event IN ('fail','locked','inactive','code_fail') AND created_at > now() - interval '24 hours'
     GROUP BY ip ORDER BY n DESC LIMIT 20`);
 }

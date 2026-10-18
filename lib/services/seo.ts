@@ -34,7 +34,7 @@ function unglue(text: string) { return String(text || '').replace(/([a-z\d)])([A
 const money = (n: number) => '৳' + bn(Math.round(Number(n) || 0).toLocaleString('en-IN'));
 
 // Google title (the shop name " | সবমিলবে" is added after this by the layout)
-function productTitle(p: $db.pg.DbRow) {
+function productTitle(p: { seo_title?: string | null; name: string }) {
   if (p.seo_title && p.seo_title.trim()) return p.seo_title.trim();
   // People in Bangladesh search "<product> price in bd" — so the title says exactly that.
   return `${cut(cleanName(p.name), 52)} Price in BD`;

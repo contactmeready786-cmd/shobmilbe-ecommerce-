@@ -4,7 +4,7 @@
 //   main = total − all other stores.
 // So nothing else in the shop changes: purchases and online orders move the main store; a transfer moves pieces
 // between stores; a counter sale at a branch (POS) takes from that branch (and from the total).
-import type { WarehousesRow, ProductsRow, WarehouseStockRow } from '../data/rows';
+import type { ProductsRow, WarehouseStockRow, WarehousesRow } from '../data/rows';
 import * as db from '../db';
 import { str, int } from '../util';
 import type { Body, Id, Loose } from '../types';
@@ -60,7 +60,7 @@ async function storeStock(whId?: Id, { q = '', limit = 200 }: StoreStockOpts = {
   let where = 's.warehouse_id=$1 AND s.qty > 0';
   if (q) { params.push(`%${q}%`); where += ` AND (p.name ILIKE $2 OR p.sku ILIKE $2 OR p.barcode ILIKE $2)`; }
   params.push(limit);
-  return db.q(`SELECT p.id, p.name, p.sku, p.barcode, p.image_id, p.emoji, p.stock, s.qty,
+  return db.q<Pick<ProductsRow, 'id' | 'name' | 'sku' | 'barcode' | 'image_id' | 'emoji' | 'stock'> & { qty: number; main: number }>(`SELECT p.id, p.name, p.sku, p.barcode, p.image_id, p.emoji, p.stock, s.qty,
       p.stock - (SELECT coalesce(sum(x.qty),0) FROM warehouse_stock x WHERE x.product_id=p.id)::int AS main
     FROM warehouse_stock s JOIN products p ON p.id=s.product_id WHERE ${where} ORDER BY p.name LIMIT $${params.length}`, params);
 }

@@ -233,17 +233,18 @@ async function attachApi(ctx: AdminCtx) {
   const result = await db.tx(async (t) => {
     // lock the product so two runs never add the same picture at the same moment
     await t.query('SELECT id FROM products WHERE id=$1 FOR UPDATE', [pid]);
-    const have = (await t.query(`SELECT id, sha, phash, phash_m, sort FROM media WHERE owner_type='product' AND owner_id=$1 ORDER BY sort, id`, [pid])).rows;
+    const have = (await t.query<Pick<MediaRow, 'id' | 'sha' | 'phash' | 'phash_m' | 'sort'>>(`SELECT id, sha, phash, phash_m, sort FROM media WHERE owner_type='product' AND owner_id=$1 ORDER BY sort, id`, [pid])).rows;
     // only fresh uploads that belong to nobody yet
-    const fresh = ids.length ? (await t.query(`SELECT id, sha, phash, phash_m FROM media WHERE id = ANY($1::int[]) AND owner_type IS NULL`, [ids])).rows : [];
+    const fresh = ids.length ? (await t.query<Pick<MediaRow, 'id' | 'sha' | 'phash' | 'phash_m'>>(`SELECT id, sha, phash, phash_m FROM media WHERE id = ANY($1::int[]) AND owner_type IS NULL`, [ids])).rows : [];
     const byId = new Map(fresh.map((m) => [m.id, m]));
-    const same = (a: db.pg.DbRow, x: db.pg.DbRow) => {
+    type Pic = Pick<MediaRow, 'id' | 'sha' | 'phash' | 'phash_m'>;
+    const same = (a: Pic, x: Pic) => {
       if (a.sha && x.sha && a.sha === x.sha) return true;
-      const ok = (h: string) => typeof h === 'string' && /^[0-9a-f]{64}$/.test(h);
+      const ok = (h: unknown): h is string => typeof h === 'string' && /^[0-9a-f]{64}$/.test(h);
       if (!ok(a.phash) || !ok(x.phash)) return false;
       return hamming(a.phash, x.phash) <= SAME_PHOTO || (ok(a.phash_m) && hamming(a.phash_m, x.phash) <= SAME_PHOTO);
     };
-    const kept = [...have];
+    const kept: Pic[] = [...have];
     let sort = have.reduce((m, x) => Math.max(m, x.sort || 0), -1) + 1;
     let added = 0, repeat = 0;
     for (const id of ids) {

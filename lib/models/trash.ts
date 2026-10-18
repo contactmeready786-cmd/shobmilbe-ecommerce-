@@ -10,43 +10,53 @@
 import { q, one, tx } from '../db';
 import { int } from '../util';
 import * as $catalog from './catalog';
-import type { Body, Id, Loose } from '../types';
-import type { Tx } from '../pg';
+import type { Id } from '../types';
+import type { DbRow, Tx } from '../pg';
 import type { CategoriesRow, MediaRow, TrashRow } from '../data/rows';
-const KINDS: Record<string, Loose> = {
+/** a row of one of the tables below, kept as JSON */
+type Row = DbRow;
+type Kind = { label: string; icon: string; table: string; name: (r: Row) => unknown; children?: [string, string][]; refs?: [string, string][];
+  media?: string; imageCol?: string; guard?: (r: Row) => boolean };
+/** an order line as kept in the bin (a row of order_items) */
+type BinLine = { product_id: number | null; qty: number; components?: { product_id: number; qty: number }[] | null };
+/** what the bin keeps of a deleted thing: its row, the rows that belonged to it, and who pointed at it */
+export type TrashData = { row: Row; children?: Record<string, Row[]> & { 'order_items.order_id'?: BinLine[] }; refs?: Record<string, number[]>; released?: boolean };
+export type TrashEntry = Omit<TrashRow, 'data'> & { data: TrashData };
+type Who = { id?: number | null; name?: string; path?: string; ip?: string };
+const KINDS: Record<string, Kind> = {
   product: {
-    label: 'পণ্য', icon: '📦', table: 'products', name: (r?: Loose) => r.name,
+    label: 'পণ্য', icon: '📦', table: 'products', name: (r) => r.name,
     // its variants (size / colour …) go with it and come back with it
     children: [['bundle_items', 'bundle_id'], ['bundle_items', 'product_id'], ['products', 'parent_id']], media: 'product',
   },
   category: {
-    label: 'ক্যাটাগরি', icon: '🗂️', table: 'categories', name: (r?: Loose) => r.name,
+    label: 'ক্যাটাগরি', icon: '🗂️', table: 'categories', name: (r) => r.name,
     // products in it lose their category; sub-categories move one level up — both remembered for restoring
     refs: [['products', 'category_id'], ['categories', 'parent_id']],
   },
-  blog_post: { label: 'ব্লগ পোস্ট', icon: '📝', table: 'blog_posts', name: (r?: Loose) => r.title, media: 'blog' },
-  blog_category: { label: 'ব্লগ ক্যাটাগরি', icon: '🗂️', table: 'blog_categories', name: (r?: Loose) => r.name, refs: [['blog_posts', 'category_id']] },
-  page: { label: 'পেজ', icon: '📄', table: 'pages', name: (r?: Loose) => r.title },
-  home_row: { label: 'হোমপেজের নিজের সারি', icon: '🏠', table: 'home_rows', name: (r?: Loose) => r.title },
-  banner: { label: 'ব্যানার', icon: '🖼️', table: 'banners', name: (r?: Loose) => r.title || `ব্যানার #${r.id}`, imageCol: 'image_id' },
-  coupon: { label: 'কুপন', icon: '🏷️', table: 'coupons', name: (r?: Loose) => r.code },
-  transaction: { label: 'হিসাবের এন্ট্রি', icon: '💰', table: 'transactions', name: (r?: Loose) => `${r.type} ৳${r.amount}${r.note ? ' — ' + r.note : ''}` },
-  staff: { label: 'স্টাফ', icon: '👤', table: 'staff', name: (r?: Loose) => `${r.name} (${r.username})`, guard: (r?: Loose) => r.role !== 'owner', imageCol: 'photo_id' },
-  research_source: { label: 'রিসার্চের দোকান', icon: '🏪', table: 'research_sources', name: (r?: Loose) => r.name },
-  question: { label: 'পণ্যের প্রশ্ন', icon: '❓', table: 'product_questions', name: (r?: Loose) => String(r.question || '').slice(0, 120) },
-  warehouse: { label: 'গুদাম / শাখা', icon: '🏬', table: 'warehouses', name: (r?: Loose) => r.name, children: [['warehouse_stock', 'warehouse_id']] },
-  customer: { label: 'কাস্টমার', icon: '👤', table: 'customers', name: (r?: Loose) => `${r.name || '(নাম নেই)'} (${r.phone})` },
+  blog_post: { label: 'ব্লগ পোস্ট', icon: '📝', table: 'blog_posts', name: (r) => r.title, media: 'blog' },
+  blog_category: { label: 'ব্লগ ক্যাটাগরি', icon: '🗂️', table: 'blog_categories', name: (r) => r.name, refs: [['blog_posts', 'category_id']] },
+  page: { label: 'পেজ', icon: '📄', table: 'pages', name: (r) => r.title },
+  home_row: { label: 'হোমপেজের নিজের সারি', icon: '🏠', table: 'home_rows', name: (r) => r.title },
+  banner: { label: 'ব্যানার', icon: '🖼️', table: 'banners', name: (r) => r.title || `ব্যানার #${r.id}`, imageCol: 'image_id' },
+  coupon: { label: 'কুপন', icon: '🏷️', table: 'coupons', name: (r) => r.code },
+  transaction: { label: 'হিসাবের এন্ট্রি', icon: '💰', table: 'transactions', name: (r) => `${r.type} ৳${r.amount}${r.note ? ' — ' + r.note : ''}` },
+  staff: { label: 'স্টাফ', icon: '👤', table: 'staff', name: (r) => `${r.name} (${r.username})`, guard: (r) => r.role !== 'owner', imageCol: 'photo_id' },
+  research_source: { label: 'রিসার্চের দোকান', icon: '🏪', table: 'research_sources', name: (r) => r.name },
+  question: { label: 'পণ্যের প্রশ্ন', icon: '❓', table: 'product_questions', name: (r) => String(r.question || '').slice(0, 120) },
+  warehouse: { label: 'গুদাম / শাখা', icon: '🏬', table: 'warehouses', name: (r) => r.name, children: [['warehouse_stock', 'warehouse_id']] },
+  customer: { label: 'কাস্টমার', icon: '👤', table: 'customers', name: (r) => `${r.name || '(নাম নেই)'} (${r.phone})` },
   // a brand: its products stay, they just lose the brand (given back when it is restored)
-  brand: { label: 'ব্র্যান্ড', icon: '🏷️', table: 'brands', name: (r?: Loose) => r.name, refs: [['products', 'brand_id']], imageCol: 'logo_id' },
+  brand: { label: 'ব্র্যান্ড', icon: '🏷️', table: 'brands', name: (r) => r.name, refs: [['products', 'brand_id']], imageCol: 'logo_id' },
   // an order: its items, payments and accounts entries go with it; goods still "taken" go back on the shelf
   order: {
-    label: 'অর্ডার', icon: '🧾', table: 'orders', name: (r?: Loose) => `${r.code} — ${r.customer_name || ''} (${r.phone})`,
+    label: 'অর্ডার', icon: '🧾', table: 'orders', name: (r) => `${r.code} — ${r.customer_name || ''} (${r.phone})`,
     children: [['order_items', 'order_id'], ['payments', 'order_id'], ['transactions', 'order_id']],
   },
 };
 const RELEASED = new Set(['cancelled', 'returned']);
 // Stock of an order's items: back on the shelf (sign +1) when it goes to the bin, taken again (-1) when restored.
-async function orderStock(t: Tx, items?: Loose, sign?: Loose, orderId?: Id, note?: string | undefined) {
+async function orderStock(t: Tx, items: BinLine[], sign: number, orderId: Id, note?: string | undefined) {
   const catalog = $catalog;
   for (const it of items) {
     if (!it.product_id) continue;
@@ -56,24 +66,24 @@ async function orderStock(t: Tx, items?: Loose, sign?: Loose, orderId?: Id, note
   }
 }
 
-async function rowsOf(t: Tx, table?: unknown, col?: unknown, id?: Id) {
-  return (await t.query(`SELECT row_to_json(x) AS r FROM ${table} x WHERE ${col}=$1`, [id])).rows.map((x) => x.r);
+async function rowsOf(t: Tx, table: string, col: string, id: Id): Promise<Row[]> {
+  return (await t.query<{ r: Row }>(`SELECT row_to_json(x) AS r FROM ${table} x WHERE ${col}=$1`, [id])).rows.map((x) => x.r);
 }
 
 // Delete one thing into the bin. who: { id, name, path, ip }. Returns the bin entry id (or null).
-async function move(kind?: Loose, id?: Id, who: Loose = {}) {
+async function move(kind: string, id: Id, who: Who = {}) {
   const K = KINDS[kind];
   if (!K) throw new Error('unknown kind ' + kind);
   id = int(id);
   return tx(async (t) => {
-    const row = (await t.query(`SELECT row_to_json(x) AS r FROM ${K.table} x WHERE id=$1 FOR UPDATE`, [id])).rows[0];
+    const row = (await t.query<{ r: Row }>(`SELECT row_to_json(x) AS r FROM ${K.table} x WHERE id=$1 FOR UPDATE`, [id])).rows[0];
     if (!row) return null;
     const r = row.r;
     if (K.guard && !K.guard(r)) return null;
-    const data: { row: unknown; children: Record<string, unknown[]>; refs: Record<string, number[]>; released?: boolean } = { row: r, children: {}, refs: {} };
+    const data: TrashData & { children: Record<string, Row[]>; refs: Record<string, number[]> } = { row: r, children: {}, refs: {} };
     for (const [table, col] of K.children || []) data.children[`${table}.${col}`] = await rowsOf(t, table, col, id);
     for (const [table, col] of K.refs || []) {
-      data.refs[`${table}.${col}`] = (await t.query(`SELECT id FROM ${table} WHERE ${col}=$1`, [id])).rows.map((x) => x.id);
+      data.refs[`${table}.${col}`] = (await t.query<{ id: number }>(`SELECT id FROM ${table} WHERE ${col}=$1`, [id])).rows.map((x) => x.id);
     }
     // pictures are set aside, not copied
     let media: number[] = [];
@@ -82,12 +92,12 @@ async function move(kind?: Loose, id?: Id, who: Loose = {}) {
     }
     if (K.imageCol && r[K.imageCol]) {
       await t.query(`UPDATE media SET owner_type='trash:' || coalesce(owner_type, '') WHERE id=$1 AND owner_type NOT LIKE 'trash:%'`, [r[K.imageCol]]);
-      media.push(r[K.imageCol]);
+      media.push(int(r[K.imageCol]));
     }
     if (kind === 'category') await t.query('UPDATE categories SET parent_id=$2 WHERE parent_id=$1', [id, r.parent_id || null]);
     if (kind === 'brand') await t.query(`UPDATE products SET brand='', brand_id=NULL WHERE brand_id=$1`, [id]);
     if (kind === 'order') {
-      if (!RELEASED.has(r.status)) {
+      if (!RELEASED.has(String(r.status))) {
         await orderStock(t, data.children['order_items.order_id'] || [], 1, id, 'অর্ডার মুছে ফেলা হয়েছে');
         data.released = true;
       }
@@ -102,7 +112,7 @@ async function move(kind?: Loose, id?: Id, who: Loose = {}) {
 }
 
 // Every product into the bin at once (owner only). Fast: one statement per step, not one per product.
-async function moveAllProducts(who: Loose = {}) {
+async function moveAllProducts(who: Who = {}) {
   return tx(async (t) => {
     const n = (await t.query<{ n: number }>('SELECT count(*)::int AS n FROM products')).rows[0].n;
     if (!n) return 0;
@@ -127,18 +137,18 @@ type ListOpts = {
   offset?: number;
 };
 async function list({ kind = '', limit = 200, offset = 0 }: ListOpts = {}) {
-  const params = [];
+  const params: unknown[] = [];
   let where = '';
   if (KINDS[kind]) { params.push(kind); where = 'WHERE kind=$1'; }
   params.push(limit, offset);
-  return q(`SELECT id, kind, ref_id, name, media, deleted_by, deleted_by_name, from_path, deleted_at,
+  return q<Pick<TrashRow, 'id' | 'kind' | 'ref_id' | 'name' | 'media' | 'deleted_by' | 'deleted_by_name' | 'from_path' | 'deleted_at'> & { sku: string | null; price: string | null; image_id: string | null }>(`SELECT id, kind, ref_id, name, media, deleted_by, deleted_by_name, from_path, deleted_at,
       data->'row'->>'sku' AS sku, data->'row'->>'price' AS price, data->'row'->>'image_id' AS image_id
     FROM trash ${where} ORDER BY deleted_at DESC, id DESC LIMIT $${params.length - 1} OFFSET $${params.length}`, params);
 }
 async function counts() {
-  return q('SELECT kind, count(*)::int AS n FROM trash GROUP BY kind ORDER BY n DESC');
+  return q<{ kind: string; n: number }>('SELECT kind, count(*)::int AS n FROM trash GROUP BY kind ORDER BY n DESC');
 }
-async function get(id?: Id) { return one('SELECT * FROM trash WHERE id=$1', [int(id)]); }
+async function get(id?: Id) { return one<TrashEntry>('SELECT * FROM trash WHERE id=$1', [int(id)]); }
 
 // Put it back exactly as it was (same id). Returns { ok } or { error }.
 async function restore(id?: Id) {
@@ -165,7 +175,7 @@ async function restore(id?: Id) {
       if (e.kind === 'product' && row.parent_id && !(await t.query<{ "?column?": number | null }>('SELECT 1 FROM products WHERE id=$1', [row.parent_id])).rows.length) throw new Error('parent');
       const done = await ins(K.table, row);
       if (!done.rowCount) throw new Error('same');
-      for (const [key, rows] of Object.entries(e.data.children || {}) as [string, Loose[]][]) {
+      for (const [key, rows] of Object.entries<Row[]>(e.data.children || {})) {
         const table = key.split('.')[0];
         for (const r of rows) {
           // only parts whose other side still exists
@@ -176,16 +186,16 @@ async function restore(id?: Id) {
           await ins(table, r);
         }
       }
-      for (const [key, ids] of Object.entries(e.data.refs || {}) as [string, number[]][]) {
+      for (const [key, ids] of Object.entries(e.data.refs || {})) {
         const [table, col] = key.split('.');
         if (ids.length) await t.query(`UPDATE ${table} SET ${col}=$1 WHERE id = ANY($2::int[]) AND ${col} IS NOT DISTINCT FROM $3`,
           [e.ref_id, ids, table === 'categories' ? (e.data.row.parent_id || null) : null]);
       }
-      if (e.kind === 'order' && e.data.released) await orderStock(t, e.data.children['order_items.order_id'] || [], -1, e.ref_id, 'মুছে ফেলা অর্ডার ফেরত আনা হয়েছে');
+      if (e.kind === 'order' && e.data.released) await orderStock(t, e.data.children!['order_items.order_id'] || [], -1, e.ref_id, 'মুছে ফেলা অর্ডার ফেরত আনা হয়েছে');
       if (e.kind === 'brand') await t.query('UPDATE products SET brand=$1 WHERE brand_id=$2', [row.name, e.ref_id]);
       if (e.kind === 'product') {
         const pid = row.parent_id || ((await t.query<{ "?column?": number | null }>('SELECT 1 FROM products WHERE parent_id=$1 LIMIT 1', [e.ref_id])).rows.length ? e.ref_id : null);
-        if (pid) await $catalog.syncVariants(t, pid);
+        if (pid) await $catalog.syncVariants(t, int(pid));
       }
       if (e.media && e.media.length) {
         await t.query(`UPDATE media SET owner_type=substring(owner_type from 7) WHERE id = ANY($1::int[]) AND owner_type LIKE 'trash:%'`, [e.media]);
@@ -217,11 +227,11 @@ async function purge(ids?: unknown) {
   return n;
 }
 async function purgeAll() {
-  const ids = (await q('SELECT id FROM trash')).map((r) => r.id);
+  const ids = (await q<{ id: number }>('SELECT id FROM trash')).map((r) => r.id);
   return purge(ids);
 }
 async function resetSkuIfEmpty() {
-  const left = await one(`SELECT (SELECT count(*)::int FROM products) + (SELECT count(*)::int FROM trash WHERE kind='product') AS n`);
+  const left = await one<{ n: number }>(`SELECT (SELECT count(*)::int FROM products) + (SELECT count(*)::int FROM trash WHERE kind='product') AS n`);
   if (left && left.n === 0) await q(`INSERT INTO settings(key, value) VALUES('sku_counter','0') ON CONFLICT (key) DO UPDATE SET value='0'`);
 }
 

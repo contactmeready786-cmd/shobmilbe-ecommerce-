@@ -1,5 +1,5 @@
 // Suppliers, purchases, money accounts, transactions and financial reports.
-import type { PurchasesRow, ProductsRow, PurchaseItemsRow } from '../data/rows';
+import type { AccountsRow, PurchasesRow, ProductsRow, PurchaseItemsRow, StaffRow, SuppliersRow, TransactionsRow } from '../data/rows';
 import { q, one, tx } from '../db';
 import { int, str, num, randomCode, validYmd, ymd, amount, round2, oneOf } from '../util';
 import * as catalog from './catalog';
@@ -22,22 +22,37 @@ const NON_PNL_INCOME = new Set(['অর্ডার পেমেন্ট', 'ক
 const NON_PNL_EXPENSE = new Set(['সাপ্লায়ার পেমেন্ট', 'মালিকের উত্তোলন', 'ঋণ পরিশোধ', 'ভ্যাট/ট্যাক্স পরিশোধ']);
 const ACCOUNT_TYPES: Record<string, string> = { cash: 'ক্যাশ', bank: 'ব্যাংক', mobile: 'মোবাইল ব্যাংকিং' };
 
+/** a supplier with what was bought from them and paid to them */
+export type SupplierListed = SuppliersRow & { purchased: number; paid: number; purchase_count: number; last_purchase: string | null };
+export type TxListed = TransactionsRow & { account_name: string | null };
+export type SupplierFull = SupplierListed & { purchases: PurchasesRow[]; payments: TxListed[];
+  products: { product_id: number | null; name: string; qty: number; avg_cost: number | null; last_date: string }[] };
+export type PurchaseListed = PurchasesRow & { supplier_name: string | null; lines: number; units: number | null };
+export type PurchaseFull = PurchasesRow & { supplier_name: string | null; staff_name: string | null;
+  items: (PurchaseItemsRow & { sku: string | null; sale_price: number | null; stock: number | null })[]; payments: TxListed[]; paid: number };
+export type AccountListed = AccountsRow & { balance: number };
+export type TxFull = TransactionsRow & { account_name: string | null; to_account_name: string | null; supplier_name: string | null; order_code: string | null;
+  purchase_code: string | null; staff_name: string | null };
+type Amounts = { category: string; amount: number };
+
+
 // ---------------------------------------------------------------- suppliers
-async function listSuppliers({ includeInactive = true }: { includeInactive?: boolean } = {}) {
-  return q(`SELECT s.*,
+async function listSuppliers({ includeInactive = true }: { includeInactive?: boolean } = {}): Promise<SupplierListed[]> {
+  return q<SupplierListed>(`SELECT s.*,
       coalesce((SELECT sum(total) FROM purchases p WHERE p.supplier_id=s.id AND p.status<>'cancelled'),0)::numeric(14,2) AS purchased,
       coalesce((SELECT sum(amount) FROM transactions t WHERE t.supplier_id=s.id AND t.type='expense'),0)::numeric(14,2) AS paid,
       (SELECT count(*) FROM purchases p WHERE p.supplier_id=s.id)::int AS purchase_count,
       (SELECT max(purchase_date) FROM purchases p WHERE p.supplier_id=s.id) AS last_purchase
     FROM suppliers s ${includeInactive ? '' : 'WHERE s.active'} ORDER BY s.active DESC, s.name`);
 }
-async function getSupplier(id: Id) {
-  const s = (await listSuppliers()).find((x) => x.id === id);
-  if (!s) return null;
+async function getSupplier(id: Id): Promise<SupplierFull | null> {
+  const found = (await listSuppliers()).find((x) => x.id === id);
+  if (!found) return null;
+  const s = found as SupplierFull;
   s.purchases = await q<PurchasesRow>(`SELECT * FROM purchases WHERE supplier_id=$1 ORDER BY purchase_date DESC, id DESC LIMIT 100`, [id]);
-  s.payments = await q(`SELECT t.*, a.name AS account_name FROM transactions t LEFT JOIN accounts a ON a.id=t.account_id
+  s.payments = await q<TxListed>(`SELECT t.*, a.name AS account_name FROM transactions t LEFT JOIN accounts a ON a.id=t.account_id
                         WHERE t.supplier_id=$1 ORDER BY t.tx_date DESC, t.id DESC LIMIT 100`, [id]);
-  s.products = await q(`SELECT i.product_id, i.name, sum(i.qty)::int AS qty, round(avg(i.unit_cost), 2) AS avg_cost,
+  s.products = await q<SupplierFull['products'][number]>(`SELECT i.product_id, i.name, sum(i.qty)::int AS qty, round(avg(i.unit_cost), 2) AS avg_cost,
                           max(p.purchase_date) AS last_date
                         FROM purchase_items i JOIN purchases p ON p.id=i.purchase_id
                         WHERE p.supplier_id=$1 AND p.status<>'cancelled' GROUP BY i.product_id, i.name ORDER BY last_date DESC`, [id]);
@@ -61,7 +76,7 @@ async function saveSupplier(data: SaveSupplierOpts) {
     await q(`UPDATE suppliers SET name=$1, company=$2, phone=$3, email=$4, address=$5, note=$6, opening_due=$7, active=$8 WHERE id=$9`, [...f, int(data.id)]);
     return int(data.id);
   }
-  return (await one(`INSERT INTO suppliers(name, company, phone, email, address, note, opening_due, active) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`, f))!.id;
+  return (await one<{ id: number }>(`INSERT INTO suppliers(name, company, phone, email, address, note, opening_due, active) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`, f))!.id;
 }
 function supplierDue(s: { opening_due?: number | null; purchased?: number | null; paid?: number | null }): number { return (s.opening_due || 0) + (s.purchased || 0) - (s.paid || 0); }
 
@@ -73,20 +88,21 @@ async function listPurchases({ supplierId, limit = 100 }: { supplierId?: Id | nu
   let where = '';
   if (supplierId) { params.push(supplierId); where = 'WHERE p.supplier_id=$1'; }
   params.push(limit);
-  return q(`SELECT p.*, s.name AS supplier_name, (SELECT count(*) FROM purchase_items i WHERE i.purchase_id=p.id)::int AS lines,
+  return q<PurchaseListed>(`SELECT p.*, s.name AS supplier_name, (SELECT count(*) FROM purchase_items i WHERE i.purchase_id=p.id)::int AS lines,
               (SELECT sum(qty) FROM purchase_items i WHERE i.purchase_id=p.id)::int AS units
             FROM purchases p LEFT JOIN suppliers s ON s.id=p.supplier_id ${where}
             ORDER BY p.purchase_date DESC, p.id DESC LIMIT $${params.length}`, params);
 }
-async function getPurchase(id: Id) {
-  const p = await one(`SELECT p.*, s.name AS supplier_name, st.name AS staff_name FROM purchases p
+async function getPurchase(id: Id): Promise<PurchaseFull | null> {
+  const row = await one<PurchasesRow & { supplier_name: string | null; staff_name: string | null }>(`SELECT p.*, s.name AS supplier_name, st.name AS staff_name FROM purchases p
                        LEFT JOIN suppliers s ON s.id=p.supplier_id LEFT JOIN staff st ON st.id=p.created_by WHERE p.id=$1`, [id]);
-  if (!p) return null;
-  p.items = await q(`SELECT i.*, pr.sku, pr.price AS sale_price, pr.stock FROM purchase_items i LEFT JOIN products pr ON pr.id=i.product_id
+  if (!row) return null;
+  const p = row as PurchaseFull;
+  p.items = await q<PurchaseFull['items'][number]>(`SELECT i.*, pr.sku, pr.price AS sale_price, pr.stock FROM purchase_items i LEFT JOIN products pr ON pr.id=i.product_id
                      WHERE i.purchase_id=$1 ORDER BY i.id`, [id]);
-  p.payments = await q(`SELECT t.*, a.name AS account_name FROM transactions t LEFT JOIN accounts a ON a.id=t.account_id
+  p.payments = await q<TxListed>(`SELECT t.*, a.name AS account_name FROM transactions t LEFT JOIN accounts a ON a.id=t.account_id
                         WHERE t.purchase_id=$1 ORDER BY t.id`, [id]);
-  p.paid = (p.payments as DbRow[]).reduce((s: number, x) => s + Number(x.amount), 0);
+  p.paid = p.payments.reduce((s: number, x) => s + Number(x.amount), 0);
   return p;
 }
 
@@ -177,8 +193,8 @@ async function setPurchaseStatus(id: Id, status: string, staffId?: Id): Promise<
 }
 
 // ---------------------------------------------------------------- accounts & transactions
-async function listAccounts() {
-  return q(`SELECT a.*, a.opening_balance
+async function listAccounts(): Promise<AccountListed[]> {
+  return q<AccountListed>(`SELECT a.*, a.opening_balance
       + coalesce((SELECT sum(amount) FROM transactions t WHERE t.account_id=a.id AND t.type='income'),0)
       - coalesce((SELECT sum(amount) FROM transactions t WHERE t.account_id=a.id AND t.type IN ('expense','transfer')),0)
       + coalesce((SELECT sum(amount) FROM transactions t WHERE t.to_account_id=a.id AND t.type='transfer'),0) AS balance
@@ -198,7 +214,7 @@ async function saveAccount(data: SaveAccountOpts) {
     await q('UPDATE accounts SET name=$1, type=$2, details=$3, opening_balance=$4, active=$5 WHERE id=$6', [...f, int(data.id)]);
     return int(data.id);
   }
-  return (await one('INSERT INTO accounts(name, type, details, opening_balance, active, sort) VALUES($1,$2,$3,$4,$5,(SELECT coalesce(max(sort),0)+1 FROM accounts)) RETURNING id', f))!.id;
+  return (await one<{ id: number }>('INSERT INTO accounts(name, type, details, opening_balance, active, sort) VALUES($1,$2,$3,$4,$5,(SELECT coalesce(max(sort),0)+1 FROM accounts)) RETURNING id', f))!.id;
 }
 async function addTransaction(data: Body, staffId?: Id) {
   const type = oneOf(['income', 'expense', 'transfer'], data.type, 'expense');
@@ -207,7 +223,7 @@ async function addTransaction(data: Body, staffId?: Id) {
   if (type === 'transfer' && (!int(data.account_id) || !int(data.to_account_id) || int(data.account_id) === int(data.to_account_id))) {
     throw new Error('ট্রান্সফারের জন্য দুটো আলাদা অ্যাকাউন্ট বাছুন।');
   }
-  const row = await one(`INSERT INTO transactions(tx_date, type, category, amount, account_id, to_account_id, supplier_id, order_id, purchase_id, vat, note, created_by)
+  const row = await one<{ id: number }>(`INSERT INTO transactions(tx_date, type, category, amount, account_id, to_account_id, supplier_id, order_id, purchase_id, vat, note, created_by)
     VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING id`,
   [validYmd(data.tx_date) || ymd(), type, type === 'transfer' ? 'ট্রান্সফার' : str(data.category, 60) || 'অন্যান্য', amt,
     int(data.account_id) || null, type === 'transfer' ? int(data.to_account_id) : null, int(data.supplier_id) || null,
@@ -224,7 +240,7 @@ async function listTransactions({ from, to, type, accountId, category, limit = 2
   if (category) { params.push(category); where.push(`t.category = $${params.length}`); }
   if (accountId) { params.push(accountId); where.push(`(t.account_id = $${params.length} OR t.to_account_id = $${params.length})`); }
   params.push(limit);
-  return q(`SELECT t.*, a.name AS account_name, a2.name AS to_account_name, s.name AS supplier_name, o.code AS order_code,
+  return q<TxFull>(`SELECT t.*, a.name AS account_name, a2.name AS to_account_name, s.name AS supplier_name, o.code AS order_code,
               p.code AS purchase_code, st.name AS staff_name
             FROM transactions t LEFT JOIN accounts a ON a.id=t.account_id LEFT JOIN accounts a2 ON a2.id=t.to_account_id
             LEFT JOIN suppliers s ON s.id=t.supplier_id LEFT JOIN orders o ON o.id=t.order_id
@@ -237,12 +253,12 @@ const DHAKA_DAY = `(o.created_at AT TIME ZONE 'Asia/Dhaka')::date`;
 
 // Profit & loss for a date range. Sales are counted on delivered orders (by delivery date).
 async function profitLoss(from: Day, to: Day) {
-  const sales = await one(`SELECT count(*)::int AS orders, coalesce(sum(subtotal),0)::numeric(14,2) AS goods, coalesce(sum(discount + points_discount),0)::numeric(14,2) AS discount,
+  const sales = await one<{ orders: number; goods: number; discount: number; delivery: number; revenue: number; cogs: number }>(`SELECT count(*)::int AS orders, coalesce(sum(subtotal),0)::numeric(14,2) AS goods, coalesce(sum(discount + points_discount),0)::numeric(14,2) AS discount,
       coalesce(sum(delivery),0)::numeric(14,2) AS delivery, coalesce(sum(total),0)::numeric(14,2) AS revenue, coalesce(sum(cost_total),0)::numeric(14,2) AS cogs
     FROM orders o WHERE status='delivered' AND (coalesce(delivered_at, updated_at) AT TIME ZONE 'Asia/Dhaka')::date BETWEEN $1 AND $2`, [from, to]);
-  const returns = await one(`SELECT count(*)::int AS n FROM orders o WHERE status='returned' AND (updated_at AT TIME ZONE 'Asia/Dhaka')::date BETWEEN $1 AND $2`, [from, to]);
-  const exp = await q(`SELECT category, sum(amount)::numeric(14,2) AS amount FROM transactions WHERE type='expense' AND tx_date BETWEEN $1 AND $2 GROUP BY category ORDER BY amount DESC`, [from, to]);
-  const inc = await q(`SELECT category, sum(amount)::numeric(14,2) AS amount FROM transactions WHERE type='income' AND tx_date BETWEEN $1 AND $2 GROUP BY category ORDER BY amount DESC`, [from, to]);
+  const returns = await one<{ n: number }>(`SELECT count(*)::int AS n FROM orders o WHERE status='returned' AND (updated_at AT TIME ZONE 'Asia/Dhaka')::date BETWEEN $1 AND $2`, [from, to]);
+  const exp = await q<Amounts>(`SELECT category, sum(amount)::numeric(14,2) AS amount FROM transactions WHERE type='expense' AND tx_date BETWEEN $1 AND $2 GROUP BY category ORDER BY amount DESC`, [from, to]);
+  const inc = await q<Amounts>(`SELECT category, sum(amount)::numeric(14,2) AS amount FROM transactions WHERE type='income' AND tx_date BETWEEN $1 AND $2 GROUP BY category ORDER BY amount DESC`, [from, to]);
   const expenses = exp.filter((e) => !NON_PNL_EXPENSE.has(e.category));
   const otherIncome = inc.filter((e) => !NON_PNL_INCOME.has(e.category));
   const expenseTotal = expenses.reduce((s, e) => s + Number(e.amount), 0);
@@ -259,13 +275,13 @@ async function profitLoss(from: Day, to: Day) {
 async function vatReport(settings: Settings, year: number | string) {
   const rate = num(settings.vat_rate, 15);
   const mode = settings.vat_mode || 'none';
-  const rows = await q(`SELECT to_char(coalesce(delivered_at, updated_at) AT TIME ZONE 'Asia/Dhaka', 'YYYY-MM') AS month,
+  const rows = await q<{ month: string; goods: number; cogs: number; orders: number }>(`SELECT to_char(coalesce(delivered_at, updated_at) AT TIME ZONE 'Asia/Dhaka', 'YYYY-MM') AS month,
       coalesce(sum(subtotal - discount - points_discount),0)::numeric(14,2) AS goods, coalesce(sum(cost_total),0)::numeric(14,2) AS cogs, count(*)::int AS orders
     FROM orders WHERE status='delivered' AND extract(year from coalesce(delivered_at, updated_at) AT TIME ZONE 'Asia/Dhaka') = $1
     GROUP BY 1 ORDER BY 1`, [year]);
-  const input = await q(`SELECT to_char(purchase_date, 'YYYY-MM') AS month, coalesce(sum(vat),0)::numeric(14,2) AS vat
+  const input = await q<{ month: string; vat: number }>(`SELECT to_char(purchase_date, 'YYYY-MM') AS month, coalesce(sum(vat),0)::numeric(14,2) AS vat
     FROM purchases WHERE status='received' AND extract(year from purchase_date) = $1 GROUP BY 1`, [year]);
-  const paid = await q(`SELECT to_char(tx_date, 'YYYY-MM') AS month, coalesce(sum(amount),0)::numeric(14,2) AS amount
+  const paid = await q<{ month: string; amount: number }>(`SELECT to_char(tx_date, 'YYYY-MM') AS month, coalesce(sum(amount),0)::numeric(14,2) AS amount
     FROM transactions WHERE type='expense' AND category='ভ্যাট/ট্যাক্স পরিশোধ' AND extract(year from tx_date) = $1 GROUP BY 1`, [year]);
   const months: { month: string; orders: number; goods: number; cogs: number; output: number; input: number; payable: number; paid: number }[] = [];
   for (let m = 1; m <= 12; m++) {
@@ -286,7 +302,7 @@ async function vatReport(settings: Settings, year: number | string) {
 
 // Daily series for charts.
 async function dailySeries(from: Day, to: Day) {
-  return q(`SELECT d::date AS day,
+  return q<{ day: string; orders: number; sales: number; profit: number; delivered: number }>(`SELECT d::date AS day,
       coalesce((SELECT count(*) FROM orders o WHERE ${DHAKA_DAY} = d::date),0)::int AS orders,
       coalesce((SELECT sum(total) FROM orders o WHERE ${DHAKA_DAY} = d::date AND o.status NOT IN ('cancelled','returned')),0)::numeric(14,2) AS sales,
       coalesce((SELECT sum(total - cost_total - delivery) FROM orders o WHERE ${DHAKA_DAY} = d::date AND o.status NOT IN ('cancelled','returned')),0)::int AS profit,
@@ -294,7 +310,7 @@ async function dailySeries(from: Day, to: Day) {
     FROM generate_series($1::date, $2::date, interval '1 day') d ORDER BY d`, [from, to]);
 }
 async function monthlySeries(months: number | string = 12) {
-  return q(`SELECT to_char(m, 'YYYY-MM') AS month,
+  return q<{ month: string; sales: number; gross: number; expenses: number }>(`SELECT to_char(m, 'YYYY-MM') AS month,
       coalesce((SELECT sum(total) FROM orders o WHERE date_trunc('month', o.created_at AT TIME ZONE 'Asia/Dhaka') = m AND o.status NOT IN ('cancelled','returned')),0)::numeric(14,2) AS sales,
       coalesce((SELECT sum(total - cost_total - delivery) FROM orders o WHERE date_trunc('month', o.created_at AT TIME ZONE 'Asia/Dhaka') = m AND o.status NOT IN ('cancelled','returned')),0)::numeric(14,2) AS gross,
       coalesce((SELECT sum(amount) FROM transactions t WHERE date_trunc('month', t.tx_date) = m AND t.type='expense'
@@ -304,7 +320,7 @@ async function monthlySeries(months: number | string = 12) {
 }
 
 async function dashboard(from: Day, to: Day) {
-  const k = await one(`SELECT
+  const k = await one<{ orders: number; pending_in_range: number; delivered: number; failed: number; sales: number; gross: number; aov: number; buyers: number }>(`SELECT
       count(*)::int AS orders,
       count(*) FILTER (WHERE status='pending')::int AS pending_in_range,
       count(*) FILTER (WHERE status='delivered')::int AS delivered,
@@ -314,7 +330,7 @@ async function dashboard(from: Day, to: Day) {
       coalesce(avg(total) FILTER (WHERE status NOT IN ('cancelled','returned')),0)::numeric(14,2) AS aov,
       count(DISTINCT phone)::int AS buyers
     FROM orders o WHERE ${DHAKA_DAY} BETWEEN $1 AND $2`, [from, to]);
-  const live = await one(`SELECT
+  const live = await one<Record<'pending' | 'to_ship' | 'shipped' | 'today_orders' | 'today_sales' | 'customers' | 'new_customers' | 'products' | 'out_of_stock' | 'low_stock' | 'week_sales' | 'week_orders' | 'month_sales' | 'month_orders' | 'cancel_return_30', number>>(`SELECT
       (SELECT count(*) FROM orders WHERE status='pending')::int AS pending,
       (SELECT count(*) FROM orders WHERE status IN ('confirmed','processing'))::int AS to_ship,
       (SELECT count(*) FROM orders WHERE status='shipped')::int AS shipped,
@@ -330,19 +346,19 @@ async function dashboard(from: Day, to: Day) {
       (SELECT coalesce(sum(total),0) FROM orders o WHERE date_trunc('month', ${DHAKA_DAY}) = date_trunc('month', (now() AT TIME ZONE 'Asia/Dhaka')::date) AND status NOT IN ('cancelled','returned'))::numeric(14,2) AS month_sales,
       (SELECT count(*) FROM orders o WHERE date_trunc('month', ${DHAKA_DAY}) = date_trunc('month', (now() AT TIME ZONE 'Asia/Dhaka')::date))::int AS month_orders,
       (SELECT count(*) FROM orders WHERE status IN ('cancelled','returned') AND updated_at > now() - interval '30 days')::int AS cancel_return_30`, [from, to]);
-  const byStatus = await q(`SELECT status, count(*)::int AS n FROM orders o WHERE ${DHAKA_DAY} BETWEEN $1 AND $2 GROUP BY status`, [from, to]);
-  const topProducts = await q(`SELECT i.product_id, i.name, sum(i.qty)::int AS qty, sum(i.qty * i.price)::numeric(14,2) AS revenue,
+  const byStatus = await q<{ status: string; n: number }>(`SELECT status, count(*)::int AS n FROM orders o WHERE ${DHAKA_DAY} BETWEEN $1 AND $2 GROUP BY status`, [from, to]);
+  const topProducts = await q<{ product_id: number | null; name: string; qty: number; revenue: number; profit: number | null }>(`SELECT i.product_id, i.name, sum(i.qty)::int AS qty, sum(i.qty * i.price)::numeric(14,2) AS revenue,
       sum(i.qty * (i.price - i.cost))::numeric(14,2) AS profit
     FROM order_items i JOIN orders o ON o.id=i.order_id WHERE ${DHAKA_DAY} BETWEEN $1 AND $2 AND o.status NOT IN ('cancelled','returned')
     GROUP BY i.product_id, i.name ORDER BY qty DESC LIMIT 8`, [from, to]);
-  const byCategory = await q(`SELECT coalesce(c.name, 'ক্যাটাগরি নেই') AS name, sum(i.qty * i.price)::numeric(14,2) AS revenue
+  const byCategory = await q<{ name: string; revenue: number }>(`SELECT coalesce(c.name, 'ক্যাটাগরি নেই') AS name, sum(i.qty * i.price)::numeric(14,2) AS revenue
     FROM order_items i JOIN orders o ON o.id=i.order_id LEFT JOIN products p ON p.id=i.product_id LEFT JOIN categories c ON c.id=p.category_id
     WHERE ${DHAKA_DAY} BETWEEN $1 AND $2 AND o.status NOT IN ('cancelled','returned') GROUP BY 1 ORDER BY 2 DESC LIMIT 8`, [from, to]);
-  const byZone = await q(`SELECT area, count(*)::int AS n FROM orders o WHERE ${DHAKA_DAY} BETWEEN $1 AND $2 GROUP BY area`, [from, to]);
-  const byPayment = await q(`SELECT payment, count(*)::int AS n FROM orders o WHERE ${DHAKA_DAY} BETWEEN $1 AND $2 GROUP BY payment ORDER BY n DESC`, [from, to]);
-  const byDistrict = await q(`SELECT coalesce(nullif(district,''),'অজানা') AS district, count(*)::int AS n FROM orders o WHERE ${DHAKA_DAY} BETWEEN $1 AND $2 GROUP BY 1 ORDER BY 2 DESC LIMIT 8`, [from, to]);
-  const byHour = await q(`SELECT extract(hour from o.created_at AT TIME ZONE 'Asia/Dhaka')::int AS h, count(*)::int AS n FROM orders o WHERE ${DHAKA_DAY} BETWEEN $1 AND $2 GROUP BY 1`, [from, to]);
-  const expenses = await one(`SELECT coalesce(sum(amount),0)::numeric(14,2) AS total FROM transactions WHERE type='expense' AND tx_date BETWEEN $1 AND $2
+  const byZone = await q<{ area: string; n: number }>(`SELECT area, count(*)::int AS n FROM orders o WHERE ${DHAKA_DAY} BETWEEN $1 AND $2 GROUP BY area`, [from, to]);
+  const byPayment = await q<{ payment: string; n: number }>(`SELECT payment, count(*)::int AS n FROM orders o WHERE ${DHAKA_DAY} BETWEEN $1 AND $2 GROUP BY payment ORDER BY n DESC`, [from, to]);
+  const byDistrict = await q<{ district: string; n: number }>(`SELECT coalesce(nullif(district,''),'অজানা') AS district, count(*)::int AS n FROM orders o WHERE ${DHAKA_DAY} BETWEEN $1 AND $2 GROUP BY 1 ORDER BY 2 DESC LIMIT 8`, [from, to]);
+  const byHour = await q<{ h: number; n: number }>(`SELECT extract(hour from o.created_at AT TIME ZONE 'Asia/Dhaka')::int AS h, count(*)::int AS n FROM orders o WHERE ${DHAKA_DAY} BETWEEN $1 AND $2 GROUP BY 1`, [from, to]);
+  const expenses = await one<{ total: number }>(`SELECT coalesce(sum(amount),0)::numeric(14,2) AS total FROM transactions WHERE type='expense' AND tx_date BETWEEN $1 AND $2
       AND category NOT IN ('সাপ্লায়ার পেমেন্ট','মালিকের উত্তোলন','ঋণ পরিশোধ','ভ্যাট/ট্যাক্স পরিশোধ')`, [from, to]);
   const inventory = await catalog.inventorySummary();
   const lowStock = await catalog.listProducts({ includeInactive: false, lowStock: true, sort: 'stock_asc', limit: 8, type: 'single', items: true });
@@ -350,7 +366,7 @@ async function dashboard(from: Day, to: Day) {
 }
 
 async function staffReport(from: Day, to: Day) {
-  return q(`SELECT s.id, s.name, s.role, s.active, s.last_login,
+  return q<Pick<StaffRow, 'id' | 'name' | 'role' | 'active' | 'last_login'> & Record<'actions' | 'confirmed' | 'cancelled' | 'edits' | 'created' | 'sent' | 'logins', number>>(`SELECT s.id, s.name, s.role, s.active, s.last_login,
       (SELECT count(*) FROM activity_log a WHERE a.staff_id=s.id AND (a.created_at AT TIME ZONE 'Asia/Dhaka')::date BETWEEN $1 AND $2)::int AS actions,
       (SELECT count(*) FROM activity_log a WHERE a.staff_id=s.id AND a.action='order_status' AND a.detail LIKE '%→ confirmed%' AND (a.created_at AT TIME ZONE 'Asia/Dhaka')::date BETWEEN $1 AND $2)::int AS confirmed,
       (SELECT count(*) FROM activity_log a WHERE a.staff_id=s.id AND a.action='order_status' AND a.detail LIKE '%→ cancelled%' AND (a.created_at AT TIME ZONE 'Asia/Dhaka')::date BETWEEN $1 AND $2)::int AS cancelled,

@@ -4,7 +4,7 @@
 //   receiver by SMS; at checkout the code pays part or all of an order. Cancelled / returned order → money back on the card.
 //   Referral: every customer has a code. A new customer who orders with it gets a discount; when that first order is
 //   delivered, the customer who shared the code gets a gift card (Admin → মার্কেটিং → রেফারেল ও গিফট কার্ড).
-import type { GiftCardsRow, OrdersRow, CustomersRow } from '../data/rows';
+import type { CustomersRow, GiftCardsRow, OrdersRow } from '../data/rows';
 import * as db from '../db';
 import { str, int, amount, round2, randomCode, normalizePhone, validPhone, ymd, bn } from '../util';
 import * as $services_sms from '../services/sms';
@@ -24,7 +24,7 @@ function pretty(code: unknown): string { const c = cleanCode(code); return c.len
 type NewCard = { amount: unknown; status?: string; source?: string; buyerName?: unknown; buyerPhone?: unknown; recipientName?: unknown; recipientPhone?: unknown; message?: unknown;
   validDays?: unknown; payMethod?: unknown; trxId?: unknown; payNumber?: unknown; price?: unknown; customerId?: Id; note?: unknown; staffId?: Id; ip?: unknown };
 async function issue({ amount: amt, status = 'active', source = 'admin', buyerName = '', buyerPhone = '', recipientName = '', recipientPhone = '', message = '',
-  validDays = 0, payMethod = '', trxId = '', payNumber = '', price = null, customerId = null, note = '', staffId = null, ip = '' }: NewCard): Promise<DbRow> {
+  validDays = 0, payMethod = '', trxId = '', payNumber = '', price = null, customerId = null, note = '', staffId = null, ip = '' }: NewCard): Promise<GiftCardsRow> {
   const a = round2(amount(amt));
   if (!(a >= 1) || a > 100000) throw new GiftError('গিফট কার্ডের টাকার পরিমাণ ঠিক নেই।');
   const rp = recipientPhone ? normalizePhone(recipientPhone) : '';
@@ -113,12 +113,12 @@ async function respendOrder(orderId: number) {
   });
 }
 
-async function list({ status = '', q = '', limit = 100 }: { status?: string; q?: string; limit?: number } = {}): Promise<DbRow[]> {
+async function list({ status = '', q = '', limit = 100 }: { status?: string; q?: string; limit?: number } = {}): Promise<(GiftCardsRow & { staff_name: string | null })[]> {
   const params: unknown[] = []; const where: string[] = [];
   if (STATUSES[status]) { params.push(status); where.push(`g.status=$${params.length}`); }
   if (q) { params.push(`%${cleanCode(q) || q}%`, `%${q}%`); where.push(`(g.code ILIKE $${params.length - 1} OR g.recipient_phone ILIKE $${params.length} OR g.buyer_phone ILIKE $${params.length} OR g.recipient_name ILIKE $${params.length})`); }
   params.push(limit);
-  return db.q(`SELECT g.*, s.name AS staff_name FROM gift_cards g LEFT JOIN staff s ON s.id=g.created_by ${where.length ? 'WHERE ' + where.join(' AND ') : ''} ORDER BY g.id DESC LIMIT $${params.length}`, params);
+  return db.q<GiftCardsRow & { staff_name: string | null }>(`SELECT g.*, s.name AS staff_name FROM gift_cards g LEFT JOIN staff s ON s.id=g.created_by ${where.length ? 'WHERE ' + where.join(' AND ') : ''} ORDER BY g.id DESC LIMIT $${params.length}`, params);
 }
 async function stats() {
   return db.one<{ n: number; pending: number; outstanding: number; sold: number; rewards: number }>(`SELECT count(*)::int AS n, count(*) FILTER (WHERE status='pending')::int AS pending,
@@ -126,12 +126,12 @@ async function stats() {
     coalesce(sum(initial) FILTER (WHERE status<>'pending' AND source<>'referral'),0)::numeric(14,2) AS sold,
     coalesce(sum(initial) FILTER (WHERE source='referral'),0)::numeric(14,2) AS rewards FROM gift_cards`);
 }
-async function get(id: unknown): Promise<DbRow | null> { return db.one<GiftCardsRow>('SELECT * FROM gift_cards WHERE id=$1', [int(id)]); }
-async function ledger(cardId: unknown): Promise<DbRow[]> {
+async function get(id: unknown): Promise<GiftCardsRow | null> { return db.one<GiftCardsRow>('SELECT * FROM gift_cards WHERE id=$1', [int(id)]); }
+async function ledger(cardId: unknown) {
   return db.q<{ id: number; card_id: number; order_id: number | null; amount: number; balance: number; note: string; staff_id: number | null; created_at: Date; order_code: string | null; staff_name: string | null }>(`SELECT l.*, o.code AS order_code, s.name AS staff_name FROM gift_card_ledger l LEFT JOIN orders o ON o.id=l.order_id LEFT JOIN staff s ON s.id=l.staff_id
     WHERE l.card_id=$1 ORDER BY l.id`, [int(cardId)]);
 }
-async function forPhone(phone: unknown): Promise<DbRow[]> {
+async function forPhone(phone: unknown): Promise<GiftCardsRow[]> {
   const ph = normalizePhone(phone);
   return db.q<GiftCardsRow>(`SELECT * FROM gift_cards WHERE (recipient_phone=$1 OR buyer_phone=$1) ORDER BY id DESC LIMIT 30`, [ph]);
 }
@@ -175,13 +175,14 @@ async function refCodeFor(customerId: unknown): Promise<string | null> {
   }
   return null;
 }
-async function referrerFor(code: unknown): Promise<DbRow | null> {
+type Referrer = Pick<CustomersRow, 'id' | 'name' | 'phone' | 'ref_code'>;
+async function referrerFor(code: unknown): Promise<Referrer | null> {
   const c = cleanCode(code);
   if (!c || c.length < 4) return null;
   return db.one<Pick<CustomersRow, 'id' | 'name' | 'phone' | 'ref_code'>>('SELECT id, name, phone, ref_code FROM customers WHERE upper(ref_code)=$1', [c]);
 }
 // May this phone use this referral code? (a new customer, not the code's own owner, order big enough)
-type ReferralCheck = { ok: boolean; message: string; discount?: number; referrer?: DbRow };
+type ReferralCheck = { ok: boolean; message: string; discount?: number; referrer?: Referrer };
 async function checkReferral(settings: Settings, code: unknown, phone: unknown, subtotal: number, exceptOrderId: unknown = 0): Promise<ReferralCheck> {
   const R = refCfg(settings);
   if (!R.on || !R.friendGets) return { ok: false, message: 'এই কোডটা সঠিক নয়।' };
@@ -197,7 +198,7 @@ async function checkReferral(settings: Settings, code: unknown, phone: unknown, 
   return { ok: true, referrer: ref, discount, message: `রেফারেল কোড যোগ হয়েছে — ৳${bn(discount)} ছাড়!` };
 }
 // The friend's first order was delivered: the person who shared the code gets the gift card (once).
-async function rewardReferral(settings: Settings, orderId: number): Promise<DbRow | null> {
+async function rewardReferral(settings: Settings, orderId: number): Promise<GiftCardsRow | null> {
   const R = refCfg(settings);
   if (!R.on || !R.youGet) return null;
   const o = await db.one<Pick<OrdersRow, 'id' | 'code' | 'ref_by' | 'customer_name'>>(`UPDATE orders SET ref_rewarded=true WHERE id=$1 AND ref_by IS NOT NULL AND NOT ref_rewarded AND status='delivered' RETURNING id, code, ref_by, customer_name`, [int(orderId)]);
