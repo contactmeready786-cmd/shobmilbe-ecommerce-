@@ -4,7 +4,7 @@ import { raw, bn, money, int, str, fmtDate, ifKey } from '../util';
 import * as db from '../db';
 import * as R from '../services/research';
 import * as ui from './ui';
-import type { AdminCtx, Loose, Caught } from '../types';
+import type { AdminCtx, Caught } from '../types';
 
 const TABS = [['winning', '🏆 উইনিং প্রোডাক্ট'], ['find', '🔍 প্রোডাক্ট খুঁজুন'], ['new', '🆕 বাজারে নতুন'], ['drops', '📉 দাম কমেছে'], ['demand', '🔎 আপনার কাস্টমার যা খুঁজছে'], ['sources', '🏪 যেসব দোকান দেখা হচ্ছে']];
 
@@ -15,7 +15,7 @@ function ago(d: string | number | Date | null) {
   return m < 1 ? 'এইমাত্র' : m < 60 ? `${bn(m)} মিনিট আগে` : m < 1440 ? `${bn(Math.round(m / 60))} ঘণ্টা আগে` : `${bn(Math.round(m / 1440))} দিন আগে`;
 }
 
-function winningCard(g?: Loose, i?: Loose, segment = '') {
+function winningCard(g: Awaited<ReturnType<typeof R.winners>>[number], i: number, segment = '') {
   const links = R.sourcingLinks(g.term);
   return <article className="rs-card"><div className="rs-rank">{bn(i + 1)}</div><a className="rs-pic" href={attrValue(g.best.url)} target="_blank" rel="noopener noreferrer">{pic(g.lead.image)}</a><div className="rs-body"><h3><a href={attrValue(g.lead.url)} target="_blank" rel="noopener noreferrer"><Val v={g.lead.title} /></a></h3><p className="rs-why">{jsxList(g.why.slice(0, 4).map((w: unknown) => <span><Val v={w} /></span>))}</p><div className="rs-nums"><div><small>বাজারে দাম</small><b>{(g.min === g.max ? money(g.min) : <>{money(g.min)}{' '}–{' '}{money(g.max)}</>)}</b><small>সবচেয়ে কম:{' '}<Val v={g.best.shop} /></small></div><div><small>আপনি বিক্রি করতে পারেন</small><b className="good">{(g.sell ? money(g.sell) : "—")}</b><small>বাজারের মাঝামাঝি দামের সামান্য কম</small></div><div><small>এর চেয়ে কমে কিনলে লাভ</small><b className="warn">{(g.buyMax ? money(g.buyMax) : "—")}</b><small>কেনা দাম এর মধ্যে রাখুন</small></div><div><small>আপনার দোকানে</small>{oursCell(g.oursAll || [], g.best.url, g.min, g.max, `/admin/research${segment ? `?seg=${segment}` : ''}`)}</div></div><p className="rs-src"><small>কোথা থেকে কিনবেন খুঁজুন:</small>{' '}{jsxList(links.map(([l, u]) => <a href={attrValue(u)} target="_blank" rel="noopener noreferrer"><Val v={l} /></a>))}</p><p className="rs-shops small muted">যে দোকানে আছে:{' '}{jsxList(g.items.slice(0, 5).map((x: { url: unknown; shop: unknown; price: unknown; rank: unknown; }) => <><a href={attrValue(x.url)} target="_blank" rel="noopener noreferrer"><Val v={x.shop} />{' '}({money(x.price)}{(x.rank ? `, #${bn(x.rank)}` : null)})</a>{' '}</>))}</p></div></article>;
 }
@@ -24,12 +24,12 @@ function winningCard(g?: Loose, i?: Loose, segment = '') {
 // The import page opens in the SAME tab: a new tab on a phone is handed to the customer app
 // (it owns shobmilbe.com links), which never opens admin pages.
 function impLink(url: string | number | boolean, back: string | number | boolean) { return `/admin/products/import?url=${encodeURIComponent(url)}${back ? `&back=${encodeURIComponent(back)}` : ''}`; }
-function oursCell(list?: Loose, url?: Loose, min?: Loose, max?: Loose, back = '/admin/research') {
+function oursCell(list: { id: number; name: string; price: number; match: number; active?: boolean; via?: string; cost_price?: number | null }[], url: string, min?: number | null, max?: number | null, back = '/admin/research') {
   if (!list.length) return <><b className="bad">নেই</b><small><a href={attrValue(impLink(url, back))}>➕ তথ্য কপি করে আনুন →</a></small></>;
   const sure = list[0].match >= 0.85;
   const p = list[0];
   const priceNote = min && max ? (Number(p.price) > max ? '⚠️ বাজারের চেয়ে বেশি দাম' : Number(p.price) < min ? 'বাজারের চেয়ে কম দাম' : 'দাম বাজারের মধ্যে') : '';
-  return <><b className={sure ? '' : 'warn'}>{(sure ? (list.length > 1 ? `আছে (${bn(list.length)}টি)` : "আছে") : "সম্ভবত আছে")}</b>{' '}{jsxList(list.slice(0, 3).map((x: Loose) => <small><a href={`/admin/products/${attrValue(x.id)}`}>{(x.name.length > 46 ? (x.name.slice(0, 44) + '…') : <Val v={x.name} />)}{' '}—{' '}{money(x.price)}</a>{(x.active === false ? " (বন্ধ)" : null)}{(x.via === 'link' ? " · এই দোকান থেকেই আনা" : null)}</small>))}{' '}{(sure ? (priceNote || p.cost_price ? <small><Val v={priceNote} />{(p.cost_price ? ` · কেনা ${money(p.cost_price)}` : null)}</small> : null) : <small>নাম পুরো মেলেনি — মিলিয়ে দেখুন।{' '}<a href={attrValue(impLink(url, back))}>আলাদা হলে আনুন →</a></small>)}</>;
+  return <><b className={sure ? '' : 'warn'}>{(sure ? (list.length > 1 ? `আছে (${bn(list.length)}টি)` : "আছে") : "সম্ভবত আছে")}</b>{' '}{jsxList(list.slice(0, 3).map((x) => <small><a href={`/admin/products/${attrValue(x.id)}`}>{(x.name.length > 46 ? (x.name.slice(0, 44) + '…') : <Val v={x.name} />)}{' '}—{' '}{money(x.price)}</a>{(x.active === false ? " (বন্ধ)" : null)}{(x.via === 'link' ? " · এই দোকান থেকেই আনা" : null)}</small>))}{' '}{(sure ? (priceNote || p.cost_price ? <small><Val v={priceNote} />{(p.cost_price ? ` · কেনা ${money(p.cost_price)}` : null)}</small> : null) : <small>নাম পুরো মেলেনি — মিলিয়ে দেখুন।{' '}<a href={attrValue(impLink(url, back))}>আলাদা হলে আনুন →</a></small>)}</>;
 }
 
 // another shop seen on Google: paste its link once, every later search includes it
@@ -54,7 +54,7 @@ async function findTab(ctx: AdminCtx) {
   const prices = r.items.map((x) => Number(x.price)).filter((x) => x > 0);
   const parts = r.items.filter((x) => !x.made);
   const made = r.items.filter((x) => x.made);
-  const rows = (list?: Loose) => <div className="table-wrap panel"><table className="table rs-find-table"><thead><tr><th></th><th>পণ্য</th><th>দোকান</th><th className="num">দাম</th><th>আপনার দোকানে</th></tr></thead><tbody>{jsxList(list.map((x: Loose) => <tr className={x.ours.length ? 'rs-have' : ''}><td className="thumb">{pic(x.image)}</td><td><a href={attrValue(x.url)} target="_blank" rel="noopener noreferrer"><Val v={x.title} /></a>{(x.category ? <><br /><span className="small muted"><Val v={x.category} /></span></> : null)}</td><td className="small"><Val v={x.shop} />{(x.in_stock === false ? <><br /><span className="bad">স্টক নেই</span></> : null)}</td><td className="num">{(x.price ? <><b>{money(x.price)}</b>{(x.regular_price ? <><br /><s className="small muted">{money(x.regular_price)}</s></> : null)}</> : "—")}</td><td className="rs-ours">{(x.ours.length ? oursCell(x.ours, x.url, 0, 0, back) : <a className="btn btn-sm" href={attrValue(impLink(x.url, back))}>➕ যোগ করুন</a>)}</td></tr>))}</tbody></table></div>;
+  const rows = (list: typeof r.items) => <div className="table-wrap panel"><table className="table rs-find-table"><thead><tr><th></th><th>পণ্য</th><th>দোকান</th><th className="num">দাম</th><th>আপনার দোকানে</th></tr></thead><tbody>{jsxList(list.map((x) => <tr className={x.ours.length ? 'rs-have' : ''}><td className="thumb">{pic(x.image)}</td><td><a href={attrValue(x.url)} target="_blank" rel="noopener noreferrer"><Val v={x.title} /></a>{(x.category ? <><br /><span className="small muted"><Val v={x.category} /></span></> : null)}</td><td className="small"><Val v={x.shop} />{(x.in_stock === false ? <><br /><span className="bad">স্টক নেই</span></> : null)}</td><td className="num">{(x.price ? <><b>{money(x.price)}</b>{(x.regular_price ? <><br /><s className="small muted">{money(x.regular_price)}</s></> : null)}</> : "—")}</td><td className="rs-ours">{(x.ours.length ? oursCell(x.ours, x.url, 0, 0, back) : <a className="btn btn-sm" href={attrValue(impLink(x.url, back))}>➕ যোগ করুন</a>)}</td></tr>))}</tbody></table></div>;
   return <>{form}{shopLine}<div className="rs-status panel"><span>📦{' '}<b>{bn(r.items.length)}</b>টি পাওয়া গেছে</span><span>🏪{' '}<b>{bn(new Set(r.items.map((x) => x.shop)).size)}</b>টি দোকানে</span>{' '}{(prices.length ? <span>💰 বাজারে দাম{' '}<b>{money(Math.min(...prices))}{' '}–{' '}{money(Math.max(...prices))}</b></span> : null)}{' '}<span>{(have ? <>✅{' '}<b>{bn(have)}</b>টি আপনার দোকানে আছে</> : "❌ আপনার দোকানে একটাও নেই")}</span></div>{(made.length && parts.length ? <h2 className="rs-sec">🔹 শুধু পার্ট / IC{' '}<small>{bn(parts.length)}টি</small></h2> : null)}{' '}{(parts.length ? rows(parts) : null)}{' '}{(made.length ? <><h2 className="rs-sec">🔸 এটা দিয়ে বানানো বোর্ড / মডিউল / কিট{' '}<small>{bn(made.length)}টি — প্রতিটা আলাদা পণ্য</small></h2>{rows(made)}</> : null)}{' '}{addShop(term)}</>;
 }
 

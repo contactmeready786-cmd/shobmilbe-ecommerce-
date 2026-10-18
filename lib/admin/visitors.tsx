@@ -12,8 +12,8 @@ import type { AdminCtx, Loose, Settings, RouteMatch } from '../types';
 const BASE = '/admin/marketing/visitors';
 const PER_PAGE = 50;
 const COUNTRY_PATH = `${BASE}/countries`;
-const DEVICES: Record<string, Loose> = { mobile: ['📱', 'মোবাইল'], desktop: ['💻', 'কম্পিউটার'], tablet: ['📲', 'ট্যাবলেট'] };
-const EVENT_LABELS: Record<string, Loose> = {
+const DEVICES: Record<string, [string, string]> = { mobile: ['📱', 'মোবাইল'], desktop: ['💻', 'কম্পিউটার'], tablet: ['📲', 'ট্যাবলেট'] };
+const EVENT_LABELS: Record<string, [string, string]> = {
   add_to_cart: ['🛒', 'কার্টে যোগ করেছে'], begin_checkout: ['🧾', 'চেকআউট শুরু করেছে'], purchase: ['✅', 'অর্ডার করেছে'],
   search: ['🔎', 'খুঁজেছে'], contact: ['📞', 'যোগাযোগ বাটনে চাপ দিয়েছে'],
 };
@@ -25,7 +25,7 @@ function dur(sec?: unknown) {
   if (s < 3600) return bn(Math.floor(s / 60)) + ' মি' + (s % 60 ? ' ' + bn(s % 60) + ' সে' : '');
   return bn(Math.floor(s / 3600)) + ' ঘ ' + bn(Math.floor((s % 3600) / 60)) + ' মি';
 }
-function ago(d?: Loose) {
+function ago(d: string | number | Date) {
   const s = Math.max(0, Math.round((Date.now() - new Date(d).getTime()) / 1000));
   if (s < 60) return 'এইমাত্র';
   if (s < 3600) return bn(Math.floor(s / 60)) + ' মিনিট আগে';
@@ -38,7 +38,7 @@ function where(row: V.SessionListed) {
   return <><span className="va-place" title={attrValue(p.country)}>{ui.flag(row.country)}{' '}<Val v={p.text} /></span>{netBadge(row)}{(row.suspicious ? <>{' '}<a className="pill pill-red va-alert" href={`/admin/security/threats?ip=${attrValue(encodeURIComponent(row.ip))}`} title="এই IP থেকে সাইটের ক্ষতি করার চেষ্টা হয়েছে — দেখুন">🚨 সন্দেহজনক</a></> : null)}</>;
 }
 // 🛡️ = foreign IP but the phone's clock is set to Bangladesh (VPN/proxy); 🌍 = really abroad
-const NET: Record<string, Loose> = {
+const NET: Record<string, [string, string, string, string]> = {
   vpn: ['🛡️', 'VPN / প্রক্সি', 'IP বিদেশের, কিন্তু ফোন/কম্পিউটারের ঘড়ি বাংলাদেশের সময়ে — সম্ভবত বাংলাদেশ থেকেই VPN বা প্রক্সি দিয়ে এসেছে', 'pill-amber'],
   abroad: ['🌍', 'বিদেশ থেকে', 'IP আর ঘড়ি দুটোই বিদেশের — দেশের বাইরে থেকে এসেছে', 'pill-blue'],
 };
@@ -123,12 +123,12 @@ async function overviewPage(ctx: AdminCtx) {
   return ctx.page('ভিজিটর অ্যানালিটিক্স', body, 'visitors');
 }
 
-function funnel(steps?: Loose) {
+function funnel(steps: [string, number][]) {
   const top = steps[0][1] || 0;
-  return <ol className="funnel">{jsxList(steps.map(([label, n]: Loose[], i?: number) => {
+  return <ol className="funnel">{jsxList(steps.map(([label, n], i) => {
     const w = top ? Math.max(3, (100 * n) / top) : 0;
     const prev = i ? steps[i - 1][1] : null;
-    return <li><span className="fn-label"><Val v={label} /></span><span className="fn-track"><span className="fn-fill" style={styleOf(`width:${w.toFixed(1)}%`)}></span></span>{' '}<span className="fn-val"><b>{bn(n)}</b>{(i ? <>{' '}<small><Val v={rate(n, prev)} /></small></> : null)}</span></li>;
+    return <li><span className="fn-label"><Val v={label} /></span><span className="fn-track"><span className="fn-fill" style={styleOf(`width:${w.toFixed(1)}%`)}></span></span>{' '}<span className="fn-val"><b>{bn(n)}</b>{(i ? <>{' '}<small><Val v={rate(n, prev!)} /></small></> : null)}</span></li>;
   }))}</ol>;
 }
 
@@ -165,16 +165,17 @@ async function sessionsPage(ctx: AdminCtx) {
 
 // ---------------------------------------------------------------- one visit
 async function sessionPage(ctx: AdminCtx, m: RouteMatch) {
-  const x: Loose = await V.getSession(m[1]);
+  const x = await V.getSession(m[1]);
   if (!x) return ctx.back(`${BASE}?tab=sessions`);
   const s = ctx.settings;
   // one timeline: pages and actions in the order they happened
-  const timeline: Loose[] = [
-    ...x.views.map((v: Loose) => ({ at: v.created_at, kind: 'page', v })),
-    ...x.events.map((e: Loose) => ({ at: e.created_at, kind: 'event', e })),
+  type Step = { at: Date; kind: 'page'; v: (typeof x.views)[number]; e?: undefined } | { at: Date; kind: 'event'; e: (typeof x.events)[number]; v?: undefined };
+  const timeline: Step[] = [
+    ...x.views.map((v): Step => ({ at: v.created_at, kind: 'page', v })),
+    ...x.events.map((e): Step => ({ at: e.created_at, kind: 'event', e })),
   ].sort((a, b) => +new Date(a.at) - +new Date(b.at) || (a.kind === 'page' ? -1 : 1));
   const p = V.place(x);
-  const body = <><p className="crumbs"><a href={`${attrValue(BASE)}?tab=sessions`}>← সব ভিজিট</a></p><div className="title-row"><h1>একটি ভিজিটের বিস্তারিত</h1></div><div className="two-col"><section className="panel"><h2>ভিজিটর কে</h2><dl className="dl">{(x.visitor_name || x.visitor_phone ? <><dt>নাম / ফোন</dt><dd><b><Val v={x.visitor_name} /></b>{' '}<Val v={x.visitor_phone} />{(x.visitor_phone ? <>{' '}·{' '}<a href={`/admin/customers?q=${attrValue(x.visitor_phone)}`}>কাস্টমার দেখুন</a></> : null)}</dd></> : null)}<dt>লোকেশন (IP থেকে)</dt><dd>{ui.flag(x.country)}{' '}<Val v={p.text} />{(x.country ? <>{' '}<span className="muted">(<Val v={p.country} />)</span></> : null)}{netBadge(x)}</dd>{(NET[x.net] ? <><dt></dt><dd className="small muted"><Val v={NET[x.net][2]} /></dd></> : null)}{' '}{(x.o_address || x.o_district ? <><dt>ডেলিভারি ঠিকানা</dt><dd translate="no">🏠{' '}{[x.o_address, x.o_thana, x.o_district].filter(Boolean).join(', ')}</dd></> : null)}{' '}{(x.tz ? <><dt>ডিভাইসের ঘড়ি</dt><dd><Val v={x.tz} /></dd></> : null)}<dt>IP ঠিকানা</dt><dd><Val v={x.ip || '—'} /></dd><dt>ডিভাইস</dt><dd>{device(x.device)}{(phoneName(x) ? <>{' '}·{' '}<b translate="no"><Val v={phoneName(x)} /></b></> : null)}{' '}·{' '}<Val v={x.os} />{' '}·{' '}<Val v={x.browser} />{(x.screen ? <>{' '}· স্ক্রিন{' '}<Val v={x.screen} /></> : null)}</dd><dt>ভাষা</dt><dd><Val v={x.lang || '—'} /></dd><dt>প্রথম এসেছিল</dt><dd>{fmtDate(x.first_seen)}</dd><dt>মোট এসেছে</dt><dd>{bn(x.total_visits)}{' '}বার ·{' '}{bn(x.total_pageviews)}টি পেজ{(x.total_orders ? <>{' '}·{' '}<b className="good">{bn(x.total_orders)}টি অর্ডার</b></> : null)}</dd></dl>{(x.others.length ? <p><a className="btn btn-sm btn-ghost" href={`${attrValue(BASE)}?tab=sessions&visitor=${attrValue(x.visitor_id)}`}>এই ভিজিটরের সব ভিজিট ({bn(x.others.length + 1)})</a></p> : null)}</section><section className="panel"><h2>এই ভিজিট</h2><dl className="dl"><dt>শুরু</dt><dd>{fmtDate(x.started_at)}{' '}<span className="muted">(<Val v={ago(x.started_at)} />)</span></dd><dt>শেষ দেখা</dt><dd>{fmtDate(x.last_seen)}</dd><dt>সাইটে ছিল</dt><dd><b><Val v={dur(x.duration)} /></b>{' '}(সক্রিয় সময়)</dd><dt>পেজ দেখেছে</dt><dd>{bn(x.pageviews)}টি</dd><dt>কোথা থেকে</dt><dd>{sourcePill(x)}{' '}<span className="muted small"><Val v={x.medium} /></span>{(x.campaign ? <>{' '}· ক্যাম্পেইন:{' '}<b><Val v={x.campaign} /></b></> : null)}</dd>{(x.referrer ? <><dt>রেফারার</dt><dd className="small break"><Val v={x.referrer} /></dd></> : null)}<dt>ফলাফল</dt><dd>{(x.order_code ? <a className="pill pill-green" href={`/admin/orders?q=${attrValue(x.order_code)}`}>✅ অর্ডার{' '}<Val v={x.order_code} /></a> : <span className="muted">অর্ডার করেনি</span>)}</dd></dl></section></div><section className="panel"><h2>কী কী করেছে (ধাপে ধাপে)</h2>{(timeline.length ? <ol className="journey">{jsxList(timeline.map((t) => (t.kind === 'page' ? <li className="j-page"><time><Val v={fmtTime(t.at)} /></time><div>{pageCell(t.v.path, t.v.product_name || t.v.title, s)}{' '}<small className="muted">{(t.v.duration ? `${dur(t.v.duration)} ছিল` : "সময় জানা যায়নি")}{(t.v.scroll ? ` · ${bn(t.v.scroll)}% পর্যন্ত স্ক্রল` : null)}</small></div></li> : <li className="j-event"><time><Val v={fmtTime(t.at)} /></time><div><b><Val v={(EVENT_LABELS[t.e.event] || ['•'])[0]} />{' '}<Val v={(EVENT_LABELS[t.e.event] || ['', t.e.event])[1]} /></b>{' '}{(t.e.label ? <>:{' '}<Val v={t.e.label} /></> : null)}{(t.e.value ? <>{' '}<span className="muted">({money(t.e.value)})</span></> : null)}</div></li>)))}</ol> : <p className="muted">কোনো পেজের তথ্য নেই।</p>)}</section>{(x.others.length ? <section className="panel"><h2>এই ভিজিটরের আগের/পরের ভিজিট</h2><div className="table-wrap"><table className="table"><thead><tr><th>কখন</th><th>কোথা থেকে</th><th className="num">পেজ</th><th className="num">সময়</th><th>ফলাফল</th></tr></thead><tbody>{jsxList(x.others.map((o: Loose) => <tr><td><a href={`${attrValue(BASE)}/s/${attrValue(o.id)}`}>{fmtDate(o.started_at)}</a></td><td><Val v={o.source} /></td><td className="num">{bn(o.pageviews)}</td><td className="num"><Val v={dur(o.duration)} /></td><td>{(o.order_code ? <span className="pill pill-green">অর্ডার{' '}<Val v={o.order_code} /></span> : null)}</td></tr>))}</tbody></table></div></section> : null)}</>;
+  const body = <><p className="crumbs"><a href={`${attrValue(BASE)}?tab=sessions`}>← সব ভিজিট</a></p><div className="title-row"><h1>একটি ভিজিটের বিস্তারিত</h1></div><div className="two-col"><section className="panel"><h2>ভিজিটর কে</h2><dl className="dl">{(x.visitor_name || x.visitor_phone ? <><dt>নাম / ফোন</dt><dd><b><Val v={x.visitor_name} /></b>{' '}<Val v={x.visitor_phone} />{(x.visitor_phone ? <>{' '}·{' '}<a href={`/admin/customers?q=${attrValue(x.visitor_phone)}`}>কাস্টমার দেখুন</a></> : null)}</dd></> : null)}<dt>লোকেশন (IP থেকে)</dt><dd>{ui.flag(x.country)}{' '}<Val v={p.text} />{(x.country ? <>{' '}<span className="muted">(<Val v={p.country} />)</span></> : null)}{netBadge(x)}</dd>{(NET[x.net] ? <><dt></dt><dd className="small muted"><Val v={NET[x.net][2]} /></dd></> : null)}{' '}{(x.o_address || x.o_district ? <><dt>ডেলিভারি ঠিকানা</dt><dd translate="no">🏠{' '}{[x.o_address, x.o_thana, x.o_district].filter(Boolean).join(', ')}</dd></> : null)}{' '}{(x.tz ? <><dt>ডিভাইসের ঘড়ি</dt><dd><Val v={x.tz} /></dd></> : null)}<dt>IP ঠিকানা</dt><dd><Val v={x.ip || '—'} /></dd><dt>ডিভাইস</dt><dd>{device(x.device)}{(phoneName(x) ? <>{' '}·{' '}<b translate="no"><Val v={phoneName(x)} /></b></> : null)}{' '}·{' '}<Val v={x.os} />{' '}·{' '}<Val v={x.browser} />{(x.screen ? <>{' '}· স্ক্রিন{' '}<Val v={x.screen} /></> : null)}</dd><dt>ভাষা</dt><dd><Val v={x.lang || '—'} /></dd><dt>প্রথম এসেছিল</dt><dd>{fmtDate(x.first_seen)}</dd><dt>মোট এসেছে</dt><dd>{bn(x.total_visits)}{' '}বার ·{' '}{bn(x.total_pageviews)}টি পেজ{(x.total_orders ? <>{' '}·{' '}<b className="good">{bn(x.total_orders)}টি অর্ডার</b></> : null)}</dd></dl>{(x.others.length ? <p><a className="btn btn-sm btn-ghost" href={`${attrValue(BASE)}?tab=sessions&visitor=${attrValue(x.visitor_id)}`}>এই ভিজিটরের সব ভিজিট ({bn(x.others.length + 1)})</a></p> : null)}</section><section className="panel"><h2>এই ভিজিট</h2><dl className="dl"><dt>শুরু</dt><dd>{fmtDate(x.started_at)}{' '}<span className="muted">(<Val v={ago(x.started_at)} />)</span></dd><dt>শেষ দেখা</dt><dd>{fmtDate(x.last_seen)}</dd><dt>সাইটে ছিল</dt><dd><b><Val v={dur(x.duration)} /></b>{' '}(সক্রিয় সময়)</dd><dt>পেজ দেখেছে</dt><dd>{bn(x.pageviews)}টি</dd><dt>কোথা থেকে</dt><dd>{sourcePill(x)}{' '}<span className="muted small"><Val v={x.medium} /></span>{(x.campaign ? <>{' '}· ক্যাম্পেইন:{' '}<b><Val v={x.campaign} /></b></> : null)}</dd>{(x.referrer ? <><dt>রেফারার</dt><dd className="small break"><Val v={x.referrer} /></dd></> : null)}<dt>ফলাফল</dt><dd>{(x.order_code ? <a className="pill pill-green" href={`/admin/orders?q=${attrValue(x.order_code)}`}>✅ অর্ডার{' '}<Val v={x.order_code} /></a> : <span className="muted">অর্ডার করেনি</span>)}</dd></dl></section></div><section className="panel"><h2>কী কী করেছে (ধাপে ধাপে)</h2>{(timeline.length ? <ol className="journey">{jsxList(timeline.map((t) => (t.kind === 'page' ? <li className="j-page"><time><Val v={fmtTime(t.at)} /></time><div>{pageCell(t.v.path, t.v.product_name || t.v.title, s)}{' '}<small className="muted">{(t.v.duration ? `${dur(t.v.duration)} ছিল` : "সময় জানা যায়নি")}{(t.v.scroll ? ` · ${bn(t.v.scroll)}% পর্যন্ত স্ক্রল` : null)}</small></div></li> : <li className="j-event"><time><Val v={fmtTime(t.at)} /></time><div><b><Val v={(EVENT_LABELS[t.e.event] || ['•'])[0]} />{' '}<Val v={(EVENT_LABELS[t.e.event] || ['', t.e.event])[1]} /></b>{' '}{(t.e.label ? <>:{' '}<Val v={t.e.label} /></> : null)}{(t.e.value ? <>{' '}<span className="muted">({money(t.e.value)})</span></> : null)}</div></li>)))}</ol> : <p className="muted">কোনো পেজের তথ্য নেই।</p>)}</section>{(x.others.length ? <section className="panel"><h2>এই ভিজিটরের আগের/পরের ভিজিট</h2><div className="table-wrap"><table className="table"><thead><tr><th>কখন</th><th>কোথা থেকে</th><th className="num">পেজ</th><th className="num">সময়</th><th>ফলাফল</th></tr></thead><tbody>{jsxList(x.others.map((o) => <tr><td><a href={`${attrValue(BASE)}/s/${attrValue(o.id)}`}>{fmtDate(o.started_at)}</a></td><td><Val v={o.source} /></td><td className="num">{bn(o.pageviews)}</td><td className="num"><Val v={dur(o.duration)} /></td><td>{(o.order_code ? <span className="pill pill-green">অর্ডার{' '}<Val v={o.order_code} /></span> : null)}</td></tr>))}</tbody></table></div></section> : null)}</>;
   return ctx.page('ভিজিটের বিস্তারিত', body, 'visitors');
 }
 function fmtTime(d: string | number | Date) {

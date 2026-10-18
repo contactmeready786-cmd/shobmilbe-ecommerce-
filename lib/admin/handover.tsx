@@ -23,10 +23,12 @@ async function findOrder(code?: unknown) {
   const r = await db.one<Pick<OrdersRow, 'id'>>(`SELECT id FROM orders WHERE upper(code)=$1 OR (consignment_id<>'' AND upper(consignment_id)=$1) OR (coalesce(tracking_code,'')<>'' AND upper(tracking_code)=$1) ORDER BY id DESC LIMIT 1`, [c]);
   return r ? O.getOrder({ id: r.id }) : null;
 }
-function view(o?: Loose) {
+/** one thing to pick and scan (a bundle's parts each on their own) */
+type PackLine = { product_id: number | null; name: string; qty: number; barcode: string; sku?: string; image: string; location?: string };
+function view(o: O.Order) {
   const due = Math.max(0, Number(o.total) - Number(o.paid_amount || 0));
   // each product line with what its barcode is (bundles: the parts inside)
-  const lines: unknown[] = [];
+  const lines: PackLine[] = [];
   for (const it of o.items) {
     if (Array.isArray(it.components) && it.components.length) {
       for (const c of it.components) lines.push({ product_id: c.product_id, name: `${c.name || it.name} (প্যাকেজের ভেতরে)`, qty: c.qty * (it.qty || 1), barcode: c.barcode || '', image: it.image_id ? `/media/${it.image_id}/t` : '' });
@@ -45,16 +47,17 @@ async function partsBarcodes(order: O.Order) {
   if (!ids.length) return;
   const rows = await db.q<Pick<ProductsRow, 'id' | 'name' | 'barcode'>>('SELECT id, name, barcode FROM products WHERE id = ANY($1::int[])', [ids]);
   const m = new Map(rows.map((r) => [r.id, r]));
-  for (const it of order.items) if (Array.isArray(it.components)) it.components.forEach((c: Loose) => { const p = m.get(c.product_id); if (p) { c.barcode = p.barcode; c.name = c.name || p.name; } });
+  for (const it of order.items) if (Array.isArray(it.components)) it.components.forEach((c) => { const p = m.get(c.product_id); if (p) { c.barcode = p.barcode; c.name = c.name || p.name; } });
 }
 
 // 📍 which box each product sits in, so whoever packs finds it at once
-async function addLocations(view?: Loose) {
-  const ids = view.items.map((x: Loose) => x.product_id).filter(Boolean);
+const viewOf = view;
+async function addLocations(view: ReturnType<typeof viewOf>) {
+  const ids = view.items.map((x) => x.product_id).filter(Boolean);
   if (!ids.length) return view;
   const rows = await db.q<Pick<ProductsRow, 'id' | 'location'>>("SELECT id, location FROM products WHERE id = ANY($1::int[]) AND location <> ''", [ids]);
   const m = new Map(rows.map((r) => [r.id, r.location]));
-  view.items.forEach((x: { location: string; product_id: number; }) => { x.location = m.get(x.product_id) || ''; });
+  view.items.forEach((x) => { x.location = m.get(x.product_id!) || ''; });
   return view;
 }
 async function lookup(ctx: AdminCtx) {

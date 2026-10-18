@@ -26,8 +26,8 @@ type TransferFormProps = {
   to?: string;
   back?: string | "/admin/warehouses";
 };
-function transferForm(stores?: Loose, { from = '', to = '', back = BASE }: TransferFormProps = {}) {
-  const opts = [['0', '🏠 মূল গুদাম (অনলাইন)'], ...stores.filter((w: Loose) => w.active).map((w: Loose) => [w.id, `${w.is_shop ? '🏪' : '🏬'} ${w.name}`])];
+function transferForm(stores: Awaited<ReturnType<typeof W.list>>, { from = '', to = '', back = BASE }: TransferFormProps = {}) {
+  const opts = [['0', '🏠 মূল গুদাম (অনলাইন)'], ...stores.filter((w) => w.active).map((w) => [w.id, `${w.is_shop ? '🏪' : '🏬'} ${w.name}`])];
   return <form method="post" action={attrValue(BASE)} className="form"><input type="hidden" name="action" defaultValue="transfer" /><input type="hidden" name="back" defaultValue={attrValue(back)} />{' '}{ui.field('পণ্য (SKU, বারকোড স্ক্যান বা নাম)', ui.input('code', '', { required: true, maxlength: 100, autocomplete: 'off', placeholder: 'যেমন 125 বা SB000125' }))}<div className="field-row">{ui.field('কোথা থেকে', ui.select('from', opts, from || '0'))}{ui.field('কোথায়', ui.select('to', opts, to || (stores[0] ? stores[0].id : '0')))}{' '}{ui.field('কয়টি', ui.input('qty', '1', { type: 'number', min: 1, required: true, class: 'w-num' }))}</div>{ui.field('নোট (ঐচ্ছিক)', ui.input('note', '', { maxlength: 200 }))}{' '}<button className="btn btn-sm">🔁 স্থানান্তর করুন</button></form>;
 }
 
@@ -72,9 +72,9 @@ async function listPage(ctx: AdminCtx) {
   return ctx.page('গুদাম ও শাখা', body, 'warehouses');
 }
 
-function movesTable(moves?: Loose) {
+function movesTable(moves: Awaited<ReturnType<typeof W.moves>>) {
   if (!moves.length) return <p className="muted">এখনো কিছু নেই।</p>;
-  return <table className="table compact"><thead><tr><th>সময়</th><th>পণ্য</th><th className="num">পরিমাণ</th><th>কোথা থেকে → কোথায়</th><th>কী</th><th>কে</th></tr></thead><tbody>{jsxList(moves.map((m: Loose) => <tr><td className="small nowrap">{fmtDate(m.created_at)}</td><td><Val v={m.name || '—'} />{' '}<span className="small muted"><Val v={m.sku || ''} /></span></td><td className="num">{bn(m.qty)}</td><td className="small">{(m.from_wh ? <Val v={m.from_name || '—'} /> : (m.reason === 'sale_cancel' ? "ক্রেতা" : "🏠 মূল"))}{' '}→{' '}{(m.to_wh ? <Val v={m.to_name || '—'} /> : (m.reason === 'sale' ? "ক্রেতা" : "🏠 মূল"))}</td><td className="small"><Val v={REASON[m.reason] || m.reason} />{(m.order_code ? <>{' '}<a href={`/admin/orders/${attrValue(m.ref_id)}`}><Val v={m.order_code} /></a></> : null)}{(m.note ? ` · ${m.note}` : null)}</td><td className="small"><Val v={m.staff_name || ''} /></td></tr>))}</tbody></table>;
+  return <table className="table compact"><thead><tr><th>সময়</th><th>পণ্য</th><th className="num">পরিমাণ</th><th>কোথা থেকে → কোথায়</th><th>কী</th><th>কে</th></tr></thead><tbody>{jsxList(moves.map((m) => <tr><td className="small nowrap">{fmtDate(m.created_at)}</td><td><Val v={m.name || '—'} />{' '}<span className="small muted"><Val v={m.sku || ''} /></span></td><td className="num">{bn(m.qty)}</td><td className="small">{(m.from_wh ? <Val v={m.from_name || '—'} /> : (m.reason === 'sale_cancel' ? "ক্রেতা" : "🏠 মূল"))}{' '}→{' '}{(m.to_wh ? <Val v={m.to_name || '—'} /> : (m.reason === 'sale' ? "ক্রেতা" : "🏠 মূল"))}</td><td className="small"><Val v={REASON[m.reason] || m.reason} />{(m.order_code ? <>{' '}<a href={`/admin/orders/${attrValue(m.ref_id)}`}><Val v={m.order_code} /></a></> : null)}{(m.note ? ` · ${m.note}` : null)}</td><td className="small"><Val v={m.staff_name || ''} /></td></tr>))}</tbody></table>;
 }
 
 async function storePage(ctx: AdminCtx, m: RouteMatch) {

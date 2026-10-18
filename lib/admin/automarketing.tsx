@@ -108,8 +108,8 @@ async function post(ctx: AdminCtx) {
     if (r.fbError) parts.push('Facebook ❌ ' + r.fbError);
     if (r.ig) parts.push('Instagram ✅');
     if (r.igError) parts.push('Instagram ❌ ' + r.igError);
-    await ctx.log('create', 'marketing', null, `অটো পোস্ট (এখনই): ${r.product.name}`);
-    return ctx.back(`${BASE}?${r.fbError && !r.fb ? 'err' : 'info'}=${encodeURIComponent(`${r.product.name} — ${parts.join(' · ') || 'কোনো চ্যানেল চালু নেই'}`)}`);
+    await ctx.log('create', 'marketing', null, `অটো পোস্ট (এখনই): ${r.product!.name}`);
+    return ctx.back(`${BASE}?${r.fbError && !r.fb ? 'err' : 'info'}=${encodeURIComponent(`${r.product!.name} — ${parts.join(' · ') || 'কোনো চ্যানেল চালু নেই'}`)}`);
   }
   if (b.action === 'engage') {
     if (!s.autopost_page_token) return ctx.fail(BASE, 'আগে Facebook পেজ যুক্ত করুন।');

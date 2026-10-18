@@ -5,7 +5,7 @@
 //   a line "/p/slug" → product card placeholder (filled by the caller),
 //   | a | b | rows → a table (first row = heading; a |---| row is skipped) — used for size charts.
 import { esc, youtubeId } from '../util';
-import type { Body, Loose } from '../types';
+import type { Body } from '../types';
 
 function inline(s: string) {
   return s
@@ -17,13 +17,13 @@ function inline(s: string) {
 function render(text: string, { productCard }: Body = {}) {
   const lines = String(text || '').replace(/\r/g, '').split('\n');
   const out = [];
-  let list: Loose = null;
-  let table: Loose = null;
+  let list: string | null = null;
+  let table: string[][] | null = null;
   const closeTable = () => {
     if (!table) return;
     const [head, ...body] = table;
-    out.push(`<div class="table-scroll"><table class="md-table"><thead><tr>${head.map((c: Loose) => `<th>${inline(esc(c))}</th>`).join('')}</tr></thead>`
-      + `<tbody>${body.map((r: Loose) => `<tr>${head.map((_: Loose, i: string | number) => `<td>${inline(esc(r[i] || ''))}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`);
+    out.push(`<div class="table-scroll"><table class="md-table"><thead><tr>${head.map((c) => `<th>${inline(esc(c))}</th>`).join('')}</tr></thead>`
+      + `<tbody>${body.map((r) => `<tr>${head.map((_, i) => `<td>${inline(esc(r[i] || ''))}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`);
     table = null;
   };
   const close = () => { if (list) { out.push(`</${list}>`); list = null; } };

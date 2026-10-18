@@ -14,6 +14,7 @@ import { myOrders } from '../gate';
 import { str, int, parseCookies, sign, unsign } from '../util';
 import type { PageOpts, Resolved } from './router';
 import type { Loose, Settings, ShopRequest } from '../types';
+import type { ReactNode } from 'react';
 import type { FunctionComponentElement } from 'react';
 
 export type FormsCtx = { path: string; query: URLSearchParams; settings: Settings; req: Pick<ShopRequest, 'headers'> };
@@ -41,7 +42,7 @@ export async function accountOrdersCookie(req: Pick<ShopRequest, 'headers'>, set
 }
 
 const NOT_FOUND: Resolved = { kind: 'notFound' };
-const page = (title: string, body: Loose, opts: PageOpts = {}): Resolved => ({ kind: 'page', title, body, opts });
+const page = (title: string, body: ReactNode, opts: PageOpts = {}): Resolved => ({ kind: 'page', title, body, opts });
 
 /** The page shown when one of these addresses is opened (GET), or null when it is not one of them. */
 export async function resolveForms({ path, query, settings, req }: FormsCtx): Promise<Resolved | null> {
@@ -57,7 +58,7 @@ export async function resolveForms({ path, query, settings, req }: FormsCtx): Pr
     if (query.get('topic') === 'warranty' && oc) {
       const order = await O.getOrder({ code: oc });
       const items = CM.warrantyItems(order);
-      const it = items.find((x: Loose) => x.product_id === int(query.get('item'))) || (items.length === 1 ? items[0] : null);
+      const it = items.find((x) => x.product_id === int(query.get('item'))) || (items.length === 1 ? items[0] : null);
       Object.assign(values, { topic: 'warranty', item: it ? it.product_id : '', item_name: it ? it.name : '', item_end: it && it.end instanceof Date ? it.end : null, items });
     }
     return page('অভিযোগ জানান', CV.complaintPage({ settings, values }), { canonical: '/complaint', description: 'অর্ডার, পণ্য, ডেলিভারি বা টাকা নিয়ে সমস্যা জানান — ৭২ ঘণ্টার মধ্যে সমাধান।' });
@@ -104,6 +105,6 @@ export async function resolveForms({ path, query, settings, req }: FormsCtx): Pr
 }
 
 /** The ways to pay for a gift card on the site (manual bKash / Nagad … with a number). */
-export function giftMethods(settings: Settings): Loose[] {
+export function giftMethods(settings: Settings): $services_payments.PayMethod[] {
   return $services_payments.methods(settings).filter((x) => x.manual && x.number && settings.gift_sell_online !== '0');
 }

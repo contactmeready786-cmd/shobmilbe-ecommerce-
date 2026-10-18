@@ -20,10 +20,10 @@ const BASE = '/admin/stock-scan';
 const NOTE = '📷 স্ক্যান করে স্টক';
 
 // what the page needs to know about one product (main store = what is at home / the online stock, not branches)
-async function shape(rows?: Loose) {
-  const ids = rows.map((p: Loose) => p.id);
+async function shape(rows: catalog.Product[]) {
+  const ids = rows.map((p) => p.id);
   const [st, held] = await Promise.all([W.stockFor(ids), catalog.reservedFor(ids)]);
-  return rows.map((p: Loose) => {
+  return rows.map((p) => {
     const main = (st.get(p.id) || { main: p.stock }).main;
     const h = held.get(p.id) || 0;
     return {
@@ -40,7 +40,7 @@ async function find(ctx: AdminCtx) {
   const exact = await db.one<Pick<ProductsRow, 'id'>>(`SELECT id FROM products WHERE (upper(barcode)=upper($1) OR lower(sku)=lower($1)) AND variant_count = 0 AND product_type <> 'bundle' LIMIT 1`, [code]);
   if (exact) {
     const p = await catalog.getProduct({ id: exact.id });
-    return ctx.json(200, { exact: (await shape([p]))[0], list: [] });
+    return ctx.json(200, { exact: (await shape([p!]))[0], list: [] });
   }
   // a box name → everything in that box
   const inBox = await db.q<Pick<ProductsRow, 'id'>>(`SELECT id FROM products WHERE lower(location)=lower($1) AND variant_count = 0 AND product_type <> 'bundle' ORDER BY name LIMIT 200`, [catalog.cleanLocation(code)]);
@@ -71,7 +71,7 @@ async function save(ctx: AdminCtx) {
     // the number typed is what is really on the shelf at home (pieces held for open orders are still on the shelf)
     const counted = int(b.qty, -1);
     if (b.qty === '' || b.qty === undefined || counted < 0 || counted > 100000) return ctx.json(400, { ok: false, error: 'গুনে কতগুলো পেলেন লিখুন (০ বা বেশি)।' });
-    const [now] = await shape([await catalog.getProduct({ id })]);
+    const [now] = await shape([(await catalog.getProduct({ id }))!]);
     change = counted - now.shelf;
     reason = 'count';
     // fewer on the shelf than open orders need: the stock can't go below 0 here — say so, so those orders get checked
@@ -98,7 +98,7 @@ async function save(ctx: AdminCtx) {
     await ctx.log('stock_adjust', 'product', id, `${p.name}: ${change > 0 ? '+' : ''}${change} (${mode === 'count' ? 'গুনে মেলানো' : mode === 'undo' ? 'ভুল ফেরত' : 'মাল এসেছে'}, স্ক্যান)`);
     $services_stockalert.check(ctx.settings, [id]).catch(() => {});
   }
-  const [after] = await shape([await catalog.getProduct({ id })]);
+  const [after] = await shape([(await catalog.getProduct({ id }))!]);
   const msg = !change ? (mode === 'count' ? `✔ "${p.name}" — গণনা মিলে গেছে, কিছু বদলাতে হয়নি` : '✔ সেভ হয়েছে')
     : mode === 'count' ? `✔ "${p.name}" — ${change > 0 ? bn(change) + 'টি বেশি পাওয়া গেছে' : bn(-change) + 'টি কম পাওয়া গেছে'}, স্টক ঠিক করা হলো`
       : mode === 'undo' ? `↩️ "${p.name}" — ${bn(Math.abs(change))}টি ফেরানো হলো`
@@ -121,7 +121,7 @@ async function setLocation(ctx: AdminCtx) {
 async function page(ctx: AdminCtx) {
   const locations = await catalog.listLocations();
   const box = catalog.cleanLocation(ctx.query.get('box'));
-  let boxRows: Loose[] = [];
+  let boxRows: Awaited<ReturnType<typeof shape>> = [];
   if (box) {
     const ids = await db.q<Pick<ProductsRow, 'id'>>(`SELECT id FROM products WHERE lower(location)=lower($1) AND variant_count = 0 AND product_type <> 'bundle' ORDER BY name`, [box]);
     boxRows = ids.length ? await shape(await catalog.getProductsByIds(ids.map((r) => r.id), { includeInactive: true })) : [];

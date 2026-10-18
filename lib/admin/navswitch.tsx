@@ -7,13 +7,13 @@ import { Val, attrValue, jsxList } from '../react/html';
 import { list, str } from '../util';
 import * as db from '../db';
 import * as $marketing from './marketing';
-import type { AdminCtx, Body, Loose, Settings, MenuLink } from '../types';
-const FIXED: Record<string, Loose> = {
+import type { AdminCtx, Body, Settings, MenuLink } from '../types';
+const FIXED: Record<string, { key: string; label: string; desc: string }> = {
   live: { key: 'nav_live', label: 'লাইভ স্কোর', desc: 'ক্রিকেট বা ফুটবল স্কোর চালু থাকলে তবেই এই বাটন দেখা যায়' },
   cart: { key: 'nav_cart', label: 'কার্ট', desc: 'বন্ধ করলে উপরের কার্ট আইকন লুকাবে। "কার্টে যোগ" আর "এখনই কিনুন" বাটন আগের মতোই কাজ করবে' },
 };
 // Links in the store's footer (bottom of every page). [setting, label, column]
-const FOOTER: Record<string, Loose> = {
+const FOOTER: Record<string, { key: string; label: string; where: string }> = {
   products: { key: 'foot_products', label: 'সব পণ্য', where: 'ফুটারের "কেনাকাটা" কলামে' },
   offer: { key: 'foot_offer', label: 'অফার', where: 'ফুটারের "কেনাকাটা" কলামে' },
   track: { key: 'foot_track', label: 'অর্ডার ট্র্যাক করুন', where: 'ফুটারের "কেনাকাটা" কলামে' },
@@ -22,7 +22,7 @@ const FOOTER: Record<string, Loose> = {
 };
 
 function menuRows(s: Settings) { return db.jsonSetting<MenuLink[]>(s, 'header_menu', []); }
-function isOn(row: { on: boolean; }) { return row.on !== false; }
+function isOn(row: { on?: boolean }) { return row.on !== false; }
 
 // Small panel with switches for the given menu links (by url) and fixed buttons ('live', 'cart').
 // Every switch saves the moment it is clicked.
@@ -31,15 +31,16 @@ function box(ctx: AdminCtx, { urls = [], fixed = [], footer = [], back, note }: 
   const s = ctx.settings;
   const rows = menuRows(s).filter((r) => urls.includes(r.url));
   const top = [
-    ...rows.map((r: Loose) => ({ id: 'url:' + r.url, on: isOn(r), title: `"${r.label}" বাটন`, desc: `জায়গা: উপরের মেনু, সার্চ বারের পাশে · লিংক: ${r.url}` })),
-    ...fixed.map((k: string | number) => ({ id: k, on: s[FIXED[k].key] !== '0', title: `"${FIXED[k].label}" বাটন`, desc: `জায়গা: উপরের মেনু · ${FIXED[k].desc}` })),
+    ...rows.map((r) => ({ id: 'url:' + r.url, on: isOn(r), title: `"${r.label}" বাটন`, desc: `জায়গা: উপরের মেনু, সার্চ বারের পাশে · লিংক: ${r.url}` })),
+    ...fixed.map((k) => ({ id: k, on: s[FIXED[k].key] !== '0', title: `"${FIXED[k].label}" বাটন`, desc: `জায়গা: উপরের মেনু · ${FIXED[k].desc}` })),
   ];
-  const bottom = footer.map((k: string) => ({ id: 'foot:' + k, on: s[FOOTER[k].key] !== '0', title: `"${FOOTER[k].label}" লিংক`, desc: `জায়গা: পেজের একদম নিচে, ${FOOTER[k].where}` }));
+  const bottom = footer.map((k) => ({ id: 'foot:' + k, on: s[FOOTER[k].key] !== '0', title: `"${FOOTER[k].label}" লিংক`, desc: `জায়গা: পেজের একদম নিচে, ${FOOTER[k].where}` }));
   const items = [...top, ...bottom];
   if (!items.length) return '';
   // compact: one small chip per button, the long explanation sits in the chip's tooltip
-  const chip = (it?: Loose) => <label className="nav-chip" title={attrValue(it.desc)}>{' '}<span className="nav-chip-t"><Val v={it.title} /></span>{' '}<span className="switch switch-sm"><input type="checkbox" name={'on_' + it.id} defaultValue="1" defaultChecked={!!(it.on)} data-autosubmit="" /><span className="switch-ui" aria-hidden="true"></span></span>{' '}</label>;
-  const group = (title?: unknown, list?: Loose) => (list.length ? <div className="nav-chip-group"><span className="nav-chip-where"><Val v={title} /></span><Val v={list.map(chip)} /></div> : '');
+  type Item = (typeof items)[number];
+  const chip = (it: Item) => <label className="nav-chip" title={attrValue(it.desc)}>{' '}<span className="nav-chip-t"><Val v={it.title} /></span>{' '}<span className="switch switch-sm"><input type="checkbox" name={'on_' + it.id} defaultValue="1" defaultChecked={!!(it.on)} data-autosubmit="" /><span className="switch-ui" aria-hidden="true"></span></span>{' '}</label>;
+  const group = (title: unknown, list: Item[]) => (list.length ? <div className="nav-chip-group"><span className="nav-chip-where"><Val v={title} /></span><Val v={list.map(chip)} /></div> : '');
   return <details className="panel nav-switch-box nav-compact"><summary><span>🧭 দোকানে এর বাটন ও লিংক</span><span className="nav-chip-sum">{jsxList(items.map((it) => <span className={`dot ${it.on ? 'on' : ''}`} title={`${attrValue(it.title)}: ${it.on ? 'চালু' : 'বন্ধ'}`}></span>))}{' '}<Val v={items.filter((i) => i.on).length} />/<Val v={items.length} />{' '}চালু</span></summary><form method="post" action="/admin/design/menus/toggle"><input type="hidden" name="back" defaultValue={attrValue(back)} />{' '}{jsxList(items.map((it) => <input type="hidden" name="keys[]" defaultValue={attrValue(it.id)} />))}{' '}{group('⬆ উপরের মেনু', top)}{' '}{group('⬇ নিচের ফুটার', bottom)}<p className="muted small nav-chip-note"><Val v={note || ''} />{' '}বন্ধ করলে শুধু লিংক লুকায়, পেজ মুছে যায় না। সব একসাথে:{' '}<a href="/admin/design/menus">হেডার ও ফুটার মেনু</a></p></form></details>;
 }
 

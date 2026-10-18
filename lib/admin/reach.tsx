@@ -11,13 +11,14 @@ import { bn, fmtDate } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
 import * as $liveguide from './liveguide';
-import type { AdminCtx, Loose } from '../types';
+import type { AdminCtx } from '../types';
+import type { ProductsRow } from '../data/rows';
 
 const BASE = '/admin/reach';
 
 async function numbers() {
-  const q = (sql: string, p = []) => db.q(sql, p).catch(() => []);
-  const one = async (sql: string, p = []) => (await q(sql, p))[0] || {};
+  const q = <T extends db.pg.DbRow = db.pg.DbRow>(sql: string) => db.q<T>(sql).catch((): T[] => []);
+  const one = async (sql: string) => (await q<Record<string, number>>(sql))[0] || {};
   const [aud, buyers, live, products] = await Promise.all([
     one(`SELECT
       (SELECT count(DISTINCT pv.visitor_id) FROM page_views pv JOIN visitors v ON v.id=pv.visitor_id
@@ -32,7 +33,7 @@ async function numbers() {
       (SELECT count(*) FROM page_views WHERE created_at > date_trunc('day', now() AT TIME ZONE 'Asia/Dhaka') AT TIME ZONE 'Asia/Dhaka')::int AS views_today,
       (SELECT count(*) FROM orders WHERE created_at > date_trunc('day', now() AT TIME ZONE 'Asia/Dhaka') AT TIME ZONE 'Asia/Dhaka')::int AS orders_today`),
     // per product: who looked (30 days, last 7, the 7 before), how many sold (30 days), stock
-    q(`WITH v AS (SELECT product_id,
+    q<ReachProduct>(`WITH v AS (SELECT product_id,
           count(DISTINCT visitor_id) AS v30,
           count(DISTINCT visitor_id) FILTER (WHERE created_at > now() - interval '7 days') AS v7,
           count(DISTINCT visitor_id) FILTER (WHERE created_at <= now() - interval '7 days' AND created_at > now() - interval '14 days') AS vprev
@@ -48,30 +49,33 @@ async function numbers() {
   return { aud, buyers, live, products };
 }
 
+/** one product with who looked at it and how many bought it */
+type ReachProduct = Pick<ProductsRow, 'id' | 'name' | 'sku' | 'price' | 'stock' | 'image_id'> & { v30: number; v7: number; vprev: number; sold: number; orders: number };
 // The "algorithm": four ranked lists from the shop's own data.
-function rank(products?: Loose) {
-  const inStock = products.filter((p: { stock: number; }) => p.stock > 0);
-  const top = (arr?: Loose, n = 8) => arr.slice(0, n);
+type Ranked = ReachProduct & { why: string; score?: number };
+function rank(products: ReachProduct[]) {
+  const inStock = products.filter((p) => p.stock > 0);
+  const top = (arr: Ranked[], n = 8) => arr.slice(0, n);
   // 1. many look, few buy → remind them with ads (retargeting)
-  const retarget = top(inStock.filter((p: { v30: number; }) => p.v30 >= 3)
-    .map((p: Loose) => ({ ...p, why: `${bn(p.v30)} জন দেখেছে, অর্ডার ${bn(p.orders)}টি`, score: p.v30 * (1 - Math.min(1, p.orders / Math.max(1, p.v30))) }))
-    .sort((a: { score: number; }, b: { score: number; }) => b.score - a.score));
+  const retarget = top(inStock.filter((p) => p.v30 >= 3)
+    .map((p) => ({ ...p, why: `${bn(p.v30)} জন দেখেছে, অর্ডার ${bn(p.orders)}টি`, score: p.v30 * (1 - Math.min(1, p.orders / Math.max(1, p.v30))) }))
+    .sort((a, b) => b.score - a.score));
   // 2. those who look usually buy → spend to bring new people to these
-  const winners = top(inStock.filter((p: { v30: number; orders: number; }) => p.v30 >= 5 && p.orders > 0)
-    .map((p: { orders: number; v30: number; }) => ({ ...p, why: `প্রতি ১০০ জন দেখলে ~${bn(Math.round((p.orders / p.v30) * 100))} জন কেনে`, score: p.orders / p.v30 }))
-    .sort((a: { score: number; }, b: { score: number; }) => b.score - a.score));
+  const winners = top(inStock.filter((p) => p.v30 >= 5 && p.orders > 0)
+    .map((p) => ({ ...p, why: `প্রতি ১০০ জন দেখলে ~${bn(Math.round((p.orders / p.v30) * 100))} জন কেনে`, score: p.orders / p.v30 }))
+    .sort((a, b) => b.score - a.score));
   // 3. looked at more this week than the week before
-  const trending = top(inStock.filter((p: { v7: number; vprev: number; }) => p.v7 >= 3 && p.v7 > p.vprev)
-    .map((p: Loose) => ({ ...p, why: `এ সপ্তাহে ${bn(p.v7)} জন, আগের সপ্তাহে ${bn(p.vprev)} জন`, score: (p.v7 + 1) / (p.vprev + 1) }))
-    .sort((a: { score: number; }, b: { score: number; }) => b.score - a.score));
+  const trending = top(inStock.filter((p) => p.v7 >= 3 && p.v7 > p.vprev)
+    .map((p) => ({ ...p, why: `এ সপ্তাহে ${bn(p.v7)} জন, আগের সপ্তাহে ${bn(p.vprev)} জন`, score: (p.v7 + 1) / (p.vprev + 1) }))
+    .sort((a, b) => b.score - a.score));
   // 4. plenty in stock but nobody sees them → a small boost or a post
-  const unseen = top(inStock.filter((p: { v30: number; }) => p.v30 === 0).sort((a: { stock: number; }, b: { stock: number; }) => b.stock - a.stock)
-    .map((p: { stock: unknown; }) => ({ ...p, why: `স্টকে ${bn(p.stock)}টি, ৩০ দিনে কেউ দেখেনি` })));
+  const unseen = top(inStock.filter((p) => p.v30 === 0).sort((a, b) => b.stock - a.stock)
+    .map((p) => ({ ...p, why: `স্টকে ${bn(p.stock)}টি, ৩০ দিনে কেউ দেখেনি` })));
   return { retarget, winners, trending, unseen };
 }
 
-function list(title?: unknown, help?: unknown, items?: Loose, empty?: unknown) {
-  return <section className="panel"><h2><Val v={title} /></h2><p className="small muted"><Val v={help} /></p>{(items.length ? <div className="row-preview">{jsxList(items.map((p: Loose) => <a className="rp" href={`/admin/products/${attrValue(p.id)}`}>{' '}<img src={p.image_id ? `/media/${p.image_id}/t` : ''} alt="" loading="lazy" /><span><Val v={p.name} /></span><b><Val v={ui.money(p.price)} /></b><small className="muted"><Val v={p.why} /></small></a>))}</div> : <p className="muted small"><Val v={empty} /></p>)}</section>;
+function list(title: unknown, help: unknown, items: Ranked[], empty: unknown) {
+  return <section className="panel"><h2><Val v={title} /></h2><p className="small muted"><Val v={help} /></p>{(items.length ? <div className="row-preview">{jsxList(items.map((p) => <a className="rp" href={`/admin/products/${attrValue(p.id)}`}>{' '}<img src={p.image_id ? `/media/${p.image_id}/t` : ''} alt="" loading="lazy" /><span><Val v={p.name} /></span><b><Val v={ui.money(p.price)} /></b><small className="muted"><Val v={p.why} /></small></a>))}</div> : <p className="muted small"><Val v={empty} /></p>)}</section>;
 }
 
 async function page(ctx: AdminCtx) {

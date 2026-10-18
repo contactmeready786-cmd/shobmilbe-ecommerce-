@@ -6,7 +6,8 @@ import * as db from '../db';
 import { str, int, slugify } from '../util';
 import * as $catalog from './catalog';
 import * as $data_guides from '../data/guides';
-import type { Body, Id, Loose } from '../types';
+import type { Body, Id } from '../types';
+import type { Guide, GuidePart } from '../data/guides';
 import type { KitsRow, ProductsRow } from '../data/rows';
 
 class KitError extends Error {}
@@ -51,36 +52,14 @@ async function kitsWith(productId?: Id) {
   return db.q<Pick<KitsRow, 'id' | 'slug' | 'title'>>(`SELECT DISTINCT k.id, k.slug, k.title FROM kits k JOIN kit_items i ON i.kit_id=k.id WHERE k.active AND i.product_id=$1 ORDER BY k.title LIMIT 5`, [int(productId)]);
 }
 
-type SaveOpts = {
-  title?: Loose;
-  "bundle_id[]"?: Loose;
-  bundle_id?: Loose;
-  "bundle_qty[]"?: Loose;
-  bundle_qty?: Loose;
-  "kit_opt[]"?: Loose;
-  kit_opt?: Loose;
-  "kit_note[]"?: Loose;
-  kit_note?: Loose;
-  id?: number;
-  description?: Loose;
-  image_id?: Loose;
-  emoji?: Loose;
-  active?: boolean;
-  sort?: number;
-  steps?: Loose;
-  level?: Loose;
-  duration?: Loose;
-  slug?: Loose;
-  guide_key?: Loose;
-};
-async function save(data: SaveOpts) {
+async function save(data: Body) {
   const title = str(data.title, 120).trim();
   if (title.length < 3) throw new KitError('কিটের নাম লিখুন।');
   const ids = ([] as unknown[]).concat(data['bundle_id[]'] || data.bundle_id || []).map(int);
   const qtys = ([] as unknown[]).concat(data['bundle_qty[]'] || data.bundle_qty || []).map((x) => Math.max(1, Math.min(999, int(x, 1))));
   const opt = new Set(([] as unknown[]).concat(data['kit_opt[]'] || data.kit_opt || []).map(int));
   const notes = ([] as unknown[]).concat(data['kit_note[]'] || data.kit_note || []);
-  const rows: Loose[] = []; const seen = new Set();
+  const rows: { pid: number; qty: number; optional: boolean; note: string; sort: number }[] = []; const seen = new Set<number>();
   ids.forEach((pid, i) => { if (pid > 0 && !seen.has(pid)) { seen.add(pid); rows.push({ pid, qty: qtys[i] || 1, optional: opt.has(pid), note: str(notes[i], 120), sort: i }); } });
   if (!rows.length) throw new KitError('কিটে অন্তত একটা পণ্য যোগ করুন।');
   const bad = await db.q<Pick<ProductsRow, 'name'>>(`SELECT name FROM products WHERE id = ANY($1::int[]) AND (product_type='bundle' OR variant_count > 0)`, [rows.map((r) => r.pid)]);
@@ -117,9 +96,9 @@ function stepList(k: db.pg.DbRow) { return String((k && k.steps) || '').split('\
 // ================================================================ 📚 ready-made guides (lib/data/guides.js)
 // Finds the shop's product for one part of a guide: the name must contain one of the words, none of the "not"
 // words; switched on, a single product (no bundle / options). In stock and best-selling first; earlier words win.
-async function matchPart(part?: Loose) {
-  const like = part.find.map((w: unknown) => '%' + String(w).replace(/[%_\\]/g, '') + '%');
-  const notLike = (part.not || []).map((w: unknown) => '%' + String(w).replace(/[%_\\]/g, '') + '%');
+async function matchPart(part: GuidePart) {
+  const like = part.find.map((w) => '%' + String(w).replace(/[%_\\]/g, '') + '%');
+  const notLike = (part.not || []).map((w) => '%' + String(w).replace(/[%_\\]/g, '') + '%');
   const rows = await db.q<Pick<ProductsRow, 'id' | 'name' | 'price' | 'stock'>>(`SELECT p.id, p.name, p.price, p.stock FROM products p
     WHERE p.active AND p.parent_id IS NULL AND coalesce(p.product_type,'single') <> 'bundle' AND coalesce(p.variant_count,0) = 0
       AND p.name ILIKE ANY($1::text[]) AND NOT (p.name ILIKE ANY($2::text[]))
@@ -134,9 +113,10 @@ async function matchPart(part?: Loose) {
 async function guideStatus() {
   const { GUIDES } = $data_guides;
   const made = new Map((await db.q<Pick<KitsRow, 'id' | 'guide_key' | 'slug' | 'active'>>(`SELECT id, guide_key, slug, active FROM kits WHERE guide_key <> ''`)).map((k) => [k.guide_key, k]));
-  const out: Loose[] = [];
+  type FoundPart = GuidePart & { product: Awaited<ReturnType<typeof matchPart>> };
+  const out: (Omit<Guide, 'parts'> & { parts: FoundPart[]; missing: FoundPart[]; kit: Pick<KitsRow, 'id' | 'guide_key' | 'slug' | 'active'> | null })[] = [];
   for (const g of GUIDES) {
-    const parts: Loose[] = [];
+    const parts: FoundPart[] = [];
     for (const part of g.parts) parts.push({ ...part, product: await matchPart(part) });
     const missing = parts.filter((p) => !p.product && !p.optional);
     out.push({ ...g, parts, missing, kit: made.get(g.key) || null });
@@ -148,14 +128,14 @@ async function fromGuide(key: string) {
   const g = (await guideStatus()).find((x) => x.key === key);
   if (!g) throw new KitError('গাইড পাওয়া যায়নি।');
   if (g.kit) return { id: g.kit.id, existed: true, missing: g.missing };
-  const found = g.parts.filter((p: Loose) => p.product);
+  const found = g.parts.filter((p): p is typeof p & { product: NonNullable<typeof p.product> } => !!p.product);
   if (!found.length) throw new KitError(`"${g.title}" — এর কোনো পার্টসই দোকানে পাওয়া যায়নি।`);
-  const seen = new Set(); const uniq = found.filter((p: { product: { id: unknown; }; }) => !seen.has(p.product.id) && seen.add(p.product.id));
+  const seen = new Set<number>(); const uniq = found.filter((p) => !seen.has(p.product.id) && seen.add(p.product.id));
   const id = await save({
     title: g.title, description: g.intro, emoji: g.emoji, steps: g.steps.join('\n'), level: g.level, duration: g.time,
     active: g.missing.length === 0, sort: 0, slug: slugify(g.key) || g.key, guide_key: g.key,
-    'bundle_id[]': uniq.map((p: Loose) => p.product.id), 'bundle_qty[]': uniq.map((p: Loose) => p.qty || 1),
-    'kit_opt[]': uniq.filter((p: Loose) => p.optional).map((p: Loose) => p.product.id), 'kit_note[]': uniq.map((p: Loose) => p.note || ''),
+    'bundle_id[]': uniq.map((p) => p.product.id), 'bundle_qty[]': uniq.map((p) => p.qty || 1),
+    'kit_opt[]': uniq.filter((p) => p.optional).map((p) => p.product.id), 'kit_note[]': uniq.map((p) => p.note || ''),
   });
   return { id, existed: false, missing: g.missing, active: g.missing.length === 0 };
 }

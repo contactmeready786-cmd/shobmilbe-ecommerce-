@@ -7,7 +7,7 @@ import * as U from '../../../lib/services/uiswitch';
 import * as security from '../../../lib/security';
 import { contact } from '../../../lib/util';
 import { jsonSetting } from '../../../lib/db';
-import { categoryTree, type Category } from '../../../lib/models/catalog';
+import { categoryTree, type Category, type CategoryNode } from '../../../lib/models/catalog';
 import type { BannersRow, PagesRow } from '../../../lib/data/rows';
 /** an info page as the footer lists it */
 type ShopPage = Pick<PagesRow, 'title' | 'slug' | 'in_footer'>;
@@ -44,8 +44,8 @@ function LangSwitch() {
 
 // Category menus. Top bar: main categories with drop-down sub-categories (any depth).
 // Phone menu: the same tree, folding open. Empty sub-categories are left out.
-const visibleKids = (n: Loose) => n.children.filter((k: { total_count: number; }) => k.total_count > 0);
-function CatMenuItems({ nodes, top }: { nodes: Loose[]; top: boolean }) {
+const visibleKids = (n: CategoryNode) => n.children.filter((k) => Number(k.total_count) > 0);
+function CatMenuItems({ nodes, top }: { nodes: CategoryNode[]; top: boolean }) {
   return nodes.map((n) => {
     const kids = visibleKids(n);
     return (
@@ -56,7 +56,7 @@ function CatMenuItems({ nodes, top }: { nodes: Loose[]; top: boolean }) {
     );
   });
 }
-function DrawerCats({ nodes }: { nodes: Loose[] }) {
+function DrawerCats({ nodes }: { nodes: CategoryNode[] }) {
   return nodes.map((n) => {
     const kids = visibleKids(n);
     const label = <>{n.depth === 0 ? <>{n.icon}{' '}</> : null}{n.name}</>;

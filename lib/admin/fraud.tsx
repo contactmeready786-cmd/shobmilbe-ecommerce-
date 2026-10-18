@@ -6,15 +6,15 @@ import * as db from '../db';
 import * as ui from './ui';
 import * as fraud from '../services/fraud';
 import * as courier from '../services/courier';
-import type { AdminCtx, Loose } from '../types';
+import type { AdminCtx } from '../types';
 import type { FraudChecksRow } from '../data/rows';
 
 const BASE = '/admin/fraud';
 
-function resultBox(r?: Loose) {
+function resultBox(r: fraud.FraudCheck | null) {
   if (!r) return '';
   if (!r.ok) return <p className="flash flash-error"><Val v={r.message} /></p>;
-  return <><div className={`risk risk-${attrValue(r.level)}`}><b><Val v={r.label} /></b>{(r.rate !== null ? <>{' '}— সব মিলিয়ে সফল{' '}<b>{bn(r.rate)}%</b>{' '}({bn(r.success)}/{bn(r.total)})</> : null)}<span><Val v={r.advice} /></span></div><ul className="fraud-list"><li>🏪 এই দোকানে: মোট অর্ডার{' '}{bn(r.own.orders)}{' '}· ডেলিভারি{' '}<b>{bn(r.own.delivered)}</b>{' '}· বাতিল/ফেরত{' '}<b>{bn(r.own.failed)}</b>{(r.own.last_day > 1 ? <>{' '}· ⚠️ ২৪ ঘণ্টায়{' '}{bn(r.own.last_day)}টি অর্ডার</> : null)}</li>{(r.fraudbd && r.fraudbd.ok ? jsxList(r.fraudbd.couriers.map((c: Loose) => <li>🚚{' '}<Val v={c.name} />:{' '}{(c.type === 'rating' ? <Val v={c.message || c.rating || '—'} /> : <>মোট{' '}<b>{bn(c.total)}</b>{' '}· সফল{' '}<b>{bn(c.success)}</b>{' '}· বাতিল{' '}<b>{bn(c.cancel)}</b></>)}</li>)) : null)}{' '}{(r.fraudbd && !r.fraudbd.ok ? <li className="muted">FraudBD:{' '}<Val v={r.fraudbd.message} /></li> : null)}{' '}{(r.pathao ? <li>{(r.pathao.ok ? <>🚚 Pathao: মোট{' '}<b>{bn(r.pathao.total)}</b>{' '}· সফল{' '}<b>{bn(r.pathao.success)}</b>{(r.pathao.rating ? ` · ${r.pathao.rating}` : null)}</> : <span className="muted">Pathao:{' '}<Val v={r.pathao.message} /></span>)}</li> : null)}</ul><p className="row-actions"><a className="btn btn-sm btn-ghost" href={`/admin/orders?q=${attrValue(r.phone)}`}>এই নম্বরের অর্ডার</a>{' '}<a className="btn btn-sm btn-ghost" href="/admin/blocklist">ব্লক লিস্ট</a></p></>;
+  return <><div className={`risk risk-${attrValue(r.level)}`}><b><Val v={r.label} /></b>{(r.rate !== null ? <>{' '}— সব মিলিয়ে সফল{' '}<b>{bn(r.rate)}%</b>{' '}({bn(r.success)}/{bn(r.total)})</> : null)}<span><Val v={r.advice} /></span></div><ul className="fraud-list"><li>🏪 এই দোকানে: মোট অর্ডার{' '}{bn(r.own.orders)}{' '}· ডেলিভারি{' '}<b>{bn(r.own.delivered)}</b>{' '}· বাতিল/ফেরত{' '}<b>{bn(r.own.failed)}</b>{(r.own.last_day > 1 ? <>{' '}· ⚠️ ২৪ ঘণ্টায়{' '}{bn(r.own.last_day)}টি অর্ডার</> : null)}</li>{(r.fraudbd && r.fraudbd.ok ? jsxList(r.fraudbd.couriers.map((c) => <li>🚚{' '}<Val v={c.name} />:{' '}{(c.type === 'rating' ? <Val v={c.message || c.rating || '—'} /> : <>মোট{' '}<b>{bn(c.total)}</b>{' '}· সফল{' '}<b>{bn(c.success)}</b>{' '}· বাতিল{' '}<b>{bn(c.cancel)}</b></>)}</li>)) : null)}{' '}{(r.fraudbd && !r.fraudbd.ok ? <li className="muted">FraudBD:{' '}<Val v={r.fraudbd.message} /></li> : null)}{' '}{(r.pathao ? <li>{(r.pathao.ok ? <>🚚 Pathao: মোট{' '}<b>{bn(r.pathao.total)}</b>{' '}· সফল{' '}<b>{bn(r.pathao.success)}</b>{(r.pathao.rating ? ` · ${r.pathao.rating}` : null)}</> : <span className="muted">Pathao:{' '}<Val v={r.pathao.message} /></span>)}</li> : null)}</ul><p className="row-actions"><a className="btn btn-sm btn-ghost" href={`/admin/orders?q=${attrValue(r.phone)}`}>এই নম্বরের অর্ডার</a>{' '}<a className="btn btn-sm btn-ghost" href="/admin/blocklist">ব্লক লিস্ট</a></p></>;
 }
 
 async function page(ctx: AdminCtx) {

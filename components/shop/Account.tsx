@@ -4,14 +4,21 @@
 import type { ReactNode } from 'react';
 import { money, bn, fmtDate } from '../../lib/util';
 import * as O from '../../lib/models/orders';
-import type { Loose, Settings } from '../../lib/types';
+import type { Body, Settings } from '../../lib/types';
+import type { AccountOrder, Customer } from '../../lib/models/accounts';
+import type { Order } from '../../lib/models/orders';
+import type { ReturnRow } from '../../lib/models/returns';
+import type { PayMethod } from '../../lib/services/payments';
+import type { CustomerAddressesRow, GiftCardsRow } from '../../lib/data/rows';
+/** what the referral box shows */
+export type Referral = { code: string | null; friendGets: number; friendMin: number; youGet: number; joined: number; rewarded: number };
 
 // ---------------------------------------------------------------- login
 // Two tabs on top — 📧 ইমেইল / 📱 মোবাইল নম্বর. A tab is shown only when that way works (SMS / the shop's Gmail set up).
 //  📧 e-mail: "লগইন" (e-mail + password, no code) · "নতুন অ্যাকাউন্ট" (e-mail + password → a code to the e-mail, once)
 //            · "পাসওয়ার্ড ভুলে গেছেন?" (e-mail + new password → a code).
 //  📱 mobile: number → SMS code → in (asked once; the phone stays logged in).
-type LoginProps = { via?: string; step?: string; mode?: string; phone?: string; email?: string; error?: string; info?: string; next?: string; phoneOn?: boolean; emailOn?: boolean };
+type LoginProps = { via?: string | null; step?: string; mode?: string; phone?: string; email?: string; error?: string; info?: string; next?: string; phoneOn?: boolean; emailOn?: boolean };
 
 function PwFields({ label }: { label: string }) {
   return (
@@ -134,7 +141,7 @@ export function LoginPage({ via = '', step = 'start', mode = 'login', phone = ''
 }
 
 // ---------------------------------------------------------------- dashboard
-function AddressForm({ a, action = '/account/address', submit = 'সেভ করুন' }: { a: Loose; action?: string; submit?: string }) {
+function AddressForm({ a, action = '/account/address', submit = 'সেভ করুন' }: { a: Partial<CustomerAddressesRow>; action?: string; submit?: string }) {
   return (
     <form method="post" action={action} className="form addr-form" data-geo-form="">
       {a.id ? <input type="hidden" name="id" value={a.id} /> : null}
@@ -154,7 +161,7 @@ function AddressForm({ a, action = '/account/address', submit = 'সেভ ক�
   );
 }
 
-function ReferralBox({ r, s }: { r: Loose; s: Settings }) {
+function ReferralBox({ r, s }: { r: Referral; s: Settings }) {
   const base = String(s.site_url || '').replace(/\/+$/, '');
   const link = `${base}/?ref=${r.code}`;
   return (
@@ -173,7 +180,7 @@ function ReferralBox({ r, s }: { r: Loose; s: Settings }) {
   );
 }
 
-type DashProps = { cu: Loose; orders: Loose[]; addresses: Loose[]; settings: Settings; tab?: string; flash?: string; error?: string; referral?: unknown; cards?: Loose[]; welcome?: boolean; next?: string };
+type DashProps = { cu: Customer; orders: AccountOrder[]; addresses: CustomerAddressesRow[]; settings: Settings; tab?: string | null; flash?: string; error?: string; referral?: Referral | null; cards?: GiftCardsRow[]; welcome?: boolean; next?: string };
 
 export function Dashboard({ cu, orders, addresses, settings: s, tab = 'orders', flash = '', error = '', referral = null, cards = [], welcome = false, next = '' }: DashProps) {
   const isEmail = !!cu.email_verified && !cu.phone;
@@ -181,7 +188,7 @@ export function Dashboard({ cu, orders, addresses, settings: s, tab = 'orders', 
   const T = [['orders', '🧾 আমার অর্ডার'], ['addresses', '📍 ঠিকানা'], ['profile', '👤 প্রোফাইল']];
   if (referral) T.push(['refer', '🎁 বন্ধুকে আনুন']);
   if (s.gift_on === '1') T.push(['gift', '💳 গিফট কার্ড']);
-  const reorderItems = (o: Loose) => (o.items || []).filter((i: Loose) => i.id && i.kind !== 'gift').map((i: Loose) => ({ id: i.id, qty: i.qty }));
+  const reorderItems = (o: AccountOrder) => (o.items || []).filter((i) => i.id && i.kind !== 'gift').map((i) => ({ id: i.id, qty: i.qty }));
   const returnable = (o: { status: string; }) => s.returns_on === '1' && o.status === 'delivered';
   return (
     <div className="wrap section acct">
@@ -195,7 +202,7 @@ export function Dashboard({ cu, orders, addresses, settings: s, tab = 'orders', 
           {orders.length ? <ul className="acct-orders">{orders.map((o) => (
             <li key={o.code}>
               <div><a href={`/order/${o.code}`}><b className="mono">{o.code}</b></a> <span className={`pill st-${o.status}`}>{O.STATUSES[o.status] || o.status}</span><br />
-                <span className="small muted">{fmtDate(o.created_at)} · {bn((o.items || []).length)}টি পণ্য: {(o.items || []).map((i: Loose) => i.name).slice(0, 3).join(', ')}{(o.items || []).length > 3 ? '…' : ''}</span></div>
+                <span className="small muted">{fmtDate(o.created_at)} · {bn((o.items || []).length)}টি পণ্য: {(o.items || []).map((i) => i.name).slice(0, 3).join(', ')}{(o.items || []).length > 3 ? '…' : ''}</span></div>
               <div className="acct-order-act"><b>{money(o.total)}</b>
                 {' '}<a className="btn btn-sm btn-ghost" href={`/order/${o.code}`}>দেখুন</a>
                 {reorderItems(o).length ? <>{' '}<button type="button" className="btn btn-sm" data-reorder={JSON.stringify(reorderItems(o))}>🔁 আবার অর্ডার</button></> : null}
@@ -262,7 +269,7 @@ export const REASONS = [['broken', 'ভাঙা / নষ্ট পণ্য এ
 export const WANTS = [['refund', '💵 টাকা ফেরত'], ['replace', '🔄 বদলে দিন (একই পণ্য)'], ['fix', '🛠️ মেরামত / ওয়ারেন্টি সার্ভিস']];
 export const RETURN_LABELS: Record<string, string> = { requested: 'আবেদন পেয়েছি', approved: 'অনুমোদিত — পণ্য পাঠান', received: 'পণ্য ফেরত পেয়েছি', refunded: 'টাকা ফেরত দেওয়া হয়েছে', replaced: 'বদলে দেওয়া হয়েছে', rejected: 'গ্রহণ করা যায়নি', cancelled: 'বাতিল' };
 
-function ReturnFormBody({ order, s, error, items }: { order: Loose; s: Settings; error: string; items: Loose[] }) {
+function ReturnFormBody({ order, s, error, items }: { order: Order; s: Settings; error: string; items: Order['items'] }) {
   return (
     <form className="form panel" method="post" action={`/order/${order.code}/return`} data-return-form="">
       {error ? <p className="form-error">{error}</p> : null}
@@ -289,8 +296,8 @@ function ReturnFormBody({ order, s, error, items }: { order: Loose; s: Settings;
   );
 }
 
-export function ReturnForm({ order, existing = [], settings: s, error = '', done = null, mine }: { order: Loose; existing?: Loose[]; settings: Settings; error?: string; done?: Loose; mine?: boolean }) {
-  const items = (order.items || []).filter((i: Loose) => i.product_id);
+export function ReturnForm({ order, existing = [], settings: s, error = '', done = null, mine }: { order: Order; existing?: ReturnRow[]; settings: Settings; error?: string; done?: string | null; mine?: boolean }) {
+  const items = (order.items || []).filter((i) => i.product_id);
   let body: ReactNode;
   if (!mine) {
     body = <p className="note">আবেদন করতে আগে <a href={`/track?code=${order.code}`}>অর্ডার ট্র্যাক</a> পেজে অর্ডার নম্বর আর মোবাইল নম্বর দিন{s.acct_on === '1' ? <>, অথবা <a href={`/account?next=/order/${order.code}/return`}>লগইন করুন</a></> : null}।</p>;
@@ -306,7 +313,7 @@ export function ReturnForm({ order, existing = [], settings: s, error = '', done
       {done ? <div className="success-banner"><div className="tick" aria-hidden="true">✓</div><h2>আবেদন পেয়েছি — নম্বর <span className="mono">{done}</span></h2><p>আমরা দেখে শীঘ্রই আপনার সাথে যোগাযোগ করব। এই পেজে আবেদনের অবস্থা দেখতে পাবেন।</p></div> : null}
       {existing.length ? <section className="panel"><h2>আপনার আবেদন</h2><ul className="acct-orders">{existing.map((r) => (
         <li key={r.code}><div><b className="mono">{r.code}</b> <span className="pill">{RETURN_LABELS[r.status] || r.status}</span><br />
-          <span className="small muted">{fmtDate(r.created_at)} · {(r.items || []).map((i: Loose) => `${i.name} ×${bn(i.qty)}`).join(', ')}</span>
+          <span className="small muted">{fmtDate(r.created_at)} · {(r.items || []).map((i) => `${i.name} ×${bn(i.qty)}`).join(', ')}</span>
           {r.reply ? <><br /><span className="small"><b>{s.store_name}:</b> {r.reply}</span></> : null}</div>
           <div className="acct-order-act">{Number(r.refund_amount) ? <><b>{money(r.refund_amount)}</b> ফেরত</> : null}</div></li>))}</ul></section> : null}
       {body}
@@ -315,7 +322,9 @@ export function ReturnForm({ order, existing = [], settings: s, error = '', done
 }
 
 // ---------------------------------------------------------------- gift card page
-export function GiftPage({ settings: s, methods = [], error = '', done = null, values = {} }: { settings: Settings; methods?: Loose[]; error?: string; done?: Loose; values?: Loose }) {
+export function GiftPage({ settings: s, methods = [], error = '', done = null, values = {} }: { settings: Settings; methods?: PayMethod[]; error?: string; done?: { trx: string; to: string } | null; values?: Body }) {
+  // what the visitor typed (kept when the form comes back with an error)
+  const typed = (k: string) => String(values[k] || '');
   const amounts = String(s.gift_amounts || '500,1000,2000,5000').split(',').map((x) => Number(x)).filter((x) => x > 0).slice(0, 8);
   const min = Number(s.gift_min) || 200; const max = Number(s.gift_max) || 20000;
   const checkedAmount = (a: number, i: number) => Number(values.amount || amounts[1] || amounts[0]) === a || (i === 0 && !values.amount && amounts.length === 1);
@@ -328,25 +337,25 @@ export function GiftPage({ settings: s, methods = [], error = '', done = null, v
           {error ? <p className="form-error">{error}</p> : null}
           <div className="field"><span className="label">পরিমাণ</span><div className="gift-amounts">{amounts.map((a, i) => <label key={a} className="gift-amt"><input type="radio" name="amount" value={a} defaultChecked={checkedAmount(a, i)} /><span>{money(a)}</span></label>)}{' '}
             <label className="gift-amt"><input type="radio" name="amount" value="custom" defaultChecked={values.amount === 'custom'} /><span>অন্য</span></label></div>
-            <input name="custom_amount" type="number" min={min} max={max} defaultValue={values.custom_amount || ''} placeholder={`${bn(min)} – ${bn(max)} টাকা`} className="mt" data-gift-custom="" /></div>
+            <input name="custom_amount" type="number" min={min} max={max} defaultValue={typed('custom_amount')} placeholder={`${bn(min)} – ${bn(max)} টাকা`} className="mt" data-gift-custom="" /></div>
           <h2>কাকে দেবেন</h2>
           <div className="field-row">
-            <div className="field"><label>প্রাপকের নাম</label><input name="recipient_name" maxLength={80} required defaultValue={values.recipient_name || ''} /></div>
-            <div className="field"><label>প্রাপকের মোবাইল (কোড এখানে যাবে)</label><input name="recipient_phone" inputMode="tel" maxLength={20} required defaultValue={values.recipient_phone || ''} /></div>
+            <div className="field"><label>প্রাপকের নাম</label><input name="recipient_name" maxLength={80} required defaultValue={typed('recipient_name')} /></div>
+            <div className="field"><label>প্রাপকের মোবাইল (কোড এখানে যাবে)</label><input name="recipient_phone" inputMode="tel" maxLength={20} required defaultValue={typed('recipient_phone')} /></div>
           </div>
-          <div className="field"><label>শুভেচ্ছা বার্তা (ঐচ্ছিক)</label><input name="message" maxLength={120} defaultValue={values.message || ''} placeholder="যেমন: শুভ জন্মদিন!" /></div>
+          <div className="field"><label>শুভেচ্ছা বার্তা (ঐচ্ছিক)</label><input name="message" maxLength={120} defaultValue={typed('message')} placeholder="যেমন: শুভ জন্মদিন!" /></div>
           <h2>আপনার তথ্য</h2>
           <div className="field-row">
-            <div className="field"><label>আপনার নাম</label><input name="buyer_name" maxLength={80} required defaultValue={values.buyer_name || ''} autoComplete="name" /></div>
-            <div className="field"><label>আপনার মোবাইল</label><input name="buyer_phone" inputMode="tel" maxLength={20} required defaultValue={values.buyer_phone || ''} autoComplete="tel" /></div>
+            <div className="field"><label>আপনার নাম</label><input name="buyer_name" maxLength={80} required defaultValue={typed('buyer_name')} autoComplete="name" /></div>
+            <div className="field"><label>আপনার মোবাইল</label><input name="buyer_phone" inputMode="tel" maxLength={20} required defaultValue={typed('buyer_phone')} autoComplete="tel" /></div>
           </div>
           <h2>পেমেন্ট (Send Money)</h2>
           {methods.length ? (
             <>
               <div className="pay-methods">{methods.map((m, i) => <label key={m.id} className="pay-opt"><input type="radio" name="pay_method" value={m.id} defaultChecked={i === 0} /><span><b>{m.label}</b><small>{m.number} ({s.manual_type || 'Personal'}) নম্বরে Send Money করুন</small></span></label>)}</div>
               <div className="field-row">
-                <div className="field"><label>যে নম্বর থেকে পাঠিয়েছেন</label><input name="pay_number" inputMode="tel" maxLength={20} required defaultValue={values.pay_number || ''} /></div>
-                <div className="field"><label>Transaction ID (TrxID)</label><input name="trx" maxLength={40} required autoCapitalize="characters" defaultValue={values.trx || ''} /></div>
+                <div className="field"><label>যে নম্বর থেকে পাঠিয়েছেন</label><input name="pay_number" inputMode="tel" maxLength={20} required defaultValue={typed('pay_number')} /></div>
+                <div className="field"><label>Transaction ID (TrxID)</label><input name="trx" maxLength={40} required autoCapitalize="characters" defaultValue={typed('trx')} /></div>
               </div>
               <input type="text" name="website" className="hp" tabIndex={-1} autoComplete="off" aria-hidden="true" />{' '}
               <button className="btn btn-amber btn-lg btn-block">অনুরোধ পাঠান</button>

@@ -15,7 +15,7 @@ import { renderHtml, loadRenderer } from '../lib/react/render';
 
 before(loadRenderer); // the original router's text renderer (lib/react/render.tsx)
 
-const views: Views = { shop, complaint, account };
+const views = { shop, complaint, account } as unknown as Views; // (see Views: sample data, not full rows)
 
 for (const [name, make] of CASES) {
   test(`same page as before: ${name}`, () => {

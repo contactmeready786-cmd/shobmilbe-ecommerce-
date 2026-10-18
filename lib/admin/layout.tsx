@@ -5,14 +5,21 @@ import type { ReactNode } from 'react';
 import { raw } from '../util';
 import { can, canSee } from '../models/staff';
 import * as $profile from './profile';
-import type { AdminDrawn, Body, Id, Loose, Settings, StaffUser } from '../types';
+import type { AdminDrawn, Body, Settings, StaffUser } from '../types';
 
 const ASSET_V = '56';
 
 // 📑 Small jobs that belong together sit on one page as tabs (like browser tabs). Each tab is still its own
 // page with its own link (bookmarks and the phone app keep working); the menu shows one entry for the set.
 // Each tab: [href, label, permission, key, icon]
-const TABS: Record<string, Loose> = {
+/** [href, label, permission, key, icon] */
+type Tab = [string, string, string, string, string];
+/** a menu entry that opens a set of tabs */
+type TabSet = { tabs: string; label: string; icon: string };
+type MenuItem = Tab | TabSet;
+/** a menu entry the user may open: a link, plus (for a tab set) the keys of all its tabs */
+type Resolved = [string, string, string, string, string, string[]?];
+const TABS: Record<string, Tab[]> = {
   returns: [
     ['/admin/returns', 'রিটার্ন ও রিফান্ড', 'orders', 'returns', '↩️'],
     ['/admin/complaints', 'অভিযোগ (৭২ ঘণ্টা)', 'orders', 'complaints', '📮'],
@@ -79,11 +86,11 @@ const TABS: Record<string, Loose> = {
     ['/admin/security/recovery', 'জরুরি রিকভারি কোড', 'owner', 'recovery', '🆘'],
   ],
 };
-const tabSet = (id?: Id, label?: string, icon?: string) => ({ tabs: id, label, icon });
+const tabSet = (id: string, label: string, icon: string): TabSet => ({ tabs: id, label, icon });
 
 // The admin menu: everyday work at the top, things set up once at the bottom.
 // Each link: [href, label, permission, key, icon], or tabSet(...) for a page with tabs.
-const MENU = [
+const MENU: { title: string; icon?: string; items: MenuItem[] }[] = [
   { title: '', items: [['/admin', 'ড্যাশবোর্ড', 'dashboard', 'home', '📊']] },
   { title: 'অর্ডার', icon: '🧾', items: [
     ['/admin/orders', 'সব অর্ডার', 'orders', 'orders', '🧾'],
@@ -170,7 +177,7 @@ const MENU = [
   { title: '', items: [['/admin/trash', 'রিসাইকেল বিন', 'owner', 'trash', '🗑️']] },
 ];
 
-function allowed(user: StaffUser, perm?: Loose) {
+function allowed(user: StaffUser, perm: string) {
   if (perm === 'owner') return user && user.role === 'owner';
   return can(user, perm);
 }
@@ -179,7 +186,7 @@ function visible(user: StaffUser, perm: string) { return canSee(user, perm); }
 
 // 📊 The dashboard and visitor analytics sit together on one page as two tabs (like browser tabs),
 // so the owner does not have to look for visitor analytics in the menu.
-const HOME_TABS = [
+const HOME_TABS: Tab[] = [
   ['/admin', 'ড্যাশবোর্ড', 'dashboard', 'home', '📊'],
   ['/admin/marketing/visitors', 'ভিজিটর অ্যানালিটিক্স', 'marketing', 'visitors', '👀'],
 ];
@@ -191,20 +198,20 @@ function homeTabs(user: StaffUser, active: string | undefined) {
 
 // A menu entry for the user: a plain link stays as it is; a tab set becomes a link to its first tab the user may
 // open, carrying the keys of all its tabs (so the menu lights up on any of them). null = nothing to show.
-function resolveItem(user: StaffUser, it?: Loose) {
+function resolveItem(user: StaffUser, it: MenuItem): Resolved | null {
   if (Array.isArray(it)) return visible(user, it[2]) ? it : null;
-  const tabs = (TABS[it.tabs] || []).filter((t: string[]) => visible(user, t[2]));
+  const tabs = (TABS[it.tabs] || []).filter((t) => visible(user, t[2]));
   if (!tabs.length) return null;
-  return [tabs[0][0], it.label, tabs[0][2], tabs[0][3], it.icon, tabs.map((t: Loose) => t[3])];
+  return [tabs[0][0], it.label, tabs[0][2], tabs[0][3], it.icon, tabs.map((t) => t[3])];
 }
 // The tab bar on top of a page that is one of a tab set — only on the tab pages themselves
 // (a single product, order or supplier opened from the list gets no tab bar).
 function pageTabs(user: StaffUser, active: string | undefined, path: string) {
   if (!active || !path) return '';
   for (const set of Object.values(TABS)) {
-    if (!set.some((t: string[]) => t[3] === active)) continue;
-    if (!set.some((t: string[]) => t[0].split('?')[0] === path)) continue;
-    const tabs = set.filter((t: string[]) => visible(user, t[2]));
+    if (!set.some((t) => t[3] === active)) continue;
+    if (!set.some((t) => t[0].split('?')[0] === path)) continue;
+    const tabs = set.filter((t) => visible(user, t[2]));
     if (tabs.length < 2) return '';
     return <nav className="home-tabs page-tabs" aria-label="এই বিভাগের পেজ">{jsxList(tabs.map(([href, label, , key, icon]: unknown[]) => <a href={attrValue(href)} className={`home-tab ${active === key ? 'on' : ''}`} aria-current={(active === key) ? "page" : undefined}><span aria-hidden="true"><Val v={icon} /></span>{' '}<Val v={label} /></a>))}</nav>;
   }
@@ -260,12 +267,12 @@ type FrameProps = { settings: Settings; user: StaffUser; active?: string; readOn
 /** The inside of <body class="admin">: the side menu, the top bar (search, English switch, the user's menu), the page. */
 function AdminBody({ settings, user, active, readOnly, path = '', nonce, children }: FrameProps) {
   const dashTabs = visible(user, 'dashboard') && visible(user, 'marketing'); // both tabs shown on the dashboard
-  const groups = MENU.map((g) => ({ ...g, items: g.items.map((it) => resolveItem(user, it)).filter((it) => it && !(dashTabs && it[3] === 'visitors')) })).filter((g) => g.items.length);
+  const groups = MENU.map((g) => ({ ...g, items: g.items.map((it) => resolveItem(user, it)).filter((it): it is Resolved => !!it && !(dashTabs && it[3] === 'visitors')) })).filter((g) => g.items.length);
   const onHome = dashTabs && (active === 'home' || active === 'visitors');
   const tabActive = active;
   if (onHome) active = 'home'; // visitor analytics lights up "ড্যাশবোর্ড" in the menu
-  const isOn = (it: Loose) => it[3] === active || (it[5] || []).includes(active);
-  const link = (it: Loose, i: number) => {
+  const isOn = (it: Resolved) => it[3] === active || (active !== undefined && (it[5] || []).includes(active));
+  const link = (it: Resolved, i: number) => {
     const [href, label, , , icon] = it;
     const on = isOn(it);
     return <a key={i} href={href} className={on ? 'on' : ''} aria-current={on ? 'page' : undefined}><span className="side-ic" aria-hidden="true">{icon}</span>{label}</a>;

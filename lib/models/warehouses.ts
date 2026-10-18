@@ -4,7 +4,7 @@
 //   main = total − all other stores.
 // So nothing else in the shop changes: purchases and online orders move the main store; a transfer moves pieces
 // between stores; a counter sale at a branch (POS) takes from that branch (and from the total).
-import type { ProductsRow, WarehouseStockRow, WarehousesRow } from '../data/rows';
+import type { ProductsRow, WarehouseMovesRow, WarehouseStockRow, WarehousesRow } from '../data/rows';
 import * as db from '../db';
 import { str, int } from '../util';
 import type { Body, Id, Loose } from '../types';
@@ -124,11 +124,11 @@ type MovesOpts = {
   limit?: number;
 };
 async function moves({ whId = null, limit = 60 }: MovesOpts = {}) {
-  const params = [];
+  const params: unknown[] = [];
   let where = '';
   if (whId) { params.push(int(whId)); where = 'WHERE m.from_wh=$1 OR m.to_wh=$1'; }
   params.push(limit);
-  return db.q(`SELECT m.*, p.name, p.sku, f.name AS from_name, t.name AS to_name, s.name AS staff_name, o.code AS order_code
+  return db.q<WarehouseMovesRow & { name: string | null; sku: string | null; from_name: string | null; to_name: string | null; staff_name: string | null; order_code: string | null }>(`SELECT m.*, p.name, p.sku, f.name AS from_name, t.name AS to_name, s.name AS staff_name, o.code AS order_code
     FROM warehouse_moves m LEFT JOIN products p ON p.id=m.product_id LEFT JOIN warehouses f ON f.id=m.from_wh LEFT JOIN warehouses t ON t.id=m.to_wh
     LEFT JOIN staff s ON s.id=m.staff_id LEFT JOIN orders o ON o.id=m.ref_id AND m.reason IN ('sale','sale_cancel')
     ${where} ORDER BY m.id DESC LIMIT $${params.length}`, params);

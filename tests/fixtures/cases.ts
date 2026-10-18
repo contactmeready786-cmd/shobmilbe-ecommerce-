@@ -3,9 +3,14 @@
 import * as F from './shop';
 import * as FC from './complaint';
 import * as FA from './account';
-import type { Loose } from '../../lib/types';
+import type * as ShopViews from '../../lib/views/shop';
+import type * as ComplaintViews from '../../lib/views/complaint';
+import type * as AccountViews from '../../lib/views/account';
 
-export type Views = { shop: Loose; complaint: Loose; account: Loose };
+/** the page functions, called with the sample data below (samples carry only the fields a page reads, so their
+ *  arguments are taken as given) */
+type Samples<M> = { [K in keyof M]: M[K] extends (...a: infer A) => infer R ? (...a: { [I in keyof A]: unknown }) => R : M[K] };
+export type Views = { shop: Samples<typeof ShopViews>; complaint: Samples<typeof ComplaintViews>; account: Samples<typeof AccountViews> };
 
 export const CASES: [string, (v: Views) => unknown][] = [
   // shop: simple pages + blog

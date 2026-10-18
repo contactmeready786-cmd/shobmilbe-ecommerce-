@@ -57,7 +57,7 @@ async function changePassword(ctx: AdminCtx) {
   await sessions.revokeAll(u.id, 'পাসওয়ার্ড বদল', u.__token);
   await ctx.log('password', 'staff', u.id, 'নিজের পাসওয়ার্ড বদল');
   if (u.role === 'owner') await $services_notify.securityAlert(ctx.settings, 'মালিকের পাসওয়ার্ড বদলানো হয়েছে', `যেখান থেকে: ${ctx.ip}`).catch(() => {});
-  const cookie = await ctx.newSession(fresh);
+  const cookie = await ctx.newSession(fresh!);
   return ctx.reply.answer(303, { Location: '/admin/account?msg=password', 'Cache-Control': 'no-store', 'Set-Cookie': cookie });
 }
 

@@ -10,7 +10,10 @@ import * as md from '../views/md';
 import * as $autoseo from './autoseo';
 import * as $db from '../db';
 import * as $dupcanon from './dupcanon';
-import type { Loose, Settings } from '../types';
+import type { Settings } from '../types';
+
+/** a category or brand as the list pages' titles need it */
+type ListLike = { name?: unknown; seo_title?: string | null; seo_description?: string | null; description?: string | null };
 import type { FullProduct } from '../models/catalog';
 import type { CategoriesRow, KitsRow, ProductsRow } from '../data/rows';
 
@@ -18,10 +21,10 @@ const JUNK_START = /^\s*(?:product\s+details?\s+of|product\s+name\s*:)\s*/i;
 function cleanName(name: string) {
   return String(name || '').replace(JUNK_START, '').replace(/\s*[|,–-]\s*$/, '').replace(/\s{2,}/g, ' ').trim() || String(name || '').trim();
 }
-function needsNameFix(name?: Loose) { return JUNK_START.test(String(name || '')); }
+function needsNameFix(name?: unknown) { return JUNK_START.test(String(name || '')); }
 
 // Cut at a word boundary, never in the middle of a word ("… Circuit Boar" ✗)
-function cut(text: string, max?: Loose) {
+function cut(text: string, max: number) {
   const t = String(text || '').replace(/\s+/g, ' ').trim();
   if (t.length <= max) return t;
   const part = t.slice(0, max + 1);
@@ -62,11 +65,11 @@ function productKeywords(p: FullProduct) {
   return [...new Set(list.filter(Boolean))].join(', ');
 }
 
-function listTitle(c?: Loose, page?: Loose) {
+function listTitle(c: ListLike, page?: number) {
   const base = c.seo_title && c.seo_title.trim() ? c.seo_title.trim() : `${c.name} — দাম ও অনলাইন অর্ডার বাংলাদেশে`;
-  return page > 1 ? `${base} (পেজ ${bn(page)})` : base;
+  return Number(page) > 1 ? `${base} (পেজ ${bn(page)})` : base;
 }
-function listDescription(c?: Loose, total?: Loose, settings: Settings = {} as Settings) {
+function listDescription(c: ListLike, total?: unknown, settings: Settings = {} as Settings) {
   if (c.seo_description && c.seo_description.trim()) return c.seo_description.trim();
   const own = md.plain(c.description || '', 300);
   if (own.length >= 60) return cut(own, 160);
@@ -82,9 +85,9 @@ function homeDescription(s: Settings) {
 }
 
 // Category / brand list → ItemList for Google (the products on this page, in order)
-function itemListLd(base: string, products?: Loose, offset = 0) {
+function itemListLd(base: string, products: { slug: unknown; name: string }[], offset = 0) {
   if (!products.length) return null;
-  return { '@context': 'https://schema.org', '@type': 'ItemList', itemListElement: products.slice(0, 30).map((p: Loose, i: number) => ({
+  return { '@context': 'https://schema.org', '@type': 'ItemList', itemListElement: products.slice(0, 30).map((p, i) => ({
     '@type': 'ListItem', position: offset + i + 1, url: `${base}/p/${p.slug}`, name: cleanName(p.name) })) };
 }
 
@@ -98,7 +101,7 @@ async function indexNowKey() {
   await db.setMany({ indexnow_key: key });
   return key;
 }
-async function indexNowPing(siteUrl: string, paths?: Loose) {
+async function indexNowPing(siteUrl: string, paths: string[]) {
   const base = String(siteUrl || '').replace(/\/+$/, '');
   if (!/^https:\/\//.test(base) || /vercel\.app|localhost/.test(base) || !paths.length) return null;
   const host = base.replace(/^https:\/\//, '');
@@ -106,7 +109,7 @@ async function indexNowPing(siteUrl: string, paths?: Loose) {
     const key = await indexNowKey();
     const r = await fetch('https://api.indexnow.org/indexnow', {
       method: 'POST', headers: { 'Content-Type': 'application/json; charset=utf-8' }, signal: AbortSignal.timeout(6000),
-      body: JSON.stringify({ host, key, keyLocation: `${base}/${key}.txt`, urlList: [...new Set(paths)].slice(0, 1000).map((p) => base + encodeURI(p as string)) }),
+      body: JSON.stringify({ host, key, keyLocation: `${base}/${key}.txt`, urlList: [...new Set(paths)].slice(0, 1000).map((p) => base + encodeURI(p)) }),
     });
     return r.status;
   } catch (_) { return null; }

@@ -22,8 +22,10 @@ async function entries(id?: Id) {
 }
 
 // What is still unpaid, oldest purchases first (payments clear the oldest debt first).
-function aging(opening?: unknown, list?: Loose) {
-  const debts: Loose[] = [];
+type Entry = Awaited<ReturnType<typeof entries>>[number];
+type Aging = { a: number; b: number; c: number; d: number; oldest: number | null };
+function aging(opening: unknown, list: Entry[]): Aging {
+  const debts: { d: string | null; left: number }[] = [];
   if (Number(opening) > 0) debts.push({ d: null, left: Number(opening) });
   let credit = 0;
   for (const e of list) {
@@ -44,7 +46,7 @@ function aging(opening?: unknown, list?: Loose) {
 
 async function duesPage(ctx: AdminCtx) {
   const rows = await finance.listSuppliers();
-  const out: Loose[] = [];
+  const out: (finance.SupplierListed & { due: number; ag: Aging; last_pay: string | null })[] = [];
   for (const s of rows) {
     const due = finance.supplierDue(s);
     if (Math.abs(due) < 0.005 && !Number(s.purchased)) continue;
@@ -66,7 +68,7 @@ async function ledgerPage(ctx: AdminCtx, m: RouteMatch) {
   const list = await entries(s.id);
   let bal = Number(s.opening_due || 0);
   let before = bal;
-  const rows: Loose[] = [];
+  const rows: (Entry & { d: string; change: number; bal: number })[] = [];
   for (const e of list) {
     const d = String(e.d).slice(0, 10);
     const change = e.kind === 'p' ? Number(e.amount) : -Number(e.amount);

@@ -3,12 +3,16 @@
 import * as db from '../db';
 import { fetchJson, sha256 } from '../util';
 import * as $security from '../security';
-import type { Loose, Settings, ShopRequest } from '../types';
+import type { Settings, ShopRequest } from '../types';
+
+/** what the conversion events need from a new order */
+export type TrackedOrder = { code: string; phone: string; customer_name: string; district: string; email: string; ip: string; total: unknown;
+  lines?: { product_id: unknown; qty: number; price: unknown; name?: unknown }[] };
 import type { OrderLine } from '../models/orders';
 
 function phoneE164(p?: unknown) { return '88' + String(p || '').replace(/\D/g, '').replace(/^88/, ''); }
 
-async function facebookPurchase(order: Loose, settings: Settings, req: ShopRequest) {
+async function facebookPurchase(order: TrackedOrder, settings: Settings, req: ShopRequest) {
   if (!settings.fb_pixel_id || !settings.fb_capi_token) return;
   const ua = String(req.headers['user-agent'] || '');
   const cookies = String(req.headers.cookie || '');
@@ -33,13 +37,13 @@ async function facebookPurchase(order: Loose, settings: Settings, req: ShopReque
       },
       custom_data: {
         currency: 'BDT', value: order.total, order_id: order.code,
-        content_type: 'product', content_ids: (order.lines || []).map((l: Loose) => String(l.product_id)),
-        contents: (order.lines || []).map((l: Loose) => ({ id: String(l.product_id), quantity: l.qty, item_price: l.price })),
-        num_items: (order.lines || []).reduce((n: unknown, l: Loose) => n + l.qty, 0),
+        content_type: 'product', content_ids: (order.lines || []).map((l) => String(l.product_id)),
+        contents: (order.lines || []).map((l) => ({ id: String(l.product_id), quantity: l.qty, item_price: l.price })),
+        num_items: (order.lines || []).reduce((n, l) => n + l.qty, 0),
       },
     }],
   };
-  if (settings.fb_test_code) (body as Loose).test_event_code = settings.fb_test_code;
+  if (settings.fb_test_code) (body as typeof body & { test_event_code?: unknown }).test_event_code = settings.fb_test_code;
   const r = await fetchJson<{ error?: { message?: string } }>(`https://graph.facebook.com/v21.0/${encodeURIComponent(settings.fb_pixel_id)}/events?access_token=${encodeURIComponent(settings.fb_capi_token)}`,
     { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }, 4000);
   if (!r.ok) await db.logIntegration('facebook', 'capi_purchase', false, (r.data && r.data.error && r.data.error.message) || r.text, order.code);
@@ -50,7 +54,7 @@ async function logOk(service: string, action: string, ref?: unknown) {
   if (await $security.hit(db, 'log:ok:' + service, 1, 3600)) await db.logIntegration(service, action, true, 'ইভেন্ট পাঠানো হয়েছে', ref);
 }
 
-async function tiktokPurchase(order: Loose, settings: Settings, req: ShopRequest) {
+async function tiktokPurchase(order: TrackedOrder, settings: Settings, req: ShopRequest) {
   if (!settings.tiktok_pixel_id || !settings.tiktok_events_token) return;
   const cookies = String(req.headers.cookie || '');
   const ttp = (cookies.match(/(?:^|;\s*)_ttp=([^;]+)/) || [])[1];
@@ -65,7 +69,7 @@ async function tiktokPurchase(order: Loose, settings: Settings, req: ShopRequest
       page: { url: (settings.site_url || '') + '/checkout' },
       properties: {
         currency: 'BDT', value: order.total, order_id: order.code, content_type: 'product',
-        contents: (order.lines || []).map((l: Loose) => ({ content_id: String(l.product_id), content_name: l.name, quantity: l.qty, price: l.price })),
+        contents: (order.lines || []).map((l) => ({ content_id: String(l.product_id), content_name: l.name, quantity: l.qty, price: l.price })),
       },
     }],
   };
@@ -76,7 +80,7 @@ async function tiktokPurchase(order: Loose, settings: Settings, req: ShopRequest
 }
 
 // Fire both; never let a tracking problem break an order.
-async function purchase(order: unknown, settings: Settings, req: ShopRequest) {
+async function purchase(order: TrackedOrder, settings: Settings, req: ShopRequest) {
   await Promise.allSettled([facebookPurchase(order, settings, req), tiktokPurchase(order, settings, req)]);
 }
 

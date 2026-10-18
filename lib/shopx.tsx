@@ -103,7 +103,7 @@ export async function complaint(f: FormCtx): Promise<void> {
     }
     // just opening the form (lib/shop/forms.tsx, shared with the Next.js pages)
     if (!isPost) return shown(await resolveForms({ path, query, settings, req }));
-    const b = await parseBody(req);
+    const b = await parseBody<'name' | 'phone' | 'email' | 'order_code' | 'topic' | 'message' | 'item'>(req);
     if (b.website) return go('/complaint'); // a robot filled the hidden box
     if (!(await security.hit(db, 'complaint:' + ip, 6, 3600))) return page('অভিযোগ জানান', CV.complaintPage({ settings, values: b, error: 'অনেকগুলো অভিযোগ পাঠানো হয়েছে। কিছুক্ষণ পর আবার চেষ্টা করুন, অথবা ফোন করুন।' }), { noindex: true, status: 429 });
     let photos: unknown[] = [];

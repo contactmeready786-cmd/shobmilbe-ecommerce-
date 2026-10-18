@@ -15,7 +15,8 @@ import type { Loose } from '../types';
 import type { ProductsRow } from '../data/rows';
 
 const TTL = 5 * 60 * 1000;
-let cache: Loose = null;
+/** a copy's link → its main product's link */
+let cache: Map<string, string> | null = null;
 let cachedAt = 0;
 
 function keyOf(name: string) {
@@ -24,22 +25,22 @@ function keyOf(name: string) {
 }
 
 // slug of a copy -> slug of its main page (main pages and single products are not in the map)
-async function copies() {
+async function copies(): Promise<Map<string, string>> {
   if (cache && Date.now() - cachedAt < TTL) return cache;
   const rows = await db.q<Pick<ProductsRow, 'id' | 'slug' | 'name' | 'stock' | 'product_type'>>(`SELECT id, slug, name, stock, product_type FROM products
     WHERE active AND NOT noindex AND parent_id IS NULL ORDER BY id`);
-  const groups = new Map();
+  const groups = new Map<string, (typeof rows)[number][]>();
   for (const r of rows) {
     const k = keyOf(r.name);
     if (!k) continue;
     const g = `${r.product_type || 'single'}|${k}`;
     if (!groups.has(g)) groups.set(g, []);
-    groups.get(g).push(r);
+    groups.get(g)!.push(r);
   }
-  const map = new Map();
+  const map = new Map<string, string>();
   for (const list of groups.values()) {
     if (list.length < 2) continue;
-    const main = list.find((r: Loose) => Number(r.stock) > 0) || list[0];
+    const main = list.find((r) => Number(r.stock) > 0) || list[0];
     for (const r of list) if (r !== main) map.set(r.slug, main.slug);
   }
   cache = map;

@@ -1,5 +1,5 @@
 import * as crypto from 'node:crypto';
-import type { Body, Settings, ShopRequest } from './types';
+import type { Body, Form, Settings, ShopRequest } from './types';
 
 function esc(v: unknown): string {
   if (v === null || v === undefined) return '';
@@ -85,7 +85,9 @@ function readBody(req: ShopRequest, limit?: number): Promise<string> {
 
 const BAD_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 // Form bodies: repeated keys (checkbox lists, item rows) become arrays.
-async function parseBody(req: ShopRequest): Promise<Body> {
+/** The sent form or JSON. The fields named in K are read as text (what an HTML form sends for one field). */
+async function parseBody<K extends string = never>(req: ShopRequest): Promise<Form<K>> { return (await parseSent(req)) as Form<K>; }
+async function parseSent(req: ShopRequest): Promise<Body> {
   const text = await readBody(req);
   const type = (req.headers['content-type'] || '').split(';')[0].trim();
   if (type === 'application/json') {

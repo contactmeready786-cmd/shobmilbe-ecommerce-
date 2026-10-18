@@ -8,23 +8,13 @@ import * as SMS from '../services/sms';
 import { SEGMENTS } from '../models/customers';
 import * as $models_catalog from '../models/catalog';
 import * as $models_orders from '../models/orders';
-import type { AdminCtx, Body, Loose } from '../types';
+import type { AdminCtx, Body } from '../types';
 import type { CustomersRow, SmsCampaignsRow } from '../data/rows';
 
 const BASE = '/admin/marketing/sms';
 const BATCH = 200; // customers per click (a click takes well under a minute)
 
-type AudienceProps = {
-  aud?: Loose;
-  grp?: Loose;
-  tag?: Loose;
-  days?: Loose;
-  segment?: Loose;
-  min_spent?: Loose;
-  district?: Loose;
-  category?: Loose;
-};
-async function audience(b: AudienceProps) {
+async function audience(b: Body) {
   // customers who said "no offer SMS" (at checkout, or the owner noted it here) never get a bulk message
   const w = ["c.phone ~ '^01[3-9][0-9]{8}$'", "NOT EXISTS (SELECT 1 FROM blocklist bl WHERE bl.value=c.phone)", 'c.promo_sms'];
   const params: unknown[] = [];
@@ -39,8 +29,8 @@ async function audience(b: AudienceProps) {
     w.push(`NOT EXISTS (SELECT 1 FROM orders o WHERE o.phone=c.phone AND o.status<>'cancelled' AND o.created_at > now() - make_interval(days => $${params.length}))`);
   }
   // ready-made groups (same as the customer list): new, repeat, VIP, risky…
-  if (b.aud === 'segment' && SEGMENTS[b.segment]) {
-    let cond = SEGMENTS[b.segment][1];
+  if (b.aud === 'segment' && SEGMENTS[String(b.segment)]) {
+    let cond = SEGMENTS[String(b.segment)][1];
     if (cond.includes('$VIP')) { params.push(Math.max(0, int(b.min_spent, 5000))); cond = cond.replace('$VIP', `$${params.length}`); }
     w.push(`c.id IN (SELECT c2.id FROM customers c2 LEFT JOIN orders o ON o.phone=c2.phone GROUP BY c2.id HAVING ${cond})`);
   }
@@ -64,23 +54,10 @@ async function audience(b: AudienceProps) {
 const AUD = [['buyers', 'যারা অন্তত একবার পণ্য পেয়েছেন'], ['inactive', '😴 অনেক দিন কেনেননি (নিচের "দিন" দেখে)'], ['recent', 'গত কিছু দিনে যারা কিনেছেন'],
   ['segment', 'তৈরি গ্রুপ (নতুন / আবার কিনেছেন / VIP / ঝুঁকিপূর্ণ…)'], ['spent', 'মোট এর বেশি টাকার কেনাকাটা করেছেন'], ['category', 'একটা ক্যাটাগরি থেকে কিনেছেন'],
   ['district', 'একটা জেলার কাস্টমার'], ['accounts', 'যারা অ্যাকাউন্টে লগইন করেছেন'], ['group', 'একটা গ্রুপ (হাতে দেওয়া)'], ['tag', 'একটা ট্যাগ'], ['all', 'সব কাস্টমার']];
-type AudienceTextProps_ = {
-  find: Loose;
-};
-type AudienceTextProps = {
-  aud?: Loose;
-  days?: Loose;
-  segment?: Loose;
-  min_spent?: Loose;
-  category?: Loose;
-  district?: Loose;
-  grp?: Loose;
-  tag?: Loose;
-};
-function audienceText(b: AudienceTextProps, cats: AudienceTextProps_ = []) {
+function audienceText(b: Body, cats: { id: number; name: string }[] = []) {
   const base = (AUD.find(([k]) => k === b.aud) || AUD[0])[1].replace(/\s*\(.*\)$/, '');
-  const extra = b.aud === 'inactive' || b.aud === 'recent' ? ` — ${int(b.days, 90)} দিন` : b.aud === 'segment' && SEGMENTS[b.segment] ? ` — ${SEGMENTS[b.segment][0]}`
-    : b.aud === 'spent' ? ` — ৳${int(b.min_spent, 5000)}+` : b.aud === 'category' ? ` — ${(cats.find((c: Loose) => c.id === int(b.category)) || {}).name || ''}`
+  const extra = b.aud === 'inactive' || b.aud === 'recent' ? ` — ${int(b.days, 90)} দিন` : b.aud === 'segment' && SEGMENTS[String(b.segment)] ? ` — ${SEGMENTS[String(b.segment)][0]}`
+    : b.aud === 'spent' ? ` — ৳${int(b.min_spent, 5000)}+` : b.aud === 'category' ? ` — ${cats.find((c) => c.id === int(b.category))?.name || ''}`
       : b.aud === 'district' ? ` — ${str(b.district, 60)}` : b.aud === 'group' ? ` — ${str(b.grp, 60)}` : b.aud === 'tag' ? ` — ${str(b.tag, 40)}` : '';
   return (base + extra).slice(0, 200);
 }
@@ -110,7 +87,7 @@ async function post(ctx: AdminCtx) {
   const b = await ctx.body();
   if (b.action === 'setup') {
     if (!ctx.can('settings')) return ctx.back(BASE, 'noperm');
-    const v: Record<string, Loose> = { sms_on: b.sms_on ? '1' : '0', sms_provider: ifKey(SMS.PROVIDERS, b.sms_provider, 'bulksmsbd'),
+    const v: Record<string, string> = { sms_on: b.sms_on ? '1' : '0', sms_provider: ifKey(SMS.PROVIDERS, b.sms_provider, 'bulksmsbd'),
       sms_sender_id: str(b.sms_sender_id, 60),
       sms_mkt_day: String(Math.max(0, Math.min(100000, int(b.sms_mkt_day, 0)))), sms_mkt_month: String(Math.max(0, Math.min(1000000, int(b.sms_mkt_month, 0)))), sms_custom_url: /^https:\/\/[^\s]+$/i.test(str(b.sms_custom_url, 400)) ? str(b.sms_custom_url, 400) : '' };
     if (str(b.sms_api_key, 200)) v.sms_api_key = str(b.sms_api_key, 200);

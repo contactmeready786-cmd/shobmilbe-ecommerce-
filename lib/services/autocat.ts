@@ -13,7 +13,9 @@ import { q, tx } from '../db';
 import type { Body, Loose } from '../types';
 import type { Tx } from '../pg';
 import type { CategoriesRow } from '../data/rows';
-const TREE = [
+/** [slug, name, icon, sub-categories?] */
+type TreeNode = [string, string, string, TreeNode[]?];
+const TREE: TreeNode[] = [
   ['electronics', 'ইলেকট্রনিক্স', '📟', [
     ['circuits', 'সার্কিট ও মডিউল', '🧩', [
       ['audio-amplifier', 'অডিও অ্যামপ্লিফায়ার বোর্ড', '🔊'],
@@ -90,7 +92,7 @@ const TREE = [
 // Remote brands, in the order they are written in shops. A company gets its own sub-category
 // when it has at least BRAND_MIN remotes of that kind; the rest go to "অন্যান্য কোম্পানি".
 const BRAND_MIN = 3;
-const BRANDS = [
+const BRANDS: [string, string, RegExp][] = [
   ['walton', 'Walton', /walton|ওয়ালটন/], ['singer', 'Singer', /singer|সিঙ্গার/], ['lg', 'LG', /\blg\b|এলজি/],
   ['samsung', 'Samsung', /samsung|স্যামসাং/], ['gree', 'Gree', /\bgree\b/], ['general', 'General', /general|fujitsu|o general/],
   ['midea', 'Midea', /midea|media ac/], ['haier', 'Haier', /haier/], ['vision', 'Vision', /vision|\bvisio\b/], ['rangs', 'Rangs', /rangs/],
@@ -104,7 +106,7 @@ const BRANDS = [
 const UNIVERSAL = /universal|1000 in 1|\d+ brands|master remote/;
 
 // ---------------------------------------------------------------- rules (first match wins)
-const R: Loose[] = [];
+const R: [string, RegExp, RegExp | null][] = [];
 const rule = (slug: string, re: RegExp, not?: RegExp | undefined) => R.push([slug, re, not || null]);
 // fashion / home first (their words are clear)
 rule('digital-products', /gift ?card|license key|licen[cs]e|activation key|product key|subscription|premium account|e-?book|online course|software|ডিজিটাল/);
@@ -159,12 +161,13 @@ rule('fuse', /fuse/);
 // last chance: an un-named board/module/circuit
 rule('circuits', /module|board|circuit|সার্কিট/);
 
-function norm(name?: Loose) {
+function norm(name: unknown) {
   return String(name || '').toLowerCase().replace(/[০-৯]/g, (d) => String('০১২৩৪৫৬৭৮৯'.indexOf(d))).replace(/[_]+/g, ' ').replace(/\s+/g, ' ');
 }
 
 // Remote? → { kind: 'ac-remote'|'tv-remote'|'box-remote', brand: slug|'universal'|null }
-function remoteOf(n?: Loose) {
+type Remote = { kind: string; brand: string | null };
+function remoteOf(n: string): Remote | null {
   if (!/remote|রিমোট/.test(n)) return null;
   if (/(switch|lamp holder|remote control device|timer switch)/.test(n)) return null;
   let kind;
@@ -177,14 +180,14 @@ function remoteOf(n?: Loose) {
   let at = Infinity;
   for (const [slug, , re] of BRANDS) {
     const m = n.match(re);
-    if (m && m.index < at) { at = m.index; brand = slug; }
+    if (m && m.index! < at) { at = m.index!; brand = slug; }
   }
   if (!brand && UNIVERSAL.test(n)) brand = 'universal';
   return { kind, brand };
 }
 
 // slug for one product name (remotes: the type; the brand is handled when applying)
-function classify(name?: Loose) {
+function classify(name: unknown): { slug: string; remote?: Remote } | null {
   const n = norm(name);
   const r = remoteOf(n);
   if (r) return { slug: r.kind, remote: r };
@@ -193,12 +196,14 @@ function classify(name?: Loose) {
   }
   return null;
 }
-function suggest(name?: Loose) { const c = classify(name); return c ? c.slug : null; }
+function suggest(name: unknown) { const c = classify(name); return c ? c.slug : null; }
 
 // ---------------------------------------------------------------- saving
+/** one category of the tree, with where it hangs */
+type FlatNode = { slug: string; name: string | undefined; icon: string; parent: string | null; sort: number };
 function flatTree() {
-  const out: Loose[] = [];
-  const walk = (nodes?: Loose, parent?: Loose) => nodes.forEach(([slug, name, icon, kids]: Loose[], i: number) => {
+  const out: FlatNode[] = [];
+  const walk = (nodes: TreeNode[], parent: string | null) => nodes.forEach(([slug, name, icon, kids], i) => {
     out.push({ slug, name, icon, parent, sort: i });
     if (kids) walk(kids, slug);
   });
@@ -208,10 +213,10 @@ function flatTree() {
 const SEED_NAMES: Record<string, string> = { electronics: 'ইলেকট্রনিক্স', circuits: 'সার্কিট', components: 'কম্পোনেন্ট', soldering: 'সোল্ডারিং', electrical: 'ইলেকট্রিক্যাল', fashion: 'ফ্যাশন' };
 
 // Create (or put in place) the categories with these slugs, parents first. Returns slug → id.
-async function ensureCategories(t: Tx, wanted?: Loose) {
+async function ensureCategories(t: Tx, wanted: { slugs: string[]; extra: Map<string, FlatNode> }) {
   const all = flatTree();
   const need = new Set<string>();
-  const add = (slug?: Loose) => {
+  const add = (slug: string) => {
     const node = all.find((x) => x.slug === slug) || wanted.extra.get(slug);
     if (!node || need.has(slug)) return;
     if (node.parent) add(node.parent);
@@ -221,17 +226,17 @@ async function ensureCategories(t: Tx, wanted?: Loose) {
   const ids = new Map<string, number>();
   for (const slug of need) {
     const node = all.find((x) => x.slug === slug) || wanted.extra.get(slug);
-    const parentId = node.parent ? ids.get(node.parent) : null;
+    const parentId = node!.parent ? ids.get(node!.parent) : null;
     const cur = (await t.query<Pick<CategoriesRow, 'id' | 'name'>>('SELECT id, name FROM categories WHERE slug=$1', [slug])).rows[0];
     if (cur) {
       // the shop's first six categories get their new place (and a clearer name if never renamed)
-      const rename = SEED_NAMES[slug] && cur.name === SEED_NAMES[slug] && SEED_NAMES[slug] !== node.name;
-      await t.query(`UPDATE categories SET parent_id=$1${rename ? ', name=$3' : ''} WHERE id=$2`, rename ? [parentId, cur.id, node.name] : [parentId, cur.id]);
-      if (SEED_NAMES[slug] && !node.parent) await t.query('UPDATE categories SET sort=$1 WHERE id=$2', [node.sort || 0, cur.id]);
+      const rename = SEED_NAMES[slug] && cur.name === SEED_NAMES[slug] && SEED_NAMES[slug] !== node!.name;
+      await t.query(`UPDATE categories SET parent_id=$1${rename ? ', name=$3' : ''} WHERE id=$2`, rename ? [parentId, cur.id, node!.name] : [parentId, cur.id]);
+      if (SEED_NAMES[slug] && !node!.parent) await t.query('UPDATE categories SET sort=$1 WHERE id=$2', [node!.sort || 0, cur.id]);
       ids.set(slug, cur.id);
     } else {
       const r = (await t.query<Pick<CategoriesRow, 'id'>>('INSERT INTO categories(name, slug, icon, sort, active, parent_id) VALUES($1,$2,$3,$4,true,$5) RETURNING id',
-        [node.name, slug, node.icon || '📦', node.sort || 0, parentId])).rows[0];
+        [node!.name, slug, node!.icon || '📦', node!.sort || 0, parentId])).rows[0];
       ids.set(slug, r.id);
     }
   }
@@ -240,18 +245,18 @@ async function ensureCategories(t: Tx, wanted?: Loose) {
 
 // What every product would get. Remote brands get a sub-category only when there are enough of them.
 type PlanOpts = {
-  ids?: Loose;
+  ids?: number[] | null;
 };
 async function plan({ ids = null }: PlanOpts = {}) {
-  const products = await q(`SELECT p.id, p.name, p.category_id, c.slug AS category_slug, c.name AS category_name
+  const products = await q<{ id: number; name: string; category_id: number | null; category_slug: string | null; category_name: string | null }>(`SELECT p.id, p.name, p.category_id, c.slug AS category_slug, c.name AS category_name
     FROM products p LEFT JOIN categories c ON c.id=p.category_id WHERE p.parent_id IS NULL ${ids ? 'AND p.id = ANY($1::int[])' : ''} ORDER BY p.id`, ids ? [ids] : []);
-  const rows: Loose[] = products.map((p) => ({ ...p, c: classify(p.name) }));
+  const rows: ((typeof products)[number] & { c: ReturnType<typeof classify>; to?: string; path?: string })[] = products.map((p) => ({ ...p, c: classify(p.name) }));
   // brand counts per remote kind (whole shop, so small brands still group well later)
-  const allRemotes = (await q('SELECT name FROM products')).map((p) => remoteOf(norm(p.name))).filter((x): x is NonNullable<typeof x> => !!x);
+  const allRemotes = (await q<{ name: string }>('SELECT name FROM products')).map((p) => remoteOf(norm(p.name))).filter((x): x is NonNullable<typeof x> => !!x);
   const count = new Map<string, number>();
   for (const r of allRemotes) if (r.brand) count.set(r.kind + '|' + r.brand, (count.get(r.kind + '|' + r.brand) || 0) + 1);
   const all = flatTree();
-  const extra = new Map();
+  const extra = new Map<string, FlatNode>();
   for (const r of rows) {
     if (!r.c) continue;
     let slug = r.c.slug;
@@ -265,12 +270,12 @@ async function plan({ ids = null }: PlanOpts = {}) {
     }
     r.to = slug;
     const node = all.find((x) => x.slug === slug) || extra.get(slug);
-    const path: string[] = [];
-    for (let x = node; x; x = all.find((y) => y.slug === x.parent) || extra.get(x.parent)) path.unshift(x.name);
+    const path: (string | undefined)[] = [];
+    for (let x = node; x; x = all.find((y) => y.slug === x!.parent) || (x.parent === null ? undefined : extra.get(x.parent))) path.unshift(x.name);
     r.path = path.join(' › ');
   }
   // brand sub-categories sorted by size
-  const sizes = new Map();
+  const sizes = new Map<string, number>();
   rows.forEach((r) => { if (r.to && extra.has(r.to)) sizes.set(r.to, (sizes.get(r.to) || 0) + 1); });
   for (const [slug, node] of extra) if (node.sort === 0) node.sort = 50 - Math.min(49, sizes.get(slug) || 0);
   return { rows, extra };
@@ -290,10 +295,10 @@ async function apply({ ids = null }: ApplyOpts = {}) {
   const todo = rows.filter((r) => r.to);
   if (!todo.length) return { moved: 0, unknown: rows.length };
   return tx(async (t) => {
-    const map = await ensureCategories(t, { slugs: [...new Set(todo.map((r) => r.to))], extra });
+    const map = await ensureCategories(t, { slugs: [...new Set(todo.map((r) => r.to!))], extra });
     let moved = 0;
     for (const r of todo) {
-      const cid = map.get(r.to);
+      const cid = map.get(r.to!);
       if (cid && cid !== r.category_id) { await t.query('UPDATE products SET category_id=$1, updated_at=now() WHERE id=$2', [cid, r.id]); moved++; }
     }
     // variants always sit in their main product's category

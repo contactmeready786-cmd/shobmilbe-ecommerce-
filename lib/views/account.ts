@@ -7,10 +7,10 @@ import type { Body, Loose } from '../types';
 function maskPhone(p?: unknown) { const s = String(p || ''); return s.length > 6 ? s.slice(0, 3) + '•'.repeat(s.length - 6) + s.slice(-3) : '•••'; }
 
 // ⚛️ moved to React (components/shop/Account.tsx) — same HTML, same callers; returns a React element (usable by Next.js pages too)
-function loginPage(props: Body) { return createElement(R.LoginPage, props); }
-function dashboard(props: Body) { return createElement(R.Dashboard, props as Parameters<typeof R.Dashboard>[0]); }
-function returnForm(props: Body) { return createElement(R.ReturnForm, props as Parameters<typeof R.ReturnForm>[0]); }
-function giftPage(props: Body) { return createElement(R.GiftPage, props as Parameters<typeof R.GiftPage>[0]); }
+function loginPage(props: Parameters<typeof R.LoginPage>[0]) { return createElement(R.LoginPage, props); }
+function dashboard(props: Parameters<typeof R.Dashboard>[0]) { return createElement(R.Dashboard, props); }
+function returnForm(props: Parameters<typeof R.ReturnForm>[0]) { return createElement(R.ReturnForm, props); }
+function giftPage(props: Parameters<typeof R.GiftPage>[0]) { return createElement(R.GiftPage, props); }
 const { REASONS, WANTS, RETURN_LABELS } = R;
 
 export { loginPage, dashboard, returnForm, giftPage, REASONS, WANTS, RETURN_LABELS, maskPhone };

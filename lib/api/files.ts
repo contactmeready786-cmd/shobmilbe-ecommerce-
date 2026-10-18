@@ -21,7 +21,7 @@ import * as $services_autoblog from '../services/autoblog';
 import { siteUrl, blockedBots } from '../gate';
 import { int, str, esc } from '../util';
 import { allow, json, tooMany, type ApiCtx } from '../next/api';
-import type { Body, Loose } from '../types';
+import type { Body } from '../types';
 import type { BlogPostsRow, BrandsRow, CategoriesRow, KitsRow, MediaRow, PagesRow, ProductsRow } from '../data/rows';
 
 /** The original code's plain answer: its type, never kept unless said, the shop's security headers. */
@@ -32,7 +32,7 @@ function text(status: number, body: BodyInit | null, type = 'text/html; charset=
 const seeOther = (to: string) => new Response(null, { status: 303, headers: { Location: to, 'Cache-Control': 'no-store' } });
 const notFound = () => text(404, 'Not found', 'text/plain');
 const SAFE_IMAGE = /^image\/(jpeg|png|webp|gif|x-icon)$/;
-const bytes = (b: Loose) => (b ? new Uint8Array(b) : null);
+const bytes = (b: Uint8Array | null | undefined) => (b ? new Uint8Array(b) : null);
 
 // ---------------------------------------------------------------- pictures
 // A picture on ImageKit: send the visitor straight there (fast CDN). raw=1 (admin tools that read the

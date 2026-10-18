@@ -58,7 +58,7 @@ function article({ cat, items }: CatGroup, settings: Settings) {
   const inStock = items.filter((p: { stock: number; }) => p.stock > 0);
   const sorted = [...items].sort((a, b) => Number(b.stock > 0) - Number(a.stock > 0) || b.sold - a.sold || a.price - b.price);
   const rows = sorted.slice(0, MAX_ROWS);
-  const prices = inStock.length ? inStock.map((p: Loose) => p.price) : items.map((p: Loose) => p.price);
+  const prices = inStock.length ? inStock.map((p) => p.price) : items.map((p) => p.price);
   const lo = Math.min(...prices);
   const hi = Math.max(...prices);
   const cheapest = (inStock.length ? inStock : items).find((p: { price: number; }) => p.price === lo);
@@ -66,8 +66,8 @@ function article({ cat, items }: CatGroup, settings: Settings) {
   const dhaka = Number(settings.delivery_dhaka) || 60;
   const outside = Number(settings.delivery_outside) || 110;
 
-  const subs = new Map();
-  for (const p of items) if (p.sub) { if (!subs.has(p.sub)) subs.set(p.sub, []); subs.get(p.sub).push(p); }
+  const subs = new Map<string, typeof items>();
+  for (const p of items) if (p.sub) { if (!subs.has(p.sub)) subs.set(p.sub, []); subs.get(p.sub)!.push(p); }
 
   const lines = [
     `${cat.name} কিনতে চাইলে দাম এক জায়গায় মিলিয়ে নিন। ${store}-তে এখন ${bn(items.length)}টা ${cat.name} পণ্য আছে, দাম ${money(lo)} থেকে ${money(hi)} পর্যন্ত। নিচের তালিকার দাম শেষবার মিলানো হয়েছে ${date}।`,
@@ -83,7 +83,7 @@ function article({ cat, items }: CatGroup, settings: Settings) {
   if (subs.size > 1) {
     lines.push(`## ধরন অনুযায়ী ${cat.name}-এর দাম`, '');
     for (const [name, list] of [...subs.entries()].sort((a, b) => b[1].length - a[1].length).slice(0, 12)) {
-      const ps = list.map((p: Loose) => p.price);
+      const ps = list.map((p) => p.price);
       lines.push(`- **${name}:** ${bn(list.length)}টা পণ্য, ${money(Math.min(...ps))} থেকে ${money(Math.max(...ps))}`);
     }
     lines.push('');
@@ -125,7 +125,7 @@ async function run(settings: Settings, { force = false, max = 2 }: RunOpts = {})
   const groups = await categoriesWithProducts();
   if (!groups.length) return { none: true };
   const catId = await blogCategory();
-  const done: Loose[] = [];
+  const done: { id: number; title: string; updated?: boolean; created?: boolean }[] = [];
   for (const g of groups) {
     if (done.length >= max) break;
     const key = `price-list:${g.cat.id}`;

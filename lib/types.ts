@@ -64,6 +64,8 @@ export type AdminDrawn = { bare?: boolean; settings: Settings; user?: StaffUser;
 export type StaffUser = Row & { id: number; name: string; username: string; role: string; permissions: string[] | null; active: boolean };
 /** The parts of the address an admin route matched: [whole path, ...the regex's groups] (lib/admin/index.tsx). */
 export type RouteMatch = string[];
+/** one admin address a module answers */
+export type AdminRoute = { method: string; path: string | RegExp; perm?: string | ((ctx: AdminCtx) => string); handler: (ctx: AdminCtx, m: RouteMatch) => unknown };
 /** What every admin page handler gets (built in lib/admin/index.ts). */
 export type AdminCtx = Base & {
   user: StaffUser; ip: string; readOnly?: boolean; __err?: string;
@@ -77,6 +79,6 @@ export type AdminCtx = Base & {
   log: (action: string, entity?: string, entityId?: number | string | null, detail?: unknown) => Promise<void>;
   trash: (kind: string, id: number | string) => Promise<Loose>;
   markVerified: () => Promise<unknown>;
-  newSession: (u: Loose) => Promise<string>;
+  newSession: (u: StaffUser) => Promise<string>;
   reloadSettings: () => Promise<Settings>;
 };

@@ -200,8 +200,11 @@ async function current(req: Pick<ShopRequest, 'headers'>, settings: Settings): P
 async function logoutEverywhere(id?: Id) { await db.q('UPDATE customers SET session_ver = session_ver + 1 WHERE id=$1', [int(id)]); }
 
 // ---------- what the account page shows ----------
+/** one of the customer's own orders, with its lines in short */
+export type AccountOrder = { id: number; code: string; status: string; total: number; created_at: Date; paid_amount: number; payment: string;
+  items: { id: number | null; qty: number; name: string; kind: string }[] | null };
 async function ordersOf(cu: Pick<Customer, 'id' | 'phone'>, limit = 50) {
-  return db.q<{ id: number; code: string; status: string; total: number; created_at: Date; paid_amount: number; payment: string; items: unknown }>(`SELECT o.id, o.code, o.status, o.total, o.created_at, o.paid_amount, o.payment,
+  return db.q<AccountOrder>(`SELECT o.id, o.code, o.status, o.total, o.created_at, o.paid_amount, o.payment,
       (SELECT json_agg(json_build_object('id', i.product_id, 'qty', i.qty, 'name', i.name, 'kind', i.kind) ORDER BY i.id) FROM order_items i WHERE i.order_id=o.id) AS items
     FROM orders o WHERE (o.phone=$1 AND $1 <> '') OR o.customer_id=$2 OR o.account_id=$2 ORDER BY o.created_at DESC LIMIT $3`, [cu.phone || '', cu.id, limit]);
 }

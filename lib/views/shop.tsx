@@ -427,7 +427,7 @@ function followBox(s: Settings) {
 function warrantyBox(order: O.Order) {
   const items = $models_complaints.warrantyItems(order);
   if (!items.length) return '';
-  return (<section className="panel warranty-box"><h2>🛡️ ওয়ারেন্টি</h2><ul className="warranty-list">{jsxList(items.map((x: Loose) => <li><span><b translate="no"><Val v={x.name} /></b><br /><span className={`small ${x.valid ? 'good' : 'muted'}`}>{(x.end instanceof Date ? (x.valid ? `ওয়ারেন্টি আছে ${fmtDate(x.end, false)} পর্যন্ত` : `ওয়ারেন্টি শেষ হয়েছে ${fmtDate(x.end, false)}`) : "ওয়ারেন্টি আছে")}</span></span>{' '}{(x.valid ? <a className="btn btn-sm btn-ghost" href={`/complaint?order=${attrValue(order.code)}&topic=warranty&item=${attrValue(x.product_id)}`}>ওয়ারেন্টি দাবি করুন</a> : null)}</li>))}</ul></section>);
+  return (<section className="panel warranty-box"><h2>🛡️ ওয়ারেন্টি</h2><ul className="warranty-list">{jsxList(items.map((x) => <li><span><b translate="no"><Val v={x.name} /></b><br /><span className={`small ${x.valid ? 'good' : 'muted'}`}>{(x.end instanceof Date ? (x.valid ? `ওয়ারেন্টি আছে ${fmtDate(x.end, false)} পর্যন্ত` : `ওয়ারেন্টি শেষ হয়েছে ${fmtDate(x.end, false)}`) : "ওয়ারেন্টি আছে")}</span></span>{' '}{(x.valid ? <a className="btn btn-sm btn-ghost" href={`/complaint?order=${attrValue(order.code)}&topic=warranty&item=${attrValue(x.product_id)}`}>ওয়ারেন্টি দাবি করুন</a> : null)}</li>))}</ul></section>);
 }
 // 🙋 the customer's own changes (until the parcel goes to the courier): change name / number / address, or cancel
 function selfPanel(order: O.Order, s?: Settings, otpActive?: unknown) {

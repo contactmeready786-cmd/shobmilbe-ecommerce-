@@ -423,7 +423,9 @@ async function createOrder(input: CreateOrderOpts, settings: Settings) {
 /** An order line as getOrder returns it, with a few of its product's columns. */
 export type OrderItem = OrderItemsRow & {
   image_id: number | null; slug: string | null; emoji: string | null; warranty: string | null; warranty_type: string | null;
-  barcode: string | null; unit: string | null; weight_g: number; components: { product_id: number; qty: number }[] | null;
+  barcode: string | null; unit: string | null; weight_g: number;
+  /** a bundle's parts (the handover screen adds each part's name and barcode) */
+  components: { product_id: number; qty: number; name?: string; barcode?: string | null }[] | null;
 };
 /** An order as getOrder returns it, with its lines. Status, payment and the address parts always have a value
  * (the shop writes them on every order), so they are read as text. */

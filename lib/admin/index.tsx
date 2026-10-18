@@ -90,7 +90,7 @@ import * as $email from './email';
 import * as $services_guard from '../services/guard';
 import * as $models_trash from '../models/trash';
 import * as $models_extras from '../models/extras';
-import type { AdminCtx, Base, Body, Form, Id, Loose, Settings, ShopRequest, StaffUser, Caught } from '../types';
+import type { AdminCtx, AdminRoute, RouteMatch, Base, Body, Form, Id, Loose, Settings, ShopRequest, StaffUser, Caught } from '../types';
 import type { JSX } from 'react/jsx-runtime';
 import type { StaffRow } from '../data/rows';
 
@@ -107,7 +107,7 @@ const MODULES = [$dashboard, $orders, $import, $morepics, $watermark,
   $supplierledger, $fraud, $checkoutotp, $searchreport, $complaints, $kits,
   $automarketing, $autoseo, $sourcepics, $testclear, $stockscan, $setupmarks,
   $ledger, $email];
-const ROUTES: Loose[] = MODULES.flatMap((m: Loose) => m.routes);
+const ROUTES: AdminRoute[] = MODULES.flatMap((m): readonly AdminRoute[] => m.routes);
 
 // ---------- sessions ----------
 // The browser keeps only a random token (signed, HttpOnly); the login itself lives in the admin_sessions table,
@@ -591,7 +591,7 @@ ${link}
     ...base,
     user,
     ip,
-    can: (p?) => allowed(user, p),
+    can: (p: string) => allowed(user, p),
     flash: ui.flashFrom(query),
     body: <K extends string = never>() => parseBody(req) as Promise<Form<K>>,
     page: (title?, body?, active?, opts: { status?: number } = {}) => (draw
@@ -607,7 +607,7 @@ ${link}
     // this login passed the fingerprint / face step (the owner just set the lock up on this device)
     markVerified: () => db.q('UPDATE admin_sessions SET verified=true WHERE id=$1', [user.__session]),
     // a brand-new login for this device (after a password change: every other device is logged out)
-    newSession: async (u?) => { await sessions.revoke(user.__token, 'পাসওয়ার্ড বদল'); return startSession(req, settings, u, user.__verified); },
+    newSession: async (u: StaffUser) => { await sessions.revoke(user.__token, 'পাসওয়ার্ড বদল'); return startSession(req, settings, u, user.__verified); },
     reloadSettings: async () => { settings = await db.getSettings(); ctx.settings = settings; return settings; },
   };
 
@@ -657,7 +657,7 @@ ${link}
   // ----- module routes -----
   for (const r of ROUTES) {
     if (r.method !== '*' && r.method !== method) continue;
-    let match = null;
+    let match: RouteMatch | null = null;
     if (typeof r.path === 'string') { if (r.path !== path) continue; match = [path]; }
     else { match = path.match(r.path); if (!match) continue; }
     const perm = r.perm ? (typeof r.perm === 'function' ? r.perm(ctx) : r.perm) : null;

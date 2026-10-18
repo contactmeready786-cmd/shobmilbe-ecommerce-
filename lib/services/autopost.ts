@@ -38,16 +38,20 @@ function siteBase(settings: Settings) { return String(settings.site_url || 'http
 // ---------------------------------------------------------------- picking the product
 // Root category of every category (sub-categories post under their main one).
 async function rootCategories() {
-  const cats = await db.q('SELECT id, name, parent_id FROM categories WHERE coalesce(active,true)');
+  const cats = await db.q<Pick<CategoriesRow, 'id' | 'name' | 'parent_id'>>('SELECT id, name, parent_id FROM categories WHERE coalesce(active,true)');
   const byId = new Map(cats.map((c) => [c.id, c]));
-  const rootOf = (id?: Id) => { let c = byId.get(id); for (let i = 0; c && c.parent_id && i < 10; i++) c = byId.get(c.parent_id) || c; return c; };
+  const rootOf = (id: number | null) => { let c = id === null ? undefined : byId.get(id); for (let i = 0; c && c.parent_id && i < 10; i++) c = byId.get(c.parent_id) || c; return c; };
   return { byId, rootOf };
 }
 
+/** a product the page can post, with how much it sold and (when picked) its main category's name */
+type PostProduct = Pick<ProductsRow, 'id' | 'name' | 'slug' | 'price' | 'old_price' | 'stock' | 'image_id' | 'category_id' | 'short_description' | 'description' | 'brand' | 'featured'>
+  & { sold: number; category?: string };
+type PickRow = PostProduct & { last_posted: Date | null };
 const ELIGIBLE = `p.active AND p.parent_id IS NULL AND p.stock > 0 AND p.price > 0 AND p.image_id IS NOT NULL AND NOT coalesce(p.noindex,false)`;
 
 async function pickProduct(weekday: number, { exclude = [] }: { exclude?: unknown[] } = {}) {
-  const rows = await db.q<{ id: number; name: string; slug: string; price: number; old_price: number | null; stock: number; image_id: number | null; category_id: number | null; short_description: string; description: string; brand: string; sold: number; featured: boolean; last_posted: Date | null }>(`SELECT p.id, p.name, p.slug, p.price, p.old_price, p.stock, p.image_id, p.category_id, p.short_description, p.description,
+  const rows = await db.q<PickRow>(`SELECT p.id, p.name, p.slug, p.price, p.old_price, p.stock, p.image_id, p.category_id, p.short_description, p.description,
       p.brand, coalesce(p.sold_count,0)::int AS sold, coalesce(p.featured,false) AS featured,
       (SELECT max(sp.created_at) FROM social_posts sp WHERE sp.product_id=p.id AND sp.ok) AS last_posted
     FROM products p WHERE ${ELIGIBLE}`);
@@ -55,42 +59,42 @@ async function pickProduct(weekday: number, { exclude = [] }: { exclude?: unknow
   const { rootOf } = await rootCategories();
   const cutoff = Date.now() - REPEAT_DAYS * 864e5;
   // the same product listed twice ("…-2"): only its main page is posted
-  const copies = await $dupcanon.copies().catch(() => new Map());
+  const copies = await $dupcanon.copies().catch(() => new Map<string, string>());
   const usable = rows.filter((p) => !exclude.includes(p.id) && !copies.has(p.slug));
   let pool = usable.filter((p) => !p.last_posted || new Date(p.last_posted).getTime() < cutoff);
   if (!pool.length) pool = usable; // everything was posted lately: start the round again
   if (!pool.length) return null;
   // the weekday picks the main category (biggest categories first), so the page shows a different kind of thing each day
-  const groups = new Map();
+  const groups = new Map<number, { name: string; items: PickRow[] }>();
   for (const p of pool) {
     const root = rootOf(p.category_id);
     const key = root ? root.id : 0;
     if (!groups.has(key)) groups.set(key, { name: root ? root.name : '', items: [] });
-    groups.get(key).items.push(p);
+    groups.get(key)!.items.push(p);
   }
   const ordered = [...groups.values()].sort((a, b) => b.items.length - a.items.length);
   const group = ordered[weekday % ordered.length];
   // within the category: offers, best sellers and featured first, with some chance so it never feels repetitive
-  const score = (p?: Loose) => (p.old_price > p.price ? 3 : 0) + Math.min(p.sold, 20) / 4 + (p.featured ? 2 : 0) + (p.last_posted ? 0 : 1.5) + Math.random() * 4;
-  const best = group.items.map((p: unknown) => ({ p, s: score(p) })).sort((a: { s: number; }, b: { s: number; }) => b.s - a.s)[0].p;
+  const score = (p: PickRow) => (Number(p.old_price) > p.price ? 3 : 0) + Math.min(p.sold, 20) / 4 + (p.featured ? 2 : 0) + (p.last_posted ? 0 : 1.5) + Math.random() * 4;
+  const best = group.items.map((p) => ({ p, s: score(p) })).sort((a, b) => b.s - a.s)[0].p;
   best.category = group.name;
   return best;
 }
 
 // ---------------------------------------------------------------- the caption
 const OPENERS = [
-  (p?: Loose) => `🔥 ${p.name}`,
-  (p?: Loose) => `✨ নতুন করে দেখুন — ${p.name}`,
-  (p?: Loose) => `👉 ${p.name}`,
-  (p?: Loose) => `🛒 আজকের পছন্দ: ${p.name}`,
-  (p?: Loose) => `📦 স্টকে আছে — ${p.name}`,
+  (p: { name: string }) => `🔥 ${p.name}`,
+  (p: { name: string }) => `✨ নতুন করে দেখুন — ${p.name}`,
+  (p: { name: string }) => `👉 ${p.name}`,
+  (p: { name: string }) => `🛒 আজকের পছন্দ: ${p.name}`,
+  (p: { name: string }) => `📦 স্টকে আছে — ${p.name}`,
 ];
-function hashtags(p: { category: string; brand: string; }, settings: Settings) {
+function hashtags(p: { category?: string; brand: string }, settings: Settings) {
   const tag = (t: string) => '#' + String(t || '').replace(/[^\p{L}\p{M}\p{N}]+/gu, '');
   const list = [tag(settings.store_name || 'সবমিলবে'), '#shobmilbe', p.category ? tag(p.category) : '', p.brand && !/^(made\s*in|china|chinese|generic|no\s*brand|unbranded|চায়না|চাইনিজ)/i.test(String(p.brand).trim()) ? tag(p.brand) : '', '#OnlineShopBD', '#CashOnDelivery'];
   return [...new Set(list.filter((t) => t.length > 2))].slice(0, 6).join(' ');
 }
-function caption(p: Loose, settings: Settings, channel = 'facebook') {
+function caption(p: PostProduct, settings: Settings, channel = 'facebook') {
   const name = $seo.cleanName(p.name); // "Product details of …" copied from other shops never shows
   const open = OPENERS[(p.id + new Date().getDate()) % OPENERS.length]({ name });
   // copied descriptions often just repeat the product name ("<name> <name> …"): take those repeats out
@@ -107,7 +111,8 @@ function caption(p: Loose, settings: Settings, channel = 'facebook') {
   }
   if (flat(about).length < 15) about = '';
   const aboutCut = about.length > 220 ? about.slice(0, 220).replace(/\s+\S*$/, '') + '…' : about;
-  const offer = p.old_price > p.price ? `💰 দাম: ${money(p.price)} (আগে ${money(p.old_price)} — ${bn(Math.round(((p.old_price - p.price) * 100) / p.old_price))}% ছাড়)` : `💰 দাম: ${money(p.price)}`;
+  const old = Number(p.old_price);
+  const offer = old > p.price ? `💰 দাম: ${money(p.price)} (আগে ${money(old)} — ${bn(Math.round(((old - p.price) * 100) / old))}% ছাড়)` : `💰 দাম: ${money(p.price)}`;
   const stockNote = p.stock <= 5 ? `⚠️ স্টক সীমিত — মাত্র ${bn(p.stock)}টা আছে` : '';
   const dhaka = Number(settings.delivery_dhaka) || 60;
   const outside = Number(settings.delivery_outside) || 110;
@@ -204,7 +209,7 @@ async function connect({ token, appId, appSecret, pageId }: ConnectOpts) {
   return { pageId: page.id, pageName: page.name, pageToken: page.access_token, ig, others: page.others || [], longLived };
 }
 
-async function postFacebook(p: { image_id: unknown; }, settings: Settings) {
+async function postFacebook(p: PostProduct, settings: Settings) {
   const r = await graph(`${settings.autopost_page_id}/photos`, {
     method: 'POST', token: settings.autopost_page_token,
     params: { url: await imageUrl(p, settings), caption: caption(p, settings, 'facebook'), published: 'true' },
@@ -212,7 +217,7 @@ async function postFacebook(p: { image_id: unknown; }, settings: Settings) {
   return r.post_id || r.id;
 }
 
-async function postInstagram(p: { image_id: unknown; }, settings: Settings) {
+async function postInstagram(p: PostProduct, settings: Settings) {
   const token = settings.autopost_page_token;
   const box = await graph(`${settings.autopost_ig_id}/media`, { method: 'POST', token, params: { image_url: await imageUrl(p, settings), caption: caption(p, settings, 'instagram') } });
   let lastErr = null;
@@ -257,10 +262,10 @@ async function freshIndex(kind?: unknown, length?: unknown) {
   const order = [...Array(length).keys()].sort((a, b) => (at.get(String(a)) || 0) - (at.get(String(b)) || 0) || Math.random() - 0.5);
   return order[0];
 }
-async function productFor(words?: Loose) {
+async function productFor(words?: string[] | null) {
   if (!words || !words.length) return null;
-  const like = words.map((w: unknown) => '%' + String(w).replace(/[%_]/g, '') + '%');
-  return db.one<{ id: number; name: string; slug: string; category_id: number | null; price: number; old_price: number | null; stock: number; description: string; emoji: string; image: string | null; featured: boolean; active: boolean; created_at: Date; updated_at: Date; sku: string; short_description: string; cost_price: number; youtube_url: string; product_type: string; image_id: number | null; seo_title: string; seo_description: string; low_stock: number; weight_g: number; unit: string; brand: string; sold_count: number; seo_keywords: string; allow_duplicate: boolean; import_ref: string; brand_id: number | null; model: string; specs: unknown; is_new: boolean; damaged_stock: number; supplier_id: number | null; noindex: boolean; wish_count: number; rating_avg: number; rating_count: number; warranty: string; warranty_type: string; barcode: string; parent_id: number | null; variant_label: string; variant_count: number; variant_title: string; variant_sort: number; preorder: boolean; preorder_days: number; location: string; seo_auto_at: Date | null; src_wm: boolean; src_wm_checked: boolean; sold: number }>(`SELECT p.*, coalesce(p.sold_count,0)::int AS sold FROM products p WHERE ${ELIGIBLE} AND p.name ILIKE ANY($1::text[])
+  const like = words.map((w) => '%' + String(w).replace(/[%_]/g, '') + '%');
+  return db.one<ProductsRow & { sold: number }>(`SELECT p.*, coalesce(p.sold_count,0)::int AS sold FROM products p WHERE ${ELIGIBLE} AND p.name ILIKE ANY($1::text[])
     ORDER BY coalesce(p.sold_count,0) DESC, random() LIMIT 1`, [like]).catch(() => null);
 }
 const shortName = (n: string) => { const x = $seo.cleanName(n); return x.length > 70 ? x.slice(0, 70).replace(/\s+\S*$/, '') + '…' : x; };
@@ -328,7 +333,7 @@ async function buildEngagement(settings: Settings, kind: string) {
     const last = await lastEngagement();
     let quiz = null;
     try { quiz = JSON.parse(last!.ref); } catch (_) { quiz = null; }
-    const p = last && last.product_id ? await db.one<{ id: number; name: string; slug: string; category_id: number; price: number; old_price: number; stock: number; description: string; emoji: string; image: string; featured: boolean; active: boolean; created_at: Date; updated_at: Date; sku: string; short_description: string; cost_price: number; youtube_url: string; product_type: string; image_id: number; seo_title: string; seo_description: string; low_stock: number; weight_g: number; unit: string; brand: string; sold_count: number; seo_keywords: string; allow_duplicate: boolean; import_ref: string; brand_id: number; model: string; specs: unknown; is_new: boolean; damaged_stock: number; supplier_id: number; noindex: boolean; wish_count: number; rating_avg: number; rating_count: number; warranty: string; warranty_type: string; barcode: string; parent_id: number; variant_label: string; variant_count: number; variant_title: string; variant_sort: number; preorder: boolean; preorder_days: number; location: string; seo_auto_at: Date; src_wm: boolean; src_wm_checked: boolean; sold: number }>(`SELECT p.*, coalesce(p.sold_count,0)::int AS sold FROM products p WHERE p.id=$1`, [last.product_id]) : null;
+    const p = last && last.product_id ? await db.one<ProductsRow & { sold: number }>(`SELECT p.*, coalesce(p.sold_count,0)::int AS sold FROM products p WHERE p.id=$1`, [last.product_id]) : null;
     if (!p || !quiz || !p.active) return buildEngagement(settings, 'tip'); // the part was removed meanwhile: skip to a tip
     const text = [`✅ গত কুইজের সঠিক উত্তর: ${BN_ABC[quiz.right]}) ${shortName(p.name)}`, '',
       'যারা ঠিক বলেছেন সবাইকে অভিনন্দন! 🎉', '',
@@ -370,16 +375,18 @@ function engagementSlot(settings: Settings, hour: number, day: string) {
 // Post one product now. Returns what happened on each channel.
 type PostOneOpts = {
   slot?: string;
-  productId?: Loose;
+  productId?: Id | null;
 };
-async function postOne(settings: Settings, { slot, productId }: PostOneOpts = {}) {
+/** what posting did on each channel (or why nothing was posted) */
+export type PostResult = { error?: string; product?: PostProduct; fb?: string; fbError?: string; ig?: string; igError?: string };
+async function postOne(settings: Settings, { slot, productId }: PostOneOpts = {}): Promise<PostResult> {
   const now = dhakaNow();
-  const p = productId
-    ? await db.one<{ id: number; name: string; slug: string; category_id: number | null; price: number; old_price: number | null; stock: number; description: string; emoji: string; image: string | null; featured: boolean; active: boolean; created_at: Date; updated_at: Date; sku: string; short_description: string; cost_price: number; youtube_url: string; product_type: string; image_id: number | null; seo_title: string; seo_description: string; low_stock: number; weight_g: number; unit: string; brand: string; sold_count: number; seo_keywords: string; allow_duplicate: boolean; import_ref: string; brand_id: number | null; model: string; specs: unknown; is_new: boolean; damaged_stock: number; supplier_id: number | null; noindex: boolean; wish_count: number; rating_avg: number; rating_count: number; warranty: string; warranty_type: string; barcode: string; parent_id: number | null; variant_label: string; variant_count: number; variant_title: string; variant_sort: number; preorder: boolean; preorder_days: number; location: string; seo_auto_at: Date | null; src_wm: boolean; src_wm_checked: boolean; sold: number }>(`SELECT p.*, coalesce(p.sold_count,0)::int AS sold FROM products p WHERE p.id=$1 AND ${ELIGIBLE}`, [productId])
+  const p: PostProduct | null = productId
+    ? await db.one<ProductsRow & { sold: number }>(`SELECT p.*, coalesce(p.sold_count,0)::int AS sold FROM products p WHERE p.id=$1 AND ${ELIGIBLE}`, [productId])
     : await pickProduct(now.weekday);
   if (!p) return { error: 'পোস্ট করার মতো পণ্য পাওয়া যায়নি (স্টকে আছে, ছবি আছে, দোকানে চালু — এমন পণ্য লাগবে)।' };
   if (!p.category && p.category_id) { const { rootOf } = await rootCategories(); const r = rootOf(p.category_id); p.category = r ? r.name : ''; }
-  const out: Loose = { product: p };
+  const out: PostResult = { product: p };
   const base = slot || `manual:${Date.now()}`;
   if (settings.autopost_fb !== '0') {
     try { out.fb = await postFacebook(p, settings); await record(`${base}:fb`, 'facebook', p.id, true, out.fb, ''); } catch (caught) { const e = caught as Caught;
@@ -407,7 +414,7 @@ async function tick(settings: Settings) {
   const claimed = await db.one<Pick<SocialPostsRow, 'id'>>(`INSERT INTO social_posts(slot, channel, ok, message) VALUES($1,'claim',NULL,'') ON CONFLICT (slot) DO NOTHING RETURNING id`, [slot]);
   if (!claimed) return { done: true };
   const hour = due[due.length - 1];
-  const r: Loose = settings.autopost_fb !== '0' && engagementSlot(settings, hour, now.day) ? await postEngagement(settings, slot) : await postOne(settings, { slot });
+  const r: { product?: { id: number | null } | null; error?: string; fbError?: string } = settings.autopost_fb !== '0' && engagementSlot(settings, hour, now.day) ? await postEngagement(settings, slot) : await postOne(settings, { slot });
   await db.q(`UPDATE social_posts SET product_id=$2, ok=$3, message=$4 WHERE slot=$1`,
     [slot, r.product ? r.product.id : null, !r.error && !r.fbError, r.error || r.fbError || '']);
   return r;

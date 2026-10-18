@@ -2,11 +2,15 @@
 // Moved from lib/views/complaint.ts (2026-10-17); same HTML as before.
 import { bn, fmtDate, contact } from '../../lib/util';
 import * as C from '../../lib/models/complaints';
-import type { Loose, Settings } from '../../lib/types';
+import type { Body, Settings } from '../../lib/types';
+import type { ComplaintsRow } from '../../lib/data/rows';
+/** what the form shows: what was sent (or the order/product it was opened for) */
+export type ComplaintValues = Body & { items?: C.WarrantyItem[]; item_name?: string; item_end?: Date | null; item?: string | number;
+  name?: string; phone?: string; email?: string; order_code?: string; topic?: string; message?: string };
 import type { Key, ReactElement, JSXElementConstructor, ReactNode, ReactPortal } from 'react';
 
 
-function StatusBox({ c }: { c: Loose }) {
+function StatusBox({ c }: { c: C.CustomerComplaint }) {
   const [ic, label] = C.STATUS[c.status] || ['', c.status];
   return (
     <section className="panel complaint-status">
@@ -19,26 +23,26 @@ function StatusBox({ c }: { c: Loose }) {
       </ul>
       <details><summary>আপনার লেখা</summary><p className="pre">{c.message}</p></details>
       {c.replies && c.replies.length
-        ? <><h3>আমাদের উত্তর</h3><ul className="cs-replies">{c.replies.map((r: Loose, i: number) => <li key={i}><p className="pre">{r.body}</p><small className="muted">{fmtDate(r.created_at)}</small></li>)}</ul></>
+        ? <><h3>আমাদের উত্তর</h3><ul className="cs-replies">{c.replies.map((r, i) => <li key={i}><p className="pre">{r.body}</p><small className="muted">{fmtDate(r.created_at)}</small></li>)}</ul></>
         : <p className="muted small">এখনো উত্তর দেওয়া হয়নি — আমরা দেখছি। উত্তর দিলে SMS-এও জানানো হবে।</p>}
     </section>
   );
 }
 
-function WarrantyPart({ values }: { values: Loose }) {
+function WarrantyPart({ values }: { values: ComplaintValues }) {
   if (values.item_name) {
     return <><p>🛡️ <b>ওয়ারেন্টি দাবি:</b> <span translate="no">{values.item_name}</span>{values.item_end ? <> <span className="small muted">(ওয়ারেন্টি {fmtDate(values.item_end, false)} পর্যন্ত)</span></> : null}</p><input type="hidden" name="item" value={values.item} /></>;
   }
   if (values.items && values.items.length) {
     return (
-      <div className="field"><label>কোন পণ্যের ওয়ারেন্টি?</label><select name="item">{values.items.map((x: Loose) => (
+      <div className="field"><label>কোন পণ্যের ওয়ারেন্টি?</label><select name="item">{values.items.map((x) => (
         <option key={x.product_id} value={x.product_id} disabled={!x.valid}>{x.name}{x.valid ? '' : ' (মেয়াদ শেষ)'}</option>))}</select></div>
     );
   }
   return <input type="hidden" name="item" value={values.item || ''} />;
 }
 
-export function ComplaintPage({ settings: s, values = {}, error = '', done = null, look = null, lookError = '' }: { settings: Settings; values?: Loose; error?: string; done?: Loose; look?: Loose; lookError?: string }) {
+export function ComplaintPage({ settings: s, values = {}, error = '', done = null, look = null, lookError = '' }: { settings: Settings; values?: ComplaintValues; error?: string; done?: ComplaintsRow | null; look?: C.CustomerComplaint | null; lookError?: string }) {
   const hrs = C.hoursOf(s);
   const ct = contact(s);
   if (done) {
@@ -96,7 +100,7 @@ export function ComplaintPage({ settings: s, values = {}, error = '', done = nul
   );
 }
 
-export function StatusPage({ c = null, code = '', error = '' }: { c?: unknown; code?: string; error?: string }) {
+export function StatusPage({ c = null, code = '', error = '' }: { c?: C.CustomerComplaint | null; code?: string; error?: string }) {
   return (
     <div className="wrap section narrow">
       <h1>📮 অভিযোগের অবস্থা</h1>

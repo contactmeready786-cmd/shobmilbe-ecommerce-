@@ -5,7 +5,11 @@
 // People search "<project> kivabe banabo" / "<project> making"; these pages answer that and sell the parts.
 // Keep every step true and safe. Add new guides at the END (the key never changes once used).
 
-const GUIDES = [
+/** one part of a guide: looked up among the shop's products by its words */
+export type GuidePart = { find: string[]; not?: string[]; qty?: number; optional?: boolean; note?: string };
+export type Guide = { key: string; title: string; emoji: string; level: string; time: string; intro: string; parts: GuidePart[]; steps: string[] };
+
+const GUIDES: Guide[] = [
   {
     key: 'bt-speaker-pam8403',
     title: 'PAM8403 দিয়ে ব্লুটুথ স্পিকার বানানো',

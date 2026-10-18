@@ -1,4 +1,4 @@
-import type { Loose, Settings } from '../types';
+import type { Settings } from '../types';
 // Every part of the shop the owner can show or hide (Admin → স্টোর ডিজাইন → দোকানে কী দেখাবে),
 // plus the texts on those parts that can be changed without any coding.
 //   switch:  { key, label, desc }            → setting key = '1' (shown) / '0' (hidden); missing = shown
@@ -7,7 +7,12 @@ import type { Loose, Settings } from '../types';
 // switches, so changing them here or on their own page is the same thing.
 // Things that would stop people from ordering (price, "add to cart", address, confirm button) have no switch on purpose.
 
-const GROUPS: Loose[] = [
+/** a text on a shop part the owner can change */
+export type UiText = { label: string; def?: string; max?: number; ph?: string };
+/** one shop part with its on/off switch (and maybe a text) */
+export type UiItem = { key: string; label: string; desc?: string; hidden?: boolean; link?: string; text?: UiText & { key: string } };
+export type UiGroup = { id: string; title: string; hidden?: boolean; items: UiItem[] };
+const GROUPS: UiGroup[] = [
   { id: 'top', title: '🔝 একদম উপরের অংশ', items: [
     { key: 'ui_notice', label: 'উপরের নোটিশ বার', desc: 'একদম উপরের পাতলা বারের লেখা। বন্ধ করলে বারটা থাকবে না (ভাষার বাটন চালু থাকলে শুধু সেটা থাকবে)।',
       text: { key: 'notice', label: 'নোটিশের লেখা', max: 160 } },
@@ -83,7 +88,7 @@ const GROUPS: Loose[] = [
 ];
 
 // home page rows: shown/hidden with the home-page list; their titles and small lines can be changed here
-const HOME_TEXTS: Record<string, Loose> = {
+const HOME_TEXTS: Record<string, { title: string; sub: string }> = {
   flash: { title: '' , sub: 'অফার শেষ হবে' },
   new: { title: '🆕 নতুন এসেছে', sub: 'সদ্য দোকানে তোলা পণ্য' },
   offers: { title: '🔥 অফারে আছে', sub: 'সীমিত সময়ের ছাড়' },
@@ -97,9 +102,9 @@ const HOME_TEXTS: Record<string, Loose> = {
 
 // hidden: the switch lives on its own page (reviews, Q&A, restock/price alerts, header & footer menu) —
 // it is not shown again on "দোকানে কী দেখাবে", so every switch is in exactly one place.
-const SWITCHES = GROUPS.flatMap((g) => g.items.filter((i: Loose) => i.key).map((i: Loose) => (g.hidden ? { ...i, hidden: true } : i)));
+const SWITCHES = GROUPS.flatMap((g) => g.items.filter((i) => i.key).map((i) => (g.hidden ? { ...i, hidden: true } : i)));
 const KEYS = new Set(SWITCHES.map((i) => i.key));
-const TEXTS = new Map(SWITCHES.filter((i) => i.text).map((i) => [i.text.key, i.text]));
+const TEXTS = new Map<string, UiText>(SWITCHES.filter((i) => i.text).map((i) => [i.text!.key, i.text!]));
 for (const [k, v] of Object.entries(HOME_TEXTS)) {
   TEXTS.set(`uit_home_${k}`, { label: 'শিরোনাম', def: v.title, max: 60 });
   if (v.sub) TEXTS.set(`uit_home_${k}_sub`, { label: 'ছোট লাইন', def: v.sub, max: 80 });

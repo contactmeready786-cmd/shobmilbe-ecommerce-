@@ -11,10 +11,10 @@ async function listPage(ctx: AdminCtx) {
   return ctx.page('ব্লগ', body, 'blog');
 }
 
-function postForm(p?: Loose, cats?: Loose, error?: unknown) {
+function postForm(p: Partial<Omit<content.Post, 'id'>> & { id?: number | null } & Record<string, unknown>, cats: Awaited<ReturnType<typeof content.listBlogCategories>>, error?: unknown) {
   const isNew = !p.id;
   return <><p className="crumbs"><a href="/admin/blog">← সব পোস্ট</a></p><div className="title-row"><h1>{(isNew ? "নতুন ব্লগ পোস্ট" : <Val v={p.title} />)}</h1>{(!isNew && p.status === 'published' ? <a className="btn btn-ghost btn-sm" href={`/blog/${attrValue(p.slug)}`} target="_blank">দেখুন ↗</a> : null)}</div>{(error ? <p className="flash flash-error"><Val v={error} /></p> : null)}<form method="post" action={isNew ? '/admin/blog/new' : `/admin/blog/${p.id}`} className="form"><div className="two-col"><section className="panel">{ui.field('শিরোনাম', ui.input('title', p.title || '', { required: true, maxlength: 160 }))}{' '}{ui.field('সারাংশ (লিস্টে আর গুগলে দেখাবে)', ui.textarea('excerpt', p.excerpt || '', { rows: 2, maxlength: 500 }))}{' '}{ui.field('লেখা', ui.textarea('content', p.content || '', { rows: 18, maxlength: 100000, class: 'editor' }),
-    <>নতুন লাইন = নতুন প্যারাগ্রাফ ·{' '}<b>## শিরোনাম</b>{' '}·{' '}<b>- বুলেট</b>{' '}·{' '}<b>**মোটা**</b>{' '}·{' '}<b>[লেখা](https://লিংক)</b>{' '}· একটা লাইনে শুধু ছবির লিংক দিলে ছবি দেখাবে ·{' '}<b>/p/পণ্যের-slug</b>{' '}দিলে পণ্যের কার্ড দেখাবে</>)}</section><section className="panel">{ui.field('অবস্থা', ui.select('status', [['draft', 'ড্রাফট (লুকানো)'], ['published', 'প্রকাশ করুন']], p.status || 'draft'))}{' '}{ui.field('ক্যাটাগরি', ui.select('category_id', [['', 'কোনোটি না'], ...cats.map((c: Loose) => [c.id, c.name])], p.category_id || ''))}{' '}{ui.imagePicker('cover_id', p.cover_id, { label: 'কভার ছবি', wide: true })}<h2>SEO</h2>{ui.field('SEO টাইটেল', ui.input('seo_title', p.seo_title || '', { maxlength: 120 }))}{' '}{ui.field('SEO বিবরণ', ui.textarea('seo_description', p.seo_description || '', { rows: 2, maxlength: 300 }))}{' '}<button className="btn btn-lg btn-block">সেভ করুন</button></section></div></form>{(isNew ? null : <form method="post" action={`/admin/blog/${attrValue(p.id)}/delete`} className="danger-zone" data-confirm="পোস্টটি মুছে ফেলবেন?"><button className="btn btn-danger btn-sm">পোস্ট মুছুন</button></form>)}</>;
+    <>নতুন লাইন = নতুন প্যারাগ্রাফ ·{' '}<b>## শিরোনাম</b>{' '}·{' '}<b>- বুলেট</b>{' '}·{' '}<b>**মোটা**</b>{' '}·{' '}<b>[লেখা](https://লিংক)</b>{' '}· একটা লাইনে শুধু ছবির লিংক দিলে ছবি দেখাবে ·{' '}<b>/p/পণ্যের-slug</b>{' '}দিলে পণ্যের কার্ড দেখাবে</>)}</section><section className="panel">{ui.field('অবস্থা', ui.select('status', [['draft', 'ড্রাফট (লুকানো)'], ['published', 'প্রকাশ করুন']], p.status || 'draft'))}{' '}{ui.field('ক্যাটাগরি', ui.select('category_id', [['', 'কোনোটি না'], ...cats.map((c) => [c.id, c.name])], p.category_id || ''))}{' '}{ui.imagePicker('cover_id', p.cover_id, { label: 'কভার ছবি', wide: true })}<h2>SEO</h2>{ui.field('SEO টাইটেল', ui.input('seo_title', p.seo_title || '', { maxlength: 120 }))}{' '}{ui.field('SEO বিবরণ', ui.textarea('seo_description', p.seo_description || '', { rows: 2, maxlength: 300 }))}{' '}<button className="btn btn-lg btn-block">সেভ করুন</button></section></div></form>{(isNew ? null : <form method="post" action={`/admin/blog/${attrValue(p.id)}/delete`} className="danger-zone" data-confirm="পোস্টটি মুছে ফেলবেন?"><button className="btn btn-danger btn-sm">পোস্ট মুছুন</button></form>)}</>;
 }
 
 async function form(ctx: AdminCtx, m: RouteMatch | null) {
@@ -29,7 +29,7 @@ async function form(ctx: AdminCtx, m: RouteMatch | null) {
   }
   const p: Partial<content.Post> | null = id ? await content.getPost({ id }) : {};
   if (id && !p) return ctx.redirect('/admin/blog');
-  return ctx.page(id ? p!.title! : 'নতুন পোস্ট', <>{ui.flash(ctx.flash)}{postForm(p, cats)}</>, 'blog');
+  return ctx.page(id ? p!.title! : 'নতুন পোস্ট', <>{ui.flash(ctx.flash)}{postForm(p!, cats)}</>, 'blog');
 }
 async function remove(ctx: AdminCtx, m: RouteMatch) {
   await ctx.trash('blog_post', int(m[1]));
