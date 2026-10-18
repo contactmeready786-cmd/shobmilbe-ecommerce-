@@ -39,7 +39,7 @@ async function skusOf(ids?: Loose) {
   if (!ids || !ids.length) return '';
   const rows = await q('SELECT id, sku FROM products WHERE id = ANY($1::int[])', [ids]);
   const by = new Map(rows.map((r) => [r.id, r.sku]));
-  return ids.map((i?: Loose) => by.get(i)).filter(Boolean).join(', ');
+  return ids.map((i) => by.get(i)).filter(Boolean).join(', ');
 }
 
 function clean(b: Body) {

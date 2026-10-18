@@ -81,7 +81,7 @@ function homeDescription(s?: Loose) {
 // Category / brand list → ItemList for Google (the products on this page, in order)
 function itemListLd(base: Loose, products?: Loose, offset: Loose = 0) {
   if (!products.length) return null;
-  return { '@context': 'https://schema.org', '@type': 'ItemList', itemListElement: products.slice(0, 30).map((p?: Loose, i?: Loose) => ({
+  return { '@context': 'https://schema.org', '@type': 'ItemList', itemListElement: products.slice(0, 30).map((p, i) => ({
     '@type': 'ListItem', position: offset + i + 1, url: `${base}/p/${p.slug}`, name: cleanName(p.name) })) };
 }
 

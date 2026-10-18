@@ -181,7 +181,7 @@ export function Dashboard({ cu, orders, addresses, settings: s, tab = 'orders', 
   const T = [['orders', '🧾 আমার অর্ডার'], ['addresses', '📍 ঠিকানা'], ['profile', '👤 প্রোফাইল']];
   if (referral) T.push(['refer', '🎁 বন্ধুকে আনুন']);
   if (s.gift_on === '1') T.push(['gift', '💳 গিফট কার্ড']);
-  const reorderItems = (o: Loose) => (o.items || []).filter((i: Loose) => i.id && i.kind !== 'gift').map((i: Loose) => ({ id: i.id, qty: i.qty }));
+  const reorderItems = (o: Loose) => (o.items || []).filter((i) => i.id && i.kind !== 'gift').map((i) => ({ id: i.id, qty: i.qty }));
   const returnable = (o: Loose) => s.returns_on === '1' && o.status === 'delivered';
   return (
     <div className="wrap section acct">
@@ -195,7 +195,7 @@ export function Dashboard({ cu, orders, addresses, settings: s, tab = 'orders', 
           {orders.length ? <ul className="acct-orders">{orders.map((o) => (
             <li key={o.code}>
               <div><a href={`/order/${o.code}`}><b className="mono">{o.code}</b></a> <span className={`pill st-${o.status}`}>{O.STATUSES[o.status] || o.status}</span><br />
-                <span className="small muted">{fmtDate(o.created_at)} · {bn((o.items || []).length)}টি পণ্য: {(o.items || []).map((i: Loose) => i.name).slice(0, 3).join(', ')}{(o.items || []).length > 3 ? '…' : ''}</span></div>
+                <span className="small muted">{fmtDate(o.created_at)} · {bn((o.items || []).length)}টি পণ্য: {(o.items || []).map((i) => i.name).slice(0, 3).join(', ')}{(o.items || []).length > 3 ? '…' : ''}</span></div>
               <div className="acct-order-act"><b>{money(o.total)}</b>
                 {' '}<a className="btn btn-sm btn-ghost" href={`/order/${o.code}`}>দেখুন</a>
                 {reorderItems(o).length ? <>{' '}<button type="button" className="btn btn-sm" data-reorder={JSON.stringify(reorderItems(o))}>🔁 আবার অর্ডার</button></> : null}
@@ -290,7 +290,7 @@ function ReturnFormBody({ order, s, error, items }: { order: Loose; s: Settings;
 }
 
 export function ReturnForm({ order, existing = [], settings: s, error = '', done = null, mine }: { order: Loose; existing?: Loose[]; settings: Settings; error?: string; done?: Loose; mine?: boolean }) {
-  const items = (order.items || []).filter((i: Loose) => i.product_id);
+  const items = (order.items || []).filter((i) => i.product_id);
   let body: ReactNode;
   if (!mine) {
     body = <p className="note">আবেদন করতে আগে <a href={`/track?code=${order.code}`}>অর্ডার ট্র্যাক</a> পেজে অর্ডার নম্বর আর মোবাইল নম্বর দিন{s.acct_on === '1' ? <>, অথবা <a href={`/account?next=/order/${order.code}/return`}>লগইন করুন</a></> : null}।</p>;
@@ -306,7 +306,7 @@ export function ReturnForm({ order, existing = [], settings: s, error = '', done
       {done ? <div className="success-banner"><div className="tick" aria-hidden="true">✓</div><h2>আবেদন পেয়েছি — নম্বর <span className="mono">{done}</span></h2><p>আমরা দেখে শীঘ্রই আপনার সাথে যোগাযোগ করব। এই পেজে আবেদনের অবস্থা দেখতে পাবেন।</p></div> : null}
       {existing.length ? <section className="panel"><h2>আপনার আবেদন</h2><ul className="acct-orders">{existing.map((r) => (
         <li key={r.code}><div><b className="mono">{r.code}</b> <span className="pill">{RETURN_LABELS[r.status] || r.status}</span><br />
-          <span className="small muted">{fmtDate(r.created_at)} · {(r.items || []).map((i: Loose) => `${i.name} ×${bn(i.qty)}`).join(', ')}</span>
+          <span className="small muted">{fmtDate(r.created_at)} · {(r.items || []).map((i) => `${i.name} ×${bn(i.qty)}`).join(', ')}</span>
           {r.reply ? <><br /><span className="small"><b>{s.store_name}:</b> {r.reply}</span></> : null}</div>
           <div className="acct-order-act">{Number(r.refund_amount) ? <><b>{money(r.refund_amount)}</b> ফেরত</> : null}</div></li>))}</ul></section> : null}
       {body}

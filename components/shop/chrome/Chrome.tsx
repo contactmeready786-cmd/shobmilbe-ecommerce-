@@ -40,7 +40,7 @@ function LangSwitch() {
 
 // Category menus. Top bar: main categories with drop-down sub-categories (any depth).
 // Phone menu: the same tree, folding open. Empty sub-categories are left out.
-const visibleKids = (n: Loose) => n.children.filter((k: Loose) => k.total_count > 0);
+const visibleKids = (n: Loose) => n.children.filter((k) => k.total_count > 0);
 function CatMenuItems({ nodes, top }: { nodes: Loose[]; top: boolean }) {
   return nodes.map((n) => {
     const kids = visibleKids(n);
@@ -69,9 +69,9 @@ export type ChromeProps = {
 /** Everything inside <body>: the frame, the page (children) and the page's scripts. */
 export function ShopBody({ settings: s, categories, pages, popup = null, q = '', active = '', track = null, children }: ChromeProps) {
   const { roots } = categoryTree(categories);
-  const menu = jsonSetting(s, 'header_menu', []).filter((m: Loose) => m.on !== false); // admin can switch each button off
+  const menu = jsonSetting(s, 'header_menu', []).filter((m) => m.on !== false); // admin can switch each button off
   const showCart = s.nav_cart !== '0';
-  const footerLinks = jsonSetting(s, 'footer_links', []).filter((l: Loose) => l.on !== false);
+  const footerLinks = jsonSetting(s, 'footer_links', []).filter((l) => l.on !== false);
   // footer "কেনাকাটা" column — each link can be switched off from the admin
   const shopLinks = [
     ['/products', 'সব পণ্য', 'foot_products'], ['/products?sort=offer', 'অফার', 'foot_offer'],
@@ -80,7 +80,7 @@ export function ShopBody({ settings: s, categories, pages, popup = null, q = '',
     ...(s.gift_on === '1' ? [['/gift-card', '🎁 গিফট কার্ড', 'foot_gift']] : []),
     ...(s.ui_compare !== '0' ? [['/compare', '⚖️ পণ্য তুলনা', 'foot_compare']] : []),
     ...(s.shoppush_on === '1' && s.push_vapid_public ? [['#offers-on', '🔔 অফারের খবর পান', 'foot_push']] : []),
-  ].filter(([, , k]) => s[k] !== '0').concat(footerLinks.map((l: Loose) => [l.url, l.label]));
+  ].filter(([, , k]) => s[k] !== '0').concat(footerLinks.map((l) => [l.url, l.label]));
   const infoPages = pages.filter((p) => p.in_footer);
   const socials = Object.keys(SOCIAL_ICONS).filter((k) => s[k]);
   const liveLinks = [['cricket', '🏏 ক্রিকেট স্কোর'], ['football', '⚽ ফুটবল স্কোর']].filter(([k]) => s[`live_${k}`] === '1');

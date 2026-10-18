@@ -198,7 +198,7 @@ export async function i18n(ctx: ApiCtx) {
   let b: Record<string, Loose> = {};
   try { b = JSON.parse(await readBody(ctx.req, 96 * 1024) || '{}'); } catch (_) { b = {}; }
   let budget = 40000;
-  const texts = (Array.isArray(b.t) ? b.t : []).slice(0, 60).map((x?: Loose) => String(x || '')).filter((x?: Loose) => {
+  const texts = (Array.isArray(b.t) ? b.t : []).slice(0, 60).map((x) => String(x || '')).filter((x) => {
     if (!x || x.length > translate.MAX_LEN || budget - x.length < 0) return false;
     budget -= x.length;
     return true;

@@ -26,7 +26,7 @@ async function allLabels() {
 async function page(ctx: AdminCtx) {
   const s = ctx.settings;
   const { labels, own } = await allLabels();
-  const enabled = db.jsonSetting(s, 'home_sections', []).filter((k?: Loose) => labels[k]);
+  const enabled = db.jsonSetting(s, 'home_sections', []).filter((k) => labels[k]);
   const ordered = [...enabled, ...Object.keys(labels).filter((k) => !enabled.includes(k))];
   const counts = new Map(await Promise.all(own.map(async (r): Promise<[Loose, number]> => [r.id, (await H.productsFor(r, {}).catch(() => [])).length])));
   const body = <><h1>🏠 হোমপেজের সারি</h1>{ui.flash(ctx.flash)}<p className="muted">হোমপেজে কোন কোন সারি দেখাবে, কোনটা আগে-পরে — সব এখানে। আগে থেকে থাকা সারির পাশাপাশি{' '}<b>নিজের নতুন সারি</b>{' '}বানাতে পারবেন (যেমন "শীতের অফার", "৳৫০ এর নিচে রিমোট", "নতুন সোল্ডারিং টুলস")।</p><p><a className="btn" href={`${attrValue(BASE)}/new`}>➕ নতুন সারি বানান</a></p><section className="panel"><h2>সব সারি — ক্রম ও চালু/বন্ধ</h2><p className="small muted">▲▼ দিয়ে ক্রম বদলান, টিক দিয়ে চালু/বন্ধ করুন, তারপর "ক্রম সেভ করুন" চাপুন। ✨ চিহ্ন = আপনার নিজের সারি।</p><form method="post" action={`${attrValue(BASE)}/order`} className="form"><ul className="sortable" data-sortable="">{jsxList(ordered.map((k) => {
@@ -77,7 +77,7 @@ async function form(ctx: AdminCtx, m: RouteMatch | null) {
 async function remove(ctx: AdminCtx, m: RouteMatch) {
   const id = int(m[1]);
   await ctx.trash('home_row', id);
-  const list = db.jsonSetting(ctx.settings, 'home_sections', []).filter((k?: Loose) => k !== H.keyOf(id));
+  const list = db.jsonSetting(ctx.settings, 'home_sections', []).filter((k) => k !== H.keyOf(id));
   await db.setSetting('home_sections', JSON.stringify(list));
   await ctx.log('home_row_delete', 'home_row', id, '');
   return ctx.back(HOME, 'deleted');

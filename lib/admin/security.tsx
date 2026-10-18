@@ -59,7 +59,7 @@ function adminCountryPanel(ctx: AdminCtx) {
   const picked = new Set(c.extra);
   const list = Object.keys(G.COUNTRIES).filter((k) => k !== G.ADMIN_HOME)
     .map((k) => ({ k, bn: name(k), en: G.countryName(k, 'en'), on: picked.has(k) }))
-    .sort((a: Loose, b: Loose) => (b.on - a.on) || a.en.localeCompare(b.en));
+    .sort((a, b) => (b.on - a.on) || a.en.localeCompare(b.en));
   const status = c.envOff ? <>⚠️{' '}<b>বন্ধ আছে</b>{' '}— Vercel-এ জরুরি চাবি{' '}<code>ADMIN_GEO_LOCK=off</code>{' '}বসানো। দেশে ফিরে সেটা মুছে Redeploy দিন।</>
     : !c.on ? <>⚠️{' '}<b>বন্ধ আছে</b>{' '}— এখন সব দেশ থেকে অ্যাডমিন খোলা যায়।</>
       : c.extraActive ? <>🔒 চালু — খোলা:{' '}{ui.flag('BD')}{' '}বাংলাদেশ +{' '}{jsxList(c.extra.map((k: Loose, i: number) => <>{i ? ', ' : ''}{ui.flag(k)}{' '}<Val v={name(k)} /></>))}{' '}(<b><Val v={c.untilText} /></b>{' '}তারিখের রাত ১২টা পর্যন্ত, তারপর নিজে থেকে শুধু বাংলাদেশ)</>

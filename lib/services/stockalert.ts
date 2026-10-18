@@ -8,7 +8,7 @@ import type { Loose, Settings } from '../types';
 
 async function check(settings: Settings, productIds?: Loose) {
   if (!settings || settings.notify_low_stock === '0') return;
-  const ids = [...new Set((productIds || []).map(Number).filter((x?: Loose) => x > 0))].slice(0, 200);
+  const ids = [...new Set((productIds || []).map(Number).filter((x) => x > 0))].slice(0, 200);
   if (!ids.length) return;
   const rows = await db.q(`SELECT id, name, sku, stock, low_stock FROM products
     WHERE id = ANY($1::int[]) AND active AND product_type='single' AND variant_count = 0 AND stock <= low_stock ORDER BY stock, id`, [ids]);

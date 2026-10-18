@@ -32,9 +32,9 @@ async function facebookPurchase(order: Loose, settings: Settings, req: ShopReque
       },
       custom_data: {
         currency: 'BDT', value: order.total, order_id: order.code,
-        content_type: 'product', content_ids: (order.lines || []).map((l?: Loose) => String(l.product_id)),
-        contents: (order.lines || []).map((l?: Loose) => ({ id: String(l.product_id), quantity: l.qty, item_price: l.price })),
-        num_items: (order.lines || []).reduce((n?: Loose, l?: Loose) => n + l.qty, 0),
+        content_type: 'product', content_ids: (order.lines || []).map((l) => String(l.product_id)),
+        contents: (order.lines || []).map((l) => ({ id: String(l.product_id), quantity: l.qty, item_price: l.price })),
+        num_items: (order.lines || []).reduce((n, l) => n + l.qty, 0),
       },
     }],
   };
@@ -64,7 +64,7 @@ async function tiktokPurchase(order: Loose, settings: Settings, req: ShopRequest
       page: { url: (settings.site_url || '') + '/checkout' },
       properties: {
         currency: 'BDT', value: order.total, order_id: order.code, content_type: 'product',
-        contents: (order.lines || []).map((l?: Loose) => ({ content_id: String(l.product_id), content_name: l.name, quantity: l.qty, price: l.price })),
+        contents: (order.lines || []).map((l) => ({ content_id: String(l.product_id), content_name: l.name, quantity: l.qty, price: l.price })),
       },
     }],
   };

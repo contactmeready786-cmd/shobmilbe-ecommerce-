@@ -40,20 +40,20 @@ function view(o?: Loose) {
 async function partsBarcodes(order?: Loose) {
   // bundle parts need their own product barcodes
   const ids: Loose[] = [];
-  for (const it of order.items) if (Array.isArray(it.components)) it.components.forEach((c?: Loose) => ids.push(c.product_id));
+  for (const it of order.items) if (Array.isArray(it.components)) it.components.forEach((c) => ids.push(c.product_id));
   if (!ids.length) return;
   const rows = await db.q('SELECT id, name, barcode FROM products WHERE id = ANY($1::int[])', [ids]);
   const m = new Map(rows.map((r) => [r.id, r]));
-  for (const it of order.items) if (Array.isArray(it.components)) it.components.forEach((c?: Loose) => { const p = m.get(c.product_id); if (p) { c.barcode = p.barcode; c.name = c.name || p.name; } });
+  for (const it of order.items) if (Array.isArray(it.components)) it.components.forEach((c) => { const p = m.get(c.product_id); if (p) { c.barcode = p.barcode; c.name = c.name || p.name; } });
 }
 
 // 📍 which box each product sits in, so whoever packs finds it at once
 async function addLocations(view?: Loose) {
-  const ids = view.items.map((x?: Loose) => x.product_id).filter(Boolean);
+  const ids = view.items.map((x) => x.product_id).filter(Boolean);
   if (!ids.length) return view;
   const rows = await db.q("SELECT id, location FROM products WHERE id = ANY($1::int[]) AND location <> ''", [ids]);
   const m = new Map(rows.map((r) => [r.id, r.location]));
-  view.items.forEach((x?: Loose) => { x.location = m.get(x.product_id) || ''; });
+  view.items.forEach((x) => { x.location = m.get(x.product_id) || ''; });
   return view;
 }
 async function lookup(ctx: AdminCtx) {

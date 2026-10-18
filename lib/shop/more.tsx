@@ -48,16 +48,16 @@ export async function resolveMore({ path, query, settings, base: siteBase, req }
   if (path === '/cart') return page('কার্ট', shop.cartPage({ settings }), { active: 'cart', noindex: true });
   if (path === '/wishlist') {
     // the list lives in the shopper's own browser; the page asks for /wishlist?ids=… and shows those products
-    const ids = (query.get('ids') || '').split(',').map((x?: Loose) => int(x)).filter((x?: Loose) => x > 0).slice(0, 60);
+    const ids = (query.get('ids') || '').split(',').map((x) => int(x)).filter((x) => x > 0).slice(0, 60);
     const prods = ids.length ? await catalog.getProductsByIds(ids, { public: true }) : [];
-    const pos = new Map(ids.map((id?: Loose, i?: Loose) => [id, i]));
+    const pos = new Map(ids.map((id, i) => [id, i]));
     return page('পছন্দের তালিকা', shop.wishlistPage({ products: prods.sort((a, b) => (pos.get(a.id) as number) - (pos.get(b.id) as number)), settings, asked: query.has('ids') }), { noindex: true, canonical: '/wishlist' });
   }
   if (path === '/compare') {
     if (settings.ui_compare === '0') return NOT_FOUND;
     // ⚖️ the shopper's own comparison list (kept in the browser): /compare?ids=1,2,3
-    const ids = (query.get('ids') || '').split(',').map((x?: Loose) => int(x)).filter((x?: Loose) => x > 0).slice(0, 4);
-    const prods = ids.length ? (await Promise.all(ids.map((id?: Loose) => catalog.getProduct({ id, public: true })))).filter((p): p is Loose => !!(p && p.active && !p.parent_id)) : [];
+    const ids = (query.get('ids') || '').split(',').map((x) => int(x)).filter((x) => x > 0).slice(0, 4);
+    const prods = ids.length ? (await Promise.all(ids.map((id) => catalog.getProduct({ id, public: true })))).filter((p): p is Loose => !!(p && p.active && !p.parent_id)) : [];
     const rv = await Promise.all(prods.map((p) => (settings.reviews_on === '0' ? { stats: { count: 0 } } : $models_reviews.forProduct(p.id))));
     prods.forEach((p, i) => { p.review_stats = rv[i].stats; });
     return page('পণ্য তুলনা', shop.comparePage({ products: prods, settings, asked: query.has('ids') }), { noindex: true, canonical: '/compare' });
@@ -86,11 +86,11 @@ export async function resolveMore({ path, query, settings, base: siteBase, req }
     const K = $models_kits;
     const steps = K.stepList(kit);
     const base = siteBase.replace(/\/+$/, '');
-    const need = kit.items.filter((i?: Loose) => !i.optional);
+    const need = kit.items.filter((i) => !i.optional);
     const howTo = steps.length ? { '@context': 'https://schema.org', '@type': 'HowTo', name: kit.title, url: `${base}/kit/${kit.slug}`,
       description: md.plain(kit.description, 300) || kit.title, image: kit.image_id ? `${base}/media/${kit.image_id}` : undefined,
-      estimatedCost: { '@type': 'MonetaryAmount', currency: 'BDT', value: Math.round(need.reduce((t?: Loose, i?: Loose) => t + Number(i.product.price) * i.qty, 0)) },
-      supply: kit.items.map((i?: Loose) => ({ '@type': 'HowToSupply', name: seo.cleanName(i.product.name), requiredQuantity: i.qty })),
+      estimatedCost: { '@type': 'MonetaryAmount', currency: 'BDT', value: Math.round(need.reduce((t, i) => t + Number(i.product.price) * i.qty, 0)) },
+      supply: kit.items.map((i) => ({ '@type': 'HowToSupply', name: seo.cleanName(i.product.name), requiredQuantity: i.qty })),
       step: steps.map((t, i) => ({ '@type': 'HowToStep', position: i + 1, name: seo.cut(t, 80), text: t, url: `${base}/kit/${kit.slug}#step-${i + 1}` })) } : null;
     const crumbs = { '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: [
       { '@type': 'ListItem', position: 1, name: settings.store_name, item: base + '/' },
@@ -113,7 +113,7 @@ export async function resolveMore({ path, query, settings, base: siteBase, req }
     const fresh = query.get('new') === '1';
     const trackUrl = order.courier && courier.PROVIDERS[order.courier] ? courier.PROVIDERS[order.courier].track(order) : '';
     const track = fresh && query.get('pay') !== 'failed'
-      ? { event: 'purchase', code: order.code, value: order.total, items: order.items.map((i?: Loose) => ({ id: i.product_id, name: i.name, price: i.price, qty: i.qty })) }
+      ? { event: 'purchase', code: order.code, value: order.total, items: order.items.map((i) => ({ id: i.product_id, name: i.name, price: i.price, qty: i.qty })) }
       : null;
     // delivered → each product can be reviewed once (only by the order's owner on this browser)
     const reviewItems = order.status === 'delivered' && settings.reviews_on !== '0' ? await $models_reviews.forOrder(order.id) : [];

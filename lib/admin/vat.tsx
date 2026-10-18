@@ -91,14 +91,14 @@ async function mushak63(ctx: AdminCtx, m: RouteMatch) {
   if (!o) return ctx.redirect('/admin/orders');
   const rate = num(s.vat_rate, 15);
   const mode = s.vat_mode || 'none';
-  const lines = (o.items || []).map((it?: Loose, i?: Loose) => {
+  const lines = (o.items || []).map((it, i) => {
     const total = Number(it.price) * Number(it.qty);
     const sp = split(total, s, Number(it.cost || 0) * Number(it.qty));
     const unitEx = mode === 'inclusive' ? r2(Number(it.price) * 100 / (100 + rate)) : Number(it.price);
     return { i: i + 1, name: it.name, qty: it.qty, unit: it.unit || 'পিস', unitEx, value: sp.value, vat: sp.vat, gross: mode === 'exclusive' ? r2(sp.value + sp.vat) : total };
   });
   const disc = Number(o.discount || 0) + Number(o.points_discount || 0);
-  const tot = lines.reduce((a?: Loose, l?: Loose) => ({ value: a.value + l.value, vat: a.vat + l.vat, gross: a.gross + l.gross }), { value: 0, vat: 0, gross: 0 });
+  const tot = lines.reduce((a, l) => ({ value: a.value + l.value, vat: a.vat + l.vat, gross: a.gross + l.gross }), { value: 0, vat: 0, gross: 0 });
   const discSplit = split(disc, s);
   const page = '<!doctype html>' + `<html lang="bn"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex">
 <title>মূসক-৬.৩ ${htmlValue(o.code)}</title>
@@ -129,7 +129,7 @@ table{width:100%;border-collapse:collapse;margin-top:10px}th,td{border:1px solid
     <td>যানবাহনের প্রকৃতি ও নম্বর: ${htmlValue(o.courier ? `${o.courier}${o.consignment_id ? ' · ' + o.consignment_id : ''}` : '—')}<br>অর্ডারের তারিখ: ${htmlValue(fmtDate(o.created_at, false))}</td>
   </tr></table>
   <table><thead><tr><th>ক্রমিক</th><th>পণ্য বা সেবার বর্ণনা (প্রযোজ্য ক্ষেত্রে ব্র্যান্ড নামসহ)</th><th>সরবরাহের একক</th><th class="n">পরিমাণ</th><th class="n">একক মূল্য¹ (টাকায়)</th><th class="n">মোট মূল্য¹ (টাকায়)</th><th class="n">সম্পূরক শুল্কের হার</th><th class="n">মূল্য সংযোজন করের হার</th><th class="n">মূল্য সংযোজন করের পরিমাণ</th><th class="n">সকল প্রকার শুল্ক ও করসহ মূল্য</th></tr></thead>
-  <tbody>${htmlValue(lines.map((l?: Loose) => <tr><td className="c">{bn(l.i)}</td><td><Val v={l.name} /></td><td><Val v={l.unit} /></td><td className="n">{bn(l.qty)}</td><td className="n">{money(l.unitEx)}</td><td className="n">{money(l.value)}</td><td className="n">০%</td><td className="n">{(mode === 'margin' ? "মার্জিনে " : null)}{bn(rate)}%</td><td className="n">{money(l.vat)}</td><td className="n">{money(l.gross)}</td></tr>))}
+  <tbody>${htmlValue(lines.map((l) => <tr><td className="c">{bn(l.i)}</td><td><Val v={l.name} /></td><td><Val v={l.unit} /></td><td className="n">{bn(l.qty)}</td><td className="n">{money(l.unitEx)}</td><td className="n">{money(l.value)}</td><td className="n">০%</td><td className="n">{(mode === 'margin' ? "মার্জিনে " : null)}{bn(rate)}%</td><td className="n">{money(l.vat)}</td><td className="n">{money(l.gross)}</td></tr>))}
   ${htmlValue(disc ? <tr><td></td><td colSpan={4}>ছাড়{(o.coupon_code ? ` (${o.coupon_code})` : null)}</td><td className="n">−{' '}{money(discSplit.value)}</td><td></td><td></td><td className="n">−{' '}{money(discSplit.vat)}</td><td className="n">−{' '}{money(disc)}</td></tr> : '')}
   <tr><td></td><td colspan="4"><b>সর্বমোট</b></td><td class="n"><b>${htmlValue(money(tot.value - discSplit.value))}</b></td><td></td><td></td><td class="n"><b>${htmlValue(money(tot.vat - discSplit.vat))}</b></td><td class="n"><b>${htmlValue(money(tot.gross - disc))}</b></td></tr></tbody></table>
   <p class="note">ডেলিভারি চার্জ (${htmlValue(money(o.delivery))}) এই চালানের বাইরে। ¹ মূল্য সংযোজন কর ব্যতীত মূল্য। ${htmlValue(mode === 'margin' ? 'মার্জিন পদ্ধতিতে কর হিসাব করা হয়েছে।' : '')}</p>

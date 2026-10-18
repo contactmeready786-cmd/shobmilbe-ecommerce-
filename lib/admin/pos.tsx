@@ -107,7 +107,7 @@ table{width:100%;border-collapse:collapse;margin:6px 0}td{padding:2px 0;vertical
   <p class="c"><b>ক্যাশ মেমো</b></p>
   <p class="s">মেমো: <b>${htmlValue(o.code)}</b><br>তারিখ: ${htmlValue(fmtDate(o.created_at))}${htmlValue(w ? <><br />দোকান:{' '}<Val v={w.name} /></> : '')}${htmlValue(o.phone ? <><br />কাস্টমার:{' '}<Val v={o.customer_name} />{' '}(<Val v={o.phone} />)</> : '')}</p>
   <div class="line"></div>
-  <table><tbody>${htmlValue(o.items.map((it?: Loose) => <tr><td><Val v={it.name} />{(it.sku ? <>{' '}<span className="s">[<Val v={it.sku} />]</span></> : null)}<br /><span className="s">{bn(it.qty)}{' '}×{' '}{money(it.price)}</span></td><td className="n">{money(it.price * it.qty)}</td></tr>))}</tbody></table>
+  <table><tbody>${htmlValue(o.items.map((it) => <tr><td><Val v={it.name} />{(it.sku ? <>{' '}<span className="s">[<Val v={it.sku} />]</span></> : null)}<br /><span className="s">{bn(it.qty)}{' '}×{' '}{money(it.price)}</span></td><td className="n">{money(it.price * it.qty)}</td></tr>))}</tbody></table>
   <div class="line"></div>
   <table><tbody>
     <tr><td>পণ্যের দাম</td><td class="n">${htmlValue(money(o.subtotal))}</td></tr>

@@ -48,7 +48,7 @@ function rsRemainder(data?: Loose, divisor?: Loose) {
   for (const b of data) {
     const factor = b ^ r.shift();
     r.push(0);
-    divisor.forEach((coef?: Loose, i?: Loose) => { r[i] ^= gfMul(coef, factor); });
+    divisor.forEach((coef, i) => { r[i] ^= gfMul(coef, factor); });
   }
   return r;
 }

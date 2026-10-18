@@ -29,7 +29,7 @@ function WarrantyPart({ values }: { values: Loose }) {
   }
   if (values.items && values.items.length) {
     return (
-      <div className="field"><label>কোন পণ্যের ওয়ারেন্টি?</label><select name="item">{values.items.map((x: Loose) => (
+      <div className="field"><label>কোন পণ্যের ওয়ারেন্টি?</label><select name="item">{values.items.map((x) => (
         <option key={x.product_id} value={x.product_id} disabled={!x.valid}>{x.name}{x.valid ? '' : ' (মেয়াদ শেষ)'}</option>))}</select></div>
     );
   }

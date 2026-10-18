@@ -61,7 +61,7 @@ function varsFor(s?: Loose, o?: Loose, site?: Loose, token?: Loose) {
   const vars: Record<string, string> = {
     name: str(o.customer_name || o.name, 60) || 'গ্রাহক', phone: localPhone(o.phone), phone_intl: intlPhone(o.phone), phone_plus: '+' + intlPhone(o.phone),
     amount: words(o.total), order_code: o.code, shop: s.store_name || 'সবমিলবে', caller_id: s.autocall_caller || '',
-    items: (o.items || o.lines || []).slice(0, 2).map((i?: Loose) => str(i.name, 40)).join(' আর ') || 'পণ্যের',
+    items: (o.items || o.lines || []).slice(0, 2).map((i) => str(i.name, 40)).join(' আর ') || 'পণ্যের',
     callback_url: callbackUrl(site, token),
   };
   vars.message = fill(s.autocall_message || MESSAGES[0], vars);
@@ -104,7 +104,7 @@ async function afterOrder(s?: Loose, order?: Loose, site?: Loose) {
 // Accepts JSON or form data. Looks for the order (code / reference / call id / phone) and what was pressed.
 function pick(b: Body, keys?: Loose) {
   for (const k of keys) {
-    const v = k.split('.').reduce((o?: Loose, p?: Loose) => (o && typeof o === 'object' ? o[p] : undefined), b);
+    const v = k.split('.').reduce((o, p) => (o && typeof o === 'object' ? o[p] : undefined), b);
     if (v !== undefined && v !== null && String(v) !== '') return String(v);
   }
   return '';

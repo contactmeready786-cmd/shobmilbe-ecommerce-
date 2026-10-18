@@ -12,7 +12,7 @@ const ANALYTICS = new Set(['visitors', 'visit_sessions', 'page_views', 'visit_ev
 const NEVER = new Set(['admin_sessions', 'login_lock_codes']); // live logins are never copied
 
 async function tableList(db?: Loose) {
-  return (await db.q(`SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE' ORDER BY table_name`)).map((r?: Loose) => r.table_name);
+  return (await db.q(`SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE' ORDER BY table_name`)).map((r) => r.table_name);
 }
 async function columnsOf(db?: Loose, table?: Loose) {
   return db.q(`SELECT column_name AS name, data_type AS type FROM information_schema.columns WHERE table_schema='public' AND table_name=$1 ORDER BY ordinal_position`, [table]);
@@ -21,15 +21,15 @@ const qi = (n?: Loose) => '"' + String(n).replace(/"/g, '""') + '"';
 
 // { withImages, withAnalytics } → { buffer (gzip json), tables, rows }
 async function dump(db?: Loose, { withImages = false, withAnalytics = false, password = '' }: Body = {}) {
-  const tables = (await tableList(db)).filter((t?: Loose) => !NEVER.has(t) && (withAnalytics || !ANALYTICS.has(t)) && (withImages || t !== 'media'));
+  const tables = (await tableList(db)).filter((t) => !NEVER.has(t) && (withAnalytics || !ANALYTICS.has(t)) && (withImages || t !== 'media'));
   const schema = await db.one("SELECT value FROM settings WHERE key='schema_version'");
   const out = { app: 'shobmilbe', format: 1, schema_version: schema ? Number(schema.value) : null, created_at: new Date().toISOString(), with_images: !!withImages, tables: {} as Record<string, Loose> };
   let rows = 0;
   for (const t of tables) {
     const cols = await columnsOf(db, t);
-    const sel = cols.map((c?: Loose) => (c.type === 'bytea' ? `encode(${qi(c.name)}, 'base64') AS ${qi(c.name)}` : qi(c.name))).join(', ');
+    const sel = cols.map((c) => (c.type === 'bytea' ? `encode(${qi(c.name)}, 'base64') AS ${qi(c.name)}` : qi(c.name))).join(', ');
     const data = await db.q(`SELECT ${sel} FROM ${qi(t)}`);
-    out.tables[t] = { columns: cols.map((c?: Loose) => c.name), bytea: cols.filter((c?: Loose) => c.type === 'bytea').map((c?: Loose) => c.name), rows: data.map((r?: Loose) => cols.map((c?: Loose) => r[c.name])) };
+    out.tables[t] = { columns: cols.map((c) => c.name), bytea: cols.filter((c) => c.type === 'bytea').map((c) => c.name), rows: data.map((r) => cols.map((c) => r[c.name])) };
     rows += data.length;
   }
   let buffer = zlib.gzipSync(Buffer.from(JSON.stringify(out), 'utf8'), { level: 9 });
@@ -69,10 +69,10 @@ async function fkOrder(db?: Loose, tables?: Loose) {
   const visit = (t?: Loose, stack: Loose = new Set()) => {
     if (seen.has(t) || stack.has(t)) return;
     stack.add(t);
-    deps.filter((d?: Loose) => d.child === t && d.parent !== t && set.has(d.parent)).forEach((d?: Loose) => visit(d.parent, stack));
+    deps.filter((d) => d.child === t && d.parent !== t && set.has(d.parent)).forEach((d) => visit(d.parent, stack));
     seen.add(t); done.push(t);
   };
-  tables.forEach((t?: Loose) => visit(t));
+  tables.forEach((t) => visit(t));
   return done;
 }
 
@@ -86,14 +86,14 @@ async function restore(db: Loose, data: Body, { log = () => {} }: Body = {}) {
     await t.query(`TRUNCATE ${order.map(qi).join(', ')} RESTART IDENTITY CASCADE`);
     for (const name of order) {
       const T = data.tables[name];
-      const have = new Set((await t.query(`SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name=$1`, [name])).rows.map((r?: Loose) => r.column_name));
-      const cols = T.columns.filter((c?: Loose) => have.has(c));
-      const idx = cols.map((c?: Loose) => T.columns.indexOf(c));
+      const have = new Set((await t.query(`SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name=$1`, [name])).rows.map((r) => r.column_name));
+      const cols = T.columns.filter((c) => have.has(c));
+      const idx = cols.map((c) => T.columns.indexOf(c));
       const byteaCols = new Set(T.bytea || []);
       for (let i = 0; i < T.rows.length; i += 500) {
-        const chunk = T.rows.slice(i, i + 500).map((r?: Loose) => {
+        const chunk = T.rows.slice(i, i + 500).map((r) => {
           const o: Record<string, unknown> = {};
-          cols.forEach((c?: Loose, k?: Loose) => { const v = r[idx[k]]; o[c] = byteaCols.has(c) && v != null ? '\\x' + Buffer.from(v, 'base64').toString('hex') : v; });
+          cols.forEach((c, k) => { const v = r[idx[k]]; o[c] = byteaCols.has(c) && v != null ? '\\x' + Buffer.from(v, 'base64').toString('hex') : v; });
           return o;
         });
         await t.query(`INSERT INTO ${qi(name)} (${cols.map(qi).join(', ')}) SELECT ${cols.map(qi).join(', ')} FROM json_populate_recordset(NULL::${qi(name)}, $1::json)`, [JSON.stringify(chunk)]);

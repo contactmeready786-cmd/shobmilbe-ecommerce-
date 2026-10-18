@@ -47,7 +47,7 @@ export async function resolveShop(ctx: ShopCtx): Promise<Resolved> {
     if (settings.slider_on === '1' && Array.isArray(sections) && !sections.includes('slider')) sections = ['slider', ...sections];
     const want = (k?: Loose) => sections.includes(k);
     const ROW = 16;
-    const inStockFirst = (a?: Loose) => [...a.filter((p?: Loose) => p.stock > 0), ...a.filter((p?: Loose) => p.stock <= 0)];
+    const inStockFirst = (a?: Loose) => [...a.filter((p) => p.stock > 0), ...a.filter((p) => p.stock <= 0)];
     // most looked-at products of the last 30 days (real visitors)
     const viewedIds = want('popular') ? (await db.q(`SELECT product_id FROM page_views WHERE product_id IS NOT NULL AND created_at > now() - interval '30 days'
       GROUP BY product_id ORDER BY count(DISTINCT visitor_id) DESC LIMIT $1`, [ROW * 2])).map((r) => r.product_id) : [];
@@ -89,10 +89,10 @@ export async function resolveShop(ctx: ShopCtx): Promise<Resolved> {
     }
     // the owner's own rows
     const custom: Record<string, Loose> = {};
-    const customKeys = sections.filter((k?: Loose) => /^x\d+$/.test(k));
+    const customKeys = sections.filter((k) => /^x\d+$/.test(k));
     if (customKeys.length) {
       const H = $models_homerows;
-      const rows = await db.q('SELECT * FROM home_rows WHERE id = ANY($1::int[])', [customKeys.map((k?: Loose) => H.idOf(k))]).catch(() => []);
+      const rows = await db.q('SELECT * FROM home_rows WHERE id = ANY($1::int[])', [customKeys.map((k) => H.idOf(k))]).catch(() => []);
       await Promise.all(rows.map(async (r) => {
         custom[H.keyOf(r.id)] = { row: r, link: H.linkFor(r), products: await H.productsFor(r, { hideOut }).catch(() => []) };
       }));
@@ -141,7 +141,7 @@ export async function resolveShop(ctx: ShopCtx): Promise<Resolved> {
     const num = (v?: Loose) => { const n = Number(String(v || '').replace(/[০-৯]/g, (d) => String('০১২৩৪৫৬৭৮৯'.indexOf(d)))); return Number.isFinite(n) && n > 0 ? Math.min(n, 1e7) : 0; };
     const filters = {
       pmin: num(query.get('pmin')), pmax: num(query.get('pmax')),
-      brands: brand ? [] : query.getAll('b').map((x?: Loose) => int(x)).filter((x?: Loose) => x > 0).slice(0, 20),
+      brands: brand ? [] : query.getAll('b').map((x) => int(x)).filter((x) => x > 0).slice(0, 20),
       stock: query.get('stock') === '1',
       // 🔧 spec filters: ?sp=voltage~12v&sp=voltage~5v
       specs: {} as Record<string, string[]>, specList: [] as string[],
@@ -232,7 +232,7 @@ export async function resolveShop(ctx: ShopCtx): Promise<Resolved> {
       mpn: product.model || undefined,
       additionalProperty: Array.isArray(product.specs) && product.specs.length
         ? product.specs.filter((x) => Array.isArray(x) && x[0] && x[1]).map(([k, v]) => ({ '@type': 'PropertyValue', name: k, value: v })) : undefined,
-      image: product.images.map((id?: Loose) => `${base}/media/${id}`),
+      image: product.images.map((id) => `${base}/media/${id}`),
       offers: { '@type': 'Offer', priceCurrency: 'BDT', price: product.price, availability: product.stock > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock', url: `${base}/p/${product.slug}`,
         priceValidUntil: product.flash_ends ? new Date(product.flash_ends).toISOString().slice(0, 10) : undefined,
         itemCondition: 'https://schema.org/NewCondition',

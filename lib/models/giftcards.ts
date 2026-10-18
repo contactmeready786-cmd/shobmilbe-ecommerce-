@@ -8,7 +8,7 @@ import * as db from '../db';
 import { str, int, amount, round2, randomCode, normalizePhone, validPhone, ymd, bn } from '../util';
 import * as $services_sms from '../services/sms';
 import type { DbRow, Tx } from '../pg';
-import type { Loose, Settings } from '../types';
+import type { Settings } from '../types';
 
 type Id = number | string | null | undefined;
 
@@ -45,7 +45,7 @@ async function issue({ amount: amt, status = 'active', source = 'admin', buyerNa
 }
 
 // The SMS with the code, to the receiver.
-async function sendCodeSms(settings: Settings, card: DbRow | null): Promise<Loose> {
+async function sendCodeSms(settings: Settings, card: DbRow | null): Promise<$services_sms.SmsResult> {
   const SMS = $services_sms;
   if (!card!.recipient_phone || !SMS.ready(settings).ok) return { ok: false, msg: 'SMS চালু নেই বা নম্বর নেই' };
   const tpl = String(settings.gift_sms || '').trim() || '{shop}: আপনার জন্য {amount} টাকার গিফট কার্ড{from}! কোড: {code}{expiry}। চেকআউটে কোডটা দিন।{message}';

@@ -26,7 +26,7 @@ async function save(b: Body) {
 
 // How many pieces of these products each store has, plus the main store. → Map(product_id → { total, main, by: { whId: qty } })
 async function stockFor(productIds?: Loose) {
-  const ids = (productIds || []).map((x?: Loose) => int(x)).filter((x?: Loose) => x > 0);
+  const ids = (productIds || []).map((x) => int(x)).filter((x) => x > 0);
   if (!ids.length) return new Map();
   const [prods, rows] = await Promise.all([
     db.q('SELECT id, stock FROM products WHERE id = ANY($1::int[])', [ids]),

@@ -24,13 +24,13 @@ async function save({ b, ip, settings }: Body) {
   if (!ID_RE.test(id) || !validPhone(phone)) return {};
   // what was in the cart, with today's names and prices (the shopper's own numbers are never trusted)
   const wanted = (Array.isArray(b.items) ? b.items : []).slice(0, 30)
-    .map((i?: Loose) => ({ id: int(i && i.id), qty: Math.min(999, Math.max(1, int(i && i.qty, 1))) })).filter((i?: Loose) => i.id > 0);
-  const prods = wanted.length ? await catalog.getProductsByIds(wanted.map((i?: Loose) => i.id), { includeInactive: true }) : [];
-  const items = wanted.map((i?: Loose) => {
+    .map((i) => ({ id: int(i && i.id), qty: Math.min(999, Math.max(1, int(i && i.qty, 1))) })).filter((i) => i.id > 0);
+  const prods = wanted.length ? await catalog.getProductsByIds(wanted.map((i) => i.id), { includeInactive: true }) : [];
+  const items = wanted.map((i) => {
     const p = prods.find((x) => x.id === i.id);
     return p ? { id: p.id, name: p.name, sku: p.sku || '', price: Number(p.price) || 0, qty: i.qty } : null;
   }).filter(Boolean);
-  const subtotal = Math.round(items.reduce((s?: Loose, i?: Loose) => s + i.price * i.qty, 0));
+  const subtotal = Math.round(items.reduce((s, i) => s + i.price * i.qty, 0));
   const vid = ID_RE.test(String(b.vid || '')) ? String(b.vid) : '';
   const sid = ID_RE.test(String(b.sid || '')) ? String(b.sid) : '';
   // one open draft per number: a second visit with the same number updates the same row
@@ -132,7 +132,7 @@ async function resume(id?: Id) {
   if (!ID_RE.test(String(id))) return null;
   const d = await db.one(`SELECT name, phone, items, status FROM checkout_drafts WHERE id=$1 AND created_at > now() - interval '7 days'`, [id]);
   if (!d || d.status === 'ordered') return null;
-  return { name: d.name, phone: d.phone, items: (d.items || []).map((i?: Loose) => ({ id: int(i.id), qty: int(i.qty, 1) })).filter((i?: Loose) => i.id > 0) };
+  return { name: d.name, phone: d.phone, items: (d.items || []).map((i) => ({ id: int(i.id), qty: int(i.qty, 1) })).filter((i) => i.id > 0) };
 }
 
 async function get(id?: Id) { return ID_RE.test(String(id)) ? db.one('SELECT * FROM checkout_drafts WHERE id = $1', [id]) : null; }

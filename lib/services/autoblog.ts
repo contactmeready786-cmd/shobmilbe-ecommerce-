@@ -51,13 +51,13 @@ async function categoriesWithProducts() {
 function article({ cat, items }: Body, settings: Settings) {
   const store = settings.store_name || 'সবমিলবে';
   const { month, date } = monthLabel();
-  const inStock = items.filter((p?: Loose) => p.stock > 0);
+  const inStock = items.filter((p) => p.stock > 0);
   const sorted = [...items].sort((a, b) => Number(b.stock > 0) - Number(a.stock > 0) || b.sold - a.sold || a.price - b.price);
   const rows = sorted.slice(0, MAX_ROWS);
-  const prices = inStock.length ? inStock.map((p?: Loose) => p.price) : items.map((p?: Loose) => p.price);
+  const prices = inStock.length ? inStock.map((p) => p.price) : items.map((p) => p.price);
   const lo = Math.min(...prices);
   const hi = Math.max(...prices);
-  const cheapest = (inStock.length ? inStock : items).find((p?: Loose) => p.price === lo);
+  const cheapest = (inStock.length ? inStock : items).find((p) => p.price === lo);
   const top = [...inStock].sort((a, b) => b.sold - a.sold || Number(b.old_price > b.price) - Number(a.old_price > a.price)).slice(0, 3);
   const dhaka = Number(settings.delivery_dhaka) || 60;
   const outside = Number(settings.delivery_outside) || 110;
@@ -79,7 +79,7 @@ function article({ cat, items }: Body, settings: Settings) {
   if (subs.size > 1) {
     lines.push(`## ধরন অনুযায়ী ${cat.name}-এর দাম`, '');
     for (const [name, list] of [...subs.entries()].sort((a, b) => b[1].length - a[1].length).slice(0, 12)) {
-      const ps = list.map((p?: Loose) => p.price);
+      const ps = list.map((p) => p.price);
       lines.push(`- **${name}:** ${bn(list.length)}টা পণ্য, ${money(Math.min(...ps))} থেকে ${money(Math.max(...ps))}`);
     }
     lines.push('');

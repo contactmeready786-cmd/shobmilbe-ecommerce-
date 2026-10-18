@@ -22,8 +22,8 @@ function render(text?: Loose, { productCard }: Body = {}) {
   const closeTable = () => {
     if (!table) return;
     const [head, ...body] = table;
-    out.push(`<div class="table-scroll"><table class="md-table"><thead><tr>${head.map((c?: Loose) => `<th>${inline(esc(c))}</th>`).join('')}</tr></thead>`
-      + `<tbody>${body.map((r?: Loose) => `<tr>${head.map((_?: Loose, i?: Loose) => `<td>${inline(esc(r[i] || ''))}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`);
+    out.push(`<div class="table-scroll"><table class="md-table"><thead><tr>${head.map((c) => `<th>${inline(esc(c))}</th>`).join('')}</tr></thead>`
+      + `<tbody>${body.map((r) => `<tr>${head.map((_, i) => `<td>${inline(esc(r[i] || ''))}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`);
     table = null;
   };
   const close = () => { if (list) { out.push(`</${list}>`); list = null; } };
