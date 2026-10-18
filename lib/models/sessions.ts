@@ -6,29 +6,40 @@ import * as crypto from 'node:crypto';
 import { q, one } from '../db';
 import { str } from '../util';
 import * as $services_visitors from '../services/visitors';
-import type { Body, Id, Loose, Settings, ShopRequest } from '../types';
+import type { Param } from '../pg';
+import type { Id, Settings, ShopRequest } from '../types';
+
+/** One logged-in device (a row of admin_sessions; id is the SHA-256 of the browser's token). */
+export type AdminSession = {
+  id: string; staff_id: number; verified: boolean; ip: string; ua: string; device: string; place: string;
+  created_at: Date; last_seen: Date; expires_at: Date; revoked_at: Date | null; revoked_why: string | null;
+};
+/** What happened at a login, for the history. */
+export type LoginEvent = 'login' | 'fail' | 'locked' | 'inactive' | 'step' | 'code_fail' | 'logout' | 'revoked' | 'reset';
+/** The filters of the login-history page. */
+export type HistoryFilter = { staffId?: Id | null; event?: string; failed?: boolean | string; ip?: string; from?: string; to?: string };
 
 const MAX_DAYS = 30; // a login never lasts longer than this
 const TOUCH_MS = 5 * 60e3; // "last seen" is written at most once per 5 minutes
 
-const hashToken = (t?: Loose) => crypto.createHash('sha256').update(String(t)).digest('hex');
+const hashToken = (t: unknown) => crypto.createHash('sha256').update(String(t)).digest('hex');
 function idleHours(settings: Settings) {
   const h = Number(settings && settings.session_idle_hours);
   return Number.isFinite(h) && h >= 1 ? Math.min(h, MAX_DAYS * 24) : 72;
 }
 
-function deviceName(ua?: Loose) {
+function deviceName(ua: unknown): string {
   const { parseUA } = $services_visitors;
   const d = parseUA(ua);
   const kind = d.device === 'mobile' ? '📱 মোবাইল' : d.device === 'tablet' ? '📱 ট্যাবলেট' : '💻 কম্পিউটার';
   return `${kind} · ${d.os} · ${d.browser}`.slice(0, 120);
 }
-function placeOf(req: ShopRequest) {
-  const h = (n?: Loose) => { const v = String(req.headers[n] || '').trim(); try { return decodeURIComponent(v); } catch (_) { return v; } };
+function placeOf(req: Pick<ShopRequest, 'headers'>): string {
+  const h = (n: string) => { const v = String(req.headers[n] || '').trim(); try { return decodeURIComponent(v); } catch (_) { return v; } };
   return [h('x-vercel-ip-city'), h('x-vercel-ip-country')].filter(Boolean).join(', ').slice(0, 80);
 }
 
-async function create(req: ShopRequest, staffId?: Id, { verified = false, ip = '' }: Body = {}) {
+async function create(req: Pick<ShopRequest, 'headers'>, staffId: Id, { verified = false, ip = '' }: { verified?: boolean; ip?: string } = {}): Promise<string> {
   const token = crypto.randomBytes(32).toString('base64url');
   const ua = str(req.headers['user-agent'], 300);
   await q(`INSERT INTO admin_sessions(id, staff_id, verified, ip, ua, device, place, expires_at)
@@ -39,9 +50,9 @@ async function create(req: ShopRequest, staffId?: Id, { verified = false, ip = '
 }
 
 // The live session for a token, or null (logged out, expired, or unused for too long).
-async function find(token: Loose, settings: Settings) {
+async function find(token: string | null | undefined, settings: Settings): Promise<AdminSession | null> {
   if (!token || token.length < 30) return null;
-  const s = await one(`SELECT * FROM admin_sessions WHERE id=$1 AND revoked_at IS NULL AND expires_at > now()
+  const s = await one<AdminSession>(`SELECT * FROM admin_sessions WHERE id=$1 AND revoked_at IS NULL AND expires_at > now()
     AND last_seen > now() - make_interval(hours => $2)`, [hashToken(token), idleHours(settings)]);
   if (s && Date.now() - new Date(s.last_seen).getTime() > TOUCH_MS) {
     q('UPDATE admin_sessions SET last_seen=now() WHERE id=$1', [s.id]).catch(() => {});
@@ -49,23 +60,23 @@ async function find(token: Loose, settings: Settings) {
   return s;
 }
 
-async function revoke(token?: Loose, why: Loose = 'লগআউট') {
+async function revoke(token: string | null | undefined, why = 'লগআউট'): Promise<void> {
   if (!token) return;
   await q('UPDATE admin_sessions SET revoked_at=now(), revoked_why=$2 WHERE id=$1 AND revoked_at IS NULL', [hashToken(token), why]);
 }
 // One device, by its row id (the hash) — only for that staff member's own rows unless asOwner.
-async function revokeId(id?: Id, staffId?: Id, why?: Loose) {
-  const r = await one(`UPDATE admin_sessions SET revoked_at=now(), revoked_why=$3 WHERE id=$1 AND ($2::int IS NULL OR staff_id=$2) AND revoked_at IS NULL RETURNING staff_id`,
+async function revokeId(id: Id, staffId: Id | null | undefined, why: string): Promise<number | null> {
+  const r = await one<{ staff_id: number }>(`UPDATE admin_sessions SET revoked_at=now(), revoked_why=$3 WHERE id=$1 AND ($2::int IS NULL OR staff_id=$2) AND revoked_at IS NULL RETURNING staff_id`,
     [String(id), staffId ?? null, why]);
   return r ? r.staff_id : null;
 }
 // Every device of one person (optionally keeping the current one).
-async function revokeAll(staffId?: Id, why?: Loose, exceptToken: Loose = null) {
+async function revokeAll(staffId: Id, why: string, exceptToken: string | null = null): Promise<number> {
   const rows = await q(`UPDATE admin_sessions SET revoked_at=now(), revoked_why=$2 WHERE staff_id=$1 AND revoked_at IS NULL
     AND ($3::text IS NULL OR id <> $3) RETURNING id`, [staffId, why, exceptToken ? hashToken(exceptToken) : null]);
   return rows.length;
 }
-async function revokeEveryone(why?: Loose, exceptToken: Loose = null) {
+async function revokeEveryone(why: string, exceptToken: string | null = null): Promise<number> {
   const rows = await q(`UPDATE admin_sessions SET revoked_at=now(), revoked_why=$1 WHERE revoked_at IS NULL AND ($2::text IS NULL OR id <> $2) RETURNING id`,
     [why, exceptToken ? hashToken(exceptToken) : null]);
   return rows.length;
@@ -84,19 +95,19 @@ async function listActive(settings: Settings) {
 }
 
 // ---------------------------------------------------------------- login history
-const EVENTS: Record<string, string> = {
+const EVENTS: Record<LoginEvent, string> = {
   login: '✅ লগইন', fail: '❌ ভুল পাসওয়ার্ড', locked: '⛔ আটকানো (অনেকবার ভুল)', inactive: '🚫 বন্ধ অ্যাকাউন্টে চেষ্টা',
   step: '🔑 পাসওয়ার্ড ঠিক, দ্বিতীয় যাচাই বাকি', code_fail: '❌ ভুল যাচাই কোড', logout: '👋 লগআউট', revoked: '🔒 দূর থেকে লগআউট করানো',
   reset: '🔁 পাসওয়ার্ড রিসেট',
 };
-async function record(req: ShopRequest, { staffId = null, login = '', event, ok = false, ip = '', detail = '' }: Body) {
+async function record(req: Pick<ShopRequest, 'headers'>, { staffId = null, login = '', event, ok = false, ip = '', detail = '' }: { staffId?: Id | null; login?: unknown; event: LoginEvent; ok?: boolean; ip?: string; detail?: unknown }): Promise<void> {
   try {
     await q(`INSERT INTO login_history(staff_id, login, event, ok, ip, device, place, detail) VALUES($1,$2,$3,$4,$5,$6,$7,$8)`,
       [staffId, str(login, 60), event, !!ok, str(ip, 64), deviceName(req.headers['user-agent']), placeOf(req), str(detail, 300)]);
-  } catch (e: Loose) { console.error('login history', e.message); }
+  } catch (e) { console.error('login history', (e as Error).message); }
 }
-function historyWhere(f: Body, params?: Loose) {
-  const w: Loose[] = [];
+function historyWhere(f: HistoryFilter, params: Param[]): string {
+  const w: string[] = [];
   if (f.staffId) { params.push(f.staffId); w.push(`h.staff_id=$${params.length}`); }
   if (f.event) { params.push(f.event); w.push(`h.event=$${params.length}`); }
   if (f.failed) w.push(`NOT h.ok AND h.event IN ('fail','locked','inactive','code_fail')`);
@@ -105,16 +116,16 @@ function historyWhere(f: Body, params?: Loose) {
   if (f.to) { params.push(f.to); w.push(`h.created_at < (($${params.length}::date) + 1)::timestamp AT TIME ZONE 'Asia/Dhaka'`); }
   return w.length ? 'WHERE ' + w.join(' AND ') : '';
 }
-async function history(f: Body = {}, { limit = 100, offset = 0 }: Body = {}) {
-  const params: Loose[] = [];
+async function history(f: HistoryFilter = {}, { limit = 100, offset = 0 }: { limit?: number; offset?: number } = {}) {
+  const params: Param[] = [];
   const where = historyWhere(f, params);
   params.push(limit, offset);
   return q(`SELECT h.*, s.name AS staff_name FROM login_history h LEFT JOIN staff s ON s.id=h.staff_id ${where}
     ORDER BY h.created_at DESC, h.id DESC LIMIT $${params.length - 1} OFFSET $${params.length}`, params);
 }
-async function countHistory(f: Body = {}) {
-  const params: Loose[] = [];
-  return (await one(`SELECT count(*)::int AS n FROM login_history h ${historyWhere(f, params)}`, params))!.n;
+async function countHistory(f: HistoryFilter = {}): Promise<number> {
+  const params: Param[] = [];
+  return (await one<{ n: number }>(`SELECT count(*)::int AS n FROM login_history h ${historyWhere(f, params)}`, params))!.n;
 }
 // Wrong passwords in the last 24 hours, grouped by where they came from.
 async function failedSummary() {

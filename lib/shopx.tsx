@@ -139,7 +139,7 @@ export async function account(f: FormCtx): Promise<void> {
     const ways = { phoneOn: A.phoneReady(settings), emailOn: A.emailReady(settings) };
     const login = (o: LoginStep) => page('লগইন', V.loginPage({ ...ways, ...o }), { noindex: true, status: o.error ? 400 : 200 });
     // after the code is right: a new account first gives its name (and mobile), then goes where it was going
-    const afterLogin = (c: unknown, nxt: string) => (A.needsProfile(c) ? `/account?tab=profile&welcome=1${nxt ? '&next=' + encodeURIComponent(nxt) : ''}` : nxt || '/account');
+    const afterLogin = (c: A.Customer, nxt: string) => (A.needsProfile(c) ? `/account?tab=profile&welcome=1${nxt ? '&next=' + encodeURIComponent(nxt) : ''}` : nxt || '/account');
     // ---------- 📱 mobile + SMS code ----------
     if (path === '/account/code' && isPost) {
       const b = await parseBody(req);

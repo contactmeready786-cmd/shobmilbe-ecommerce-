@@ -23,7 +23,16 @@ import * as $accounts from './accounts';
 import * as $customers from './customers';
 import * as $services_notify from '../services/notify';
 import * as $services_push from '../services/push';
-import type { Loose } from '../types';
+import type { Settings, ShopRequest } from '../types';
+
+/** A request as far as this file reads it: its headers (cookies, https). */
+type Req = Pick<ShopRequest, 'headers'>;
+/** Why a number needs no code: logged in to its own account, any other proven account, or checked in this browser. */
+export type NoNeed = 'account' | 'acct' | 'email_acct' | 'remembered';
+/** How the number of an order was checked ('' when the switch is off). */
+export type CheckedHow = 'otp' | NoNeed | '';
+type OtpRow = { id: number; code_hash: string; tries: number };
+type GwRow = { id: number; gw_id: string; gw_state?: string | null; ago?: number };
 
 const CODE_LEN = 4;
 const CODE_MIN = 10;       // a code works for 10 minutes
@@ -38,34 +47,34 @@ class OtpError extends Error {
   constructor(msg: string, extra: Record<string, unknown> = {}) { super(msg); Object.assign(this, extra); }
 }
 
-const on = (s?: Loose) => s.co_otp_on === '1';
-const sendReady = (s?: Loose) => $services_sms.ready(s);
-const smsReady = (s?: Loose) => sendReady(s).ok;
+const on = (s: Settings) => s.co_otp_on === '1';
+const sendReady = (s: Settings) => $services_sms.ready(s);
+const smsReady = (s: Settings) => sendReady(s).ok;
 // is the box shown at checkout? — whenever the switch is on
-const active = (s?: Loose) => on(s);
-const rememberDays = (s?: Loose) => Math.max(0, Math.min(365, int(s.co_otp_remember_days)));
-const bnDigits = (v?: Loose) => String(v || '').replace(/[০-৯]/g, (d) => String('০১২৩৪৫৬৭৮৯'.indexOf(d)));
-const hashCode = (phone?: Loose, code?: Loose, secret?: Loose) => crypto.createHmac('sha256', String(secret)).update(`co:${phone}:${code}`).digest('hex');
+const active = (s: Settings) => on(s);
+const rememberDays = (s: Settings) => Math.max(0, Math.min(365, int(s.co_otp_remember_days)));
+const bnDigits = (v: unknown) => String(v || '').replace(/[০-৯]/g, (d) => String('০১২৩৪৫৬৭৮৯'.indexOf(d)));
+const hashCode = (phone: string, code: string, secret: string) => crypto.createHmac('sha256', String(secret)).update(`co:${phone}:${code}`).digest('hex');
 
 // ---------- signed proofs: "this number was checked" (sent with the order) ----------
 // kind: otp = code typed
-function token(s?: Loose, phone?: Loose, kind?: Loose) { return sign(`cov:${phone}:${kind}:${Date.now()}`, s.session_secret); }
-function readToken(s?: Loose, t?: Loose) {
+function token(s: Settings, phone: string, kind: 'otp'): string { return sign(`cov:${phone}:${kind}:${Date.now()}`, s.session_secret); }
+function readToken(s: Settings, t: unknown): { phone: string; kind: 'otp' } | null {
   const v = unsign(String(t || ''), s.session_secret);
   if (!v) return null;
   const [k, phone, kind, at] = v.split(':');
   if (k !== 'cov' || !validPhone(phone) || kind !== 'otp' || Date.now() - Number(at) > TOKEN_MIN * 60e3) return null;
-  return { phone, kind };
+  return { phone, kind: 'otp' };
 }
 // ---------- the browser's list of checked numbers ----------
-function remembered(req?: Loose, s?: Loose) {
+function remembered(req: Req, s: Settings): { phone: string; t: number }[] {
   const days = rememberDays(s);
   if (!days) return [];
   const v = unsign(parseCookies(req.headers.cookie)[COOKIE], s.session_secret);
   if (!v) return [];
   return v.split('.').map((x) => x.split('-')).filter(([p, t]) => validPhone(p) && Date.now() - Number(t) * 1000 < days * 864e5).map(([p, t]) => ({ phone: p, t: Number(t) }));
 }
-function rememberCookie(req?: Loose, s?: Loose, phone?: Loose) {
+function rememberCookie(req: Req, s: Settings, phone: string): string | null {
   const days = rememberDays(s);
   if (!days) return null;
   const list = [{ phone, t: Math.floor(Date.now() / 1000) }, ...remembered(req, s).filter((r) => r.phone !== phone)].slice(0, 5);
@@ -74,7 +83,7 @@ function rememberCookie(req?: Loose, s?: Loose, phone?: Loose) {
 }
 
 // Does this number still need a code here? → null (no) or the reason it doesn't: 'account' / 'acct' / 'email_acct' / 'remembered'
-async function noNeedWhy(req?: Loose, s?: Loose, phone?: Loose) {
+async function noNeedWhy(req: ShopRequest, s: Settings, phone: string): Promise<NoNeed | null> {
   const A = $accounts;
   const cu = await A.current(req, s).catch(() => null);
   if (cu && cu.phone === phone) return 'account';
@@ -86,13 +95,13 @@ async function noNeedWhy(req?: Loose, s?: Loose, phone?: Loose) {
 
 // ---------- send a code ----------
 // → { sent: true, wait } — or throws OtpError with a message for the customer
-async function sendCode(req?: Loose, s?: Loose, phone?: Loose, ip?: Loose, site = '') {
+async function sendCode(req: unknown, s: Settings, phone: unknown, ip: string, site = ''): Promise<{ sent: true; wait: number; again?: true }> {
   const SMS = $services_sms;
   const ph = normalizePhone(phone);
   if (!validPhone(ph)) throw new OtpError('সঠিক মোবাইল নম্বর দিন, যেমন 01712345678।');
   if (await $customers.isBlocked(ph, ip)) throw new OtpError(s.block_message || 'এই নম্বরে অর্ডার নেওয়া যাচ্ছে না। আমাদের সাথে যোগাযোগ করুন।');
   // a code sent less than a minute ago: tell how long to wait (no new SMS)
-  const last = await db.one(`SELECT extract(epoch FROM now() - created_at)::int AS ago FROM checkout_otps WHERE phone=$1 AND sent_ok ORDER BY id DESC LIMIT 1`, [ph]);
+  const last = await db.one<{ ago: number }>(`SELECT extract(epoch FROM now() - created_at)::int AS ago FROM checkout_otps WHERE phone=$1 AND sent_ok ORDER BY id DESC LIMIT 1`, [ph]);
   if (last && last.ago < RESEND_SEC) return { sent: true, wait: RESEND_SEC - last.ago, again: true };
   if (!(await security.hit(db, 'coo:ip:' + ip, 8, 3600))) throw new OtpError('অনেকবার কোড চাওয়া হয়েছে। কিছুক্ষণ পর আবার চেষ্টা করুন, অথবা আমাদের কল করুন।');
   if (!(await security.hit(db, 'coo:ph10:' + ph, 3, 600))) throw new OtpError('এই নম্বরে কিছুক্ষণ আগেই কোড পাঠানো হয়েছে। SMS দেখুন, অথবা ১০ মিনিট পর আবার চান।');
@@ -107,7 +116,7 @@ async function sendCode(req?: Loose, s?: Loose, phone?: Loose, ip?: Loose, site 
   if (!smsReady(s)) return cannotSend();
   const cap = int(s.co_otp_daily_cap);
   if (cap > 0) {
-    const today = await db.one(`SELECT count(*)::int AS n FROM checkout_otps WHERE sent_ok AND created_at > now() - interval '1 day'`);
+    const today = await db.one<{ n: number }>(`SELECT count(*)::int AS n FROM checkout_otps WHERE sent_ok AND created_at > now() - interval '1 day'`);
     if (today!.n >= cap) return cannotSend();
   }
 
@@ -117,7 +126,7 @@ async function sendCode(req?: Loose, s?: Loose, phone?: Loose, ip?: Loose, site 
   // Android Chrome can fill the code in by itself when the SMS ends with "@domain #code"
   if (s.co_otp_webotp === '1' && site) { try { text += `\n\n@${new URL(site).host} #${code}`; } catch (_) { /* no domain */ } }
 
-  const row = await db.one(`INSERT INTO checkout_otps(phone, code_hash, expires_at, ip) VALUES($1,$2, now() + make_interval(mins => $3), $4) RETURNING id`,
+  const row = await db.one<{ id: number }>(`INSERT INTO checkout_otps(phone, code_hash, expires_at, ip) VALUES($1,$2, now() + make_interval(mins => $3), $4) RETURNING id`,
     [ph, hashCode(ph, code, s.session_secret), CODE_MIN, str(ip, 60)]);
   const r = await SMS.send(s, ph, text, { kind: 'checkout_otp' });
   if (!r.ok) {
@@ -133,12 +142,12 @@ async function sendCode(req?: Loose, s?: Loose, phone?: Loose, ip?: Loose, site 
 
 // ---------- check a code ----------
 // → the proof token for the order (and the "remember" cookie) — or throws OtpError
-async function verifyCode(s?: Loose, phone?: Loose, code?: Loose) {
+async function verifyCode(s: Settings, phone: unknown, code: unknown): Promise<{ token: string; phone: string }> {
   const ph = normalizePhone(phone);
   const c = bnDigits(code).replace(/\D/g, '');
   if (!validPhone(ph)) throw new OtpError('সঠিক মোবাইল নম্বর দিন।');
   if (c.length !== CODE_LEN) throw new OtpError(`SMS-এ আসা ${bn(CODE_LEN)} অঙ্কের কোডটা লিখুন।`);
-  const row = await db.one(`SELECT id, code_hash, tries FROM checkout_otps WHERE phone=$1 AND sent_ok AND NOT used AND expires_at > now() ORDER BY id DESC LIMIT 1`, [ph]);
+  const row = await db.one<OtpRow>(`SELECT id, code_hash, tries FROM checkout_otps WHERE phone=$1 AND sent_ok AND NOT used AND expires_at > now() ORDER BY id DESC LIMIT 1`, [ph]);
   if (!row) throw new OtpError('কোডের মেয়াদ শেষ হয়ে গেছে। "আবার পাঠান" চাপুন।', { expired: true });
   if (row.tries >= TRIES) {
     await db.q('UPDATE checkout_otps SET used=true WHERE id=$1', [row.id]);
@@ -159,7 +168,7 @@ async function verifyCode(s?: Loose, phone?: Loose, code?: Loose) {
 // is stopped or offline → the owner is told at once (phone notification / WhatsApp / e-mail, at most every 20 minutes).
 const STATE_BN: Record<string, string> = { Pending: '⏳ ফোন এখনো নেয়নি (অ্যাপ বন্ধ / ইন্টারনেট নেই)', Processed: '📱 ফোন পেয়েছে, পাঠাচ্ছে', Sent: '✅ ফোন থেকে SMS গেছে',
   Delivered: '✅ কাস্টমারের ফোনে পৌঁছেছে', Failed: '❌ ফোন পাঠাতে পারেনি', Cancelled: 'বাতিল' };
-async function alertOwner(s?: Loose, title?: Loose, body?: Loose) {
+async function alertOwner(s: Settings, title: string, body: string): Promise<void> {
   if (!(await security.hit(db, 'coo:alert', 1, 1200))) return;
   const N = $services_notify;
   const jobs: Promise<unknown>[] = [$services_push.sendAll({ title, body, url: '/admin/checkout-otp', tag: 'sms-phone' }).catch(() => null)];
@@ -167,16 +176,16 @@ async function alertOwner(s?: Loose, title?: Loose, body?: Loose) {
   if (N.emailConfig(s).ready) jobs.push(emailHtml(PlainEmail({ text: String(body), font: 'Arial,sans-serif' })).then((html) => N.sendEmail(s, title, body, html)).catch(() => null));
   await Promise.all(jobs);
 }
-async function phoneState(s?: Loose, row?: Loose) {
+async function phoneState(s: Settings, row: GwRow | null | undefined) {
   if (!row || !row.gw_id) return null;
   const st = await $services_sms.androidState(s, row.gw_id).catch(() => null);
   if (st && st.state && st.state !== row.gw_state) await db.q('UPDATE checkout_otps SET gw_state=$1 WHERE id=$2', [str(st.state, 20), row.id]).catch(() => {});
   return st;
 }
-async function smsCheck(s?: Loose, phone?: Loose) {
+async function smsCheck(s: Settings, phone: unknown): Promise<{ state: string; stuck?: boolean }> {
   const ph = normalizePhone(phone);
   if (!validPhone(ph)) return { state: '' };
-  const row = await db.one(`SELECT id, gw_id, gw_state, extract(epoch FROM now() - created_at)::int AS ago FROM checkout_otps
+  const row = await db.one<GwRow & { ago: number }>(`SELECT id, gw_id, gw_state, extract(epoch FROM now() - created_at)::int AS ago FROM checkout_otps
     WHERE phone=$1 AND sent_ok AND gw_id<>'' AND created_at > now() - interval '15 minutes' ORDER BY id DESC LIMIT 1`, [ph]);
   if (!row) return { state: '' };
   const st = await phoneState(s, row);
@@ -193,7 +202,7 @@ async function smsCheck(s?: Loose, phone?: Loose) {
 // ---------- when the order is placed ----------
 // → { ok: true, how } with how = otp / account / remembered ('' when switched off)  —  or { ok: false, error }
 // Switched on = strict: no checked number, no order.
-async function checkOrder(req?: Loose, s?: Loose, phone?: Loose, tok?: Loose) {
+async function checkOrder(req: ShopRequest, s: Settings, phone: string, tok: unknown): Promise<{ ok: true; how: CheckedHow } | { ok: false; error: string }> {
   if (!on(s)) return { ok: true, how: '' };
   const t = readToken(s, tok);
   if (t && t.phone === phone) return { ok: true, how: 'otp' };
@@ -219,7 +228,7 @@ async function recent(limit = 30) {
   return db.q(`SELECT phone, sent_ok, verified_at, tries, created_at, (verified_at IS NULL AND NOT sent_ok) AS failed FROM checkout_otps ORDER BY id DESC LIMIT $1`, [limit]);
 }
 // the pill shown on orders in Admin
-const LABELS: Record<string, Loose> = {
+const LABELS: Record<string, [label: string, explanation: string]> = {
   otp: ['✅ OTP যাচাই', 'কাস্টমার SMS-এর কোড দিয়ে নম্বর যাচাই করেছেন'],
   remembered: ['✅ আগে যাচাই', 'এই ব্রাউজারে আগে এই নম্বর OTP দিয়ে যাচাই হয়েছিল'],
   account: ['✅ লগইন', 'কাস্টমার নিজের অ্যাকাউন্টে লগইন করা (লগইনেই নম্বর যাচাই হয়েছে)'],

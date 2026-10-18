@@ -32,10 +32,10 @@ export function ordersCookie(req: Pick<ShopRequest, 'headers'>, settings: Settin
 }
 
 /** Opening the account dashboard adds the customer's latest orders to this browser's list (null: nothing to add). */
-export async function accountOrdersCookie(req: Pick<ShopRequest, 'headers'>, settings: Settings, cu?: Loose): Promise<string | null> {
-  const who = cu === undefined ? await A.current(req as ShopRequest, settings) : cu;
+export async function accountOrdersCookie(req: Pick<ShopRequest, 'headers'>, settings: Settings, cu?: A.Customer | null): Promise<string | null> {
+  const who = cu === undefined ? await A.current(req, settings) : cu;
   if (!who) return null;
-  const codes = ((await A.ordersOf(who, 15)) as Loose[]).slice(0, 15).map((o) => o.code);
+  const codes = (await A.ordersOf(who, 15)).slice(0, 15).map((o) => String(o.code));
   return codes.length ? ordersCookie(req, settings, codes) : null;
 }
 
