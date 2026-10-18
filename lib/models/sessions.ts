@@ -95,11 +95,12 @@ async function listActive(settings: Settings) {
 }
 
 // ---------------------------------------------------------------- login history
-const EVENTS: Record<LoginEvent, string> = {
+// (rows from the database carry any event name, so it is looked up by text; every LoginEvent must have its label)
+const EVENTS: Record<string, string> = {
   login: '✅ লগইন', fail: '❌ ভুল পাসওয়ার্ড', locked: '⛔ আটকানো (অনেকবার ভুল)', inactive: '🚫 বন্ধ অ্যাকাউন্টে চেষ্টা',
   step: '🔑 পাসওয়ার্ড ঠিক, দ্বিতীয় যাচাই বাকি', code_fail: '❌ ভুল যাচাই কোড', logout: '👋 লগআউট', revoked: '🔒 দূর থেকে লগআউট করানো',
   reset: '🔁 পাসওয়ার্ড রিসেট',
-};
+} satisfies Record<LoginEvent, string>;
 async function record(req: Pick<ShopRequest, 'headers'>, { staffId = null, login = '', event, ok = false, ip = '', detail = '' }: { staffId?: Id | null; login?: unknown; event: LoginEvent; ok?: boolean; ip?: string; detail?: unknown }): Promise<void> {
   try {
     await q(`INSERT INTO login_history(staff_id, login, event, ok, ip, device, place, detail) VALUES($1,$2,$3,$4,$5,$6,$7,$8)`,

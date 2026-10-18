@@ -29,7 +29,7 @@ async function page(ctx: AdminCtx) {
   }
   const [st, recent, lastSms, lastGw] = await Promise.all([CO.stats(), CO.recent(30),
     db.one(`SELECT ok, detail, phone, created_at FROM sms_log WHERE kind='checkout_otp' ORDER BY id DESC LIMIT 1`).catch(() => null),
-    db.one(`SELECT id, gw_id, gw_state, phone, created_at FROM checkout_otps WHERE gw_id<>'' ORDER BY id DESC LIMIT 1`).catch(() => null)]);
+    db.one<CO.GwRow & { phone: string; created_at: Date }>(`SELECT id, gw_id, gw_state, phone, created_at FROM checkout_otps WHERE gw_id<>'' ORDER BY id DESC LIMIT 1`).catch(() => null)]);
   // 📱 the phone's answer for the newest code (asked live)
   const gw = lastGw ? await CO.phoneState(s, lastGw) : null;
   const gwBad = gw && (gw.state === 'Failed' || gw.state === 'Pending');

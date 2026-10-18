@@ -32,7 +32,8 @@ export type NoNeed = 'account' | 'acct' | 'email_acct' | 'remembered';
 /** How the number of an order was checked ('' when the switch is off). */
 export type CheckedHow = 'otp' | NoNeed | '';
 type OtpRow = { id: number; code_hash: string; tries: number };
-type GwRow = { id: number; gw_id: string; gw_state?: string | null; ago?: number };
+/** The newest code sent through the shop's own phone (the SMS Gateway app), and its state there. */
+export type GwRow = { id: number; gw_id: string; gw_state?: string | null; ago?: number };
 
 const CODE_LEN = 4;
 const CODE_MIN = 10;       // a code works for 10 minutes
