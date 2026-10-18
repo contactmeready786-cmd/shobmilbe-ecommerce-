@@ -104,5 +104,5 @@ export async function resolveForms({ path, query, settings, req }: FormsCtx): Pr
 
 /** The ways to pay for a gift card on the site (manual bKash / Nagad … with a number). */
 export function giftMethods(settings: Settings): Loose[] {
-  return $services_payments.methods(settings).filter((x: Loose) => x.manual && x.number && settings.gift_sell_online !== '0');
+  return $services_payments.methods(settings).filter((x) => x.manual && x.number && settings.gift_sell_online !== '0');
 }

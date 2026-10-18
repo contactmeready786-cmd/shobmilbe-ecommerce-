@@ -11,7 +11,10 @@ import * as $services_autocall from '../services/autocall';
 import { siteUrl } from '../gate';
 import { str } from '../util';
 import { json, type ApiCtx } from '../next/api';
-import type { Body, Loose } from '../types';
+import type { Body } from '../types';
+
+/** An order as the couriers' updates read it. */
+type CourierOrder = { id: number; code: string; status: string };
 
 /** "See over there" (303), never kept — the original code's redirect. */
 const see = (to: string) => new Response(null, { status: 303, headers: { Location: to, 'Cache-Control': 'no-store' } });
@@ -28,20 +31,20 @@ export async function pay(ctx: ApiCtx) {
     const order = await O.getOrder({ code: m[1].toUpperCase() });
     if (!order) return see('/track');
     if (order.payment_status === 'paid' || O.RELEASED.has(order.status)) return see(`/order/${order.code}`);
-    let r;
+    let r: payments.PayStart;
     try {
       r = order.payment === 'bkash' ? await payments.bkashCreate(order, settings, site)
         : order.payment === 'ssl' ? await payments.sslCreate(order, settings, site) : { ok: false };
-    } catch (e: Loose) {
-      r = { ok: false, message: e.message };
-      await db.logIntegration(order.payment, 'create', false, e.message, order.code);
+    } catch (e) {
+      r = { ok: false, message: (e as Error).message };
+      await db.logIntegration(order.payment, 'create', false, (e as Error).message, order.code);
     }
     return r.ok ? see(r.url) : see(`/order/${order.code}?new=1&pay=failed`);
   }
   if (path === '/pay/bkash/callback') {
     const paymentID = str(query.get('paymentID'), 80);
     const status = query.get('status');
-    const p = paymentID ? await db.one(`SELECT * FROM payments WHERE gateway_ref=$1 AND method='bkash'`, [paymentID]) : null;
+    const p = paymentID ? await db.one<payments.PaymentRow>(`SELECT * FROM payments WHERE gateway_ref=$1 AND method='bkash'`, [paymentID]) : null;
     if (!p) return see('/track');
     const order = await O.getOrder({ id: p.order_id });
     if (status === 'success') {
@@ -52,8 +55,8 @@ export async function pay(ctx: ApiCtx) {
           return see(`/order/${order!.code}?new=1`);
         }
         await db.logIntegration('bkash', 'execute', false, r.message, order!.code);
-      } catch (e: Loose) {
-        await db.logIntegration('bkash', 'execute', false, e.message, order!.code);
+      } catch (e) {
+        await db.logIntegration('bkash', 'execute', false, (e as Error).message, order!.code);
       }
     }
     await db.q(`UPDATE payments SET status=$1, updated_at=now() WHERE id=$2 AND status<>'paid'`, [status === 'cancel' ? 'cancelled' : 'failed', p.id]);
@@ -63,7 +66,7 @@ export async function pay(ctx: ApiCtx) {
   if (m) {
     const b = method === 'POST' ? await ctx.body() : Object.fromEntries(query);
     const tranId = str(b.tran_id, 80);
-    const p = tranId ? await db.one(`SELECT * FROM payments WHERE gateway_ref=$1 AND method='ssl'`, [tranId]) : null;
+    const p = tranId ? await db.one<payments.PaymentRow>(`SELECT * FROM payments WHERE gateway_ref=$1 AND method='ssl'`, [tranId]) : null;
     if (!p) return m[1] === 'ipn' ? text(200, 'ok', 'text/plain') : see('/track');
     const order = await O.getOrder({ id: p.order_id });
     if ((m[1] === 'success' || m[1] === 'ipn') && b.val_id) {
@@ -81,14 +84,14 @@ export async function pay(ctx: ApiCtx) {
 }
 
 // ---------------------------------------------------------------- courier webhooks
-async function applyCourierUpdate(orderRow?: Loose, courierName?: Loose, rawStatus?: Loose) {
+async function applyCourierUpdate(orderRow: CourierOrder, courierName: string, rawStatus: string): Promise<void> {
   await O.setCourierStatus(orderRow.id, rawStatus);
   const mapped = courier.mapStatus(courierName, rawStatus);
   if (mapped && mapped !== orderRow.status) {
     try {
       const s = await O.setStatus(orderRow.id, mapped, null);
       if (s.changed) await db.logActivity(null, 'order_status', 'order', orderRow.id, `${s.prev} → ${mapped} (${courierName} ওয়েবহুক)`);
-    } catch (e: Loose) { await db.logIntegration(courierName, 'webhook', false, e.message, orderRow.code); }
+    } catch (e) { await db.logIntegration(courierName, 'webhook', false, (e as Error).message, orderRow.code); }
   }
 }
 export async function steadfast(ctx: ApiCtx) {
@@ -97,7 +100,7 @@ export async function steadfast(ctx: ApiCtx) {
   if (!settings.steadfast_webhook_token || !security.safeEqual(auth, settings.steadfast_webhook_token)) return json(401, { status: 'error', message: 'Unauthorized' });
   const b = await ctx.body();
   const cid = String(b.consignment_id || '');
-  const order = await db.one(`SELECT id, code, status FROM orders WHERE (consignment_id=$1 AND $1<>'') OR code=$2 LIMIT 1`, [cid, String(b.invoice || '')]);
+  const order = await db.one<CourierOrder>(`SELECT id, code, status FROM orders WHERE (consignment_id=$1 AND $1<>'') OR code=$2 LIMIT 1`, [cid, String(b.invoice || '')]);
   if (order && b.status) await applyCourierUpdate(order, 'steadfast', String(b.status));
   await db.logIntegration('steadfast', 'webhook', !!order, `${b.notification_type || ''} ${cid} ${b.status || ''}`, order ? order.code : '');
   return json(200, { status: 'success', message: 'Webhook received successfully.' });
@@ -109,7 +112,7 @@ export async function pathao(ctx: ApiCtx) {
   if (!settings.pathao_webhook_secret || !security.safeEqual(sig, settings.pathao_webhook_secret)) return text(401, '{"status":"unauthorized"}', 'application/json');
   const b = await ctx.body();
   const cid = String(b.consignment_id || '');
-  const order = cid || b.merchant_order_id ? await db.one(`SELECT id, code, status FROM orders WHERE (consignment_id=$1 AND $1<>'') OR code=$2 LIMIT 1`, [cid, String(b.merchant_order_id || '')]) : null;
+  const order = cid || b.merchant_order_id ? await db.one<CourierOrder>(`SELECT id, code, status FROM orders WHERE (consignment_id=$1 AND $1<>'') OR code=$2 LIMIT 1`, [cid, String(b.merchant_order_id || '')]) : null;
   const st = b.order_status || b.order_status_slug || (b.event ? String(b.event).replace(/^order\./, '') : '');
   if (order && st) await applyCourierUpdate(order, 'pathao', String(st));
   await db.logIntegration('pathao', 'webhook', true, `${b.event || ''} ${cid} ${st}`, order ? order.code : '');

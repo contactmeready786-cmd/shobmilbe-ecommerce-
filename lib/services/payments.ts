@@ -1,17 +1,31 @@
 // Online payments: bKash Tokenized Checkout and SSLCommerz (cards, Nagad, Rocket, bank).
 import * as db from '../db';
 import { fetchJson, int } from '../util';
-import type { Body, Id, Loose, Settings } from '../types';
+import type { Id, Settings } from '../types';
 
-const MANUAL = { manual_bkash: ['বিকাশ', 'manual_bkash'], manual_nagad: ['নগদ', 'manual_nagad'], manual_rocket: ['রকেট', 'manual_rocket'], manual_upay: ['উপায়', 'manual_upay'] };
+/** One way to pay, as the checkout shows it. */
+export type PayMethod = { id: string; label: string; note: string; number?: string; numberLabel?: string; advance?: string; manual?: boolean };
+/** What starting an online payment needs of the order (an Order from lib/models/orders fits). */
+export type PayOrder = {
+  id: number; code: string; total: number; paid_amount?: number | null; phone: string; customer_name: string;
+  email?: string | null; address: string; district?: string | null; items?: { name: string }[] | null;
+};
+/** Starting a payment: the payment company's page to send the customer to, or why it couldn't start. */
+export type PayStart = { ok: true; url: string } | { ok: false; message?: string };
+/** The payment company's answer about one payment (always asked from the company itself, never the browser). */
+export type PayCheck = { ok: boolean; trxID: string; amount: number; raw: Record<string, unknown> };
+/** A row of the payments table. */
+export type PaymentRow = { id: number; order_id: number; method: string; amount: number; status: string; gateway_ref: string };
+
+const MANUAL: Record<string, [label: string, settingKey: string]> = { manual_bkash: ['বিকাশ', 'manual_bkash'], manual_nagad: ['নগদ', 'manual_nagad'], manual_rocket: ['রকেট', 'manual_rocket'], manual_upay: ['উপায়', 'manual_upay'] };
 
 // Which payment options the checkout shows.
-function methods(settings: Settings): Loose[] {
-  const out = [];
+function methods(settings: Settings): PayMethod[] {
+  const out: PayMethod[] = [];
   if (settings.pay_cod === '1') {
-    const cod = { id: 'cod', label: 'ক্যাশ অন ডেলিভারি', note: settings.pay_cod_note || 'পণ্য হাতে পেয়ে টাকা দিন' };
+    const cod: PayMethod = { id: 'cod', label: 'ক্যাশ অন ডেলিভারি', note: settings.pay_cod_note || 'পণ্য হাতে পেয়ে টাকা দিন' };
     // delivery charge first (Admin → সেটিংস): needs a Send Money number to send it to
-    const adv = ['new', 'all'].includes(settings.cod_advance as string) ? Object.entries(MANUAL).find(([, [, key]]: Loose) => settings[key]) : null;
+    const adv = ['new', 'all'].includes(settings.cod_advance as string) ? Object.entries(MANUAL).find(([, [, key]]) => settings[key]) : null;
     if (adv) Object.assign(cod, { advance: settings.cod_advance, number: settings[adv[1][1]], numberLabel: adv[1][0] });
     out.push(cod);
   }
@@ -23,7 +37,7 @@ function methods(settings: Settings): Loose[] {
   }
   if (settings.pay_manual === '1') {
     for (const [id, [label, key]] of Object.entries(MANUAL)) {
-      if (settings[key]) out.push({ id, label: `${label} Send Money`, note: `${settings[key]} (${settings.manual_type || 'Personal'}) নম্বরে টাকা পাঠিয়ে TrxID দিন`, number: settings[key], manual: true });
+      if (settings[key]) out.push({ id, label: `${label} Send Money`, note: `${settings[key]} (${settings.manual_type || 'Personal'}) নম্বরে টাকা পাঠিয়ে TrxID দিন`, number: String(settings[key]), manual: true });
     }
   }
   if (!out.length) out.push({ id: 'cod', label: 'ক্যাশ অন ডেলিভারি', note: 'পণ্য হাতে পেয়ে টাকা দিন' });
@@ -32,8 +46,8 @@ function methods(settings: Settings): Loose[] {
 
 // ---------------------------------------------------------------- bKash (tokenized checkout)
 function bkBase(s: Settings) { return s.bkash_sandbox === '1' ? 'https://tokenized.sandbox.bka.sh/v1.2.0-beta' : 'https://tokenized.pay.bka.sh/v1.2.0-beta'; }
-let bkToken: Loose = null; // { token, exp, key }
-async function bkashToken(s: Settings) {
+let bkToken: { token: string; exp: number; key: string } | null = null; // bKash's login, kept until shortly before it runs out
+async function bkashToken(s: Settings): Promise<string> {
   const key = `${s.bkash_app_key}${s.bkash_username}${s.bkash_sandbox}`;
   if (bkToken && bkToken.key === key && bkToken.exp > Date.now() + 60e3) return bkToken.token;
   const r = await fetchJson(`${bkBase(s)}/tokenized/checkout/token/grant`, {
@@ -47,9 +61,9 @@ async function bkashToken(s: Settings) {
   }
   throw new Error('বিকাশ টোকেন পাওয়া যায়নি: ' + ((r.data && (r.data.statusMessage || r.data.msg)) || r.text));
 }
-function bkHeaders(s: Settings, token?: Loose): Record<string, string> { return <Record<string, string>>{ 'Content-Type': 'application/json', Accept: 'application/json', Authorization: token, 'X-App-Key': s.bkash_app_key }; }
+function bkHeaders(s: Settings, token: string): Record<string, string> { return <Record<string, string>>{ 'Content-Type': 'application/json', Accept: 'application/json', Authorization: token, 'X-App-Key': s.bkash_app_key }; }
 
-async function bkashCreate(order: Loose, s: Settings, siteUrl?: Loose) {
+async function bkashCreate(order: PayOrder, s: Settings, siteUrl: string): Promise<PayStart> {
   const token = await bkashToken(s);
   const amount = Math.max(1, order.total - (order.paid_amount || 0));
   const r = await fetchJson(`${bkBase(s)}/tokenized/checkout/create`, {
@@ -68,7 +82,7 @@ async function bkashCreate(order: Loose, s: Settings, siteUrl?: Loose) {
   await db.logIntegration('bkash', 'create', false, msg, order.code);
   return { ok: false, message: msg };
 }
-async function bkashExecute(paymentID: Loose, s: Settings) {
+async function bkashExecute(paymentID: string, s: Settings): Promise<PayCheck & { message: string }> {
   const token = await bkashToken(s);
   let r = await fetchJson(`${bkBase(s)}/tokenized/checkout/execute`, { method: 'POST', headers: bkHeaders(s, token), body: JSON.stringify({ paymentID }) });
   // If execute timed out or was already done, ask for the payment's state.
@@ -81,7 +95,7 @@ async function bkashExecute(paymentID: Loose, s: Settings) {
 
 // ---------------------------------------------------------------- SSLCommerz
 function sslBase(s: Settings) { return s.ssl_sandbox === '1' ? 'https://sandbox.sslcommerz.com' : 'https://securepay.sslcommerz.com'; }
-async function sslCreate(order: Loose, s: Settings, siteUrl?: Loose) {
+async function sslCreate(order: PayOrder, s: Settings, siteUrl: string): Promise<PayStart> {
   const amount = Math.max(10, order.total - (order.paid_amount || 0));
   const tranId = `${order.code}-${Date.now().toString(36).toUpperCase()}`;
   const form = new URLSearchParams(<Record<string, string>>{
@@ -90,7 +104,7 @@ async function sslCreate(order: Loose, s: Settings, siteUrl?: Loose) {
     cus_name: order.customer_name, cus_email: order.email || 'customer@example.com', cus_add1: order.address.slice(0, 100),
     cus_city: order.district || 'Dhaka', cus_postcode: '1000', cus_country: 'Bangladesh', cus_phone: order.phone,
     shipping_method: 'NO', num_of_item: String((order.items || []).length || 1),
-    product_name: (order.items || []).map((i?: Loose) => i.name).join(', ').slice(0, 250) || 'Order ' + order.code,
+    product_name: (order.items || []).map((i) => i.name).join(', ').slice(0, 250) || 'Order ' + order.code,
     product_category: 'General', product_profile: 'general', value_a: order.code,
   });
   const r = await fetchJson(`${sslBase(s)}/gwprocess/v4/api.php`, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: form.toString() });
@@ -103,15 +117,15 @@ async function sslCreate(order: Loose, s: Settings, siteUrl?: Loose) {
   await db.logIntegration('sslcommerz', 'create', false, msg, order.code);
   return { ok: false, message: msg };
 }
-async function sslValidate(valId: Id, s: Settings) {
+async function sslValidate(valId: Id, s: Settings): Promise<PayCheck & { tranId: string; cardType: string }> {
   const url = `${sslBase(s)}/validator/api/validationserverAPI.php?val_id=${encodeURIComponent(String(valId))}&store_id=${encodeURIComponent(String(s.ssl_store_id))}&store_passwd=${encodeURIComponent(String(s.ssl_store_password))}&format=json`;
   const r = await fetchJson(url);
   const d = r.data || {};
-  return { ok: d.status === 'VALID' || d.status === 'VALIDATED', tranId: d.tran_id, amount: Number(d.amount) || 0, trxID: d.bank_tran_id || d.val_id || '', cardType: d.card_type || '', raw: d };
+  return { ok: d.status === 'VALID' || d.status === 'VALIDATED', tranId: String(d.tran_id || ''), amount: Number(d.amount) || 0, trxID: d.bank_tran_id || d.val_id || '', cardType: d.card_type || '', raw: d };
 }
 
 // Record a successful gateway payment on the order (and in the books).
-async function recordSuccess(payment: Loose, { trxID, amount, raw, label }: Body) {
+async function recordSuccess(payment: PaymentRow, { trxID, amount, raw, label }: { trxID?: string; amount?: number; raw?: unknown; label: string }): Promise<void> {
   if (payment.status === 'paid') return;
   const settings = await db.getSettings();
   await db.tx(async (t) => {
@@ -131,7 +145,7 @@ async function recordSuccess(payment: Loose, { trxID, amount, raw, label }: Body
 }
 
 async function bkashTest(s: Settings) {
-  try { await bkashToken({ ...s }); bkToken = null; return { ok: true, message: 'বিকাশের সাথে সংযোগ ঠিক আছে।' }; } catch (e: Loose) { return { ok: false, message: e.message }; }
+  try { await bkashToken({ ...s }); bkToken = null; return { ok: true, message: 'বিকাশের সাথে সংযোগ ঠিক আছে।' }; } catch (e) { return { ok: false, message: (e as Error).message }; }
 }
 
 export { methods, MANUAL, bkashCreate, bkashExecute, sslCreate, sslValidate, recordSuccess, bkashTest };
