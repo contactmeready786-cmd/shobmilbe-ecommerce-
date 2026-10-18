@@ -16,6 +16,7 @@ import { loadRenderer } from '../lib/react/render';
 import { apiRoute } from '../lib/next/api';
 import { placeOrder } from '../lib/api/checkout';
 import * as sms from '../lib/services/sms';
+import * as guard from '../lib/services/guard';
 
 const POST = apiRoute(placeOrder);
 let ipSeq = 0;
@@ -37,7 +38,8 @@ before(async () => {
   const r = await db.one("INSERT INTO products(name, slug, price, stock, active) VALUES('API টেস্ট পণ্য', $1, 300, 50, true) RETURNING id", [`api-test-${Date.now()}`]);
   pid = r!.id;
 });
-after(() => closeConnection());
+// the shop records some things in the background (the security log after a refused order): let them finish first
+after(async () => { await guard.settled(); closeConnection(); });
 
 test('wrong details are refused, each with the field to fix', { skip }, async () => {
   const cases: [Record<string, unknown>, string][] = [

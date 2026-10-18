@@ -40,7 +40,19 @@ function header(req: ShopRequest, name?: Loose) {
 }
 
 // ---------------------------------------------------------------- recording
-async function record({ req, ip, kind, detail = '', path = '', settings }: Body) {
+// Recording is usually started without waiting for it (the visitor's answer doesn't wait); `settled()` waits for the
+// ones still running (the tests do this before they close the database).
+const running = new Set<Promise<void>>();
+function record(event: Body): Promise<void> {
+  const p = recordNow(event).finally(() => running.delete(p));
+  running.add(p);
+  return p;
+}
+/** Waits until every security event being recorded right now is saved. */
+async function settled(): Promise<void> {
+  while (running.size) await Promise.allSettled([...running]);
+}
+async function recordNow({ req, ip, kind, detail = '', path = '', settings }: Body) {
   try {
     if (!KINDS[kind]) return;
     const s = settings || (await db.getSettings());
@@ -157,4 +169,4 @@ async function siteBlocks() {
     WHERE b.kind = 'site' AND (b.expires_at IS NULL OR b.expires_at > now()) ORDER BY b.created_at DESC`);
 }
 
-export { KINDS, PROBE_RE, ATTACK_RE, record, inspect, siteBlocked, blockSite, unblockSite, resetCache, suspects, events, summary, siteBlocks };
+export { KINDS, PROBE_RE, ATTACK_RE, record, settled, inspect, siteBlocked, blockSite, unblockSite, resetCache, suspects, events, summary, siteBlocks };
