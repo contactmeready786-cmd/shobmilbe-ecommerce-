@@ -2,6 +2,7 @@
 import * as db from '../db';
 import { fetchJson, int } from '../util';
 import type { Id, Settings } from '../types';
+import type { PaymentsRow } from '../data/rows';
 
 /** One way to pay, as the checkout shows it. */
 export type PayMethod = { id: string; label: string; note: string; number?: string; numberLabel?: string; advance?: string; manual?: boolean };
@@ -14,8 +15,8 @@ export type PayOrder = {
 export type PayStart = { ok: true; url: string } | { ok: false; message?: string };
 /** The payment company's answer about one payment (always asked from the company itself, never the browser). */
 export type PayCheck = { ok: boolean; trxID: string; amount: number; raw: Record<string, unknown> };
-/** A row of the payments table. */
-export type PaymentRow = { id: number; order_id: number; method: string; amount: number; status: string; gateway_ref: string };
+/** A row of the payments table (every payment belongs to an order). */
+export type PaymentRow = PaymentsRow & { order_id: number };
 
 const MANUAL: Record<string, [label: string, settingKey: string]> = { manual_bkash: ['বিকাশ', 'manual_bkash'], manual_nagad: ['নগদ', 'manual_nagad'], manual_rocket: ['রকেট', 'manual_rocket'], manual_upay: ['উপায়', 'manual_upay'] };
 

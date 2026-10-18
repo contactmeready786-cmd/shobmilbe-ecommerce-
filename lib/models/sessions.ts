@@ -8,12 +8,10 @@ import { str } from '../util';
 import * as $services_visitors from '../services/visitors';
 import type { Param } from '../pg';
 import type { Id, Settings, ShopRequest } from '../types';
+import type { AdminSessionsRow } from '../data/rows';
 
 /** One logged-in device (a row of admin_sessions; id is the SHA-256 of the browser's token). */
-export type AdminSession = {
-  id: string; staff_id: number; verified: boolean; ip: string; ua: string; device: string; place: string;
-  created_at: Date; last_seen: Date; expires_at: Date; revoked_at: Date | null; revoked_why: string | null;
-};
+export type AdminSession = AdminSessionsRow;
 /** What happened at a login, for the history. */
 export type LoginEvent = 'login' | 'fail' | 'locked' | 'inactive' | 'step' | 'code_fail' | 'logout' | 'revoked' | 'reset';
 /** The filters of the login-history page. */

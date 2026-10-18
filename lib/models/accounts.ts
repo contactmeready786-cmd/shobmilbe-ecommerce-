@@ -17,14 +17,10 @@ import * as $security from '../security';
 import * as $customers from './customers';
 import * as $orders from './orders';
 import type { Body, Id, Settings, ShopRequest } from '../types';
+import type { CustomersRow } from '../data/rows';
 
 /** A customer account (a row of the customers table). An e-mail account has no login phone (phone null). */
-export type Customer = {
-  id: number; name: string; phone: string | null; email: string | null; address: string | null; district: string | null;
-  thana: string | null; note: string | null; tags: string; grp: string; points: number; session_ver: number;
-  last_login: Date | null; ref_code: string | null; referred_by: number | null; login_via: string; email_verified: boolean;
-  contact_phone: string; password_hash: string; promo_sms: boolean; created_at: Date; updated_at: Date;
-};
+export type Customer = CustomersRow;
 /** Just what's needed to say who an account is and how to reach it. */
 type Who = Pick<Customer, 'name' | 'phone' | 'contact_phone'>;
 type CodeRow = { id: number; code_hash: string; tries: number };

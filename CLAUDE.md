@@ -111,5 +111,8 @@ uses that one setup. Never add a second Gmail / App Password / SMS / API-key fie
   and turned into HTML only when sent (`emailHtml`). A mail sent without its own HTML gets its text as a simple HTML mail.
   The only hand-written HTML left is the handful of fixed emergency pages (database down, too many requests, country
   closed, blocked visitor) that must still answer when nothing else works.
+- Database rows have types: lib/data/rows.ts (one per table, made by `npx tsx tools/gen-row-types.ts` from the layout in
+  lib/db.ts; tests/row-types.test.ts checks it). Read rows through them: `db.q<OrdersRow>(…)`, `OrdersRow & { extra: number }`
+  for joined or computed columns. Run the generator after changing the database layout.
 - Database: only a dropped connection is retried (lib/pg isConnectionError); an order is retried on a deadlock (db.txRetry).
   Tests run one file at a time (`--test-concurrency=1`): the database tests share one throw-away database.

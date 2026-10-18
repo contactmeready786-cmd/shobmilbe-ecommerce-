@@ -8,6 +8,7 @@ import * as $services_pricing from '../services/pricing';
 import * as $giftcards from './giftcards';
 import * as $loyalty from './loyalty';
 import type { DbRow, Tx } from '../pg';
+import type { OrdersRow, OrderItemsRow } from '../data/rows';
 import type { Body, Settings } from '../types';
 
 /** A priced order line, as saved in order_items. */
@@ -390,17 +391,16 @@ async function createOrder(input: Body, settings: Settings) {
 }
 
 // ---------------------------------------------------------------- read
-/** An order line as getOrder returns it (with a few of its product's columns). Money columns are numbers (lib/pg).
- * The columns named here are typed; the rest are still read loosely, one step at a time. */
-export type OrderItem = DbRow & {
-  id: number; order_id: number; product_id: number | null; name: string; price: number; qty: number;
-  components?: { product_id: number; qty: number }[] | null;
+/** An order line as getOrder returns it, with a few of its product's columns. */
+export type OrderItem = OrderItemsRow & {
+  image_id: number | null; slug: string | null; emoji: string | null; warranty: string | null; warranty_type: string | null;
+  barcode: string | null; weight_g: number; components: { product_id: number; qty: number }[] | null;
 };
-/** An order as getOrder returns it, with its lines. */
-export type Order = DbRow & {
-  id: number; code: string; customer_name: string; phone: string; address: string; district: string; thana: string;
-  status: string; payment: string; subtotal: number; delivery: number; total: number; created_at: Date; updated_at: Date;
-  items: OrderItem[];
+/** An order as getOrder returns it, with its lines. Status, payment and the address parts always have a value
+ * (the shop writes them on every order), so they are read as text. */
+export type Order = OrdersRow & {
+  status: string; payment: string; district: string; thana: string;
+  created_by_name: string | null; items: OrderItem[];
 };
 
 async function getOrder({ id, code }: { id?: number | string | null; code?: string | null }): Promise<Order | null> {
