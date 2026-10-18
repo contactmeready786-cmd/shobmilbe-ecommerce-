@@ -47,7 +47,7 @@ export async function resolveShop(ctx: ShopCtx): Promise<Resolved> {
     if (settings.slider_on === '1' && Array.isArray(sections) && !sections.includes('slider')) sections = ['slider', ...sections];
     const want = (k?: Loose) => sections.includes(k);
     const ROW = 16;
-    const inStockFirst = (a?: Loose) => [...a.filter((p) => p.stock > 0), ...a.filter((p) => p.stock <= 0)];
+    const inStockFirst = (a?: Loose) => [...a.filter((p: Loose) => p.stock > 0), ...a.filter((p: Loose) => p.stock <= 0)];
     // most looked-at products of the last 30 days (real visitors)
     const viewedIds = want('popular') ? (await db.q(`SELECT product_id FROM page_views WHERE product_id IS NOT NULL AND created_at > now() - interval '30 days'
       GROUP BY product_id ORDER BY count(DISTINCT visitor_id) DESC LIMIT $1`, [ROW * 2])).map((r) => r.product_id) : [];
@@ -89,10 +89,10 @@ export async function resolveShop(ctx: ShopCtx): Promise<Resolved> {
     }
     // the owner's own rows
     const custom: Record<string, Loose> = {};
-    const customKeys = sections.filter((k) => /^x\d+$/.test(k));
+    const customKeys = sections.filter((k: Loose) => /^x\d+$/.test(k));
     if (customKeys.length) {
       const H = $models_homerows;
-      const rows = await db.q('SELECT * FROM home_rows WHERE id = ANY($1::int[])', [customKeys.map((k) => H.idOf(k))]).catch(() => []);
+      const rows = await db.q('SELECT * FROM home_rows WHERE id = ANY($1::int[])', [customKeys.map((k: Loose) => H.idOf(k))]).catch(() => []);
       await Promise.all(rows.map(async (r) => {
         custom[H.keyOf(r.id)] = { row: r, link: H.linkFor(r), products: await H.productsFor(r, { hideOut }).catch(() => []) };
       }));

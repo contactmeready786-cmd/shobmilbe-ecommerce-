@@ -105,7 +105,7 @@ const MODULES = [$dashboard, $orders, $import, $morepics, $watermark,
   $supplierledger, $fraud, $checkoutotp, $searchreport, $complaints, $kits,
   $automarketing, $autoseo, $sourcepics, $testclear, $stockscan, $setupmarks,
   $ledger, $email];
-const ROUTES: Loose[] = MODULES.flatMap((m) => m.routes);
+const ROUTES: Loose[] = MODULES.flatMap((m: Loose) => m.routes);
 
 // ---------- sessions ----------
 // The browser keeps only a random token (signed, HttpOnly); the login itself lives in the admin_sessions table,

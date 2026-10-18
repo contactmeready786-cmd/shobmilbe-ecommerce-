@@ -32,14 +32,14 @@ async function googleCloud(texts?: Loose, key?: Loose) {
   });
   const j = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error((j.error && j.error.message) || `Google Cloud ${r.status}`);
-  return (j.data && j.data.translations || []).map((t) => t.translatedText || '');
+  return (j.data && j.data.translations || []).map((t: Loose) => t.translatedText || '');
 }
 async function googleFree(text?: Loose) {
   const u = 'https://translate.googleapis.com/translate_a/single?client=gtx&sl=bn&tl=en&dt=t&q=' + encodeURIComponent(text);
   const r = await fetch(u, { signal: AbortSignal.timeout(6000), headers: { 'User-Agent': 'Mozilla/5.0' } });
   if (!r.ok) throw new Error(`translate ${r.status}`);
   const j = await r.json();
-  return (Array.isArray(j && j[0]) ? j[0] : []).map((x) => (Array.isArray(x) ? x[0] || '' : '')).join('');
+  return (Array.isArray(j && j[0]) ? j[0] : []).map((x: Loose) => (Array.isArray(x) ? x[0] || '' : '')).join('');
 }
 
 // The shop's name and Bangla digits are fixed before sending, so they always come back right.
@@ -61,7 +61,7 @@ async function machine(texts: Loose, settings: Settings, deadline?: Loose) {
     // Cloud API takes many at once (max 128 per call)
     for (let i = 0; i < sent.length && Date.now() < deadline; i += 100) {
       const part = await googleCloud(sent.slice(i, i + 100), key);
-      part.forEach((t, j) => { out[i + j] = tidy(texts[i + j], t); });
+      part.forEach((t: Loose, j: Loose) => { out[i + j] = tidy(texts[i + j], t); });
     }
     return out;
   }
@@ -152,7 +152,7 @@ async function siteTexts(settings: Settings) {
   });
   rows.forEach((r) => add(r.t));
   ['store_name', 'tagline', 'hero_title', 'notice', 'footer_about', 'manual_note', 'pay_cod_note', 'live_nav_label', 'block_message'].forEach((k) => add(settings[k]));
-  for (const k of ['header_menu', 'footer_links']) db.jsonSetting(settings, k, []).forEach((m) => add(m && m.label));
+  for (const k of ['header_menu', 'footer_links']) db.jsonSetting(settings, k, []).forEach((m: Loose) => add(m && m.label));
   return [...out];
 }
 

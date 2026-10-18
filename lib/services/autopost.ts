@@ -71,7 +71,7 @@ async function pickProduct(weekday?: Loose, { exclude = [] }: Body = {}) {
   const group = ordered[weekday % ordered.length];
   // within the category: offers, best sellers and featured first, with some chance so it never feels repetitive
   const score = (p?: Loose) => (p.old_price > p.price ? 3 : 0) + Math.min(p.sold, 20) / 4 + (p.featured ? 2 : 0) + (p.last_posted ? 0 : 1.5) + Math.random() * 4;
-  const best = group.items.map((p) => ({ p, s: score(p) })).sort((a, b) => b.s - a.s)[0].p;
+  const best = group.items.map((p: Loose) => ({ p, s: score(p) })).sort((a: Loose, b: Loose) => b.s - a.s)[0].p;
   best.category = group.name;
   return best;
 }
@@ -167,9 +167,9 @@ async function connect({ token, appId, appSecret, pageId }: Body) {
   let longLived = !!(appId && appSecret);
   try {
     const acc = await graph('me/accounts', { token: t, params: { fields: 'id,name,access_token,tasks', limit: '50' } });
-    const pages = (acc.data || []).filter((x) => x.access_token);
-    if (pages.length) page = pages.find((x) => String(x.id) === String(pageId || '')) || pages[0];
-    if (pages.length > 1 && !pageId) page.others = pages.map((x) => ({ id: x.id, name: x.name }));
+    const pages = (acc.data || []).filter((x: Loose) => x.access_token);
+    if (pages.length) page = pages.find((x: Loose) => String(x.id) === String(pageId || '')) || pages[0];
+    if (pages.length > 1 && !pageId) page.others = pages.map((x: Loose) => ({ id: x.id, name: x.name }));
   } catch (_) { /* not a user token — maybe it is already a page token */ }
   if (!page) {
     const me = await graph('me', { token: t, params: { fields: 'id,name' } });
@@ -241,7 +241,7 @@ async function freshIndex(kind?: Loose, length?: Loose) {
 }
 async function productFor(words?: Loose) {
   if (!words || !words.length) return null;
-  const like = words.map((w) => '%' + String(w).replace(/[%_]/g, '') + '%');
+  const like = words.map((w: Loose) => '%' + String(w).replace(/[%_]/g, '') + '%');
   return db.one(`SELECT p.*, coalesce(p.sold_count,0)::int AS sold FROM products p WHERE ${ELIGIBLE} AND p.name ILIKE ANY($1::text[])
     ORDER BY coalesce(p.sold_count,0) DESC, random() LIMIT 1`, [like]).catch(() => null);
 }
@@ -273,14 +273,14 @@ async function buildEngagement(settings: Settings, kind?: Loose) {
     const K = $models_kits;
     const kit = await K.forShop(pick.slug);
     if (!kit || !kit.items.length) return buildEngagement(settings, 'tip');
-    const need = kit.items.filter((i) => !i.optional);
-    const total = need.reduce((t, i) => t + Number(i.product.price) * i.qty, 0);
+    const need = kit.items.filter((i: Loose) => !i.optional);
+    const total = need.reduce((t: Loose, i: Loose) => t + Number(i.product.price) * i.qty, 0);
     const steps = K.stepList(kit);
-    const photo = kit.image_id ? { image_id: kit.image_id } : (kit.items.find((i) => i.product.image_id) || {}).product || null;
+    const photo = kit.image_id ? { image_id: kit.image_id } : (kit.items.find((i: Loose) => i.product.image_id) || {}).product || null;
     const link = `${siteBase(settings)}/kit/${encodeURIComponent(kit.slug)}?utm_source=facebook&utm_medium=social&utm_campaign=kit`;
     const text = [`🛠️ আজকের প্রজেক্ট: ${kit.title}`, '',
       md.plain(kit.description, 300), '',
-      '🔩 যা যা লাগবে:', ...need.slice(0, 8).map((i) => `• ${shortName(i.product.name)}${i.qty > 1 ? ` × ${bn(i.qty)}` : ''}`),
+      '🔩 যা যা লাগবে:', ...need.slice(0, 8).map((i: Loose) => `• ${shortName(i.product.name)}${i.qty > 1 ? ` × ${bn(i.qty)}` : ''}`),
       need.length > 8 ? `• …আরও ${bn(need.length - 8)}টা` : null, '',
       `💰 সব পার্টস মিলিয়ে প্রায় ${money(total)}${kit.level ? ` · 📶 ${kit.level}` : ''}${kit.duration ? ` · ⏱️ ${kit.duration}` : ''}`,
       `📋 ${bn(steps.length)}টি ধাপে বানানোর নিয়ম আর এক চাপে সব পার্টস কার্টে: ${link}`, '',

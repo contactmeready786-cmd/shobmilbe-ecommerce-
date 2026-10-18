@@ -80,10 +80,10 @@ function warrantyItems(order?: Loose) {
   if (!order || order.status !== 'delivered') return [];
   const at = order.delivered_at || order.updated_at;
   const seen = new Set();
-  return (order.items || []).filter((i) => i.product_id && i.warranty && !seen.has(i.product_id) && seen.add(i.product_id)).map((i) => {
+  return (order.items || []).filter((i: Loose) => i.product_id && i.warranty && !seen.has(i.product_id) && seen.add(i.product_id)).map((i: Loose) => {
     const end = warrantyEnd(i, at);
     return { product_id: i.product_id, name: i.name, end, valid: end === 'unknown' || (end instanceof Date && end.getTime() >= Date.now()) };
-  }).filter((x) => x.end);
+  }).filter((x: Loose) => x.end);
 }
 
 async function create({ name, phone, email, orderCode, topic, message, photos, ip, source = 'web', settings, productId }: Body) {
@@ -106,7 +106,7 @@ async function create({ name, phone, email, orderCode, topic, message, photos, i
     if (!order || order.phone !== ph) throw new ComplaintError('এই অর্ডার নম্বর আর মোবাইল নম্বর মিলছে না — যে নম্বরে অর্ডার করেছিলেন সেটা দিন।');
     const list = warrantyItems(order);
     if (!list.length) throw new ComplaintError(order.status === 'delivered' ? 'এই অর্ডারের কোনো পণ্যে ওয়ারেন্টি নেই।' : 'পণ্য হাতে পাওয়ার (ডেলিভারির) পরে ওয়ারেন্টি দাবি করা যায়।');
-    item = list.find((x) => x.product_id === int(productId)) || (list.length === 1 ? list[0] : null);
+    item = list.find((x: Loose) => x.product_id === int(productId)) || (list.length === 1 ? list[0] : null);
     if (!item) throw new ComplaintError('কোন পণ্যের ওয়ারেন্টি দাবি করছেন বাছাই করুন।');
     if (!item.valid) throw new ComplaintError(`"${item.name}" এর ওয়ারেন্টির মেয়াদ শেষ হয়ে গেছে। তবুও সমস্যা জানাতে চাইলে বিষয় "অন্যান্য" দিয়ে লিখুন।`);
   }

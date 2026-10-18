@@ -56,7 +56,7 @@ export async function resolveForms({ path, query, settings, req }: FormsCtx): Pr
     if (query.get('topic') === 'warranty' && oc) {
       const order = await O.getOrder({ code: oc });
       const items = CM.warrantyItems(order);
-      const it = items.find((x) => x.product_id === int(query.get('item'))) || (items.length === 1 ? items[0] : null);
+      const it = items.find((x: Loose) => x.product_id === int(query.get('item'))) || (items.length === 1 ? items[0] : null);
       Object.assign(values, { topic: 'warranty', item: it ? it.product_id : '', item_name: it ? it.name : '', item_end: it && it.end instanceof Date ? it.end : null, items });
     }
     return page('অভিযোগ জানান', CV.complaintPage({ settings, values }), { canonical: '/complaint', description: 'অর্ডার, পণ্য, ডেলিভারি বা টাকা নিয়ে সমস্যা জানান — ৭২ ঘণ্টার মধ্যে সমাধান।' });

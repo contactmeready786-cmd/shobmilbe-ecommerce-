@@ -40,7 +40,7 @@ async function courierPage(ctx: AdminCtx) {
 }
 function logLines(logs?: Loose) {
   if (!logs.length) return '';
-  return <section className="panel"><h2>সাম্প্রতিক লগ</h2><ul className="log">{jsxList(logs.map((l) => <li className={l.ok ? 'ok' : 'bad'}>{(l.ok ? "✅" : "❌")}{' '}{fmtDate(l.created_at)}{' '}·{' '}<Val v={l.service} />{' '}·{' '}<Val v={l.action} />{(l.ref ? ` · ${l.ref}` : null)}<br /><span className="small"><Val v={l.message} /></span></li>))}</ul></section>;
+  return <section className="panel"><h2>সাম্প্রতিক লগ</h2><ul className="log">{jsxList(logs.map((l: Loose) => <li className={l.ok ? 'ok' : 'bad'}>{(l.ok ? "✅" : "❌")}{' '}{fmtDate(l.created_at)}{' '}·{' '}<Val v={l.service} />{' '}·{' '}<Val v={l.action} />{(l.ref ? ` · ${l.ref}` : null)}<br /><span className="small"><Val v={l.message} /></span></li>))}</ul></section>;
 }
 async function courierTest(ctx: AdminCtx) {
   const b = await ctx.body();

@@ -50,28 +50,28 @@ async function numbers() {
 
 // The "algorithm": four ranked lists from the shop's own data.
 function rank(products?: Loose) {
-  const inStock = products.filter((p) => p.stock > 0);
+  const inStock = products.filter((p: Loose) => p.stock > 0);
   const top = (arr?: Loose, n: Loose = 8) => arr.slice(0, n);
   // 1. many look, few buy → remind them with ads (retargeting)
-  const retarget = top(inStock.filter((p) => p.v30 >= 3)
-    .map((p) => ({ ...p, why: `${bn(p.v30)} জন দেখেছে, অর্ডার ${bn(p.orders)}টি`, score: p.v30 * (1 - Math.min(1, p.orders / Math.max(1, p.v30))) }))
-    .sort((a, b) => b.score - a.score));
+  const retarget = top(inStock.filter((p: Loose) => p.v30 >= 3)
+    .map((p: Loose) => ({ ...p, why: `${bn(p.v30)} জন দেখেছে, অর্ডার ${bn(p.orders)}টি`, score: p.v30 * (1 - Math.min(1, p.orders / Math.max(1, p.v30))) }))
+    .sort((a: Loose, b: Loose) => b.score - a.score));
   // 2. those who look usually buy → spend to bring new people to these
-  const winners = top(inStock.filter((p) => p.v30 >= 5 && p.orders > 0)
-    .map((p) => ({ ...p, why: `প্রতি ১০০ জন দেখলে ~${bn(Math.round((p.orders / p.v30) * 100))} জন কেনে`, score: p.orders / p.v30 }))
-    .sort((a, b) => b.score - a.score));
+  const winners = top(inStock.filter((p: Loose) => p.v30 >= 5 && p.orders > 0)
+    .map((p: Loose) => ({ ...p, why: `প্রতি ১০০ জন দেখলে ~${bn(Math.round((p.orders / p.v30) * 100))} জন কেনে`, score: p.orders / p.v30 }))
+    .sort((a: Loose, b: Loose) => b.score - a.score));
   // 3. looked at more this week than the week before
-  const trending = top(inStock.filter((p) => p.v7 >= 3 && p.v7 > p.vprev)
-    .map((p) => ({ ...p, why: `এ সপ্তাহে ${bn(p.v7)} জন, আগের সপ্তাহে ${bn(p.vprev)} জন`, score: (p.v7 + 1) / (p.vprev + 1) }))
-    .sort((a, b) => b.score - a.score));
+  const trending = top(inStock.filter((p: Loose) => p.v7 >= 3 && p.v7 > p.vprev)
+    .map((p: Loose) => ({ ...p, why: `এ সপ্তাহে ${bn(p.v7)} জন, আগের সপ্তাহে ${bn(p.vprev)} জন`, score: (p.v7 + 1) / (p.vprev + 1) }))
+    .sort((a: Loose, b: Loose) => b.score - a.score));
   // 4. plenty in stock but nobody sees them → a small boost or a post
-  const unseen = top(inStock.filter((p) => p.v30 === 0).sort((a, b) => b.stock - a.stock)
-    .map((p) => ({ ...p, why: `স্টকে ${bn(p.stock)}টি, ৩০ দিনে কেউ দেখেনি` })));
+  const unseen = top(inStock.filter((p: Loose) => p.v30 === 0).sort((a: Loose, b: Loose) => b.stock - a.stock)
+    .map((p: Loose) => ({ ...p, why: `স্টকে ${bn(p.stock)}টি, ৩০ দিনে কেউ দেখেনি` })));
   return { retarget, winners, trending, unseen };
 }
 
 function list(title?: Loose, help?: Loose, items?: Loose, empty?: Loose) {
-  return <section className="panel"><h2><Val v={title} /></h2><p className="small muted"><Val v={help} /></p>{(items.length ? <div className="row-preview">{jsxList(items.map((p) => <a className="rp" href={`/admin/products/${attrValue(p.id)}`}>{' '}<img src={p.image_id ? `/media/${p.image_id}/t` : ''} alt="" loading="lazy" /><span><Val v={p.name} /></span><b><Val v={ui.money(p.price)} /></b><small className="muted"><Val v={p.why} /></small></a>))}</div> : <p className="muted small"><Val v={empty} /></p>)}</section>;
+  return <section className="panel"><h2><Val v={title} /></h2><p className="small muted"><Val v={help} /></p>{(items.length ? <div className="row-preview">{jsxList(items.map((p: Loose) => <a className="rp" href={`/admin/products/${attrValue(p.id)}`}>{' '}<img src={p.image_id ? `/media/${p.image_id}/t` : ''} alt="" loading="lazy" /><span><Val v={p.name} /></span><b><Val v={ui.money(p.price)} /></b><small className="muted"><Val v={p.why} /></small></a>))}</div> : <p className="muted small"><Val v={empty} /></p>)}</section>;
 }
 
 async function page(ctx: AdminCtx) {

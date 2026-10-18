@@ -193,18 +193,18 @@ function homeTabs(user: StaffUser, active?: Loose) {
 // open, carrying the keys of all its tabs (so the menu lights up on any of them). null = nothing to show.
 function resolveItem(user: StaffUser, it?: Loose) {
   if (Array.isArray(it)) return visible(user, it[2]) ? it : null;
-  const tabs = (TABS[it.tabs] || []).filter((t) => visible(user, t[2]));
+  const tabs = (TABS[it.tabs] || []).filter((t: Loose) => visible(user, t[2]));
   if (!tabs.length) return null;
-  return [tabs[0][0], it.label, tabs[0][2], tabs[0][3], it.icon, tabs.map((t) => t[3])];
+  return [tabs[0][0], it.label, tabs[0][2], tabs[0][3], it.icon, tabs.map((t: Loose) => t[3])];
 }
 // The tab bar on top of a page that is one of a tab set — only on the tab pages themselves
 // (a single product, order or supplier opened from the list gets no tab bar).
 function pageTabs(user: StaffUser, active?: Loose, path?: Loose) {
   if (!active || !path) return '';
   for (const set of Object.values(TABS)) {
-    if (!set.some((t) => t[3] === active)) continue;
-    if (!set.some((t) => t[0].split('?')[0] === path)) continue;
-    const tabs = set.filter((t) => visible(user, t[2]));
+    if (!set.some((t: Loose) => t[3] === active)) continue;
+    if (!set.some((t: Loose) => t[0].split('?')[0] === path)) continue;
+    const tabs = set.filter((t: Loose) => visible(user, t[2]));
     if (tabs.length < 2) return '';
     return <nav className="home-tabs page-tabs" aria-label="এই বিভাগের পেজ">{jsxList(tabs.map(([href, label, , key, icon]: Loose[]) => <a href={attrValue(href)} className={`home-tab ${active === key ? 'on' : ''}`} aria-current={(active === key) ? "page" : undefined}><span aria-hidden="true"><Val v={icon} /></span>{' '}<Val v={label} /></a>))}</nav>;
   }

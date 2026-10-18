@@ -66,7 +66,7 @@ async function loadProducts(settings: Settings) {
   return rows.map((p) => {
     const all = imgs.get(p.id) || [];
     const main = p.image_id || all[0] || null;
-    return { ...p, main_image: main, extra_images: all.filter((x) => x !== main), in_stock: Number(p.stock) > 0, includeOut };
+    return { ...p, main_image: main, extra_images: all.filter((x: Loose) => x !== main), in_stock: Number(p.stock) > 0, includeOut };
   });
 }
 
@@ -95,7 +95,7 @@ function item(p: Loose, channel: Loose, settings: Settings, base: Loose) {
     description: desc,
     link: `${base}/p/${encodeURIComponent(p.slug)}`,
     image_link: `${base}/media/${p.main_image}`,
-    additional_image_link: p.extra_images.slice(0, lim.extraImages).map((id) => `${base}/media/${id}`),
+    additional_image_link: p.extra_images.slice(0, lim.extraImages).map((id: Loose) => `${base}/media/${id}`),
     availability: channel === 'google' ? (p.in_stock ? 'in_stock' : 'out_of_stock') : (p.in_stock ? 'in stock' : 'out of stock'),
     condition: ['new', 'refurbished', 'used'].includes(settings.feed_condition as string) ? settings.feed_condition : 'new',
     price: priceStr(sale ? p.old_price : p.price),
@@ -116,9 +116,9 @@ function item(p: Loose, channel: Loose, settings: Settings, base: Loose) {
 
 function toXml(items: Loose, channel: Loose, settings: Settings, base: Loose) {
   const tag = (k?: Loose, v?: Loose) => (v === '' || v === null || v === undefined ? '' : `<g:${k}>${xml(v)}</g:${k}>`);
-  const body = items.map((it) => '<item>' + [
+  const body = items.map((it: Loose) => '<item>' + [
     tag('id', it.id), tag('title', it.title), tag('description', it.description), tag('link', it.link),
-    tag('image_link', it.image_link), ...it.additional_image_link.map((u) => tag('additional_image_link', u)),
+    tag('image_link', it.image_link), ...it.additional_image_link.map((u: Loose) => tag('additional_image_link', u)),
     tag('availability', it.availability), tag('condition', it.condition), tag('price', it.price), tag('sale_price', it.sale_price),
     tag('brand', it.brand), tag('mpn', it.mpn), tag('identifier_exists', it.identifier_exists), tag('product_type', it.product_type),
     tag('google_product_category', it.google_product_category), tag('inventory', it.inventory),
@@ -148,7 +148,7 @@ function toTable(items?: Loose, channel?: Loose, sep?: Loose) {
     if (c === 'shipping') return it.shipping ? `${it.shipping.country}::${it.shipping.service}:${it.shipping.price}` : '';
     return it[c] ?? '';
   };
-  return [cols.join(sep), ...items.map((it) => cols.map((c) => cell(val(it, c))).join(sep))].join('\n') + '\n';
+  return [cols.join(sep), ...items.map((it: Loose) => cols.map((c) => cell(val(it, c))).join(sep))].join('\n') + '\n';
 }
 
 async function build(channel: Loose, settings: Settings, base: Loose) {

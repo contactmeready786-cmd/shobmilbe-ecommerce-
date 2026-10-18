@@ -44,7 +44,7 @@ function judge(own?: Loose, pathao?: Loose, fbd?: Loose) {
   let level = 'new';
   if (total) level = rate! < 50 && total >= 2 ? 'high' : rate! < 75 ? 'medium' : 'low';
   // a Pathao "risky" rating or many recent orders lift the level
-  const pathaoRisk = [pathao && pathao.rating, ...((fbd && fbd.couriers) || []).map((c) => c.risk || c.rating)].join(' ').toLowerCase();
+  const pathaoRisk = [pathao && pathao.rating, ...((fbd && fbd.couriers) || []).map((c: Loose) => c.risk || c.rating)].join(' ').toLowerCase();
   if (/high|fraud|risky|bad/.test(pathaoRisk) && level !== 'high') level = 'high';
   let burst = false;
   if (own.last_day >= 3 && (level === 'low' || level === 'new')) { level = 'medium'; burst = true; }
@@ -82,7 +82,7 @@ async function check(settings: Settings, phoneRaw?: Loose, { fresh = false }: Bo
 }
 // Only what is already known (no API call) — for lists.
 async function cachedLevels(phones?: Loose) {
-  const list = [...new Set((phones || []).map((p) => normalizePhone(p)).filter(validPhone))];
+  const list = [...new Set((phones || []).map((p: Loose) => normalizePhone(p)).filter(validPhone))];
   if (!list.length) return new Map();
   const rows = await db.q(`SELECT phone, data FROM fraud_checks WHERE phone = ANY($1::text[]) AND checked_at > now() - interval '7 days'`, [list]);
   const stats = await db.q(`SELECT phone, count(*) FILTER (WHERE status='delivered')::int AS delivered, count(*) FILTER (WHERE status IN ('cancelled','returned'))::int AS failed,

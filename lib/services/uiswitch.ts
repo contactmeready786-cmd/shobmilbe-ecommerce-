@@ -97,7 +97,7 @@ const HOME_TEXTS: Record<string, Loose> = {
 
 // hidden: the switch lives on its own page (reviews, Q&A, restock/price alerts, header & footer menu) —
 // it is not shown again on "দোকানে কী দেখাবে", so every switch is in exactly one place.
-const SWITCHES = GROUPS.flatMap((g) => g.items.filter((i) => i.key).map((i) => (g.hidden ? { ...i, hidden: true } : i)));
+const SWITCHES = GROUPS.flatMap((g) => g.items.filter((i: Loose) => i.key).map((i: Loose) => (g.hidden ? { ...i, hidden: true } : i)));
 const KEYS = new Set(SWITCHES.map((i) => i.key));
 const TEXTS = new Map(SWITCHES.filter((i) => i.text).map((i) => [i.text.key, i.text]));
 for (const [k, v] of Object.entries(HOME_TEXTS)) {

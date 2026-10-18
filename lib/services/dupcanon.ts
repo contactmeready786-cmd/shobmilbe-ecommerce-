@@ -38,7 +38,7 @@ async function copies() {
   const map = new Map();
   for (const list of groups.values()) {
     if (list.length < 2) continue;
-    const main = list.find((r) => Number(r.stock) > 0) || list[0];
+    const main = list.find((r: Loose) => Number(r.stock) > 0) || list[0];
     for (const r of list) if (r !== main) map.set(r.slug, main.slug);
   }
   cache = map;

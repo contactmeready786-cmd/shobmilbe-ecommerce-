@@ -130,9 +130,9 @@ async function run(settings: Settings, { force = false }: Body = {}): Promise<Lo
       if (permissionHint(e.message)) break;
       continue;
     }
-    const fresh = comments.filter((c) => c.id && new Date(c.created_time).getTime() > twoDays && !(c.from && String(c.from.id) === pageId));
+    const fresh = comments.filter((c: Loose) => c.id && new Date(c.created_time).getTime() > twoDays && !(c.from && String(c.from.id) === pageId));
     if (!fresh.length) continue;
-    const seen = new Set((await db.q('SELECT id FROM fb_comments WHERE id = ANY($1::text[])', [fresh.map((c) => c.id)])).map((r) => r.id));
+    const seen = new Set((await db.q('SELECT id FROM fb_comments WHERE id = ANY($1::text[])', [fresh.map((c: Loose) => c.id)])).map((r) => r.id));
     let subject = null;
     for (const c of fresh.reverse()) { // oldest question first
       if (room <= 0) break;

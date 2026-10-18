@@ -18,7 +18,7 @@ const PORTS = new Set(['', '80', '443', '8080', '8443']);
 
 function v4Private(ip?: Loose) {
   const p = ip.split('.').map(Number);
-  if (p.length !== 4 || p.some((x) => !Number.isInteger(x) || x < 0 || x > 255)) return true;
+  if (p.length !== 4 || p.some((x: Loose) => !Number.isInteger(x) || x < 0 || x > 255)) return true;
   const [a, b] = p;
   return a === 0 || a === 10 || a === 127 || a >= 224
     || (a === 100 && b >= 64 && b <= 127) // carrier NAT

@@ -86,11 +86,11 @@ export async function resolveMore({ path, query, settings, base: siteBase, req }
     const K = $models_kits;
     const steps = K.stepList(kit);
     const base = siteBase.replace(/\/+$/, '');
-    const need = kit.items.filter((i) => !i.optional);
+    const need = kit.items.filter((i: Loose) => !i.optional);
     const howTo = steps.length ? { '@context': 'https://schema.org', '@type': 'HowTo', name: kit.title, url: `${base}/kit/${kit.slug}`,
       description: md.plain(kit.description, 300) || kit.title, image: kit.image_id ? `${base}/media/${kit.image_id}` : undefined,
-      estimatedCost: { '@type': 'MonetaryAmount', currency: 'BDT', value: Math.round(need.reduce((t, i) => t + Number(i.product.price) * i.qty, 0)) },
-      supply: kit.items.map((i) => ({ '@type': 'HowToSupply', name: seo.cleanName(i.product.name), requiredQuantity: i.qty })),
+      estimatedCost: { '@type': 'MonetaryAmount', currency: 'BDT', value: Math.round(need.reduce((t: Loose, i: Loose) => t + Number(i.product.price) * i.qty, 0)) },
+      supply: kit.items.map((i: Loose) => ({ '@type': 'HowToSupply', name: seo.cleanName(i.product.name), requiredQuantity: i.qty })),
       step: steps.map((t, i) => ({ '@type': 'HowToStep', position: i + 1, name: seo.cut(t, 80), text: t, url: `${base}/kit/${kit.slug}#step-${i + 1}` })) } : null;
     const crumbs = { '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: [
       { '@type': 'ListItem', position: 1, name: settings.store_name, item: base + '/' },

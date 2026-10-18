@@ -111,7 +111,7 @@ async function readApi(ctx: AdminCtx) {
   if (out.error) return ctx.json(400, { error: out.error });
   const items = importer.finish(out.items || [], source);
   // which of these were imported before
-  const refs = items.map((i) => i.ref);
+  const refs = items.map((i: Loose) => i.ref);
   if (refs.length) {
     const have = await db.q('SELECT id, name, sku, import_ref FROM products WHERE import_ref = ANY($1::text[])', [refs]);
     const map = new Map(have.map((h) => [h.import_ref, h]));

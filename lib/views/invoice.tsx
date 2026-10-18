@@ -108,7 +108,7 @@ function checklistCss(c?: Loose) {
 @media print{@page{size:${c.paper};margin:8mm}body{background:#fff}.bar{display:none}.iv{margin:0;border-radius:0;box-shadow:none;max-width:none}tr{page-break-inside:avoid}}`;
 }
 function checklistPage(orders?: Loose, s?: Loose, c: Loose = docs.checklist(s), opts: Body = {}) {
-  return shell(`${c.title} ${orders.length === 1 ? orders[0].code : `(${bn(orders.length)}টি)`}`, checklistCss(c), <><Val v={orders.map((o) => checklistBody(o, s, c))} /></>, opts);
+  return shell(`${c.title} ${orders.length === 1 ? orders[0].code : `(${bn(orders.length)}টি)`}`, checklistCss(c), <><Val v={orders.map((o: Loose) => checklistBody(o, s, c))} /></>, opts);
 }
 
 // ================================================================ 🏷️ ইনভয়েস (on the parcel)
@@ -116,8 +116,8 @@ function labelBody(order?: Loose, s?: Loose, c?: Loose) {
   const on = c.show;
   const area = ordersModel.areaLabel(order);
   const due = Math.max(0, order.total - (order.paid_amount || 0));
-  const units = (order.items || []).reduce((n, it) => n + Number(it.qty || 0), 0);
-  const weight = (order.items || []).reduce((g, it) => g + Number(it.weight_g || 0) * Number(it.qty || 0), 0) || Number(order.weight_g || 0);
+  const units = (order.items || []).reduce((n: Loose, it: Loose) => n + Number(it.qty || 0), 0);
+  const weight = (order.items || []).reduce((g: Loose, it: Loose) => g + Number(it.weight_g || 0) * Number(it.qty || 0), 0) || Number(order.weight_g || 0);
   const site = siteOf(s);
   const z = docs.LABEL_SIZES[c.size] || docs.LABEL_SIZES.a4x6;
   const compact = z.h < 120;
@@ -169,7 +169,7 @@ function labelCss(c?: Loose) {
   .sheet{padding:0;gap:0;justify-content:flex-start}.lb{box-shadow:none;border-radius:0;height:${z.h}mm;${z.sheet ? 'outline:1px dashed #CBD5E1;' : 'page-break-after:always;'}}}`;
 }
 function invoicePage(orders?: Loose, s?: Loose, c: Loose = docs.invoice(s), opts: Body = {}) {
-  return shell(`${c.title} ${orders.length === 1 ? orders[0].code : `(${bn(orders.length)}টি)`}`, labelCss(c), <div className="sheet"><Val v={orders.map((o) => labelBody(o, s, c))} /></div>, opts);
+  return shell(`${c.title} ${orders.length === 1 ? orders[0].code : `(${bn(orders.length)}টি)`}`, labelCss(c), <div className="sheet"><Val v={orders.map((o: Loose) => labelBody(o, s, c))} /></div>, opts);
 }
 
 export { invoicePage, checklistPage, labelBody, checklistBody, mergedItems };

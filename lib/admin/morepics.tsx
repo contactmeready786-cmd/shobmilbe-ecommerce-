@@ -60,12 +60,12 @@ async function planApi(ctx: AdminCtx) {
     return ctx.json(400, { error: e instanceof FetchError ? e.message : 'লিংকটা পড়া যায়নি।' });
   }
   if (out.error) return ctx.json(400, { error: out.error });
-  const items = importer.finish(out.items || [], out.finalUrl || u).filter((it) => it.link);
+  const items = importer.finish(out.items || [], out.finalUrl || u).filter((it: Loose) => it.link);
   if (!items.length) return ctx.json(400, { error: 'এই লিংকে কোনো পণ্য (পেজের লিংকসহ) পাওয়া যায়নি। যে Facebook ফিড লিংক দিয়ে আমদানি করেছিলেন সেটাই দিন।' });
   await db.setMany({ morepics_feed: u });
   await ctx.reloadSettings();
 
-  const byRef = new Map<Loose, Loose>(items.map((it) => [it.ref, it]));
+  const byRef = new Map<Loose, Loose>(items.map((it: Loose) => [it.ref, it]));
   const rows = await db.q(`SELECT p.id, p.name, p.sku, p.import_ref, p.image_id,
       (SELECT count(*)::int FROM media m WHERE m.owner_type='product' AND m.owner_id=p.id) AS pics
     FROM products p WHERE p.import_ref = ANY($1::text[]) ORDER BY p.id`, [[...byRef.keys()]]);
@@ -79,10 +79,10 @@ async function planApi(ctx: AdminCtx) {
     list.push({ id: r.id, name: r.name, sku: r.sku, link: it.link, main: (it.images || [])[0] || '', pics: r.pics, thumb: r.image_id ? `/media/${r.image_id}/t` : '' });
   }
   // in the old shop's feed but not in this shop (never came over, or was stopped as a "duplicate") — brought in now
-  const missing = items.filter((it) => !inShop.has(it.ref) && !trashed.has(it.ref));
-  const inTrash = items.filter((it) => !inShop.has(it.ref) && trashed.has(it.ref)).map((it) => ({ title: it.title, link: it.link }));
+  const missing = items.filter((it: Loose) => !inShop.has(it.ref) && !trashed.has(it.ref));
+  const inTrash = items.filter((it: Loose) => !inShop.has(it.ref) && trashed.has(it.ref)).map((it: Loose) => ({ title: it.title, link: it.link }));
   // the old site's own product list (sitemap): products the feed left out (e.g. hidden from the catalog)
-  const feedPaths = new Set(items.map((it) => pathKey(it.link)).filter(Boolean));
+  const feedPaths = new Set(items.map((it: Loose) => pathKey(it.link)).filter(Boolean));
   let sitemap = { links: [], read: false };
   if (b.sitemap !== false) sitemap = await oldSiteLinks(items).catch(() => ({ links: [], read: false }));
   const extra = sitemap.links.filter((l) => !feedPaths.has(pathKey(l)));
@@ -117,14 +117,14 @@ async function oldSiteLinks(items?: Loose) {
   const origin = [...count.entries()].sort((a, b) => b[1] - a[1]).map((x) => x[0])[0];
   if (!origin) return { links: [], read: false };
   const first = await readUrl(`${origin}/sitemap.xml`, { follow: false });
-  let links = (first.links || []).filter((l) => l.kind === 'page').map((l) => l.url);
-  const subs = (first.links || []).filter((l) => l.kind === 'sitemap').map((l) => l.url).slice(0, 20);
+  let links = (first.links || []).filter((l: Loose) => l.kind === 'page').map((l: Loose) => l.url);
+  const subs = (first.links || []).filter((l: Loose) => l.kind === 'sitemap').map((l: Loose) => l.url).slice(0, 20);
   for (const u of subs) {
     const sub = await readUrl(u, { follow: false }).catch(() => ({ links: [] }));
-    links = links.concat((sub.links || []).filter((l) => l.kind === 'page').map((l) => l.url));
+    links = links.concat((sub.links || []).filter((l: Loose) => l.kind === 'page').map((l: Loose) => l.url));
   }
   const seen = new Set();
-  links = links.filter((l) => {
+  links = links.filter((l: Loose) => {
     const k = pathKey(l);
     if (!k || !importer.PRODUCT_PATH.test(k) || seen.has(k)) return false;
     seen.add(k); return true;
@@ -186,13 +186,13 @@ async function storexGallery(link?: Loose, main?: Loose) {
   let d;
   try { d = JSON.parse(r.body.toString('utf8')).data; } catch (_) { return null; }
   if (!d || !Array.isArray(d.gallery) || !/^[a-z0-9]{6,60}$/i.test(String(d.gallery_folder || ''))) return null;
-  const files = d.gallery.filter((f) => typeof f === 'string' && /^[\w.%-]{3,200}\.(webp|jpe?g|png|gif)$/i.test(f));
-  const images = files.map((f) => `${STOREX_CDN}/${tenant}/images/products/${d.gallery_folder}/${f}`);
+  const files = d.gallery.filter((f: Loose) => typeof f === 'string' && /^[\w.%-]{3,200}\.(webp|jpe?g|png|gif)$/i.test(f));
+  const images = files.map((f: Loose) => `${STOREX_CDN}/${tenant}/images/products/${d.gallery_folder}/${f}`);
   // the product's own picture list — sure it's this product when its main picture is in the list
   const name = (x?: Loose) => decodeURIComponent(String(x || '').split('?')[0].split('/').pop() || '').toLowerCase();
   const mainName = name(main);
   const confirmed = !main || String(main).includes(d.gallery_folder)
-    || files.some((f) => f.toLowerCase() === mainName || mainName.includes(f.toLowerCase().replace(/\.[a-z]+$/, '')));
+    || files.some((f: Loose) => f.toLowerCase() === mainName || mainName.includes(f.toLowerCase().replace(/\.[a-z]+$/, '')));
   return { images, confirmed, rule: 'storex' };
 }
 

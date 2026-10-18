@@ -44,7 +44,7 @@ function config(s?: Loose) {
   let zonesComplete = true;
   for (const c of allow) {
     if (!(COUNTRIES as Loose)[c].length) zonesComplete = false;
-    (COUNTRIES as Loose)[c].forEach((z) => zones.add(z));
+    (COUNTRIES as Loose)[c].forEach((z: Loose) => zones.add(z));
   }
   return {
     on: s.geo_lock_on === '1' && allow.length > 0,

@@ -74,7 +74,7 @@ function dice(a: Loose, b: Body) {
   return (2 * both) / (a.n + b.n);
 }
 // words that hold a number: model numbers and sizes (pam8403, 60w, 12v, 3p7v)
-function numberWords(ws?: Loose) { return new Set(ws.filter((w) => /\d/.test(w))); }
+function numberWords(ws?: Loose) { return new Set(ws.filter((w: Loose) => /\d/.test(w))); }
 function sameSet(a: Loose, b: Body) { if (a.size !== b.size) return false; for (const x of a) if (!b.has(x)) return false; return true; }
 
 function prepName(name?: Loose) {
@@ -212,7 +212,7 @@ async function scanCatalog(settings: Settings, { includeAllowed = false }: Body 
     const add = (k?: Loose, i?: Loose) => { if (!index.has(k)) index.set(k, []); index.get(k).push(i); };
     const flat: Loose[] = [];
     all.forEach((p, i) => {
-      new Set(p.name.ws.filter((w) => Array.from(w).length >= 3)).forEach((w) => add('w:' + w, i));
+      new Set(p.name.ws.filter((w: Loose) => Array.from(w).length >= 3)).forEach((w) => add('w:' + w, i));
       for (const im of p.images) {
         if (im.sha) add('s:' + im.sha, i);
         if (im.h) flat.push([i, im.h, im.hm]);

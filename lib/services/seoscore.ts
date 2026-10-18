@@ -14,7 +14,7 @@ function seoScore(p?: Loose, seo?: Loose) {
   if (textLen > 0 || p.auto_desc) n += W.text; // 🤖 the auto description counts as text (the long-text bonus needs the owner's own)
   if (textLen >= 200) n += W.textLong;
   if (String(p.model || '').trim()) n += W.model;
-  if (Array.isArray(p.specs) && p.specs.filter((r) => Array.isArray(r) && r[0] && r[1]).length >= 2) n += W.specs;
+  if (Array.isArray(p.specs) && p.specs.filter((r: Loose) => Array.isArray(r) && r[0] && r[1]).length >= 2) n += W.specs;
   if (p.category_id) n += W.category;
   if (String(p.brand || '').trim()) n += W.brand;
   const t = seo.productTitle(p);

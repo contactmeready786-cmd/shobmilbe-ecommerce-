@@ -56,7 +56,7 @@ const AUD = [['buyers', 'যারা অন্তত একবার পণ্�
 function audienceText(b: Body, cats: Loose = []) {
   const base = (AUD.find(([k]) => k === b.aud) || AUD[0])[1].replace(/\s*\(.*\)$/, '');
   const extra = b.aud === 'inactive' || b.aud === 'recent' ? ` — ${int(b.days, 90)} দিন` : b.aud === 'segment' && SEGMENTS[b.segment] ? ` — ${SEGMENTS[b.segment][0]}`
-    : b.aud === 'spent' ? ` — ৳${int(b.min_spent, 5000)}+` : b.aud === 'category' ? ` — ${(cats.find((c) => c.id === int(b.category)) || {}).name || ''}`
+    : b.aud === 'spent' ? ` — ৳${int(b.min_spent, 5000)}+` : b.aud === 'category' ? ` — ${(cats.find((c: Loose) => c.id === int(b.category)) || {}).name || ''}`
       : b.aud === 'district' ? ` — ${str(b.district, 60)}` : b.aud === 'group' ? ` — ${str(b.grp, 60)}` : b.aud === 'tag' ? ` — ${str(b.tag, 40)}` : '';
   return (base + extra).slice(0, 200);
 }

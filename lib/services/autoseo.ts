@@ -106,7 +106,7 @@ function describe(p?: Loose, settings: Settings = {} as Settings) {
   const seed = seedOf(p.id || name);
   const brand = p.brand && !/^(made\s*in|china|chinese|generic|no\s*brand|unbranded|চায়না|চাইনিজ)/i.test(String(p.brand).trim()) ? p.brand : '';
   const what = k ? k.what : p.category_name ? `${p.category_name} ক্যাটাগরির পণ্য` : 'পণ্য';
-  const specs = (Array.isArray(p.specs) ? p.specs : []).filter((r) => Array.isArray(r) && r[0] && r[1]).slice(0, 12);
+  const specs = (Array.isArray(p.specs) ? p.specs : []).filter((r: Loose) => Array.isArray(r) && r[0] && r[1]).slice(0, 12);
   const dhaka = Number(settings.delivery_dhaka) || 60;
   const outside = Number(settings.delivery_outside) || 110;
   const lines: Loose[] = [];
@@ -156,13 +156,13 @@ async function processOne(p: Loose, settings: Settings) {
   }
   // ⚙️ specs: add only labels that are missing, never a label we added before (the owner may have taken it out)
   if (settings.autoseo_specs !== '0') {
-    const cur = (Array.isArray(p.specs) ? p.specs : []).filter((r) => Array.isArray(r) && r[0]);
-    const have = new Set(cur.map((r) => String(r[0]).trim().toLowerCase()));
-    const addedBefore = new Set(past.filter((l) => l.field === 'specs').flatMap((l) => { try { return JSON.parse(l.new_value).map((r) => String(r[0]).toLowerCase()); } catch (_) { return []; } }));
+    const cur = (Array.isArray(p.specs) ? p.specs : []).filter((r: Loose) => Array.isArray(r) && r[0]);
+    const have = new Set(cur.map((r: Loose) => String(r[0]).trim().toLowerCase()));
+    const addedBefore = new Set(past.filter((l) => l.field === 'specs').flatMap((l) => { try { return JSON.parse(l.new_value).map((r: Loose) => String(r[0]).toLowerCase()); } catch (_) { return []; } }));
     // the owner's own English labels mean the same thing
     const same: Record<string, Loose> = { 'ভোল্টেজ': ['voltage', 'input voltage', 'operating voltage', 'working voltage'], 'কারেন্ট': ['current', 'output current'], 'পাওয়ার': ['power', 'output power'], 'ক্যাপাসিটি': ['capacity'] };
     const add = extractSpecs(cleanName(p.name), md.plain(`${p.short_description || ''} ${p.description || ''}`, 1500))
-      .filter(([label]) => !have.has(label.toLowerCase()) && !addedBefore.has(label.toLowerCase()) && !(same[label] || []).some((x) => have.has(x)))
+      .filter(([label]) => !have.has(label.toLowerCase()) && !addedBefore.has(label.toLowerCase()) && !(same[label] || []).some((x: Loose) => have.has(x)))
       .slice(0, 8);
     if (add.length) changes.push({ field: 'specs', old: JSON.stringify(cur), value: JSON.stringify(add), next: [...cur, ...add] });
   }

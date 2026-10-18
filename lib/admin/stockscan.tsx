@@ -20,9 +20,9 @@ const NOTE = '📷 স্ক্যান করে স্টক';
 
 // what the page needs to know about one product (main store = what is at home / the online stock, not branches)
 async function shape(rows?: Loose) {
-  const ids = rows.map((p) => p.id);
+  const ids = rows.map((p: Loose) => p.id);
   const [st, held] = await Promise.all([W.stockFor(ids), catalog.reservedFor(ids)]);
-  return rows.map((p) => {
+  return rows.map((p: Loose) => {
     const main = (st.get(p.id) || { main: p.stock }).main;
     const h = held.get(p.id) || 0;
     return {

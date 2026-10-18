@@ -154,7 +154,7 @@ function fromRow(row?: Loose, base?: Loose) {
     if (!m.has(nk)) m.set(nk, val);
   }
   const pick = (name?: Loose) => { for (const k of FIELDS[name]) if (m.has(k)) return m.get(k); return null; };
-  const pickAll = (name?: Loose) => FIELDS[name].filter((k) => m.has(k)).map((k) => m.get(k));
+  const pickAll = (name?: Loose) => FIELDS[name].filter((k: Loose) => m.has(k)).map((k: Loose) => m.get(k));
   const link = absUrl(pick('link'), base);
 
   let price = parsePrice(pick('price'));
@@ -174,7 +174,7 @@ function fromRow(row?: Loose, base?: Loose) {
     category = v; break;
   }
   const w = pick('weight');
-  const weightKey = FIELDS.weight.find((k) => m.has(k));
+  const weightKey = FIELDS.weight.find((k: Loose) => m.has(k));
   const rowType = String(pick('rowtype') ?? '').toLowerCase().trim();
   const item = {
     id: oneLine(pick('id') ?? '').slice(0, 120),
@@ -271,13 +271,13 @@ function tableToObjects(table?: Loose) {
   let hi = 0;
   let best = -1;
   for (let i = 0; i < Math.min(10, table.length); i++) {
-    const score = table[i].filter((h) => KNOWN.has(normKey(h))).length;
+    const score = table[i].filter((h: Loose) => KNOWN.has(normKey(h))).length;
     if (score > best) { best = score; hi = i; }
   }
-  const header = table[hi].map((h) => String(h ?? '').trim());
-  const rows = table.slice(hi + 1).map((r) => {
+  const header = table[hi].map((h: Loose) => String(h ?? '').trim());
+  const rows = table.slice(hi + 1).map((r: Loose) => {
     const o: Record<string, Loose> = {};
-    header.forEach((h, j) => {
+    header.forEach((h: Loose, j: Loose) => {
       if (!h) return;
       const v = r[j] === undefined || r[j] === null ? '' : r[j];
       if (o[h] !== undefined && o[h] !== '') o[h] = ([] as Loose[]).concat(o[h], v); // repeated column (e.g. several image columns)
@@ -412,28 +412,28 @@ function sitemapLinks(xml?: Loose, base?: Loose) {
 
 // ---------------------------------------------------------------- JSON
 function shopifyItems(products?: Loose, base?: Loose) {
-  return products.map((p) => {
+  return products.map((p: Loose) => {
     const v = (p.variants || [])[0] || {};
-    const stock = (p.variants || []).reduce((s, x) => (typeof x.inventory_quantity === 'number' ? s + Math.max(0, x.inventory_quantity) : s), 0);
-    const anyStock = (p.variants || []).some((x) => typeof x.inventory_quantity === 'number');
+    const stock = (p.variants || []).reduce((s: Loose, x: Loose) => (typeof x.inventory_quantity === 'number' ? s + Math.max(0, x.inventory_quantity) : s), 0);
+    const anyStock = (p.variants || []).some((x: Loose) => typeof x.inventory_quantity === 'number');
     return fromRow({
       id: p.id, title: p.title, body_html: p.body_html, vendor: p.vendor, product_type: p.product_type,
       price: v.price, compare_at_price: v.compare_at_price, grams: v.grams,
-      image: (p.images || []).map((i) => i.src), link: p.handle && base ? absUrl('/products/' + p.handle, base) : '',
-      quantity: anyStock ? stock : '', availability: (p.variants || []).length ? ((p.variants || []).some((x) => x.available !== false) ? 'in stock' : 'out of stock') : '',
+      image: (p.images || []).map((i: Loose) => i.src), link: p.handle && base ? absUrl('/products/' + p.handle, base) : '',
+      quantity: anyStock ? stock : '', availability: (p.variants || []).length ? ((p.variants || []).some((x: Loose) => x.available !== false) ? 'in stock' : 'out of stock') : '',
     }, base);
   });
 }
 function wooItems(products?: Loose, base?: Loose) {
-  return products.map((p) => {
+  return products.map((p: Loose) => {
     const pr = p.prices || {};
     const unit = Math.pow(10, Number(pr.currency_minor_unit ?? 0));
     const val = (x?: Loose) => (x === undefined || x === null || x === '' ? '' : Number(x) / unit);
     return fromRow({
       id: p.id, name: p.name, description: p.description, short_description: p.short_description,
       regular_price: val(pr.regular_price || pr.price), sale_price: pr.sale_price && pr.sale_price !== pr.regular_price ? val(pr.sale_price) : '',
-      images: (p.images || []).map((i) => i.src), category: (p.categories || []).map((c) => c.name)[0] || '',
-      brand: (p.brands || []).map((b) => b.name)[0] || '', link: p.permalink, availability: p.is_in_stock === false ? 'out of stock' : p.is_in_stock ? 'in stock' : '',
+      images: (p.images || []).map((i: Loose) => i.src), category: (p.categories || []).map((c: Loose) => c.name)[0] || '',
+      brand: (p.brands || []).map((b: Loose) => b.name)[0] || '', link: p.permalink, availability: p.is_in_stock === false ? 'out of stock' : p.is_in_stock ? 'in stock' : '',
     }, base);
   });
 }
@@ -754,7 +754,7 @@ function refFor(it?: Loose, sourceUrl?: Loose) {
   return `${host}#${key}`.toLowerCase().slice(0, 300);
 }
 function finish(items?: Loose, sourceUrl?: Loose) {
-  return items.map((it) => {
+  return items.map((it: Loose) => {
     const o = { ...it, ref: refFor(it, sourceUrl) };
     delete o.variation; delete o.group;
     return o;

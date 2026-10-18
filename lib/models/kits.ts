@@ -28,9 +28,9 @@ async function forShop(slug?: Loose) {
   const k = await get({ slug });
   if (!k || !k.active) return null;
   const catalog = $catalog;
-  const prods = await catalog.getProductsByIds(k.items.map((i) => i.product_id), { public: true });
+  const prods = await catalog.getProductsByIds(k.items.map((i: Loose) => i.product_id), { public: true });
   const byId = new Map(prods.map((p) => [p.id, p]));
-  k.items = k.items.filter((i) => byId.has(i.product_id)).map((i) => ({ ...i, product: byId.get(i.product_id) }));
+  k.items = k.items.filter((i: Loose) => byId.has(i.product_id)).map((i: Loose) => ({ ...i, product: byId.get(i.product_id) }));
   return k;
 }
 async function kitsWith(productId?: Id) {
@@ -82,8 +82,8 @@ function stepList(k?: Loose) { return String((k && k.steps) || '').split('\n').m
 // Finds the shop's product for one part of a guide: the name must contain one of the words, none of the "not"
 // words; switched on, a single product (no bundle / options). In stock and best-selling first; earlier words win.
 async function matchPart(part?: Loose) {
-  const like = part.find.map((w) => '%' + String(w).replace(/[%_\\]/g, '') + '%');
-  const notLike = (part.not || []).map((w) => '%' + String(w).replace(/[%_\\]/g, '') + '%');
+  const like = part.find.map((w: Loose) => '%' + String(w).replace(/[%_\\]/g, '') + '%');
+  const notLike = (part.not || []).map((w: Loose) => '%' + String(w).replace(/[%_\\]/g, '') + '%');
   const rows = await db.q(`SELECT p.id, p.name, p.price, p.stock FROM products p
     WHERE p.active AND p.parent_id IS NULL AND coalesce(p.product_type,'single') <> 'bundle' AND coalesce(p.variant_count,0) = 0
       AND p.name ILIKE ANY($1::text[]) AND NOT (p.name ILIKE ANY($2::text[]))
@@ -112,14 +112,14 @@ async function fromGuide(key?: Loose) {
   const g = (await guideStatus()).find((x) => x.key === key);
   if (!g) throw new KitError('গাইড পাওয়া যায়নি।');
   if (g.kit) return { id: g.kit.id, existed: true, missing: g.missing };
-  const found = g.parts.filter((p) => p.product);
+  const found = g.parts.filter((p: Loose) => p.product);
   if (!found.length) throw new KitError(`"${g.title}" — এর কোনো পার্টসই দোকানে পাওয়া যায়নি।`);
-  const seen = new Set(); const uniq = found.filter((p) => !seen.has(p.product.id) && seen.add(p.product.id));
+  const seen = new Set(); const uniq = found.filter((p: Loose) => !seen.has(p.product.id) && seen.add(p.product.id));
   const id = await save({
     title: g.title, description: g.intro, emoji: g.emoji, steps: g.steps.join('\n'), level: g.level, duration: g.time,
     active: g.missing.length === 0, sort: 0, slug: slugify(g.key) || g.key, guide_key: g.key,
-    'bundle_id[]': uniq.map((p) => p.product.id), 'bundle_qty[]': uniq.map((p) => p.qty || 1),
-    'kit_opt[]': uniq.filter((p) => p.optional).map((p) => p.product.id), 'kit_note[]': uniq.map((p) => p.note || ''),
+    'bundle_id[]': uniq.map((p: Loose) => p.product.id), 'bundle_qty[]': uniq.map((p: Loose) => p.qty || 1),
+    'kit_opt[]': uniq.filter((p: Loose) => p.optional).map((p: Loose) => p.product.id), 'kit_note[]': uniq.map((p: Loose) => p.note || ''),
   });
   return { id, existed: false, missing: g.missing, active: g.missing.length === 0 };
 }

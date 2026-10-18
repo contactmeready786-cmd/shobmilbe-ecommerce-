@@ -167,7 +167,7 @@ function registrationOptions(req: ShopRequest, user: StaffUser, settings: Settin
     authenticatorSelection: { residentKey: 'preferred', requireResidentKey: false, userVerification: 'required' },
     attestation: 'none',
     timeout: 120000,
-    excludeCredentials: existing.map((k) => ({ type: 'public-key', id: k.cred_id })),
+    excludeCredentials: existing.map((k: Loose) => ({ type: 'public-key', id: k.cred_id })),
   };
 }
 
@@ -187,7 +187,7 @@ async function addPasskey(req: ShopRequest, user: StaffUser, challenge?: Loose, 
   const credId = b64u(ad.credId);
   if (body.id && body.id !== credId) throw new Error('চাবির নম্বর মেলেনি');
   const pem = key.export({ type: 'spki', format: 'pem' });
-  const transports = Array.isArray(body.transports) ? body.transports.filter((t) => /^[a-z-]{2,20}$/.test(t)).slice(0, 6).join(',') : '';
+  const transports = Array.isArray(body.transports) ? body.transports.filter((t: Loose) => /^[a-z-]{2,20}$/.test(t)).slice(0, 6).join(',') : '';
   const name = String(body.name || '').replace(/[<>]/g, '').trim().slice(0, 60) || 'আমার ডিভাইস';
   await q(`INSERT INTO owner_passkeys(staff_id, cred_id, public_key, alg, sign_count, rp_id, name, transports)
     VALUES($1,$2,$3,$4,$5,$6,$7,$8)`, [user.id, credId, pem, alg, ad.signCount, rp, name, transports]);

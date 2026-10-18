@@ -74,7 +74,7 @@ const COUNTRIES = /^(afghanistan|australia|bangladesh|england|india|ireland|new 
 function cricketCategory(league?: Loose, title?: Loose, teams?: Loose) {
   const text = `${league} ${title}`;
   for (const [code, , re] of CRICKET_LEAGUES) if (re && (re as RegExp).test(text)) return code;
-  if (teams.length >= 2 && teams.every((t) => COUNTRIES.test(String(t.name).trim()))) return 'intl';
+  if (teams.length >= 2 && teams.every((t: Loose) => COUNTRIES.test(String(t.name).trim()))) return 'intl';
   return 'other';
 }
 
@@ -112,7 +112,7 @@ function bool(v?: Loose) { return v === true || v === 'true'; }
 
 function sortMatches(list?: Loose) {
   const rank: Record<string, number> = { in: 0, pre: 1, post: 2 };
-  return list.sort((a, b) => (b.fav - a.fav) || (rank[a.state] - rank[b.state])
+  return list.sort((a: Loose, b: Loose) => (b.fav - a.fav) || (rank[a.state] - rank[b.state])
     || (a.state === 'post' ? +new Date(b.date) - +new Date(a.date) : +new Date(a.date) - +new Date(b.date)));
 }
 
@@ -120,7 +120,7 @@ function sortMatches(list?: Loose) {
 function cricketTeam(c?: Loose) {
   const t = c.team || {};
   const lines = Array.isArray(c.linescores) ? c.linescores : [];
-  const cur = lines.find((l) => Number(l.isCurrent) === 1);
+  const cur = lines.find((l: Loose) => Number(l.isCurrent) === 1);
   return {
     name: t.displayName || t.name || '', short: t.abbreviation || t.shortDisplayName || '',
     logo: t.logo || (Array.isArray(t.logos) && t.logos[0] && t.logos[0].href) || (t.id ? `https://a.espncdn.com/i/teamlogos/cricket/500/${t.id}.png` : ''),
@@ -149,14 +149,14 @@ async function loadCricket() {
       const comp = (e.competitions && e.competitions[0]) || {};
       const status = comp.status || e.status || {};
       const st = stateOf(status);
-      const teams = (comp.competitors || []).map(cricketTeam).sort((a, b) => a.order - b.order);
+      const teams = (comp.competitors || []).map(cricketTeam).sort((a: Loose, b: Loose) => a.order - b.order);
       if (teams.length < 2) continue;
       if (st.state === 'in' && now - new Date(e.date).getTime() > STALE_LIVE_MS) continue; // frozen old match
       out.push({
         id: String(e.id), league, title: comp.description || '', date: e.date, ...st,
         cat: cricketCategory(league, comp.description || '', teams),
         session: status.session || '', summary: status.summary || '', teams,
-        fav: FAVOURITE.test(teams.map((t) => t.name).join(' ') + ' ' + league) ? 1 : 0,
+        fav: FAVOURITE.test(teams.map((t: Loose) => t.name).join(' ') + ' ' + league) ? 1 : 0,
       });
     }
   }
@@ -176,24 +176,24 @@ async function loadLeague(code?: Loose) {
   const r = await fetchJson(FOOTBALL_URL(code), { headers: { Accept: 'application/json' } }, 8000);
   if (!r.ok || !r.data) return [];
   const leagueName = LEAGUE_BN[code] || (r.data.leagues && r.data.leagues[0] && r.data.leagues[0].name) || code;
-  return (r.data.events || []).map((e) => {
+  return (r.data.events || []).map((e: Loose) => {
     const comp = (e.competitions && e.competitions[0]) || {};
     const status = comp.status || e.status || {};
     const st = stateOf(status);
-    const teams = (comp.competitors || []).map(footballTeam).sort((a, b) => (b.home ? 1 : 0) - (a.home ? 1 : 0));
-    const goals = (comp.details || []).filter((d) => d && d.scoringPlay && d.clock).slice(-8).map((d) => ({
+    const teams = (comp.competitors || []).map(footballTeam).sort((a: Loose, b: Loose) => (b.home ? 1 : 0) - (a.home ? 1 : 0));
+    const goals = (comp.details || []).filter((d: Loose) => d && d.scoringPlay && d.clock).slice(-8).map((d: Loose) => ({
       min: d.clock.displayValue || '', team: d.team && d.team.id, who: (d.athletesInvolved && d.athletesInvolved[0] && d.athletesInvolved[0].shortName) || '',
     }));
     return {
       id: String(e.id), league: leagueName, cat: code, date: e.date, ...st, clock: status.displayClock || '',
       venue: (comp.venue && comp.venue.fullName) || '', teams, goals,
-      fav: FAVOURITE.test(teams.map((t) => t.name).join(' ')) ? 1 : 0,
+      fav: FAVOURITE.test(teams.map((t: Loose) => t.name).join(' ')) ? 1 : 0,
     };
-  }).filter((m) => m.teams.length === 2);
+  }).filter((m: Loose) => m.teams.length === 2);
 }
 async function loadFootball(leagues?: Loose) {
   // each league is cached on its own, so the admin overview and the store share the same requests
-  const lists = await Promise.all(leagues.map((l) => cached('fl:' + l, () => loadLeague(l)).catch(() => [])));
+  const lists = await Promise.all(leagues.map((l: Loose) => cached('fl:' + l, () => loadLeague(l)).catch(() => [])));
   const all = lists.flat();
   return { sport: 'football', updated: new Date().toISOString(), matches: sortMatches(all) };
 }
@@ -216,7 +216,7 @@ async function scores(sport: Loose, settings: Settings) {
     const allow = new Set(cricketLeagues(settings));
     const keepBd = settings.live_cricket_always_bd !== '0';
     // Bangladesh matches always stay (unless the admin turns that off); everything else follows the ticks.
-    return { ...data, matches: data.matches.filter((m) => allow.has(m.cat) || (keepBd && /bangladesh/i.test(m.teams.map((t) => t.name).join(' ')))) };
+    return { ...data, matches: data.matches.filter((m: Loose) => allow.has(m.cat) || (keepBd && /bangladesh/i.test(m.teams.map((t: Loose) => t.name).join(' ')))) };
   }
   const leagues = footballLeagues(settings);
   return cached('football:' + leagues.join(','), () => loadFootball(leagues));
@@ -233,8 +233,8 @@ const POPULAR: Record<string, number> = {
 // For the admin page: every competition (ticked or not) with what is running now and what starts soon.
 async function overview(): Promise<Loose> {
   const shortMatch = (m?: Loose) => ({
-    id: m.id, state: m.state, date: m.date, league: m.league, title: m.title || '', bd: /bangladesh/i.test(m.teams.map((t) => t.name).join(' ')),
-    teams: m.teams.map((t) => ({ name: t.name, score: t.score })), status: m.summary || m.clock || m.detail || '',
+    id: m.id, state: m.state, date: m.date, league: m.league, title: m.title || '', bd: /bangladesh/i.test(m.teams.map((t: Loose) => t.name).join(' ')),
+    teams: m.teams.map((t: Loose) => ({ name: t.name, score: t.score })), status: m.summary || m.clock || m.detail || '',
   });
   const group = (matches?: Loose) => {
     const out: Record<string, Loose> = {};
