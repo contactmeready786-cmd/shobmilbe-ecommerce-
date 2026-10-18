@@ -6,7 +6,7 @@
 // In both cases the exact address the visitor asked for is passed on as x-shop-url — any copy the visitor sent is
 // overwritten, so it can't be faked.
 import { NextResponse, type NextRequest } from 'next/server';
-import { servedByNext, hasNextPage, adminServedByNext } from './lib/next/routes';
+import { servedByNext, hasNextPage, adminServedByNext, formRouteFor } from './lib/next/routes';
 import { accountOrdersCookie } from './lib/shop/forms';
 import { drawableHere } from './lib/next/loaders';
 import { shopGate, adminGateOk, refCookie, refToRemember } from './lib/gate';
@@ -24,15 +24,15 @@ export async function proxy(request: NextRequest) {
   if (path === '/admin' || path.startsWith('/admin/')) return adminProxy(request, path, headers);
 
   if (!servedByNext(path, url.searchParams, request.method)) {
-    // an address a Next.js page also has, but this request belongs to the original code (/track?code=…&phone=…,
-    // or a form sent to it): the original code answers, as always
-    if (hasNextPage(path)) return NextResponse.rewrite(new URL('/api/site' + url.pathname + url.search, request.url), { request: { headers } });
+    // an address a Next.js page also has, but the page doesn't draw this request (/track?code=…&phone=…, or a form
+    // sent to it): the customer forms' own route answers (lib/shopx.tsx), anything else the original code, as always
+    if (hasNextPage(path)) return NextResponse.rewrite(new URL(answeredBy(path, url.pathname) + url.search, request.url), { request: { headers } });
     return NextResponse.next({ request: { headers } });
   }
 
   // something that doesn't exist: the shop's own 404 page (the original code also runs the gate for it);
   // something that moved: its new address — exactly as the original code does
-  if (!(await drawableHere(path, request.headers))) return NextResponse.rewrite(new URL('/api/site' + url.pathname + url.search, request.url), { request: { headers } });
+  if (!(await drawableHere(path, request.headers))) return NextResponse.rewrite(new URL(answeredBy(path, url.pathname) + url.search, request.url), { request: { headers } });
 
   const plain: Record<string, string> = {};
   request.headers.forEach((v, k) => { plain[k] = v; });
@@ -50,6 +50,12 @@ export async function proxy(request: NextRequest) {
   const ref = refToRemember(gate.settings, url.searchParams.get('ref'));
   if (ref) res.headers.append('Set-Cookie', refCookie({ headers: plain }, ref));
   return res;
+}
+
+/** Where a request for a customer address that its Next.js page doesn't draw goes: the form's own route, else the
+ * original code. (The address asked for always travels along as x-shop-url.) */
+function answeredBy(path: string, asked: string): string {
+  return formRouteFor(path) || '/api/site' + asked;
 }
 
 async function adminProxy(request: NextRequest, path: string, headers: Headers) {

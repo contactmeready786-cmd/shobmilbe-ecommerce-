@@ -1,8 +1,8 @@
 import { ADMIN_GET_ROUTES } from './admin-routes';
 
 // Which customer addresses are already served by Next.js pages (app/(shop)). proxy.ts runs the security gate for these;
-// every other address still goes to the original code (lib/site.ts). Grows as pages move; when it covers everything,
-// the original router goes.
+// the customer forms have Next.js routes of their own (formRouteFor, lib/shopx.tsx); every other address still goes to
+// the original code (lib/site.ts). Grows as pages move; when it covers everything, the original router goes.
 const EXACT = new Set(['/', '/products', '/track', '/blog', '/live', '/cart', '/wishlist', '/compare', '/checkout', '/kits', '/complaint', '/complaint/status', '/gift-card', '/account']);
 const PATTERNS = [/^\/brand\/[^/]+$/, /^\/p\/[^/]+$/, /^\/blog\/category\/[^/]+$/, /^\/blog\/[^/]+$/, /^\/page\/[^/]+$/,
   /^\/live\/(cricket|football)$/, /^\/kit\/[^/]+$/, /^\/order\/[A-Za-z0-9]+$/, /^\/order\/[A-Za-z0-9]+\/return$/];
@@ -25,6 +25,17 @@ export function servesForms(path: string): boolean {
 /** Does a Next.js page exist for this address (for some requests)? */
 export function hasNextPage(path: string): boolean {
   return EXACT.has(path) || PATTERNS.some((re) => re.test(path));
+}
+
+/** A customer page that also takes forms (or a look-up with a number + phone): the Next.js route that answers the
+ * requests its page doesn't draw — a form sent to it, a look-up, or the page when it's switched off (lib/shopx.tsx). */
+export function formRouteFor(path: string): string | null {
+  if (path === '/complaint' || path === '/complaint/status') return '/api/forms/complaint';
+  if (path === '/gift-card') return '/api/forms/gift-card';
+  if (path === '/account') return '/api/forms/account';
+  if (path === '/track') return '/api/forms/track';
+  if (/^\/order\/[A-Za-z0-9]+\/return$/.test(path)) return '/api/forms/return';
+  return null;
 }
 
 /** Is this request drawn by a Next.js page? (forms and other methods still go to the original code) */

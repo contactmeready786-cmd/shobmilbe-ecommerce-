@@ -4,7 +4,6 @@
 // siteAnswer() takes the Web Request and gives back a Web Response (lib/reply.ts).
 import * as db from './db';
 import * as catalog from './models/catalog';
-import * as O from './models/orders';
 import * as content from './models/content';
 import * as guard from './services/guard';
 import * as admin from './admin';
@@ -13,15 +12,14 @@ import { resolveShop } from './shop/router';
 import { scoped } from './cache';
 import * as shop from './views/shop';
 import * as md from './views/md';
-import { parseBody, str, normalizePhone } from './util';
+import { parseBody } from './util';
 import * as security from './security';
 import * as $services_geolock from './services/geolock';
 import * as $shop_blog from './shop/blog';
 import * as $shop_more from './shop/more';
 import { ORDER_PAGE } from './shop/more';
-import * as $shopx from './shopx';
 import * as $services_errors from './services/errors';
-import { siteUrl, blockedBots, backgroundTick, SITE_BLOCKED_PAGE, myOrdersCookie } from './gate';
+import { siteUrl, blockedBots, backgroundTick, SITE_BLOCKED_PAGE, refCookie } from './gate';
 import { Reply, type HeaderMap, type ReplyBody } from './reply';
 import { loadRenderer } from './react/render';
 import type { Body, Loose, ShopRequest } from './types';
@@ -169,7 +167,7 @@ async function handlerInner(req: ShopRequest, reply: Reply) {
 
 // ---------------------------------------------------------------- storefront
 async function shopRoutes({ req, reply, path, method, query, settings }: Body) {
-  const { send, redirect } = answers(reply);
+  const { send } = answers(reply);
   // Admin → দোকানে কী দেখাবে → "স্টক শেষ পণ্য তালিকায় দেখাও" off: lists, home rows and search skip them
   const hideOut = settings.ui_show_out_of_stock === '0';
   const [categories, pages, popups] = await Promise.all([
@@ -178,14 +176,11 @@ async function shopRoutes({ req, reply, path, method, query, settings }: Body) {
   const page = (title?: Loose, body?: Loose, opts: Body = {}) => send(opts.status || 200,
     shopLayout({ settings, title, body, categories, pages, popup: popups[0] || null, ...opts }));
   const notFound = () => page('পাওয়া যায়নি', shop.notFound(), { status: 404, noindex: true });
-  // 👤 customer account, ↩️ return request, 🎁 gift card — these pages also take forms
-  if (path === '/account' || path.startsWith('/account/') || /^\/order\/[A-Za-z0-9]+\/return$/.test(path) || path === '/gift-card' || path === '/complaint' || path === '/complaint/status' || /^\/order\/[A-Za-z0-9]+\/(cancel|edit)$/.test(path)) {
-    const r = await $shopx.route({ req, reply, path, method, query, settings, page, notFound, redirect, ip: clientIp(req) });
-    if (r !== null) return r;
-  }
+  // (👤 account, 🙋 own-order changes, 📮 complaints, 🔎 tracking, ↩️ returns, 🎁 gift cards: their own Next.js routes —
+  //  lib/shopx.tsx; proxy.ts sends them there)
   if (method !== 'GET' && method !== 'HEAD') return notFound();
   // 🎁 a friend's referral link: remember the code for checkout
-  if (settings.ref_on === '1' && query.get('ref') && /^[A-Za-z0-9-]{4,24}$/.test(query.get('ref'))) reply.header('Set-Cookie', $shopx.refCookie(req, query.get('ref')));
+  if (settings.ref_on === '1' && query.get('ref') && /^[A-Za-z0-9-]{4,24}$/.test(query.get('ref'))) reply.header('Set-Cookie', refCookie(req, query.get('ref')));
 
   // home, product lists / search / brands, product pages: lib/shop/router.tsx (shared with the Next.js pages)
   if (path === '/' || path === '/products' || /^\/brand\/[^/]+$/.test(path) || /^\/p\/[^/]+$/.test(path)) {
@@ -205,17 +200,6 @@ async function shopRoutes({ req, reply, path, method, query, settings }: Body) {
       if (r.kind === 'redirect') return reply.answer(r.status, { Location: r.location, ...r.headers });
       return page(r.title, r.body, r.opts);
     }
-  }
-  if (path === '/track') {
-    const code = str(query.get('code'), 20).toUpperCase();
-    const phone = str(query.get('phone'), 20);
-    if (code && phone) {
-      if (!(await security.hit(db, 'track:' + clientIp(req), 20, 600))) return tooMany(req, reply);
-      const order = await O.getOrder({ code });
-      if (order && order.phone === normalizePhone(phone)) return redirect(`/order/${order.code}`, { 'Set-Cookie': myOrdersCookie(req, settings, order.code) });
-      return page('অর্ডার ট্র্যাক', shop.trackPage({ code, phone, error: 'এই অর্ডার নম্বর আর মোবাইল নম্বর মিলছে না। আবার দেখে লিখুন।' }), { active: 'track', noindex: true });
-    }
-    return page('অর্ডার ট্র্যাক', shop.trackPage({ code: code.replace(/[^A-Z0-9]/g, '') }), { active: 'track' });
   }
   if (path === '/blog' || (m = path.match(/^\/blog\/category\/([^/]+)$/))) {
     const cats = await content.listBlogCategories();

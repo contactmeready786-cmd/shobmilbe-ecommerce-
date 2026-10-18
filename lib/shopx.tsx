@@ -1,7 +1,16 @@
 // Customer pages that take forms: 👤 আমার অ্যাকাউন্ট (OTP login, orders, addresses, profile, referral, gift cards),
-// ↩️ the return request on a delivered order, and 🎁 buying a gift card.
+// 🙋 cancelling / changing one's own order, 📮 complaints, 🔎 order tracking by number + phone, ↩️ the return request
+// on a delivered order, and 🎁 buying a gift card. Each is one handler, served by its own Next.js route
+// (lib/next/shop-form.ts runs the gate and draws the answer pages):
+//   /account, /account/…              → app/(shop)/account/[...action], app/api/forms/account   (account)
+//   /order/<code>/cancel, …/edit       → app/(shop)/order/[code]/cancel, edit                    (orderSelf)
+//   /complaint, /complaint/status      → app/api/forms/complaint                                 (complaint)
+//   /track?code=…&phone=…              → app/api/forms/track                                     (track)
+//   /order/<code>/return               → app/api/forms/return                                    (returnRequest)
+//   /gift-card                         → app/api/forms/gift-card                                 (giftCard)
+// (proxy.ts hands a form sent to an address that also has a Next.js page to its /api/forms/… route.)
 // Every form here must come from this same site (checked) and the login cookie is SameSite=Lax.
-import { refCookie, refFromCookie, myOrders } from './gate';
+import { refCookie, refFromCookie, myOrders, myOrdersCookie } from './gate';
 import * as db from './db';
 import * as security from './security';
 import * as A from './models/accounts';
@@ -17,17 +26,33 @@ import * as $models_giftcards from './models/giftcards';
 import * as $models_returns from './models/returns';
 import * as $services_push from './services/push';
 import { resolveForms, giftMethods, safeNext, ordersCookie, accountOrdersCookie } from './shop/forms';
+import * as guard from './services/guard';
+import * as shop from './views/shop';
 import type { Resolved } from './shop/router';
-import type { Body, Loose } from './types';
+import type { FormCtx } from './next/shop-form';
+import type { Loose } from './types';
 
-
-async function route({ req, reply, path, method, query, settings, page, notFound, redirect, ip }: Body) {
-  const isPost = method === 'POST';
-  if (isPost && !security.sameSite(req)) return page('অনুমতি নেই', <div className="wrap section"><p>এই ফর্ম অন্য ওয়েবসাইট থেকে পাঠানো হয়েছে।</p></div>, { status: 403, noindex: true });
+/** The helpers every handler shares (the same ones the original router's single handler had). */
+function helpers(f: FormCtx) {
+  const { page, notFound, redirect } = f;
   const go = (to?: Loose, cookies?: Loose) => redirect(to, cookies ? { 'Set-Cookie': cookies } : {});
   const shown = (r: Resolved | null) => (!r || r.kind !== 'page' ? notFound() : page(r.title, r.body, r.opts));
+  return { go, shown };
+}
 
-  // ---------------------------------------------------------------- 🙋 the customer cancels / changes their own order
+/** A form must come from this same site; anything else gets the same polite refusal page as always. */
+function fromElsewhere(f: FormCtx): boolean {
+  if (f.method !== 'POST' || security.sameSite(f.req)) return false;
+  f.page('অনুমতি নেই', <div className="wrap section"><p>এই ফর্ম অন্য ওয়েবসাইট থেকে পাঠানো হয়েছে।</p></div>, { status: 403, noindex: true });
+  return true;
+}
+
+/** 🙋 The customer cancels / changes their own order: /order/<code>/cancel, /order/<code>/edit. */
+export async function orderSelf(f: FormCtx): Promise<void> {
+  if (fromElsewhere(f)) return;
+  const { req, reply, path, method, query, settings, page, notFound, ip } = f;
+  const isPost = method === 'POST';
+  const { go, shown } = helpers(f);
   let sm = path.match(/^\/order\/([A-Za-z0-9]+)\/(cancel|edit)$/);
   if (sm) {
     if (!isPost) return go(`/order/${sm[1].toUpperCase()}`);
@@ -50,8 +75,15 @@ async function route({ req, reply, path, method, query, settings, page, notFound
       return back(e.message);
     }
   }
+  return notFound();
+}
 
-  // ---------------------------------------------------------------- 📮 complaints
+/** 📮 Complaints: the form (/complaint) and looking one up (/complaint/status). */
+export async function complaint(f: FormCtx): Promise<void> {
+  if (fromElsewhere(f)) return;
+  const { req, reply, path, method, query, settings, page, notFound, ip } = f;
+  const isPost = method === 'POST';
+  const { go, shown } = helpers(f);
   if (path === '/complaint' || path === '/complaint/status') {
     if (settings.complaints_on === '0') return notFound();
     const CV = $views_complaint;
@@ -89,8 +121,15 @@ async function route({ req, reply, path, method, query, settings, page, notFound
       return page('অভিযোগ জানান', CV.complaintPage({ settings, values: b, error: e.message }), { noindex: true, status: 400 });
     }
   }
+  return notFound();
+}
 
-  // ---------------------------------------------------------------- account
+/** 👤 My account: /account and everything under /account/ (log in by SMS or e-mail, profile, addresses, log out). */
+export async function account(f: FormCtx): Promise<void> {
+  if (fromElsewhere(f)) return;
+  const { req, reply, path, method, query, settings, page, notFound, ip } = f;
+  const isPost = method === 'POST';
+  const { go, shown } = helpers(f);
   if (path === '/account' || path.startsWith('/account/')) {
     if (!A.on(settings)) return notFound();
     const cu = await A.current(req, settings);
@@ -184,8 +223,15 @@ async function route({ req, reply, path, method, query, settings, page, notFound
     if (oc) reply.header('Set-Cookie', oc);
     return shown(await resolveForms({ path, query, settings, req }));
   }
+  return notFound();
+}
 
-  // ---------------------------------------------------------------- return request
+/** ↩️ A return request on a delivered order: /order/<code>/return. */
+export async function returnRequest(f: FormCtx): Promise<void> {
+  if (fromElsewhere(f)) return;
+  const { req, reply, path, method, query, settings, page, notFound, ip } = f;
+  const isPost = method === 'POST';
+  const { go, shown } = helpers(f);
   let m = path.match(/^\/order\/([A-Za-z0-9]+)\/return$/);
   if (m) {
     if (settings.returns_on !== '1') return notFound();
@@ -217,8 +263,15 @@ async function route({ req, reply, path, method, query, settings, page, notFound
     }
     return shown(await resolveForms({ path, query, settings, req }));
   }
+  return notFound();
+}
 
-  // ---------------------------------------------------------------- gift card
+/** 🎁 Buying a gift card: /gift-card. */
+export async function giftCard(f: FormCtx): Promise<void> {
+  if (fromElsewhere(f)) return;
+  const { req, reply, path, method, query, settings, page, notFound, ip } = f;
+  const isPost = method === 'POST';
+  const { go, shown } = helpers(f);
   if (path === '/gift-card') {
     if (settings.gift_on !== '1') return notFound();
     const methods = giftMethods(settings);
@@ -250,7 +303,32 @@ async function route({ req, reply, path, method, query, settings, page, notFound
     }
     return shown(await resolveForms({ path, query, settings, req }));
   }
-  return null;
+  return notFound();
 }
 
-export { route, refCookie, refFromCookie, safeNext };
+// Too many tries from one visitor: a polite message, nothing else happens (as lib/site.ts always answered it).
+function tooMany(f: FormCtx): void {
+  guard.record({ req: f.req, kind: 'flood', path: String(f.req.url || '').slice(0, 200) }).catch(() => {});
+  const text = 'অনেক বেশি চেষ্টা হয়েছে। কিছুক্ষণ পর আবার চেষ্টা করুন।';
+  f.reply.answer(429, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', ...security.BASE_HEADERS, 'Retry-After': '120' },
+    `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>একটু অপেক্ষা করুন</title><body style="font-family:sans-serif;padding:40px;text-align:center"><h1>একটু অপেক্ষা করুন</h1><p>${text}</p><p><a href="/">হোমে ফিরে যান</a></p></body>`);
+}
+
+/** 🔎 Order tracking: /track?code=…&phone=… opens the order on this browser when the two match (it counts tries). */
+export async function track(f: FormCtx): Promise<void> {
+  const { req, reply, path, method, query, settings, page, notFound, redirect } = f;
+  if (path !== '/track' || (method !== 'GET' && method !== 'HEAD')) return notFound();
+  // 🎁 a friend's referral link: remember the code for checkout
+  if (settings.ref_on === '1' && query.get('ref') && /^[A-Za-z0-9-]{4,24}$/.test(query.get('ref') || '')) reply.header('Set-Cookie', refCookie(req, query.get('ref')));
+  const code = str(query.get('code'), 20).toUpperCase();
+  const phone = str(query.get('phone'), 20);
+  if (code && phone) {
+    if (!(await security.hit(db, 'track:' + f.ip, 20, 600))) return tooMany(f);
+    const order = await O.getOrder({ code });
+    if (order && order.phone === normalizePhone(phone)) return redirect(`/order/${order.code}`, { 'Set-Cookie': myOrdersCookie(req, settings, order.code) });
+    return page('অর্ডার ট্র্যাক', shop.trackPage({ code, phone, error: 'এই অর্ডার নম্বর আর মোবাইল নম্বর মিলছে না। আবার দেখে লিখুন।' }), { active: 'track', noindex: true });
+  }
+  return page('অর্ডার ট্র্যাক', shop.trackPage({ code: code.replace(/[^A-Z0-9]/g, '') }), { active: 'track' });
+}
+
+export { refCookie, refFromCookie, safeNext };

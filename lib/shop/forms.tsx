@@ -1,7 +1,7 @@
-// 📮 The customer pages that hold forms, as data (only showing them — the forms are still sent to lib/shopx.ts):
+// 📮 The customer pages that hold forms, as data (only showing them — the forms are answered by lib/shopx.tsx):
 // 👤 আমার অ্যাকাউন্ট (login, or orders / addresses / profile / referral / gift cards), the complaint form and complaint
 // status form, the return request on a delivered order and buying a gift card.
-// Used by the Next.js pages (app/(shop)) and by the original router (lib/shopx.ts), so both always show the same page.
+// Used by the Next.js pages (app/(shop)) and by the forms' own routes (lib/shopx.tsx), so both always show the same page.
 import * as A from '../models/accounts';
 import * as O from '../models/orders';
 import * as $models_giftcards from '../models/giftcards';
@@ -48,7 +48,7 @@ export async function resolveForms({ path, query, settings, req }: FormsCtx): Pr
     if (settings.complaints_on === '0') return NOT_FOUND;
     const CV = $views_complaint;
     const CM = $models_complaints;
-    // (a status check with a number and a phone is answered by lib/shopx.ts — it counts tries)
+    // (a status check with a number and a phone is answered by lib/shopx.tsx — it counts tries)
     if (path === '/complaint/status') return page('অভিযোগের অবস্থা', CV.statusPage({ code: str(query.get('code'), 12).toUpperCase().trim() }), { noindex: true });
     const oc = str(query.get('order'), 20).toUpperCase().replace(/[^A-Z0-9]/g, '');
     const values = { order_code: oc };

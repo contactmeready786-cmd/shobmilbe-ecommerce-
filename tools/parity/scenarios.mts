@@ -25,6 +25,8 @@ function keep(j: Jar, res: Response): void {
     if (!v || /max-age=0/i.test(c)) delete jars[j][k]; else jars[j][k] = v;
   }
 }
+// a new complaint's and a new return request's numbers are drawn at random (C + 6 digits, R + 6 letters/digits)
+const newCodes = (t: string) => t.replace(/\bC\d{6}\b/g, '«complaint-no»').replace(/\bR[A-Z0-9]{6}\b/g, '«return-no»');
 async function call(step: string, jar: Jar, method: string, path: string, body?: Payload | unknown[], type: 'form' | 'json' = 'form', extra: Record<string, string> = {}): Promise<{ res: Response | null; text: string }> {
   const headers: Record<string, string> = { cookie: jarHeader(jar), origin, referer: origin + path, 'user-agent': 'Mozilla/5.0 parity-scenarios', 'accept-language': 'bn', ...extra };
   let payload: string | undefined;
@@ -40,7 +42,7 @@ async function call(step: string, jar: Jar, method: string, path: string, body?:
   const ct = res.headers.get('content-type') || '';
   // HTML pages are already covered page by page by the crawl; here the error/notice text is what matters
   const short = /json/.test(ct) || wholePage ? text : (text.match(/class="(?:alert|notice|error|flash)[^"]*"[^>]*>([\s\S]{0,300}?)</) || [, ''])[1];
-  log.push({ step, method, path, status: res.status, location: res.headers.get('location') ? normalise(res.headers.get('location')) : undefined, body: normalise(short || '') });
+  log.push({ step, method, path, status: res.status, location: res.headers.get('location') ? normalise(res.headers.get('location')) : undefined, body: wholePage ? newCodes(normalise(short || '')) : normalise(short || '') });
   return { res, text };
 }
 const id = (sql: string): string => execFileSync('psql', ['-Atc', sql, process.env.PGDATABASE || '']).toString().trim();

@@ -73,7 +73,10 @@ uses that one setup. Never add a second Gmail / App Password / SMS / API-key fie
 - A page is drawn by one shared function both routers call (lib/shop/router.tsx: home/lists/products;
   lib/shop/more.tsx: live, cart, wishlist, compare, checkout, kits, order pages; lib/shop/blog.tsx: articles;
   lib/shop/forms.tsx: account, complaint, return, gift card) — change it there, once.
-  A form sent to an address that has a Next.js page goes to lib/site.ts (proxy.ts, `hasNextPage`).
+  The customer forms (account, own-order cancel/edit, complaint, /track look-up, return, gift card) are Next.js
+  route handlers: lib/shopx.tsx has one handler per form, lib/next/shop-form.ts (`formRoute`) runs the gate and draws
+  the answer pages. A form sent to an address that also has a Next.js page goes to its /api/forms/… route
+  (proxy.ts, `formRouteFor` in lib/next/routes.ts); any other form still goes to lib/site.ts.
 - The browser code is TypeScript in `client/` (2026-10-18: no hand-written .js files anywhere): `client/shop` (cart,
   checkout, OTP, gallery, live scores, search …), `client/i18n` (বাংলা ⇄ English), `client/admin` (menus, uploads,
   pickers, handover, POS, stock scan, import, login lock …), `client/sw` (the two service workers). `npm run build:client`

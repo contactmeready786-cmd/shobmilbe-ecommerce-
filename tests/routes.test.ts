@@ -1,7 +1,7 @@
 // 🧭 Which addresses Next.js draws, and which still belong to the original code (lib/site.ts).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { servedByNext, hasNextPage, servesMore, servesShopRouter, servesForms } from '../lib/next/routes';
+import { servedByNext, hasNextPage, servesMore, servesShopRouter, servesForms, formRouteFor } from '../lib/next/routes';
 
 const get = (path: string, q = '') => servedByNext(path, new URLSearchParams(q), 'GET');
 
@@ -12,15 +12,39 @@ test('customer pages that moved are drawn by Next.js', () => {
   }
 });
 
-test('forms, the order check and everything else stay with the original code', () => {
+test('forms and look-ups are never drawn by the Next.js pages', () => {
   assert.equal(get('/track', 'code=SM1&phone=017'), false);
   assert.equal(get('/complaint/status', 'code=C1&phone=017'), false);
   assert.equal(get('/complaint/status', 'code=C1'), true);
   assert.equal(servedByNext('/checkout', new URLSearchParams(), 'POST'), false);
   assert.equal(servedByNext('/cart', new URLSearchParams(), 'HEAD'), true);
   for (const p of ['/admin', '/api/orders', '/order/SM1/invoice', '/order/SM1/cancel', '/live/tennis', '/p/a/b', '/account/code', '/account/profile']) assert.equal(get(p), false, p);
-  // a form sent to an address that has a Next.js page goes to the original code (proxy.ts), never to the Next.js page
+  // a form sent to an address that has a Next.js page goes to its own route (proxy.ts), never to the Next.js page
   assert.ok(hasNextPage('/checkout') && hasNextPage('/track'));
+});
+
+test('customer forms have Next.js routes of their own (lib/shopx.tsx)', async () => {
+  // a form sent to an address that has a page, a look-up with a number + phone, or the page switched off
+  assert.equal(formRouteFor('/complaint'), '/api/forms/complaint');
+  assert.equal(formRouteFor('/complaint/status'), '/api/forms/complaint');
+  assert.equal(formRouteFor('/gift-card'), '/api/forms/gift-card');
+  assert.equal(formRouteFor('/account'), '/api/forms/account');
+  assert.equal(formRouteFor('/track'), '/api/forms/track');
+  assert.equal(formRouteFor('/order/SM1/return'), '/api/forms/return');
+  for (const p of ['/', '/checkout', '/cart', '/order/SM1', '/order/SM1/cancel', '/account/code', '/p/x']) assert.equal(formRouteFor(p), null, p);
+  // every route file exists and hands its requests to the handler for it
+  const { readFileSync } = await import('node:fs');
+  const routes: [string, string][] = [
+    ['app/api/forms/complaint/route.ts', 'complaint'], ['app/api/forms/gift-card/route.ts', 'giftCard'], ['app/api/forms/account/route.ts', 'account'],
+    ['app/api/forms/track/route.ts', 'track'], ['app/api/forms/return/route.ts', 'returnRequest'], ['app/(shop)/account/[...action]/route.ts', 'account'],
+    ['app/(shop)/order/[code]/cancel/route.ts', 'orderSelf'], ['app/(shop)/order/[code]/edit/route.ts', 'orderSelf'],
+  ];
+  const shopx = await import('../lib/shopx');
+  for (const [file, fn] of routes) {
+    const src = readFileSync(file, 'utf8');
+    assert.ok(src.includes(`formRoute(${fn})`) && /handle as POST/.test(src) && /handle as GET/.test(src), file);
+    assert.equal(typeof (shopx as Record<string, unknown>)[fn], 'function', fn);
+  }
 });
 
 test('each moved page has exactly one drawer', () => {
