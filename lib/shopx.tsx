@@ -112,7 +112,7 @@ export async function complaint(f: FormCtx): Promise<void> {
       const site = (settings.site_url || `https://${req.headers['x-forwarded-host'] || req.headers.host}`).replace(/\/+$/, '');
       const hours = CM.hoursOf(settings);
       const notify = $services_notify;
-      await notify.newComplaint(settings, site, c, CM.TOPICS[c!.topic] || c!.topic, hours).catch(() => {});
+      await notify.newComplaint(settings, site, c!, CM.TOPICS[c!.topic] || c!.topic, hours).catch(() => {});
       if (settings.complaint_sms_on !== '0') {
         const SMS = $services_sms;
         if (SMS.ready(settings).ok) await notify.later(SMS.send(settings, c!.phone, `${settings.store_name || ''}: আপনার অভিযোগ ${c!.code} পেয়েছি। ${hours} ঘণ্টার মধ্যে সমাধান করা হবে। অবস্থা দেখুন: ${site}/complaint/status?code=${c!.code}`, { kind: 'complaint' }));
