@@ -28,6 +28,15 @@ for (const f of fs.readdirSync('tests').filter((x) => /\.test\.tsx?$/.test(x)).s
     if (!ran.has(name)) missing.push(`${f}: ${name}`);
   }
 }
+// the tests made in a loop, one per recorded page in tests/golden (chrome.test, admin-frame.test, react-views.test)
+for (const file of fs.readdirSync('tests/golden').filter((x) => x.endsWith('.html')).sort()) {
+  const n = file.slice(0, -5);
+  const name = n.startsWith('chrome-') ? `page frame unchanged: ${n.slice(7)}`
+    : n.startsWith('admin-frame-') ? `admin frame unchanged: ${n.slice(12)}`
+      : `same page as before: ${n}`;
+  declared++;
+  if (!ran.has(name)) missing.push(`tests/golden/${file}: ${name}`);
+}
 if (missing.length) {
   for (const m of missing) console.log(`::error title=Test did not run::${m}`);
   console.log(`${missing.length} of ${declared} written tests did not run`);
