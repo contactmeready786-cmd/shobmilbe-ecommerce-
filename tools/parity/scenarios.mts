@@ -14,6 +14,8 @@ type Payload = Record<string, unknown>;
 const [base, outFile] = process.argv.slice(2);
 const origin = new URL(base).origin;
 const log: Step[] = [];
+// customer form answers are whole pages (or a redirect): while this is on, the whole page is compared, not only its message
+let wholePage = false;
 const jars: Record<Jar, Record<string, string>> = { svc: {}, shop: {}, admin: {} };
 const jarHeader = (j: Jar) => Object.entries(jars[j]).map(([k, v]) => `${k}=${v}`).join('; ');
 function keep(j: Jar, res: Response): void {
@@ -23,8 +25,8 @@ function keep(j: Jar, res: Response): void {
     if (!v || /max-age=0/i.test(c)) delete jars[j][k]; else jars[j][k] = v;
   }
 }
-async function call(step: string, jar: Jar, method: string, path: string, body?: Payload | unknown[], type: 'form' | 'json' = 'form'): Promise<{ res: Response | null; text: string }> {
-  const headers: Record<string, string> = { cookie: jarHeader(jar), origin, referer: origin + path, 'user-agent': 'Mozilla/5.0 parity-scenarios', 'accept-language': 'bn' };
+async function call(step: string, jar: Jar, method: string, path: string, body?: Payload | unknown[], type: 'form' | 'json' = 'form', extra: Record<string, string> = {}): Promise<{ res: Response | null; text: string }> {
+  const headers: Record<string, string> = { cookie: jarHeader(jar), origin, referer: origin + path, 'user-agent': 'Mozilla/5.0 parity-scenarios', 'accept-language': 'bn', ...extra };
   let payload: string | undefined;
   if (body !== undefined) {
     if (type === 'json') { headers['content-type'] = 'application/json'; payload = JSON.stringify(body); }
@@ -37,7 +39,7 @@ async function call(step: string, jar: Jar, method: string, path: string, body?:
   const text = await res.text();
   const ct = res.headers.get('content-type') || '';
   // HTML pages are already covered page by page by the crawl; here the error/notice text is what matters
-  const short = /json/.test(ct) ? text : (text.match(/class="(?:alert|notice|error|flash)[^"]*"[^>]*>([\s\S]{0,300}?)</) || [, ''])[1];
+  const short = /json/.test(ct) || wholePage ? text : (text.match(/class="(?:alert|notice|error|flash)[^"]*"[^>]*>([\s\S]{0,300}?)</) || [, ''])[1];
   log.push({ step, method, path, status: res.status, location: res.headers.get('location') ? normalise(res.headers.get('location')) : undefined, body: normalise(short || '') });
   return { res, text };
 }
@@ -102,6 +104,47 @@ async function main() {
   await call('app inbox', 'shop', 'GET', '/api/app/inbox');
   await call('GET where POST is meant', 'shop', 'GET', '/api/coupon');
 
+  // ---------- customer forms: complaint, track, own order (cancel / change / return), gift card, account ----------
+  // (each answers with a page or a redirect; the whole page, the redirect and the saved rows are compared)
+  wholePage = true;
+  await call('complaint: from another site', 'shop', 'POST', '/complaint', { name: 'রহিম', phone: '01700000001', topic: 'delivery', message: 'দেরি' }, 'form', { origin: 'https://example.com', referer: 'https://example.com/' });
+  await call('complaint: robot', 'shop', 'POST', '/complaint', { website: 'x', name: 'রহিম' });
+  await call('complaint: empty', 'shop', 'POST', '/complaint', {});
+  await call('complaint: ok', 'shop', 'POST', '/complaint', { name: 'রহিম উদ্দিন', phone: '01700000001', email: '', order_code: 'TEST1001', topic: 'delivery', message: 'পণ্য এখনো পাইনি, একটু দেখবেন?' });
+  await call('complaint status: wrong phone', 'shop', 'GET', '/complaint/status?code=CMP-1&phone=01799999999');
+  await call('complaint status: ok', 'shop', 'GET', '/complaint/status?code=CMP-1&phone=01700000001');
+  await call('track: wrong phone', 'shop', 'GET', '/track?code=TEST1002&phone=01799999999');
+  await call('order cancel: not opened here', 'shop', 'POST', '/order/TEST1001/cancel', { reason: 'ভুল অর্ডার' });
+  await call('return: not opened here', 'shop', 'POST', '/order/TEST1002/return', { reason: 'ভাঙা' });
+  await call('track: TEST1001', 'shop', 'GET', '/track?code=TEST1001&phone=01700000001');
+  await call('track: TEST1002', 'shop', 'GET', '/track?code=TEST1002&phone=01800000002');
+  await call('order cancel: GET', 'shop', 'GET', '/order/TEST1001/cancel');
+  await call('order edit: bad phone', 'shop', 'POST', '/order/TEST1001/edit', { name: 'রহিম উদ্দিন', phone: '12', address: 'বাড়ি ১, রোড ২' });
+  await call('order edit: ok', 'shop', 'POST', '/order/TEST1001/edit', { name: 'রহিম উদ্দিন', phone: '01700000001', address: 'বাড়ি ৩, রোড ৪', district: 'Dhaka', thana: 'Adabor', note: 'সকালে' });
+  await call('order cancel: ok', 'shop', 'POST', '/order/TEST1001/cancel', { reason: 'ভুল অর্ডার', details: 'আর লাগবে না' });
+  const item = id("select min(i.id) from order_items i join orders o on o.id=i.order_id where o.code='TEST1002'");
+  await call('return: robot', 'shop', 'POST', '/order/TEST1002/return', { website: 'x' });
+  await call('return: nothing picked', 'shop', 'POST', '/order/TEST1002/return', { reason: 'damaged', want: 'refund' });
+  await call('return: ok', 'shop', 'POST', '/order/TEST1002/return', { item, [`qty_${item}`]: '1', reason: 'damaged', want: 'replace', details: 'বোর্ড কাজ করছে না', refund_method: 'bkash', refund_number: '01800000002' });
+  await call('gift card: robot', 'shop', 'POST', '/gift-card', { website: 'x' });
+  await call('gift card: empty', 'shop', 'POST', '/gift-card', {});
+  await call('gift card: no payment way', 'shop', 'POST', '/gift-card', { amount: '500', recipient_name: 'রাফি', recipient_phone: '01733333333', buyer_name: 'সাকিব', buyer_phone: '01755555555', pay_method: 'bkash', pay_number: '01755555555', trx: 'AB12CD34EF' });
+  await call('account: send SMS code', 'shop', 'POST', '/account/code', { phone: '01766666666', next: '/cart' });
+  await call('account: bad phone', 'shop', 'POST', '/account/code', { phone: '12' });
+  await call('account: wrong SMS code', 'shop', 'POST', '/account/verify', { phone: '01766666666', code: '000000' });
+  await call('account: e-mail sign-up code', 'shop', 'POST', '/account/email-code', { email: 'new@example.com', mode: 'signup', password: 'Abcdef123456', password2: 'Abcdef123456' });
+  await call('account: e-mail reset code', 'shop', 'POST', '/account/email-code', { email: 'bad', mode: 'reset' });
+  await call('account: e-mail login wrong', 'shop', 'POST', '/account/email-login', { email: 'nobody@example.com', password: 'wrong-one-123' });
+  await call('account: wrong e-mail code', 'shop', 'POST', '/account/email-verify', { email: 'new@example.com', code: '000000', mode: 'signup' });
+  await call('account: profile while logged out', 'shop', 'POST', '/account/profile', { name: 'x' });
+  await call('account: address while logged out', 'shop', 'POST', '/account/address', { line: 'x' });
+  await call('account: address delete while logged out', 'shop', 'POST', '/account/address/delete', { id: '1' });
+  await call('account: log out everywhere while logged out', 'shop', 'POST', '/account/logout-all', {});
+  await call('account: from another site', 'shop', 'POST', '/account/code', { phone: '01766666666' }, 'form', { origin: 'https://example.com', referer: 'https://example.com/' });
+  await call('account: logout', 'shop', 'POST', '/account/logout', {});
+  await call('account: unknown address', 'shop', 'POST', '/account/nothing-here', {});
+  wholePage = false;
+
   // ---------- outside services calling in (payments, couriers, daily jobs) — fake data, must be refused alike ----------
   await call('steadfast webhook: no token', 'svc', 'POST', '/webhook/steadfast', { consignment_id: 1, status: 'delivered' }, 'json');
   await call('steadfast webhook: wrong token', 'svc', 'POST', '/webhook/steadfast?token=wrong', { consignment_id: 1, status: 'delivered' }, 'json');
@@ -145,7 +188,7 @@ async function main() {
   await call('logout', 'admin', 'POST', '/admin/logout', {});
 
   // ---------- resulting data ----------
-  const tables = ['orders', 'order_items', 'products', 'categories', 'customers', 'stock_moves', 'activity_log', 'trash', 'email_subs', 'stock_alerts', 'product_questions', 'media', 'price_alerts', 'checkout_drafts', 'live_clicks', 'shop_push_subs'];
+  const tables = ['complaints', 'gift_cards', 'return_requests', 'customers', 'customer_addresses', 'orders', 'order_items', 'products', 'categories', 'customers', 'stock_moves', 'activity_log', 'trash', 'email_subs', 'stock_alerts', 'product_questions', 'media', 'price_alerts', 'checkout_drafts', 'live_clicks', 'shop_push_subs'];
   const data: Record<string, string> = {};
   for (const t of tables) {
     const exists = id(`select to_regclass('public.${t}') is not null`) === 't';
