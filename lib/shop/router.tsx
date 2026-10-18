@@ -221,7 +221,7 @@ export async function resolveShop(ctx: ShopCtx): Promise<Resolved> {
       : [];
     const offers = offerRows.map((o) => ({ label: pricing.offerTitle(o, bn), ends_on: o.ends_on ? String(o.ends_on).slice(0, 10) : '' }));
     const slugs = [...String(product.description || '').matchAll(/^\s*\/p\/([A-Za-z0-9ঀ-৿-]+)\s*$/gm)].map((x) => x[1]).slice(0, 6);
-    const inlineProducts: Record<string, unknown> = {};
+    const inlineProducts: Record<string, catalog.FullProduct> = {};
     for (const s of slugs) { const ip = await catalog.getProduct({ slug: s, public: true }); if (ip && ip.active) inlineProducts[s] = ip; }
     // full https:// links, so Google can read pictures and prices even when "site_url" is not set
     const base = ctx.base.replace(/\/+$/, '');

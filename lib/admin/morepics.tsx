@@ -66,7 +66,7 @@ async function planApi(ctx: AdminCtx) {
   await db.setMany({ morepics_feed: u });
   await ctx.reloadSettings();
 
-  const byRef = new Map<Loose, Loose>(items.map((it: Loose) => [it.ref, it]));
+  const byRef = new Map<Loose, Loose>(items.map((it) => [it.ref, it]));
   const rows = await db.q<{ id: number; name: string; sku: string; import_ref: string; image_id: number | null; pics: number }>(`SELECT p.id, p.name, p.sku, p.import_ref, p.image_id,
       (SELECT count(*)::int FROM media m WHERE m.owner_type='product' AND m.owner_id=p.id) AS pics
     FROM products p WHERE p.import_ref = ANY($1::text[]) ORDER BY p.id`, [[...byRef.keys()]]);
@@ -80,8 +80,8 @@ async function planApi(ctx: AdminCtx) {
     list.push({ id: r.id, name: r.name, sku: r.sku, link: it.link, main: (it.images || [])[0] || '', pics: r.pics, thumb: r.image_id ? `/media/${r.image_id}/t` : '' });
   }
   // in the old shop's feed but not in this shop (never came over, or was stopped as a "duplicate") — brought in now
-  const missing = items.filter((it: { ref: string; }) => !inShop.has(it.ref) && !trashed.has(it.ref));
-  const inTrash = items.filter((it: { ref: string; }) => !inShop.has(it.ref) && trashed.has(it.ref)).map((it: Loose) => ({ title: it.title, link: it.link }));
+  const missing = items.filter((it) => !inShop.has(it.ref) && !trashed.has(it.ref));
+  const inTrash = items.filter((it) => !inShop.has(it.ref) && trashed.has(it.ref)).map((it) => ({ title: it.title, link: it.link }));
   // the old site's own product list (sitemap): products the feed left out (e.g. hidden from the catalog)
   const feedPaths = new Set(items.map((it) => pathKey(it.link)).filter(Boolean));
   let sitemap: { links: string[]; read: boolean } = { links: [], read: false };

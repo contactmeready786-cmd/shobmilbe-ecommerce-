@@ -44,7 +44,7 @@ async function post(ctx: AdminCtx) {
       autopost_app_id: appId, autopost_app_secret: appSecret, autopost_long_lived: r.longLived ? '1' : '0',
     });
     await ctx.log('settings', 'marketing', null, `অটো পোস্ট: Facebook পেজ যুক্ত (${r.pageName})`);
-    const more = r.others.length > 1 ? ` আপনার আরো পেজ আছে: ${r.others.map((x: Loose) => `${x.name} (${x.id})`).join(', ')} — অন্যটা চাইলে "পেজ ID" ঘরে দিয়ে আবার যুক্ত করুন।` : '';
+    const more = r.others.length > 1 ? ` আপনার আরো পেজ আছে: ${r.others.map((x) => `${x.name} (${x.id})`).join(', ')} — অন্যটা চাইলে "পেজ ID" ঘরে দিয়ে আবার যুক্ত করুন।` : '';
     return ctx.back(`${BASE}?info=${encodeURIComponent(`✅ যুক্ত হয়েছে: ${r.pageName}${r.ig ? ` + Instagram @${r.ig.username}` : ' (এই পেজের সাথে Instagram বিজনেস অ্যাকাউন্ট যুক্ত নেই)'}।${more}`)}`);
   }
   if (b.action === 'disconnect') {

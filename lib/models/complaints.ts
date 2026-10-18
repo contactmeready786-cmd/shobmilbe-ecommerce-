@@ -15,7 +15,7 @@ import type { ComplaintNotesRow, ComplaintsRow } from '../data/rows';
 
 class ComplaintError extends Error {}
 
-const TOPICS: Record<string, Loose> = {
+const TOPICS: Record<string, string> = {
   late: 'ডেলিভারি দেরি / পণ্য পাইনি',
   wrong: 'ভুল, ভাঙা বা নষ্ট পণ্য',
   warranty: '🛡️ ওয়ারেন্টি দাবি (পণ্য নষ্ট হয়ে গেছে)',
@@ -25,7 +25,7 @@ const TOPICS: Record<string, Loose> = {
   behaviour: 'ডেলিভারিম্যান / স্টাফের আচরণ',
   other: 'অন্যান্য',
 };
-const STATUS: Record<string, Loose> = {
+const STATUS: Record<string, [string, string]> = {
   open: ['🆕', 'নতুন'],
   working: ['🔧', 'কাজ চলছে'],
   solved: ['✅', 'সমাধান হয়েছে'],
@@ -45,7 +45,7 @@ async function newCode() {
 // photos: data:image URLs made small in the browser (max 4) — kept private (only staff see them)
 async function savePhotos(list?: unknown) {
   const catalog = $catalog;
-  const out: Loose[] = [];
+  const out: number[] = [];
   for (const d of (Array.isArray(list) ? list : []).slice(0, 4)) {
     const m = String(d || '').match(/^data:image\/[a-z+.-]+;base64,([A-Za-z0-9+/=]+)$/);
     if (!m) continue;
@@ -59,7 +59,7 @@ async function savePhotos(list?: unknown) {
 }
 
 // 🛡️ warranty: until when a delivered product is covered (null = no warranty, 'unknown' = the owner's own wording)
-function warrantyEnd(item?: Loose, deliveredAt?: Loose) {
+function warrantyEnd(item?: { warranty?: string | null } | null, deliveredAt?: Date | string | null): Date | 'unknown' | null {
   const w = String((item && item.warranty) || '');
   if (!w || !deliveredAt) return null;
   let n; let unit;
@@ -77,28 +77,29 @@ function warrantyEnd(item?: Loose, deliveredAt?: Loose) {
   return d;
 }
 // the products of a delivered order that have a warranty, with the end date and whether it still runs
-function warrantyItems(order?: Loose) {
+export type WarrantyItem = { product_id: number; name: string; end: Date | 'unknown' | null; valid: boolean };
+function warrantyItems(order?: Pick<$orders.Order, 'status' | 'delivered_at' | 'updated_at' | 'items'> | null): WarrantyItem[] {
   if (!order || order.status !== 'delivered') return [];
   const at = order.delivered_at || order.updated_at;
   const seen = new Set();
-  return (order.items || []).filter((i: Loose) => i.product_id && i.warranty && !seen.has(i.product_id) && seen.add(i.product_id)).map((i: Loose) => {
+  return (order.items || []).filter((i) => i.product_id && i.warranty && !seen.has(i.product_id) && seen.add(i.product_id)).map((i) => {
     const end = warrantyEnd(i, at);
-    return { product_id: i.product_id, name: i.name, end, valid: end === 'unknown' || (end instanceof Date && end.getTime() >= Date.now()) };
-  }).filter((x: Loose) => x.end);
+    return { product_id: i.product_id!, name: i.name, end, valid: end === 'unknown' || (end instanceof Date && end.getTime() >= Date.now()) };
+  }).filter((x) => x.end);
 }
 
 type CreateOpts = {
-  name: Loose;
-  phone: Loose;
-  email: Loose;
-  orderCode: Loose;
-  topic: Loose;
-  message: Loose;
+  name: unknown;
+  phone: unknown;
+  email: unknown;
+  orderCode: unknown;
+  topic: unknown;
+  message: unknown;
   photos: unknown[];
   ip: string;
   source?: string;
   settings: Settings;
-  productId: Loose;
+  productId: unknown;
 };
 async function create({ name, phone, email, orderCode, topic, message, photos, ip, source = 'web', settings, productId }: CreateOpts) {
   const nm = str(name, 80).trim();
@@ -112,7 +113,7 @@ async function create({ name, phone, email, orderCode, topic, message, photos, i
   let oc = str(orderCode, 20).toUpperCase().replace(/[^A-Z0-9]/g, '');
   if (oc && !(await db.one<{ "?column?": number | null }>('SELECT 1 FROM orders WHERE code=$1', [oc]))) oc = ''; // a wrong order number is just left out
   // 🛡️ a warranty claim must name a product of a delivered order whose warranty still runs
-  let item = null;
+  let item: WarrantyItem | null = null;
   if (topic === 'warranty') {
     if (!oc) throw new ComplaintError('ওয়ারেন্টি দাবির জন্য অর্ডার নম্বর দিন (অর্ডারের পেজের "ওয়ারেন্টি দাবি করুন" বাটন থেকে এলে নিজে থেকেই বসে)।');
     const O = $orders;
@@ -120,7 +121,7 @@ async function create({ name, phone, email, orderCode, topic, message, photos, i
     if (!order || order.phone !== ph) throw new ComplaintError('এই অর্ডার নম্বর আর মোবাইল নম্বর মিলছে না — যে নম্বরে অর্ডার করেছিলেন সেটা দিন।');
     const list = warrantyItems(order);
     if (!list.length) throw new ComplaintError(order.status === 'delivered' ? 'এই অর্ডারের কোনো পণ্যে ওয়ারেন্টি নেই।' : 'পণ্য হাতে পাওয়ার (ডেলিভারির) পরে ওয়ারেন্টি দাবি করা যায়।');
-    item = list.find((x: { product_id: number; }) => x.product_id === int(productId)) || (list.length === 1 ? list[0] : null);
+    item = list.find((x) => x.product_id === int(productId)) || (list.length === 1 ? list[0] : null);
     if (!item) throw new ComplaintError('কোন পণ্যের ওয়ারেন্টি দাবি করছেন বাছাই করুন।');
     if (!item.valid) throw new ComplaintError(`"${item.name}" এর ওয়ারেন্টির মেয়াদ শেষ হয়ে গেছে। তবুও সমস্যা জানাতে চাইলে বিষয় "অন্যান্য" দিয়ে লিখুন।`);
   }
@@ -128,24 +129,27 @@ async function create({ name, phone, email, orderCode, topic, message, photos, i
   const code = await newCode();
   const row = await db.one<ComplaintsRow>(`INSERT INTO complaints(code, name, phone, email, order_code, topic, message, photos, source, ip, due_at, product_id, item_name, warranty_until)
     VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10, now() + make_interval(hours => $11), $12, $13, $14) RETURNING *`,
-  [code, nm, ph, em, oc, TOPICS[topic] ? topic : 'other', msg, photoIds, source, str(ip, 64), hoursOf(settings),
+  [code, nm, ph, em, oc, TOPICS[String(topic)] ? topic : 'other', msg, photoIds, source, str(ip, 64), hoursOf(settings),
     item ? item.product_id : null, item ? str(item.name, 200) : '', item && item.end instanceof Date ? item.end.toISOString().slice(0, 10) : null]);
   return row;
 }
 
 // what the customer may see: the status and the replies sent to them (never the staff's inside notes)
-async function forCustomer(code?: unknown, phone?: unknown) {
-  const c = await db.one('SELECT * FROM complaints WHERE code=$1 AND phone=$2', [str(code, 12).toUpperCase().trim(), normalizePhone(phone)]);
-  if (!c) return null;
-  c.replies = await db.q('SELECT body, created_at FROM complaint_notes WHERE complaint_id=$1 AND to_customer ORDER BY id', [c.id]);
+export type CustomerComplaint = ComplaintsRow & { replies: Pick<ComplaintNotesRow, 'body' | 'created_at'>[] };
+async function forCustomer(code?: unknown, phone?: unknown): Promise<CustomerComplaint | null> {
+  const row = await db.one<ComplaintsRow>('SELECT * FROM complaints WHERE code=$1 AND phone=$2', [str(code, 12).toUpperCase().trim(), normalizePhone(phone)]);
+  if (!row) return null;
+  const c = row as CustomerComplaint;
+  c.replies = await db.q<Pick<ComplaintNotesRow, 'body' | 'created_at'>>('SELECT body, created_at FROM complaint_notes WHERE complaint_id=$1 AND to_customer ORDER BY id', [c.id]);
   return c;
 }
 
-function where(f: Body, params?: Loose) {
-  const w: Loose[] = [];
+type Filter = { status?: string; q?: string };
+function where(f: Filter, params: unknown[]) {
+  const w: string[] = [];
   if (f.status === 'late') w.push(`c.status IN ('open','working') AND c.due_at < now()`);
   else if (f.status === 'active') w.push(`c.status IN ('open','working')`);
-  else if (STATUS[f.status]) { params.push(f.status); w.push(`c.status=$${params.length}`); }
+  else if (f.status && STATUS[f.status]) { params.push(f.status); w.push(`c.status=$${params.length}`); }
   if (f.q) {
     params.push(`%${f.q}%`);
     w.push(`(c.code ILIKE $${params.length} OR c.phone ILIKE $${params.length} OR c.name ILIKE $${params.length} OR c.order_code ILIKE $${params.length} OR c.message ILIKE $${params.length})`);
@@ -156,15 +160,16 @@ type ListOpts = {
   limit?: number;
   offset?: number;
 };
-async function list(f: Body = {}, { limit = 50, offset = 0 }: ListOpts = {}) {
-  const params: Loose[] = [];
+export type ComplaintListed = ComplaintsRow & { staff_name: string | null; notes: number };
+async function list(f: Filter = {}, { limit = 50, offset = 0 }: ListOpts = {}) {
+  const params: unknown[] = [];
   const w = where(f, params);
-  return db.q(`SELECT c.*, s.name AS staff_name, (SELECT count(*)::int FROM complaint_notes n WHERE n.complaint_id=c.id) AS notes
+  return db.q<ComplaintListed>(`SELECT c.*, s.name AS staff_name, (SELECT count(*)::int FROM complaint_notes n WHERE n.complaint_id=c.id) AS notes
     FROM complaints c LEFT JOIN staff s ON s.id=c.assigned_to ${w}
     ORDER BY (c.status IN ('open','working')) DESC, CASE WHEN c.status IN ('open','working') THEN c.due_at END ASC, c.created_at DESC
     LIMIT ${int(limit)} OFFSET ${int(offset)}`, params);
 }
-async function count(f: Body = {}) { const params: Loose[] = []; return (await db.one<{ n: number }>(`SELECT count(*)::int AS n FROM complaints c ${where(f, params)}`, params))!.n; }
+async function count(f: Filter = {}) { const params: unknown[] = []; return (await db.one<{ n: number }>(`SELECT count(*)::int AS n FROM complaints c ${where(f, params)}`, params))!.n; }
 async function counts() {
   return db.one<{ active: number; open: number; working: number; late: number; soon: number; solved: number; closed: number; total: number; ontime30: number; done30: number }>(`SELECT count(*) FILTER (WHERE status IN ('open','working'))::int AS active,
       count(*) FILTER (WHERE status='open')::int AS open, count(*) FILTER (WHERE status='working')::int AS working,
@@ -175,18 +180,21 @@ async function counts() {
       count(*) FILTER (WHERE resolved_at IS NOT NULL AND created_at > now() - interval '30 days')::int AS done30
     FROM complaints`);
 }
-async function get(id?: Id) {
-  const c = await db.one('SELECT c.*, s.name AS staff_name FROM complaints c LEFT JOIN staff s ON s.id=c.assigned_to WHERE c.id=$1', [int(id)]);
-  if (!c) return null;
-  c.notes = await db.q('SELECT n.*, s.name AS staff_name FROM complaint_notes n LEFT JOIN staff s ON s.id=n.staff_id WHERE n.complaint_id=$1 ORDER BY n.id', [c.id]);
-  c.history = await db.q(`SELECT id, code, status, created_at FROM complaints WHERE phone=$1 AND id<>$2 ORDER BY id DESC LIMIT 10`, [c.phone, c.id]);
+export type FullComplaint = ComplaintsRow & { staff_name: string | null; notes: (ComplaintNotesRow & { staff_name: string | null })[];
+  history: Pick<ComplaintsRow, 'id' | 'code' | 'status' | 'created_at'>[] };
+async function get(id?: Id): Promise<FullComplaint | null> {
+  const row = await db.one<ComplaintsRow & { staff_name: string | null }>('SELECT c.*, s.name AS staff_name FROM complaints c LEFT JOIN staff s ON s.id=c.assigned_to WHERE c.id=$1', [int(id)]);
+  if (!row) return null;
+  const c = row as FullComplaint;
+  c.notes = await db.q<ComplaintNotesRow & { staff_name: string | null }>('SELECT n.*, s.name AS staff_name FROM complaint_notes n LEFT JOIN staff s ON s.id=n.staff_id WHERE n.complaint_id=$1 ORDER BY n.id', [c.id]);
+  c.history = await db.q<Pick<ComplaintsRow, 'id' | 'code' | 'status' | 'created_at'>>(`SELECT id, code, status, created_at FROM complaints WHERE phone=$1 AND id<>$2 ORDER BY id DESC LIMIT 10`, [c.phone, c.id]);
   return c;
 }
 
 // a note: inside only, or a reply that the customer sees (and gets by SMS when SMS works)
 type AddNoteOpts = {
   staffId: number;
-  body: Loose;
+  body: unknown;
   toCustomer: boolean;
   settings: Settings;
 };
@@ -209,8 +217,8 @@ async function addNote(id: Id, { staffId, body, toCustomer, settings }: AddNoteO
   return { smsOk };
 }
 type SetStatusOpts = {
-  status: Loose;
-  resolution: Loose;
+  status: string;
+  resolution: unknown;
   staffId: number;
   settings: Settings;
 };
@@ -235,7 +243,7 @@ async function setStatus(id: Id, { status, resolution, staffId, settings }: SetS
 async function assign(id?: Id, staffId?: Id) { await db.q('UPDATE complaints SET assigned_to=$2, updated_at=now() WHERE id=$1', [int(id), staffId ? int(staffId) : null]); }
 
 // "time left" in words: "৪১ ঘণ্টা বাকি" / "৫ ঘণ্টা দেরি"
-function timeLeft(c: db.pg.DbRow) {
+function timeLeft(c: Pick<ComplaintsRow, 'status' | 'due_at'>) {
   if (!OPEN.includes(c.status)) return null;
   const ms = new Date(c.due_at).getTime() - Date.now();
   const h = Math.round(Math.abs(ms) / 36e5);

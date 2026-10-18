@@ -29,7 +29,7 @@ function isOn(row: { on: boolean; }) { return row.on !== false; }
 function box(ctx: AdminCtx, { urls = [], fixed = [], footer = [], back, note }: Body = {}) {
   if (!ctx.can('design')) return '';
   const s = ctx.settings;
-  const rows = menuRows(s).filter((r: Loose) => urls.includes(r.url));
+  const rows = menuRows(s).filter((r) => urls.includes(r.url));
   const top = [
     ...rows.map((r: Loose) => ({ id: 'url:' + r.url, on: isOn(r), title: `"${r.label}" বাটন`, desc: `জায়গা: উপরের মেনু, সার্চ বারের পাশে · লিংক: ${r.url}` })),
     ...fixed.map((k: string | number) => ({ id: k, on: s[FIXED[k].key] !== '0', title: `"${FIXED[k].label}" বাটন`, desc: `জায়গা: উপরের মেনু · ${FIXED[k].desc}` })),

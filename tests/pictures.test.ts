@@ -5,11 +5,12 @@ import assert from 'node:assert/strict';
 import { renderHtml, loadRenderer } from '../lib/react/render';
 import * as shop from '../lib/views/shop';
 import type { Settings } from '../lib/types';
+import type { Product } from '../lib/models/catalog';
 
 before(loadRenderer); // the original router's text renderer (lib/react/render.tsx)
 
 const s = { store_name: 'সবমিলবে' } as unknown as Settings;
-const product = (i: number, extra: Record<string, unknown> = {}) => ({ id: i, name: `পণ্য ${i}`, slug: `p${i}`, price: 100, stock: 5, image_id: 10 + i, ...extra });
+const product = (i: number, extra: Record<string, unknown> = {}) => ({ id: i, name: `পণ্য ${i}`, slug: `p${i}`, price: 100, stock: 5, image_id: 10 + i, ...extra }) as unknown as Product;
 const imgs = (h: string) => h.match(/<img [^>]*>/g) || [];
 
 test('a card on ImageKit links straight to the small ImageKit picture', () => {

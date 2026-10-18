@@ -22,7 +22,7 @@ import { siteUrl, blockedBots } from '../gate';
 import { int, str, esc } from '../util';
 import { allow, json, tooMany, type ApiCtx } from '../next/api';
 import type { Body, Loose } from '../types';
-import type { BlogPostsRow, BrandsRow, CategoriesRow, KitsRow, PagesRow, ProductsRow } from '../data/rows';
+import type { BlogPostsRow, BrandsRow, CategoriesRow, KitsRow, MediaRow, PagesRow, ProductsRow } from '../data/rows';
 
 /** The original code's plain answer: its type, never kept unless said, the shop's security headers. */
 function text(status: number, body: BodyInit | null, type = 'text/html; charset=utf-8', extra: Record<string, string> = {}): Response {
@@ -68,7 +68,7 @@ export async function mediaWatermarked(ctx: ApiCtx) {
   const raw = ctx.query.get('raw') === '1';
   const settings = ctx.settings;
   const ver = settings.wm_on === '1' ? String(settings.wm_ver || '') : '';
-  const m = ver ? await catalog.getWatermarked(id, ver) : await catalog.getMedia(id, false);
+  const m: Pick<MediaRow, 'mime' | 'data' | 'ik_url'> & Partial<Pick<MediaRow, 'wm' | 'wm_url'>> | null = ver ? await catalog.getWatermarked(id, ver) : await catalog.getMedia(id, false);
   if (!m) return notFound();
   if (m.wm_url) return fromImageKit(m.wm_url, 'image/jpeg', raw);
   if (!m.wm && m.ik_url) return fromImageKit(m.ik_url, m.mime, raw);

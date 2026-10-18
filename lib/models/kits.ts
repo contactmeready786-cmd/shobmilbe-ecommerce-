@@ -11,6 +11,10 @@ import type { KitsRow, ProductsRow } from '../data/rows';
 
 class KitError extends Error {}
 
+export type KitItem = { id: number; product_id: number; qty: number; optional: boolean; note: string; name: string; slug: string; sku: string; price: number; stock: number; image_id: number | null; emoji: string; active: boolean; variant_count: number; product_type: string };
+export type Kit = KitsRow & { items: KitItem[] };
+export type ShopKit = KitsRow & { items: (KitItem & { product: $catalog.Product })[] };
+
 type ListOpts = {
   activeOnly?: boolean;
 };
@@ -23,23 +27,25 @@ type GetOpts = {
   id?: string;
   slug?: string;
 };
-async function get({ id, slug }: GetOpts) {
-  const k = await db.one(`SELECT * FROM kits WHERE ${id ? 'id=$1' : 'slug=$1'}`, [id ? int(id) : String(slug || '')]);
-  if (!k) return null;
-  k.items = await db.q<{ id: number; product_id: number; qty: number; optional: boolean; note: string; name: string; slug: string; sku: string; price: number; stock: number; image_id: number | null; emoji: string; active: boolean; variant_count: number; product_type: string }>(`SELECT i.id, i.product_id, i.qty, i.optional, i.note, p.name, p.slug, p.sku, p.price, p.stock, p.image_id, p.emoji, p.active,
+async function get({ id, slug }: GetOpts): Promise<Kit | null> {
+  const row = await db.one<KitsRow>(`SELECT * FROM kits WHERE ${id ? 'id=$1' : 'slug=$1'}`, [id ? int(id) : String(slug || '')]);
+  if (!row) return null;
+  const k = row as Kit;
+  k.items = await db.q<KitItem>(`SELECT i.id, i.product_id, i.qty, i.optional, i.note, p.name, p.slug, p.sku, p.price, p.stock, p.image_id, p.emoji, p.active,
       p.variant_count, p.product_type
     FROM kit_items i JOIN products p ON p.id=i.product_id WHERE i.kit_id=$1 ORDER BY i.optional, i.sort, i.id`, [k.id]);
   return k;
 }
 // The shop side: prices the customer pays now (flash sale counts), only parts that are switched on.
-async function forShop(slug: string) {
+async function forShop(slug: string): Promise<ShopKit | null> {
   const k = await get({ slug });
   if (!k || !k.active) return null;
   const catalog = $catalog;
-  const prods = await catalog.getProductsByIds(k.items.map((i: Loose) => i.product_id), { public: true });
+  const prods = await catalog.getProductsByIds(k.items.map((i) => i.product_id), { public: true });
   const byId = new Map(prods.map((p) => [p.id, p]));
-  k.items = k.items.filter((i: { product_id: number; }) => byId.has(i.product_id)).map((i: { product_id: number; }) => ({ ...i, product: byId.get(i.product_id) }));
-  return k;
+  const shown = k as unknown as ShopKit;
+  shown.items = k.items.filter((i) => byId.has(i.product_id)).map((i) => ({ ...i, product: byId.get(i.product_id)! }));
+  return shown;
 }
 async function kitsWith(productId?: Id) {
   return db.q<Pick<KitsRow, 'id' | 'slug' | 'title'>>(`SELECT DISTINCT k.id, k.slug, k.title FROM kits k JOIN kit_items i ON i.kit_id=k.id WHERE k.active AND i.product_id=$1 ORDER BY k.title LIMIT 5`, [int(productId)]);

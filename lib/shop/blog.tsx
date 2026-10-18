@@ -22,7 +22,7 @@ export async function blogPostPage(slug: string, settings: Settings) {
   const parts = md.render(post.content, { productCard: true }).split(/<!--product:([^>]+)-->/);
   // the first 10 product lines become cards (any later ones show nothing)
   const slugs = [...new Set(parts.filter((_, i) => i % 2 && i < 20))];
-  const cards: Record<string, unknown> = {};
+  const cards: Record<string, catalog.Product> = {};
   for (const s of slugs) {
     const p = (await catalog.getProduct({ slug: s, public: true }));
     if (p && p.active) cards[s] = p;

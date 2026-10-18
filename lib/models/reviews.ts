@@ -26,8 +26,9 @@ async function orderHas(orderId?: Id, productId?: Id) {
     [orderId, productId, JSON.stringify([{ product_id: productId }])]));
 }
 // The products of a delivered order and whether each one already has a review from this order.
-async function forOrder(orderId?: Id) {
-  return q(`SELECT DISTINCT ON (i.product_id) i.product_id, i.name, p.slug, p.active, r.id AS review_id, r.rating, r.status
+export type OrderReviewItem = { product_id: number; name: string; slug: string | null; active: boolean | null; review_id: number | null; rating: number | null; status: string | null };
+async function forOrder(orderId?: Id): Promise<OrderReviewItem[]> {
+  return q<OrderReviewItem>(`SELECT DISTINCT ON (i.product_id) i.product_id, i.name, p.slug, p.active, r.id AS review_id, r.rating, r.status
     FROM order_items i LEFT JOIN products p ON p.id=i.product_id LEFT JOIN reviews r ON r.order_id=i.order_id AND r.product_id=i.product_id
     WHERE i.order_id=$1 AND i.product_id IS NOT NULL ORDER BY i.product_id`, [orderId]);
 }
@@ -86,12 +87,14 @@ async function submit({ code, productId, name, rating, body, ip, photos }: Submi
   });
 }
 
-async function forProduct(productId?: Id, limit = 30) {
+export type ShownReview = Pick<ReviewsRow, 'id' | 'name' | 'rating' | 'body' | 'reply' | 'verified' | 'photos' | 'created_at'>;
+export type ReviewStats = { count: number; avg: number; dist: Record<string, number> };
+async function forProduct(productId?: Id, limit = 30): Promise<{ reviews: ShownReview[]; stats: ReviewStats }> {
   const pid = int(productId);
   const [rows, stats] = await Promise.all([
-    q(`SELECT id, name, rating, body, reply, verified, photos, created_at FROM reviews WHERE product_id=$1 AND status='approved'
+    q<ShownReview>(`SELECT id, name, rating, body, reply, verified, photos, created_at FROM reviews WHERE product_id=$1 AND status='approved'
       ORDER BY verified DESC, created_at DESC LIMIT $2`, [pid, limit]),
-    q(`SELECT rating, count(*)::int AS n FROM reviews WHERE product_id=$1 AND status='approved' GROUP BY rating`, [pid]),
+    q<{ rating: number; n: number }>(`SELECT rating, count(*)::int AS n FROM reviews WHERE product_id=$1 AND status='approved' GROUP BY rating`, [pid]),
   ]);
   const dist: Record<string, number> = {};
   let count = 0; let sum = 0;

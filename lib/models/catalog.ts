@@ -10,7 +10,7 @@ import * as imagekit from '../services/imagekit';
 import * as $crypto from 'node:crypto';
 import type { DbRow, Param, Tx } from '../pg';
 import type { Body } from '../types';
-import type { BrandsRow, BundleItemsRow, CategoriesRow, MediaRow, ProductsRow } from '../data/rows';
+import type { ActivityLogRow, BrandsRow, BundleItemsRow, CategoriesRow, MediaRow, ProductsRow, StockMovementsRow } from '../data/rows';
 
 type Id = number | string | null | undefined;
 /** A category row plus what categoryTree() adds. */
@@ -52,8 +52,8 @@ async function keepPrivate(id?: Id): Promise<void> {
   await q('INSERT INTO ik_trash(file_id) VALUES($1) ON CONFLICT DO NOTHING', [m.ik_id]);
 }
 // Older pictures get their fingerprint later, from the admin's browser.
-async function mediaWithoutHash(limit = 40): Promise<DbRow[]> {
-  return q(`SELECT id FROM media WHERE owner_type='product' AND phash IS NULL ORDER BY id DESC LIMIT $1`, [limit]);
+async function mediaWithoutHash(limit = 40): Promise<Pick<MediaRow, 'id'>[]> {
+  return q<Pick<MediaRow, 'id'>>(`SELECT id FROM media WHERE owner_type='product' AND phash IS NULL ORDER BY id DESC LIMIT $1`, [limit]);
 }
 async function setMediaHash(id: Id, phash: unknown, phashM: unknown): Promise<void> {
   const h = cleanHash(phash);
@@ -62,11 +62,11 @@ async function setMediaHash(id: Id, phash: unknown, phashM: unknown): Promise<vo
 }
 // ---------------------------------------------------------------- watermark copies
 // Product pictures whose marked copy is missing or was made with older watermark settings.
-async function mediaNeedingWatermark(ver: string, limit = 6): Promise<DbRow[]> {
-  return q(`SELECT id FROM media WHERE owner_type='product' AND wm_ver IS DISTINCT FROM $1 ORDER BY id DESC LIMIT $2`, [ver, limit]);
+async function mediaNeedingWatermark(ver: string, limit = 6): Promise<Pick<MediaRow, 'id'>[]> {
+  return q<Pick<MediaRow, 'id'>>(`SELECT id FROM media WHERE owner_type='product' AND wm_ver IS DISTINCT FROM $1 ORDER BY id DESC LIMIT $2`, [ver, limit]);
 }
-async function watermarkProgress(ver: string): Promise<DbRow | null> {
-  return one(`SELECT count(*)::int AS total, count(*) FILTER (WHERE wm_ver = $1)::int AS done FROM media WHERE owner_type='product'`, [ver]);
+async function watermarkProgress(ver: string): Promise<{ total: number; done: number } | null> {
+  return one<{ total: number; done: number }>(`SELECT count(*)::int AS total, count(*) FILTER (WHERE wm_ver = $1)::int AS done FROM media WHERE owner_type='product'`, [ver]);
 }
 async function setWatermark(id: Id, ver: string, data: Buffer | null): Promise<void> {
   if (data && imagekit.configured()) {
@@ -79,13 +79,13 @@ async function setWatermark(id: Id, ver: string, data: Buffer | null): Promise<v
   await q('UPDATE media SET wm=$1, wm_url=NULL, wm_ik_id=NULL, wm_ver=$2 WHERE id=$3 AND owner_type=$4', [data, ver, int(id), 'product']);
 }
 // The marked copy when it matches the current settings (null → show the normal picture).
-async function getWatermarked(id: Id, ver: string): Promise<DbRow | null> {
-  return one(`SELECT mime, CASE WHEN wm IS NOT NULL AND wm_ver = $2 THEN wm END AS wm, CASE WHEN wm_url IS NOT NULL AND wm_ver = $2 THEN wm_url END AS wm_url, data, ik_url FROM media WHERE id=$1
+async function getWatermarked(id: Id, ver: string): Promise<Pick<MediaRow, 'mime' | 'wm' | 'wm_url' | 'data' | 'ik_url'> | null> {
+  return one<Pick<MediaRow, 'mime' | 'wm' | 'wm_url' | 'data' | 'ik_url'>>(`SELECT mime, CASE WHEN wm IS NOT NULL AND wm_ver = $2 THEN wm END AS wm, CASE WHEN wm_url IS NOT NULL AND wm_ver = $2 THEN wm_url END AS wm_url, data, ik_url FROM media WHERE id=$1
     AND (owner_type IS NULL OR owner_type NOT IN ('staff', 'trash:staff', 'return', 'complaint', 'review_wait'))`, [id, ver]);
 }
-async function getMedia(id?: Id, wantThumb?: boolean): Promise<DbRow | null> {
+async function getMedia(id?: Id, wantThumb?: boolean): Promise<Pick<MediaRow, 'mime' | 'data' | 'ik_url'> | null> {
   // staff profile pictures are private: only the admin sees them (/admin/avatar/<staff id>)
-  return one(`SELECT mime, ${wantThumb ? 'coalesce(thumb, data)' : 'data'} AS data, ik_url FROM media WHERE id=$1
+  return one<Pick<MediaRow, 'mime' | 'data' | 'ik_url'>>(`SELECT mime, ${wantThumb ? 'coalesce(thumb, data)' : 'data'} AS data, ik_url FROM media WHERE id=$1
     AND (owner_type IS NULL OR owner_type NOT IN ('staff', 'trash:staff', 'return', 'complaint', 'review_wait'))`, [id]);
 }
 // Give media rows to an owner in the given order; that owner's other media are removed.
@@ -311,7 +311,7 @@ export type Product = {
   flash_price?: number | null; cost_price?: number | null; damaged_stock?: number; supplier_id?: number | null; location?: string;
 };
 /** One product with its pictures, its bundle parts and its variants (getProduct). */
-export type FullProduct = Product & { images: number[]; bundle: DbRow[]; variants: Product[] };
+export type FullProduct = Product & { images: number[]; bundle: BundlePart[]; variants: Product[] };
 
 async function listProducts(opts: ProductFilter = {}): Promise<Product[]> {
   const params: Param[] = [];
@@ -331,11 +331,12 @@ async function countProducts(opts: ProductFilter = {}): Promise<number> {
   return (await one(`SELECT count(*)::int AS n FROM products p LEFT JOIN categories c ON c.id=p.category_id ${where}`, params))!.n;
 }
 // Counts for the small summary chips above the admin product list.
-async function productStats({ type }: { type?: string } = {}): Promise<DbRow | null> {
+type ProductStats = { total: number; active: number; hidden: number; out: number; low: number };
+async function productStats({ type }: { type?: string } = {}): Promise<ProductStats | null> {
   const params: Param[] = [];
   let where = 'WHERE p.parent_id IS NULL';
   if (type) { params.push(type); where += ` AND p.product_type=$1`; }
-  return one(`SELECT count(*)::int AS total,
+  return one<ProductStats>(`SELECT count(*)::int AS total,
       count(*) FILTER (WHERE p.active)::int AS active,
       count(*) FILTER (WHERE NOT p.active)::int AS hidden,
       count(*) FILTER (WHERE (${STOCK_EXPR}) <= 0)::int AS out,
@@ -362,8 +363,9 @@ async function getProductsByIds(ids: unknown[], { includeInactive = false, publi
   return q<Product>(`SELECT ${colsFor({ public: pub })} FROM products p LEFT JOIN categories c ON c.id=p.category_id
             WHERE p.id = ANY($1::int[]) ${includeInactive ? '' : 'AND p.active AND (p.parent_id IS NULL OR EXISTS (SELECT 1 FROM products pp WHERE pp.id=p.parent_id AND pp.active))'}`, [clean]);
 }
-async function bundleItems(bundleId: number, pub = false): Promise<DbRow[]> {
-  return q(`SELECT bi.product_id, bi.qty, p.name, p.sku, p.stock, p.price, ${pub ? '' : 'p.cost_price, '}p.image_id, p.emoji
+export type BundlePart = Pick<BundleItemsRow, 'product_id' | 'qty'> & Pick<ProductsRow, 'name' | 'sku' | 'stock' | 'price' | 'image_id' | 'emoji'> & { cost_price?: number };
+async function bundleItems(bundleId: number, pub = false): Promise<BundlePart[]> {
+  return q<BundlePart>(`SELECT bi.product_id, bi.qty, p.name, p.sku, p.stock, p.price, ${pub ? '' : 'p.cost_price, '}p.image_id, p.emoji
             FROM bundle_items bi JOIN products p ON p.id=bi.product_id WHERE bi.bundle_id=$1 ORDER BY bi.id`, [bundleId]);
 }
 
@@ -437,8 +439,9 @@ async function logPriceChange(t: Tx, productId: number, before: PriceFields, aft
       [staffId || null, productId, `${name}: কেনা দাম ${moneyTxt(n2(before.cost_price || 0))} → ${moneyTxt(n2(after.cost_price || 0))}${tag}`.slice(0, 500)]);
   }
 }
-async function priceHistory(productId: number, { withCost = false, limit = 30 }: { withCost?: boolean; limit?: number } = {}): Promise<DbRow[]> {
-  return q(`SELECT a.action, a.detail, a.created_at, s.name AS staff_name FROM activity_log a LEFT JOIN staff s ON s.id=a.staff_id
+type PriceChange = Pick<ActivityLogRow, 'action' | 'detail' | 'created_at'> & { staff_name: string | null };
+async function priceHistory(productId: number, { withCost = false, limit = 30 }: { withCost?: boolean; limit?: number } = {}): Promise<PriceChange[]> {
+  return q<PriceChange>(`SELECT a.action, a.detail, a.created_at, s.name AS staff_name FROM activity_log a LEFT JOIN staff s ON s.id=a.staff_id
     WHERE a.entity='product' AND a.entity_id=$1 AND a.action = ANY($2::text[]) ORDER BY a.created_at DESC, a.id DESC LIMIT $3`,
   [productId, withCost ? ['price_change', 'cost_change'] : ['price_change'], limit]);
 }
@@ -499,11 +502,11 @@ async function correctCost(productId: Id, cost: unknown, reason: unknown, staffI
 // ---------------------------------------------------------------- brands
 // 🔧 Spec filters for a shop list: the specifications that many of its products share (e.g. ভোল্টেজ: 5V / 12V / 24V).
 // A spec shows when ≥2 products have it with 2–15 different short values. Spelling of the name/value: the most common one.
-type SpecFacet = { key: string; label: string; total: number; values: { value: string; label: string; n: number }[] };
+export type SpecFacet = { key: string; label: string; total: number; values: { value: string; label: string; n: number }[] };
 async function specFacets(opts: ProductFilter = {}): Promise<SpecFacet[]> {
   const params: Param[] = [];
   const where = productWhere({ ...opts, specs: null }, params);
-  const rows = await q(`SELECT lower(trim(e->>0)) AS k, lower(trim(e->>1)) AS v, mode() WITHIN GROUP (ORDER BY trim(e->>0)) AS kl,
+  const rows = await q<{ k: string; v: string; kl: string; vl: string; n: number }>(`SELECT lower(trim(e->>0)) AS k, lower(trim(e->>1)) AS v, mode() WITHIN GROUP (ORDER BY trim(e->>0)) AS kl,
       mode() WITHIN GROUP (ORDER BY trim(e->>1)) AS vl, count(DISTINCT p.id)::int AS n
     FROM products p LEFT JOIN categories c ON c.id=p.category_id,
       jsonb_array_elements(CASE WHEN jsonb_typeof(p.specs)='array' THEN p.specs ELSE '[]'::jsonb END) e
@@ -523,19 +526,21 @@ async function specFacets(opts: ProductFilter = {}): Promise<SpecFacet[]> {
 }
 
 // Brands among the products a shop list shows (for the brand filter), with how many products each has.
-async function brandsIn(opts: ProductFilter = {}): Promise<DbRow[]> {
+export type BrandCount = Pick<BrandsRow, 'id' | 'name' | 'slug'> & { n: number };
+async function brandsIn(opts: ProductFilter = {}): Promise<BrandCount[]> {
   const params: Param[] = [];
   const where = productWhere({ ...opts, brandIds: null, brandId: null }, params);
-  return q(`SELECT b.id, b.name, b.slug, count(*)::int AS n FROM products p LEFT JOIN categories c ON c.id=p.category_id
+  return q<BrandCount>(`SELECT b.id, b.name, b.slug, count(*)::int AS n FROM products p LEFT JOIN categories c ON c.id=p.category_id
     JOIN brands b ON b.id=p.brand_id AND b.active ${where} GROUP BY b.id ORDER BY count(*) DESC, b.name LIMIT 40`, params);
 }
-async function listBrands({ activeOnly = false }: { activeOnly?: boolean } = {}): Promise<DbRow[]> {
-  return q(`SELECT b.*, (SELECT count(*)::int FROM products p WHERE p.brand_id=b.id) AS product_count,
+export type BrandListed = BrandsRow & { product_count: number; active_count: number };
+async function listBrands({ activeOnly = false }: { activeOnly?: boolean } = {}): Promise<BrandListed[]> {
+  return q<BrandListed>(`SELECT b.*, (SELECT count(*)::int FROM products p WHERE p.brand_id=b.id) AS product_count,
       (SELECT count(*)::int FROM products p WHERE p.brand_id=b.id AND p.active) AS active_count
     FROM brands b ${activeOnly ? 'WHERE b.active' : ''} ORDER BY b.sort, lower(b.name)`);
 }
-async function getBrand({ id, slug }: { id?: Id; slug?: string }): Promise<DbRow | null> {
-  return one(`SELECT * FROM brands WHERE ${id ? 'id=$1' : 'slug=$1'}`, [id || slug]);
+async function getBrand({ id, slug }: { id?: Id; slug?: string }): Promise<BrandsRow | null> {
+  return one<BrandsRow>(`SELECT * FROM brands WHERE ${id ? 'id=$1' : 'slug=$1'}`, [id || slug]);
 }
 type BrandInput = { id?: Id; name: unknown; logoId?: unknown; description?: unknown; seoTitle?: unknown; seoDescription?: unknown; active?: boolean; sort?: unknown; noindex?: boolean };
 async function saveBrand({ id, name, logoId, description, seoTitle, seoDescription, active, sort, noindex = false }: BrandInput): Promise<number> {
@@ -602,15 +607,15 @@ async function setLinks(t: Tx, productId: number, kind: string, skus: unknown): 
   }
   return missing;
 }
-async function linkedProducts(productId: Id, kind: string, limit = 8): Promise<DbRow[]> {
-  return q(`SELECT ${PUBLIC_COLS} FROM product_links l JOIN products p ON p.id=l.linked_id LEFT JOIN categories c ON c.id=p.category_id
+async function linkedProducts(productId: Id, kind: string, limit = 8): Promise<Product[]> {
+  return q<Product>(`SELECT ${PUBLIC_COLS} FROM product_links l JOIN products p ON p.id=l.linked_id LEFT JOIN categories c ON c.id=p.category_id
     WHERE l.product_id=$1 AND l.kind=$2 AND p.active ORDER BY l.sort LIMIT $3`, [int(productId), kind, limit]);
 }
 // Cart suggestions: what the cart's products list as "goes with", minus what is already in the cart.
-async function crossFor(ids: unknown[] | null | undefined, limit = 6): Promise<DbRow[]> {
+async function crossFor(ids: unknown[] | null | undefined, limit = 6): Promise<Product[]> {
   const clean = (ids || []).map((x) => int(x)).filter((x) => x > 0);
   if (!clean.length) return [];
-  return q(`SELECT DISTINCT ON (p.id) ${PUBLIC_COLS} FROM product_links l JOIN products p ON p.id=l.linked_id LEFT JOIN categories c ON c.id=p.category_id
+  return q<Product>(`SELECT DISTINCT ON (p.id) ${PUBLIC_COLS} FROM product_links l JOIN products p ON p.id=l.linked_id LEFT JOIN categories c ON c.id=p.category_id
     WHERE l.product_id = ANY($1::int[]) AND l.kind='cross' AND p.active AND p.stock > 0 AND NOT (p.id = ANY($1::int[])) ORDER BY p.id LIMIT $2`, [clean, limit]);
 }
 
@@ -899,8 +904,9 @@ async function stockParts(t: Tx, productId: number, qty: number): Promise<StockP
 // 📍 "বক্স ৩" / "box 3" / "B3" all look the same in lists: trimmed, single spaces, at most 40 letters
 function cleanLocation(v: unknown): string { return String(v || '').replace(/\s+/g, ' ').trim().slice(0, 40); }
 // every box / shelf name already used, with how many products sit there (for the suggestions and the box list)
-async function listLocations(): Promise<DbRow[]> {
-  return q(`SELECT location, count(*)::int AS products, coalesce(sum(greatest(stock, 0)), 0)::int AS units FROM products
+export type LocationCount = { location: string; products: number; units: number };
+async function listLocations(): Promise<LocationCount[]> {
+  return q<LocationCount>(`SELECT location, count(*)::int AS products, coalesce(sum(greatest(stock, 0)), 0)::int AS units FROM products
     WHERE location <> '' AND variant_count = 0 GROUP BY location ORDER BY length(location), location`);
 }
 
@@ -925,7 +931,7 @@ const OPEN_STATUSES = ['pending', 'confirmed', 'processing', 'hold'];
 async function reservedFor(ids: unknown[] | null | undefined): Promise<Map<number, number>> {
   const clean = (ids || []).map((x) => int(x)).filter((x) => x > 0);
   if (!clean.length) return new Map<number, number>();
-  const rows = await q(`SELECT pid, sum(qty)::int AS qty FROM (
+  const rows = await q<{ pid: number; qty: number }>(`SELECT pid, sum(qty)::int AS qty FROM (
       SELECT CASE WHEN c.value IS NULL THEN oi.product_id ELSE (c.value->>'product_id')::int END AS pid,
              CASE WHEN c.value IS NULL THEN oi.qty ELSE (c.value->>'qty')::int END AS qty
       FROM order_items oi JOIN orders o ON o.id=oi.order_id
@@ -934,18 +940,20 @@ async function reservedFor(ids: unknown[] | null | undefined): Promise<Map<numbe
     WHERE pid = ANY($1::int[]) GROUP BY pid`, [clean, OPEN_STATUSES]);
   return new Map(rows.map((r): [number, number] => [r.pid, r.qty]));
 }
-async function stockMovements({ productId, limit = 100 }: { productId?: Id; limit?: number } = {}): Promise<DbRow[]> {
+export type StockMove = StockMovementsRow & { product_name: string | null; sku: string | null; staff_name: string | null };
+async function stockMovements({ productId, limit = 100 }: { productId?: Id; limit?: number } = {}): Promise<StockMove[]> {
   const params: Param[] = [];
   let where = '';
   if (productId) { params.push(productId); where = 'WHERE m.product_id=$1'; }
   params.push(limit);
-  return q(`SELECT m.*, p.name AS product_name, p.sku, s.name AS staff_name FROM stock_movements m
+  return q<StockMove>(`SELECT m.*, p.name AS product_name, p.sku, s.name AS staff_name FROM stock_movements m
             LEFT JOIN products p ON p.id=m.product_id LEFT JOIN staff s ON s.id=m.staff_id
             ${where} ORDER BY m.created_at DESC, m.id DESC LIMIT $${params.length}`, params);
 }
 
-async function inventorySummary(): Promise<DbRow | null> {
-  return one(`SELECT count(*)::int AS products,
+export type InventorySummary = { products: number; units: number; damaged: number; damaged_products: number; damaged_value: number; cost_value: number; sale_value: number; low: number; out: number };
+async function inventorySummary(): Promise<InventorySummary | null> {
+  return one<InventorySummary>(`SELECT count(*)::int AS products,
       coalesce(sum(stock),0)::int AS units,
       coalesce(sum(damaged_stock),0)::int AS damaged,
       count(*) FILTER (WHERE damaged_stock > 0)::int AS damaged_products,

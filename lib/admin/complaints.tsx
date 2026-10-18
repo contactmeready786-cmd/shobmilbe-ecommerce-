@@ -7,13 +7,13 @@ import * as db from '../db';
 import * as ui from './ui';
 import * as C from '../models/complaints';
 import type { AdminCtx, Loose, RouteMatch } from '../types';
-import type { MediaRow, StaffRow } from '../data/rows';
+import type { ComplaintsRow, MediaRow, StaffRow } from '../data/rows';
 
 const BASE = '/admin/complaints';
 const PER_PAGE = 40;
 const PILL: Record<string, string> = { open: 'pill-new', working: 'pill-processing', solved: 'pill-delivered', closed: 'pill-grey' };
 
-function timePill(c: db.pg.DbRow) {
+function timePill(c: Pick<ComplaintsRow, 'status' | 'due_at' | 'resolved_at'>) {
   const t = C.timeLeft(c);
   if (!t) return c.resolved_at ? <span className="small muted">{(c.resolved_at <= c.due_at ? "✓ সময়মতো" : "⚠️ দেরিতে")}{' '}শেষ</span> : '';
   return <span className={`pill ${t.late ? 'pill-red' : t.soon ? 'pill-amber' : 'pill-green'}`}>⏱️{' '}<Val v={t.text} /></span>;

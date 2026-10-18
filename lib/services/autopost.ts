@@ -291,14 +291,14 @@ async function buildEngagement(settings: Settings, kind: string) {
     const K = $models_kits;
     const kit = await K.forShop(pick.slug);
     if (!kit || !kit.items.length) return buildEngagement(settings, 'tip');
-    const need = kit.items.filter((i: Loose) => !i.optional);
-    const total = need.reduce((t: number, i: Loose) => t + Number(i.product.price) * i.qty, 0);
+    const need = kit.items.filter((i) => !i.optional);
+    const total = need.reduce((t: number, i) => t + Number(i.product.price) * i.qty, 0);
     const steps = K.stepList(kit);
-    const photo = kit.image_id ? { image_id: kit.image_id } : (kit.items.find((i: Loose) => i.product.image_id) || {}).product || null;
+    const photo: { id?: number; image_id: number | null; name?: string } | null = kit.image_id ? { image_id: kit.image_id } : (kit.items.find((i) => i.product.image_id) || { product: null }).product || null;
     const link = `${siteBase(settings)}/kit/${encodeURIComponent(kit.slug)}?utm_source=facebook&utm_medium=social&utm_campaign=kit`;
     const text = [`🛠️ আজকের প্রজেক্ট: ${kit.title}`, '',
       md.plain(kit.description, 300), '',
-      '🔩 যা যা লাগবে:', ...need.slice(0, 8).map((i: Loose) => `• ${shortName(i.product.name)}${i.qty > 1 ? ` × ${bn(i.qty)}` : ''}`),
+      '🔩 যা যা লাগবে:', ...need.slice(0, 8).map((i) => `• ${shortName(i.product.name)}${i.qty > 1 ? ` × ${bn(i.qty)}` : ''}`),
       need.length > 8 ? `• …আরও ${bn(need.length - 8)}টা` : null, '',
       `💰 সব পার্টস মিলিয়ে প্রায় ${money(total)}${kit.level ? ` · 📶 ${kit.level}` : ''}${kit.duration ? ` · ⏱️ ${kit.duration}` : ''}`,
       `📋 ${bn(steps.length)}টি ধাপে বানানোর নিয়ম আর এক চাপে সব পার্টস কার্টে: ${link}`, '',
