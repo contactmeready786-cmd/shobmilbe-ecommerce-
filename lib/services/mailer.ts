@@ -6,6 +6,7 @@
 //    order mails and codes.
 //  - Every mail is written to email_log (opened / clicked are noted through a tiny picture and the shop's own links).
 //  - Automatic mails (tick, every hour): welcome, the weekly "new products", a review request after delivery, "we miss you".
+import type { EmailSubsRow } from '../data/rows';
 import * as crypto from 'node:crypto';
 import * as db from '../db';
 import { safeFetch } from './safefetch';
@@ -85,7 +86,7 @@ async function unsubscribe(token: unknown) {
 async function bySubToken(token: unknown) {
   const t = String(token || '').slice(0, 60);
   if (!/^[A-Za-z0-9_-]{20,40}$/.test(t)) return null;
-  return db.one('SELECT * FROM email_subs WHERE token=$1', [t]);
+  return db.one<EmailSubsRow>('SELECT * FROM email_subs WHERE token=$1', [t]);
 }
 
 // ---------------------------------------------------------------- the mail itself

@@ -1,6 +1,7 @@
 // Small shop helpers that customers use on the product page:
 //   🔔 "স্টকে এলে জানাও" — a mobile number left on an out-of-stock product; an SMS goes out when it is back
 //   ❓ প্রশ্ন-উত্তর      — customers ask about a product; the shop answers; answered questions show on the page
+import type { ProductQuestionsRow } from '../data/rows';
 
 // ---------------------------------------------------------------- stock alerts
 import * as db from '../db';
@@ -143,7 +144,7 @@ async function questionCounts() {
 // Save the shop's answer. publish=false keeps it hidden. Returns the question (for the "answered" SMS).
 async function answerQuestion(id: Id, { answer, publish, question }: Body, staffId?: Id) {
   const a = str(answer, 1500);
-  const q = await db.one('SELECT * FROM product_questions WHERE id=$1', [int(id)]);
+  const q = await db.one<ProductQuestionsRow>('SELECT * FROM product_questions WHERE id=$1', [int(id)]);
   if (!q) throw new UserError('প্রশ্নটা পাওয়া যায়নি।');
   const status = publish && a ? 'published' : a ? 'hidden' : q.status === 'published' ? 'pending' : q.status;
   const fixedQ = str(question, 500) || q.question;

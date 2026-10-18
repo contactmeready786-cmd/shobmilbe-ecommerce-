@@ -1,6 +1,7 @@
 // 🧭 The shop's main pages — home, product lists (all products, a category, a brand, search, offers) and product
 // pages — as data: the page's title, its React body and its settings (canonical link, data for Google, tracking …).
 // Used by the Next.js pages (app/(shop)) and by the original router (lib/site.ts), so both always show the same page.
+import type { HomeRowsRow } from '../data/rows';
 import type { ReactNode } from 'react';
 import * as db from '../db';
 import * as catalog from '../models/catalog';
@@ -92,7 +93,7 @@ export async function resolveShop(ctx: ShopCtx): Promise<Resolved> {
     const customKeys = sections.filter((k: Loose) => /^x\d+$/.test(k));
     if (customKeys.length) {
       const H = $models_homerows;
-      const rows = await db.q('SELECT * FROM home_rows WHERE id = ANY($1::int[])', [customKeys.map((k: Loose) => H.idOf(k))]).catch(() => []);
+      const rows = await db.q<HomeRowsRow>('SELECT * FROM home_rows WHERE id = ANY($1::int[])', [customKeys.map((k: Loose) => H.idOf(k))]).catch(() => []);
       await Promise.all(rows.map(async (r) => {
         custom[H.keyOf(r.id)] = { row: r, link: H.linkFor(r), products: await H.productsFor(r, { hideOut }).catch(() => []) };
       }));

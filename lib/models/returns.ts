@@ -2,6 +2,7 @@
 //   Customer: from a delivered order's page (or "আমার অ্যাকাউন্ট") — which items, how many, why, photos, refund number.
 //   Shop:     Admin → অর্ডার → রিটার্ন — approve / reject with a reply, "পণ্য ফেরত পেয়েছি" (each item back on the shelf,
 //             to damaged stock, or nowhere), then the refund (recorded on the order and, if chosen, in the accounts) or a replacement.
+import type { ReturnRequestsRow } from '../data/rows';
 import * as db from '../db';
 import * as security from '../security';
 import { str, int, amount, round2, randomCode, normalizePhone, validPhone } from '../util';
@@ -95,7 +96,7 @@ async function create({ order, wanted, reason, want, details, photos, refundMeth
 }
 
 async function forOrder(orderId: Id) {
-  return db.q('SELECT * FROM return_requests WHERE order_id=$1 ORDER BY id DESC', [orderId]);
+  return db.q<ReturnRequestsRow>('SELECT * FROM return_requests WHERE order_id=$1 ORDER BY id DESC', [orderId]);
 }
 async function list({ status = 'open', q = '', limit = 50, offset = 0 }: { status?: string; q?: string; limit?: number; offset?: number } = {}) {
   const params: Param[] = [];

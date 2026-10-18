@@ -2,6 +2,7 @@
 // The checkout page saves what was typed (only after a full, valid BD mobile number, and with a visible notice under the
 // phone box). When the same number orders later, the draft is marked "অর্ডার হয়েছে" by itself.
 // Admin → অর্ডার ও কাস্টমার → অসম্পূর্ণ অর্ডার: call them, turn it into an order, or drop it. Can be switched off there.
+import type { CheckoutDraftsRow } from '../data/rows';
 import * as db from '../db';
 import * as catalog from '../models/catalog';
 import { str, int, normalizePhone, validPhone } from '../util';
@@ -135,7 +136,7 @@ async function resume(id?: Id) {
   return { name: d.name, phone: d.phone, items: (d.items || []).map((i: Loose) => ({ id: int(i.id), qty: int(i.qty, 1) })).filter((i: Loose) => i.id > 0) };
 }
 
-async function get(id?: Id) { return ID_RE.test(String(id)) ? db.one('SELECT * FROM checkout_drafts WHERE id = $1', [id]) : null; }
+async function get(id?: Id) { return ID_RE.test(String(id)) ? db.one<CheckoutDraftsRow>('SELECT * FROM checkout_drafts WHERE id = $1', [id]) : null; }
 async function setStatus(id?: Id, status?: Loose, staffId?: Id) {
   if (!STATUSES[status] || !ID_RE.test(String(id))) return;
   await db.q(`UPDATE checkout_drafts SET status = $2, updated_at = now(),

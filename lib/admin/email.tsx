@@ -5,6 +5,7 @@
 //  - campaigns: subject + text + products + a button, to everyone / buyers / not-yet-buyers; sent in parts within the
 //    day's allowance by the hourly job, with sent / opened / clicked
 //  - the list: added from the footer box, the checkout tick, or pasted by the owner; one-click leave in every mail
+import type { EmailLogRow, EmailSubsRow } from '../data/rows';
 import { Val, attrValue, jsxList } from '../react/html';
 import { bn, int, str, fmtDate } from '../util';
 import * as db from '../db';
@@ -48,9 +49,9 @@ async function page(ctx: AdminCtx, note: Loose = null) {
         (SELECT count(*) FILTER (WHERE opened_at IS NOT NULL)::int FROM email_log l WHERE l.campaign_id=c.id) AS opened,
         (SELECT count(*) FILTER (WHERE clicked_at IS NOT NULL)::int FROM email_log l WHERE l.campaign_id=c.id) AS clicked
       FROM email_campaigns c LEFT JOIN staff st ON st.id=c.staff_id ORDER BY c.id DESC LIMIT 12`),
-    q ? db.q('SELECT * FROM email_subs WHERE email ILIKE $1 OR name ILIKE $1 OR phone ILIKE $1 ORDER BY id DESC LIMIT 50', [`%${q}%`])
-      : db.q('SELECT * FROM email_subs ORDER BY id DESC LIMIT 30'),
-    db.q('SELECT * FROM email_log ORDER BY id DESC LIMIT 30'),
+    q ? db.q<EmailSubsRow>('SELECT * FROM email_subs WHERE email ILIKE $1 OR name ILIKE $1 OR phone ILIKE $1 ORDER BY id DESC LIMIT 50', [`%${q}%`])
+      : db.q<EmailSubsRow>('SELECT * FROM email_subs ORDER BY id DESC LIMIT 30'),
+    db.q<EmailLogRow>('SELECT * FROM email_log ORDER BY id DESC LIMIT 30'),
   ]);
   const gmailReady = notify.emailConfig(s).ready;
   const status = !c.on ? '⚪ বন্ধ' : c.ready ? '✅ চালু' : '⚠️ সেটআপ বাকি';

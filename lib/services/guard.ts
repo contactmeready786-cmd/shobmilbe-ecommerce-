@@ -9,6 +9,7 @@
 //
 // Blocking: blocklist rows with kind 'site' shut that IP out of the whole shop (the admin panel stays open,
 // so the owner can never lock himself out). Optional auto-block for 24 hours after repeated hacking attempts.
+import type { SecurityEventsRow } from '../data/rows';
 import * as db from '../db';
 import * as security from '../security';
 import * as $notify from './notify';
@@ -143,7 +144,7 @@ async function suspects({ days = 7, ip = '' }: Body = {}) {
     ORDER BY g.last_at DESC LIMIT 200`, params);
 }
 async function events(ip?: Loose, limit: Loose = 200) {
-  return db.q(`SELECT * FROM security_events WHERE ip = $1 ORDER BY id DESC LIMIT $2`, [ip, limit]);
+  return db.q<SecurityEventsRow>(`SELECT * FROM security_events WHERE ip = $1 ORDER BY id DESC LIMIT $2`, [ip, limit]);
 }
 async function summary(days: Loose = 7) {
   return db.one(`SELECT count(DISTINCT ip)::int AS ips, count(*)::int AS n,

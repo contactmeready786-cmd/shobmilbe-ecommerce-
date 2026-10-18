@@ -205,7 +205,7 @@ async function ordersOf(cu: Pick<Customer, 'id' | 'phone'>, limit = 50) {
     FROM orders o WHERE (o.phone=$1 AND $1 <> '') OR o.customer_id=$2 OR o.account_id=$2 ORDER BY o.created_at DESC LIMIT $3`, [cu.phone || '', cu.id, limit]);
 }
 async function addresses(customerId?: Id) {
-  return db.q('SELECT * FROM customer_addresses WHERE customer_id=$1 ORDER BY is_default DESC, id DESC', [int(customerId)]);
+  return db.q<CustomerAddressesRow>('SELECT * FROM customer_addresses WHERE customer_id=$1 ORDER BY is_default DESC, id DESC', [int(customerId)]);
 }
 async function saveAddress(customerId: Id, b: Body) {
   const O = $orders;

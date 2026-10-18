@@ -11,6 +11,7 @@
 // 1 and 2 only fill what is EMPTY, never change what the owner typed, never put back something the owner removed,
 // and every change is logged with the old value, so one tap undoes it (one product or everything).
 // Runs from the round-the-clock wake-up: a few dozen products every ~10 minutes, new and edited products first.
+import type { SeoAutoLogRow } from '../data/rows';
 import * as db from '../db';
 import * as md from '../views/md';
 import { bn } from '../util';
@@ -217,7 +218,7 @@ async function sweep(settings: Settings, { force = false, max = PER_RUN }: Body 
 
 // ---------------------------------------------------------------- undo
 async function undo(logId?: Id) {
-  const l = await db.one('SELECT * FROM seo_auto_log WHERE id=$1 AND NOT undone', [Number(logId) || 0]);
+  const l = await db.one<SeoAutoLogRow>('SELECT * FROM seo_auto_log WHERE id=$1 AND NOT undone', [Number(logId) || 0]);
   if (!l) return false;
   const p = await db.one('SELECT id, model, specs FROM products WHERE id=$1', [l.product_id]);
   if (p) {

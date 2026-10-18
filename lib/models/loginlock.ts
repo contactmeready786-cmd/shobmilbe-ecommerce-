@@ -7,6 +7,7 @@
 // Modes (setting login_lock_mode):
 //   off      — password only
 //   passkey  — password + passkey on every device
+import type { OwnerPasskeysRow } from '../data/rows';
 import * as crypto from 'node:crypto';
 import { q, one } from '../db';
 import * as security from '../security';
@@ -208,7 +209,7 @@ async function loginOptions(req: ShopRequest, staffId?: Id, challenge?: Loose) {
 async function checkPasskey(req: ShopRequest, staffId?: Id, challenge?: Loose, body?: Loose) {
   const resp = body && body.response;
   if (!resp || !resp.clientDataJSON || !resp.authenticatorData || !resp.signature) throw new Error('উত্তর অসম্পূর্ণ');
-  const cred = await one('SELECT * FROM owner_passkeys WHERE cred_id=$1 AND staff_id=$2', [String(body.id || ''), staffId]);
+  const cred = await one<OwnerPasskeysRow>('SELECT * FROM owner_passkeys WHERE cred_id=$1 AND staff_id=$2', [String(body.id || ''), staffId]);
   if (!cred) throw new Error('এই পাসকি এই অ্যাকাউন্টের না');
   const rp = rpId(req);
   if (cred.rp_id !== rp) throw new Error('এই পাসকি অন্য ঠিকানার');

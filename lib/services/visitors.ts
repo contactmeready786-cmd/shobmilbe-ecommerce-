@@ -4,6 +4,7 @@
 //
 // Location comes from Vercel's geo-IP headers (x-vercel-ip-country / -country-region / -city),
 // so it works on Vercel without any paid service. Locally these headers are missing.
+import type { VisitEventsRow } from '../data/rows';
 import * as db from '../db';
 import { parseCookies, str, int } from '../util';
 import type { Body, Id, Loose, Settings, ShopRequest } from '../types';
@@ -440,7 +441,7 @@ async function getSession(id?: Id) {
   if (!s) return null;
   const [views, events, others] = await Promise.all([
     q(`SELECT pv.*, p.name AS product_name FROM page_views pv LEFT JOIN products p ON p.id = pv.product_id WHERE pv.session_id = $1 ORDER BY pv.id`, [id]),
-    q(`SELECT * FROM visit_events WHERE session_id = $1 ORDER BY id`, [id]),
+    q<VisitEventsRow>(`SELECT * FROM visit_events WHERE session_id = $1 ORDER BY id`, [id]),
     q(`SELECT id, started_at, pageviews, duration, source, order_code FROM visit_sessions WHERE visitor_id = $1 AND id <> $2 ORDER BY started_at DESC LIMIT 20`, [s.visitor_id, id]),
   ]);
   return { ...s, views, events, others };

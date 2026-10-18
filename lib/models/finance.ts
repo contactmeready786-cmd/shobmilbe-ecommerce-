@@ -1,4 +1,5 @@
 // Suppliers, purchases, money accounts, transactions and financial reports.
+import type { PurchasesRow } from '../data/rows';
 import { q, one, tx } from '../db';
 import { int, str, num, randomCode, validYmd, ymd, amount, round2 } from '../util';
 import * as catalog from './catalog';
@@ -32,7 +33,7 @@ async function listSuppliers({ includeInactive = true }: { includeInactive?: boo
 async function getSupplier(id: Id) {
   const s = (await listSuppliers()).find((x) => x.id === id);
   if (!s) return null;
-  s.purchases = await q(`SELECT * FROM purchases WHERE supplier_id=$1 ORDER BY purchase_date DESC, id DESC LIMIT 100`, [id]);
+  s.purchases = await q<PurchasesRow>(`SELECT * FROM purchases WHERE supplier_id=$1 ORDER BY purchase_date DESC, id DESC LIMIT 100`, [id]);
   s.payments = await q(`SELECT t.*, a.name AS account_name FROM transactions t LEFT JOIN accounts a ON a.id=t.account_id
                         WHERE t.supplier_id=$1 ORDER BY t.tx_date DESC, t.id DESC LIMIT 100`, [id]);
   s.products = await q(`SELECT i.product_id, i.name, sum(i.qty)::int AS qty, round(avg(i.unit_cost), 2) AS avg_cost,

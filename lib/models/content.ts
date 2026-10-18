@@ -1,4 +1,5 @@
 // Blog, pages, banners and coupons.
+import type { CouponsRow } from '../data/rows';
 
 // ---------------------------------------------------------------- blog
 import { q, one, uniqueSlug } from '../db';
@@ -109,7 +110,7 @@ async function deleteBanner(id?: Id) {
 
 // ---------------------------------------------------------------- coupons
 const COUPON_TYPES: Record<string, string> = { percent: 'শতকরা ছাড় (%)', fixed: 'নির্দিষ্ট টাকা ছাড় (৳)', free_delivery: 'ফ্রি ডেলিভারি' };
-async function listCoupons() { return q('SELECT * FROM coupons ORDER BY active DESC, created_at DESC'); }
+async function listCoupons() { return q<CouponsRow>('SELECT * FROM coupons ORDER BY active DESC, created_at DESC'); }
 async function saveCoupon(data: Body) {
   const code = str(data.code, 30).toUpperCase().replace(/[^A-Z0-9_-]/g, '');
   if (!code) throw new Error('কুপন কোড দিন (শুধু ইংরেজি অক্ষর ও সংখ্যা)।');

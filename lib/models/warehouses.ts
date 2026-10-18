@@ -4,6 +4,7 @@
 //   main = total − all other stores.
 // So nothing else in the shop changes: purchases and online orders move the main store; a transfer moves pieces
 // between stores; a counter sale at a branch (POS) takes from that branch (and from the total).
+import type { WarehousesRow } from '../data/rows';
 import * as db from '../db';
 import { str, int } from '../util';
 import type { Body, Id, Loose } from '../types';
@@ -14,7 +15,7 @@ async function list({ activeOnly = false }: Body = {}) {
   return db.q(`SELECT w.*, coalesce(sum(s.qty),0)::int AS units, count(s.product_id) FILTER (WHERE s.qty > 0)::int AS products
     FROM warehouses w LEFT JOIN warehouse_stock s ON s.warehouse_id=w.id ${activeOnly ? 'WHERE w.active' : ''} GROUP BY w.id ORDER BY w.sort, w.id`);
 }
-async function get(id?: Id) { return db.one('SELECT * FROM warehouses WHERE id=$1', [int(id)]); }
+async function get(id?: Id) { return db.one<WarehousesRow>('SELECT * FROM warehouses WHERE id=$1', [int(id)]); }
 async function save(b: Body) {
   const name = str(b.name, 80);
   if (name.length < 2) throw new WhError('গুদাম / শাখার নাম দিন।');

@@ -3,6 +3,7 @@
 // Here: per courier, which delivered parcels are still unpaid by the courier and how much that is; tick the parcels a
 // courier payment covers (or paste their consignment numbers from the courier's payment report), write what came in
 // → those parcels are marked settled, and the money (and the courier's charge) can go into the accounts.
+import type { CodSettlementsRow } from '../data/rows';
 import { Val, attrValue, jsxList } from '../react/html';
 import { int, str, bn, money, fmtDate, ymd, round2, amount } from '../util';
 import * as db from '../db';
@@ -71,7 +72,7 @@ async function save(ctx: AdminCtx) {
 
 async function undo(ctx: AdminCtx) {
   const b = await ctx.body();
-  const c = await db.one('SELECT * FROM cod_settlements WHERE id=$1', [int(b.id)]);
+  const c = await db.one<CodSettlementsRow>('SELECT * FROM cod_settlements WHERE id=$1', [int(b.id)]);
   if (!c) return ctx.back(BASE);
   await db.tx(async (t) => {
     await t.query('UPDATE orders SET cod_settlement_id=NULL, courier_fee=0 WHERE cod_settlement_id=$1', [c.id]);

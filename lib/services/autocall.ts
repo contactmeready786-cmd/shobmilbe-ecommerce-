@@ -5,6 +5,7 @@
 //   • the company calls the customer and reads the message (Bangla text-to-speech or a recorded voice),
 //   • when the customer presses a key, the company calls back /webhook/autocall/<secret> with the result,
 //   • the order is confirmed / put on hold / cancelled (as the owner chose) and the owner is notified.
+import type { AutocallsRow } from '../data/rows';
 import { emailHtml, PlainEmail } from '../emails';
 import * as crypto from 'node:crypto';
 import * as db from '../db';
@@ -168,7 +169,7 @@ async function apply(s?: Loose, row?: Loose, result?: Loose) {
 }
 
 async function forOrder(orderId?: Id) {
-  return db.q('SELECT * FROM autocalls WHERE order_id=$1 ORDER BY id DESC LIMIT 10', [orderId]).catch(() => []);
+  return db.q<AutocallsRow>('SELECT * FROM autocalls WHERE order_id=$1 ORDER BY id DESC LIMIT 10', [orderId]).catch(() => []);
 }
 
 export { STATES, PRESETS, MESSAGES, on, call, afterOrder, hook, resultOf, forOrder, ensureSecret, callbackUrl, localPhone, varsFor, fill };

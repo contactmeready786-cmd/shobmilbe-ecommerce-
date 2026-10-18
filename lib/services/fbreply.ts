@@ -10,6 +10,7 @@
 // Never: a comment the page wrote itself, a quiz answer ("ক"), a comment older than 2 days, the same comment twice,
 // more than 12 replies in one go or 150 in a day.
 // Needs two more permissions on the token: pages_read_user_content (read comments), pages_manage_engagement (reply).
+import type { ProductsRow } from '../data/rows';
 import * as db from '../db';
 import { bn, str } from '../util';
 import * as autopost from './autopost';
@@ -61,7 +62,7 @@ async function postSubject(postId?: Id) {
     if (k) return { kit: k };
   }
   if (sp.product_id && sp.kind !== 'quiz') {
-    const p = await db.one('SELECT * FROM products WHERE id=$1 AND active', [sp.product_id]).catch(() => null);
+    const p = await db.one<ProductsRow>('SELECT * FROM products WHERE id=$1 AND active', [sp.product_id]).catch(() => null);
     if (p) return { product: p };
   }
   return { quiz: sp.kind === 'quiz' };

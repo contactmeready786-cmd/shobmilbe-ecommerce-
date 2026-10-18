@@ -4,6 +4,7 @@
 //
 // Standard Web Push: VAPID (RFC 8292) to prove the message is from this site, and aes128gcm (RFC 8291) so
 // only that phone's browser can read the message. Built with Node's crypto only (no npm packages).
+import type { ShopPushSubsRow } from '../data/rows';
 import * as crypto from 'node:crypto';
 import * as db from '../db';
 import type { Body, Id, Loose } from '../types';
@@ -123,7 +124,7 @@ async function shopUnsubscribe(endpoint?: Loose) { await db.q('DELETE FROM shop_
 async function shopCount() { return (await db.one('SELECT count(*)::int AS n FROM shop_push_subs'))!.n; }
 // One batch of a campaign: the next `limit` subscribers after `afterId`. Returns { sent, failed, lastId, done }.
 async function shopSendBatch(msg?: Loose, { afterId = 0, limit = 300 }: Body = {}) {
-  const subs = await db.q('SELECT * FROM shop_push_subs WHERE id > $1 ORDER BY id LIMIT $2', [afterId, limit]);
+  const subs = await db.q<ShopPushSubsRow>('SELECT * FROM shop_push_subs WHERE id > $1 ORDER BY id LIMIT $2', [afterId, limit]);
   if (!subs.length) return { sent: 0, failed: 0, lastId: afterId, done: true };
   const v = await vapid();
   let sent = 0; let failed = 0;

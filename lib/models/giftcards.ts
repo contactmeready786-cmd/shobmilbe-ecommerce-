@@ -4,6 +4,7 @@
 //   receiver by SMS; at checkout the code pays part or all of an order. Cancelled / returned order → money back on the card.
 //   Referral: every customer has a code. A new customer who orders with it gets a discount; when that first order is
 //   delivered, the customer who shared the code gets a gift card (Admin → মার্কেটিং → রেফারেল ও গিফট কার্ড).
+import type { GiftCardsRow } from '../data/rows';
 import * as db from '../db';
 import { str, int, amount, round2, randomCode, normalizePhone, validPhone, ymd, bn } from '../util';
 import * as $services_sms from '../services/sms';
@@ -58,7 +59,7 @@ async function sendCodeSms(settings: Settings, card: DbRow | null): Promise<$ser
 
 // For the checkout box: is this a usable card, and how much is on it?
 async function check(code: unknown) {
-  const c = await db.one('SELECT * FROM gift_cards WHERE code=$1', [cleanCode(code)]);
+  const c = await db.one<GiftCardsRow>('SELECT * FROM gift_cards WHERE code=$1', [cleanCode(code)]);
   if (!c) return { ok: false, message: 'এই গিফট কার্ড কোডটা সঠিক নয়।' };
   if (c.status === 'pending') return { ok: false, message: 'এই গিফট কার্ডের পেমেন্ট এখনো যাচাই হয়নি।' };
   if (c.status === 'disabled') return { ok: false, message: 'এই গিফট কার্ড বন্ধ করা আছে।' };
@@ -125,14 +126,14 @@ async function stats() {
     coalesce(sum(initial) FILTER (WHERE status<>'pending' AND source<>'referral'),0)::numeric(14,2) AS sold,
     coalesce(sum(initial) FILTER (WHERE source='referral'),0)::numeric(14,2) AS rewards FROM gift_cards`);
 }
-async function get(id: unknown): Promise<DbRow | null> { return db.one('SELECT * FROM gift_cards WHERE id=$1', [int(id)]); }
+async function get(id: unknown): Promise<DbRow | null> { return db.one<GiftCardsRow>('SELECT * FROM gift_cards WHERE id=$1', [int(id)]); }
 async function ledger(cardId: unknown): Promise<DbRow[]> {
   return db.q(`SELECT l.*, o.code AS order_code, s.name AS staff_name FROM gift_card_ledger l LEFT JOIN orders o ON o.id=l.order_id LEFT JOIN staff s ON s.id=l.staff_id
     WHERE l.card_id=$1 ORDER BY l.id`, [int(cardId)]);
 }
 async function forPhone(phone: unknown): Promise<DbRow[]> {
   const ph = normalizePhone(phone);
-  return db.q(`SELECT * FROM gift_cards WHERE (recipient_phone=$1 OR buyer_phone=$1) ORDER BY id DESC LIMIT 30`, [ph]);
+  return db.q<GiftCardsRow>(`SELECT * FROM gift_cards WHERE (recipient_phone=$1 OR buyer_phone=$1) ORDER BY id DESC LIMIT 30`, [ph]);
 }
 async function setStatus(id: unknown, status: string, staffId?: Id, note = '') {
   if (!STATUSES[status]) throw new GiftError('অজানা অবস্থা।');

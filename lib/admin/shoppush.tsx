@@ -1,6 +1,7 @@
 // Admin → মার্কেটিং → 🔔 ফোনে অফারের নোটিফিকেশন: customers who said "yes" get a notification on their phone/computer
 // (like an app) — the owner writes the offer here and sends it. Free: no SMS cost. Works in Chrome / Edge / Firefox
 // on Android and computers, and on iPhone when the shop is added to the home screen.
+import type { PushCampaignsRow } from '../data/rows';
 import { Val, attrValue, jsxList } from '../react/html';
 import { int, str, bn, fmtDate } from '../util';
 import * as db from '../db';
@@ -48,7 +49,7 @@ async function post(ctx: AdminCtx) {
       [title, str(b.body, 160), url, int(b.image_id) || null, total, ctx.user.id]);
     if (c!.image_id) await db.q(`UPDATE media SET owner_type='push', owner_id=$1 WHERE id=$2 AND owner_type IS NULL`, [c!.id, c!.image_id]);
   } else if (b.action === 'more') {
-    c = await db.one('SELECT * FROM push_campaigns WHERE id=$1', [int(b.id)]);
+    c = await db.one<PushCampaignsRow>('SELECT * FROM push_campaigns WHERE id=$1', [int(b.id)]);
     if (!c) return ctx.back(BASE);
   } else return ctx.back(BASE);
   const cursor = int(s[`push_cursor_${c!.id}`]);

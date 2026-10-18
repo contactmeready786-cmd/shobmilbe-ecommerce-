@@ -13,6 +13,7 @@
 //   3. Scores every product: popular in other shops + sold by several shops + climbing + new +
 //      people search for it here → "উইনিং প্রোডাক্ট". For each: market price range, a sensible
 //      selling price, the buying price that still leaves a good profit, and where to look for stock.
+import type { ResearchSourcesRow } from '../data/rows';
 import { q, one } from '../db';
 import { safeFetch } from './safefetch';
 import * as dupes from '../models/duplicates';
@@ -822,7 +823,7 @@ async function searchMarket(term?: Loose, { live = true, fresh = false, budgetMs
   if (!termPrep.ws.length && !/\d/.test(term)) return { term, items: [], shops: [] };
   const started = Date.now();
   const until = started + budgetMs;
-  const sources = await q('SELECT * FROM research_sources WHERE active ORDER BY last_ok DESC NULLS LAST');
+  const sources = await q<ResearchSourcesRow>('SELECT * FROM research_sources WHERE active ORDER BY last_ok DESC NULLS LAST');
   const shops: Loose[] = [];
   // the same search again within 10 minutes (e.g. back from adding a product): what was just found is enough
   const key = termPrep.ws.join(' ');
