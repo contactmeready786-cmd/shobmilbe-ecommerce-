@@ -13,14 +13,43 @@
 //   3. Scores every product: popular in other shops + sold by several shops + climbing + new +
 //      people search for it here → "উইনিং প্রোডাক্ট". For each: market price range, a sensible
 //      selling price, the buying price that still leaves a good profit, and where to look for stock.
-import type { ResearchSourcesRow } from '../data/rows';
+import type { ResearchItemsRow, ResearchQueueRow, ResearchSourcesRow } from '../data/rows';
 import { q, one } from '../db';
-import { safeFetch } from './safefetch';
+import { safeFetch, type Fetched, type SafeFetchOpts } from './safefetch';
 import * as dupes from '../models/duplicates';
 import { bn } from '../util';
 import * as importer from './importer';
-import type { Body, Id, Loose, Caught } from '../types';
-import type { DbRow } from '../pg';
+import type { Id, Caught } from '../types';
+
+/** A product name made ready for comparing (words, letter pairs, model codes). */
+type Prep = ReturnType<typeof dupes.prepName> & { codes?: Set<string> };
+type FullPrep = Prep & { codes: Set<string> };
+// What other shops' product lists give (every field can be missing: someone else's data)
+type WooItem = {
+  id?: unknown; name?: string; permalink?: string; is_in_stock?: boolean; average_rating?: unknown; review_count?: unknown;
+  images?: { thumbnail?: string; src?: string }[]; categories?: { name?: string }[];
+  prices?: { currency_minor_unit?: number | string; price?: string; regular_price?: string };
+};
+type ShopifyItem = { id?: unknown; title?: string; handle?: string; product_type?: string; images?: { src?: string }[]; variants?: { price?: unknown; compare_at_price?: unknown; available?: boolean }[] };
+type ShopifySuggest = { resources?: { results?: { products?: {
+  id?: unknown; handle?: string; url?: string; title?: string; price?: unknown; compare_at_price?: unknown; compare_at_price_max?: unknown;
+  image?: string; featured_image?: { url?: string }; type?: string; product_type?: string; available?: boolean;
+}[] } } };
+/** One product seen in another shop, as saved (research_items). */
+type SeenItem = {
+  ext_id: unknown; title: string; url?: string; image?: string; category?: string; price: number | null; regular_price: number | null;
+  in_stock: boolean | null; rank?: number | null; rating: number | null; reviews: number;
+};
+/** A link put on a shop's reading list (research_queue). */
+type QueueLink = { url: string; kind?: string; depth?: number; lastmod?: string | null; pos?: number };
+/** A link on a list page: where it goes, and whether it looks like a product card. */
+type PageLink = { url: string; path: string; text: string; img: boolean; near: boolean };
+/** One of our own products, ready for comparing. */
+type OurProduct = { id: number; name: string; price: number; cost_price: number | null; active: boolean; sku: string | null; import_ref: string | null; prep: FullPrep };
+type OurList = OurProduct[] & { byRef?: Map<string, OurProduct>; byHost?: Map<string, { p: OurProduct; slug: string }[]> };
+/** "we already sell this": which of our products, how sure, and why */
+type Match = { id: number; name: string; price: number; cost_price: number | null; active: boolean; match: number; via: string };
+type RobotsRule = { allow: boolean; path: string };
 
 
 
@@ -40,8 +69,8 @@ const FRESH = `(i.last_seen > now() - interval '3 days' OR (s.kind = 'site' AND 
 // ---------------------------------------------------------------- robots.txt
 function robotsRules(text?: unknown) {
   // groups for "*" (and our own name); Allow / Disallow with * and $
-  const groups: Loose[] = [];
-  let cur: Loose = null;
+  const groups: { agents: string[]; rules: RobotsRule[] }[] = [];
+  let cur: { agents: string[]; rules: RobotsRule[] } | null = null;
   let lastWasAgent = false;
   for (const raw of String(text || '').split(/\r?\n/)) {
     const line = raw.replace(/#.*/, '').trim();
@@ -62,8 +91,8 @@ function robotsRules(text?: unknown) {
   const star = groups.filter((g) => g.agents.includes('*'));
   return (mine.length ? mine : star).flatMap((g) => g.rules);
 }
-function robotsAllow(rules?: Loose, pathAndQuery?: Loose) {
-  let best = null;
+function robotsAllow(rules: RobotsRule[], pathAndQuery: string) {
+  let best: RobotsRule | null = null;
   for (const r of rules) {
     if (!r.path) { if (!r.allow) continue; }
     const re = new RegExp('^' + r.path.replace(/[.+?^{}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*').replace(/\\\$$/, '$').replace(/\$$/, '$'));
@@ -76,7 +105,7 @@ function robotsAllow(rules?: Loose, pathAndQuery?: Loose) {
 async function allowed(url: string | URL) {
   const u = new URL(url);
   const host = u.origin;
-  let row = await one(`SELECT robots, fetched_at FROM research_hosts WHERE host=$1 AND fetched_at > now() - interval '1 day'`, [host]);
+  let row: { robots: string } | null = await one<{ robots: string; fetched_at: Date }>(`SELECT robots, fetched_at FROM research_hosts WHERE host=$1 AND fetched_at > now() - interval '1 day'`, [host]);
   if (!row) {
     let text = '';
     try {
@@ -90,19 +119,21 @@ async function allowed(url: string | URL) {
   return robotsAllow(robotsRules(row.robots), u.pathname + u.search);
 }
 
-async function robotsSitemaps(origin?: unknown) {
-  const row = await one('SELECT robots FROM research_hosts WHERE host=$1', [origin]);
+async function robotsSitemaps(origin: string) {
+  const row = await one<{ robots: string }>('SELECT robots FROM research_hosts WHERE host=$1', [origin]);
   return [...String(row ? row.robots : '').matchAll(/^\s*sitemap\s*:\s*(\S+)/gim)].map((m) => m[1]).filter((u) => /^https?:\/\//i.test(u));
 }
 // pluggable for tests
-let fetchImpl = (url: string, opts: Body) => safeFetch(url, opts);
-function setFetch(fn?: Loose) { fetchImpl = fn || ((url, opts: Body) => safeFetch(url, opts)); }
+type FetchFn = (url: string, opts: SafeFetchOpts) => Promise<Fetched>;
+let fetchImpl: FetchFn = (url, opts) => safeFetch(url, opts);
+function setFetch(fn?: FetchFn | null) { fetchImpl = fn || ((url, opts) => safeFetch(url, opts)); }
 
-async function getJson(url: string) {
-  if (!(await allowed(url))) { const e: Loose = new Error('এই দোকান রোবটকে এই তথ্য পড়তে দেয় না (robots.txt)।'); e.code = 'ROBOTS'; throw e; }
+/** a shop's JSON (its shape is the shop's business: the callers say what they expect) */
+async function getJson(url: string): Promise<unknown> {
+  if (!(await allowed(url))) { const e: Caught = new Error('এই দোকান রোবটকে এই তথ্য পড়তে দেয় না (robots.txt)।'); e.code = 'ROBOTS'; throw e; }
   const r = await fetchImpl(url, { maxBytes: 12 * 1024 * 1024, timeoutMs: 9000, accept: 'application/json' });
-  if (!r.ok) { const e: Loose = new Error(`দোকান উত্তর দিয়েছে ${r.status}`); e.code = 'HTTP'; throw e; }
-  try { return JSON.parse(r.body.toString('utf8')); } catch (_) { const e: Loose = new Error('দোকানের তথ্য পড়া যায়নি'); e.code = 'JSON'; throw e; }
+  if (!r.ok) { const e: Caught = new Error(`দোকান উত্তর দিয়েছে ${r.status}`); e.code = 'HTTP'; throw e; }
+  try { return JSON.parse(r.body.toString('utf8')); } catch (_) { const e: Caught = new Error('দোকানের তথ্য পড়া যায়নি'); e.code = 'JSON'; throw e; }
 }
 
 // ---------------------------------------------------------------- sources
@@ -113,8 +144,8 @@ async function listSources() {
     FROM research_sources s ORDER BY s.segment, s.name`);
 }
 // What kind of shop is this? → { kind, origin, name }
-async function detect(input: Loose) {
-  let u;
+async function detect(input: string) {
+  let u: URL;
   try { u = new URL(/^https?:\/\//i.test(input) ? input : 'https://' + input); } catch (_) { throw new Error('লিংকটি ঠিক নেই।'); }
   const origin = u.origin;
   try {
@@ -122,12 +153,12 @@ async function detect(input: Loose) {
     if (Array.isArray(d)) return { kind: 'woo', origin, name: u.hostname.replace(/^www\./, '') };
   } catch (caught) { const e = caught as Caught; if (e.code === 'ROBOTS') throw e; }
   try {
-    const d = await getJson(`${origin}/products.json?limit=1`);
+    const d = (await getJson(`${origin}/products.json?limit=1`)) as { products?: unknown } | null;
     if (d && Array.isArray(d.products)) return { kind: 'shopify', origin, name: u.hostname.replace(/^www\./, '') };
   } catch (caught) { const e = caught as Caught; if (e.code === 'ROBOTS') throw e; }
   // any other shop: read page by page (sitemap → category pages → product pages)
-  if (!(await allowed(origin + '/'))) { const e: Loose = new Error('এই দোকান রোবটকে তাদের পেজ পড়তে দেয় না (robots.txt)।'); e.code = 'ROBOTS'; throw e; }
-  let home;
+  if (!(await allowed(origin + '/'))) { const e: Caught = new Error('এই দোকান রোবটকে তাদের পেজ পড়তে দেয় না (robots.txt)।'); e.code = 'ROBOTS'; throw e; }
+  let home: Fetched;
   try { home = await fetchImpl(origin + '/', { maxBytes: 4 * 1024 * 1024, timeoutMs: 9000, accept: 'text/html,*/*' }); } catch (caught) { const e = caught as Caught; throw new Error('দোকানের ওয়েবসাইট খোলা যায়নি: ' + e.message); }
   if (!home.ok) throw new Error(`দোকানের ওয়েবসাইট উত্তর দিয়েছে ${home.status} — হয়তো রোবট আটকে রাখে।`);
   return { kind: 'site', origin, name: u.hostname.replace(/^www\./, '') };
@@ -141,10 +172,10 @@ async function addSource(url: string, segment: string, name: string, searchOnly 
 }
 
 // ---------------------------------------------------------------- reading one shop
-const num = (v: number) => { const n = Number(v); return Number.isFinite(n) ? Math.round(n * 100) / 100 : null; };
-function cleanText(s: string) { return String(s || '').replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '&').replace(/&#0?39;|&#8217;/g, "'").replace(/&quot;/g, '"').replace(/&nbsp;/g, ' ').replace(/&#8211;/g, '–').replace(/\s+/g, ' ').trim(); }
+const num = (v: unknown) => { const n = Number(v); return Number.isFinite(n) ? Math.round(n * 100) / 100 : null; };
+function cleanText(s: unknown) { return String(s || '').replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '&').replace(/&#0?39;|&#8217;/g, "'").replace(/&quot;/g, '"').replace(/&nbsp;/g, ' ').replace(/&#8211;/g, '–').replace(/\s+/g, ' ').trim(); }
 
-async function upsert(sourceId?: Id, it?: Loose) {
+async function upsert(sourceId: Id, it: SeenItem) {
   await q(`INSERT INTO research_items(source_id, ext_id, title, url, image, category, price, regular_price, in_stock, rank, rank_ref, rank_ref_at, best_rank, rating, reviews)
       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$10,CASE WHEN $10::int IS NULL THEN NULL ELSE now() END,$10,$11,$12)
     ON CONFLICT (source_id, ext_id) DO UPDATE SET
@@ -164,10 +195,10 @@ async function upsert(sourceId?: Id, it?: Loose) {
     String(it.category || '').slice(0, 120), it.price, it.regular_price, it.in_stock, it.rank ?? null, it.rating, it.reviews || 0]);
 }
 
-async function readWoo(src: DbRow, started: number) {
+async function readWoo(src: ResearchSourcesRow, started: number) {
   let n = 0;
   for (let page = 1; page <= RANK_PAGES; page++) {
-    const list = await getJson(`${src.url}/wp-json/wc/store/v1/products?orderby=popularity&order=desc&per_page=100&page=${page}`);
+    const list = (await getJson(`${src.url}/wp-json/wc/store/v1/products?orderby=popularity&order=desc&per_page=100&page=${page}`)) as WooItem[];
     if (!Array.isArray(list) || !list.length) break;
     for (const [i, p] of list.entries()) {
       const pr = p.prices || {};
@@ -188,7 +219,7 @@ async function readWoo(src: DbRow, started: number) {
   // newest arrivals (not ranked)
   if (Date.now() - started < 9000) {
     try {
-      const fresh = await getJson(`${src.url}/wp-json/wc/store/v1/products?orderby=date&order=desc&per_page=50`);
+      const fresh = (await getJson(`${src.url}/wp-json/wc/store/v1/products?orderby=date&order=desc&per_page=50`)) as WooItem[];
       for (const p of Array.isArray(fresh) ? fresh : []) {
         const pr = p.prices || {};
         const unit = Math.pow(10, Number(pr.currency_minor_unit ?? 0));
@@ -203,21 +234,21 @@ async function readWoo(src: DbRow, started: number) {
   }
   return n;
 }
-async function readShopify(src: DbRow, started: number) {
+async function readShopify(src: ResearchSourcesRow, started: number) {
   let n = 0;
   for (let page = 1; page <= SHOPIFY_PAGES; page++) {
-    const d = await getJson(`${src.url}/products.json?limit=250&page=${page}`);
+    const d = (await getJson(`${src.url}/products.json?limit=250&page=${page}`)) as { products?: ShopifyItem[] } | null;
     const list = (d && d.products) || [];
     if (!list.length) break;
     for (const p of list) {
       const vs = p.variants || [];
-      const prices = vs.map((v: { price: number; }) => num(v.price)).filter((x: null) => x !== null);
+      const prices = vs.map((v) => num(v.price)).filter((x): x is number => x !== null);
       const price = prices.length ? Math.min(...prices) : null;
-      const cmp = vs.map((v: { compare_at_price: number; }) => num(v.compare_at_price)).filter((x: number | null) => x !== null && x > 0);
+      const cmp = vs.map((v) => num(v.compare_at_price)).filter((x): x is number => x !== null && x > 0);
       await upsert(src.id, {
         ext_id: p.id, title: cleanText(p.title), url: `${src.url}/products/${p.handle}`, image: (p.images && p.images[0] && p.images[0].src) || '',
         category: p.product_type || '', price, regular_price: cmp.length && price && Math.max(...cmp) > price ? Math.max(...cmp) : null,
-        in_stock: vs.some((v: { available: boolean; }) => v.available !== false), rank: null, rating: null, reviews: 0,
+        in_stock: vs.some((v) => v.available !== false), rank: null, rating: null, reviews: 0,
       });
       n++;
     }
@@ -237,9 +268,9 @@ async function readShopify(src: DbRow, started: number) {
 const NOT_PRODUCT = /\/(cart|checkout|account|my-account|login|signin|sign-in|register|signup|wishlist|compare|search|blog|blogs|news|article|articles|tag|tags|page|pages|contact|contact-us|about|about-us|privacy|policy|terms|faq|help|support|career|careers|store-locator|stores|track|tracking|order|orders|offers?|campaign|brands?|vendor|seller|shop-by|feed|wp-admin|wp-login|cdn-cgi|static|assets|media|images?|files?)(\/|$)/i;
 const FILE_EXT = /\.(jpe?g|png|gif|webp|svg|pdf|zip|css|js|xml|json|txt|ico|mp4|mp3)(\?|$)/i;
 const RANK_WORDS = /best[\s_-]*sell|top[\s_-]*sell|most[\s_-]*popular|popular|trending|hot[\s_-]*(deals?|items?|products?)|bestseller|জনপ্রিয়|বেশি বিক্রি|সর্বাধিক বিক্রি/i;
-const hostKey = (u?: Loose) => { try { return new URL(u).hostname.replace(/^www\./, '').toLowerCase(); } catch (_) { return ''; } };
+const hostKey = (u?: string | URL) => { try { return new URL(u as string).hostname.replace(/^www\./, '').toLowerCase(); } catch (_) { return ''; } };
 function cleanLink(u: string | URL, base: string | URL | undefined) {
-  let x;
+  let x: URL;
   try { x = new URL(u, base); } catch (_) { return ''; }
   if (!/^https?:$/.test(x.protocol) || hostKey(x.href) !== hostKey(base)) return '';
   x.hash = '';
@@ -254,15 +285,15 @@ function productish(path: string) {
   return last.length >= 18 && (last.match(/-/g) || []).length >= 3;
 }
 // Links on a list page, in page order: [{ url, img, near }]
-function pageLinks(html: Loose, base: string | URL | undefined) {
-  const out: Loose[] = [];
-  const seen = new Set();
+function pageLinks(html: string, base: string | URL | undefined) {
+  const out: PageLink[] = [];
+  const seen = new Set<string>();
   const re = /<a\b[^>]*\bhref\s*=\s*["']([^"'#]+)["'][^>]*>([\s\S]{0,1500}?)<\/a>/gi;
-  let m;
+  let m: RegExpExecArray | null;
   while ((m = re.exec(html)) && out.length < 1500) {
     const url = cleanLink(m[1].replace(/&amp;/g, '&'), base);
     if (!url || seen.has(url)) continue;
-    let path;
+    let path: string;
     try { path = new URL(url).pathname; } catch (_) { continue; }
     if (path === '/' || NOT_PRODUCT.test(path) || FILE_EXT.test(path)) continue;
     seen.add(url);
@@ -277,7 +308,7 @@ function pageLinks(html: Loose, base: string | URL | undefined) {
 // <url><loc>…</loc><lastmod>…</lastmod></url> → [{ url, lastmod }]; index → child sitemaps
 function readSitemap(xml: string, base: unknown) {
   const isIndex = /<sitemapindex\b/i.test(xml.slice(0, 3000));
-  const out: Loose[] = [];
+  const out: { url: string; lastmod: string | null }[] = [];
   for (const m of xml.matchAll(/<(?:url|sitemap)\b[^>]*>([\s\S]*?)<\/(?:url|sitemap)>/gi)) {
     const loc = (m[1].match(/<loc>\s*(?:<!\[CDATA\[)?\s*([^<\]]+?)\s*(?:\]\]>)?\s*<\/loc>/i) || [])[1];
     if (!loc) continue;
@@ -288,16 +319,16 @@ function readSitemap(xml: string, base: unknown) {
   return { isIndex, entries: out };
 }
 
-async function enqueue(srcId?: Id, list?: Loose) {
+async function enqueue(srcId: Id, list: QueueLink[]) {
   // one row per link (the same link can't be written twice in one go); a list/sitemap role wins over "page"
-  const byUrl = new Map();
+  const byUrl = new Map<string, QueueLink>();
   for (const r of list) {
     const had = byUrl.get(r.url);
     if (!had || (had.kind === 'page' && r.kind !== 'page') || (had.kind === r.kind && (r.depth ?? 1) < (had.depth ?? 1))) byUrl.set(r.url, r);
   }
   const rows = [...byUrl.values()];
   if (!rows.length) return 0;
-  const room = await one('SELECT count(*)::int AS n FROM research_queue WHERE source_id=$1', [srcId]);
+  const room = await one<{ n: number }>('SELECT count(*)::int AS n FROM research_queue WHERE source_id=$1', [srcId]);
   const take = rows.slice(0, Math.max(0, SITE_QUEUE_MAX - room!.n) + rows.filter((r) => r.kind !== 'page').length);
   let n = 0;
   for (let i = 0; i < take.length; i += 200) {
@@ -317,7 +348,7 @@ async function enqueue(srcId?: Id, list?: Loose) {
 }
 
 // Start (or restart, once a day) a shop's reading list: its sitemaps, home page and popular lists.
-async function seedSite(src: DbRow) {
+async function seedSite(src: ResearchSourcesRow) {
   await allowed(src.url + '/'); // loads robots.txt (and its Sitemap: lines)
   const maps = await robotsSitemaps(src.url);
   if (!maps.length) maps.push(src.url + '/sitemap.xml', src.url + '/sitemap_index.xml');
@@ -327,14 +358,14 @@ async function seedSite(src: DbRow) {
   await q('UPDATE research_sources SET seeded_at=now() WHERE id=$1', [src.id]);
 }
 
-async function currentRank(srcId?: Id, url?: unknown) {
-  const r = await one('SELECT rank_hint FROM research_queue WHERE source_id=$1 AND url=$2', [srcId, url]);
+async function currentRank(srcId: Id, url: string) {
+  const r = await one<{ rank_hint: number | null }>('SELECT rank_hint FROM research_queue WHERE source_id=$1 AND url=$2', [srcId, url]);
   return r ? r.rank_hint : null;
 }
-async function readSite(src: DbRow, started: number) {
+async function readSite(src: ResearchSourcesRow, started: number) {
   const until = started + 10500;
   if (!src.seeded_at || Date.now() - new Date(src.seeded_at).getTime() > 20 * 3600 * 1000) await seedSite(src);
-  const batch = await q(`SELECT * FROM research_queue WHERE source_id=$1 AND fails < 3 AND (
+  const batch = await q<ResearchQueueRow>(`SELECT * FROM research_queue WHERE source_id=$1 AND fails < 3 AND (
         checked_at IS NULL
         OR (is_product AND rank_hint IS NOT NULL AND checked_at < now() - interval '20 hours')
         OR (is_product AND checked_at < now() - interval '4 days'))
@@ -348,8 +379,8 @@ async function readSite(src: DbRow, started: number) {
     LIMIT $2`, [src.id, SITE_PAGES]);
   if (!batch.length) return { n: 0, pages: 0, failed: 0 };
   let n = 0, pages = 0, failed = 0, blocked = 0;
-  const lastErr: unknown[] = [];
-  const work = async (row: DbRow) => {
+  const lastErr: string[] = [];
+  const work = async (row: ResearchQueueRow) => {
     if (Date.now() > until - 1500) return;
     try {
       if (!(await allowed(row.url))) {
@@ -373,7 +404,7 @@ async function readSite(src: DbRow, started: number) {
           kids.sort((a, b) => (/product/i.test(b.url) ? 1 : 0) - (/product/i.test(a.url) ? 1 : 0));
           await enqueue(src.id, kids.slice(0, 60).map((e) => ({ url: e.url, kind: 'sitemap', depth: 0, lastmod: e.lastmod })));
         } else {
-          const rows: Loose[] = [];
+          const rows: (QueueLink & { depth: number })[] = [];
           const productMap = /product/i.test(row.url);
           for (const e of sm.entries) {
             const url = cleanLink(e.url, src.url);
@@ -389,14 +420,14 @@ async function readSite(src: DbRow, started: number) {
         return;
       }
       const parsed = importer.parseContent(r.body, { contentType: r.contentType || 'text/html', baseUrl: r.finalUrl || row.url });
-      const items = (parsed.items || []).filter((it: Loose) => it.title && it.price !== null && it.price > 0);
+      const items = (parsed.items || []).filter((it) => it.title && it.price !== null && it.price > 0);
       if (items.length) {
         for (const it of items.slice(0, 60)) {
           const link = cleanLink(it.link || row.url, src.url) || row.url;
           await upsert(src.id, {
             ext_id: (() => { try { const x = new URL(link); return (x.pathname + x.search).slice(0, 120); } catch (_) { return link.slice(0, 120); } })(),
             title: cleanText(it.title), url: link, image: (it.images || [])[0] || '', category: it.category || '',
-            price: num(it.price), regular_price: it.old_price && it.old_price > it.price ? num(it.old_price) : null,
+            price: num(it.price), regular_price: it.old_price && it.old_price > Number(it.price) ? num(it.old_price) : null,
             in_stock: it.in_stock === null || it.in_stock === undefined ? (it.stock === 0 ? false : null) : it.in_stock,
             rank: items.length === 1 ? await currentRank(src.id, row.url) : null, rating: null, reviews: 0,
           });
@@ -412,7 +443,7 @@ async function readSite(src: DbRow, started: number) {
       const links = pageLinks(text, r.finalUrl || row.url);
       const cards = links.filter((l) => l.img || l.near);
       const prod = (cards.length >= 4 ? cards : links).filter((l) => (productish(l.path) || l.near) && !(RANK_WORDS.test(l.text + ' ' + l.path) && !productish(l.path)));
-      const add: unknown[] = prod.slice(0, 300).map((l, i) => ({ url: l.url, kind: 'page', depth: row.depth + 1, pos: i + 1 }));
+      const add: QueueLink[] = prod.slice(0, 300).map((l, i) => ({ url: l.url, kind: 'page', depth: row.depth + 1, pos: i + 1 }));
       if (row.depth === 0) {
         // popular / best-selling lists on the home page or a category page
         for (const l of links) if (RANK_WORDS.test(l.text + ' ' + l.path) && !productish(l.path)) add.unshift({ url: l.url, kind: 'rank', depth: 0 });
@@ -459,11 +490,11 @@ type TickOpts = {
 async function tick({ force = false }: TickOpts = {}) {
   const started = Date.now();
   if (!force) {
-    const last = await one(`SELECT value FROM settings WHERE key='research_tick_at'`);
+    const last = await one<{ value: string }>(`SELECT value FROM settings WHERE key='research_tick_at'`);
     if (last && Date.now() - Number(last.value) < 50 * 1000) return { skipped: true };
   }
   await q(`INSERT INTO settings(key, value) VALUES('research_tick_at', $1) ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value`, [String(Date.now())]);
-  const src = await one(`SELECT * FROM research_sources WHERE active AND NOT coalesce(search_only, false) AND (last_run IS NULL
+  const src = await one<ResearchSourcesRow>(`SELECT * FROM research_sources WHERE active AND NOT coalesce(search_only, false) AND (last_run IS NULL
       OR last_run < now() - make_interval(mins => CASE WHEN kind='site' THEN $2::int ELSE $1::int END))
     ORDER BY last_run NULLS FIRST LIMIT 1`, [force ? 0 : REFRESH_MIN, force ? 0 : SITE_REFRESH_MIN]);
   if (!src) return { idle: true };
@@ -471,7 +502,7 @@ async function tick({ force = false }: TickOpts = {}) {
   try {
     if (src.kind === 'site') {
       const r = await readSite(src, started);
-      const total = await one(`SELECT count(*)::int AS n FROM research_items WHERE source_id=$1 AND last_seen > now() - interval '12 days'`, [src.id]);
+      const total = await one<{ n: number }>(`SELECT count(*)::int AS n FROM research_items WHERE source_id=$1 AND last_seen > now() - interval '12 days'`, [src.id]);
       await q(`UPDATE research_sources SET last_ok=CASE WHEN $3 > 0 THEN now() ELSE last_ok END, last_error='', items=$2 WHERE id=$1`, [src.id, total!.n, r.pages - r.failed]);
       return { source: src.name, items: r.n, pages: r.pages };
     }
@@ -486,14 +517,14 @@ async function tick({ force = false }: TickOpts = {}) {
 
 // ---------------------------------------------------------------- this shop's own signals
 async function demand(days = 30) {
-  const searches = await q(`SELECT lower(trim(label)) AS term, count(*)::int AS times, count(DISTINCT visitor_id)::int AS people, max(created_at) AS last
+  const searches = await q<{ term: string; times: number; people: number; last: Date; found?: number }>(`SELECT lower(trim(label)) AS term, count(*)::int AS times, count(DISTINCT visitor_id)::int AS people, max(created_at) AS last
     FROM visit_events WHERE event='search' AND label <> '' AND created_at > now() - make_interval(days => $1::int)
     GROUP BY 1 ORDER BY times DESC LIMIT 40`, [days]);
   for (const s of searches) {
-    s.found = (await one(`SELECT count(*)::int AS n FROM products p LEFT JOIN categories c ON c.id=p.category_id
+    s.found = (await one<{ n: number }>(`SELECT count(*)::int AS n FROM products p LEFT JOIN categories c ON c.id=p.category_id
       WHERE p.active AND (p.name ILIKE $1 OR p.sku ILIKE $1 OR p.short_description ILIKE $1 OR c.name ILIKE $1 OR p.brand ILIKE $1)`, [`%${s.term}%`]))!.n;
   }
-  const viewed = await q(`SELECT p.id, p.name, p.price, p.image_id, p.stock, v.views, v.people,
+  const viewed = await q<{ id: number; name: string; price: number; image_id: number | null; stock: number; views: number; people: number; sold: number }>(`SELECT p.id, p.name, p.price, p.image_id, p.stock, v.views, v.people,
       coalesce((SELECT sum(i.qty)::int FROM order_items i JOIN orders o ON o.id=i.order_id WHERE i.product_id=p.id AND o.created_at > now() - make_interval(days => $1::int) AND o.status NOT IN ('cancelled')), 0) AS sold
     FROM (SELECT product_id, count(*)::int AS views, count(DISTINCT visitor_id)::int AS people FROM page_views
           WHERE product_id IS NOT NULL AND created_at > now() - make_interval(days => $1::int) GROUP BY product_id) v
@@ -502,35 +533,44 @@ async function demand(days = 30) {
 }
 
 // ---------------------------------------------------------------- scoring
-const pairsOf = (name?: Loose) => dupes.prepName(name);
-function dice(a: Loose, b: Body) {
+const pairsOf = (name: string): Prep => dupes.prepName(name);
+function dice(a: Prep, b: Prep) {
   if (!a.pairs.n || !b.pairs.n) return 0;
   let both = 0;
   const [small, big] = a.pairs.m.size < b.pairs.m.size ? [a.pairs.m, b.pairs.m] : [b.pairs.m, a.pairs.m];
   for (const [k, c] of small) { const d = big.get(k); if (d) both += Math.min(c, d); }
   return (2 * both) / (a.pairs.n + b.pairs.n);
 }
-const median = (a?: Loose) => { const s = [...a].sort((x, y) => x - y); return s.length ? (s.length % 2 ? s[(s.length - 1) / 2] : (s[s.length / 2 - 1] + s[s.length / 2]) / 2) : null; };
+const median = (a: number[]) => { const s = [...a].sort((x, y) => x - y); return s.length ? (s.length % 2 ? s[(s.length - 1) / 2] : (s[s.length / 2 - 1] + s[s.length / 2]) / 2) : null; };
 function niceDown(n: number) { if (!n) return null; if (n < 60) return Math.floor(n); if (n < 200) return Math.floor(n / 5) * 5; if (n < 2000) return Math.floor(n / 10) * 10 - (n >= 100 ? 0 : 0); return Math.floor(n / 50) * 50; }
-function searchText(title?: Loose) { return dupes.words(title).filter((w) => !/^\d+$/.test(w)).slice(0, 6).join(' ') || title.slice(0, 50); }
+function searchText(title: string) { return dupes.words(title).filter((w) => !/^\d+$/.test(w)).slice(0, 6).join(' ') || title.slice(0, 50); }
 
 type WinnersOpts = {
   segment?: string;
   limit?: number;
   margin?: number;
-  mine?: null;
+  /** our own products (read from the database when not given) */
+  mine?: OurRow[] | null;
+};
+/** a product seen in another shop, with its shop, while it is being scored */
+type WinRow = ResearchItemsRow & { shop: string; segment: string; kind: string; source_since: Date; prep: Prep; score: number; why: string[] };
+/** the same product in several shops */
+type Group = {
+  lead: WinRow; seg: string; items: WinRow[]; shops: number; min: number; max: number; median: number | null; score: number; why: string[];
+  searched?: { term: string; times: number; found?: number }; sell: number | null; buyMax: number | null; term: string; best: WinRow;
+  oursAll: Match[]; ours: Match | null;
 };
 async function winners({ segment = '', limit = 60, margin = 30, mine = null }: WinnersOpts = {}) {
-  const rows = await q(`SELECT i.*, s.name AS shop, s.segment, s.kind, s.created_at AS source_since
+  const rows = (await q<Omit<WinRow, 'prep' | 'score' | 'why'>>(`SELECT i.*, s.name AS shop, s.segment, s.kind, s.created_at AS source_since
     FROM research_items i JOIN research_sources s ON s.id=i.source_id
-    WHERE s.active AND ${FRESH} ${segment ? 'AND s.segment=$1' : ''}`, segment ? [segment] : []);
+    WHERE s.active AND ${FRESH} ${segment ? 'AND s.segment=$1' : ''}`, segment ? [segment] : [])) as WinRow[]; // (prep, score and why are added below)
   const { searches } = await demand(30);
-  const terms: Loose[] = searches.map((s) => ({ ...s, prep: pairsOf(s.term) }));
+  const terms = searches.map((s) => ({ ...s, prep: pairsOf(s.term) }));
   const now = Date.now();
   // 1) each item on its own
   for (const r of rows) {
     let s = 0;
-    const why: unknown[] = [];
+    const why: string[] = [];
     if (r.rank) { s += Math.max(0, 45 * (1 - (r.rank - 1) / 300)); if (r.rank <= 30) why.push(`${r.shop}-এ সবচেয়ে বেশি বিক্রির তালিকায় #${bn(r.rank)}`); }
     const climb = r.rank && r.rank_ref ? r.rank_ref - r.rank : 0;
     if (climb >= 15) { s += Math.min(15, climb / 4); why.push(`এক সপ্তাহে ${bn(climb)} ধাপ উপরে উঠেছে`); }
@@ -546,36 +586,36 @@ async function winners({ segment = '', limit = 60, margin = 30, mine = null }: W
   }
   // 2) the same product in several shops → one group
   const sorted = rows.filter((r) => r.price).sort((a, b) => b.score - a.score).slice(0, 1500);
-  const groups: Loose[] = [];
+  const groups: Group[] = [];
   for (const r of sorted) {
-    let g = null;
+    let g: Group | null = null;
     for (const x of groups) { if (x.seg === r.segment && dice(x.lead.prep, r.prep) >= 0.78) { g = x; break; } }
-    if (g) g.items.push(r); else groups.push({ lead: r, seg: r.segment, items: [r] });
+    if (g) g.items.push(r); else groups.push({ lead: r, seg: r.segment, items: [r] } as Group); // (the rest is worked out below)
     if (groups.length > 700) break;
   }
   for (const g of groups) {
-    const shops = new Set(g.items.map((i: Loose) => i.source_id));
-    const prices = g.items.map((i: Loose) => Number(i.price)).filter((x: number) => x > 0);
+    const shops = new Set(g.items.map((i) => i.source_id));
+    const prices = g.items.map((i) => Number(i.price)).filter((x) => x > 0);
     g.shops = shops.size;
     g.min = Math.min(...prices); g.max = Math.max(...prices); g.median = median(prices);
-    g.score = Math.max(...g.items.map((i: Loose) => i.score)) + (shops.size - 1) * 15;
-    g.why = [...new Set(g.items.flatMap((i: Loose) => i.why))];
+    g.score = Math.max(...g.items.map((i) => i.score)) + (shops.size - 1) * 15;
+    g.why = [...new Set(g.items.flatMap((i) => i.why))];
     if (shops.size > 1) g.why.unshift(`${bn(shops.size)}টি দোকানে বিক্রি হচ্ছে`);
     // customers searched for it here
-    const t = terms.find((x) => x.prep.ws.length && x.prep.ws.every((w: string) => g.lead.prep.ws.some((v: string) => v.startsWith(w) || w.startsWith(v))));
+    const t = terms.find((x) => x.prep.ws.length && x.prep.ws.every((w) => g.lead.prep.ws.some((v) => v.startsWith(w) || w.startsWith(v))));
     if (t) { g.score += 20 + Math.min(20, t.times); g.why.unshift(`আপনার সাইটে "${t.term}" খোঁজা হয়েছে ${bn(t.times)} বার${t.found ? '' : ' — কিন্তু পায়নি!'}`); g.searched = t; }
-    g.sell = niceDown(g.median * 0.98);
+    g.sell = niceDown(Number(g.median) * 0.98);
     g.buyMax = g.sell ? Math.floor(g.sell * (1 - margin / 100)) : null;
     g.term = searchText(g.lead.title);
-    g.best = g.items.reduce((a: Loose, b: Body) => (Number(a.price) <= Number(b.price) ? a : b));
+    g.best = g.items.reduce((a, b) => (Number(a.price) <= Number(b.price) ? a : b));
   }
   groups.sort((a, b) => b.score - a.score);
   const top = groups.slice(0, limit);
   // 3) do we already sell it? (any shop's name for it, matched by model number or by words)
   const oursPrep = await ourProducts(mine);
   for (const g of top) {
-    const seen = new Map();
-    for (const it of [g.lead, ...g.items.slice(0, 6)]) for (const m of matchOurs(it.prep, oursPrep, 0.72, it)) if (!seen.has(m.id) || seen.get(m.id).match < m.match) seen.set(m.id, m);
+    const seen = new Map<number, Match>();
+    for (const it of [g.lead, ...g.items.slice(0, 6)]) for (const m of matchOurs(it.prep, oursPrep, 0.72, it)) if (!seen.has(m.id) || seen.get(m.id)!.match < m.match) seen.set(m.id, m);
     g.oursAll = [...seen.values()].sort((a, b) => b.match - a.match);
     g.ours = g.oursAll[0] || null;
   }
@@ -587,8 +627,8 @@ async function winners({ segment = '', limit = 60, margin = 30, mine = null }: W
 // "SG90 মাইক্রো সার্ভো মোটর 9g 180°"), so letter-pair likeness alone misses them.
 // The model number (sg90, pam8403, esp32, hc-05, mg90s) decides first; words come second.
 const UNIT_ONLY = /^\d+(p\d+)?(v|w|a|ma|mah|mm|cm|m|kg|g|gb|tb|mb|ml|l|inch|pcs|hz|khz|mhz|uf|nf|pf|k|ohm|rpm|x|d|s|deg|degree|years?|y)$/;
-function modelCodes(ws?: Loose) {
-  const out = new Set();
+function modelCodes(ws: string[]) {
+  const out = new Set<string>();
   for (let i = 0; i < ws.length; i++) {
     const w = ws[i];
     if (w.length >= 3 && /\d/.test(w) && /[a-z]/.test(w) && !UNIT_ONLY.test(w)) out.add(w);
@@ -600,39 +640,41 @@ function modelCodes(ws?: Loose) {
 }
 const near = (a: string, b: string) => a === b || (a.length >= 4 && b.length >= 4 && (a.startsWith(b) || b.startsWith(a)));
 // share of a's words found in b
-function cover(a: Loose, b: Body) {
-  const ws = a.filter((w: string) => !/^\d+$/.test(w));
+function cover(a: string[], b: string[]) {
+  const ws = a.filter((w) => !/^\d+$/.test(w));
   if (!ws.length) return 0;
-  return ws.filter((w: string) => b.some((v: string) => near(w, v))).length / ws.length;
+  return ws.filter((w) => b.some((v) => near(w, v))).length / ws.length;
 }
-function prepFull(name: string) { const p: Loose = pairsOf(name); p.codes = modelCodes(p.ws); return p; }
+function prepFull(name: string): FullPrep { const p = pairsOf(name); return Object.assign(p, { codes: modelCodes(p.ws) }); }
 // 0 … 1: how sure we are that two names are the same product
 type SizesOpts = {
-  ws?: Loose;
+  ws: string[];
 };
-function sameProduct(a: Body, b: Body) {
+function sameProduct(a: Prep, b: Prep) {
   if (!a.codes) a.codes = modelCodes(a.ws);
   if (!b.codes) b.codes = modelCodes(b.ws);
+  const ac = a.codes; const bc = b.codes;
   let d = dice(a, b);
   // same kind of size with a different value (40W vs 60W, 12V vs 24V) → a different product
-  const sizes = (p: SizesOpts) => { const m = new Map(); for (const w of p.ws) { const x = w.match(/^(\d+(?:p\d+)?)([a-z]+)$/); if (x && UNIT_ONLY.test(w)) { if (!m.has(x[2])) m.set(x[2], new Set()); m.get(x[2]).add(x[1]); } } return m; };
+  const sizes = (p: SizesOpts) => { const m = new Map<string, Set<string>>(); for (const w of p.ws) { const x = w.match(/^(\d+(?:p\d+)?)([a-z]+)$/); if (x && UNIT_ONLY.test(w)) { if (!m.has(x[2])) m.set(x[2], new Set()); m.get(x[2])!.add(x[1]); } } return m; };
   const sa = sizes(a), sb = sizes(b);
-  for (const [u, vals] of sa) if (sb.has(u) && ![...vals].some((v) => sb.get(u).has(v))) { d = Math.min(d, 0.6); return d; }
-  if (a.codes.size && b.codes.size) {
-    const shared = [...a.codes].filter((c) => b.codes.has(c));
+  for (const [u, vals] of sa) if (sb.has(u) && ![...vals].some((v) => sb.get(u)!.has(v))) { d = Math.min(d, 0.6); return d; }
+  if (ac.size && bc.size) {
+    const shared = [...ac].filter((c) => bc.has(c));
     if (!shared.length) return Math.min(d, 0.6); // SG90 ≠ MG90S, PAM8403 ≠ PAM8610
-    const otherWord = a.ws.some((w: Loose) => !/\d/.test(w) && w.length >= 3 && b.ws.some((v: string) => near(w, v)));
+    const otherWord = a.ws.some((w) => !/\d/.test(w) && w.length >= 3 && b.ws.some((v) => near(w, v)));
     if (otherWord || shared.some((c) => c.length >= 4)) return Math.max(d, 0.9);
     return Math.max(d, 0.7);
   }
-  if (a.codes.size || b.codes.size) return d; // only one name has a model number: be careful
+  if (ac.size || bc.size) return d; // only one name has a model number: be careful
   const [s, l] = a.ws.length <= b.ws.length ? [a.ws, b.ws] : [b.ws, a.ws];
   const c = s.length >= 2 ? cover(s, l) : 0;
   return Math.max(d, c >= 0.85 && s.length >= 3 ? 0.8 : c >= 0.85 ? 0.74 : 0);
 }
-async function ourProducts(mine?: Loose) {
-  const rows = mine || await q('SELECT id, name, price, cost_price, active, sku, import_ref FROM products');
-  const list = rows.map((p: Loose) => {
+type OurRow = Omit<OurProduct, 'prep'>;
+async function ourProducts(mine?: OurRow[] | null): Promise<OurList> {
+  const rows = mine || await q<OurRow>('SELECT id, name, price, cost_price, active, sku, import_ref FROM products');
+  const list: OurList = rows.map((p) => {
     const prep = prepFull(p.name);
     // a model number kept only in the SKU still counts
     if (p.sku) for (const c of modelCodes(dupes.words(p.sku))) prep.codes.add(c);
@@ -649,11 +691,11 @@ async function ourProducts(mine?: Loose) {
     list.byRef.set(ref, p);
     const host = ref.slice(0, hash);
     if (!list.byHost.has(host)) list.byHost.set(host, []);
-    list.byHost.get(host).push({ p, slug: slugOf(ref.slice(hash + 1)) });
+    list.byHost.get(host)!.push({ p, slug: slugOf(ref.slice(hash + 1)) });
   }
   return list;
 }
-const hostOfUrl = (u?: Loose) => { try { return new URL(u).hostname.replace(/^www\./, '').toLowerCase(); } catch (_) { return ''; } };
+const hostOfUrl = (u?: string) => { try { return new URL(u as string).hostname.replace(/^www\./, '').toLowerCase(); } catch (_) { return ''; } };
 // last part of a product address, without .html / ids-only noise: "/product/universal-adapter-3pin/" → "universal-adapter-3pin"
 function slugOf(key?: unknown) {
   let k = String(key || '').toLowerCase().replace(/[?#].*$/, '').replace(/\/+$/, '');
@@ -661,25 +703,25 @@ function slugOf(key?: unknown) {
   const last = k.split('/').filter(Boolean).pop() || '';
   return last.replace(/\.(html?|php|aspx?)$/, '');
 }
-function refsFor(item?: Loose) {
+function refsFor(item: { url?: string; ext_id?: unknown; title?: string }) {
   const host = hostOfUrl(item.url);
   if (!host) return { host: '', refs: [], slug: '' };
   const refs = new Set<string>();
   if (item.ext_id !== undefined && item.ext_id !== null && item.ext_id !== '') refs.add(`${host}#${String(item.ext_id).toLowerCase()}`);
-  try { const u = new URL(item.url); refs.add(`${host}#${(u.pathname.replace(/\/+$/, '') + u.search).toLowerCase()}`); } catch (_) { /* no address */ }
+  try { const u = new URL(item.url as string); refs.add(`${host}#${(u.pathname.replace(/\/+$/, '') + u.search).toLowerCase()}`); } catch (_) { /* no address */ }
   if (item.title) refs.add(`${host}#${String(item.title).toLowerCase()}`);
   let slug = '';
-  try { slug = slugOf(new URL(item.url).pathname); } catch (_) { /* none */ }
+  try { slug = slugOf(new URL(item.url as string).pathname); } catch (_) { /* none */ }
   return { host, refs: [...refs].map((r) => r.slice(0, 300)), slug };
 }
-function matchOurs(prep?: Loose, oursPrep?: Loose, min = 0.72, item: unknown = null) {
-  const found = new Map();
-  const put = (p?: Loose, match?: Loose, via?: unknown) => { if (!found.has(p.id) || found.get(p.id).match < match) found.set(p.id, { id: p.id, name: p.name, price: p.price, cost_price: p.cost_price, active: p.active, match, via }); };
+function matchOurs(prep: Prep, oursPrep: OurList, min = 0.72, item: { url?: string; ext_id?: unknown; title?: string } | null = null): Match[] {
+  const found = new Map<number, Match>();
+  const put = (p: OurProduct, match: number, via: string) => { if (!found.has(p.id) || found.get(p.id)!.match < match) found.set(p.id, { id: p.id, name: p.name, price: p.price, cost_price: p.cost_price, active: p.active, match, via }); };
   // 1) copied from exactly this shop page / this shop's product
   if (item && oursPrep.byRef) {
     const { host, refs, slug } = refsFor(item);
     for (const r of refs) { const p = oursPrep.byRef.get(r); if (p) put(p, 1, 'link'); }
-    for (const { p, slug: s2 } of oursPrep.byHost.get(host) || []) {
+    for (const { p, slug: s2 } of oursPrep.byHost?.get(host) || []) {
       if (slug && s2 && slug.length >= 6 && slug === s2) put(p, 1, 'link');
       // same shop, so names were the same when copied — a looser match is enough
       else if (sameProduct(prep, p.prep) >= 0.6) put(p, 0.9, 'shop');
@@ -694,28 +736,29 @@ function matchOurs(prep?: Loose, oursPrep?: Loose, min = 0.72, item: unknown = n
 // What we already read + a live search on each shop right now (their own search, robots.txt respected).
 // Everything found is saved, so it also counts for "উইনিং প্রোডাক্ট" later.
 const SITE_SEARCH = ['/index.php?route=product/search&search=', '/search?q=', '/store?q=', '/?post_type=product&s=', '/catalogsearch/result/?q=', '/search?search='];
-const searchHint = new Map(); // shop → the search address that worked
+const searchHint = new Map<string, string>(); // shop → the search address that worked
 // "TDA2030 amplifier board" is made with the part; "TDA2030 Audio Amplifier IC" is the part itself
 const MADE_STRONG = /\b(board|module|modul|kit|shield|breakout|pcb|circuit|diy)\b|বোর্ড|মডিউল|কিট|সার্কিট/i;
 const MADE_SOFT = /\b(amplifier|amp|converter|supply|charger|controller|driver|speaker|system)\b|অ্যামপ্লিফায়ার|এম্পলিফায়ার/i;
 const IS_PART = /\b(ic|chip|transistor|regulator ic|to-?220|to-?92|to-?3p?|dip-?\d*|sop-?\d*|pentawatt)\b|আইসি/i;
 const madeWith = (t: string) => MADE_STRONG.test(t) || (MADE_SOFT.test(t) && !IS_PART.test(t));
-const recentLive = new Map(); // search words → when every shop was last searched for them
+const recentLive = new Map<string, number>(); // search words → when every shop was last searched for them
 // ---- what a search means: part numbers must be there, words mostly there
 // "7812", "LM7812", "LM 7812", "78 12" → part 7812 (found in L7812CV, LM7812, KA7812 — not in 7912 or 78121)
 // "voltage regulator 12v" → words; most of them must be in the name
-function searchQuery(term?: Loose) {
+type SearchQuery = { parts: { full: string; core: string }[]; words: string[] };
+function searchQuery(term: string): SearchQuery {
   let ws = dupes.words(term);
   // glue split part numbers back: "lm 7812" → "lm7812", "78 12" → "7812", "hc 05" → "hc05"
-  const glued: Loose[] = [];
+  const glued: string[] = [];
   for (let i = 0; i < ws.length; i++) {
     const w = ws[i], nx = ws[i + 1];
     if (nx && /^\d{1,3}$/.test(nx) && (/^[a-z]{1,4}$/.test(w) || /^\d{1,3}$/.test(w)) && !UNIT_ONLY.test(nx)) { glued.push(w + nx); i++; continue; }
     glued.push(w);
   }
   ws = glued;
-  const parts: Loose[] = []; // { full, core }: core = the digits with what follows them ("lm317t" → "317t"? no: "317")
-  const words: Loose[] = [];
+  const parts: SearchQuery['parts'] = []; // { full, core }: core = the digits with what follows them ("lm317t" → "317t"? no: "317")
+  const words: string[] = [];
   for (const w of ws) {
     if (UNIT_ONLY.test(w)) { words.push(w); continue; } // 12v, 60w … a size, not a part number
     if (/\d/.test(w) && (w.length >= 3 || /[a-z]/.test(w))) {
@@ -741,22 +784,22 @@ function hasPart(name: string, part: { full: string; core: string; }) {
   return 0;
 }
 // 0 … 1: how well a product name fits the search
-function searchFit(sq?: Loose, title?: Loose) {
+function searchFit(sq: SearchQuery, title: string) {
   const name = compact(title);
   const tws = name.split(' ');
   let score = 1;
   for (const p of sq.parts) { const h = hasPart(name, p); if (!h) return 0; score = Math.min(score, h); }
   // a size asked for (12v): a name with the same kind of size but another value is a different product
-  for (const w of sq.words.filter((x: string) => UNIT_ONLY.test(x))) {
+  for (const w of sq.words.filter((x) => UNIT_ONLY.test(x))) {
     const unit = w.replace(/^[\dp]+/, '');
     const same = tws.filter((v) => UNIT_ONLY.test(v) && v.replace(/^[\dp]+/, '') === unit);
     if (same.length && !same.includes(w)) return 0;
   }
   // tiny words (ic, bd, of) only help when nothing else was typed
-  const need = sq.words.filter((w: Loose) => w.length >= 3 || UNIT_ONLY.test(w));
+  const need = sq.words.filter((w) => w.length >= 3 || UNIT_ONLY.test(w));
   const sqw = need.length ? need : sq.words;
   if (sqw.length) {
-    const c = sqw.filter((w: Loose) => tws.some((v) => near(w, v) || (w.length >= 4 && v.includes(w)))).length / sqw.length;
+    const c = sqw.filter((w) => tws.some((v) => near(w, v) || (w.length >= 4 && v.includes(w)))).length / sqw.length;
     // with a part number the words are only a hint; without one most words must be there
     if (!sq.parts.length && c < (sqw.length <= 2 ? 1 : 0.6)) return 0;
     if (sq.parts.length && c === 0 && sqw.length >= 2) return 0;
@@ -764,9 +807,9 @@ function searchFit(sq?: Loose, title?: Loose) {
   }
   return score;
 }
-function termOk(termPrep?: Loose, titlePrep?: Loose, sq?: unknown) { return searchFit(sq || searchQuery(termPrep.ws.join(' ')), titlePrep.ws.join(' ')); }
-async function liveWoo(src?: Loose, term?: Loose) {
-  const list = await getJson(`${src.url}/wp-json/wc/store/v1/products?search=${encodeURIComponent(term)}&per_page=30`);
+function termOk(termPrep: Prep, titlePrep: Prep, sq?: SearchQuery) { return searchFit(sq || searchQuery(termPrep.ws.join(' ')), titlePrep.ws.join(' ')); }
+async function liveWoo(src: ResearchSourcesRow, term: string) {
+  const list = (await getJson(`${src.url}/wp-json/wc/store/v1/products?search=${encodeURIComponent(term)}&per_page=30`)) as WooItem[];
   let n = 0;
   for (const p of Array.isArray(list) ? list : []) {
     const pr = p.prices || {};
@@ -780,8 +823,8 @@ async function liveWoo(src?: Loose, term?: Loose) {
   }
   return n;
 }
-async function liveShopify(src?: Loose, term?: Loose) {
-  const d = await getJson(`${src.url}/search/suggest.json?q=${encodeURIComponent(term)}&resources[type]=product&resources[limit]=10`);
+async function liveShopify(src: ResearchSourcesRow, term: string) {
+  const d = (await getJson(`${src.url}/search/suggest.json?q=${encodeURIComponent(term)}&resources[type]=product&resources[limit]=10`)) as ShopifySuggest | null;
   const list = (((d || {}).resources || {}).results || {}).products || [];
   let n = 0;
   for (const p of list) {
@@ -795,14 +838,14 @@ async function liveShopify(src?: Loose, term?: Loose) {
   }
   return n;
 }
-async function liveSite(src?: Loose, term?: Loose, termPrep?: unknown, until?: Loose) {
+async function liveSite(src: ResearchSourcesRow, term: string, termPrep: unknown, until: number) {
   const host = hostKey(src.url);
-  const order = searchHint.has(host) ? [searchHint.get(host)] : SITE_SEARCH;
+  const order = searchHint.has(host) ? [searchHint.get(host)!] : SITE_SEARCH;
   for (const path of order) {
     if (Date.now() > until - 2500) return 0;
     const url = src.url + path + encodeURIComponent(term);
     if (!(await allowed(url))) continue;
-    let r;
+    let r: Fetched;
     try { r = await fetchImpl(url, { maxBytes: 4 * 1024 * 1024, timeoutMs: Math.max(2000, Math.min(7000, until - Date.now() - 1500)), accept: 'text/html,*/*' }); } catch (_) { continue; }
     if (!r.ok) continue;
     const base = r.finalUrl || url;
@@ -818,12 +861,12 @@ async function liveSite(src?: Loose, term?: Loose, termPrep?: unknown, until?: L
         const pr = await fetchImpl(l.url, { maxBytes: 6 * 1024 * 1024, timeoutMs: Math.max(1500, Math.min(6000, until - Date.now() - 800)), accept: 'text/html,*/*' });
         if (!pr.ok) return;
         const parsed = importer.parseContent(pr.body, { contentType: pr.contentType || 'text/html', baseUrl: pr.finalUrl || l.url });
-        const it = (parsed.items || []).find((x: Loose) => x.title && x.price > 0);
+        const it = (parsed.items || []).find((x) => x.title && Number(x.price) > 0);
         if (!it) return;
         const link = cleanLink(pr.finalUrl || l.url, src.url) || l.url;
         await upsert(src.id, { ext_id: (() => { try { const x = new URL(link); return (x.pathname + x.search).slice(0, 120); } catch (_) { return link.slice(0, 120); } })(),
           title: cleanText(it.title), url: link, image: (it.images || [])[0] || '', category: it.category || '', price: num(it.price),
-          regular_price: it.old_price && it.old_price > it.price ? num(it.old_price) : null,
+          regular_price: it.old_price && it.old_price > Number(it.price) ? num(it.old_price) : null,
           in_stock: it.in_stock === null || it.in_stock === undefined ? (it.stock === 0 ? false : null) : it.in_stock, rank: null, rating: null, reviews: 0 });
         n++;
       } catch (_) { /* one page is not important */ }
@@ -846,7 +889,7 @@ async function searchMarket(term: string, { live = true, fresh = false, budgetMs
   const started = Date.now();
   const until = started + budgetMs;
   const sources = await q<ResearchSourcesRow>('SELECT * FROM research_sources WHERE active ORDER BY last_ok DESC NULLS LAST');
-  const shops: Loose[] = [];
+  const shops: { name: string; n: number; error: string }[] = [];
   // the same search again within 10 minutes (e.g. back from adding a product): what was just found is enough
   const key = termPrep.ws.join(' ');
   for (const [k, t] of recentLive) if (Date.now() - t > 10 * 60000) recentLive.delete(k);
@@ -864,7 +907,7 @@ async function searchMarket(term: string, { live = true, fresh = false, budgetMs
         try {
           if (src.kind === 'auto') {
             // first time: what kind of shop is it? (a slow shop is tried again on the next search)
-            const d: Loose = await Promise.race([detect(src.url), new Promise((_, no) => setTimeout(() => no(Object.assign(new Error('slow'), { code: 'SLOW' })), Math.max(1500, Math.min(7000, until - Date.now() - 4000))))]);
+            const d = await Promise.race([detect(src.url), new Promise<never>((_, no) => setTimeout(() => no(Object.assign(new Error('slow'), { code: 'SLOW' })), Math.max(1500, Math.min(7000, until - Date.now() - 4000))))]);
             src.kind = d.kind;
             await q('UPDATE research_sources SET kind=$2 WHERE id=$1', [src.id, d.kind]);
           }
@@ -877,12 +920,13 @@ async function searchMarket(term: string, { live = true, fresh = false, budgetMs
   const sq = searchQuery(term);
   // ask the database for anything holding a part number or a search word, then judge each name
   const likes = [...new Set([...sq.parts.flatMap((p) => (/^\d{4}$/.test(p.core) ? [p.core, p.core.slice(0, 2) + 'l' + p.core.slice(2)] : [p.core])), ...sq.words.filter((w) => w.length >= 3)].map((w) => `%${w.replace(/[%_\\]/g, '').replace(/p(\d)/, '.$1')}%`))].slice(0, 8);
-  const rows = likes.length ? await q(`SELECT i.*, s.name AS shop, s.segment FROM research_items i JOIN research_sources s ON s.id=i.source_id
+  type Found = ResearchItemsRow & { shop: string; segment: string; prep?: Prep; fit: number; fresh: boolean; ours: Match[]; made: boolean };
+  const rows = (likes.length ? await q<ResearchItemsRow & { shop: string; segment: string }>(`SELECT i.*, s.name AS shop, s.segment FROM research_items i JOIN research_sources s ON s.id=i.source_id
       WHERE s.active AND i.last_seen > now() - interval '30 days' AND i.title ILIKE ANY($1::text[])
-      ORDER BY i.last_seen DESC LIMIT 3000`, [likes]) : [];
+      ORDER BY i.last_seen DESC LIMIT 3000`, [likes]) : []) as Found[]; // (prep, fit, fresh, ours and made are added below)
   const oursPrep = await ourProducts();
-  const items: Loose[] = [];
-  const seenUrl = new Set();
+  const items: Found[] = [];
+  const seenUrl = new Set<string>();
   for (const r of rows) {
     if (seenUrl.has(r.url)) continue;
     r.prep = prepFull(r.title);
@@ -891,15 +935,15 @@ async function searchMarket(term: string, { live = true, fresh = false, budgetMs
     seenUrl.add(r.url);
     r.fit = fit;
     r.fresh = new Date(r.last_seen).getTime() >= started - 1000;
-    r.ours = matchOurs(r.prep, oursPrep, 0.72, r);
+    r.ours = matchOurs(r.prep!, oursPrep, 0.72, r);
     items.push(r);
   }
   // another shop's listing of a product we copied from shop X counts too (its name may match X's, not ours)
-  const known = items.filter((r) => r.ours.some((m: { via: string; }) => m.via === 'link'));
+  const known = items.filter((r) => r.ours.some((m) => m.via === 'link'));
   for (const r of items) {
     if (r.ours.length) continue;
     for (const k of known) {
-      if (sameProduct(r.prep, k.prep) >= 0.8) { r.ours = k.ours.filter((m: { via: string; }) => m.via === 'link').map((m: RegExpMatchArray) => ({ ...m, match: 0.88, via: 'other-shop' })); break; }
+      if (sameProduct(r.prep!, k.prep!) >= 0.8) { r.ours = k.ours.filter((m) => m.via === 'link').map((m) => ({ ...m, match: 0.88, via: 'other-shop' })); break; }
     }
   }
   // the part itself, or a board / module / kit made with it?
@@ -934,7 +978,7 @@ async function status() {
     (SELECT max(last_ok) FROM research_sources) AS last_ok`);
 }
 
-function sourcingLinks(term: string | number | boolean) {
+function sourcingLinks(term: string) {
   const e = encodeURIComponent(term);
   return [
     ['1688 (চীনের পাইকারি)', `https://s.1688.com/selloffer/offer_search.htm?keywords=${e}`],

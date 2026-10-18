@@ -12,8 +12,39 @@
 //   { ref, title, description, short_description, price, old_price, cost_price, images[], brand,
 //     category, stock, in_stock, link, youtube, weight_g, group }
 import * as zlib from 'node:zlib';
-import type { Body, Loose } from '../types';
-import type { Settings } from '../types';
+
+/** One product as read from a file or a page (before it gets its lasting `ref`). */
+export type ReadItem = {
+  id: string; title: string; description: string; short_description: string;
+  price: number | null; old_price: number | null; cost_price: number | null; images: string[];
+  brand: string; category: string; stock: number | null; in_stock: boolean | null; link: string; youtube: string;
+  weight_g: number | null; group: string; variation: boolean;
+};
+/** A read product ready for the importer screens: its lasting identity added (and, there, whether it is in the shop). */
+export type ImportItem = Omit<ReadItem, 'variation' | 'group'> & { ref: string; exists?: { id: number; name: string; sku: string | null } };
+/** A link found while reading: a product page, or a sitemap to read next. */
+export type FoundLink = { url: string; kind: string };
+
+// What other shops' data looks like (every field can be missing — it is someone else's file).
+type ShopifyProduct = {
+  id?: unknown; title?: unknown; body_html?: unknown; vendor?: unknown; product_type?: unknown; handle?: string;
+  images?: { src?: string }[];
+  variants?: { price?: unknown; compare_at_price?: unknown; grams?: unknown; inventory_quantity?: unknown; available?: boolean }[];
+};
+type WooProduct = {
+  id?: unknown; name?: unknown; description?: unknown; short_description?: unknown; permalink?: unknown; is_in_stock?: boolean;
+  prices?: { currency_minor_unit?: number | string; regular_price?: string; price?: string; sale_price?: string };
+  images?: { src?: string }[]; categories?: { name?: string }[]; brands?: { name?: string }[];
+};
+/** schema.org data on a product page (JSON-LD) */
+type LdOffer = { price?: unknown; lowPrice?: unknown; availability?: string; priceSpecification?: { price?: unknown } | { price?: unknown }[]; offers?: LdOffer | LdOffer[] };
+type LdNode = {
+  '@type'?: string | string[]; '@graph'?: unknown; '@id'?: string; itemListElement?: unknown; item?: unknown; mainEntity?: unknown;
+  name?: string; description?: string; sku?: string; productID?: string; mpn?: string; url?: string; image?: unknown; category?: unknown;
+  brand?: string | { name?: string }; offers?: LdOffer | LdOffer[];
+};
+/** a page's <meta> tags: name → every value given */
+type Meta = Map<string, string[]>;
 
 const MAX_ITEMS = 5000;
 const MAX_IMAGES = 6;
@@ -22,7 +53,7 @@ const BN = '০১২৩৪৫৬৭৮৯';
 // ---------------------------------------------------------------- text helpers
 const ENT: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ', ndash: '–', mdash: '—', hellip: '…', rsquo: '’', lsquo: '‘', ldquo: '“', rdquo: '”', bull: '•', times: '×', copy: '©', reg: '®', trade: '™', deg: '°', middot: '·', laquo: '«', raquo: '»', euro: '€', pound: '£', yen: '¥', micro: 'µ', plusmn: '±', frac12: '½', frac14: '¼', frac34: '¾', sup2: '²', sup3: '³', ohm: 'Ω', Omega: 'Ω' };
 function decodeEntities(s: string) {
-  return String(s).replace(/&(#x[0-9a-f]+|#\d+|[a-z][a-z0-9]*);/gi, (m, e) => {
+  return String(s).replace(/&(#x[0-9a-f]+|#\d+|[a-z][a-z0-9]*);/gi, (m: string, e: string) => {
     if (e[0] === '#') {
       const n = e[1] === 'x' || e[1] === 'X' ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10);
       return n > 0 && n < 0x110000 && !(n >= 0xd800 && n <= 0xdfff) ? String.fromCodePoint(n) : '';
@@ -33,24 +64,24 @@ function decodeEntities(s: string) {
 function unCdata(s: string) { return String(s).replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1'); }
 
 // HTML description → the shop's simple text format (## heading, - bullet, blank line = paragraph)
-function htmlToText(input: Body) {
+function htmlToText(input: unknown) {
   let s = String(input ?? '');
   if (!/<[a-z!/]/i.test(s)) return decodeEntities(s).replace(/\r\n?/g, '\n').replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
   s = s.replace(/<!--[\s\S]*?-->/g, '')
     .replace(/<(script|style|noscript|iframe|svg|template)\b[\s\S]*?<\/\1>/gi, '')
     .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<h[1-4][^>]*>([\s\S]*?)<\/h[1-4]>/gi, (m, t) => `\n\n## ${t.replace(/<[^>]+>/g, '').trim()}\n\n`)
+    .replace(/<h[1-4][^>]*>([\s\S]*?)<\/h[1-4]>/gi, (m: string, t: string) => `\n\n## ${t.replace(/<[^>]+>/g, '').trim()}\n\n`)
     .replace(/<li[^>]*>/gi, '\n- ')
     .replace(/<\/(p|div|section|article|ul|ol|table|tr|h[5-6]|blockquote)>/gi, '\n\n')
     .replace(/<(p|div|section|article|ul|ol|table|tr|blockquote)\b[^>]*>/gi, '\n')
     .replace(/<\/t[dh]>/gi, '  ')
-    .replace(/<(strong|b)\b[^>]*>([\s\S]*?)<\/\1>/gi, (m, t, inner) => (inner.trim() ? `**${inner.trim()}**` : ''))
+    .replace(/<(strong|b)\b[^>]*>([\s\S]*?)<\/\1>/gi, (m: string, t: string, inner: string) => (inner.trim() ? `**${inner.trim()}**` : ''))
     .replace(/<[^>]+>/g, '');
   s = decodeEntities(s).replace(/\u00a0/g, ' ').replace(/\r\n?/g, '\n');
   return s.split('\n').map((l) => l.replace(/[ \t]+/g, ' ').trim()).join('\n')
     .replace(/\n- \n/g, '\n').replace(/^## \s*$/gm, '').replace(/\n{3,}/g, '\n\n').trim();
 }
-function oneLine(s?: Loose) { return htmlToText(s).replace(/\s+/g, ' ').trim(); }
+function oneLine(s?: unknown) { return htmlToText(s).replace(/\s+/g, ' ').trim(); }
 
 function toAsciiDigits(s: string) { return String(s ?? '').replace(/[০-৯]/g, (d) => String(BN.indexOf(d))); }
 // "1,250.00 BDT", "৳ ২৫০", "Tk. 99", "250 - 300" → 1250 / 250 / 99 / 250
@@ -64,7 +95,7 @@ function parsePrice(v?: unknown) {
   const n = Number(m[0]);
   return Number.isFinite(n) && n >= 0 && n < 1e9 ? Math.round(n * 100) / 100 : null;
 }
-function parseIntSafe(v: string | null | undefined) {
+function parseIntSafe(v: unknown) {
   if (v === null || v === undefined || v === '') return null;
   const m = toAsciiDigits(String(v)).replace(/,/g, '').match(/-?\d+/);
   if (!m) return null;
@@ -72,7 +103,7 @@ function parseIntSafe(v: string | null | undefined) {
   return Number.isFinite(n) ? Math.max(0, Math.min(n, 1e7)) : null;
 }
 // "0.5 kg" / "500 g" / "500" (grams) → grams
-function parseWeight(v: string | null | undefined, unitHint: string) {
+function parseWeight(v: unknown, unitHint: string) {
   if (v === null || v === undefined || v === '') return null;
   const s = toAsciiDigits(String(v)).toLowerCase();
   const m = s.match(/(\d+(?:\.\d+)?)\s*(kg|kilo|g|gm|gram|lb|oz)?/);
@@ -91,19 +122,19 @@ function availability(v?: unknown) {
 }
 
 // Image links inside any text: "a.jpg, b.jpg | c.jpg"
-function urlsIn(v?: Loose): Loose[] {
+function urlsIn(v?: unknown): string[] {
   if (v === null || v === undefined) return [];
-  if (Array.isArray(v)) return v.flatMap(urlsIn);
-  if (typeof v === 'object') return urlsIn(v.src || v.url || v.contentUrl || v.href || v.image || '');
+  if (Array.isArray(v)) return (v as unknown[]).flatMap(urlsIn);
+  if (typeof v === 'object') { const o = v as Record<string, unknown>; return urlsIn(o.src || o.url || o.contentUrl || o.href || o.image || ''); }
   const s = decodeEntities(String(v));
   return (s.match(/(?:https?:)?\/\/[^\s,|"'<>\]\[]+/gi) || []).map((u) => (u.startsWith('//') ? 'https:' + u : u));
 }
-function absUrl(u: string, base?: Loose) {
+function absUrl(u: unknown, base?: string) {
   if (!u) return '';
   try { return new URL(String(u).trim(), base || undefined).toString(); } catch (_) { return ''; }
 }
-function cleanImages(list?: Loose, base?: undefined) {
-  const out: unknown[] = [];
+function cleanImages(list: unknown[], base?: string) {
+  const out: string[] = [];
   for (const u of list) {
     const a = absUrl(u, base);
     if (!/^https?:\/\//i.test(a)) continue;
@@ -113,14 +144,14 @@ function cleanImages(list?: Loose, base?: undefined) {
   }
   return out;
 }
-function hostOf(u: string | URL) { try { return new URL(u).hostname.replace(/^www\./, '').toLowerCase(); } catch (_) { return ''; } }
+function hostOf(u?: string | URL) { try { return new URL(u as string).hostname.replace(/^www\./, '').toLowerCase(); } catch (_) { return ''; } }
 
 // ---------------------------------------------------------------- column names
 function normKey(k: string) {
   return String(k ?? '').normalize('NFC').replace(/^\uFEFF/, '').toLowerCase().replace(/^g:/, '')
     .replace(/[\s_\-.:()[\]/#*]+/g, '').trim();
 }
-const FIELDS: Record<string, Loose> = {
+const FIELDS: Record<string, string[]> = {
   id: ['id', 'productid', 'itemid', 'retailerid', 'contentid', 'handle', 'productcode', 'code', 'sku', 'variantsku', 'mpn', 'পণ্যআইডি', 'আইডি', 'কোড'],
   title: ['title', 'name', 'productname', 'producttitle', 'itemname', 'itemtitle', 'পণ্যেরনাম', 'নাম', 'পণ্য', 'টাইটেল', 'শিরোনাম'],
   description: ['description', 'longdescription', 'bodyhtml', 'body', 'productdescription', 'richtextdescription', 'details', 'content', 'fulldescription', 'বিবরণ', 'বিস্তারিতবিবরণ', 'বিস্তারিত'],
@@ -145,29 +176,29 @@ const FIELDS: Record<string, Loose> = {
 const KNOWN = new Set(Object.values(FIELDS).flat());
 
 // one row of named values → plain product (or null when it has no name and nothing to merge)
-function fromRow(row: { [s: string]: unknown; } | ArrayLike<unknown>, base?: Loose) {
-  const m = new Map();
+function fromRow(row: Record<string, unknown>, base?: string): ReadItem {
+  const m = new Map<string, unknown>();
   for (const [k, v] of Object.entries(row)) {
     const nk = normKey(k);
     if (!nk) continue;
-    const val = Array.isArray(v) ? v.map((x) => String(x ?? '')).join(', ') : v;
+    const val = Array.isArray(v) ? (v as unknown[]).map((x) => String(x ?? '')).join(', ') : v;
     if (val === null || val === undefined || String(val).trim() === '') continue;
     if (!m.has(nk)) m.set(nk, val);
   }
   const pick = (name: string) => { for (const k of FIELDS[name]) if (m.has(k)) return m.get(k); return null; };
-  const pickAll = (name: string) => FIELDS[name].filter((k: unknown) => m.has(k)).map((k: unknown) => m.get(k));
+  const pickAll = (name: string) => FIELDS[name].filter((k) => m.has(k)).map((k) => m.get(k));
   const link = absUrl(pick('link'), base);
 
   let price = parsePrice(pick('price'));
   const sale = parsePrice(pick('sale'));
   const compare = parsePrice(pick('compare'));
-  let oldPrice = null;
+  let oldPrice: number | null = null;
   if (sale !== null && sale > 0 && (price === null || sale < price)) { oldPrice = price; price = sale; }
   if (compare !== null && price !== null && compare > price) oldPrice = compare;
   if (oldPrice !== null && price !== null && oldPrice <= price) oldPrice = null;
 
   // first category-like column that holds a real name (not a Google number, not WooCommerce's "simple/variable")
-  let category = null;
+  let category: string | null = null;
   for (const k of FIELDS.category) {
     if (!m.has(k)) continue;
     const v = oneLine(m.get(k));
@@ -175,7 +206,7 @@ function fromRow(row: { [s: string]: unknown; } | ArrayLike<unknown>, base?: Loo
     category = v; break;
   }
   const w = pick('weight');
-  const weightKey = FIELDS.weight.find((k: unknown) => m.has(k));
+  const weightKey = FIELDS.weight.find((k) => m.has(k));
   const rowType = String(pick('rowtype') ?? '').toLowerCase().trim();
   const item = {
     id: oneLine(pick('id') ?? '').slice(0, 120),
@@ -200,9 +231,9 @@ function fromRow(row: { [s: string]: unknown; } | ArrayLike<unknown>, base?: Loo
 }
 
 // Rows → products. Merges Shopify-style extra picture rows and keeps one product per variant group.
-function fromRows(rows: {}[], base?: unknown, notes?: Loose) {
-  const out: Loose[] = [];
-  const byGroup = new Map();
+function fromRows(rows: Record<string, unknown>[], base: string | undefined, notes: string[]) {
+  const out: ReadItem[] = [];
+  const byGroup = new Map<string, ReadItem>();
   let variants = 0;
   let merged = 0;
   for (const row of rows) {
@@ -243,9 +274,9 @@ function detectDelimiter(text: string) {
   cands.sort((a, b) => b[1] - a[1]);
   return cands[0][1] > 0 ? cands[0][0] : ',';
 }
-function parseCsv(text?: Loose, delim?: unknown) {
-  const rows: unknown[] = [];
-  let row: Loose[] = [];
+function parseCsv(text: string, delim: string) {
+  const rows: string[][] = [];
+  let row: string[] = [];
   let cell = '';
   let q = false;
   for (let i = 0; i < text.length; i++) {
@@ -266,19 +297,19 @@ function parseCsv(text?: Loose, delim?: unknown) {
   return rows;
 }
 // Table (first row = column names, possibly after a few title rows) → objects
-function tableToObjects(table?: Loose) {
+function tableToObjects(table: unknown[][]): { header: string[]; rows: Record<string, unknown>[]; known?: number } {
   if (!table.length) return { header: [], rows: [] };
   // find the header row: the first row (of the first 10) with the most known column names
   let hi = 0;
   let best = -1;
   for (let i = 0; i < Math.min(10, table.length); i++) {
-    const score = table[i].filter((h: string) => KNOWN.has(normKey(h))).length;
+    const score = table[i].filter((h) => KNOWN.has(normKey(h as string))).length;
     if (score > best) { best = score; hi = i; }
   }
-  const header = table[hi].map((h: unknown) => String(h ?? '').trim());
-  const rows = table.slice(hi + 1).map((r: Loose) => {
+  const header = table[hi].map((h) => String(h ?? '').trim());
+  const rows = table.slice(hi + 1).map((r) => {
     const o: Record<string, unknown> = {};
-    header.forEach((h: string | number, j: string | number) => {
+    header.forEach((h, j) => {
       if (!h) return;
       const v = r[j] === undefined || r[j] === null ? '' : r[j];
       if (o[h] !== undefined && o[h] !== '') o[h] = ([] as unknown[]).concat(o[h], v); // repeated column (e.g. several image columns)
@@ -290,7 +321,7 @@ function tableToObjects(table?: Loose) {
 }
 
 // ---------------------------------------------------------------- XLSX (zip of XML)
-function unzip(buf?: Loose) {
+function unzip(buf: Buffer) {
   // central directory
   let eocd = -1;
   for (let i = buf.length - 22; i >= Math.max(0, buf.length - 65557); i--) {
@@ -299,7 +330,7 @@ function unzip(buf?: Loose) {
   if (eocd < 0) throw new Error('zip');
   const count = buf.readUInt16LE(eocd + 10);
   let p = buf.readUInt32LE(eocd + 16);
-  const files = new Map();
+  const files = new Map<string, string>();
   let total = 0;
   for (let n = 0; n < count; n++) {
     if (buf.readUInt32LE(p) !== 0x02014b50) throw new Error('zip');
@@ -323,21 +354,21 @@ function unzip(buf?: Loose) {
   }
   return files;
 }
-function xmlText(s?: Settings) { return decodeEntities(unCdata(String(s).replace(/<rPh\b[\s\S]*?<\/rPh>/g, '')).replace(/<[^>]+>/g, '')); }
-function colIndex(ref?: unknown) {
+function xmlText(s: string) { return decodeEntities(unCdata(String(s).replace(/<rPh\b[\s\S]*?<\/rPh>/g, '')).replace(/<[^>]+>/g, '')); }
+function colIndex(ref: string) {
   const m = String(ref).match(/^([A-Z]+)/);
   if (!m) return -1;
   let n = 0;
   for (const ch of m[1]) n = n * 26 + (ch.charCodeAt(0) - 64);
   return n - 1;
 }
-function parseXlsx(buf: Buffer<ArrayBuffer>) {
+function parseXlsx(buf: Buffer) {
   const files = unzip(buf);
-  const shared: Loose[] = [];
+  const shared: string[] = [];
   const ss = files.get('xl/sharedStrings.xml');
   if (ss) for (const m of ss.matchAll(/<si\b[^>]*>([\s\S]*?)<\/si>/g)) shared.push(xmlText(m[1]));
   // first sheet in workbook order
-  let sheetPath = null;
+  let sheetPath: string | null = null;
   const wb = files.get('xl/workbook.xml');
   const rels = files.get('xl/_rels/workbook.xml.rels');
   if (wb && rels) {
@@ -351,9 +382,9 @@ function parseXlsx(buf: Buffer<ArrayBuffer>) {
   if (!sheetPath || !files.has(sheetPath)) sheetPath = [...files.keys()].filter((k) => k.startsWith('xl/worksheets/')).sort()[0];
   const sheet = sheetPath && files.get(sheetPath);
   if (!sheet) throw new Error('sheet');
-  const table: unknown[] = [];
+  const table: string[][] = [];
   for (const rm of sheet.matchAll(/<row\b[^>]*>([\s\S]*?)<\/row>/g)) {
-    const row: unknown[] = [];
+    const row: string[] = [];
     let auto = 0;
     for (const cm of rm[1].matchAll(/<c\b([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g)) {
       const attrs = cm[1];
@@ -379,7 +410,7 @@ function parseXlsx(buf: Buffer<ArrayBuffer>) {
 
 // ---------------------------------------------------------------- XML feeds and sitemaps
 function xmlItems(xml: string) {
-  const blocks: Loose[] = [];
+  const blocks: string[] = [];
   for (const tag of ['item', 'entry', 'product', 'listing', 'offer']) {
     const re = new RegExp(`<(?:[\\w-]+:)?${tag}\\b[^>]*>([\\s\\S]*?)</(?:[\\w-]+:)?${tag}>`, 'gi');
     for (const m of xml.matchAll(re)) { blocks.push(m[1]); if (blocks.length > MAX_ITEMS * 2) break; }
@@ -399,7 +430,7 @@ function xmlItems(xml: string) {
     return o;
   });
 }
-function sitemapLinks(xml: string, base?: unknown) {
+function sitemapLinks(xml: string, base?: string): { links: FoundLink[]; filtered?: boolean } {
   const locs = [...xml.matchAll(/<loc>\s*(?:<!\[CDATA\[)?\s*([^<\]]+?)\s*(?:\]\]>)?\s*<\/loc>/gi)].map((m) => absUrl(decodeEntities(m[1]), base)).filter(Boolean);
   const isIndex = /<sitemapindex\b/i.test(xml);
   if (isIndex) {
@@ -412,68 +443,75 @@ function sitemapLinks(xml: string, base?: unknown) {
 }
 
 // ---------------------------------------------------------------- JSON
-function shopifyItems(products?: Loose, base?: unknown) {
-  return products.map((p: Loose) => {
+function shopifyItems(products: ShopifyProduct[], base?: string) {
+  return products.map((p) => {
     const v = (p.variants || [])[0] || {};
-    const stock = (p.variants || []).reduce((s: number, x: { inventory_quantity: number; }) => (typeof x.inventory_quantity === 'number' ? s + Math.max(0, x.inventory_quantity) : s), 0);
-    const anyStock = (p.variants || []).some((x: Loose) => typeof x.inventory_quantity === 'number');
+    const stock = (p.variants || []).reduce((s: number, x) => (typeof x.inventory_quantity === 'number' ? s + Math.max(0, x.inventory_quantity) : s), 0);
+    const anyStock = (p.variants || []).some((x) => typeof x.inventory_quantity === 'number');
     return fromRow({
       id: p.id, title: p.title, body_html: p.body_html, vendor: p.vendor, product_type: p.product_type,
       price: v.price, compare_at_price: v.compare_at_price, grams: v.grams,
-      image: (p.images || []).map((i: Loose) => i.src), link: p.handle && base ? absUrl('/products/' + p.handle, base) : '',
-      quantity: anyStock ? stock : '', availability: (p.variants || []).length ? ((p.variants || []).some((x: { available: boolean; }) => x.available !== false) ? 'in stock' : 'out of stock') : '',
+      image: (p.images || []).map((i) => i.src), link: p.handle && base ? absUrl('/products/' + p.handle, base) : '',
+      quantity: anyStock ? stock : '', availability: (p.variants || []).length ? ((p.variants || []).some((x) => x.available !== false) ? 'in stock' : 'out of stock') : '',
     }, base);
   });
 }
-function wooItems(products?: Loose, base?: unknown) {
-  return products.map((p: Loose) => {
+function wooItems(products: WooProduct[], base?: string) {
+  return products.map((p) => {
     const pr = p.prices || {};
     const unit = Math.pow(10, Number(pr.currency_minor_unit ?? 0));
     const val = (x: string | null | undefined) => (x === undefined || x === null || x === '' ? '' : Number(x) / unit);
     return fromRow({
       id: p.id, name: p.name, description: p.description, short_description: p.short_description,
       regular_price: val(pr.regular_price || pr.price), sale_price: pr.sale_price && pr.sale_price !== pr.regular_price ? val(pr.sale_price) : '',
-      images: (p.images || []).map((i: Loose) => i.src), category: (p.categories || []).map((c: Loose) => c.name)[0] || '',
-      brand: (p.brands || []).map((b: Body) => b.name)[0] || '', link: p.permalink, availability: p.is_in_stock === false ? 'out of stock' : p.is_in_stock ? 'in stock' : '',
+      images: (p.images || []).map((i) => i.src), category: (p.categories || []).map((c) => c.name)[0] || '',
+      brand: (p.brands || []).map((b) => b.name)[0] || '', link: p.permalink, availability: p.is_in_stock === false ? 'out of stock' : p.is_in_stock ? 'in stock' : '',
     }, base);
   });
 }
-function flatObj(o?: unknown, prefix = '', out: Loose = {}) {
-  for (const [k, v] of Object.entries(o || {}) as [string, Loose][]) {
+type Named = { name?: unknown; title?: unknown };
+function flatObj(o?: unknown, prefix = '', out: Record<string, unknown> = {}) {
+  for (const [k, v] of Object.entries(o || {}) as [string, unknown][]) {
     if (v === null || v === undefined) continue;
     if (Array.isArray(v)) {
-      if (v.every((x) => typeof x !== 'object')) out[prefix + k] = v.join(', ');
-      else if (/image|photo|picture|gallery/i.test(k)) out[prefix + k] = urlsIn(v).join(', ');
-      else if (/categor/i.test(k)) out[prefix + k] = v.map((x) => (x && (x.name || x.title)) || '').filter(Boolean)[0] || '';
+      const list = v as unknown[];
+      if (list.every((x) => typeof x !== 'object')) out[prefix + k] = list.join(', ');
+      else if (/image|photo|picture|gallery/i.test(k)) out[prefix + k] = urlsIn(list).join(', ');
+      else if (/categor/i.test(k)) out[prefix + k] = list.map((x) => (x && ((x as Named).name || (x as Named).title)) || '').filter(Boolean)[0] || '';
     } else if (typeof v === 'object') {
-      if (/brand|categor/i.test(k) && (v.name || v.title)) out[prefix + k] = v.name || v.title;
+      const n = v as Named;
+      if (/brand|categor/i.test(k) && (n.name || n.title)) out[prefix + k] = n.name || n.title;
       else if (/image|photo|picture/i.test(k)) out[prefix + k] = urlsIn(v).join(', ');
       else if (!prefix) flatObj(v, '', out); // one level down (e.g. { price: …, details: { brand } })
     } else out[prefix + k] = v;
   }
   return out;
 }
-function jsonItems(data: Body, base?: unknown, notes?: unknown) {
-  if (data && Array.isArray(data.products) && data.products.some((p) => p && p.variants)) return { items: shopifyItems(data.products, base), shopify: true };
-  const arr = Array.isArray(data) ? data : data && (data.products || data.items || data.data || data.results || data.records || data.rows);
+function jsonItems(data: unknown, base: string | undefined, notes: string[]): { items: ReadItem[]; shopify?: boolean; woo?: boolean } {
+  // (a list, or an object holding the list under one of the usual names)
+  const d = (data && typeof data === 'object' ? data : {}) as Record<string, unknown>;
+  if (Array.isArray(d.products) && (d.products as ShopifyProduct[]).some((p) => p && p.variants)) return { items: shopifyItems(d.products as ShopifyProduct[], base), shopify: true };
+  const arr: unknown = Array.isArray(data) ? data : data && (d.products || d.items || d.data || d.results || d.records || d.rows);
   if (!Array.isArray(arr)) return { items: [] };
-  if (arr.some((p) => p && p.prices && p.permalink)) return { items: wooItems(arr, base), woo: true };
-  if (arr.some((p) => p && p.variants && p.handle)) return { items: shopifyItems(arr, base), shopify: true };
-  const rows = arr.filter((x) => x && typeof x === 'object').map((x) => flatObj(x));
+  const list = arr as (WooProduct & ShopifyProduct)[];
+  if (list.some((p) => p && p.prices && p.permalink)) return { items: wooItems(list, base), woo: true };
+  if (list.some((p) => p && p.variants && p.handle)) return { items: shopifyItems(list, base), shopify: true };
+  const rows = list.filter((x) => x && typeof x === 'object').map((x) => flatObj(x));
   return { items: fromRows(rows, base, notes) };
 }
 
 // ---------------------------------------------------------------- HTML product page
 const PRODUCT_PATH = /\/(products?|p|item|items|shop|details?|pd|dp|buy|goods)\/[^/?#]+/i;
 function ldNodes(html: string) {
-  const out: Loose[] = [];
+  const out: LdNode[] = [];
   for (const m of html.matchAll(/<script\b[^>]*type=["']?application\/ld\+json["']?[^>]*>([\s\S]*?)<\/script>/gi)) {
-    let data;
+    let data: unknown;
     try { data = JSON.parse(unCdata(m[1]).trim().replace(/[\u0000-\u001f]+/g, ' ')); } catch (_) { continue; }
-    const walk = (n?: Loose, depth?: Loose) => {
-      if (!n || depth > 6) return;
-      if (Array.isArray(n)) { n.forEach((x) => walk(x, depth + 1)); return; }
-      if (typeof n !== 'object') return;
+    const walk = (x: unknown, depth: number) => {
+      if (!x || depth > 6) return;
+      if (Array.isArray(x)) { (x as unknown[]).forEach((y) => walk(y, depth + 1)); return; }
+      if (typeof x !== 'object') return;
+      const n = x as LdNode;
       out.push(n);
       if (n['@graph']) walk(n['@graph'], depth + 1);
       if (n.itemListElement) walk(n.itemListElement, depth + 1);
@@ -484,9 +522,9 @@ function ldNodes(html: string) {
   }
   return out;
 }
-const isType = (n?: Loose, t?: unknown) => ([] as unknown[]).concat(n['@type'] || []).some((x) => String(x).toLowerCase() === t);
-function metaTags(html: string) {
-  const m = new Map();
+const isType = (n: LdNode, t: string) => ([] as unknown[]).concat(n['@type'] || []).some((x) => String(x).toLowerCase() === t);
+function metaTags(html: string): Meta {
+  const m: Meta = new Map();
   for (const tag of html.matchAll(/<meta\b[^>]+>/gi)) {
     const t = tag[0];
     const key = (t.match(/\b(?:property|name|itemprop)\s*=\s*["']([^"']+)["']/i) || [])[1];
@@ -494,14 +532,14 @@ function metaTags(html: string) {
     if (!key || val === undefined) continue;
     const k = key.toLowerCase();
     if (!m.has(k)) m.set(k, []);
-    m.get(k).push(decodeEntities(val));
+    m.get(k)!.push(decodeEntities(val));
   }
   return m;
 }
-function ldProduct(n?: Loose, base?: unknown, meta?: Loose) {
-  const offers = ([] as Loose[]).concat(n.offers || []).flatMap((o) => (o && o.offers ? ([] as unknown[]).concat(o.offers) : [o])).filter(Boolean);
-  const o = offers[0] || {};
-  const spec = ([] as Loose[]).concat(o.priceSpecification || [])[0] || {};
+function ldProduct(n: LdNode, base?: string, meta?: Meta | null) {
+  const offers = ([] as LdOffer[]).concat(n.offers || []).flatMap((o) => (o && o.offers ? ([] as LdOffer[]).concat(o.offers) : [o])).filter(Boolean);
+  const o: LdOffer = offers[0] || {};
+  const spec: { price?: unknown } = ([] as { price?: unknown }[]).concat(o.priceSpecification || [])[0] || {};
   const price = o.price ?? o.lowPrice ?? spec.price;
   const brand = n.brand ? (typeof n.brand === 'string' ? n.brand : n.brand.name) : '';
   const imgs = urlsIn(n.image);
@@ -520,7 +558,7 @@ function visiblePrice(html: string, title?: unknown) {
   const want = oneLine(title).toLowerCase().replace(/\s+/g, ' ').slice(0, 40);
   if (want.length < 3) return null;
   const re = /<h1\b[^>]*>([\s\S]{0,600}?)<\/h1>/gi;
-  let m, at = -1;
+  let m: RegExpExecArray | null, at = -1;
   while ((m = re.exec(html))) {
     const h = oneLine(m[1]).toLowerCase().replace(/\s+/g, ' ');
     if (h && (h.startsWith(want.slice(0, 25)) || want.startsWith(h.slice(0, 25)))) { at = re.lastIndex; break; }
@@ -528,9 +566,9 @@ function visiblePrice(html: string, title?: unknown) {
   if (at < 0) return null;
   const near = html.slice(at, at + 5000).replace(/<(script|style)\b[\s\S]*?<\/\1>/gi, ' ');
   const text = near.replace(/<(del|s|strike)\b[^>]*>/gi, ' [[old ').replace(/<\/(del|s|strike)>/gi, ' ]] ').replace(/<[^>]+>/g, ' ');
-  const prices: Loose[] = [];
+  const prices: { n: number; old: boolean }[] = [];
   const g = new RegExp(PRICE_TXT.source, 'gi');
-  let x;
+  let x: RegExpExecArray | null;
   while ((x = g.exec(text)) && prices.length < 3) {
     const n = parsePrice(x[1] || x[2]);
     if (n === null || n <= 0) continue;
@@ -543,11 +581,11 @@ function visiblePrice(html: string, title?: unknown) {
   const out = /(out of stock|stock out|sold out|স্টক আউট|স্টকে নেই|স্টক নেই)/i.test(text.slice(0, 1500));
   return { price: now.n, old: was ? was.n : null, out };
 }
-function htmlProducts(html?: Loose, base?: Loose) {
+function htmlProducts(html: string, base: string) {
   const meta = metaTags(html);
   const nodes = ldNodes(html).filter((n) => isType(n, 'product') || isType(n, 'individualproduct') || isType(n, 'productgroup'));
-  const items: Loose[] = [];
-  const seen = new Set();
+  const items: ReadItem[] = [];
+  const seen = new Set<string>();
   for (const n of nodes) {
     const it = ldProduct(n, base, nodes.length === 1 ? meta : null);
     if (!it.title || seen.has(it.title + '|' + it.price)) continue;
@@ -566,7 +604,7 @@ function htmlProducts(html?: Loose, base?: Loose) {
   const title = (meta.get('og:title') || [])[0];
   const price = parsePrice((meta.get('product:price:amount') || meta.get('og:price:amount') || meta.get('price') || [])[0]);
   // no price data for Google at all (e.g. Udvabony — Next.js / Vendure): read the price printed on the page
-  let shown = null;
+  let shown: ReturnType<typeof visiblePrice> = null;
   if (title && price === null) {
     // only on a page that is one product: a product address, or the page says so (og:type product)
     let path = '';
@@ -596,7 +634,7 @@ function htmlProducts(html?: Loose, base?: Loose) {
 //   (WordPress /uploads/2024/05/, Shopify /files/ …), only the pictures the page itself lists
 //   for this product (JSON-LD Product image / og:image) are taken.
 const IMG_URL = /(?:https?:)?\/\/[^\s"'<>()\\,|{}[\]]+?\.(?:jpe?g|png|webp|gif|avif)(?:\?[^\s"'<>()\\,|{}[\]]*)?/gi;
-function dirOf(u?: Loose) {
+function dirOf(u: string) {
   try { const x = new URL(u); return x.hostname.replace(/^www\./, '').toLowerCase() + x.pathname.replace(/[^/]*$/, ''); } catch (_) { return ''; }
 }
 // "folder shared by every product" — not safe for the folder rule
@@ -616,13 +654,13 @@ function picKey(u: string | URL) {
       .replace(/[-_](\d{2,4}x\d{2,4}|thumb|thumbnail|small|medium|large|scaled)(?=\.\w+$)/, '');
   } catch (_) { return String(u).toLowerCase(); }
 }
-function galleryImages(html?: unknown, base?: unknown, main = '') {
+function galleryImages(html?: unknown, base?: string, main = '') {
   const text = decodeEntities(String(html || ''))
     .replace(/\\u002[fF]/g, '/').replace(/\\u0026/g, '&').replace(/\\\//g, '/');
   const meta = metaTags(String(html || ''));
   const og = [...(meta.get('og:image') || []), ...(meta.get('og:image:secure_url') || [])].map((u) => absUrl(u, base)).filter(Boolean);
   // pictures the page itself names for this one product (a page about exactly one product only)
-  const listed: Loose[] = [];
+  const listed: string[] = [];
   const nodes = ldNodes(String(html || '')).filter((n) => isType(n, 'product') || isType(n, 'individualproduct'));
   if (nodes.length === 1) listed.push(...urlsIn(nodes[0].image).map((u) => absUrl(u, base)), ...og);
   const mainAbs = absUrl(main, base);
@@ -636,7 +674,7 @@ function galleryImages(html?: unknown, base?: unknown, main = '') {
   // the product's own folder: from the main picture we already have (or, with no main picture, the page's og:image)
   const dirs = new Set([mainAbs || og[0] || ''].map(dirOf).filter((d) => d && !sharedDir(d)));
   // one entry per picture; of its sizes, the plain full-size link wins
-  const found = new Map();
+  const found = new Map<string, string>();
   const mainKey = mainAbs ? picKey(mainAbs) : '';
   const plain = (u: string) => !/[?#]/.test(u) && !/[-_](\d{2,4}x\d{2,4}|thumb|thumbnail|small|medium)(?=\.\w+$)/i.test(u);
   const add = (u: string) => {
@@ -661,13 +699,13 @@ function galleryImages(html?: unknown, base?: unknown, main = '') {
   return { images: [...found.values()].slice(0, 20), rule: dirs.size ? 'folder' : 'listed', folders: [...dirs], confirmed: true };
 }
 
-function productLinks(html: string, base: string | URL) {
+function productLinks(html: string, base: string) {
   const host = hostOf(base);
-  const out = new Set();
+  const out = new Set<string>();
   for (const m of html.matchAll(/<a\b[^>]*\bhref\s*=\s*["']([^"'#]+)["']/gi)) {
     const u = absUrl(decodeEntities(m[1]), base);
     if (!u || hostOf(u) !== host) continue;
-    let path;
+    let path: string;
     try { path = new URL(u).pathname; } catch (_) { continue; }
     if (!PRODUCT_PATH.test(path) || /\/(cart|checkout|account|login|wishlist|compare|tag|category|categories|collections?)\b/i.test(path)) continue;
     out.add(u.split('#')[0]);
@@ -677,7 +715,7 @@ function productLinks(html: string, base: string | URL) {
 }
 
 // ---------------------------------------------------------------- entry points
-function decodeText(buf?: Loose, contentType: unknown = '') {
+function decodeText(buf: Buffer | string, contentType: unknown = '') {
   if (typeof buf === 'string') return buf.replace(/^\uFEFF/, '');
   if (buf[0] === 0xff && buf[1] === 0xfe) return new TextDecoder('utf-16le').decode(buf.subarray(2));
   if (buf[0] === 0xfe && buf[1] === 0xff) return new TextDecoder('utf-16be').decode(buf.subarray(2));
@@ -686,13 +724,13 @@ function decodeText(buf?: Loose, contentType: unknown = '') {
     const head = buf.subarray(0, 2048).toString('latin1');
     cs = (head.match(/<\?xml[^>]*encoding=["']([\w-]+)/i) || head.match(/<meta[^>]+charset=["']?([\w-]+)/i) || [])[1];
   }
-  let dec;
+  let dec: TextDecoder;
   try { dec = new TextDecoder((cs || 'utf-8').toLowerCase()); } catch (_) { dec = new TextDecoder('utf-8'); }
   return dec.decode(buf).replace(/^\uFEFF/, '');
 }
 
 // What kind of content is this? (by the first bytes, not the file name)
-function sniff(buf: Buffer<ArrayBuffer>, name = '', contentType = '') {
+function sniff(buf: Buffer, name = '', contentType = '') {
   if (Buffer.isBuffer(buf) && buf.length > 4 && buf.readUInt32LE(0) === 0x04034b50) return 'xlsx';
   if (Buffer.isBuffer(buf) && buf.length > 8 && buf.readUInt32LE(0) === 0xe011cfd0) return 'xls';
   const head = decodeText(Buffer.isBuffer(buf) ? buf.subarray(0, 4096) : String(buf).slice(0, 4096), contentType).trimStart();
@@ -708,23 +746,25 @@ function sniff(buf: Buffer<ArrayBuffer>, name = '', contentType = '') {
 
 // Parse already-downloaded content. Returns { items, links, next, format, notes }
 type ParseContentOpts = {
+  /** the file's name (for its type when the bytes don't say) */
   name?: string;
-  contentType?: Loose;
-  baseUrl?: Loose;
+  contentType?: string;
+  /** the address it came from (to complete relative links) */
+  baseUrl?: string;
 };
-function parseContent(buf: Buffer<ArrayBuffer>, { name = '', contentType = '', baseUrl = '' }: ParseContentOpts = {}) {
-  const notes: unknown[] = [];
+function parseContent(buf: Buffer, { name = '', contentType = '', baseUrl = '' }: ParseContentOpts = {}) {
+  const notes: string[] = [];
   const kind = sniff(buf, name, contentType);
   if (kind === 'xls') return { items: [], format: 'xls', notes, error: 'পুরোনো .xls ফাইল পড়া যায় না। Excel-এ খুলে "Save As" → "Excel Workbook (.xlsx)" বা "CSV UTF-8" হিসেবে সেভ করে আবার দিন।' };
   if (kind === 'xlsx') {
-    let table;
+    let table: string[][];
     try { table = parseXlsx(buf); } catch (_) { return { items: [], format: 'xlsx', notes, error: 'Excel ফাইলটি পড়া যায়নি। ফাইলটি ঠিক আছে কি না দেখুন, অথবা CSV হিসেবে সেভ করে দিন।' }; }
     const t = tableToObjects(table);
     return { items: fromRows(t.rows, baseUrl, notes), format: 'xlsx', columns: t.header.filter(Boolean), unknownColumns: t.known === 0, notes };
   }
   const text = decodeText(buf, contentType);
   if (kind === 'json') {
-    let data;
+    let data: unknown;
     try { data = JSON.parse(text); } catch (_) { return { items: [], format: 'json', notes, error: 'JSON ফাইলটি ঠিক নেই।' }; }
     const r = jsonItems(data, baseUrl, notes);
     return { items: r.items, format: r.shopify ? 'shopify' : r.woo ? 'woocommerce' : 'json', notes };
@@ -752,17 +792,17 @@ function parseContent(buf: Buffer<ArrayBuffer>, { name = '', contentType = '', b
 }
 
 // A product's lasting identity from the old site: "oldsite.com#123"
-function refFor(it?: Loose, sourceUrl?: Loose) {
+function refFor(it: { id?: string; link?: string; title: string }, sourceUrl?: string) {
   const host = hostOf(it.link) || hostOf(sourceUrl) || 'file';
   let key = it.id;
   if (!key && it.link) { try { const u = new URL(it.link); key = u.pathname.replace(/\/+$/, '') + u.search; } catch (_) { /* ignore */ } }
   if (!key) key = it.title.toLowerCase();
   return `${host}#${key}`.toLowerCase().slice(0, 300);
 }
-function finish(items?: Loose, sourceUrl?: unknown) {
-  return items.map((it: Loose) => {
-    const o = { ...it, ref: refFor(it, sourceUrl) };
-    delete o.variation; delete o.group;
+function finish(items: ReadItem[], sourceUrl?: string): ImportItem[] {
+  return items.map((it) => {
+    const { variation, group, ...o } = { ...it, ref: refFor(it, sourceUrl) };
+    void variation; void group;
     return o;
   });
 }

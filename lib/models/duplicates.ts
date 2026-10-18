@@ -40,7 +40,7 @@ function words(name: string) {
     .trim();
   // "60 w" -> "60w", "60 watt" -> "60w"
   const parts = s.split(/\s+/).filter(Boolean);
-  const out = [];
+  const out: string[] = [];
   for (let i = 0; i < parts.length; i++) {
     const t = parts[i];
     const nxt = parts[i + 1];
@@ -53,7 +53,7 @@ function words(name: string) {
 }
 // letter pairs inside each word (order of words does not matter)
 function pairs(ws: string[]) {
-  const m = new Map();
+  const m = new Map<string, number>();
   let n = 0;
   for (const w of ws) {
     const t = ` ${w} `;

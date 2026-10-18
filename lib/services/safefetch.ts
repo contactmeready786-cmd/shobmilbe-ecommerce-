@@ -82,16 +82,19 @@ function checkUrl(u: string) {
 }
 
 type OnceOpts = {
-  maxBytes: Loose;
-  timeoutMs: Loose;
-  accept: Loose;
-  deadline: Loose;
-  method?: Loose;
-  headers?: Loose;
-  body?: Loose;
+  maxBytes: number;
+  timeoutMs: number;
+  accept?: string;
+  /** when the whole fetch (with its redirects) must be over (Date.now() ms) */
+  deadline: number;
+  method?: string;
+  headers?: Record<string, string>;
+  body?: string | null;
 };
-function once(url: Loose, { maxBytes, timeoutMs, accept, deadline, method = 'GET', headers = {}, body = null }: OnceOpts) {
-  return new Promise((resolve, reject) => {
+/** One request: the answer, or where it redirects to. */
+type Once = { redirect: string; status: number } | { status: number; headers: http.IncomingHttpHeaders; body: Buffer; contentType: string };
+function once(url: URL, { maxBytes, timeoutMs, accept, deadline, method = 'GET', headers = {}, body = null }: OnceOpts) {
+  return new Promise<Once>((resolve, reject) => {
     const mod = url.protocol === 'https:' ? https : http;
     const left = Math.max(1000, Math.min(timeoutMs, deadline - Date.now()));
     const req = mod.request(url, {
@@ -118,13 +121,13 @@ function once(url: Loose, { maxBytes, timeoutMs, accept, deadline, method = 'GET
         return resolve({ redirect: res.headers.location, status });
       }
       const enc = String(res.headers['content-encoding'] || '').toLowerCase().trim();
-      let stream: Loose = res;
+      let stream: NodeJS.ReadableStream & { destroy: () => void } = res;
       if (enc === 'gzip' || enc === 'x-gzip') stream = res.pipe(zlib.createGunzip());
       else if (enc === 'deflate') stream = res.pipe(zlib.createInflate());
       else if (enc === 'br') stream = res.pipe(zlib.createBrotliDecompress());
-      const chunks: Loose[] = [];
+      const chunks: Buffer[] = [];
       let size = 0;
-      stream.on('data', (c: Loose) => {
+      stream.on('data', (c: Buffer) => {
         size += c.length;
         if (size > maxBytes) { req.destroy(); stream.destroy(); clearTimeout(timer); reject(new FetchError('ফাইলটি অনেক বড়।', 'ETOOBIG')); return; }
         chunks.push(c);
@@ -140,20 +143,22 @@ function once(url: Loose, { maxBytes, timeoutMs, accept, deadline, method = 'GET
 }
 
 // Returns { status, ok, body (Buffer), contentType, finalUrl }. Throws FetchError with a Bangla message.
-type SafeFetchOpts = {
+export type SafeFetchOpts = {
   maxBytes?: number;
   timeoutMs?: number;
   accept?: string;
   maxRedirects?: number;
   method?: string;
-  headers?: Loose;
+  headers?: Record<string, string>;
   body?: string | null;
 };
+/** What safeFetch gives back: the page or file, as bytes. */
+export type Fetched = { status: number; ok: boolean; headers: http.IncomingHttpHeaders; body: Buffer; contentType: string; finalUrl: string };
 async function safeFetch(u: string, { maxBytes = 15 * 1024 * 1024, timeoutMs = 12000, accept, maxRedirects = 5, method = 'GET', headers = {}, body = null }: SafeFetchOpts = {}) {
   const deadline = Date.now() + timeoutMs;
   let url = checkUrl(u);
   for (let i = 0; i <= maxRedirects; i++) {
-    let r: Loose;
+    let r: Once;
     try {
       r = await once(url, { maxBytes, timeoutMs, accept, deadline, method, headers, body });
     } catch (caught) { const e = caught as Caught;
@@ -161,11 +166,12 @@ async function safeFetch(u: string, { maxBytes = 15 * 1024 * 1024, timeoutMs = 1
       if (e && e.code === 'ENOTFOUND') throw new FetchError('এই নামের কোনো ওয়েবসাইট পাওয়া যায়নি। লিংক ঠিক আছে কি না দেখুন।', 'ENOTFOUND');
       throw new FetchError('ওয়েবসাইটে ঢোকা যায়নি' + (e && e.code ? ` (${e.code})` : '') + '।', 'ENET');
     }
-    if (r.redirect) {
+    if ('redirect' in r) { // (only ever made with an address in it)
       url = checkUrl(new URL(r.redirect, url).toString());
       continue;
     }
-    return { ...r, ok: r.status >= 200 && r.status < 300, finalUrl: url.toString() };
+    const got: Fetched = { ...r, ok: r.status >= 200 && r.status < 300, finalUrl: url.toString() };
+    return got;
   }
   throw new FetchError('লিংকটি বারবার অন্য জায়গায় পাঠাচ্ছে।', 'EREDIRECT');
 }

@@ -61,7 +61,7 @@ async function planApi(ctx: AdminCtx) {
     return ctx.json(400, { error: e instanceof FetchError ? e.message : 'লিংকটা পড়া যায়নি।' });
   }
   if (out.error) return ctx.json(400, { error: out.error });
-  const items = importer.finish(out.items || [], out.finalUrl || u).filter((it: string) => it.link);
+  const items = importer.finish(out.items || [], out.finalUrl || u).filter((it) => it.link);
   if (!items.length) return ctx.json(400, { error: 'এই লিংকে কোনো পণ্য (পেজের লিংকসহ) পাওয়া যায়নি। যে Facebook ফিড লিংক দিয়ে আমদানি করেছিলেন সেটাই দিন।' });
   await db.setMany({ morepics_feed: u });
   await ctx.reloadSettings();
@@ -83,8 +83,8 @@ async function planApi(ctx: AdminCtx) {
   const missing = items.filter((it: { ref: string; }) => !inShop.has(it.ref) && !trashed.has(it.ref));
   const inTrash = items.filter((it: { ref: string; }) => !inShop.has(it.ref) && trashed.has(it.ref)).map((it: Loose) => ({ title: it.title, link: it.link }));
   // the old site's own product list (sitemap): products the feed left out (e.g. hidden from the catalog)
-  const feedPaths = new Set(items.map((it: string) => pathKey(it.link)).filter(Boolean));
-  let sitemap = { links: [], read: false };
+  const feedPaths = new Set(items.map((it) => pathKey(it.link)).filter(Boolean));
+  let sitemap: { links: string[]; read: boolean } = { links: [], read: false };
   if (b.sitemap !== false) sitemap = await oldSiteLinks(items).catch(() => ({ links: [], read: false }));
   const extra = sitemap.links.filter((l) => !feedPaths.has(pathKey(l)));
   return ctx.json(200, {
@@ -95,7 +95,7 @@ async function planApi(ctx: AdminCtx) {
 }
 
 // what the browser needs to bring one product over
-function slimItem(it?: Loose) {
+function slimItem(it: importer.ImportItem) {
   return {
     ref: it.ref, id: it.id, title: it.title, price: it.price, old_price: it.old_price, cost_price: it.cost_price, brand: it.brand,
     category: it.category, stock: it.stock, in_stock: it.in_stock, link: it.link, images: (it.images || []).slice(0, 20),
@@ -103,7 +103,7 @@ function slimItem(it?: Loose) {
   };
 }
 // /products/abc-123 (no site name, no ?utm…, no trailing slash) — the same product page however it is written
-function pathKey(link?: Loose) {
+function pathKey(link: string) {
   try { const u = new URL(link); return decodeURIComponent(u.pathname).replace(/\/+$/, '').toLowerCase(); } catch (_) { return ''; }
 }
 // products deleted in this shop (now in the recycle bin) — not brought back again by mistake
@@ -112,20 +112,20 @@ async function trashedRefs() {
   return new Set(r.map((x) => x.ref));
 }
 // Every product page the old site lists in its sitemap (follows a sitemap index one level down)
-async function oldSiteLinks(items?: Loose) {
-  const count = new Map();
+async function oldSiteLinks(items: importer.ImportItem[]) {
+  const count = new Map<string, number>();
   for (const it of items) { try { const o = new URL(it.link).origin; count.set(o, (count.get(o) || 0) + 1); } catch (_) { /* skip */ } }
   const origin = [...count.entries()].sort((a, b) => b[1] - a[1]).map((x) => x[0])[0];
   if (!origin) return { links: [], read: false };
   const first = await readUrl(`${origin}/sitemap.xml`, { follow: false });
-  let links = (first.links || []).filter((l: { kind: string; }) => l.kind === 'page').map((l: Loose) => l.url);
-  const subs = (first.links || []).filter((l: { kind: string; }) => l.kind === 'sitemap').map((l: Loose) => l.url).slice(0, 20);
+  let links: string[] = (first.links || []).filter((l: importer.FoundLink) => l.kind === 'page').map((l: importer.FoundLink) => l.url);
+  const subs = (first.links || []).filter((l: importer.FoundLink) => l.kind === 'sitemap').map((l: importer.FoundLink) => l.url).slice(0, 20);
   for (const u of subs) {
     const sub = await readUrl(u, { follow: false }).catch(() => ({ links: [] }));
-    links = links.concat((sub.links || []).filter((l: { kind: string; }) => l.kind === 'page').map((l: Loose) => l.url));
+    links = links.concat((sub.links || []).filter((l: importer.FoundLink) => l.kind === 'page').map((l: importer.FoundLink) => l.url));
   }
-  const seen = new Set();
-  links = links.filter((l: unknown) => {
+  const seen = new Set<string>();
+  links = links.filter((l) => {
     const k = pathKey(l);
     if (!k || !importer.PRODUCT_PATH.test(k) || seen.has(k)) return false;
     seen.add(k); return true;
