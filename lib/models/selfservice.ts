@@ -13,12 +13,22 @@ import * as $services_notify from '../services/notify';
 import * as $services_sms from '../services/sms';
 import * as $customers from './customers';
 import * as $checkoutotp from './checkoutotp';
-import type { Body, Id, Loose, Settings } from '../types';
+import type { Body, Id, Settings, ShopRequest } from '../types';
+
+/** What these changes read of an order (a row of orders; money columns may arrive as numbers or numeric text). */
+type Money = number | string | null | undefined;
+export type SelfOrder = {
+  id: number; code: string; status: string; handed_at?: Date | string | null; customer_name: string; phone: string;
+  address: string; district: string; thana: string; consignment_id?: string | null;
+  subtotal: Money; delivery: Money; discount?: Money; points_discount?: Money; paid_amount?: Money;
+};
+/** Can the customer still change it? — and if not, why (for the page). */
+type CanChange = { ok: true } | { ok: false; why: string };
 
 class SelfError extends Error {}
 
 const OPEN = new Set(['pending', 'confirmed', 'processing', 'hold']);
-const REASONS: Record<string, Loose> = {
+const REASONS: Record<string, string> = {
   mind: 'মত বদলেছি / আর লাগবে না',
   wrong: 'ভুল পণ্য বা ভুল পরিমাণ অর্ডার করেছি',
   cheaper: 'অন্য জায়গায় কম দামে পেয়েছি',
@@ -27,23 +37,24 @@ const REASONS: Record<string, Loose> = {
   other: 'অন্য কারণ',
 };
 
-function canChange(order?: Loose) {
+function canChange(order: SelfOrder | null | undefined): CanChange {
   if (!order) return { ok: false, why: 'অর্ডারটি পাওয়া যায়নি।' };
   if (order.handed_at || !OPEN.has(order.status)) {
     return { ok: false, why: O.RELEASED.has(order.status) ? 'এই অর্ডারটি আগেই বাতিল/ফেরত হয়েছে।' : 'অর্ডারটি কুরিয়ারে দেওয়া হয়ে গেছে — এখন বদলাতে বা বাতিল করতে আমাদের কল করুন।' };
   }
   return { ok: true };
 }
-const note = (id?: Id, text?: Loose) => db.q(`UPDATE orders SET admin_note = left(trim(coalesce(admin_note, '') || E'\n' || $1), 1000), updated_at=now() WHERE id=$2`, [text, id]);
-function pushOwner(title?: Loose, body?: Loose, url?: Loose) {
+const note = (id: Id, text: string) => db.q(`UPDATE orders SET admin_note = left(trim(coalesce(admin_note, '') || E'\n' || $1), 1000), updated_at=now() WHERE id=$2`, [text, id]);
+function pushOwner(title: string, body: string, url: string) {
   const push = $services_push;
   return $services_notify.later(push.count().then((n) => (n ? push.sendAll({ title, body, url, tag: 'self-' + Date.now() }) : null)).catch(() => null));
 }
 
-async function cancel(order: Loose, { reason, details }: Body, settings: Settings) {
+async function cancel(order: SelfOrder | null, { reason, details }: { reason?: unknown; details?: unknown }, settings: Settings): Promise<{ paid: number }> {
   const c = canChange(order);
   if (!c.ok) throw new SelfError(c.why);
-  const why = REASONS[reason] ? REASONS[reason] : null;
+  if (!order) throw new SelfError('অর্ডারটি পাওয়া যায়নি।'); // (canChange already says so; this tells the type checker)
+  const why = REASONS[String(reason)] || null;
   if (!why) throw new SelfError('বাতিলের কারণ বাছাই করুন।');
   await O.setStatus(order.id, 'cancelled', null);
   const paid = Number(order.paid_amount) || 0;
@@ -60,9 +71,10 @@ async function cancel(order: Loose, { reason, details }: Body, settings: Setting
 }
 
 // New name / number / address. Returns the new delivery charge and total.
-async function change(order: Loose, b: Body, { req, settings }: Body) {
+async function change(order: SelfOrder | null, b: Body, { req, settings }: { req: ShopRequest; settings: Settings }): Promise<{ delivery: number; total: number; oldDelivery: number; phoneChanged: boolean }> {
   const c = canChange(order);
   if (!c.ok) throw new SelfError(c.why);
+  if (!order) throw new SelfError('অর্ডারটি পাওয়া যায়নি।'); // (canChange already says so; this tells the type checker)
   const name = str(b.name, 80).trim();
   const phone = normalizePhone(b.phone);
   const address = str(b.address, 400).trim();
@@ -85,7 +97,7 @@ async function change(order: Loose, b: Body, { req, settings }: Body) {
   // the delivery charge for the new place (a free delivery stays free)
   let delivery = Number(order.delivery) || 0;
   if (delivery > 0) {
-    const w = await db.one(`SELECT coalesce(sum(coalesce(p.weight_g, 0) * i.qty), 0)::int AS g FROM order_items i LEFT JOIN products p ON p.id=i.product_id WHERE i.order_id=$1`, [order.id]);
+    const w = await db.one<{ g: number }>(`SELECT coalesce(sum(coalesce(p.weight_g, 0) * i.qty), 0)::int AS g FROM order_items i LEFT JOIN products p ON p.id=i.product_id WHERE i.order_id=$1`, [order.id]);
     delivery = O.deliveryFor(settings, { district: dist.en, thana, subtotal: Number(order.subtotal), weightG: w!.g }).fee;
   }
   const total = wholeTaka(Number(order.subtotal) - Number(order.discount || 0) - Number(order.points_discount || 0) + delivery);

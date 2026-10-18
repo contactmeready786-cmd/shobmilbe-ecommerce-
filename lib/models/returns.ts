@@ -7,10 +7,30 @@ import * as security from '../security';
 import { str, int, amount, round2, randomCode, normalizePhone, validPhone } from '../util';
 import * as catalog from './catalog';
 import * as $views_account from '../views/account';
-import type { Body, Id, Loose } from '../types';
+import type { Param } from '../pg';
+import type { Id, Settings } from '../types';
+
+/** One returned line, as kept in return_requests.items (a bundle keeps its parts so they go back on the shelf). */
+export type ReturnItem = {
+  item_id: number; product_id: number; name: string; qty: number; ordered: number; price: number;
+  components: { product_id: number; qty: number }[] | null;
+};
+/** What a return request reads of the order (a row of orders with its items). */
+export type ReturnOrder = {
+  id: number; status: string; phone: string; customer_id?: number | null;
+  delivered_at?: Date | string | null; updated_at?: Date | string | null; created_at: Date | string;
+  items?: { id: number; product_id: number | null; name: string; qty: number; price: number | string; components?: ReturnItem['components'] }[] | null;
+};
+/** A new return request: from the customer's form or made in Admin. Form values arrive as typed (unknown). */
+export type NewReturn = {
+  order: ReturnOrder; wanted: { item_id: unknown; qty: unknown }[]; reason?: unknown; want?: unknown; details?: unknown; photos?: unknown;
+  refundMethod?: unknown; refundNumber?: unknown; customerId?: Id | null; source?: string; settings: Settings; staffId?: Id | null;
+};
+/** Where each returned item went: back on the shelf, to damaged stock, or nowhere. */
+type Restock = { item_id: number; how: 'stock' | 'damaged' | 'none' };
 
 class ReturnError extends Error {}
-const STATUSES: Record<string, Loose> = {
+const STATUSES: Record<string, string> = {
   requested: 'নতুন আবেদন', approved: 'অনুমোদিত (পণ্য আসার অপেক্ষায়)', received: 'পণ্য ফেরত এসেছে',
   refunded: 'টাকা ফেরত দেওয়া হয়েছে', replaced: 'বদলে দেওয়া হয়েছে', rejected: 'বাতিল (গ্রহণ হয়নি)', cancelled: 'কাস্টমার বাতিল করেছেন',
 };
@@ -19,8 +39,8 @@ const REASONS = Object.fromEntries($views_account.REASONS);
 const WANTS = Object.fromEntries($views_account.WANTS);
 
 // Photos come from the browser already made small (data: URLs). Kept private: only the admin can see them.
-async function savePhotos(list?: Loose) {
-  const out: Loose[] = [];
+async function savePhotos(list: unknown): Promise<number[]> {
+  const out: number[] = [];
   for (const d of (Array.isArray(list) ? list : []).slice(0, 4)) {
     const m = String(d || '').match(/^data:image\/[a-z+.-]+;base64,([A-Za-z0-9+/=]+)$/);
     if (!m) continue;
@@ -34,52 +54,52 @@ async function savePhotos(list?: Loose) {
 }
 
 // How many of each order item are already in an open / finished return (rejected and cancelled ones don't count).
-async function alreadyAsked(orderId?: Id) {
-  const rows = await db.q(`SELECT items FROM return_requests WHERE order_id=$1 AND status NOT IN ('rejected','cancelled')`, [orderId]);
-  const m = new Map();
-  rows.forEach((r) => (r.items || []).forEach((i?: Loose) => m.set(int(i.item_id), (m.get(int(i.item_id)) || 0) + int(i.qty))));
+async function alreadyAsked(orderId: Id): Promise<Map<number, number>> {
+  const rows = await db.q<{ items: ReturnItem[] | null }>(`SELECT items FROM return_requests WHERE order_id=$1 AND status NOT IN ('rejected','cancelled')`, [orderId]);
+  const m = new Map<number, number>();
+  rows.forEach((r) => (r.items || []).forEach((i) => m.set(int(i.item_id), (m.get(int(i.item_id)) || 0) + int(i.qty))));
   return m;
 }
 
 // wanted = [{ item_id, qty }]
-async function create({ order, wanted, reason, want, details, photos, refundMethod, refundNumber, customerId = null, source = 'customer', settings, staffId = null }: Body) {
+async function create({ order, wanted, reason, want, details, photos, refundMethod, refundNumber, customerId = null, source = 'customer', settings, staffId = null }: NewReturn): Promise<{ id: number; code: string }> {
   if (order.status !== 'delivered') throw new ReturnError('ডেলিভারি হওয়া অর্ডারেই রিটার্নের আবেদন করা যায়।');
   const days = Number(settings.returns_days) || 7;
   const since = order.delivered_at || order.updated_at || order.created_at;
-  if (source === 'customer' && Date.now() - new Date(since).getTime() > days * 864e5) {
+  if (source === 'customer' && Date.now() - new Date(since as string).getTime() > days * 864e5) {
     throw new ReturnError(`ডেলিভারির ${days} দিন পেরিয়ে গেছে, তাই অনলাইনে আবেদন করা যাচ্ছে না। ওয়ারেন্টির জন্য আমাদের কল করুন।`);
   }
   const asked = await alreadyAsked(order.id);
-  const items: Loose[] = [];
+  const items: ReturnItem[] = [];
   for (const w of wanted) {
-    const it = (order.items || []).find((x?: Loose) => x.id === int(w.item_id) && x.product_id);
-    if (!it) continue;
+    const it = (order.items || []).find((x) => x.id === int(w.item_id) && x.product_id);
+    if (!it || !it.product_id) continue;
     const left = it.qty - (asked.get(it.id) || 0);
     const qty = Math.min(int(w.qty), left);
     if (qty < 1) continue;
     items.push({ item_id: it.id, product_id: it.product_id, name: it.name, qty, ordered: it.qty, price: Number(it.price), components: it.components || null });
   }
   if (!items.length) throw new ReturnError('যে পণ্য ফেরত দিতে চান সেটায় টিক দিন (আগে আবেদন করা পণ্য আবার দেওয়া যায় না)।');
-  const why = REASONS[reason] ? reason : 'other';
+  const why = REASONS[String(reason)] ? String(reason) : 'other';
   const text = str(details, 1000);
   if (source === 'customer' && text.length < 10) throw new ReturnError('সমস্যাটা একটু বিস্তারিত লিখুন।');
   const rn = refundNumber ? str(refundNumber, 60) : '';
   if (rn && /^01/.test(rn.replace(/\D/g, '')) && !validPhone(normalizePhone(rn))) throw new ReturnError('টাকা নেওয়ার নম্বরটা ঠিক নেই।');
   const photoIds = await savePhotos(photos);
-  const r = await db.one(`INSERT INTO return_requests(code, order_id, customer_id, phone, items, reason, details, photos, want, refund_method, refund_number, source, handled_by)
+  const r = (await db.one<{ id: number; code: string }>(`INSERT INTO return_requests(code, order_id, customer_id, phone, items, reason, details, photos, want, refund_method, refund_number, source, handled_by)
     VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING id, code`,
   ['R' + randomCode(6), order.id, customerId || order.customer_id || null, order.phone, JSON.stringify(items), why, text, photoIds,
-    WANTS[want] ? want : 'refund', str(refundMethod, 20), rn, source, staffId]);
-  if (photoIds.length) await db.q(`UPDATE media SET owner_id=$1 WHERE id = ANY($2::int[])`, [r!.id, photoIds]);
+    WANTS[String(want)] ? String(want) : 'refund', str(refundMethod, 20), rn, source, staffId]))!;
+  if (photoIds.length) await db.q(`UPDATE media SET owner_id=$1 WHERE id = ANY($2::int[])`, [r.id, photoIds]);
   return r;
 }
 
-async function forOrder(orderId?: Id) {
+async function forOrder(orderId: Id) {
   return db.q('SELECT * FROM return_requests WHERE order_id=$1 ORDER BY id DESC', [orderId]);
 }
-async function list({ status = 'open', q = '', limit = 50, offset = 0 }: Body = {}) {
-  const params: Loose[] = [];
-  const where: Loose[] = [];
+async function list({ status = 'open', q = '', limit = 50, offset = 0 }: { status?: string; q?: string; limit?: number; offset?: number } = {}) {
+  const params: Param[] = [];
+  const where: string[] = [];
   if (status === 'open') where.push(`r.status = ANY('{requested,approved,received}')`);
   else if (STATUSES[status]) { params.push(status); where.push(`r.status=$${params.length}`); }
   if (q) { params.push(`%${q}%`); where.push(`(r.code ILIKE $${params.length} OR o.code ILIKE $${params.length} OR r.phone ILIKE $${params.length} OR o.customer_name ILIKE $${params.length})`); }
@@ -88,18 +108,18 @@ async function list({ status = 'open', q = '', limit = 50, offset = 0 }: Body = 
     LEFT JOIN staff s ON s.id=r.handled_by ${where.length ? 'WHERE ' + where.join(' AND ') : ''} ORDER BY r.created_at DESC LIMIT $${params.length - 1} OFFSET $${params.length}`, params);
 }
 async function counts() {
-  const rows = await db.q('SELECT status, count(*)::int AS n, coalesce(sum(refund_amount),0)::numeric(14,2) AS refunded FROM return_requests GROUP BY status');
-  const out: Record<string, Loose> = { all: 0, open: 0, refunded_total: 0 };
+  const rows = await db.q<{ status: string; n: number; refunded: string }>('SELECT status, count(*)::int AS n, coalesce(sum(refund_amount),0)::numeric(14,2) AS refunded FROM return_requests GROUP BY status');
+  const out: Record<string, number> = { all: 0, open: 0, refunded_total: 0 };
   rows.forEach((r) => { out[r.status] = r.n; out.all += r.n; if (OPEN.includes(r.status)) out.open += r.n; out.refunded_total += Number(r.refunded); });
   return out;
 }
-async function get(id?: Id) {
+async function get(id: Id) {
   return db.one(`SELECT r.*, o.code AS order_code, o.customer_name, o.total AS order_total, o.paid_amount, o.payment, o.status AS order_status, s.name AS staff_name
     FROM return_requests r JOIN orders o ON o.id=r.order_id LEFT JOIN staff s ON s.id=r.handled_by WHERE r.id=$1`, [int(id)]);
 }
 
 // approve / reject / cancel with a reply the customer sees
-async function decide(id: Id, status: Loose, { reply, note }: Body, staffId?: Id) {
+async function decide(id: Id, status: string, { reply, note }: { reply?: unknown; note?: unknown }, staffId?: Id) {
   if (!['approved', 'rejected', 'cancelled', 'replaced'].includes(status)) throw new ReturnError('অজানা কাজ।');
   const r = await db.one(`UPDATE return_requests SET status=$1, reply=CASE WHEN $2<>'' THEN $2 ELSE reply END, admin_note=CASE WHEN $3<>'' THEN $3 ELSE admin_note END,
       handled_by=$4, updated_at=now() WHERE id=$5 AND status = ANY($6::text[]) RETURNING *`,
@@ -109,17 +129,18 @@ async function decide(id: Id, status: Loose, { reply, note }: Body, staffId?: Id
 }
 
 // The goods came back: each item to the shelf ("stock"), to damaged stock ("damaged"), or nowhere ("none" — thrown away / kept by courier).
-async function receive(id?: Id, actions?: Loose, staffId?: Id) {
+async function receive(id: Id, actions: Record<string, unknown>, staffId?: Id): Promise<Restock[]> {
   return db.tx(async (t) => {
     const r = (await t.query('SELECT * FROM return_requests WHERE id=$1 FOR UPDATE', [int(id)])).rows[0];
     if (!r) throw new ReturnError('আবেদন পাওয়া যায়নি।');
     if (r.received_at) throw new ReturnError('এই আবেদনের পণ্য আগেই ফেরত নেওয়া হয়েছে।');
     if (!['requested', 'approved'].includes(r.status)) throw new ReturnError('এই আবেদনের অবস্থায় পণ্য ফেরত নেওয়া যায় না।');
-    const done: Loose[] = [];
-    for (const it of r.items || []) {
-      const how = ['stock', 'damaged', 'none'].includes(actions[it.item_id]) ? actions[it.item_id] : 'stock';
+    const done: Restock[] = [];
+    for (const it of (r.items || []) as ReturnItem[]) {
+      const asked = String(actions[it.item_id]);
+      const how: Restock['how'] = asked === 'damaged' || asked === 'none' ? asked : 'stock';
       // a bundle comes back as its parts (the part's share for the pieces returned)
-      const parts = it.components && it.components.length ? it.components.map((c?: Loose) => ({ product_id: c.product_id, qty: Math.max(1, Math.round((c.qty * it.qty) / Math.max(1, it.ordered || it.qty))) }))
+      const parts = it.components && it.components.length ? it.components.map((c) => ({ product_id: c.product_id, qty: Math.max(1, Math.round((c.qty * it.qty) / Math.max(1, it.ordered || it.qty))) }))
         : [{ product_id: it.product_id, qty: it.qty }];
       for (const part of parts) {
         const exists = (await t.query('SELECT id FROM products WHERE id=$1', [part.product_id])).rows[0];
@@ -136,7 +157,7 @@ async function receive(id?: Id, actions?: Loose, staffId?: Id) {
 }
 
 // Money back: written on the order (paid amount goes down) and in the return. Never more than was paid.
-async function refund(id: Id, { amount: amt, method, reference, note }: Body, staffId?: Id) {
+async function refund(id: Id, { amount: amt, method, reference, note }: { amount?: unknown; method?: unknown; reference?: unknown; note?: unknown }, staffId?: Id) {
   return db.tx(async (t) => {
     const r = (await t.query('SELECT * FROM return_requests WHERE id=$1 FOR UPDATE', [int(id)])).rows[0];
     if (!r) throw new ReturnError('আবেদন পাওয়া যায়নি।');
@@ -155,6 +176,6 @@ async function refund(id: Id, { amount: amt, method, reference, note }: Body, st
 }
 
 // What the returned items were worth (the most that would usually be refunded).
-function itemsValue(r?: Loose) { return round2((r.items || []).reduce((s?: Loose, i?: Loose) => s + Number(i.price) * int(i.qty), 0)); }
+function itemsValue(r: { items?: Pick<ReturnItem, 'price' | 'qty'>[] | null }): number { return round2((r.items || []).reduce((s, i) => s + Number(i.price) * int(i.qty), 0)); }
 
 export { ReturnError, STATUSES, OPEN, REASONS, WANTS, create, forOrder, list, counts, get, decide, receive, refund, itemsValue };
