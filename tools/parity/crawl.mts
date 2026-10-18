@@ -1,26 +1,26 @@
-#!/usr/bin/env node
 // Parity crawler: visits every page reachable from the shop and the admin panel (GET only) and saves
 // a normalised copy of each, so the old and the new site can be compared page by page.
 //
-//   node tools/parity/crawl.mjs <base-url> <out-dir> [--login user:pass]
+//   npx tsx tools/parity/crawl.mts <base-url> <out-dir> [--login user:pass]
 //
 // Runs only against a LOCAL test server with test data. It never submits forms (no POST), never follows
 // logout / delete links, and stays on the same host.
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
-import { normalise } from './normalise.mjs';
+import { normalise } from './normalise.ts';
 
 const [base, outDir, ...rest] = process.argv.slice(2);
-if (!base || !outDir) { console.error('usage: crawl.mjs <base-url> <out-dir> [--login user:pass] [--setup]'); process.exit(2); }
+if (!base || !outDir) { console.error('usage: crawl.mts <base-url> <out-dir> [--login user:pass] [--setup]'); process.exit(2); }
 const loginArg = rest.includes('--login') ? rest[rest.indexOf('--login') + 1] : '';
 const doSetup = rest.includes('--setup');
 const origin = new URL(base).origin;
 fs.mkdirSync(outDir, { recursive: true });
 
-let cookies = {};
+const cookies: Record<string, string> = {};
+type Entry = { path: string; status: number | string; type?: string; location?: string; headers?: Record<string, string>; file?: string; bytes?: boolean; error?: string };
 const cookieHeader = () => Object.entries(cookies).map(([k, v]) => `${k}=${v}`).join('; ');
-function keepCookies(res) {
+function keepCookies(res: Response): void {
   for (const c of res.headers.getSetCookie?.() || []) {
     const [pair] = c.split(';');
     const i = pair.indexOf('=');
@@ -28,12 +28,12 @@ function keepCookies(res) {
     if (!v || /max-age=0|expires=thu, 01 jan 1970/i.test(c)) delete cookies[k]; else cookies[k] = v;
   }
 }
-async function get(url) {
+async function get(url: string): Promise<Response> {
   const res = await fetch(url, { redirect: 'manual', headers: { cookie: cookieHeader(), 'user-agent': 'Mozilla/5.0 parity-crawler', 'accept-language': 'bn' } });
   keepCookies(res);
   return res;
 }
-async function post(url, form) {
+async function post(url: string, form: Record<string, string>): Promise<Response> {
   const res = await fetch(url, {
     method: 'POST', redirect: 'manual', body: new URLSearchParams(form),
     headers: { cookie: cookieHeader(), origin, referer: url, 'content-type': 'application/x-www-form-urlencoded', 'user-agent': 'Mozilla/5.0 parity-crawler' },
@@ -44,7 +44,7 @@ async function post(url, form) {
 
 const KEEP_HEADERS = ['content-security-policy', 'x-frame-options', 'strict-transport-security', 'x-content-type-options', 'referrer-policy', 'permissions-policy', 'cross-origin-opener-policy', 'cross-origin-resource-policy', 'cache-control', 'x-robots-tag', 'content-disposition'];
 const SKIP = /\/(logout|delete|remove|purge|empty|destroy|clear|reset|cancel|unsubscribe)(\/|$|\?)|[?&](delete|remove|logout)=|^\/(__dbmove|api\/(backup|research)\/tick|webhook|pay\/)/i;
-const fileFor = (u) => {
+const fileFor = (u: URL): string => {
   const key = u.pathname + u.search;
   const safe = key.replace(/[^a-zA-Z0-9._-]+/g, '_').slice(0, 120);
   return safe + '-' + crypto.createHash('sha1').update(key).digest('hex').slice(0, 8);
@@ -66,25 +66,26 @@ async function main() {
   const queue = seeds.map((s) => new URL(s, origin).href);
   const seen = new Set(queue);
   // pages that differ only by query string (filters, page numbers) are capped per path, or the crawl never ends
-  const perPath = {};
+  const perPath: Record<string, number> = {};
   const MAX_VARIANTS = Number(process.env.CRAWL_VARIANTS || 4);
-  const allow = (n) => { const k = n.pathname; if (n.search && (perPath[k] = (perPath[k] || 0) + 1) > MAX_VARIANTS) return false; return true; };
-  const index = [];
+  const allow = (n: URL) => { const k = n.pathname; if (n.search && (perPath[k] = (perPath[k] || 0) + 1) > MAX_VARIANTS) return false; return true; };
+  const index: Entry[] = [];
   const LIMIT = Number(process.env.CRAWL_LIMIT || 3000);
   while (queue.length && index.length < LIMIT) {
-    const href = queue.shift();
+    const href = queue.shift()!;
     const u = new URL(href);
-    let res;
+    let res: Response;
     try { res = await get(href); } catch (e) { index.push({ path: u.pathname + u.search, status: 'ERR', error: String(e) }); continue; }
     const type = res.headers.get('content-type') || '';
     const loc = res.headers.get('location');
-    const entry = { path: u.pathname + u.search, status: res.status, type: type.split(';')[0], location: loc ? normalise(loc) : undefined, headers: {} };
+    const headers: Record<string, string> = {};
+    const entry: Entry = { headers, path: u.pathname + u.search, status: res.status, type: type.split(';')[0], location: loc ? normalise(loc) : undefined, };
     // security and caching headers must stay exactly the same too
-    for (const h of KEEP_HEADERS) { const v = res.headers.get(h); if (v) entry.headers[h] = normalise(v); }
+    for (const h of KEEP_HEADERS) { const v = res.headers.get(h); if (v) headers[h] = normalise(v); }
     // Next.js says "never keep this page" in its own longer words: the same thing as no-store
-    if (/no-store/.test(entry.headers['cache-control'] || '')) entry.headers['cache-control'] = 'no-store';
+    if (/no-store/.test(headers['cache-control'] || '')) headers['cache-control'] = 'no-store';
     const sc = res.headers.getSetCookie?.() || [];
-    if (sc.length) entry.headers['set-cookie'] = sc.map((c) => c.replace(/=[^;]*/, '=<v>').replace(/expires=[^;]*/i, 'expires=<d>')).sort().join(' | ');
+    if (sc.length) headers['set-cookie'] = sc.map((c) => c.replace(/=[^;]*/, '=<v>').replace(/expires=[^;]*/i, 'expires=<d>')).sort().join(' | ');
     if (/^(text\/|application\/(json|xml|rss\+xml|ld\+json|javascript|manifest\+json))/.test(type)) {
       const body = await res.text();
       const file = fileFor(u);
@@ -92,7 +93,7 @@ async function main() {
       entry.file = file;
       if (/html/.test(type)) {
         for (const m of body.matchAll(/(?:href|action)="([^"#]+)"/g)) {
-          let next;
+          let next: URL;
           try { next = new URL(m[1].replace(/&amp;/g, '&'), href); } catch { continue; }
           if (next.origin !== origin || SKIP.test(next.pathname + next.search)) continue;
           if (/\.(css|js|png|jpe?g|webp|svg|ico|woff2?|json|webmanifest)$/i.test(next.pathname)) continue;

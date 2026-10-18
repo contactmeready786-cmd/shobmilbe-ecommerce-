@@ -1,11 +1,11 @@
 // ⚛️ Pages moved to React must look exactly like before. tests/golden/*.html is what the old html`…` code made for
 // the samples in tests/fixtures/cases.ts (recorded just before each move); the React version must make the same page.
-// "The same" = identical for a browser (tools/parity/normalise.mjs → canonicalHtml ignores only spelling such as
+// "The same" = identical for a browser (tools/parity/normalise → canonicalHtml ignores only spelling such as
 // &#x27; vs &#39;, attribute order and source indentation). Run: npm test
 import { test, before } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { canonicalHtml } from '../tools/parity/normalise.mjs';
+import { canonicalHtml } from '../tools/parity/normalise';
 import { CASES, type Views } from './fixtures/cases';
 import * as shop from '../lib/views/shop';
 import * as complaint from '../lib/views/complaint';

@@ -1,37 +1,38 @@
-#!/usr/bin/env node
 // Write-action parity: runs the same customer and admin actions (POST forms, JSON APIs, image upload)
 // against a site on a fresh test database, then records every answer plus the resulting database rows.
 // Running it on the old and the new site and diffing the two files proves the actions behave the same.
-//   node tools/parity/scenarios.mjs <base-url> <out-file>
+//   npx tsx tools/parity/scenarios.mts <base-url> <out-file>
 // Only for a LOCAL test server on a copy of the test template — it changes data.
 import fs from 'node:fs';
-import os from 'node:os';
-import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { normalise } from './normalise.mjs';
+import { normalise } from './normalise.ts';
+
+type Jar = 'svc' | 'shop' | 'admin';
+type Step = { step: string; method: string; path: string; status: number | string; location?: string; body?: string };
+type Payload = Record<string, unknown>;
 
 const [base, outFile] = process.argv.slice(2);
 const origin = new URL(base).origin;
-const log = [];
-const jars = { svc: {}, shop: {}, admin: {} };
-const jarHeader = (j) => Object.entries(jars[j]).map(([k, v]) => `${k}=${v}`).join('; ');
-function keep(j, res) {
+const log: Step[] = [];
+const jars: Record<Jar, Record<string, string>> = { svc: {}, shop: {}, admin: {} };
+const jarHeader = (j: Jar) => Object.entries(jars[j]).map(([k, v]) => `${k}=${v}`).join('; ');
+function keep(j: Jar, res: Response): void {
   for (const c of res.headers.getSetCookie()) {
     const [pair] = c.split(';'); const i = pair.indexOf('=');
     const k = pair.slice(0, i).trim(), v = pair.slice(i + 1).trim();
     if (!v || /max-age=0/i.test(c)) delete jars[j][k]; else jars[j][k] = v;
   }
 }
-async function call(step, jar, method, path, body, type = 'form') {
-  const headers = { cookie: jarHeader(jar), origin, referer: origin + path, 'user-agent': 'Mozilla/5.0 parity-scenarios', 'accept-language': 'bn' };
-  let payload;
+async function call(step: string, jar: Jar, method: string, path: string, body?: Payload | unknown[], type: 'form' | 'json' = 'form'): Promise<{ res: Response | null; text: string }> {
+  const headers: Record<string, string> = { cookie: jarHeader(jar), origin, referer: origin + path, 'user-agent': 'Mozilla/5.0 parity-scenarios', 'accept-language': 'bn' };
+  let payload: string | undefined;
   if (body !== undefined) {
     if (type === 'json') { headers['content-type'] = 'application/json'; payload = JSON.stringify(body); }
-    else { headers['content-type'] = 'application/x-www-form-urlencoded'; payload = new URLSearchParams(body).toString(); }
+    else { headers['content-type'] = 'application/x-www-form-urlencoded'; payload = new URLSearchParams(body as Record<string, string>).toString(); }
   }
-  let res;
+  let res: Response;
   try { res = await fetch(origin + path, { method, headers, body: payload, redirect: 'manual', signal: AbortSignal.timeout(30000) }); }
-  catch (e) { log.push({ step, method, path, status: 'no answer: ' + e.name }); return { res: null, text: '' }; }
+  catch (e) { log.push({ step, method, path, status: 'no answer: ' + (e as Error).name }); return { res: null, text: '' }; }
   keep(jar, res);
   const text = await res.text();
   const ct = res.headers.get('content-type') || '';
@@ -40,19 +41,15 @@ async function call(step, jar, method, path, body, type = 'form') {
   log.push({ step, method, path, status: res.status, location: res.headers.get('location') ? normalise(res.headers.get('location')) : undefined, body: normalise(short || '') });
   return { res, text };
 }
-const id = (sql) => execFileSync('psql', ['-Atc', sql, process.env.PGDATABASE]).toString().trim();
+const id = (sql: string): string => execFileSync('psql', ['-Atc', sql, process.env.PGDATABASE || '']).toString().trim();
 
-// Every admin form address (POST) from the admin's own route tables (tools/parity/routes.ts, bundled like coverage.mjs).
+// Every admin form address (POST) from the admin's own route tables (tools/parity/routes.ts, loaded by tsx).
 // Addresses with an id get 1; ones that would end this login (log out, lock, passwords, two-step login) are left out.
-function adminFormPaths() {
-  const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../..');
-  const esbuild = process.env.ESBUILD || ['node_modules/.bin/esbuild', '/opt/npm-tools/node_modules/esbuild/bin/esbuild'].map((p) => path.resolve(root, p)).find((p) => fs.existsSync(p));
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'forms-'));
-  fs.writeFileSync(path.join(tmp, 'entry.ts'), `import { adminRoutes } from ${JSON.stringify(path.join(root, 'tools/parity/routes.ts'))};
-console.log(JSON.stringify(adminRoutes().filter((r) => r.method === 'POST' || r.method === '*').map((r) => (r.path instanceof RegExp ? { re: r.path.source } : r.path))));`);
-  execFileSync(esbuild, [path.join(tmp, 'entry.ts'), '--bundle', '--platform=node', '--format=cjs', `--alias:@=${root}`, '--external:pg-native', '--external:pg-cloudflare', '--external:cloudflare:sockets', '--log-level=error', '--outfile=' + path.join(tmp, 'out.cjs')]);
-  const list = JSON.parse(execFileSync('node', [path.join(tmp, 'out.cjs')], { env: { ...process.env, DATABASE_URL: process.env.DATABASE_URL || 'postgres://x@127.0.0.1:1/x' } }).toString());
-  const asPath = (r) => (typeof r === 'string' ? r : r.re.replace(/^\^/, '').replace(/\$$/, '').replace(/\\\//g, '/').replace(/\(\\d\+\)|\\d\+/g, '1'));
+async function adminFormPaths(): Promise<string[]> {
+  type Route = { method: string; path: string | RegExp };
+  const { adminRoutes } = (await import('./routes.ts')) as { adminRoutes: () => Route[] };
+  const list = adminRoutes().filter((r) => r.method === 'POST' || r.method === '*').map((r) => r.path);
+  const asPath = (r: string | RegExp) => (typeof r === 'string' ? r : r.source.replace(/^\^/, '').replace(/\$$/, '').replace(/\\\//g, '/').replace(/\(\\d\+\)|\\d\+/g, '1'));
   const ends = /logout|login|lock|passkey|webauthn|password|2fa|tfa|verify|reset|session|staff|setup/;
   // answers that depend on an outside service over the internet (machine translation, web research) differ run to run
   const internet = /\/design\/language\/(fill|redo)$|\/api\/research\/run$/;
@@ -142,20 +139,20 @@ async function main() {
   await call('product: hide', 'admin', 'POST', `/admin/products/${servo}/active`, { active: '0' });
   await call('product: delete (to bin)', 'admin', 'POST', `/admin/products/${id("select id from products where slug='1k-resistor'")}/delete`, {});
   // every other admin form once, sent empty: the same check, message or redirect on both sites
-  const forms = adminFormPaths();
+  const forms = await adminFormPaths();
   console.error(`scenarios: ${forms.length} admin forms`);
   for (const p of forms) await call('admin form: ' + p, 'admin', 'POST', p, {});
   await call('logout', 'admin', 'POST', '/admin/logout', {});
 
   // ---------- resulting data ----------
   const tables = ['orders', 'order_items', 'products', 'categories', 'customers', 'stock_moves', 'activity_log', 'trash', 'email_subs', 'stock_alerts', 'product_questions', 'media', 'price_alerts', 'checkout_drafts', 'live_clicks', 'shop_push_subs'];
-  const data = {};
+  const data: Record<string, string> = {};
   for (const t of tables) {
     const exists = id(`select to_regclass('public.${t}') is not null`) === 't';
     if (!exists) continue;
     const cols = id(`select string_agg(column_name, ',' order by ordinal_position) from information_schema.columns where table_name='${t}'
       and data_type not like 'timestamp%' and data_type <> 'bytea' and column_name not in ('ip','token','session_ver','code','password_hash')`);
-    data[t] = normalise(execFileSync('psql', ['-Atc', `select ${cols} from ${t} order by 1`, process.env.PGDATABASE]).toString());
+    data[t] = normalise(execFileSync('psql', ['-Atc', `select ${cols} from ${t} order by 1`, process.env.PGDATABASE || '']).toString());
   }
   fs.writeFileSync(outFile, JSON.stringify({ log, data }, null, 1));
   console.error(`scenarios: ${log.length} steps, statuses ${[...new Set(log.map((l) => l.status))].join(',')}`);

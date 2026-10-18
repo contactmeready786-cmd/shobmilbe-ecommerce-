@@ -9,7 +9,7 @@ import { startImporter } from './importer.js';
 import { startPages } from './pages.js';
 
 whenReady(() => {
-  window.__smAdminReady = true; // (tools/parity/browser.mjs checks the admin's script started)
+  window.__smAdminReady = true; // (tools/parity/browser.mts checks the admin's script started)
   startCore();
   startHandover();
   startImages();

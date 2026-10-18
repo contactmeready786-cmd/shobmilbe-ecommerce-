@@ -15,10 +15,14 @@ PID=$!
 trap 'kill -- -$PID 2>/dev/null || true; wait $PID 2>/dev/null || true' EXIT
 for _ in $(seq 1 120); do curl -s -o /dev/null "http://127.0.0.1:$PORT/robots.txt" && break; sleep 0.5; done
 rm -rf "$OUT"
+# the crawl / actions / browser tools are TypeScript, run by tsx with the new site's own tsconfig (also when the
+# old site is the one being crawled, so "@/…" always means the tools' own code)
+HERE=$(cd "$(dirname "$0")" && pwd)
+TSX=(npx --yes tsx --tsconfig "$HERE/../../tsconfig.json")
 if [ "${BROWSER:-}" = 1 ]; then
-  node "$(dirname "$0")/browser.mjs" "http://127.0.0.1:$PORT" "$OUT.json"
+  "${TSX[@]}" "$HERE/browser.mts" "http://127.0.0.1:$PORT" "$OUT.json"
 elif [ "${SCENARIOS:-}" = 1 ]; then
-  PGDATABASE="$DB" node "$(dirname "$0")/scenarios.mjs" "http://127.0.0.1:$PORT" "$OUT.json"
+  PGDATABASE="$DB" "${TSX[@]}" "$HERE/scenarios.mts" "http://127.0.0.1:$PORT" "$OUT.json"
 else
-  node "$(dirname "$0")/crawl.mjs" "http://127.0.0.1:$PORT" "$OUT" --login 'owner:Parity-Test-9271!'
+  "${TSX[@]}" "$HERE/crawl.mts" "http://127.0.0.1:$PORT" "$OUT" --login 'owner:Parity-Test-9271!'
 fi

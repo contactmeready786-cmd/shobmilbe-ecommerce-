@@ -1,10 +1,10 @@
 // ⚛️ The shop's page frame (header, menus, footer, chat buttons, head tags) is React now (components/shop/chrome).
 // It must draw the same page as the old frame did — tests/golden/chrome-*.html, recorded from the old code.
-// "The same" is as a browser sees it (tools/parity/normalise.mjs: head tags as a set, spelling differences ignored).
+// "The same" is as a browser sees it (tools/parity/normalise: head tags as a set, spelling differences ignored).
 import { test, before } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { normalise } from '../tools/parity/normalise.mjs';
+import { normalise } from '../tools/parity/normalise';
 import { shopLayout } from '../lib/views/layout';
 import { variants } from './fixtures/chrome';
 import { loadRenderer } from '../lib/react/render';

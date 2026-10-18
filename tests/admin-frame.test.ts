@@ -4,7 +4,7 @@
 import { test, before } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { normalise } from '../tools/parity/normalise.mjs';
+import { normalise } from '../tools/parity/normalise';
 import { adminLayout } from '../lib/admin/layout';
 import { frames } from './fixtures/admin-frame';
 import { loadRenderer } from '../lib/react/render';

@@ -1,6 +1,6 @@
-// Shared by crawl.mjs and scenarios.mjs.
+// Shared by crawl.mts, scenarios.mts and the tests.
 // Anything that changes per request (random tokens, times, nonces) is blanked so only real differences remain.
-export function normalise(body) {
+export function normalise(body: unknown): string {
   return canonicalHtml(browserCodeNeutral(nextNeutral(String(body)))
     .replace(/\bSM[A-Z0-9]{6}\b/g, '«order-code»')
     .replace(/(https?:)?(\/\/)?(127\.0\.0\.1|localhost):\d+/g, '«host»')
@@ -42,13 +42,13 @@ export function normalise(body) {
 const BLOCK = new Set(('html head body title meta link script style template noscript div p section article aside nav header footer main form fieldset legend '
   + 'h1 h2 h3 h4 h5 h6 ul ol li dl dt dd table thead tbody tfoot tr td th caption colgroup col hr br details summary figure figcaption '
   + 'blockquote dialog address menu option optgroup source track').split(' '));
-const decodeEnt = (v) => v.replace(/&quot;/g, '"').replace(/&#0?39;|&#x27;/gi, "'").replace(/&#x2F;/gi, '/').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+const decodeEnt = (v: string): string => v.replace(/&quot;/g, '"').replace(/&#0?39;|&#x27;/gi, "'").replace(/&#x2F;/gi, '/').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
 const TAG = /<([a-zA-Z][\w-]*)((?:\s+[^\s=>\/]+(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>"']+))?)*)\s*(\/?)>/g;
 
 // One start tag, written one way: lower-case attribute names in order, values decoded and double-quoted,
 // x="" written as bare x, style and class spacing tidied, React's empty src left out.
-function canonicalTag(tag, attrs) {
-  const list = [];
+function canonicalTag(tag: string, attrs: string): string {
+  const list: string[] = [];
   for (const m of attrs.matchAll(/\s+([^\s=>\/]+)(?:\s*=\s*("[^"]*"|'[^']*'|[^\s>"']+))?/g)) {
     const name = m[1].toLowerCase();
     let v = m[2] === undefined ? '' : decodeEnt(/^["']/.test(m[2]) ? m[2].slice(1, -1) : m[2]);
@@ -61,7 +61,7 @@ function canonicalTag(tag, attrs) {
   return `<${tag.toLowerCase()}${list.length ? ' ' + list.sort().join(' ') : ''}>`;
 }
 
-export function canonicalHtml(body) {
+export function canonicalHtml(body: unknown): string {
   const src = String(body)
     .replace(/<\/option>/gi, '') // a closing </option> is optional in HTML (the next option or </select> closes it)
     .replace(/<\/(path|circle|rect|line|polyline|polygon|ellipse|stop|use)>/g, '') // SVG shapes: <path/> and <path></path> are the same
@@ -70,28 +70,28 @@ export function canonicalHtml(body) {
   let out = '';
   let last = 0;
   for (const m of src.matchAll(TAG)) {
-    out += decodeText(src.slice(last, m.index));
+    out += decodeText(src.slice(last, m.index!));
     out += canonicalTag(m[1], m[2]);
-    last = m.index + m[0].length;
+    last = m.index! + m[0].length;
   }
   out += decodeText(src.slice(last));
   return out
     // whitespace the way a browser shows it: next to a block (div, p, li, tr …) it shows nothing and is dropped;
     // between words or inline pieces (a, b, span, button …) any run — even a line break — shows as one space
-    .replace(/(<\/?([a-zA-Z][\w-]*)\b(?:[^>"]|"[^"]*")*>)\s+(?=<\/?([a-zA-Z][\w-]*))/g, (_, tag, a, b) => tag + (BLOCK.has(a.toLowerCase()) || BLOCK.has(b.toLowerCase()) ? '' : ' '))
-    .replace(/(<\/?([a-zA-Z][\w-]*)\b(?:[^>"]|"[^"]*")*>)\s+(?=[^<\s])/g, (_, tag, a) => tag + (BLOCK.has(a.toLowerCase()) ? '' : ' '))
-    .replace(/([^>\s])\s+(?=<\/?([a-zA-Z][\w-]*))/g, (_, c, b) => c + (BLOCK.has(b.toLowerCase()) ? '' : ' '))
+    .replace(/(<\/?([a-zA-Z][\w-]*)\b(?:[^>"]|"[^"]*")*>)\s+(?=<\/?([a-zA-Z][\w-]*))/g, (_: string, tag: string, a: string, b: string) => tag + (BLOCK.has(a.toLowerCase()) || BLOCK.has(b.toLowerCase()) ? '' : ' '))
+    .replace(/(<\/?([a-zA-Z][\w-]*)\b(?:[^>"]|"[^"]*")*>)\s+(?=[^<\s])/g, (_: string, tag: string, a: string) => tag + (BLOCK.has(a.toLowerCase()) ? '' : ' '))
+    .replace(/([^>\s])\s+(?=<\/?([a-zA-Z][\w-]*))/g, (_: string, c: string, b: string) => c + (BLOCK.has(b.toLowerCase()) ? '' : ' '))
     .replace(/\s+/g, ' ');
 }
 // text between tags: ' " / written one way (&lt; &gt; &amp; stay, they matter)
-function decodeText(t) { return t.replace(/&#0?39;|&#x27;/gi, "'").replace(/&quot;/g, '"').replace(/&#x2F;/gi, '/'); }
+function decodeText(t: string): string { return t.replace(/&#0?39;|&#x27;/gi, "'").replace(/&quot;/g, '"').replace(/&#x2F;/gi, '/'); }
 
 // ⚛️ Pages served by Next.js carry Next's own parts that the old pages didn't: its scripts (/_next/…), the page data
 // for React (self.__next_f), a hidden boundary div; ready-made HTML sits in see-through wrappers (data-unwrap); the
 // <head> is written by Next.js's metadata in its own order and JSON-LD may sit in the body. None of that changes what
 // a visitor or Google sees, so: Next's parts are removed, wrappers unwrapped, the head compared as a sorted set, and
 // JSON-LD compared as a set at the end of the page.
-export function nextNeutral(body) {
+export function nextNeutral(body: unknown): string {
   let s = String(body).replace(/^<!DOCTYPE html>/i, '<!doctype html>');
   if (!/<html[\s>]/i.test(s)) return unwrap(s); // a piece of a page (e.g. tests/golden) — only the wrappers
   s = s
@@ -105,13 +105,13 @@ export function nextNeutral(body) {
     .replace(/<!-- -->/g, ''); // React's mark between two pieces of text (shows nothing)
   s = unwrap(s);
   // JSON-LD: wherever it is, compared as a set at the end
-  const ld = [];
-  s = s.replace(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g, (_, j) => { ld.push(j); return ''; });
+  const ld: string[] = [];
+  s = s.replace(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g, (_: string, j: string) => { ld.push(j); return ''; });
   // the head as a sorted set of its tags
-  s = s.replace(/<head>([\s\S]*?)<\/head>/, (_, inner) => `<head>${headSet(inner)}</head>`);
+  s = s.replace(/<head>([\s\S]*?)<\/head>/, (_: string, inner: string) => `<head>${headSet(inner)}</head>`);
   return ld.length ? s.replace(/<\/body>/, `${ld.sort().map((j) => `<script type="application/ld+json">${j}</script>`).join('')}</body>`) : s;
 }
-function unwrap(s) {
+function unwrap(s: string): string {
   for (let guard = 0; guard < 2000; guard++) {
     const m = /<(div|span|g) (?:style="display:\s*contents;?" data-unwrap(?:="")?|data-unwrap(?:="")? style="display:\s*contents;?")>/.exec(s);
     if (!m) break;
@@ -119,16 +119,16 @@ function unwrap(s) {
     let depth = 1; let i = m.index + m[0].length;
     const re = new RegExp(`<${tag}\\b|</${tag}>`, 'g'); re.lastIndex = i;
     let end = -1;
-    for (let t; (t = re.exec(s));) { depth += t[0] === `</${tag}>` ? -1 : 1; if (!depth) { end = t.index; break; } }
+    for (let t: RegExpExecArray | null; (t = re.exec(s));) { depth += t[0] === `</${tag}>` ? -1 : 1; if (!depth) { end = t.index; break; } }
     if (end < 0) break;
     s = s.slice(0, m.index) + s.slice(i, end) + s.slice(end + tag.length + 3);
   }
   return s;
 }
-function headSet(inner) {
-  const parts = [];
+function headSet(inner: string): string {
+  const parts: string[] = [];
   const re = /<(script|style|title|noscript)\b[^>]*>[\s\S]*?<\/\1>|<(meta|link|base)\b[^>]*>/g;
-  for (let m; (m = re.exec(inner));) parts.push(canonicalHtml(m[0]).trim());
+  for (let m: RegExpExecArray | null; (m = re.exec(inner));) parts.push(canonicalHtml(m[0]).trim());
   return parts.sort().join('');
 }
 
@@ -137,22 +137,22 @@ function headSet(inner) {
 // list loads by itself where an address form is, and the few tiny boot scripts inside the page were rewritten in
 // modern JavaScript (lib/boot-scripts.ts). The same script on both sides is written one way here, so only real
 // differences remain.
-const MOVED = {
+const MOVED: Record<string, string> = {
   '/js/shop.js': '/js/shop/main.js', '/js/i18n.js': '/js/i18n/main.js', '/js/admin.js': '/js/admin/main.js',
   '/js/page-actions.js': '/js/admin/page-actions.js', '/js/admin-i18n.js': '/js/admin/i18n.js', '/js/loginlock.js': '/js/admin/loginlock.js',
   '/js/push.js': '/js/admin/push.js', '/js/pos.js': '/js/admin/pos.js', '/js/stockscan.js': '/js/admin/stockscan.js',
 };
-const BOOT = [
+const BOOT: [RegExp, string][] = [
   [/sm_admin_lang/, 'admin-lang'], [/sm_side_hidden/, 'admin-side'], [/sm_lang/, 'shop-lang'], [/embed\.tawk\.to/, 'tawk'],
-  [/\/pass'/, 'country-pass'], [/w=tz&z=/, 'country-clock'], [/__dbmove/, 'db-move'],
+  [/\/pass'/, 'country-pass'], [/w=tz&z=/, 'country-clock'],
 ];
-export function browserCodeNeutral(body) {
+export function browserCodeNeutral(body: unknown): string {
   return String(body)
     // the camera reader is part of the page's module now; the district list loads by itself
     .replace(/<script\b[^>]*\bsrc="\/js\/(scan|bd-geo)\.js[^"]*"[^>]*><\/script>/g, '')
-    .replace(/<script\b([^>]*)\bsrc="(\/js\/[\w-]+\.js)(\?[^"]*)?"([^>]*)>/g, (m, a, src, q, b) => `<script${a}src="${MOVED[src] || src}${q || ''}"${b}>`)
-    .replace(/<script\b[^>]*\bsrc="\/js\/[^>]*>/g, (t) => t.replace(/\s(defer(="")?|type="module")(?=[\s>\/])/g, ''))
-    .replace(/(<script\b[^>]*>)([\s\S]*?)(<\/script>)/g, (m, open, code, close) => {
+    .replace(/<script\b([^>]*)\bsrc="(\/js\/[\w-]+\.js)(\?[^"]*)?"([^>]*)>/g, (_m: string, a: string, src: string, q: string | undefined, b: string) => `<script${a}src="${MOVED[src] || src}${q || ''}"${b}>`)
+    .replace(/<script\b[^>]*\bsrc="\/js\/[^>]*>/g, (t: string) => t.replace(/\s(defer(="")?|type="module")(?=[\s>\/])/g, ''))
+    .replace(/(<script\b[^>]*>)([\s\S]*?)(<\/script>)/g, (m: string, open: string, code: string, close: string) => {
       if (/\bsrc=|application\/(ld\+)?json/.test(open)) return m;
       const hit = BOOT.find(([re]) => re.test(code));
       return hit ? `${open}«boot:${hit[1]}»${close}` : m;
