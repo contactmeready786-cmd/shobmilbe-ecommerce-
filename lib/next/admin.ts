@@ -12,7 +12,7 @@ import * as security from '../security';
 import * as db from '../db';
 import { runFresh } from '../cache';
 import { Reply } from '../reply';
-import type { AdminDrawn, Base, Loose, ShopRequest } from '../types';
+import type { AdminDrawn, Base, ShopRequest } from '../types';
 
 export type AdminOutcome =
   | ({ kind: 'page'; nonce: string } & AdminDrawn)
@@ -39,7 +39,7 @@ export const currentAdminPage = cache(async (): Promise<AdminOutcome> => {
   // a page that sets a cookie or answers with a file (reply.answer) is left to app/api/admin
   const reply = new Reply();
   const base: Base = {
-    req, reply, path, method: 'GET', query: url.searchParams as Loose, settings,
+    req, reply, path, method: 'GET', query: url.searchParams, settings,
     send: () => { out = { kind: 'site' }; },
     json: () => { out = { kind: 'site' }; },
     redirect: (to, extra) => { out = extra && Object.keys(extra).length ? { kind: 'site' } : { kind: 'redirect', location: String(to) }; },

@@ -30,12 +30,14 @@ import * as guard from './services/guard';
 import * as shop from './views/shop';
 import type { Resolved } from './shop/router';
 import type { FormCtx } from './next/shop-form';
-import type { Loose } from './types';
+
+/** What the login page shows: which way (SMS or e-mail), which step, what was typed, and a message. */
+type LoginStep = { via?: 'phone' | 'email'; mode?: string; step?: 'code'; phone?: string; email?: string; error?: string; next?: string };
 
 /** The helpers every handler shares (the same ones the original router's single handler had). */
 function helpers(f: FormCtx) {
   const { page, notFound, redirect } = f;
-  const go = (to?: Loose, cookies?: Loose) => redirect(to, cookies ? { 'Set-Cookie': cookies } : {});
+  const go = (to: string, cookies?: string | string[]) => redirect(to, cookies ? { 'Set-Cookie': cookies } : {});
   const shown = (r: Resolved | null) => (!r || r.kind !== 'page' ? notFound() : page(r.title, r.body, r.opts));
   return { go, shown };
 }
@@ -58,7 +60,7 @@ export async function orderSelf(f: FormCtx): Promise<void> {
     if (!isPost) return go(`/order/${sm[1].toUpperCase()}`);
     const code = sm[1].toUpperCase();
     const SS = $models_selfservice;
-    const back = (msg?: Loose, ok?: Loose) => go(`/order/${code}?${ok ? 'done' : 'err'}=${encodeURIComponent(msg)}#self`);
+    const back = (msg: string, ok?: boolean) => go(`/order/${code}?${ok ? 'done' : 'err'}=${encodeURIComponent(msg)}#self`);
     if (!myOrders(req, settings).includes(code)) return back('এই অর্ডারটি বদলাতে আগে "অর্ডার ট্র্যাক" পেজে অর্ডার নম্বর আর মোবাইল নম্বর দিয়ে খুলুন।');
     if (!(await security.hit(db, 'selfsvc:' + ip, 20, 3600))) return back('অনেকবার চেষ্টা হয়েছে। কিছুক্ষণ পর আবার চেষ্টা করুন।');
     const order = await O.getOrder({ code });
@@ -103,7 +105,7 @@ export async function complaint(f: FormCtx): Promise<void> {
     const b = await parseBody(req);
     if (b.website) return go('/complaint'); // a robot filled the hidden box
     if (!(await security.hit(db, 'complaint:' + ip, 6, 3600))) return page('অভিযোগ জানান', CV.complaintPage({ settings, values: b, error: 'অনেকগুলো অভিযোগ পাঠানো হয়েছে। কিছুক্ষণ পর আবার চেষ্টা করুন, অথবা ফোন করুন।' }), { noindex: true, status: 429 });
-    let photos: Loose[] = [];
+    let photos: unknown[] = [];
     try { photos = JSON.parse(b.photos || '[]'); } catch (_) { photos = []; }
     try {
       const c = await CM.create({ name: b.name, phone: b.phone, email: b.email, orderCode: b.order_code, topic: b.topic, message: b.message, photos, ip, settings, productId: b.item });
@@ -135,9 +137,9 @@ export async function account(f: FormCtx): Promise<void> {
     const cu = await A.current(req, settings);
     const next = safeNext(isPost ? '' : query.get('next'));
     const ways = { phoneOn: A.phoneReady(settings), emailOn: A.emailReady(settings) };
-    const login = (o?: Loose) => page('লগইন', V.loginPage({ ...ways, ...o }), { noindex: true, status: o.error ? 400 : 200 });
+    const login = (o: LoginStep) => page('লগইন', V.loginPage({ ...ways, ...o }), { noindex: true, status: o.error ? 400 : 200 });
     // after the code is right: a new account first gives its name (and mobile), then goes where it was going
-    const afterLogin = (c?: Loose, nxt?: Loose) => (A.needsProfile(c) ? `/account?tab=profile&welcome=1${nxt ? '&next=' + encodeURIComponent(nxt) : ''}` : nxt || '/account');
+    const afterLogin = (c: unknown, nxt: string) => (A.needsProfile(c) ? `/account?tab=profile&welcome=1${nxt ? '&next=' + encodeURIComponent(nxt) : ''}` : nxt || '/account');
     // ---------- 📱 mobile + SMS code ----------
     if (path === '/account/code' && isPost) {
       const b = await parseBody(req);
@@ -246,8 +248,8 @@ export async function returnRequest(f: FormCtx): Promise<void> {
       const b = await parseBody(req);
       if (b.website) return go(`/order/${order.code}`);
       if (!(await security.hit(db, 'retreq:' + ip, 6, 3600))) return page('রিটার্ন', V.returnForm({ order, existing, settings, mine, error: 'অনেকবার চেষ্টা হয়েছে, কিছুক্ষণ পর আবার চেষ্টা করুন।' }), { noindex: true, status: 429 });
-      const ids = ([] as Loose[]).concat(b.item || []).map((x) => int(x));
-      let photos: Loose[] = [];
+      const ids = ([] as unknown[]).concat(b.item || []).map((x) => int(x));
+      let photos: unknown[] = [];
       try { photos = JSON.parse(b.photos || '[]'); } catch (_) { photos = []; }
       try {
         const cu = await A.current(req, settings);

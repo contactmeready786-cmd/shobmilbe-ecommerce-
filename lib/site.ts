@@ -8,7 +8,7 @@ import * as catalog from './models/catalog';
 import * as content from './models/content';
 import * as guard from './services/guard';
 import { shopLayout } from './views/layout';
-import { resolveShop } from './shop/router';
+import { resolveShop, type PageOpts } from './shop/router';
 import { scoped } from './cache';
 import * as shop from './views/shop';
 import * as md from './views/md';
@@ -23,7 +23,8 @@ import { siteUrl, blockedBots, backgroundTick, SITE_BLOCKED_PAGE, refCookie } fr
 import { Reply } from './reply';
 import { loadRenderer } from './react/render';
 import { answers, shopPath, tooMany, setupErrorPage, verificationFile, ERROR_PAGE } from './next/answers';
-import type { Body, Loose, ShopRequest } from './types';
+import type { ReactNode } from 'react';
+import type { Body, Settings, ShopRequest } from './types';
 
 const clientIp = security.clientIp;
 
@@ -38,7 +39,7 @@ async function handlerInner(req: ShopRequest, reply: Reply) {
 
   try {
     await db.ensureReady();
-  } catch (e: Loose) {
+  } catch (e) {
     console.error('Database setup failed:', e);
     return send(503, setupErrorPage(e));
   }
@@ -99,21 +100,25 @@ async function handlerInner(req: ShopRequest, reply: Reply) {
 }
 
 // ---------------------------------------------------------------- storefront
-async function shopRoutes({ req, reply, path, method, query, settings }: Body) {
+/** What the storefront's fallback needs for one request. */
+type ShopCtx = { req: ShopRequest; reply: Reply; path: string; method: string; query: URLSearchParams; settings: Settings };
+
+async function shopRoutes({ req, reply, path, method, query, settings }: ShopCtx) {
   const { send } = answers(reply);
   // Admin → দোকানে কী দেখাবে → "স্টক শেষ পণ্য তালিকায় দেখাও" off: lists, home rows and search skip them
   const hideOut = settings.ui_show_out_of_stock === '0';
   const [categories, pages, popups] = await Promise.all([
     catalog.listCategories({ includeInactive: false }), content.listPages({ active: true }), content.listBanners({ active: true, placement: 'popup' }),
   ]);
-  const page = (title?: Loose, body?: Loose, opts: Body = {}) => send(opts.status || 200,
+  const page = (title: string, body: ReactNode, opts: PageOpts = {}) => send(opts.status || 200,
     shopLayout({ settings, title, body, categories, pages, popup: popups[0] || null, ...opts }));
   const notFound = () => page('পাওয়া যায়নি', shop.notFound(), { status: 404, noindex: true });
   // (👤 account, 🙋 own-order changes, 📮 complaints, 🔎 tracking, ↩️ returns, 🎁 gift cards: their own Next.js routes —
   //  lib/shopx.tsx; proxy.ts sends them there)
   if (method !== 'GET' && method !== 'HEAD') return notFound();
   // 🎁 a friend's referral link: remember the code for checkout
-  if (settings.ref_on === '1' && query.get('ref') && /^[A-Za-z0-9-]{4,24}$/.test(query.get('ref'))) reply.header('Set-Cookie', refCookie(req, query.get('ref')));
+  const ref = query.get('ref') || '';
+  if (settings.ref_on === '1' && /^[A-Za-z0-9-]{4,24}$/.test(ref)) reply.header('Set-Cookie', refCookie(req, ref));
 
   // home, product lists / search / brands, product pages: lib/shop/router.tsx (shared with the Next.js pages)
   if (path === '/' || path === '/products' || /^\/brand\/[^/]+$/.test(path) || /^\/p\/[^/]+$/.test(path)) {
