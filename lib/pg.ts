@@ -17,7 +17,8 @@ export type DbRow = Record<string, any>;
 export type QueryResult<R = DbRow> = { rows: R[]; rowCount: number; command: string };
 /** A query parameter: sent as text (Dates as ISO, Buffers as bytea, arrays as Postgres arrays, objects as JSON). */
 export type Param = unknown;
-export type Tx = { query: (sql: string, params?: Param[]) => Promise<QueryResult>; exec: (sql: string) => Promise<true> };
+/** A transaction: query<R>() reads rows of type R (as db.q<R> does), exec() runs several statements. */
+export type Tx = { query: <R extends DbRow = DbRow>(sql: string, params?: Param[]) => Promise<QueryResult<R>>; exec: (sql: string) => Promise<true> };
 
 const txStore = new AsyncLocalStorage<Tx>();
 
@@ -206,7 +207,7 @@ class Connection {
       let open = true;
       // After the transaction ends, stray late calls go through the normal queue.
       const tx: Tx = {
-        query: (sql, params = []) => (open ? this.rawQuery(sql, params) : this.query(sql, params)),
+        query: <R extends DbRow = DbRow>(sql: string, params: Param[] = []) => (open ? this.rawQuery(sql, params) : this.query(sql, params)) as Promise<QueryResult<R>>,
         exec: (sql) => (open ? this.rawExec(sql) : this.exec(sql)),
       };
       await this.rawQuery('BEGIN', []);

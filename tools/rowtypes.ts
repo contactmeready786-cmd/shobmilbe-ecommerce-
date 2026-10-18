@@ -6,7 +6,10 @@
 // boolean → boolean; timestamp / timestamptz → Date; json / jsonb → whatever was stored (unknown); bytea → Buffer;
 // int[] / text[] / bool[] → arrays. Everything else (text, date, time, uuid …) arrives as text.
 
-export type Column = { name: string; ts: string; nullable: boolean };
+// A column is "present" (no `| null`) when it is NOT NULL or has a DEFAULT: the shop never writes NULL into a column
+// that has a default, so such a column is always filled in practice.
+export type Column = { name: string; ts: string; notNull: boolean; hasDefault: boolean; nullable: boolean };
+const settle = (c: Column) => { c.nullable = !(c.notNull || c.hasDefault); };
 export type Table = { name: string; columns: Map<string, Column> };
 
 /** The JavaScript type a SQL type arrives as. */
@@ -54,7 +57,10 @@ function columnOf(def: string): Column | null {
   const sqlType = typeWords.join(' ');
   const rest = def.slice(def.indexOf(words[0]) + words[0].length);
   const notNull = /\bnot null\b/i.test(rest) || /\bprimary key\b/i.test(rest) || /serial/i.test(sqlType);
-  return { name, ts: tsType(sqlType), nullable: !notNull };
+  const hasDefault = /\bdefault\b/i.test(rest) && !/\bdefault\s+null\b/i.test(rest);
+  const c: Column = { name, ts: tsType(sqlType), notNull, hasDefault, nullable: true };
+  settle(c);
+  return c;
 }
 
 /** The body between the brackets that open at `start` (index of "("). */
@@ -92,9 +98,13 @@ export function tablesOf(dbTs: string): Map<string, Table> {
         const c = t.columns.get(a[1]);
         if (c) c.ts = tsType(a[2]);
       } else if ((a = action.match(/^ALTER COLUMN (\w+) DROP NOT NULL$/i))) {
-        const c = t.columns.get(a[1]); if (c) c.nullable = true;
+        const c = t.columns.get(a[1]); if (c) { c.notNull = false; settle(c); }
       } else if ((a = action.match(/^ALTER COLUMN (\w+) SET NOT NULL$/i))) {
-        const c = t.columns.get(a[1]); if (c) c.nullable = false;
+        const c = t.columns.get(a[1]); if (c) { c.notNull = true; settle(c); }
+      } else if ((a = action.match(/^ALTER COLUMN (\w+) SET DEFAULT ([\s\S]+)$/i))) {
+        const c = t.columns.get(a[1]); if (c) { c.hasDefault = !/^null$/i.test(a[2].trim()); settle(c); }
+      } else if ((a = action.match(/^ALTER COLUMN (\w+) DROP DEFAULT$/i))) {
+        const c = t.columns.get(a[1]); if (c) { c.hasDefault = false; settle(c); }
       } else if ((a = action.match(/^DROP COLUMN (?:IF EXISTS )?(\w+)/i))) {
         t.columns.delete(a[1]);
       } else if ((a = action.match(/^RENAME COLUMN (\w+) TO (\w+)$/i))) {

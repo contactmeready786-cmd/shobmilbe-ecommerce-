@@ -9,10 +9,10 @@ export type AccountsRow = {
   id: number;
   name: string;
   type: string;
-  details: string | null;
+  details: string;
   opening_balance: number;
-  active: boolean | null;
-  sort: number | null;
+  active: boolean;
+  sort: number;
 };
 
 /** A row of activity_log. */
@@ -20,10 +20,10 @@ export type ActivityLogRow = {
   id: number;
   staff_id: number | null;
   action: string;
-  entity: string | null;
+  entity: string;
   entity_id: number | null;
-  detail: string | null;
-  created_at: Date | null;
+  detail: string;
+  created_at: Date;
 };
 
 /** A row of admin_sessions. */
@@ -52,8 +52,8 @@ export type AutocallsRow = {
   ref: string;
   attempt: number;
   detail: string;
-  created_at: Date | null;
-  updated_at: Date | null;
+  created_at: Date;
+  updated_at: Date;
 };
 
 /** A row of backups. */
@@ -68,7 +68,7 @@ export type BackupsRow = {
   encrypted: boolean;
   note: string;
   staff_id: number | null;
-  created_at: Date | null;
+  created_at: Date;
   ik_id: string | null;
   ik_url: string | null;
 };
@@ -77,13 +77,13 @@ export type BackupsRow = {
 export type BannersRow = {
   id: number;
   image_id: number | null;
-  title: string | null;
-  subtitle: string | null;
-  link: string | null;
-  button: string | null;
+  title: string;
+  subtitle: string;
+  link: string;
+  button: string;
   placement: string;
-  sort: number | null;
-  active: boolean | null;
+  sort: number;
+  active: boolean;
 };
 
 /** A row of blocklist. */
@@ -91,9 +91,9 @@ export type BlocklistRow = {
   id: number;
   kind: string;
   value: string;
-  reason: string | null;
+  reason: string;
   created_by: number | null;
-  created_at: Date | null;
+  created_at: Date;
   expires_at: Date | null;
 };
 
@@ -102,7 +102,7 @@ export type BlogCategoriesRow = {
   id: number;
   name: string;
   slug: string;
-  sort: number | null;
+  sort: number;
 };
 
 /** A row of blog_posts. */
@@ -111,17 +111,17 @@ export type BlogPostsRow = {
   title: string;
   slug: string;
   category_id: number | null;
-  excerpt: string | null;
-  content: string | null;
+  excerpt: string;
+  content: string;
   cover_id: number | null;
   status: string;
   published_at: Date | null;
-  seo_title: string | null;
-  seo_description: string | null;
+  seo_title: string;
+  seo_description: string;
   author_id: number | null;
-  views: number | null;
-  created_at: Date | null;
-  updated_at: Date | null;
+  views: number;
+  created_at: Date;
+  updated_at: Date;
   auto_key: string | null;
 };
 
@@ -136,7 +136,7 @@ export type BrandsRow = {
   seo_description: string;
   active: boolean;
   sort: number;
-  created_at: Date | null;
+  created_at: Date;
   noindex: boolean;
 };
 
@@ -153,10 +153,10 @@ export type CategoriesRow = {
   id: number;
   name: string;
   slug: string;
-  icon: string | null;
-  sort: number | null;
+  icon: string;
+  sort: number;
   image_id: number | null;
-  active: boolean | null;
+  active: boolean;
   parent_id: number | null;
   description: string;
   seo_title: string;
@@ -202,7 +202,7 @@ export type CheckoutOtpsRow = {
   verified_at: Date | null;
   used: boolean;
   ip: string;
-  created_at: Date | null;
+  created_at: Date;
   gw_id: string;
   gw_state: string;
 };
@@ -220,7 +220,7 @@ export type CodSettlementsRow = {
   order_count: number;
   note: string;
   staff_id: number | null;
-  created_at: Date | null;
+  created_at: Date;
 };
 
 /** A row of complaint_notes. */
@@ -273,9 +273,9 @@ export type CouponsRow = {
   usage_limit: number;
   used_count: number;
   per_phone: number;
-  active: boolean | null;
-  note: string | null;
-  created_at: Date | null;
+  active: boolean;
+  note: string;
+  created_at: Date;
   product_ids: number[];
   category_ids: number[];
   first_order: boolean;
@@ -292,7 +292,7 @@ export type CustomerAddressesRow = {
   thana: string;
   address: string;
   is_default: boolean;
-  created_at: Date | null;
+  created_at: Date;
 };
 
 /** A row of customer_email_otps. */
@@ -304,7 +304,7 @@ export type CustomerEmailOtpsRow = {
   tries: number;
   used: boolean;
   ip: string;
-  created_at: Date | null;
+  created_at: Date;
   pw_hash: string;
   purpose: string;
 };
@@ -318,7 +318,7 @@ export type CustomerOtpsRow = {
   tries: number;
   used: boolean;
   ip: string;
-  created_at: Date | null;
+  created_at: Date;
 };
 
 /** A row of customers. */
@@ -326,13 +326,13 @@ export type CustomersRow = {
   id: number;
   name: string;
   phone: string | null;
-  email: string | null;
-  address: string | null;
-  district: string | null;
-  thana: string | null;
-  note: string | null;
-  created_at: Date | null;
-  updated_at: Date | null;
+  email: string;
+  address: string;
+  district: string;
+  thana: string;
+  note: string;
+  created_at: Date;
+  updated_at: Date;
   tags: string;
   grp: string;
   points: number;
@@ -453,7 +453,7 @@ export type FlashSalesRow = {
   ends_at: Date;
   active: boolean;
   show_home: boolean;
-  created_at: Date | null;
+  created_at: Date;
 };
 
 /** A row of fraud_checks. */
@@ -480,7 +480,7 @@ export type GiftCardLedgerRow = {
   balance: number;
   note: string;
   staff_id: number | null;
-  created_at: Date | null;
+  created_at: Date;
 };
 
 /** A row of gift_cards. */
@@ -507,7 +507,7 @@ export type GiftCardsRow = {
   created_by: number | null;
   ip: string;
   activated_at: Date | null;
-  created_at: Date | null;
+  created_at: Date;
 };
 
 /** A row of home_rows. */
@@ -525,14 +525,14 @@ export type HomeRowsRow = {
   badge: string;
   style: string;
   in_stock_only: boolean;
-  created_at: Date | null;
-  updated_at: Date | null;
+  created_at: Date;
+  updated_at: Date;
 };
 
 /** A row of ik_trash. */
 export type IkTrashRow = {
   file_id: string;
-  added_at: Date | null;
+  added_at: Date;
 };
 
 /** A row of integration_logs. */
@@ -541,9 +541,9 @@ export type IntegrationLogsRow = {
   service: string;
   action: string;
   ok: boolean;
-  message: string | null;
-  ref: string | null;
-  created_at: Date | null;
+  message: string;
+  ref: string;
+  created_at: Date;
 };
 
 /** A row of kit_items. */
@@ -613,7 +613,7 @@ export type LoyaltyLedgerRow = {
   kind: string;
   note: string;
   staff_id: number | null;
-  created_at: Date | null;
+  created_at: Date;
 };
 
 /** A row of media. */
@@ -626,8 +626,8 @@ export type MediaRow = {
   height: number | null;
   owner_type: string | null;
   owner_id: number | null;
-  sort: number | null;
-  created_at: Date | null;
+  sort: number;
+  created_at: Date;
   sha: string | null;
   phash: string | null;
   phash_m: string | null;
@@ -661,7 +661,7 @@ export type OffersRow = {
   starts_on: string | null;
   ends_on: string | null;
   active: boolean;
-  created_at: Date | null;
+  created_at: Date;
 };
 
 /** A row of order_items. */
@@ -672,8 +672,8 @@ export type OrderItemsRow = {
   name: string;
   price: number;
   qty: number;
-  sku: string | null;
-  cost: number | null;
+  sku: string;
+  cost: number;
   components: unknown;
   note: string;
   kind: string;
@@ -689,34 +689,34 @@ export type OrdersRow = {
   phone: string;
   address: string;
   area: string;
-  note: string | null;
+  note: string;
   subtotal: number;
   delivery: number;
   total: number;
-  payment: string | null;
-  status: string | null;
-  created_at: Date | null;
-  updated_at: Date | null;
-  email: string | null;
-  district: string | null;
-  thana: string | null;
-  discount: number | null;
-  coupon_code: string | null;
-  payment_status: string | null;
-  paid_amount: number | null;
-  transaction_id: string | null;
-  payment_number: string | null;
-  courier: string | null;
-  consignment_id: string | null;
-  tracking_code: string | null;
-  courier_status: string | null;
+  payment: string;
+  status: string;
+  created_at: Date;
+  updated_at: Date;
+  email: string;
+  district: string;
+  thana: string;
+  discount: number;
+  coupon_code: string;
+  payment_status: string;
+  paid_amount: number;
+  transaction_id: string;
+  payment_number: string;
+  courier: string;
+  consignment_id: string;
+  tracking_code: string;
+  courier_status: string;
   courier_sent_at: Date | null;
-  admin_note: string | null;
-  ip: string | null;
-  source: string | null;
+  admin_note: string;
+  ip: string;
+  source: string;
   created_by: number | null;
   customer_id: number | null;
-  cost_total: number | null;
+  cost_total: number;
   delivered_at: Date | null;
   returned_to: string;
   zone_name: string;
@@ -750,7 +750,7 @@ export type OwnerFacesRow = {
   photo: string;
   descriptor: string;
   source: string;
-  created_at: Date | null;
+  created_at: Date;
 };
 
 /** A row of owner_passkeys. */
@@ -764,7 +764,7 @@ export type OwnerPasskeysRow = {
   rp_id: string;
   name: string;
   transports: string;
-  created_at: Date | null;
+  created_at: Date;
   last_used: Date | null;
 };
 
@@ -774,11 +774,11 @@ export type PageViewsRow = {
   session_id: string;
   visitor_id: string;
   path: string;
-  title: string | null;
+  title: string;
   product_id: number | null;
   duration: number;
   scroll: number;
-  created_at: Date | null;
+  created_at: Date;
 };
 
 /** A row of pages. */
@@ -786,11 +786,11 @@ export type PagesRow = {
   id: number;
   title: string;
   slug: string;
-  content: string | null;
-  in_footer: boolean | null;
-  active: boolean | null;
-  sort: number | null;
-  updated_at: Date | null;
+  content: string;
+  in_footer: boolean;
+  active: boolean;
+  sort: number;
+  updated_at: Date;
 };
 
 /** A row of payments. */
@@ -800,11 +800,11 @@ export type PaymentsRow = {
   method: string;
   amount: number;
   status: string;
-  gateway_ref: string | null;
-  trx_id: string | null;
+  gateway_ref: string;
+  trx_id: string;
   raw: unknown;
-  created_at: Date | null;
-  updated_at: Date | null;
+  created_at: Date;
+  updated_at: Date;
 };
 
 /** A row of price_alerts. */
@@ -846,7 +846,7 @@ export type ProductQuestionsRow = {
   ip: string;
   answered_by: number | null;
   answered_at: Date | null;
-  created_at: Date | null;
+  created_at: Date;
 };
 
 /** A row of products. */
@@ -858,28 +858,28 @@ export type ProductsRow = {
   price: number;
   old_price: number | null;
   stock: number;
-  description: string | null;
-  emoji: string | null;
+  description: string;
+  emoji: string;
   image: string | null;
-  featured: boolean | null;
-  active: boolean | null;
-  created_at: Date | null;
-  updated_at: Date | null;
-  sku: string | null;
-  short_description: string | null;
-  cost_price: number | null;
-  youtube_url: string | null;
-  product_type: string | null;
+  featured: boolean;
+  active: boolean;
+  created_at: Date;
+  updated_at: Date;
+  sku: string;
+  short_description: string;
+  cost_price: number;
+  youtube_url: string;
+  product_type: string;
   image_id: number | null;
-  seo_title: string | null;
-  seo_description: string | null;
-  low_stock: number | null;
-  weight_g: number | null;
-  unit: string | null;
-  brand: string | null;
-  sold_count: number | null;
-  seo_keywords: string | null;
-  allow_duplicate: boolean | null;
+  seo_title: string;
+  seo_description: string;
+  low_stock: number;
+  weight_g: number;
+  unit: string;
+  brand: string;
+  sold_count: number;
+  seo_keywords: string;
+  allow_duplicate: boolean;
   import_ref: string;
   brand_id: number | null;
   model: string;
@@ -930,10 +930,10 @@ export type PurchasesRow = {
   other_cost: number;
   vat: number;
   total: number;
-  note: string | null;
+  note: string;
   created_by: number | null;
   received_at: Date | null;
-  created_at: Date | null;
+  created_at: Date;
 };
 
 /** A row of push_campaigns. */
@@ -947,7 +947,7 @@ export type PushCampaignsRow = {
   sent: number;
   failed: number;
   staff_id: number | null;
-  created_at: Date | null;
+  created_at: Date;
 };
 
 /** A row of push_subs. */
@@ -958,7 +958,7 @@ export type PushSubsRow = {
   p256dh: string;
   auth: string;
   device: string;
-  created_at: Date | null;
+  created_at: Date;
   last_ok: Date | null;
   fails: number;
 };
@@ -975,7 +975,7 @@ export type RecoveryCodesRow = {
   id: number;
   hash: string;
   used_at: Date | null;
-  created_at: Date | null;
+  created_at: Date;
 };
 
 /** A row of redirects. */
@@ -983,7 +983,7 @@ export type RedirectsRow = {
   from_path: string;
   to_path: string;
   hits: number;
-  created_at: Date | null;
+  created_at: Date;
 };
 
 /** A row of refunds. */
@@ -995,7 +995,7 @@ export type RefundsRow = {
   reference: string;
   note: string;
   staff_id: number | null;
-  created_at: Date | null;
+  created_at: Date;
 };
 
 /** A row of research_hosts. */
@@ -1026,8 +1026,8 @@ export type ResearchItemsRow = {
   best_rank: number | null;
   rating: number | null;
   reviews: number;
-  first_seen: Date | null;
-  last_seen: Date | null;
+  first_seen: Date;
+  last_seen: Date;
 };
 
 /** A row of research_queue. */
@@ -1042,7 +1042,7 @@ export type ResearchQueueRow = {
   checked_at: Date | null;
   is_product: boolean | null;
   fails: number;
-  added_at: Date | null;
+  added_at: Date;
 };
 
 /** A row of research_sources. */
@@ -1057,7 +1057,7 @@ export type ResearchSourcesRow = {
   last_ok: Date | null;
   last_error: string;
   items: number;
-  created_at: Date | null;
+  created_at: Date;
   seeded_at: Date | null;
   search_only: boolean;
 };
@@ -1085,8 +1085,8 @@ export type ReturnRequestsRow = {
   handled_by: number | null;
   received_at: Date | null;
   refunded_at: Date | null;
-  created_at: Date | null;
-  updated_at: Date | null;
+  created_at: Date;
+  updated_at: Date;
 };
 
 /** A row of reviews. */
@@ -1103,7 +1103,7 @@ export type ReviewsRow = {
   reply: string;
   verified: boolean;
   ip: string;
-  created_at: Date | null;
+  created_at: Date;
   approved_at: Date | null;
   photos: number[];
 };
@@ -1164,7 +1164,7 @@ export type ShopPushSubsRow = {
   device: string;
   fails: number;
   last_ok: Date | null;
-  created_at: Date | null;
+  created_at: Date;
 };
 
 /** A row of sms_campaigns. */
@@ -1176,8 +1176,8 @@ export type SmsCampaignsRow = {
   sent: number;
   failed: number;
   staff_id: number | null;
-  created_at: Date | null;
-  updated_at: Date | null;
+  created_at: Date;
+  updated_at: Date;
 };
 
 /** A row of sms_log. */
@@ -1190,7 +1190,7 @@ export type SmsLogRow = {
   detail: string;
   order_id: number | null;
   staff_id: number | null;
-  created_at: Date | null;
+  created_at: Date;
 };
 
 /** A row of social_posts. */
@@ -1200,9 +1200,9 @@ export type SocialPostsRow = {
   channel: string;
   product_id: number | null;
   ok: boolean | null;
-  post_id: string | null;
-  message: string | null;
-  created_at: Date | null;
+  post_id: string;
+  message: string;
+  created_at: Date;
   kind: string;
   ref: string;
 };
@@ -1212,15 +1212,15 @@ export type StaffRow = {
   id: number;
   name: string;
   username: string;
-  phone: string | null;
-  email: string | null;
+  phone: string;
+  email: string;
   password: string;
   role: string;
   permissions: unknown;
-  active: boolean | null;
-  note: string | null;
+  active: boolean;
+  note: string;
   last_login: Date | null;
-  created_at: Date | null;
+  created_at: Date;
   totp_secret: string;
   totp_on: boolean;
   totp_last_step: number;
@@ -1240,7 +1240,7 @@ export type StockAlertsRow = {
   phone: string;
   name: string;
   ip: string;
-  created_at: Date | null;
+  created_at: Date;
   notified_at: Date | null;
   result: string;
 };
@@ -1252,11 +1252,11 @@ export type StockMovementsRow = {
   change: number;
   balance: number | null;
   reason: string;
-  ref_type: string | null;
+  ref_type: string;
   ref_id: number | null;
-  note: string | null;
+  note: string;
   staff_id: number | null;
-  created_at: Date | null;
+  created_at: Date;
   damaged_change: number;
   unit_cost: number | null;
 };
@@ -1265,14 +1265,14 @@ export type StockMovementsRow = {
 export type SuppliersRow = {
   id: number;
   name: string;
-  company: string | null;
-  phone: string | null;
-  email: string | null;
-  address: string | null;
-  note: string | null;
-  opening_due: number | null;
-  active: boolean | null;
-  created_at: Date | null;
+  company: string;
+  phone: string;
+  email: string;
+  address: string;
+  note: string;
+  opening_due: number;
+  active: boolean;
+  created_at: Date;
 };
 
 /** A row of transactions. */
@@ -1280,7 +1280,7 @@ export type TransactionsRow = {
   id: number;
   tx_date: string;
   type: string;
-  category: string | null;
+  category: string;
   amount: number;
   account_id: number | null;
   to_account_id: number | null;
@@ -1288,9 +1288,9 @@ export type TransactionsRow = {
   order_id: number | null;
   purchase_id: number | null;
   vat: number;
-  note: string | null;
+  note: string;
   created_by: number | null;
-  created_at: Date | null;
+  created_at: Date;
 };
 
 /** A row of translations. */
@@ -1301,9 +1301,9 @@ export type TranslationsRow = {
   en: string;
   origin: string;
   hits: number;
-  last_seen: Date | null;
-  created_at: Date | null;
-  updated_at: Date | null;
+  last_seen: Date;
+  created_at: Date;
+  updated_at: Date;
 };
 
 /** A row of trash. */
@@ -1318,7 +1318,7 @@ export type TrashRow = {
   deleted_by_name: string;
   from_path: string;
   ip: string;
-  deleted_at: Date | null;
+  deleted_at: Date;
 };
 
 /** A row of visit_events. */
@@ -1327,38 +1327,38 @@ export type VisitEventsRow = {
   session_id: string;
   visitor_id: string;
   event: string;
-  label: string | null;
-  ref: string | null;
+  label: string;
+  ref: string;
   value: number;
-  path: string | null;
-  created_at: Date | null;
+  path: string;
+  created_at: Date;
 };
 
 /** A row of visit_sessions. */
 export type VisitSessionsRow = {
   id: string;
   visitor_id: string;
-  started_at: Date | null;
-  last_seen: Date | null;
+  started_at: Date;
+  last_seen: Date;
   duration: number;
   pageviews: number;
-  is_new: boolean | null;
-  ip: string | null;
-  country: string | null;
-  region: string | null;
-  city: string | null;
-  device: string | null;
-  os: string | null;
-  browser: string | null;
-  screen: string | null;
-  lang: string | null;
-  referrer: string | null;
-  ref_host: string | null;
-  source: string | null;
-  medium: string | null;
-  campaign: string | null;
-  landing: string | null;
-  exit_path: string | null;
+  is_new: boolean;
+  ip: string;
+  country: string;
+  region: string;
+  city: string;
+  device: string;
+  os: string;
+  browser: string;
+  screen: string;
+  lang: string;
+  referrer: string;
+  ref_host: string;
+  source: string;
+  medium: string;
+  campaign: string;
+  landing: string;
+  exit_path: string;
   order_code: string;
   brand: string;
   model: string;
@@ -1369,8 +1369,8 @@ export type VisitSessionsRow = {
 /** A row of visitors. */
 export type VisitorsRow = {
   id: string;
-  first_seen: Date | null;
-  last_seen: Date | null;
+  first_seen: Date;
+  last_seen: Date;
   visits: number;
   pageviews: number;
   orders: number;
@@ -1389,7 +1389,7 @@ export type WarehouseMovesRow = {
   ref_id: number | null;
   note: string;
   staff_id: number | null;
-  created_at: Date | null;
+  created_at: Date;
 };
 
 /** A row of warehouse_stock. */
@@ -1409,7 +1409,7 @@ export type WarehousesRow = {
   active: boolean;
   sort: number;
   note: string;
-  created_at: Date | null;
+  created_at: Date;
 };
 
 /** Every table's row type by table name. */
