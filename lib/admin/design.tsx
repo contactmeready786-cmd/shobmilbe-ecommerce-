@@ -123,7 +123,7 @@ async function pageFooter(ctx: AdminCtx, m: RouteMatch) {
   await ctx.log('page_save', 'page', id, b.in_footer ? 'ফুটারে চালু' : 'ফুটারে বন্ধ');
   return ctx.back('/admin/design/pages', 'saved');
 }
-async function pageForm(ctx: AdminCtx, m: RouteMatch) {
+async function pageForm(ctx: AdminCtx, m: RouteMatch | null) {
   const id = m && m[1] ? int(m[1]) : null;
   if (ctx.method === 'POST') {
     const b = await ctx.body();

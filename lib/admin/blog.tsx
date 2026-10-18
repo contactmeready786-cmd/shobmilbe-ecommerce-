@@ -16,7 +16,7 @@ function postForm(p?: Loose, cats?: Loose, error?: Loose) {
     <>নতুন লাইন = নতুন প্যারাগ্রাফ ·{' '}<b>## শিরোনাম</b>{' '}·{' '}<b>- বুলেট</b>{' '}·{' '}<b>**মোটা**</b>{' '}·{' '}<b>[লেখা](https://লিংক)</b>{' '}· একটা লাইনে শুধু ছবির লিংক দিলে ছবি দেখাবে ·{' '}<b>/p/পণ্যের-slug</b>{' '}দিলে পণ্যের কার্ড দেখাবে</>)}</section><section className="panel">{ui.field('অবস্থা', ui.select('status', [['draft', 'ড্রাফট (লুকানো)'], ['published', 'প্রকাশ করুন']], p.status || 'draft'))}{' '}{ui.field('ক্যাটাগরি', ui.select('category_id', [['', 'কোনোটি না'], ...cats.map((c?: Loose) => [c.id, c.name])], p.category_id || ''))}{' '}{ui.imagePicker('cover_id', p.cover_id, { label: 'কভার ছবি', wide: true })}<h2>SEO</h2>{ui.field('SEO টাইটেল', ui.input('seo_title', p.seo_title || '', { maxlength: 120 }))}{' '}{ui.field('SEO বিবরণ', ui.textarea('seo_description', p.seo_description || '', { rows: 2, maxlength: 300 }))}{' '}<button className="btn btn-lg btn-block">সেভ করুন</button></section></div></form>{(isNew ? null : <form method="post" action={`/admin/blog/${attrValue(p.id)}/delete`} className="danger-zone" data-confirm="পোস্টটি মুছে ফেলবেন?"><button className="btn btn-danger btn-sm">পোস্ট মুছুন</button></form>)}</>;
 }
 
-async function form(ctx: AdminCtx, m: RouteMatch) {
+async function form(ctx: AdminCtx, m: RouteMatch | null) {
   const id = m && m[1] ? int(m[1]) : null;
   const cats = await content.listBlogCategories();
   if (ctx.method === 'POST') {

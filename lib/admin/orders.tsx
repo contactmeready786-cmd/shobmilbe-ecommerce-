@@ -47,7 +47,7 @@ async function deleteOne(ctx: AdminCtx, m: RouteMatch) {
 
 // 🔐 how the customer's mobile number was checked at checkout (Admin → চেকআউট OTP)
 function otpPill(how: unknown, long = false) {
-  const L = $models_checkoutotp.LABELS[how];
+  const L = $models_checkoutotp.LABELS[String(how)];
   if (!L) return '';
   return <>{(long ? " " : <br />)}<span className={`pill ${how === 'skipped' ? 'pill-warn' : 'pill-ok'}`} title={attrValue(L[1])}><Val v={L[0]} /></span>{(long ? <><br /><span className="small muted"><Val v={L[1]} /></span></> : null)}</>;
 }
@@ -120,7 +120,7 @@ async function bulk(ctx: AdminCtx) {
     const errors: string[] = [];
     for (const id of ids) {
       const r = await sendToCourier(ctx, id, b.courier, {});
-      if (r.ok) ok++; else errors.push(r.message);
+      if (r.ok) ok++; else errors.push(String(r.message || ''));
     }
     return errors.length ? ctx.fail('/admin/orders', `${bn(ok)}টি পাঠানো হয়েছে, ${bn(errors.length)}টি যায়নি: ${errors[0]}`) : ctx.back('/admin/orders', 'sent');
   }
@@ -176,7 +176,7 @@ const ACTIONS: Record<string, string> = {
   order_status: 'অবস্থা বদলেছেন', order_edit: 'অর্ডার এডিট করেছেন', courier_send: 'কুরিয়ারে পাঠিয়েছেন', courier_sync: 'কুরিয়ার স্ট্যাটাস এনেছেন',
   order_payment: 'পেমেন্ট রেকর্ড করেছেন', order_refund: 'টাকা ফেরত দিয়েছেন', order_note: 'নোট লিখেছেন', order_create: 'অর্ডার তৈরি করেছেন', block: 'ব্লক করেছেন', courier_auto: 'অটো কুরিয়ার',
 };
-function actionLabel(h: { action: string; detail?: string | null }) {
+function actionLabel(h: { action?: string; detail?: string | null }) {
   let d = h.detail || '';
   if (h.action === 'order_status') d = d.replace(/(\w+) → (\w+)/, (_: string, a: string, b: string) => `${O.STATUSES[a] || a} → ${O.STATUSES[b] || b}`);
   return `${ACTIONS[h.action] || h.action}${d ? ': ' + d : ''}`;
@@ -260,6 +260,7 @@ async function syncAll(ctx: AdminCtx) {
   let n = 0;
   for (const r of rows) {
     const o = await O.getOrder({ id: r.id });
+    if (!o) continue; // (deleted meanwhile)
     const res = await syncOne(ctx, o);
     if (res.ok) n++;
   }
@@ -409,7 +410,7 @@ async function newOrder(ctx: AdminCtx) {
   }
   return ctx.page('নতুন অর্ডার', orderForm({ settings: ctx.settings, action: '/admin/orders/new', title: 'নতুন অর্ডার তৈরি (ফোন/ফেসবুক অর্ডার)', isNew: true }), 'order-new');
 }
-async function describeItems(items: { id: number; qty: number }[]) {
+async function describeItems(items: { id: number; qty: number; price?: unknown; kind?: string; note?: string }[]) {
   const prods = await catalog.getProductsByIds(items.map((i) => i.id), { includeInactive: true });
   return items.map((i) => {
     const p = prods.find((x) => x.id === i.id);

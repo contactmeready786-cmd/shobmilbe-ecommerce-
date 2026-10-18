@@ -46,7 +46,7 @@ async function saveOrder(ctx: AdminCtx) {
   return ctx.back(HOME, 'saved');
 }
 
-async function form(ctx: AdminCtx, m: RouteMatch) {
+async function form(ctx: AdminCtx, m: RouteMatch | null) {
   const id = m ? int(m[1]) : 0;
   const r = id ? await H.get(id) : null;
   if (id && !r) return ctx.fail(HOME, 'সারিটা পাওয়া যায়নি।');
