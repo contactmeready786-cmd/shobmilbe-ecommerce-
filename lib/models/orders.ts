@@ -394,7 +394,7 @@ async function createOrder(input: Body, settings: Settings) {
 /** An order line as getOrder returns it, with a few of its product's columns. */
 export type OrderItem = OrderItemsRow & {
   image_id: number | null; slug: string | null; emoji: string | null; warranty: string | null; warranty_type: string | null;
-  barcode: string | null; weight_g: number; components: { product_id: number; qty: number }[] | null;
+  barcode: string | null; unit: string | null; weight_g: number; components: { product_id: number; qty: number }[] | null;
 };
 /** An order as getOrder returns it, with its lines. Status, payment and the address parts always have a value
  * (the shop writes them on every order), so they are read as text. */
@@ -407,7 +407,7 @@ async function getOrder({ id, code }: { id?: number | string | null; code?: stri
   const order = await one<Order>(`SELECT o.*, s.name AS created_by_name FROM orders o LEFT JOIN staff s ON s.id=o.created_by
                            WHERE ${id ? 'o.id=$1' : 'o.code=$1'}`, [id || code]);
   if (!order) return null;
-  order.items = await q<OrderItem>(`SELECT i.*, p.image_id, p.slug, p.emoji, p.warranty, p.warranty_type, p.barcode, coalesce(p.weight_g, 0) AS weight_g FROM order_items i LEFT JOIN products p ON p.id=i.product_id
+  order.items = await q<OrderItem>(`SELECT i.*, p.image_id, p.slug, p.emoji, p.warranty, p.warranty_type, p.barcode, p.unit, coalesce(p.weight_g, 0) AS weight_g FROM order_items i LEFT JOIN products p ON p.id=i.product_id
                          WHERE i.order_id=$1 ORDER BY i.id`, [order.id]);
   return order;
 }

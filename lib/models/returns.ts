@@ -18,7 +18,7 @@ export type ReturnItem = {
 /** What a return request reads of the order (a row of orders with its items). */
 export type ReturnOrder = {
   id: number; status: string; phone: string; customer_id?: number | null;
-  delivered_at?: Date | string | null; updated_at?: Date | string | null; created_at: Date | string;
+  delivered_at?: Date | string | null; updated_at?: Date | string | null; created_at: Date | string | null;
   items?: { id: number; product_id: number | null; name: string; qty: number; price: number | string; components?: ReturnItem['components'] }[] | null;
 };
 /** A new return request: from the customer's form or made in Admin. Form values arrive as typed (unknown). */
