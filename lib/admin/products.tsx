@@ -9,7 +9,7 @@ import * as $services_barcode from '../services/barcode';
 import * as $models_finance from '../models/finance';
 import * as $services_autocat from '../services/autocat';
 import * as $variants from './variants';
-import type { AdminCtx, Body, Id, Loose, RouteMatch } from '../types';
+import type { AdminCtx, Body, Id, Loose, RouteMatch, Settings } from '../types';
 
 const PER_PAGE = 40;
 const ICONS = ['📦', '📟', '🧩', '🔋', '🔥', '🔌', '👕', '👗', '👟', '👜', '⌚', '📱', '💻', '🎧', '🔊', '📷', '🎮', '💡', '🔧', '🛠️', '⚙️',
@@ -68,7 +68,7 @@ function bulkBar(ctx: AdminCtx, categories?: Loose, brands: Loose = []) {
   return <form method="post" action="/admin/products/bulk" id="prod-bulk" className="bulk-bar" data-pbulk="" hidden><input type="hidden" name="back" defaultValue={ctx.path + (ctx.query.toString() ? '?' + ctx.query : '')} />{' '}<b data-pbulk-count="">০</b>টি পণ্য বাছাই করা:{' '}{ui.select('action', [['', '— কী করবেন বাছুন —'], ...acts], '', { 'data-pbulk-action': true, required: true })}{' '}<span data-pbulk-for="category" hidden>{ui.select('category_id', [['', 'কোনো ক্যাটাগরি না'], ...ui.catOpts(categories)], '')}</span>{' '}<span data-pbulk-for="brand" hidden>{ui.input('brand', '', { maxlength: 60, list: 'brand-list-bulk', placeholder: 'ব্র্যান্ডের নাম (খালি = ব্র্যান্ড সরান)' })}<datalist id="brand-list-bulk">{jsxList(brands.map((x?: Loose) => <option value={attrValue(x.name)}></option>))}</datalist></span>{' '}<span data-pbulk-for="price_pct" hidden>{ui.input('pct', '', { type: 'number', step: '0.1', min: -90, max: 500, placeholder: 'যেমন 10 বা -5', class: 'w-num' })}{' '}%</span>{' '}<span data-pbulk-for="price_add" hidden>৳{' '}{ui.input('add', '', { type: 'number', step: '0.01', placeholder: 'যেমন 20 বা -10', class: 'w-num' })}</span>{' '}<span data-pbulk-for="low_stock" hidden>{ui.input('low', '', { type: 'number', min: 0, placeholder: 'যেমন 5', class: 'w-num' })}</span>{' '}<span data-pbulk-for="price_pct price_add" hidden>{ui.check('keep_old', true, 'আগের দাম কাটা দাগে দেখাও (অফার)')}</span>{' '}<button className="btn btn-sm">প্রয়োগ করুন</button>{' '}<button type="button" className="link-btn small" data-pbulk-clear="">বাছাই বাতিল</button></form>;
 }
 // new price after a % or ৳ change: never below ৳0.01; whole taka once the price is ৳10 or more
-function bulkPrice(price: Loose, { pct, add }: Body) {
+function bulkPrice(price: unknown, { pct, add }: { pct: number; add: number }): number {
   let v = Number(price) || 0;
   if (pct) v *= 1 + pct / 100;
   if (add) v += add;
@@ -143,7 +143,7 @@ function statChips(st: Loose, f: Body, isBundle?: Loose) {
 }
 
 const MAX_IMAGES = catalog.MAX_PRODUCT_IMAGES;
-function imageSlot(i?: Loose, id?: Id) {
+function imageSlot(i: number, id?: Id) {
   const label = i === 0 ? 'মূল ছবি' : `ছবি ${bn(i + 1)}`;
   return <div className={`slot ${id ? 'filled' : ''} ${i === 0 ? 'slot-main' : ''}`} data-slot={attrValue(i)} data-img={attrValue(id || '')}><span className="slot-no"><Val v={label} /></span>{' '}<label className="slot-add" title={`${attrValue(label)} যোগ করুন`}>{(id ? <img src={`/media/${attrValue(id)}/t`} alt={attrValue(label)} /> : <><span className="slot-plus" aria-hidden="true">＋</span><span className="slot-hint">ছবি যোগ করুন</span></>)}<input type="file" accept="image/*" multiple hidden data-slot-file="" aria-label={`${attrValue(label)} বাছুন`} /></label><div className="g-tools" hidden={!(id)}><button type="button" data-slot-move="-1" aria-label="আগে নিন">◀</button><button type="button" data-slot-change="" aria-label="ছবি বদলান">বদলান</button><button type="button" data-slot-move="1" aria-label="পরে নিন">▶</button><button type="button" data-slot-del="" aria-label="মুছুন">✕</button></div></div>;
 }
@@ -238,11 +238,11 @@ async function formExtras(ctx: AdminCtx, id?: Id) {
     canStock: ctx.can('inventory'), ledger };
 }
 // "১০টি বা বেশি নিলে ৳x করে" rows + linked products (related / goes with / better option), saved after the product.
-async function saveExtras(pid: Loose, b: Body, settings: Loose = {}) {
-  const price = Number((await db.one('SELECT price FROM products WHERE id=$1', [pid]))!.price);
+async function saveExtras(pid: number, b: Body, settings: Settings): Promise<string[]> {
+  const price = Number((await db.one<{ price: number }>('SELECT price FROM products WHERE id=$1', [pid]))!.price);
   const qs = list(b.tier_qty); const ps = list(b.tier_price);
-  const tiers = new Map();
-  const problems: Loose[] = [];
+  const tiers = new Map<number, number>();
+  const problems: string[] = [];
   for (let i = 0; i < qs.length; i++) {
     const n = int(qs[i]); const pr = shopPrice(amount(ps[i]));
     if (!n && !ps[i]) continue;
@@ -252,7 +252,7 @@ async function saveExtras(pid: Loose, b: Body, settings: Loose = {}) {
   const maxQ = qtyRule(settings, price).max;
   const unreachable = [...tiers.keys()].filter((n) => n > maxQ);
   if (unreachable.length) problems.push(`${unreachable.map((n) => bn(n)).join(', ')}টির ধাপ সেভ হয়েছে, কিন্তু অনলাইনে এই পণ্য একবারে সর্বোচ্চ ${bn(maxQ)}টি অর্ডার করা যায় — তাই কাস্টমার এই দাম পাবে না (দোকানে দেখাবেও না)। চাইলে সেটিংসে "একসাথে সর্বোচ্চ" সংখ্যা বাড়ান`);
-  const missing: Loose[] = [];
+  const missing: string[] = [];
   await db.tx(async (t) => {
     await t.query('DELETE FROM price_tiers WHERE product_id=$1', [pid]);
     for (const [n, pr] of [...tiers.entries()].slice(0, 6)) await t.query('INSERT INTO price_tiers(product_id, min_qty, price) VALUES($1,$2,$3)', [pid, n, pr]);
@@ -418,7 +418,7 @@ async function saveCategoryDisplay(ctx: AdminCtx, b: Body) {
   await ctx.reloadSettings();
   await ctx.log('settings', 'category', null, `ক্যাটাগরি দেখানো: উপরে ${top === '1' ? 'চালু' : 'বন্ধ'}, নিচে ${b.show_cat_grid ? 'চালু' : 'বন্ধ'}`);
 }
-function displaySwitch(name?: Loose, on?: Loose, title?: Loose, desc?: Loose) {
+function displaySwitch(name: string, on: boolean, title: string, desc: string) {
   return <label className="switch-row">{' '}<span className="switch-text"><b><Val v={title} /></b><small><Val v={desc} /></small></span>{' '}<span className="switch"><input type="checkbox" name={attrValue(name)} defaultValue="1" defaultChecked={!!(on)} data-autosubmit="" /><span className="switch-ui" aria-hidden="true"></span></span>{' '}<span className="switch-state" data-on="চালু" data-off="বন্ধ"></span>{' '}</label>;
 }
 

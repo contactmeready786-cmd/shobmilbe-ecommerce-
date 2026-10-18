@@ -7,7 +7,7 @@ import * as O from '../models/orders';
 import * as ui from './ui';
 import * as db from '../db';
 import * as $services_xlsx from '../services/xlsx';
-import type { AdminCtx, Loose, RouteMatch } from '../types';
+import type { AdminCtx, Loose, RouteMatch, Settings } from '../types';
 function canDelete(ctx: AdminCtx) { return ctx.user.role === 'owner' && ctx.settings.customer_delete_on === '1'; }
 function deleteSwitch(ctx: AdminCtx) {
   if (ctx.user.role !== 'owner') return '';
@@ -16,7 +16,7 @@ function deleteSwitch(ctx: AdminCtx) {
 
 const PER_PAGE = 40;
 
-const groupsOf = (s?: Loose) => String(s.customer_groups || '').split(',').map((x) => x.trim()).filter(Boolean).slice(0, 20);
+const groupsOf = (s: Settings) => String(s.customer_groups || '').split(',').map((x) => x.trim()).filter(Boolean).slice(0, 20);
 function listFilters(ctx: AdminCtx) {
   return {
     q: str(ctx.query.get('q'), 60),
@@ -58,7 +58,7 @@ async function detail(ctx: AdminCtx, m: RouteMatch) {
   return ctx.page(c.name || c.phone, body, 'customers');
 }
 
-async function exportCsv(ctx: AdminCtx, m: RouteMatch, excel: Loose = false) {
+async function exportCsv(ctx: AdminCtx, m: RouteMatch, excel = false) {
   const rows = await C.listCustomers({ ...listFilters(ctx), limit: 100000 });
   const out = [['Name', 'Phone', 'Email', 'Address', 'Thana', 'District', 'Group', 'Tags', 'Orders', 'Delivered', 'Cancelled', 'Returned', 'Spent', 'Last order', 'Blocked']];
   rows.forEach((c) => out.push([c.name, c.phone, c.email, c.address, c.thana, c.district, c.grp, c.tags, c.orders, c.delivered, c.cancelled, c.returned, c.spent,
@@ -76,7 +76,7 @@ async function saveSettings(ctx: AdminCtx) {
 }
 
 // ---------------------------------------------------------------- delete (owner only, switch on)
-async function removeCustomers(ctx: AdminCtx, ids?: Loose, withOrders?: Loose) {
+async function removeCustomers(ctx: AdminCtx, ids: number[], withOrders: boolean): Promise<{ n: number; orders: number }> {
   let n = 0;
   let orders = 0;
   for (const id of ids) {
