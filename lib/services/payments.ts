@@ -47,11 +47,17 @@ function methods(settings: Settings): PayMethod[] {
 
 // ---------------------------------------------------------------- bKash (tokenized checkout)
 function bkBase(s: Settings) { return s.bkash_sandbox === '1' ? 'https://tokenized.sandbox.bka.sh/v1.2.0-beta' : 'https://tokenized.pay.bka.sh/v1.2.0-beta'; }
+// What the gateways answer (only the fields used; any can be missing)
+type BkToken = { id_token?: string; expires_in?: number | string; statusMessage?: string; msg?: string };
+type BkCreate = { bkashURL?: string; paymentID?: string; statusMessage?: string; errorMessage?: string };
+type BkPayment = { transactionStatus?: string; trxID?: string; amount?: string | number; statusMessage?: string; errorMessage?: string };
+type SslSession = { status?: string; GatewayPageURL?: string; sessionkey?: string; failedreason?: string };
+type SslValidation = { status?: string; tran_id?: string; amount?: string | number; bank_tran_id?: string; val_id?: string; card_type?: string };
 let bkToken: { token: string; exp: number; key: string } | null = null; // bKash's login, kept until shortly before it runs out
 async function bkashToken(s: Settings): Promise<string> {
   const key = `${s.bkash_app_key}${s.bkash_username}${s.bkash_sandbox}`;
   if (bkToken && bkToken.key === key && bkToken.exp > Date.now() + 60e3) return bkToken.token;
-  const r = await fetchJson(`${bkBase(s)}/tokenized/checkout/token/grant`, {
+  const r = await fetchJson<BkToken>(`${bkBase(s)}/tokenized/checkout/token/grant`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Accept: 'application/json', username: s.bkash_username, password: s.bkash_password } as Record<string, string>,
     body: JSON.stringify({ app_key: s.bkash_app_key, app_secret: s.bkash_app_secret }),
@@ -67,7 +73,7 @@ function bkHeaders(s: Settings, token: string): Record<string, string> { return 
 async function bkashCreate(order: PayOrder, s: Settings, siteUrl: string): Promise<PayStart> {
   const token = await bkashToken(s);
   const amount = Math.max(1, order.total - (order.paid_amount || 0));
-  const r = await fetchJson(`${bkBase(s)}/tokenized/checkout/create`, {
+  const r = await fetchJson<BkCreate>(`${bkBase(s)}/tokenized/checkout/create`, {
     method: 'POST', headers: bkHeaders(s, token),
     body: JSON.stringify({
       mode: '0011', payerReference: order.phone, callbackURL: `${siteUrl}/pay/bkash/callback`,
@@ -85,12 +91,12 @@ async function bkashCreate(order: PayOrder, s: Settings, siteUrl: string): Promi
 }
 async function bkashExecute(paymentID: string, s: Settings): Promise<PayCheck & { message: string }> {
   const token = await bkashToken(s);
-  let r = await fetchJson(`${bkBase(s)}/tokenized/checkout/execute`, { method: 'POST', headers: bkHeaders(s, token), body: JSON.stringify({ paymentID }) });
+  let r = await fetchJson<BkPayment>(`${bkBase(s)}/tokenized/checkout/execute`, { method: 'POST', headers: bkHeaders(s, token), body: JSON.stringify({ paymentID }) });
   // If execute timed out or was already done, ask for the payment's state.
   if (!r.ok || !r.data || !r.data.transactionStatus) {
-    r = await fetchJson(`${bkBase(s)}/tokenized/checkout/payment/status`, { method: 'POST', headers: bkHeaders(s, token), body: JSON.stringify({ paymentID }) });
+    r = await fetchJson<BkPayment>(`${bkBase(s)}/tokenized/checkout/payment/status`, { method: 'POST', headers: bkHeaders(s, token), body: JSON.stringify({ paymentID }) });
   }
-  const d = r.data || {};
+  const d: BkPayment = r.data || {};
   return { ok: d.transactionStatus === 'Completed', trxID: d.trxID || '', amount: Number(d.amount) || 0, raw: d, message: d.statusMessage || d.errorMessage || r.text };
 }
 
@@ -108,7 +114,7 @@ async function sslCreate(order: PayOrder, s: Settings, siteUrl: string): Promise
     product_name: (order.items || []).map((i) => i.name).join(', ').slice(0, 250) || 'Order ' + order.code,
     product_category: 'General', product_profile: 'general', value_a: order.code,
   });
-  const r = await fetchJson(`${sslBase(s)}/gwprocess/v4/api.php`, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: form.toString() });
+  const r = await fetchJson<SslSession>(`${sslBase(s)}/gwprocess/v4/api.php`, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: form.toString() });
   if (r.data && r.data.status === 'SUCCESS' && r.data.GatewayPageURL) {
     await db.q('INSERT INTO payments(order_id, method, amount, status, gateway_ref, raw) VALUES($1,$2,$3,$4,$5,$6)',
       [order.id, 'ssl', amount, 'initiated', tranId, JSON.stringify({ sessionkey: r.data.sessionkey })]);
@@ -120,8 +126,8 @@ async function sslCreate(order: PayOrder, s: Settings, siteUrl: string): Promise
 }
 async function sslValidate(valId: Id, s: Settings): Promise<PayCheck & { tranId: string; cardType: string }> {
   const url = `${sslBase(s)}/validator/api/validationserverAPI.php?val_id=${encodeURIComponent(String(valId))}&store_id=${encodeURIComponent(String(s.ssl_store_id))}&store_passwd=${encodeURIComponent(String(s.ssl_store_password))}&format=json`;
-  const r = await fetchJson(url);
-  const d = r.data || {};
+  const r = await fetchJson<SslValidation>(url);
+  const d: SslValidation = r.data || {};
   return { ok: d.status === 'VALID' || d.status === 'VALIDATED', tranId: String(d.tran_id || ''), amount: Number(d.amount) || 0, trxID: d.bank_tran_id || d.val_id || '', cardType: d.card_type || '', raw: d };
 }
 

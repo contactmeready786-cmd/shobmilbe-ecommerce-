@@ -139,22 +139,27 @@ async function imageUrl(p: { image_id: unknown; }, settings: Settings) {
 // ---------------------------------------------------------------- Graph API
 type GraphOpts = {
   method?: string;
-  params?: Loose;
-  token?: Loose;
+  params?: Record<string, string>;
+  token?: string;
 };
-async function graph(path: string, { method = 'GET', params = {}, token }: GraphOpts) {
-  const qs = new URLSearchParams({ ...params, access_token: token });
+/** Facebook's error answer */
+type GraphError = { error?: { message?: string; error_user_msg?: string; code?: number } };
+/** what most Graph calls answer: the new or asked-for object's id (and name) */
+export type GraphObject = { id?: string; post_id?: string; name?: string };
+/** a Facebook Graph API call; the caller says what the answer holds (most: an id) */
+async function graph<T = GraphObject>(path: string, { method = 'GET', params = {}, token }: GraphOpts): Promise<T> {
+  const qs = new URLSearchParams({ ...params, access_token: token as string });
   const url = `${GRAPH}/${path}`;
   const r = method === 'GET'
-    ? await fetchJson(`${url}?${qs}`, {}, 20000)
-    : await fetchJson(url, { method, headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: qs.toString() }, 30000);
+    ? await fetchJson<T & GraphError>(`${url}?${qs}`, {}, 20000)
+    : await fetchJson<T & GraphError>(url, { method, headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: qs.toString() }, 30000);
   const err = r.data && r.data.error;
   if (!r.ok || err) {
-    const e: Loose = new Error((err && (err.error_user_msg || err.message)) || r.text || `HTTP ${r.status}`);
+    const e = new Error((err && (err.error_user_msg || err.message)) || r.text || `HTTP ${r.status}`) as Error & { code?: number | null };
     e.code = err && err.code;
     throw e;
   }
-  return r.data;
+  return r.data as T;
 }
 
 // Owner pastes the token from Facebook (and optionally the app id + secret). Works out the page, a
@@ -171,28 +176,29 @@ async function connect({ token, appId, appSecret, pageId }: ConnectOpts) {
   if (appId && appSecret) {
     // a short user token (1 hour) → a long one (60 days); page tokens made from it never expire
     try {
-      const ex = await graph('oauth/access_token', { token: t, params: { grant_type: 'fb_exchange_token', client_id: appId, client_secret: appSecret, fb_exchange_token: t } });
+      const ex = await graph<{ access_token?: string }>('oauth/access_token', { token: t, params: { grant_type: 'fb_exchange_token', client_id: appId, client_secret: appSecret, fb_exchange_token: t } });
       if (ex.access_token) t = ex.access_token;
     } catch (caught) { const e = caught as Caught; throw new Error('App ID / App Secret দিয়ে টোকেন লম্বা করা গেল না: ' + e.message); }
   }
-  let page = null;
+  type Page = { id: string; name: string; access_token: string; others?: { id: string; name: string }[] };
+  let page: Page | null = null;
   let longLived = !!(appId && appSecret);
   try {
-    const acc = await graph('me/accounts', { token: t, params: { fields: 'id,name,access_token,tasks', limit: '50' } });
-    const pages = (acc.data || []).filter((x: Loose) => x.access_token);
-    if (pages.length) page = pages.find((x: Loose) => String(x.id) === String(pageId || '')) || pages[0];
-    if (pages.length > 1 && !pageId) page.others = pages.map((x: Loose) => ({ id: x.id, name: x.name }));
+    const acc = await graph<{ data?: Page[] }>('me/accounts', { token: t, params: { fields: 'id,name,access_token,tasks', limit: '50' } });
+    const pages = (acc.data || []).filter((x) => x.access_token);
+    if (pages.length) page = pages.find((x) => String(x.id) === String(pageId || '')) || pages[0];
+    if (pages.length > 1 && !pageId) page!.others = pages.map((x) => ({ id: x.id, name: x.name }));
   } catch (_) { /* not a user token — maybe it is already a page token */ }
   if (!page) {
-    const me = await graph('me', { token: t, params: { fields: 'id,name' } });
+    const me = await graph<{ id: string; name: string }>('me', { token: t, params: { fields: 'id,name' } });
     page = { id: me.id, name: me.name, access_token: t };
     longLived = false;
   }
   // can we post? (a page token answers this; a wrong token fails here)
   await graph(page.id, { token: page.access_token, params: { fields: 'id,name' } });
-  let ig = null;
+  let ig: { id: string; username?: string } | null = null;
   try {
-    const r = await graph(page.id, { token: page.access_token, params: { fields: 'instagram_business_account{id,username}' } });
+    const r = await graph<{ instagram_business_account?: { id: string; username?: string } }>(page.id, { token: page.access_token, params: { fields: 'instagram_business_account{id,username}' } });
     if (r.instagram_business_account) ig = r.instagram_business_account;
   } catch (_) { /* no Instagram linked */ }
   return { pageId: page.id, pageName: page.name, pageToken: page.access_token, ig, others: page.others || [], longLived };
@@ -211,7 +217,7 @@ async function postInstagram(p: { image_id: unknown; }, settings: Settings) {
   const box = await graph(`${settings.autopost_ig_id}/media`, { method: 'POST', token, params: { image_url: await imageUrl(p, settings), caption: caption(p, settings, 'instagram') } });
   let lastErr = null;
   for (let i = 0; i < 4; i++) { // Instagram needs a few seconds to fetch the picture
-    try { const r = await graph(`${settings.autopost_ig_id}/media_publish`, { method: 'POST', token, params: { creation_id: box.id } }); return r.id; } catch (e) { lastErr = e; }
+    try { const r = await graph(`${settings.autopost_ig_id}/media_publish`, { method: 'POST', token, params: { creation_id: box.id as string } }); return r.id; } catch (e) { lastErr = e; }
     await new Promise((res) => setTimeout(res, 3000));
   }
   throw lastErr || new Error('Instagram পোস্ট হলো না');

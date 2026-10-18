@@ -94,9 +94,11 @@ async function domainPage(ctx: AdminCtx) {
     try { check.apex = await dns.resolve4(domain); } catch (_) { /* none */ }
     try { check.www = await dns.resolveCname('www.' + domain); } catch (_) { try { check.www = await dns.resolve4('www.' + domain); } catch (__) { /* none */ } }
   }
-  let vercel = null;
+  // Vercel's view of the domain (or what went wrong)
+  type VercelConfig = { misconfigured?: boolean; recommendedIPv4?: { value?: string[] }[]; recommendedCNAME?: { value?: string }[]; error?: { message?: string } | string };
+  let vercel: VercelConfig | null = null;
   if (domain && s.vercel_token) {
-    const r = await fetchJson(`https://api.vercel.com/v6/domains/${encodeURIComponent(domain)}/config`, { headers: { Authorization: `Bearer ${s.vercel_token}` } });
+    const r = await fetchJson<VercelConfig & { error?: { message?: string } }>(`https://api.vercel.com/v6/domains/${encodeURIComponent(domain)}/config`, { headers: { Authorization: `Bearer ${s.vercel_token}` } });
     vercel = r.ok ? r.data : { error: (r.data && r.data.error && r.data.error.message) || r.text };
   }
   const apexOk = check && check.apex.length > 0 && vercel && vercel.misconfigured === false;
@@ -108,10 +110,10 @@ async function domainPage(ctx: AdminCtx) {
 async function domainAdd(ctx: AdminCtx) {
   const s = ctx.settings;
   if (!s.custom_domain || !s.vercel_token || !s.vercel_project) return ctx.fail('/admin/integrations/domain', 'ডোমেইন, Vercel Token আর প্রজেক্টের নাম দিন।');
-  const msgs: unknown[] = [];
+  const msgs: string[] = [];
   for (const name of [s.custom_domain, 'www.' + s.custom_domain]) {
     const body = name.startsWith('www.') ? { name, redirect: s.custom_domain, redirectStatusCode: 308 } : { name };
-    const r = await fetchJson(`https://api.vercel.com/v10/projects/${encodeURIComponent(s.vercel_project)}/domains`,
+    const r = await fetchJson<{ error?: { message?: string } }>(`https://api.vercel.com/v10/projects/${encodeURIComponent(s.vercel_project)}/domains`,
       { method: 'POST', headers: { Authorization: `Bearer ${s.vercel_token}`, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     const ok = r.ok || (r.data && r.data.error && /already/i.test(r.data.error.message || ''));
     msgs.push(`${name}: ${ok ? 'যোগ হয়েছে' : (r.data && r.data.error && r.data.error.message) || r.text}`);

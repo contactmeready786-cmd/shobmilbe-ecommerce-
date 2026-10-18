@@ -14,9 +14,10 @@ import type { SocialPostsRow } from '../data/rows';
 const API = 'https://api.telegram.org';
 const ROTATION = ['tip', 'kit', 'tip', 'question'];
 
-async function call(token: string | undefined, method: string, params?: unknown) {
+/** a Telegram Bot API call; the caller says what its result holds */
+async function call<T>(token: string | undefined, method: string, params?: unknown): Promise<T> {
   if (!/^\d{5,}:[A-Za-z0-9_-]{30,}$/.test(String(token || ''))) throw new Error('বটের টোকেন ঠিক নেই — @BotFather যেটা দিয়েছে পুরোটা কপি করুন (যেমন 123456789:AA…)।');
-  const r = await fetchJson(`${API}/bot${token}/${method}`, {
+  const r = await fetchJson<{ ok?: boolean; description?: string; result?: T }>(`${API}/bot${token}/${method}`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(params || {}),
   }, 20000);
   if (!r.data || !r.data.ok) {
@@ -26,11 +27,11 @@ async function call(token: string | undefined, method: string, params?: unknown)
     if (/unauthorized/i.test(d)) throw new Error('বটের টোকেন ভুল বা বাতিল — @BotFather থেকে নতুন টোকেন নিন।');
     throw new Error(String(d).slice(0, 200));
   }
-  return r.data.result;
+  return r.data.result as T;
 }
 
 // "@shobmilbe", "t.me/shobmilbe", "https://t.me/shobmilbe" or a numeric id → what the API wants
-function chatId(input: Body) {
+function chatId(input: unknown) {
   const t = String(input || '').trim().replace(/^https?:\/\//i, '').replace(/^t\.me\//i, '').replace(/\/+$/, '');
   if (/^-?\d{5,}$/.test(t)) return t;
   const name = t.replace(/^@/, '');
@@ -39,10 +40,10 @@ function chatId(input: Body) {
 }
 
 // Checks the token and the channel, and sends one test message.
-async function connect(token: string, chatInput?: Loose) {
-  const me = await call(token, 'getMe');
+async function connect(token: string, chatInput?: unknown) {
+  const me = await call<{ first_name?: string }>(token, 'getMe');
   const chat = chatId(chatInput);
-  const info = await call(token, 'getChat', { chat_id: chat });
+  const info = await call<{ id: number; username?: string; title?: string }>(token, 'getChat', { chat_id: chat });
   await call(token, 'sendMessage', { chat_id: chat, text: `✅ ${me.first_name || 'বট'} এখন থেকে এই চ্যানেলে দোকানের নতুন পণ্য, অফার আর প্রজেক্ট গাইড পোস্ট করবে।`, disable_notification: true });
   return { chat: info.username ? '@' + info.username : String(info.id), title: info.title || '' };
 }
@@ -56,10 +57,10 @@ async function send(settings: Settings, { text, product }: SendOpts) {
   const chat = settings.telegram_chat;
   if (product && product.image_id) {
     const caption = text.length > 1020 ? text.slice(0, 1015).replace(/\s+\S*$/, '') + '…' : text;
-    const r = await call(token, 'sendPhoto', { chat_id: chat, photo: await autopost.imageUrl(product, settings), caption });
+    const r = await call<{ message_id: number }>(token, 'sendPhoto', { chat_id: chat, photo: await autopost.imageUrl(product, settings), caption });
     return r.message_id;
   }
-  const r = await call(token, 'sendMessage', { chat_id: chat, text: text.slice(0, 4000), disable_web_page_preview: false });
+  const r = await call<{ message_id: number }>(token, 'sendMessage', { chat_id: chat, text: text.slice(0, 4000), disable_web_page_preview: false });
   return r.message_id;
 }
 

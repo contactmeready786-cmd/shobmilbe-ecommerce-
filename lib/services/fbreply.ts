@@ -99,6 +99,8 @@ function permissionHint(msg: string) {
     ? 'টোকেনে কমেন্ট পড়া/উত্তরের অনুমতি নেই — অটো মার্কেটিং পেজের ধাপ অনুযায়ী pages_read_user_content আর pages_manage_engagement যোগ করে আবার যুক্ত করুন।' : '';
 }
 
+/** a comment on one of the page's posts (Graph API) */
+type FbComment = { id: string; message?: string; from?: { id?: string; name?: string }; created_time: string; comment_count?: number };
 type RunOpts = {
   force?: boolean;
 };
@@ -116,7 +118,7 @@ async function run(settings: Settings, { force = false }: RunOpts = {}): Promise
   let posts;
   try {
     const since = Math.floor((Date.now() - 10 * 864e5) / 1000);
-    posts = (await autopost.graph(`${pageId}/posts`, { token, params: { fields: 'id,created_time', limit: '15', since: String(since) } })).data || [];
+    posts = (await autopost.graph<{ data?: { id: string; created_time: string }[] }>(`${pageId}/posts`, { token, params: { fields: 'id,created_time', limit: '15', since: String(since) } })).data || [];
   } catch (caught) { const e = caught as Caught;
     const msg = permissionHint(e.message) || e.message;
     await db.setMany({ fbreply_error: str(msg, 300), fbreply_error_at: String(Date.now()) });
@@ -127,16 +129,16 @@ async function run(settings: Settings, { force = false }: RunOpts = {}): Promise
     if (room <= 0) break;
     let comments;
     try {
-      comments = (await autopost.graph(`${post.id}/comments`, { token, params: { fields: 'id,message,from,created_time,comment_count', filter: 'toplevel', order: 'reverse_chronological', limit: '50' } })).data || [];
+      comments = (await autopost.graph<{ data?: FbComment[] }>(`${post.id}/comments`, { token, params: { fields: 'id,message,from,created_time,comment_count', filter: 'toplevel', order: 'reverse_chronological', limit: '50' } })).data || [];
     } catch (caught) { const e = caught as Caught;
       const msg = permissionHint(e.message) || e.message;
       out.errors.push(msg);
       if (permissionHint(e.message)) break;
       continue;
     }
-    const fresh = comments.filter((c: Loose) => c.id && new Date(c.created_time).getTime() > twoDays && !(c.from && String(c.from.id) === pageId));
+    const fresh = comments.filter((c) => c.id && new Date(c.created_time).getTime() > twoDays && !(c.from && String(c.from.id) === pageId));
     if (!fresh.length) continue;
-    const seen = new Set((await db.q<Pick<FbCommentsRow, 'id'>>('SELECT id FROM fb_comments WHERE id = ANY($1::text[])', [fresh.map((c: Loose) => c.id)])).map((r) => r.id));
+    const seen = new Set((await db.q<Pick<FbCommentsRow, 'id'>>('SELECT id FROM fb_comments WHERE id = ANY($1::text[])', [fresh.map((c) => c.id)])).map((r) => r.id));
     let subject = null;
     for (const c of fresh.reverse()) { // oldest question first
       if (room <= 0) break;

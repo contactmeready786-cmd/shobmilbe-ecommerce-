@@ -67,6 +67,21 @@ function mapStatus(courier: string, raw: unknown): 'delivered' | 'returned' | nu
 function codAmount(order: Pick<ParcelOrder, 'total' | 'paid_amount'>): number { return Math.max(0, order.total - (order.paid_amount || 0)); }
 function itemText(order: ParcelOrder): string { return (order.items || []).map((i) => `${i.name} x${i.qty}`).join(', ').slice(0, 250); }
 
+// What the couriers' APIs answer (only the fields used; any can be missing). An error answer can come from any call.
+type CourierError = { errors?: Record<string, unknown> | unknown[]; message?: unknown; error?: unknown };
+type SfCreate = CourierError & { consignment?: { consignment_id?: string | number; tracking_code?: string; status?: string } };
+type SfStatus = CourierError & { delivery_status?: string };
+type SfBalance = CourierError & { current_balance?: number | string };
+type PhToken = CourierError & { access_token?: string; expires_in?: number | string };
+/** Pathao wraps every answer in { data } (lists: { data: { data: [...] } }) */
+type PhAnswer = CourierError & { data?: Record<string, unknown> & {
+  consignment_id?: string | number; order_status?: string; order_status_slug?: string; data?: unknown;
+  customer?: Record<string, unknown>; customer_rating?: string;
+} };
+type RxCreate = CourierError & { tracking_id?: string | number };
+type RxInfo = CourierError & { parcel?: { status?: string } };
+type RxAreas = CourierError & { areas?: { id: number; name: string; post_code?: string | number }[] };
+
 // ---------------------------------------------------------------- Steadfast
 function sfHeaders(s: Settings): Record<string, string> { return <Record<string, string>>{ 'Api-Key': s.steadfast_api_key, 'Secret-Key': s.steadfast_secret_key, 'Content-Type': 'application/json', Accept: 'application/json' }; }
 function sfBase(s: Settings) { return (s.steadfast_base_url || 'https://portal.packzy.com/api/v1').replace(/\/+$/, ''); }
@@ -82,7 +97,7 @@ async function steadfastCreate(order: ParcelOrder, s: Settings, extra: ParcelExt
     item_description: itemText(order),
   };
   if (order.email) body.recipient_email = order.email;
-  const r = await fetchJson(`${sfBase(s)}/create_order`, { method: 'POST', headers: sfHeaders(s), body: JSON.stringify(body) });
+  const r = await fetchJson<SfCreate>(`${sfBase(s)}/create_order`, { method: 'POST', headers: sfHeaders(s), body: JSON.stringify(body) });
   const c = r.data && r.data.consignment;
   if (r.ok && c && c.consignment_id) {
     return { ok: true, consignment_id: String(c.consignment_id), tracking_code: String(c.tracking_code || ''), status: String(c.status || 'in_review') };
@@ -91,12 +106,12 @@ async function steadfastCreate(order: ParcelOrder, s: Settings, extra: ParcelExt
 }
 async function steadfastStatus(order: ParcelOrder, s: Settings): Promise<ParcelStatus> {
   const path = order.consignment_id ? `status_by_cid/${encodeURIComponent(order.consignment_id)}` : `status_by_invoice/${encodeURIComponent(order.code)}`;
-  const r = await fetchJson(`${sfBase(s)}/${path}`, { headers: sfHeaders(s) });
+  const r = await fetchJson<SfStatus>(`${sfBase(s)}/${path}`, { headers: sfHeaders(s) });
   if (r.ok && r.data && r.data.delivery_status) return { ok: true, status: String(r.data.delivery_status) };
   return { ok: false, message: errorText(r) };
 }
 async function steadfastBalance(s: Settings): Promise<{ ok: boolean; message: string }> {
-  const r = await fetchJson(`${sfBase(s)}/get_balance`, { headers: sfHeaders(s) });
+  const r = await fetchJson<SfBalance>(`${sfBase(s)}/get_balance`, { headers: sfHeaders(s) });
   if (r.ok && r.data && r.data.current_balance !== undefined) return { ok: true, message: `সংযোগ ঠিক আছে। Steadfast ব্যালেন্স: ৳${r.data.current_balance}` };
   return { ok: false, message: errorText(r) };
 }
@@ -105,7 +120,7 @@ async function steadfastBalance(s: Settings): Promise<{ ok: boolean; message: st
 function phBase(s: Settings) { return s.pathao_sandbox === '1' ? 'https://courier-api-sandbox.pathao.com' : 'https://api-hermes.pathao.com'; }
 async function pathaoToken(s: Settings, force = false): Promise<string> {
   if (!force && s.pathao_token && Number(s.pathao_token_expires) > Date.now() + 60e3) return s.pathao_token;
-  const r = await fetchJson(`${phBase(s)}/aladdin/api/v1/issue-token`, {
+  const r = await fetchJson<PhToken>(`${phBase(s)}/aladdin/api/v1/issue-token`, {
     method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
     body: JSON.stringify({ client_id: s.pathao_client_id, client_secret: s.pathao_client_secret, username: s.pathao_username, password: s.pathao_password, grant_type: 'password' }),
   });
@@ -118,9 +133,9 @@ async function pathaoToken(s: Settings, force = false): Promise<string> {
   }
   throw new Error('Pathao লগইন হয়নি: ' + errorText(r));
 }
-async function pathaoFetch(s: Settings, path: string, opts: { method?: string; body?: string; headers?: Record<string, string> } = {}): Promise<FetchResult> {
+async function pathaoFetch(s: Settings, path: string, opts: { method?: string; body?: string; headers?: Record<string, string> } = {}): Promise<FetchResult<PhAnswer>> {
   let token = await pathaoToken(s);
-  const go = (t: string) => fetchJson(`${phBase(s)}${path}`, { ...opts, headers: { 'Content-Type': 'application/json', Accept: 'application/json', Authorization: `Bearer ${t}`, ...(opts.headers || {}) } });
+  const go = (t: string) => fetchJson<PhAnswer>(`${phBase(s)}${path}`, { ...opts, headers: { 'Content-Type': 'application/json', Accept: 'application/json', Authorization: `Bearer ${t}`, ...(opts.headers || {}) } });
   let r = await go(token);
   if (r.status === 401) { token = await pathaoToken(s, true); r = await go(token); }
   return r;
@@ -161,19 +176,20 @@ async function pathaoList(s: Settings, kind: string, parentId?: Id): Promise<Cou
       : kind === 'areas' ? `/aladdin/api/v1/zones/${int(parentId)}/area-list` : '/aladdin/api/v1/stores';
   const r = await pathaoFetch(s, path);
   const d = r.data && r.data.data;
-  const rows = d && (d.data || d);
+  const rows: unknown = d && (d.data || d);
   if (!r.ok || !Array.isArray(rows)) return { ok: false, message: errorText(r), rows: [] };
+  type Place = { city_id?: number; zone_id?: number; area_id?: number; store_id?: number; city_name?: string; zone_name?: string; area_name?: string; store_name?: string };
   return {
     ok: true,
-    rows: rows.map((x: Record<string, any>) => ({ id: x.city_id || x.zone_id || x.area_id || x.store_id, name: x.city_name || x.zone_name || x.area_name || x.store_name })),
+    rows: (rows as Place[]).map((x) => ({ id: (x.city_id || x.zone_id || x.area_id || x.store_id)!, name: (x.city_name || x.zone_name || x.area_name || x.store_name)! })),
   };
 }
 // Delivery success rate of a phone number across Pathao merchants.
 async function pathaoSuccess(phone: string, s: Settings) {
   const r = await pathaoFetch(s, '/aladdin/api/v1/user/success', { method: 'POST', body: JSON.stringify({ phone }) });
   if (!r.ok || !r.data) return { ok: false, message: errorText(r) };
-  const d = r.data.data || r.data;
-  const c = d.customer || d;
+  const d = (r.data.data || r.data) as NonNullable<PhAnswer['data']>;
+  const c = (d.customer || d) as Record<string, unknown>;
   const total = int(c.total_delivery ?? c.total_parcels ?? c.total);
   const success = int(c.successful_delivery ?? c.success_parcels ?? c.delivered);
   return { ok: true, total, success, rating: d.customer_rating || '', raw: d };
@@ -198,25 +214,25 @@ async function redxCreate(order: ParcelOrder, s: Settings, extra: ParcelExtra): 
     parcel_details_json: (order.items || []).map((i) => ({ name: i.name.slice(0, 80), category: 'general', value: i.price * i.qty })),
   };
   if (int(s.redx_pickup_store_id)) body.pickup_store_id = int(s.redx_pickup_store_id);
-  const r = await fetchJson(`${rxBase(s)}/parcel`, { method: 'POST', headers: rxHeaders(s), body: JSON.stringify(body) });
+  const r = await fetchJson<RxCreate>(`${rxBase(s)}/parcel`, { method: 'POST', headers: rxHeaders(s), body: JSON.stringify(body) });
   if (r.ok && r.data && r.data.tracking_id) return { ok: true, consignment_id: String(r.data.tracking_id), tracking_code: String(r.data.tracking_id), status: 'pickup-pending' };
   return { ok: false, message: errorText(r) };
 }
 async function redxStatus(order: ParcelOrder, s: Settings): Promise<ParcelStatus> {
-  const r = await fetchJson(`${rxBase(s)}/parcel/info/${encodeURIComponent(order.tracking_code || order.consignment_id || '')}`, { headers: rxHeaders(s) });
+  const r = await fetchJson<RxInfo>(`${rxBase(s)}/parcel/info/${encodeURIComponent(order.tracking_code || order.consignment_id || '')}`, { headers: rxHeaders(s) });
   const p = r.data && r.data.parcel;
   if (r.ok && p && p.status) return { ok: true, status: String(p.status) };
   return { ok: false, message: errorText(r) };
 }
 async function redxAreas(s: Settings, district?: string): Promise<CourierList> {
-  const r = await fetchJson(`${rxBase(s)}/areas${district ? `?district_name=${encodeURIComponent(district)}` : ''}`, { headers: rxHeaders(s) });
+  const r = await fetchJson<RxAreas>(`${rxBase(s)}/areas${district ? `?district_name=${encodeURIComponent(district)}` : ''}`, { headers: rxHeaders(s) });
   const rows = r.data && r.data.areas;
   if (!r.ok || !Array.isArray(rows)) return { ok: false, message: errorText(r), rows: [] };
-  return { ok: true, rows: rows.map((a: Record<string, any>) => ({ id: a.id, name: a.name + (a.post_code ? ` (${a.post_code})` : '') })) };
+  return { ok: true, rows: rows.map((a) => ({ id: a.id, name: a.name + (a.post_code ? ` (${a.post_code})` : '') })) };
 }
 
 // ---------------------------------------------------------------- common
-function errorText(r: FetchResult): string {
+function errorText(r: FetchResult<CourierError>): string {
   if (r.status === 0) return 'কুরিয়ার সার্ভারে পৌঁছানো যায়নি: ' + r.text;
   const d = r.data;
   if (d) {

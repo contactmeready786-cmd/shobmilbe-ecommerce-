@@ -40,7 +40,7 @@ async function facebookPurchase(order: Loose, settings: Settings, req: ShopReque
     }],
   };
   if (settings.fb_test_code) (body as Loose).test_event_code = settings.fb_test_code;
-  const r = await fetchJson(`https://graph.facebook.com/v21.0/${encodeURIComponent(settings.fb_pixel_id)}/events?access_token=${encodeURIComponent(settings.fb_capi_token)}`,
+  const r = await fetchJson<{ error?: { message?: string } }>(`https://graph.facebook.com/v21.0/${encodeURIComponent(settings.fb_pixel_id)}/events?access_token=${encodeURIComponent(settings.fb_capi_token)}`,
     { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }, 4000);
   if (!r.ok) await db.logIntegration('facebook', 'capi_purchase', false, (r.data && r.data.error && r.data.error.message) || r.text, order.code);
   else await logOk('facebook', 'capi_purchase', order.code);
@@ -69,7 +69,7 @@ async function tiktokPurchase(order: Loose, settings: Settings, req: ShopRequest
       },
     }],
   };
-  const r = await fetchJson('https://business-api.tiktok.com/open_api/v1.3/event/track/',
+  const r = await fetchJson<{ code?: number; message?: string }>('https://business-api.tiktok.com/open_api/v1.3/event/track/',
     { method: 'POST', headers: { 'Content-Type': 'application/json', 'Access-Token': settings.tiktok_events_token }, body: JSON.stringify(body) }, 4000);
   if (!r.ok || (r.data && r.data.code !== 0)) await db.logIntegration('tiktok', 'events_purchase', false, (r.data && r.data.message) || r.text, order.code);
   else await logOk('tiktok', 'events_purchase', order.code);

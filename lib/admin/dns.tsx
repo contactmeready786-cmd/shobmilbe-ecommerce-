@@ -35,14 +35,15 @@ type CfProps = {
 };
 async function cf(s: Settings, path: string, { method = 'GET', body }: CfProps = {}): Promise<Loose> {
   if (!s.cf_api_token) return { ok: false, error: 'Cloudflare API Token দেওয়া নেই।' };
-  const r = await fetchJson(API + path, {
+  type CfAnswer = { success?: boolean; result?: unknown; result_info?: unknown; errors?: { message?: string; error_chain?: { message?: string }[] }[] };
+  const r = await fetchJson<CfAnswer>(API + path, {
     method,
     headers: { Authorization: `Bearer ${s.cf_api_token}`, 'Content-Type': 'application/json' },
     body: body ? JSON.stringify(body) : undefined,
   }, 15000);
-  const d = r.data || {};
+  const d: CfAnswer = r.data || {};
   if (r.ok && d.success !== false) return { ok: true, result: d.result, info: d.result_info };
-  const msg = (d.errors || []).map((e: Loose) => `${e.message}${e.error_chain ? ' — ' + e.error_chain.map((c: Loose) => c.message).join(', ') : ''}`).join('; ') || r.text || `HTTP ${r.status}`;
+  const msg = (d.errors || []).map((e) => `${e.message}${e.error_chain ? ' — ' + e.error_chain.map((c) => c.message).join(', ') : ''}`).join('; ') || r.text || `HTTP ${r.status}`;
   return { ok: false, error: explain(msg, r.status) };
 }
 // Cloudflare's English errors → what to do, in Bangla

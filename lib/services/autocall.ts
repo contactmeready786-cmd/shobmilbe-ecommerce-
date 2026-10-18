@@ -86,8 +86,10 @@ async function call(s: Settings, order?: Loose, site?: unknown, { test = false }
   if (s.autocall_api_key) headers[(s.autocall_header || 'Authorization').trim() || 'Authorization'] = s.autocall_api_key;
   const url = fill(s.autocall_url, vars).trim();
   if (!/^https:\/\//i.test(url)) return { ok: false, error: 'কল কোম্পানির API ঠিকানা https:// দিয়ে শুরু হতে হবে।' };
-  const r = await fetchJson(url, { method: (s.autocall_method || 'POST').toUpperCase() === 'GET' ? 'GET' : 'POST', headers, body: (s.autocall_method || 'POST').toUpperCase() === 'GET' ? undefined : body }, 12000);
-  const d = r.data || {};
+  // whatever call company is used: its id for the call, or its error (the usual names)
+  type CallAnswer = { call_id?: unknown; id?: unknown; callId?: unknown; uuid?: unknown; sid?: unknown; data?: { call_id?: unknown; id?: unknown }; success?: boolean; status?: string; error?: unknown; message?: unknown };
+  const r = await fetchJson<CallAnswer>(url, { method: (s.autocall_method || 'POST').toUpperCase() === 'GET' ? 'GET' : 'POST', headers, body: (s.autocall_method || 'POST').toUpperCase() === 'GET' ? undefined : body }, 12000);
+  const d: CallAnswer = r.data || {};
   const ref = String(d.call_id || d.id || d.callId || d.uuid || d.sid || (d.data && (d.data.call_id || d.data.id)) || '').slice(0, 80);
   const failed = !r.ok || d.success === false || d.status === 'error' || d.error;
   if (!test) {

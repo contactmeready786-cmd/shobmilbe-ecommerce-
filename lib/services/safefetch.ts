@@ -53,22 +53,24 @@ class FetchError extends Error {
 }
 
 // Checked at connect time: the address really used is the address that was checked.
-function safeLookup(hostname: string, options: Body, cb?: Loose) {
+type LookupCb = (err: NodeJS.ErrnoException | null, address?: string | dns.LookupAddress[], family?: number) => void;
+function safeLookup(hostname: string, options: dns.LookupOptions | LookupCb, cb?: LookupCb) {
   if (typeof options === 'function') { cb = options; options = {}; }
+  const done = cb!; const opts = options;
   dns.lookup(hostname, { all: true, verbatim: true }, (err, addrs) => {
-    if (err) return cb(err);
+    if (err) return done(err);
     if (!addrs.length || addrs.some((a) => isPrivate(a.address))) {
-      return cb(new FetchError('এই ঠিকানায় যাওয়া নিরাপদ নয় (ভেতরের নেটওয়ার্ক)।', 'EBLOCKED'));
+      return done(new FetchError('এই ঠিকানায় যাওয়া নিরাপদ নয় (ভেতরের নেটওয়ার্ক)।', 'EBLOCKED'));
     }
-    const want = options && options.family ? addrs.filter((a) => a.family === options.family) : addrs;
+    const want = opts && opts.family ? addrs.filter((a) => a.family === opts.family) : addrs;
     const list = want.length ? want : addrs;
-    if (options && options.all) return cb(null, list);
-    return cb(null, list[0].address, list[0].family);
+    if (opts && opts.all) return done(null, list);
+    return done(null, list[0].address, list[0].family);
   });
 }
 
 function checkUrl(u: string) {
-  let url;
+  let url: URL;
   try { url = new URL(String(u).trim()); } catch (_) { throw new FetchError('লিংকটি ঠিক নেই।', 'EURL'); }
   if (!['http:', 'https:'].includes(url.protocol)) throw new FetchError('শুধু http:// বা https:// লিংক দেওয়া যাবে।', 'EURL');
   if (url.username || url.password) throw new FetchError('লিংকে ইউজারনেম/পাসওয়ার্ড দেওয়া যাবে না।', 'EURL');
@@ -99,7 +101,7 @@ function once(url: URL, { maxBytes, timeoutMs, accept, deadline, method = 'GET',
     const left = Math.max(1000, Math.min(timeoutMs, deadline - Date.now()));
     const req = mod.request(url, {
       method: method === 'POST' ? 'POST' : 'GET',
-      lookup: safeLookup,
+      lookup: safeLookup as net.LookupFunction, // (it also takes the older "no options" call)
       agent: false,
       headers: {
         'User-Agent': UA,

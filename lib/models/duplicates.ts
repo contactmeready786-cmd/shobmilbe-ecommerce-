@@ -9,8 +9,11 @@
 // ---------------------------------------------------------------- strictness
 import { q, one } from '../db';
 import { int, str } from '../util';
-import type { Body, Id, Loose, Settings } from '../types';
-const LEVELS: Record<string, Loose> = {
+import type { Body, Id, Settings } from '../types';
+import type { MediaRow, ProductsRow } from '../data/rows';
+/** How strict the guard is: how alike two names (0…1) or two pictures (bit distance) must be. */
+type Level = { label: string; titleHigh: number; titleMid: number; imgStrong: number; imgWeak: number };
+const LEVELS: Record<string, Level> = {
   strict: { label: 'কড়া', titleHigh: 0.84, titleMid: 0.66, imgStrong: 38, imgWeak: 56 },
   normal: { label: 'সাধারণ (প্রস্তাবিত)', titleHigh: 0.9, titleMid: 0.75, imgStrong: 30, imgWeak: 46 },
   relaxed: { label: 'নরম', titleHigh: 0.95, titleMid: 0.86, imgStrong: 18, imgWeak: 30 },
@@ -66,7 +69,8 @@ function pairs(ws: string[]) {
   }
   return { m, n };
 }
-function dice(a: Loose, b: Body) {
+type Pairs = { m: Map<string, number>; n: number };
+function dice(a: Pairs, b: Pairs) {
   if (!a.n || !b.n) return 0;
   let both = 0;
   const [small, big] = a.m.size < b.m.size ? [a.m, b.m] : [b.m, a.m];
@@ -74,8 +78,8 @@ function dice(a: Loose, b: Body) {
   return (2 * both) / (a.n + b.n);
 }
 // words that hold a number: model numbers and sizes (pam8403, 60w, 12v, 3p7v)
-function numberWords(ws?: Loose) { return new Set(ws.filter((w: string) => /\d/.test(w))); }
-function sameSet(a: Loose, b: Body) { if (a.size !== b.size) return false; for (const x of a) if (!b.has(x)) return false; return true; }
+function numberWords(ws: string[]) { return new Set(ws.filter((w) => /\d/.test(w))); }
+function sameSet(a: Set<string>, b: Set<string>) { if (a.size !== b.size) return false; for (const x of a) if (!b.has(x)) return false; return true; }
 
 function prepName(name: string) {
   const ws = words(name);
@@ -88,17 +92,20 @@ function prepName(name: string) {
 function pop32(x: number) { x -= (x >>> 1) & 0x55555555; x = (x & 0x33333333) + ((x >>> 2) & 0x33333333); return (((x + (x >>> 4)) & 0x0f0f0f0f) * 0x01010101) >>> 24; }
 const okHash = (h: string) => typeof h === 'string' && /^[0-9a-f]{64}$/.test(h);
 const split = (h: string) => (okHash(h) ? Uint32Array.from({ length: 8 }, (_, i) => parseInt(h.slice(i * 8, i * 8 + 8), 16)) : null);
-function hamming(a?: Loose, b?: Loose) {
+/** a picture fingerprint: 64 hex letters, or already split into 8 numbers */
+type Fingerprint = string | Uint32Array;
+function hamming(a: Fingerprint, b: Fingerprint) {
   const x = typeof a === 'string' ? split(a) : a;
   const y = typeof b === 'string' ? split(b) : b;
   let d = 0;
-  for (let i = 0; i < 8; i++) d += pop32((x[i] ^ y[i]) >>> 0);
+  for (let i = 0; i < 8; i++) d += pop32((x![i] ^ y![i]) >>> 0);
   return d;
 }
 const similarity = (d: number) => Math.max(0, Math.round(100 * (1 - d / 128)));
-function prepImage(m?: Loose) { return { sha: m.sha || null, h: split(m.phash), hm: split(m.phash_m) }; }
+type PrepImage = { sha: string | null; h: Uint32Array | null; hm: Uint32Array | null };
+function prepImage(m: Pick<MediaRow, 'sha' | 'phash' | 'phash_m'>): PrepImage { return { sha: m.sha || null, h: split(m.phash as string), hm: split(m.phash_m as string) }; }
 // smallest picture distance between two products (0 = same picture)
-function imageDistance(newImgs?: Loose, oldImgs?: Loose) {
+function imageDistance(newImgs: PrepImage[], oldImgs: PrepImage[]) {
   let best = 999;
   for (const a of newImgs) {
     for (const b of oldImgs) {
@@ -117,8 +124,10 @@ const bnNum = (n: number) => String(n).replace(/\d/g, (d) => BN[Number(d)]);
 type CompareOpts = {
   sameDesc?: boolean;
 };
-function compare(a?: Loose, b?: Loose, lv?: Loose, { sameDesc = false }: CompareOpts = {}) {
-  const reasons = [];
+/** what two products are compared on */
+type Comparable = { name: ReturnType<typeof prepName>; images: PrepImage[]; youtube: string };
+function compare(a: Comparable, b: Comparable, lv: Level, { sameDesc = false }: CompareOpts = {}) {
+  const reasons: string[] = [];
   let block = false;
   let warn = false;
   let score = 0;
@@ -164,14 +173,16 @@ const youtubeKey = (u?: unknown) => { const m = String(u || '').match(/[?&]v=([A
 const DESC_HASH = `md5(lower(regexp_replace(coalesce(description,''), '\\s', '', 'g')))`;
 const DESC_LEN = `length(regexp_replace(coalesce(description,''), '\\s', '', 'g'))`;
 
-async function loadCatalog(type?: unknown, exceptId: Id = 0): Promise<Loose[]> {
-  const rows = await q(`SELECT p.id, p.name, p.sku, p.slug, p.active, p.price, p.image_id, p.emoji, p.youtube_url, p.allow_duplicate,
+type CatalogRow = Pick<ProductsRow, 'id' | 'name' | 'sku' | 'slug' | 'active' | 'price' | 'image_id' | 'emoji' | 'youtube_url' | 'allow_duplicate' | 'created_at'> & { desc_hash: string | null };
+type CatalogEntry = Omit<CatalogRow, 'name'> & Comparable & { title: string };
+async function loadCatalog(type: string, exceptId: Id = 0): Promise<CatalogEntry[]> {
+  const rows = await q<CatalogRow>(`SELECT p.id, p.name, p.sku, p.slug, p.active, p.price, p.image_id, p.emoji, p.youtube_url, p.allow_duplicate,
       p.created_at, CASE WHEN ${DESC_LEN} >= 60 THEN ${DESC_HASH} ELSE NULL END AS desc_hash
     FROM products p WHERE p.product_type=$1 AND p.id<>$2 AND p.parent_id IS NULL`, [type, int(exceptId)]);
-  const media = await q(`SELECT owner_id, sha, phash, phash_m FROM media WHERE owner_type='product' AND owner_id = ANY($1::int[])`,
+  const media = await q<Pick<MediaRow, 'owner_id' | 'sha' | 'phash' | 'phash_m'>>(`SELECT owner_id, sha, phash, phash_m FROM media WHERE owner_type='product' AND owner_id = ANY($1::int[])`,
     [rows.map((r) => r.id)]);
-  const byOwner = new Map();
-  for (const m of media) { if (!byOwner.has(m.owner_id)) byOwner.set(m.owner_id, []); byOwner.get(m.owner_id).push(m); }
+  const byOwner = new Map<number | null, typeof media>();
+  for (const m of media) { if (!byOwner.has(m.owner_id)) byOwner.set(m.owner_id, []); byOwner.get(m.owner_id)!.push(m); }
   return rows.map((r) => ({ ...r, name: prepName(r.name), title: r.name, youtube: youtubeKey(r.youtube_url), images: (byOwner.get(r.id) || []).map(prepImage) }));
 }
 
@@ -181,16 +192,16 @@ async function findDuplicates(data: Body, settings: Settings) {
   const lv = levelOf(settings);
   const type = data.product_type === 'bundle' ? 'bundle' : 'single';
   const id = int(data.id);
-  const imageIds = (Array.isArray(data.images) ? data.images : String(data.images || '').split(','))
+  const imageIds = ((Array.isArray(data.images) ? data.images : String(data.images || '').split(',')) as unknown[])
     .map((x) => int(x)).filter((x) => x > 0);
   const [others, imgs, desc] = await Promise.all([
     loadCatalog(type, id),
-    imageIds.length ? q('SELECT id, sha, phash, phash_m FROM media WHERE id = ANY($1::int[])', [imageIds]) : [],
-    one(`SELECT CASE WHEN length(regexp_replace($1::text, '\\s', '', 'g')) >= 60
+    imageIds.length ? q<Pick<MediaRow, 'id' | 'sha' | 'phash' | 'phash_m'>>('SELECT id, sha, phash, phash_m FROM media WHERE id = ANY($1::int[])', [imageIds]) : [],
+    one<{ h: string | null }>(`SELECT CASE WHEN length(regexp_replace($1::text, '\\s', '', 'g')) >= 60
       THEN md5(lower(regexp_replace($1::text, '\\s', '', 'g'))) END AS h`, [str(data.description, 20000)]),
   ]);
-  const me = { name: prepName(data.name), images: imgs.map(prepImage), youtube: youtubeKey(data.youtube_url) };
-  const matches = [];
+  const me: Comparable = { name: prepName(data.name), images: imgs.map(prepImage), youtube: youtubeKey(data.youtube_url) };
+  const matches: { id: number; name: string; sku: string; slug: string; active: boolean; price: number; image: string | null; emoji: string; level: string; reasons: string[]; score: number }[] = [];
   for (const o of others) {
     const r = compare(me, o, lv, { sameDesc: !!(desc && desc.h && desc.h === o.desc_hash) });
     if (!r.level) continue;
@@ -208,17 +219,18 @@ type ScanCatalogOpts = {
 };
 async function scanCatalog(settings: Settings, { includeAllowed = false }: ScanCatalogOpts = {}) {
   const lv = levelOf(settings);
-  const pairsOut = [];
+  type Pair = { older: CatalogEntry; newer: CatalogEntry } & ReturnType<typeof compare>;
+  const pairsOut: Pair[] = [];
   for (const type of ['single', 'bundle']) {
     const all = (await loadCatalog(type)).filter((p) => includeAllowed || !p.allow_duplicate);
     // Only compare products that share a word, a picture or a description (fast enough for thousands).
     const cand = new Set<number>();
     const pair = (i: number, j: number) => { if (i !== j) cand.add(i < j ? i * 100000 + j : j * 100000 + i); };
-    const index = new Map();
-    const add = (k: string, i: number) => { if (!index.has(k)) index.set(k, []); index.get(k).push(i); };
-    const flat: Loose[] = [];
+    const index = new Map<string, number[]>();
+    const add = (k: string, i: number) => { if (!index.has(k)) index.set(k, []); index.get(k)!.push(i); };
+    const flat: [number, Uint32Array, Uint32Array | null][] = [];
     all.forEach((p, i) => {
-      new Set(p.name.ws.filter((w: Iterable<unknown> | ArrayLike<unknown>) => Array.from(w).length >= 3)).forEach((w) => add('w:' + w, i));
+      new Set(p.name.ws.filter((w) => Array.from(w).length >= 3)).forEach((w) => add('w:' + w, i));
       for (const im of p.images) {
         if (im.sha) add('s:' + im.sha, i);
         if (im.h) flat.push([i, im.h, im.hm]);
@@ -248,22 +260,22 @@ async function scanCatalog(settings: Settings, { includeAllowed = false }: ScanC
     }
   }
   // join pairs into groups
-  const parent = new Map();
-  const find = (x?: unknown) => { while (parent.get(x) !== x) { parent.set(x, parent.get(parent.get(x))); x = parent.get(x); } return x; };
-  const unite = (x?: unknown, y?: unknown) => { [x, y].forEach((v) => { if (!parent.has(v)) parent.set(v, v); }); parent.set(find(x), find(y)); };
+  const parent = new Map<number, number>();
+  const find = (x: number) => { while (parent.get(x) !== x) { parent.set(x, parent.get(parent.get(x)!)!); x = parent.get(x)!; } return x; };
+  const unite = (x: number, y: number) => { [x, y].forEach((v) => { if (!parent.has(v)) parent.set(v, v); }); parent.set(find(x), find(y)); };
   pairsOut.forEach((p) => unite(p.older.id, p.newer.id));
-  const groups = new Map();
+  const groups = new Map<number, { level: string; products: Map<number, CatalogEntry>; pairs: Pair[]; score: number }>();
   for (const p of pairsOut) {
     const g = find(p.older.id);
     if (!groups.has(g)) groups.set(g, { level: 'warn', products: new Map(), pairs: [], score: 0 });
-    const G = groups.get(g);
+    const G = groups.get(g)!;
     if (p.level === 'block') G.level = 'block';
     G.score = Math.max(G.score, p.score);
     for (const x of [p.older, p.newer]) G.products.set(x.id, x);
     G.pairs.push(p);
   }
   return [...groups.values()]
-    .map((G) => ({ ...G, products: [...G.products.values()].sort((x, y) => x.created_at - y.created_at) }))
+    .map((G) => ({ ...G, products: [...G.products.values()].sort((x, y) => x.created_at.getTime() - y.created_at.getTime()) }))
     .sort((x, y) => (x.level === y.level ? y.score - x.score : x.level === 'block' ? -1 : 1));
 }
 
