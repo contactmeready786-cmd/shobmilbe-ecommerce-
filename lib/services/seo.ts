@@ -11,14 +11,16 @@ import * as $autoseo from './autoseo';
 import * as $db from '../db';
 import * as $dupcanon from './dupcanon';
 import type { Loose, Settings } from '../types';
+import type { FullProduct } from '../models/catalog';
+
 const JUNK_START = /^\s*(?:product\s+details?\s+of|product\s+name\s*:)\s*/i;
-function cleanName(name?: Loose) {
+function cleanName(name: string) {
   return String(name || '').replace(JUNK_START, '').replace(/\s*[|,–-]\s*$/, '').replace(/\s{2,}/g, ' ').trim() || String(name || '').trim();
 }
 function needsNameFix(name?: Loose) { return JUNK_START.test(String(name || '')); }
 
 // Cut at a word boundary, never in the middle of a word ("… Circuit Boar" ✗)
-function cut(text?: Loose, max?: Loose) {
+function cut(text: string, max?: Loose) {
   const t = String(text || '').replace(/\s+/g, ' ').trim();
   if (t.length <= max) return t;
   const part = t.slice(0, max + 1);
@@ -26,18 +28,18 @@ function cut(text?: Loose, max?: Loose) {
   return (sp > max * 0.6 ? part.slice(0, sp) : t.slice(0, max)).replace(/[\s,.;:|–-]+$/, '');
 }
 // Text copied from other sites often has words glued together ("BoardMain Chip"): put the space back.
-function unglue(text?: Loose) { return String(text || '').replace(/([a-z\d)])([A-Z][a-z])/g, '$1 $2').replace(/([.:;!?।])(?=\S)/g, '$1 '); }
+function unglue(text: string) { return String(text || '').replace(/([a-z\d)])([A-Z][a-z])/g, '$1 $2').replace(/([.:;!?।])(?=\S)/g, '$1 '); }
 
 const money = (n?: Loose) => '৳' + bn(Math.round(Number(n) || 0).toLocaleString('en-IN'));
 
 // Google title (the shop name " | সবমিলবে" is added after this by the layout)
-function productTitle(p?: Loose) {
+function productTitle(p: $db.pg.DbRow) {
   if (p.seo_title && p.seo_title.trim()) return p.seo_title.trim();
   // People in Bangladesh search "<product> price in bd" — so the title says exactly that.
   return `${cut(cleanName(p.name), 52)} Price in BD`;
 }
 
-function productDescription(p?: Loose, settings: Settings = {} as Settings) {
+function productDescription(p: FullProduct, settings: Settings = {} as Settings) {
   if (p.seo_description && p.seo_description.trim()) return p.seo_description.trim();
   const name = cut(cleanName(p.name), 55);
   const price = Number(p.price) > 0 ? ` মাত্র ${money(p.price)}-এ` : '';
@@ -52,7 +54,7 @@ function productDescription(p?: Loose, settings: Settings = {} as Settings) {
 }
 
 // Extra search words: the same product as people type it — English, Bangla, "price in bd", brand, model, category
-function productKeywords(p?: Loose) {
+function productKeywords(p: FullProduct) {
   if (p.seo_keywords && p.seo_keywords.trim()) return p.seo_keywords.trim();
   const name = cut(cleanName(p.name), 60);
   const list = [name, `${name} price in bd`, p.model ? `${p.model} price in bangladesh` : '', p.brand || '', p.category_name ? `${p.category_name} দাম` : ''];
@@ -71,17 +73,17 @@ function listDescription(c?: Loose, total?: Loose, settings: Settings = {} as Se
 }
 
 // Homepage defaults (used only when the owner left Admin → মার্কেটিং → SEO empty)
-function homeTitle(s?: Loose) {
+function homeTitle(s: Settings) {
   return s.seo_title || `${s.store_name || 'সবমিলবে'} | ইলেকট্রনিক্স পার্টস, টুলস ও রিমোটের অনলাইন শপ`;
 }
-function homeDescription(s?: Loose) {
+function homeDescription(s: Settings) {
   return s.seo_description || 'ইলেকট্রনিক্স কম্পোনেন্ট, সার্কিট মডিউল, সোল্ডারিং টুলস, এসি ও টিভি রিমোট, ইলেকট্রিক্যাল আর প্রতিদিনের দরকারি জিনিস — সেরা দামে। সারা বাংলাদেশে ক্যাশ অন ডেলিভারি।';
 }
 
 // Category / brand list → ItemList for Google (the products on this page, in order)
-function itemListLd(base: Loose, products?: Loose, offset: Loose = 0) {
+function itemListLd(base: string, products?: Loose, offset = 0) {
   if (!products.length) return null;
-  return { '@context': 'https://schema.org', '@type': 'ItemList', itemListElement: products.slice(0, 30).map((p: Loose, i: Loose) => ({
+  return { '@context': 'https://schema.org', '@type': 'ItemList', itemListElement: products.slice(0, 30).map((p: Loose, i: number) => ({
     '@type': 'ListItem', position: offset + i + 1, url: `${base}/p/${p.slug}`, name: cleanName(p.name) })) };
 }
 
@@ -95,7 +97,7 @@ async function indexNowKey() {
   await db.setMany({ indexnow_key: key });
   return key;
 }
-async function indexNowPing(siteUrl?: Loose, paths?: Loose) {
+async function indexNowPing(siteUrl: string, paths?: Loose) {
   const base = String(siteUrl || '').replace(/\/+$/, '');
   if (!/^https:\/\//.test(base) || /vercel\.app|localhost/.test(base) || !paths.length) return null;
   const host = base.replace(/^https:\/\//, '');

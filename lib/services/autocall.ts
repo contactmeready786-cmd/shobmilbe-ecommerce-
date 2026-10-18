@@ -14,7 +14,7 @@ import * as $security from '../security';
 import * as $models_orders from '../models/orders';
 import * as $notify from './notify';
 import * as $push from './push';
-import type { Body, Id, Loose } from '../types';
+import type { Body, Id, Loose, Settings } from '../types';
 
 const STATES: Record<string, Loose> = {
   calling: ['📞', 'কল যাচ্ছে'],
@@ -39,16 +39,16 @@ const MESSAGES = [
   'হ্যালো {{name}}, {{shop}} থেকে আপনার {{items}} এর অর্ডারটি পেয়েছি। মোট {{amount}} টাকা। আমরা কি পাঠিয়ে দেব? পাঠাতে ১, বাতিল করতে ২ চাপুন।',
 ];
 
-function on(s?: Loose) { return s.autocall_on === '1' && !!s.autocall_url; }
+function on(s: Settings) { return s.autocall_on === '1' && !!s.autocall_url; }
 function secret(s?: Loose) { return String(s.autocall_token || ''); }
-async function ensureSecret(s?: Loose) {
+async function ensureSecret(s: Settings) {
   if (secret(s)) return secret(s);
   const t = crypto.randomBytes(18).toString('base64url');
   await db.setSetting('autocall_token', t);
   return t;
 }
-function callbackUrl(site?: Loose, token?: Loose) { return `${String(site || '').replace(/\/+$/, '')}/webhook/autocall/${token}`; }
-const localPhone = (p?: Loose) => { const d = String(p || '').replace(/\D/g, ''); return d.startsWith('880') ? '0' + d.slice(3) : d; };
+function callbackUrl(site: string, token: string) { return `${String(site || '').replace(/\/+$/, '')}/webhook/autocall/${token}`; }
+const localPhone = (p: string) => { const d = String(p || '').replace(/\D/g, ''); return d.startsWith('880') ? '0' + d.slice(3) : d; };
 const intlPhone = (p?: Loose) => { const l = localPhone(p); return l.startsWith('0') ? '880' + l.slice(1) : l; };
 const words = (n?: Loose) => String(Math.round(Number(n || 0)));
 
@@ -58,11 +58,11 @@ function fill(tpl?: Loose, vars?: Loose, { json = false }: Body = {}) {
     return json ? JSON.stringify(v).slice(1, -1) : v;
   });
 }
-function varsFor(s?: Loose, o?: Loose, site?: Loose, token?: Loose) {
+function varsFor(s: Settings, o?: Loose, site?: Loose, token?: Loose) {
   const vars: Record<string, string> = {
     name: str(o.customer_name || o.name, 60) || 'গ্রাহক', phone: localPhone(o.phone), phone_intl: intlPhone(o.phone), phone_plus: '+' + intlPhone(o.phone),
     amount: words(o.total), order_code: o.code, shop: s.store_name || 'সবমিলবে', caller_id: s.autocall_caller || '',
-    items: (o.items || o.lines || []).slice(0, 2).map((i: Loose) => str(i.name, 40)).join(' আর ') || 'পণ্যের',
+    items: (o.items || o.lines || []).slice(0, 2).map((i: { name: unknown; }) => str(i.name, 40)).join(' আর ') || 'পণ্যের',
     callback_url: callbackUrl(site, token),
   };
   vars.message = fill(s.autocall_message || MESSAGES[0], vars);
@@ -70,7 +70,7 @@ function varsFor(s?: Loose, o?: Loose, site?: Loose, token?: Loose) {
 }
 
 // Place one call. Returns { ok, ref, error }.
-async function call(s?: Loose, order?: Loose, site?: Loose, { test = false }: Body = {}) {
+async function call(s: Settings, order?: Loose, site?: Loose, { test = false }: Body = {}) {
   const token = await ensureSecret(s);
   const vars = varsFor(s, order, site, token);
   let body = fill(s.autocall_body || PRESETS.custom.body, vars, { json: true });
@@ -95,7 +95,7 @@ async function call(s?: Loose, order?: Loose, site?: Loose, { test = false }: Bo
 }
 
 // After a new order (from the checkout)
-async function afterOrder(s?: Loose, order?: Loose, site?: Loose) {
+async function afterOrder(s: Settings, order?: Loose, site?: Loose) {
   if (!on(s)) return null;
   if (s.autocall_only_cod !== '0' && order.payment && order.payment !== 'cod') return null;
   return call(s, order, site);
@@ -103,9 +103,9 @@ async function afterOrder(s?: Loose, order?: Loose, site?: Loose) {
 
 // ---------------------------------------------------------------- the company's reply (webhook)
 // Accepts JSON or form data. Looks for the order (code / reference / call id / phone) and what was pressed.
-function pick(b: Body, keys?: Loose) {
+function pick(b: Body, keys: string[]) {
   for (const k of keys) {
-    const v = k.split('.').reduce((o: Loose, p: Loose) => (o && typeof o === 'object' ? o[p] : undefined), b);
+    const v = k.split('.').reduce((o: Loose, p: string | number) => (o && typeof o === 'object' ? o[p] : undefined), b);
     if (v !== undefined && v !== null && String(v) !== '') return String(v);
   }
   return '';
@@ -120,7 +120,7 @@ function resultOf(b: Body) {
   if (/(fail|error)/.test(st)) return 'failed';
   return null;
 }
-async function hook(s: Loose, token: Loose, b: Body) {
+async function hook(s: Settings, token: string, b: Body) {
   if (!secret(s) || !$security.safeEqual(String(token || ''), secret(s))) return { status: 401, body: { ok: false } };
   const code = pick(b, ['order_code', 'order_id', 'reference', 'ref', 'custom_id', 'metadata.order_code', 'data.order_code', 'data.reference']);
   const callId = pick(b, ['call_id', 'id', 'callId', 'uuid', 'CallSid', 'data.call_id']);
@@ -142,7 +142,7 @@ async function hook(s: Loose, token: Loose, b: Body) {
 }
 
 // What happens to the order, and telling the owner
-async function apply(s?: Loose, row?: Loose, result?: Loose) {
+async function apply(s: Settings, row: db.pg.DbRow, result: string) {
   const O = $models_orders;
   const [ic, label] = STATES[result] || ['ℹ️', result];
   let did = '';

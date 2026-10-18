@@ -109,8 +109,8 @@ for (const [k, v] of Object.entries(HOME_TEXTS)) {
 const DEFAULTS: Record<string, string> = {};
 SWITCHES.forEach((i) => { if (/^ui_/.test(i.key)) DEFAULTS[i.key] = '1'; });
 
-const on = (s: Settings, key?: Loose) => !s || s[key] !== '0';
-function text(s: Settings, key?: Loose) {
+const on = (s: Settings, key: string) => !s || s[key] !== '0';
+function text(s: Settings, key: string) {
   const t = TEXTS.get(key);
   const v = s && typeof s[key] === 'string' ? s[key].trim() : '';
   return v || (t ? t.def || '' : '');

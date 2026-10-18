@@ -5,7 +5,7 @@ import * as $services_seo from './seo';
 import type { Loose } from '../types';
 
 const SEO_WEIGHTS = { image: 20, text: 20, textLong: 10, model: 12, specs: 10, category: 10, gallery: 6, brand: 4, title: 4, reviews: 4 };
-function seoScore(p?: Loose, seo?: Loose) {
+function seoScore(p: db.pg.DbRow, seo: typeof $services_seo) {
   const textLen = String(p.description || '').trim().length + String(p.short_description || '').trim().length;
   const W = SEO_WEIGHTS;
   let n = 0;

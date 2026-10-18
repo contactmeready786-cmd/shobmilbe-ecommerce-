@@ -29,14 +29,14 @@ const ACTIONS: Record<string, string> = {
 const NOT_DELETE = new Set(['show_key']);
 
 // "contact.shobmilbe@gmail.com" → "co••••••be@gmail.com"
-function masked(e: Loose = CODE_EMAIL) {
+function masked(e = CODE_EMAIL) {
   const [u, d] = String(e).split('@');
   if (!u || !d) return '';
   return (u.length <= 4 ? u.slice(0, 1) : u.slice(0, 2)) + '••••••' + (u.length <= 4 ? '' : u.slice(-2)) + '@' + d;
 }
 
-function hash(code?: Loose, salt?: Loose) { return salt + '$' + crypto.createHash('sha256').update(salt + ':' + code).digest('hex'); }
-function same(code?: Loose, stored?: Loose) {
+function hash(code: string, salt: string) { return salt + '$' + crypto.createHash('sha256').update(salt + ':' + code).digest('hex'); }
+function same(code: string, stored?: Loose) {
   const [salt] = String(stored).split('$');
   const a = Buffer.from(hash(String(code), salt));
   const b = Buffer.from(String(stored));
@@ -46,7 +46,7 @@ const device = (ctx: AdminCtx) => String((ctx.req && ctx.req.headers && ctx.req.
 const when = () => new Date().toLocaleString('en-GB', { timeZone: 'Asia/Dhaka' });
 
 // Make a new code for this person and this kind of delete, and e-mail it. Throws with a message the admin can read.
-async function send(ctx: AdminCtx, action?: Loose, detail: Loose = '') {
+async function send(ctx: AdminCtx, action?: Loose, detail = '') {
   if (!ACTIONS[action]) throw new Error('অজানা কাজ।');
   if (!notify.emailConfig(ctx.settings).ready) {
     throw new Error('কোড পাঠানোর ইমেইল (Gmail) সেটআপ করা নেই, তাই এখন স্থায়ীভাবে মোছা যাবে না। Admin → নোটিফিকেশনে Gmail App Password দিন।');

@@ -13,7 +13,7 @@ import type { Body, Id, Loose, Settings } from '../types';
 const API = 'https://api.telegram.org';
 const ROTATION = ['tip', 'kit', 'tip', 'question'];
 
-async function call(token?: Loose, method?: Loose, params?: Loose) {
+async function call(token: string | undefined, method: string, params?: Loose) {
   if (!/^\d{5,}:[A-Za-z0-9_-]{30,}$/.test(String(token || ''))) throw new Error('বটের টোকেন ঠিক নেই — @BotFather যেটা দিয়েছে পুরোটা কপি করুন (যেমন 123456789:AA…)।');
   const r = await fetchJson(`${API}/bot${token}/${method}`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(params || {}),
@@ -38,7 +38,7 @@ function chatId(input: Body) {
 }
 
 // Checks the token and the channel, and sends one test message.
-async function connect(token?: Loose, chatInput?: Loose) {
+async function connect(token: string, chatInput?: Loose) {
   const me = await call(token, 'getMe');
   const chat = chatId(chatInput);
   const info = await call(token, 'getChat', { chat_id: chat });
@@ -58,7 +58,7 @@ async function send(settings: Settings, { text, product }: Body) {
   return r.message_id;
 }
 
-async function record(slot?: Loose, productId?: Id, ok?: Loose, postId?: Id, message?: Loose, kind: Loose = 'product', ref: Loose = '') {
+async function record(slot?: Loose, productId?: Id, ok?: Loose, postId?: Id, message?: Loose, kind = 'product', ref = '') {
   await db.q(`INSERT INTO social_posts(slot, channel, product_id, ok, post_id, message, kind, ref) VALUES($1,'telegram',$2,$3,$4,$5,$6,$7)
     ON CONFLICT (slot) DO UPDATE SET product_id=EXCLUDED.product_id, ok=EXCLUDED.ok, post_id=EXCLUDED.post_id, message=EXCLUDED.message,
       kind=EXCLUDED.kind, ref=EXCLUDED.ref, created_at=now()`,
@@ -81,7 +81,7 @@ async function postOne(settings: Settings, { slot }: Body = {}) {
   }
 }
 
-async function postEngagement(settings: Settings, slot?: Loose) {
+async function postEngagement(settings: Settings, slot: string) {
   const n = (await db.one(`SELECT count(*)::int AS n FROM social_posts WHERE channel='telegram' AND ok AND kind <> 'product'`).catch(() => ({ n: 0 })))!.n;
   const kind = ROTATION[n % ROTATION.length];
   const e = await autopost.buildEngagement(settings, kind);
@@ -113,7 +113,7 @@ async function tick(settings: Settings) {
   return engage ? postEngagement(settings, slot) : postOne(settings, { slot });
 }
 
-async function recent(limit: Loose = 10) {
+async function recent(limit = 10) {
   return db.q(`SELECT sp.*, p.name AS product_name FROM social_posts sp LEFT JOIN products p ON p.id=sp.product_id
     WHERE sp.channel='telegram' ORDER BY sp.created_at DESC LIMIT $1`, [limit]).catch(() => []);
 }

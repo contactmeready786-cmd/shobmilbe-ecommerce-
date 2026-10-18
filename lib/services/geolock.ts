@@ -22,7 +22,7 @@
 import * as db from '../db';
 import { parseCookies, sign, unsign } from '../util';
 import * as COUNTRIES from '../data/countries';
-import type { Body, Loose, ShopRequest } from '../types';
+import type { Body, Loose, Settings, ShopRequest } from '../types';
 import { clientIp } from '../security';
 import * as crawlers from './crawlers';
 
@@ -35,10 +35,10 @@ const GOOD_BOTS = /googlebot|google-inspectiontool|googleother|storebot-google|a
 const OPEN_PATHS = /^\/(e\/[oc]\/|unsubscribe$|webhook\/|pay\/|media\/|img\/|brand\/|feeds\/|api\/(research|backup)\/tick$|robots\.txt$|sitemap[^/]*\.xml$|[a-f0-9]{32}\.txt$|favicon|__region)/;
 
 const codeOk = (c?: Loose) => Object.prototype.hasOwnProperty.call(COUNTRIES, c);
-function allowedList(s?: Loose) {
+function allowedList(s: Settings) {
   return [...new Set(String(s.geo_allow || '').toUpperCase().split(/[\s,]+/).filter(codeOk))];
 }
-function config(s?: Loose) {
+function config(s: Settings) {
   const allow = allowedList(s);
   const zones = new Set();
   let zonesComplete = true;
@@ -57,27 +57,27 @@ function config(s?: Loose) {
   };
 }
 
-function header(req: ShopRequest, name?: Loose) { return String((req.headers && req.headers[name]) || '').trim(); }
+function header(req: ShopRequest, name: string) { return String((req.headers && req.headers[name]) || '').trim(); }
 function countryOf(req: ShopRequest) {
   const c = (header(req, 'x-vercel-ip-country') || header(req, 'cf-ipcountry')).toUpperCase().slice(0, 2);
   return /^[A-Z]{2}$/.test(c) && c !== 'XX' ? c : '';
 }
-const isGoodBot = (ua?: Loose) => GOOD_BOTS.test(String(ua || ''));
+const isGoodBot = (ua: string) => GOOD_BOTS.test(String(ua || ''));
 
-function hasPass(req: ShopRequest, s?: Loose) {
+function hasPass(req: ShopRequest, s: { session_secret: string | null | undefined; }) {
   const v = unsign(parseCookies(req.headers.cookie).sm_geo, s.session_secret);
   if (!v) return false;
   const [k, at] = v.split(':');
   return k === 'geo' && Date.now() - Number(at) < PASS_DAYS * 864e5;
 }
-function passCookie(req: ShopRequest, s?: Loose) {
+function passCookie(req: ShopRequest, s: Settings) {
   const secure = String(req.headers['x-forwarded-proto'] || '').includes('https') ? '; Secure' : '';
   return `sm_geo=${encodeURIComponent(sign(`geo:${Date.now()}`, s.session_secret))}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${PASS_DAYS * 86400}${secure}`;
 }
-const loggedIntoAdmin = (req: ShopRequest, s?: Loose) => !!unsign(parseCookies(req.headers.cookie).sm_admin, s.session_secret);
+const loggedIntoAdmin = (req: ShopRequest, s: { session_secret: string | null | undefined; }) => !!unsign(parseCookies(req.headers.cookie).sm_admin, s.session_secret);
 
 // For a shop request (not /admin): null = let in, or { country } = show the blocked page.
-async function check(req: ShopRequest, path?: Loose, s?: Loose, method = 'GET'): Promise<{ country: string } | null> {
+async function check(req: ShopRequest, path: string, s?: Loose, method = 'GET'): Promise<{ country: string } | null> {
   const c = config(s);
   if (!c.on) return null;
   if (OPEN_PATHS.test(path)) return null;
@@ -96,7 +96,7 @@ async function check(req: ShopRequest, path?: Loose, s?: Loose, method = 'GET'):
 }
 
 // how many visits each country lost (shown on the admin page), one row per day + country + reason
-function count(country?: Loose, why?: Loose) {
+function count(country: string, why?: Loose) {
   db.q(`INSERT INTO geo_blocks(day, country, why, n) VALUES((now() AT TIME ZONE 'Asia/Dhaka')::date, $1, $2, 1)
     ON CONFLICT (day, country, why) DO UPDATE SET n = geo_blocks.n + 1`, [String(country || '??').slice(0, 2), why]).catch(() => {});
   if (Math.random() < 0.01) db.q(`DELETE FROM geo_blocks WHERE day < (now() AT TIME ZONE 'Asia/Dhaka')::date - 90`).catch(() => {});
@@ -104,19 +104,19 @@ function count(country?: Loose, why?: Loose) {
 
 // The tiny script put in every shop page when the clock check is on: a browser whose time zone belongs to no
 // ticked country goes to the blocked page. Crawlers are skipped (their clocks are in the USA).
-function headScript(s?: Loose) {
+function headScript(s: Settings) {
   const c = config(s);
   if (!c.on || !c.tzCheck) return '';
   return `<script>(()=>{try{const u=navigator.userAgent||'';if(/bot|crawl|spider|slurp|lighthouse|headless|preview|facebookexternalhit|meta-external|whatsapp|telegram/i.test(u))return;const z=Intl.DateTimeFormat().resolvedOptions().timeZone;if(!z||/^(Etc\\/|UTC$|GMT)/.test(z))return;const ok=${JSON.stringify([...c.zones]).replace(/</g, '\\u003c')};if(!ok.includes(z))location.replace('${BLOCK_PATH}?w=tz&z='+encodeURIComponent(z));}catch{}})();</script>`;
 }
 
 function esc(v?: Loose) { return String(v ?? '').replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' } as Record<string, string>)[ch]); }
-function countryName(code?: Loose, lang: Loose = 'bn') {
+function countryName(code: string, lang = 'bn') {
   try { return new Intl.DisplayNames([lang], { type: 'region' }).of(code) || code; } catch (_) { return code; }
 }
 
 // The page a shut-out visitor sees (Bangla + English, no shop design so it loads instantly).
-function blockedPage(s?: Loose, { country = '', why = 'country' }: Body = {}) {
+function blockedPage(s: Settings, { country = '', why = 'country' }: Body = {}) {
   const c = config(s);
   const shop = esc(s.store_name || 'সবমিলবে');
   const where = c.list.map((x) => esc(countryName(x))).join(', ');
@@ -148,7 +148,7 @@ function adminUntil(s?: Loose) {
   const t = Date.parse(`${d}T23:59:59+06:00`);
   return Number.isFinite(t) ? t : 0;
 }
-function adminConfig(s?: Loose) {
+function adminConfig(s: Settings) {
   const envOff = /^(off|0|no|false)$/i.test(String(process.env.ADMIN_GEO_LOCK || '').trim());
   const extra = [...new Set(String(s.admin_geo_extra || '').toUpperCase().split(/[\s,]+/).filter((c) => codeOk(c) && c !== ADMIN_HOME))];
   const until = adminUntil(s);
@@ -164,7 +164,7 @@ function adminConfig(s?: Loose) {
   };
 }
 // For an /admin request: null = let in, or the visitor's country code = shut out.
-function adminBlocked(req: ShopRequest, s?: Loose) {
+function adminBlocked(req: ShopRequest, s: Settings) {
   const c = adminConfig(s);
   if (!c.on) return null;
   const country = countryOf(req);

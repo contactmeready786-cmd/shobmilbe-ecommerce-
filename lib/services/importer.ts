@@ -20,7 +20,7 @@ const BN = '০১২৩৪৫৬৭৮৯';
 
 // ---------------------------------------------------------------- text helpers
 const ENT: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ', ndash: '–', mdash: '—', hellip: '…', rsquo: '’', lsquo: '‘', ldquo: '“', rdquo: '”', bull: '•', times: '×', copy: '©', reg: '®', trade: '™', deg: '°', middot: '·', laquo: '«', raquo: '»', euro: '€', pound: '£', yen: '¥', micro: 'µ', plusmn: '±', frac12: '½', frac14: '¼', frac34: '¾', sup2: '²', sup3: '³', ohm: 'Ω', Omega: 'Ω' };
-function decodeEntities(s?: Loose) {
+function decodeEntities(s: string) {
   return String(s).replace(/&(#x[0-9a-f]+|#\d+|[a-z][a-z0-9]*);/gi, (m, e) => {
     if (e[0] === '#') {
       const n = e[1] === 'x' || e[1] === 'X' ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10);
@@ -29,7 +29,7 @@ function decodeEntities(s?: Loose) {
     return ENT[e] !== undefined ? ENT[e] : ENT[e.toLowerCase()] !== undefined ? ENT[e.toLowerCase()] : m;
   });
 }
-function unCdata(s?: Loose) { return String(s).replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1'); }
+function unCdata(s: string) { return String(s).replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1'); }
 
 // HTML description → the shop's simple text format (## heading, - bullet, blank line = paragraph)
 function htmlToText(input: Body) {
@@ -51,7 +51,7 @@ function htmlToText(input: Body) {
 }
 function oneLine(s?: Loose) { return htmlToText(s).replace(/\s+/g, ' ').trim(); }
 
-function toAsciiDigits(s?: Loose) { return String(s ?? '').replace(/[০-৯]/g, (d) => String(BN.indexOf(d))); }
+function toAsciiDigits(s: string) { return String(s ?? '').replace(/[০-৯]/g, (d) => String(BN.indexOf(d))); }
 // "1,250.00 BDT", "৳ ২৫০", "Tk. 99", "250 - 300" → 1250 / 250 / 99 / 250
 function parsePrice(v?: Loose) {
   if (v === null || v === undefined || v === '') return null;
@@ -63,7 +63,7 @@ function parsePrice(v?: Loose) {
   const n = Number(m[0]);
   return Number.isFinite(n) && n >= 0 && n < 1e9 ? Math.round(n * 100) / 100 : null;
 }
-function parseIntSafe(v?: Loose) {
+function parseIntSafe(v: string | null | undefined) {
   if (v === null || v === undefined || v === '') return null;
   const m = toAsciiDigits(String(v)).replace(/,/g, '').match(/-?\d+/);
   if (!m) return null;
@@ -71,7 +71,7 @@ function parseIntSafe(v?: Loose) {
   return Number.isFinite(n) ? Math.max(0, Math.min(n, 1e7)) : null;
 }
 // "0.5 kg" / "500 g" / "500" (grams) → grams
-function parseWeight(v?: Loose, unitHint?: Loose) {
+function parseWeight(v: string | null | undefined, unitHint: string) {
   if (v === null || v === undefined || v === '') return null;
   const s = toAsciiDigits(String(v)).toLowerCase();
   const m = s.match(/(\d+(?:\.\d+)?)\s*(kg|kilo|g|gm|gram|lb|oz)?/);
@@ -97,11 +97,11 @@ function urlsIn(v?: Loose): Loose[] {
   const s = decodeEntities(String(v));
   return (s.match(/(?:https?:)?\/\/[^\s,|"'<>\]\[]+/gi) || []).map((u) => (u.startsWith('//') ? 'https:' + u : u));
 }
-function absUrl(u?: Loose, base?: Loose) {
+function absUrl(u: string, base?: Loose) {
   if (!u) return '';
   try { return new URL(String(u).trim(), base || undefined).toString(); } catch (_) { return ''; }
 }
-function cleanImages(list?: Loose, base?: Loose) {
+function cleanImages(list?: Loose, base?: undefined) {
   const out: Loose[] = [];
   for (const u of list) {
     const a = absUrl(u, base);
@@ -112,10 +112,10 @@ function cleanImages(list?: Loose, base?: Loose) {
   }
   return out;
 }
-function hostOf(u?: Loose) { try { return new URL(u).hostname.replace(/^www\./, '').toLowerCase(); } catch (_) { return ''; } }
+function hostOf(u: string | URL) { try { return new URL(u).hostname.replace(/^www\./, '').toLowerCase(); } catch (_) { return ''; } }
 
 // ---------------------------------------------------------------- column names
-function normKey(k?: Loose) {
+function normKey(k: string) {
   return String(k ?? '').normalize('NFC').replace(/^\uFEFF/, '').toLowerCase().replace(/^g:/, '')
     .replace(/[\s_\-.:()[\]/#*]+/g, '').trim();
 }
@@ -144,7 +144,7 @@ const FIELDS: Record<string, Loose> = {
 const KNOWN = new Set(Object.values(FIELDS).flat());
 
 // one row of named values → plain product (or null when it has no name and nothing to merge)
-function fromRow(row?: Loose, base?: Loose) {
+function fromRow(row: { [s: string]: unknown; } | ArrayLike<unknown>, base?: Loose) {
   const m = new Map();
   for (const [k, v] of Object.entries(row)) {
     const nk = normKey(k);
@@ -153,8 +153,8 @@ function fromRow(row?: Loose, base?: Loose) {
     if (val === null || val === undefined || String(val).trim() === '') continue;
     if (!m.has(nk)) m.set(nk, val);
   }
-  const pick = (name?: Loose) => { for (const k of FIELDS[name]) if (m.has(k)) return m.get(k); return null; };
-  const pickAll = (name?: Loose) => FIELDS[name].filter((k: Loose) => m.has(k)).map((k: Loose) => m.get(k));
+  const pick = (name: string) => { for (const k of FIELDS[name]) if (m.has(k)) return m.get(k); return null; };
+  const pickAll = (name: string) => FIELDS[name].filter((k: Loose) => m.has(k)).map((k: Loose) => m.get(k));
   const link = absUrl(pick('link'), base);
 
   let price = parsePrice(pick('price'));
@@ -199,7 +199,7 @@ function fromRow(row?: Loose, base?: Loose) {
 }
 
 // Rows → products. Merges Shopify-style extra picture rows and keeps one product per variant group.
-function fromRows(rows?: Loose, base?: Loose, notes?: Loose) {
+function fromRows(rows: {}[], base?: Loose, notes?: Loose) {
   const out: Loose[] = [];
   const byGroup = new Map();
   let variants = 0;
@@ -235,9 +235,9 @@ function fromRows(rows?: Loose, base?: Loose, notes?: Loose) {
 }
 
 // ---------------------------------------------------------------- CSV / TSV
-function detectDelimiter(text?: Loose) {
+function detectDelimiter(text: string) {
   const head = text.split(/\r?\n/).slice(0, 5).join('\n');
-  const count = (ch?: Loose) => { let n = 0; let q = false; for (const c of head) { if (c === '"') q = !q; else if (!q && c === ch) n++; } return n; };
+  const count = (ch: string) => { let n = 0; let q = false; for (const c of head) { if (c === '"') q = !q; else if (!q && c === ch) n++; } return n; };
   const cands: [string, number][] = [['\t', count('\t')], [',', count(',')], [';', count(';')], ['|', count('|')]];
   cands.sort((a, b) => b[1] - a[1]);
   return cands[0][1] > 0 ? cands[0][0] : ',';
@@ -277,7 +277,7 @@ function tableToObjects(table?: Loose) {
   const header = table[hi].map((h: Loose) => String(h ?? '').trim());
   const rows = table.slice(hi + 1).map((r: Loose) => {
     const o: Record<string, Loose> = {};
-    header.forEach((h: Loose, j: Loose) => {
+    header.forEach((h: string | number, j: string | number) => {
       if (!h) return;
       const v = r[j] === undefined || r[j] === null ? '' : r[j];
       if (o[h] !== undefined && o[h] !== '') o[h] = ([] as Loose[]).concat(o[h], v); // repeated column (e.g. several image columns)
@@ -377,7 +377,7 @@ function parseXlsx(buf?: Loose) {
 }
 
 // ---------------------------------------------------------------- XML feeds and sitemaps
-function xmlItems(xml?: Loose) {
+function xmlItems(xml: string) {
   const blocks: Loose[] = [];
   for (const tag of ['item', 'entry', 'product', 'listing', 'offer']) {
     const re = new RegExp(`<(?:[\\w-]+:)?${tag}\\b[^>]*>([\\s\\S]*?)</(?:[\\w-]+:)?${tag}>`, 'gi');
@@ -386,7 +386,7 @@ function xmlItems(xml?: Loose) {
   }
   return blocks.map((b) => {
     const o: Record<string, Loose> = {};
-    const add = (k?: Loose, v?: Loose) => { if (o[k] === undefined) o[k] = v; else o[k] = ([] as Loose[]).concat(o[k], v); };
+    const add = (k: string | number, v: string) => { if (o[k] === undefined) o[k] = v; else o[k] = ([] as Loose[]).concat(o[k], v); };
     for (const m of b.matchAll(/<([A-Za-z_][\w:.-]*)\b([^>]*?)(?:\/>|>([\s\S]*?)<\/\1>)/g)) {
       const name = m[1];
       let val = m[3] !== undefined ? m[3] : '';
@@ -398,7 +398,7 @@ function xmlItems(xml?: Loose) {
     return o;
   });
 }
-function sitemapLinks(xml?: Loose, base?: Loose) {
+function sitemapLinks(xml: string, base?: Loose) {
   const locs = [...xml.matchAll(/<loc>\s*(?:<!\[CDATA\[)?\s*([^<\]]+?)\s*(?:\]\]>)?\s*<\/loc>/gi)].map((m) => absUrl(decodeEntities(m[1]), base)).filter(Boolean);
   const isIndex = /<sitemapindex\b/i.test(xml);
   if (isIndex) {
@@ -414,13 +414,13 @@ function sitemapLinks(xml?: Loose, base?: Loose) {
 function shopifyItems(products?: Loose, base?: Loose) {
   return products.map((p: Loose) => {
     const v = (p.variants || [])[0] || {};
-    const stock = (p.variants || []).reduce((s: Loose, x: Loose) => (typeof x.inventory_quantity === 'number' ? s + Math.max(0, x.inventory_quantity) : s), 0);
+    const stock = (p.variants || []).reduce((s: number, x: { inventory_quantity: number; }) => (typeof x.inventory_quantity === 'number' ? s + Math.max(0, x.inventory_quantity) : s), 0);
     const anyStock = (p.variants || []).some((x: Loose) => typeof x.inventory_quantity === 'number');
     return fromRow({
       id: p.id, title: p.title, body_html: p.body_html, vendor: p.vendor, product_type: p.product_type,
       price: v.price, compare_at_price: v.compare_at_price, grams: v.grams,
       image: (p.images || []).map((i: Loose) => i.src), link: p.handle && base ? absUrl('/products/' + p.handle, base) : '',
-      quantity: anyStock ? stock : '', availability: (p.variants || []).length ? ((p.variants || []).some((x: Loose) => x.available !== false) ? 'in stock' : 'out of stock') : '',
+      quantity: anyStock ? stock : '', availability: (p.variants || []).length ? ((p.variants || []).some((x: { available: boolean; }) => x.available !== false) ? 'in stock' : 'out of stock') : '',
     }, base);
   });
 }
@@ -428,7 +428,7 @@ function wooItems(products?: Loose, base?: Loose) {
   return products.map((p: Loose) => {
     const pr = p.prices || {};
     const unit = Math.pow(10, Number(pr.currency_minor_unit ?? 0));
-    const val = (x?: Loose) => (x === undefined || x === null || x === '' ? '' : Number(x) / unit);
+    const val = (x: string | null | undefined) => (x === undefined || x === null || x === '' ? '' : Number(x) / unit);
     return fromRow({
       id: p.id, name: p.name, description: p.description, short_description: p.short_description,
       regular_price: val(pr.regular_price || pr.price), sale_price: pr.sale_price && pr.sale_price !== pr.regular_price ? val(pr.sale_price) : '',
@@ -437,7 +437,7 @@ function wooItems(products?: Loose, base?: Loose) {
     }, base);
   });
 }
-function flatObj(o?: Loose, prefix: Loose = '', out: Loose = {}) {
+function flatObj(o?: Loose, prefix = '', out: Loose = {}) {
   for (const [k, v] of Object.entries(o || {}) as [string, Loose][]) {
     if (v === null || v === undefined) continue;
     if (Array.isArray(v)) {
@@ -464,7 +464,7 @@ function jsonItems(data: Body, base?: Loose, notes?: Loose) {
 
 // ---------------------------------------------------------------- HTML product page
 const PRODUCT_PATH = /\/(products?|p|item|items|shop|details?|pd|dp|buy|goods)\/[^/?#]+/i;
-function ldNodes(html?: Loose) {
+function ldNodes(html: string) {
   const out: Loose[] = [];
   for (const m of html.matchAll(/<script\b[^>]*type=["']?application\/ld\+json["']?[^>]*>([\s\S]*?)<\/script>/gi)) {
     let data;
@@ -484,7 +484,7 @@ function ldNodes(html?: Loose) {
   return out;
 }
 const isType = (n?: Loose, t?: Loose) => ([] as Loose[]).concat(n['@type'] || []).some((x) => String(x).toLowerCase() === t);
-function metaTags(html?: Loose) {
+function metaTags(html: string) {
   const m = new Map();
   for (const tag of html.matchAll(/<meta\b[^>]+>/gi)) {
     const t = tag[0];
@@ -515,7 +515,7 @@ function ldProduct(n?: Loose, base?: Loose, meta?: Loose) {
 // The price as printed on a product page: only when the page's main heading is this product
 // (so a category page is never read as one product), and only the first ৳/Tk price after it.
 const PRICE_TXT = /(?:৳|&#2547;|\bTk\.?|\bBDT|টাকা)\s*([০-৯\d][০-৯\d,]*(?:\.\d+)?)|([০-৯\d][০-৯\d,]*(?:\.\d+)?)\s*(?:৳|টাকা|\bTk\b)/i;
-function visiblePrice(html?: Loose, title?: Loose) {
+function visiblePrice(html: string, title?: Loose) {
   const want = oneLine(title).toLowerCase().replace(/\s+/g, ' ').slice(0, 40);
   if (want.length < 3) return null;
   const re = /<h1\b[^>]*>([\s\S]{0,600}?)<\/h1>/gi;
@@ -599,7 +599,7 @@ function dirOf(u?: Loose) {
   try { const x = new URL(u); return x.hostname.replace(/^www\./, '').toLowerCase() + x.pathname.replace(/[^/]*$/, ''); } catch (_) { return ''; }
 }
 // "folder shared by every product" — not safe for the folder rule
-function sharedDir(dir?: Loose) {
+function sharedDir(dir: string) {
   const path = dir.replace(/^[^/]*/, '');
   if (!path || path === '/') return true;
   const last = path.replace(/\/$/, '').split('/').pop() || '';
@@ -608,14 +608,14 @@ function sharedDir(dir?: Loose) {
   return false;
 }
 // same picture in another size: a-150x150.jpg, a_thumb.webp, a.jpg?w=200 → one key
-function picKey(u?: Loose) {
+function picKey(u: string | URL) {
   try {
     const x = new URL(u);
     return (x.hostname.replace(/^www\./, '') + x.pathname).toLowerCase()
       .replace(/[-_](\d{2,4}x\d{2,4}|thumb|thumbnail|small|medium|large|scaled)(?=\.\w+$)/, '');
   } catch (_) { return String(u).toLowerCase(); }
 }
-function galleryImages(html?: Loose, base?: Loose, main: Loose = '') {
+function galleryImages(html?: Loose, base?: Loose, main = '') {
   const text = decodeEntities(String(html || ''))
     .replace(/\\u002[fF]/g, '/').replace(/\\u0026/g, '&').replace(/\\\//g, '/');
   const meta = metaTags(String(html || ''));
@@ -627,7 +627,7 @@ function galleryImages(html?: Loose, base?: Loose, main: Loose = '') {
   const mainAbs = absUrl(main, base);
   // Is this really that product's page? (its main picture's file name appears on it)
   // A page that moved to the home page or another product is never used.
-  const fileOf = (u?: Loose) => { try { return decodeURIComponent(new URL(u).pathname.split('/').pop() || '').toLowerCase(); } catch (_) { return ''; } };
+  const fileOf = (u: string | URL) => { try { return decodeURIComponent(new URL(u).pathname.split('/').pop() || '').toLowerCase(); } catch (_) { return ''; } };
   const lower = text.toLowerCase();
   const mainName = fileOf(mainAbs);
   const mainFile = mainName.replace(/\.\w+$/, '');
@@ -637,8 +637,8 @@ function galleryImages(html?: Loose, base?: Loose, main: Loose = '') {
   // one entry per picture; of its sizes, the plain full-size link wins
   const found = new Map();
   const mainKey = mainAbs ? picKey(mainAbs) : '';
-  const plain = (u?: Loose) => !/[?#]/.test(u) && !/[-_](\d{2,4}x\d{2,4}|thumb|thumbnail|small|medium)(?=\.\w+$)/i.test(u);
-  const add = (u?: Loose) => {
+  const plain = (u: string) => !/[?#]/.test(u) && !/[-_](\d{2,4}x\d{2,4}|thumb|thumbnail|small|medium)(?=\.\w+$)/i.test(u);
+  const add = (u: string) => {
     const a = absUrl(u.startsWith('//') ? 'https:' + u : u, base);
     if (!/^https?:\/\//i.test(a) || /\.(svg|ico)(\?|$)/i.test(a)) return;
     const k = picKey(a);
@@ -660,7 +660,7 @@ function galleryImages(html?: Loose, base?: Loose, main: Loose = '') {
   return { images: [...found.values()].slice(0, 20), rule: dirs.size ? 'folder' : 'listed', folders: [...dirs], confirmed: true };
 }
 
-function productLinks(html?: Loose, base?: Loose) {
+function productLinks(html: string, base?: Loose) {
   const host = hostOf(base);
   const out = new Set();
   for (const m of html.matchAll(/<a\b[^>]*\bhref\s*=\s*["']([^"'#]+)["']/gi)) {
@@ -691,7 +691,7 @@ function decodeText(buf?: Loose, contentType: Loose = '') {
 }
 
 // What kind of content is this? (by the first bytes, not the file name)
-function sniff(buf?: Loose, name: Loose = '', contentType: Loose = '') {
+function sniff(buf?: Loose, name = '', contentType = '') {
   if (Buffer.isBuffer(buf) && buf.length > 4 && buf.readUInt32LE(0) === 0x04034b50) return 'xlsx';
   if (Buffer.isBuffer(buf) && buf.length > 8 && buf.readUInt32LE(0) === 0xe011cfd0) return 'xls';
   const head = decodeText(Buffer.isBuffer(buf) ? buf.subarray(0, 4096) : String(buf).slice(0, 4096), contentType).trimStart();
@@ -706,7 +706,7 @@ function sniff(buf?: Loose, name: Loose = '', contentType: Loose = '') {
 }
 
 // Parse already-downloaded content. Returns { items, links, next, format, notes }
-function parseContent(buf?: Loose, { name = '', contentType = '', baseUrl = '' }: Body = {}) {
+function parseContent(buf: Buffer<ArrayBuffer>, { name = '', contentType = '', baseUrl = '' }: Body = {}) {
   const notes: Loose[] = [];
   const kind = sniff(buf, name, contentType);
   if (kind === 'xls') return { items: [], format: 'xls', notes, error: 'পুরোনো .xls ফাইল পড়া যায় না। Excel-এ খুলে "Save As" → "Excel Workbook (.xlsx)" বা "CSV UTF-8" হিসেবে সেভ করে আবার দিন।' };

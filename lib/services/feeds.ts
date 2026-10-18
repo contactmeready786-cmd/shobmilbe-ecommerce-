@@ -6,6 +6,7 @@ import * as db from '../db';
 import * as $autoseo from './autoseo';
 import * as $security from '../security';
 import type { Body, Loose, Settings } from '../types';
+import type { FullProduct } from '../models/catalog';
 
 const CHANNELS: Record<string, Loose> = {
   google: { title: 150, desc: 5000, extraImages: 10, label: 'Google Merchant Center' },
@@ -17,7 +18,7 @@ const MIN_IMAGE: Record<string, Loose> = { google: 100, facebook: 500 };
 function cleanText(v?: Loose) {
   return String(v ?? '').replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F￾￿]/g, '');
 }
-function xml(v?: Loose) {
+function xml(v: string) {
   return cleanText(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
 }
 function csvCell(v?: Loose) {
@@ -45,7 +46,7 @@ function plainText(md?: Loose) {
     .replace(/\s+/g, ' ')
     .trim();
 }
-function priceStr(n?: Loose) { return `${(Math.max(0, Number(n) || 0)).toFixed(2)} BDT`; }
+function priceStr(n: number) { return `${(Math.max(0, Number(n) || 0)).toFixed(2)} BDT`; }
 
 async function loadProducts(settings: Settings) {
   const includeOut = settings.feed_include_out !== '0';
@@ -83,7 +84,7 @@ function check(p?: Loose, channel?: Loose) {
   return { ok: !problems.length, problems, warnings };
 }
 
-function item(p: Loose, channel: Loose, settings: Settings, base: Loose) {
+function item(p: FullProduct, channel: string, settings: Settings, base: Loose) {
   const lim = CHANNELS[channel];
   const sale = p.old_price && Number(p.old_price) > Number(p.price);
   const brand = cut(p.brand || settings.feed_brand || settings.store_name || 'Generic', channel === 'google' ? 70 : 100);
@@ -114,8 +115,8 @@ function item(p: Loose, channel: Loose, settings: Settings, base: Loose) {
   };
 }
 
-function toXml(items: Loose, channel: Loose, settings: Settings, base: Loose) {
-  const tag = (k?: Loose, v?: Loose) => (v === '' || v === null || v === undefined ? '' : `<g:${k}>${xml(v)}</g:${k}>`);
+function toXml(items: Loose, channel: string | number, settings: Settings, base: Loose) {
+  const tag = (k: string, v: string | null | undefined) => (v === '' || v === null || v === undefined ? '' : `<g:${k}>${xml(v)}</g:${k}>`);
   const body = items.map((it: Loose) => '<item>' + [
     tag('id', it.id), tag('title', it.title), tag('description', it.description), tag('link', it.link),
     tag('image_link', it.image_link), ...it.additional_image_link.map((u: Loose) => tag('additional_image_link', u)),
@@ -151,7 +152,7 @@ function toTable(items?: Loose, channel?: Loose, sep?: Loose) {
   return [cols.join(sep), ...items.map((it: Loose) => cols.map((c) => cell(val(it, c))).join(sep))].join('\n') + '\n';
 }
 
-async function build(channel: Loose, settings: Settings, base: Loose) {
+async function build(channel: string, settings: Settings, base: string) {
   const products = await loadProducts(settings);
   const report = { total: products.length, included: 0, excluded: [] as Loose[], warnings: [] as Loose[] };
   const items: Loose[] = [];
@@ -166,7 +167,7 @@ async function build(channel: Loose, settings: Settings, base: Loose) {
 }
 
 // GET /feeds/google.xml?key=…  /feeds/facebook.csv?key=…
-async function serve({ query, settings, send, siteUrl, req }: Body, channel?: Loose, format?: Loose) {
+async function serve({ query, settings, send, siteUrl, req }: Body, channel: string, format: string) {
   const token = settings[`feed_${channel}_token`];
   if (!token || query.get('key') !== token) return send(404, 'Feed not found. Generate the feed link in Admin → মার্কেটিং → প্রোডাক্ট ফিড.', 'text/plain; charset=utf-8');
   const base = siteUrl.replace(/\/+$/, '');

@@ -20,6 +20,11 @@ import * as dupes from '../models/duplicates';
 import { bn } from '../util';
 import * as importer from './importer';
 import type { Body, Id, Loose } from '../types';
+import type { DbRow } from '../pg';
+
+
+
+
 
 const SEGMENTS: Record<string, string> = { electronics: 'ইলেকট্রনিক্স', electrical: 'ইলেকট্রিক্যাল', fashion: 'ফ্যাশন', other: 'অন্যান্য' };
 const UA_NAME = '*'; // follow the rules every robot must follow
@@ -53,7 +58,7 @@ function robotsRules(text?: Loose) {
       if (cur && (key === 'allow' || key === 'disallow')) cur.rules.push({ allow: key === 'allow', path: val });
     }
   }
-  const mine = groups.filter((g) => g.agents.some((a: Loose) => a !== '*' && UA_NAME.includes(a)));
+  const mine = groups.filter((g) => g.agents.some((a: string) => a !== '*' && UA_NAME.includes(a)));
   const star = groups.filter((g) => g.agents.includes('*'));
   return (mine.length ? mine : star).flatMap((g) => g.rules);
 }
@@ -68,7 +73,7 @@ function robotsAllow(rules?: Loose, pathAndQuery?: Loose) {
   }
   return !best || best.allow;
 }
-async function allowed(url?: Loose) {
+async function allowed(url: string | URL) {
   const u = new URL(url);
   const host = u.origin;
   let row = await one(`SELECT robots, fetched_at FROM research_hosts WHERE host=$1 AND fetched_at > now() - interval '1 day'`, [host]);
@@ -90,10 +95,10 @@ async function robotsSitemaps(origin?: Loose) {
   return [...String(row ? row.robots : '').matchAll(/^\s*sitemap\s*:\s*(\S+)/gim)].map((m) => m[1]).filter((u) => /^https?:\/\//i.test(u));
 }
 // pluggable for tests
-let fetchImpl = (url: Loose, opts: Body) => safeFetch(url, opts);
-function setFetch(fn?: Loose) { fetchImpl = fn || ((url: Loose, opts: Body) => safeFetch(url, opts)); }
+let fetchImpl = (url: string, opts: Body) => safeFetch(url, opts);
+function setFetch(fn?: Loose) { fetchImpl = fn || ((url, opts: Body) => safeFetch(url, opts)); }
 
-async function getJson(url?: Loose) {
+async function getJson(url: string) {
   if (!(await allowed(url))) { const e: Loose = new Error('এই দোকান রোবটকে এই তথ্য পড়তে দেয় না (robots.txt)।'); e.code = 'ROBOTS'; throw e; }
   const r = await fetchImpl(url, { maxBytes: 12 * 1024 * 1024, timeoutMs: 9000, accept: 'application/json' });
   if (!r.ok) { const e: Loose = new Error(`দোকান উত্তর দিয়েছে ${r.status}`); e.code = 'HTTP'; throw e; }
@@ -127,7 +132,7 @@ async function detect(input: Loose) {
   if (!home.ok) throw new Error(`দোকানের ওয়েবসাইট উত্তর দিয়েছে ${home.status} — হয়তো রোবট আটকে রাখে।`);
   return { kind: 'site', origin, name: u.hostname.replace(/^www\./, '') };
 }
-async function addSource(url?: Loose, segment?: Loose, name?: Loose, searchOnly: Loose = false) {
+async function addSource(url: string, segment: string, name: string, searchOnly = false) {
   const d = await detect(url);
   const seg = SEGMENTS[segment] ? segment : 'other';
   await q(`INSERT INTO research_sources(url, name, kind, segment, search_only) VALUES($1,$2,$3,$4,$5)
@@ -136,8 +141,8 @@ async function addSource(url?: Loose, segment?: Loose, name?: Loose, searchOnly:
 }
 
 // ---------------------------------------------------------------- reading one shop
-const num = (v?: Loose) => { const n = Number(v); return Number.isFinite(n) ? Math.round(n * 100) / 100 : null; };
-function cleanText(s?: Loose) { return String(s || '').replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '&').replace(/&#0?39;|&#8217;/g, "'").replace(/&quot;/g, '"').replace(/&nbsp;/g, ' ').replace(/&#8211;/g, '–').replace(/\s+/g, ' ').trim(); }
+const num = (v: number) => { const n = Number(v); return Number.isFinite(n) ? Math.round(n * 100) / 100 : null; };
+function cleanText(s: string) { return String(s || '').replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '&').replace(/&#0?39;|&#8217;/g, "'").replace(/&quot;/g, '"').replace(/&nbsp;/g, ' ').replace(/&#8211;/g, '–').replace(/\s+/g, ' ').trim(); }
 
 async function upsert(sourceId?: Id, it?: Loose) {
   await q(`INSERT INTO research_items(source_id, ext_id, title, url, image, category, price, regular_price, in_stock, rank, rank_ref, rank_ref_at, best_rank, rating, reviews)
@@ -159,7 +164,7 @@ async function upsert(sourceId?: Id, it?: Loose) {
     String(it.category || '').slice(0, 120), it.price, it.regular_price, it.in_stock, it.rank ?? null, it.rating, it.reviews || 0]);
 }
 
-async function readWoo(src?: Loose, started?: Loose) {
+async function readWoo(src: DbRow, started: number) {
   let n = 0;
   for (let page = 1; page <= RANK_PAGES; page++) {
     const list = await getJson(`${src.url}/wp-json/wc/store/v1/products?orderby=popularity&order=desc&per_page=100&page=${page}`);
@@ -198,7 +203,7 @@ async function readWoo(src?: Loose, started?: Loose) {
   }
   return n;
 }
-async function readShopify(src?: Loose, started?: Loose) {
+async function readShopify(src: DbRow, started: number) {
   let n = 0;
   for (let page = 1; page <= SHOPIFY_PAGES; page++) {
     const d = await getJson(`${src.url}/products.json?limit=250&page=${page}`);
@@ -206,13 +211,13 @@ async function readShopify(src?: Loose, started?: Loose) {
     if (!list.length) break;
     for (const p of list) {
       const vs = p.variants || [];
-      const prices = vs.map((v: Loose) => num(v.price)).filter((x: Loose) => x !== null);
+      const prices = vs.map((v: Loose) => num(v.price)).filter((x: null) => x !== null);
       const price = prices.length ? Math.min(...prices) : null;
-      const cmp = vs.map((v: Loose) => num(v.compare_at_price)).filter((x: Loose) => x !== null && x > 0);
+      const cmp = vs.map((v: Loose) => num(v.compare_at_price)).filter((x: number | null) => x !== null && x > 0);
       await upsert(src.id, {
         ext_id: p.id, title: cleanText(p.title), url: `${src.url}/products/${p.handle}`, image: (p.images && p.images[0] && p.images[0].src) || '',
         category: p.product_type || '', price, regular_price: cmp.length && price && Math.max(...cmp) > price ? Math.max(...cmp) : null,
-        in_stock: vs.some((v: Loose) => v.available !== false), rank: null, rating: null, reviews: 0,
+        in_stock: vs.some((v: { available: boolean; }) => v.available !== false), rank: null, rating: null, reviews: 0,
       });
       n++;
     }
@@ -233,7 +238,7 @@ const NOT_PRODUCT = /\/(cart|checkout|account|my-account|login|signin|sign-in|re
 const FILE_EXT = /\.(jpe?g|png|gif|webp|svg|pdf|zip|css|js|xml|json|txt|ico|mp4|mp3)(\?|$)/i;
 const RANK_WORDS = /best[\s_-]*sell|top[\s_-]*sell|most[\s_-]*popular|popular|trending|hot[\s_-]*(deals?|items?|products?)|bestseller|জনপ্রিয়|বেশি বিক্রি|সর্বাধিক বিক্রি/i;
 const hostKey = (u?: Loose) => { try { return new URL(u).hostname.replace(/^www\./, '').toLowerCase(); } catch (_) { return ''; } };
-function cleanLink(u: Loose, base: Loose) {
+function cleanLink(u: string | URL, base: string | URL | undefined) {
   let x;
   try { x = new URL(u, base); } catch (_) { return ''; }
   if (!/^https?:$/.test(x.protocol) || hostKey(x.href) !== hostKey(base)) return '';
@@ -243,7 +248,7 @@ function cleanLink(u: Loose, base: Loose) {
   return x.toString().slice(0, 600);
 }
 // Does this path look like one product (long name, numbers) rather than a category?
-function productish(path?: Loose) {
+function productish(path: string) {
   if (importer.PRODUCT_PATH.test(path)) return true;
   const last = decodeURIComponent(path.split('/').filter(Boolean).pop() || '');
   return last.length >= 18 && (last.match(/-/g) || []).length >= 3;
@@ -270,7 +275,7 @@ function pageLinks(html: Loose, base: Loose) {
   return out;
 }
 // <url><loc>…</loc><lastmod>…</lastmod></url> → [{ url, lastmod }]; index → child sitemaps
-function readSitemap(xml: Loose, base: Loose) {
+function readSitemap(xml: string, base: Loose) {
   const isIndex = /<sitemapindex\b/i.test(xml.slice(0, 3000));
   const out: Loose[] = [];
   for (const m of xml.matchAll(/<(?:url|sitemap)\b[^>]*>([\s\S]*?)<\/(?:url|sitemap)>/gi)) {
@@ -326,7 +331,7 @@ async function currentRank(srcId?: Id, url?: Loose) {
   const r = await one('SELECT rank_hint FROM research_queue WHERE source_id=$1 AND url=$2', [srcId, url]);
   return r ? r.rank_hint : null;
 }
-async function readSite(src?: Loose, started?: Loose) {
+async function readSite(src: DbRow, started: number) {
   const until = started + 10500;
   if (!src.seeded_at || Date.now() - new Date(src.seeded_at).getTime() > 20 * 3600 * 1000) await seedSite(src);
   const batch = await q(`SELECT * FROM research_queue WHERE source_id=$1 AND fails < 3 AND (
@@ -344,7 +349,7 @@ async function readSite(src?: Loose, started?: Loose) {
   if (!batch.length) return { n: 0, pages: 0, failed: 0 };
   let n = 0, pages = 0, failed = 0, blocked = 0;
   const lastErr: Loose[] = [];
-  const work = async (row?: Loose) => {
+  const work = async (row: DbRow) => {
     if (Date.now() > until - 1500) return;
     try {
       if (!(await allowed(row.url))) {
@@ -477,7 +482,7 @@ async function tick({ force = false }: Body = {}) {
 }
 
 // ---------------------------------------------------------------- this shop's own signals
-async function demand(days: Loose = 30) {
+async function demand(days = 30) {
   const searches = await q(`SELECT lower(trim(label)) AS term, count(*)::int AS times, count(DISTINCT visitor_id)::int AS people, max(created_at) AS last
     FROM visit_events WHERE event='search' AND label <> '' AND created_at > now() - make_interval(days => $1::int)
     GROUP BY 1 ORDER BY times DESC LIMIT 40`, [days]);
@@ -503,7 +508,7 @@ function dice(a: Loose, b: Body) {
   return (2 * both) / (a.pairs.n + b.pairs.n);
 }
 const median = (a?: Loose) => { const s = [...a].sort((x, y) => x - y); return s.length ? (s.length % 2 ? s[(s.length - 1) / 2] : (s[s.length / 2 - 1] + s[s.length / 2]) / 2) : null; };
-function niceDown(n?: Loose) { if (!n) return null; if (n < 60) return Math.floor(n); if (n < 200) return Math.floor(n / 5) * 5; if (n < 2000) return Math.floor(n / 10) * 10 - (n >= 100 ? 0 : 0); return Math.floor(n / 50) * 50; }
+function niceDown(n: number) { if (!n) return null; if (n < 60) return Math.floor(n); if (n < 200) return Math.floor(n / 5) * 5; if (n < 2000) return Math.floor(n / 10) * 10 - (n >= 100 ? 0 : 0); return Math.floor(n / 50) * 50; }
 function searchText(title?: Loose) { return dupes.words(title).filter((w) => !/^\d+$/.test(w)).slice(0, 6).join(' ') || title.slice(0, 50); }
 
 async function winners({ segment = '', limit = 60, margin = 30, mine = null }: Body = {}) {
@@ -541,14 +546,14 @@ async function winners({ segment = '', limit = 60, margin = 30, mine = null }: B
   }
   for (const g of groups) {
     const shops = new Set(g.items.map((i: Loose) => i.source_id));
-    const prices = g.items.map((i: Loose) => Number(i.price)).filter((x: Loose) => x > 0);
+    const prices = g.items.map((i: Loose) => Number(i.price)).filter((x: number) => x > 0);
     g.shops = shops.size;
     g.min = Math.min(...prices); g.max = Math.max(...prices); g.median = median(prices);
     g.score = Math.max(...g.items.map((i: Loose) => i.score)) + (shops.size - 1) * 15;
     g.why = [...new Set(g.items.flatMap((i: Loose) => i.why))];
     if (shops.size > 1) g.why.unshift(`${bn(shops.size)}টি দোকানে বিক্রি হচ্ছে`);
     // customers searched for it here
-    const t = terms.find((x) => x.prep.ws.length && x.prep.ws.every((w: Loose) => g.lead.prep.ws.some((v: Loose) => v.startsWith(w) || w.startsWith(v))));
+    const t = terms.find((x) => x.prep.ws.length && x.prep.ws.every((w: string) => g.lead.prep.ws.some((v: string) => v.startsWith(w) || w.startsWith(v))));
     if (t) { g.score += 20 + Math.min(20, t.times); g.why.unshift(`আপনার সাইটে "${t.term}" খোঁজা হয়েছে ${bn(t.times)} বার${t.found ? '' : ' — কিন্তু পায়নি!'}`); g.searched = t; }
     g.sell = niceDown(g.median * 0.98);
     g.buyMax = g.sell ? Math.floor(g.sell * (1 - margin / 100)) : null;
@@ -584,10 +589,10 @@ function modelCodes(ws?: Loose) {
   }
   return out;
 }
-const near = (a: Loose, b: Loose) => a === b || (a.length >= 4 && b.length >= 4 && (a.startsWith(b) || b.startsWith(a)));
+const near = (a: string, b: string) => a === b || (a.length >= 4 && b.length >= 4 && (a.startsWith(b) || b.startsWith(a)));
 // share of a's words found in b
 function cover(a: Loose, b: Body) {
-  const ws = a.filter((w: Loose) => !/^\d+$/.test(w));
+  const ws = a.filter((w: string) => !/^\d+$/.test(w));
   if (!ws.length) return 0;
   return ws.filter((w: Loose) => b.some((v: Loose) => near(w, v))).length / ws.length;
 }
@@ -598,7 +603,7 @@ function sameProduct(a: Loose, b: Body) {
   if (!b.codes) b.codes = modelCodes(b.ws);
   let d = dice(a, b);
   // same kind of size with a different value (40W vs 60W, 12V vs 24V) → a different product
-  const sizes = (p?: Loose) => { const m = new Map(); for (const w of p.ws) { const x = w.match(/^(\d+(?:p\d+)?)([a-z]+)$/); if (x && UNIT_ONLY.test(w)) { if (!m.has(x[2])) m.set(x[2], new Set()); m.get(x[2]).add(x[1]); } } return m; };
+  const sizes = (p: Body) => { const m = new Map(); for (const w of p.ws) { const x = w.match(/^(\d+(?:p\d+)?)([a-z]+)$/); if (x && UNIT_ONLY.test(w)) { if (!m.has(x[2])) m.set(x[2], new Set()); m.get(x[2]).add(x[1]); } } return m; };
   const sa = sizes(a), sb = sizes(b);
   for (const [u, vals] of sa) if (sb.has(u) && ![...vals].some((v) => sb.get(u).has(v))) { d = Math.min(d, 0.6); return d; }
   if (a.codes.size && b.codes.size) {
@@ -655,7 +660,7 @@ function refsFor(item?: Loose) {
   try { slug = slugOf(new URL(item.url).pathname); } catch (_) { /* none */ }
   return { host, refs: [...refs].map((r) => r.slice(0, 300)), slug };
 }
-function matchOurs(prep?: Loose, oursPrep?: Loose, min: Loose = 0.72, item: Loose = null) {
+function matchOurs(prep?: Loose, oursPrep?: Loose, min = 0.72, item: Loose = null) {
   const found = new Map();
   const put = (p?: Loose, match?: Loose, via?: Loose) => { if (!found.has(p.id) || found.get(p.id).match < match) found.set(p.id, { id: p.id, name: p.name, price: p.price, cost_price: p.cost_price, active: p.active, match, via }); };
   // 1) copied from exactly this shop page / this shop's product
@@ -682,7 +687,7 @@ const searchHint = new Map(); // shop → the search address that worked
 const MADE_STRONG = /\b(board|module|modul|kit|shield|breakout|pcb|circuit|diy)\b|বোর্ড|মডিউল|কিট|সার্কিট/i;
 const MADE_SOFT = /\b(amplifier|amp|converter|supply|charger|controller|driver|speaker|system)\b|অ্যামপ্লিফায়ার|এম্পলিফায়ার/i;
 const IS_PART = /\b(ic|chip|transistor|regulator ic|to-?220|to-?92|to-?3p?|dip-?\d*|sop-?\d*|pentawatt)\b|আইসি/i;
-const madeWith = (t?: Loose) => MADE_STRONG.test(t) || (MADE_SOFT.test(t) && !IS_PART.test(t));
+const madeWith = (t: string) => MADE_STRONG.test(t) || (MADE_SOFT.test(t) && !IS_PART.test(t));
 const recentLive = new Map(); // search words → when every shop was last searched for them
 // ---- what a search means: part numbers must be there, words mostly there
 // "7812", "LM7812", "LM 7812", "78 12" → part 7812 (found in L7812CV, LM7812, KA7812 — not in 7912 or 78121)
@@ -711,7 +716,7 @@ function searchQuery(term?: Loose) {
 }
 const compact = (s?: Loose) => dupes.words(s).join(' ');
 // is the part number in this name? digits must stand alone (7812 ≠ 78121, 17812)
-function hasPart(name?: Loose, part?: Loose) {
+function hasPart(name: string, part?: Loose) {
   if (name.includes(part.full)) return 1;
   const re = new RegExp(`(^|[^0-9])${part.core}([^0-9]|$)`);
   if (part.core !== part.full && re.test(name)) {
@@ -730,7 +735,7 @@ function searchFit(sq?: Loose, title?: Loose) {
   let score = 1;
   for (const p of sq.parts) { const h = hasPart(name, p); if (!h) return 0; score = Math.min(score, h); }
   // a size asked for (12v): a name with the same kind of size but another value is a different product
-  for (const w of sq.words.filter((x: Loose) => UNIT_ONLY.test(x))) {
+  for (const w of sq.words.filter((x: string) => UNIT_ONLY.test(x))) {
     const unit = w.replace(/^[\dp]+/, '');
     const same = tws.filter((v) => UNIT_ONLY.test(v) && v.replace(/^[\dp]+/, '') === unit);
     if (same.length && !same.includes(w)) return 0;
@@ -816,7 +821,7 @@ async function liveSite(src?: Loose, term?: Loose, termPrep?: Loose, until?: Loo
   return 0;
 }
 
-async function searchMarket(term?: Loose, { live = true, fresh = false, budgetMs = 24000 }: Body = {}) {
+async function searchMarket(term: string, { live = true, fresh = false, budgetMs = 24000 }: Body = {}) {
   term = String(term || '').replace(/\s+/g, ' ').trim().slice(0, 80);
   const termPrep = prepFull(term);
   const sq0 = searchQuery(term);
@@ -873,11 +878,11 @@ async function searchMarket(term?: Loose, { live = true, fresh = false, budgetMs
     items.push(r);
   }
   // another shop's listing of a product we copied from shop X counts too (its name may match X's, not ours)
-  const known = items.filter((r) => r.ours.some((m: Loose) => m.via === 'link'));
+  const known = items.filter((r) => r.ours.some((m: { via: string; }) => m.via === 'link'));
   for (const r of items) {
     if (r.ours.length) continue;
     for (const k of known) {
-      if (sameProduct(r.prep, k.prep) >= 0.8) { r.ours = k.ours.filter((m: Loose) => m.via === 'link').map((m: Loose) => ({ ...m, match: 0.88, via: 'other-shop' })); break; }
+      if (sameProduct(r.prep, k.prep) >= 0.8) { r.ours = k.ours.filter((m: { via: string; }) => m.via === 'link').map((m: Loose) => ({ ...m, match: 0.88, via: 'other-shop' })); break; }
     }
   }
   // the part itself, or a board / module / kit made with it?
@@ -905,7 +910,7 @@ async function status() {
     (SELECT max(last_ok) FROM research_sources) AS last_ok`);
 }
 
-function sourcingLinks(term?: Loose) {
+function sourcingLinks(term: string | number | boolean) {
   const e = encodeURIComponent(term);
   return [
     ['1688 (চীনের পাইকারি)', `https://s.1688.com/selloffer/offer_search.htm?keywords=${e}`],

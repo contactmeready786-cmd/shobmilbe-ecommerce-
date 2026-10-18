@@ -20,12 +20,13 @@ import * as $seo from './seo';
 import * as $util from '../util';
 import * as $admin_status from './seoscore';
 import type { Body, Id, Loose, Settings } from '../types';
+import type { FullProduct } from '../models/catalog';
 
 const EVERY_MS = 9 * 60 * 1000;
 const PER_RUN = 40;
 const OWN_TEXT_ENOUGH = 150; // own description at least this long → no auto text
 
-const money = (n?: Loose) => '৳' + bn(Math.round(Number(n) || 0).toLocaleString('en-IN'));
+const money = (n: number) => '৳' + bn(Math.round(Number(n) || 0).toLocaleString('en-IN'));
 const cleanName = (n?: Loose) => $seo.cleanName(n);
 
 // ---------------------------------------------------------------- 1. model / part number from the name
@@ -34,7 +35,7 @@ const UNIT = /^\d+(?:\.\d+)?(?:v|vac|vdc|w|kw|a|ma|mah|ah|mm|cm|m|km|k|kg|g|mg|o
 const RANGE = /^\d+(?:\.\d+)?[a-z]{0,4}[-~]\d/i;
 const SIZE = /^\d+(?:\.\d+)?x\d+(?:\.\d+)?(?:x\d+(?:\.\d+)?)?[a-z]*$/i;
 const GENERIC = /^(?:i2c|iic|spi|uart|ttl\d*|ps2|rs\d{3}|db\d+|m\d|cr\d{4}|ag\d+|lr\d+|usb\d*(?:\.\d)?|dc\d*|ac\d*|led\d*|rgb\d*|ip\d+|type-?[abc]\d*|hdmi\d*|wi-?fi\d*|cat\d+[a-z]?|v\d+(?:\.\d+)*|ver\d*|r\d|mk\d+|gen\d+|bt\d(?:\.\d)?|[2345]g|[48]k|\d{3,4}p|a\d|aa+|aaa|ble\d*|lipo\d*|li-?ion\d*|\d+s\d*p?|sma\d*|smd\d*|dip\d*|to-?\d+|sot-?\d+|qfn\d*|\d+[a-z]{1,3}\d*(?:x|\*)\d+.*)$/i;
-function extractModel(name?: Loose) {
+function extractModel(name: string) {
   const tokens = String(name || '').replace(/[()[\]{},;:|/+&"“”'’]/g, ' ').split(/\s+/).map((t) => t.replace(/^[-.]+|[-.]+$/g, '')).filter(Boolean);
   for (const t of tokens) {
     if (t.length < 3 || t.length > 20) continue;
@@ -79,12 +80,12 @@ function extractSpecs(...texts: Loose[]) {
 // ---------------------------------------------------------------- 3. the description
 const pick = (list?: Loose, seed?: Loose) => list[Math.abs(seed) % list.length];
 function seedOf(id?: Id) { let h = 7; for (const ch of String(id)) h = (h * 31 + ch.charCodeAt(0)) | 0; return h; }
-function ownTextLength(p?: Loose) { return md.plain(`${p.short_description || ''} ${p.description || ''}`, 5000).trim().length; }
+function ownTextLength(p: db.pg.DbRow) { return md.plain(`${p.short_description || ''} ${p.description || ''}`, 5000).trim().length; }
 function needsAuto(p?: Loose, settings: Settings = {} as Settings) { return settings.autoseo_desc !== '0' && ownTextLength(p) < OWN_TEXT_ENOUGH; }
 function cheapRule(settings: Settings, price?: Loose) { try { return $util.qtyRule(settings, price).cheap; } catch (_) { return false; } }
 
 // a short paragraph — meta description, feeds, Google's product description
-function summary(p?: Loose) {
+function summary(p: FullProduct) {
   const name = cleanName(p.name);
   const k = kindOf(name, p.category_name);
   const what = k ? k.what : p.category_name ? `${p.category_name} ক্যাটাগরির পণ্য` : 'পণ্য';
@@ -92,7 +93,7 @@ function summary(p?: Loose) {
 }
 
 // for the Google snippet, after "<name> কিনুন ৳…।": what it is and what it is for
-function metaLine(p?: Loose, room: Loose = 999) {
+function metaLine(p?: Loose, room = 999) {
   const k = kindOf(cleanName(p.name), p.category_name);
   if (!k) return '';
   const full = `${k.what}${p.model ? ` (${p.model})` : ''}। ${k.uses}`.replace(/\s+/g, ' ').trim();
@@ -100,7 +101,7 @@ function metaLine(p?: Loose, room: Loose = 999) {
 }
 
 // The full description (markdown). With settings, the price and delivery charges of today are in the questions.
-function describe(p?: Loose, settings: Settings = {} as Settings) {
+function describe(p: db.pg.DbRow, settings: Settings = {} as Settings) {
   const name = cleanName(p.name);
   const shop = settings.store_name || 'সবমিলবে';
   const k = kindOf(name, p.category_name);
@@ -147,7 +148,7 @@ function describe(p?: Loose, settings: Settings = {} as Settings) {
 // ---------------------------------------------------------------- the round-the-clock sweep
 const LOG_FIELDS: Record<string, string> = { model: 'মডেল নম্বর', specs: 'স্পেসিফিকেশন' };
 
-async function processOne(p: Loose, settings: Settings) {
+async function processOne(p: db.pg.DbRow, settings: Settings) {
   const changes: Loose[] = [];
   const past = await db.q(`SELECT field, new_value FROM seo_auto_log WHERE product_id=$1`, [p.id]);
   // 🔢 model: only when empty, and never again after the owner removed / changed one we filled
@@ -185,7 +186,7 @@ async function processOne(p: Loose, settings: Settings) {
 }
 
 // Once a day: the shop's SEO score is written down, so the owner sees it climb.
-async function snapshot(force: Loose = false) {
+async function snapshot(force = false) {
   const day = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Dhaka' }).format(new Date());
   if (!force) {
     const had = await db.one('SELECT 1 FROM seo_score_history WHERE day=$1', [day]).catch(() => null);
@@ -254,7 +255,7 @@ async function stats(): Promise<Loose> {
   const autoDesc = own.filter((p) => ownTextLength(p) < OWN_TEXT_ENOUGH).length;
   return { ...a, ...b, autoDesc, hist };
 }
-async function recent(limit: Loose = 40) {
+async function recent(limit = 40) {
   return db.q(`SELECT l.*, p.name, p.slug FROM seo_auto_log l JOIN products p ON p.id=l.product_id ORDER BY l.id DESC LIMIT $1`, [limit]);
 }
 

@@ -4,6 +4,7 @@ import * as db from '../db';
 import { fetchJson, sha256 } from '../util';
 import * as $security from '../security';
 import type { Loose, Settings, ShopRequest } from '../types';
+import type { OrderLine } from '../models/orders';
 
 function phoneE164(p?: Loose) { return '88' + String(p || '').replace(/\D/g, '').replace(/^88/, ''); }
 
@@ -45,7 +46,7 @@ async function facebookPurchase(order: Loose, settings: Settings, req: ShopReque
   else await logOk('facebook', 'capi_purchase', order.code);
 }
 // Success is written at most once an hour (enough for the "সংযোগের অবস্থা" page, without filling the log).
-async function logOk(service?: Loose, action?: Loose, ref?: Loose) {
+async function logOk(service: string, action: string, ref?: Loose) {
   if (await $security.hit(db, 'log:ok:' + service, 1, 3600)) await db.logIntegration(service, action, true, 'ইভেন্ট পাঠানো হয়েছে', ref);
 }
 

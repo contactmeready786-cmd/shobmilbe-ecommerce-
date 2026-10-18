@@ -104,7 +104,7 @@ const UNIVERSAL = /universal|1000 in 1|\d+ brands|master remote/;
 
 // ---------------------------------------------------------------- rules (first match wins)
 const R: Loose[] = [];
-const rule = (slug?: Loose, re?: Loose, not?: Loose) => R.push([slug, re, not || null]);
+const rule = (slug: string, re: RegExp, not?: RegExp | undefined) => R.push([slug, re, not || null]);
 // fashion / home first (their words are clear)
 rule('digital-products', /gift ?card|license key|licen[cs]e|activation key|product key|subscription|premium account|e-?book|online course|software|ডিজিটাল/);
 rule('packaging', /bubble ?wrap|carton|courier (bag|poly|flyer)|poly ?bag|polythene|zipper bag|zip ?lock bag|packaging|packing (box|bag|material)|stretch (film|wrap)|shrink wrap|mailer (bag|box)|প্যাকেজিং|কার্টন/);

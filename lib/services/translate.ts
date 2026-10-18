@@ -20,8 +20,8 @@ const BRAND = [['সবমিলবে', 'Shobmilbe']];
 // same text → same key, whatever the spacing
 function norm(s?: Loose) { return String(s || '').replace(/\s+/g, ' ').trim(); }
 function hash(s?: Loose) { return crypto.createHash('sha256').update(norm(s)).digest('hex').slice(0, 32); }
-function hasBangla(s?: Loose) { return BN.test(s); }
-const latinDigits = (s?: Loose) => String(s).replace(/[০-৯]/g, (d) => String(BN_DIGITS.indexOf(d)));
+function hasBangla(s: string) { return BN.test(s); }
+const latinDigits = (s: string) => String(s).replace(/[০-৯]/g, (d) => String(BN_DIGITS.indexOf(d)));
 
 // ---------------------------------------------------------------- machine translation
 async function googleCloud(texts?: Loose, key?: Loose) {
@@ -34,7 +34,7 @@ async function googleCloud(texts?: Loose, key?: Loose) {
   if (!r.ok) throw new Error((j.error && j.error.message) || `Google Cloud ${r.status}`);
   return (j.data && j.data.translations || []).map((t: Loose) => t.translatedText || '');
 }
-async function googleFree(text?: Loose) {
+async function googleFree(text: string | number | boolean) {
   const u = 'https://translate.googleapis.com/translate_a/single?client=gtx&sl=bn&tl=en&dt=t&q=' + encodeURIComponent(text);
   const r = await fetch(u, { signal: AbortSignal.timeout(6000), headers: { 'User-Agent': 'Mozilla/5.0' } });
   if (!r.ok) throw new Error(`translate ${r.status}`);
@@ -44,7 +44,7 @@ async function googleFree(text?: Loose) {
 
 // The shop's name and Bangla digits are fixed before sending, so they always come back right.
 function prep(s?: Loose) { let t = latinDigits(norm(s)); for (const [b, e] of BRAND) t = t.split(b).join(e); return t; }
-function tidy(src?: Loose, out?: Loose) {
+function tidy(src: string, out?: Loose) {
   let t = String(out || '').replace(/\s+([,.!?;:%)])/g, '$1').replace(/([(])\s+/g, '$1').replace(/\s{2,}/g, ' ').trim();
   // keep the leading emoji / symbol exactly as it was (Google sometimes drops or moves it)
   const lead = src.match(/^[^\p{L}\p{N}"'(]+/u);
@@ -53,7 +53,7 @@ function tidy(src?: Loose, out?: Loose) {
 }
 
 // Translate a list of Bangla texts. Returns an array (empty string where it failed).
-async function machine(texts: Loose, settings: Settings, deadline?: Loose) {
+async function machine(texts: Loose, settings: Settings, deadline: number) {
   const key = String(settings.i18n_google_key || '').trim();
   const out = new Array(texts.length).fill('');
   const sent = texts.map(prep);
@@ -61,7 +61,7 @@ async function machine(texts: Loose, settings: Settings, deadline?: Loose) {
     // Cloud API takes many at once (max 128 per call)
     for (let i = 0; i < sent.length && Date.now() < deadline; i += 100) {
       const part = await googleCloud(sent.slice(i, i + 100), key);
-      part.forEach((t: Loose, j: Loose) => { out[i + j] = tidy(texts[i + j], t); });
+      part.forEach((t: Loose, j: number) => { out[i + j] = tidy(texts[i + j], t); });
     }
     return out;
   }
@@ -84,7 +84,7 @@ async function getMany(texts?: Loose) {
   if (rows.length) db.q('UPDATE translations SET hits = hits + 1, last_seen = now() WHERE hash = ANY($1::text[])', [rows.map((r) => r.hash)]).catch(() => {});
   return new Map(rows.map((r) => [r.hash, r.en]));
 }
-async function save(src?: Loose, en?: Loose, origin: Loose = 'auto') {
+async function save(src?: Loose, en?: Loose, origin = 'auto') {
   const s = norm(src);
   await db.q(`INSERT INTO translations(hash, src, en, origin) VALUES ($1, $2, $3, $4)
     ON CONFLICT (hash) DO UPDATE SET en = EXCLUDED.en, origin = EXCLUDED.origin, updated_at = now()
@@ -135,7 +135,7 @@ async function manualAll() {
 // translated the first time someone opens them in English).
 async function siteTexts(settings: Settings) {
   const out = new Set();
-  const add = (s?: Loose) => { const t = norm(s); if (t && hasBangla(t) && t.length <= MAX_LEN) out.add(t); };
+  const add = (s: string | undefined) => { const t = norm(s); if (t && hasBangla(t) && t.length <= MAX_LEN) out.add(t); };
   const rows = await db.q(`
     SELECT name AS t FROM products WHERE active IS NOT FALSE
     UNION SELECT name FROM categories
@@ -157,7 +157,7 @@ async function siteTexts(settings: Settings) {
 }
 
 // Admin "translate everything now": does one batch per call and says how many are left.
-async function fillBatch(settings: Settings, size: Loose = 60) {
+async function fillBatch(settings: Settings, size = 60) {
   const all = await siteTexts(settings);
   const have = await getMany(all);
   const missing = all.filter((t) => !have.has(hash(t)));

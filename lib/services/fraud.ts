@@ -11,7 +11,7 @@ import type { Body, Loose, Settings } from '../types';
 
 const CACHE_HOURS = 24;
 
-async function fraudbd(s?: Loose, phone?: Loose) {
+async function fraudbd(s: Settings, phone: string) {
   const key = String(s.fraudbd_api_key || '').trim();
   if (!key) return null;
   const ctrl = new AbortController();

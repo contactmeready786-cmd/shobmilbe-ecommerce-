@@ -34,7 +34,7 @@ const PROBE_RE = new RegExp([
 // Harmful code inside the address (path or query).
 const ATTACK_RE = /<\s*script|%3c\s*script|javascript:|union(\s|\+|%20|\/\*\*\/)+(all(\s|\+|%20)+)?select|\bsleep\s*\(\s*\d|benchmark\s*\(|\bwaitfor\s+delay\b|(\.\.\/){2,}|(\.\.%2f){2,}|\/etc\/(passwd|shadow)|\bonerror\s*=|\$\{jndi:|\bcmd\.exe\b|\/bin\/(ba)?sh\b/i;
 
-function header(req: ShopRequest, name?: Loose) {
+function header(req: ShopRequest, name: string) {
   const v = String((req && req.headers && req.headers[name]) || '').trim();
   try { return decodeURIComponent(v); } catch (_) { return v; }
 }
@@ -100,7 +100,7 @@ async function react(ip?: Loose, kind?: Loose, s?: Loose) {
 }
 
 // Called for every shop request (not the admin): looks at the address only, costs nothing for normal visitors.
-function inspect(req: ShopRequest, path: Loose, search: Loose, settings: Settings) {
+function inspect(req: ShopRequest, path: string, search: string, settings: Settings) {
   if (settings.guard_on === '0') return;
   let q = String(search || '');
   try { q = decodeURIComponent(q.replace(/\+/g, ' ')); } catch (_) { /* keep raw */ }
@@ -115,7 +115,7 @@ function inspect(req: ShopRequest, path: Loose, search: Loose, settings: Setting
 let cache: Loose = null;
 let cacheAt = 0;
 function resetCache() { cache = null; cacheAt = 0; }
-async function siteBlocked(ip?: Loose) {
+async function siteBlocked(ip: string) {
   if (!ip || ip === 'unknown') return false;
   if (!cache || Date.now() - cacheAt > 60e3) {
     try {
@@ -126,7 +126,7 @@ async function siteBlocked(ip?: Loose) {
   }
   return cache.has(ip);
 }
-async function blockSite(ip?: Loose, reason?: Loose, hours?: Loose, staffId?: Id) {
+async function blockSite(ip: string, reason: string, hours: number, staffId?: Id) {
   const v = String(ip || '').trim().slice(0, 64);
   if (!/^[0-9a-f:.]{3,64}$/i.test(v)) return false;
   await db.q(`INSERT INTO blocklist(kind, value, reason, created_by, expires_at) VALUES('site', $1, $2, $3, CASE WHEN $4::int > 0 THEN now() + make_interval(hours => $4::int) END)
@@ -135,7 +135,7 @@ async function blockSite(ip?: Loose, reason?: Loose, hours?: Loose, staffId?: Id
   resetCache();
   return true;
 }
-async function unblockSite(ip?: Loose) {
+async function unblockSite(ip: string) {
   await db.q(`DELETE FROM blocklist WHERE kind = 'site' AND value = $1`, [String(ip || '')]);
   resetCache();
 }
@@ -155,10 +155,10 @@ async function suspects({ days = 7, ip = '' }: Body = {}) {
     LEFT JOIN blocklist b ON b.kind = 'site' AND b.value = g.ip AND (b.expires_at IS NULL OR b.expires_at > now())
     ORDER BY g.last_at DESC LIMIT 200`, params);
 }
-async function events(ip?: Loose, limit: Loose = 200) {
+async function events(ip?: Loose, limit = 200) {
   return db.q<SecurityEventsRow>(`SELECT * FROM security_events WHERE ip = $1 ORDER BY id DESC LIMIT $2`, [ip, limit]);
 }
-async function summary(days: Loose = 7) {
+async function summary(days = 7) {
   return db.one(`SELECT count(DISTINCT ip)::int AS ips, count(*)::int AS n,
       count(*) FILTER (WHERE kind IN ('probe','attack'))::int AS hack, count(*) FILTER (WHERE kind = 'login_fail')::int AS logins,
       (SELECT count(*)::int FROM blocklist WHERE kind = 'site' AND (expires_at IS NULL OR expires_at > now())) AS blocked

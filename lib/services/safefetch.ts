@@ -16,7 +16,7 @@ import type { Body, Loose } from '../types';
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36';
 const PORTS = new Set(['', '80', '443', '8080', '8443']);
 
-function v4Private(ip?: Loose) {
+function v4Private(ip: string) {
   const p = ip.split('.').map(Number);
   if (p.length !== 4 || p.some((x: Loose) => !Number.isInteger(x) || x < 0 || x > 255)) return true;
   const [a, b] = p;
@@ -31,7 +31,7 @@ function v4Private(ip?: Loose) {
     || (a === 198 && b === 51 && p[2] === 100)
     || (a === 203 && b === 0 && p[2] === 113);
 }
-function isPrivate(ip?: Loose) {
+function isPrivate(ip: string) {
   const s = String(ip || '').toLowerCase().replace(/^\[|\]$/g, '').split('%')[0];
   if (net.isIPv4(s)) return v4Private(s);
   if (!net.isIPv6(s)) return true;
@@ -49,11 +49,11 @@ function isPrivate(ip?: Loose) {
 
 class FetchError extends Error {
   code?: string;
-  constructor(message?: Loose, code?: Loose) { super(message); this.code = code; }
+  constructor(message?: string | undefined, code?: string | undefined) { super(message); this.code = code; }
 }
 
 // Checked at connect time: the address really used is the address that was checked.
-function safeLookup(hostname: Loose, options: Body, cb?: Loose) {
+function safeLookup(hostname: string, options: Body, cb?: Loose) {
   if (typeof options === 'function') { cb = options; options = {}; }
   dns.lookup(hostname, { all: true, verbatim: true }, (err, addrs) => {
     if (err) return cb(err);
@@ -67,7 +67,7 @@ function safeLookup(hostname: Loose, options: Body, cb?: Loose) {
   });
 }
 
-function checkUrl(u?: Loose) {
+function checkUrl(u: string) {
   let url;
   try { url = new URL(String(u).trim()); } catch (_) { throw new FetchError('লিংকটি ঠিক নেই।', 'EURL'); }
   if (!['http:', 'https:'].includes(url.protocol)) throw new FetchError('শুধু http:// বা https:// লিংক দেওয়া যাবে।', 'EURL');
@@ -131,7 +131,7 @@ function once(url: Loose, { maxBytes, timeoutMs, accept, deadline, method = 'GET
 }
 
 // Returns { status, ok, body (Buffer), contentType, finalUrl }. Throws FetchError with a Bangla message.
-async function safeFetch(u?: Loose, { maxBytes = 15 * 1024 * 1024, timeoutMs = 12000, accept, maxRedirects = 5, method = 'GET', headers = {}, body = null }: Body = {}) {
+async function safeFetch(u: string, { maxBytes = 15 * 1024 * 1024, timeoutMs = 12000, accept, maxRedirects = 5, method = 'GET', headers = {}, body = null }: Body = {}) {
   const deadline = Date.now() + timeoutMs;
   let url = checkUrl(u);
   for (let i = 0; i <= maxRedirects; i++) {

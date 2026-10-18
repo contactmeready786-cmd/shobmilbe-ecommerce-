@@ -84,7 +84,7 @@ const FAVOURITE = /bangladesh|বাংলাদেশ|\bBAN\b|argentina|brazil/
 const cache = new Map(); // key -> { at, data, pending }
 const FRESH_MS = 12000;
 
-async function cached(key?: Loose, loader?: Loose) {
+async function cached(key: string, loader?: Loose) {
   const c = cache.get(key);
   if (c && c.data && Date.now() - c.at < FRESH_MS) return c.data;
   if (c && c.pending) return c.pending;
@@ -108,11 +108,11 @@ function stateOf(status?: Loose) {
   const st = t.state === 'in' || t.state === 'post' ? t.state : 'pre';
   return { state: st, completed: !!t.completed || st === 'post', detail: t.shortDetail || t.detail || t.description || '', description: t.description || '' };
 }
-function bool(v?: Loose) { return v === true || v === 'true'; }
+function bool(v: string | boolean) { return v === true || v === 'true'; }
 
 function sortMatches(list?: Loose) {
   const rank: Record<string, number> = { in: 0, pre: 1, post: 2 };
-  return list.sort((a: Loose, b: Loose) => (b.fav - a.fav) || (rank[a.state] - rank[b.state])
+  return list.sort((a: { fav: number; state: string; date: string | number | Date; }, b: { fav: number; state: string | number; date: string | number | Date; }) => (b.fav - a.fav) || (rank[a.state] - rank[b.state])
     || (a.state === 'post' ? +new Date(b.date) - +new Date(a.date) : +new Date(a.date) - +new Date(b.date)));
 }
 
@@ -149,7 +149,7 @@ async function loadCricket() {
       const comp = (e.competitions && e.competitions[0]) || {};
       const status = comp.status || e.status || {};
       const st = stateOf(status);
-      const teams = (comp.competitors || []).map(cricketTeam).sort((a: Loose, b: Loose) => a.order - b.order);
+      const teams = (comp.competitors || []).map(cricketTeam).sort((a: { order: number; }, b: { order: number; }) => a.order - b.order);
       if (teams.length < 2) continue;
       if (st.state === 'in' && now - new Date(e.date).getTime() > STALE_LIVE_MS) continue; // frozen old match
       out.push({
@@ -172,7 +172,7 @@ function footballTeam(c?: Loose) {
     score: c.score === undefined || c.score === null ? '' : String(c.score), winner: bool(c.winner), home: c.homeAway === 'home',
   };
 }
-async function loadLeague(code?: Loose) {
+async function loadLeague(code: string | number) {
   const r = await fetchJson(FOOTBALL_URL(code), { headers: { Accept: 'application/json' } }, 8000);
   if (!r.ok || !r.data) return [];
   const leagueName = LEAGUE_BN[code] || (r.data.leagues && r.data.leagues[0] && r.data.leagues[0].name) || code;
@@ -193,7 +193,7 @@ async function loadLeague(code?: Loose) {
 }
 async function loadFootball(leagues?: Loose) {
   // each league is cached on its own, so the admin overview and the store share the same requests
-  const lists = await Promise.all(leagues.map((l: Loose) => cached('fl:' + l, () => loadLeague(l)).catch(() => [])));
+  const lists = await Promise.all(leagues.map((l: string) => cached('fl:' + l, () => loadLeague(l)).catch(() => [])));
   const all = lists.flat();
   return { sport: 'football', updated: new Date().toISOString(), matches: sortMatches(all) };
 }
@@ -210,7 +210,7 @@ function cricketLeagues(settings: Settings) {
   return list.filter((x) => CRICKET_CODES.has(x));
 }
 
-async function scores(sport: Loose, settings: Settings) {
+async function scores(sport: string, settings: Settings) {
   if (sport === 'cricket') {
     const data = await cached('cricket', loadCricket);
     const allow = new Set(cricketLeagues(settings));

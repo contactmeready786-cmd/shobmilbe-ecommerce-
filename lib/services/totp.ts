@@ -4,7 +4,7 @@ import * as crypto from 'node:crypto';
 import type { Loose, Settings } from '../types';
 
 const B32 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
-function base32(buf?: Loose) {
+function base32(buf: Buffer<ArrayBuffer>) {
   let bits = 0; let val = 0; let out = '';
   for (const b of buf) {
     val = (val << 8) | b; bits += 8;
@@ -25,7 +25,7 @@ function unbase32(s: Settings) {
 
 const newSecret = () => base32(crypto.randomBytes(20)); // 160 bits, as the standard recommends
 const STEP = 30;
-const stepNow = (t: Loose = Date.now()) => Math.floor(t / 1000 / STEP);
+const stepNow = (t = Date.now()) => Math.floor(t / 1000 / STEP);
 
 function codeAt(secret?: Loose, step?: Loose) {
   const msg = Buffer.alloc(8);
@@ -38,7 +38,7 @@ function codeAt(secret?: Loose, step?: Loose) {
 
 // Accepts the code of this 30-second window or the one before/after (phone clock a little off).
 // Returns the matched step (so the same code can't be used twice), or null.
-function check(secret?: Loose, code?: Loose, lastStep: Loose = 0) {
+function check(secret: string, code: string, lastStep = 0) {
   const c = String(code || '').replace(/[০-৯]/g, (d) => String('০১২৩৪৫৬৭৮৯'.indexOf(d))).replace(/\D/g, '');
   if (!secret || c.length !== 6) return null;
   const now = stepNow();

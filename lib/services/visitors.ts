@@ -10,7 +10,7 @@ import { parseCookies, str, int } from '../util';
 import type { Body, Id, Loose, Settings, ShopRequest } from '../types';
 
 const { q, one } = db;
-const DAY = (col?: Loose) => `(${col} AT TIME ZONE 'Asia/Dhaka')::date`;
+const DAY = (col: string) => `(${col} AT TIME ZONE 'Asia/Dhaka')::date`;
 const LIVE_MINUTES = 5;
 const ID_RE = /^[a-f0-9]{20}$/;
 const EVENTS = new Set(['add_to_cart', 'begin_checkout', 'purchase', 'search', 'contact']);
@@ -25,7 +25,7 @@ const BD_DISTRICTS = ['বান্দরবান', 'বরগুনা', 'ব�
   'পঞ্চগড়', 'রাজবাড়ী', 'রাজশাহী', 'রংপুর', 'রাঙ্গামাটি', 'শেরপুর', 'সাতক্ষীরা', 'সিরাজগঞ্জ', 'সিলেট', 'সুনামগঞ্জ', 'শরীয়তপুর', 'টাঙ্গাইল', 'ঠাকুরগাঁও'];
 
 let regionNames: Loose = null;
-function countryName(code?: Loose) {
+function countryName(code: string) {
   if (!code) return 'অজানা';
   try {
     regionNames = regionNames || new Intl.DisplayNames(['bn'], { type: 'region' });
@@ -36,7 +36,7 @@ function flag(code?: Loose) {
   if (!/^[A-Z]{2}$/.test(code || '')) return '🌐';
   return String.fromCodePoint(...[...code].map((c) => 0x1F1E6 + c.charCodeAt(0) - 65));
 }
-function regionName(country?: Loose, region?: Loose) {
+function regionName(country: string, region: string | number) {
   if (!region) return '';
   if (country === 'BD') {
     if (BD_DIVISIONS[region]) return BD_DIVISIONS[region];
@@ -45,12 +45,12 @@ function regionName(country?: Loose, region?: Loose) {
   }
   return region;
 }
-function place(row?: Loose) {
+function place(row: db.pg.DbRow) {
   const parts = [row.city, regionName(row.country, row.region)].filter(Boolean);
   // "Dhaka, ঢাকা" -> keep both: city in English as Vercel sends it, district in Bangla
   return { flag: flag(row.country), text: parts.length ? parts.join(', ') : countryName(row.country), country: countryName(row.country) };
 }
-function header(req: ShopRequest, name?: Loose) {
+function header(req: ShopRequest, name: string) {
   const v = String(req.headers[name] || '').trim();
   try { return decodeURIComponent(v); } catch (_) { return v; }
 }
@@ -111,7 +111,7 @@ const BRANDS = [
   [/honor|^(HRY|BKL|ALI|ANY|CMA|RMO|LGE)-/i, 'Honor'], [/symphony/i, 'Symphony'], [/walton|primo/i, 'Walton'],
   [/moto|motorola|^XT\d{4}/i, 'Motorola'], [/lenovo/i, 'Lenovo'], [/^(SO-|XQ-)|xperia/i, 'Sony'], [/^LM-|lg-/i, 'LG'], [/asus|^ASUS_/i, 'Asus'],
 ];
-function brandOf(model?: Loose) {
+function brandOf(model: string) {
   const m = String(model || '');
   const hit = BRANDS.find(([re]) => (re as RegExp).test(m));
   return hit ? hit[1] : '';
@@ -135,13 +135,13 @@ function iphoneModel(screen?: Loose, dpr?: Loose) {
   return name ? name + ' (আনুমানিক)' : '';
 }
 // Samsung's A/M/F phones: "SM-A536E" → "Galaxy A53 (SM-A536E)", "SM-A057F" → "Galaxy A05s"
-function friendlyModel(model?: Loose) {
+function friendlyModel(model: string) {
   const m = String(model || '').match(/^SM-([AMF])(\d)(\d)(\d)[A-Z0-9/]*$/i);
   if (!m) return model;
   const s = m[4] === '7' ? 's' : '';
   return `Galaxy ${m[1].toUpperCase()}${m[2]}${m[3]}${s} (${model})`.slice(0, 80);
 }
-function deviceDetails(ua?: Loose, screen?: Loose, dpr?: Loose) {
+function deviceDetails(ua: string, screen: string, dpr?: Loose) {
   if (/iPhone/.test(ua)) return { brand: 'Apple', model: iphoneModel(screen, dpr) || 'iPhone' };
   if (/iPad/.test(ua) || (/Macintosh/.test(ua) && Number(dpr) >= 2 && /^(7[68]\d|8[0-3]\d|10[0-9]{2})x/.test(String(screen)))) return { brand: 'Apple', model: /iPad/.test(ua) ? 'iPad' : '' };
   if (/Android/.test(ua)) { const model = androidModel(ua); return { brand: brandOf(model), model: friendlyModel(model) }; }
@@ -155,7 +155,7 @@ function deviceDetails(ua?: Loose, screen?: Loose, dpr?: Loose) {
 // a Bangladesh clock (Asia/Dhaka) with a foreign IP = almost surely a Bangladeshi using a VPN, proxy,
 // or a browser with a data-saver (Opera Mini, some UC modes). A foreign IP with a foreign clock = abroad.
 const TZ_RE = /^[A-Za-z_]+(?:\/[A-Za-z0-9_+\-]+){0,2}$/;
-function netFlag(country?: Loose, tz?: Loose) {
+function netFlag(country: string, tz: string) {
   if (!country) return '';
   if (country === 'BD') return '';
   if (tz === 'Asia/Dhaka' || tz === 'Asia/Dacca') return 'vpn';
@@ -183,12 +183,12 @@ const SOURCES = [
 ];
 const UTM_NAMES: Record<string, string> = { fb: 'Facebook', facebook: 'Facebook', ig: 'Instagram', instagram: 'Instagram', tiktok: 'TikTok', google: 'Google', youtube: 'YouTube', yt: 'YouTube', messenger: 'Facebook', whatsapp: 'WhatsApp' };
 
-function hostOf(u?: Loose) {
+function hostOf(u: string | URL) {
   try { return new URL(u).hostname.toLowerCase().replace(/^www\.|^m\.|^l\.|^lm\.|^mobile\./, ''); } catch (_) { return ''; }
 }
 // Decide where a visit came from. `params` are the landing page's query params.
 function sourceOf({ referrer, params, ownHost, browser }: Body) {
-  const p = (k?: Loose) => str(params.get(k), 100);
+  const p = (k: string) => str(params.get(k), 100);
   const out = { source: 'সরাসরি (Direct)', medium: 'direct', campaign: p('utm_campaign'), refHost: '' };
   const host = hostOf(referrer);
   if (host && host !== ownHost && !host.endsWith('.' + ownHost)) out.refHost = host;
@@ -331,9 +331,9 @@ async function record({ req, settings, body, ip, ownHost }: Body) {
 }
 
 // ---------------------------------------------------------------- reports
-const RANGE = (col?: Loose, a: Loose = 1) => `${DAY(col)} BETWEEN $${a}::date AND $${a + 1}::date`;
+const RANGE = (col: string, a = 1) => `${DAY(col)} BETWEEN $${a}::date AND $${a + 1}::date`;
 
-async function overview(from?: Loose, to?: Loose) {
+async function overview(from: string, to: string) {
   const r = [from, to];
   const [k, live, daily, hours, pages, products, sources, cities, regions, countries, devices, browsers, oses, referrers, campaigns, funnel, contacts, brands, models, net] = await Promise.all([
     one(`SELECT count(*)::int AS sessions, count(DISTINCT visitor_id)::int AS visitors, count(*) FILTER (WHERE is_new)::int AS new_visitors,

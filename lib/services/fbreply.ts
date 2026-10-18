@@ -21,7 +21,7 @@ const EVERY_MS = 9 * 60 * 1000;
 const PER_RUN = 12;
 const PER_DAY = 150;
 
-const money = (n?: Loose) => '৳' + bn(Math.round(Number(n) || 0).toLocaleString('en-IN'));
+const money = (n: string | number) => '৳' + bn(Math.round(Number(n) || 0).toLocaleString('en-IN'));
 
 // "দাম কত", "price koto", "rate?", "available?", "ache?", "kivabe kinbo", "order dibo" … (Bangla, English, Banglish)
 const ASK = /(দাম|দামটা|প্রাইস|মূল্য|কত\s*টাকা|কতো|কত\s*দাম|price|prise|pric|rate|dam\s*koto|dam\s*kto|koto\s*taka|kto\s*tk|\bkoto\b|\bkto\b|\bdam\b|available|avilable|availabl|stock|স্টক|আছে\s*কি|আছে\?|ache\s*ki|\bache\b|পাওয়া\s*যাবে|pawa\s*jabe|অর্ডার|order|অডার|কিভাবে\s*কিন|কীভাবে\s*কিন|kivabe\s*kin|kibhabe|লিংক|link|ডেলিভারি|delivery|ক্যাশ\s*অন|cash\s*on|inbox|ইনবক্স|\bib\b|details|বিস্তারিত)/i;
@@ -31,7 +31,7 @@ const QUIZ = /^\s*[(]?\s*(ক|খ|গ|ka|kha|ga|a|b|c)\s*[)।.!]?\s*$/i;
 function dhakaDay() { return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Dhaka' }).format(new Date()); }
 
 // a product named in the comment: model numbers first (letters+digits: "pam8403", "hc-05", "18650"), then words
-async function productInText(text?: Loose) {
+async function productInText(text: string) {
   const words = String(text || '').toLowerCase().match(/[a-z]*\d+[a-z0-9-]*|[a-z]+-\d+[a-z0-9-]*/g) || [];
   const codes = [...new Set(words.map((w) => w.replace(/-+$/, '')).filter((w) => (w.length >= 3 && /[a-z]/.test(w)) || /^\d{4,}$/.test(w)))].slice(0, 5);
   for (const c of codes) {
@@ -94,7 +94,7 @@ function replyText({ product: p, kit }: Body, settings: Settings, commentId?: Id
   return `${pick(['ধন্যবাদ! 🙏', 'জি, বলছি! 😊'], seed)} কোন পণ্যটা চান তার নাম বা মডেল (যেমন PAM8403) লিখুন, অথবা এখানে খুঁজে দাম দেখে অর্ডার করুন: ${base}/products?${utm}\n${deliv}`;
 }
 
-function permissionHint(msg?: Loose) {
+function permissionHint(msg: string) {
   return /permission|\(#10\)|\(#200\)|pages_read_user_content|pages_manage_engagement|not authorized|requires/i.test(msg)
     ? 'টোকেনে কমেন্ট পড়া/উত্তরের অনুমতি নেই — অটো মার্কেটিং পেজের ধাপ অনুযায়ী pages_read_user_content আর pages_manage_engagement যোগ করে আবার যুক্ত করুন।' : '';
 }
@@ -165,7 +165,7 @@ async function run(settings: Settings, { force = false }: Body = {}): Promise<Lo
   return out;
 }
 
-async function recent(limit: Loose = 25) {
+async function recent(limit = 25) {
   return db.q(`SELECT c.*, p.name AS product_name, p.slug FROM fb_comments c LEFT JOIN products p ON p.id=c.product_id
     WHERE c.replied OR c.error <> '' ORDER BY c.created_at DESC LIMIT $1`, [limit]).catch(() => []);
 }

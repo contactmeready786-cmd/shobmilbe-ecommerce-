@@ -24,13 +24,13 @@ async function save({ b, ip, settings }: Body) {
   if (!ID_RE.test(id) || !validPhone(phone)) return {};
   // what was in the cart, with today's names and prices (the shopper's own numbers are never trusted)
   const wanted = (Array.isArray(b.items) ? b.items : []).slice(0, 30)
-    .map((i: Loose) => ({ id: int(i && i.id), qty: Math.min(999, Math.max(1, int(i && i.qty, 1))) })).filter((i: Loose) => i.id > 0);
+    .map((i: Loose) => ({ id: int(i && i.id), qty: Math.min(999, Math.max(1, int(i && i.qty, 1))) })).filter((i: { id: number; }) => i.id > 0);
   const prods = wanted.length ? await catalog.getProductsByIds(wanted.map((i: Loose) => i.id), { includeInactive: true }) : [];
   const items = wanted.map((i: Loose) => {
     const p = prods.find((x) => x.id === i.id);
     return p ? { id: p.id, name: p.name, sku: p.sku || '', price: Number(p.price) || 0, qty: i.qty } : null;
   }).filter(Boolean);
-  const subtotal = Math.round(items.reduce((s: Loose, i: Loose) => s + i.price * i.qty, 0));
+  const subtotal = Math.round(items.reduce((s: number, i: { price: number; qty: number; }) => s + i.price * i.qty, 0));
   const vid = ID_RE.test(String(b.vid || '')) ? String(b.vid) : '';
   const sid = ID_RE.test(String(b.sid || '')) ? String(b.sid) : '';
   // one open draft per number: a second visit with the same number updates the same row
@@ -96,8 +96,8 @@ async function counts() {
 //    at most one reminder per number in 3 days, never to a blocked number
 //  • the link opens the checkout with the same products and name/number filled in (/checkout?resume=<id>)
 // Runs in the background now and then (at most every 5 minutes, see app.js) — a few drafts each time.
-function dhakaHour(d: Loose = new Date()) { return Number(new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Dhaka', hour: '2-digit', hourCycle: 'h23' }).format(d)); }
-async function remindDue(settings: Settings, site: Loose = '') {
+function dhakaHour(d = new Date()) { return Number(new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Dhaka', hour: '2-digit', hourCycle: 'h23' }).format(d)); }
+async function remindDue(settings: Settings, site = '') {
   const SMS = $sms;
   if (settings.draft_sms_on !== '1' || !SMS.ready(settings).ok) return { sent: 0, idle: true };
   const h = dhakaHour();
@@ -132,7 +132,7 @@ async function resume(id?: Id) {
   if (!ID_RE.test(String(id))) return null;
   const d = await db.one(`SELECT name, phone, items, status FROM checkout_drafts WHERE id=$1 AND created_at > now() - interval '7 days'`, [id]);
   if (!d || d.status === 'ordered') return null;
-  return { name: d.name, phone: d.phone, items: (d.items || []).map((i: Loose) => ({ id: int(i.id), qty: int(i.qty, 1) })).filter((i: Loose) => i.id > 0) };
+  return { name: d.name, phone: d.phone, items: (d.items || []).map((i: { id: unknown; qty: unknown; }) => ({ id: int(i.id), qty: int(i.qty, 1) })).filter((i: { id: number; }) => i.id > 0) };
 }
 
 async function get(id?: Id) { return ID_RE.test(String(id)) ? db.one('SELECT * FROM checkout_drafts WHERE id = $1', [id]) : null; }

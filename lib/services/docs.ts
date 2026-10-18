@@ -65,12 +65,12 @@ function merge(def?: Loose, saved?: Loose) {
   if (!HEX.test(out.accent)) out.accent = def.accent;
   return out;
 }
-function parse(s: Settings, key?: Loose) { try { return JSON.parse(s[key] || '{}'); } catch (_) { return {}; } }
+function parse(s: Settings, key: string) { try { return JSON.parse(s[key] || '{}'); } catch (_) { return {}; } }
 function invoice(s: Settings) { const c = merge(INVOICE, parse(s, 'doc_invoice')); if (!LABEL_SIZES[c.size]) c.size = INVOICE.size; return c; }
 function checklist(s: Settings) { const c = merge(CHECKLIST, parse(s, 'doc_checklist')); if (!PAPERS[c.paper]) c.paper = 'A4'; return c; }
 
 // form body → saved settings
-function fromForm(kind: Loose, b: Body) {
+function fromForm(kind: string, b: Body) {
   const def: Loose = kind === 'invoice' ? INVOICE : CHECKLIST;
   const parts = kind === 'invoice' ? INVOICE_PARTS : CHECKLIST_PARTS;
   const out: Loose = { show: {} };

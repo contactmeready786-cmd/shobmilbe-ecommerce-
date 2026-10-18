@@ -133,14 +133,14 @@ function translit(word?: Loose) {
 // ---------------------------------------------------------------- words
 const BN_DIGITS = '০১২৩৪৫৬৭৮৯';
 const STOP = new Set(['er', 'and', 'the', 'for', 'with', 'of', 'a', 'an', 'to', 'in', 'এর', 'ও', 'এবং', 'জন্য', 'দাম', 'কত', 'চাই', 'দরকার', 'আছে', 'price', 'buy', 'best']);
-function norm(text?: Loose) {
+function norm(text: string) {
   return String(text || '').toLowerCase().normalize('NFC')
     .replace(/[০-৯]/g, (d) => String(BN_DIGITS.indexOf(d)))
     .replace(/[µμ]/g, 'u').replace(/Ω|ω/g, 'ohm').replace(/[‐-―]/g, '-')
     .replace(/[^a-z0-9.ঀ-৿\s-]/g, ' ');
 }
 // "1000uF-25V" → 1000uf 1000 uf 25v 25 v ; "a.b" stays only when it's a number (0.25)
-function words(text?: Loose) {
+function words(text: string) {
   const out = [];
   for (let w of norm(text).split(/[\s\-/]+/)) {
     w = w.replace(/^\.+|\.+$/g, '');
@@ -154,7 +154,7 @@ function words(text?: Loose) {
   return out;
 }
 // a Bangla word → the English it may mean (word list, then sound-alike)
-function bnVariants(w?: Loose) {
+function bnVariants(w: string) {
   if (!/[ঀ-৿]/.test(w)) return [];
   const v = [];
   if (BN_TO_EN.has(w)) v.push(BN_TO_EN.get(w));
@@ -169,7 +169,7 @@ function bnVariants(w?: Loose) {
 }
 
 // Damerau–Levenshtein distance, stops early once over `max`
-function dist(a: Loose, b: Body, max?: Loose) {
+function dist(a: Loose, b: Body, max: number) {
   if (Math.abs(a.length - b.length) > max) return max + 1;
   const m = a.length; const n = b.length;
   let prev2 = null; let prev = Array.from({ length: n + 1 }, (_, j) => j);

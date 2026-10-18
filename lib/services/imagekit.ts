@@ -7,10 +7,10 @@ import type { Id, Loose } from '../types';
 const FOLDER = '/shobmilbe';
 
 // Forgiving about copy-paste: stray spaces, quotes, a missing https:// are all fixed.
-const clean = (v?: Loose) => String(v || '').trim().replace(/^["']+|["']+$/g, '').trim();
+const clean = (v: string | undefined) => String(v || '').trim().replace(/^["']+|["']+$/g, '').trim();
 function rawKey() { return clean(process.env.IMAGEKIT_PRIVATE_KEY || process.env.IMAGEKIT_PRIVATE || process.env.IMAGEKIT_KEY); }
 function rawEndpoint() { return clean(process.env.IMAGEKIT_URL_ENDPOINT || process.env.IMAGEKIT_ENDPOINT || process.env.IMAGEKIT_URL); }
-const looksUrl = (v?: Loose) => /imagekit\.io|^https?:\/\//i.test(v);
+const looksUrl = (v: string) => /imagekit\.io|^https?:\/\//i.test(v);
 // If the two values were pasted into each other's boxes, use them the right way round.
 function swapped() { return looksUrl(rawKey()) && rawEndpoint() && !looksUrl(rawEndpoint()); }
 function key() { return swapped() ? rawEndpoint() : rawKey(); }
@@ -20,7 +20,7 @@ function endpoint() {
   return e.replace(/^http:/i, 'https:').replace(/\/+$/, '');
 }
 // What is missing, in plain words ('' = all fine). Never shows the secret itself.
-function shape(v?: Loose) { return `${v.length} অক্ষর, শুরু "${v.slice(0, 4).replace(/[^a-z_:\/.]/gi, '•')}…"`; }
+function shape(v: string) { return `${v.length} অক্ষর, শুরু "${v.slice(0, 4).replace(/[^a-z_:\/.]/gi, '•')}…"`; }
 function problem() {
   const k = key();
   if (!k) return 'IMAGEKIT_PRIVATE_KEY পাওয়া যায়নি';
@@ -51,7 +51,7 @@ function auth() { return 'Basic ' + Buffer.from(key() + ':').toString('base64');
 const EXT: Record<string, string> = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif', 'image/x-icon': 'ico' };
 
 // Upload one picture → { url, fileId }. fileName (optional) gives the full name, e.g. for backup files.
-async function upload(buffer?: Loose, mime?: Loose, name?: Loose, sub: Loose = 'media', fileName: Loose = '') {
+async function upload(buffer?: Loose, mime?: Loose, name?: Loose, sub = 'media', fileName = '') {
   if (!configured()) throw new Error('ImageKit চাবি বসানো হয়নি');
   const fd = new FormData();
   const fname = fileName || `${name}.${EXT[mime] || 'jpg'}`;
@@ -104,10 +104,10 @@ async function usage(): Promise<IkUsage | null> {
 
 // Small version for cards and lists (ImageKit resizes on the fly; f-auto = AVIF/WebP for phones that can show them).
 // The admin's raw copies (auto = false) keep the original format, because the server reads their bytes itself.
-function thumbUrl(url?: Loose, auto = true) { return url ? `${url}${url.includes('?') ? '&' : '?'}tr=w-480${auto ? ',f-auto' : ''}` : url; }
+function thumbUrl(url: string | string[], auto = true) { return url ? `${url}${url.includes('?') ? '&' : '?'}tr=w-480${auto ? ',f-auto' : ''}` : url; }
 
 // Pictures that were deleted on the site: remove them from ImageKit too (queued by a database trigger).
-async function flushTrash(db?: Loose, limit: Loose = 40) {
+async function flushTrash(db: typeof import("../db"), limit = 40) {
   if (!configured()) return 0;
   const rows = await db.q('SELECT file_id FROM ik_trash ORDER BY added_at LIMIT $1', [limit]).catch(() => []);
   let n = 0;
@@ -119,7 +119,7 @@ async function flushTrash(db?: Loose, limit: Loose = 40) {
 
 // Pictures still kept inside the database (saved before ImageKit was set up, or when an upload failed):
 // move a few to ImageKit and free the database space.
-async function moveOld(db?: Loose, limit: Loose = 20) {
+async function moveOld(db: typeof import("../db"), limit = 20) {
   if (!configured()) return 0;
   const rows = await db.q(`SELECT id, mime, data, wm, wm_ver FROM media WHERE ik_url IS NULL AND data IS NOT NULL
     AND (owner_type IS NULL OR owner_type NOT IN ('staff', 'trash:staff')) ORDER BY id LIMIT $1`, [limit]);

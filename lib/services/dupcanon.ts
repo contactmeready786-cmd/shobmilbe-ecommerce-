@@ -47,7 +47,7 @@ async function copies() {
 }
 
 // canonical path for a product page
-async function canonicalFor(slug?: Loose) {
+async function canonicalFor(slug: string) {
   try {
     const main = (await copies()).get(slug);
     return `/p/${main || slug}`;

@@ -117,7 +117,7 @@ async function post(ctx: AdminCtx) {
     const r = await autopost.postEngagement(s, null, kind);
     if (r.error) return ctx.fail(BASE, r.error);
     await ctx.log('create', 'marketing', null, `এনগেজমেন্ট পোস্ট (এখনই): ${r.engagement}`);
-    return ctx.back(`${BASE}?${r.fbError ? 'err' : 'info'}=${encodeURIComponent(r.fbError ? 'Facebook ❌ ' + r.fbError : `${ENGAGE_LABEL[r.engagement] || r.engagement} পোস্ট হয়েছে ✅`)}#engage`);
+    return ctx.back(`${BASE}?${r.fbError ? 'err' : 'info'}=${encodeURIComponent(r.fbError ? 'Facebook ❌ ' + r.fbError : `${ENGAGE_LABEL[r.engagement!] || r.engagement} পোস্ট হয়েছে ✅`)}#engage`);
   }
   if (b.action === 'blog') {
     const r = await autoblog.run(s, { force: true, max: 20 });

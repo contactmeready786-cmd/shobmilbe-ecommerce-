@@ -21,7 +21,7 @@ function values(text?: Loose) {
   const s = clean(text);
   if (!s) throw new Error('empty barcode');
   const out = [];
-  const digitsAt = (i?: Loose) => { let n = 0; while (i + n < s.length && s[i + n] >= '0' && s[i + n] <= '9') n += 1; return n; };
+  const digitsAt = (i: number) => { let n = 0; while (i + n < s.length && s[i + n] >= '0' && s[i + n] <= '9') n += 1; return n; };
   let set = digitsAt(0) >= 4 && digitsAt(0) % 2 === 0 ? 'C' : 'B';
   out.push(set === 'C' ? START_C : START_B);
   let i = 0;
@@ -48,10 +48,10 @@ function values(text?: Loose) {
 // list of module widths, alternating bar, space, bar …
 function widths(text?: Loose) { return values(text).map((v) => P[v]).join('').split('').map(Number); }
 
-function esc(s?: Loose) { return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' } as Record<string, string>)[c]); }
+function esc(s: string) { return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' } as Record<string, string>)[c]); }
 
 // SVG picture. module = width of the thinnest bar (in SVG units), height of bars, show the text below.
-function svg(text?: Loose, { height = 60, module = 2, showText = true, fontSize = 14, quiet = 10, label }: Body = {}) {
+function svg(text: string, { height = 60, module = 2, showText = true, fontSize = 14, quiet = 10, label }: Body = {}) {
   const w = widths(text);
   let x = quiet * module;
   let rects = '';

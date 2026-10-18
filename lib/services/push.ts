@@ -9,8 +9,8 @@ import * as crypto from 'node:crypto';
 import * as db from '../db';
 import type { Body, Id, Loose } from '../types';
 
-const b64u = (b?: Loose) => Buffer.from(b).toString('base64url');
-const fromB64u = (s?: Loose) => Buffer.from(String(s || ''), 'base64url');
+const b64u = (b: string | Buffer<ArrayBuffer>) => Buffer.from(b).toString('base64url');
+const fromB64u = (s: string | undefined) => Buffer.from(String(s || ''), 'base64url');
 
 // ---------------------------------------------------------------- the site's own key pair (made once)
 let cached: Loose = null;
@@ -62,11 +62,11 @@ function encrypt(sub?: Loose, payload?: Loose) {
 
 // Only the real push services of phone/computer browsers (stops the admin being tricked into calling other sites).
 const PUSH_HOSTS = /(^|\.)(fcm\.googleapis\.com|android\.googleapis\.com|push\.services\.mozilla\.com|push\.apple\.com|notify\.windows\.com)$/;
-function okEndpoint(u?: Loose) {
+function okEndpoint(u: string | URL) {
   try { const x = new URL(u); return x.protocol === 'https:' && PUSH_HOSTS.test(x.hostname); } catch (_) { return false; }
 }
 
-async function sendOne(sub?: Loose, msg?: Loose, v?: Loose) {
+async function sendOne(sub: db.pg.DbRow, msg?: Loose, v?: Loose) {
   const body = encrypt(sub, JSON.stringify(msg));
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), 8000);
@@ -86,7 +86,7 @@ async function sendOne(sub?: Loose, msg?: Loose, v?: Loose) {
 }
 
 // msg = { title, body, url, tag }
-async function sendAll(msg?: Loose) {
+async function sendAll(msg?: { title: string; body: string; url: string; tag: string; }) {
   const subs = await db.q("SELECT p.* FROM push_subs p JOIN staff s ON s.id=p.staff_id WHERE s.role='owner' AND s.active");
   if (!subs.length) return 0;
   const v = await vapid();
