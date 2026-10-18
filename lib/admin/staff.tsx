@@ -6,7 +6,7 @@ import * as db from '../db';
 import * as ui from './ui';
 import * as P from './profile';
 import * as $account from './account';
-import type { AdminCtx, Loose } from '../types';
+import type { AdminCtx, Loose, StaffUser } from '../types';
 
 async function listPage(ctx: AdminCtx) {
   const rows = await S.listStaff();
@@ -37,7 +37,8 @@ async function formPage(ctx: AdminCtx, m?: Loose) {
       return ctx.page('স্টাফ', form({ ...cur, ...b, id, permissions: list(b.permissions) }, e.message, id === ctx.user.id), 'staff', { status: 400 });
     }
   }
-  const s = id ? await S.getStaff(id) : { active: true, permissions: [] };
+  // (a new staff member: an empty form, switched on, no permissions yet)
+  const s: Partial<StaffUser> | null = id ? await S.getStaff(id) : { active: true, permissions: [] };
   if (!s) return ctx.redirect('/admin/staff');
   const activity = id ? await S.activity({ staffId: id, limit: 40 }) : [];
   const devices = id ? await sessions.listFor(id, ctx.settings) : [];
