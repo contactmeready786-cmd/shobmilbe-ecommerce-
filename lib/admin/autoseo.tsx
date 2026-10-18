@@ -65,7 +65,7 @@ async function page(ctx: AdminCtx) {
   const pctDone = st.total ? Math.round((st.done * 100) / st.total) : 0;
   const on = s.autoseo_on !== '0';
   const label = (f: string) => A.LOG_FIELDS[f] || f;
-  const show = (l?: Loose) => {
+  const show = (l: db.pg.DbRow) => {
     if (l.field !== 'specs') return l.new_value;
     try { return JSON.parse(l.new_value).map((r: Loose) => `${r[0]}: ${r[1]}`).join(' · '); } catch (_) { return l.new_value; }
   };

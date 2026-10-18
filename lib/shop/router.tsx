@@ -46,9 +46,9 @@ export async function resolveShop(ctx: ShopCtx): Promise<Resolved> {
     let sections = db.jsonSetting(settings, 'home_sections', HOME_DEFAULT);
     // 🎞️ running slider switched on (Admin → স্টোর ডিজাইন → রানিং স্লাইডার) → always at the top
     if (settings.slider_on === '1' && Array.isArray(sections) && !sections.includes('slider')) sections = ['slider', ...sections];
-    const want = (k?: Loose) => sections.includes(k);
+    const want = (k: string) => sections.includes(k);
     const ROW = 16;
-    const inStockFirst = (a?: Loose) => [...a.filter((p: Loose) => p.stock > 0), ...a.filter((p: Loose) => p.stock <= 0)];
+    const inStockFirst = (a?: Loose) => [...a.filter((p: { stock: number; }) => p.stock > 0), ...a.filter((p: { stock: number; }) => p.stock <= 0)];
     // most looked-at products of the last 30 days (real visitors)
     const viewedIds = want('popular') ? (await db.q(`SELECT product_id FROM page_views WHERE product_id IS NOT NULL AND created_at > now() - interval '30 days'
       GROUP BY product_id ORDER BY count(DISTINCT visitor_id) DESC LIMIT $1`, [ROW * 2])).map((r) => r.product_id) : [];
@@ -75,7 +75,7 @@ export async function resolveShop(ctx: ShopCtx): Promise<Resolved> {
         products: inStockFirst(await catalog.listProducts({ public: true, hideOut, category: c.slug, sort: 'popular', limit: ROW * 2 })).slice(0, ROW),
       })));
     }
-    const take = (a?: Loose) => inStockFirst(a).slice(0, ROW);
+    const take = (a: catalog.Product[]) => inStockFirst(a).slice(0, ROW);
     // the flash sale that ends first among the running ones, with its products (sale price already in them)
     let flash = null;
     if (want('flash')) {
@@ -90,7 +90,7 @@ export async function resolveShop(ctx: ShopCtx): Promise<Resolved> {
     }
     // the owner's own rows
     const custom: Record<string, Loose> = {};
-    const customKeys = sections.filter((k: Loose) => /^x\d+$/.test(k));
+    const customKeys = sections.filter((k: string) => /^x\d+$/.test(k));
     if (customKeys.length) {
       const H = $models_homerows;
       const rows = await db.q<HomeRowsRow>('SELECT * FROM home_rows WHERE id = ANY($1::int[])', [customKeys.map((k: Loose) => H.idOf(k))]).catch(() => []);
@@ -139,7 +139,7 @@ export async function resolveShop(ctx: ShopCtx): Promise<Resolved> {
     const perPage = (Number(settings.grid_cols) || 4) * 6;
     const pageNo = Math.max(1, int(query.get('page'), 1));
     // 🔎 filters: price from–to, brands (several), only in stock
-    const num = (v?: Loose) => { const n = Number(String(v || '').replace(/[০-৯]/g, (d) => String('০১২৩৪৫৬৭৮৯'.indexOf(d)))); return Number.isFinite(n) && n > 0 ? Math.min(n, 1e7) : 0; };
+    const num = (v: string | null) => { const n = Number(String(v || '').replace(/[০-৯]/g, (d) => String('০১২৩৪৫৬৭৮৯'.indexOf(d)))); return Number.isFinite(n) && n > 0 ? Math.min(n, 1e7) : 0; };
     const filters = {
       pmin: num(query.get('pmin')), pmax: num(query.get('pmax')),
       brands: brand ? [] : query.getAll('b').map((x) => int(x)).filter((x) => x > 0).slice(0, 20),

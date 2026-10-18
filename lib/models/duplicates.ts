@@ -31,7 +31,7 @@ const UNITS: Record<string, string> = {
   pf: 'pf', k: 'k', ohm: 'ohm', ohms: 'ohm', rpm: 'rpm', x: 'x',
 };
 
-function words(name?: Loose) {
+function words(name: string) {
   let s = String(name || '').normalize('NFC').toLowerCase()
     .replace(/[০-৯]/g, (d) => String(BN.indexOf(d)))
     .replace(/\((?:কপি|copy)\)/g, ' ')
@@ -52,7 +52,7 @@ function words(name?: Loose) {
   return out.filter((w) => !STOP.has(w));
 }
 // letter pairs inside each word (order of words does not matter)
-function pairs(ws?: Loose) {
+function pairs(ws: string[]) {
   const m = new Map();
   let n = 0;
   for (const w of ws) {
@@ -74,7 +74,7 @@ function dice(a: Loose, b: Body) {
   return (2 * both) / (a.n + b.n);
 }
 // words that hold a number: model numbers and sizes (pam8403, 60w, 12v, 3p7v)
-function numberWords(ws?: Loose) { return new Set(ws.filter((w: Loose) => /\d/.test(w))); }
+function numberWords(ws?: Loose) { return new Set(ws.filter((w: string) => /\d/.test(w))); }
 function sameSet(a: Loose, b: Body) { if (a.size !== b.size) return false; for (const x of a) if (!b.has(x)) return false; return true; }
 
 function prepName(name?: Loose) {
@@ -85,9 +85,9 @@ function prepName(name?: Loose) {
 // ---------------------------------------------------------------- pictures
 // A fingerprint is 256 bits (64 hex letters), made in the admin's browser from the picture's
 // 16 x 16 coarsest DCT patterns. Distance = how many bits differ: same photo ≈ 0-30, different photo ≈ 80+.
-function pop32(x?: Loose) { x -= (x >>> 1) & 0x55555555; x = (x & 0x33333333) + ((x >>> 2) & 0x33333333); return (((x + (x >>> 4)) & 0x0f0f0f0f) * 0x01010101) >>> 24; }
-const okHash = (h?: Loose) => typeof h === 'string' && /^[0-9a-f]{64}$/.test(h);
-const split = (h?: Loose) => (okHash(h) ? Uint32Array.from({ length: 8 }, (_, i) => parseInt(h.slice(i * 8, i * 8 + 8), 16)) : null);
+function pop32(x: number) { x -= (x >>> 1) & 0x55555555; x = (x & 0x33333333) + ((x >>> 2) & 0x33333333); return (((x + (x >>> 4)) & 0x0f0f0f0f) * 0x01010101) >>> 24; }
+const okHash = (h: string) => typeof h === 'string' && /^[0-9a-f]{64}$/.test(h);
+const split = (h: string) => (okHash(h) ? Uint32Array.from({ length: 8 }, (_, i) => parseInt(h.slice(i * 8, i * 8 + 8), 16)) : null);
 function hamming(a?: Loose, b?: Loose) {
   const x = typeof a === 'string' ? split(a) : a;
   const y = typeof b === 'string' ? split(b) : b;
@@ -95,7 +95,7 @@ function hamming(a?: Loose, b?: Loose) {
   for (let i = 0; i < 8; i++) d += pop32((x[i] ^ y[i]) >>> 0);
   return d;
 }
-const similarity = (d?: Loose) => Math.max(0, Math.round(100 * (1 - d / 128)));
+const similarity = (d: number) => Math.max(0, Math.round(100 * (1 - d / 128)));
 function prepImage(m?: Loose) { return { sha: m.sha || null, h: split(m.phash), hm: split(m.phash_m) }; }
 // smallest picture distance between two products (0 = same picture)
 function imageDistance(newImgs?: Loose, oldImgs?: Loose) {
@@ -113,7 +113,7 @@ function imageDistance(newImgs?: Loose, oldImgs?: Loose) {
 }
 
 // ---------------------------------------------------------------- compare two products
-const bnNum = (n?: Loose) => String(n).replace(/\d/g, (d) => BN[Number(d)]);
+const bnNum = (n: number) => String(n).replace(/\d/g, (d) => BN[Number(d)]);
 function compare(a?: Loose, b?: Loose, lv?: Loose, { sameDesc = false }: Body = {}) {
   const reasons = [];
   let block = false;
@@ -207,12 +207,12 @@ async function scanCatalog(settings: Settings, { includeAllowed = false }: Body 
     const all = (await loadCatalog(type)).filter((p) => includeAllowed || !p.allow_duplicate);
     // Only compare products that share a word, a picture or a description (fast enough for thousands).
     const cand = new Set<number>();
-    const pair = (i?: Loose, j?: Loose) => { if (i !== j) cand.add(i < j ? i * 100000 + j : j * 100000 + i); };
+    const pair = (i: number, j: number) => { if (i !== j) cand.add(i < j ? i * 100000 + j : j * 100000 + i); };
     const index = new Map();
-    const add = (k?: Loose, i?: Loose) => { if (!index.has(k)) index.set(k, []); index.get(k).push(i); };
+    const add = (k: string, i: number) => { if (!index.has(k)) index.set(k, []); index.get(k).push(i); };
     const flat: Loose[] = [];
     all.forEach((p, i) => {
-      new Set(p.name.ws.filter((w: Loose) => Array.from(w).length >= 3)).forEach((w) => add('w:' + w, i));
+      new Set(p.name.ws.filter((w: Iterable<unknown> | ArrayLike<unknown>) => Array.from(w).length >= 3)).forEach((w) => add('w:' + w, i));
       for (const im of p.images) {
         if (im.sha) add('s:' + im.sha, i);
         if (im.h) flat.push([i, im.h, im.hm]);

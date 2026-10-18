@@ -60,7 +60,7 @@ async function planApi(ctx: AdminCtx) {
     return ctx.json(400, { error: e instanceof FetchError ? e.message : 'লিংকটা পড়া যায়নি।' });
   }
   if (out.error) return ctx.json(400, { error: out.error });
-  const items = importer.finish(out.items || [], out.finalUrl || u).filter((it: Loose) => it.link);
+  const items = importer.finish(out.items || [], out.finalUrl || u).filter((it: string) => it.link);
   if (!items.length) return ctx.json(400, { error: 'এই লিংকে কোনো পণ্য (পেজের লিংকসহ) পাওয়া যায়নি। যে Facebook ফিড লিংক দিয়ে আমদানি করেছিলেন সেটাই দিন।' });
   await db.setMany({ morepics_feed: u });
   await ctx.reloadSettings();
@@ -82,7 +82,7 @@ async function planApi(ctx: AdminCtx) {
   const missing = items.filter((it: Loose) => !inShop.has(it.ref) && !trashed.has(it.ref));
   const inTrash = items.filter((it: Loose) => !inShop.has(it.ref) && trashed.has(it.ref)).map((it: Loose) => ({ title: it.title, link: it.link }));
   // the old site's own product list (sitemap): products the feed left out (e.g. hidden from the catalog)
-  const feedPaths = new Set(items.map((it: Loose) => pathKey(it.link)).filter(Boolean));
+  const feedPaths = new Set(items.map((it: string) => pathKey(it.link)).filter(Boolean));
   let sitemap = { links: [], read: false };
   if (b.sitemap !== false) sitemap = await oldSiteLinks(items).catch(() => ({ links: [], read: false }));
   const extra = sitemap.links.filter((l) => !feedPaths.has(pathKey(l)));
@@ -117,11 +117,11 @@ async function oldSiteLinks(items?: Loose) {
   const origin = [...count.entries()].sort((a, b) => b[1] - a[1]).map((x) => x[0])[0];
   if (!origin) return { links: [], read: false };
   const first = await readUrl(`${origin}/sitemap.xml`, { follow: false });
-  let links = (first.links || []).filter((l: Loose) => l.kind === 'page').map((l: Loose) => l.url);
-  const subs = (first.links || []).filter((l: Loose) => l.kind === 'sitemap').map((l: Loose) => l.url).slice(0, 20);
+  let links = (first.links || []).filter((l: { kind: string; }) => l.kind === 'page').map((l: Loose) => l.url);
+  const subs = (first.links || []).filter((l: { kind: string; }) => l.kind === 'sitemap').map((l: Loose) => l.url).slice(0, 20);
   for (const u of subs) {
     const sub = await readUrl(u, { follow: false }).catch(() => ({ links: [] }));
-    links = links.concat((sub.links || []).filter((l: Loose) => l.kind === 'page').map((l: Loose) => l.url));
+    links = links.concat((sub.links || []).filter((l: { kind: string; }) => l.kind === 'page').map((l: Loose) => l.url));
   }
   const seen = new Set();
   links = links.filter((l: Loose) => {
@@ -164,7 +164,7 @@ async function pageApi(ctx: AdminCtx) {
 const STOREX_API = 'https://api-live.storex.com.bd/api/v4';
 const STOREX_CDN = 'https://media-cdn.storex.dev';
 const tenants = new Map();
-async function storexTenant(origin?: Loose) {
+async function storexTenant(origin: string) {
   if (tenants.has(origin)) return tenants.get(origin);
   const r = await safeFetch(STOREX_API + '/stores/store-id', { method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ siteUrl: origin }), accept: 'application/json', timeoutMs: 8000, maxBytes: 200000 });
@@ -174,7 +174,7 @@ async function storexTenant(origin?: Loose) {
   return id;
 }
 // null = not a StoreX product page (fall back to reading the page); otherwise { images, confirmed }
-async function storexGallery(link?: Loose, main?: Loose) {
+async function storexGallery(link: string | URL, main: string) {
   let u;
   try { u = new URL(link); } catch (_) { return null; }
   const m = u.pathname.match(/^\/products\/([^/?#]+)\/?$/);
@@ -186,13 +186,13 @@ async function storexGallery(link?: Loose, main?: Loose) {
   let d;
   try { d = JSON.parse(r.body.toString('utf8')).data; } catch (_) { return null; }
   if (!d || !Array.isArray(d.gallery) || !/^[a-z0-9]{6,60}$/i.test(String(d.gallery_folder || ''))) return null;
-  const files = d.gallery.filter((f: Loose) => typeof f === 'string' && /^[\w.%-]{3,200}\.(webp|jpe?g|png|gif)$/i.test(f));
+  const files = d.gallery.filter((f: string) => typeof f === 'string' && /^[\w.%-]{3,200}\.(webp|jpe?g|png|gif)$/i.test(f));
   const images = files.map((f: Loose) => `${STOREX_CDN}/${tenant}/images/products/${d.gallery_folder}/${f}`);
   // the product's own picture list — sure it's this product when its main picture is in the list
   const name = (x?: Loose) => decodeURIComponent(String(x || '').split('?')[0].split('/').pop() || '').toLowerCase();
   const mainName = name(main);
   const confirmed = !main || String(main).includes(d.gallery_folder)
-    || files.some((f: Loose) => f.toLowerCase() === mainName || mainName.includes(f.toLowerCase().replace(/\.[a-z]+$/, '')));
+    || files.some((f: string) => f.toLowerCase() === mainName || mainName.includes(f.toLowerCase().replace(/\.[a-z]+$/, '')));
   return { images, confirmed, rule: 'storex' };
 }
 
@@ -236,9 +236,9 @@ async function attachApi(ctx: AdminCtx) {
     // only fresh uploads that belong to nobody yet
     const fresh = ids.length ? (await t.query(`SELECT id, sha, phash, phash_m FROM media WHERE id = ANY($1::int[]) AND owner_type IS NULL`, [ids])).rows : [];
     const byId = new Map(fresh.map((m) => [m.id, m]));
-    const same = (a?: Loose, x?: Loose) => {
+    const same = (a: db.pg.DbRow, x: db.pg.DbRow) => {
       if (a.sha && x.sha && a.sha === x.sha) return true;
-      const ok = (h?: Loose) => typeof h === 'string' && /^[0-9a-f]{64}$/.test(h);
+      const ok = (h: string) => typeof h === 'string' && /^[0-9a-f]{64}$/.test(h);
       if (!ok(a.phash) || !ok(x.phash)) return false;
       return hamming(a.phash, x.phash) <= SAME_PHOTO || (ok(a.phash_m) && hamming(a.phash_m, x.phash) <= SAME_PHOTO);
     };

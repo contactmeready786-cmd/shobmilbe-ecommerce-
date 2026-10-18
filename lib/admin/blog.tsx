@@ -3,6 +3,7 @@ import { bn, fmtDate, int, str } from '../util';
 import * as content from '../models/content';
 import * as ui from './ui';
 import type { AdminCtx, Loose, RouteMatch } from '../types';
+import type { DbRow } from '../pg';
 
 async function listPage(ctx: AdminCtx) {
   const [posts, cats] = await Promise.all([content.listPosts({ limit: 200 }), content.listBlogCategories()]);

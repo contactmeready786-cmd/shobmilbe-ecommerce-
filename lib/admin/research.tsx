@@ -9,22 +9,22 @@ import type { AdminCtx, Loose } from '../types';
 const TABS = [['winning', '🏆 উইনিং প্রোডাক্ট'], ['find', '🔍 প্রোডাক্ট খুঁজুন'], ['new', '🆕 বাজারে নতুন'], ['drops', '📉 দাম কমেছে'], ['demand', '🔎 আপনার কাস্টমার যা খুঁজছে'], ['sources', '🏪 যেসব দোকান দেখা হচ্ছে']];
 
 function pic(src?: Loose) { return src ? <img src={attrValue(src)} alt="" loading="lazy" referrerPolicy="no-referrer" /> : <span>📦</span>; }
-function ago(d?: Loose) {
+function ago(d: string | number | Date) {
   if (!d) return 'এখনো না';
   const m = Math.round((Date.now() - new Date(d).getTime()) / 60000);
   return m < 1 ? 'এইমাত্র' : m < 60 ? `${bn(m)} মিনিট আগে` : m < 1440 ? `${bn(Math.round(m / 60))} ঘণ্টা আগে` : `${bn(Math.round(m / 1440))} দিন আগে`;
 }
 
-function winningCard(g?: Loose, i?: Loose, segment: Loose = '') {
+function winningCard(g?: Loose, i?: Loose, segment = '') {
   const links = R.sourcingLinks(g.term);
-  return <article className="rs-card"><div className="rs-rank">{bn(i + 1)}</div><a className="rs-pic" href={attrValue(g.best.url)} target="_blank" rel="noopener noreferrer">{pic(g.lead.image)}</a><div className="rs-body"><h3><a href={attrValue(g.lead.url)} target="_blank" rel="noopener noreferrer"><Val v={g.lead.title} /></a></h3><p className="rs-why">{jsxList(g.why.slice(0, 4).map((w: Loose) => <span><Val v={w} /></span>))}</p><div className="rs-nums"><div><small>বাজারে দাম</small><b>{(g.min === g.max ? money(g.min) : <>{money(g.min)}{' '}–{' '}{money(g.max)}</>)}</b><small>সবচেয়ে কম:{' '}<Val v={g.best.shop} /></small></div><div><small>আপনি বিক্রি করতে পারেন</small><b className="good">{(g.sell ? money(g.sell) : "—")}</b><small>বাজারের মাঝামাঝি দামের সামান্য কম</small></div><div><small>এর চেয়ে কমে কিনলে লাভ</small><b className="warn">{(g.buyMax ? money(g.buyMax) : "—")}</b><small>কেনা দাম এর মধ্যে রাখুন</small></div><div><small>আপনার দোকানে</small>{oursCell(g.oursAll || [], g.best.url, g.min, g.max, `/admin/research${segment ? `?seg=${segment}` : ''}`)}</div></div><p className="rs-src"><small>কোথা থেকে কিনবেন খুঁজুন:</small>{' '}{jsxList(links.map(([l, u]) => <a href={attrValue(u)} target="_blank" rel="noopener noreferrer"><Val v={l} /></a>))}</p><p className="rs-shops small muted">যে দোকানে আছে:{' '}{jsxList(g.items.slice(0, 5).map((x: Loose) => <><a href={attrValue(x.url)} target="_blank" rel="noopener noreferrer"><Val v={x.shop} />{' '}({money(x.price)}{(x.rank ? `, #${bn(x.rank)}` : null)})</a>{' '}</>))}</p></div></article>;
+  return <article className="rs-card"><div className="rs-rank">{bn(i + 1)}</div><a className="rs-pic" href={attrValue(g.best.url)} target="_blank" rel="noopener noreferrer">{pic(g.lead.image)}</a><div className="rs-body"><h3><a href={attrValue(g.lead.url)} target="_blank" rel="noopener noreferrer"><Val v={g.lead.title} /></a></h3><p className="rs-why">{jsxList(g.why.slice(0, 4).map((w: Loose) => <span><Val v={w} /></span>))}</p><div className="rs-nums"><div><small>বাজারে দাম</small><b>{(g.min === g.max ? money(g.min) : <>{money(g.min)}{' '}–{' '}{money(g.max)}</>)}</b><small>সবচেয়ে কম:{' '}<Val v={g.best.shop} /></small></div><div><small>আপনি বিক্রি করতে পারেন</small><b className="good">{(g.sell ? money(g.sell) : "—")}</b><small>বাজারের মাঝামাঝি দামের সামান্য কম</small></div><div><small>এর চেয়ে কমে কিনলে লাভ</small><b className="warn">{(g.buyMax ? money(g.buyMax) : "—")}</b><small>কেনা দাম এর মধ্যে রাখুন</small></div><div><small>আপনার দোকানে</small>{oursCell(g.oursAll || [], g.best.url, g.min, g.max, `/admin/research${segment ? `?seg=${segment}` : ''}`)}</div></div><p className="rs-src"><small>কোথা থেকে কিনবেন খুঁজুন:</small>{' '}{jsxList(links.map(([l, u]) => <a href={attrValue(u)} target="_blank" rel="noopener noreferrer"><Val v={l} /></a>))}</p><p className="rs-shops small muted">যে দোকানে আছে:{' '}{jsxList(g.items.slice(0, 5).map((x: { url: unknown; shop: unknown; price: unknown; rank: unknown; }) => <><a href={attrValue(x.url)} target="_blank" rel="noopener noreferrer"><Val v={x.shop} />{' '}({money(x.price)}{(x.rank ? `, #${bn(x.rank)}` : null)})</a>{' '}</>))}</p></div></article>;
 }
 
 // "is it in our shop?" — every matching product, with a link; unsure matches say so
 // The import page opens in the SAME tab: a new tab on a phone is handed to the customer app
 // (it owns shobmilbe.com links), which never opens admin pages.
-function impLink(url?: Loose, back?: Loose) { return `/admin/products/import?url=${encodeURIComponent(url)}${back ? `&back=${encodeURIComponent(back)}` : ''}`; }
-function oursCell(list?: Loose, url?: Loose, min?: Loose, max?: Loose, back: Loose = '/admin/research') {
+function impLink(url: string | number | boolean, back: string | number | boolean) { return `/admin/products/import?url=${encodeURIComponent(url)}${back ? `&back=${encodeURIComponent(back)}` : ''}`; }
+function oursCell(list?: Loose, url?: Loose, min?: Loose, max?: Loose, back = '/admin/research') {
   if (!list.length) return <><b className="bad">নেই</b><small><a href={attrValue(impLink(url, back))}>➕ তথ্য কপি করে আনুন →</a></small></>;
   const sure = list[0].match >= 0.85;
   const p = list[0];

@@ -108,7 +108,7 @@ export async function sitemap(ctx: ApiCtx) {
   const kits = settings.kits_on !== '0' ? await db.q('SELECT slug, updated_at, image_id FROM kits WHERE active ORDER BY sort, id').catch(() => []) : [];
   // the same product listed twice: only its main page goes to Google
   const dupSlugs = await dupcanon.copies().catch(() => new Map());
-  const u = (loc?: Loose, lastmod?: Loose, pri?: Loose, img?: Loose) => `<url><loc>${esc(base + loc)}</loc>${lastmod ? `<lastmod>${new Date(lastmod).toISOString().slice(0, 10)}</lastmod>` : ''}${pri ? `<priority>${pri}</priority>` : ''}${img ? `<image:image><image:loc>${esc(base + img)}</image:loc></image:image>` : ''}</url>`;
+  const u = (loc: string, lastmod: string | number | Date | null, pri: string, img?: string | undefined) => `<url><loc>${esc(base + loc)}</loc>${lastmod ? `<lastmod>${new Date(lastmod).toISOString().slice(0, 10)}</lastmod>` : ''}${pri ? `<priority>${pri}</priority>` : ''}${img ? `<image:image><image:loc>${esc(base + img)}</image:loc></image:image>` : ''}</url>`;
   const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">${[
     u('/', null, '1.0'), u('/products', null, '0.9'), u('/blog', null, '0.5'),
     ...categories.map((c) => u(`/products?cat=${encodeURIComponent(c.slug)}`, null, '0.8')),
@@ -160,7 +160,7 @@ export async function unsubscribe(ctx: ApiCtx) {
   const M = $services_mailer;
   const settings = ctx.settings;
   const t = str(ctx.query.get('t'), 60);
-  const page = (title?: Loose, msg?: Loose, extra: Loose = '') => text(200, `<!doctype html><html lang="bn"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>${esc(title)}</title><body style="font-family:'Hind Siliguri',sans-serif;max-width:480px;margin:60px auto;padding:0 18px;text-align:center;color:#14213d"><div style="font-size:46px">📧</div><h1 style="font-size:22px">${esc(title)}</h1><p style="color:#5b6475;line-height:1.7">${msg}</p>${extra}<p><a href="/" style="display:inline-block;margin-top:14px;background:#0866D6;color:#fff;text-decoration:none;padding:11px 24px;border-radius:10px">দোকানে যান</a></p></body></html>`, 'text/html; charset=utf-8', { 'X-Robots-Tag': 'noindex' });
+  const page = (title?: Loose, msg?: Loose, extra = '') => text(200, `<!doctype html><html lang="bn"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>${esc(title)}</title><body style="font-family:'Hind Siliguri',sans-serif;max-width:480px;margin:60px auto;padding:0 18px;text-align:center;color:#14213d"><div style="font-size:46px">📧</div><h1 style="font-size:22px">${esc(title)}</h1><p style="color:#5b6475;line-height:1.7">${msg}</p>${extra}<p><a href="/" style="display:inline-block;margin-top:14px;background:#0866D6;color:#fff;text-decoration:none;padding:11px 24px;border-radius:10px">দোকানে যান</a></p></body></html>`, 'text/html; charset=utf-8', { 'X-Robots-Tag': 'noindex' });
   if (ctx.request.method === 'POST') {
     // Gmail's one-click "Unsubscribe" button (RFC 8058) and the button on this page both POST here
     if (!(await allow(ctx, 'unsub:', 30, 3600))) return tooManyPage(ctx);

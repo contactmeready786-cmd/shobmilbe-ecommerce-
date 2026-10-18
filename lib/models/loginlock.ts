@@ -11,7 +11,7 @@ import type { OwnerPasskeysRow } from '../data/rows';
 import * as crypto from 'node:crypto';
 import { q, one } from '../db';
 import * as security from '../security';
-import type { Id, Loose, Settings, ShopRequest, StaffUser } from '../types';
+import type { Body, Id, Loose, Settings, ShopRequest, StaffUser } from '../types';
 
 const MODES = ['off', 'passkey'];
 const MODE_NAMES: Record<string, string> = {
@@ -50,7 +50,7 @@ const b64u = (buf?: Loose) => Buffer.from(buf).toString('base64url');
 const fromB64u = (s: Settings) => Buffer.from(String(s || ''), 'base64url');
 
 // ---------------------------------------------------------------- tiny CBOR reader (enough for WebAuthn)
-function cborDecode(buf?: Loose, start: Loose = 0) {
+function cborDecode(buf?: Loose, start = 0) {
   let pos = start;
   function len(info?: Loose) {
     if (info < 24) return info;
@@ -119,7 +119,7 @@ function parseAuthData(ad?: Loose): Loose {
   return out;
 }
 
-function checkClientData(clientDataJSON: Loose, type: Loose, challenge: Loose, req: ShopRequest) {
+function checkClientData(clientDataJSON: Buffer<ArrayBuffer>, type: string, challenge: Loose, req: ShopRequest) {
   let cd;
   try { cd = JSON.parse(Buffer.from(clientDataJSON).toString('utf8')); } catch (_) { throw new Error('ক্লায়েন্ট ডেটা পড়া যায়নি'); }
   if (cd.type !== type) throw new Error('ভুল ধরনের উত্তর');
@@ -127,7 +127,7 @@ function checkClientData(clientDataJSON: Loose, type: Loose, challenge: Loose, r
   if (cd.origin !== origin(req)) throw new Error('অন্য ঠিকানা থেকে উত্তর এসেছে');
 }
 
-function verifySig(alg: Loose, keyPem: Loose, data: Buffer, sig?: Loose) {
+function verifySig(alg: number, keyPem: string | crypto.PublicKeyInput | Buffer<ArrayBufferLike> | crypto.KeyObject | crypto.JsonWebKeyInput, data: Buffer, sig: NodeJS.ArrayBufferView<ArrayBufferLike> | Buffer<ArrayBuffer>) {
   const key = crypto.createPublicKey(keyPem);
   if (alg === -7) return crypto.verify('sha256', data, { key, dsaEncoding: 'der' }, sig);
   if (alg === -35) return crypto.verify('sha384', data, { key, dsaEncoding: 'der' }, sig);
@@ -139,27 +139,27 @@ function verifySig(alg: Loose, keyPem: Loose, data: Buffer, sig?: Loose) {
 
 // ---------------------------------------------------------------- challenges (signed cookie + one-time use)
 const CHALLENGE_SECONDS = 300;
-function newChallenge(purpose?: Loose, staffId?: Id, extra: Loose = '') {
+function newChallenge(purpose: string, staffId?: Id, extra = '') {
   const c = b64u(crypto.randomBytes(32));
   const exp = Date.now() + CHALLENGE_SECONDS * 1000;
   return { challenge: c, value: `${purpose}|${staffId}|${c}|${exp}|${extra}` };
 }
-function readChallenge(value?: Loose, purpose?: Loose, staffId?: Id) {
+function readChallenge(value: string | null, purpose: string, staffId?: Id) {
   if (!value) return null;
   const [p, id, c, exp, extra] = String(value).split('|');
   if (p !== purpose || Number(id) !== Number(staffId) || !c || Date.now() > Number(exp)) return null;
   return { challenge: c, extra: extra || '' };
 }
 // A challenge may be answered once; a copied answer can't be sent again.
-async function useOnce(db?: Loose, challenge?: Loose) { return security.hit(db, 'chal:' + challenge, 1, CHALLENGE_SECONDS + 60); }
+async function useOnce(db: typeof import("../db"), challenge: string) { return security.hit(db, 'chal:' + challenge, 1, CHALLENGE_SECONDS + 60); }
 
 // ---------------------------------------------------------------- passkeys
 async function passkeys(staffId?: Id) {
   return q('SELECT id, cred_id, rp_id, name, transports, created_at, last_used FROM owner_passkeys WHERE staff_id=$1 ORDER BY id', [staffId]);
 }
-async function passkeysFor(staffId?: Id, rp?: Loose) { return (await passkeys(staffId)).filter((k) => k.rp_id === rp); }
+async function passkeysFor(staffId?: Id, rp?: string) { return (await passkeys(staffId)).filter((k) => k.rp_id === rp); }
 
-function registrationOptions(req: ShopRequest, user: StaffUser, settings: Settings, challenge?: Loose, existing?: Loose) {
+function registrationOptions(req: ShopRequest, user: StaffUser, settings: Settings, challenge: string, existing?: Loose) {
   return {
     challenge,
     rp: { id: rpId(req), name: (settings.store_name || 'Shop') + ' Admin' },
@@ -172,7 +172,7 @@ function registrationOptions(req: ShopRequest, user: StaffUser, settings: Settin
   };
 }
 
-async function addPasskey(req: ShopRequest, user: StaffUser, challenge?: Loose, body?: Loose) {
+async function addPasskey(req: ShopRequest, user: StaffUser, challenge: string, body: Body) {
   const resp = body && body.response;
   if (!resp || !resp.clientDataJSON || !resp.attestationObject) throw new Error('উত্তর অসম্পূর্ণ');
   checkClientData(fromB64u(resp.clientDataJSON), 'webauthn.create', challenge, req);
@@ -188,14 +188,14 @@ async function addPasskey(req: ShopRequest, user: StaffUser, challenge?: Loose, 
   const credId = b64u(ad.credId);
   if (body.id && body.id !== credId) throw new Error('চাবির নম্বর মেলেনি');
   const pem = key.export({ type: 'spki', format: 'pem' });
-  const transports = Array.isArray(body.transports) ? body.transports.filter((t: Loose) => /^[a-z-]{2,20}$/.test(t)).slice(0, 6).join(',') : '';
+  const transports = Array.isArray(body.transports) ? body.transports.filter((t: string) => /^[a-z-]{2,20}$/.test(t)).slice(0, 6).join(',') : '';
   const name = String(body.name || '').replace(/[<>]/g, '').trim().slice(0, 60) || 'আমার ডিভাইস';
   await q(`INSERT INTO owner_passkeys(staff_id, cred_id, public_key, alg, sign_count, rp_id, name, transports)
     VALUES($1,$2,$3,$4,$5,$6,$7,$8)`, [user.id, credId, pem, alg, ad.signCount, rp, name, transports]);
   return { name, rp };
 }
 
-async function loginOptions(req: ShopRequest, staffId?: Id, challenge?: Loose) {
+async function loginOptions(req: ShopRequest, staffId?: Id, challenge?: string) {
   const keys = await passkeysFor(staffId, rpId(req));
   return {
     challenge,
@@ -206,7 +206,7 @@ async function loginOptions(req: ShopRequest, staffId?: Id, challenge?: Loose) {
   };
 }
 
-async function checkPasskey(req: ShopRequest, staffId?: Id, challenge?: Loose, body?: Loose) {
+async function checkPasskey(req: ShopRequest, staffId?: Id, challenge?: string, body?: Body) {
   const resp = body && body.response;
   if (!resp || !resp.clientDataJSON || !resp.authenticatorData || !resp.signature) throw new Error('উত্তর অসম্পূর্ণ');
   const cred = await one<OwnerPasskeysRow>('SELECT * FROM owner_passkeys WHERE cred_id=$1 AND staff_id=$2', [String(body.id || ''), staffId]);
@@ -231,7 +231,7 @@ async function checkPasskey(req: ShopRequest, staffId?: Id, challenge?: Loose, b
 // ---------------------------------------------------------------- one-time code for a new web address
 // Passkeys belong to one web address. When the shop moves to a new address (e.g. shobmilbe.com),
 // the owner makes a code at the old address and types it once at the new one.
-function hashCode(c?: Loose) { return crypto.createHash('sha256').update('llc:' + String(c).replace(/\D/g, '')).digest('hex'); }
+function hashCode(c: string) { return crypto.createHash('sha256').update('llc:' + String(c).replace(/\D/g, '')).digest('hex'); }
 async function makeCode(staffId?: Id) {
   const code = String(crypto.randomInt(10000000, 100000000));
   await q("DELETE FROM login_lock_codes WHERE staff_id=$1 OR expires_at < now()", [staffId]);
@@ -244,7 +244,7 @@ async function useCode(staffId?: Id, code?: Loose) {
 }
 
 // What a mode needs before it can be switched on.
-async function readyFor(m: Loose, staffId: Id, req: ShopRequest) {
+async function readyFor(m: string, staffId: Id, req: ShopRequest) {
   const keys = await passkeysFor(staffId, rpId(req));
   if (m === 'passkey' && !keys.length) return 'আগে এই ঠিকানায় অন্তত একটা পাসকি (আঙুলের ছাপ) যোগ করুন।';
   return null;

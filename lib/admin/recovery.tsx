@@ -16,16 +16,16 @@ function makeCode() {
   return s.match(/.{4}/g)!.join('-');
 }
 function normalize(c?: Loose) { return String(c || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); }
-function hash(c?: Loose) { return crypto.scryptSync(normalize(c), 'shobmilbe-recovery-v1', 32).toString('hex'); }
+function hash(c: string) { return crypto.scryptSync(normalize(c), 'shobmilbe-recovery-v1', 32).toString('hex'); }
 
 async function available() { return (await db.one('SELECT count(*)::int AS n FROM recovery_codes WHERE used_at IS NULL'))!.n; }
 // Is this a valid unused code? (does not use it up)
-async function check(code?: Loose) {
+async function check(code: string) {
   if (normalize(code).length !== 12) return false;
   return !!(await db.one('SELECT id FROM recovery_codes WHERE hash=$1 AND used_at IS NULL', [hash(code)]));
 }
 // Use it up (only one request can win).
-async function consume(code?: Loose) {
+async function consume(code: string) {
   return !!(await db.one('UPDATE recovery_codes SET used_at=now() WHERE hash=$1 AND used_at IS NULL RETURNING id', [hash(code)]));
 }
 

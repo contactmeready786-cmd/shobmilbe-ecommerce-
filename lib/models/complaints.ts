@@ -10,7 +10,7 @@ import { str, int, normalizePhone, validPhone, bn } from '../util';
 import * as $catalog from './catalog';
 import * as $orders from './orders';
 import * as $services_sms from '../services/sms';
-import type { Body, Id, Loose } from '../types';
+import type { Body, Id, Loose, Settings } from '../types';
 
 class ComplaintError extends Error {}
 
@@ -31,7 +31,7 @@ const STATUS: Record<string, Loose> = {
   closed: ['🚫', 'বন্ধ'],
 };
 const OPEN = ['open', 'working'];
-const hoursOf = (s?: Loose) => Math.max(1, Math.min(240, int(s.complaint_hours, 72)));
+const hoursOf = (s: Settings) => Math.max(1, Math.min(240, int(s.complaint_hours, 72)));
 
 async function newCode() {
   for (let i = 0; i < 8; i++) {
@@ -106,7 +106,7 @@ async function create({ name, phone, email, orderCode, topic, message, photos, i
     if (!order || order.phone !== ph) throw new ComplaintError('এই অর্ডার নম্বর আর মোবাইল নম্বর মিলছে না — যে নম্বরে অর্ডার করেছিলেন সেটা দিন।');
     const list = warrantyItems(order);
     if (!list.length) throw new ComplaintError(order.status === 'delivered' ? 'এই অর্ডারের কোনো পণ্যে ওয়ারেন্টি নেই।' : 'পণ্য হাতে পাওয়ার (ডেলিভারির) পরে ওয়ারেন্টি দাবি করা যায়।');
-    item = list.find((x: Loose) => x.product_id === int(productId)) || (list.length === 1 ? list[0] : null);
+    item = list.find((x: { product_id: number; }) => x.product_id === int(productId)) || (list.length === 1 ? list[0] : null);
     if (!item) throw new ComplaintError('কোন পণ্যের ওয়ারেন্টি দাবি করছেন বাছাই করুন।');
     if (!item.valid) throw new ComplaintError(`"${item.name}" এর ওয়ারেন্টির মেয়াদ শেষ হয়ে গেছে। তবুও সমস্যা জানাতে চাইলে বিষয় "অন্যান্য" দিয়ে লিখুন।`);
   }
@@ -205,7 +205,7 @@ async function setStatus(id: Id, { status, resolution, staffId, settings }: Body
 async function assign(id?: Id, staffId?: Id) { await db.q('UPDATE complaints SET assigned_to=$2, updated_at=now() WHERE id=$1', [int(id), staffId ? int(staffId) : null]); }
 
 // "time left" in words: "৪১ ঘণ্টা বাকি" / "৫ ঘণ্টা দেরি"
-function timeLeft(c?: Loose) {
+function timeLeft(c: db.pg.DbRow) {
   if (!OPEN.includes(c.status)) return null;
   const ms = new Date(c.due_at).getTime() - Date.now();
   const h = Math.round(Math.abs(ms) / 36e5);

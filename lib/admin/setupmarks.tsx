@@ -17,7 +17,7 @@ function marks(s: Settings) {
   try { const m = JSON.parse((s && s.setup_marks) || '{}'); return m && typeof m === 'object' ? m : {}; } catch (_) { return {}; }
 }
 // what the owner (or the ads rule) says about one item: 'done', 'skip' or ''
-function markOf(s: Settings, key?: Loose, isSetUp?: Loose) {
+function markOf(s: Settings, key: string, isSetUp: boolean) {
   const m = marks(s)[key];
   if (m === 'done' || m === 'skip') return m;
   if (m === 'show') return '';

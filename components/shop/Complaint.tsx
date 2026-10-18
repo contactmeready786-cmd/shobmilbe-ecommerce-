@@ -3,6 +3,8 @@
 import { bn, fmtDate, contact } from '../../lib/util';
 import * as C from '../../lib/models/complaints';
 import type { Loose, Settings } from '../../lib/types';
+import type { Key, ReactElement, JSXElementConstructor, ReactNode, ReactPortal } from 'react';
+
 
 function StatusBox({ c }: { c: Loose }) {
   const [ic, label] = C.STATUS[c.status] || ['', c.status];

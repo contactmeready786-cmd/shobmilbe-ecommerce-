@@ -45,7 +45,7 @@ const KINDS: Record<string, Loose> = {
 };
 const RELEASED = new Set(['cancelled', 'returned']);
 // Stock of an order's items: back on the shelf (sign +1) when it goes to the bin, taken again (-1) when restored.
-async function orderStock(t: Tx, items?: Loose, sign?: Loose, orderId?: Id, note?: Loose) {
+async function orderStock(t: Tx, items?: Loose, sign?: Loose, orderId?: Id, note?: string | undefined) {
   const catalog = $catalog;
   for (const it of items) {
     if (!it.product_id) continue;
@@ -141,7 +141,7 @@ async function restore(id?: Id) {
   const K = KINDS[e.kind];
   try {
     await tx(async (t) => {
-      const ins = async (table?: Loose, r?: Loose) => t.query(`INSERT INTO ${table} SELECT * FROM jsonb_populate_record(NULL::${table}, $1::jsonb) ON CONFLICT DO NOTHING`, [JSON.stringify(r)]);
+      const ins = async (table: string, r?: Loose) => t.query(`INSERT INTO ${table} SELECT * FROM jsonb_populate_record(NULL::${table}, $1::jsonb) ON CONFLICT DO NOTHING`, [JSON.stringify(r)]);
       const row = { ...e.data.row };
       // a category whose main category is gone goes back to the top level
       if (e.kind === 'category' && row.parent_id) {

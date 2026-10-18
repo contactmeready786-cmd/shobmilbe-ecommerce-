@@ -2,7 +2,7 @@
 // drawer, footer, chat buttons, pop-up offer, and the scripts the page needs. One component for both the Next.js
 // pages (app/(shop)/layout.tsx) and the pages still answered by lib/site.ts (lib/views/layout.tsx).
 import { tawkLoader } from '../../../lib/boot-scripts';
-import type { ReactNode } from 'react';
+import type { ReactElement, JSXElementConstructor, ReactNode, ReactPortal } from 'react';
 import * as U from '../../../lib/services/uiswitch';
 import * as security from '../../../lib/security';
 import { contact } from '../../../lib/util';
@@ -40,7 +40,7 @@ function LangSwitch() {
 
 // Category menus. Top bar: main categories with drop-down sub-categories (any depth).
 // Phone menu: the same tree, folding open. Empty sub-categories are left out.
-const visibleKids = (n: Loose) => n.children.filter((k: Loose) => k.total_count > 0);
+const visibleKids = (n: Loose) => n.children.filter((k: { total_count: number; }) => k.total_count > 0);
 function CatMenuItems({ nodes, top }: { nodes: Loose[]; top: boolean }) {
   return nodes.map((n) => {
     const kids = visibleKids(n);
@@ -69,9 +69,9 @@ export type ChromeProps = {
 /** Everything inside <body>: the frame, the page (children) and the page's scripts. */
 export function ShopBody({ settings: s, categories, pages, popup = null, q = '', active = '', track = null, children }: ChromeProps) {
   const { roots } = categoryTree(categories);
-  const menu = jsonSetting(s, 'header_menu', []).filter((m: Loose) => m.on !== false); // admin can switch each button off
+  const menu = jsonSetting(s, 'header_menu', []).filter((m: { on: boolean; }) => m.on !== false); // admin can switch each button off
   const showCart = s.nav_cart !== '0';
-  const footerLinks = jsonSetting(s, 'footer_links', []).filter((l: Loose) => l.on !== false);
+  const footerLinks = jsonSetting(s, 'footer_links', []).filter((l: { on: boolean; }) => l.on !== false);
   // footer "কেনাকাটা" column — each link can be switched off from the admin
   const shopLinks = [
     ['/products', 'সব পণ্য', 'foot_products'], ['/products?sort=offer', 'অফার', 'foot_offer'],

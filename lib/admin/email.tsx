@@ -18,10 +18,10 @@ import type { AdminCtx, Loose } from '../types';
 
 const BASE = '/admin/marketing/email';
 const DAYS = [['6', 'শনিবার'], ['0', 'রবিবার'], ['1', 'সোমবার'], ['2', 'মঙ্গলবার'], ['3', 'বুধবার'], ['4', 'বৃহস্পতিবার'], ['5', 'শুক্রবার']];
-const pct = (a: Loose, b: Loose) => (b ? `${bn(Math.round((a * 100) / b))}%` : '—');
+const pct = (a: number, b: number) => (b ? `${bn(Math.round((a * 100) / b))}%` : '—');
 
 // "1023, 1024", product links (/p/slug) or SKUs → product ids (in the order given)
-async function resolveProducts(text?: Loose) {
+async function resolveProducts(text?: string) {
   const parts = String(text || '').split(/[\s,;]+/).map((x) => x.trim()).filter(Boolean).slice(0, 12);
   const ids: Loose[] = [];
   for (const p of parts) {
@@ -33,7 +33,7 @@ async function resolveProducts(text?: Loose) {
   }
   return ids;
 }
-async function newest(n: Loose = 6) {
+async function newest(n = 6) {
   return (await db.q(`SELECT p.id FROM products p WHERE p.active AND p.parent_id IS NULL AND p.stock > 0 AND p.price > 0 AND p.image_id IS NOT NULL
     ORDER BY p.created_at DESC LIMIT $1`, [n])).map((r) => r.id);
 }

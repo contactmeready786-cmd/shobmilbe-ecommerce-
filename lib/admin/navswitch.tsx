@@ -7,7 +7,7 @@ import { Val, attrValue, jsxList } from '../react/html';
 import { list, str } from '../util';
 import * as db from '../db';
 import * as $marketing from './marketing';
-import type { AdminCtx, Body, Loose } from '../types';
+import type { AdminCtx, Body, Loose, Settings } from '../types';
 const FIXED: Record<string, Loose> = {
   live: { key: 'nav_live', label: 'লাইভ স্কোর', desc: 'ক্রিকেট বা ফুটবল স্কোর চালু থাকলে তবেই এই বাটন দেখা যায়' },
   cart: { key: 'nav_cart', label: 'কার্ট', desc: 'বন্ধ করলে উপরের কার্ট আইকন লুকাবে। "কার্টে যোগ" আর "এখনই কিনুন" বাটন আগের মতোই কাজ করবে' },
@@ -21,8 +21,8 @@ const FOOTER: Record<string, Loose> = {
   contact: { key: 'foot_contact', label: 'যোগাযোগ (ফোন, WhatsApp, ইমেইল, ঠিকানা)', where: 'ফুটারের ডান পাশের "যোগাযোগ" কলাম' },
 };
 
-function menuRows(s?: Loose) { return db.jsonSetting(s, 'header_menu', []); }
-function isOn(row?: Loose) { return row.on !== false; }
+function menuRows(s: Settings) { return db.jsonSetting(s, 'header_menu', []); }
+function isOn(row: { on: boolean; }) { return row.on !== false; }
 
 // Small panel with switches for the given menu links (by url) and fixed buttons ('live', 'cart').
 // Every switch saves the moment it is clicked.
@@ -32,9 +32,9 @@ function box(ctx: AdminCtx, { urls = [], fixed = [], footer = [], back, note }: 
   const rows = menuRows(s).filter((r: Loose) => urls.includes(r.url));
   const top = [
     ...rows.map((r: Loose) => ({ id: 'url:' + r.url, on: isOn(r), title: `"${r.label}" বাটন`, desc: `জায়গা: উপরের মেনু, সার্চ বারের পাশে · লিংক: ${r.url}` })),
-    ...fixed.map((k: Loose) => ({ id: k, on: s[FIXED[k].key] !== '0', title: `"${FIXED[k].label}" বাটন`, desc: `জায়গা: উপরের মেনু · ${FIXED[k].desc}` })),
+    ...fixed.map((k: string | number) => ({ id: k, on: s[FIXED[k].key] !== '0', title: `"${FIXED[k].label}" বাটন`, desc: `জায়গা: উপরের মেনু · ${FIXED[k].desc}` })),
   ];
-  const bottom = footer.map((k: Loose) => ({ id: 'foot:' + k, on: s[FOOTER[k].key] !== '0', title: `"${FOOTER[k].label}" লিংক`, desc: `জায়গা: পেজের একদম নিচে, ${FOOTER[k].where}` }));
+  const bottom = footer.map((k: string) => ({ id: 'foot:' + k, on: s[FOOTER[k].key] !== '0', title: `"${FOOTER[k].label}" লিংক`, desc: `জায়গা: পেজের একদম নিচে, ${FOOTER[k].where}` }));
   const items = [...top, ...bottom];
   if (!items.length) return '';
   // compact: one small chip per button, the long explanation sits in the chip's tooltip

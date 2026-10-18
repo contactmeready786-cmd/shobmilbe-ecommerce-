@@ -23,7 +23,7 @@ const PAGES: Record<string, Loose> = {
   fraud: { path: '/admin/fraud', what: 'ফ্রড চেকের পুরনো ফলাফল', sql: ['DELETE FROM fraud_checks'] },
 };
 const BASE = '/admin/test-clear';
-const key = (k?: Loose) => `tc_${k.replace(/-/g, '_')}`;
+const key = (k: string) => `tc_${k.replace(/-/g, '_')}`;
 
 // called from ctx.page: adds the switch under the page title and the button at the end
 function decorate(ctx: AdminCtx, active?: Loose, body?: Loose) {

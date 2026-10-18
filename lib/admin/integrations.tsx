@@ -14,7 +14,7 @@ function siteBase(ctx: AdminCtx) {
   const host = ctx.req.headers['x-forwarded-host'] || ctx.req.headers.host || '';
   return `${String(ctx.req.headers['x-forwarded-proto'] || 'https').split(',')[0]}://${host}`;
 }
-const status = (ok?: Loose) => (ok ? ui.pill('সেটআপ করা আছে', 'pill-delivered') : ui.pill('সেটআপ বাকি', 'pill-pending'));
+const status = (ok: string | boolean | undefined) => (ok ? ui.pill('সেটআপ করা আছে', 'pill-delivered') : ui.pill('সেটআপ বাকি', 'pill-pending'));
 
 // ---------------------------------------------------------------- courier
 async function courierPage(ctx: AdminCtx) {

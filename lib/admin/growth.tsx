@@ -11,9 +11,9 @@ import * as $liveguide from './liveguide';
 import type { AdminCtx, Body, Loose } from '../types';
 
 const ok = (b: Body) => (b ? '✅' : '❌');
-const pct = (a: Loose, b: Loose) => (b ? Math.round((a * 100) / b) : 0);
+const pct = (a: number, b: number) => (b ? Math.round((a * 100) / b) : 0);
 
-function isoWeek(d: Loose = new Date()) {
+function isoWeek(d = new Date()) {
   const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
   const day = t.getUTCDay() || 7;
   t.setUTCDate(t.getUTCDate() + 4 - day);

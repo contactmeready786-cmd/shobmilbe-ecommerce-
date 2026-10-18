@@ -12,7 +12,7 @@ import * as db from '../db';
 import * as catalog from '../models/catalog';
 import * as security from '../security';
 import * as ui from './ui';
-import type { AdminCtx, Loose, RouteMatch } from '../types';
+import type { AdminCtx, Loose, RouteMatch, Settings } from '../types';
 
 const TYPES: Record<string, Loose> = { domain: 'ওয়েবসাইটের ডোমেইন নাম', text: 'নিজের লেখা', logo: 'লোগো (ছবি)' };
 const STRENGTH: Record<string, Loose> = { soft: 'খুব হালকা (প্রায় চোখে পড়ে না)', normal: 'হালকা (প্রস্তাবিত)', clear: 'একটু স্পষ্ট' };
@@ -21,7 +21,7 @@ const PLACES: Record<string, Loose> = { auto: 'স্বয়ংক্রিয
 
 function domainOf(ctx: AdminCtx) {
   const s = ctx.settings;
-  const from = (u?: Loose) => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch (_) { return ''; } };
+  const from = (u: string | URL) => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch (_) { return ''; } };
   const host = from(s.site_url || '') || String(ctx.req.headers['x-forwarded-host'] || ctx.req.headers.host || '').split(',')[0].split(':')[0].replace(/^www\./, '');
   return host && !/vercel\.app$|localhost|^\d/.test(host) ? host : 'shobmilbe.com';
 }

@@ -14,7 +14,7 @@ import * as BC from '../services/barcode';
 import * as $services_courier from '../services/courier';
 import * as $services_qr from '../services/qr';
 import * as $models_catalog from '../models/catalog';
-import type { Body, Loose } from '../types';
+import type { Body, Loose, Settings } from '../types';
 function mergedItems(items?: Loose) {
   const out: Loose[] = [];
   const seen = new Map();
@@ -27,11 +27,11 @@ function mergedItems(items?: Loose) {
   }
   return out;
 }
-const courierName = (c?: Loose) => (($services_courier.PROVIDERS || {})[c] || {}).label || c;
+const courierName = (c: string | number) => (($services_courier.PROVIDERS || {})[c] || {}).label || c;
 const siteOf = (s?: Loose) => String(s.site_url || '').replace(/\/+$/, '');
-const bare = (u?: Loose) => u.replace(/^https?:\/\//, '');
+const bare = (u: string) => u.replace(/^https?:\/\//, '');
 // The shop's mark: the uploaded logo, or the "সব" tile + two-colour "সবমিলবে" wordmark
-function brandMark(s?: Loose, cls: Loose = '') {
+function brandMark(s?: Loose, cls = '') {
   if (s.logo_id) return <img className={`dc-logo-img ${attrValue(cls)}`} src={`/media/${attrValue(s.logo_id)}`} alt={attrValue(s.store_name)} />;
   const name = s.store_name || 'সবমিলবে';
   return <><img className={`dc-mark ${attrValue(cls)}`} src="/brand/favicon-192.png" alt="" aria-hidden="true" /><span className="dc-word">{(name === 'সবমিলবে' ? <><b className="a">সব</b><b className="b">মিলবে</b></> : <b className="a"><Val v={name} /></b>)}</span></>;
@@ -63,7 +63,7 @@ function checklistBody(order?: Loose, s?: Loose, c?: Loose) {
   const items = mergedItems(order.items);
   const area = ordersModel.areaLabel(order);
   const due = Math.max(0, order.total - (order.paid_amount || 0));
-  const wt = (it?: Loose) => $models_catalog.warrantyText(it);
+  const wt = (it: { warranty?: string; warranty_type?: string; } | null | undefined) => $models_catalog.warrantyText(it);
   const anyWarranty = on.warranty_terms && items.some((it) => wt(it));
   const site = siteOf(s);
   const units = items.reduce((n, it) => n + Number(it.qty || 0), 0);
@@ -107,7 +107,7 @@ function checklistCss(c?: Loose) {
 .iv-table{width:calc(100% - 32px);margin:0 16px;font-size:12px}.iv-table th,.iv-table td{padding:6px 5px}.iv-pic{width:48px}.iv-pic img,.iv-pic span{width:42px;height:42px}.iv-bottom{grid-template-columns:1fr;padding:12px 16px}.dc-word{font-size:30px}.dc-mark{width:46px;height:46px}}
 @media print{@page{size:${c.paper};margin:8mm}body{background:#fff}.bar{display:none}.iv{margin:0;border-radius:0;box-shadow:none;max-width:none}tr{page-break-inside:avoid}}`;
 }
-function checklistPage(orders?: Loose, s?: Loose, c: Loose = docs.checklist(s), opts: Body = {}) {
+function checklistPage(orders?: Loose, s?: Loose, c = docs.checklist(s), opts: Body = {}) {
   return shell(`${c.title} ${orders.length === 1 ? orders[0].code : `(${bn(orders.length)}টি)`}`, checklistCss(c), <><Val v={orders.map((o: Loose) => checklistBody(o, s, c))} /></>, opts);
 }
 
@@ -116,8 +116,8 @@ function labelBody(order?: Loose, s?: Loose, c?: Loose) {
   const on = c.show;
   const area = ordersModel.areaLabel(order);
   const due = Math.max(0, order.total - (order.paid_amount || 0));
-  const units = (order.items || []).reduce((n: Loose, it: Loose) => n + Number(it.qty || 0), 0);
-  const weight = (order.items || []).reduce((g: Loose, it: Loose) => g + Number(it.weight_g || 0) * Number(it.qty || 0), 0) || Number(order.weight_g || 0);
+  const units = (order.items || []).reduce((n: number, it: Loose) => n + Number(it.qty || 0), 0);
+  const weight = (order.items || []).reduce((g: number, it: Loose) => g + Number(it.weight_g || 0) * Number(it.qty || 0), 0) || Number(order.weight_g || 0);
   const site = siteOf(s);
   const z = docs.LABEL_SIZES[c.size] || docs.LABEL_SIZES.a4x6;
   const compact = z.h < 120;
@@ -168,7 +168,7 @@ function labelCss(c?: Loose) {
 @media print{@page{size:${z.sheet ? 'A4' : `${z.w}mm ${z.h}mm`};margin:0}body{background:#fff}.bar{display:none}
   .sheet{padding:0;gap:0;justify-content:flex-start}.lb{box-shadow:none;border-radius:0;height:${z.h}mm;${z.sheet ? 'outline:1px dashed #CBD5E1;' : 'page-break-after:always;'}}}`;
 }
-function invoicePage(orders?: Loose, s?: Loose, c: Loose = docs.invoice(s), opts: Body = {}) {
+function invoicePage(orders?: Loose, s?: Loose, c = docs.invoice(s), opts: Body = {}) {
   return shell(`${c.title} ${orders.length === 1 ? orders[0].code : `(${bn(orders.length)}টি)`}`, labelCss(c), <div className="sheet"><Val v={orders.map((o: Loose) => labelBody(o, s, c))} /></div>, opts);
 }
 

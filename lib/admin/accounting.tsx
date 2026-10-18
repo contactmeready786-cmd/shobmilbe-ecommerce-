@@ -8,7 +8,7 @@ import { saveKeys } from './marketing';
 import * as $vat from './vat';
 import type { AdminCtx, Loose, RouteMatch } from '../types';
 
-const dd = (d?: Loose) => fmtDate(String(d).slice(0, 10) + 'T06:00:00Z', false);
+const dd = (d: string) => fmtDate(String(d).slice(0, 10) + 'T06:00:00Z', false);
 
 async function home(ctx: AdminCtx) {
   const today = ymd();
@@ -92,7 +92,7 @@ async function pnlPage(ctx: AdminCtx) {
   const { from, to } = dateRange(ctx.query, 30);
   const p = await F.profitLoss(from, to);
   const s = p.sales;
-  const row = (label?: Loose, v?: Loose, cls: Loose = '') => <tr className={attrValue(cls)}><td><Val v={label} /></td><td className="num">{money(v)}</td></tr>;
+  const row = (label?: Loose, v?: Loose, cls = '') => <tr className={attrValue(cls)}><td><Val v={label} /></td><td className="num">{money(v)}</td></tr>;
   const body = <><h1>লাভ-ক্ষতি</h1>{ui.dateFilter('/admin/accounts/pnl', from, to)}<div className="two-col"><section className="panel"><h2><Val v={dd(from)} />{' '}থেকে{' '}<Val v={dd(to)} /></h2><table className="lines pnl"><tbody>{row(`পণ্য বিক্রি (${bn(s!.orders)}টি ডেলিভারি হওয়া অর্ডার)`, s!.goods)}{' '}{row('− ছাড়', -s!.discount)}{' '}{row('+ ডেলিভারি চার্জ আদায়', s!.delivery)}{' '}{row('মোট আয়', s!.revenue, 'sub')}{' '}{row('− বিক্রি হওয়া পণ্যের কেনা দাম', -s!.cogs)}{' '}{row('মোট লাভ (Gross profit)', p.gross, 'sub')}{' '}<Val v={p.otherIncome.map((e) => row('+ ' + e.category, e.amount))} />{' '}<Val v={p.expenses.map((e) => row('− ' + e.category, -e.amount))} />{' '}{row('নিট লাভ (Net profit)', p.net, 'total ' + (p.net >= 0 ? 'good' : 'warn'))}</tbody></table>{(Number(s!.revenue) ? <p className="muted small">লাভের হার:{' '}{bn(((p.net / Number(s!.revenue)) * 100).toFixed(1))}% · ফেরত আসা অর্ডার:{' '}{bn(p.returns)}টি</p> : null)}<p className="muted small">টীকা: কুরিয়ারের ডেলিভারি চার্জ যদি "কুরিয়ার চার্জ" খাতে খরচ হিসেবে লেখেন, তাহলে এখানে সঠিক লাভ আসবে।</p></section><section className="panel"><h2>শুধু টাকার আসা-যাওয়া (লাভ-ক্ষতিতে ধরা হয়নি)</h2><table className="lines"><tbody><Val v={p.movements.income.map((e) => row('+ ' + e.category, e.amount))} />{' '}<Val v={p.movements.expense.map((e) => row('− ' + e.category, -e.amount))} /></tbody></table>{(!p.movements.income.length && !p.movements.expense.length ? <p className="muted">নেই।</p> : null)}</section></div></>;
   return ctx.page('লাভ-ক্ষতি', body, 'acc-pnl');
 }

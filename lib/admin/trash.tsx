@@ -20,7 +20,7 @@ const FIELD: Record<string, Loose> = {
 const HIDE = new Set(['password', 'permissions', 'image', 'seo_title', 'seo_description', 'seo_keywords', 'emoji', 'image_id', 'cover_id', 'id']);
 const ENTITY: Record<string, string> = { product: 'product', category: 'category', blog_post: 'blog', banner: 'banner', page: 'page', coupon: 'coupon', transaction: 'transaction', staff: 'staff', customer: 'customer', order: 'order' };
 
-function who(e?: Loose) { return e.deleted_by_name || (e.deleted_by ? `স্টাফ #${e.deleted_by}` : '—'); }
+function who(e: db.pg.DbRow) { return e.deleted_by_name || (e.deleted_by ? `স্টাফ #${e.deleted_by}` : '—'); }
 function where(path?: Loose) {
   const map: [RegExp, string][] = [[/^\/admin\/products\/\d+/, 'পণ্যের এডিট পেজ'], [/^\/admin\/products/, 'সব পণ্য তালিকা'], [/^\/admin\/categories/, 'ক্যাটাগরি পেজ'], [/^\/admin\/blog/, 'ব্লগ'],
     [/^\/admin\/design\/banners/, 'ব্যানার'], [/^\/admin\/design\/pages/, 'পেজ'], [/^\/admin\/marketing\/coupons/, 'কুপন'], [/^\/admin\/accounts/, 'হিসাব'], [/^\/admin\/staff/, 'স্টাফ'],
@@ -82,7 +82,7 @@ async function page(ctx: AdminCtx) {
   return ctx.page('রিসাইকেল বিন', body, 'trash');
 }
 
-function valueOf(k?: Loose, v?: Loose, cats?: Loose) {
+function valueOf(k: string, v?: Loose, cats?: Loose) {
   if (v === null || v === undefined || v === '') return <span className="muted">—</span>;
   if (typeof v === 'boolean') return v ? 'হ্যাঁ' : 'না';
   if (['price', 'old_price', 'cost_price', 'amount'].includes(k)) return money(v);

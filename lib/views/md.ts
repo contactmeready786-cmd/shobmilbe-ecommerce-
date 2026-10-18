@@ -7,14 +7,14 @@
 import { esc, youtubeId } from '../util';
 import type { Body, Loose } from '../types';
 
-function inline(s?: Loose) {
+function inline(s: string) {
   return s
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
     .replace(/(^|[\s(])\*(?!\s)(.+?)\*(?=[\s).,!?]|$)/g, '$1<em>$2</em>')
     .replace(/\[([^\]]+)\]\(((?:https?:\/\/|\/)[^\s)]+)\)/g, (_?: Loose, t?: Loose, u?: Loose) => `<a href="${u}"${u.startsWith('/') ? '' : ' rel="noopener nofollow" target="_blank"'}>${t}</a>`);
 }
 
-function render(text?: Loose, { productCard }: Body = {}) {
+function render(text: string, { productCard }: Body = {}) {
   const lines = String(text || '').replace(/\r/g, '').split('\n');
   const out = [];
   let list: Loose = null;
@@ -23,7 +23,7 @@ function render(text?: Loose, { productCard }: Body = {}) {
     if (!table) return;
     const [head, ...body] = table;
     out.push(`<div class="table-scroll"><table class="md-table"><thead><tr>${head.map((c: Loose) => `<th>${inline(esc(c))}</th>`).join('')}</tr></thead>`
-      + `<tbody>${body.map((r: Loose) => `<tr>${head.map((_: Loose, i: Loose) => `<td>${inline(esc(r[i] || ''))}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`);
+      + `<tbody>${body.map((r: Loose) => `<tr>${head.map((_: Loose, i: string | number) => `<td>${inline(esc(r[i] || ''))}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`);
     table = null;
   };
   const close = () => { if (list) { out.push(`</${list}>`); list = null; } };
@@ -54,7 +54,7 @@ function render(text?: Loose, { productCard }: Body = {}) {
   closeTable();
   return out.join('\n');
 }
-function plain(text?: Loose, max: Loose = 160) {
+function plain(text: string, max = 160) {
   return String(text || '').replace(/[#*_[\]()>-]+/g, ' ').replace(/https?:\/\/\S+/g, '').replace(/\s+/g, ' ').trim().slice(0, max);
 }
 

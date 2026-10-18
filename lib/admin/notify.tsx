@@ -11,7 +11,7 @@ import { fmtDate, int } from '../util';
 import * as $layout from './layout';
 import type { AdminCtx, Loose, RouteMatch } from '../types';
 
-const dots = (v?: Loose) => (v ? '••••••••' : '');
+const dots = (v: string | undefined) => (v ? '••••••••' : '');
 
 async function page(ctx: AdminCtx) {
   const s = ctx.settings;

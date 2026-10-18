@@ -9,7 +9,7 @@ import { fmtDate, str, int, normalizePhone, validPhone } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
 import * as S from '../models/staff';
-import type { AdminCtx, Body, Id, Loose, RouteMatch } from '../types';
+import type { AdminCtx, Body, Id, Loose, RouteMatch, StaffUser } from '../types';
 function ymd(v?: Loose) {
   if (!v) return '';
   if (v instanceof Date) return Number.isNaN(v.getTime()) ? '' : `${v.getFullYear()}-${String(v.getMonth() + 1).padStart(2, '0')}-${String(v.getDate()).padStart(2, '0')}`;
@@ -29,24 +29,24 @@ function since(v?: Loose) {
 }
 
 // The round picture (or the first letter of the name when there is no picture)
-function avatar(u?: Loose, cls: Loose = '') {
+function avatar(u: db.pg.DbRow, cls = '') {
   if (!u) return <span className={`avatar ${attrValue(cls)}`}>?</span>;
   if (u.photo_id) return <span className={`avatar has-photo ${attrValue(cls)}`}><img src={`/admin/avatar/${attrValue(u.id)}?v=${attrValue(u.photo_id)}`} alt={attrValue(u.name)} loading="lazy" /></span>;
   return <span className={`avatar ${attrValue(cls)}`} aria-hidden="true">{String(u.name || '?').trim().slice(0, 1).toUpperCase()}</span>;
 }
 
 // Picture with "ছবি দিন / বদলান", "ক্যামেরায় তুলুন" and "মুছুন" — a new picture is shown first, then saved with its own "সেভ করুন"
-function photoBox(u?: Loose, action?: Loose) {
+function photoBox(u: Partial<StaffUser>, action?: Loose) {
   return <div className="avatar-box" data-avatar-pick="" data-action={attrValue(action)}>{avatar(u, 'avatar-xl')}<div className="avatar-box-act"><b>প্রোফাইল ছবি</b>{' '}<span className="row-actions">{' '}<label className={`btn btn-sm ${u.photo_id ? 'btn-ghost' : ''}`}>🖼️{' '}{(u.photo_id ? "ছবি বদলান" : "ছবি দিন")}<input type="file" accept="image/*" hidden data-avatar-file="" /></label>{' '}<button type="button" className="btn btn-sm btn-ghost" data-avatar-camera="">📸 ক্যামেরায় তুলুন</button>{' '}{(u.photo_id ? <button type="button" className="btn btn-sm btn-ghost danger-text" data-avatar-remove="">🗑️ ছবি মুছুন</button> : null)}{' '}</span>{' '}<span className="row-actions" data-avatar-confirm="" hidden>{' '}<button type="button" className="btn btn-sm" data-avatar-save="">💾 সেভ করুন</button>{' '}<button type="button" className="btn btn-sm btn-ghost" data-avatar-cancel="">বাতিল</button>{' '}</span>{' '}<small className="small muted" data-avatar-msg="">{(u.photo_id ? "নতুন ছবি দিলে আগেরটা বদলে যাবে।" : "মুখের পরিষ্কার ছবি দিন — মাঝখান থেকে গোল করে কেটে নেওয়া হবে।")}</small></div></div>;
 }
 
 // The profile boxes inside a form. ownerEdit: the owner is filling it in (job title and joining date can be changed).
-function fields(u: Loose, { ownerEdit }: Body) {
+function fields(u: Partial<StaffUser>, { ownerEdit }: Body) {
   return <><div className="field-row">{(ownerEdit ? ui.field('পদবি / কাজ', ui.input('designation', u.designation || '', { maxlength: 60, placeholder: 'যেমন: ম্যানেজার, অর্ডার কনফার্ম, প্যাকিং' })) : <div className="field"><span className="label">পদবি / কাজ</span><p><Val v={u.designation || <span className="muted">—</span>} /></p></div>)}{' '}{(ownerEdit ? ui.field('যোগদানের তারিখ', ui.input('joined_on', ymd(u.joined_on), { type: 'date' }), u.joined_on ? since(u.joined_on) : '') : <div className="field"><span className="label">যোগদানের তারিখ</span><p>{(u.joined_on ? <>{fmtDate(ymd(u.joined_on), false)}{' '}<span className="small muted">(<Val v={since(u.joined_on)} />)</span></> : <span className="muted">—</span>)}</p></div>)}</div>{ui.field('ঠিকানা', ui.textarea('address', u.address || '', { rows: 2, maxlength: 300, placeholder: 'বাসার ঠিকানা' }))}{' '}{ui.field('জরুরি যোগাযোগের নম্বর', ui.input('emergency_phone', u.emergency_phone || '', { inputmode: 'tel', maxlength: 20, placeholder: 'পরিবারের কারো নম্বর' }), 'কোনো দরকারে যাকে ফোন করা যাবে (বাবা-মা, ভাই-বোন)।')}{' '}{ui.field('নিজের সম্পর্কে', ui.textarea('bio', u.bio || '', { rows: 2, maxlength: 500, placeholder: 'ছোট করে — যেমন কোন কাজে দক্ষ, কোন সময় কাজ করেন' }))}</>;
 }
 
 // Same phone / email can't be on two accounts (both can be used to log in)
-async function contactProblem(id?: Id, phone?: Loose, email?: Loose) {
+async function contactProblem(id?: Id, phone?: string, email?: string) {
   const p = normalizePhone(phone || '');
   const e = String(email || '').trim().toLowerCase();
   if (p) {
@@ -68,11 +68,11 @@ async function servePhoto(ctx: AdminCtx, m: RouteMatch) {
   return ctx.reply.answer(200, { 'Content-Type': type, 'Cache-Control': 'private, max-age=31536000, immutable', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'; sandbox" }, p.data);
 }
 
-function answer(ctx: AdminCtx, ok?: Loose, back?: Loose, msg?: Loose) {
+function answer(ctx: AdminCtx, ok: boolean, back?: Loose, msg?: Loose) {
   if (String(ctx.req.headers.accept || '').includes('application/json')) return ctx.json(ok ? 200 : 400, ok ? { ok: true } : { error: msg });
   return ok ? ctx.back(back, 'saved') : ctx.fail(back, msg);
 }
-async function changePhoto(ctx: AdminCtx, id?: Id, back?: Loose) {
+async function changePhoto(ctx: AdminCtx, id?: Id, back?: string) {
   const b = await ctx.body();
   const want = int(b.photo_id) || null;
   if (want) {
@@ -114,7 +114,7 @@ async function saveMine(ctx: AdminCtx) {
 }
 
 // The "আমার প্রোফাইল" panel on the account page
-function myPanel(u?: Loose) {
+function myPanel(u: StaffUser) {
   const owner = u.role === 'owner';
   return <section className="panel profile-panel" id="profile"><h2>👤 আমার প্রোফাইল</h2>{photoBox(u, '/admin/account/photo')}<form method="post" action="/admin/account/profile" className="form"><div className="field-row">{(owner ? ui.field('নাম', ui.input('name', u.name || '', { required: true, maxlength: 80 })) : <div className="field"><span className="label">নাম</span><p><b translate="no"><Val v={u.name} /></b>{' '}<span className="small muted">(নাম বদলাতে মালিককে বলুন)</span></p></div>)}<div className="field"><span className="label">ইউজারনেম</span><p className="mono" translate="no"><Val v={u.username} /></p></div></div><div className="field-row">{ui.field('মোবাইল (এটা দিয়েও লগইন করা যায়)', ui.input('phone', u.phone || '', { inputmode: 'tel', maxlength: 20 }))}{ui.field('ইমেইল', ui.input('email', u.email || '', { type: 'email', maxlength: 120 }))}</div>{fields(u, { ownerEdit: owner })}{' '}<button className="btn">প্রোফাইল সেভ করুন</button></form></section>;
 }

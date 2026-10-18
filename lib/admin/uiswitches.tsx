@@ -6,7 +6,7 @@ import * as db from '../db';
 import * as ui from './ui';
 import * as U from '../services/uiswitch';
 import * as $homerows from './homerows';
-import type { AdminCtx, Loose, RouteMatch } from '../types';
+import type { AdminCtx, Loose, RouteMatch, Settings } from '../types';
 
 const BASE = '/admin/design/switches';
 const HOME_LABELS: Record<string, Loose> = {
@@ -18,7 +18,7 @@ const HOME_LABELS: Record<string, Loose> = {
 function switchForm(action?: Loose, on?: Loose, label?: Loose) {
   return <form method="post" action={attrValue(action)} className="prod-toggle" data-on={`${attrValue(label)}: চালু — দোকানে দেখাচ্ছে`} data-off={`${attrValue(label)}: বন্ধ — দোকানে লুকানো`}><label className="switch" title={attrValue(label)}><input type="checkbox" name="active" defaultValue="1" defaultChecked={!!(on)} data-prod-toggle="" aria-label={attrValue(label)} /><span className="switch-ui" aria-hidden="true"></span></label>{' '}<span className="small prod-toggle-text" data-prod-toggle-text="">{(on ? "চালু" : "বন্ধ")}</span><noscript><button className="btn btn-sm btn-ghost">সেভ</button></noscript></form>;
 }
-function textForm(s?: Loose, key?: Loose, t?: Loose) {
+function textForm(s: Settings, key?: Loose, t?: Loose) {
   const cur = typeof s[key] === 'string' ? s[key] : '';
   return <form method="post" action={`${attrValue(BASE)}/text`} className="ui-text" data-ui-text=""><input type="hidden" name="key" defaultValue={attrValue(key)} />{' '}<label className="small muted"><Val v={t.label} /></label>{' '}<span className="ui-text-row"><input name="value" defaultValue={attrValue(cur)} placeholder={attrValue(t.ph || t.def || '')} maxlength={attrValue(t.max || 120)} />{' '}<button className="btn btn-sm btn-ghost">সেভ</button></span>{' '}{(t.def ? <span className="small muted">খালি রাখলে: "<Val v={t.def} />"</span> : null)}</form>;
 }
@@ -43,7 +43,7 @@ function featureRows(ctx: AdminCtx, keys?: Loose) {
   return <section className="panel"><ul className="ui-list">{jsxList(items.map((it: Loose) => <li className={`ui-row ${!U.on(s, it.key) ? 'row-off' : ''}`}><div className="ui-row-main"><div className="ui-row-text"><b><Val v={it.label} /></b><span className="small muted"><Val v={it.desc} /></span></div>{switchForm(`${BASE}/toggle/${it.key}`, U.on(s, it.key), it.label)}</div>{(it.text ? textForm(s, it.text.key, it.text) : null)}</li>))}</ul></section>;
 }
 
-function done(ctx: AdminCtx, ok?: Loose, msg?: Loose) {
+function done(ctx: AdminCtx, ok: boolean, msg?: Loose) {
   if (String(ctx.req.headers.accept || '').includes('application/json')) return ctx.json(ok ? 200 : 400, ok ? { ok: true } : { error: msg });
   return ok ? ctx.back(BASE, 'saved') : ctx.fail(BASE, msg);
 }
@@ -62,7 +62,7 @@ async function homeToggle(ctx: AdminCtx, m: RouteMatch) {
   if (!LBL[key]) return done(ctx, false, 'অজানা সারি।');
   const b = await ctx.body();
   const on = !!b.active && b.active !== '0';
-  const list = db.jsonSetting(ctx.settings, 'home_sections', []).filter((k: Loose) => LBL[k] && k !== key);
+  const list = db.jsonSetting(ctx.settings, 'home_sections', []).filter((k: string) => LBL[k] && k !== key);
   if (on) {
     // back in its usual place: just after the row that comes before it in the default order
     const order = Object.keys(HOME_LABELS);

@@ -9,7 +9,7 @@ import { raw, money, bn, fmtDate, int, ymd, csv, num, str } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
 import * as $models_orders from '../models/orders';
-import type { AdminCtx, Loose, RouteMatch } from '../types';
+import type { AdminCtx, Loose, RouteMatch, Settings } from '../types';
 
 const MODES = {
   none: 'ভ্যাট হিসাব করব না',
@@ -20,10 +20,10 @@ const MODES = {
 };
 const BN_MONTH = ['জানুয়ারি', 'ফেব্রুয়ারি', 'মার্চ', 'এপ্রিল', 'মে', 'জুন', 'জুলাই', 'আগস্ট', 'সেপ্টেম্বর', 'অক্টোবর', 'নভেম্বর', 'ডিসেম্বর'];
 const monthName = (ym?: Loose) => `${BN_MONTH[Number(ym.slice(5, 7)) - 1]} ${bn(ym.slice(0, 4))}`;
-const r2 = (n?: Loose) => Math.round(Number(n || 0) * 100) / 100;
+const r2 = (n: number) => Math.round(Number(n || 0) * 100) / 100;
 
 // VAT inside / on top of an amount for one mode
-function split(amount?: Loose, s?: Loose, cost: Loose = 0) {
+function split(amount: number, s: Settings, cost = 0) {
   const rate = num(s.vat_rate, 15);
   const a = Number(amount || 0);
   switch (s.vat_mode) {

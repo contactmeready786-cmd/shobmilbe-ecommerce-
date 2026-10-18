@@ -12,7 +12,7 @@ const BASE = '/admin/complaints';
 const PER_PAGE = 40;
 const PILL: Record<string, string> = { open: 'pill-new', working: 'pill-processing', solved: 'pill-delivered', closed: 'pill-grey' };
 
-function timePill(c?: Loose) {
+function timePill(c: db.pg.DbRow) {
   const t = C.timeLeft(c);
   if (!t) return c.resolved_at ? <span className="small muted">{(c.resolved_at <= c.due_at ? "✓ সময়মতো" : "⚠️ দেরিতে")}{' '}শেষ</span> : '';
   return <span className={`pill ${t.late ? 'pill-red' : t.soon ? 'pill-amber' : 'pill-green'}`}>⏱️{' '}<Val v={t.text} /></span>;

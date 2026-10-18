@@ -88,7 +88,7 @@ async function priceSweep(settings: Settings, { limit = 25 }: Body = {}) {
   }
   return { sent };
 }
-async function priceAlertTop(limit: Loose = 20) {
+async function priceAlertTop(limit = 20) {
   return db.q(`SELECT p.id, p.name, p.sku, p.price, coalesce(p.parent_id, p.id) AS edit_id, count(*)::int AS n, min(a.price_at) AS lowest_asked, max(a.created_at) AS last_at
     FROM price_alerts a JOIN products p ON p.id=a.product_id WHERE a.notified_at IS NULL GROUP BY p.id ORDER BY count(*) DESC, max(a.created_at) DESC LIMIT $1`, [limit]);
 }
@@ -99,7 +99,7 @@ async function stockAlertList({ status = 'waiting', limit = 200 }: Body = {}) {
     FROM stock_alerts a JOIN products p ON p.id=a.product_id WHERE ${where} ORDER BY a.created_at DESC LIMIT $1`, [limit]);
 }
 // Most wanted products that are out of stock — what to buy first.
-async function stockAlertTop(limit: Loose = 15) {
+async function stockAlertTop(limit = 15) {
   return db.q(`SELECT p.id, p.name, p.sku, p.stock, p.image_id, p.emoji, coalesce(p.parent_id, p.id) AS edit_id, count(*)::int AS n, max(a.created_at) AS last_at
     FROM stock_alerts a JOIN products p ON p.id=a.product_id WHERE a.notified_at IS NULL
     GROUP BY p.id ORDER BY count(*) DESC, max(a.created_at) DESC LIMIT $1`, [limit]);
@@ -122,7 +122,7 @@ async function askQuestion({ productId, name, phone, question, ip }: Body) {
     [p.id, str(name, 60), ph, text, str(ip, 60)]);
   return { id: r!.id, product: p.name };
 }
-async function publishedQuestions(productId?: Id, limit: Loose = 30) {
+async function publishedQuestions(productId?: Id, limit = 30) {
   return db.q(`SELECT id, name, question, answer, created_at FROM product_questions
     WHERE product_id=$1 AND status='published' AND answer<>'' ORDER BY answered_at DESC NULLS LAST, id DESC LIMIT $2`, [int(productId), limit]);
 }

@@ -14,6 +14,7 @@ import { myOrders } from '../gate';
 import { str, int, parseCookies, sign, unsign } from '../util';
 import type { PageOpts, Resolved } from './router';
 import type { Loose, Settings, ShopRequest } from '../types';
+import type { FunctionComponentElement } from 'react';
 
 export type FormsCtx = { path: string; query: URLSearchParams; settings: Settings; req: Pick<ShopRequest, 'headers'> };
 
@@ -21,7 +22,7 @@ export type FormsCtx = { path: string; query: URLSearchParams; settings: Setting
 export const RETURN_PAGE = /^\/order\/([A-Za-z0-9]+)\/return$/;
 
 /** Where to go after logging in: only an address on this site, never back into the account pages. */
-export const safeNext = (n?: Loose) => (/^\/(?!\/)[A-Za-z0-9/_?=&.%-]{0,200}$/.test(String(n || '')) && !String(n).startsWith('/account') ? String(n) : '');
+export const safeNext = (n: string | null) => (/^\/(?!\/)[A-Za-z0-9/_?=&.%-]{0,200}$/.test(String(n || '')) && !String(n).startsWith('/account') ? String(n) : '');
 
 // The browser's "my orders" list (order page shows the full address / reviews / returns for these).
 export function ordersCookie(req: Pick<ShopRequest, 'headers'>, settings: Settings, codes?: Loose) {

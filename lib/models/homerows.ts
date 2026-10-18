@@ -5,6 +5,7 @@ import { q, one } from '../db';
 import { int, str } from '../util';
 import * as $catalog from './catalog';
 import type { Body, Id, Loose } from '../types';
+import type { DbRow } from '../pg';
 
 const SOURCES: Record<string, string> = {
   category: 'একটা ক্যাটাগরির পণ্য',
@@ -74,7 +75,7 @@ async function save(id: Id, b: Body) {
 }
 
 // The products of one row, ready for the shop.
-async function productsFor(r?: Loose, { hideOut }: Body = {}) {
+async function productsFor(r: DbRow, { hideOut }: Body = {}) {
   const catalog = $catalog;
   const limit = r.lim || 16;
   const base = { public: true, hideOut: hideOut || r.in_stock_only, sort: r.sort, limit };

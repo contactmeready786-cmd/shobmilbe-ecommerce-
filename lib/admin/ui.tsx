@@ -3,6 +3,8 @@ import { Val, RawHtml, attrValue, jsxList, styleOf } from '../react/html';
 import { bn, money } from '../util';
 import * as $models_catalog from '../models/catalog';
 import type { Body, Id, Loose } from '../types';
+import type { JSX } from 'react/jsx-runtime';
+import type { DbRow } from '../pg';
 
 const MESSAGES: Record<string, Loose> = {
   saved: 'সেভ হয়েছে।',
@@ -36,14 +38,14 @@ function flashFrom(query: URLSearchParams) {
 
 // 🏳️ A country's flag as a small picture (public/flags, from flag-icons — MIT): emoji flags don't show on Windows
 // and look different on every phone, so the admin draws the same picture everywhere. The emoji stays as its alt text.
-function flag(code?: Loose) {
+function flag(code: string) {
   const c = String(code || '').toUpperCase();
   if (!/^[A-Z]{2}$/.test(c)) return <span className="flag flag-none" aria-hidden="true">🌐</span>;
   const emoji = String.fromCodePoint(...[...c].map((ch) => 0x1F1E6 + ch.charCodeAt(0) - 65));
   return <img className="flag" src={`/flags/${c.toLowerCase()}.svg`} alt={emoji} width={20} height={15} loading="lazy" decoding="async" />;
 }
 
-function pill(text?: Loose, cls: Loose = '') { return <span className={`pill ${attrValue(cls)}`}><Val v={text} /></span>; }
+function pill(text?: Loose, cls = '') { return <span className={`pill ${attrValue(cls)}`}><Val v={text} /></span>; }
 
 // ---------- form fields ----------
 function field(label?: Loose, control?: Loose, hint?: Loose) {
@@ -78,14 +80,14 @@ function input(name?: Loose, value?: Loose, attrs: Loose = {}) {
   }
   return <input name={text(name)} defaultValue={text(value)} {...propsOf(attrs)} />;
 }
-function textarea(name?: Loose, value?: Loose, attrs: Loose = {}) {
+function textarea(name?: Loose, value?: Loose, attrs = {}) {
   return <textarea name={text(name)} defaultValue={text(value)} {...propsOf(attrs)} />;
 }
-function select(name: Loose, options: Body, value?: Loose, attrs: Loose = {}) {
+function select(name: Loose, options: Body, value?: Loose, attrs = {}) {
   const opts = Array.isArray(options) ? options : Object.entries(options);
   return <select name={text(name)} defaultValue={text(value)} {...propsOf(attrs)}>{jsxList(opts.map(([v, l]: Loose[]) => <option value={text(v)}>{text(l)}</option>))}</select>;
 }
-function check(name?: Loose, checked?: Loose, label?: Loose, value: Loose = '1') {
+function check(name?: Loose, checked?: Loose, label?: Loose, value = '1') {
   return <label className="check"><input type="checkbox" name={attrValue(name)} defaultValue={attrValue(value)} defaultChecked={!!(checked)} />{' '}<span><Val v={label} /></span></label>;
 }
 // Big on/off switch with a title and explanation.
@@ -100,24 +102,24 @@ function imagePicker(name?: Loose, mediaId?: Id, { label = 'ছবি', hint = '
 function pager(total?: Loose, page?: Loose, perPage?: Loose, baseUrl?: Loose) {
   const pages = Math.ceil(total / perPage);
   if (pages <= 1) return '';
-  const link = (p?: Loose) => baseUrl + (baseUrl.includes('?') ? '&' : '?') + 'page=' + p;
+  const link = (p: string | number) => baseUrl + (baseUrl.includes('?') ? '&' : '?') + 'page=' + p;
   const items = [];
   for (let p = Math.max(1, page - 2); p <= Math.min(pages, page + 2); p++) items.push(p);
   return <nav className="pager" aria-label="পেজ">{(page > 1 ? <a href={attrValue(link(page - 1))}>← আগের</a> : null)}{' '}{jsxList(items.map((p) => (p === page ? <b>{bn(p)}</b> : <a href={attrValue(link(p))}>{bn(p)}</a>)))}{' '}{(page < pages ? <a href={attrValue(link(page + 1))}>পরের →</a> : null)}{' '}<span className="muted small">মোট{' '}{bn(total)}টি</span></nav>;
 }
 
-function dateFilter(path?: Loose, from?: Loose, to?: Loose, extra: Loose = '') {
+function dateFilter(path?: Loose, from?: Loose, to?: Loose, extra = '') {
   const presets = [[7, '৭ দিন'], [30, '৩০ দিন'], [90, '৯০ দিন'], [365, '১ বছর']];
   return <form className="date-filter" method="get" action={attrValue(path)}><RawHtml html={extra} /><div className="chips">{jsxList(presets.map(([d, l]) => <a className="chip" href={`${attrValue(path)}?days=${attrValue(d)}`}><Val v={l} /></a>))}</div><label>থেকে{' '}<input type="date" name="from" defaultValue={attrValue(from)} /></label>{' '}<label>পর্যন্ত{' '}<input type="date" name="to" defaultValue={attrValue(to)} /></label>{' '}<button className="btn btn-sm">দেখুন</button></form>;
 }
 
-function kpi(label?: Loose, value?: Loose, sub?: Loose, cls: Loose = '', href: Loose = '') {
+function kpi(label?: Loose, value?: Loose, sub?: Loose, cls = '', href = '') {
   const body = <><span className="kpi-label"><Val v={label} /></span><b className="kpi-value"><Val v={value} /></b>{(sub ? <span className="kpi-sub"><Val v={sub} /></span> : null)}</>;
   return href ? <a className={`kpi ${attrValue(cls)}`} href={attrValue(href)}>{body}</a> : <div className={`kpi ${attrValue(cls)}`}>{body}</div>;
 }
 
 // Category choices as a tree: "📟 ইলেকট্রনিক্স", "　└ সার্কিট ও মডিউল", "　　└ অডিও অ্যামপ্লিফায়ার বোর্ড"
-function catOpts(categories?: Loose) {
+function catOpts(categories: DbRow[]) {
   const { categoryOptions } = $models_catalog;
   return categoryOptions(categories).map((c) => [c.id, c.depth ? `${'\u3000'.repeat(c.depth)}└ ${c.name}` : `${c.icon} ${c.name}`]);
 }
@@ -131,7 +133,7 @@ function rowActions({ edit, del, delConfirm, editLabel = '✏️ এডিট' }
 }
 
 // One "পণ্য আমদানি" place with two ways in (tabs at the top of both pages)
-function importTabs(current?: Loose) {
+function importTabs(current: string) {
   const tabs = [
     ['import', '/admin/products/import', '📥', 'লিংক বা ফাইল থেকে আমদানি', 'ফিড লিংক, একটা পণ্যের লিংক, CSV / Excel'],
     ['old', '/admin/products/more-photos', '📸', 'পুরোনো সাইট থেকে সব পণ্য ও ছবি', 'বাকি পণ্য যোগ + প্রতিটা পণ্যের সব ছবি'],
@@ -139,7 +141,7 @@ function importTabs(current?: Loose) {
   return <nav className="imp-tabs" aria-label="পণ্য আমদানির ধরন">{jsxList(tabs.map(([k, href, ic, t, d]) => <a href={attrValue(href)} className={`imp-tab ${k === current ? 'on' : ''}`} aria-current={(k === current) ? "page" : undefined}><span className="imp-tab-ic"><Val v={ic} /></span><span><b><Val v={t} /></b><small><Val v={d} /></small></span></a>))}</nav>;
 }
 
-function empty(text?: Loose, action?: Loose) {
+function empty(text?: Loose, action?: JSX.Element | undefined) {
   return <div className="empty panel"><p><Val v={text} /></p><Val v={action || ''} /></div>;
 }
 

@@ -11,7 +11,7 @@ import type { AdminCtx, Loose } from '../types';
 
 const BASE = '/admin/security/threats';
 
-function ago(d?: Loose) {
+function ago(d: string | number | Date) {
   const s = Math.max(0, Math.round((Date.now() - new Date(d).getTime()) / 1000));
   if (s < 60) return 'এইমাত্র';
   if (s < 3600) return bn(Math.floor(s / 60)) + ' মিনিট আগে';
@@ -25,7 +25,7 @@ function kindPills(kinds?: Loose) {
     return <span className={`pill ${attrValue(cls)}`} title={attrValue(x[1])}><Val v={x[0]} />{' '}<Val v={x[1]} />{' '}×{' '}{bn(n)}</span>;
   }))}</span>;
 }
-function place(r?: Loose) {
+function place(r: db.pg.DbRow) {
   if (!r.country) return <span className="muted">অজানা</span>;
   const p = V.place({ country: r.country, region: '', city: r.city });
   return <span title={attrValue(p.country)}>{ui.flag(r.country)}{' '}<Val v={p.text} /></span>;

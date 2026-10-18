@@ -32,7 +32,7 @@ async function labels(ctx: AdminCtx) {
     const n = byStock ? Math.min(200, Math.max(1, p.stock)) : copies;
     for (let i = 0; i < n; i++) stickers.push(p);
   }
-  const qs = (k?: Loose, v?: Loose) => { const q = new URLSearchParams(ctx.query); q.set(k, v); return '?' + q.toString(); };
+  const qs = (k: string, v: string) => { const q = new URLSearchParams(ctx.query); q.set(k, v); return '?' + q.toString(); };
   const page = '<!doctype html>' + `<html lang="bn"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex">
 <title>বারকোড লেবেল (${htmlValue(bn(stickers.length))}টি)</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@500;700&display=swap" rel="stylesheet">

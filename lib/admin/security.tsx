@@ -14,7 +14,7 @@ import * as $services_notify from '../services/notify';
 import * as delcode from '../services/delcode';
 import type { AdminCtx, Loose } from '../types';
 
-function row(ok?: Loose, title?: Loose, desc?: Loose) {
+function row(ok: boolean | null, title?: Loose, desc?: Loose) {
   return <li className={`sec-row ${ok === true ? 'ok' : ok === false ? 'todo' : 'info'}`}><span className="sec-ic" aria-hidden="true">{(ok === true ? "✅" : (ok === false ? "⚠️" : "ℹ️"))}</span>{' '}<span><b><Val v={title} /></b><br /><span className="small muted"><Val v={desc} /></span></span></li>;
 }
 
@@ -55,14 +55,14 @@ function adminCountryPanel(ctx: AdminCtx) {
   const s = ctx.settings;
   const c = G.adminConfig(s);
   const here = G.countryOf(ctx.req);
-  const name = (code?: Loose) => G.countryName(code);
+  const name = (code: string) => G.countryName(code);
   const picked = new Set(c.extra);
   const list = Object.keys(G.COUNTRIES).filter((k) => k !== G.ADMIN_HOME)
     .map((k) => ({ k, bn: name(k), en: G.countryName(k, 'en'), on: picked.has(k) }))
     .sort((a, b) => (Number(b.on) - Number(a.on)) || a.en.localeCompare(b.en));
   const status = c.envOff ? <>⚠️{' '}<b>বন্ধ আছে</b>{' '}— Vercel-এ জরুরি চাবি{' '}<code>ADMIN_GEO_LOCK=off</code>{' '}বসানো। দেশে ফিরে সেটা মুছে Redeploy দিন।</>
     : !c.on ? <>⚠️{' '}<b>বন্ধ আছে</b>{' '}— এখন সব দেশ থেকে অ্যাডমিন খোলা যায়।</>
-      : c.extraActive ? <>🔒 চালু — খোলা:{' '}{ui.flag('BD')}{' '}বাংলাদেশ +{' '}{jsxList(c.extra.map((k: Loose, i: number) => <>{i ? ', ' : ''}{ui.flag(k)}{' '}<Val v={name(k)} /></>))}{' '}(<b><Val v={c.untilText} /></b>{' '}তারিখের রাত ১২টা পর্যন্ত, তারপর নিজে থেকে শুধু বাংলাদেশ)</>
+      : c.extraActive ? <>🔒 চালু — খোলা:{' '}{ui.flag('BD')}{' '}বাংলাদেশ +{' '}{jsxList(c.extra.map((k, i: number) => <>{i ? ', ' : ''}{ui.flag(k)}{' '}<Val v={name(k)} /></>))}{' '}(<b><Val v={c.untilText} /></b>{' '}তারিখের রাত ১২টা পর্যন্ত, তারপর নিজে থেকে শুধু বাংলাদেশ)</>
         : <>🔒 চালু — শুধু{' '}{ui.flag('BD')}{' '}বাংলাদেশ থেকে অ্যাডমিন খোলা যায়।</>;
   return <section className="panel" id="admin-country"><h2>🔐 অ্যাডমিন কোন দেশ থেকে খুলবে</h2><p>{status}</p><p className="small muted">অন্য দেশ থেকে কেউ অ্যাডমিন (বা অ্যাডমিন অ্যাপ) খুললে শুধু "পেজটি পাওয়া যায়নি" দেখবে — পাসওয়ার্ড জানলেও ঢুকতে পারবে না। আপনি এখন আছেন:{' '}<b>{(here ? <>{ui.flag(here)}{' '}<Val v={name(here)} /></> : "জানা যায়নি")}</b>।</p><form method="post" action={attrValue(ADMIN_COUNTRY_PATH)} className="form" data-ac-form=""><label className="switch-row">{' '}<span className="switch-text"><b>অ্যাডমিন দেশ তালা</b><small>চালু থাকলে শুধু বাংলাদেশ (আর নিচে বাছাই করা দেশ, শেষ তারিখ পর্যন্ত) থেকে অ্যাডমিন খুলবে।</small></span>{' '}<span className="switch"><input type="checkbox" name="on" defaultValue="1" defaultChecked={!!(s.admin_geo_on !== '0')} /><span className="switch-ui" aria-hidden="true"></span></span>{' '}<span className="switch-state" data-on="চালু" data-off="বন্ধ"></span></label><h3 className="h3">✈️ বিদেশ যাওয়ার আগে: যে দেশে যাচ্ছেন সেটা টিক দিন{' '}<span className="small muted" data-ac-count=""></span></h3><input type="search" placeholder="দেশ খুঁজুন… (যেমন UAE / Saudi / ভারত)" data-ac-search="" style={styleOf("width:100%;margin-bottom:6px")} aria-label="দেশ খুঁজুন" /><div style={styleOf("max-height:260px;overflow:auto;border:1px solid var(--line,#e3e8f0);border-radius:10px;padding:4px 10px")}>{jsxList(list.map((r) => <label className="check" data-ac-row="" data-k={(r.bn + ' ' + r.en + ' ' + r.k).toLowerCase()} style={styleOf("display:flex;gap:8px;align-items:center;padding:5px 0;border-bottom:1px solid var(--line,#eef1f6)")}>{' '}<input type="checkbox" name="c" defaultValue={attrValue(r.k)} defaultChecked={!!(r.on)} />{ui.flag(r.k)}<span style={styleOf("flex:1")}><b><Val v={r.bn} /></b>{' '}<span className="small muted"><Val v={r.en} /></span></span></label>))}</div>{ui.field('কোন তারিখ পর্যন্ত খোলা থাকবে (ফেরার দিন)', ui.input('until', c.untilText, { type: 'date' }), 'এই তারিখের রাত ১২টার পর বাছাই করা দেশগুলো নিজে থেকেই বন্ধ হয়ে যাবে, আবার শুধু বাংলাদেশ। (সর্বোচ্চ ১ বছর)')}{' '}<button className="btn">✅ সেভ করুন</button></form><p className="small muted">🆘 বিদেশে গিয়ে খুলতে ভুলে গেলে:{' '}<b>vercel.com</b>{' '}→ প্রজেক্ট → Settings → Environment Variables → Key:{' '}<code>ADMIN_GEO_LOCK</code>, Value:{' '}<code>off</code>{' '}→ Save → Deployments → Redeploy। দেশে ফিরে ভেরিয়েবলটা মুছে আবার Redeploy দিন।</p></section>;
 }

@@ -16,10 +16,10 @@ import type { AdminCtx, Loose } from '../types';
 const OK = 'ok'; const WARN = 'warn'; const OFF = 'off'; const BAD = 'bad';
 const ICON: Record<string, string> = { ok: '✅', warn: '⚠️', off: '⚪', bad: '❌' };
 // one line of the list. key = for the owner's ✓ করা আছে / ✕ দরকার নেই marks (setupmarks.js); setUp = the site sees it set up
-function row(state?: Loose, title?: Loose, detail?: Loose, link?: Loose, key?: Loose, setUp?: Loose) {
+function row(state: string, title: string, detail: string, link: string[], key?: string | undefined, setUp?: boolean | undefined) {
   return { state, title, detail, link, key, setUp: setUp === undefined ? state === OK : setUp };
 }
-function line(r?: Loose, buttons?: Loose) {
+function line(r: { state: string; title: unknown; detail: unknown; link: unknown[]; }, buttons?: Loose) {
   return <li className={`sec-row ${r.state === OK ? 'ok' : r.state === OFF ? 'info' : 'todo'}`}><span className="sec-ic" aria-hidden="true"><Val v={ICON[r.state]} /></span>{' '}<span><b><Val v={r.title} /></b><br /><span className="small muted"><Val v={r.detail} /></span>{(r.link ? <>{' '}<a className="small" href={attrValue(r.link[0])}><Val v={r.link[1]} />{' '}→</a></> : null)}{(buttons ? <><br /><Val v={buttons} /></> : null)}</span></li>;
 }
 // a section: what needs looking at stays in view; ⚪ not set up (optional) and "দরকার নেই" go into a closed box
@@ -71,7 +71,7 @@ async function statusPage(ctx: AdminCtx) {
   const ownDomain = /^https?:\/\//.test(site) && !/vercel\.app/.test(site) ? site.replace(/^https?:\/\//, '').replace(/\/.*$/, '') : '';
   const fbPage = !!(s.autopost_page_token && s.autopost_page_id);
   const ageDays = lastBackup ? (Date.now() - new Date(lastBackup.created_at).getTime()) / 864e5 : null;
-  const feedSeen = (ch?: Loose) => { const x = (L[ch + '-feed'] || {}).good; return x ? `শেষবার ${x.message || 'কেউ'} পড়েছে: ${fmtDate(x.created_at)}` : 'এখনো কেউ ফিডটা পড়েনি (Merchant Center / Commerce Manager-এ লিংক দেওয়া হয়েছে কি না দেখুন)'; };
+  const feedSeen = (ch: string) => { const x = (L[ch + '-feed'] || {}).good; return x ? `শেষবার ${x.message || 'কেউ'} পড়েছে: ${fmtDate(x.created_at)}` : 'এখনো কেউ ফিডটা পড়েনি (Merchant Center / Commerce Manager-এ লিংক দেওয়া হয়েছে কি না দেখুন)'; };
 
   const body = <><h1>🔌 সংযোগের অবস্থা</h1>{ui.flash(ctx.flash)}<p className="muted">বাইরের প্রতিটা সার্ভিস ঠিকমতো জোড়া আছে কি না, আর শেষবার কাজ করেছে কি না — এক জায়গায়। ❌ দেখলে পাশের লিংকে গিয়ে ঠিক করুন। অন্যভাবে করা থাকলে "✓ করা আছে", ব্যবহার না করলে "✕ দরকার নেই" চাপুন — তালিকা থেকে সরে যাবে।</p>{(ctx.user.role === 'owner' ? <p><a className="btn btn-ghost btn-sm" href="/admin/health">🩺 সার্ভার, ডাটাবেস ও ছবির জায়গা দেখুন →</a></p> : null)}{' '}{section(ctx, 'ওয়েবসাইট', [
   row(site ? OK : BAD, 'ওয়েবসাইটের ঠিকানা (site URL)', site ? site : 'দেওয়া নেই — Google-এর canonical লিংক, sitemap, শেয়ার ছবি আর পেমেন্ট ফেরার লিংক ঠিক হবে না।', ['/admin/marketing/seo', 'SEO']),

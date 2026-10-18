@@ -8,7 +8,7 @@ import type { AdminCtx, Loose } from '../types';
 
 const BASE = '/admin/marketing/loyalty';
 
-async function page(ctx: AdminCtx, error: Loose = null) {
+async function page(ctx: AdminCtx, error = null) {
   if (ctx.method === 'POST' && !error) return save(ctx);
   const s = ctx.settings;
   const c = L.cfg(s);

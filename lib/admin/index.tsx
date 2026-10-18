@@ -91,6 +91,7 @@ import * as $services_guard from '../services/guard';
 import * as $models_trash from '../models/trash';
 import * as $models_extras from '../models/extras';
 import type { AdminCtx, Base, Body, Id, Loose, Settings, ShopRequest, StaffUser } from '../types';
+import type { JSX } from 'react/jsx-runtime';
 
 const MODULES = [$dashboard, $orders, $import, $morepics, $watermark,
   $research, $trash, $growth, $toggles, $products, $inventory,
@@ -112,12 +113,12 @@ const ROUTES: Loose[] = MODULES.flatMap((m: Loose) => m.routes);
 // so any device can be logged out from the admin, and a stolen cookie stops working after "logout".
 function pwTag(user: StaffUser) { return String(user.password || '').slice(-12); }
 function secureFlag(req: ShopRequest) { return (req.headers['x-forwarded-proto'] || '').includes('https') ? '; Secure' : ''; }
-function cookieFor(req: ShopRequest, settings: Settings, user: StaffUser, token?: Loose) {
+function cookieFor(req: ShopRequest, settings: Settings, user: StaffUser, token: string) {
   const value = sign(`v2:${token}:${pwTag(user)}`, settings.session_secret);
   return `sm_admin=${encodeURIComponent(value)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${sessions.MAX_DAYS * 86400}${secureFlag(req)}`;
 }
 // verified = the owner passed the second check (fingerprint / passkey / face) for this login
-async function startSession(req: ShopRequest, settings: Settings, user: StaffUser, verified: Loose = false) {
+async function startSession(req: ShopRequest, settings: Settings, user: StaffUser, verified = false) {
   const token = await sessions.create(req, user.id, { verified, ip: security.clientIp(req) });
   return cookieFor(req, settings, user, token);
 }
@@ -175,7 +176,7 @@ async function preUser(req: ShopRequest, settings: Settings) {
   if (!user || !user.active || user.role !== 'owner' || pwTag(user) !== tag) return null;
   return { user, passed: { passkey: flags.includes('p'), face: flags.includes('f') } };
 }
-function challengeCookie(req: ShopRequest, settings: Settings, value?: Loose) {
+function challengeCookie(req: ShopRequest, settings: Settings, value: string) {
   return `sm_ch=${encodeURIComponent(sign(value, settings.session_secret))}; Path=/admin; HttpOnly; SameSite=Strict; Max-Age=300${secureFlag(req)}`;
 }
 function challengeValue(req: ShopRequest, settings: Settings) { return unsign(parseCookies(req.headers.cookie).sm_ch, settings.session_secret); }
@@ -188,11 +189,11 @@ const IP_WINDOW = 15 * 60;
 const USER_MAX = 15;
 const USER_WINDOW = 60 * 60;
 let currentDb: Loose = null;
-async function tooMany(ip?: Loose, login?: Loose) {
+async function tooMany(ip: string, login?: undefined) {
   if (await security.blocked(currentDb, 'login:ip:' + ip, IP_MAX)) return true;
   return !!login && security.blocked(currentDb, 'login:user:' + String(login).toLowerCase().trim().slice(0, 60), USER_MAX);
 }
-async function failed(ip?: Loose, login?: Loose) {
+async function failed(ip: string, login?: undefined) {
   $services_guard.record({ ip, kind: 'login_fail', detail: login ? 'ইউজারনেম: ' + String(login).slice(0, 40) : 'রিসেট কোড' }).catch(() => {});
   await security.hit(currentDb, 'login:ip:' + ip, IP_MAX, IP_WINDOW);
   if (login) await security.hit(currentDb, 'login:user:' + String(login).toLowerCase().trim().slice(0, 60), USER_MAX, USER_WINDOW);
@@ -215,7 +216,7 @@ function authPage({ settings, mode, error, values = {} }: Body) {
 //  could try to guess it offline. The paper recovery codes, the e-mail link and ADMIN_RESET_CODE remain.)
 function resetCode() { return String(process.env.ADMIN_RESET_CODE || '').trim(); }
 async function oneTimeAvailable() { return false; }
-function sameSecret(a: Loose, b: Loose) {
+function sameSecret(a: string, b: string) {
   const x = crypto.createHash('sha256').update(String(a)).digest();
   const y = crypto.createHash('sha256').update(String(b)).digest();
   return crypto.timingSafeEqual(x, y);
@@ -257,7 +258,7 @@ async function handle(base: Base) {
   // A Next.js admin page (lib/next/admin.ts) takes the page's pieces and draws the frame itself; the original router
   // gets the whole page as text.
   const draw = base.drawPage;
-  const bare = (title?: Loose, body?: Loose, status: Loose = 200) => (draw ? draw({ bare: true, settings, title, body, status })
+  const bare = (title: string, body: JSX.Element, status = 200) => (draw ? draw({ bare: true, settings, title, body, status })
     : send(status, adminLayout({ settings, title, body, bare: true })));
 
   // Every form sent to the admin must come from this same website.
@@ -443,7 +444,7 @@ ${link}
   async function twoFactorRoute() {
     const u = await tfaUser(req, settings);
     if (!u) return redirect('/admin/login', { 'Set-Cookie': CLEAR_TFA });
-    const page = (error?: Loose, status: Loose = 200) => bare('যাচাই কোড', tfaPage({ settings, user: u, error }), status);
+    const page = (error?: string | undefined, status = 200) => bare('যাচাই কোড', tfaPage({ settings, user: u, error }), status);
     if (method !== 'POST') return page();
     if (await security.blocked(db, 'mfa:' + u.id, 8)) {
       return bare('যাচাই কোড', tfaPage({ settings, user: u, error: 'অনেকবার ভুল কোড দেওয়া হয়েছে। ১৫ মিনিট পর আবার পাসওয়ার্ড দিয়ে লগইন করুন।', blocked: true }), 429);
@@ -476,12 +477,12 @@ ${link}
       return redirect('/admin/login', { 'Set-Cookie': [CLEAR_PRE, CLEAR_CH] });
     }
     const { user: owner, passed } = pre;
-    const fail = async (why?: Loose, status: Loose = 400, extra: Loose = {}) => {
+    const fail = async (why: string, status = 400, extra = {}) => {
       await db.logActivity(owner.id, 'blocked', 'security', owner.id, `মালিকের লগইনে দ্বিতীয় যাচাই ব্যর্থ: ${why} (${ip})`).catch(() => {});
       return json(status, { error: why, ...extra });
     };
     // A finished check: either the next step, or the real login.
-    const next = async (how?: Loose) => {
+    const next = async (how: string) => {
       const need = lock.needs(settings, req, passed);
       if (need) return json(200, { next: need }, { 'Set-Cookie': [preCookie(req, settings, owner, passed), CLEAR_CH] });
       await security.clear(db, 'mfa:' + owner.id);
@@ -563,23 +564,23 @@ ${link}
     ...base,
     user,
     ip,
-    can: (p?: Loose) => allowed(user, p),
+    can: (p?) => allowed(user, p),
     flash: ui.flashFrom(query),
     body: () => parseBody(req),
-    page: (title?: Loose, body?: Loose, active?: Loose, opts: Body = {}) => (draw
+    page: (title?, body?, active?, opts: Body = {}) => (draw
       ? draw({ settings: ctx.settings, user, title, body: $testclear.decorate(ctx, active, body), active, readOnly: ctx.readOnly, path, status: opts.status || 200 })
       : send(opts.status || 200, adminLayout({ settings: ctx.settings, user, title,
         body: $testclear.decorate(ctx, active, body), active, readOnly: ctx.readOnly, path }))),
-    back: (to?: Loose, msgKey?: Loose) => redirect(to + (msgKey ? (to.includes('?') ? '&' : '?') + 'msg=' + msgKey : '')),
+    back: (to?: Loose, msgKey?) => redirect(to + (msgKey ? (to.includes('?') ? '&' : '?') + 'msg=' + msgKey : '')),
     fail: (to?: Loose, text?: Loose) => redirect(to + (to.includes('?') ? '&' : '?') + 'err=' + encodeURIComponent(text)),
-    log: (action?: Loose, entity?: Loose, entityId?: Id, detail?: Loose) => db.logActivity(user.id, action, entity, entityId, detail),
+    log: (action?: Loose, entity?, entityId?: Id, detail?) => db.logActivity(user.id, action, entity, entityId, detail),
     // every delete goes to the recycle bin (Admin → রিসাইকেল বিন), with who / when / from where
-    trash: (kind?: Loose, id?: Id) => $models_trash.move(kind, id, { id: user.id, name: user.name, ip,
+    trash: (kind?, id?: Id) => $models_trash.move(kind, id, { id: user.id, name: user.name, ip,
       path: (() => { try { return new URL(req.headers.referer || '').pathname; } catch (_) { return path; } })() }),
     // this login passed the fingerprint / face step (the owner just set the lock up on this device)
     markVerified: () => db.q('UPDATE admin_sessions SET verified=true WHERE id=$1', [user.__session]),
     // a brand-new login for this device (after a password change: every other device is logged out)
-    newSession: async (u?: Loose) => { await sessions.revoke(user.__token, 'পাসওয়ার্ড বদল'); return startSession(req, settings, u, user.__verified); },
+    newSession: async (u?) => { await sessions.revoke(user.__token, 'পাসওয়ার্ড বদল'); return startSession(req, settings, u, user.__verified); },
     reloadSettings: async () => { settings = await db.getSettings(); ctx.settings = settings; return settings; },
   };
 

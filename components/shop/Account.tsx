@@ -182,7 +182,7 @@ export function Dashboard({ cu, orders, addresses, settings: s, tab = 'orders', 
   if (referral) T.push(['refer', '🎁 বন্ধুকে আনুন']);
   if (s.gift_on === '1') T.push(['gift', '💳 গিফট কার্ড']);
   const reorderItems = (o: Loose) => (o.items || []).filter((i: Loose) => i.id && i.kind !== 'gift').map((i: Loose) => ({ id: i.id, qty: i.qty }));
-  const returnable = (o: Loose) => s.returns_on === '1' && o.status === 'delivered';
+  const returnable = (o: { status: string; }) => s.returns_on === '1' && o.status === 'delivered';
   return (
     <div className="wrap section acct">
       <div className="title-row"><h1>আসসালামু আলাইকুম{cu.name ? <>, <span translate="no">{cu.name.split(' ')[0]}</span></> : null}!</h1>

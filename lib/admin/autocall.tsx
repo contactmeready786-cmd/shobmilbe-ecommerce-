@@ -6,6 +6,7 @@ import * as ui from './ui';
 import * as AC from '../services/autocall';
 import { saveKeys, secretInput } from './marketing';
 import type { AdminCtx, Loose, RouteMatch } from '../types';
+import type { Order } from '../models/orders';
 
 const BASE = '/admin/autocall';
 function site(ctx: AdminCtx) {
@@ -79,7 +80,7 @@ async function callOrder(ctx: AdminCtx, m: RouteMatch) {
 }
 
 // small block for the order page
-async function orderBox(ctx: AdminCtx, order?: Loose) {
+async function orderBox(ctx: AdminCtx, order: Order) {
   const calls = await AC.forOrder(order.id);
   if (!calls.length && !ctx.settings.autocall_url) return '';
   const last = calls[0];

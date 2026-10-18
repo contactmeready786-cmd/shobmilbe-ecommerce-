@@ -79,7 +79,7 @@ const TABS: Record<string, Loose> = {
     ['/admin/security/recovery', 'জরুরি রিকভারি কোড', 'owner', 'recovery', '🆘'],
   ],
 };
-const tabSet = (id?: Id, label?: Loose, icon?: Loose) => ({ tabs: id, label, icon });
+const tabSet = (id?: Id, label?: string, icon?: string) => ({ tabs: id, label, icon });
 
 // The admin menu: everyday work at the top, things set up once at the bottom.
 // Each link: [href, label, permission, key, icon], or tabSet(...) for a page with tabs.
@@ -175,7 +175,7 @@ function allowed(user: StaffUser, perm?: Loose) {
   return can(user, perm);
 }
 // menu items: shown when any level (see / add / edit / delete) of the permission is given
-function visible(user: StaffUser, perm?: Loose) { return canSee(user, perm); }
+function visible(user: StaffUser, perm: string) { return canSee(user, perm); }
 
 // 📊 The dashboard and visitor analytics sit together on one page as two tabs (like browser tabs),
 // so the owner does not have to look for visitor analytics in the menu.
@@ -183,7 +183,7 @@ const HOME_TABS = [
   ['/admin', 'ড্যাশবোর্ড', 'dashboard', 'home', '📊'],
   ['/admin/marketing/visitors', 'ভিজিটর অ্যানালিটিক্স', 'marketing', 'visitors', '👀'],
 ];
-function homeTabs(user: StaffUser, active?: Loose) {
+function homeTabs(user: StaffUser, active: string | undefined) {
   const tabs = HOME_TABS.filter((t) => visible(user, t[2]));
   if (tabs.length < 2) return '';
   return <nav className="home-tabs" aria-label="ড্যাশবোর্ডের ট্যাব">{jsxList(tabs.map(([href, label, , key, icon]: Loose[]) => <a href={attrValue(href)} className={`home-tab ${active === key ? 'on' : ''}`} aria-current={(active === key) ? "page" : undefined}><span aria-hidden="true"><Val v={icon} /></span>{' '}<Val v={label} /></a>))}</nav>;
@@ -199,11 +199,11 @@ function resolveItem(user: StaffUser, it?: Loose) {
 }
 // The tab bar on top of a page that is one of a tab set — only on the tab pages themselves
 // (a single product, order or supplier opened from the list gets no tab bar).
-function pageTabs(user: StaffUser, active?: Loose, path?: Loose) {
+function pageTabs(user: StaffUser, active: string | undefined, path: string) {
   if (!active || !path) return '';
   for (const set of Object.values(TABS)) {
     if (!set.some((t: Loose) => t[3] === active)) continue;
-    if (!set.some((t: Loose) => t[0].split('?')[0] === path)) continue;
+    if (!set.some((t: string[]) => t[0].split('?')[0] === path)) continue;
     const tabs = set.filter((t: Loose) => visible(user, t[2]));
     if (tabs.length < 2) return '';
     return <nav className="home-tabs page-tabs" aria-label="এই বিভাগের পেজ">{jsxList(tabs.map(([href, label, , key, icon]: Loose[]) => <a href={attrValue(href)} className={`home-tab ${active === key ? 'on' : ''}`} aria-current={(active === key) ? "page" : undefined}><span aria-hidden="true"><Val v={icon} /></span>{' '}<Val v={label} /></a>))}</nav>;

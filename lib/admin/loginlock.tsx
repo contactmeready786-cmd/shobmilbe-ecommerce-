@@ -14,7 +14,7 @@ import type { AdminCtx, Body, Loose, ShopRequest, RouteMatch } from '../types';
 const BASE = '/admin/security/login';
 
 // ---------------------------------------------------------------- challenge cookie for this page
-function chCookie(ctx: AdminCtx, value?: Loose) {
+function chCookie(ctx: AdminCtx, value: string) {
   const secure = String(ctx.req.headers['x-forwarded-proto'] || '').includes('https') ? '; Secure' : '';
   return `sm_ch2=${encodeURIComponent(sign(value, ctx.settings.session_secret))}; Path=/admin; HttpOnly; SameSite=Strict; Max-Age=300${secure}`;
 }

@@ -37,7 +37,7 @@ function view(o?: Loose) {
     handed_at: o.handed_at || null, ready: READY.includes(o.status) || o.status === 'pending', items: lines,
   };
 }
-async function partsBarcodes(order?: Loose) {
+async function partsBarcodes(order: O.Order) {
   // bundle parts need their own product barcodes
   const ids: Loose[] = [];
   for (const it of order.items) if (Array.isArray(it.components)) it.components.forEach((c: Loose) => ids.push(c.product_id));

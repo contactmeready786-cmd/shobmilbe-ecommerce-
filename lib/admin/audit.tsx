@@ -28,10 +28,10 @@ const ACTIONS: Record<string, Loose> = {
   purge: 'চিরতরে মুছা', restore: 'রিসাইকেল বিন থেকে ফেরত', add: 'যোগ', edit: 'এডিট', passkey_add: 'পাসকি যোগ', passkey_delete: 'পাসকি মুছা', face_add: 'মুখের ছবি যোগ',
   face_delete: 'মুখের ছবি মুছা', login_code: 'অনুমতি কোড', recovery_codes: 'রিকভারি কোড', damage_move: 'নষ্ট স্টকে সরানো', damage_out: 'নষ্ট মাল বাদ',
 };
-const actionLabel = (a?: Loose) => ACTIONS[a] || a;
-const entityLabel = (e?: Loose) => ENTITIES[e] || e || '—';
+const actionLabel = (a: string) => ACTIONS[a] || a;
+const entityLabel = (e: string) => ENTITIES[e] || e || '—';
 
-function link(a?: Loose) {
+function link(a: db.pg.DbRow) {
   if (!a.entity_id) return '';
   const to: string | undefined = (({ product: `/admin/products/${a.entity_id}`, order: `/admin/orders/${a.entity_id}`, customer: `/admin/customers/${a.entity_id}`,
     staff: `/admin/staff/${a.entity_id}`, supplier: `/admin/suppliers/${a.entity_id}`, purchase: `/admin/purchases/${a.entity_id}` } as Record<string, string>))[a.entity];

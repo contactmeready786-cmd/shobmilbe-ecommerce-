@@ -32,8 +32,8 @@ function ago(d?: Loose) {
   if (s < 86400) return bn(Math.floor(s / 3600)) + ' ঘণ্টা আগে';
   return fmtDate(d);
 }
-function device(d?: Loose) { const x = DEVICES[d] || ['🖥️', d || 'অজানা']; return <span title={attrValue(x[1])}><Val v={x[0]} />{' '}<Val v={x[1]} /></span>; }
-function where(row?: Loose) {
+function device(d: string | number) { const x = DEVICES[d] || ['🖥️', d || 'অজানা']; return <span title={attrValue(x[1])}><Val v={x[0]} />{' '}<Val v={x[1]} /></span>; }
+function where(row: db.pg.DbRow) {
   const p = V.place(row);
   return <><span className="va-place" title={attrValue(p.country)}>{ui.flag(row.country)}{' '}<Val v={p.text} /></span>{netBadge(row)}{(row.suspicious ? <>{' '}<a className="pill pill-red va-alert" href={`/admin/security/threats?ip=${attrValue(encodeURIComponent(row.ip))}`} title="এই IP থেকে সাইটের ক্ষতি করার চেষ্টা হয়েছে — দেখুন">🚨 সন্দেহজনক</a></> : null)}</>;
 }
@@ -47,14 +47,14 @@ function netBadge(row?: Loose) {
   return n ? <>{' '}<span className={`pill ${attrValue(n[3])}`} title={attrValue(n[2])}><Val v={n[0]} />{' '}<Val v={n[1]} /></span></> : '';
 }
 // the delivery address the visitor gave when ordering (this visit or an earlier one)
-function orderAddr(row?: Loose, long?: Loose) {
+function orderAddr(row: db.pg.DbRow, long?: undefined) {
   const parts = [row.o_thana, row.o_district].filter(Boolean).join(', ');
   const addr = String(row.o_address || '');
   if (!parts && !addr) return '';
   const text = long ? [addr, parts].filter(Boolean).join(', ') : parts || (addr.length > 40 ? addr.slice(0, 40) + '…' : addr);
   return <><br /><small className="va-addr" title={attrValue(addr)} translate="no">🏠{' '}<Val v={text} /></small></>;
 }
-function phoneName(row?: Loose) {
+function phoneName(row: db.pg.DbRow) {
   const brand = row.brand || '';
   const model = row.model || '';
   // "Apple" + "iPhone 13" → "iPhone 13"; "Samsung" + "SM-A536E" → "Samsung SM-A536E"; "Xiaomi" + "Redmi Note 12" → as is
@@ -62,7 +62,7 @@ function phoneName(row?: Loose) {
   if (brand && model.toLowerCase().startsWith(brand.toLowerCase())) return model;
   return [brand, model].filter(Boolean).join(' ');
 }
-function deviceCell(row?: Loose, extra?: Loose) {
+function deviceCell(row: db.pg.DbRow, extra?: boolean | undefined) {
   const name = phoneName(row);
   return <>{device(row.device)}{(name ? <><br /><b className="small" translate="no"><Val v={name} /></b></> : null)}<br /><small className="muted"><Val v={row.browser} />{(extra ? (' · ' + row.os) : null)}</small></>;
 }
@@ -80,22 +80,22 @@ function pageName(path: Loose, title: Loose, settings: Settings) {
 function pageCell(path: Loose, title: Loose, settings: Settings) {
   return <a href={attrValue(path)} target="_blank" rel="noopener" className="va-page"><b><Val v={pageName(path, title, settings)} /></b><small><Val v={decodeSafe(path)} /></small></a>;
 }
-function decodeSafe(p?: Loose) { try { return decodeURI(p); } catch (_) { return p; } }
-function sourcePill(row?: Loose) {
+function decodeSafe(p: string) { try { return decodeURI(p); } catch (_) { return p; } }
+function sourcePill(row: db.pg.DbRow) {
   const cls = (({ social: 'pill-blue', organic: 'pill-green', cpc: 'pill-amber', paid: 'pill-amber', referral: '', direct: 'pill-grey' } as Record<string, string>))[row.medium] || '';
   return <span className={`pill ${attrValue(cls)}`} title={`${attrValue(row.medium || '')}${row.campaign ? ' · ' + row.campaign : ''}`}><Val v={row.source || 'অজানা'} /></span>;
 }
-function who(row?: Loose) {
+function who(row: db.pg.DbRow) {
   if (row.visitor_name || row.visitor_phone) return <span className="va-who">👤{' '}<b><Val v={row.visitor_name || ''} /></b>{' '}{(row.visitor_phone ? <small><Val v={row.visitor_phone} /></small> : null)}</span>;
   return <span className="muted small">{(row.total_visits > 1 ? `পুরনো ভিজিটর · ${bn(row.total_visits)}বার এসেছে` : (row.is_new ? "নতুন ভিজিটর" : "পুরনো ভিজিটর"))}</span>;
 }
-function rate(a: Loose, b: Loose) { return b ? pct((100 * a) / b) : '—'; }
+function rate(a: number, b: number) { return b ? pct((100 * a) / b) : '—'; }
 
-function tabs(active?: Loose, live?: Loose) {
+function tabs(active: string, live?: Loose) {
   const items = [['', '📊 সারাংশ'], ['live', `🟢 এখন লাইভ${live !== undefined ? ` (${bn(live)})` : ''}`], ['sessions', '🧭 সব ভিজিট'], ['countries', '🌍 দেশ ব্লক'], ['settings', '⚙️ সেটিংস']];
   return <nav className="tabs va-tabs">{jsxList(items.map(([k, l]) => <a className={`tab ${active === k ? 'on' : ''}`} href={attrValue(k === 'countries' ? COUNTRY_PATH : BASE + (k ? '?tab=' + k : ''))}><Val v={l} /></a>))}</nav>;
 }
-function rangeChips(from?: Loose, to?: Loose, extra: Loose = '') {
+function rangeChips(from?: Loose, to?: Loose, extra = '') {
   const presets = [[1, 'আজ'], [7, '৭ দিন'], [30, '৩০ দিন'], [90, '৯০ দিন']];
   return <form className="date-filter" method="get" action={attrValue(BASE)}><RawHtml html={extra} /><div className="chips">{jsxList(presets.map(([d, l]) => <a className="chip" href={`${attrValue(BASE)}?days=${attrValue(d)}`}><Val v={l} /></a>))}</div><label>থেকে{' '}<input type="date" name="from" defaultValue={attrValue(from)} /></label>{' '}<label>পর্যন্ত{' '}<input type="date" name="to" defaultValue={attrValue(to)} /></label>{' '}<button className="btn btn-sm">দেখুন</button></form>;
 }
@@ -125,7 +125,7 @@ async function overviewPage(ctx: AdminCtx) {
 
 function funnel(steps?: Loose) {
   const top = steps[0][1] || 0;
-  return <ol className="funnel">{jsxList(steps.map(([label, n]: Loose[], i?: Loose) => {
+  return <ol className="funnel">{jsxList(steps.map(([label, n]: Loose[], i?: number) => {
     const w = top ? Math.max(3, (100 * n) / top) : 0;
     const prev = i ? steps[i - 1][1] : null;
     return <li><span className="fn-label"><Val v={label} /></span><span className="fn-track"><span className="fn-fill" style={styleOf(`width:${w.toFixed(1)}%`)}></span></span>{' '}<span className="fn-val"><b>{bn(n)}</b>{(i ? <>{' '}<small><Val v={rate(n, prev)} /></small></> : null)}</span></li>;
@@ -177,7 +177,7 @@ async function sessionPage(ctx: AdminCtx, m: RouteMatch) {
   const body = <><p className="crumbs"><a href={`${attrValue(BASE)}?tab=sessions`}>← সব ভিজিট</a></p><div className="title-row"><h1>একটি ভিজিটের বিস্তারিত</h1></div><div className="two-col"><section className="panel"><h2>ভিজিটর কে</h2><dl className="dl">{(x.visitor_name || x.visitor_phone ? <><dt>নাম / ফোন</dt><dd><b><Val v={x.visitor_name} /></b>{' '}<Val v={x.visitor_phone} />{(x.visitor_phone ? <>{' '}·{' '}<a href={`/admin/customers?q=${attrValue(x.visitor_phone)}`}>কাস্টমার দেখুন</a></> : null)}</dd></> : null)}<dt>লোকেশন (IP থেকে)</dt><dd>{ui.flag(x.country)}{' '}<Val v={p.text} />{(x.country ? <>{' '}<span className="muted">(<Val v={p.country} />)</span></> : null)}{netBadge(x)}</dd>{(NET[x.net] ? <><dt></dt><dd className="small muted"><Val v={NET[x.net][2]} /></dd></> : null)}{' '}{(x.o_address || x.o_district ? <><dt>ডেলিভারি ঠিকানা</dt><dd translate="no">🏠{' '}{[x.o_address, x.o_thana, x.o_district].filter(Boolean).join(', ')}</dd></> : null)}{' '}{(x.tz ? <><dt>ডিভাইসের ঘড়ি</dt><dd><Val v={x.tz} /></dd></> : null)}<dt>IP ঠিকানা</dt><dd><Val v={x.ip || '—'} /></dd><dt>ডিভাইস</dt><dd>{device(x.device)}{(phoneName(x) ? <>{' '}·{' '}<b translate="no"><Val v={phoneName(x)} /></b></> : null)}{' '}·{' '}<Val v={x.os} />{' '}·{' '}<Val v={x.browser} />{(x.screen ? <>{' '}· স্ক্রিন{' '}<Val v={x.screen} /></> : null)}</dd><dt>ভাষা</dt><dd><Val v={x.lang || '—'} /></dd><dt>প্রথম এসেছিল</dt><dd>{fmtDate(x.first_seen)}</dd><dt>মোট এসেছে</dt><dd>{bn(x.total_visits)}{' '}বার ·{' '}{bn(x.total_pageviews)}টি পেজ{(x.total_orders ? <>{' '}·{' '}<b className="good">{bn(x.total_orders)}টি অর্ডার</b></> : null)}</dd></dl>{(x.others.length ? <p><a className="btn btn-sm btn-ghost" href={`${attrValue(BASE)}?tab=sessions&visitor=${attrValue(x.visitor_id)}`}>এই ভিজিটরের সব ভিজিট ({bn(x.others.length + 1)})</a></p> : null)}</section><section className="panel"><h2>এই ভিজিট</h2><dl className="dl"><dt>শুরু</dt><dd>{fmtDate(x.started_at)}{' '}<span className="muted">(<Val v={ago(x.started_at)} />)</span></dd><dt>শেষ দেখা</dt><dd>{fmtDate(x.last_seen)}</dd><dt>সাইটে ছিল</dt><dd><b><Val v={dur(x.duration)} /></b>{' '}(সক্রিয় সময়)</dd><dt>পেজ দেখেছে</dt><dd>{bn(x.pageviews)}টি</dd><dt>কোথা থেকে</dt><dd>{sourcePill(x)}{' '}<span className="muted small"><Val v={x.medium} /></span>{(x.campaign ? <>{' '}· ক্যাম্পেইন:{' '}<b><Val v={x.campaign} /></b></> : null)}</dd>{(x.referrer ? <><dt>রেফারার</dt><dd className="small break"><Val v={x.referrer} /></dd></> : null)}<dt>ফলাফল</dt><dd>{(x.order_code ? <a className="pill pill-green" href={`/admin/orders?q=${attrValue(x.order_code)}`}>✅ অর্ডার{' '}<Val v={x.order_code} /></a> : <span className="muted">অর্ডার করেনি</span>)}</dd></dl></section></div><section className="panel"><h2>কী কী করেছে (ধাপে ধাপে)</h2>{(timeline.length ? <ol className="journey">{jsxList(timeline.map((t) => (t.kind === 'page' ? <li className="j-page"><time><Val v={fmtTime(t.at)} /></time><div>{pageCell(t.v.path, t.v.product_name || t.v.title, s)}{' '}<small className="muted">{(t.v.duration ? `${dur(t.v.duration)} ছিল` : "সময় জানা যায়নি")}{(t.v.scroll ? ` · ${bn(t.v.scroll)}% পর্যন্ত স্ক্রল` : null)}</small></div></li> : <li className="j-event"><time><Val v={fmtTime(t.at)} /></time><div><b><Val v={(EVENT_LABELS[t.e.event] || ['•'])[0]} />{' '}<Val v={(EVENT_LABELS[t.e.event] || ['', t.e.event])[1]} /></b>{' '}{(t.e.label ? <>:{' '}<Val v={t.e.label} /></> : null)}{(t.e.value ? <>{' '}<span className="muted">({money(t.e.value)})</span></> : null)}</div></li>)))}</ol> : <p className="muted">কোনো পেজের তথ্য নেই।</p>)}</section>{(x.others.length ? <section className="panel"><h2>এই ভিজিটরের আগের/পরের ভিজিট</h2><div className="table-wrap"><table className="table"><thead><tr><th>কখন</th><th>কোথা থেকে</th><th className="num">পেজ</th><th className="num">সময়</th><th>ফলাফল</th></tr></thead><tbody>{jsxList(x.others.map((o: Loose) => <tr><td><a href={`${attrValue(BASE)}/s/${attrValue(o.id)}`}>{fmtDate(o.started_at)}</a></td><td><Val v={o.source} /></td><td className="num">{bn(o.pageviews)}</td><td className="num"><Val v={dur(o.duration)} /></td><td>{(o.order_code ? <span className="pill pill-green">অর্ডার{' '}<Val v={o.order_code} /></span> : null)}</td></tr>))}</tbody></table></div></section> : null)}</>;
   return ctx.page('ভিজিটের বিস্তারিত', body, 'visitors');
 }
-function fmtTime(d?: Loose) {
+function fmtTime(d: string | number | Date) {
   return bn(new Date(d).toLocaleTimeString('en-GB', { timeZone: 'Asia/Dhaka', hour: '2-digit', minute: '2-digit', second: '2-digit' }));
 }
 

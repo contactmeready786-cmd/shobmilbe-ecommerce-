@@ -7,7 +7,7 @@ import { int, str, bn, fmtDate } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
 import * as push from '../services/push';
-import type { AdminCtx, Loose } from '../types';
+import type { AdminCtx, Loose, Settings } from '../types';
 
 const BASE = '/admin/marketing/push';
 const BATCH = 300; // phones per click
@@ -22,7 +22,7 @@ async function page(ctx: AdminCtx, note: Loose = null) {
   return ctx.page('অফারের নোটিফিকেশন', body, 'shoppush');
 }
 
-function message(s?: Loose, c?: Loose) {
+function message(s: Settings, c?: Loose) {
   const base = String(s.site_url || '').replace(/\/+$/, '');
   const url = /^https?:\/\//i.test(c.url) || !base ? (c.url || '/') : base + (c.url.startsWith('/') ? c.url : '/' + c.url);
   return { title: c.title, body: c.body, url: c.url && c.url.startsWith('/') ? c.url : url, tag: 'offer-' + c.id, image: c.image_id ? `${base}/media/${c.image_id}` : undefined, icon: s.favicon_id ? `${base}/media/${s.favicon_id}/t` : undefined };

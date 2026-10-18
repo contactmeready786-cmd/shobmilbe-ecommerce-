@@ -24,13 +24,13 @@ async function get({ id, slug }: Body) {
   return k;
 }
 // The shop side: prices the customer pays now (flash sale counts), only parts that are switched on.
-async function forShop(slug?: Loose) {
+async function forShop(slug: string) {
   const k = await get({ slug });
   if (!k || !k.active) return null;
   const catalog = $catalog;
   const prods = await catalog.getProductsByIds(k.items.map((i: Loose) => i.product_id), { public: true });
   const byId = new Map(prods.map((p) => [p.id, p]));
-  k.items = k.items.filter((i: Loose) => byId.has(i.product_id)).map((i: Loose) => ({ ...i, product: byId.get(i.product_id) }));
+  k.items = k.items.filter((i: { product_id: number; }) => byId.has(i.product_id)).map((i: { product_id: number; }) => ({ ...i, product: byId.get(i.product_id) }));
   return k;
 }
 async function kitsWith(productId?: Id) {
@@ -76,7 +76,7 @@ function cleanSteps(text?: Loose) {
   return String(text || '').split(/\r?\n/).map((l) => l.replace(/^\s*(?:\d+[.)।]|[-*•])\s*/, '').trim()).filter(Boolean).slice(0, 30)
     .map((l) => l.slice(0, 600)).join('\n');
 }
-function stepList(k?: Loose) { return String((k && k.steps) || '').split('\n').map((l) => l.trim()).filter(Boolean); }
+function stepList(k: db.pg.DbRow) { return String((k && k.steps) || '').split('\n').map((l) => l.trim()).filter(Boolean); }
 
 // ================================================================ 📚 ready-made guides (lib/data/guides.js)
 // Finds the shop's product for one part of a guide: the name must contain one of the words, none of the "not"
@@ -108,13 +108,13 @@ async function guideStatus() {
   return out;
 }
 // One tap: the guide becomes a kit. Switched on only when every needed part was found in the shop.
-async function fromGuide(key?: Loose) {
+async function fromGuide(key: string) {
   const g = (await guideStatus()).find((x) => x.key === key);
   if (!g) throw new KitError('গাইড পাওয়া যায়নি।');
   if (g.kit) return { id: g.kit.id, existed: true, missing: g.missing };
   const found = g.parts.filter((p: Loose) => p.product);
   if (!found.length) throw new KitError(`"${g.title}" — এর কোনো পার্টসই দোকানে পাওয়া যায়নি।`);
-  const seen = new Set(); const uniq = found.filter((p: Loose) => !seen.has(p.product.id) && seen.add(p.product.id));
+  const seen = new Set(); const uniq = found.filter((p: { product: { id: unknown; }; }) => !seen.has(p.product.id) && seen.add(p.product.id));
   const id = await save({
     title: g.title, description: g.intro, emoji: g.emoji, steps: g.steps.join('\n'), level: g.level, duration: g.time,
     active: g.missing.length === 0, sort: 0, slug: slugify(g.key) || g.key, guide_key: g.key,

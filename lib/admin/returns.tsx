@@ -88,7 +88,7 @@ async function detail(ctx: AdminCtx, m: RouteMatch) {
       }
       if (b.action === 'receive') {
         const acts: Record<string, string> = {};
-        (r.items || []).forEach((it: Loose) => { acts[it.item_id] = b[`how_${it.item_id}`]; });
+        (r.items || []).forEach((it: { item_id: string | number; }) => { acts[it.item_id] = b[`how_${it.item_id}`]; });
         const done = await R.receive(id, acts, ctx.user.id);
         await ctx.log('return_receive', 'order', r.order_id, `${r.code}: পণ্য ফেরত — ${done.map((d) => HOW[d.how].split(' ')[0]).join(' ')}`);
         return ctx.back(back, 'saved');

@@ -17,8 +17,8 @@ const HOST = "split_part(p.import_ref, '#', 1)";
 // were added by hand or from a file, so they have no import reference and never showed up under a shop's name.
 const ALL = '*';
 const ALL_LABEL = 'দোকানের সব পণ্য (হাতে/ফাইলে যোগ করাসহ)';
-const hostCond = (host?: Loose) => (host === ALL ? 'TRUE' : `${HOST}=$1`);
-const hostArgs = (host?: Loose) => (host === ALL ? [] : [host]);
+const hostCond = (host: string) => (host === ALL ? 'TRUE' : `${HOST}=$1`);
+const hostArgs = (host: string) => (host === ALL ? [] : [host]);
 const FILTERS: Record<string, string> = { todo: 'এখনো দেখা হয়নি', flag: '🚩 ওয়াটারমার্ক আছে', clean: '✅ পরিষ্কার', all: 'সব' };
 
 async function hosts() {
@@ -30,26 +30,26 @@ async function hosts() {
       min(p.created_at) AS first_at, max(p.created_at) AS last_at FROM products p WHERE p.parent_id IS NULL`)]);
   return all && all.n ? [...shops, { host: ALL, ...all }] : shops;
 }
-const hostLabel = (h?: Loose) => (h === ALL ? ALL_LABEL : h);
+const hostLabel = (h: string) => (h === ALL ? ALL_LABEL : h);
 function pickHost(list?: Loose, wanted?: Loose) {
   if (wanted && list.some((h: Loose) => h.host === wanted)) return wanted;
-  const ts = list.find((h: Loose) => /techshop/i.test(h.host));
+  const ts = list.find((h: { host: string; }) => /techshop/i.test(h.host));
   return ts ? ts.host : list[0] ? list[0].host : '';
 }
-function where(f: Loose) {
+function where(f: string) {
   return f === 'flag' ? 'AND p.src_wm' : f === 'clean' ? 'AND p.src_wm_checked AND NOT p.src_wm' : f === 'todo' ? 'AND NOT p.src_wm_checked' : '';
 }
-const srcLink = (h?: Loose, ref?: Loose) => {
+const srcLink = (h: string, ref?: Loose) => {
   if (h !== ALL) return shopLink(h, ref);
   const shop = String(ref || '').split('#')[0];
   return shop && shop !== 'file' ? shopLink(shop, ref) : 'নিজে / ফাইল থেকে যোগ করা';
 };
-const shopLink = (h?: Loose, ref?: Loose) => {
+const shopLink = (h: string, ref?: Loose) => {
   const key = String(ref || '').split('#').slice(1).join('#');
   return key.startsWith('/') ? `https://${h}${key}` : `https://${h}`;
 };
 
-async function excel(ctx: AdminCtx, host: Loose, f: Loose) {
+async function excel(ctx: AdminCtx, host: string, f: string) {
   const rows = await db.q(`SELECT p.id, p.sku, p.name, p.slug, p.active, p.created_at, p.import_ref, p.src_wm, p.src_wm_checked,
       (SELECT count(*) FROM media m WHERE m.owner_type='product' AND m.owner_id=p.id)::int AS pics
     FROM products p WHERE p.parent_id IS NULL AND ${hostCond(host)} ${where(f)}

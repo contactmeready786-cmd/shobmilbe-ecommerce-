@@ -76,7 +76,7 @@ async function submit({ code, productId, name, rating, body, ip, photos }: Body,
   });
 }
 
-async function forProduct(productId?: Id, limit: Loose = 30) {
+async function forProduct(productId?: Id, limit = 30) {
   const pid = int(productId);
   const [rows, stats] = await Promise.all([
     q(`SELECT id, name, rating, body, reply, verified, photos, created_at FROM reviews WHERE product_id=$1 AND status='approved'

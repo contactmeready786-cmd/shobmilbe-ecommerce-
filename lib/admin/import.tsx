@@ -42,7 +42,7 @@ function template(ctx: AdminCtx) {
 }
 
 // ---------------------------------------------------------------- 1. read
-function nextPageUrl(u?: Loose, count?: Loose) {
+function nextPageUrl(u: string | URL, count: number) {
   try {
     const url = new URL(u);
     if (/\/products\.json$/.test(url.pathname) && count >= int(url.searchParams.get('limit'), 30)) {
@@ -56,7 +56,7 @@ function nextPageUrl(u?: Loose, count?: Loose) {
 }
 const PAGE_ACCEPT = 'text/html,application/xhtml+xml,application/xml;q=0.9,application/json;q=0.9,text/csv;q=0.8,*/*;q=0.5';
 
-async function readUrl(u?: Loose, { follow = true }: Body = {}): Promise<Loose> {
+async function readUrl(u: string, { follow = true }: Body = {}): Promise<Loose> {
   const r = await safeFetch(u, { maxBytes: 20 * 1024 * 1024, timeoutMs: follow ? 10000 : 9000, accept: PAGE_ACCEPT });
   if (!r.ok) {
     const why = r.status === 404 ? 'পেজটি পাওয়া যায়নি (404)' : r.status === 403 || r.status === 401 ? 'ওয়েবসাইটটি পড়তে দিচ্ছে না (অনুমতি নেই)' : `ওয়েবসাইট ভুল উত্তর দিয়েছে (${r.status})`;
@@ -140,7 +140,7 @@ async function imageApi(ctx: AdminCtx) {
 }
 
 // ---------------------------------------------------------------- 3. save one product
-function categoryFinder(categories?: Loose) {
+function categoryFinder(categories: db.pg.DbRow[]) {
   const byName = new Map();
   for (const c of categories) {
     byName.set(String(c.name).toLowerCase().trim(), c.id);
