@@ -10,7 +10,7 @@
 import * as crypto from 'node:crypto';
 import * as db from '../db';
 import * as security from '../security';
-import type { Body, Id, Loose, Settings } from '../types';
+import type { Body, Id, Loose, Settings, Caught } from '../types';
 import type { TranslationsRow } from '../data/rows';
 
 const BN = /[\u0980-\u09E5\u09F0-\u09F2\u09F4-\u09FF]/; // Bangla letters (digits and ৳ alone don't need translating)
@@ -112,7 +112,7 @@ async function lookup(texts: Loose, settings: Settings, { auto = true, deadline 
     }
     if (allowed.length) {
       let out: unknown[] = [];
-      try { out = await machine(allowed, settings, deadline); } catch (e: Loose) { console.error('translate', e.message); out = []; }
+      try { out = await machine(allowed, settings, deadline); } catch (caught) { const e = caught as Caught; console.error('translate', e.message); out = []; }
       for (let i = 0; i < allowed.length; i++) {
         if (!out[i] || out[i] === prep(allowed[i])) continue;
         result[allowed[i]] = out[i];
@@ -167,7 +167,7 @@ async function fillBatch(settings: Settings, size = 60) {
   let error = '';
   if (batch.length) {
     let out: unknown[] = [];
-    try { out = await machine(batch, settings, Date.now() + 9000); } catch (e: Loose) { error = e.message; }
+    try { out = await machine(batch, settings, Date.now() + 9000); } catch (caught) { const e = caught as Caught; error = e.message; }
     for (let i = 0; i < batch.length; i++) {
       if (!out[i] || out[i] === prep(batch[i])) continue;
       await save(batch[i], out[i], 'auto');

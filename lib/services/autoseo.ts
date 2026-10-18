@@ -19,7 +19,7 @@ import { kindOf } from '../data/partinfo';
 import * as $seo from './seo';
 import * as $util from '../util';
 import * as $admin_status from './seoscore';
-import type { Body, Id, Loose, Settings } from '../types';
+import type { Body, Id, Loose, Settings, Caught } from '../types';
 import type { FullProduct } from '../models/catalog';
 
 const EVERY_MS = 9 * 60 * 1000;
@@ -210,7 +210,7 @@ async function sweep(settings: Settings, { force = false, max = PER_RUN }: Body 
     try {
       const c = await processOne(p, settings);
       if (c) { changed++; if (c.some((x) => x.field === 'model')) models++; if (c.some((x) => x.field === 'specs')) specs++; }
-    } catch (e: Loose) { console.error('autoseo', p.id, e.message); }
+    } catch (caught) { const e = caught as Caught; console.error('autoseo', p.id, e.message); }
   }
   await snapshot().catch((e) => console.error('autoseo snapshot', e.message));
   await db.setMany({ autoseo_last: String(Date.now()) });

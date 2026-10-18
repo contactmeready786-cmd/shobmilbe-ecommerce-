@@ -18,7 +18,7 @@ import * as ui from './ui';
 import * as importer from '../services/importer';
 import { safeFetch, FetchError } from '../services/safefetch';
 import * as $services_autocat from '../services/autocat';
-import type { AdminCtx, Body, Loose } from '../types';
+import type { AdminCtx, Body, Loose, Caught } from '../types';
 import type { ProductsRow } from '../data/rows';
 
 const FILE_MAX = 3 * 1024 * 1024; // what fits in one request
@@ -233,7 +233,7 @@ async function saveApi(ctx: AdminCtx) {
       active, featured: false, emoji: '📦', unit: 'পিস', low_stock: 3, product_type: 'single', sku: '',
       allow_duplicate: allow, import_ref: ref,
     }, ctx.user.id);
-  } catch (e: Loose) {
+  } catch (caught) { const e = caught as Caught;
     if (/products_import_ref_uq|duplicate key/i.test(String(e && e.message))) {
       const old = await db.one<Pick<ProductsRow, 'id' | 'name' | 'sku'>>('SELECT id, name, sku FROM products WHERE import_ref=$1', [ref]);
       return ctx.json(200, { result: 'exists', id: old && old.id, sku: old && old.sku, name: old && old.name });

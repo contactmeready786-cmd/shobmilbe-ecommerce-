@@ -6,7 +6,7 @@ import * as db from '../db';
 import * as ui from './ui';
 import * as P from './profile';
 import * as $account from './account';
-import type { AdminCtx, Loose, StaffUser, RouteMatch } from '../types';
+import type { AdminCtx, Loose, StaffUser, RouteMatch, Caught } from '../types';
 
 async function listPage(ctx: AdminCtx) {
   const rows = await S.listStaff();
@@ -32,7 +32,7 @@ async function formPage(ctx: AdminCtx, m: RouteMatch | null) {
       await S.saveProfile(sid, { designation: b.designation, address: b.address, emergency_phone: b.emergency_phone, joined_on: b.joined_on, bio: b.bio });
       await ctx.log(id ? 'staff_edit' : 'staff_add', 'staff', sid, b.name);
       return ctx.back(`/admin/staff/${sid}`, 'saved');
-    } catch (e: Loose) {
+    } catch (caught) { const e = caught as Caught;
       const cur = id ? await S.getStaff(id) : {};
       return ctx.page('স্টাফ', form({ ...cur, ...b, id, permissions: list(b.permissions) }, e.message, id === ctx.user.id), 'staff', { status: 400 });
     }

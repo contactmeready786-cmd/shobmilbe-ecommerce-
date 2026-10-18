@@ -8,7 +8,7 @@
 import * as db from '../db';
 import { fetchJson, str } from '../util';
 import * as autopost from './autopost';
-import type { Body, Id, Loose, Settings } from '../types';
+import type { Body, Id, Loose, Settings, Caught } from '../types';
 import type { SocialPostsRow } from '../data/rows';
 
 const API = 'https://api.telegram.org';
@@ -75,7 +75,7 @@ async function postOne(settings: Settings, { slot }: Body = {}) {
     const id = await send(settings, { text: autopost.caption(p, settings, 'telegram'), product: p });
     await record(key, p.id, true, id, '');
     return { product: p, id };
-  } catch (e: Loose) {
+  } catch (caught) { const e = caught as Caught;
     await record(key, p.id, false, '', e.message);
     await db.logIntegration('telegram', 'post', false, e.message, p.name);
     return { error: e.message, product: p };
@@ -93,7 +93,7 @@ async function postEngagement(settings: Settings, slot: string) {
     const id = await send(settings, { text, product: e.product });
     await record(key, e.product ? e.product.id : null, true, id, '', e.kind, e.ref);
     return { engagement: e.kind, id };
-  } catch (err: Loose) {
+  } catch (caught) { const err = caught as Caught;
     await record(key, e.product ? e.product.id : null, false, '', err.message, e.kind, e.ref);
     await db.logIntegration('telegram', 'engage', false, err.message, e.kind);
     return { error: err.message };

@@ -8,7 +8,7 @@ import { money, bn, int, str, fmtDate, pct } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
 import * as catalog from '../models/catalog';
-import type { AdminCtx, Body, Loose, RouteMatch } from '../types';
+import type { AdminCtx, Body, Loose, RouteMatch, Caught } from '../types';
 import type { ProductsRow } from '../data/rows';
 
 const dateOf = (b: Body) => (b.purchase_date ? fmtDate(b.purchase_date + 'T06:00:00Z', false) : fmtDate(b.created_at, false));
@@ -27,7 +27,7 @@ async function page(ctx: AdminCtx, m: RouteMatch) {
     try {
       const changed = await catalog.correctCost(id, b.cost, b.reason, ctx.user.id);
       if (changed) await ctx.log('cost_fix', 'product', id, `${p.name}: কেনা দাম সংশোধন → ${money(b.cost)} (${str(b.reason, 150)})`);
-    } catch (e: Loose) {
+    } catch (caught) { const e = caught as Caught;
       return ctx.fail(self, e.message);
     }
     return ctx.back(self, 'saved');

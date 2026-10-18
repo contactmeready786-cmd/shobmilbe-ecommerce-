@@ -7,7 +7,7 @@ import * as catalog from '../models/catalog';
 import { str, int, normalizePhone, validPhone } from '../util';
 import * as $sms from './sms';
 import * as $models_customers from '../models/customers';
-import type { Body, Id, Loose, Settings } from '../types';
+import type { Body, Id, Loose, Settings, Caught } from '../types';
 import type { CheckoutDraftsRow } from '../data/rows';
 
 const ID_RE = /^[a-f0-9]{20}$/;
@@ -57,7 +57,7 @@ async function markOrdered(phone?: unknown, code?: unknown) {
   try {
     await db.q(`UPDATE checkout_drafts SET status = 'ordered', order_code = $2, updated_at = now()
       WHERE phone = $1 AND status IN ('open','called') AND created_at > now() - interval '14 days'`, [normalizePhone(phone), String(code || '')]);
-  } catch (e: Loose) { console.error('drafts', e.message); }
+  } catch (caught) { const e = caught as Caught; console.error('drafts', e.message); }
 }
 
 function where(f: Body, params?: Loose) {

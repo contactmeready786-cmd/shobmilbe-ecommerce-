@@ -2,7 +2,7 @@
 // Customers' return requests (and ones the staff record by phone): approve / reject with a reply, take the goods back
 // (each item to the shelf, to damaged stock, or nowhere), then refund (also written in the accounts if chosen) or replace.
 import { Val, attrValue, jsxList } from '../react/html';
-import { raw, int, str, bn, money, fmtDate, normalizePhone } from '../util';
+import { raw, int, str, bn, money, fmtDate, normalizePhone, oneOf } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
 import * as R from '../models/returns';
@@ -10,7 +10,7 @@ import * as O from '../models/orders';
 import * as finance from '../models/finance';
 import * as $views_account from '../views/account';
 import * as $services_sms from '../services/sms';
-import type { AdminCtx, Loose, RouteMatch } from '../types';
+import type { AdminCtx, Loose, RouteMatch, Caught } from '../types';
 import type { MediaRow } from '../data/rows';
 
 const BASE = '/admin/returns';
@@ -35,7 +35,7 @@ async function listPage(ctx: AdminCtx) {
     }
     return ctx.back(BASE);
   }
-  const status = R.STATUSES[ctx.query.get('status')] || ['all', 'open'].includes(ctx.query.get('status')) ? ctx.query.get('status') : 'open';
+  const status = R.STATUSES[String(ctx.query.get('status'))] || ['all', 'open'].includes(String(ctx.query.get('status'))) ? ctx.query.get('status')! : 'open';
   const q = str(ctx.query.get('q'), 40);
   const [rows, counts] = await Promise.all([R.list({ status, q, limit: 100 }), R.counts()]);
   const tab = (k?: unknown, l?: unknown, n?: unknown) => <a className={`chip ${status === k ? 'on' : ''}`} href={`${attrValue(BASE)}?status=${attrValue(k)}`}><Val v={l} />{' '}<b>{bn(n || 0)}</b></a>;
@@ -110,7 +110,7 @@ async function detail(ctx: AdminCtx, m: RouteMatch) {
         await db.q('UPDATE return_requests SET admin_note=$1, updated_at=now() WHERE id=$2', [str(b.note, 1000), id]);
         return ctx.back(back, 'saved');
       }
-    } catch (e: Loose) {
+    } catch (caught) { const e = caught as Caught;
       if (!(e instanceof R.ReturnError) && !/টাকা|অ্যাকাউন্ট/.test(e.message)) throw e;
       return ctx.fail(back, e.message);
     }

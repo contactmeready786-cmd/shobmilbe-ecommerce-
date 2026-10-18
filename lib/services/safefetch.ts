@@ -12,7 +12,7 @@ import * as https from 'node:https';
 import * as dns from 'node:dns';
 import * as net from 'node:net';
 import * as zlib from 'node:zlib';
-import type { Body, Loose } from '../types';
+import type { Body, Loose, Caught } from '../types';
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36';
 const PORTS = new Set(['', '80', '443', '8080', '8443']);
 
@@ -138,7 +138,7 @@ async function safeFetch(u: string, { maxBytes = 15 * 1024 * 1024, timeoutMs = 1
     let r: Loose;
     try {
       r = await once(url, { maxBytes, timeoutMs, accept, deadline, method, headers, body });
-    } catch (e: Loose) {
+    } catch (caught) { const e = caught as Caught;
       if (e instanceof FetchError) throw e;
       if (e && e.code === 'ENOTFOUND') throw new FetchError('এই নামের কোনো ওয়েবসাইট পাওয়া যায়নি। লিংক ঠিক আছে কি না দেখুন।', 'ENOTFOUND');
       throw new FetchError('ওয়েবসাইটে ঢোকা যায়নি' + (e && e.code ? ` (${e.code})` : '') + '।', 'ENET');

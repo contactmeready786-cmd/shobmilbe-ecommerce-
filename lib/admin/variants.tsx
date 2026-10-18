@@ -5,7 +5,7 @@ import { int, str, bn, money } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
 import * as catalog from '../models/catalog';
-import type { AdminCtx, Body, Loose, RouteMatch } from '../types';
+import type { AdminCtx, Body, Loose, RouteMatch, Caught } from '../types';
 import type { ProductsRow } from '../data/rows';
 
 const PRESET_TITLES = ['রং', 'সাইজ', 'মডেল', 'রং / সাইজ', 'ধরন', 'ভোল্টেজ', 'ক্ষমতা (ওয়াট)', 'দৈর্ঘ্য', 'প্যাক'];
@@ -40,7 +40,7 @@ async function page(ctx: AdminCtx, m: RouteMatch) {
         if (own) { await ctx.trash('product', rid); await ctx.log('product_delete', 'product', rid, `ভ্যারিয়েন্ট মুছে ফেলা: ${own.name}`); }
       }
       await catalog.saveVariants(id, { title: b.variant_title, rows: rows.filter((r) => !remove.has(r.id)) }, ctx.user.id, { withCost: seeCost });
-    } catch (e: Loose) {
+    } catch (caught) { const e = caught as Caught;
       if (remove.size) await db.tx((t) => catalog.syncVariants(t, id)).catch(() => {});
       return ctx.fail(back, e.message);
     }

@@ -1,7 +1,7 @@
 
 // Deleting customers: only the owner, and only while the switch on the customers page is on.
 import { Val, attrValue, jsxList } from '../react/html';
-import { money, bn, fmtDate, int, str, pageNum, csv, normalizePhone, validPhone, list } from '../util';
+import { money, bn, fmtDate, int, str, pageNum, csv, normalizePhone, validPhone, list, oneOf, ifKey } from '../util';
 import * as C from '../models/customers';
 import * as O from '../models/orders';
 import * as ui from './ui';
@@ -21,7 +21,7 @@ const groupsOf = (s: Settings) => String(s.customer_groups || '').split(',').map
 function listFilters(ctx: AdminCtx) {
   return {
     q: str(ctx.query.get('q'), 60),
-    segment: C.SEGMENTS[ctx.query.get('seg')] ? ctx.query.get('seg') : '',
+    segment: ifKey(C.SEGMENTS, ctx.query.get('seg'), ''),
     grp: str(ctx.query.get('grp'), 40),
     tag: str(ctx.query.get('tag'), 30),
     vipMin: Number(ctx.settings.vip_spend) || 5000,
@@ -30,7 +30,7 @@ function listFilters(ctx: AdminCtx) {
 async function listPage(ctx: AdminCtx) {
   const f = listFilters(ctx);
   const q = f.q;
-  const sort = ['spent', 'orders', 'name'].includes(ctx.query.get('sort')) ? ctx.query.get('sort') : '';
+  const sort = oneOf(['spent', 'orders', 'name'], ctx.query.get('sort'), '');
   const page = pageNum(ctx.query);
   const [rows, total, segs, tags] = await Promise.all([C.listCustomers({ ...f, sort, limit: PER_PAGE, offset: (page - 1) * PER_PAGE }), C.countCustomers(f),
     C.segmentCounts(f.vipMin), C.allTags()]);

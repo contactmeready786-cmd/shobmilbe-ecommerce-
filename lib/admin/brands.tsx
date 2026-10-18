@@ -4,7 +4,7 @@ import { bn, int, str } from '../util';
 import * as catalog from '../models/catalog';
 import * as ui from './ui';
 import * as $db from '../db';
-import type { AdminCtx, Body, Loose, RouteMatch } from '../types';
+import type { AdminCtx, Body, Loose, RouteMatch, Caught } from '../types';
 import type { BrandsRow } from '../data/rows';
 
 function form(b: Body, error?: unknown) {
@@ -21,7 +21,7 @@ async function page(ctx: AdminCtx, m: RouteMatch | null, error: unknown = null, 
       if (int(b.logo_id)) await catalog.claimMedia(b.logo_id, 'brand', bid);
       await ctx.log('brand_save', 'brand', bid, str(b.name, 60));
       return ctx.back('/admin/brands', 'saved');
-    } catch (e: Loose) {
+    } catch (caught) { const e = caught as Caught;
       return page({ ...ctx, method: 'GET' }, m, e.message, { ...b, id, active: !!b.active });
     }
   }

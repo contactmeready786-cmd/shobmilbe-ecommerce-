@@ -11,7 +11,7 @@ import * as ui from './ui';
 import * as $services_seo from '../services/seo';
 import * as $status from './status';
 import * as $models_catalog from '../models/catalog';
-import type { AdminCtx, Body, Loose, RouteMatch } from '../types';
+import type { AdminCtx, Body, Loose, RouteMatch, Caught } from '../types';
 const OWNER_ONLY_KEYS = new Set(['custom_scripts', 'custom_head', 'custom_body', 'chat_script', 'verification_files', 'live_cricket_embed', 'live_football_embed']);
 async function saveKeys(ctx: AdminCtx, keys?: Loose, body?: Loose, { secrets = [], checkboxes = [] }: Body = {}) {
   const owner = ctx.user && ctx.user.role === 'owner';
@@ -131,7 +131,7 @@ async function coupons(ctx: AdminCtx) {
       b.product_ids = found.map((f) => f.id);
       const id = await content.saveCoupon({ ...b, active: b.id ? b.active : true });
       await ctx.log('coupon_save', 'coupon', id, str(b.code, 30));
-    } catch (e: Loose) { return ctx.fail('/admin/marketing/coupons' + (b.id ? `?edit=${int(b.id)}` : ''), e.message); }
+    } catch (caught) { const e = caught as Caught; return ctx.fail('/admin/marketing/coupons' + (b.id ? `?edit=${int(b.id)}` : ''), e.message); }
     return ctx.back('/admin/marketing/coupons', 'saved');
   }
   const rows = await content.listCoupons();

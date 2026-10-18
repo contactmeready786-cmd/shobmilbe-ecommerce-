@@ -48,7 +48,7 @@ async function listPage(ctx: AdminCtx) {
     return ctx.back(BASE, 'saved');
   }
   const page = pageNum(ctx.query);
-  const status = D.STATUSES[ctx.query.get('status')] || ctx.query.get('status') === 'all' ? ctx.query.get('status') : 'open';
+  const status = D.STATUSES[String(ctx.query.get('status'))] || ctx.query.get('status') === 'all' ? ctx.query.get('status')! : 'open';
   const f = { status: status === 'all' ? '' : status, q: str(ctx.query.get('q'), 80) };
   const [rows, total, c] = await Promise.all([D.list(f, { limit: PER_PAGE, offset: (page - 1) * PER_PAGE }), D.count(f), D.counts()]);
   const s = ctx.settings;

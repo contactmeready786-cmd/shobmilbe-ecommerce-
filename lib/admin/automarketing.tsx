@@ -11,7 +11,7 @@ import * as fbreply from '../services/fbreply';
 import * as telegram from '../services/telegram';
 import { secretInput } from './marketing';
 import * as $data_fbcontent from '../data/fbcontent';
-import type { AdminCtx, Loose } from '../types';
+import type { AdminCtx, Loose, Caught } from '../types';
 
 const BASE = '/admin/marketing/auto';
 
@@ -35,7 +35,7 @@ async function post(ctx: AdminCtx) {
     const appSecret = secretIn && !/^•+$/.test(secretIn) ? secretIn : s.autopost_app_secret || '';
     if (!token) return ctx.fail(BASE, 'Facebook থেকে আনা টোকেনটা দিন।');
     let r;
-    try { r = await autopost.connect({ token, appId, appSecret, pageId: String(b.page_id || '').trim() }); } catch (e: Loose) {
+    try { r = await autopost.connect({ token, appId, appSecret, pageId: String(b.page_id || '').trim() }); } catch (caught) { const e = caught as Caught;
       return ctx.fail(BASE, 'Facebook-এর সাথে যুক্ত হলো না: ' + e.message);
     }
     await save(ctx, {
@@ -79,7 +79,7 @@ async function post(ctx: AdminCtx) {
     const tokIn = String(b.tg_token || '').trim();
     const token = tokIn && !/^•+$/.test(tokIn) ? tokIn : s.telegram_bot_token || '';
     let r;
-    try { r = await telegram.connect(token, String(b.tg_chat || '').trim()); } catch (e: Loose) { return ctx.fail(BASE, 'Telegram যুক্ত হলো না: ' + e.message); }
+    try { r = await telegram.connect(token, String(b.tg_chat || '').trim()); } catch (caught) { const e = caught as Caught; return ctx.fail(BASE, 'Telegram যুক্ত হলো না: ' + e.message); }
     await save(ctx, { telegram_bot_token: token, telegram_chat: r.chat, telegram_chat_title: r.title || '', telegram_on: '1' });
     await ctx.log('settings', 'marketing', null, `Telegram চ্যানেল যুক্ত (${r.title || r.chat})`);
     return ctx.back(`${BASE}?info=${encodeURIComponent(`✅ Telegram যুক্ত হয়েছে: ${r.title || r.chat} — একটা পরীক্ষার মেসেজ পাঠানো হয়েছে।`)}#telegram`);

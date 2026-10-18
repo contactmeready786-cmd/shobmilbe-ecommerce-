@@ -4,16 +4,16 @@
 
 // ---------------------------------------------------------------- questions
 import { Val, attrValue, jsxList } from '../react/html';
-import { int, str, bn, fmtDate } from '../util';
+import { int, str, bn, fmtDate, oneOf } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
 import * as X from '../models/extras';
 import * as $uiswitches from './uiswitches';
 import * as $services_sms from '../services/sms';
-import type { AdminCtx, Loose, RouteMatch } from '../types';
+import type { AdminCtx, Loose, RouteMatch, Caught } from '../types';
 import type { ProductsRow } from '../data/rows';
 async function questionsPage(ctx: AdminCtx) {
-  const status = X.Q_STATUSES[ctx.query.get('status')] || ctx.query.get('status') === 'all' ? ctx.query.get('status') : 'pending';
+  const status = X.Q_STATUSES[String(ctx.query.get('status'))] || ctx.query.get('status') === 'all' ? ctx.query.get('status')! : 'pending';
   const page = Math.max(1, int(ctx.query.get('page'), 1));
   const [rows, counts] = await Promise.all([X.listQuestions({ status, limit: 50, offset: (page - 1) * 50 }), X.questionCounts()]);
   const tab = (k?: Loose, l?: unknown) => <a className={`chip ${status === k ? 'on' : ''}`} href={`/admin/questions?status=${attrValue(k)}`}><Val v={l} />{' '}<b>{bn(counts[k] || 0)}</b></a>;
@@ -28,7 +28,7 @@ async function answer(ctx: AdminCtx, m: RouteMatch) {
   let q: Loose;
   try {
     q = await X.answerQuestion(id, { answer: b.answer, publish: b.publish === '1', question: b.question }, ctx.user.id);
-  } catch (e: Loose) { return ctx.fail(back, e.message); }
+  } catch (caught) { const e = caught as Caught; return ctx.fail(back, e.message); }
   await ctx.log('question_answer', 'question', id, `${q.status === 'published' ? 'দোকানে দেখানো' : 'সেভ'}: ${str(q.question, 80)}`);
   // the first answer to a question with a mobile number: tell the customer by SMS
   let note = '';
@@ -69,7 +69,7 @@ async function restockPage(ctx: AdminCtx) {
     }
     return ctx.back('/admin/marketing/restock');
   }
-  const status = ['waiting', 'sent', 'all'].includes(ctx.query.get('status')) ? ctx.query.get('status') : 'waiting';
+  const status = oneOf(['waiting', 'sent', 'all'], ctx.query.get('status'), 'waiting');
   const [top, rows, cnt, ptop, pcnt] = await Promise.all([X.stockAlertTop(15), X.stockAlertList({ status }),
     db.one<{ waiting: number; sent: number; products: number }>(`SELECT count(*) FILTER (WHERE notified_at IS NULL)::int AS waiting, count(*) FILTER (WHERE notified_at IS NOT NULL)::int AS sent,
       count(DISTINCT product_id) FILTER (WHERE notified_at IS NULL)::int AS products FROM stock_alerts`),

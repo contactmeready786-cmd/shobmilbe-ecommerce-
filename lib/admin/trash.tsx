@@ -1,7 +1,7 @@
 // Admin → স্থায়ীভাবে মুছে ফেলুন (রিসাইকেল বিন) — owner only.
 // Everything anyone deleted waits here with full details; the owner restores it or deletes it for good.
 import { Val, attrValue, jsxList } from '../react/html';
-import { bn, money, int, list, fmtDate } from '../util';
+import { bn, money, int, list, fmtDate, ifKey } from '../util';
 import * as db from '../db';
 import * as T from '../models/trash';
 import * as ui from './ui';
@@ -73,7 +73,7 @@ async function page(ctx: AdminCtx) {
     }
     return ctx.back('/admin/trash');
   }
-  const kind = T.KINDS[ctx.query.get('kind')] ? ctx.query.get('kind') : '';
+  const kind = ifKey(T.KINDS, ctx.query.get('kind'), '');
   const pageNo = Math.max(1, int(ctx.query.get('page'), 1));
   const [rows, counts] = await Promise.all([T.list({ kind, limit: PER_PAGE, offset: (pageNo - 1) * PER_PAGE }), T.counts()]);
   const total = counts.reduce((a, c) => a + c.n, 0);

@@ -3,7 +3,7 @@
 //   see every card's balance and history, switch a card off or change its balance.
 //   Referral: switch on, what the new friend gets and what the sharer gets.
 import { Val, attrValue, jsxList } from '../react/html';
-import { int, str, bn, money, fmtDate, ymd } from '../util';
+import { int, str, bn, money, fmtDate, ymd, ifKey } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
 import * as G from '../models/giftcards';
@@ -45,7 +45,7 @@ async function listPage(ctx: AdminCtx) {
     }
     return ctx.back(BASE);
   }
-  const status = G.STATUSES[ctx.query.get('status')] ? ctx.query.get('status') : '';
+  const status = ifKey(G.STATUSES, ctx.query.get('status'), '');
   const q = str(ctx.query.get('q'), 40);
   const [rows, st, accounts] = await Promise.all([G.list({ status, q }), G.stats(), ctx.can('accounting') ? finance.listAccounts() : []]);
   const R = G.refCfg(s);

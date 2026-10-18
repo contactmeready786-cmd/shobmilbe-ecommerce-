@@ -1,7 +1,7 @@
 // Admin → রিপোর্ট: sales by day / week / month, products (best and slow sellers), categories, customers,
 // cancelled & returned orders, profit & margin (owner only), staff — any date range, CSV and Excel downloads.
 import { Val, attrValue, jsxList } from '../react/html';
-import { money, bn, pct, fmtDate, dateRange, csv } from '../util';
+import { money, bn, pct, fmtDate, dateRange, csv, oneOf } from '../util';
 import * as db from '../db';
 import * as F from '../models/finance';
 import * as O from '../models/orders';
@@ -97,7 +97,7 @@ async function page(ctx: AdminCtx) {
   const seeCost = ctx.can('see_cost');
   const tabs = TABS.filter(([k]) => k !== 'profit' || seeCost);
   const tab = tabs.some(([k]) => k === ctx.query.get('tab')) ? ctx.query.get('tab') : 'sales';
-  const unit = ['day', 'week', 'month'].includes(ctx.query.get('by')) ? ctx.query.get('by') : 'day';
+  const unit = oneOf(['day', 'week', 'month'], ctx.query.get('by'), 'day');
   const qs = (extra?: Loose) => '?' + new URLSearchParams({ from, to, tab, ...(unit !== 'day' ? { by: unit } : {}), ...extra });
   let content: unknown = '';
 

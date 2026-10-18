@@ -13,7 +13,7 @@ import type { SecurityEventsRow, VisitSessionsRow, BlocklistRow } from '../data/
 import * as db from '../db';
 import * as security from '../security';
 import * as $notify from './notify';
-import type { Body, Id, Loose, Settings, ShopRequest } from '../types';
+import type { Body, Id, Loose, Settings, ShopRequest, Caught } from '../types';
 
 const KINDS: Record<string, Loose> = {
   probe: ['🕳️', 'হ্যাকিংয়ের দুর্বল জায়গা খুঁজেছে'],
@@ -71,7 +71,7 @@ async function recordNow({ req, ip, kind, detail = '', path = '', settings }: Bo
       [ip, kind, String(detail).slice(0, 300), String(path).slice(0, 300), req ? String(req.headers['user-agent'] || '').slice(0, 300) : '', country, city]);
     if (Math.random() < 0.02) db.q(`DELETE FROM security_events WHERE created_at < now() - interval '90 days'`).catch(() => {});
     await react(ip, kind, s);
-  } catch (e: Loose) {
+  } catch (caught) { const e = caught as Caught;
     console.error('guard', e.message);
   }
 }

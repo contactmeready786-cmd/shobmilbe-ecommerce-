@@ -90,7 +90,7 @@ import * as $email from './email';
 import * as $services_guard from '../services/guard';
 import * as $models_trash from '../models/trash';
 import * as $models_extras from '../models/extras';
-import type { AdminCtx, Base, Body, Id, Loose, Settings, ShopRequest, StaffUser } from '../types';
+import type { AdminCtx, Base, Body, Id, Loose, Settings, ShopRequest, StaffUser, Caught } from '../types';
 import type { JSX } from 'react/jsx-runtime';
 import type { StaffRow } from '../data/rows';
 
@@ -317,7 +317,7 @@ ${link}
 <p><a href="${notify.escapeHtml(link)}" style="display:inline-block;background:#0a7d3b;color:#fff;padding:12px 20px;border-radius:6px;text-decoration:none">নতুন পাসওয়ার্ড দিন</a></p>
 <p style="color:#666;font-size:13px">লিংকটা ${MAIL_TOKEN_MIN} মিনিট কাজ করবে, একবারই। আপনি না চাইলে এই মেইল উপেক্ষা করুন — কিছুই বদলাবে না।<br>অনুরোধ এসেছে: ${notify.escapeHtml(ip)}</p></div>`);
       await db.logActivity(null, 'reset_mail', 'security', null, `ইমেইলে রিসেট লিংক পাঠানো (${ip})`);
-    } catch (e: Loose) {
+    } catch (caught) { const e = caught as Caught;
       await db.logIntegration('notify-email', 'reset link', false, e.message);
       return bare('রিসেট', resetPage({ settings, enabled: enabledCode, mailMsg: 'ইমেইল পাঠানো যায়নি। নিচের গোপন রিসেট কোড দিয়ে চেষ্টা করুন।' }), 502);
     }
@@ -528,7 +528,7 @@ ${link}
       const b = await parseBody(req);
       try {
         await lock.checkPasskey(req, owner.id, c.challenge, b);
-      } catch (e: Loose) {
+      } catch (caught) { const e = caught as Caught;
         await countFail();
         await sessions.record(req, { staffId: owner.id, login: owner.username, event: 'code_fail', ip, detail: 'পাসকি' });
         return fail('পাসকি: ' + e.message);

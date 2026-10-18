@@ -11,7 +11,7 @@ import * as ui from './ui';
 import { ASSET_V } from './layout';
 import * as $services_courier from '../services/courier';
 import * as $orders from './orders';
-import type { AdminCtx, Loose } from '../types';
+import type { AdminCtx, Loose, Caught } from '../types';
 import type { OrdersRow, ProductsRow } from '../data/rows';
 
 const BASE = '/admin/handover';
@@ -90,7 +90,7 @@ async function handover(ctx: AdminCtx) {
   try {
     const cur = await db.one<Pick<OrdersRow, 'status'>>('SELECT status FROM orders WHERE id=$1', [o.id]);
     if (cur!.status !== 'shipped') await O.setStatus(o.id, 'shipped', ctx.user.id);
-  } catch (e: Loose) { return ctx.json(400, { ok: false, error: e.message }); }
+  } catch (caught) { const e = caught as Caught; return ctx.json(400, { ok: false, error: e.message }); }
   await db.q('UPDATE orders SET handed_at=now(), handed_by=$1 WHERE id=$2', [ctx.user.id, o.id]);
   await ctx.log('handover', 'order', o.id, `📦 কুরিয়ারে হ্যান্ডওভার (স্ক্যান)${b.verified ? ' — সব পণ্যের বারকোড মিলিয়ে' : ''}`);
   return ctx.json(200, { ok: true, code: o.code, message: `✅ ${o.code} কুরিয়ারে দেওয়া হলো — স্টক থেকে কমেছে।${booked}` });

@@ -8,7 +8,7 @@ import * as security from '../security';
 import * as backup from '../services/backup';
 import * as $services_imagekit from '../services/imagekit';
 import * as $services_autobackup from '../services/autobackup';
-import type { AdminCtx, Loose } from '../types';
+import type { AdminCtx, Loose, Caught } from '../types';
 
 const MAX_BYTES = 4 * 1024 * 1024; // Vercel can send at most ~4.5 MB in one reply
 
@@ -43,7 +43,7 @@ async function download(ctx: AdminCtx) {
   let r;
   try {
     r = await backup.dump(db, { withImages: false, withAnalytics: !!b.analytics, password: pw });
-  } catch (e: Loose) {
+  } catch (caught) { const e = caught as Caught;
     await db.q(`INSERT INTO backups(kind, ok, note, staff_id) VALUES('manual', false, $1, $2)`, [str(e.message, 300), ctx.user.id]);
     return ctx.fail('/admin/backup', 'ব্যাকআপ তৈরি করা যায়নি: ' + e.message);
   }

@@ -5,7 +5,7 @@
 // The return itself is filed by the owner (or their VAT consultant) on vat.gov.bd — this page prepares the numbers.
 import { Val, attrValue, jsxList, htmlValue } from '../react/html';
 import { ASSET_V as PA_V } from './layout';
-import { raw, money, bn, fmtDate, int, ymd, csv, num, str } from '../util';
+import { raw, money, bn, fmtDate, int, ymd, csv, num, str, oneOf } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
 import * as $models_orders from '../models/orders';
@@ -34,7 +34,7 @@ function split(amount: number, s: Settings, cost = 0) {
     default: return { value: a, vat: 0, rate: 0 };
   }
 }
-function validMonth(m?: RegExpMatchArray) { return /^\d{4}-(0[1-9]|1[0-2])$/.test(String(m || '')) ? m : ymd().slice(0, 7); }
+function validMonth(m?: string | null): string { return /^\d{4}-(0[1-9]|1[0-2])$/.test(String(m || '')) ? (m as string) : ymd().slice(0, 7); }
 function nextMonth15(ym?: Loose) {
   const [y, m] = ym.split('-').map(Number);
   return new Date(Date.UTC(m === 12 ? y + 1 : y, m === 12 ? 0 : m, 15));
@@ -57,7 +57,7 @@ async function purchaseRows(month?: unknown) {
 async function returnPage(ctx: AdminCtx) {
   const s = ctx.settings;
   const month = validMonth(ctx.query.get('month'));
-  const kind = ['sales', 'purchase'].includes(ctx.query.get('reg')) ? ctx.query.get('reg') : '';
+  const kind = oneOf(['sales', 'purchase'], ctx.query.get('reg'), '');
   const [sales, buys, paid] = await Promise.all([salesRows(month), purchaseRows(month),
     db.one<{ n: number }>(`SELECT coalesce(sum(amount),0)::numeric(14,2) AS n FROM transactions WHERE type='expense' AND category='ভ্যাট/ট্যাক্স পরিশোধ' AND to_char(tx_date,'YYYY-MM')=$1`, [month])]);
   const saleLines: Loose[] = sales.map((o) => ({ ...o, ...split(o.goods, s, Number(o.cost_total)) }));

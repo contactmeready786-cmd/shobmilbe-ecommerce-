@@ -2,7 +2,7 @@
 // 🗑️ deleting orders: only the owner, and only while this switch is on (so nobody deletes by a slip of the finger).
 // A deleted order goes to the recycle bin (রিসাইকেল বিন) with its items and payments; its goods go back on the shelf.
 import { Val, attrValue, jsxList } from '../react/html';
-import { money, bn, fmtDate, int, str, csv, pageNum, normalizePhone, validPhone, validYmd, list, amount as amt, roundOff, roundOffLabel } from '../util';
+import { money, bn, fmtDate, int, str, csv, pageNum, normalizePhone, validPhone, validYmd, list, amount as amt, roundOff, roundOffLabel, oneOf, ifKey } from '../util';
 import * as db from '../db';
 import * as O from '../models/orders';
 import * as catalog from '../models/catalog';
@@ -59,13 +59,13 @@ const payPill = (s: string | null) => ui.pill(O.PAYMENT_STATUSES[s ?? ''] || s, 
 
 function filtersFrom(query: ShopQuery) {
   return {
-    status: O.STATUSES[query.get('status')] ? query.get('status') : '',
+    status: ifKey(O.STATUSES, query.get('status'), ''),
     q: str(query.get('q'), 80),
     from: validYmd(query.get('from')) || '',
     to: validYmd(query.get('to')) || '',
-    courier: ['steadfast', 'pathao', 'redx', 'none'].includes(query.get('courier')) ? query.get('courier') : '',
-    payment: O.PAYMENT_METHODS[query.get('payment')] ? query.get('payment') : '',
-    paymentStatus: O.PAYMENT_STATUSES[query.get('pstatus')] ? query.get('pstatus') : '',
+    courier: oneOf(['steadfast', 'pathao', 'redx', 'none'], query.get('courier'), ''),
+    payment: ifKey(O.PAYMENT_METHODS, query.get('payment'), ''),
+    paymentStatus: ifKey(O.PAYMENT_STATUSES, query.get('pstatus'), ''),
     phone: str(query.get('phone'), 20),
   };
 }

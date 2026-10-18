@@ -15,7 +15,7 @@ import * as db from '../db';
 import { bn, str } from '../util';
 import * as autopost from './autopost';
 import * as $seo from './seo';
-import type { Body, Id, Loose, Settings } from '../types';
+import type { Body, Id, Loose, Settings, Caught } from '../types';
 
 const EVERY_MS = 9 * 60 * 1000;
 const PER_RUN = 12;
@@ -114,7 +114,7 @@ async function run(settings: Settings, { force = false }: Body = {}): Promise<Lo
   try {
     const since = Math.floor((Date.now() - 10 * 864e5) / 1000);
     posts = (await autopost.graph(`${pageId}/posts`, { token, params: { fields: 'id,created_time', limit: '15', since: String(since) } })).data || [];
-  } catch (e: Loose) {
+  } catch (caught) { const e = caught as Caught;
     const msg = permissionHint(e.message) || e.message;
     await db.setMany({ fbreply_error: str(msg, 300), fbreply_error_at: String(Date.now()) });
     return { error: msg };
@@ -125,7 +125,7 @@ async function run(settings: Settings, { force = false }: Body = {}): Promise<Lo
     let comments;
     try {
       comments = (await autopost.graph(`${post.id}/comments`, { token, params: { fields: 'id,message,from,created_time,comment_count', filter: 'toplevel', order: 'reverse_chronological', limit: '50' } })).data || [];
-    } catch (e: Loose) {
+    } catch (caught) { const e = caught as Caught;
       const msg = permissionHint(e.message) || e.message;
       out.errors.push(msg);
       if (permissionHint(e.message)) break;
@@ -152,7 +152,7 @@ async function run(settings: Settings, { force = false }: Body = {}): Promise<Lo
         const r = await autopost.graph(`${c.id}/comments`, { method: 'POST', token, params: { message: reply } });
         await db.q('UPDATE fb_comments SET replied=true, reply_id=$2, reply=$3, product_id=$4 WHERE id=$1', [c.id, String(r.id || ''), str(reply, 1000), about.product ? about.product.id : null]);
         out.replied++; room--;
-      } catch (e: Loose) {
+      } catch (caught) { const e = caught as Caught;
         const msg = permissionHint(e.message) || e.message;
         await db.q('UPDATE fb_comments SET error=$2, reply=$3 WHERE id=$1', [c.id, str(msg, 300), str(reply, 1000)]);
         out.errors.push(msg);

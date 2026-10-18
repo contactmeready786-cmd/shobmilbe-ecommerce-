@@ -10,7 +10,7 @@ import { int, str, fmtDate, fetchJson, bn } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
 import { saveKeys, secretInput } from './marketing';
-import type { AdminCtx, Body, Loose, Settings } from '../types';
+import type { AdminCtx, Body, Loose, Settings, Caught } from '../types';
 
 const BASE = '/admin/integrations/dns';
 const API = 'https://api.cloudflare.com/client/v4';
@@ -176,7 +176,7 @@ async function page(ctx: AdminCtx) {
   return ctx.page('DNS রেকর্ড', body, 'dns');
 }
 
-function presetFrom(key: string, s: Settings, zoneName?: unknown) {
+function presetFrom(key: string | null, s: Settings, zoneName?: unknown) {
   void zoneName;
   if (key === 'vercel-a') return { type: 'A', name: '@', content: '76.76.21.21', ttl: 1, comment: 'Website (Vercel)' };
   if (key === 'vercel-www') return { type: 'CNAME', name: 'www', content: 'cname.vercel-dns.com', ttl: 1, comment: 'Website www (Vercel)' };
@@ -219,7 +219,7 @@ async function save(ctx: AdminCtx) {
     if (!r.ok) return ctx.fail(BASE + (id ? `?edit=${encodeURIComponent(id)}` : ''), r.error);
     await ctx.log('settings', 'dns', null, `${id ? 'বদল' : 'যোগ'}: ${rec!.type} ${rec!.name} → ${rec!.content || JSON.stringify(rec!.data)}`);
     return ctx.back(BASE, id ? 'saved' : 'added');
-  } catch (e: Loose) { return ctx.fail(BASE, e.message); }
+  } catch (caught) { const e = caught as Caught; return ctx.fail(BASE, e.message); }
 }
 async function proxy(ctx: AdminCtx) {
   const b = await ctx.body();
@@ -229,7 +229,7 @@ async function proxy(ctx: AdminCtx) {
     if (!r.ok) return ctx.fail(BASE, r.error);
     await ctx.log('settings', 'dns', null, `Proxy ${b.proxied ? 'চালু' : 'বন্ধ'}: ${r.result.type} ${r.result.name}`);
     return ctx.back(BASE, 'saved');
-  } catch (e: Loose) { return ctx.fail(BASE, e.message); }
+  } catch (caught) { const e = caught as Caught; return ctx.fail(BASE, e.message); }
 }
 async function remove(ctx: AdminCtx) {
   const b = await ctx.body();
@@ -250,7 +250,7 @@ async function remove(ctx: AdminCtx) {
     await ctx.reloadSettings();
     await ctx.log('settings', 'dns', null, `মোছা: ${x.type} ${x.name} → ${contentOf(x)}`);
     return ctx.back(BASE, 'removed');
-  } catch (e: Loose) { return ctx.fail(BASE, e.message); }
+  } catch (caught) { const e = caught as Caught; return ctx.fail(BASE, e.message); }
 }
 async function restore(ctx: AdminCtx) {
   const b = await ctx.body();
@@ -266,7 +266,7 @@ async function restore(ctx: AdminCtx) {
     await ctx.reloadSettings();
     await ctx.log('settings', 'dns', null, `ফেরত আনা: ${r.result.type} ${r.result.name}`);
     return ctx.back(BASE, 'added');
-  } catch (e: Loose) { return ctx.fail(BASE, e.message); }
+  } catch (caught) { const e = caught as Caught; return ctx.fail(BASE, e.message); }
 }
 async function security(ctx: AdminCtx) {
   const b = await ctx.body();
@@ -286,7 +286,7 @@ async function security(ctx: AdminCtx) {
     await ctx.log('settings', 'dns', null, `Cloudflare নিরাপত্তা: ${Object.entries(want).map(([k, v]) => `${k}=${v}`).join(', ')}`);
     if (errs.length) return ctx.fail(BASE, errs.join(' · '));
     return ctx.back(BASE, 'saved');
-  } catch (e: Loose) { return ctx.fail(BASE, e.message); }
+  } catch (caught) { const e = caught as Caught; return ctx.fail(BASE, e.message); }
 }
 
 export const routes = [

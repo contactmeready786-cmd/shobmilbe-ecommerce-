@@ -1,13 +1,13 @@
 
 // ---------------------------------------------------------------- inventory
 import { Val, attrValue, jsxList } from '../react/html';
-import { raw, money, bn, fmtDate, int, str, list, ymd, pct, pageNum } from '../util';
+import { raw, money, bn, fmtDate, int, str, list, ymd, pct, pageNum, oneOf } from '../util';
 import * as catalog from '../models/catalog';
 import * as finance from '../models/finance';
 import * as ui from './ui';
 import * as $db from '../db';
 import * as $services_stockalert from '../services/stockalert';
-import type { AdminCtx, Loose, RouteMatch } from '../types';
+import type { AdminCtx, Loose, RouteMatch, Caught } from '../types';
 import type { ProductsRow } from '../data/rows';
 const INV_PER_PAGE = 50;
 const ADJUST_REASONS = [['adjust', 'হাতে বদল'], ['count', 'গণনা ঠিক করা'], ['damage', 'নষ্ট/ভাঙা → নষ্ট স্টকে'], ['lost', 'হারানো'], ['return', 'কাস্টমার ফেরত (ভালো মাল)'],
@@ -17,7 +17,7 @@ async function inventoryPage(ctx: AdminCtx) {
   const damaged = ctx.query.get('damaged') === '1';
   const supplierId = int(ctx.query.get('supplier')) || null;
   const q = str(ctx.query.get('q'), 60);
-  const sort = ['sku', 'sku_desc', 'stock_asc', 'name'].includes(ctx.query.get('sort')) ? ctx.query.get('sort') : 'sku';
+  const sort = oneOf(['sku', 'sku_desc', 'stock_asc', 'name'], ctx.query.get('sort'), 'sku');
   const page = pageNum(ctx.query);
   const seeCost = ctx.can('see_cost');
   const canProducts = ctx.can('products');
@@ -124,7 +124,7 @@ async function supplierPay(ctx: AdminCtx, m: RouteMatch) {
   const b = await ctx.body();
   try {
     await finance.addTransaction({ type: 'expense', category: 'সাপ্লায়ার পেমেন্ট', amount: b.amount, account_id: b.account_id, supplier_id: id, tx_date: b.tx_date, note: b.note }, ctx.user.id);
-  } catch (e: Loose) { return ctx.fail(`/admin/suppliers/${id}`, e.message); }
+  } catch (caught) { const e = caught as Caught; return ctx.fail(`/admin/suppliers/${id}`, e.message); }
   await ctx.log('supplier_pay', 'supplier', id, `৳${b.amount}`);
   return ctx.back(`/admin/suppliers/${id}`, 'paid');
 }
@@ -170,7 +170,7 @@ async function purchaseNew(ctx: AdminCtx) {
       const id = await finance.savePurchase({ ...b, items: pids.map((p, i) => ({ product_id: p, qty: qtys[i], unit_cost: costs[i] })) }, ctx.user.id);
       await ctx.log('purchase_add', 'purchase', id, '');
       return ctx.back(`/admin/purchases/${id}`, 'added');
-    } catch (e: Loose) {
+    } catch (caught) { const e = caught as Caught;
       return ctx.fail('/admin/purchases/new', e.message);
     }
   }

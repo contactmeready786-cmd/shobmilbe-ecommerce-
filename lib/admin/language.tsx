@@ -3,7 +3,7 @@
 //  - which language a first-time visitor sees
 //  - every translated line of the owner's own texts, each one can be corrected by hand
 import { Val, attrValue, jsxList } from '../react/html';
-import { bn, int, str } from '../util';
+import { bn, int, str, oneOf } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
 import * as translate from '../services/translate';
@@ -51,7 +51,7 @@ async function page(ctx: AdminCtx) {
   }
 
   const q = str(ctx.query.get('q'), 100);
-  const show = ['manual', 'auto'].includes(ctx.query.get('show')) ? ctx.query.get('show') : '';
+  const show = oneOf(['manual', 'auto'], ctx.query.get('show'), '');
   const pageNo = Math.max(1, int(ctx.query.get('page')) || 1);
   const where: unknown[] = [];
   const params: unknown[] = [];

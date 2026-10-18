@@ -7,7 +7,7 @@ import * as db from '../db';
 import * as customers from '../models/customers';
 import * as courier from './courier';
 import { normalizePhone, validPhone } from '../util';
-import type { Body, Loose, Settings } from '../types';
+import type { Body, Loose, Settings, Caught } from '../types';
 import type { FraudChecksRow } from '../data/rows';
 
 const CACHE_HOURS = 24;
@@ -29,7 +29,7 @@ async function fraudbd(s: Settings, phone: string) {
     }));
     const t = d.totalSummary || {};
     return { ok: true, couriers, total: Number(t.total) || 0, success: Number(t.success) || 0, cancel: Number(t.cancel) || 0, rate: t.successRate !== undefined ? Number(t.successRate) : null };
-  } catch (e: Loose) {
+  } catch (caught) { const e = caught as Caught;
     return { ok: false, message: e.name === 'AbortError' ? 'FraudBD সময়মতো উত্তর দেয়নি' : e.message };
   } finally { clearTimeout(timer); }
 }

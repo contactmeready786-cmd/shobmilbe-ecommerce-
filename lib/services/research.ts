@@ -19,7 +19,7 @@ import { safeFetch } from './safefetch';
 import * as dupes from '../models/duplicates';
 import { bn } from '../util';
 import * as importer from './importer';
-import type { Body, Id, Loose } from '../types';
+import type { Body, Id, Loose, Caught } from '../types';
 import type { DbRow } from '../pg';
 
 
@@ -120,15 +120,15 @@ async function detect(input: Loose) {
   try {
     const d = await getJson(`${origin}/wp-json/wc/store/v1/products?per_page=1`);
     if (Array.isArray(d)) return { kind: 'woo', origin, name: u.hostname.replace(/^www\./, '') };
-  } catch (e: Loose) { if (e.code === 'ROBOTS') throw e; }
+  } catch (caught) { const e = caught as Caught; if (e.code === 'ROBOTS') throw e; }
   try {
     const d = await getJson(`${origin}/products.json?limit=1`);
     if (d && Array.isArray(d.products)) return { kind: 'shopify', origin, name: u.hostname.replace(/^www\./, '') };
-  } catch (e: Loose) { if (e.code === 'ROBOTS') throw e; }
+  } catch (caught) { const e = caught as Caught; if (e.code === 'ROBOTS') throw e; }
   // any other shop: read page by page (sitemap → category pages → product pages)
   if (!(await allowed(origin + '/'))) { const e: Loose = new Error('এই দোকান রোবটকে তাদের পেজ পড়তে দেয় না (robots.txt)।'); e.code = 'ROBOTS'; throw e; }
   let home;
-  try { home = await fetchImpl(origin + '/', { maxBytes: 4 * 1024 * 1024, timeoutMs: 9000, accept: 'text/html,*/*' }); } catch (e: Loose) { throw new Error('দোকানের ওয়েবসাইট খোলা যায়নি: ' + e.message); }
+  try { home = await fetchImpl(origin + '/', { maxBytes: 4 * 1024 * 1024, timeoutMs: 9000, accept: 'text/html,*/*' }); } catch (caught) { const e = caught as Caught; throw new Error('দোকানের ওয়েবসাইট খোলা যায়নি: ' + e.message); }
   if (!home.ok) throw new Error(`দোকানের ওয়েবসাইট উত্তর দিয়েছে ${home.status} — হয়তো রোবট আটকে রাখে।`);
   return { kind: 'site', origin, name: u.hostname.replace(/^www\./, '') };
 }
@@ -434,7 +434,7 @@ async function readSite(src: DbRow, started: number) {
           FROM unnest($2::text[]) WITH ORDINALITY AS x(p, r) WHERE i.source_id=$1 AND i.ext_id=x.p`, [src.id, paths]);
         await q('UPDATE research_items SET rank=NULL WHERE source_id=$1 AND rank IS NOT NULL AND NOT (ext_id = ANY($2::text[]))', [src.id, paths]);
       }
-    } catch (e: Loose) {
+    } catch (caught) { const e = caught as Caught;
       failed++;
       lastErr.push(String(e.message || e).slice(0, 80));
       await q('UPDATE research_queue SET fails=fails+1, checked_at=CASE WHEN fails >= 2 THEN now() ELSE checked_at END WHERE source_id=$1 AND url=$2', [src.id, row.url]);
@@ -475,7 +475,7 @@ async function tick({ force = false }: Body = {}) {
     const n = src.kind === 'woo' ? await readWoo(src, started) : await readShopify(src, started);
     await q(`UPDATE research_sources SET last_ok=now(), last_error='', items=$2 WHERE id=$1`, [src.id, n]);
     return { source: src.name, items: n };
-  } catch (e: Loose) {
+  } catch (caught) { const e = caught as Caught;
     await q('UPDATE research_sources SET last_error=$2 WHERE id=$1', [src.id, String(e.message || e).slice(0, 300)]);
     return { source: src.name, error: e.message };
   }
@@ -852,7 +852,7 @@ async function searchMarket(term: string, { live = true, fresh = false, budgetMs
             await q('UPDATE research_sources SET kind=$2 WHERE id=$1', [src.id, d.kind]);
           }
           row.n = src.kind === 'woo' ? await liveWoo(src, liveTerm) : src.kind === 'shopify' ? await liveShopify(src, liveTerm) : await liveSite(src, liveTerm, termPrep, until);
-        } catch (e: Loose) { row.error = e.code === 'ROBOTS' ? 'খুঁজতে দেয় না' : e.code === 'SLOW' ? 'ধীর — পরের বার' : 'খোলা যায়নি'; }
+        } catch (caught) { const e = caught as Caught; row.error = e.code === 'ROBOTS' ? 'খুঁজতে দেয় না' : e.code === 'SLOW' ? 'ধীর — পরের বার' : 'খোলা যায়নি'; }
       }
     }));
   }

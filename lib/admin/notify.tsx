@@ -9,7 +9,7 @@ import * as push from '../services/push';
 import * as errors from '../services/errors';
 import { fmtDate, int } from '../util';
 import * as $layout from './layout';
-import type { AdminCtx, Loose, RouteMatch } from '../types';
+import type { AdminCtx, Loose, RouteMatch, Caught } from '../types';
 import type { IntegrationLogsRow, PushSubsRow } from '../data/rows';
 
 const dots = (v: string | undefined) => (v ? '••••••••' : '');
@@ -36,7 +36,7 @@ async function page(ctx: AdminCtx) {
         await N.smtpSend({ user: email, pass: appPass, to: email, fromName: s.store_name, subject: `✅ ${s.store_name}: দোকানের Gmail চালু হয়েছে`,
           text: 'অভিনন্দন! এখন থেকে এই Gmail থেকে যাবে: নতুন অর্ডারের খবর, কাস্টমারের সাইন-আপ কোড আর মোছার কোড।' });
         await db.logIntegration('notify-email', 'test', true, 'পাঠানো হয়েছে');
-      } catch (e: Loose) {
+      } catch (caught) { const e = caught as Caught;
         await db.logIntegration('notify-email', 'test', false, e.message);
         return ctx.fail('/admin/notify', `সেভ হয়নি — Gmail নতুন কোডটা নেয়নি: ${String(e.message || e).slice(0, 200)}। ${N.maskEmail(email)} দিয়ে লগইন করে সেই Gmail-এর App Password নিন।`);
       }
@@ -85,7 +85,7 @@ async function page(ctx: AdminCtx) {
     const failedCh: unknown[] = [];
     for (const [ch, fn] of tried) {
       try { await fn(); await db.logIntegration(ch === 'wa' ? 'notify-whatsapp' : 'notify-email', 'test', true, 'পাঠানো হয়েছে'); }
-      catch (e: Loose) { failedCh.push(ch === 'wa' ? 'WhatsApp: ' + e.message : 'ইমেইল: ' + e.message); await db.logIntegration(ch === 'wa' ? 'notify-whatsapp' : 'notify-email', 'test', false, e.message); }
+      catch (caught) { const e = caught as Caught; failedCh.push(ch === 'wa' ? 'WhatsApp: ' + e.message : 'ইমেইল: ' + e.message); await db.logIntegration(ch === 'wa' ? 'notify-whatsapp' : 'notify-email', 'test', false, e.message); }
     }
     await ctx.log('settings', 'settings', null, `নোটিফিকেশন সেটিংস${emailChanged ? ` (ইমেইল বদল: ${N.maskEmail(oldEmail)} → ${N.maskEmail(email)})` : ''}`);
     if (emailChanged) {
@@ -112,11 +112,11 @@ async function pushSubscribe(ctx: AdminCtx) {
   const b = await ctx.body();
   try {
     await push.subscribe(ctx.user.id, b.sub, b.device);
-  } catch (e: Loose) { return ctx.json(400, { error: e.message }); }
+  } catch (caught) { const e = caught as Caught; return ctx.json(400, { error: e.message }); }
   await ctx.log('settings', 'settings', null, `ফোনে নোটিফিকেশন চালু: ${str(b.device, 40)}`);
   try {
     await push.sendAll({ title: '✅ নোটিফিকেশন চালু হয়েছে', body: `${ctx.settings.store_name}: নতুন অর্ডার এলে এভাবেই এখানে জানানো হবে।`, url: '/admin/notify', tag: 'test' });
-  } catch (e: Loose) { return ctx.json(200, { ok: true, warn: e.message }); }
+  } catch (caught) { const e = caught as Caught; return ctx.json(200, { ok: true, warn: e.message }); }
   return ctx.json(200, { ok: true });
 }
 async function pushTest(ctx: AdminCtx) {
@@ -124,7 +124,7 @@ async function pushTest(ctx: AdminCtx) {
     const n = await push.sendAll({ title: '🔔 টেস্ট নোটিফিকেশন', body: `${ctx.settings.store_name}: সব ঠিক আছে। নতুন অর্ডার এলে এভাবেই জানানো হবে।`, url: '/admin/notify', tag: 'test' });
     await db.logIntegration('notify-push', 'test', !!n, n ? 'পাঠানো হয়েছে' : 'কোনো ডিভাইস নেই');
     return n ? ctx.back('/admin/notify', 'sent_push') : ctx.fail('/admin/notify', 'কোনো ডিভাইসে নোটিফিকেশন চালু নেই।');
-  } catch (e: Loose) {
+  } catch (caught) { const e = caught as Caught;
     await db.logIntegration('notify-push', 'test', false, e.message);
     return ctx.fail('/admin/notify', 'নোটিফিকেশন যায়নি: ' + e.message);
   }
@@ -144,7 +144,7 @@ async function test(ctx: AdminCtx) {
     else await N.sendEmail(s, `✅ ${s.store_name}: ইমেইল নোটিফিকেশন কাজ করছে`, `অভিনন্দন! ইমেইল নোটিফিকেশন ঠিকমতো কাজ করছে।\n\nনতুন অর্ডার, নিরাপত্তা সতর্কতা আর পাসওয়ার্ড রিসেট লিংক এই ঠিকানায় আসবে।`);
     await db.logIntegration(b.ch === 'wa' ? 'notify-whatsapp' : 'notify-email', 'test', true, 'পাঠানো হয়েছে');
     return ctx.back('/admin/notify', 'saved');
-  } catch (e: Loose) {
+  } catch (caught) { const e = caught as Caught;
     await db.logIntegration(b.ch === 'wa' ? 'notify-whatsapp' : 'notify-email', 'test', false, e.message);
     return ctx.fail('/admin/notify', e.message || 'পাঠানো যায়নি');
   }

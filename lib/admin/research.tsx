@@ -1,10 +1,10 @@
 // Admin → মার্কেট রিসার্চ (owner only). Nothing here is ever shown on the shop.
 import { Val, attrValue, jsxList } from '../react/html';
-import { raw, bn, money, int, str, fmtDate } from '../util';
+import { raw, bn, money, int, str, fmtDate, ifKey } from '../util';
 import * as db from '../db';
 import * as R from '../services/research';
 import * as ui from './ui';
-import type { AdminCtx, Loose } from '../types';
+import type { AdminCtx, Loose, Caught } from '../types';
 
 const TABS = [['winning', '🏆 উইনিং প্রোডাক্ট'], ['find', '🔍 প্রোডাক্ট খুঁজুন'], ['new', '🆕 বাজারে নতুন'], ['drops', '📉 দাম কমেছে'], ['demand', '🔎 আপনার কাস্টমার যা খুঁজছে'], ['sources', '🏪 যেসব দোকান দেখা হচ্ছে']];
 
@@ -60,17 +60,17 @@ async function findTab(ctx: AdminCtx) {
 
 async function page(ctx: AdminCtx) {
   const tab = TABS.some((t) => t[0] === ctx.query.get('tab')) ? ctx.query.get('tab') : 'winning';
-  const segment = R.SEGMENTS[ctx.query.get('seg')] ? ctx.query.get('seg') : '';
+  const segment = ifKey(R.SEGMENTS, ctx.query.get('seg'), '');
   const margin = Math.min(80, Math.max(5, int(ctx.settings.research_margin, 30)));
   if (ctx.method === 'POST') {
     const b = await ctx.body();
     if (b.form === 'add_search') {
       const back = `/admin/research?tab=find&fresh=1&q=${encodeURIComponent(str(b.q, 80))}`;
-      try { await R.addSource(str(b.url, 300), 'electronics', '', true); } catch (e: Loose) { return ctx.fail(back, e.message); }
+      try { await R.addSource(str(b.url, 300), 'electronics', '', true); } catch (caught) { const e = caught as Caught; return ctx.fail(back, e.message); }
       return ctx.back(back, 'added');
     }
     if (b.form === 'add') {
-      try { await R.addSource(str(b.url, 300), b.segment, str(b.name, 60)); } catch (e: Loose) { return ctx.fail('/admin/research?tab=sources', e.message); }
+      try { await R.addSource(str(b.url, 300), b.segment, str(b.name, 60)); } catch (caught) { const e = caught as Caught; return ctx.fail('/admin/research?tab=sources', e.message); }
       return ctx.back('/admin/research?tab=sources', 'added');
     }
     if (b.form === 'toggle' && int(b.id)) await db.q('UPDATE research_sources SET active = NOT active WHERE id=$1', [int(b.id)]);

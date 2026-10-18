@@ -9,7 +9,7 @@ import * as lock from '../models/loginlock';
 import * as security from '../security';
 import { ASSET_V } from './layout';
 import * as $recovery from './recovery';
-import type { AdminCtx, Body, Loose, ShopRequest, RouteMatch } from '../types';
+import type { AdminCtx, Body, Loose, ShopRequest, RouteMatch, Caught } from '../types';
 import type { OwnerPasskeysRow } from '../data/rows';
 
 const BASE = '/admin/security/login';
@@ -81,7 +81,7 @@ async function pkAdd(ctx: AdminCtx) {
     const r = await lock.addPasskey(ctx.req, ctx.user, c.challenge, b);
     await ctx.log('passkey_add', 'security', ctx.user.id, `পাসকি যোগ: ${r.name} (${r.rp})`);
     return ctx.json(200, { ok: true });
-  } catch (e: Loose) {
+  } catch (caught) { const e = caught as Caught;
     if (/duplicate key/.test(e.message)) return ctx.json(400, { error: 'এই পাসকি আগেই যোগ করা আছে।' });
     return ctx.json(400, { error: 'যোগ করা যায়নি: ' + e.message });
   }

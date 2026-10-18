@@ -1,7 +1,7 @@
 // Admin → মার্কেটিং → ভিজিটর অ্যানালিটিক্স
 // Overview (how many, from where, what they look at), live visitors, every visit with its full journey, and settings.
 import { Val, RawHtml, attrValue, styleOf, jsxList } from '../react/html';
-import { bn, money, fmtDate, str, dateRange, pageNum, pct } from '../util';
+import { bn, money, fmtDate, str, dateRange, pageNum, pct, oneOf, ifKey } from '../util';
 import * as db from '../db';
 import * as V from '../services/visitors';
 import * as ui from './ui';
@@ -148,9 +148,9 @@ async function sessionsPage(ctx: AdminCtx) {
     from: r.from, to: r.to,
     q: str(ctx.query.get('q'), 80),
     source: str(ctx.query.get('source'), 80),
-    device: DEVICES[ctx.query.get('device')] ? ctx.query.get('device') : '',
+    device: ifKey(DEVICES, ctx.query.get('device'), ''),
     ordered: ctx.query.get('ordered') === '1',
-    net: ['bd', 'vpn', 'abroad', 'suspicious'].includes(ctx.query.get('net')) ? ctx.query.get('net') : '',
+    net: oneOf(['bd', 'vpn', 'abroad', 'suspicious'], ctx.query.get('net'), ''),
     visitor: /^[a-f0-9]{20}$/.test(ctx.query.get('visitor') || '') ? ctx.query.get('visitor') : '',
   };
   const [rows, total, sources, live] = await Promise.all([

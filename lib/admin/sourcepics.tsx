@@ -4,7 +4,7 @@
 // "✅ পরিষ্কার" on each (saved at once, no page reload), then downloads an Excel list of the flagged SKUs to fix them.
 // Which shop a product came from is known from its import reference ("techshopbd.com#…", set by পণ্য আমদানি).
 import { Val, attrValue, jsxList } from '../react/html';
-import { bn, fmtDate, int, str } from '../util';
+import { bn, fmtDate, int, str, ifKey } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
 import * as $services_xlsx from '../services/xlsx';
@@ -85,7 +85,7 @@ async function handle(ctx: AdminCtx) {
     return ctx.back(BASE);
   }
   const host = pickHost(list, ctx.query.get('host'));
-  const f = FILTERS[ctx.query.get('f')] ? ctx.query.get('f') : 'todo';
+  const f = ifKey(FILTERS, ctx.query.get('f'), 'todo');
   if (host && ctx.query.get('excel')) return excel(ctx, host, ctx.query.get('excel') === 'all' ? 'all' : 'flag');
   const cur = list.find((h) => h.host === host);
   const page = Math.max(1, int(ctx.query.get('page'), 1));

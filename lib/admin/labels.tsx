@@ -4,7 +4,7 @@
 // sticker sizes (mm). sheet = how many fit on one A4 page, or a roll printer (one per label)
 import { Val, RawHtml, attrValue, htmlValue } from '../react/html';
 import { ASSET_V as PA_V } from './layout';
-import { money, int, str, bn } from '../util';
+import { money, int, str, bn, ifKey } from '../util';
 import * as db from '../db';
 import * as BC from '../services/barcode';
 import type { AdminCtx, Loose } from '../types';
@@ -19,7 +19,7 @@ const SIZES: Record<string, Loose> = {
 async function labels(ctx: AdminCtx) {
   const ids = String(ctx.query.get('ids') || '').split(',').map((x) => int(x)).filter(Boolean).slice(0, 300);
   if (!ids.length) return ctx.redirect('/admin/products');
-  const size = SIZES[ctx.query.get('size')] ? ctx.query.get('size') : (SIZES[ctx.settings.label_size as string] ? ctx.settings.label_size : '50x30');
+  const size = ifKey(SIZES, ctx.query.get('size'), ifKey(SIZES, ctx.settings.label_size, '50x30'));
   const copies = Math.min(100, Math.max(1, int(ctx.query.get('copies'), 1)));
   const byStock = ctx.query.get('stock') === '1';
   const showPrice = ctx.query.get('price') !== '0';

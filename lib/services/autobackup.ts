@@ -8,7 +8,7 @@ import * as crypto from 'node:crypto';
 import * as db from '../db';
 import * as backup from './backup';
 import * as imagekit from './imagekit';
-import type { Body, Loose } from '../types';
+import type { Body, Loose, Caught } from '../types';
 import type { BackupsRow, SettingsRow } from '../data/rows';
 
 const KEEP = 30;
@@ -54,7 +54,7 @@ async function run({ force = false }: Body = {}) {
       try { if (await imagekit.remove(o.ik_id)) await db.q('UPDATE backups SET ik_id=NULL, ik_url=NULL, note=$1 WHERE id=$2', ['পুরনো, মুছে ফেলা হয়েছে', o.id]); } catch (_) { /* next time */ }
     }
     return { ok: true, size: r.buffer.length, rows: r.rows };
-  } catch (e: Loose) {
+  } catch (caught) { const e = caught as Caught;
     await db.q(`INSERT INTO backups(kind, ok, note) VALUES('auto', false, $1)`, [String(e.message).slice(0, 300)]).catch(() => {});
     return { ok: false, error: e.message };
   } finally {

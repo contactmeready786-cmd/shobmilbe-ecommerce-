@@ -12,7 +12,7 @@ import * as C from '../data/fbcontent';
 import * as $dupcanon from './dupcanon';
 import * as $seo from './seo';
 import * as $models_kits from '../models/kits';
-import type { Body, Id, Loose, Settings } from '../types';
+import type { Body, Id, Loose, Settings, Caught } from '../types';
 import type { CategoriesRow, KitsRow, MediaRow, SocialPostsRow, ProductsRow } from '../data/rows';
 
 const GRAPH = 'https://graph.facebook.com/v21.0';
@@ -162,7 +162,7 @@ async function connect({ token, appId, appSecret, pageId }: Body) {
     try {
       const ex = await graph('oauth/access_token', { token: t, params: { grant_type: 'fb_exchange_token', client_id: appId, client_secret: appSecret, fb_exchange_token: t } });
       if (ex.access_token) t = ex.access_token;
-    } catch (e: Loose) { throw new Error('App ID / App Secret দিয়ে টোকেন লম্বা করা গেল না: ' + e.message); }
+    } catch (caught) { const e = caught as Caught; throw new Error('App ID / App Secret দিয়ে টোকেন লম্বা করা গেল না: ' + e.message); }
   }
   let page = null;
   let longLived = !!(appId && appSecret);
@@ -335,7 +335,7 @@ async function postEngagement(settings: Settings, slot: string | null, kindWante
     const id = r.post_id || r.id;
     await record(`${base}:fb`, 'facebook', e.product ? e.product.id : null, true, id, '', e.kind, e.ref);
     return { engagement: e.kind, fb: id, product: e.product };
-  } catch (err: Loose) {
+  } catch (caught) { const err = caught as Caught;
     await record(`${base}:fb`, 'facebook', e.product ? e.product.id : null, false, '', err.message, e.kind, e.ref);
     await db.logIntegration('facebook-autopost', 'engage', false, err.message, e.kind);
     return { engagement: e.kind, fbError: err.message, product: e.product };
@@ -361,13 +361,13 @@ async function postOne(settings: Settings, { slot, productId }: Body = {}) {
   const out: Loose = { product: p };
   const base = slot || `manual:${Date.now()}`;
   if (settings.autopost_fb !== '0') {
-    try { out.fb = await postFacebook(p, settings); await record(`${base}:fb`, 'facebook', p.id, true, out.fb, ''); } catch (e: Loose) {
+    try { out.fb = await postFacebook(p, settings); await record(`${base}:fb`, 'facebook', p.id, true, out.fb, ''); } catch (caught) { const e = caught as Caught;
       out.fbError = e.message; await record(`${base}:fb`, 'facebook', p.id, false, '', e.message);
       await db.logIntegration('facebook-autopost', 'post', false, e.message, p.name);
     }
   }
   if (settings.autopost_ig === '1' && settings.autopost_ig_id) {
-    try { out.ig = await postInstagram(p, settings); await record(`${base}:ig`, 'instagram', p.id, true, out.ig, ''); } catch (e: Loose) {
+    try { out.ig = await postInstagram(p, settings); await record(`${base}:ig`, 'instagram', p.id, true, out.ig, ''); } catch (caught) { const e = caught as Caught;
       out.igError = e.message; await record(`${base}:ig`, 'instagram', p.id, false, '', e.message);
       await db.logIntegration('instagram-autopost', 'post', false, e.message, p.name);
     }

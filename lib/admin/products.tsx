@@ -1,5 +1,5 @@
 import { Val, RawHtml, attrValue, jsxList, renderHtml } from '../react/html';
-import { money, bn, int, str, pageNum, list, youtubeId, pct, fmtDate, amount, qtyRule, shopPrice, priceProblem, PRICE_MIN, PRICE_MAX } from '../util';
+import { money, bn, int, str, pageNum, list, youtubeId, pct, fmtDate, amount, qtyRule, shopPrice, priceProblem, PRICE_MIN, PRICE_MAX, oneOf } from '../util';
 import * as catalog from '../models/catalog';
 import * as dupes from '../models/duplicates';
 import * as security from '../security';
@@ -23,13 +23,13 @@ async function listPage(ctx: AdminCtx) {
     q: str(ctx.query.get('q'), 80),
     categoryId: int(ctx.query.get('cat')) || null,
     brandId: int(ctx.query.get('brand')) || null,
-    type: ['single', 'bundle'].includes(ctx.query.get('type')) ? ctx.query.get('type') : '',
+    type: oneOf(['single', 'bundle'], ctx.query.get('type'), ''),
     lowStock: ctx.query.get('low') === '1',
-    status: ['on', 'off'].includes(ctx.query.get('status')) ? ctx.query.get('status') : '',
+    status: oneOf(['on', 'off'], ctx.query.get('status'), ''),
     outStock: ctx.query.get('out') === '1',
     includeInactive: true,
   };
-  const sort = ['sku', 'sku_desc', 'new', 'name', 'price_asc', 'price_desc', 'stock_asc', 'popular'].includes(ctx.query.get('sort')) ? ctx.query.get('sort') : 'sku';
+  const sort = oneOf(['sku', 'sku_desc', 'new', 'name', 'price_asc', 'price_desc', 'stock_asc', 'popular'], ctx.query.get('sort'), 'sku');
   const [rows, total, stats, brands] = await Promise.all([
     catalog.listProducts({ ...f, sort, limit: PER_PAGE, offset: (page - 1) * PER_PAGE }), catalog.countProducts(f),
     catalog.productStats({ type: f.type }), catalog.listBrands(),

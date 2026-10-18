@@ -1,12 +1,12 @@
 import { Val, attrValue, jsxList } from '../react/html';
-import { money, bn, fmtDate, int, str, ymd, dateRange, validYmd, csv, num } from '../util';
+import { money, bn, fmtDate, int, str, ymd, dateRange, validYmd, csv, num, oneOf } from '../util';
 import * as db from '../db';
 import * as F from '../models/finance';
 import * as ui from './ui';
 import * as charts from './charts';
 import { saveKeys } from './marketing';
 import * as $vat from './vat';
-import type { AdminCtx, Loose, RouteMatch } from '../types';
+import type { AdminCtx, Loose, RouteMatch, Caught } from '../types';
 import type { TransactionsRow } from '../data/rows';
 
 const dd = (d: string) => fmtDate(String(d).slice(0, 10) + 'T06:00:00Z', false);
@@ -50,11 +50,11 @@ async function transactions(ctx: AdminCtx) {
     try {
       await F.addTransaction(b, ctx.user.id);
       await ctx.log('tx_add', 'transaction', null, `${b.type} ৳${b.amount} ${str(b.category, 40)}`);
-    } catch (e: Loose) { return ctx.fail('/admin/accounts/transactions?new=' + (b.type || 'expense'), e.message); }
+    } catch (caught) { const e = caught as Caught; return ctx.fail('/admin/accounts/transactions?new=' + (b.type || 'expense'), e.message); }
     return ctx.back('/admin/accounts/transactions', 'added');
   }
   const { from, to } = dateRange(ctx.query, 30);
-  const type = ['income', 'expense', 'transfer'].includes(ctx.query.get('type')) ? ctx.query.get('type') : '';
+  const type = oneOf(['income', 'expense', 'transfer'], ctx.query.get('type'), '');
   const accountId = int(ctx.query.get('account')) || null;
   const [rows, accounts] = await Promise.all([F.listTransactions({ from, to, type, accountId, limit: 1000 }), F.listAccounts()]);
   if (ctx.query.get('csv') === '1') {
@@ -64,7 +64,7 @@ async function transactions(ctx: AdminCtx) {
   }
   const inc = rows.filter((t) => t.type === 'income').reduce((s, t) => s + t.amount, 0);
   const exp = rows.filter((t) => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
-  const newType = ['income', 'expense', 'transfer'].includes(ctx.query.get('new')) ? ctx.query.get('new') : 'expense';
+  const newType = oneOf(['income', 'expense', 'transfer'], ctx.query.get('new'), 'expense');
   const activeAcc = accounts.filter((a) => a.active).map((a) => [a.id, `${a.name} (${money(a.balance)})`]);
   const body = <><div className="title-row"><h1>আয়-ব্যয় এন্ট্রি</h1><a className="btn btn-ghost" href={`/admin/accounts/transactions?from=${attrValue(from)}&to=${attrValue(to)}${type ? `&type=${type}` : ''}${accountId ? `&account=${accountId}` : ''}&csv=1`}>⬇ CSV</a></div>{ui.flash(ctx.flash)}<div className="two-col"><div>{ui.dateFilter('/admin/accounts/transactions', from, to, `${type ? `<input type="hidden" name="type" value="${type}">` : ''}`)}<div className="chips"><a className={`chip ${!type ? 'on' : ''}`} href={`/admin/accounts/transactions?from=${attrValue(from)}&to=${attrValue(to)}`}>সব</a>{' '}<a className={`chip ${type === 'income' ? 'on' : ''}`} href={`/admin/accounts/transactions?from=${attrValue(from)}&to=${attrValue(to)}&type=income`}>আয়{' '}{money(inc)}</a>{' '}<a className={`chip ${type === 'expense' ? 'on' : ''}`} href={`/admin/accounts/transactions?from=${attrValue(from)}&to=${attrValue(to)}&type=expense`}>খরচ{' '}{money(exp)}</a>{' '}<a className={`chip ${type === 'transfer' ? 'on' : ''}`} href={`/admin/accounts/transactions?from=${attrValue(from)}&to=${attrValue(to)}&type=transfer`}>ট্রান্সফার</a></div><section className="panel table-wrap">{(rows.length ? <table className="table"><thead><tr><th>তারিখ</th><th>বিবরণ</th><th>অ্যাকাউন্ট</th><th className="num">টাকা</th><th>মুছুন</th></tr></thead><tbody>{jsxList(rows.map((t) => <tr><td className="small"><Val v={dd(t.tx_date)} /></td><td><b><Val v={t.category} /></b>{(t.note ? <><br /><span className="small muted"><Val v={t.note} /></span></> : null)}{' '}{(t.order_code ? <><br /><a className="small" href={`/admin/orders/${attrValue(t.order_id)}`}><Val v={t.order_code} /></a></> : null)}{(t.purchase_code ? <><br /><a className="small" href={`/admin/purchases/${attrValue(t.purchase_id)}`}><Val v={t.purchase_code} /></a></> : null)}{(t.supplier_name ? <><br /><span className="small"><Val v={t.supplier_name} /></span></> : null)}</td><td className="small"><Val v={t.account_name || '—'} />{(t.type === 'transfer' ? <>{' '}→{' '}<Val v={t.to_account_name} /></> : null)}</td><td className={`num ${t.type === 'income' ? 'good' : t.type === 'expense' ? 'warn' : ''}`}>{(t.type === 'expense' ? "−" : (t.type === 'income' ? "+" : null))}{money(t.amount)}{(t.vat ? <><br /><span className="small muted">ভ্যাট{' '}{money(t.vat)}</span></> : null)}</td><td className="prod-actions"><form method="post" action={`/admin/accounts/transactions/${attrValue(t.id)}/delete`} data-confirm="এই এন্ট্রি মুছবেন? রিসাইকেল বিনে থাকবে।"><button className="btn btn-sm btn-danger">🗑️ মুছুন</button></form></td></tr>))}</tbody></table> : <p className="muted">এই সময়ে কোনো এন্ট্রি নেই।</p>)}</section></div><section className="panel"><div className="tabs">{jsxList([['expense', '− খরচ'], ['income', '+ আয়'], ['transfer', '⇄ ট্রান্সফার']].map(([k, l]) => <a className={`tab ${newType === k ? 'on' : ''}`} href={`/admin/accounts/transactions?new=${attrValue(k)}`}><Val v={l} /></a>))}</div><form method="post" action="/admin/accounts/transactions" className="form"><input type="hidden" name="type" defaultValue={attrValue(newType)} /><div className="field-row">{ui.field('টাকা', ui.input('amount', '', { type: 'number', min: 1, required: true, autofocus: true }))}{ui.field('তারিখ', ui.input('tx_date', ymd(), { type: 'date', required: true }))}</div>{(newType === 'transfer' ? <><div className="field-row">{ui.field('কোথা থেকে', ui.select('account_id', activeAcc, ''))}{ui.field('কোথায়', ui.select('to_account_id', activeAcc, activeAcc[1] ? activeAcc[1][0] : ''))}</div><p className="muted small">যেমন বিকাশ থেকে ব্যাংকে টাকা তোলা, বা কুরিয়ারের টাকা ক্যাশ থেকে ব্যাংকে জমা।</p></> : <>{ui.field('খাত', <><input name="category" list="cats" required maxLength={60} placeholder="বাছুন বা লিখুন" defaultValue={str(ctx.query.get('cat'), 60)} /><datalist id="cats">{jsxList((newType === 'income' ? F.INCOME_CATEGORIES : [...F.EXPENSE_CATEGORIES, 'সাপ্লায়ার পেমেন্ট', 'মালিকের উত্তোলন', 'ঋণ পরিশোধ']).map((c) => <option value={attrValue(c)}></option>))}</datalist></>)}{' '}{ui.field(newType === 'income' ? 'কোন অ্যাকাউন্টে এলো' : 'কোন অ্যাকাউন্ট থেকে গেলো', ui.select('account_id', activeAcc, ''))}{' '}{(newType === 'expense' ? ui.field('এর মধ্যে ভ্যাট (৳, ঐচ্ছিক)', ui.input('vat', '', { type: 'number', min: 0 })) : null)}</>)}{' '}{ui.field('নোট', ui.input('note', '', { maxlength: 300 }))}{' '}<button className="btn btn-block">সেভ করুন</button></form><p className="muted small">"মালিকের উত্তোলন", "সাপ্লায়ার পেমেন্ট", "ঋণ" — এগুলো লাভ-ক্ষতিতে খরচ হিসেবে ধরা হয় না, শুধু ব্যালেন্সে কমে।</p></section></div></>;
   return ctx.page('আয়-ব্যয়', body, 'acc-tx');

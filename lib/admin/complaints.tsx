@@ -2,7 +2,7 @@
 // 72 hours), late ones in red at the top. Open one to see the details and photos, write inside notes or a reply to the
 // customer (also by SMS), give it to a staff member, and mark it solved with what was done — all kept as a record.
 import { Val, attrValue, jsxList } from '../react/html';
-import { bn, fmtDate, int, str, pageNum } from '../util';
+import { bn, fmtDate, int, str, pageNum, oneOf } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
 import * as C from '../models/complaints';
@@ -31,7 +31,7 @@ async function listPage(ctx: AdminCtx) {
   }
   const page = pageNum(ctx.query);
   const want = ctx.query.get('status');
-  const status = ['active', 'late', 'open', 'working', 'solved', 'closed', 'all'].includes(want) ? want : 'active';
+  const status = oneOf(['active', 'late', 'open', 'working', 'solved', 'closed', 'all'], want, 'active');
   const f = { status: status === 'all' ? '' : status, q: str(ctx.query.get('q'), 80) };
   const [rows, total, c] = await Promise.all([C.list(f, { limit: PER_PAGE, offset: (page - 1) * PER_PAGE }), C.count(f), C.counts()]);
   const tabs = [['active', `⏳ চলমান (${bn(c!.active)})`], ['late', `🔴 দেরি (${bn(c!.late)})`], ['solved', `✅ সমাধান (${bn(c!.solved)})`], ['closed', `🚫 বন্ধ (${bn(c!.closed)})`], ['all', `সব (${bn(c!.total)})`]];

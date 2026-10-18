@@ -30,14 +30,13 @@ export type Row = Record<string, any>;
 /** Old code that has not been given exact types yet. Searching for "Loose" finds every place still to tighten. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- legacy: type me
 export type Loose = any;
+/** What a `catch` receives: an Error (with the database's or a network's `code` when they set one). */
+export type Caught = Error & { code?: string; status?: number };
 /** A row id as the code passes it around (from the database, a form or the address). */
 export type Id = number | string | null | undefined;
 
-/**
- * The address's ?query. get() really returns text or null; the old code passes the value straight on in many
- * places (where null and "missing" mean the same), so it is Loose until those places are tightened.
- */
-export type ShopQuery = Omit<URLSearchParams, 'get'> & { get(name: string): Loose };
+/** The address's ?query: get() gives the text or null (oneOf / ifKey in lib/util pick from allowed words). */
+export type ShopQuery = URLSearchParams;
 /** What every form, admin and fallback handler gets (lib/site.ts, lib/next/admin.ts). */
 export type Base = {
   req: ShopRequest; reply: Reply; path: string; method: string; query: ShopQuery; settings: Settings;

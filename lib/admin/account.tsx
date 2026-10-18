@@ -22,7 +22,7 @@ const MSG: Record<string, string> = {
   profile: '✅ প্রোফাইল সেভ হয়েছে।',
 };
 function flash(ctx: AdminCtx) {
-  const m = MSG[ctx.query.get('msg')];
+  const m = MSG[String(ctx.query.get('msg'))];
   return m ? ui.flash({ text: m }) : ui.flash(ctx.flash);
 }
 

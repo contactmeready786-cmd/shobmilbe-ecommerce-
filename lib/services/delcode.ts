@@ -11,7 +11,7 @@ import * as db from '../db';
 import * as security from '../security';
 import * as notify from './notify';
 import { bn } from '../util';
-import type { AdminCtx, Loose } from '../types';
+import type { AdminCtx, Loose, Caught } from '../types';
 import type { DeleteCodesRow } from '../data/rows';
 
 const CODE_EMAIL = (process.env.DELETE_CODE_EMAIL || 'contact.shobmilbe@gmail.com').trim();
@@ -82,7 +82,7 @@ async function send(ctx: AdminCtx, action?: Loose, detail = '') {
   } }));
   try {
     await notify.sendEmail(ctx.settings, `🔐 ${name} ${code} — ${ctx.settings.store_name || 'সবমিলবে'}`, text, htmlBody, CODE_EMAIL);
-  } catch (err: Loose) {
+  } catch (caught) { const err = caught as Caught;
     await db.logIntegration('notify-email', 'delete code', false, err.message).catch(() => {});
     throw new Error('কোডের ইমেইল পাঠানো গেল না: ' + err.message);
   }
@@ -130,7 +130,7 @@ async function sendRoute(ctx: AdminCtx) {
   try {
     const r = await send(ctx, action, String(b.detail || '').slice(0, 200));
     return ctx.json(200, { ok: true, ...r });
-  } catch (e: Loose) {
+  } catch (caught) { const e = caught as Caught;
     return ctx.json(200, { error: e.message });
   }
 }

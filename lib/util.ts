@@ -206,6 +206,14 @@ function num(v: unknown, fallback = 0): number {
   return Number.isFinite(n) ? n : fallback;
 }
 function str(v: unknown, max = 200): string { return String(v ?? '').trim().slice(0, max); }
+/** `v` when it is one of the allowed words, else `fallback` (an address or form value checked against a list). */
+function oneOf<T extends string, F>(list: readonly T[], v: unknown, fallback: F): T | F {
+  return (list as readonly unknown[]).includes(v) ? (v as T) : fallback;
+}
+/** `v` when `table` has a (non-empty) entry for it, else `fallback`: a value checked against a lookup table. */
+function ifKey<F>(table: Record<string, unknown>, v: string | null | undefined, fallback: F): string | F {
+  return table[String(v)] ? (v as string) : fallback;
+}
 
 function normalizePhone(p: unknown): string {
   let d = String(p || '').replace(/[০-৯]/g, (c) => String(BN_DIGITS.indexOf(c))).replace(/\D/g, '');
@@ -291,4 +299,4 @@ function minOrder(s: Settings | null | undefined): number { return Math.max(0, N
 
 function pageNum(query: URLSearchParams): number { return Math.max(1, int(query.get('page'), 1)); }
 
-export { PRICE_MIN, PRICE_MAX, priceProblem, contact, qtyRule, amount, round2, roundOff, shopPrice, wholeTaka, roundOffLabel, esc, raw, Raw, bn, money, pct, slugify, randomCode, parseCookies, parseBody, readBody, list, hashPassword, verifyPassword, passwordProblem, sign, unsign, sha256, fmtDate, ymd, validYmd, dateRange, int, num, str, minOrder, normalizePhone, validPhone, csv, fetchJson, youtubeId, pageNum, TZ };
+export { oneOf, ifKey, PRICE_MIN, PRICE_MAX, priceProblem, contact, qtyRule, amount, round2, roundOff, shopPrice, wholeTaka, roundOffLabel, esc, raw, Raw, bn, money, pct, slugify, randomCode, parseCookies, parseBody, readBody, list, hashPassword, verifyPassword, passwordProblem, sign, unsign, sha256, fmtDate, ymd, validYmd, dateRange, int, num, str, minOrder, normalizePhone, validPhone, csv, fetchJson, youtubeId, pageNum, TZ };

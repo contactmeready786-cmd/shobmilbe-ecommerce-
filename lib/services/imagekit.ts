@@ -1,4 +1,4 @@
-import type { Id, Loose } from '../types';
+import type { Id, Loose, Caught } from '../types';
 import type { IkTrashRow, MediaRow } from '../data/rows';
 // Pictures live on ImageKit (free CDN), not inside the database — the database only keeps
 // each picture's address and fingerprints. Needs two Vercel environment variables:
@@ -43,7 +43,7 @@ async function check() {
     const r = await fetch('https://api.imagekit.io/v1/files?limit=1', { headers: { Authorization: auth() }, signal: AbortSignal.timeout(10000) });
     if (r.status === 401 || r.status === 403) msg = `ImageKit চাবিটা গ্রহণ করেনি — Private key ঠিকমতো কপি হয়নি (${shape(key())})`;
     else if (!r.ok) msg = `ImageKit সাড়া দিচ্ছে না (${r.status})`;
-  } catch (e: Loose) { msg = 'ImageKit-এ পৌঁছানো যাচ্ছে না: ' + e.message; }
+  } catch (caught) { const e = caught as Caught; msg = 'ImageKit-এ পৌঁছানো যাচ্ছে না: ' + e.message; }
   checkCache = { at: Date.now(), msg };
   return msg;
 }
@@ -132,7 +132,7 @@ async function moveOld(db: typeof import("../db"), limit = 20) {
       await db.q('UPDATE media SET ik_url=$1, ik_id=$2, wm_url=$3, wm_ik_id=$4, data=NULL, thumb=NULL, wm=NULL WHERE id=$5',
         [a.url, a.fileId, w ? w.url : null, w ? w.fileId : null, m.id]);
       n++;
-    } catch (e: Loose) { console.error('ImageKit move failed for media', m.id, e.message); break; }
+    } catch (caught) { const e = caught as Caught; console.error('ImageKit move failed for media', m.id, e.message); break; }
   }
   return n;
 }
