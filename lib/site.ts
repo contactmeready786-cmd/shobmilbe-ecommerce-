@@ -15,7 +15,6 @@ import * as shop from './views/shop';
 import * as md from './views/md';
 import { parseBody, str, normalizePhone } from './util';
 import * as security from './security';
-import * as $services_dbmove from './services/dbmove';
 import * as $services_geolock from './services/geolock';
 import * as $shop_blog from './shop/blog';
 import * as $shop_more from './shop/more';
@@ -69,24 +68,6 @@ async function handlerInner(req: ShopRequest, reply: Reply) {
     console.error('Database setup failed:', e);
     return send(503, setupErrorPage(e));
   }
-
-  // ---- one-time move from the old Neon database into Supabase (see services/dbmove.js) ----
-  try {
-    const dbmove = $services_dbmove;
-    if (path === '/__dbmove/report' && method === 'GET') {
-      const r = await dbmove.report();
-      return send(200, JSON.stringify(r ? { done: !!r.done, verify: r.verify || null, finished_at: r.finished_at || null, tries: r.tries || 0 } : null), 'application/json; charset=utf-8', { 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex' });
-    }
-    if (await dbmove.pending()) {
-      if (path === '/__dbmove' && method === 'POST') {
-        try { return send(200, JSON.stringify(await dbmove.step()), 'application/json; charset=utf-8', { 'Cache-Control': 'no-store' }); }
-        catch (e: Loose) { console.error('DB move step failed:', e); return send(200, JSON.stringify({ error: String(e.message || e).slice(0, 300), at: String(e.stack || '').split('\n').slice(1, 6).map((l) => l.trim().replace(/^at /, '').replace(/\/var\/task\//g, '')).join(' < ').slice(0, 500) }), 'application/json; charset=utf-8', { 'Cache-Control': 'no-store' }); }
-      }
-      if (path === '/__dbmove' && method === 'GET') return send(200, JSON.stringify(await dbmove.status()), 'application/json; charset=utf-8', { 'Cache-Control': 'no-store' });
-      if (/^\/(css|js|vendor|favicon|brand)/.test(path)) { /* let static bits through */ } else
-      return send(503, dbmove.page(), 'text/html; charset=utf-8', { 'Cache-Control': 'no-store', 'Retry-After': '30' });
-    }
-  } catch (e) { console.error('DB move check failed:', e); }
 
   try {
     const settings = await db.getSettings();

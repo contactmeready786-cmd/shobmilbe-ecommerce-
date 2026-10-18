@@ -12,7 +12,6 @@ import * as security from './security';
 import * as guard from './services/guard';
 import * as notify from './services/notify';
 import * as drafts from './services/drafts';
-import * as $services_dbmove from './services/dbmove';
 import * as $services_geolock from './services/geolock';
 import * as $services_health from './services/health';
 import * as $services_mailer from './services/mailer';
@@ -74,9 +73,6 @@ export async function shopGate(req: GateRequest, path: string, search: string, m
     console.error('Database setup failed:', e);
     return { ok: false, status: 503, body: SETUP_PAGE, type: html, headers: { 'Cache-Control': 'no-store', 'Retry-After': '30' } };
   }
-  try {
-    if (await $services_dbmove.pending()) return { ok: false, status: 503, body: $services_dbmove.page(), type: html, headers: { 'Cache-Control': 'no-store', 'Retry-After': '30' } };
-  } catch (e) { console.error('DB move check failed:', e); }
 
   const settings = await db.getSettings();
   const r = req as ShopRequest;
@@ -126,7 +122,6 @@ export function myOrders(req: Pick<ShopRequest, 'headers'>, settings: Settings):
 export async function adminGateOk(req: GateRequest, method: string): Promise<{ ok: true; settings: Settings } | { ok: false }> {
   try {
     await db.ensureReady();
-    if (await $services_dbmove.pending()) return { ok: false };
   } catch { return { ok: false }; }
   const settings = await db.getSettings();
   const r = req as ShopRequest;

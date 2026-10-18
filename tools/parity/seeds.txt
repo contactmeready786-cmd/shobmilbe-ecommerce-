@@ -1,6 +1,4 @@
 # Extra addresses for the parity crawl (routes no page links to). One per line.
-/__dbmove
-/__dbmove/report
 /account/address
 /account/address/delete
 /account/code

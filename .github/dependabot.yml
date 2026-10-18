@@ -16,6 +16,11 @@ updates:
     groups:
       small-updates:
         update-types: [minor, patch]
+    # The site runs on Node 22 (package.json "engines", Vercel): Node's type list must stay on 22.x, or the
+    # type check would allow Node features the live server doesn't have.
+    ignore:
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
     commit-message:
       prefix: "⬆️ npm"
 
