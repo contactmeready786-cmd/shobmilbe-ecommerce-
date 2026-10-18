@@ -2,8 +2,15 @@
 import { q, one, tx } from '../db';
 import { int, str, num, randomCode, validYmd, ymd, amount, round2 } from '../util';
 import * as catalog from './catalog';
-import type { Body, Id, Loose, Settings } from '../types';
-import type { Tx } from '../pg';
+import type { Body, Id, Settings } from '../types';
+import type { DbRow, Param, Tx } from '../pg';
+
+/** A day as YYYY-MM-DD (Dhaka), the way the report pages send it. */
+type Day = string;
+/** One bought line of a purchase: which product, how many, at what price each. */
+export type PurchaseLine = { product_id: number; name: string; qty: number; unit_cost: number };
+/** The filters of the transactions list. */
+export type TxFilter = { from?: Day; to?: Day; type?: string; accountId?: Id | null; category?: string; limit?: number };
 
 const EXPENSE_CATEGORIES = ['দোকান/অফিস ভাড়া', 'স্টাফ বেতন', 'বিদ্যুৎ ও পানি', 'ইন্টারনেট ও মোবাইল', 'ফেসবুক/গুগল বিজ্ঞাপন',
   'প্যাকেজিং খরচ', 'কুরিয়ার চার্জ', 'যাতায়াত', 'ওয়েবসাইট ও সফটওয়্যার', 'ব্যাংক/পেমেন্ট চার্জ', 'ভ্যাট/ট্যাক্স পরিশোধ', 'অন্যান্য খরচ'];
@@ -14,7 +21,7 @@ const NON_PNL_EXPENSE = new Set(['সাপ্লায়ার পেমেন
 const ACCOUNT_TYPES: Record<string, string> = { cash: 'ক্যাশ', bank: 'ব্যাংক', mobile: 'মোবাইল ব্যাংকিং' };
 
 // ---------------------------------------------------------------- suppliers
-async function listSuppliers({ includeInactive = true }: Body = {}) {
+async function listSuppliers({ includeInactive = true }: { includeInactive?: boolean } = {}) {
   return q(`SELECT s.*,
       coalesce((SELECT sum(total) FROM purchases p WHERE p.supplier_id=s.id AND p.status<>'cancelled'),0)::numeric(14,2) AS purchased,
       coalesce((SELECT sum(amount) FROM transactions t WHERE t.supplier_id=s.id AND t.type='expense'),0)::numeric(14,2) AS paid,
@@ -22,7 +29,7 @@ async function listSuppliers({ includeInactive = true }: Body = {}) {
       (SELECT max(purchase_date) FROM purchases p WHERE p.supplier_id=s.id) AS last_purchase
     FROM suppliers s ${includeInactive ? '' : 'WHERE s.active'} ORDER BY s.active DESC, s.name`);
 }
-async function getSupplier(id?: Id) {
+async function getSupplier(id: Id) {
   const s = (await listSuppliers()).find((x) => x.id === id);
   if (!s) return null;
   s.purchases = await q(`SELECT * FROM purchases WHERE supplier_id=$1 ORDER BY purchase_date DESC, id DESC LIMIT 100`, [id]);
@@ -43,13 +50,13 @@ async function saveSupplier(data: Body) {
   }
   return (await one(`INSERT INTO suppliers(name, company, phone, email, address, note, opening_due, active) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`, f))!.id;
 }
-function supplierDue(s?: Loose) { return (s.opening_due || 0) + (s.purchased || 0) - (s.paid || 0); }
+function supplierDue(s: { opening_due?: number | null; purchased?: number | null; paid?: number | null }): number { return (s.opening_due || 0) + (s.purchased || 0) - (s.paid || 0); }
 
 // ---------------------------------------------------------------- purchases
 const PURCHASE_STATUSES: Record<string, string> = { ordered: 'অর্ডার দেওয়া (মাল আসেনি)', received: 'মাল বুঝে পেয়েছি', cancelled: 'বাতিল' };
 
-async function listPurchases({ supplierId, limit = 100 }: Body = {}) {
-  const params = [];
+async function listPurchases({ supplierId, limit = 100 }: { supplierId?: Id | null; limit?: number } = {}) {
+  const params: Param[] = [];
   let where = '';
   if (supplierId) { params.push(supplierId); where = 'WHERE p.supplier_id=$1'; }
   params.push(limit);
@@ -58,7 +65,7 @@ async function listPurchases({ supplierId, limit = 100 }: Body = {}) {
             FROM purchases p LEFT JOIN suppliers s ON s.id=p.supplier_id ${where}
             ORDER BY p.purchase_date DESC, p.id DESC LIMIT $${params.length}`, params);
 }
-async function getPurchase(id?: Id) {
+async function getPurchase(id: Id) {
   const p = await one(`SELECT p.*, s.name AS supplier_name, st.name AS staff_name FROM purchases p
                        LEFT JOIN suppliers s ON s.id=p.supplier_id LEFT JOIN staff st ON st.id=p.created_by WHERE p.id=$1`, [id]);
   if (!p) return null;
@@ -66,12 +73,12 @@ async function getPurchase(id?: Id) {
                      WHERE i.purchase_id=$1 ORDER BY i.id`, [id]);
   p.payments = await q(`SELECT t.*, a.name AS account_name FROM transactions t LEFT JOIN accounts a ON a.id=t.account_id
                         WHERE t.purchase_id=$1 ORDER BY t.id`, [id]);
-  p.paid = p.payments.reduce((s?: Loose, x?: Loose) => s + x.amount, 0);
+  p.paid = (p.payments as DbRow[]).reduce((s: number, x) => s + Number(x.amount), 0);
   return p;
 }
 
 // Receive goods: stock goes up and the product's cost becomes the weighted average.
-async function receiveItems(t: Tx, purchaseId?: Id, items?: Loose, staffId?: Id, costShare?: Loose) {
+async function receiveItems(t: Tx, purchaseId: Id, items: PurchaseLine[], staffId?: Id, costShare = 0): Promise<void> {
   for (const it of items) {
     if (!it.product_id) continue;
     const p = (await t.query('SELECT stock, cost_price FROM products WHERE id=$1 FOR UPDATE', [it.product_id])).rows[0];
@@ -85,13 +92,13 @@ async function receiveItems(t: Tx, purchaseId?: Id, items?: Loose, staffId?: Id,
   }
 }
 
-async function savePurchase(data: Body, staffId?: Id) {
-  const items: Loose[] = [];
+async function savePurchase(data: Body, staffId?: Id): Promise<number> {
+  const items: PurchaseLine[] = [];
   for (const row of data.items || []) {
     const pid = int(row.product_id);
     const qty = int(row.qty);
     if (!pid || qty <= 0) continue;
-    const prod = await one('SELECT id, name FROM products WHERE id=$1', [pid]);
+    const prod = await one<{ id: number; name: string }>('SELECT id, name FROM products WHERE id=$1', [pid]);
     if (prod) items.push({ product_id: pid, name: prod.name, qty, unit_cost: amount(row.unit_cost) });
   }
   if (!items.length) throw new Error('অন্তত একটি পণ্য আর পরিমাণ দিন।');
@@ -125,11 +132,11 @@ async function savePurchase(data: Body, staffId?: Id) {
     return p.id;
   });
 }
-async function setPurchaseStatus(id?: Id, status?: Loose, staffId?: Id) {
+async function setPurchaseStatus(id: Id, status: string, staffId?: Id): Promise<void> {
   return tx(async (t) => {
     const p = (await t.query('SELECT * FROM purchases WHERE id=$1 FOR UPDATE', [id])).rows[0];
     if (!p || p.status === status || !PURCHASE_STATUSES[status]) return;
-    const items = (await t.query('SELECT * FROM purchase_items WHERE purchase_id=$1', [id])).rows;
+    const items = (await t.query('SELECT * FROM purchase_items WHERE purchase_id=$1', [id])).rows as PurchaseLine[];
     if (status === 'received' && p.status === 'ordered') {
       const costShare = p.subtotal > 0 ? (p.shipping + p.other_cost - p.discount) / p.subtotal : 0;
       await receiveItems(t, id, items, staffId, costShare);
@@ -174,9 +181,9 @@ async function addTransaction(data: Body, staffId?: Id) {
   return row!.id;
 }
 async function deleteTransaction(id?: Id) { await q('DELETE FROM transactions WHERE id=$1', [id]); }
-async function listTransactions({ from, to, type, accountId, category, limit = 200 }: Body = {}) {
-  const params = [];
-  const where = [];
+async function listTransactions({ from, to, type, accountId, category, limit = 200 }: TxFilter = {}) {
+  const params: Param[] = [];
+  const where: string[] = [];
   if (from) { params.push(from); where.push(`t.tx_date >= $${params.length}`); }
   if (to) { params.push(to); where.push(`t.tx_date <= $${params.length}`); }
   if (type) { params.push(type); where.push(`t.type = $${params.length}`); }
@@ -195,7 +202,7 @@ async function listTransactions({ from, to, type, accountId, category, limit = 2
 const DHAKA_DAY = `(o.created_at AT TIME ZONE 'Asia/Dhaka')::date`;
 
 // Profit & loss for a date range. Sales are counted on delivered orders (by delivery date).
-async function profitLoss(from?: Loose, to?: Loose) {
+async function profitLoss(from: Day, to: Day) {
   const sales = await one(`SELECT count(*)::int AS orders, coalesce(sum(subtotal),0)::numeric(14,2) AS goods, coalesce(sum(discount + points_discount),0)::numeric(14,2) AS discount,
       coalesce(sum(delivery),0)::numeric(14,2) AS delivery, coalesce(sum(total),0)::numeric(14,2) AS revenue, coalesce(sum(cost_total),0)::numeric(14,2) AS cogs
     FROM orders o WHERE status='delivered' AND (coalesce(delivered_at, updated_at) AT TIME ZONE 'Asia/Dhaka')::date BETWEEN $1 AND $2`, [from, to]);
@@ -215,7 +222,7 @@ async function profitLoss(from?: Loose, to?: Loose) {
 }
 
 // VAT summary by month. mode: 'inclusive' (prices include VAT), 'exclusive' (VAT on top), 'margin' (VAT on gross margin).
-async function vatReport(settings: Settings, year?: Loose) {
+async function vatReport(settings: Settings, year: number | string) {
   const rate = num(settings.vat_rate, 15);
   const mode = settings.vat_mode || 'none';
   const rows = await q(`SELECT to_char(coalesce(delivered_at, updated_at) AT TIME ZONE 'Asia/Dhaka', 'YYYY-MM') AS month,
@@ -226,7 +233,7 @@ async function vatReport(settings: Settings, year?: Loose) {
     FROM purchases WHERE status='received' AND extract(year from purchase_date) = $1 GROUP BY 1`, [year]);
   const paid = await q(`SELECT to_char(tx_date, 'YYYY-MM') AS month, coalesce(sum(amount),0)::numeric(14,2) AS amount
     FROM transactions WHERE type='expense' AND category='ভ্যাট/ট্যাক্স পরিশোধ' AND extract(year from tx_date) = $1 GROUP BY 1`, [year]);
-  const months = [];
+  const months: { month: string; orders: number; goods: number; cogs: number; output: number; input: number; payable: number; paid: number }[] = [];
   for (let m = 1; m <= 12; m++) {
     const key = `${year}-${String(m).padStart(2, '0')}`;
     const r = rows.find((x) => x.month === key) || { goods: 0, cogs: 0, orders: 0 };
@@ -244,7 +251,7 @@ async function vatReport(settings: Settings, year?: Loose) {
 }
 
 // Daily series for charts.
-async function dailySeries(from?: Loose, to?: Loose) {
+async function dailySeries(from: Day, to: Day) {
   return q(`SELECT d::date AS day,
       coalesce((SELECT count(*) FROM orders o WHERE ${DHAKA_DAY} = d::date),0)::int AS orders,
       coalesce((SELECT sum(total) FROM orders o WHERE ${DHAKA_DAY} = d::date AND o.status NOT IN ('cancelled','returned')),0)::numeric(14,2) AS sales,
@@ -252,7 +259,7 @@ async function dailySeries(from?: Loose, to?: Loose) {
       coalesce((SELECT count(*) FROM orders o WHERE ${DHAKA_DAY} = d::date AND o.status='delivered'),0)::int AS delivered
     FROM generate_series($1::date, $2::date, interval '1 day') d ORDER BY d`, [from, to]);
 }
-async function monthlySeries(months: Loose = 12) {
+async function monthlySeries(months: number | string = 12) {
   return q(`SELECT to_char(m, 'YYYY-MM') AS month,
       coalesce((SELECT sum(total) FROM orders o WHERE date_trunc('month', o.created_at AT TIME ZONE 'Asia/Dhaka') = m AND o.status NOT IN ('cancelled','returned')),0)::numeric(14,2) AS sales,
       coalesce((SELECT sum(total - cost_total - delivery) FROM orders o WHERE date_trunc('month', o.created_at AT TIME ZONE 'Asia/Dhaka') = m AND o.status NOT IN ('cancelled','returned')),0)::numeric(14,2) AS gross,
@@ -262,7 +269,7 @@ async function monthlySeries(months: Loose = 12) {
                          date_trunc('month', (now() AT TIME ZONE 'Asia/Dhaka')), interval '1 month') m ORDER BY m`, [months]);
 }
 
-async function dashboard(from?: Loose, to?: Loose) {
+async function dashboard(from: Day, to: Day) {
   const k = await one(`SELECT
       count(*)::int AS orders,
       count(*) FILTER (WHERE status='pending')::int AS pending_in_range,
@@ -308,7 +315,7 @@ async function dashboard(from?: Loose, to?: Loose) {
   return { k, live, byStatus, topProducts, byCategory, byZone, byPayment, byDistrict, byHour, expenses: Number(expenses!.total), inventory, lowStock };
 }
 
-async function staffReport(from?: Loose, to?: Loose) {
+async function staffReport(from: Day, to: Day) {
   return q(`SELECT s.id, s.name, s.role, s.active, s.last_login,
       (SELECT count(*) FROM activity_log a WHERE a.staff_id=s.id AND (a.created_at AT TIME ZONE 'Asia/Dhaka')::date BETWEEN $1 AND $2)::int AS actions,
       (SELECT count(*) FROM activity_log a WHERE a.staff_id=s.id AND a.action='order_status' AND a.detail LIKE '%→ confirmed%' AND (a.created_at AT TIME ZONE 'Asia/Dhaka')::date BETWEEN $1 AND $2)::int AS confirmed,
