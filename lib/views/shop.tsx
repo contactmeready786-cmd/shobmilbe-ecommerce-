@@ -17,40 +17,49 @@ import * as $services_courier from '../services/courier';
 import * as $models_selfservice from '../models/selfservice';
 import * as $models_complaints from '../models/complaints';
 import type { Body, Id, Loose, Settings } from '../types';
+import type { DbRow } from '../pg';
+import type { ReactNode } from 'react';
+
+/** A product as the shop's cards and pages read it. Any product query's row fits (the columns named here are typed). */
+type ShopProduct = DbRow & {
+  id?: number; name?: string; slug?: string; price?: number; old_price?: number | null; stock?: number;
+  image_id?: number | null; image_ik?: string | null; emoji?: string | null; is_new?: boolean; created_at?: Date | string;
+};
 
 // A product picture. Small card pictures link straight to ImageKit when the picture lives there (one step less than
 // /media/<id>/t, which only forwards to the same address). pri: 'high' = the first pictures a customer sees (load at
 // once, before anything else), 'eager' = load at once; otherwise the picture loads when it scrolls into view.
 type Pri = '' | 'eager' | 'high';
-function img(p?: Loose, cls: Loose = '', thumb: Loose = true, pri: Pri = '') {
+function img(p: ShopProduct, cls = '', thumb = true, pri: Pri = '') {
   if (p.image_id) {
     const src = thumb && p.image_ik ? String($services_imagekit.thumbUrl(p.image_ik)) : `/media/${p.image_id}${thumb ? '/t' : ''}`;
     return (<img className={String(cls)} src={src} alt={p.name} loading={pri ? 'eager' : 'lazy'} fetchPriority={pri === 'high' ? 'high' : undefined} decoding="async" draggable="false" />);
   }
   return (<span className={`emoji ${attrValue(cls)}`} aria-hidden="true"><Val v={p.emoji || '📦'} /></span>);
 }
-function discount(p?: Loose) {
-  if (!p.old_price || p.old_price <= p.price) return 0;
-  return Math.round(((p.old_price - p.price) / p.old_price) * 100);
+function discount(p: ShopProduct): number {
+  const old = Number(p.old_price) || 0; const price = Number(p.price) || 0;
+  if (!old || old <= price) return 0;
+  return Math.round(((old - price) / old) * 100);
 }
 
 // ★★★★☆ for a rating (rounded to the nearest whole star)
-function stars(r?: Loose) {
+function stars(r: unknown) {
   const n = Math.max(0, Math.min(5, Math.round(Number(r) || 0)));
   return (<span className="stars" aria-label={`${bn(Number(r || 0).toFixed(1))} / ৫`}>{'★'.repeat(n)}<span className="stars-off">{'★'.repeat(5 - n)}</span></span>);
 }
-const wishOn = (s?: Loose) => !s || s.wishlist_on !== '0';
-function wishBtn(p?: Loose, s?: Loose, cls: Loose = '') {
+const wishOn = (s?: Settings | null) => !s || s.wishlist_on !== '0';
+function wishBtn(p: ShopProduct, s: Settings | null | undefined, cls = '') {
   return wishOn(s) ? (<button type="button" className={`wish-btn ${attrValue(cls)}`} data-wish={attrValue(p.id)} title="পছন্দের তালিকায় রাখুন" {...({ "aria-label": `${attrValue(p.name)} পছন্দের তালিকায় রাখুন`, "aria-pressed": "false" } as Record<string, string>)}>♡</button>) : '';
 }
 
 // "নতুন": ticked by hand, or added within the last N days (Admin → সেটিংস)
-function isNewP(p?: Loose, s?: Loose) {
+function isNewP(p: ShopProduct, s: Settings | null | undefined): boolean {
   if (p.is_new) return true;
   const days = Number(s && s.new_badge_days !== undefined ? s.new_badge_days : 14);
   return days > 0 && !!p.created_at && Date.now() - new Date(p.created_at).getTime() < days * 864e5;
 }
-function productCard(p: Loose, settings: Settings, badge: Loose = '', pri: Pri = '') {
+function productCard(p: ShopProduct, settings: Settings, badge = '', pri: Pri = '') {
   const S = settings || {};
   // "Product details of …" copied from other shops never shows on a card
   if (p && /^\s*product\s+details?\s+of\s/i.test(p.name || '')) p = { ...p, name: $services_seo.cleanName(p.name) };
@@ -62,20 +71,20 @@ function productCard(p: Loose, settings: Settings, badge: Loose = '', pri: Pri =
 }
 // lead = how many of the first cards are on screen at once (they load immediately; the first two before anything else)
 const leadPri = (i: number, lead: number): Pri => (i < Math.min(lead, 2) ? 'high' : i < lead ? 'eager' : '');
-function productGrid(products: Loose, settings: Settings, emptyMsg?: Loose, lead = 0) {
+function productGrid(products: ShopProduct[], settings: Settings, emptyMsg?: ReactNode, lead = 0) {
   if (!products.length) return (<div className="empty"><p><Val v={emptyMsg || 'কোনো পণ্য পাওয়া যায়নি।'} /></p><a className="btn" href="/products">সব পণ্য দেখুন</a></div>);
-  return (<div className="grid"><Val v={products.map((p: Loose, i: number) => productCard(p, settings, '', leadPri(i, lead)))} /></div>);
+  return (<div className="grid"><Val v={products.map((p, i) => productCard(p, settings, '', leadPri(i, lead)))} /></div>);
 }
 // The shop's four promises — small and in one row (inside the blue banner, or a thin strip under the pictures).
-function trustItems(s?: Loose, cls?: Loose) {
+function trustItems(s: Settings, cls = '') {
   const phone = contact(s).phone;
   return (<ul className={`trust-row ${attrValue(cls)}`}><li><span className="tr-ic" aria-hidden="true">🚚</span><span><b>সারা দেশে ডেলিভারি</b><small>ঢাকায়{' '}{money(s.delivery_dhaka)}, বাইরে{' '}{money(s.delivery_outside)}</small></span></li><li><span className="tr-ic" aria-hidden="true">💵</span><span><b>ক্যাশ অন ডেলিভারি</b><small>পণ্য হাতে পেয়ে টাকা</small></span></li><li><span className="tr-ic" aria-hidden="true">🔁</span><span><b>সহজ রিটার্ন</b><small>সমস্যা থাকলে ফেরত</small></span></li><li>{(phone ? <a href={`tel:${attrValue(phone)}`} className="tr-link"><span className="tr-ic" aria-hidden="true">📞</span><span><b>সাহায্য দরকার?</b><small><Val v={phone} /></small></span></a> : <><span className="tr-ic" aria-hidden="true">📞</span><span><b>সাহায্য দরকার?</b><small>আমাদের মেসেজ দিন</small></span></>)}</li></ul>);
 }
-function section(title?: Loose, link?: Loose, content?: Loose) {
+function section(title: ReactNode, link: string, content: ReactNode) {
   return (<section className="home-sec"><div className="section-head"><h2><Val v={title} /></h2>{(link ? <a href={attrValue(link)}>সব দেখুন →</a> : null)}</div><Val v={content} /></section>);
 }
 // Home page boxes: only the main categories (no drop-downs); the count includes their sub-categories.
-function catGrid(categories?: Loose) {
+function catGrid(categories: DbRow[]) {
   const { roots } = categoryTree(categories);
   return (<nav className="cat-grid" aria-label="ক্যাটাগরি">{jsxList(roots.map((c) => <a className="cat-box" href={`/products?cat=${attrValue(c.slug)}`}>{' '}<span className="cat-ic" aria-hidden="true">{(c.image_id ? <img src={`/media/${attrValue(c.image_id)}/t`} alt="" draggable="false" /> : <Val v={c.icon} />)}</span>{' '}<span className="cat-name"><Val v={c.name} /></span><span className="cat-count">{bn(c.total_count)}টি</span></a>))}</nav>);
 }
@@ -87,9 +96,9 @@ function catCrumbs(node?: Loose, last: Loose = true) {
 
 // A row of products that slides sideways (arrows on computers, swipe on phones).
 // auto = moves on by itself, one card at a time, and stops while someone is looking at it.
-function rail(title?: Loose, link?: Loose, products?: Loose, s?: Loose, { badge = '', auto = false, sub = '', chips = null, lead = 0 }: Body = {}) {
+function rail(title: ReactNode, link: string, products: ShopProduct[] | null | undefined, s: Settings, { badge = '', auto = false, sub = '', chips = null, lead = 0 }: { badge?: string; auto?: boolean; sub?: ReactNode; chips?: ReactNode; lead?: number } = {}) {
   if (!products || !products.length) return '';
-  return (<section className="home-sec rail-sec"><div className="section-head"><div><h2><Val v={title} /></h2>{(sub ? <p className="sec-sub"><Val v={sub} /></p> : null)}</div><div className="rail-head-r">{(link ? <a href={attrValue(link)}>সব দেখুন →</a> : null)}{' '}<button type="button" className="rail-btn" data-rail-prev="" aria-label="আগের পণ্য">‹</button><button type="button" className="rail-btn" data-rail-next="" aria-label="পরের পণ্য">›</button></div></div>{(chips && chips.length ? <div className="chips rail-chips">{jsxList(chips.map((c: Loose) => <a className="chip" href={`/products?cat=${attrValue(c.slug)}`}><Val v={c.name} /></a>))}</div> : null)}<div className="rail" data-rail="" data-rail-auto={(auto) ? "" : undefined}><Val v={products.map((p: Loose, i: number) => productCard(p, s, typeof badge === 'function' ? badge(p) : badge, i < lead ? 'eager' : ''))} /></div></section>);
+  return (<section className="home-sec rail-sec"><div className="section-head"><div><h2><Val v={title} /></h2>{(sub ? <p className="sec-sub"><Val v={sub} /></p> : null)}</div><div className="rail-head-r">{(link ? <a href={attrValue(link)}>সব দেখুন →</a> : null)}{' '}<button type="button" className="rail-btn" data-rail-prev="" aria-label="আগের পণ্য">‹</button><button type="button" className="rail-btn" data-rail-next="" aria-label="পরের পণ্য">›</button></div></div>{(chips && chips.length ? <div className="chips rail-chips">{jsxList(chips.map((c: Loose) => <a className="chip" href={`/products?cat=${attrValue(c.slug)}`}><Val v={c.name} /></a>))}</div> : null)}<div className="rail" data-rail="" data-rail-auto={(auto) ? "" : undefined}><Val v={products.map((p, i) => productCard(p, s, typeof badge === 'function' ? badge(p) : badge, i < lead ? 'eager' : ''))} /></div></section>);
 }
 
 // ---------------------------------------------------------------- home
@@ -131,7 +140,7 @@ function home({ settings: s, sections, data }: Body) {
       const sub = c.row.sub;
       const rowLead = lead(c.products);
       if (c.row.style === 'grid') {
-        return (<div className="wrap"><section className="home-sec"><div className="section-head"><div><h2><Val v={c.row.title} /></h2>{(sub ? <p className="sec-sub"><Val v={sub} /></p> : null)}</div><a href={attrValue(c.link)}>সব দেখুন →</a></div><div className="grid"><Val v={c.products.map((p: Loose, i: number) => productCard(p, s, c.row.badge, i < rowLead ? 'eager' : ''))} /></div></section></div>);
+        return (<div className="wrap"><section className="home-sec"><div className="section-head"><div><h2><Val v={c.row.title} /></h2>{(sub ? <p className="sec-sub"><Val v={sub} /></p> : null)}</div><a href={attrValue(c.link)}>সব দেখুন →</a></div><div className="grid"><Val v={c.products.map((p, i) => productCard(p, s, c.row.badge, i < rowLead ? 'eager' : ''))} /></div></section></div>);
       }
       return (<div className="wrap">{rail(c.row.title, c.link, c.products, s, { badge: c.row.badge, sub, lead: rowLead })}</div>);
     }
@@ -170,7 +179,7 @@ function listing({ products, categories, category, brand = null, q, sort, settin
 }
 
 // "1-2" → "১-২ দিনে"
-function delText(v?: Loose, def?: Loose) {
+function delText(v: unknown, def: string): string {
   const m = String(v || def).match(/^(\d{1,2})(?:-(\d{1,2}))?$/) || String(def).match(/^(\d{1,2})(?:-(\d{1,2}))?$/);
   return `${bn(m![1])}${m![2] && m![2] !== m![1] ? '-' + bn(m![2]) : ''} দিনে`;
 }
@@ -188,7 +197,7 @@ function filterBox({ listPath, category, brand, q, sort, filters, brandList, spe
 
 // ---------------------------------------------------------------- product page
 // YouTube video that loads only when tapped (keeps the page fast), with a link in case the owner blocked embedding.
-function videoBox(yt?: Loose, title?: Loose) {
+function videoBox(yt: string, title: string) {
   return (<><div className="video yt-lite" data-yt-lite={attrValue(yt)}><button type="button" className="yt-play" aria-label="ভিডিও চালান">{' '}<img src={`https://i.ytimg.com/vi/${attrValue(yt)}/hqdefault.jpg`} alt={`${attrValue(title)} — ভিডিও`} loading="lazy" draggable="false" />{' '}<span className="yt-big" aria-hidden="true">▶</span>{' '}</button></div><p className="small muted yt-alt">ভিডিও না চললে{' '}<a href={`https://www.youtube.com/watch?v=${attrValue(yt)}`} target="_blank" rel="noopener">সরাসরি YouTube-এ দেখুন ↗</a></p></>);
 }
 
@@ -197,10 +206,10 @@ const WA_ICON = '<svg viewBox="0 0 32 32" width="22" height="22" aria-hidden="tr
 function specTable(specs?: Loose) {
   return (<table className="spec-table"><tbody>{jsxList(specs.map(([k, v]: Loose) => <tr><th scope="row"><Val v={k} /></th><td><Val v={v} /></td></tr>))}</tbody></table>);
 }
-function tierBox(p?: Loose, tiers?: Loose, maxQty: Loose = Infinity) {
+function tierBox(p: ShopProduct, tiers: { min_qty: number; price: number }[], maxQty = Infinity) {
   if (!tiers || !tiers.length) return '';
   // only steps a customer can actually order online (the per-product maximum still applies)
-  const rows = tiers.slice().sort((a: Loose, b: Loose) => a.min_qty - b.min_qty).filter((t: Loose) => t.price < p.price && t.min_qty <= maxQty);
+  const rows = tiers.slice().sort((a, b) => a.min_qty - b.min_qty).filter((t) => t.price < Number(p.price) && t.min_qty <= maxQty);
   if (!rows.length) return '';
   return (<div className="tier-box"><p className="pdp-label">📦 বেশি কিনলে কম দাম</p><table className="tier-table"><tbody><tr><td>{bn(1)}–{bn(rows[0].min_qty - 1)}টি</td><td><b>{money(p.price)}</b>{' '}করে</td></tr>{jsxList(rows.map((t: Loose, i: Loose) => <tr><td>{bn(t.min_qty)}{(rows[i + 1] ? `–${bn(rows[i + 1].min_qty - 1)}` : "+")}টি</td><td><b>{money(t.price)}</b>{' '}করে{' '}<span className="good small">({bn(Math.round((1 - t.price / p.price) * 100))}% কম)</span></td></tr>))}</tbody></table><p className="small muted">কার্টে পরিমাণ বাড়ালে কম দাম নিজে থেকেই বসে যাবে।</p></div>);
 }
@@ -210,7 +219,7 @@ function reviewsBlock(p?: Loose, s?: Loose, reviews?: Loose, stats?: Loose) {
   return (<section className="reviews" id="reviews"><div className="section-head"><h2>⭐ কাস্টমারদের রিভিউ{' '}{(stats.count ? <small>{bn(stats.count)}টি</small> : null)}</h2></div><div className="reviews-grid"><div className="review-summary panel">{(stats.count ? <><p className="big-rating">{bn(Number(stats.avg).toFixed(1))}<small>/৫</small></p>{stars(stats.avg)}<ul className="rating-bars">{jsxList(dist.map(([n, c]) => <li><span>{bn(n)}★</span><span className="bar"><i style={styleOf(`width:${attrValue(stats.count ? Math.round((c / stats.count) * 100) : 0)}%`)}></i></span><span>{bn(c)}</span></li>))}</ul></> : <p className="muted">এখনো কোনো রিভিউ নেই।</p>)}</div><div className="review-list">{(reviews.length ? <ul>{jsxList(reviews.map((r: Loose) => <li className="review"><p>{stars(r.rating)}{' '}<b><Val v={r.name || 'কাস্টমার'} /></b>{(r.verified ? <>{' '}<span className="verified">✓ যাচাই করা ক্রেতা</span></> : null)}{' '}<span className="small muted"><Val v={fmtDate(r.created_at).split(',')[0]} /></span></p><p className="review-body"><Val v={r.body} /></p>{(r.photos && r.photos.length ? <div className="review-photos">{jsxList(r.photos.map((pid: Loose) => <a href={`/media/${attrValue(pid)}`} target="_blank" rel="noopener"><img src={`/media/${attrValue(pid)}/t`} alt="ক্রেতার তোলা ছবি" loading="lazy" draggable="false" /></a>))}</div> : null)}{' '}{(r.reply ? <p className="review-reply"><b><Val v={s.store_name} />:</b>{' '}<Val v={r.reply} /></p> : null)}</li>))}</ul> : null)}</div></div></section>);
 }
 // 🔔 "দাম কমলে জানাও": a small fold-out with a mobile number box
-function priceAlertBox(productId?: Id, price?: Loose) {
+function priceAlertBox(productId: Id, price: unknown) {
   return (<details className="price-alert"><summary>🔔 দাম কমলে SMS-এ জানাও</summary><form className="notify-box" data-price-alert="" data-product={attrValue(productId)} noValidate><p className="small muted">এখন দাম{' '}{money(price)}। এর চেয়ে কমলেই (নতুন দাম বা ফ্ল্যাশ সেল) একবার SMS পাবেন।</p><div className="coupon-row"><input name="phone" inputMode="tel" autoComplete="tel" placeholder="01XXXXXXXXX" maxLength={20} required aria-label="মোবাইল নম্বর" /><button className="btn btn-sm">জানাবেন</button></div><input type="text" name="website" className="hp" tabIndex={-1} autoComplete="off" aria-hidden="true" /><p className="small" data-notify-msg="" role="status"></p></form></details>);
 }
 // 📤 share the product: phone's own share sheet, Facebook, Messenger, WhatsApp, copy the link
@@ -223,7 +232,7 @@ function shareRow(p?: Loose, s?: Loose) {
   return (<div className="share-row" data-share="" data-title={attrValue(p.name)} data-text={attrValue(text)} data-url={attrValue(url)}><span className="share-label">শেয়ার করুন:</span>{' '}<button type="button" className="share-btn share-native" data-share-native="" hidden aria-label="শেয়ার করুন">📤</button>{' '}<a className="share-btn share-fb" data-share-to="fb" href={`https://www.facebook.com/sharer/sharer.php?u=${attrValue(u)}`} target="_blank" rel="noopener" aria-label="Facebook-এ শেয়ার">f</a>{' '}<a className="share-btn share-ms" data-share-to="ms" href={`fb-messenger://share/?link=${attrValue(u)}`} aria-label="Messenger-এ পাঠান">💬</a>{' '}<a className="share-btn share-wa" data-share-to="wa" href={`https://wa.me/?text=${attrValue(encodeURIComponent(text + ' ' + url))}`} target="_blank" rel="noopener" aria-label="WhatsApp-এ পাঠান">🟢</a>{' '}<button type="button" className="share-btn" data-share-copy="" aria-label="লিংক কপি করুন">🔗</button>{' '}<span className="small good" data-share-msg="" role="status"></span></div>);
 }
 // 🔔 "স্টকে এলে জানাও": the customer leaves a mobile number; an SMS goes out when the product is back.
-function notifyBox(productId?: Id, s?: Loose, hidden: Loose = false) {
+function notifyBox(productId: Id, s: Settings, hidden = false) {
   if (!U.on(s, 'ui_restock_notify')) return '';
   return (<form className="notify-box" data-notify="" data-product={attrValue(productId)} hidden={!!(hidden)} noValidate><p><b>🔔{' '}<Val v={U.text(s, 'uit_restock_title')} /></b><br /><span className="small muted">মোবাইল নম্বর দিন — পণ্যটা আবার এলেই আপনাকে SMS করে জানাব।</span></p><div className="coupon-row"><input name="phone" inputMode="tel" autoComplete="tel" placeholder="01XXXXXXXXX" maxLength={20} required aria-label="মোবাইল নম্বর" /><button className="btn btn-sm">জানাবেন</button></div><input type="text" name="website" className="hp" tabIndex={-1} autoComplete="off" aria-hidden="true" /><p className="small" data-notify-msg="" role="status"></p></form>);
 }
@@ -274,7 +283,7 @@ function compareBtn(p?: Loose, s?: Loose) {
   return U.on(s, 'ui_compare') ? (<p className="pdp-tools"><button type="button" className="link-btn compare-btn" data-compare={attrValue(p.id)} title="অন্য পণ্যের সাথে পাশাপাশি তুলনা করুন" aria-pressed="false">⚖️ তুলনা</button></p>) : '';
 }
 // 🕘 the products this shopper looked at lately (filled in by the browser from its own list)
-function recentBox(s?: Loose) {
+function recentBox(s: Settings) {
   return (<section className="recent-box" data-recent-box="" hidden><div className="section-head"><h2><Val v={U.text(s, 'uit_recent')} /></h2><button type="button" className="link-btn small" data-recent-clear="">মুছে দিন</button></div><div className="grid" data-recent-list=""></div></section>);
 }
 
@@ -314,7 +323,7 @@ function comparePage({ products: P, settings: s, asked }: Body) {
   const row = (label?: Loose, cells?: Loose) => (<tr><th scope="row"><Val v={label} /></th><Val v={cells} /></tr>);
   return (<div className="wrap section" data-compare-page=""><div className="title-row"><h1>⚖️ পণ্য তুলনা{' '}<small>{bn(P.length)}টি</small></h1><button type="button" className="btn btn-sm btn-ghost" data-compare-clear="">সব সরান</button></div>{(P.length < 2 ? <p className="note">আরেকটা পণ্য যোগ করুন — পণ্যের পেজে "⚖️ তুলনা" বাটনে চাপ দিন।</p> : null)}<div className="table-wrap compare-wrap"><table className="compare-table"><thead><tr><th></th>{jsxList(P.map((p: Loose) => <th scope="col"><a href={`/p/${attrValue(p.slug)}`} className="cmp-pic">{img(p)}</a><a href={`/p/${attrValue(p.slug)}`} className="cmp-name"><Val v={p.name} /></a>{' '}<button type="button" className="link-btn small danger" data-compare-remove={attrValue(p.id)}>✕ সরান</button></th>))}</tr></thead><tbody>{row('দাম', P.map((p: Loose) => (<td><b className="price">{money(p.price)}</b>{(p.variant_count > 0 ? " থেকে" : null)}{(p.old_price > p.price ? <>{' '}<s className="old-price">{money(p.old_price)}</s></> : null)}</td>)))}{' '}{row('স্টক', P.map((p: Loose) => (<td>{(p.stock > 0 ? <span className="good">✓ আছে</span> : <span className="warn">স্টকে নেই</span>)}</td>)))}{' '}{(s.reviews_on !== '0' ? row('রেটিং', P.map((p: Loose) => (<td>{(p.review_stats && p.review_stats.count ? <>{stars(p.review_stats.avg)}{' '}<span className="small">({bn(p.review_stats.count)})</span></> : "—")}</td>))) : null)}{' '}{row('ব্র্যান্ড', P.map((p: Loose) => (<td><Val v={p.brand || '—'} /></td>)))}{' '}{row('মডেল', P.map((p: Loose) => (<td><Val v={p.model || '—'} /></td>)))}{' '}{row('ক্যাটাগরি', P.map((p: Loose) => (<td><Val v={p.category_name || '—'} /></td>)))}{' '}{row('ওয়ারেন্টি', P.map((p: Loose) => (<td><Val v={W(p) || '—'} /></td>)))}{' '}{(P.some((p: Loose) => p.variant_count > 0) ? row('অপশন', P.map((p: Loose) => (<td className="small"><Val v={(p.variants || []).map((v: Loose) => v.variant_label).join(', ') || '—'} /></td>))) : null)}{' '}<Val v={keys.map((k) => row(k, P.map((p: Loose) => (<td><Val v={spec(p, k)} /></td>))))} />{' '}{row('সংক্ষেপে', P.map((p: Loose) => (<td className="small"><Val v={md.plain(p.short_description || p.description || '', 220) || '—'} /></td>)))}{' '}{row('', P.map((p: Loose) => (<td>{(p.stock > 0 ? (p.variant_count > 0 ? <a className="btn btn-sm btn-block" href={`/p/${attrValue(p.slug)}`}>অপশন বাছুন</a> : <button className="btn btn-sm btn-block btn-add" data-add={attrValue(p.id)} data-name={attrValue(p.name)} data-price={attrValue(p.price)}>কার্টে যোগ করুন</button>) : null)}</td>)))}</tbody></table></div></div>);
 }
-function cartSuggest(s?: Loose) {
+function cartSuggest(s: Settings) {
   return (<section className="panel cart-suggest" data-cart-suggest="" hidden><h2><Val v={U.text(s, 'uit_cart_suggest')} /></h2><ul className="suggest-list" data-suggest-list=""></ul></section>);
 }
 function checkoutPage({ settings: s, methods, cityAreas, zones = [], account = null, refCode = '', otp = false }: Body) {
@@ -326,7 +335,7 @@ function checkoutPage({ settings: s, methods, cityAreas, zones = [], account = n
 
 const STEPS = ['pending', 'confirmed', 'processing', 'shipped', 'delivered'];
 // 01712345678 -> 017•••••678 (shown to anyone who only has the order number)
-function maskPhone(p?: Loose) { const s = String(p || ''); return s.length > 6 ? s.slice(0, 3) + '•'.repeat(s.length - 6) + s.slice(-3) : '•••'; }
+function maskPhone(p: unknown): string { const s = String(p || ''); return s.length > 6 ? s.slice(0, 3) + '•'.repeat(s.length - 6) + s.slice(-3) : '•••'; }
 
 // After delivery: one review per product, only for the order's owner (placed on this browser or opened with
 // order number + mobile number). Everyone else sees how to open it.
@@ -342,12 +351,12 @@ function orderPage({ order, settings: s, fresh, payFailed, trackUrl, mine = fals
 }
 
 // 👍 right after ordering, the happiest moment: ask to follow the Facebook page (owner wants page followers)
-function fbPageUrl(s?: Loose) {
+function fbPageUrl(s: Settings) {
   const u = String(s.social_facebook || '').trim();
   if (/^https?:\/\/(www\.|m\.)?(facebook|fb)\.com\//i.test(u)) return u;
   return s.autopost_page_id ? `https://www.facebook.com/${encodeURIComponent(s.autopost_page_id)}` : '';
 }
-function followBox(s?: Loose) {
+function followBox(s: Settings) {
   const url = fbPageUrl(s);
   if (!url || s.follow_box_on === '0') return '';
   return (<section className="panel follow-box" style={styleOf("display:flex;gap:14px;align-items:center;flex-wrap:wrap;border-left:4px solid #1877f2")}><div style={styleOf("font-size:34px")} aria-hidden="true">👍</div><div style={styleOf("flex:1;min-width:200px")}><b>আমাদের Facebook পেজ ফলো করুন</b><br /><span className="small muted">নতুন পার্টস, অফার, ইলেকট্রনিক্সের টিপস আর কুইজ — সবার আগে পাবেন।</span></div><a className="btn" style={styleOf("background:#1877f2;border-color:#1877f2;color:#fff")} href={attrValue(url)} target="_blank" rel="noopener">Facebook-এ ফলো করুন</a></section>);
