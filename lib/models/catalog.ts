@@ -283,7 +283,16 @@ const SORTS: Record<string, string> = {
   sku: `(CASE WHEN p.sku ~ '^[0-9]{1,15}$' THEN p.sku::bigint END) ASC NULLS LAST, lower(coalesce(p.sku, '')) ASC, p.id ASC`,
   sku_desc: `(CASE WHEN p.sku ~ '^[0-9]{1,15}$' THEN p.sku::bigint END) DESC NULLS LAST, lower(coalesce(p.sku, '')) DESC`,
 };
-async function listProducts(opts: ProductFilter = {}): Promise<DbRow[]> {
+/** A product as the product queries return it (colsFor). The columns named here are typed — prices are numbers (lib/pg);
+ * the cost price is not read for the shop side, so it may be missing. The rest are still read loosely for now. */
+export type Product = DbRow & {
+  id: number; name: string; slug: string; category_id: number | null; price: number; stock: number; active: boolean;
+  product_type: string; parent_id: number | null; image_id: number | null; cost_price?: number | null;
+};
+/** One product with its pictures, its bundle parts and its variants (getProduct). */
+export type FullProduct = Product & { images: number[]; bundle: DbRow[]; variants: Product[] };
+
+async function listProducts(opts: ProductFilter = {}): Promise<Product[]> {
   const params: Param[] = [];
   const where = productWhere(opts, params);
   const sortSql = Object.hasOwn(SORTS, String(opts.sort)) ? SORTS[String(opts.sort)] : null;
@@ -293,7 +302,7 @@ async function listProducts(opts: ProductFilter = {}): Promise<DbRow[]> {
   let sql = `SELECT ${colsFor(opts)} FROM products p LEFT JOIN categories c ON c.id=p.category_id ${where} ORDER BY ${order}, p.id DESC`;
   if (opts.limit) { params.push(opts.limit); sql += ` LIMIT $${params.length}`; }
   if (opts.offset) { params.push(opts.offset); sql += ` OFFSET $${params.length}`; }
-  return q(sql, params);
+  return q<Product>(sql, params);
 }
 async function countProducts(opts: ProductFilter = {}): Promise<number> {
   const params: Param[] = [];
@@ -312,24 +321,24 @@ async function productStats({ type }: { type?: string } = {}): Promise<DbRow | n
       count(*) FILTER (WHERE (${STOCK_EXPR}) <= p.low_stock)::int AS low
     FROM products p ${where}`, params);
 }
-async function getProduct({ id, slug, public: pub = false }: { id?: Id; slug?: string; public?: boolean }): Promise<DbRow | null> {
-  const p = await one(`SELECT ${colsFor({ public: pub })} FROM products p LEFT JOIN categories c ON c.id=p.category_id WHERE ${id ? 'p.id=$1' : 'p.slug=$1'}`, [id || slug]);
+async function getProduct({ id, slug, public: pub = false }: { id?: Id; slug?: string; public?: boolean }): Promise<FullProduct | null> {
+  const p = await one<FullProduct>(`SELECT ${colsFor({ public: pub })} FROM products p LEFT JOIN categories c ON c.id=p.category_id WHERE ${id ? 'p.id=$1' : 'p.slug=$1'}`, [id || slug]);
   if (!p) return null;
-  p.images = (await q(`SELECT id FROM media WHERE owner_type='product' AND owner_id=$1 ORDER BY sort, id`, [p.id])).map((r) => r.id);
+  p.images = (await q<{ id: number }>(`SELECT id FROM media WHERE owner_type='product' AND owner_id=$1 ORDER BY sort, id`, [p.id])).map((r) => r.id);
   if (!p.images.length && p.image_id) p.images = [p.image_id];
   p.bundle = p.product_type === 'bundle' ? await bundleItems(p.id, pub) : [];
   p.variants = p.variant_count > 0 ? await listVariants(p.id, { public: pub }) : [];
   return p;
 }
 // The variants of a product (size / colour / model …), in the owner's order. Shop side: only the ones switched on.
-async function listVariants(parentId?: Id, { public: pub = false }: { public?: boolean } = {}): Promise<DbRow[]> {
-  return q(`SELECT ${colsFor({ public: pub })} FROM products p LEFT JOIN categories c ON c.id=p.category_id
+async function listVariants(parentId?: Id, { public: pub = false }: { public?: boolean } = {}): Promise<Product[]> {
+  return q<Product>(`SELECT ${colsFor({ public: pub })} FROM products p LEFT JOIN categories c ON c.id=p.category_id
     WHERE p.parent_id=$1 ${pub ? 'AND p.active' : ''} ORDER BY p.variant_sort, p.id`, [int(parentId)]);
 }
-async function getProductsByIds(ids: unknown[], { includeInactive = false, public: pub = false }: { includeInactive?: boolean; public?: boolean } = {}): Promise<DbRow[]> {
+async function getProductsByIds(ids: unknown[], { includeInactive = false, public: pub = false }: { includeInactive?: boolean; public?: boolean } = {}): Promise<Product[]> {
   const clean = ids.map((x) => int(x)).filter((x) => x > 0);
   if (!clean.length) return [];
-  return q(`SELECT ${colsFor({ public: pub })} FROM products p LEFT JOIN categories c ON c.id=p.category_id
+  return q<Product>(`SELECT ${colsFor({ public: pub })} FROM products p LEFT JOIN categories c ON c.id=p.category_id
             WHERE p.id = ANY($1::int[]) ${includeInactive ? '' : 'AND p.active AND (p.parent_id IS NULL OR EXISTS (SELECT 1 FROM products pp WHERE pp.id=p.parent_id AND pp.active))'}`, [clean]);
 }
 async function bundleItems(bundleId: number, pub = false): Promise<DbRow[]> {
