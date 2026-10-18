@@ -239,7 +239,7 @@ async function clearData(ctx: AdminCtx) {
   await V.clearAll();
   await ctx.reloadSettings();
   await ctx.log('settings', 'marketing', null, 'ভিজিটর অ্যানালিটিক্সের সব হিসাব শূন্য করা হয়েছে');
-  return ctx.back(BASE, 'deleted');
+  return ctx.back(BASE, 'analytics_cleared');
 }
 
 async function main(ctx: AdminCtx) {
