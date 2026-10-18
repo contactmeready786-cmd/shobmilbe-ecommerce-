@@ -82,7 +82,7 @@ async function list(f: Body, { limit = 50, offset = 0 }: Body = {}) {
 }
 async function count(f: Body) {
   const params: Loose[] = [];
-  return (await db.one(`SELECT count(*)::int AS n FROM checkout_drafts d ${where(f, params)}`, params))!.n;
+  return (await db.one<{ n: number }>(`SELECT count(*)::int AS n FROM checkout_drafts d ${where(f, params)}`, params))!.n;
 }
 async function counts() {
   const rows = await db.q<{ status: string; n: number; value: number }>(`SELECT status, count(*)::int AS n, coalesce(sum(subtotal),0)::int AS value FROM checkout_drafts GROUP BY status`);

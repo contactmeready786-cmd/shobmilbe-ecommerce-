@@ -128,7 +128,7 @@ async function quote(items: unknown) {
     if (q2 < 1) return null;
     return { id: p.id, name: p.name, slug: p.slug, qty: q2, price: g.price, note: g.note, image: p.image_id ? `/media/${p.image_id}/t` : null, emoji: p.emoji };
   }).filter((g): g is NonNullable<typeof g> => !!g);
-  const subtotal = round2(lines.reduce((s: number, l: { price: number; qty: number }) => s + l.price * l.qty, 0) + giftOut.reduce((s, g) => s + g.price * g.qty, 0));
+  const subtotal = round2(lines.reduce((s: number, l) => s + l.price * l.qty, 0) + giftOut.reduce((s, g) => s + g.price * g.qty, 0));
   return { lines, gifts: giftOut, subtotal };
 }
 

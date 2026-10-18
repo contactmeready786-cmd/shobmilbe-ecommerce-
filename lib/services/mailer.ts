@@ -6,7 +6,7 @@
 //    order mails and codes.
 //  - Every mail is written to email_log (opened / clicked are noted through a tiny picture and the shop's own links).
 //  - Automatic mails (tick, every hour): welcome, the weekly "new products", a review request after delivery, "we miss you".
-import type { EmailSubsRow, EmailCampaignsRow } from '../data/rows';
+import type { EmailSubsRow, EmailCampaignsRow, ProductsRow } from '../data/rows';
 import * as crypto from 'node:crypto';
 import * as db from '../db';
 import { safeFetch } from './safefetch';
@@ -243,7 +243,7 @@ async function welcome(settings: Settings, budget: number): Promise<number> {
   const subs = await db.q<Subscriber>(`SELECT s.* FROM email_subs s WHERE s.on_list AND s.created_at > now() - interval '7 days'
     AND NOT EXISTS (SELECT 1 FROM email_log l WHERE l.sub_id=s.id AND l.kind='welcome') ORDER BY s.id LIMIT $1`, [Math.min(budget, 40)]);
   if (!subs.length) return 0;
-  const picks = await db.q(`SELECT p.id FROM products p WHERE ${ELIGIBLE} ORDER BY coalesce(p.featured,false) DESC, coalesce(p.sold_count,0) DESC, p.id DESC LIMIT 4`);
+  const picks = await db.q<Pick<ProductsRow, 'id'>>(`SELECT p.id FROM products p WHERE ${ELIGIBLE} ORDER BY coalesce(p.featured,false) DESC, coalesce(p.sold_count,0) DESC, p.id DESC LIMIT 4`);
   const shop = settings.store_name || 'সবমিলবে';
   const intro = str(settings.email_welcome_text, 2000) || `{name}, ${shop}-এ আপনাকে স্বাগতম! 🎉\n\nএখন থেকে নতুন পণ্য, দাম কমা আর বিশেষ অফারের খবর সবার আগে আপনার ইমেইলে পাবেন। নিচে আমাদের জনপ্রিয় কিছু পণ্য দেওয়া হলো।`;
   let n = 0;
@@ -287,7 +287,7 @@ async function winback(settings: Settings, budget: number): Promise<number> {
       AND NOT EXISTS (SELECT 1 FROM orders o WHERE o.status<>'cancelled' AND (lower(o.email)=lower(s.email) OR (s.phone<>'' AND o.phone=s.phone)) AND o.created_at > now() - make_interval(days => $1))
     ORDER BY s.id LIMIT $2`, [days, Math.min(budget, 20)]);
   if (!subs.length) return 0;
-  const picks = await db.q(`SELECT p.id FROM products p WHERE ${ELIGIBLE} ORDER BY p.created_at DESC LIMIT 4`);
+  const picks = await db.q<Pick<ProductsRow, 'id'>>(`SELECT p.id FROM products p WHERE ${ELIGIBLE} ORDER BY p.created_at DESC LIMIT 4`);
   const intro = str(settings.email_winback_text, 2000) || '{name}, অনেক দিন আপনাকে দেখি না! 😊\n\nএর মধ্যে দোকানে অনেক নতুন পণ্য এসেছে। দেখে নিন — হয়তো আপনার পরের প্রজেক্টের জিনিসটা এখানেই আছে।';
   let n = 0;
   for (const s of subs) {
@@ -308,9 +308,9 @@ async function weekly(settings: Settings) {
   if (now.weekday !== day || now.hour < hour) return null;
   if (await db.one<{ x: number }>("SELECT 1 AS x FROM email_campaigns WHERE kind='weekly' AND created_at > now() - interval '6 days'")) return null;
   if (!(await audienceCount('all'))) return null;
-  let rows = await db.q(`SELECT p.id FROM products p WHERE ${ELIGIBLE} AND p.created_at > now() - interval '7 days' ORDER BY coalesce(p.sold_count,0) DESC, p.id DESC LIMIT 6`);
+  let rows = await db.q<Pick<ProductsRow, 'id'>>(`SELECT p.id FROM products p WHERE ${ELIGIBLE} AND p.created_at > now() - interval '7 days' ORDER BY coalesce(p.sold_count,0) DESC, p.id DESC LIMIT 6`);
   const fresh = rows.length >= 2;
-  if (!fresh) rows = await db.q(`SELECT p.id FROM products p WHERE ${ELIGIBLE} ORDER BY coalesce(p.sold_count,0) DESC, coalesce(p.featured,false) DESC, p.id DESC LIMIT 6`);
+  if (!fresh) rows = await db.q<Pick<ProductsRow, 'id'>>(`SELECT p.id FROM products p WHERE ${ELIGIBLE} ORDER BY coalesce(p.sold_count,0) DESC, coalesce(p.featured,false) DESC, p.id DESC LIMIT 6`);
   if (!rows.length) return null;
   const shop = settings.store_name || 'সবমিলবে';
   return createCampaign(settings, {

@@ -136,7 +136,7 @@ async function post(ctx: AdminCtx) {
     const quota = await SMS.mktLeft(ctx.settings);
     if (b.go === '1' && quota.left <= 0) return ctx.fail(BASE, `অফার SMS-এর ${quota.day <= 0 ? 'আজকের' : 'এই মাসের'} সীমা শেষ (চেকআউট কোডের জন্য জায়গা রাখা হয়েছে)। সীমা বাড়াতে উপরের "অফার SMS — দিনে/মাসে সর্বোচ্চ" বদলান।`);
     const a = await audience(b);
-    const total = (await db.one(`SELECT count(*)::int AS n FROM customers c WHERE ${a.where}`, a.params))!.n;
+    const total = (await db.one<{ n: number }>(`SELECT count(*)::int AS n FROM customers c WHERE ${a.where}`, a.params))!.n;
     // people who already got this exact text are skipped, so pressing again continues with the rest
     a.params.push(text);
     const rows = await db.q(`SELECT c.phone FROM customers c WHERE ${a.where}

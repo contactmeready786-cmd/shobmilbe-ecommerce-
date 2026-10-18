@@ -12,7 +12,7 @@ import type { KitsRow, ProductsRow } from '../data/rows';
 class KitError extends Error {}
 
 async function list({ activeOnly = false }: Body = {}) {
-  return db.q(`SELECT k.*, (SELECT count(*)::int FROM kit_items i WHERE i.kit_id=k.id) AS parts,
+  return db.q<{ id: number; slug: string; title: string; description: string; image_id: number | null; emoji: string; active: boolean; sort: number; created_at: Date; updated_at: Date; steps: string; level: string; duration: string; guide_key: string; parts: number; base_total: number | null }>(`SELECT k.*, (SELECT count(*)::int FROM kit_items i WHERE i.kit_id=k.id) AS parts,
       (SELECT coalesce(sum(p.price * i.qty), 0) FROM kit_items i JOIN products p ON p.id=i.product_id WHERE i.kit_id=k.id AND NOT i.optional) AS base_total
     FROM kits k ${activeOnly ? 'WHERE k.active' : ''} ORDER BY k.sort, k.id DESC`);
 }
@@ -59,7 +59,7 @@ async function save(data: Body) {
     } else {
       let slug = String(data.slug || '').trim() || slugify(title) || 'kit';
       const stem = slug;
-      for (let n = 2; (await t.query('SELECT 1 FROM kits WHERE slug=$1', [slug])).rows.length; n++) slug = `${stem}-${n}`;
+      for (let n = 2; (await t.query<{ "?column?": number | null }>('SELECT 1 FROM kits WHERE slug=$1', [slug])).rows.length; n++) slug = `${stem}-${n}`;
       id = (await t.query<Pick<KitsRow, 'id'>>(`INSERT INTO kits(title, description, image_id, emoji, active, sort, steps, level, duration, slug, guide_key)
         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id`, [...vals, slug, str(data.guide_key, 60)])).rows[0].id;
     }

@@ -77,7 +77,7 @@ function dice(a: Loose, b: Body) {
 function numberWords(ws?: Loose) { return new Set(ws.filter((w: string) => /\d/.test(w))); }
 function sameSet(a: Loose, b: Body) { if (a.size !== b.size) return false; for (const x of a) if (!b.has(x)) return false; return true; }
 
-function prepName(name?: Loose) {
+function prepName(name: string) {
   const ws = words(name);
   return { ws, key: ws.join(' '), sorted: [...ws].sort().join(' '), pairs: pairs(ws), nums: numberWords(ws) };
 }

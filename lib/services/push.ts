@@ -66,7 +66,7 @@ function okEndpoint(u: string | URL) {
   try { const x = new URL(u); return x.protocol === 'https:' && PUSH_HOSTS.test(x.hostname); } catch (_) { return false; }
 }
 
-async function sendOne(sub: db.pg.DbRow, msg?: Loose, v?: Loose) {
+async function sendOne(sub: db.pg.DbRow, msg: { title: string; body: string; url: string; tag: string; } | undefined, v?: Loose) {
   const body = encrypt(sub, JSON.stringify(msg));
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), 8000);

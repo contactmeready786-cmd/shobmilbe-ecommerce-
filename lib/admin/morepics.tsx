@@ -80,8 +80,8 @@ async function planApi(ctx: AdminCtx) {
     list.push({ id: r.id, name: r.name, sku: r.sku, link: it.link, main: (it.images || [])[0] || '', pics: r.pics, thumb: r.image_id ? `/media/${r.image_id}/t` : '' });
   }
   // in the old shop's feed but not in this shop (never came over, or was stopped as a "duplicate") — brought in now
-  const missing = items.filter((it: Loose) => !inShop.has(it.ref) && !trashed.has(it.ref));
-  const inTrash = items.filter((it: Loose) => !inShop.has(it.ref) && trashed.has(it.ref)).map((it: Loose) => ({ title: it.title, link: it.link }));
+  const missing = items.filter((it: { ref: string; }) => !inShop.has(it.ref) && !trashed.has(it.ref));
+  const inTrash = items.filter((it: { ref: string; }) => !inShop.has(it.ref) && trashed.has(it.ref)).map((it: Loose) => ({ title: it.title, link: it.link }));
   // the old site's own product list (sitemap): products the feed left out (e.g. hidden from the catalog)
   const feedPaths = new Set(items.map((it: string) => pathKey(it.link)).filter(Boolean));
   let sitemap = { links: [], read: false };
@@ -190,7 +190,7 @@ async function storexGallery(link: string | URL, main: string) {
   const files = d.gallery.filter((f: string) => typeof f === 'string' && /^[\w.%-]{3,200}\.(webp|jpe?g|png|gif)$/i.test(f));
   const images = files.map((f: Loose) => `${STOREX_CDN}/${tenant}/images/products/${d.gallery_folder}/${f}`);
   // the product's own picture list — sure it's this product when its main picture is in the list
-  const name = (x?: Loose) => decodeURIComponent(String(x || '').split('?')[0].split('/').pop() || '').toLowerCase();
+  const name = (x: string) => decodeURIComponent(String(x || '').split('?')[0].split('/').pop() || '').toLowerCase();
   const mainName = name(main);
   const confirmed = !main || String(main).includes(d.gallery_folder)
     || files.some((f: string) => f.toLowerCase() === mainName || mainName.includes(f.toLowerCase().replace(/\.[a-z]+$/, '')));

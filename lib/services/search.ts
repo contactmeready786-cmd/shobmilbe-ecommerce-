@@ -116,7 +116,7 @@ const BN_VOW: Record<string, string> = { 'অ': 'o', 'আ': 'a', 'ই': 'i', '�
 const BN_SIGN: Record<string, string> = { 'া': 'a', 'ি': 'i', 'ী': 'i', 'ু': 'u', 'ূ': 'u', 'ৃ': 'ri', 'ে': 'e', 'ৈ': 'oi', 'ো': 'o', 'ৌ': 'ou' };
 // Product names in Bangla are mostly English words written in Bangla letters, so the silent "o" between letters is left
 // out (স্যামসাং → samsang ≈ samsung, ট্রান্সফরমার → transformar ≈ transformer).
-function translit(word?: Loose) {
+function translit(word: string) {
   const w = String(word).replace(/য়/g, 'য়').replace(/ড়/g, 'ড়').replace(/ঢ়/g, 'ঢ়')
     .replace(/্য/g, '') // য-ফলা: ক্যা = "ka"
     .replace(/^\u0993\u09DF/, 'w').replace(/\u0993\u09DF/g, 'w'); // ওয়াট → wat, ওয়ালটন → walton

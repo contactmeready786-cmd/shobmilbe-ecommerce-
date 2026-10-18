@@ -47,7 +47,7 @@ test('SHOP_CACHE=0 switches it off', async () => {
 });
 
 // the wrapper around the request handler
-const handler = scoped(async (req: { method?: string; url?: string }) => memo('k', load));
+const handler = scoped(async (req) => memo('k', load));
 
 test('shop GET pages use the memory', async () => {
   await handler({ method: 'GET', url: '/' }); await handler({ method: 'GET', url: '/p/x' });

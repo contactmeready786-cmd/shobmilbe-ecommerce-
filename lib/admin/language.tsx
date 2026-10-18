@@ -60,7 +60,7 @@ async function page(ctx: AdminCtx) {
   const w = where.length ? 'WHERE ' + where.join(' AND ') : '';
   const [st, count, rows] = await Promise.all([
     stats(s),
-    db.one(`SELECT count(*)::int AS n FROM translations ${w}`, params),
+    db.one<{ n: number }>(`SELECT count(*)::int AS n FROM translations ${w}`, params),
     db.q(`SELECT id, src, en, origin, hits FROM translations ${w} ORDER BY (origin = 'manual') DESC, hits DESC, id DESC LIMIT ${PER} OFFSET ${(pageNo - 1) * PER}`, params),
   ]);
   const on = s.i18n_on === '1';

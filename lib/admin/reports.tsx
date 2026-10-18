@@ -9,6 +9,7 @@ import * as ui from './ui';
 import * as charts from './charts';
 import * as xlsx from '../services/xlsx';
 import type { AdminCtx, Loose } from '../types';
+import type { OrdersRow } from '../data/rows';
 
 const DAY = `(o.created_at AT TIME ZONE 'Asia/Dhaka')::date`;
 const OK = `o.status NOT IN ('cancelled','returned')`;
@@ -43,7 +44,7 @@ async function slowRows(from?: Loose, to?: Loose) {
     ORDER BY views DESC, p.stock DESC, p.id LIMIT 200`, [from, to]);
 }
 async function categoryRows(from?: Loose, to?: Loose) {
-  return db.q(`SELECT coalesce(c.name,'ক্যাটাগরি নেই') AS name, sum(i.qty)::int AS qty, sum(i.qty*i.price)::numeric(14,2) AS revenue,
+  return db.q<{ name: string; qty: number | null; revenue: number | null; profit: number | null; orders: number }>(`SELECT coalesce(c.name,'ক্যাটাগরি নেই') AS name, sum(i.qty)::int AS qty, sum(i.qty*i.price)::numeric(14,2) AS revenue,
       sum(i.qty*(i.price-i.cost))::numeric(14,2) AS profit, count(DISTINCT o.id)::int AS orders
     FROM order_items i JOIN orders o ON o.id=i.order_id LEFT JOIN products p ON p.id=i.product_id LEFT JOIN categories c ON c.id=p.category_id
     WHERE ${DAY} BETWEEN $1 AND $2 AND ${OK} GROUP BY 1 ORDER BY revenue DESC`, [from, to]);
@@ -60,13 +61,13 @@ async function customerRows(from?: Loose, to?: Loose) {
   return { top, mix, districts };
 }
 async function returnRows(from?: Loose, to?: Loose) {
-  const orders = await db.q(`SELECT o.id, o.code, o.customer_name, o.phone, o.district, o.status, o.total, o.courier, o.courier_status, o.returned_to, o.created_at
+  const orders = await db.q<Pick<OrdersRow, 'id' | 'code' | 'customer_name' | 'phone' | 'district' | 'status' | 'total' | 'courier' | 'courier_status' | 'returned_to' | 'created_at'>>(`SELECT o.id, o.code, o.customer_name, o.phone, o.district, o.status, o.total, o.courier, o.courier_status, o.returned_to, o.created_at
     FROM orders o WHERE ${DAY} BETWEEN $1 AND $2 AND o.status IN ('cancelled','returned') ORDER BY o.created_at DESC LIMIT 300`, [from, to]);
   const products = await db.q(`SELECT i.product_id, i.name, sum(i.qty)::int AS qty, count(DISTINCT o.id)::int AS orders,
       (SELECT sum(j.qty) FROM order_items j JOIN orders x ON x.id=j.order_id WHERE j.product_id=i.product_id AND (x.created_at AT TIME ZONE 'Asia/Dhaka')::date BETWEEN $1 AND $2)::int AS sold
     FROM order_items i JOIN orders o ON o.id=i.order_id WHERE ${DAY} BETWEEN $1 AND $2 AND o.status IN ('cancelled','returned')
     GROUP BY i.product_id, i.name ORDER BY qty DESC LIMIT 50`, [from, to]);
-  const districts = await db.q(`SELECT coalesce(nullif(o.district,''),'অজানা') AS district, count(*)::int AS orders,
+  const districts = await db.q<{ district: string; orders: number; failed: number }>(`SELECT coalesce(nullif(o.district,''),'অজানা') AS district, count(*)::int AS orders,
       count(*) FILTER (WHERE o.status IN ('cancelled','returned'))::int AS failed
     FROM orders o WHERE ${DAY} BETWEEN $1 AND $2 GROUP BY 1 HAVING count(*) >= 3 ORDER BY (count(*) FILTER (WHERE o.status IN ('cancelled','returned')))::float / count(*) DESC LIMIT 15`, [from, to]);
   return { orders, products, districts };

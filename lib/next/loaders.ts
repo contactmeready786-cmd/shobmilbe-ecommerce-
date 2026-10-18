@@ -37,7 +37,7 @@ async function orderAllowed(code: string, headers: Headers): Promise<boolean> {
   const plain: Record<string, string> = {};
   headers.forEach((v, k) => { plain[k] = v; });
   // a missing order goes to the original code without counting here (it counts the try itself, once)
-  if (!(await db.one('SELECT 1 FROM orders WHERE code=$1', [code.toUpperCase()]))) return false;
+  if (!(await db.one<{ "?column?": number | null }>('SELECT 1 FROM orders WHERE code=$1', [code.toUpperCase()]))) return false;
   return security.hit(db, 'orderview:' + security.clientIp({ headers: plain } as ShopRequest), 60, 600);
 }
 

@@ -110,7 +110,7 @@ function headScript(s: Settings) {
   return `<script>(()=>{try{const u=navigator.userAgent||'';if(/bot|crawl|spider|slurp|lighthouse|headless|preview|facebookexternalhit|meta-external|whatsapp|telegram/i.test(u))return;const z=Intl.DateTimeFormat().resolvedOptions().timeZone;if(!z||/^(Etc\\/|UTC$|GMT)/.test(z))return;const ok=${JSON.stringify([...c.zones]).replace(/</g, '\\u003c')};if(!ok.includes(z))location.replace('${BLOCK_PATH}?w=tz&z='+encodeURIComponent(z));}catch{}})();</script>`;
 }
 
-function esc(v?: Loose) { return String(v ?? '').replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' } as Record<string, string>)[ch]); }
+function esc(v: string) { return String(v ?? '').replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' } as Record<string, string>)[ch]); }
 function countryName(code: string, lang = 'bn') {
   try { return new Intl.DisplayNames([lang], { type: 'region' }).of(code) || code; } catch (_) { return code; }
 }
@@ -142,7 +142,7 @@ ${vpnLine}</main>${passScript}</body></html>`;
 // Emergency key, in case the owner is abroad and forgot: Vercel → Environment Variables → ADMIN_GEO_LOCK = off → Redeploy.
 // No country header (local run) → let in, so a missing header can never lock the owner out.
 const ADMIN_HOME = 'BD';
-function adminUntil(s?: Loose) {
+function adminUntil(s: Settings) {
   const d = String(s.admin_geo_until || '');
   if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return 0;
   const t = Date.parse(`${d}T23:59:59+06:00`);

@@ -271,7 +271,7 @@ function tableToObjects(table?: Loose) {
   let hi = 0;
   let best = -1;
   for (let i = 0; i < Math.min(10, table.length); i++) {
-    const score = table[i].filter((h: Loose) => KNOWN.has(normKey(h))).length;
+    const score = table[i].filter((h: string) => KNOWN.has(normKey(h))).length;
     if (score > best) { best = score; hi = i; }
   }
   const header = table[hi].map((h: Loose) => String(h ?? '').trim());
@@ -330,7 +330,7 @@ function colIndex(ref?: Loose) {
   for (const ch of m[1]) n = n * 26 + (ch.charCodeAt(0) - 64);
   return n - 1;
 }
-function parseXlsx(buf?: Loose) {
+function parseXlsx(buf: Buffer<ArrayBuffer>) {
   const files = unzip(buf);
   const shared: Loose[] = [];
   const ss = files.get('xl/sharedStrings.xml');
@@ -660,7 +660,7 @@ function galleryImages(html?: Loose, base?: Loose, main = '') {
   return { images: [...found.values()].slice(0, 20), rule: dirs.size ? 'folder' : 'listed', folders: [...dirs], confirmed: true };
 }
 
-function productLinks(html: string, base?: Loose) {
+function productLinks(html: string, base: string | URL) {
   const host = hostOf(base);
   const out = new Set();
   for (const m of html.matchAll(/<a\b[^>]*\bhref\s*=\s*["']([^"'#]+)["']/gi)) {
@@ -691,7 +691,7 @@ function decodeText(buf?: Loose, contentType: Loose = '') {
 }
 
 // What kind of content is this? (by the first bytes, not the file name)
-function sniff(buf?: Loose, name = '', contentType = '') {
+function sniff(buf: Buffer<ArrayBuffer>, name = '', contentType = '') {
   if (Buffer.isBuffer(buf) && buf.length > 4 && buf.readUInt32LE(0) === 0x04034b50) return 'xlsx';
   if (Buffer.isBuffer(buf) && buf.length > 8 && buf.readUInt32LE(0) === 0xe011cfd0) return 'xls';
   const head = decodeText(Buffer.isBuffer(buf) ? buf.subarray(0, 4096) : String(buf).slice(0, 4096), contentType).trimStart();

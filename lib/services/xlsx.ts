@@ -4,7 +4,7 @@ import * as zlib from 'node:zlib';
 import type { Loose } from '../types';
 import type { Reply } from '../reply';
 
-const escXml = (s?: Loose) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' } as Record<string, string>)[c])
+const escXml = (s: string) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' } as Record<string, string>)[c])
   // characters Excel refuses inside XML
   .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f￾￿]/g, '');
 
@@ -18,7 +18,7 @@ const isNum = (v?: Loose) => typeof v === 'number' ? Number.isFinite(v) : (typeo
 function sheetXml(rows?: Loose) {
   const widths: Loose[] = [];
   rows.forEach((r: Loose) => r.forEach((v: Loose, i: Loose) => { widths[i] = Math.min(60, Math.max(widths[i] || 8, String(v ?? '').length + 2)); }));
-  const body = rows.map((r: Loose, ri: number) => `<row r="${ri + 1}">${r.map((v: string | null | undefined, ci: Loose) => {
+  const body = rows.map((r: (string | null | undefined)[], ri: number) => `<row r="${ri + 1}">${r.map((v: string | null | undefined, ci: number) => {
     const ref = colName(ci) + (ri + 1);
     const style = ri === 0 ? ' s="1"' : '';
     if (v === null || v === undefined || v === '') return `<c r="${ref}"${style}/>`;

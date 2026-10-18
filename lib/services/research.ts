@@ -211,9 +211,9 @@ async function readShopify(src: DbRow, started: number) {
     if (!list.length) break;
     for (const p of list) {
       const vs = p.variants || [];
-      const prices = vs.map((v: Loose) => num(v.price)).filter((x: null) => x !== null);
+      const prices = vs.map((v: { price: number; }) => num(v.price)).filter((x: null) => x !== null);
       const price = prices.length ? Math.min(...prices) : null;
-      const cmp = vs.map((v: Loose) => num(v.compare_at_price)).filter((x: number | null) => x !== null && x > 0);
+      const cmp = vs.map((v: { compare_at_price: number; }) => num(v.compare_at_price)).filter((x: number | null) => x !== null && x > 0);
       await upsert(src.id, {
         ext_id: p.id, title: cleanText(p.title), url: `${src.url}/products/${p.handle}`, image: (p.images && p.images[0] && p.images[0].src) || '',
         category: p.product_type || '', price, regular_price: cmp.length && price && Math.max(...cmp) > price ? Math.max(...cmp) : null,
@@ -254,7 +254,7 @@ function productish(path: string) {
   return last.length >= 18 && (last.match(/-/g) || []).length >= 3;
 }
 // Links on a list page, in page order: [{ url, img, near }]
-function pageLinks(html: Loose, base: Loose) {
+function pageLinks(html: Loose, base: string | URL | undefined) {
   const out: Loose[] = [];
   const seen = new Set();
   const re = /<a\b[^>]*\bhref\s*=\s*["']([^"'#]+)["'][^>]*>([\s\S]{0,1500}?)<\/a>/gi;
@@ -317,7 +317,7 @@ async function enqueue(srcId?: Id, list?: Loose) {
 }
 
 // Start (or restart, once a day) a shop's reading list: its sitemaps, home page and popular lists.
-async function seedSite(src?: Loose) {
+async function seedSite(src: DbRow) {
   await allowed(src.url + '/'); // loads robots.txt (and its Sitemap: lines)
   const maps = await robotsSitemaps(src.url);
   if (!maps.length) maps.push(src.url + '/sitemap.xml', src.url + '/sitemap_index.xml');
@@ -594,11 +594,11 @@ const near = (a: string, b: string) => a === b || (a.length >= 4 && b.length >= 
 function cover(a: Loose, b: Body) {
   const ws = a.filter((w: string) => !/^\d+$/.test(w));
   if (!ws.length) return 0;
-  return ws.filter((w: Loose) => b.some((v: Loose) => near(w, v))).length / ws.length;
+  return ws.filter((w: string) => b.some((v: string) => near(w, v))).length / ws.length;
 }
-function prepFull(name?: Loose) { const p: Loose = pairsOf(name); p.codes = modelCodes(p.ws); return p; }
+function prepFull(name: string) { const p: Loose = pairsOf(name); p.codes = modelCodes(p.ws); return p; }
 // 0 … 1: how sure we are that two names are the same product
-function sameProduct(a: Loose, b: Body) {
+function sameProduct(a: Body, b: Body) {
   if (!a.codes) a.codes = modelCodes(a.ws);
   if (!b.codes) b.codes = modelCodes(b.ws);
   let d = dice(a, b);
@@ -609,7 +609,7 @@ function sameProduct(a: Loose, b: Body) {
   if (a.codes.size && b.codes.size) {
     const shared = [...a.codes].filter((c) => b.codes.has(c));
     if (!shared.length) return Math.min(d, 0.6); // SG90 ≠ MG90S, PAM8403 ≠ PAM8610
-    const otherWord = a.ws.some((w: Loose) => !/\d/.test(w) && w.length >= 3 && b.ws.some((v: Loose) => near(w, v)));
+    const otherWord = a.ws.some((w: Loose) => !/\d/.test(w) && w.length >= 3 && b.ws.some((v: string) => near(w, v)));
     if (otherWord || shared.some((c) => c.length >= 4)) return Math.max(d, 0.9);
     return Math.max(d, 0.7);
   }
@@ -714,9 +714,9 @@ function searchQuery(term?: Loose) {
   }
   return { parts, words };
 }
-const compact = (s?: Loose) => dupes.words(s).join(' ');
+const compact = (s: string) => dupes.words(s).join(' ');
 // is the part number in this name? digits must stand alone (7812 ≠ 78121, 17812)
-function hasPart(name: string, part?: Loose) {
+function hasPart(name: string, part: { full: string; core: string; }) {
   if (name.includes(part.full)) return 1;
   const re = new RegExp(`(^|[^0-9])${part.core}([^0-9]|$)`);
   if (part.core !== part.full && re.test(name)) {

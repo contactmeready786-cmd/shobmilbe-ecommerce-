@@ -12,7 +12,7 @@ import type { Body, Id, Loose } from '../types';
 class WhError extends Error {}
 
 async function list({ activeOnly = false }: Body = {}) {
-  return db.q(`SELECT w.*, coalesce(sum(s.qty),0)::int AS units, count(s.product_id) FILTER (WHERE s.qty > 0)::int AS products
+  return db.q<{ id: number; name: string; address: string; phone: string; is_shop: boolean; active: boolean; sort: number; note: string; created_at: Date; units: number; products: number }>(`SELECT w.*, coalesce(sum(s.qty),0)::int AS units, count(s.product_id) FILTER (WHERE s.qty > 0)::int AS products
     FROM warehouses w LEFT JOIN warehouse_stock s ON s.warehouse_id=w.id ${activeOnly ? 'WHERE w.active' : ''} GROUP BY w.id ORDER BY w.sort, w.id`);
 }
 async function get(id?: Id) { return db.one<WarehousesRow>('SELECT * FROM warehouses WHERE id=$1', [int(id)]); }

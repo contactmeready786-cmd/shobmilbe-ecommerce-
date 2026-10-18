@@ -31,7 +31,7 @@ function cut(text: string, max?: Loose) {
 // Text copied from other sites often has words glued together ("BoardMain Chip"): put the space back.
 function unglue(text: string) { return String(text || '').replace(/([a-z\d)])([A-Z][a-z])/g, '$1 $2').replace(/([.:;!?।])(?=\S)/g, '$1 '); }
 
-const money = (n?: Loose) => '৳' + bn(Math.round(Number(n) || 0).toLocaleString('en-IN'));
+const money = (n: number) => '৳' + bn(Math.round(Number(n) || 0).toLocaleString('en-IN'));
 
 // Google title (the shop name " | সবমিলবে" is added after this by the layout)
 function productTitle(p: $db.pg.DbRow) {

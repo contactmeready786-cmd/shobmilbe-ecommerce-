@@ -16,7 +16,7 @@ function makeCode() {
   for (let i = 0; i < 12; i++) s += ALPHABET[crypto.randomInt(ALPHABET.length)];
   return s.match(/.{4}/g)!.join('-');
 }
-function normalize(c?: Loose) { return String(c || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); }
+function normalize(c: string) { return String(c || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); }
 function hash(c: string) { return crypto.scryptSync(normalize(c), 'shobmilbe-recovery-v1', 32).toString('hex'); }
 
 async function available() { return (await db.one<{ n: number }>('SELECT count(*)::int AS n FROM recovery_codes WHERE used_at IS NULL'))!.n; }

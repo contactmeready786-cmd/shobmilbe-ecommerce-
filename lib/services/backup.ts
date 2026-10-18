@@ -12,11 +12,11 @@ const MAGIC = Buffer.from('SMBK1');
 const ANALYTICS = new Set(['visitors', 'visit_sessions', 'page_views', 'visit_events', 'research_items', 'research_queue', 'research_hosts', 'rate_limits', 'security_events', 'live_clicks', 'translations']);
 const NEVER = new Set(['admin_sessions', 'login_lock_codes']); // live logins are never copied
 
-async function tableList(db?: Loose) {
-  return (await db.q(`SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE' ORDER BY table_name`)).map((r: Loose) => r.table_name);
+async function tableList(db: typeof import("../db")) {
+  return (await db.q<{ table_name: string }>(`SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE' ORDER BY table_name`)).map((r) => r.table_name);
 }
-async function columnsOf(db?: Loose, table?: Loose) {
-  return db.q(`SELECT column_name AS name, data_type AS type FROM information_schema.columns WHERE table_schema='public' AND table_name=$1 ORDER BY ordinal_position`, [table]);
+async function columnsOf(db: typeof import("../db"), table?: Loose) {
+  return db.q<{ name: string; type: string }>(`SELECT column_name AS name, data_type AS type FROM information_schema.columns WHERE table_schema='public' AND table_name=$1 ORDER BY ordinal_position`, [table]);
 }
 const qi = (n?: Loose) => '"' + String(n).replace(/"/g, '""') + '"';
 
@@ -28,9 +28,9 @@ async function dump(db: typeof import("../db"), { withImages = false, withAnalyt
   let rows = 0;
   for (const t of tables) {
     const cols = await columnsOf(db, t);
-    const sel = cols.map((c: Loose) => (c.type === 'bytea' ? `encode(${qi(c.name)}, 'base64') AS ${qi(c.name)}` : qi(c.name))).join(', ');
+    const sel = cols.map((c) => (c.type === 'bytea' ? `encode(${qi(c.name)}, 'base64') AS ${qi(c.name)}` : qi(c.name))).join(', ');
     const data = await db.q(`SELECT ${sel} FROM ${qi(t)}`);
-    out.tables[t] = { columns: cols.map((c: Loose) => c.name), bytea: cols.filter((c: { type: string; }) => c.type === 'bytea').map((c: Loose) => c.name), rows: data.map((r: Loose) => cols.map((c: { name: string | number; }) => r[c.name])) };
+    out.tables[t] = { columns: cols.map((c) => c.name), bytea: cols.filter((c) => c.type === 'bytea').map((c) => c.name), rows: data.map((r) => cols.map((c) => r[c.name])) };
     rows += data.length;
   }
   let buffer = zlib.gzipSync(Buffer.from(JSON.stringify(out), 'utf8'), { level: 9 });

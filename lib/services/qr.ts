@@ -48,13 +48,13 @@ function rsRemainder(data: number[], divisor?: Loose) {
   for (const b of data) {
     const factor = b ^ r.shift();
     r.push(0);
-    divisor.forEach((coef: Loose, i: string | number) => { r[i] ^= gfMul(coef, factor); });
+    divisor.forEach((coef: number, i: string | number) => { r[i] ^= gfMul(coef, factor); });
   }
   return r;
 }
 
 // ---------------------------------------------------------------- encoder
-function encode(text?: Loose) {
+function encode(text: string) {
   const bytes = [...Buffer.from(String(text), 'utf8')];
   let ver = 1;
   for (; ver <= MAX_VERSION; ver++) {

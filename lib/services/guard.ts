@@ -144,7 +144,7 @@ async function unblockSite(ip: string) {
 async function suspects({ days = 7, ip = '' }: Body = {}) {
   const params = [days];
   if (ip) params.push(ip);
-  return db.q(`WITH ev AS (SELECT * FROM security_events WHERE created_at > now() - make_interval(days => $1::int)${ip ? ' AND ip = $2' : ''}),
+  return db.q<{ ip: string; n: number; first_at: Date; last_at: Date; country: string; city: string; paths: string[]; ua: string; kinds: unknown; block_id: number; block_until: Date; visits: number }>(`WITH ev AS (SELECT * FROM security_events WHERE created_at > now() - make_interval(days => $1::int)${ip ? ' AND ip = $2' : ''}),
     k AS (SELECT ip, jsonb_object_agg(kind, c) AS kinds FROM (SELECT ip, kind, count(*)::int AS c FROM ev GROUP BY 1, 2) t GROUP BY ip),
     g AS (SELECT ip, count(*)::int AS n, min(created_at) AS first_at, max(created_at) AS last_at,
       (array_agg(country ORDER BY id DESC))[1] AS country, (array_agg(city ORDER BY id DESC))[1] AS city,

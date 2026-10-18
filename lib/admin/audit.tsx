@@ -69,7 +69,7 @@ async function auditPage(ctx: AdminCtx) {
   const [rows, total, staff] = await Promise.all([
     db.q(`SELECT a.*, s.name AS staff_name FROM activity_log a LEFT JOIN staff s ON s.id=a.staff_id ${w}
       ORDER BY a.created_at DESC, a.id DESC LIMIT ${PER} OFFSET ${(page - 1) * PER}`, params),
-    db.one(`SELECT count(*)::int AS n FROM activity_log a ${w}`, params).then((r) => r!.n),
+    db.one<{ n: number }>(`SELECT count(*)::int AS n FROM activity_log a ${w}`, params).then((r) => r!.n),
     db.q<Pick<StaffRow, 'id' | 'name'>>('SELECT id, name FROM staff ORDER BY role=\'owner\' DESC, name'),
   ]);
   const qs = new URLSearchParams();

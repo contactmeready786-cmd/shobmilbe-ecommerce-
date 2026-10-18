@@ -16,7 +16,7 @@ const CHANNELS: Record<string, Loose> = {
 const MIN_IMAGE: Record<string, Loose> = { google: 100, facebook: 500 };
 
 // XML 1.0 can't carry control characters; strip them so the feed never breaks.
-function cleanText(v?: Loose) {
+function cleanText(v: string) {
   return String(v ?? '').replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F￾￿]/g, '');
 }
 function xml(v: string) {
@@ -27,7 +27,7 @@ function csvCell(v?: Loose) {
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 function tsvCell(v?: Loose) { return cleanText(v).replace(/[\t\r\n]+/g, ' '); }
-function cut(s?: Loose, max?: Loose) {
+function cut(s: string, max: number) {
   const t = String(s || '').trim();
   if (t.length <= max) return t;
   return t.slice(0, max - 1).replace(/\s+\S*$/, '').trim() + '…';
@@ -85,7 +85,7 @@ function check(p?: Loose, channel?: Loose) {
   return { ok: !problems.length, problems, warnings };
 }
 
-function item(p: FullProduct, channel: string, settings: Settings, base: Loose) {
+function item(p: FullProduct, channel: string, settings: Settings, base: string) {
   const lim = CHANNELS[channel];
   const sale = p.old_price && Number(p.old_price) > Number(p.price);
   const brand = cut(p.brand || settings.feed_brand || settings.store_name || 'Generic', channel === 'google' ? 70 : 100);
@@ -116,11 +116,11 @@ function item(p: FullProduct, channel: string, settings: Settings, base: Loose) 
   };
 }
 
-function toXml(items: Loose, channel: string | number, settings: Settings, base: Loose) {
+function toXml(items: Loose, channel: string | number, settings: Settings, base: string) {
   const tag = (k: string, v: string | null | undefined) => (v === '' || v === null || v === undefined ? '' : `<g:${k}>${xml(v)}</g:${k}>`);
   const body = items.map((it: Loose) => '<item>' + [
     tag('id', it.id), tag('title', it.title), tag('description', it.description), tag('link', it.link),
-    tag('image_link', it.image_link), ...it.additional_image_link.map((u: Loose) => tag('additional_image_link', u)),
+    tag('image_link', it.image_link), ...it.additional_image_link.map((u: string | null | undefined) => tag('additional_image_link', u)),
     tag('availability', it.availability), tag('condition', it.condition), tag('price', it.price), tag('sale_price', it.sale_price),
     tag('brand', it.brand), tag('mpn', it.mpn), tag('identifier_exists', it.identifier_exists), tag('product_type', it.product_type),
     tag('google_product_category', it.google_product_category), tag('inventory', it.inventory),

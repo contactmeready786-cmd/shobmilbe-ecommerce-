@@ -41,7 +41,7 @@ function view(o?: Loose) {
 async function partsBarcodes(order: O.Order) {
   // bundle parts need their own product barcodes
   const ids: Loose[] = [];
-  for (const it of order.items) if (Array.isArray(it.components)) it.components.forEach((c: Loose) => ids.push(c.product_id));
+  for (const it of order.items) if (Array.isArray(it.components)) it.components.forEach((c) => ids.push(c.product_id));
   if (!ids.length) return;
   const rows = await db.q<Pick<ProductsRow, 'id' | 'name' | 'barcode'>>('SELECT id, name, barcode FROM products WHERE id = ANY($1::int[])', [ids]);
   const m = new Map(rows.map((r) => [r.id, r]));
@@ -54,7 +54,7 @@ async function addLocations(view?: Loose) {
   if (!ids.length) return view;
   const rows = await db.q<Pick<ProductsRow, 'id' | 'location'>>("SELECT id, location FROM products WHERE id = ANY($1::int[]) AND location <> ''", [ids]);
   const m = new Map(rows.map((r) => [r.id, r.location]));
-  view.items.forEach((x: Loose) => { x.location = m.get(x.product_id) || ''; });
+  view.items.forEach((x: { location: string; product_id: number; }) => { x.location = m.get(x.product_id) || ''; });
   return view;
 }
 async function lookup(ctx: AdminCtx) {

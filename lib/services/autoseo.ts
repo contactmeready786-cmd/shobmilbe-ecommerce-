@@ -27,7 +27,7 @@ const PER_RUN = 40;
 const OWN_TEXT_ENOUGH = 150; // own description at least this long → no auto text
 
 const money = (n: number) => '৳' + bn(Math.round(Number(n) || 0).toLocaleString('en-IN'));
-const cleanName = (n?: Loose) => $seo.cleanName(n);
+const cleanName = (n: string) => $seo.cleanName(n);
 
 // ---------------------------------------------------------------- 1. model / part number from the name
 // a size, an amount or a unit is not a model: 5V, 3W, 2000mAh, 16x2, 10K, 40pcs, 2.4GHz, 12V-5V …
@@ -81,7 +81,7 @@ function extractSpecs(...texts: Loose[]) {
 const pick = (list?: Loose, seed?: Loose) => list[Math.abs(seed) % list.length];
 function seedOf(id?: Id) { let h = 7; for (const ch of String(id)) h = (h * 31 + ch.charCodeAt(0)) | 0; return h; }
 function ownTextLength(p: db.pg.DbRow) { return md.plain(`${p.short_description || ''} ${p.description || ''}`, 5000).trim().length; }
-function needsAuto(p?: Loose, settings: Settings = {} as Settings) { return settings.autoseo_desc !== '0' && ownTextLength(p) < OWN_TEXT_ENOUGH; }
+function needsAuto(p: db.pg.DbRow, settings: Settings = {} as Settings) { return settings.autoseo_desc !== '0' && ownTextLength(p) < OWN_TEXT_ENOUGH; }
 function cheapRule(settings: Settings, price?: Loose) { try { return $util.qtyRule(settings, price).cheap; } catch (_) { return false; } }
 
 // a short paragraph — meta description, feeds, Google's product description
@@ -93,7 +93,7 @@ function summary(p: FullProduct) {
 }
 
 // for the Google snippet, after "<name> কিনুন ৳…।": what it is and what it is for
-function metaLine(p?: Loose, room = 999) {
+function metaLine(p: FullProduct, room = 999) {
   const k = kindOf(cleanName(p.name), p.category_name);
   if (!k) return '';
   const full = `${k.what}${p.model ? ` (${p.model})` : ''}। ${k.uses}`.replace(/\s+/g, ' ').trim();
@@ -108,7 +108,7 @@ function describe(p: db.pg.DbRow, settings: Settings = {} as Settings) {
   const seed = seedOf(p.id || name);
   const brand = p.brand && !/^(made\s*in|china|chinese|generic|no\s*brand|unbranded|চায়না|চাইনিজ)/i.test(String(p.brand).trim()) ? p.brand : '';
   const what = k ? k.what : p.category_name ? `${p.category_name} ক্যাটাগরির পণ্য` : 'পণ্য';
-  const specs = (Array.isArray(p.specs) ? p.specs : []).filter((r: Loose) => Array.isArray(r) && r[0] && r[1]).slice(0, 12);
+  const specs = (Array.isArray(p.specs) ? p.specs : []).filter((r) => Array.isArray(r) && r[0] && r[1]).slice(0, 12);
   const dhaka = Number(settings.delivery_dhaka) || 60;
   const outside = Number(settings.delivery_outside) || 110;
   const lines: Loose[] = [];
@@ -158,13 +158,13 @@ async function processOne(p: db.pg.DbRow, settings: Settings) {
   }
   // ⚙️ specs: add only labels that are missing, never a label we added before (the owner may have taken it out)
   if (settings.autoseo_specs !== '0') {
-    const cur = (Array.isArray(p.specs) ? p.specs : []).filter((r: Loose) => Array.isArray(r) && r[0]);
-    const have = new Set(cur.map((r: Loose) => String(r[0]).trim().toLowerCase()));
+    const cur = (Array.isArray(p.specs) ? p.specs : []).filter((r) => Array.isArray(r) && r[0]);
+    const have = new Set(cur.map((r) => String(r[0]).trim().toLowerCase()));
     const addedBefore = new Set(past.filter((l) => l.field === 'specs').flatMap((l) => { try { return JSON.parse(l.new_value).map((r: Loose) => String(r[0]).toLowerCase()); } catch (_) { return []; } }));
     // the owner's own English labels mean the same thing
     const same: Record<string, Loose> = { 'ভোল্টেজ': ['voltage', 'input voltage', 'operating voltage', 'working voltage'], 'কারেন্ট': ['current', 'output current'], 'পাওয়ার': ['power', 'output power'], 'ক্যাপাসিটি': ['capacity'] };
     const add = extractSpecs(cleanName(p.name), md.plain(`${p.short_description || ''} ${p.description || ''}`, 1500))
-      .filter(([label]) => !have.has(label.toLowerCase()) && !addedBefore.has(label.toLowerCase()) && !(same[label] || []).some((x: Loose) => have.has(x)))
+      .filter(([label]) => !have.has(label.toLowerCase()) && !addedBefore.has(label.toLowerCase()) && !(same[label] || []).some((x: string) => have.has(x)))
       .slice(0, 8);
     if (add.length) changes.push({ field: 'specs', old: JSON.stringify(cur), value: JSON.stringify(add), next: [...cur, ...add] });
   }
@@ -189,7 +189,7 @@ async function processOne(p: db.pg.DbRow, settings: Settings) {
 async function snapshot(force = false) {
   const day = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Dhaka' }).format(new Date());
   if (!force) {
-    const had = await db.one('SELECT 1 FROM seo_score_history WHERE day=$1', [day]).catch(() => null);
+    const had = await db.one<{ "?column?": number | null }>('SELECT 1 FROM seo_score_history WHERE day=$1', [day]).catch(() => null);
     if (had) return null;
   }
   const { total, avg, perfect } = await $admin_status.seoProblems();

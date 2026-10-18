@@ -154,10 +154,10 @@ async function restore(id?: Id) {
         if (!c) row.category_id = null;
       }
       // a product whose brand or supplier is gone comes back without it
-      if (e.kind === 'product' && row.brand_id && !(await t.query('SELECT 1 FROM brands WHERE id=$1', [row.brand_id])).rows.length) { row.brand_id = null; row.brand = ''; }
-      if (e.kind === 'product' && row.supplier_id && !(await t.query('SELECT 1 FROM suppliers WHERE id=$1', [row.supplier_id])).rows.length) row.supplier_id = null;
+      if (e.kind === 'product' && row.brand_id && !(await t.query<{ "?column?": number | null }>('SELECT 1 FROM brands WHERE id=$1', [row.brand_id])).rows.length) { row.brand_id = null; row.brand = ''; }
+      if (e.kind === 'product' && row.supplier_id && !(await t.query<{ "?column?": number | null }>('SELECT 1 FROM suppliers WHERE id=$1', [row.supplier_id])).rows.length) row.supplier_id = null;
       // a variant comes back only under its main product
-      if (e.kind === 'product' && row.parent_id && !(await t.query('SELECT 1 FROM products WHERE id=$1', [row.parent_id])).rows.length) throw new Error('parent');
+      if (e.kind === 'product' && row.parent_id && !(await t.query<{ "?column?": number | null }>('SELECT 1 FROM products WHERE id=$1', [row.parent_id])).rows.length) throw new Error('parent');
       const done = await ins(K.table, row);
       if (!done.rowCount) throw new Error('same');
       for (const [key, rows] of Object.entries(e.data.children || {}) as [string, Loose[]][]) {
@@ -179,7 +179,7 @@ async function restore(id?: Id) {
       if (e.kind === 'order' && e.data.released) await orderStock(t, e.data.children['order_items.order_id'] || [], -1, e.ref_id, 'মুছে ফেলা অর্ডার ফেরত আনা হয়েছে');
       if (e.kind === 'brand') await t.query('UPDATE products SET brand=$1 WHERE brand_id=$2', [row.name, e.ref_id]);
       if (e.kind === 'product') {
-        const pid = row.parent_id || ((await t.query('SELECT 1 FROM products WHERE parent_id=$1 LIMIT 1', [e.ref_id])).rows.length ? e.ref_id : null);
+        const pid = row.parent_id || ((await t.query<{ "?column?": number | null }>('SELECT 1 FROM products WHERE parent_id=$1 LIMIT 1', [e.ref_id])).rows.length ? e.ref_id : null);
         if (pid) await $catalog.syncVariants(t, pid);
       }
       if (e.media && e.media.length) {

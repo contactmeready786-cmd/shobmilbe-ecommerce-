@@ -95,7 +95,7 @@ async function priceAlertTop(limit = 20) {
 
 async function stockAlertList({ status = 'waiting', limit = 200 }: Body = {}) {
   const where = status === 'sent' ? 'a.notified_at IS NOT NULL' : status === 'all' ? 'true' : 'a.notified_at IS NULL';
-  return db.q(`SELECT a.*, p.name, p.sku, p.stock, p.image_id, p.emoji, coalesce(p.parent_id, p.id) AS edit_id
+  return db.q<{ id: number; product_id: number; phone: string; name: string; ip: string; created_at: Date; notified_at: Date | null; result: string; sku: string; stock: number; image_id: number | null; emoji: string; edit_id: number }>(`SELECT a.*, p.name, p.sku, p.stock, p.image_id, p.emoji, coalesce(p.parent_id, p.id) AS edit_id
     FROM stock_alerts a JOIN products p ON p.id=a.product_id WHERE ${where} ORDER BY a.created_at DESC LIMIT $1`, [limit]);
 }
 // Most wanted products that are out of stock — what to buy first.

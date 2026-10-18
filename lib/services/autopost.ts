@@ -13,7 +13,7 @@ import * as $dupcanon from './dupcanon';
 import * as $seo from './seo';
 import * as $models_kits from '../models/kits';
 import type { Body, Id, Loose, Settings } from '../types';
-import type { CategoriesRow, KitsRow, MediaRow, SocialPostsRow } from '../data/rows';
+import type { CategoriesRow, KitsRow, MediaRow, SocialPostsRow, ProductsRow } from '../data/rows';
 
 const GRAPH = 'https://graph.facebook.com/v21.0';
 const REPEAT_DAYS = 45;
@@ -47,7 +47,7 @@ async function rootCategories() {
 const ELIGIBLE = `p.active AND p.parent_id IS NULL AND p.stock > 0 AND p.price > 0 AND p.image_id IS NOT NULL AND NOT coalesce(p.noindex,false)`;
 
 async function pickProduct(weekday: number, { exclude = [] }: Body = {}) {
-  const rows = await db.q(`SELECT p.id, p.name, p.slug, p.price, p.old_price, p.stock, p.image_id, p.category_id, p.short_description, p.description,
+  const rows = await db.q<{ id: number; name: string; slug: string; price: number; old_price: number | null; stock: number; image_id: number | null; category_id: number | null; short_description: string; description: string; brand: string; sold: number; featured: boolean; last_posted: Date | null }>(`SELECT p.id, p.name, p.slug, p.price, p.old_price, p.stock, p.image_id, p.category_id, p.short_description, p.description,
       p.brand, coalesce(p.sold_count,0)::int AS sold, coalesce(p.featured,false) AS featured,
       (SELECT max(sp.created_at) FROM social_posts sp WHERE sp.product_id=p.id AND sp.ok) AS last_posted
     FROM products p WHERE ${ELIGIBLE}`);
@@ -85,7 +85,7 @@ const OPENERS = [
   (p?: Loose) => `🛒 আজকের পছন্দ: ${p.name}`,
   (p?: Loose) => `📦 স্টকে আছে — ${p.name}`,
 ];
-function hashtags(p: Loose, settings: Settings) {
+function hashtags(p: { category: string; brand: string; }, settings: Settings) {
   const tag = (t: string) => '#' + String(t || '').replace(/[^\p{L}\p{M}\p{N}]+/gu, '');
   const list = [tag(settings.store_name || 'সবমিলবে'), '#shobmilbe', p.category ? tag(p.category) : '', p.brand && !/^(made\s*in|china|chinese|generic|no\s*brand|unbranded|চায়না|চাইনিজ)/i.test(String(p.brand).trim()) ? tag(p.brand) : '', '#OnlineShopBD', '#CashOnDelivery'];
   return [...new Set(list.filter((t) => t.length > 2))].slice(0, 6).join(' ');
@@ -187,7 +187,7 @@ async function connect({ token, appId, appSecret, pageId }: Body) {
   return { pageId: page.id, pageName: page.name, pageToken: page.access_token, ig, others: page.others || [], longLived };
 }
 
-async function postFacebook(p: Loose, settings: Settings) {
+async function postFacebook(p: { image_id: unknown; }, settings: Settings) {
   const r = await graph(`${settings.autopost_page_id}/photos`, {
     method: 'POST', token: settings.autopost_page_token,
     params: { url: await imageUrl(p, settings), caption: caption(p, settings, 'facebook'), published: 'true' },
@@ -195,7 +195,7 @@ async function postFacebook(p: Loose, settings: Settings) {
   return r.post_id || r.id;
 }
 
-async function postInstagram(p: Loose, settings: Settings) {
+async function postInstagram(p: { image_id: unknown; }, settings: Settings) {
   const token = settings.autopost_page_token;
   const box = await graph(`${settings.autopost_ig_id}/media`, { method: 'POST', token, params: { image_url: await imageUrl(p, settings), caption: caption(p, settings, 'instagram') } });
   let lastErr = null;
@@ -243,10 +243,10 @@ async function freshIndex(kind?: Loose, length?: Loose) {
 async function productFor(words?: Loose) {
   if (!words || !words.length) return null;
   const like = words.map((w: Loose) => '%' + String(w).replace(/[%_]/g, '') + '%');
-  return db.one(`SELECT p.*, coalesce(p.sold_count,0)::int AS sold FROM products p WHERE ${ELIGIBLE} AND p.name ILIKE ANY($1::text[])
+  return db.one<{ id: number; name: string; slug: string; category_id: number | null; price: number; old_price: number | null; stock: number; description: string; emoji: string; image: string | null; featured: boolean; active: boolean; created_at: Date; updated_at: Date; sku: string; short_description: string; cost_price: number; youtube_url: string; product_type: string; image_id: number | null; seo_title: string; seo_description: string; low_stock: number; weight_g: number; unit: string; brand: string; sold_count: number; seo_keywords: string; allow_duplicate: boolean; import_ref: string; brand_id: number | null; model: string; specs: unknown; is_new: boolean; damaged_stock: number; supplier_id: number | null; noindex: boolean; wish_count: number; rating_avg: number; rating_count: number; warranty: string; warranty_type: string; barcode: string; parent_id: number | null; variant_label: string; variant_count: number; variant_title: string; variant_sort: number; preorder: boolean; preorder_days: number; location: string; seo_auto_at: Date | null; src_wm: boolean; src_wm_checked: boolean; sold: number }>(`SELECT p.*, coalesce(p.sold_count,0)::int AS sold FROM products p WHERE ${ELIGIBLE} AND p.name ILIKE ANY($1::text[])
     ORDER BY coalesce(p.sold_count,0) DESC, random() LIMIT 1`, [like]).catch(() => null);
 }
-const shortName = (n?: Loose) => { const x = $seo.cleanName(n); return x.length > 70 ? x.slice(0, 70).replace(/\s+\S*$/, '') + '…' : x; };
+const shortName = (n: string) => { const x = $seo.cleanName(n); return x.length > 70 ? x.slice(0, 70).replace(/\s+\S*$/, '') + '…' : x; };
 const productLink = (p: db.pg.DbRow, settings: Settings, campaign: string) => `${siteBase(settings)}/p/${encodeURIComponent(p.slug)}?utm_source=facebook&utm_medium=social&utm_campaign=${campaign}`;
 const BN_ABC = ['ক', 'খ', 'গ'];
 
@@ -354,7 +354,7 @@ function engagementSlot(settings: Settings, hour: number, day: string) {
 async function postOne(settings: Settings, { slot, productId }: Body = {}) {
   const now = dhakaNow();
   const p = productId
-    ? await db.one(`SELECT p.*, coalesce(p.sold_count,0)::int AS sold FROM products p WHERE p.id=$1 AND ${ELIGIBLE}`, [productId])
+    ? await db.one<{ id: number; name: string; slug: string; category_id: number | null; price: number; old_price: number | null; stock: number; description: string; emoji: string; image: string | null; featured: boolean; active: boolean; created_at: Date; updated_at: Date; sku: string; short_description: string; cost_price: number; youtube_url: string; product_type: string; image_id: number | null; seo_title: string; seo_description: string; low_stock: number; weight_g: number; unit: string; brand: string; sold_count: number; seo_keywords: string; allow_duplicate: boolean; import_ref: string; brand_id: number | null; model: string; specs: unknown; is_new: boolean; damaged_stock: number; supplier_id: number | null; noindex: boolean; wish_count: number; rating_avg: number; rating_count: number; warranty: string; warranty_type: string; barcode: string; parent_id: number | null; variant_label: string; variant_count: number; variant_title: string; variant_sort: number; preorder: boolean; preorder_days: number; location: string; seo_auto_at: Date | null; src_wm: boolean; src_wm_checked: boolean; sold: number }>(`SELECT p.*, coalesce(p.sold_count,0)::int AS sold FROM products p WHERE p.id=$1 AND ${ELIGIBLE}`, [productId])
     : await pickProduct(now.weekday);
   if (!p) return { error: 'পোস্ট করার মতো পণ্য পাওয়া যায়নি (স্টকে আছে, ছবি আছে, দোকানে চালু — এমন পণ্য লাগবে)।' };
   if (!p.category && p.category_id) { const { rootOf } = await rootCategories(); const r = rootOf(p.category_id); p.category = r ? r.name : ''; }

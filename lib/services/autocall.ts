@@ -5,7 +5,7 @@
 //   • the company calls the customer and reads the message (Bangla text-to-speech or a recorded voice),
 //   • when the customer presses a key, the company calls back /webhook/autocall/<secret> with the result,
 //   • the order is confirmed / put on hold / cancelled (as the owner chose) and the owner is notified.
-import type { AutocallsRow } from '../data/rows';
+import type { AutocallsRow, OrderItemsRow } from '../data/rows';
 import { emailHtml, PlainEmail } from '../emails';
 import * as crypto from 'node:crypto';
 import * as db from '../db';
@@ -40,7 +40,7 @@ const MESSAGES = [
 ];
 
 function on(s: Settings) { return s.autocall_on === '1' && !!s.autocall_url; }
-function secret(s?: Loose) { return String(s.autocall_token || ''); }
+function secret(s: Settings) { return String(s.autocall_token || ''); }
 async function ensureSecret(s: Settings) {
   if (secret(s)) return secret(s);
   const t = crypto.randomBytes(18).toString('base64url');
@@ -49,10 +49,10 @@ async function ensureSecret(s: Settings) {
 }
 function callbackUrl(site: string, token: string) { return `${String(site || '').replace(/\/+$/, '')}/webhook/autocall/${token}`; }
 const localPhone = (p: string) => { const d = String(p || '').replace(/\D/g, ''); return d.startsWith('880') ? '0' + d.slice(3) : d; };
-const intlPhone = (p?: Loose) => { const l = localPhone(p); return l.startsWith('0') ? '880' + l.slice(1) : l; };
+const intlPhone = (p: string) => { const l = localPhone(p); return l.startsWith('0') ? '880' + l.slice(1) : l; };
 const words = (n?: Loose) => String(Math.round(Number(n || 0)));
 
-function fill(tpl?: Loose, vars?: Loose, { json = false }: Body = {}) {
+function fill(tpl: string | undefined, vars: Record<string, string>, { json = false }: Body = {}) {
   return String(tpl || '').replace(/\{\{\s*(\w+)\s*\}\}/g, (_, k) => {
     const v = vars[k] == null ? '' : String(vars[k]);
     return json ? JSON.stringify(v).slice(1, -1) : v;
@@ -105,7 +105,7 @@ async function afterOrder(s: Settings, order?: Loose, site?: Loose) {
 // Accepts JSON or form data. Looks for the order (code / reference / call id / phone) and what was pressed.
 function pick(b: Body, keys: string[]) {
   for (const k of keys) {
-    const v = k.split('.').reduce((o: Loose, p: string | number) => (o && typeof o === 'object' ? o[p] : undefined), b);
+    const v = k.split('.').reduce((o, p: string | number) => (o && typeof o === 'object' ? o[p] : undefined), b);
     if (v !== undefined && v !== null && String(v) !== '') return String(v);
   }
   return '';

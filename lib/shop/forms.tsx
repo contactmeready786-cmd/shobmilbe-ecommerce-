@@ -25,7 +25,7 @@ export const RETURN_PAGE = /^\/order\/([A-Za-z0-9]+)\/return$/;
 export const safeNext = (n: string | null) => (/^\/(?!\/)[A-Za-z0-9/_?=&.%-]{0,200}$/.test(String(n || '')) && !String(n).startsWith('/account') ? String(n) : '');
 
 // The browser's "my orders" list (order page shows the full address / reviews / returns for these).
-export function ordersCookie(req: Pick<ShopRequest, 'headers'>, settings: Settings, codes?: Loose) {
+export function ordersCookie(req: Pick<ShopRequest, 'headers'>, settings: Settings, codes: string[]) {
   const old = (() => { const v = unsign(parseCookies(req.headers.cookie as string).sm_orders, settings.session_secret); return v ? v.split('.').filter(Boolean) : []; })();
   const all = [...new Set([...codes, ...old])].slice(0, 15);
   const secure = String(req.headers['x-forwarded-proto'] || '').includes('https') ? '; Secure' : '';

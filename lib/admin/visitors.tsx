@@ -42,7 +42,7 @@ const NET: Record<string, Loose> = {
   vpn: ['🛡️', 'VPN / প্রক্সি', 'IP বিদেশের, কিন্তু ফোন/কম্পিউটারের ঘড়ি বাংলাদেশের সময়ে — সম্ভবত বাংলাদেশ থেকেই VPN বা প্রক্সি দিয়ে এসেছে', 'pill-amber'],
   abroad: ['🌍', 'বিদেশ থেকে', 'IP আর ঘড়ি দুটোই বিদেশের — দেশের বাইরে থেকে এসেছে', 'pill-blue'],
 };
-function netBadge(row?: Loose) {
+function netBadge(row: db.pg.DbRow) {
   const n = NET[row.net];
   return n ? <>{' '}<span className={`pill ${attrValue(n[3])}`} title={attrValue(n[2])}><Val v={n[0]} />{' '}<Val v={n[1]} /></span></> : '';
 }
@@ -220,7 +220,7 @@ async function countriesPage(ctx: AdminCtx) {
   const cfg = G.config(s);
   const allow = new Set(G.allowedList(s));
   const [visits, blocked, live] = await Promise.all([
-    db.q(`SELECT country, count(*)::int AS n FROM visit_sessions WHERE started_at > now() - interval '30 days' AND country <> '' GROUP BY country`).catch(() => []),
+    db.q<{ country: string; n: number }>(`SELECT country, count(*)::int AS n FROM visit_sessions WHERE started_at > now() - interval '30 days' AND country <> '' GROUP BY country`).catch(() => []),
     db.q<{ country: string; why: string; n: number }>(`SELECT country, why, sum(n)::int AS n FROM geo_blocks WHERE day > (now() AT TIME ZONE 'Asia/Dhaka')::date - 7 GROUP BY country, why ORDER BY 3 DESC`).catch(() => []),
     V.liveSessions(),
   ]);

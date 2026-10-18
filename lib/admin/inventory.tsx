@@ -139,7 +139,7 @@ async function purchasesPage(ctx: AdminCtx) {
   const seeCost = ctx.can('see_cost');
   const [rows, month, suppliers, restock] = await Promise.all([
     finance.listPurchases({}),
-    db.one(`SELECT count(*)::int AS n, coalesce(sum(total),0)::numeric(14,2) AS total,
+    db.one<{ n: number; total: number; units: number; waiting: number }>(`SELECT count(*)::int AS n, coalesce(sum(total),0)::numeric(14,2) AS total,
         coalesce((SELECT sum(i.qty) FROM purchase_items i JOIN purchases p2 ON p2.id=i.purchase_id
           WHERE p2.status<>'cancelled' AND date_trunc('month', p2.purchase_date) = date_trunc('month', (now() AT TIME ZONE 'Asia/Dhaka')::date)),0)::int AS units,
         (SELECT count(*) FROM purchases WHERE status='ordered')::int AS waiting

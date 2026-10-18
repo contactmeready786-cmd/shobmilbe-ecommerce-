@@ -14,7 +14,7 @@ const P = ['212222', '222122', '222221', '121223', '121322', '131222', '122213',
 const START_B = 104; const START_C = 105; const TO_C = 99; const TO_B = 100; const STOP = 106;
 
 // Only printable ASCII is allowed in a barcode (what a scanner can type back)
-function clean(text?: Loose) { return String(text || '').replace(/[^\x20-\x7e]/g, '').slice(0, 48); }
+function clean(text: string) { return String(text || '').replace(/[^\x20-\x7e]/g, '').slice(0, 48); }
 
 // text → list of symbol values (with start, checksum and stop)
 function values(text?: Loose) {
@@ -46,7 +46,7 @@ function values(text?: Loose) {
   return out;
 }
 // list of module widths, alternating bar, space, bar …
-function widths(text?: Loose) { return values(text).map((v) => P[v]).join('').split('').map(Number); }
+function widths(text: string) { return values(text).map((v) => P[v]).join('').split('').map(Number); }
 
 function esc(s: string) { return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' } as Record<string, string>)[c]); }
 

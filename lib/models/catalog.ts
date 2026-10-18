@@ -352,7 +352,7 @@ async function bundleItems(bundleId: number, pub = false): Promise<DbRow[]> {
 // even if that product is deleted later, and numbers typed by hand are skipped.
 const SKU_LOCK = 726301;
 async function takeSku(t: Tx): Promise<string> {
-  await t.query('SELECT pg_advisory_xact_lock($1)', [SKU_LOCK]);
+  await t.query<{ pg_advisory_xact_lock: string | null }>('SELECT pg_advisory_xact_lock($1)', [SKU_LOCK]);
   const r = (await t.query<{ n: number }>(`SELECT greatest(
       coalesce((SELECT value::bigint FROM settings WHERE key='sku_counter' AND value ~ '^[0-9]{1,15}$'), 0),
       coalesce((SELECT max(sku::bigint) FROM products WHERE sku ~ '^[0-9]{1,15}$'), 0)) + 1 AS n`)).rows[0];
@@ -541,7 +541,7 @@ async function brandIdFor(t: Tx, name: unknown): Promise<number | null> {
   const found = (await t.query<Pick<BrandsRow, 'id'>>('SELECT id FROM brands WHERE lower(name)=lower($1)', [n])).rows[0];
   if (found) return found.id;
   let slug = slugify(n) === 'item' ? 'brand' : slugify(n);
-  for (let i = 2; (await t.query('SELECT 1 FROM brands WHERE slug=$1', [slug])).rows.length; i++) slug = `${slugify(n)}-${i}`;
+  for (let i = 2; (await t.query<{ "?column?": number | null }>('SELECT 1 FROM brands WHERE slug=$1', [slug])).rows.length; i++) slug = `${slugify(n)}-${i}`;
   const r = (await t.query<Pick<BrandsRow, 'id'>>('INSERT INTO brands(name, slug) VALUES($1,$2) ON CONFLICT DO NOTHING RETURNING id', [n, slug])).rows[0];
   return r ? r.id : (await t.query<Pick<BrandsRow, 'id'>>('SELECT id FROM brands WHERE lower(name)=lower($1)', [n])).rows[0].id;
 }
@@ -712,7 +712,7 @@ async function saveProduct(data: Body, staffId?: Id): Promise<number> {
     // a variant's picture that was taken off the main product is cleared; then names / price follow the main product
     await t.query(`UPDATE products SET image_id=NULL WHERE parent_id=$1 AND image_id IS NOT NULL
       AND NOT EXISTS (SELECT 1 FROM media m WHERE m.id=products.image_id AND m.owner_type='product' AND m.owner_id=$1)`, [pid]);
-    if ((await t.query('SELECT 1 FROM products WHERE parent_id=$1 LIMIT 1', [pid])).rows.length) await syncVariants(t, pid);
+    if ((await t.query<{ "?column?": number | null }>('SELECT 1 FROM products WHERE parent_id=$1 LIMIT 1', [pid])).rows.length) await syncVariants(t, pid);
     await t.query('DELETE FROM bundle_items WHERE bundle_id=$1', [pid]);
     if (type === 'bundle') {
       for (const part of parts) {
@@ -828,7 +828,7 @@ async function deleteAllProducts(): Promise<number> {
     await t.query('DELETE FROM stock_movements');
     await t.query('DELETE FROM bundle_items');
     await t.query('DELETE FROM products');
-    await t.query('SELECT pg_advisory_xact_lock($1)', [SKU_LOCK]);
+    await t.query<{ pg_advisory_xact_lock: string | null }>('SELECT pg_advisory_xact_lock($1)', [SKU_LOCK]);
     await t.query(`INSERT INTO settings(key, value) VALUES('sku_counter', '0') ON CONFLICT (key) DO UPDATE SET value='0'`);
     return n;
   });

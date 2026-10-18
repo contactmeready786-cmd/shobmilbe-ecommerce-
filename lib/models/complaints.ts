@@ -37,7 +37,7 @@ const hoursOf = (s: Settings) => Math.max(1, Math.min(240, int(s.complaint_hours
 async function newCode() {
   for (let i = 0; i < 8; i++) {
     const c = 'C' + String(crypto.randomInt(100000, 1000000));
-    if (!(await db.one('SELECT 1 FROM complaints WHERE code=$1', [c]))) return c;
+    if (!(await db.one<{ "?column?": number | null }>('SELECT 1 FROM complaints WHERE code=$1', [c]))) return c;
   }
   return 'C' + Date.now().toString().slice(-8);
 }
@@ -97,7 +97,7 @@ async function create({ name, phone, email, orderCode, topic, message, photos, i
   const em = str(email, 120).trim();
   if (em && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) throw new ComplaintError('ইমেইল ঠিক নেই (না দিলেও চলবে)।');
   let oc = str(orderCode, 20).toUpperCase().replace(/[^A-Z0-9]/g, '');
-  if (oc && !(await db.one('SELECT 1 FROM orders WHERE code=$1', [oc]))) oc = ''; // a wrong order number is just left out
+  if (oc && !(await db.one<{ "?column?": number | null }>('SELECT 1 FROM orders WHERE code=$1', [oc]))) oc = ''; // a wrong order number is just left out
   // 🛡️ a warranty claim must name a product of a delivered order whose warranty still runs
   let item = null;
   if (topic === 'warranty') {
@@ -147,7 +147,7 @@ async function list(f: Body = {}, { limit = 50, offset = 0 }: Body = {}) {
     ORDER BY (c.status IN ('open','working')) DESC, CASE WHEN c.status IN ('open','working') THEN c.due_at END ASC, c.created_at DESC
     LIMIT ${int(limit)} OFFSET ${int(offset)}`, params);
 }
-async function count(f: Body = {}) { const params: Loose[] = []; return (await db.one(`SELECT count(*)::int AS n FROM complaints c ${where(f, params)}`, params))!.n; }
+async function count(f: Body = {}) { const params: Loose[] = []; return (await db.one<{ n: number }>(`SELECT count(*)::int AS n FROM complaints c ${where(f, params)}`, params))!.n; }
 async function counts() {
   return db.one<{ active: number; open: number; working: number; late: number; soon: number; solved: number; closed: number; total: number; ontime30: number; done30: number }>(`SELECT count(*) FILTER (WHERE status IN ('open','working'))::int AS active,
       count(*) FILTER (WHERE status='open')::int AS open, count(*) FILTER (WHERE status='working')::int AS working,

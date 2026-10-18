@@ -56,7 +56,7 @@ async function ping(): Promise<number | null> {
   const times: number[] = [];
   for (let i = 0; i < 3; i++) {
     const t = performance.now();
-    try { await db.q('SELECT 1'); } catch { return null; }
+    try { await db.q<{ "?column?": number | null }>('SELECT 1'); } catch { return null; }
     times.push(performance.now() - t);
   }
   times.sort((a, b) => a - b);

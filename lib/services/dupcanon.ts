@@ -18,7 +18,7 @@ const TTL = 5 * 60 * 1000;
 let cache: Loose = null;
 let cachedAt = 0;
 
-function keyOf(name?: Loose) {
+function keyOf(name: string) {
   const ws = words(seo.cleanName(name));
   return ws.length ? [...ws].sort().join(' ') : '';
 }

@@ -117,7 +117,7 @@ function brandOf(model: string) {
   return hit ? hit[1] : '';
 }
 // "Mozilla/5.0 (Linux; Android 13; SM-A536E Build/TP1A…)" → "SM-A536E"; the reduced "Android 10; K" → ''
-function androidModel(ua?: Loose) {
+function androidModel(ua: string) {
   const m = String(ua).match(/Android[\s\d.]*;\s*(?:[a-z]{2}[-_][a-z]{2};\s*)?([^;)]+?)(?:\s+Build\/|\s*\)|;)/i);
   const model = m ? m[1].trim() : '';
   return !model || /^K$|^wv$|^Mobile$|^Linux$|^U$/i.test(model) ? '' : model.slice(0, 60);
@@ -127,7 +127,7 @@ const IPHONES: Record<string, Loose> = {
   '414x896@2': 'iPhone XR / 11', '414x896@3': 'iPhone XS Max / 11 Pro Max', '390x844@3': 'iPhone 12/13/14', '428x926@3': 'iPhone 12/13 Pro Max / 14 Plus',
   '393x852@3': 'iPhone 14 Pro / 15 / 16', '430x932@3': 'iPhone 15 Plus / 15 Pro Max / 16 Plus', '402x874@3': 'iPhone 16 Pro / 17', '440x956@3': 'iPhone 16 Pro Max / 17 Pro Max',
 };
-function iphoneModel(screen?: Loose, dpr?: Loose) {
+function iphoneModel(screen: string, dpr?: Loose) {
   const m = String(screen || '').match(/^(\d+)x(\d+)$/);
   if (!m) return '';
   const [a, b] = [Number(m[1]), Number(m[2])].sort((x, y) => x - y);

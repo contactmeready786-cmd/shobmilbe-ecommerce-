@@ -151,7 +151,7 @@ function fill(tpl: unknown, o: SmsOrder, settings: Settings, site = ''): string 
 async function orderEvent(settings: Settings, event: string, order: (SmsOrder & { id: number }) | null | undefined, site = ''): Promise<SmsResult | null> {
   if (!ORDER_EVENTS[event] || settings[`sms_on_${event}`] !== '1' || !ready(settings).ok || !order) return null;
   // the same order never gets the same message twice (e.g. status set to "confirmed" again)
-  const dup = await db.one('SELECT 1 FROM sms_log WHERE order_id=$1 AND kind=$2 AND ok', [order.id, 'order_' + event]).catch(() => null);
+  const dup = await db.one<{ "?column?": number | null }>('SELECT 1 FROM sms_log WHERE order_id=$1 AND kind=$2 AND ok', [order.id, 'order_' + event]).catch(() => null);
   if (dup) return null;
   return send(settings, order.phone, fill(settings[`sms_tpl_${event}`], order, settings, site), { kind: 'order_' + event, orderId: order.id });
 }

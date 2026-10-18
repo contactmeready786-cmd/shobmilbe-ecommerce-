@@ -119,7 +119,7 @@ function parseAuthData(ad?: Loose): Loose {
   return out;
 }
 
-function checkClientData(clientDataJSON: Buffer<ArrayBuffer>, type: string, challenge: Loose, req: ShopRequest) {
+function checkClientData(clientDataJSON: Buffer<ArrayBuffer>, type: string, challenge: string | undefined, req: ShopRequest) {
   let cd;
   try { cd = JSON.parse(Buffer.from(clientDataJSON).toString('utf8')); } catch (_) { throw new Error('ক্লায়েন্ট ডেটা পড়া যায়নি'); }
   if (cd.type !== type) throw new Error('ভুল ধরনের উত্তর');

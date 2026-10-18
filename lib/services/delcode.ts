@@ -37,7 +37,7 @@ function masked(e = CODE_EMAIL) {
 }
 
 function hash(code: string, salt: string) { return salt + '$' + crypto.createHash('sha256').update(salt + ':' + code).digest('hex'); }
-function same(code: string, stored?: Loose) {
+function same(code: string, stored: string) {
   const [salt] = String(stored).split('$');
   const a = Buffer.from(hash(String(code), salt));
   const b = Buffer.from(String(stored));

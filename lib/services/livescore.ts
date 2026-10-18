@@ -17,7 +17,7 @@ function dhakaDate() {
 }
 // A match still marked "live" this long after it started is old data, not a running match (a Test lasts 5 days).
 const STALE_LIVE_MS = 6 * 864e5;
-const FOOTBALL_URL = (league?: Loose) => `https://site.api.espn.com/apis/site/v2/sports/soccer/${league}/scoreboard`;
+const FOOTBALL_URL = (league: string | number) => `https://site.api.espn.com/apis/site/v2/sports/soccer/${league}/scoreboard`;
 
 // Football competitions the admin can switch on. [ESPN code, Bangla name]
 const FOOTBALL_LEAGUES = [
@@ -191,7 +191,7 @@ async function loadLeague(code: string | number) {
     };
   }).filter((m: Loose) => m.teams.length === 2);
 }
-async function loadFootball(leagues?: Loose) {
+async function loadFootball(leagues: string[]) {
   // each league is cached on its own, so the admin overview and the store share the same requests
   const lists = await Promise.all(leagues.map((l: string) => cached('fl:' + l, () => loadLeague(l)).catch(() => [])));
   const all = lists.flat();

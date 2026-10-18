@@ -19,7 +19,7 @@ const MAX_LEN = 3000;
 const BRAND = [['সবমিলবে', 'Shobmilbe']];
 
 // same text → same key, whatever the spacing
-function norm(s?: Loose) { return String(s || '').replace(/\s+/g, ' ').trim(); }
+function norm(s?: string | undefined) { return String(s || '').replace(/\s+/g, ' ').trim(); }
 function hash(s?: Loose) { return crypto.createHash('sha256').update(norm(s)).digest('hex').slice(0, 32); }
 function hasBangla(s: string) { return BN.test(s); }
 const latinDigits = (s: string) => String(s).replace(/[০-৯]/g, (d) => String(BN_DIGITS.indexOf(d)));

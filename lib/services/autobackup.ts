@@ -49,7 +49,7 @@ async function run({ force = false }: Body = {}) {
     await db.q(`INSERT INTO backups(kind, ok, size_bytes, tables, rows_count, with_images, encrypted, note, ik_id, ik_url)
       VALUES('auto', true, $1, $2, $3, true, true, 'ImageKit', $4, $5)`, [r.buffer.length, r.tables, r.rows, up.fileId, up.url]);
     // keep the newest KEEP automatic backups
-    const old = await db.q(`SELECT id, ik_id FROM backups WHERE kind='auto' AND ik_id IS NOT NULL ORDER BY created_at DESC OFFSET ${KEEP}`);
+    const old = await db.q<Pick<BackupsRow, 'id' | 'ik_id'>>(`SELECT id, ik_id FROM backups WHERE kind='auto' AND ik_id IS NOT NULL ORDER BY created_at DESC OFFSET ${KEEP}`);
     for (const o of old) {
       try { if (await imagekit.remove(o.ik_id)) await db.q('UPDATE backups SET ik_id=NULL, ik_url=NULL, note=$1 WHERE id=$2', ['পুরনো, মুছে ফেলা হয়েছে', o.id]); } catch (_) { /* next time */ }
     }
