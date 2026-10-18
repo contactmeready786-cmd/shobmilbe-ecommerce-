@@ -5,7 +5,7 @@
 //  - campaigns: subject + text + products + a button, to everyone / buyers / not-yet-buyers; sent in parts within the
 //    day's allowance by the hourly job, with sent / opened / clicked
 //  - the list: added from the footer box, the checkout tick, or pasted by the owner; one-click leave in every mail
-import type { EmailLogRow, EmailSubsRow } from '../data/rows';
+import type { EmailLogRow, EmailSubsRow, ProductsRow, EmailCampaignsRow } from '../data/rows';
 import { Val, attrValue, jsxList } from '../react/html';
 import { bn, int, str, fmtDate } from '../util';
 import * as db from '../db';
@@ -27,14 +27,14 @@ async function resolveProducts(text?: string) {
   for (const p of parts) {
     const slug = (p.match(/\/p\/([^/?#\s]+)/) || [])[1];
     const row = slug
-      ? await db.one('SELECT id FROM products WHERE slug=$1 AND active', [decodeURIComponent(slug)])
-      : await db.one('SELECT id FROM products WHERE active AND (sku=$1 OR ($1 ~ \'^[0-9]{1,9}$\' AND id=$1::int)) ORDER BY (sku=$1) DESC LIMIT 1', [p.slice(0, 60)]);
+      ? await db.one<Pick<ProductsRow, 'id'>>('SELECT id FROM products WHERE slug=$1 AND active', [decodeURIComponent(slug)])
+      : await db.one<Pick<ProductsRow, 'id'>>('SELECT id FROM products WHERE active AND (sku=$1 OR ($1 ~ \'^[0-9]{1,9}$\' AND id=$1::int)) ORDER BY (sku=$1) DESC LIMIT 1', [p.slice(0, 60)]);
     if (row && !ids.includes(row.id)) ids.push(row.id);
   }
   return ids;
 }
 async function newest(n = 6) {
-  return (await db.q(`SELECT p.id FROM products p WHERE p.active AND p.parent_id IS NULL AND p.stock > 0 AND p.price > 0 AND p.image_id IS NOT NULL
+  return (await db.q<Pick<ProductsRow, 'id'>>(`SELECT p.id FROM products p WHERE p.active AND p.parent_id IS NULL AND p.stock > 0 AND p.price > 0 AND p.image_id IS NOT NULL
     ORDER BY p.created_at DESC LIMIT $1`, [n])).map((r) => r.id);
 }
 
@@ -45,7 +45,7 @@ async function page(ctx: AdminCtx, note: Loose = null) {
   const q = str(ctx.query.get('q'), 80);
   const [st, today, camps, subs, log] = await Promise.all([
     M.stats(), M.sentToday(),
-    db.q(`SELECT c.*, st.name AS staff_name,
+    db.q<{ id: number; subject: string; intro: string; product_ids: number[]; button_text: string; button_url: string; audience: string; kind: string; status: string; total: number; sent: number; failed: number; staff_id: number; created_at: Date; updated_at: Date; finished_at: Date; staff_name: string; opened: number; clicked: number }>(`SELECT c.*, st.name AS staff_name,
         (SELECT count(*) FILTER (WHERE opened_at IS NOT NULL)::int FROM email_log l WHERE l.campaign_id=c.id) AS opened,
         (SELECT count(*) FILTER (WHERE clicked_at IS NOT NULL)::int FROM email_log l WHERE l.campaign_id=c.id) AS clicked
       FROM email_campaigns c LEFT JOIN staff st ON st.id=c.staff_id ORDER BY c.id DESC LIMIT 12`),
@@ -119,9 +119,9 @@ async function post(ctx: AdminCtx) {
     await ctx.log('settings', 'marketing', null, `ইমেইল ক্যাম্পেইন: "${subject.slice(0, 80)}" — ${n} জন`);
     // the first part goes right now (a minute at most); the rest goes with the hourly job, within the day's allowance
     const sent = await M.runCampaigns(s, Math.min(40, await M.leftToday(s))).catch(() => 0);
-    const after = await db.one('SELECT sent, failed FROM email_campaigns WHERE id=$1', [camp!.id]);
+    const after = await db.one<Pick<EmailCampaignsRow, 'sent' | 'failed'>>('SELECT sent, failed FROM email_campaigns WHERE id=$1', [camp!.id]);
     if (after!.failed && !after!.sent) {
-      const why = await db.one('SELECT detail FROM email_log WHERE campaign_id=$1 AND NOT ok ORDER BY id DESC LIMIT 1', [camp!.id]);
+      const why = await db.one<Pick<EmailLogRow, 'detail'>>('SELECT detail FROM email_log WHERE campaign_id=$1 AND NOT ok ORDER BY id DESC LIMIT 1', [camp!.id]);
       return ctx.fail(BASE, `❌ একটাও যায়নি: ${why ? why.detail : ''}`);
     }
     return ctx.back(`${BASE}?info=${encodeURIComponent(`✅ ক্যাম্পেইন শুরু হয়েছে — এখনই ${bn(after!.sent)} জনকে গেছে${sent < n ? `, বাকি ${bn(Math.max(0, n - after!.sent - after!.failed))} জন দিনের সীমার মধ্যে নিজে থেকে পাবেন` : ''}।`)}`);
@@ -166,7 +166,7 @@ async function preview(ctx: AdminCtx) {
 }
 
 async function subsCsv(ctx: AdminCtx) {
-  const rows = await db.q('SELECT email, name, phone, source, on_list, created_at, unsub_at FROM email_subs ORDER BY id');
+  const rows = await db.q<Pick<EmailSubsRow, 'email' | 'name' | 'phone' | 'source' | 'on_list' | 'created_at' | 'unsub_at'>>('SELECT email, name, phone, source, on_list, created_at, unsub_at FROM email_subs ORDER BY id');
   const esc = (v?: Loose) => `"${String(v ?? '').replace(/"/g, '""')}"`;
   const csv = 'email,name,phone,source,subscribed,joined,left\n' + rows.map((r) => [r.email, r.name, r.phone, r.source, r.on_list ? 'yes' : 'no',
     r.created_at ? new Date(r.created_at).toISOString().slice(0, 10) : '', r.unsub_at ? new Date(r.unsub_at).toISOString().slice(0, 10) : ''].map(esc).join(',')).join('\n');

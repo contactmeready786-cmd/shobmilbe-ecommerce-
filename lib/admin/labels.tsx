@@ -8,6 +8,7 @@ import { money, int, str, bn } from '../util';
 import * as db from '../db';
 import * as BC from '../services/barcode';
 import type { AdminCtx, Loose } from '../types';
+import type { ProductsRow } from '../data/rows';
 const SIZES: Record<string, Loose> = {
   '38x25': { w: 38, h: 25, label: '৩৮×২৫ মিমি (ছোট রোল স্টিকার)' },
   '50x30': { w: 50, h: 30, label: '৫০×৩০ মিমি (রোল স্টিকার, প্রস্তাবিত)' },
@@ -25,7 +26,7 @@ async function labels(ctx: AdminCtx) {
   const showName = ctx.query.get('name') !== '0';
   const showLoc = ctx.query.get('loc') !== '0'; // 📍 box name on the sticker (only for stickers on your own bags)
   if (ctx.query.get('size') && ctx.query.get('size') !== ctx.settings.label_size) await db.setSetting('label_size', size).catch(() => {});
-  const rows = await db.q(`SELECT id, name, sku, barcode, price, stock, unit, location FROM products WHERE id = ANY($1::int[]) ORDER BY array_position($1::int[], id)`, [ids]);
+  const rows = await db.q<Pick<ProductsRow, 'id' | 'name' | 'sku' | 'barcode' | 'price' | 'stock' | 'unit' | 'location'>>(`SELECT id, name, sku, barcode, price, stock, unit, location FROM products WHERE id = ANY($1::int[]) ORDER BY array_position($1::int[], id)`, [ids]);
   const z = SIZES[size];
   const stickers: Loose[] = [];
   for (const p of rows) {

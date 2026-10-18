@@ -10,7 +10,7 @@
 // Never: a comment the page wrote itself, a quiz answer ("ক"), a comment older than 2 days, the same comment twice,
 // more than 12 replies in one go or 150 in a day.
 // Needs two more permissions on the token: pages_read_user_content (read comments), pages_manage_engagement (reply).
-import type { ProductsRow } from '../data/rows';
+import type { ProductsRow, SocialPostsRow, KitsRow, FbCommentsRow } from '../data/rows';
 import * as db from '../db';
 import { bn, str } from '../util';
 import * as autopost from './autopost';
@@ -36,7 +36,7 @@ async function productInText(text: string) {
   const codes = [...new Set(words.map((w) => w.replace(/-+$/, '')).filter((w) => (w.length >= 3 && /[a-z]/.test(w)) || /^\d{4,}$/.test(w)))].slice(0, 5);
   for (const c of codes) {
     const flat = c.replace(/-/g, '');
-    const r = await db.one(`SELECT p.* FROM products p WHERE p.active AND p.parent_id IS NULL AND p.price > 0
+    const r = await db.one<ProductsRow>(`SELECT p.* FROM products p WHERE p.active AND p.parent_id IS NULL AND p.price > 0
       AND (lower(p.model) = $1 OR replace(lower(p.name),'-','') LIKE $2 OR replace(lower(p.model),'-','') = $3)
       ORDER BY (p.stock > 0) DESC, coalesce(p.sold_count,0) DESC LIMIT 1`, [c, `%${flat}%`, flat]).catch(() => null);
     if (r) return r;
@@ -47,7 +47,7 @@ async function productInText(text: string) {
     'kivabe', 'kinbo', 'dibo', 'nibo', 'chai', 'lagbe', 'hobe', 'jabe', 'pawa', 'ta', 'te', 'koi', 'kothay', 'cash', 'on', 'dam', 'new', 'sir']);
   const names = [...new Set((String(text || '').toLowerCase().match(/[a-z]{3,}/g) || []).filter((w) => !STOP.has(w)))].slice(0, 4);
   if (names.length && names.some((w) => w.length >= 4)) {
-    return db.one(`SELECT p.* FROM products p WHERE p.active AND p.parent_id IS NULL AND p.price > 0 AND p.name ILIKE ALL($1::text[])
+    return db.one<ProductsRow>(`SELECT p.* FROM products p WHERE p.active AND p.parent_id IS NULL AND p.price > 0 AND p.name ILIKE ALL($1::text[])
       ORDER BY (p.stock > 0) DESC, coalesce(p.sold_count,0) DESC, length(p.name) LIMIT 1`, [names.map((w) => `%${w}%`)]).catch(() => null);
   }
   return null;
@@ -55,10 +55,10 @@ async function productInText(text: string) {
 
 // What the post was about: the product (or kit) the shop posted there
 async function postSubject(postId?: Id) {
-  const sp = await db.one(`SELECT product_id, kind, ref FROM social_posts WHERE channel='facebook' AND ok AND post_id=$1 ORDER BY created_at DESC LIMIT 1`, [postId]).catch(() => null);
+  const sp = await db.one<Pick<SocialPostsRow, 'product_id' | 'kind' | 'ref'>>(`SELECT product_id, kind, ref FROM social_posts WHERE channel='facebook' AND ok AND post_id=$1 ORDER BY created_at DESC LIMIT 1`, [postId]).catch(() => null);
   if (!sp) return {};
   if (sp.kind === 'kit' && /^\d+$/.test(sp.ref || '')) {
-    const k = await db.one('SELECT id, slug, title FROM kits WHERE id=$1 AND active', [Number(sp.ref)]).catch(() => null);
+    const k = await db.one<Pick<KitsRow, 'id' | 'slug' | 'title'>>('SELECT id, slug, title FROM kits WHERE id=$1 AND active', [Number(sp.ref)]).catch(() => null);
     if (k) return { kit: k };
   }
   if (sp.product_id && sp.kind !== 'quiz') {
@@ -104,7 +104,7 @@ async function run(settings: Settings, { force = false }: Body = {}): Promise<Lo
   if (!force && Date.now() - (Number(settings.fbreply_try) || 0) < EVERY_MS) return { skipped: true };
   await db.setMany({ fbreply_try: String(Date.now()) });
   const today = dhakaDay();
-  const doneToday = (await db.one(`SELECT count(*)::int AS n FROM fb_comments WHERE replied AND created_at > now() - interval '24 hours'`).catch(() => ({ n: 0 })))!.n;
+  const doneToday = (await db.one<{ n: number }>(`SELECT count(*)::int AS n FROM fb_comments WHERE replied AND created_at > now() - interval '24 hours'`).catch(() => ({ n: 0 })))!.n;
   let room = Math.min(PER_RUN, PER_DAY - doneToday);
   if (room <= 0) return { limit: true };
   const token = settings.autopost_page_token;
@@ -133,7 +133,7 @@ async function run(settings: Settings, { force = false }: Body = {}): Promise<Lo
     }
     const fresh = comments.filter((c: Loose) => c.id && new Date(c.created_time).getTime() > twoDays && !(c.from && String(c.from.id) === pageId));
     if (!fresh.length) continue;
-    const seen = new Set((await db.q('SELECT id FROM fb_comments WHERE id = ANY($1::text[])', [fresh.map((c: Loose) => c.id)])).map((r) => r.id));
+    const seen = new Set((await db.q<Pick<FbCommentsRow, 'id'>>('SELECT id FROM fb_comments WHERE id = ANY($1::text[])', [fresh.map((c: Loose) => c.id)])).map((r) => r.id));
     let subject = null;
     for (const c of fresh.reverse()) { // oldest question first
       if (room <= 0) break;
@@ -141,7 +141,7 @@ async function run(settings: Settings, { force = false }: Body = {}): Promise<Lo
       out.checked++;
       const text = String(c.message || '').trim();
       // claim it first: two wake-ups never answer the same comment
-      const mine = await db.one(`INSERT INTO fb_comments(id, post_id, message) VALUES($1,$2,$3) ON CONFLICT (id) DO NOTHING RETURNING id`, [c.id, post.id, str(text, 500)]);
+      const mine = await db.one<Pick<FbCommentsRow, 'id'>>(`INSERT INTO fb_comments(id, post_id, message) VALUES($1,$2,$3) ON CONFLICT (id) DO NOTHING RETURNING id`, [c.id, post.id, str(text, 500)]);
       if (!mine) continue;
       if (!text || QUIZ.test(text) || !ASK.test(text)) continue; // not a buying question: left for the owner
       if (!subject) subject = await postSubject(post.id);
@@ -166,11 +166,11 @@ async function run(settings: Settings, { force = false }: Body = {}): Promise<Lo
 }
 
 async function recent(limit = 25) {
-  return db.q(`SELECT c.*, p.name AS product_name, p.slug FROM fb_comments c LEFT JOIN products p ON p.id=c.product_id
+  return db.q<{ id: string; post_id: string; message: string; product_id: number | null; replied: boolean; reply_id: string; reply: string; error: string; created_at: Date; product_name: string | null; slug: string | null }>(`SELECT c.*, p.name AS product_name, p.slug FROM fb_comments c LEFT JOIN products p ON p.id=c.product_id
     WHERE c.replied OR c.error <> '' ORDER BY c.created_at DESC LIMIT $1`, [limit]).catch(() => []);
 }
 async function stats() {
-  return db.one(`SELECT count(*) FILTER (WHERE replied)::int AS replied, count(*) FILTER (WHERE replied AND created_at > now() - interval '7 days')::int AS week,
+  return db.one<{ replied: number; week: number; seen: number }>(`SELECT count(*) FILTER (WHERE replied)::int AS replied, count(*) FILTER (WHERE replied AND created_at > now() - interval '7 days')::int AS week,
     count(*)::int AS seen FROM fb_comments`).catch(() => ({ replied: 0, week: 0, seen: 0 }));
 }
 

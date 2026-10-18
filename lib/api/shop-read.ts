@@ -10,6 +10,7 @@ import { myOrders } from '../gate';
 import { int, str, contact } from '../util';
 import { allow, json, tooMany, type ApiCtx } from '../next/api';
 import type { Loose } from '../types';
+import type { OrderItemsRow, PushCampaignsRow } from '../data/rows';
 
 const ids = (v: string | null, max: number) => (v || '').split(',').map((x) => int(x)).filter((x) => x > 0).slice(0, max);
 // small read-only lists the shop pages ask for: generous limits, only a flood is turned away (one count for all of them)
@@ -69,10 +70,10 @@ export async function forYou(ctx: ApiCtx) {
   if (!(await readLimit(ctx))) return tooMany(ctx);
   if (ctx.settings.for_you_on === '0') return json(200, { html: '' });
   const codes = myOrders(ctx.req, ctx.settings);
-  const bought = codes.length ? (await db.q(`SELECT DISTINCT i.product_id FROM order_items i JOIN orders o ON o.id=i.order_id WHERE o.code = ANY($1::text[]) AND i.product_id IS NOT NULL`, [codes])).map((r) => r.product_id) : [];
+  const bought = codes.length ? (await db.q<Pick<OrderItemsRow, 'product_id'>>(`SELECT DISTINCT i.product_id FROM order_items i JOIN orders o ON o.id=i.order_id WHERE o.code = ANY($1::text[]) AND i.product_id IS NOT NULL`, [codes])).map((r) => r.product_id) : [];
   const seeds = [...new Set([...ids(ctx.query.get('cart'), 30), ...ids(ctx.query.get('seen'), 30), ...bought])].slice(0, 40);
   if (!seeds.length) return json(200, { html: '' });
-  const rows = await db.q(`WITH seed AS (SELECT coalesce(p.parent_id, p.id) AS id, p.category_id FROM products p WHERE p.id = ANY($1::int[])),
+  const rows = await db.q<{ id: number; score: number }>(`WITH seed AS (SELECT coalesce(p.parent_id, p.id) AS id, p.category_id FROM products p WHERE p.id = ANY($1::int[])),
       together AS (SELECT coalesce(pp.id, i2.product_id) AS id, count(DISTINCT i2.order_id)::int AS n FROM order_items i1
         JOIN order_items i2 ON i2.order_id=i1.order_id AND i2.product_id <> i1.product_id
         LEFT JOIN products v ON v.id=i2.product_id LEFT JOIN products pp ON pp.id=v.parent_id
@@ -98,11 +99,11 @@ export async function resume(ctx: ApiCtx) {
 // 🔔 the customer Android app asks every ~30 min: "any new offer notification?" (same ones the owner sends from Admin)
 export async function appOffers(ctx: ApiCtx) {
   const after = Math.max(0, int(ctx.query.get('after')) || 0);
-  const last = await db.one('SELECT COALESCE(max(id),0)::int AS id FROM push_campaigns');
+  const last = await db.one<{ id: number }>('SELECT COALESCE(max(id),0)::int AS id FROM push_campaigns');
   let items: Loose[] = [];
   if (ctx.settings.shoppush_on === '1' && after > 0) {
     // only the newest one, and only if it is fresh — never a pile of old offers
-    items = (await db.q(`SELECT id, title, body, url, image_id FROM push_campaigns WHERE id > $1 AND created_at > now() - interval '2 days' ORDER BY id DESC LIMIT 1`, [after]))
+    items = (await db.q<Pick<PushCampaignsRow, 'id' | 'title' | 'body' | 'url' | 'image_id'>>(`SELECT id, title, body, url, image_id FROM push_campaigns WHERE id > $1 AND created_at > now() - interval '2 days' ORDER BY id DESC LIMIT 1`, [after]))
       .map((c) => ({ id: c.id, title: c.title, body: c.body, url: c.url || '/', image: c.image_id ? `/media/${c.image_id}` : '' }));
   }
   return json(200, { latest: last!.id, items });
@@ -111,7 +112,7 @@ export async function appOffers(ctx: ApiCtx) {
 // 📥 Android app's ইনবক্স tab: the shop's recent offer messages + how to reach the shop
 export async function appInbox(ctx: ApiCtx) {
   const s = ctx.settings;
-  const rows = await db.q(`SELECT id, title, body, url, image_id, created_at FROM push_campaigns WHERE created_at > now() - interval '30 days' ORDER BY id DESC LIMIT 30`);
+  const rows = await db.q<Pick<PushCampaignsRow, 'id' | 'title' | 'body' | 'url' | 'image_id' | 'created_at'>>(`SELECT id, title, body, url, image_id, created_at FROM push_campaigns WHERE created_at > now() - interval '30 days' ORDER BY id DESC LIMIT 30`);
   const C = contact(s);
   return json(200, {
     shop: s.store_name || '',

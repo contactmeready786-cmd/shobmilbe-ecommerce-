@@ -8,6 +8,7 @@ import * as db from '../db';
 import * as ui from './ui';
 import * as translate from '../services/translate';
 import type { AdminCtx, Body, Loose, Settings } from '../types';
+import type { TranslationsRow } from '../data/rows';
 
 const BASE = '/admin/design/language';
 const PER = 40;
@@ -15,13 +16,13 @@ const bumpRev = () => db.setSetting('i18n_rev', String(Date.now()).slice(-9));
 
 async function stats(settings: Settings) {
   const [all, manual, texts] = await Promise.all([
-    db.one('SELECT count(*)::int AS n FROM translations'),
-    db.one("SELECT count(*)::int AS n FROM translations WHERE origin = 'manual'"),
+    db.one<{ n: number }>('SELECT count(*)::int AS n FROM translations'),
+    db.one<{ n: number }>("SELECT count(*)::int AS n FROM translations WHERE origin = 'manual'"),
     translate.siteTexts(settings).catch(() => []),
   ]);
   let have = 0;
   if (texts.length) {
-    const r = await db.one('SELECT count(*)::int AS n FROM translations WHERE hash = ANY($1::text[]) AND en <> \'\'', [texts.map(translate.hash)]);
+    const r = await db.one<{ n: number }>('SELECT count(*)::int AS n FROM translations WHERE hash = ANY($1::text[]) AND en <> \'\'', [texts.map(translate.hash)]);
     have = r ? r.n : 0;
   }
   return { rows: all ? all.n : 0, manual: manual ? manual.n : 0, site: texts.length, siteDone: Math.min(have, texts.length) };
@@ -76,7 +77,7 @@ async function edit(ctx: AdminCtx) {
   const b = await ctx.body();
   const id = int(b.id);
   const en = String(b.en || '').replace(/\s+/g, ' ').trim().slice(0, translate.MAX_LEN * 2);
-  const row = await db.one('SELECT id, src FROM translations WHERE id = $1', [id]);
+  const row = await db.one<Pick<TranslationsRow, 'id' | 'src'>>('SELECT id, src FROM translations WHERE id = $1', [id]);
   if (!row) return ctx.fail(BASE, 'লাইনটি পাওয়া যায়নি।');
   if (!en) return ctx.fail(backTo(b), 'ইংরেজি লেখা খালি রাখা যাবে না। মেশিনের অনুবাদ ফেরত চাইলে "↻ আবার" চাপুন।');
   await db.q("UPDATE translations SET en = $2, origin = 'manual', updated_at = now() WHERE id = $1", [id, en]);

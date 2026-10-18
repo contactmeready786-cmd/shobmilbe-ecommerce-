@@ -54,7 +54,7 @@ async function page(ctx: AdminCtx) {
   }
 
   // ---- the shop's real state
-  const p = await db.one(`SELECT count(*)::int AS total,
+  const p = await db.one<{ total: number; no_img: number; few_img: number; short_desc: number; no_short: number; no_kw: number; no_brand: number; no_cat: number; out_stock: number; with_video: number; on_offer: number }>(`SELECT count(*)::int AS total,
       count(*) FILTER (WHERE image_id IS NULL)::int AS no_img,
       count(*) FILTER (WHERE (SELECT count(*) FROM media m WHERE m.owner_type='product' AND m.owner_id=products.id) < 3)::int AS few_img,
       count(*) FILTER (WHERE length(coalesce(description,'')) < 150)::int AS short_desc,
@@ -67,11 +67,11 @@ async function page(ctx: AdminCtx) {
       count(*) FILTER (WHERE old_price > price)::int AS on_offer
     FROM products WHERE active`);
   const [blog, coupons, pending, banners, pages] = await Promise.all([
-    db.one(`SELECT count(*)::int AS n, max(published_at) AS last FROM blog_posts WHERE status='published'`),
-    db.one(`SELECT count(*)::int AS n FROM coupons WHERE active AND (ends_on IS NULL OR ends_on >= CURRENT_DATE)`),
-    db.one(`SELECT count(*)::int AS n FROM orders WHERE status='pending'`),
-    db.one(`SELECT count(*)::int AS n FROM banners WHERE active AND placement='slider'`),
-    db.one(`SELECT count(*)::int AS n FROM pages WHERE active`),
+    db.one<{ n: number; last: Date | null }>(`SELECT count(*)::int AS n, max(published_at) AS last FROM blog_posts WHERE status='published'`),
+    db.one<{ n: number }>(`SELECT count(*)::int AS n FROM coupons WHERE active AND (ends_on IS NULL OR ends_on >= CURRENT_DATE)`),
+    db.one<{ n: number }>(`SELECT count(*)::int AS n FROM orders WHERE status='pending'`),
+    db.one<{ n: number }>(`SELECT count(*)::int AS n FROM banners WHERE active AND placement='slider'`),
+    db.one<{ n: number }>(`SELECT count(*)::int AS n FROM pages WHERE active`),
   ]);
   let missed: Loose[] = [];
   try { missed = (await $services_research.demand(30)).searches.filter((x) => !x.found).slice(0, 8); } catch (_) { missed = []; }

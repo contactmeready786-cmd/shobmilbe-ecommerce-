@@ -7,6 +7,7 @@ import { str, int, slugify } from '../util';
 import * as $catalog from './catalog';
 import * as $data_guides from '../data/guides';
 import type { Body, Id, Loose } from '../types';
+import type { KitsRow, ProductsRow } from '../data/rows';
 
 class KitError extends Error {}
 
@@ -18,7 +19,7 @@ async function list({ activeOnly = false }: Body = {}) {
 async function get({ id, slug }: Body) {
   const k = await db.one(`SELECT * FROM kits WHERE ${id ? 'id=$1' : 'slug=$1'}`, [id ? int(id) : String(slug || '')]);
   if (!k) return null;
-  k.items = await db.q(`SELECT i.id, i.product_id, i.qty, i.optional, i.note, p.name, p.slug, p.sku, p.price, p.stock, p.image_id, p.emoji, p.active,
+  k.items = await db.q<{ id: number; product_id: number; qty: number; optional: boolean; note: string; name: string; slug: string; sku: string; price: number; stock: number; image_id: number | null; emoji: string; active: boolean; variant_count: number; product_type: string }>(`SELECT i.id, i.product_id, i.qty, i.optional, i.note, p.name, p.slug, p.sku, p.price, p.stock, p.image_id, p.emoji, p.active,
       p.variant_count, p.product_type
     FROM kit_items i JOIN products p ON p.id=i.product_id WHERE i.kit_id=$1 ORDER BY i.optional, i.sort, i.id`, [k.id]);
   return k;
@@ -34,7 +35,7 @@ async function forShop(slug: string) {
   return k;
 }
 async function kitsWith(productId?: Id) {
-  return db.q(`SELECT DISTINCT k.id, k.slug, k.title FROM kits k JOIN kit_items i ON i.kit_id=k.id WHERE k.active AND i.product_id=$1 ORDER BY k.title LIMIT 5`, [int(productId)]);
+  return db.q<Pick<KitsRow, 'id' | 'slug' | 'title'>>(`SELECT DISTINCT k.id, k.slug, k.title FROM kits k JOIN kit_items i ON i.kit_id=k.id WHERE k.active AND i.product_id=$1 ORDER BY k.title LIMIT 5`, [int(productId)]);
 }
 
 async function save(data: Body) {
@@ -47,7 +48,7 @@ async function save(data: Body) {
   const rows: Loose[] = []; const seen = new Set();
   ids.forEach((pid, i) => { if (pid > 0 && !seen.has(pid)) { seen.add(pid); rows.push({ pid, qty: qtys[i] || 1, optional: opt.has(pid), note: str(notes[i], 120), sort: i }); } });
   if (!rows.length) throw new KitError('কিটে অন্তত একটা পণ্য যোগ করুন।');
-  const bad = await db.q(`SELECT name FROM products WHERE id = ANY($1::int[]) AND (product_type='bundle' OR variant_count > 0)`, [rows.map((r) => r.pid)]);
+  const bad = await db.q<Pick<ProductsRow, 'name'>>(`SELECT name FROM products WHERE id = ANY($1::int[]) AND (product_type='bundle' OR variant_count > 0)`, [rows.map((r) => r.pid)]);
   if (bad.length) throw new KitError(`"${bad[0].name}" কিটে রাখা যাবে না (বান্ডেল বা অপশনওয়ালা পণ্য)। এর একটা নির্দিষ্ট অপশন/পণ্য যোগ করুন।`);
   return db.tx(async (t) => {
     let id = int(data.id);
@@ -59,7 +60,7 @@ async function save(data: Body) {
       let slug = String(data.slug || '').trim() || slugify(title) || 'kit';
       const stem = slug;
       for (let n = 2; (await t.query('SELECT 1 FROM kits WHERE slug=$1', [slug])).rows.length; n++) slug = `${stem}-${n}`;
-      id = (await t.query(`INSERT INTO kits(title, description, image_id, emoji, active, sort, steps, level, duration, slug, guide_key)
+      id = (await t.query<Pick<KitsRow, 'id'>>(`INSERT INTO kits(title, description, image_id, emoji, active, sort, steps, level, duration, slug, guide_key)
         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id`, [...vals, slug, str(data.guide_key, 60)])).rows[0].id;
     }
     await t.query('DELETE FROM kit_items WHERE kit_id=$1', [id]);
@@ -84,7 +85,7 @@ function stepList(k: db.pg.DbRow) { return String((k && k.steps) || '').split('\
 async function matchPart(part?: Loose) {
   const like = part.find.map((w: Loose) => '%' + String(w).replace(/[%_\\]/g, '') + '%');
   const notLike = (part.not || []).map((w: Loose) => '%' + String(w).replace(/[%_\\]/g, '') + '%');
-  const rows = await db.q(`SELECT p.id, p.name, p.price, p.stock FROM products p
+  const rows = await db.q<Pick<ProductsRow, 'id' | 'name' | 'price' | 'stock'>>(`SELECT p.id, p.name, p.price, p.stock FROM products p
     WHERE p.active AND p.parent_id IS NULL AND coalesce(p.product_type,'single') <> 'bundle' AND coalesce(p.variant_count,0) = 0
       AND p.name ILIKE ANY($1::text[]) AND NOT (p.name ILIKE ANY($2::text[]))
     ORDER BY (p.stock > 0) DESC, coalesce(p.sold_count,0) DESC, p.id DESC LIMIT 40`, [like, notLike.length ? notLike : ['']]);
@@ -97,7 +98,7 @@ async function matchPart(part?: Loose) {
 // What the shop has for each guide: parts found / missing, and whether a kit was already made from it.
 async function guideStatus() {
   const { GUIDES } = $data_guides;
-  const made = new Map((await db.q(`SELECT id, guide_key, slug, active FROM kits WHERE guide_key <> ''`)).map((k) => [k.guide_key, k]));
+  const made = new Map((await db.q<Pick<KitsRow, 'id' | 'guide_key' | 'slug' | 'active'>>(`SELECT id, guide_key, slug, active FROM kits WHERE guide_key <> ''`)).map((k) => [k.guide_key, k]));
   const out: Loose[] = [];
   for (const g of GUIDES) {
     const parts: Loose[] = [];

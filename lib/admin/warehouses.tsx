@@ -6,6 +6,7 @@ import * as db from '../db';
 import * as ui from './ui';
 import * as W from '../models/warehouses';
 import type { AdminCtx, Body, Loose, RouteMatch } from '../types';
+import type { ProductsRow } from '../data/rows';
 
 const BASE = '/admin/warehouses';
 const REASON: Record<string, string> = { transfer: '🔁 স্থানান্তর', sale: '🧾 দোকানে বিক্রি', sale_cancel: '↩️ বিক্রি বাতিল', count: '🔢 গণনা ঠিক' };
@@ -14,9 +15,9 @@ const REASON: Record<string, string> = { transfer: '🔁 স্থানান�
 async function findProduct(code?: Loose) {
   const c = str(code, 100);
   if (!c) return null;
-  const exact = await db.one(`SELECT id, name, stock, variant_count FROM products WHERE (upper(barcode)=upper($1) OR lower(sku)=lower($1)) AND variant_count = 0 LIMIT 1`, [c]);
+  const exact = await db.one<Pick<ProductsRow, 'id' | 'name' | 'stock' | 'variant_count'>>(`SELECT id, name, stock, variant_count FROM products WHERE (upper(barcode)=upper($1) OR lower(sku)=lower($1)) AND variant_count = 0 LIMIT 1`, [c]);
   if (exact) return exact;
-  const rows = await db.q(`SELECT id, name, stock FROM products WHERE name ILIKE $1 AND variant_count = 0 AND product_type='single' ORDER BY length(name) LIMIT 2`, [`%${c}%`]);
+  const rows = await db.q<Pick<ProductsRow, 'id' | 'name' | 'stock'>>(`SELECT id, name, stock FROM products WHERE name ILIKE $1 AND variant_count = 0 AND product_type='single' ORDER BY length(name) LIMIT 2`, [`%${c}%`]);
   return rows.length === 1 ? rows[0] : null;
 }
 
@@ -60,7 +61,7 @@ async function listPage(ctx: AdminCtx) {
     return ctx.back(BASE);
   }
   const [stores, moves, problems, totals] = await Promise.all([W.list(), W.moves({ limit: 30 }), W.problems(),
-    db.one(`SELECT coalesce(sum(stock),0)::int AS units FROM products WHERE product_type='single' AND variant_count = 0`)]);
+    db.one<{ units: number }>(`SELECT coalesce(sum(stock),0)::int AS units FROM products WHERE product_type='single' AND variant_count = 0`)]);
   const inBranches = stores.reduce((t, w) => t + w.units, 0);
   const body = <><div className="title-row"><h1>🏬 গুদাম ও শাখা</h1><div className="row-actions"><a className="btn btn-ghost btn-sm" href={attrValue(BASE)}>🔄 রিফ্রেশ</a><a className="btn btn-sm" href="/admin/pos">🧾 দোকানে বিক্রি (POS)</a></div></div>{ui.flash(ctx.flash)}{' '}{ui.helpBox('কীভাবে কাজ করে', <ol className="steps"><li><b>মূল গুদাম</b>{' '}= যেখান থেকে অনলাইন অর্ডার প্যাক হয়। পারচেজ (মাল কেনা) আর অনলাইন বিক্রি মূল গুদামের হিসাবে চলে।</li><li>আরেকটা দোকান/শাখা বা আলাদা গুদাম থাকলে নিচে যোগ করুন। তারপর "স্থানান্তর" দিয়ে মূল গুদাম থেকে পণ্য পাঠান — প্রতিটা শাখার আলাদা স্টক থাকবে।</li><li>শাখার দোকানে সরাসরি বিক্রি করতে{' '}<a href="/admin/pos">POS</a>{' '}খুলে শাখা বাছুন — বিক্রি সেই শাখার স্টক থেকে কাটবে।</li><li>মোট স্টক (সব জায়গা মিলিয়ে) আগের মতোই ইনভেন্টরি পেজে দেখা যায়।</li></ol>)}<div className="kpis kpis-tight">{ui.kpi('মোট স্টক (সব জায়গা)', bn(totals!.units), 'পিস')}{' '}{ui.kpi('🏠 মূল গুদামে', bn(totals!.units - inBranches), 'অনলাইন অর্ডার এখান থেকে', 'kpi-blue')}{' '}{ui.kpi('শাখাগুলোতে', bn(inBranches), `${bn(stores.length)}টি গুদাম/শাখা`)}{' '}{(problems.length ? ui.kpi('মিলছে না', bn(problems.length), 'নিচে দেখুন', 'kpi-alert') : null)}</div>{(problems.length ? <section className="panel"><h2>⚠️ এই পণ্যগুলোর হিসাব মিলছে না</h2><p className="small muted">শাখায় যত গোনা আছে, মোট স্টক তার চেয়ে কম (সম্ভবত অনলাইনে বিক্রি হয়েছে শাখার মাল দিয়ে)। শাখার গণনা ঠিক করুন বা ইনভেন্টরিতে মোট স্টক ঠিক করুন।</p><ul>{jsxList(problems.map((p) => <li><Val v={p.name} />{' '}(SKU{' '}<Val v={p.sku} />) — মোট{' '}{bn(p.stock)}, শাখাগুলোতে{' '}{bn(p.branches)}</li>))}</ul></section> : null)}<div className="two-col"><section className="panel table-wrap"><h2>সব জায়গা</h2><table className="table compact"><thead><tr><th>নাম</th><th>ধরন</th><th className="num">পণ্য</th><th className="num">পিস</th><th></th></tr></thead><tbody><tr><td><b>🏠 মূল গুদাম</b><br /><span className="small muted">অনলাইন অর্ডার</span></td><td className="small">মূল</td><td></td><td className="num">{bn(totals!.units - inBranches)}</td><td><a className="btn btn-sm btn-ghost" href="/admin/inventory">ইনভেন্টরি</a></td></tr>{jsxList(stores.map((w) => <tr className={w.active ? '' : 'row-off'}><td><a href={`${attrValue(BASE)}/${attrValue(w.id)}`}><b><Val v={w.name} /></b></a>{(w.address ? <><br /><span className="small muted"><Val v={w.address} /></span></> : null)}</td><td className="small">{(w.is_shop ? "🏪 দোকান (POS)" : "🏬 গুদাম")}{(w.active ? null : " · বন্ধ")}</td><td className="num">{bn(w.products)}</td><td className="num">{bn(w.units)}</td><td><a className="btn btn-sm btn-ghost" href={`${attrValue(BASE)}/${attrValue(w.id)}`}>খুলুন</a></td></tr>))}</tbody></table></section><div><section className="panel"><h2>🔁 স্থানান্তর</h2>{(stores.length ? transferForm(stores) : <p className="muted">আগে একটা শাখা/গুদাম যোগ করুন।</p>)}</section><section className="panel"><h2>+ নতুন শাখা / গুদাম</h2><form method="post" action={attrValue(BASE)} className="form"><input type="hidden" name="action" defaultValue="save" />{' '}{ui.field('নাম', ui.input('name', '', { required: true, maxlength: 80, placeholder: 'যেমন: মিরপুর শাখা' }))}<div className="field-row">{ui.field('ঠিকানা', ui.input('address', '', { maxlength: 300 }))}{ui.field('ফোন', ui.input('phone', '', { maxlength: 30 }))}</div>{ui.check('is_shop', true, 'এটা একটা দোকান (POS-এ বিক্রি হবে)')}{' '}<button className="btn btn-sm">যোগ করুন</button></form></section></div></div><section className="panel table-wrap"><h2>সাম্প্রতিক নড়াচড়া</h2>{movesTable(moves)}</section></>;
   return ctx.page('গুদাম ও শাখা', body, 'warehouses');

@@ -11,7 +11,7 @@
 // 1 and 2 only fill what is EMPTY, never change what the owner typed, never put back something the owner removed,
 // and every change is logged with the old value, so one tap undoes it (one product or everything).
 // Runs from the round-the-clock wake-up: a few dozen products every ~10 minutes, new and edited products first.
-import type { SeoAutoLogRow } from '../data/rows';
+import type { SeoAutoLogRow, ProductsRow, SeoScoreHistoryRow } from '../data/rows';
 import * as db from '../db';
 import * as md from '../views/md';
 import { bn } from '../util';
@@ -150,7 +150,7 @@ const LOG_FIELDS: Record<string, string> = { model: 'মডেল নম্ব�
 
 async function processOne(p: db.pg.DbRow, settings: Settings) {
   const changes: Loose[] = [];
-  const past = await db.q(`SELECT field, new_value FROM seo_auto_log WHERE product_id=$1`, [p.id]);
+  const past = await db.q<Pick<SeoAutoLogRow, 'field' | 'new_value'>>(`SELECT field, new_value FROM seo_auto_log WHERE product_id=$1`, [p.id]);
   // 🔢 model: only when empty, and never again after the owner removed / changed one we filled
   if (settings.autoseo_model !== '0' && !String(p.model || '').trim() && !past.some((l) => l.field === 'model')) {
     const model = extractModel(cleanName(p.name));
@@ -202,7 +202,7 @@ async function sweep(settings: Settings, { force = false, max = PER_RUN }: Body 
   if (settings.autoseo_on === '0') return { off: true };
   if (!force && Date.now() - (Number(settings.autoseo_try) || 0) < EVERY_MS) return { skipped: true };
   await db.setMany({ autoseo_try: String(Date.now()) });
-  const rows = await db.q(`SELECT p.*, c.name AS category_name FROM products p LEFT JOIN categories c ON c.id=p.category_id
+  const rows = await db.q<{ id: number; name: string; slug: string; category_id: number | null; price: number; old_price: number | null; stock: number; description: string; emoji: string; image: string | null; featured: boolean; active: boolean; created_at: Date; updated_at: Date; sku: string; short_description: string; cost_price: number; youtube_url: string; product_type: string; image_id: number | null; seo_title: string; seo_description: string; low_stock: number; weight_g: number; unit: string; brand: string; sold_count: number; seo_keywords: string; allow_duplicate: boolean; import_ref: string; brand_id: number | null; model: string; specs: unknown; is_new: boolean; damaged_stock: number; supplier_id: number | null; noindex: boolean; wish_count: number; rating_avg: number; rating_count: number; warranty: string; warranty_type: string; barcode: string; parent_id: number | null; variant_label: string; variant_count: number; variant_title: string; variant_sort: number; preorder: boolean; preorder_days: number; location: string; seo_auto_at: Date | null; src_wm: boolean; src_wm_checked: boolean; category_name: string | null }>(`SELECT p.*, c.name AS category_name FROM products p LEFT JOIN categories c ON c.id=p.category_id
     WHERE p.active AND p.parent_id IS NULL AND (p.seo_auto_at IS NULL OR p.updated_at > p.seo_auto_at)
     ORDER BY p.seo_auto_at NULLS FIRST, p.updated_at DESC LIMIT $1`, [max]);
   let changed = 0; let models = 0; let specs = 0;
@@ -221,7 +221,7 @@ async function sweep(settings: Settings, { force = false, max = PER_RUN }: Body 
 async function undo(logId?: Id) {
   const l = await db.one<SeoAutoLogRow>('SELECT * FROM seo_auto_log WHERE id=$1 AND NOT undone', [Number(logId) || 0]);
   if (!l) return false;
-  const p = await db.one('SELECT id, model, specs FROM products WHERE id=$1', [l.product_id]);
+  const p = await db.one<Pick<ProductsRow, 'id' | 'model' | 'specs'>>('SELECT id, model, specs FROM products WHERE id=$1', [l.product_id]);
   if (p) {
     if (l.field === 'model' && String(p.model || '') === l.new_value) await db.q(`UPDATE products SET model='', updated_at=now(), seo_auto_at=now() WHERE id=$1`, [p.id]);
     if (l.field === 'specs') {
@@ -237,7 +237,7 @@ async function undo(logId?: Id) {
   return true;
 }
 async function undoAll() {
-  const ids = await db.q('SELECT id FROM seo_auto_log WHERE NOT undone ORDER BY id DESC');
+  const ids = await db.q<Pick<SeoAutoLogRow, 'id'>>('SELECT id FROM seo_auto_log WHERE NOT undone ORDER BY id DESC');
   let n = 0;
   for (const r of ids) if (await undo(r.id)) n++;
   return n;
@@ -245,18 +245,18 @@ async function undoAll() {
 
 async function stats(): Promise<Loose> {
   const [a, b, hist] = await Promise.all([
-    db.one(`SELECT count(*) FILTER (WHERE seo_auto_at IS NOT NULL AND seo_auto_at >= updated_at)::int AS done, count(*)::int AS total
+    db.one<{ done: number; total: number }>(`SELECT count(*) FILTER (WHERE seo_auto_at IS NOT NULL AND seo_auto_at >= updated_at)::int AS done, count(*)::int AS total
       FROM products WHERE active AND parent_id IS NULL`),
-    db.one(`SELECT count(*) FILTER (WHERE field='model' AND NOT undone)::int AS models, count(*) FILTER (WHERE field='specs' AND NOT undone)::int AS specs,
+    db.one<{ models: number; specs: number; spec_rows: number }>(`SELECT count(*) FILTER (WHERE field='model' AND NOT undone)::int AS models, count(*) FILTER (WHERE field='specs' AND NOT undone)::int AS specs,
       coalesce(sum(CASE WHEN field='specs' AND NOT undone THEN jsonb_array_length(new_value::jsonb) END),0)::int AS spec_rows FROM seo_auto_log`),
-    db.q('SELECT day, avg, perfect, total FROM seo_score_history ORDER BY day DESC LIMIT 30'),
+    db.q<SeoScoreHistoryRow>('SELECT day, avg, perfect, total FROM seo_score_history ORDER BY day DESC LIMIT 30'),
   ]);
-  const own = await db.q(`SELECT short_description, description FROM products WHERE active AND parent_id IS NULL`);
+  const own = await db.q<Pick<ProductsRow, 'short_description' | 'description'>>(`SELECT short_description, description FROM products WHERE active AND parent_id IS NULL`);
   const autoDesc = own.filter((p) => ownTextLength(p) < OWN_TEXT_ENOUGH).length;
   return { ...a, ...b, autoDesc, hist };
 }
 async function recent(limit = 40) {
-  return db.q(`SELECT l.*, p.name, p.slug FROM seo_auto_log l JOIN products p ON p.id=l.product_id ORDER BY l.id DESC LIMIT $1`, [limit]);
+  return db.q<{ id: number; product_id: number; field: string; old_value: string; new_value: string; undone: boolean; created_at: Date; name: string; slug: string }>(`SELECT l.*, p.name, p.slug FROM seo_auto_log l JOIN products p ON p.id=l.product_id ORDER BY l.id DESC LIMIT $1`, [limit]);
 }
 
 export { extractModel, extractSpecs, describe, summary, metaLine, needsAuto, ownTextLength, sweep, snapshot, processOne, undo, undoAll, stats, recent, LOG_FIELDS, OWN_TEXT_ENOUGH };

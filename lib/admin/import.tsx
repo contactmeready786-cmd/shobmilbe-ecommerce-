@@ -19,6 +19,7 @@ import * as importer from '../services/importer';
 import { safeFetch, FetchError } from '../services/safefetch';
 import * as $services_autocat from '../services/autocat';
 import type { AdminCtx, Body, Loose } from '../types';
+import type { ProductsRow } from '../data/rows';
 
 const FILE_MAX = 3 * 1024 * 1024; // what fits in one request
 
@@ -113,7 +114,7 @@ async function readApi(ctx: AdminCtx) {
   // which of these were imported before
   const refs = items.map((i: Loose) => i.ref);
   if (refs.length) {
-    const have = await db.q('SELECT id, name, sku, import_ref FROM products WHERE import_ref = ANY($1::text[])', [refs]);
+    const have = await db.q<Pick<ProductsRow, 'id' | 'name' | 'sku' | 'import_ref'>>('SELECT id, name, sku, import_ref FROM products WHERE import_ref = ANY($1::text[])', [refs]);
     const map = new Map(have.map((h) => [h.import_ref, h]));
     for (const it of items) { const h = map.get(it.ref); if (h) it.exists = { id: h.id, name: h.name, sku: h.sku }; }
   }
@@ -175,7 +176,7 @@ async function saveApi(ctx: AdminCtx) {
 
   // imported before?
   if (ref) {
-    const old = await db.one('SELECT id, name, sku, stock, product_type, price, old_price FROM products WHERE import_ref=$1', [ref]);
+    const old = await db.one<Pick<ProductsRow, 'id' | 'name' | 'sku' | 'stock' | 'product_type' | 'price' | 'old_price'>>('SELECT id, name, sku, stock, product_type, price, old_price FROM products WHERE import_ref=$1', [ref]);
     if (old) {
       if (opt.existing !== 'update') return ctx.json(200, { result: 'exists', id: old.id, sku: old.sku, name: old.name });
       await db.tx(async (t) => {
@@ -234,7 +235,7 @@ async function saveApi(ctx: AdminCtx) {
     }, ctx.user.id);
   } catch (e: Loose) {
     if (/products_import_ref_uq|duplicate key/i.test(String(e && e.message))) {
-      const old = await db.one('SELECT id, name, sku FROM products WHERE import_ref=$1', [ref]);
+      const old = await db.one<Pick<ProductsRow, 'id' | 'name' | 'sku'>>('SELECT id, name, sku FROM products WHERE import_ref=$1', [ref]);
       return ctx.json(200, { result: 'exists', id: old && old.id, sku: old && old.sku, name: old && old.name });
     }
     throw e;
@@ -242,7 +243,7 @@ async function saveApi(ctx: AdminCtx) {
   if (opt.cat_mode === 'auto' || !opt.cat_mode) {
     try { await $services_autocat.apply({ ids: [pid] }); } catch (_) { /* keeps the category chosen above */ }
   }
-  const p = await db.one('SELECT sku, slug FROM products WHERE id=$1', [pid]);
+  const p = await db.one<Pick<ProductsRow, 'sku' | 'slug'>>('SELECT sku, slug FROM products WHERE id=$1', [pid]);
   await ctx.log('product_add', 'product', pid, `আমদানি: ${name.slice(0, 90)}`);
   if (allow) await ctx.log('product_dup_allow', 'product', pid, `ডুপ্লিকেট হলেও আমদানির অনুমতি: ${name.slice(0, 80)}`);
   return ctx.json(200, { result: 'added', id: pid, sku: p && p.sku, active });

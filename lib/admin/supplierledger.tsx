@@ -11,7 +11,7 @@ import * as ui from './ui';
 import * as finance from '../models/finance';
 import type { AdminCtx, Id, Loose, RouteMatch } from '../types';
 async function entries(id?: Id) {
-  return db.q(`SELECT * FROM (
+  return db.q<{ kind: string | null; id: number | null; d: string | null; ref: string | null; amount: number | null; status: string | null; note: string | null; at: Date | null; lines: number | null }>(`SELECT * FROM (
       SELECT 'p' AS kind, p.id, p.purchase_date AS d, p.code AS ref, p.total AS amount, p.status, p.note, p.created_at AS at,
         (SELECT count(*) FROM purchase_items i WHERE i.purchase_id=p.id)::int AS lines
         FROM purchases p WHERE p.supplier_id=$1 AND p.status<>'cancelled'

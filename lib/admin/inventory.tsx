@@ -8,6 +8,7 @@ import * as ui from './ui';
 import * as $db from '../db';
 import * as $services_stockalert from '../services/stockalert';
 import type { AdminCtx, Loose, RouteMatch } from '../types';
+import type { ProductsRow } from '../data/rows';
 const INV_PER_PAGE = 50;
 const ADJUST_REASONS = [['adjust', 'হাতে বদল'], ['count', 'গণনা ঠিক করা'], ['damage', 'নষ্ট/ভাঙা → নষ্ট স্টকে'], ['lost', 'হারানো'], ['return', 'কাস্টমার ফেরত (ভালো মাল)'],
   ['damage_out', 'নষ্ট মাল ফেলে দেওয়া'], ['repair', 'মেরামত হয়ে আবার বিক্রিযোগ্য']];
@@ -74,7 +75,7 @@ async function adjust(ctx: AdminCtx) {
       else if (reason === 'repair') ok = await catalog.changeDamaged(t, pid, { stock: qty, damaged: -qty }, 'repair', 'manual', null, note, ctx.user.id);
       else await catalog.moveStock(t, pid, ch, reason, 'manual', null, note, ctx.user.id);
       if (!ok) {
-        const p = (await t.query('SELECT name, stock, damaged_stock FROM products WHERE id=$1', [pid])).rows[0];
+        const p = (await t.query<Pick<ProductsRow, 'name' | 'stock' | 'damaged_stock'>>('SELECT name, stock, damaged_stock FROM products WHERE id=$1', [pid])).rows[0];
         problems.push(p ? `"${p.name}": ${reason === 'damage' ? `বিক্রির স্টকে আছে ${bn(p.stock)}টি` : `নষ্ট স্টকে আছে ${bn(p.damaged_stock)}টি`}` : `#${pid}`);
         continue;
       }
@@ -145,7 +146,7 @@ async function purchasesPage(ctx: AdminCtx) {
       FROM purchases WHERE status<>'cancelled' AND date_trunc('month', purchase_date) = date_trunc('month', (now() AT TIME ZONE 'Asia/Dhaka')::date)`),
     finance.listSuppliers(),
     // what to buy next: products that are running out, ranked by how fast they sell (last 30 days)
-    db.q(`WITH sold AS (SELECT oi.product_id, sum(oi.qty)::int AS n FROM order_items oi JOIN orders o ON o.id=oi.order_id
+    db.q<{ id: number; name: string; sku: string; stock: number; low_stock: number; cost_price: number; image_id: number; emoji: string; unit: string; sold30: number; seen30: number }>(`WITH sold AS (SELECT oi.product_id, sum(oi.qty)::int AS n FROM order_items oi JOIN orders o ON o.id=oi.order_id
             WHERE o.created_at > now() - interval '30 days' AND o.status NOT IN ('cancelled','returned') GROUP BY oi.product_id),
           seen AS (SELECT product_id, count(DISTINCT visitor_id)::int AS n FROM page_views WHERE product_id IS NOT NULL AND created_at > now() - interval '30 days' GROUP BY product_id)
         SELECT p.id, p.name, p.sku, p.stock, p.low_stock, p.cost_price, p.image_id, p.emoji, p.unit, coalesce(sold.n,0) AS sold30, coalesce(seen.n,0) AS seen30

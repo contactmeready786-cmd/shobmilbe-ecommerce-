@@ -1,7 +1,7 @@
 // 🧭 The shop's main pages — home, product lists (all products, a category, a brand, search, offers) and product
 // pages — as data: the page's title, its React body and its settings (canonical link, data for Google, tracking …).
 // Used by the Next.js pages (app/(shop)) and by the original router (lib/site.ts), so both always show the same page.
-import type { HomeRowsRow } from '../data/rows';
+import type { HomeRowsRow, PageViewsRow, FlashSalesRow, FlashItemsRow, ProductsRow } from '../data/rows';
 import type { ReactNode } from 'react';
 import * as db from '../db';
 import * as catalog from '../models/catalog';
@@ -50,7 +50,7 @@ export async function resolveShop(ctx: ShopCtx): Promise<Resolved> {
     const ROW = 16;
     const inStockFirst = (a?: Loose) => [...a.filter((p: { stock: number; }) => p.stock > 0), ...a.filter((p: { stock: number; }) => p.stock <= 0)];
     // most looked-at products of the last 30 days (real visitors)
-    const viewedIds = want('popular') ? (await db.q(`SELECT product_id FROM page_views WHERE product_id IS NOT NULL AND created_at > now() - interval '30 days'
+    const viewedIds = want('popular') ? (await db.q<Pick<PageViewsRow, 'product_id'>>(`SELECT product_id FROM page_views WHERE product_id IS NOT NULL AND created_at > now() - interval '30 days'
       GROUP BY product_id ORDER BY count(DISTINCT visitor_id) DESC LIMIT $1`, [ROW * 2])).map((r) => r.product_id) : [];
     const [slides, promos, featured, latest, best, offers, posts, viewed, budget] = await Promise.all([
       want('slider') ? content.listBanners({ active: true, placement: 'slider' }) : [],
@@ -79,10 +79,10 @@ export async function resolveShop(ctx: ShopCtx): Promise<Resolved> {
     // the flash sale that ends first among the running ones, with its products (sale price already in them)
     let flash = null;
     if (want('flash')) {
-      const sale = await db.one(`SELECT fs.* FROM flash_sales fs WHERE fs.active AND fs.show_home AND now() >= fs.starts_at AND now() < fs.ends_at
+      const sale = await db.one<FlashSalesRow>(`SELECT fs.* FROM flash_sales fs WHERE fs.active AND fs.show_home AND now() >= fs.starts_at AND now() < fs.ends_at
         AND EXISTS (SELECT 1 FROM flash_items fi WHERE fi.sale_id=fs.id) ORDER BY fs.ends_at LIMIT 1`);
       if (sale) {
-        const ids = (await db.q('SELECT product_id FROM flash_items WHERE sale_id=$1 AND (max_qty = 0 OR sold < max_qty) ORDER BY id', [sale.id])).map((r) => r.product_id);
+        const ids = (await db.q<Pick<FlashItemsRow, 'product_id'>>('SELECT product_id FROM flash_items WHERE sale_id=$1 AND (max_qty = 0 OR sold < max_qty) ORDER BY id', [sale.id])).map((r) => r.product_id);
         const prods = (await catalog.getProductsByIds(ids, { public: true })).filter((p) => p.flash_ends && (!hideOut || p.stock > 0));
         const pos = new Map(ids.map((id, i) => [id, i]));
         flash = { sale, products: inStockFirst(prods.sort((a, b) => (pos.get(a.id) as number) - (pos.get(b.id) as number))).slice(0, ROW * 2) };
@@ -203,7 +203,7 @@ export async function resolveShop(ctx: ShopCtx): Promise<Resolved> {
     if (!product || !product.active) return NOT_FOUND;
     // a variant's own link opens its main product with that variant chosen
     if (product.parent_id) {
-      const parent = await db.one('SELECT slug FROM products WHERE id=$1 AND active', [product.parent_id]);
+      const parent = await db.one<Pick<ProductsRow, 'slug'>>('SELECT slug FROM products WHERE id=$1 AND active', [product.parent_id]);
       if (!parent) return NOT_FOUND;
       return { kind: 'redirect', status: 301, location: `/p/${encodeURIComponent(parent.slug)}?v=${product.id}`, headers: { 'Cache-Control': 'public, max-age=3600' } };
     }

@@ -6,7 +6,7 @@
 //    order mails and codes.
 //  - Every mail is written to email_log (opened / clicked are noted through a tiny picture and the shop's own links).
 //  - Automatic mails (tick, every hour): welcome, the weekly "new products", a review request after delivery, "we miss you".
-import type { EmailSubsRow } from '../data/rows';
+import type { EmailSubsRow, EmailCampaignsRow } from '../data/rows';
 import * as crypto from 'node:crypto';
 import * as db from '../db';
 import { safeFetch } from './safefetch';
@@ -68,7 +68,7 @@ async function addSub(email: unknown, { name = '', phone = '', source = '', expl
   const em = cleanEmail(email);
   if (!notify.validEmail(em)) return null;
   const token = crypto.randomBytes(18).toString('base64url');
-  const row = await db.one(`INSERT INTO email_subs(email, name, phone, source, token) VALUES($1,$2,$3,$4,$5)
+  const row = await db.one<{ id: number; email: string; name: string; phone: string; source: string; on_list: boolean; token: string; created_at: Date; unsub_at: Date | null; last_open_at: Date | null; fails: number; fresh: boolean }>(`INSERT INTO email_subs(email, name, phone, source, token) VALUES($1,$2,$3,$4,$5)
     ON CONFLICT (lower(email)) DO UPDATE SET
       name = CASE WHEN email_subs.name='' THEN EXCLUDED.name ELSE email_subs.name END,
       phone = CASE WHEN email_subs.phone='' THEN EXCLUDED.phone ELSE email_subs.phone END,
@@ -81,7 +81,7 @@ async function addSub(email: unknown, { name = '', phone = '', source = '', expl
 async function unsubscribe(token: unknown) {
   const t = String(token || '').slice(0, 60);
   if (!/^[A-Za-z0-9_-]{20,40}$/.test(t)) return null;
-  return db.one('UPDATE email_subs SET on_list=false, unsub_at=coalesce(unsub_at, now()) WHERE token=$1 RETURNING email', [t]);
+  return db.one<Pick<EmailSubsRow, 'email'>>('UPDATE email_subs SET on_list=false, unsub_at=coalesce(unsub_at, now()) WHERE token=$1 RETURNING email', [t]);
 }
 async function bySubToken(token: unknown) {
   const t = String(token || '').slice(0, 60);
@@ -191,7 +191,7 @@ async function audienceCount(aud: unknown): Promise<number> {
 }
 async function createCampaign(settings: Settings, { subject, intro, productIds = [], buttonText = '', buttonPath = '', audience = 'all', kind = 'manual', staffId = null }: NewCampaign) {
   const total = await audienceCount(audience);
-  return db.one(`INSERT INTO email_campaigns(subject, intro, product_ids, button_text, button_url, audience, kind, total, staff_id)
+  return db.one<EmailCampaignsRow>(`INSERT INTO email_campaigns(subject, intro, product_ids, button_text, button_url, audience, kind, total, staff_id)
     VALUES($1,$2,$3::int[],$4,$5,$6,$7,$8,$9) RETURNING *`,
   [str(subject, 150), str(intro, 4000), productIds.slice(0, 12), str(buttonText, 40), safePath(buttonPath), AUDIENCES[audience] ? audience : 'all', kind, total, staffId]);
 }
@@ -206,7 +206,7 @@ function safePath(v: unknown, settings: Settings = {} as Settings): string {
 // Send the next part of every campaign that is still going, within today's allowance. Returns how many went.
 async function runCampaigns(settings: Settings, budget: number): Promise<number> {
   let done = 0;
-  const camps = await db.q("SELECT * FROM email_campaigns WHERE status='sending' ORDER BY id LIMIT 5");
+  const camps = await db.q<EmailCampaignsRow>("SELECT * FROM email_campaigns WHERE status='sending' ORDER BY id LIMIT 5");
   for (const camp of camps) {
     if (done >= budget) break;
     // the automatic weekly mail waits for anyone who got a mail in the last 20 hours (e.g. the welcome) — they get it tomorrow
@@ -216,7 +216,7 @@ async function runCampaigns(settings: Settings, budget: number): Promise<number>
     if (!subs.length) {
       // a weekly mail still waiting for someone (20-hour rule) stays open; it closes after 3 days in any case
       const waiting = camp.kind === 'weekly' && camp.created_at > new Date(Date.now() - 3 * 86400e3)
-        && await db.one(`SELECT 1 AS x FROM email_subs s WHERE s.on_list AND NOT EXISTS (SELECT 1 FROM email_log l WHERE l.campaign_id=$1 AND l.sub_id=s.id) LIMIT 1`, [camp.id]);
+        && await db.one<{ x: number }>(`SELECT 1 AS x FROM email_subs s WHERE s.on_list AND NOT EXISTS (SELECT 1 FROM email_log l WHERE l.campaign_id=$1 AND l.sub_id=s.id) LIMIT 1`, [camp.id]);
       if (!waiting) await db.q("UPDATE email_campaigns SET status='done', finished_at=now(), updated_at=now() WHERE id=$1", [camp.id]);
       continue;
     }
@@ -257,7 +257,7 @@ async function welcome(settings: Settings, budget: number): Promise<number> {
 async function review(settings: Settings, budget: number): Promise<number> {
   if (settings.email_auto_review === '0' || budget <= 0) return 0;
   // delivered 2–10 days ago, the buyer's e-mail is on the list, not asked before
-  const rows = await db.q(`SELECT o.id, o.code, o.customer_name, s.id AS sub_id, s.email, s.name, s.token,
+  const rows = await db.q<{ id: number; code: string; customer_name: string; sub_id: number; email: string; name: string; token: string; pids: number[] }>(`SELECT o.id, o.code, o.customer_name, s.id AS sub_id, s.email, s.name, s.token,
       (SELECT array_agg(i.product_id) FROM order_items i WHERE i.order_id=o.id AND i.product_id IS NOT NULL) AS pids
     FROM orders o
     LEFT JOIN customers c ON c.id=o.account_id
@@ -306,7 +306,7 @@ async function weekly(settings: Settings) {
   const day = Math.max(0, Math.min(6, Number(settings.email_weekly_day ?? 5)));
   const hour = Math.max(0, Math.min(23, Number(settings.email_weekly_hour) || 10));
   if (now.weekday !== day || now.hour < hour) return null;
-  if (await db.one("SELECT 1 AS x FROM email_campaigns WHERE kind='weekly' AND created_at > now() - interval '6 days'")) return null;
+  if (await db.one<{ x: number }>("SELECT 1 AS x FROM email_campaigns WHERE kind='weekly' AND created_at > now() - interval '6 days'")) return null;
   if (!(await audienceCount('all'))) return null;
   let rows = await db.q(`SELECT p.id FROM products p WHERE ${ELIGIBLE} AND p.created_at > now() - interval '7 days' ORDER BY coalesce(p.sold_count,0) DESC, p.id DESC LIMIT 6`);
   const fresh = rows.length >= 2;
@@ -338,7 +338,7 @@ async function tick(settings: Settings) {
 }
 
 async function stats() {
-  return db.one(`SELECT
+  return db.one<{ subs: number; left_list: number; new30: number; sent30: number; bad30: number; opened30: number; clicked30: number }>(`SELECT
       (SELECT count(*)::int FROM email_subs WHERE on_list) AS subs,
       (SELECT count(*)::int FROM email_subs WHERE NOT on_list) AS left_list,
       (SELECT count(*)::int FROM email_subs WHERE on_list AND created_at > now() - interval '30 days') AS new30,

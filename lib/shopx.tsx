@@ -30,6 +30,7 @@ import * as guard from './services/guard';
 import * as shop from './views/shop';
 import type { Resolved } from './shop/router';
 import type { FormCtx } from './next/shop-form';
+import type { GiftCardsRow, OrdersRow } from './data/rows';
 
 /** What the login page shows: which way (SMS or e-mail), which step, what was typed, and a message. */
 type LoginStep = { via?: 'phone' | 'email'; mode?: string; step?: 'code'; phone?: string; email?: string; error?: string; next?: string };
@@ -156,7 +157,7 @@ export async function account(f: FormCtx): Promise<void> {
       if (!(await security.hit(db, 'otpv:' + ip, 20, 3600))) return login({ via: 'phone', error: 'অনেকবার চেষ্টা হয়েছে। কিছুক্ষণ পর আবার চেষ্টা করুন।' });
       try {
         const c = await A.verifyCode(settings, b.phone, b.code);
-        const codes = (await db.q('SELECT code FROM orders WHERE phone=$1 ORDER BY created_at DESC LIMIT 15', [c!.phone])).map((r) => r.code);
+        const codes = (await db.q<Pick<OrdersRow, 'code'>>('SELECT code FROM orders WHERE phone=$1 ORDER BY created_at DESC LIMIT 15', [c!.phone])).map((r) => r.code);
         return go(afterLogin(c, safeNext(b.next)), [A.cookieFor(req, settings, c), ordersCookie(req, settings, codes)]);
       } catch (e) {
         if (!(e instanceof A.AccountError)) throw e;
@@ -295,7 +296,7 @@ export async function giftCard(f: FormCtx): Promise<void> {
                     : trx.length < 6 ? 'Transaction ID (TrxID) লিখুন।' : '';
       if (err) return page('গিফট কার্ড', V.giftPage({ settings, methods, values: b, error: err }), { status: 400 });
       const G = $models_giftcards;
-      const dupTrx = await db.one('SELECT id FROM gift_cards WHERE trx_id=$1', [trx]);
+      const dupTrx = await db.one<Pick<GiftCardsRow, 'id'>>('SELECT id FROM gift_cards WHERE trx_id=$1', [trx]);
       if (dupTrx) return page('গিফট কার্ড', V.giftPage({ settings, methods, values: b, error: 'এই TrxID দিয়ে আগেই অনুরোধ এসেছে।' }), { status: 400 });
       await G.issue({ amount: Math.round(amt), status: 'pending', source: 'shop', buyerName: b.buyer_name, buyerPhone: b.buyer_phone, recipientName: b.recipient_name,
         recipientPhone: b.recipient_phone, message: b.message, validDays: int(settings.gift_valid_days), payMethod: method!.id, trxId: trx, payNumber: b.pay_number, ip });

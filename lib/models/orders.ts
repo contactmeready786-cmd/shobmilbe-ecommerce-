@@ -8,7 +8,7 @@ import * as $services_pricing from '../services/pricing';
 import * as $giftcards from './giftcards';
 import * as $loyalty from './loyalty';
 import type { DbRow, Tx } from '../pg';
-import type { OrdersRow, OrderItemsRow } from '../data/rows';
+import type { OrdersRow, OrderItemsRow, ProductsRow, FlashItemsRow, WarehouseStockRow } from '../data/rows';
 import type { Body, Settings } from '../types';
 
 /** A priced order line, as saved in order_items. */
@@ -161,7 +161,7 @@ async function takeLines(t: Tx, wanted: Wanted[], { allowPrice = false, refId = 
   const flash = await pricing.flashFor(ids, t);
   const lines: OrderLine[] = [];
   for (const w of wanted) {
-    const p = (await t.query(
+    const p = (await t.query<{ id: number; name: string; sku: string; price: number; cost_price: number; product_type: string; weight_g: number; variant_count: number; active: boolean | null; preorder: boolean }>(
       `SELECT p.id, p.name, p.sku, p.price, p.cost_price, p.product_type, p.weight_g, p.variant_count,
          p.active AND (p.parent_id IS NULL OR coalesce((SELECT pp.active FROM products pp WHERE pp.id=p.parent_id), false)) AS active,
          (p.preorder OR coalesce((SELECT pp.preorder FROM products pp WHERE pp.id=p.parent_id), false)) AND p.product_type <> 'bundle' AS preorder
@@ -182,7 +182,7 @@ async function takeLines(t: Tx, wanted: Wanted[], { allowPrice = false, refId = 
         ok = true;
       }
       if (!ok) {
-        const s = (await t.query('SELECT name, stock FROM products WHERE id=$1', [part.product_id])).rows[0];
+        const s = (await t.query<Pick<ProductsRow, 'name' | 'stock'>>('SELECT name, stock FROM products WHERE id=$1', [part.product_id])).rows[0];
         const pname = s ? s.name : p.name;
         throw new OrderError(s && s.stock > 0
           ? `"${pname}" স্টকে আছে মাত্র ${bn(s.stock)}টি। পরিমাণ কমিয়ে আবার চেষ্টা করুন।`
@@ -198,7 +198,7 @@ async function takeLines(t: Tx, wanted: Wanted[], { allowPrice = false, refId = 
       lp = pricing.linePrice({ base: p.price, qty: w.qty, flash: flash.get(p.id), tiers: tiers.get(p.id) });
       if (lp.kind === 'flash') {
         // the sale's piece limit is counted here, at the moment of the order (two buyers can't both get the last piece)
-        const got = (await t.query('UPDATE flash_items SET sold = sold + $1 WHERE id=$2 AND (max_qty = 0 OR sold + $1 <= max_qty) RETURNING id', [w.qty, lp.ref_id])).rows[0];
+        const got = (await t.query<Pick<FlashItemsRow, 'id'>>('UPDATE flash_items SET sold = sold + $1 WHERE id=$2 AND (max_qty = 0 OR sold + $1 <= max_qty) RETURNING id', [w.qty, lp.ref_id])).rows[0];
         if (!got) lp = pricing.linePrice({ base: p.price, qty: w.qty, flash: null, tiers: tiers.get(p.id) });
       }
     }
@@ -214,12 +214,12 @@ async function takeLines(t: Tx, wanted: Wanted[], { allowPrice = false, refId = 
   return lines;
 }
 async function bundleCost(t: Tx, bundleId: number): Promise<number> {
-  const c = (await t.query(`SELECT coalesce(sum(p.cost_price * bi.qty),0)::numeric(14,2) AS c FROM bundle_items bi JOIN products p ON p.id=bi.product_id WHERE bi.bundle_id=$1`, [bundleId])).rows[0];
+  const c = (await t.query<{ c: number }>(`SELECT coalesce(sum(p.cost_price * bi.qty),0)::numeric(14,2) AS c FROM bundle_items bi JOIN products p ON p.id=bi.product_id WHERE bi.bundle_id=$1`, [bundleId])).rows[0];
   return c.c;
 }
 // A gift line: taken from stock only if there is enough (a missing gift never stops the order).
 async function takeGift(t: Tx, g: $services_pricing.GiftLine, { refId, staffId }: { refId: number | null; staffId: number | null }): Promise<OrderLine | null> {
-  const p = (await t.query('SELECT id, name, sku, cost_price, product_type, active, weight_g, stock FROM products WHERE id=$1', [g.product_id])).rows[0];
+  const p = (await t.query<Pick<ProductsRow, 'id' | 'name' | 'sku' | 'cost_price' | 'product_type' | 'active' | 'weight_g' | 'stock'>>('SELECT id, name, sku, cost_price, product_type, active, weight_g, stock FROM products WHERE id=$1', [g.product_id])).rows[0];
   if (!p || !p.active) return null;
   for (const qty of [...new Set([g.qty, Math.min(g.qty, p.product_type === 'bundle' ? g.qty : p.stock)])]) {
     if (qty < 1) continue;
@@ -246,7 +246,7 @@ async function releaseLines(t: Tx, items: DbRow[], reason: string, refId: number
     if (!it.product_id) continue;
     const parts = it.components && it.components.length ? it.components : [{ product_id: it.product_id, qty: it.qty }];
     for (const part of parts) {
-      const exists = (await t.query('SELECT id FROM products WHERE id=$1', [part.product_id])).rows[0];
+      const exists = (await t.query<Pick<ProductsRow, 'id'>>('SELECT id FROM products WHERE id=$1', [part.product_id])).rows[0];
       if (exists) await catalog.moveStock(t, part.product_id, part.qty, reason, 'order', refId, '', staffId);
     }
     await t.query('UPDATE products SET sold_count = greatest(0, sold_count - $1) WHERE id=$2', [it.qty, it.product_id]);
@@ -290,7 +290,7 @@ async function createOrder(input: Body, settings: Settings) {
     const prefix = (settings.order_prefix || 'SM').replace(/[^A-Za-z0-9]/g, '').slice(0, 4).toUpperCase() || 'SM';
     let found: DbRow | undefined;
     for (let i = 0; i < 6 && !found; i++) {
-      found = (await t.query(
+      found = (await t.query<Pick<OrdersRow, 'id' | 'code'>>(
         `INSERT INTO orders(code, customer_name, phone, address, area, subtotal, delivery, total)
          VALUES($1,$2,$3,$4,$5,0,0,0) ON CONFLICT (code) DO NOTHING RETURNING id, code`,
         [prefix + randomCode(6), input.name, phone, input.address, zone])).rows[0];
@@ -377,9 +377,9 @@ async function createOrder(input: Body, settings: Settings) {
       await t.query('UPDATE orders SET warehouse_id=$1 WHERE id=$2', [input.warehouseId, order.id]);
       for (const l of lines) {
         for (const part of (l.components && l.components.length ? l.components : [{ product_id: l.product_id, qty: l.qty }])) {
-          const ok = (await t.query('UPDATE warehouse_stock SET qty = qty - $1 WHERE warehouse_id=$2 AND product_id=$3 AND qty >= $1 RETURNING qty', [part.qty, input.warehouseId, part.product_id])).rows[0];
+          const ok = (await t.query<Pick<WarehouseStockRow, 'qty'>>('UPDATE warehouse_stock SET qty = qty - $1 WHERE warehouse_id=$2 AND product_id=$3 AND qty >= $1 RETURNING qty', [part.qty, input.warehouseId, part.product_id])).rows[0];
           if (!ok) {
-            const nm = (await t.query('SELECT name FROM products WHERE id=$1', [part.product_id])).rows[0];
+            const nm = (await t.query<Pick<ProductsRow, 'name'>>('SELECT name FROM products WHERE id=$1', [part.product_id])).rows[0];
             throw new OrderError(`"${nm ? nm.name : l.name}" এই শাখায় যথেষ্ট নেই। আগে গুদাম থেকে এই শাখায় স্থানান্তর করুন।`);
           }
           await t.query('INSERT INTO warehouse_moves(product_id, from_wh, to_wh, qty, reason, ref_id, staff_id) VALUES($1,$2,NULL,$3,$4,$5,$6)', [part.product_id, input.warehouseId, part.qty, 'sale', order.id, input.createdBy || null]);
@@ -477,10 +477,10 @@ async function setStatus(id: number, status: string, staffId: number | null | un
 async function setStatusTx(id: number, status: string, staffId: number | null | undefined, opts: StatusOpts = {}): Promise<StatusResult> {
   if (!STATUSES[status]) throw new OrderError('অজানা অবস্থা।');
   return tx(async (t) => {
-    const o = (await t.query('SELECT id, status, payment, payment_status, paid_amount, total, returned_to, coupon_code FROM orders WHERE id=$1 FOR UPDATE', [id])).rows[0];
+    const o = (await t.query<Pick<OrdersRow, 'id' | 'status' | 'payment' | 'payment_status' | 'paid_amount' | 'total' | 'returned_to' | 'coupon_code'>>('SELECT id, status, payment, payment_status, paid_amount, total, returned_to, coupon_code FROM orders WHERE id=$1 FOR UPDATE', [id])).rows[0];
     if (!o) throw new OrderError('অর্ডার পাওয়া যায়নি।');
     if (o.status === status) return { changed: false, prev: o.status };
-    const items = (await t.query('SELECT * FROM order_items WHERE order_id=$1', [id])).rows;
+    const items = (await t.query<OrderItemsRow>('SELECT * FROM order_items WHERE order_id=$1', [id])).rows;
     const wasReleased = RELEASED.has(o.status);
     const nowReleased = RELEASED.has(status);
     const partsOf = (it: DbRow): { product_id: number; qty: number }[] => (it.components && it.components.length ? it.components : [{ product_id: it.product_id, qty: it.qty }]);
@@ -490,7 +490,7 @@ async function setStatusTx(id: number, status: string, staffId: number | null | 
         for (const it of items) {
           if (!it.product_id) continue;
           for (const part of partsOf(it)) {
-            const exists = (await t.query('SELECT id FROM products WHERE id=$1', [part.product_id])).rows[0];
+            const exists = (await t.query<Pick<ProductsRow, 'id'>>('SELECT id FROM products WHERE id=$1', [part.product_id])).rows[0];
             if (exists) await catalog.changeDamaged(t, part.product_id, { damaged: part.qty }, 'return_damaged', 'order', id, 'ফেরত আসা অর্ডারের নষ্ট মাল', staffId);
           }
           // a returned piece is not a sale any more (keeps "বেশি বিক্রি" right)
@@ -549,7 +549,7 @@ async function setStatusTx(id: number, status: string, staffId: number | null | 
 // Edit an order's details and (optionally) its items. Stock is kept right.
 async function updateOrder(id: number, data: Body, settings: Settings, staffId: number | null | undefined): Promise<{ total: number }> {
   return tx(async (t) => {
-    const o = (await t.query('SELECT * FROM orders WHERE id=$1 FOR UPDATE', [id])).rows[0];
+    const o = (await t.query<OrdersRow>('SELECT * FROM orders WHERE id=$1 FOR UPDATE', [id])).rows[0];
     if (!o) throw new OrderError('অর্ডার পাওয়া যায়নি।');
     const fields: Record<string, string | number> & { area?: string; zone_name?: string } = {
       customer_name: str(data.customer_name, 80) || o.customer_name,
@@ -574,7 +574,7 @@ async function updateOrder(id: number, data: Body, settings: Settings, staffId: 
     if (Array.isArray(data.items)) {
       const wanted = mergeWanted(data.items);
       if (!wanted.length) throw new OrderError('অর্ডারে অন্তত একটি পণ্য থাকতে হবে।');
-      const oldItems = (await t.query('SELECT * FROM order_items WHERE order_id=$1', [id])).rows;
+      const oldItems = (await t.query<OrderItemsRow>('SELECT * FROM order_items WHERE order_id=$1', [id])).rows;
       const released = RELEASED.has(o.status);
       if (!released) await releaseLines(t, oldItems, 'edit', id, staffId);
       let lines: OrderLine[];
@@ -582,7 +582,7 @@ async function updateOrder(id: number, data: Body, settings: Settings, staffId: 
         // Cancelled/returned orders don't hold stock; just price the lines.
         lines = [];
         for (const w of wanted) {
-          const p = (await t.query('SELECT id, name, sku, price, cost_price FROM products WHERE id=$1', [w.id])).rows[0];
+          const p = (await t.query<Pick<ProductsRow, 'id' | 'name' | 'sku' | 'price' | 'cost_price'>>('SELECT id, name, sku, price, cost_price FROM products WHERE id=$1', [w.id])).rows[0];
           if (p) lines.push({ product_id: p.id, name: p.name, sku: p.sku, price: w.price !== undefined && w.price !== '' ? amount(w.price) : Number(p.price), cost: p.cost_price, qty: w.qty, components: null,
             kind: w.kind === 'gift' ? 'gift' : '', note: w.kind === 'gift' ? str(w.note, 120) : '' });
         }

@@ -7,6 +7,7 @@ import * as $autoseo from './autoseo';
 import * as $security from '../security';
 import type { Body, Loose, Settings } from '../types';
 import type { FullProduct } from '../models/catalog';
+import type { MediaRow } from '../data/rows';
 
 const CHANNELS: Record<string, Loose> = {
   google: { title: 150, desc: 5000, extraImages: 10, label: 'Google Merchant Center' },
@@ -50,7 +51,7 @@ function priceStr(n: number) { return `${(Math.max(0, Number(n) || 0)).toFixed(2
 
 async function loadProducts(settings: Settings) {
   const includeOut = settings.feed_include_out !== '0';
-  const rows = await db.q(`
+  const rows = await db.q<{ id: number; name: string; slug: string; price: number; old_price: number | null; description: string; short_description: string; image_id: number | null; brand: string; model: string; weight_g: number; product_type: string; sku: string; updated_at: Date; category_name: string | null; stock: number; img_w: number | null; img_h: number | null }>(`
     SELECT p.id, p.name, p.slug, p.price, p.old_price, p.description, p.short_description, p.image_id, p.brand, p.model, p.weight_g,
       p.product_type, p.sku, p.updated_at, c.name AS category_name,
       CASE WHEN p.variant_count > 0 THEN coalesce((SELECT sum(greatest(v.stock,0)) FROM products v WHERE v.parent_id=p.id AND v.active), 0)::int
@@ -61,7 +62,7 @@ async function loadProducts(settings: Settings) {
     FROM products p LEFT JOIN categories c ON c.id=p.category_id LEFT JOIN media mi ON mi.id=p.image_id
     WHERE p.active AND p.parent_id IS NULL ORDER BY p.id`);
   const ids = rows.map((r) => r.id);
-  const media = ids.length ? await db.q(`SELECT id, owner_id FROM media WHERE owner_type='product' AND owner_id = ANY($1::int[]) ORDER BY owner_id, sort, id`, [ids]) : [];
+  const media = ids.length ? await db.q<Pick<MediaRow, 'id' | 'owner_id'>>(`SELECT id, owner_id FROM media WHERE owner_type='product' AND owner_id = ANY($1::int[]) ORDER BY owner_id, sort, id`, [ids]) : [];
   const imgs = new Map();
   for (const m of media) { if (!imgs.has(m.owner_id)) imgs.set(m.owner_id, []); imgs.get(m.owner_id).push(m.id); }
   return rows.map((p) => {

@@ -10,6 +10,7 @@ import * as security from '../security';
 import { ASSET_V } from './layout';
 import * as $recovery from './recovery';
 import type { AdminCtx, Body, Loose, ShopRequest, RouteMatch } from '../types';
+import type { OwnerPasskeysRow } from '../data/rows';
 
 const BASE = '/admin/security/login';
 
@@ -87,7 +88,7 @@ async function pkAdd(ctx: AdminCtx) {
 }
 async function pkDelete(ctx: AdminCtx, m: RouteMatch) {
   const id = int(m[1]);
-  const k = await db.one('SELECT id, name, rp_id FROM owner_passkeys WHERE id=$1 AND staff_id=$2', [id, ctx.user.id]);
+  const k = await db.one<Pick<OwnerPasskeysRow, 'id' | 'name' | 'rp_id'>>('SELECT id, name, rp_id FROM owner_passkeys WHERE id=$1 AND staff_id=$2', [id, ctx.user.id]);
   if (!k) return ctx.back(BASE);
   const mode = lock.mode(ctx.settings);
   if (['passkey', 'both'].includes(mode as string) && k.rp_id === lock.rpId(ctx.req)) {

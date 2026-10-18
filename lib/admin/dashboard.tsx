@@ -16,7 +16,7 @@ async function dashboard(ctx: AdminCtx) {
     finance.dashboard(from, to), finance.dailySeries(from, to), finance.monthlySeries(12),
     ctx.can('orders') ? orders.listOrders({ limit: 8 }) : [],
     // 📮 complaints that are late or due within a day (the law gives 72 hours)
-    ctx.can('orders') ? $db.one(`SELECT count(*) FILTER (WHERE due_at < now())::int AS late,
+    ctx.can('orders') ? $db.one<{ late: number; soon: number }>(`SELECT count(*) FILTER (WHERE due_at < now())::int AS late,
       count(*) FILTER (WHERE due_at >= now() AND due_at < now() + interval '24 hours')::int AS soon
       FROM complaints WHERE status IN ('open','working')`).catch(() => null) : null,
   ]);

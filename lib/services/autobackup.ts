@@ -9,6 +9,7 @@ import * as db from '../db';
 import * as backup from './backup';
 import * as imagekit from './imagekit';
 import type { Body, Loose } from '../types';
+import type { BackupsRow, SettingsRow } from '../data/rows';
 
 const KEEP = 30;
 
@@ -27,7 +28,7 @@ async function password() {
 }
 
 async function due() {
-  const last = await db.one(`SELECT created_at FROM backups WHERE kind='auto' AND ok ORDER BY created_at DESC LIMIT 1`).catch(() => null);
+  const last = await db.one<Pick<BackupsRow, 'created_at'>>(`SELECT created_at FROM backups WHERE kind='auto' AND ok ORDER BY created_at DESC LIMIT 1`).catch(() => null);
   return !last || Date.now() - new Date(last.created_at).getTime() > 20 * 3600 * 1000;
 }
 
@@ -35,7 +36,7 @@ async function run({ force = false }: Body = {}) {
   if (!imagekit.configured()) return { skipped: 'no-imagekit' };
   if (!force && !(await due())) return { skipped: 'not-due' };
   // one at a time across all running copies of the site
-  const lease = await db.one(`INSERT INTO settings(key, value) VALUES('auto_backup_lease', $1)
+  const lease = await db.one<Pick<SettingsRow, 'key'>>(`INSERT INTO settings(key, value) VALUES('auto_backup_lease', $1)
     ON CONFLICT (key) DO UPDATE SET value=$1 WHERE settings.value IS NULL OR settings.value < $2 RETURNING key`,
   [String(Date.now() + 120000), String(Date.now())]);
   if (!lease) return { skipped: 'busy' };

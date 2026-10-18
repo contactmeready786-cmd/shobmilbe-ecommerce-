@@ -12,6 +12,7 @@ import * as $db from '../db';
 import * as $dupcanon from './dupcanon';
 import type { Loose, Settings } from '../types';
 import type { FullProduct } from '../models/catalog';
+import type { CategoriesRow, KitsRow, ProductsRow } from '../data/rows';
 
 const JUNK_START = /^\s*(?:product\s+details?\s+of|product\s+name\s*:)\s*/i;
 function cleanName(name: string) {
@@ -121,9 +122,9 @@ async function indexNowSweep(settings: Settings) {
   const last = Number(settings.indexnow_last) || 0; // last time Bing & co. received the list
   const started = String(Date.now());
   const [prods, cats, kits] = await Promise.all([
-    db.q('SELECT slug FROM products WHERE active AND NOT noindex AND parent_id IS NULL AND updated_at > $1 ORDER BY updated_at DESC LIMIT 900', [new Date(last)]),
-    last ? [] : db.q('SELECT slug FROM categories WHERE coalesce(active,true) AND NOT noindex'),
-    settings.kits_on !== '0' ? db.q('SELECT slug FROM kits WHERE active AND updated_at > $1 LIMIT 50', [new Date(last)]).catch(() => []) : [],
+    db.q<Pick<ProductsRow, 'slug'>>('SELECT slug FROM products WHERE active AND NOT noindex AND parent_id IS NULL AND updated_at > $1 ORDER BY updated_at DESC LIMIT 900', [new Date(last)]),
+    last ? [] : db.q<Pick<CategoriesRow, 'slug'>>('SELECT slug FROM categories WHERE coalesce(active,true) AND NOT noindex'),
+    settings.kits_on !== '0' ? db.q<Pick<KitsRow, 'slug'>>('SELECT slug FROM kits WHERE active AND updated_at > $1 LIMIT 50', [new Date(last)]).catch(() => []) : [],
   ]);
   const dupSlugs = await $dupcanon.copies().catch(() => new Map()); // copies of another product: not sent
   const paths = [...(last ? [] : ['/', '/products']), ...cats.map((c) => `/products?cat=${c.slug}`), ...prods.filter((p) => !dupSlugs.has(p.slug)).map((p) => `/p/${p.slug}`), ...kits.map((k) => `/kit/${k.slug}`)];

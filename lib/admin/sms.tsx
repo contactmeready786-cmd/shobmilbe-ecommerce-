@@ -9,6 +9,7 @@ import { SEGMENTS } from '../models/customers';
 import * as $models_catalog from '../models/catalog';
 import * as $models_orders from '../models/orders';
 import type { AdminCtx, Body, Loose } from '../types';
+import type { CustomersRow, SmsCampaignsRow } from '../data/rows';
 
 const BASE = '/admin/marketing/sms';
 const BATCH = 200; // customers per click (a click takes well under a minute)
@@ -66,14 +67,14 @@ async function page(ctx: AdminCtx, note: Loose = null) {
   const canSetup = ctx.can('settings');
   const r = SMS.ready(s);
   const [log, groups, stats, cats, camps] = await Promise.all([
-    db.q('SELECT l.*, o.code FROM sms_log l LEFT JOIN orders o ON o.id=l.order_id ORDER BY l.created_at DESC LIMIT 40'),
-    db.q("SELECT grp, count(*)::int AS n FROM customers WHERE grp<>'' GROUP BY grp ORDER BY grp"),
-    db.one(`SELECT count(*) FILTER (WHERE ok AND created_at > now() - interval '30 days')::int AS ok30,
+    db.q<{ id: number; phone: string; body: string; kind: string; ok: boolean; detail: string; order_id: number | null; staff_id: number | null; created_at: Date; code: string | null }>('SELECT l.*, o.code FROM sms_log l LEFT JOIN orders o ON o.id=l.order_id ORDER BY l.created_at DESC LIMIT 40'),
+    db.q<{ grp: string; n: number }>("SELECT grp, count(*)::int AS n FROM customers WHERE grp<>'' GROUP BY grp ORDER BY grp"),
+    db.one<{ ok30: number; bad30: number }>(`SELECT count(*) FILTER (WHERE ok AND created_at > now() - interval '30 days')::int AS ok30,
       count(*) FILTER (WHERE NOT ok AND created_at > now() - interval '30 days')::int AS bad30 FROM sms_log`),
     $models_catalog.listCategories({ includeInactive: false }),
-    db.q('SELECT c.*, s.name AS staff_name FROM sms_campaigns c LEFT JOIN staff s ON s.id=c.staff_id ORDER BY c.updated_at DESC LIMIT 15'),
+    db.q<{ id: number; audience: string; body: string; total: number; sent: number; failed: number; staff_id: number | null; created_at: Date; updated_at: Date; staff_name: string | null }>('SELECT c.*, s.name AS staff_name FROM sms_campaigns c LEFT JOIN staff s ON s.id=c.staff_id ORDER BY c.updated_at DESC LIMIT 15'),
   ]);
-  const [quota, optedOut] = await Promise.all([SMS.mktLeft(s), db.one('SELECT count(*)::int AS n FROM customers WHERE NOT promo_sms').catch(() => ({ n: 0 }))]);
+  const [quota, optedOut] = await Promise.all([SMS.mktLeft(s), db.one<{ n: number }>('SELECT count(*)::int AS n FROM customers WHERE NOT promo_sms').catch(() => ({ n: 0 }))]);
   const lim = (n?: Loose) => (n === Infinity ? 'সীমা নেই' : bn(n));
   const prov: string = SMS.PROVIDERS[s.sms_provider as string] ? s.sms_provider as string : 'bulksmsbd';
   const tplBox = (ev?: Loose, label?: Loose) => <div className="sms-row">{ui.check(`sms_on_${ev}`, s[`sms_on_${ev}`] === '1', `${label} SMS পাঠাও`)}{' '}<textarea name={`sms_tpl_${attrValue(ev)}`} rows={2} maxLength={480} aria-label={`${attrValue(label)} SMS এর লেখা`} defaultValue={attrValue(s[`sms_tpl_${ev}`] || '')} /><p className="small muted">{bn(String(s[`sms_tpl_${ev}`] || '').length)}{' '}অক্ষর ≈{' '}{bn(SMS.parts(SMS.fill(s[`sms_tpl_${ev}`], { code: 'SM123456', total: 1250, customer_name: 'রহিম', points_earned: 0 }, s, s.site_url || '')))}টি SMS</p></div>;
@@ -103,7 +104,7 @@ async function post(ctx: AdminCtx) {
   // 🗑️ testing over: wipe the SMS history (and old checkout codes) — only while the switch above is on
   if (b.action === 'clearlog') {
     if (!ctx.can('settings') || ctx.settings.sms_log_clear_on !== '1') return ctx.back(BASE, 'noperm');
-    const n = await db.one('WITH d AS (DELETE FROM sms_log RETURNING 1) SELECT count(*)::int AS n FROM d');
+    const n = await db.one<{ n: number }>('WITH d AS (DELETE FROM sms_log RETURNING 1) SELECT count(*)::int AS n FROM d');
     await db.q('DELETE FROM checkout_otps WHERE used OR expires_at < now()');
     await ctx.log('settings', 'marketing', null, `SMS ইতিহাস মোছা হয়েছে (${n!.n}টি)`);
     return ctx.back(BASE, 'saved');
@@ -112,7 +113,7 @@ async function post(ctx: AdminCtx) {
     const phones = [...new Set(String(b.phones || '').split(/[\s,;]+/).map(normalizePhone).filter(validPhone))].slice(0, 500);
     if (!phones.length) return ctx.fail(BASE, 'সঠিক মোবাইল নম্বর দিন, যেমন 01712345678।');
     const on = b.to === 'on';
-    const r = await db.q('UPDATE customers SET promo_sms=$1 WHERE phone = ANY($2::text[]) RETURNING phone', [on, phones]);
+    const r = await db.q<Pick<CustomersRow, 'phone'>>('UPDATE customers SET promo_sms=$1 WHERE phone = ANY($2::text[]) RETURNING phone', [on, phones]);
     await ctx.log('settings', 'marketing', null, `অফার SMS ${on ? 'চালু' : 'বন্ধ'}: ${phones.join(', ').slice(0, 300)}`);
     const miss = phones.length - r.length;
     return ctx.back(`${BASE}?info=${encodeURIComponent(`✅ ${bn(r.length)}টি নম্বরে অফার SMS ${on ? 'চালু' : 'বন্ধ'} হলো।${miss ? ` ${bn(miss)}টি নম্বর কাস্টমার তালিকায় নেই।` : ''}`)}`);
@@ -152,7 +153,7 @@ async function post(ctx: AdminCtx) {
     // the campaign's record (pressing "পাঠান" again with the same text continues the same campaign)
     const cats = b.aud === 'category' ? await $models_catalog.listCategories() : [];
     const aud = audienceText(b, cats);
-    const prev = await db.one('SELECT id FROM sms_campaigns WHERE body=$1 AND audience=$2 AND updated_at > now() - interval \'7 days\' ORDER BY id DESC LIMIT 1', [text, aud]);
+    const prev = await db.one<Pick<SmsCampaignsRow, 'id'>>('SELECT id FROM sms_campaigns WHERE body=$1 AND audience=$2 AND updated_at > now() - interval \'7 days\' ORDER BY id DESC LIMIT 1', [text, aud]);
     if (prev) await db.q('UPDATE sms_campaigns SET sent=sent+$1, failed=failed+$2, total=$3, updated_at=now() WHERE id=$4', [ok, bad, total, prev.id]);
     else await db.q('INSERT INTO sms_campaigns(audience, body, total, sent, failed, staff_id) VALUES($1,$2,$3,$4,$5,$6)', [aud, text, total, ok, bad, ctx.user.id]);
     const capped = quota.left !== Infinity && rows.length >= quota.left;

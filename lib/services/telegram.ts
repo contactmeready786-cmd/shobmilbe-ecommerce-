@@ -9,6 +9,7 @@ import * as db from '../db';
 import { fetchJson, str } from '../util';
 import * as autopost from './autopost';
 import type { Body, Id, Loose, Settings } from '../types';
+import type { SocialPostsRow } from '../data/rows';
 
 const API = 'https://api.telegram.org';
 const ROTATION = ['tip', 'kit', 'tip', 'question'];
@@ -82,7 +83,7 @@ async function postOne(settings: Settings, { slot }: Body = {}) {
 }
 
 async function postEngagement(settings: Settings, slot: string) {
-  const n = (await db.one(`SELECT count(*)::int AS n FROM social_posts WHERE channel='telegram' AND ok AND kind <> 'product'`).catch(() => ({ n: 0 })))!.n;
+  const n = (await db.one<{ n: number }>(`SELECT count(*)::int AS n FROM social_posts WHERE channel='telegram' AND ok AND kind <> 'product'`).catch(() => ({ n: 0 })))!.n;
   const kind = ROTATION[n % ROTATION.length];
   const e = await autopost.buildEngagement(settings, kind);
   if (!e) return postOne(settings, { slot });
@@ -107,14 +108,14 @@ async function tick(settings: Settings) {
   if (!due.length) return { idle: true };
   const hour = due[due.length - 1];
   const slot = `tg:${now.day}@${hour}`;
-  const claimed = await db.one(`INSERT INTO social_posts(slot, channel, ok, message) VALUES($1,'claim',NULL,'') ON CONFLICT (slot) DO NOTHING RETURNING id`, [slot]);
+  const claimed = await db.one<Pick<SocialPostsRow, 'id'>>(`INSERT INTO social_posts(slot, channel, ok, message) VALUES($1,'claim',NULL,'') ON CONFLICT (slot) DO NOTHING RETURNING id`, [slot]);
   if (!claimed) return { done: true };
   const engage = settings.autopost_engage !== '0' && autopost.engagementSlot(settings, hour, now.day);
   return engage ? postEngagement(settings, slot) : postOne(settings, { slot });
 }
 
 async function recent(limit = 10) {
-  return db.q(`SELECT sp.*, p.name AS product_name FROM social_posts sp LEFT JOIN products p ON p.id=sp.product_id
+  return db.q<{ id: number; slot: string; channel: string; product_id: number | null; ok: boolean | null; post_id: string; message: string; created_at: Date; kind: string; ref: string; product_name: string | null }>(`SELECT sp.*, p.name AS product_name FROM social_posts sp LEFT JOIN products p ON p.id=sp.product_id
     WHERE sp.channel='telegram' ORDER BY sp.created_at DESC LIMIT $1`, [limit]).catch(() => []);
 }
 

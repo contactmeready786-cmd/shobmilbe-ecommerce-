@@ -11,6 +11,7 @@ import * as $catalog from './catalog';
 import * as $orders from './orders';
 import * as $services_sms from '../services/sms';
 import type { Body, Id, Loose, Settings } from '../types';
+import type { ComplaintNotesRow, ComplaintsRow } from '../data/rows';
 
 class ComplaintError extends Error {}
 
@@ -112,7 +113,7 @@ async function create({ name, phone, email, orderCode, topic, message, photos, i
   }
   const photoIds = await savePhotos(photos);
   const code = await newCode();
-  const row = await db.one(`INSERT INTO complaints(code, name, phone, email, order_code, topic, message, photos, source, ip, due_at, product_id, item_name, warranty_until)
+  const row = await db.one<ComplaintsRow>(`INSERT INTO complaints(code, name, phone, email, order_code, topic, message, photos, source, ip, due_at, product_id, item_name, warranty_until)
     VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10, now() + make_interval(hours => $11), $12, $13, $14) RETURNING *`,
   [code, nm, ph, em, oc, TOPICS[topic] ? topic : 'other', msg, photoIds, source, str(ip, 64), hoursOf(settings),
     item ? item.product_id : null, item ? str(item.name, 200) : '', item && item.end instanceof Date ? item.end.toISOString().slice(0, 10) : null]);
@@ -148,7 +149,7 @@ async function list(f: Body = {}, { limit = 50, offset = 0 }: Body = {}) {
 }
 async function count(f: Body = {}) { const params: Loose[] = []; return (await db.one(`SELECT count(*)::int AS n FROM complaints c ${where(f, params)}`, params))!.n; }
 async function counts() {
-  return db.one(`SELECT count(*) FILTER (WHERE status IN ('open','working'))::int AS active,
+  return db.one<{ active: number; open: number; working: number; late: number; soon: number; solved: number; closed: number; total: number; ontime30: number; done30: number }>(`SELECT count(*) FILTER (WHERE status IN ('open','working'))::int AS active,
       count(*) FILTER (WHERE status='open')::int AS open, count(*) FILTER (WHERE status='working')::int AS working,
       count(*) FILTER (WHERE status IN ('open','working') AND due_at < now())::int AS late,
       count(*) FILTER (WHERE status IN ('open','working') AND due_at >= now() AND due_at < now() + interval '24 hours')::int AS soon,
@@ -167,7 +168,7 @@ async function get(id?: Id) {
 
 // a note: inside only, or a reply that the customer sees (and gets by SMS when SMS works)
 async function addNote(id: Id, { staffId, body, toCustomer, settings }: Body) {
-  const c = await db.one('SELECT * FROM complaints WHERE id=$1', [int(id)]);
+  const c = await db.one<ComplaintsRow>('SELECT * FROM complaints WHERE id=$1', [int(id)]);
   if (!c) throw new ComplaintError('অভিযোগটি পাওয়া যায়নি।');
   const text = str(body, 1000).trim();
   if (text.length < 2) throw new ComplaintError('কিছু লিখুন।');
@@ -186,7 +187,7 @@ async function addNote(id: Id, { staffId, body, toCustomer, settings }: Body) {
 }
 async function setStatus(id: Id, { status, resolution, staffId, settings }: Body) {
   if (!STATUS[status]) throw new ComplaintError('অবস্থা ঠিক নেই।');
-  const c = await db.one('SELECT * FROM complaints WHERE id=$1', [int(id)]);
+  const c = await db.one<ComplaintsRow>('SELECT * FROM complaints WHERE id=$1', [int(id)]);
   if (!c) throw new ComplaintError('অভিযোগটি পাওয়া যায়নি।');
   const res = str(resolution, 1000).trim();
   if ((status === 'solved' || status === 'closed') && res.length < 3) throw new ComplaintError('কী সমাধান হলো (বা কেন বন্ধ করছেন) ছোট করে লিখুন — রেকর্ডে থাকবে।');

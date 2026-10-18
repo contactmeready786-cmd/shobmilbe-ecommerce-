@@ -18,6 +18,7 @@ import * as $autocall from './autocall';
 import * as $services_drafts from '../services/drafts';
 import * as $services_stockalert from '../services/stockalert';
 import type { AdminCtx, Body, Id, Loose, ShopQuery, RouteMatch } from '../types';
+import type { CustomersRow, OrdersRow, PaymentsRow } from '../data/rows';
 function canDelete(ctx: AdminCtx) { return ctx.user.role === 'owner' && ctx.settings.order_delete_on === '1'; }
 function deleteSwitch(ctx: AdminCtx) {
   if (ctx.user.role !== 'owner') return '';
@@ -33,7 +34,7 @@ async function deleteSetting(ctx: AdminCtx) {
 async function removeOrders(ctx: AdminCtx, ids: unknown[]) {
   let n = 0;
   for (const id of ids) {
-    const o = await db.one('SELECT id, code, customer_name, phone FROM orders WHERE id=$1', [id]);
+    const o = await db.one<Pick<OrdersRow, 'id' | 'code' | 'customer_name' | 'phone'>>('SELECT id, code, customer_name, phone FROM orders WHERE id=$1', [id]);
     if (!o) continue;
     if (await ctx.trash('order', o.id)) { n += 1; await ctx.log('delete', 'order', o.id, `${o.code} — ${o.customer_name || ''} ${o.phone}`); }
   }
@@ -149,15 +150,15 @@ async function detail(ctx: AdminCtx, m: RouteMatch) {
   const order = await O.getOrder({ id });
   if (!order) return ctx.redirect('/admin/orders');
   const [refunds, gatewayPays] = await Promise.all([
-    db.q('SELECT r.*, s.name AS staff_name FROM refunds r LEFT JOIN staff s ON s.id=r.staff_id WHERE r.order_id=$1 ORDER BY r.id', [id]),
-    db.q(`SELECT method, amount, status, trx_id, created_at FROM payments WHERE order_id=$1 ORDER BY id`, [id]),
+    db.q<{ id: number; order_id: number; amount: number; method: string; reference: string; note: string; staff_id: number | null; created_at: Date; staff_name: string | null }>('SELECT r.*, s.name AS staff_name FROM refunds r LEFT JOIN staff s ON s.id=r.staff_id WHERE r.order_id=$1 ORDER BY r.id', [id]),
+    db.q<Pick<PaymentsRow, 'method' | 'amount' | 'status' | 'trx_id' | 'created_at'>>(`SELECT method, amount, status, trx_id, created_at FROM payments WHERE order_id=$1 ORDER BY id`, [id]),
   ]);
   const [stats, blocked, history, txs, customer] = await Promise.all([
     customers.phoneStats(order.phone),
     customers.isBlocked(order.phone, order.ip),
-    db.q(`SELECT a.*, s.name AS staff_name FROM activity_log a LEFT JOIN staff s ON s.id=a.staff_id WHERE a.entity='order' AND a.entity_id=$1 ORDER BY a.created_at DESC LIMIT 50`, [id]),
-    ctx.can('accounting') ? db.q('SELECT t.*, a.name AS account_name FROM transactions t LEFT JOIN accounts a ON a.id=t.account_id WHERE order_id=$1 ORDER BY id', [id]) : [],
-    order.customer_id ? db.one('SELECT id FROM customers WHERE id=$1', [order.customer_id]) : null,
+    db.q<{ id: number; staff_id: number | null; action: string; entity: string; entity_id: number | null; detail: string; created_at: Date; staff_name: string | null }>(`SELECT a.*, s.name AS staff_name FROM activity_log a LEFT JOIN staff s ON s.id=a.staff_id WHERE a.entity='order' AND a.entity_id=$1 ORDER BY a.created_at DESC LIMIT 50`, [id]),
+    ctx.can('accounting') ? db.q<{ id: number; tx_date: string; type: string; category: string; amount: number; account_id: number | null; to_account_id: number | null; supplier_id: number | null; order_id: number | null; purchase_id: number | null; vat: number; note: string; created_by: number | null; created_at: Date; account_name: string | null }>('SELECT t.*, a.name AS account_name FROM transactions t LEFT JOIN accounts a ON a.id=t.account_id WHERE order_id=$1 ORDER BY id', [id]) : [],
+    order.customer_id ? db.one<Pick<CustomersRow, 'id'>>('SELECT id FROM customers WHERE id=$1', [order.customer_id]) : null,
   ]);
   const prev = { ...stats, orders: stats!.orders - 1, delivered: stats!.delivered - (order.status === 'delivered' ? 1 : 0), failed: stats!.failed - (O.RELEASED.has(order.status) ? 1 : 0) };
   const risk = customers.riskOf(prev);
@@ -256,7 +257,7 @@ async function syncAction(ctx: AdminCtx, m: RouteMatch) {
   return r.ok ? ctx.back(`/admin/orders/${id}`, 'synced') : ctx.fail(`/admin/orders/${id}`, r.message);
 }
 async function syncAll(ctx: AdminCtx) {
-  const rows = await db.q(`SELECT id FROM orders WHERE status='shipped' AND courier<>'' AND consignment_id<>'' ORDER BY courier_sent_at LIMIT 60`);
+  const rows = await db.q<Pick<OrdersRow, 'id'>>(`SELECT id FROM orders WHERE status='shipped' AND courier<>'' AND consignment_id<>'' ORDER BY courier_sent_at LIMIT 60`);
   let n = 0;
   for (const r of rows) {
     const o = await O.getOrder({ id: r.id });

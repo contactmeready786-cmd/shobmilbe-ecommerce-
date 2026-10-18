@@ -92,6 +92,7 @@ import * as $models_trash from '../models/trash';
 import * as $models_extras from '../models/extras';
 import type { AdminCtx, Base, Body, Id, Loose, Settings, ShopRequest, StaffUser } from '../types';
 import type { JSX } from 'react/jsx-runtime';
+import type { StaffRow } from '../data/rows';
 
 const MODULES = [$dashboard, $orders, $import, $morepics, $watermark,
   $research, $trash, $growth, $toggles, $products, $inventory,
@@ -327,7 +328,7 @@ ${link}
       const b = await parseBody(req);
       if (await tooMany(ip)) return bare('রিসেট', mailResetPage({ settings, error: 'অনেকবার ভুল হয়েছে। ১৫ মিনিট পর আবার চেষ্টা করুন।' }), 429);
       if (!mailTokenOk(settings, b.t)) { await failed(ip); return bare('রিসেট', mailResetPage({ settings }), 400); }
-      const owner = await db.one("SELECT id, username, name FROM staff WHERE role='owner' ORDER BY id LIMIT 1");
+      const owner = await db.one<Pick<StaffRow, 'id' | 'username' | 'name'>>("SELECT id, username, name FROM staff WHERE role='owner' ORDER BY id LIMIT 1");
       if (!owner) return redirect('/admin/setup');
       const error = passwordProblem(b.password, owner) || (b.password !== b.password2 ? 'দুটো পাসওয়ার্ড মিলছে না।' : null);
       if (error) return bare('রিসেট', mailResetPage({ settings, token: b.t, error }), 400);
@@ -368,11 +369,11 @@ ${link}
       const error = username.length < 3 ? 'ইউজারনেম কমপক্ষে ৩ অক্ষরের দিন (ইংরেজি ছোট হাতের অক্ষর/সংখ্যা)।'
         : passwordProblem(b.password, { username }) || (b.password !== b.password2 ? 'দুটো পাসওয়ার্ড মিলছে না।' : null);
       if (error) return bare('রিসেট', resetPage({ settings, enabled: true, error, values: vals }), 400);
-      const owner = await db.one("SELECT id FROM staff WHERE role='owner' ORDER BY id LIMIT 1");
+      const owner = await db.one<Pick<StaffRow, 'id'>>("SELECT id FROM staff WHERE role='owner' ORDER BY id LIMIT 1");
       if (!owner) return redirect('/admin/setup');
       // a paper code works once: use it up now (if two tries race, only one wins)
       if (viaRecovery && !(await recovery.consume(given))) return bare('রিসেট', resetPage({ settings, enabled: true, error: 'এই কোড আগেই ব্যবহার হয়েছে। অন্য একটা কোড দিন।', values: vals }), 401);
-      const clash = await db.one('SELECT id FROM staff WHERE lower(username)=$1 AND id<>$2', [username, owner.id]);
+      const clash = await db.one<Pick<StaffRow, 'id'>>('SELECT id FROM staff WHERE lower(username)=$1 AND id<>$2', [username, owner.id]);
       if (clash) return bare('রিসেট', resetPage({ settings, enabled: true, error: 'এই ইউজারনেম অন্য একজন স্টাফের, অন্য একটা দিন।', values: vals }), 400);
       await db.q('UPDATE staff SET username=$1, active=true WHERE id=$2', [username, owner.id]);
       await staffModel.setPassword(owner.id, b.password);
@@ -453,7 +454,7 @@ ${link}
     const secret = security.decrypt(u.totp_secret);
     const step = totp.check(secret, b.code, u.totp_last_step);
     // the step is saved first — the same code can never be used twice, even by two tries at once
-    const won = step && await db.one('UPDATE staff SET totp_last_step=$1 WHERE id=$2 AND totp_last_step < $1 RETURNING id', [step, u.id]);
+    const won = step && await db.one<Pick<StaffRow, 'id'>>('UPDATE staff SET totp_last_step=$1 WHERE id=$2 AND totp_last_step < $1 RETURNING id', [step, u.id]);
     if (!won) {
       await security.hit(db, 'mfa:' + u.id, 8, 900);
       await sessions.record(req, { staffId: u.id, login: u.username, event: 'code_fail', ip });

@@ -202,7 +202,7 @@ async function phoneStatus(settings: Settings): Promise<PhoneStatus> {
   const p = String(settings.sms_provider || '');
   const out: PhoneStatus = { provider: p, on: settings.sms_on === '1', lastSeen: null, minutesAgo: null, battery: null, charging: null, model: '',
     phoneLevel: 'off', phoneWhy: '', failed6h: 0, sent6h: 0, lastOk: null, sendLevel: 'ok' };
-  const log = await db.one(`SELECT count(*) FILTER (WHERE NOT ok AND created_at > now() - interval '6 hours')::int AS f,
+  const log = await db.one<{ f: number; s: number; last_ok: Date | null }>(`SELECT count(*) FILTER (WHERE NOT ok AND created_at > now() - interval '6 hours')::int AS f,
       count(*) FILTER (WHERE ok AND created_at > now() - interval '6 hours')::int AS s, max(created_at) FILTER (WHERE ok) AS last_ok
     FROM sms_log WHERE kind <> 'bulk' AND coalesce(detail, '') NOT IN ('SMS বন্ধ আছে', 'মোবাইল নম্বর ঠিক নেই', 'লেখা খালি') AND created_at > now() - interval '30 days'`).catch(() => null);
   if (log) { out.failed6h = Number(log.f) || 0; out.sent6h = Number(log.s) || 0; out.lastOk = log.last_ok ? new Date(log.last_ok) : null; }

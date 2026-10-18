@@ -12,6 +12,7 @@ import * as $services_payments from '../services/payments';
 import * as $services_feeds from '../services/feeds';
 import * as $security from '../security';
 import type { AdminCtx, Loose } from '../types';
+import type { BackupsRow, IntegrationLogsRow } from '../data/rows';
 
 const OK = 'ok'; const WARN = 'warn'; const OFF = 'off'; const BAD = 'bad';
 const ICON: Record<string, string> = { ok: '✅', warn: '⚠️', off: '⚪', bad: '❌' };
@@ -41,7 +42,7 @@ function section(ctx: AdminCtx, title?: Loose, rows?: Loose) {
 
 // latest success / failure per service from the integration log
 async function lastLogs() {
-  const rows = await db.q(`SELECT DISTINCT ON (service, ok) service, ok, action, message, created_at FROM integration_logs
+  const rows = await db.q<Pick<IntegrationLogsRow, 'service' | 'ok' | 'action' | 'message' | 'created_at'>>(`SELECT DISTINCT ON (service, ok) service, ok, action, message, created_at FROM integration_logs
     WHERE created_at > now() - interval '30 days' ORDER BY service, ok, created_at DESC`);
   const m: Record<string, string> = {};
   rows.forEach((r) => { (m[r.service] = m[r.service] || {} as Loose)[r.ok ? 'good' : 'fail'] = r; });
@@ -65,7 +66,7 @@ async function statusPage(ctx: AdminCtx) {
   const site = s.site_url || '';
   const methods = payments.methods(s).map((m) => m.label);
   const [lastBackup, feedReport] = await Promise.all([
-    db.one(`SELECT * FROM backups WHERE ok ORDER BY created_at DESC LIMIT 1`).catch(() => null),
+    db.one<BackupsRow>(`SELECT * FROM backups WHERE ok ORDER BY created_at DESC LIMIT 1`).catch(() => null),
     $services_feeds.build('google', s, site || 'https://example.com').then((r) => r.report).catch(() => null),
   ]);
   const ownDomain = /^https?:\/\//.test(site) && !/vercel\.app/.test(site) ? site.replace(/^https?:\/\//, '').replace(/\/.*$/, '') : '';

@@ -3,10 +3,11 @@ import { q, one } from '../db';
 import { normalizePhone, str, int } from '../util';
 import type { Body } from '../types';
 import type { DbRow, Param, Tx } from '../pg';
+import type { CustomersRow } from '../data/rows';
 
 type CustomerContact = { name: unknown; phone: string; email?: unknown; address?: unknown; district?: unknown; thana?: unknown };
 async function upsertCustomer(t: Tx, { name, phone, email, address, district, thana }: CustomerContact): Promise<number> {
-  const res = await t.query(
+  const res = await t.query<Pick<CustomersRow, 'id'>>(
     `INSERT INTO customers(name, phone, email, address, district, thana) VALUES($1,$2,$3,$4,$5,$6)
      ON CONFLICT (phone) DO UPDATE SET name=EXCLUDED.name, email=CASE WHEN EXCLUDED.email<>'' THEN EXCLUDED.email ELSE customers.email END,
        address=EXCLUDED.address, district=EXCLUDED.district, thana=EXCLUDED.thana, updated_at=now()

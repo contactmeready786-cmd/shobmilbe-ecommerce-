@@ -12,6 +12,7 @@ import * as ik from './imagekit';
 import * as SMS from './sms';
 import { databaseTls, type TlsState } from '../pg';
 import type { Settings } from '../types';
+import type { BackupsRow } from '../data/rows';
 
 export const DEFAULT_LIMIT_MB = 500; // Supabase free plan
 const WARN_AT = 0.8;
@@ -64,19 +65,19 @@ async function ping(): Promise<number | null> {
 
 async function load(settings: Settings): Promise<Health> {
   const [size, tables, conn, backup, pingMs] = await Promise.all([
-    db.one(`SELECT pg_database_size(current_database())::bigint AS bytes`).catch(() => null),
-    db.q(`SELECT c.relname AS name, pg_total_relation_size(c.oid)::bigint AS bytes, greatest(c.reltuples, 0)::bigint AS rows
+    db.one<{ bytes: number }>(`SELECT pg_database_size(current_database())::bigint AS bytes`).catch(() => null),
+    db.q<{ name: string | null; bytes: number; rows: number }>(`SELECT c.relname AS name, pg_total_relation_size(c.oid)::bigint AS bytes, greatest(c.reltuples, 0)::bigint AS rows
             FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
            WHERE n.nspname = 'public' AND c.relkind = 'r' ORDER BY pg_total_relation_size(c.oid) DESC LIMIT 6`).catch(() => []),
-    db.one(`SELECT (SELECT count(*) FROM pg_stat_activity WHERE datname = current_database())::int AS n,
+    db.one<{ n: number; max: number }>(`SELECT (SELECT count(*) FROM pg_stat_activity WHERE datname = current_database())::int AS n,
                    current_setting('max_connections')::int AS max`).catch(() => null),
-    db.one(`SELECT created_at FROM backups WHERE ok ORDER BY created_at DESC LIMIT 1`).catch(() => null),
+    db.one<Pick<BackupsRow, 'created_at'>>(`SELECT created_at FROM backups WHERE ok ORDER BY created_at DESC LIMIT 1`).catch(() => null),
     ping(),
   ]);
   const [errors24, errors7, ikUse] = await Promise.all([
-    db.q(`SELECT path, message, sum(n)::int AS n, max(last_at) AS last_at FROM error_log WHERE last_at > now() - interval '24 hours'
+    db.q<{ path: string; message: string; n: number | null; last_at: Date | null }>(`SELECT path, message, sum(n)::int AS n, max(last_at) AS last_at FROM error_log WHERE last_at > now() - interval '24 hours'
           GROUP BY path, message ORDER BY 3 DESC LIMIT 10`).catch(() => []),
-    db.q(`SELECT path, message, sum(n)::int AS n, max(last_at) AS last_at FROM error_log WHERE day > (now() AT TIME ZONE 'Asia/Dhaka')::date - 7
+    db.q<{ path: string; message: string; n: number | null; last_at: Date | null }>(`SELECT path, message, sum(n)::int AS n, max(last_at) AS last_at FROM error_log WHERE day > (now() AT TIME ZONE 'Asia/Dhaka')::date - 7
           GROUP BY path, message ORDER BY 3 DESC LIMIT 10`).catch(() => []),
     ik.usage().catch(() => null),
   ]);

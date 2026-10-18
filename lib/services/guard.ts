@@ -9,7 +9,7 @@
 //
 // Blocking: blocklist rows with kind 'site' shut that IP out of the whole shop (the admin panel stays open,
 // so the owner can never lock himself out). Optional auto-block for 24 hours after repeated hacking attempts.
-import type { SecurityEventsRow } from '../data/rows';
+import type { SecurityEventsRow, VisitSessionsRow, BlocklistRow } from '../data/rows';
 import * as db from '../db';
 import * as security from '../security';
 import * as $notify from './notify';
@@ -64,7 +64,7 @@ async function recordNow({ req, ip, kind, detail = '', path = '', settings }: Bo
     let country = req ? header(req, 'x-vercel-ip-country').toUpperCase().slice(0, 2) : '';
     let city = req ? header(req, 'x-vercel-ip-city').slice(0, 80) : '';
     if (!country) {
-      const v = await db.one(`SELECT country, city FROM visit_sessions WHERE ip = $1 ORDER BY started_at DESC LIMIT 1`, [ip]).catch(() => null);
+      const v = await db.one<Pick<VisitSessionsRow, 'country' | 'city'>>(`SELECT country, city FROM visit_sessions WHERE ip = $1 ORDER BY started_at DESC LIMIT 1`, [ip]).catch(() => null);
       if (v) { country = v.country; city = v.city; }
     }
     await db.q(`INSERT INTO security_events(ip, kind, detail, path, ua, country, city) VALUES($1,$2,$3,$4,$5,$6,$7)`,
@@ -78,12 +78,12 @@ async function recordNow({ req, ip, kind, detail = '', path = '', settings }: Bo
 
 // After an event: tell the owner once, and (if allowed) shut out an IP that keeps trying to hack.
 async function react(ip?: Loose, kind?: Loose, s?: Loose) {
-  const r = await db.one(`SELECT count(*) FILTER (WHERE kind IN ('probe','attack'))::int AS hack, count(*)::int AS n
+  const r = await db.one<{ hack: number; n: number }>(`SELECT count(*) FILTER (WHERE kind IN ('probe','attack'))::int AS hack, count(*)::int AS n
     FROM security_events WHERE ip = $1 AND created_at > now() - interval '1 hour'`, [ip]);
   if (!r) return;
   const notify = $notify;
   if (r.hack >= 20 && s.guard_autoblock !== '0') {
-    const done = await db.one(`INSERT INTO blocklist(kind, value, reason, expires_at) VALUES('site', $1, $2, now() + interval '24 hours')
+    const done = await db.one<Pick<BlocklistRow, 'id'>>(`INSERT INTO blocklist(kind, value, reason, expires_at) VALUES('site', $1, $2, now() + interval '24 hours')
       ON CONFLICT (kind, value) DO NOTHING RETURNING id`, [ip, `নিজে থেকে ব্লক: ১ ঘণ্টায় ${r.hack}বার হ্যাকিংয়ের চেষ্টা (২৪ ঘণ্টার জন্য)`]);
     if (done) {
       resetCache();
@@ -119,7 +119,7 @@ async function siteBlocked(ip: string) {
   if (!ip || ip === 'unknown') return false;
   if (!cache || Date.now() - cacheAt > 60e3) {
     try {
-      const rows = await db.q(`SELECT value FROM blocklist WHERE kind = 'site' AND (expires_at IS NULL OR expires_at > now())`);
+      const rows = await db.q<Pick<BlocklistRow, 'value'>>(`SELECT value FROM blocklist WHERE kind = 'site' AND (expires_at IS NULL OR expires_at > now())`);
       cache = new Set(rows.map((r) => r.value));
       cacheAt = Date.now();
     } catch (_) { return false; }
@@ -159,13 +159,13 @@ async function events(ip?: Loose, limit = 200) {
   return db.q<SecurityEventsRow>(`SELECT * FROM security_events WHERE ip = $1 ORDER BY id DESC LIMIT $2`, [ip, limit]);
 }
 async function summary(days = 7) {
-  return db.one(`SELECT count(DISTINCT ip)::int AS ips, count(*)::int AS n,
+  return db.one<{ ips: number; n: number; hack: number; logins: number; blocked: number }>(`SELECT count(DISTINCT ip)::int AS ips, count(*)::int AS n,
       count(*) FILTER (WHERE kind IN ('probe','attack'))::int AS hack, count(*) FILTER (WHERE kind = 'login_fail')::int AS logins,
       (SELECT count(*)::int FROM blocklist WHERE kind = 'site' AND (expires_at IS NULL OR expires_at > now())) AS blocked
     FROM security_events WHERE created_at > now() - make_interval(days => $1::int)`, [days]);
 }
 async function siteBlocks() {
-  return db.q(`SELECT b.*, s.name AS staff_name FROM blocklist b LEFT JOIN staff s ON s.id = b.created_by
+  return db.q<{ id: number; kind: string; value: string; reason: string; created_by: number | null; created_at: Date; expires_at: Date | null; staff_name: string | null }>(`SELECT b.*, s.name AS staff_name FROM blocklist b LEFT JOIN staff s ON s.id = b.created_by
     WHERE b.kind = 'site' AND (b.expires_at IS NULL OR b.expires_at > now()) ORDER BY b.created_at DESC`);
 }
 

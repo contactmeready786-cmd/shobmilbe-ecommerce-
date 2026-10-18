@@ -7,6 +7,7 @@ import * as db from '../db';
 import * as ui from './ui';
 import * as sessions from '../models/sessions';
 import type { AdminCtx, Body, Loose, ShopQuery } from '../types';
+import type { StaffRow } from '../data/rows';
 const ENTITIES: Record<string, string> = {
   product: '📦 পণ্য', order: '🧾 অর্ডার', customer: '👤 কাস্টমার', category: '🗂️ ক্যাটাগরি', brand: '🏷️ ব্র্যান্ড', staff: '🧑‍💼 স্টাফ',
   security: '🛡️ নিরাপত্তা', settings: '⚙️ সেটিংস', marketing: '📣 মার্কেটিং', coupon: '🏷️ কুপন', blog: '📝 ব্লগ', page: '📄 পেজ', banner: '🖼️ ব্যানার',
@@ -69,7 +70,7 @@ async function auditPage(ctx: AdminCtx) {
     db.q(`SELECT a.*, s.name AS staff_name FROM activity_log a LEFT JOIN staff s ON s.id=a.staff_id ${w}
       ORDER BY a.created_at DESC, a.id DESC LIMIT ${PER} OFFSET ${(page - 1) * PER}`, params),
     db.one(`SELECT count(*)::int AS n FROM activity_log a ${w}`, params).then((r) => r!.n),
-    db.q('SELECT id, name FROM staff ORDER BY role=\'owner\' DESC, name'),
+    db.q<Pick<StaffRow, 'id' | 'name'>>('SELECT id, name FROM staff ORDER BY role=\'owner\' DESC, name'),
   ]);
   const qs = new URLSearchParams();
   Object.entries({ staff: f.staffId, entity: f.entity, action: f.action, q: f.q, from: f.from, to: f.to }).forEach(([k, v]) => { if (v) qs.set(k, v); });
@@ -111,7 +112,7 @@ async function loginsPage(ctx: AdminCtx) {
   const page = pageNum(ctx.query);
   const [active, rows, total, failed, staff] = await Promise.all([
     sessions.listActive(ctx.settings), sessions.history(f, { limit: PER, offset: (page - 1) * PER }), sessions.countHistory(f),
-    sessions.failedSummary(), db.q(`SELECT id, name, totp_on, role, active FROM staff ORDER BY role='owner' DESC, name`),
+    sessions.failedSummary(), db.q<Pick<StaffRow, 'id' | 'name' | 'totp_on' | 'role' | 'active'>>(`SELECT id, name, totp_on, role, active FROM staff ORDER BY role='owner' DESC, name`),
   ]);
   const qs = new URLSearchParams();
   Object.entries({ staff: f.staffId, event: f.event, failed: f.failed ? '1' : '', ip: f.ip }).forEach(([k, v]) => { if (v) qs.set(k, v); });
@@ -127,7 +128,7 @@ async function logoutDevice(ctx: AdminCtx) {
   if (String(b.id) === ctx.user.__session) return ctx.redirect('/admin/security/logins');
   const who = await sessions.revokeId(str(b.id, 100), null, `মালিক লগআউট করিয়েছেন (${ctx.user.name})`);
   if (who) {
-    const s = await db.one('SELECT name, username FROM staff WHERE id=$1', [who]);
+    const s = await db.one<Pick<StaffRow, 'name' | 'username'>>('SELECT name, username FROM staff WHERE id=$1', [who]);
     await sessions.record(ctx.req, { staffId: who, login: s ? s.username : '', event: 'revoked', ok: true, ip: ctx.ip, detail: 'মালিক একটা ডিভাইস লগআউট করিয়েছেন' });
     await ctx.log('staff_logout', 'staff', who, `${s ? s.name : ''}: একটা ডিভাইস থেকে লগআউট`);
   }

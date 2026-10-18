@@ -13,7 +13,7 @@ import type { AdminCtx, Loose } from '../types';
 const MAX_BYTES = 4 * 1024 * 1024; // Vercel can send at most ~4.5 MB in one reply
 
 async function page(ctx: AdminCtx) {
-  const rows = await db.q(`SELECT b.*, s.name AS staff_name FROM backups b LEFT JOIN staff s ON s.id=b.staff_id ORDER BY b.created_at DESC LIMIT 40`);
+  const rows = await db.q<{ id: number; kind: string; ok: boolean; size_bytes: number; tables: number; rows_count: number; with_images: boolean; encrypted: boolean; note: string; staff_id: number | null; created_at: Date; ik_id: string | null; ik_url: string | null; staff_name: string | null }>(`SELECT b.*, s.name AS staff_name FROM backups b LEFT JOIN staff s ON s.id=b.staff_id ORDER BY b.created_at DESC LIMIT 40`);
   const lastAuto = rows.find((r) => r.kind === 'auto' && r.ok);
   const lastAny = rows.find((r) => r.ok);
   const age = lastAny ? (Date.now() - new Date(lastAny.created_at).getTime()) / 864e5 : null;

@@ -4,7 +4,7 @@
 //   main = total − all other stores.
 // So nothing else in the shop changes: purchases and online orders move the main store; a transfer moves pieces
 // between stores; a counter sale at a branch (POS) takes from that branch (and from the total).
-import type { WarehousesRow } from '../data/rows';
+import type { WarehousesRow, ProductsRow, WarehouseStockRow } from '../data/rows';
 import * as db from '../db';
 import { str, int } from '../util';
 import type { Body, Id, Loose } from '../types';
@@ -22,7 +22,7 @@ async function save(b: Body) {
   const id = int(b.id);
   const v = [name, str(b.address, 300), str(b.phone, 30), !!b.is_shop, b.active === undefined ? true : !!b.active, int(b.sort), str(b.note, 300)];
   if (id) { await db.q('UPDATE warehouses SET name=$1, address=$2, phone=$3, is_shop=$4, active=$5, sort=$6, note=$7 WHERE id=$8', [...v, id]); return id; }
-  return (await db.one('INSERT INTO warehouses(name, address, phone, is_shop, active, sort, note) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING id', v))!.id;
+  return (await db.one<Pick<WarehousesRow, 'id'>>('INSERT INTO warehouses(name, address, phone, is_shop, active, sort, note) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING id', v))!.id;
 }
 
 // How many pieces of these products each store has, plus the main store. → Map(product_id → { total, main, by: { whId: qty } })
@@ -30,8 +30,8 @@ async function stockFor(productIds?: Loose) {
   const ids = (productIds || []).map((x: Loose) => int(x)).filter((x: number) => x > 0);
   if (!ids.length) return new Map();
   const [prods, rows] = await Promise.all([
-    db.q('SELECT id, stock FROM products WHERE id = ANY($1::int[])', [ids]),
-    db.q('SELECT warehouse_id, product_id, qty FROM warehouse_stock WHERE product_id = ANY($1::int[])', [ids]),
+    db.q<Pick<ProductsRow, 'id' | 'stock'>>('SELECT id, stock FROM products WHERE id = ANY($1::int[])', [ids]),
+    db.q<WarehouseStockRow>('SELECT warehouse_id, product_id, qty FROM warehouse_stock WHERE product_id = ANY($1::int[])', [ids]),
   ]);
   const m = new Map(prods.map((p) => [p.id, { total: p.stock, main: p.stock, by: {} as Record<string, number> }]));
   rows.forEach((r) => { const x = m.get(r.product_id); if (x) { x.by[r.warehouse_id] = r.qty; x.main -= r.qty; } });
@@ -55,20 +55,20 @@ async function transfer({ productId, qty, from, to, note }: Body, staffId?: Id) 
   if (n < 1) throw new WhError('কয়টা সরাবেন লিখুন।');
   if (f === tw) throw new WhError('কোথা থেকে আর কোথায় — দুটো আলাদা বাছুন।');
   return db.tx(async (t) => {
-    const p = (await t.query('SELECT id, name, stock, variant_count, product_type FROM products WHERE id=$1 FOR UPDATE', [int(productId)])).rows[0];
+    const p = (await t.query<Pick<ProductsRow, 'id' | 'name' | 'stock' | 'variant_count' | 'product_type'>>('SELECT id, name, stock, variant_count, product_type FROM products WHERE id=$1 FOR UPDATE', [int(productId)])).rows[0];
     if (!p) throw new WhError('পণ্যটা পাওয়া যায়নি।');
     if (p.variant_count > 0) throw new WhError('এই পণ্যের ভ্যারিয়েন্ট আছে — নির্দিষ্ট ভ্যারিয়েন্ট (রং/সাইজ) বাছাই করুন।');
     if (p.product_type === 'bundle') throw new WhError('বান্ডেল সরানো যায় না — ভেতরের পণ্যগুলো আলাদা করে সরান।');
     for (const w of [f, tw].filter(Boolean)) {
-      const ok = (await t.query('SELECT id FROM warehouses WHERE id=$1 AND active', [w])).rows[0];
+      const ok = (await t.query<Pick<WarehousesRow, 'id'>>('SELECT id FROM warehouses WHERE id=$1 AND active', [w])).rows[0];
       if (!ok) throw new WhError('গুদাম / শাখা পাওয়া যায়নি (বা বন্ধ)।');
     }
-    const others = (await t.query('SELECT coalesce(sum(qty),0)::int AS n FROM warehouse_stock WHERE product_id=$1', [p.id])).rows[0].n;
+    const others = (await t.query<{ n: number }>('SELECT coalesce(sum(qty),0)::int AS n FROM warehouse_stock WHERE product_id=$1', [p.id])).rows[0].n;
     if (!f) {
       const main = p.stock - others;
       if (main < n) throw new WhError(`মূল গুদামে "${p.name}" আছে মাত্র ${Math.max(0, main)}টি।`);
     } else {
-      const got = (await t.query('UPDATE warehouse_stock SET qty = qty - $1 WHERE warehouse_id=$2 AND product_id=$3 AND qty >= $1 RETURNING qty', [n, f, p.id])).rows[0];
+      const got = (await t.query<Pick<WarehouseStockRow, 'qty'>>('UPDATE warehouse_stock SET qty = qty - $1 WHERE warehouse_id=$2 AND product_id=$3 AND qty >= $1 RETURNING qty', [n, f, p.id])).rows[0];
       if (!got) throw new WhError(`এই শাখায় "${p.name}" ${n}টি নেই।`);
     }
     if (tw) {
@@ -83,11 +83,11 @@ async function transfer({ productId, qty, from, to, note }: Body, staffId?: Id) 
 async function setCount(whId?: Id, productId?: Id, qty?: Loose, staffId?: Id) {
   const n = Math.max(0, int(qty));
   return db.tx(async (t) => {
-    const p = (await t.query('SELECT id, name, stock FROM products WHERE id=$1 FOR UPDATE', [int(productId)])).rows[0];
+    const p = (await t.query<Pick<ProductsRow, 'id' | 'name' | 'stock'>>('SELECT id, name, stock FROM products WHERE id=$1 FOR UPDATE', [int(productId)])).rows[0];
     if (!p) throw new WhError('পণ্যটা পাওয়া যায়নি।');
-    const cur = (await t.query('SELECT qty FROM warehouse_stock WHERE warehouse_id=$1 AND product_id=$2', [int(whId), p.id])).rows[0];
+    const cur = (await t.query<Pick<WarehouseStockRow, 'qty'>>('SELECT qty FROM warehouse_stock WHERE warehouse_id=$1 AND product_id=$2', [int(whId), p.id])).rows[0];
     const was = cur ? cur.qty : 0;
-    const others = (await t.query('SELECT coalesce(sum(qty),0)::int AS n FROM warehouse_stock WHERE product_id=$1', [p.id])).rows[0].n;
+    const others = (await t.query<{ n: number }>('SELECT coalesce(sum(qty),0)::int AS n FROM warehouse_stock WHERE product_id=$1', [p.id])).rows[0].n;
     if (n - was > p.stock - others) throw new WhError(`মূল গুদামে যথেষ্ট "${p.name}" নেই — আগে মোট স্টক ঠিক করুন (ইনভেন্টরি)।`);
     await t.query(`INSERT INTO warehouse_stock(warehouse_id, product_id, qty) VALUES($1,$2,$3) ON CONFLICT (warehouse_id, product_id) DO UPDATE SET qty=EXCLUDED.qty`, [int(whId), p.id, n]);
     if (n !== was) await t.query('INSERT INTO warehouse_moves(product_id, from_wh, to_wh, qty, reason, note, staff_id) VALUES($1,$2,$3,$4,$5,$6,$7)',
@@ -107,7 +107,7 @@ async function moves({ whId = null, limit = 60 }: Body = {}) {
 }
 // Products whose main-store count went below zero (sold online while the pieces were counted in a branch).
 async function problems() {
-  return db.q(`SELECT p.id, p.name, p.sku, p.stock, (SELECT coalesce(sum(qty),0) FROM warehouse_stock x WHERE x.product_id=p.id)::int AS branches
+  return db.q<{ id: number; name: string; sku: string; stock: number; branches: number | null }>(`SELECT p.id, p.name, p.sku, p.stock, (SELECT coalesce(sum(qty),0) FROM warehouse_stock x WHERE x.product_id=p.id)::int AS branches
     FROM products p WHERE EXISTS (SELECT 1 FROM warehouse_stock x WHERE x.product_id=p.id AND x.qty > 0)
       AND p.stock < (SELECT coalesce(sum(qty),0) FROM warehouse_stock x WHERE x.product_id=p.id) ORDER BY p.name LIMIT 50`);
 }

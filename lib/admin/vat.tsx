@@ -41,13 +41,13 @@ function nextMonth15(ym?: Loose) {
 }
 
 async function salesRows(month?: Loose) {
-  return db.q(`SELECT o.id, o.code, o.customer_name, o.phone, o.address, coalesce(o.delivered_at, o.updated_at) AS at,
+  return db.q<{ id: number; code: string; customer_name: string; phone: string; address: string; at: Date; goods: number; cost_total: number; delivery: number; total: number }>(`SELECT o.id, o.code, o.customer_name, o.phone, o.address, coalesce(o.delivered_at, o.updated_at) AS at,
       (o.subtotal - o.discount - coalesce(o.points_discount,0))::numeric(14,2) AS goods, o.cost_total, o.delivery, o.total
     FROM orders o WHERE o.status='delivered' AND to_char(coalesce(o.delivered_at, o.updated_at) AT TIME ZONE 'Asia/Dhaka', 'YYYY-MM') = $1
     ORDER BY at, o.id`, [month]);
 }
 async function purchaseRows(month?: Loose) {
-  return db.q(`SELECT p.id, p.code, p.purchase_date, coalesce(s.name, '—') AS supplier, coalesce(s.company, '') AS company, p.note,
+  return db.q<{ id: number; code: string; purchase_date: string; supplier: string; company: string; note: string; value: number; vat: number; total: number }>(`SELECT p.id, p.code, p.purchase_date, coalesce(s.name, '—') AS supplier, coalesce(s.company, '') AS company, p.note,
       (p.subtotal - p.discount)::numeric(14,2) AS value, p.vat, p.total
     FROM purchases p LEFT JOIN suppliers s ON s.id=p.supplier_id
     WHERE p.status='received' AND to_char(p.purchase_date, 'YYYY-MM') = $1 ORDER BY p.purchase_date, p.id`, [month]);
@@ -59,7 +59,7 @@ async function returnPage(ctx: AdminCtx) {
   const month = validMonth(ctx.query.get('month'));
   const kind = ['sales', 'purchase'].includes(ctx.query.get('reg')) ? ctx.query.get('reg') : '';
   const [sales, buys, paid] = await Promise.all([salesRows(month), purchaseRows(month),
-    db.one(`SELECT coalesce(sum(amount),0)::numeric(14,2) AS n FROM transactions WHERE type='expense' AND category='ভ্যাট/ট্যাক্স পরিশোধ' AND to_char(tx_date,'YYYY-MM')=$1`, [month])]);
+    db.one<{ n: number }>(`SELECT coalesce(sum(amount),0)::numeric(14,2) AS n FROM transactions WHERE type='expense' AND category='ভ্যাট/ট্যাক্স পরিশোধ' AND to_char(tx_date,'YYYY-MM')=$1`, [month])]);
   const saleLines: Loose[] = sales.map((o) => ({ ...o, ...split(o.goods, s, Number(o.cost_total)) }));
   const out = saleLines.reduce((a, o) => ({ value: a.value + Number(o.value), vat: a.vat + o.vat }), { value: 0, vat: 0 });
   const inn = buys.reduce((a, p) => ({ value: a.value + Number(p.value), vat: a.vat + Number(p.vat) }), { value: 0, vat: 0 });

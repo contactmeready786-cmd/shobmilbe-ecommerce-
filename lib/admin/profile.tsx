@@ -10,6 +10,7 @@ import * as db from '../db';
 import * as ui from './ui';
 import * as S from '../models/staff';
 import type { AdminCtx, Body, Id, Loose, RouteMatch, StaffUser } from '../types';
+import type { MediaRow, StaffRow } from '../data/rows';
 function ymd(v?: Loose) {
   if (!v) return '';
   if (v instanceof Date) return Number.isNaN(v.getTime()) ? '' : `${v.getFullYear()}-${String(v.getMonth() + 1).padStart(2, '0')}-${String(v.getDate()).padStart(2, '0')}`;
@@ -50,11 +51,11 @@ async function contactProblem(id?: Id, phone?: string, email?: string) {
   const p = normalizePhone(phone || '');
   const e = String(email || '').trim().toLowerCase();
   if (p) {
-    const x = await db.one(`SELECT name FROM staff WHERE id<>$1 AND phone<>'' AND phone=$2`, [id || 0, p]);
+    const x = await db.one<Pick<StaffRow, 'name'>>(`SELECT name FROM staff WHERE id<>$1 AND phone<>'' AND phone=$2`, [id || 0, p]);
     if (x) return `এই মোবাইল নম্বর আরেকজনের (${x.name}) অ্যাকাউন্টে আছে।`;
   }
   if (e) {
-    const x = await db.one(`SELECT name FROM staff WHERE id<>$1 AND email<>'' AND lower(email)=$2`, [id || 0, e]);
+    const x = await db.one<Pick<StaffRow, 'name'>>(`SELECT name FROM staff WHERE id<>$1 AND email<>'' AND lower(email)=$2`, [id || 0, e]);
     if (x) return `এই ইমেইল আরেকজনের (${x.name}) অ্যাকাউন্টে আছে।`;
   }
   return null;
@@ -76,7 +77,7 @@ async function changePhoto(ctx: AdminCtx, id?: Id, back?: string) {
   const b = await ctx.body();
   const want = int(b.photo_id) || null;
   if (want) {
-    const m = await db.one(`SELECT id FROM media WHERE id=$1 AND (owner_type IS NULL OR (owner_type='staff' AND owner_id=$2))`, [want, id]);
+    const m = await db.one<Pick<MediaRow, 'id'>>(`SELECT id FROM media WHERE id=$1 AND (owner_type IS NULL OR (owner_type='staff' AND owner_id=$2))`, [want, id]);
     if (!m) return answer(ctx, false, back, 'ছবিটা পাওয়া যায়নি, আবার আপলোড করুন।');
   }
   await S.setPhoto(id, want || '');

@@ -6,6 +6,7 @@ import * as db from '../db';
 import * as ui from './ui';
 import * as R from '../models/reviews';
 import type { AdminCtx, Loose, RouteMatch } from '../types';
+import type { MediaRow, ProductsRow } from '../data/rows';
 
 const BASE = '/admin/reviews';
 const PER = 30;
@@ -18,7 +19,7 @@ async function page(ctx: AdminCtx) {
   const pg = pageNum(ctx.query);
   const [{ rows, total }, counts, wished] = await Promise.all([
     R.list({ status, q, limit: PER, offset: (pg - 1) * PER }), R.counts(),
-    db.q('SELECT id, name, sku, wish_count, rating_avg, rating_count FROM products WHERE wish_count > 0 ORDER BY wish_count DESC, id LIMIT 15'),
+    db.q<Pick<ProductsRow, 'id' | 'name' | 'sku' | 'wish_count' | 'rating_avg' | 'rating_count'>>('SELECT id, name, sku, wish_count, rating_avg, rating_count FROM products WHERE wish_count > 0 ORDER BY wish_count DESC, id LIMIT 15'),
   ]);
   const s = ctx.settings;
   const qs = new URLSearchParams();
@@ -66,7 +67,7 @@ function back(ctx: AdminCtx) {
 
 // a review's photo (also before the review is shown — only staff)
 async function photo(ctx: AdminCtx, m: RouteMatch) {
-  const p = await db.one(`SELECT mime, data, ik_url FROM media WHERE id=$1 AND owner_type IN ('review','review_wait')`, [int(m[1])]);
+  const p = await db.one<Pick<MediaRow, 'mime' | 'data' | 'ik_url'>>(`SELECT mime, data, ik_url FROM media WHERE id=$1 AND owner_type IN ('review','review_wait')`, [int(m[1])]);
   if (!p || !p.data) return ctx.send(404, 'Not found', 'text/plain');
   return ctx.reply.answer(200, { 'Content-Type': /^image\/(jpeg|png|webp)$/.test(p.mime) ? p.mime : 'application/octet-stream', 'Cache-Control': 'private, max-age=3600', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'; sandbox" }, p.data);
 }

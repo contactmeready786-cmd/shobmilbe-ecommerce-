@@ -7,6 +7,7 @@ import * as ui from './ui';
 import * as CO from '../models/checkoutotp';
 import * as $services_sms from '../services/sms';
 import type { AdminCtx } from '../types';
+import type { SmsLogRow } from '../data/rows';
 
 const BASE = '/admin/checkout-otp';
 

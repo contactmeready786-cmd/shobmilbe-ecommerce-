@@ -12,6 +12,7 @@ import { ASSET_V } from './layout';
 import * as $services_courier from '../services/courier';
 import * as $orders from './orders';
 import type { AdminCtx, Loose } from '../types';
+import type { OrdersRow, ProductsRow } from '../data/rows';
 
 const BASE = '/admin/handover';
 const READY = ['confirmed', 'processing', 'hold'];
@@ -19,7 +20,7 @@ const READY = ['confirmed', 'processing', 'hold'];
 async function findOrder(code?: Loose) {
   const c = str(code, 60).trim().toUpperCase();
   if (!c) return null;
-  const r = await db.one(`SELECT id FROM orders WHERE upper(code)=$1 OR (consignment_id<>'' AND upper(consignment_id)=$1) OR (coalesce(tracking_code,'')<>'' AND upper(tracking_code)=$1) ORDER BY id DESC LIMIT 1`, [c]);
+  const r = await db.one<Pick<OrdersRow, 'id'>>(`SELECT id FROM orders WHERE upper(code)=$1 OR (consignment_id<>'' AND upper(consignment_id)=$1) OR (coalesce(tracking_code,'')<>'' AND upper(tracking_code)=$1) ORDER BY id DESC LIMIT 1`, [c]);
   return r ? O.getOrder({ id: r.id }) : null;
 }
 function view(o?: Loose) {
@@ -42,7 +43,7 @@ async function partsBarcodes(order: O.Order) {
   const ids: Loose[] = [];
   for (const it of order.items) if (Array.isArray(it.components)) it.components.forEach((c: Loose) => ids.push(c.product_id));
   if (!ids.length) return;
-  const rows = await db.q('SELECT id, name, barcode FROM products WHERE id = ANY($1::int[])', [ids]);
+  const rows = await db.q<Pick<ProductsRow, 'id' | 'name' | 'barcode'>>('SELECT id, name, barcode FROM products WHERE id = ANY($1::int[])', [ids]);
   const m = new Map(rows.map((r) => [r.id, r]));
   for (const it of order.items) if (Array.isArray(it.components)) it.components.forEach((c: Loose) => { const p = m.get(c.product_id); if (p) { c.barcode = p.barcode; c.name = c.name || p.name; } });
 }
@@ -51,7 +52,7 @@ async function partsBarcodes(order: O.Order) {
 async function addLocations(view?: Loose) {
   const ids = view.items.map((x: Loose) => x.product_id).filter(Boolean);
   if (!ids.length) return view;
-  const rows = await db.q("SELECT id, location FROM products WHERE id = ANY($1::int[]) AND location <> ''", [ids]);
+  const rows = await db.q<Pick<ProductsRow, 'id' | 'location'>>("SELECT id, location FROM products WHERE id = ANY($1::int[]) AND location <> ''", [ids]);
   const m = new Map(rows.map((r) => [r.id, r.location]));
   view.items.forEach((x: Loose) => { x.location = m.get(x.product_id) || ''; });
   return view;
@@ -60,7 +61,7 @@ async function lookup(ctx: AdminCtx) {
   const code = ctx.query.get('code');
   const o = await findOrder(code);
   if (!o) {
-    const p = await db.one('SELECT id, name, stock FROM products WHERE upper(barcode)=upper($1)', [str(code, 60).trim()]).catch(() => null);
+    const p = await db.one<Pick<ProductsRow, 'id' | 'name' | 'stock'>>('SELECT id, name, stock FROM products WHERE upper(barcode)=upper($1)', [str(code, 60).trim()]).catch(() => null);
     if (p) return ctx.json(200, { ok: false, product: p, error: `এটা একটা পণ্যের বারকোড: "${p.name}"। আগে ইনভয়েসের (অর্ডারের) বারকোড স্ক্যান করুন।` });
     return ctx.json(404, { ok: false, error: `"${str(code, 40)}" নম্বরে কোনো অর্ডার পাওয়া যায়নি।` });
   }
@@ -87,7 +88,7 @@ async function handover(ctx: AdminCtx) {
     booked = ` ${courier.label(s.courier_default)}-এ বুকিং হলো (${r.consignment_id})।`;
   }
   try {
-    const cur = await db.one('SELECT status FROM orders WHERE id=$1', [o.id]);
+    const cur = await db.one<Pick<OrdersRow, 'status'>>('SELECT status FROM orders WHERE id=$1', [o.id]);
     if (cur!.status !== 'shipped') await O.setStatus(o.id, 'shipped', ctx.user.id);
   } catch (e: Loose) { return ctx.json(400, { ok: false, error: e.message }); }
   await db.q('UPDATE orders SET handed_at=now(), handed_by=$1 WHERE id=$2', [ctx.user.id, o.id]);
@@ -106,9 +107,9 @@ async function undo(ctx: AdminCtx) {
 
 async function page(ctx: AdminCtx) {
   const [today, waiting] = await Promise.all([
-    db.q(`SELECT o.id, o.code, o.customer_name, o.total, o.paid_amount, o.courier, o.handed_at, s.name AS by_name FROM orders o LEFT JOIN staff s ON s.id=o.handed_by
+    db.q<{ id: number; code: string; customer_name: string; total: number; paid_amount: number; courier: string; handed_at: Date | null; by_name: string | null }>(`SELECT o.id, o.code, o.customer_name, o.total, o.paid_amount, o.courier, o.handed_at, s.name AS by_name FROM orders o LEFT JOIN staff s ON s.id=o.handed_by
       WHERE o.handed_at > date_trunc('day', now() AT TIME ZONE 'Asia/Dhaka') AT TIME ZONE 'Asia/Dhaka' ORDER BY o.handed_at DESC LIMIT 200`),
-    db.one(`SELECT count(*)::int AS n FROM orders WHERE status IN ('confirmed','processing')`),
+    db.one<{ n: number }>(`SELECT count(*)::int AS n FROM orders WHERE status IN ('confirmed','processing')`),
   ]);
   const cod = today.reduce((t, o) => t + Math.max(0, Number(o.total) - Number(o.paid_amount || 0)), 0);
   const body = <><div className="title-row"><h1>📦 কুরিয়ারে হ্যান্ডওভার{' '}<small>স্ক্যান করুন</small></h1><a className="btn btn-ghost btn-sm" href="/admin/orders?status=processing">প্যাক বাকি অর্ডার →</a></div><div className="kpis kpis-tight">{ui.kpi('আজ হ্যান্ডওভার', `${bn(today.length)}টি`, `কুরিয়ার থেকে পাবেন ${money(cod)}`, 'kpi-green')}{' '}{ui.kpi('দেওয়ার অপেক্ষায়', `${bn(waiting!.n)}টি`, 'কনফার্ম / প্যাকিং চলছে', waiting!.n ? 'kpi-alert' : '')}</div>{(() => {

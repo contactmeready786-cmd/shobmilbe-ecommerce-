@@ -12,6 +12,7 @@ import { int } from '../util';
 import * as $catalog from './catalog';
 import type { Body, Id, Loose } from '../types';
 import type { Tx } from '../pg';
+import type { CategoriesRow, MediaRow, TrashRow } from '../data/rows';
 const KINDS: Record<string, Loose> = {
   product: {
     label: 'পণ্য', icon: '📦', table: 'products', name: (r?: Loose) => r.name,
@@ -77,7 +78,7 @@ async function move(kind?: Loose, id?: Id, who: Loose = {}) {
     // pictures are set aside, not copied
     let media: number[] = [];
     if (K.media) {
-      media = (await t.query(`UPDATE media SET owner_type=$1 WHERE owner_type=$2 AND owner_id=$3 RETURNING id`, ['trash:' + K.media, K.media, id])).rows.map((x) => x.id);
+      media = (await t.query<Pick<MediaRow, 'id'>>(`UPDATE media SET owner_type=$1 WHERE owner_type=$2 AND owner_id=$3 RETURNING id`, ['trash:' + K.media, K.media, id])).rows.map((x) => x.id);
     }
     if (K.imageCol && r[K.imageCol]) {
       await t.query(`UPDATE media SET owner_type='trash:' || coalesce(owner_type, '') WHERE id=$1 AND owner_type NOT LIKE 'trash:%'`, [r[K.imageCol]]);
@@ -93,7 +94,7 @@ async function move(kind?: Loose, id?: Id, who: Loose = {}) {
       await t.query('DELETE FROM transactions WHERE order_id=$1', [id]);
     }
     await t.query(`DELETE FROM ${K.table} WHERE id=$1`, [id]);
-    const e = (await t.query(`INSERT INTO trash(kind, ref_id, name, data, media, deleted_by, deleted_by_name, from_path, ip)
+    const e = (await t.query<Pick<TrashRow, 'id'>>(`INSERT INTO trash(kind, ref_id, name, data, media, deleted_by, deleted_by_name, from_path, ip)
       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id`,
     [kind, id, String(K.name(r) || '').slice(0, 300), JSON.stringify(data), media, who.id || null, who.name || '', String(who.path || '').slice(0, 200), String(who.ip || '').slice(0, 60)])).rows[0];
     return e.id;
@@ -103,7 +104,7 @@ async function move(kind?: Loose, id?: Id, who: Loose = {}) {
 // Every product into the bin at once (owner only). Fast: one statement per step, not one per product.
 async function moveAllProducts(who: Loose = {}) {
   return tx(async (t) => {
-    const n = (await t.query('SELECT count(*)::int AS n FROM products')).rows[0].n;
+    const n = (await t.query<{ n: number }>('SELECT count(*)::int AS n FROM products')).rows[0].n;
     if (!n) return 0;
     await t.query(`INSERT INTO trash(kind, ref_id, name, data, media, deleted_by, deleted_by_name, from_path, ip)
       SELECT 'product', p.id, p.name,
@@ -145,11 +146,11 @@ async function restore(id?: Id) {
       const row = { ...e.data.row };
       // a category whose main category is gone goes back to the top level
       if (e.kind === 'category' && row.parent_id) {
-        const p = (await t.query('SELECT id FROM categories WHERE id=$1', [row.parent_id])).rows[0];
+        const p = (await t.query<Pick<CategoriesRow, 'id'>>('SELECT id FROM categories WHERE id=$1', [row.parent_id])).rows[0];
         if (!p) row.parent_id = null;
       }
       if (e.kind === 'product' && row.category_id) {
-        const c = (await t.query('SELECT id FROM categories WHERE id=$1', [row.category_id])).rows[0];
+        const c = (await t.query<Pick<CategoriesRow, 'id'>>('SELECT id FROM categories WHERE id=$1', [row.category_id])).rows[0];
         if (!c) row.category_id = null;
       }
       // a product whose brand or supplier is gone comes back without it
@@ -164,7 +165,7 @@ async function restore(id?: Id) {
         for (const r of rows) {
           // only parts whose other side still exists
           if (r.bundle_id && r.product_id) {
-            const ok = (await t.query('SELECT count(*)::int AS n FROM products WHERE id = ANY($1::int[])', [[r.bundle_id, r.product_id]])).rows[0].n === 2;
+            const ok = (await t.query<{ n: number }>('SELECT count(*)::int AS n FROM products WHERE id = ANY($1::int[])', [[r.bundle_id, r.product_id]])).rows[0].n === 2;
             if (!ok) continue;
           }
           await ins(table, r);
@@ -202,7 +203,7 @@ async function purge(ids?: Loose) {
   const clean = (Array.isArray(ids) ? ids : [ids]).map((x) => int(x)).filter(Boolean);
   if (!clean.length) return 0;
   const n = await tx(async (t) => {
-    const rows = (await t.query('DELETE FROM trash WHERE id = ANY($1::int[]) RETURNING media', [clean])).rows;
+    const rows = (await t.query<Pick<TrashRow, 'media'>>('DELETE FROM trash WHERE id = ANY($1::int[]) RETURNING media', [clean])).rows;
     const media = rows.flatMap((r) => r.media || []);
     if (media.length) await t.query(`DELETE FROM media WHERE id = ANY($1::int[]) AND owner_type LIKE 'trash:%'`, [media]);
     return rows.length;

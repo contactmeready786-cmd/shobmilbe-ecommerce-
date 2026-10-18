@@ -13,6 +13,7 @@ import * as $pg from '../pg';
 import * as $services_notify from '../services/notify';
 import * as delcode from '../services/delcode';
 import type { AdminCtx, Loose } from '../types';
+import type { ActivityLogRow, SettingsRow, StaffRow } from '../data/rows';
 
 function row(ok: boolean | null, title?: Loose, desc?: Loose) {
   return <li className={`sec-row ${ok === true ? 'ok' : ok === false ? 'todo' : 'info'}`}><span className="sec-ic" aria-hidden="true">{(ok === true ? "✅" : (ok === false ? "⚠️" : "ℹ️"))}</span>{' '}<span><b><Val v={title} /></b><br /><span className="small muted"><Val v={desc} /></span></span></li>;
@@ -40,7 +41,7 @@ async function forgetLocked(ctx: AdminCtx) {
   const b = await ctx.body();
   const k = String(b.key || '');
   // only a value that really can't be read any more may be removed here
-  const row = await db.one('SELECT value FROM settings WHERE key=$1', [k]);
+  const row = await db.one<Pick<SettingsRow, 'value'>>('SELECT value FROM settings WHERE key=$1', [k]);
   if (!row || !security.isEncrypted(row.value) || security.decrypt(row.value)) return ctx.fail('/admin/security', 'এটা মুছা যাবে না।');
   await db.q('DELETE FROM settings WHERE key=$1', [k]);
   await ctx.reloadSettings();
@@ -120,12 +121,12 @@ async function page(ctx: AdminCtx) {
   const lockOn = lock.isOn(s);
   const recLeft = await $recovery.available();
   const [blocked, staff] = await Promise.all([
-    db.q(`SELECT detail, created_at FROM activity_log WHERE action='blocked' ORDER BY id DESC LIMIT 15`).catch(() => []),
-    db.q(`SELECT name, username, role, active, last_login FROM staff ORDER BY role='owner' DESC, id`).catch(() => []),
+    db.q<Pick<ActivityLogRow, 'detail' | 'created_at'>>(`SELECT detail, created_at FROM activity_log WHERE action='blocked' ORDER BY id DESC LIMIT 15`).catch(() => []),
+    db.q<Pick<StaffRow, 'name' | 'username' | 'role' | 'active' | 'last_login'>>(`SELECT name, username, role, active, last_login FROM staff ORDER BY role='owner' DESC, id`).catch(() => []),
   ]);
   const suggested = crypto.randomBytes(32).toString('base64url');
   const ikOn = $services_imagekit.configured();
-  const dbLeft = await db.one(`SELECT count(*)::int AS n FROM media WHERE ik_url IS NULL AND data IS NOT NULL AND (owner_type IS NULL OR owner_type NOT IN ('staff','trash:staff'))`).catch(() => ({ n: 0 }));
+  const dbLeft = await db.one<{ n: number }>(`SELECT count(*)::int AS n FROM media WHERE ik_url IS NULL AND data IS NOT NULL AND (owner_type IS NULL OR owner_type NOT IN ('staff','trash:staff'))`).catch(() => ({ n: 0 }));
 
   const body = <><h1>🛡️ নিরাপত্তা</h1>{ui.flash(ctx.flash)}{' '}{(locked && hasKey ? <div className="flash flash-error">⚠️{' '}<Val v={ui.bn(locked)} />টি পুরোনো সেভ করা পাসওয়ার্ড/কোড আগের একটা চাবি দিয়ে তালা দেওয়া ছিল, তাই এখন পড়া যাচ্ছে না। বাকি সব ঠিক আছে।<ul style={styleOf("margin:8px 0 0")}>{jsxList(lockedNames.map(([k, name, where]) => <li style={styleOf("margin:6px 0")}><b><Val v={name} /></b>{(where ? <>{' '}— নতুন করে দিতে:{' '}<a href={attrValue(where)}>এখানে যান</a></> : null)}<form method="post" action="/admin/security/forget-locked" style={styleOf("display:inline;margin-left:8px")} data-confirm={`${attrValue(name)} মুছে দেবেন? দরকার হলে পরে আবার নতুন করে বসাতে পারবেন।`}><input type="hidden" name="key" defaultValue={attrValue(k)} /><button className="btn btn-sm btn-ghost">🗑️ এটা মুছে দিন</button></form></li>))}</ul><p className="small" style={styleOf("margin:8px 0 0")}>এটা ব্যবহার না করলে শুধু "মুছে দিন" চাপুন, সতর্কবার্তা চলে যাবে। ব্যবহার করলে নতুন করে বসান।</p></div> : null)}{' '}{(keyChanged && !locked ? <p className="flash flash-error">⚠️ Vercel-এর{' '}<b>ENCRYPTION_KEY</b>{' '}বদলে গেছে।</p> : null)}{' '}{(locked && !hasKey ? <p className="flash flash-error">⚠️ Vercel থেকে{' '}<b>ENCRYPTION_KEY</b>{' '}মুছে গেছে।{' '}<Val v={ui.bn(locked)} />টি সেভ করা পাসওয়ার্ড/API কী এখন পড়া যাচ্ছে না — আগের কী-টা আবার বসিয়ে Redeploy দিন।</p> : null)}<section className="panel"><h2>সাইট যেভাবে সুরক্ষিত আছে</h2><ul className="sec-list">{row(https, 'HTTPS (তালা চিহ্ন) — সব তথ্য এনক্রিপ্ট হয়ে যায়', https ? 'ক্রেতার ব্রাউজার থেকে সাইট পর্যন্ত সব তথ্য এনক্রিপ্টেড। মাঝপথে কেউ পড়তে পারবে না। ব্রাউজারকে সবসময় HTTPS ব্যবহার করতে বলা আছে (HSTS)।' : 'এখন HTTPS ছাড়া খোলা হয়েছে। Vercel-এ সাইট নিজে থেকেই HTTPS এ চলে।')}{' '}{(() => { const d = $pg.databaseInfo(); return row(true, `ডাটাবেসের সংযোগ এনক্রিপ্টেড — এখন চলছে: ${d.provider || 'অজানা'}`, `সাইট আর ডাটাবেসের মধ্যে সব তথ্য TLS দিয়ে এনক্রিপ্ট হয়ে যায়। এখন ব্যবহার হচ্ছে ${d.provider || '?'} (${d.variable || '?'})।`); })()}{' '}{(() => {
       const d = $pg.databaseInfo();

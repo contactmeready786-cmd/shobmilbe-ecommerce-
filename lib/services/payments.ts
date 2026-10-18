@@ -2,7 +2,7 @@
 import * as db from '../db';
 import { fetchJson, int } from '../util';
 import type { Id, Settings } from '../types';
-import type { PaymentsRow } from '../data/rows';
+import type { PaymentsRow, OrdersRow } from '../data/rows';
 
 /** One way to pay, as the checkout shows it. */
 export type PayMethod = { id: string; label: string; note: string; number?: string; numberLabel?: string; advance?: string; manual?: boolean };
@@ -130,10 +130,10 @@ async function recordSuccess(payment: PaymentRow, { trxID, amount, raw, label }:
   if (payment.status === 'paid') return;
   const settings = await db.getSettings();
   await db.tx(async (t) => {
-    const cur = (await t.query('SELECT status FROM payments WHERE id=$1 FOR UPDATE', [payment.id])).rows[0];
+    const cur = (await t.query<Pick<PaymentsRow, 'status'>>('SELECT status FROM payments WHERE id=$1 FOR UPDATE', [payment.id])).rows[0];
     if (!cur || cur.status === 'paid') return;
     await t.query(`UPDATE payments SET status='paid', trx_id=$1, raw=$2, updated_at=now() WHERE id=$3`, [trxID || '', JSON.stringify(raw || {}), payment.id]);
-    const o = (await t.query('SELECT id, total, paid_amount, code FROM orders WHERE id=$1 FOR UPDATE', [payment.order_id])).rows[0];
+    const o = (await t.query<Pick<OrdersRow, 'id' | 'total' | 'paid_amount' | 'code'>>('SELECT id, total, paid_amount, code FROM orders WHERE id=$1 FOR UPDATE', [payment.order_id])).rows[0];
     const paid = Math.round(((Number(o.paid_amount) || 0) + Number(amount || payment.amount)) * 100) / 100;
     await t.query(`UPDATE orders SET paid_amount=$1, payment_status=CASE WHEN $1 >= total THEN 'paid' ELSE 'partial' END,
                    transaction_id=$2, payment=$3, updated_at=now() WHERE id=$4`, [paid, trxID || '', payment.method, o.id]);

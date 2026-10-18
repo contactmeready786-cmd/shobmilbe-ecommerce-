@@ -1,4 +1,5 @@
 import type { Id, Loose } from '../types';
+import type { IkTrashRow, MediaRow } from '../data/rows';
 // Pictures live on ImageKit (free CDN), not inside the database — the database only keeps
 // each picture's address and fingerprints. Needs two Vercel environment variables:
 //   IMAGEKIT_PRIVATE_KEY   ImageKit → Developer options → API keys → Private key
@@ -109,7 +110,7 @@ function thumbUrl(url: string | string[], auto = true) { return url ? `${url}${u
 // Pictures that were deleted on the site: remove them from ImageKit too (queued by a database trigger).
 async function flushTrash(db: typeof import("../db"), limit = 40) {
   if (!configured()) return 0;
-  const rows = await db.q('SELECT file_id FROM ik_trash ORDER BY added_at LIMIT $1', [limit]).catch(() => []);
+  const rows = await db.q<Pick<IkTrashRow, 'file_id'>>('SELECT file_id FROM ik_trash ORDER BY added_at LIMIT $1', [limit]).catch(() => []);
   let n = 0;
   for (const r of rows) {
     try { if (await remove(r.file_id)) { await db.q('DELETE FROM ik_trash WHERE file_id=$1', [r.file_id]); n++; } } catch (_) { /* try again next time */ }
@@ -121,7 +122,7 @@ async function flushTrash(db: typeof import("../db"), limit = 40) {
 // move a few to ImageKit and free the database space.
 async function moveOld(db: typeof import("../db"), limit = 20) {
   if (!configured()) return 0;
-  const rows = await db.q(`SELECT id, mime, data, wm, wm_ver FROM media WHERE ik_url IS NULL AND data IS NOT NULL
+  const rows = await db.q<Pick<MediaRow, 'id' | 'mime' | 'data' | 'wm' | 'wm_ver'>>(`SELECT id, mime, data, wm, wm_ver FROM media WHERE ik_url IS NULL AND data IS NOT NULL
     AND (owner_type IS NULL OR owner_type NOT IN ('staff', 'trash:staff')) ORDER BY id LIMIT $1`, [limit]);
   let n = 0;
   for (const m of rows) {

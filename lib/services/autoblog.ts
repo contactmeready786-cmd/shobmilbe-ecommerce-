@@ -8,6 +8,7 @@ import * as db from '../db';
 import { bn, slugify } from '../util';
 import * as $seo from './seo';
 import type { Body, Id, Loose, Settings } from '../types';
+import type { BlogCategoriesRow, BlogPostsRow, CategoriesRow } from '../data/rows';
 
 const REFRESH_DAYS = 7;
 const MIN_PRODUCTS = 5;
@@ -24,9 +25,9 @@ function monthLabel(d = new Date()) {
 }
 
 async function blogCategory() {
-  const row = await db.one(`SELECT id FROM blog_categories WHERE slug='price-list'`);
+  const row = await db.one<Pick<BlogCategoriesRow, 'id'>>(`SELECT id FROM blog_categories WHERE slug='price-list'`);
   if (row) return row.id;
-  return (await db.one(`INSERT INTO blog_categories(name, slug, sort) VALUES('দাম তালিকা','price-list',0)
+  return (await db.one<Pick<BlogCategoriesRow, 'id'>>(`INSERT INTO blog_categories(name, slug, sort) VALUES('দাম তালিকা','price-list',0)
     ON CONFLICT (slug) DO UPDATE SET name=blog_categories.name RETURNING id`))!.id;
 }
 
@@ -121,7 +122,7 @@ async function run(settings: Settings, { force = false, max = 2 }: Body = {}) {
   for (const g of groups) {
     if (done.length >= max) break;
     const key = `price-list:${g.cat.id}`;
-    const old = await db.one('SELECT id, status, updated_at FROM blog_posts WHERE auto_key=$1', [key]);
+    const old = await db.one<Pick<BlogPostsRow, 'id' | 'status' | 'updated_at'>>('SELECT id, status, updated_at FROM blog_posts WHERE auto_key=$1', [key]);
     if (old && old.status !== 'published') continue; // the owner switched it off
     if (old && !force && Date.now() - new Date(old.updated_at).getTime() < REFRESH_DAYS * 864e5) continue;
     const a = article(g, settings);
@@ -131,7 +132,7 @@ async function run(settings: Settings, { force = false, max = 2 }: Body = {}) {
       done.push({ id: old.id, title: a.title, updated: true });
     } else {
       const slug = await db.uniqueSlug('blog_posts', `${slugify(g.cat.slug || g.cat.name) || 'category'}-price-in-bd`);
-      const row = await db.one(`INSERT INTO blog_posts(title, slug, category_id, excerpt, content, cover_id, status, published_at, seo_title, seo_description, auto_key)
+      const row = await db.one<Pick<BlogPostsRow, 'id'>>(`INSERT INTO blog_posts(title, slug, category_id, excerpt, content, cover_id, status, published_at, seo_title, seo_description, auto_key)
         VALUES($1,$2,$3,$4,$5,$6,'published',now(),$7,$8,$9) RETURNING id`,
       [a.title, slug, catId, a.excerpt, a.content, a.cover_id, a.seo_title, a.seo_description, key]);
       done.push({ id: row!.id, title: a.title, created: true });
@@ -140,7 +141,7 @@ async function run(settings: Settings, { force = false, max = 2 }: Body = {}) {
   if (done.length) {
     // tell Google / Bing right away when IndexNow is set up
     try {
-      const rows = await db.q('SELECT slug FROM blog_posts WHERE id = ANY($1::int[])', [done.map((d) => d.id)]);
+      const rows = await db.q<Pick<BlogPostsRow, 'slug'>>('SELECT slug FROM blog_posts WHERE id = ANY($1::int[])', [done.map((d) => d.id)]);
       await $seo.indexNowPing(settings.site_url || 'https://shobmilbe.com', ['/blog', ...rows.map((r) => `/blog/${r.slug}`)]);
     } catch (_) { /* Google finds them through the sitemap anyway */ }
   }
@@ -148,7 +149,7 @@ async function run(settings: Settings, { force = false, max = 2 }: Body = {}) {
 }
 
 async function list() {
-  return db.q(`SELECT id, title, slug, status, updated_at FROM blog_posts WHERE auto_key IS NOT NULL ORDER BY title`).catch(() => []);
+  return db.q<Pick<BlogPostsRow, 'id' | 'title' | 'slug' | 'status' | 'updated_at'>>(`SELECT id, title, slug, status, updated_at FROM blog_posts WHERE auto_key IS NOT NULL ORDER BY title`).catch(() => []);
 }
 
 export { run, list, article, categoriesWithProducts };

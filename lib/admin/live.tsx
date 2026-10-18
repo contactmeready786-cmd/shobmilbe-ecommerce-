@@ -31,7 +31,7 @@ async function settingsPage(ctx: AdminCtx) {
   // What is running right now (all competitions, ticked or not) + what visitors clicked in the last 7 days.
   const [ov, clickRows] = await Promise.all([
     Promise.race([live.overview(), new Promise((r) => setTimeout(() => r(null), 7000))]).catch(() => null),
-    db.q(`SELECT sport, cat, SUM(n)::int AS n FROM live_clicks WHERE day >= (now() AT TIME ZONE 'Asia/Dhaka')::date - 6 GROUP BY sport, cat`).catch(() => []),
+    db.q<{ sport: string; cat: string; n: number | null }>(`SELECT sport, cat, SUM(n)::int AS n FROM live_clicks WHERE day >= (now() AT TIME ZONE 'Asia/Dhaka')::date - 6 GROUP BY sport, cat`).catch(() => []),
   ]);
   const clicks: Record<string, Loose> = {};
   for (const r of clickRows || []) clicks[r.sport + ':' + r.cat] = r.n;

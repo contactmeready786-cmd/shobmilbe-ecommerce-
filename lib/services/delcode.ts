@@ -12,6 +12,7 @@ import * as security from '../security';
 import * as notify from './notify';
 import { bn } from '../util';
 import type { AdminCtx, Loose } from '../types';
+import type { DeleteCodesRow } from '../data/rows';
 
 const CODE_EMAIL = (process.env.DELETE_CODE_EMAIL || 'contact.shobmilbe@gmail.com').trim();
 const MINUTES = 10;
@@ -95,12 +96,12 @@ async function check(ctx: AdminCtx, action?: Loose, typed?: Loose) {
   const code = String(typed || '').replace(/[^\d০-৯]/g, '').replace(/[০-৯]/g, (d) => String('০১২৩৪৫৬৭৮৯'.indexOf(d))).slice(0, 6);
   if (await security.blocked(db, 'delcode-fail:' + uid, FAIL_MAX)) return 'অনেকবার ভুল কোড দেওয়া হয়েছে — এক ঘণ্টা মোছা বন্ধ থাকবে।';
   if (code.length !== 6) return `ইমেইলে আসা ৬ সংখ্যার কোড দিন — কোডটি ${masked()} ঠিকানায় যায়।`;
-  const row = await db.one(`SELECT id, code_hash, tries FROM delete_codes WHERE staff_id=$1 AND action=$2 AND used_at IS NULL AND expires_at > now()
+  const row = await db.one<Pick<DeleteCodesRow, 'id' | 'code_hash' | 'tries'>>(`SELECT id, code_hash, tries FROM delete_codes WHERE staff_id=$1 AND action=$2 AND used_at IS NULL AND expires_at > now()
     ORDER BY id DESC LIMIT 1`, [uid, action]);
   if (!row) return 'কোডটির মেয়াদ শেষ বা আগেই ব্যবহার হয়েছে — নতুন কোড চান।';
   if (same(code, row.code_hash)) {
     // spent at once, so the same code can't be sent twice
-    const r = await db.one('UPDATE delete_codes SET used_at=now() WHERE id=$1 AND used_at IS NULL RETURNING id', [row.id]);
+    const r = await db.one<Pick<DeleteCodesRow, 'id'>>('UPDATE delete_codes SET used_at=now() WHERE id=$1 AND used_at IS NULL RETURNING id', [row.id]);
     if (!r) return 'কোডটি আগেই ব্যবহার হয়েছে — নতুন কোড চান।';
     await security.clear(db, 'delcode-fail:' + uid);
     return null;

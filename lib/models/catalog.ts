@@ -10,6 +10,7 @@ import * as imagekit from '../services/imagekit';
 import * as $crypto from 'node:crypto';
 import type { DbRow, Param, Tx } from '../pg';
 import type { Body } from '../types';
+import type { BrandsRow, BundleItemsRow, MediaRow, ProductsRow } from '../data/rows';
 
 type Id = number | string | null | undefined;
 /** A category row plus what categoryTree() adds. */
@@ -352,7 +353,7 @@ async function bundleItems(bundleId: number, pub = false): Promise<DbRow[]> {
 const SKU_LOCK = 726301;
 async function takeSku(t: Tx): Promise<string> {
   await t.query('SELECT pg_advisory_xact_lock($1)', [SKU_LOCK]);
-  const r = (await t.query(`SELECT greatest(
+  const r = (await t.query<{ n: number }>(`SELECT greatest(
       coalesce((SELECT value::bigint FROM settings WHERE key='sku_counter' AND value ~ '^[0-9]{1,15}$'), 0),
       coalesce((SELECT max(sku::bigint) FROM products WHERE sku ~ '^[0-9]{1,15}$'), 0)) + 1 AS n`)).rows[0];
   const n = String(r.n);
@@ -465,7 +466,7 @@ async function correctCost(productId: Id, cost: unknown, reason: unknown, staffI
   if (!why) throw new Error('কেন বদলাচ্ছেন লিখুন (যেমন: ভুল দাম বসানো ছিল)।');
   const c = amount(cost);
   return tx(async (t) => {
-    const before = (await t.query('SELECT id, name, price, old_price, cost_price, product_type, variant_count FROM products WHERE id=$1 FOR UPDATE', [int(productId)])).rows[0];
+    const before = (await t.query<Pick<ProductsRow, 'id' | 'name' | 'price' | 'old_price' | 'cost_price' | 'product_type' | 'variant_count'>>('SELECT id, name, price, old_price, cost_price, product_type, variant_count FROM products WHERE id=$1 FOR UPDATE', [int(productId)])).rows[0];
     if (!before) throw new Error('পণ্য পাওয়া যায়নি।');
     if (before.variant_count > 0) throw new Error('এই পণ্যে ভ্যারিয়েন্ট আছে — প্রতিটা ভ্যারিয়েন্টের কেনা দাম আলাদা ঠিক করুন।');
     if (Number(before.cost_price || 0) === c) return false;
@@ -537,12 +538,12 @@ async function saveBrand({ id, name, logoId, description, seoTitle, seoDescripti
 async function brandIdFor(t: Tx, name: unknown): Promise<number | null> {
   const n = str(name, 60);
   if (!n) return null;
-  const found = (await t.query('SELECT id FROM brands WHERE lower(name)=lower($1)', [n])).rows[0];
+  const found = (await t.query<Pick<BrandsRow, 'id'>>('SELECT id FROM brands WHERE lower(name)=lower($1)', [n])).rows[0];
   if (found) return found.id;
   let slug = slugify(n) === 'item' ? 'brand' : slugify(n);
   for (let i = 2; (await t.query('SELECT 1 FROM brands WHERE slug=$1', [slug])).rows.length; i++) slug = `${slugify(n)}-${i}`;
-  const r = (await t.query('INSERT INTO brands(name, slug) VALUES($1,$2) ON CONFLICT DO NOTHING RETURNING id', [n, slug])).rows[0];
-  return r ? r.id : (await t.query('SELECT id FROM brands WHERE lower(name)=lower($1)', [n])).rows[0].id;
+  const r = (await t.query<Pick<BrandsRow, 'id'>>('INSERT INTO brands(name, slug) VALUES($1,$2) ON CONFLICT DO NOTHING RETURNING id', [n, slug])).rows[0];
+  return r ? r.id : (await t.query<Pick<BrandsRow, 'id'>>('SELECT id FROM brands WHERE lower(name)=lower($1)', [n])).rows[0].id;
 }
 
 // Specifications: [["Voltage", "5V"], ["Power", "3W"]] — from the admin form's two columns.
@@ -575,7 +576,7 @@ async function setLinks(t: Tx, productId: number, kind: string, skus: unknown): 
   const missing: string[] = [];
   let sort = 0;
   for (const sku of want) {
-    const r = (await t.query('SELECT id FROM products WHERE sku=$1', [sku])).rows[0];
+    const r = (await t.query<Pick<ProductsRow, 'id'>>('SELECT id FROM products WHERE sku=$1', [sku])).rows[0];
     if (!r || r.id === productId) { if (!r) missing.push(sku); continue; }
     await t.query('INSERT INTO product_links(product_id, linked_id, kind, sort) VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING', [productId, r.id, kind, sort++]);
   }
@@ -674,10 +675,10 @@ async function saveProduct(data: Body, staffId?: Id): Promise<number> {
     let pid = id as number;
     // brand typed as a name: linked to that brand (made on the spot if it's new)
     f.brand_id = f.brand ? await brandIdFor(t, f.brand) : null;
-    if (f.brand_id) f.brand = (await t.query('SELECT name FROM brands WHERE id=$1', [f.brand_id])).rows[0].name;
+    if (f.brand_id) f.brand = (await t.query<Pick<BrandsRow, 'name'>>('SELECT name FROM brands WHERE id=$1', [f.brand_id])).rows[0].name;
     const cols = Object.keys(f);
     if (pid) {
-      const before = (await t.query('SELECT stock, sku, slug, name, price, old_price, cost_price FROM products WHERE id=$1 FOR UPDATE', [pid])).rows[0];
+      const before = (await t.query<Pick<ProductsRow, 'stock' | 'sku' | 'slug' | 'name' | 'price' | 'old_price' | 'cost_price'>>('SELECT stock, sku, slug, name, price, old_price, cost_price FROM products WHERE id=$1 FOR UPDATE', [pid])).rows[0];
       if (!before) throw new Error('Product not found');
       // the link (/p/…) was changed by hand: the old link keeps working and sends people (and Google) to the new one
       const wanted = data.slug !== undefined ? slugify(String(data.slug).trim()) : '';
@@ -705,7 +706,7 @@ async function saveProduct(data: Body, staffId?: Id): Promise<number> {
       if (type === 'single' && newStock > 0) await moveStock(t, pid, newStock, 'opening', 'product', pid, 'শুরুর স্টক', staffId, false, f.cost_price || null);
     }
     const kept = await attachMedia(t, images, 'product', pid);
-    const main = (await t.query(`SELECT id FROM media WHERE owner_type='product' AND owner_id=$1 ORDER BY sort, id LIMIT 1`, [pid])).rows[0];
+    const main = (await t.query<Pick<MediaRow, 'id'>>(`SELECT id FROM media WHERE owner_type='product' AND owner_id=$1 ORDER BY sort, id LIMIT 1`, [pid])).rows[0];
     await t.query('UPDATE products SET image_id=$1 WHERE id=$2', [main ? main.id : null, pid]);
     void kept;
     // a variant's picture that was taken off the main product is cleared; then names / price follow the main product
@@ -716,7 +717,7 @@ async function saveProduct(data: Body, staffId?: Id): Promise<number> {
     if (type === 'bundle') {
       for (const part of parts) {
         if (part.product_id === pid) continue;
-        const ok = (await t.query(`SELECT id FROM products WHERE id=$1 AND product_type='single'`, [part.product_id])).rows[0];
+        const ok = (await t.query<Pick<ProductsRow, 'id'>>(`SELECT id FROM products WHERE id=$1 AND product_type='single'`, [part.product_id])).rows[0];
         if (ok) await t.query('INSERT INTO bundle_items(bundle_id, product_id, qty) VALUES($1,$2,$3)', [pid, part.product_id, part.qty]);
       }
     }
@@ -731,13 +732,13 @@ async function saveProduct(data: Body, staffId?: Id): Promise<number> {
 const MAX_VARIANTS = 40;
 // Keep the variants in line with their main product (name, category, brand …) and the main product's price/stock line.
 async function syncVariants(t: Tx, parentId: number): Promise<void> {
-  const p = (await t.query('SELECT id, name, category_id, brand, brand_id, emoji, unit, weight_g, warranty, warranty_type, image_id FROM products WHERE id=$1', [parentId])).rows[0];
+  const p = (await t.query<Pick<ProductsRow, 'id' | 'name' | 'category_id' | 'brand' | 'brand_id' | 'emoji' | 'unit' | 'weight_g' | 'warranty' | 'warranty_type' | 'image_id'>>('SELECT id, name, category_id, brand, brand_id, emoji, unit, weight_g, warranty, warranty_type, image_id FROM products WHERE id=$1', [parentId])).rows[0];
   if (!p) return;
   await t.query(`UPDATE products SET name = left($2 || ' — ' || variant_label, 200), category_id=$3, brand=$4, brand_id=$5, emoji=$6, unit=$7,
       weight_g = CASE WHEN weight_g > 0 THEN weight_g ELSE $8 END, warranty = $9, warranty_type = $10, noindex = true,
       image_id = coalesce(image_id, $11), updated_at = now()
     WHERE parent_id=$1`, [p.id, p.name, p.category_id, p.brand, p.brand_id, p.emoji, p.unit, p.weight_g || 0, p.warranty || '', p.warranty_type || '', p.image_id]);
-  const agg = (await t.query(`SELECT count(*) FILTER (WHERE active)::int AS n, min(price) FILTER (WHERE active) AS lo,
+  const agg = (await t.query<{ n: number; lo: number | null; old: number | null }>(`SELECT count(*) FILTER (WHERE active)::int AS n, min(price) FILTER (WHERE active) AS lo,
       (array_agg(old_price ORDER BY price) FILTER (WHERE active))[1] AS old FROM products WHERE parent_id=$1`, [p.id])).rows[0];
   await t.query(`UPDATE products SET variant_count=$2, price = coalesce($3, price), old_price = CASE WHEN $2 > 0 THEN $4 ELSE old_price END WHERE id=$1`,
     [p.id, agg.n, agg.lo, agg.old && Number(agg.old) > Number(agg.lo) ? agg.old : null]);
@@ -746,13 +747,13 @@ async function syncVariants(t: Tx, parentId: number): Promise<void> {
 // withCost: only the owner may set buying prices.
 async function saveVariants(parentId: Id, { title, rows }: { title: unknown; rows: Body[] }, staffId?: Id, { withCost = false }: { withCost?: boolean } = {}): Promise<{ removed: number[] }> {
   return tx(async (t) => {
-    const parent = (await t.query('SELECT * FROM products WHERE id=$1 FOR UPDATE', [int(parentId)])).rows[0];
+    const parent = (await t.query<ProductsRow>('SELECT * FROM products WHERE id=$1 FOR UPDATE', [int(parentId)])).rows[0];
     if (!parent) throw new Error('পণ্য পাওয়া যায়নি।');
     if (parent.parent_id) throw new Error('এটা নিজেই একটা ভ্যারিয়েন্ট — মূল পণ্যে গিয়ে ভ্যারিয়েন্ট যোগ করুন।');
     if (parent.product_type === 'bundle') throw new Error('বান্ডেল/প্যাকেজে ভ্যারিয়েন্ট দেওয়া যায় না।');
     await t.query('UPDATE products SET variant_title=$1 WHERE id=$2', [str(title, 40), parent.id]);
-    const existing = new Map((await t.query('SELECT * FROM products WHERE parent_id=$1', [parent.id])).rows.map((r) => [r.id, r]));
-    const images = new Set((await t.query(`SELECT id FROM media WHERE owner_type='product' AND owner_id=$1`, [parent.id])).rows.map((r) => r.id));
+    const existing = new Map((await t.query<ProductsRow>('SELECT * FROM products WHERE parent_id=$1', [parent.id])).rows.map((r) => [r.id, r]));
+    const images = new Set((await t.query<Pick<MediaRow, 'id'>>(`SELECT id FROM media WHERE owner_type='product' AND owner_id=$1`, [parent.id])).rows.map((r) => r.id));
     const seen = new Set<string>();
     let sort = 0;
     let kept = [...existing.values()].length;
@@ -774,7 +775,7 @@ async function saveVariants(parentId: Id, { title, rows }: { title: unknown; row
       const img = images.has(int(r.image_id)) ? int(r.image_id) : null;
       const stock = Math.max(0, int(r.stock));
       let sku = str(r.sku, 60);
-      if (sku && (await t.query('SELECT id FROM products WHERE lower(sku)=lower($1) AND id<>$2', [sku, old ? old.id : 0])).rows[0]) {
+      if (sku && (await t.query<Pick<ProductsRow, 'id'>>('SELECT id FROM products WHERE lower(sku)=lower($1) AND id<>$2', [sku, old ? old.id : 0])).rows[0]) {
         throw new Error(`SKU "${sku}" অন্য একটা পণ্যে আছে — আলাদা SKU দিন বা খালি রাখুন (নিজে থেকে বসবে)।`);
       }
       sort += 1;
@@ -790,7 +791,7 @@ async function saveVariants(parentId: Id, { title, rows }: { title: unknown; row
         if (!sku) sku = await takeSku(t);
         const slug = await uniqueSlug('products', `${parent.slug}-v`.slice(0, 80) + '-' + slugify(label).slice(0, 30));
         const cost = withCost ? amount(r.cost_price) : Number(parent.cost_price) || 0;
-        const vid = (await t.query(`INSERT INTO products(name, slug, category_id, price, old_price, cost_price, stock, description, short_description, emoji,
+        const vid = (await t.query<Pick<ProductsRow, 'id'>>(`INSERT INTO products(name, slug, category_id, price, old_price, cost_price, stock, description, short_description, emoji,
             active, sku, product_type, parent_id, variant_label, variant_sort, image_id, brand, brand_id, unit, weight_g, noindex, low_stock, supplier_id)
           VALUES($1,$2,$3,$4,$5,$6,0,'','',$7,$8,$9,'single',$10,$11,$12,$13,$14,$15,$16,$17,true,$18,$19) RETURNING id`,
         [`${parent.name} — ${label}`.slice(0, 200), slug, parent.category_id, price, oldPrice, cost, parent.emoji, !!r.active, sku, parent.id, label, sort,
@@ -801,7 +802,7 @@ async function saveVariants(parentId: Id, { title, rows }: { title: unknown; row
     }
     // The main product's own pieces (from before it had variants) can't be sold any more: put them on the first variant.
     if (parent.stock > 0 && kept - removed.length > 0) {
-      const first = (await t.query('SELECT id FROM products WHERE parent_id=$1 AND NOT (id = ANY($2::int[])) ORDER BY variant_sort, id LIMIT 1', [parent.id, removed])).rows[0];
+      const first = (await t.query<Pick<ProductsRow, 'id'>>('SELECT id FROM products WHERE parent_id=$1 AND NOT (id = ANY($2::int[])) ORDER BY variant_sort, id LIMIT 1', [parent.id, removed])).rows[0];
       if (first) {
         await moveStock(t, parent.id, -parent.stock, 'adjust', 'product', parent.id, 'ভ্যারিয়েন্টে সরানো হয়েছে', staffId);
         await moveStock(t, first.id, parent.stock, 'adjust', 'product', parent.id, 'মূল পণ্যের স্টক এই ভ্যারিয়েন্টে এলো', staffId);
@@ -822,7 +823,7 @@ async function deleteProduct(id: number): Promise<void> {
 // Old orders keep the product name and price they were placed with.
 async function deleteAllProducts(): Promise<number> {
   return tx(async (t) => {
-    const n = (await t.query('SELECT count(*)::int AS n FROM products')).rows[0].n;
+    const n = (await t.query<{ n: number }>('SELECT count(*)::int AS n FROM products')).rows[0].n;
     await t.query(`DELETE FROM media WHERE owner_type='product'`);
     await t.query('DELETE FROM stock_movements');
     await t.query('DELETE FROM bundle_items');
@@ -858,9 +859,9 @@ async function moveStock(t: Tx, productId: number, change: number, reason: strin
 // ⏳ Pre-order: take `qty` even when the shelf has less — the stock goes below 0 (= pieces owed to pre-orders).
 // Returns how many of them were not on the shelf. A purchase later adds stock as usual, which pays the debt first.
 async function oweStock(t: Tx, productId: number, qty: number, refId: Id = null, staffId: Id = null): Promise<number> {
-  const before = (await t.query('SELECT stock FROM products WHERE id=$1 FOR UPDATE', [productId])).rows[0];
+  const before = (await t.query<Pick<ProductsRow, 'stock'>>('SELECT stock FROM products WHERE id=$1 FOR UPDATE', [productId])).rows[0];
   if (!before) return 0;
-  const r = (await t.query('UPDATE products SET stock = stock - $1, updated_at=now() WHERE id=$2 RETURNING stock', [qty, productId])).rows[0];
+  const r = (await t.query<Pick<ProductsRow, 'stock'>>('UPDATE products SET stock = stock - $1, updated_at=now() WHERE id=$2 RETURNING stock', [qty, productId])).rows[0];
   await t.query(`INSERT INTO stock_movements(product_id, change, balance, reason, ref_type, ref_id, note, staff_id)
                  VALUES($1,$2,$3,'order','order',$4,$5,$6)`, [productId, -qty, r.stock, refId, 'প্রি-অর্ডার', staffId]);
   return Math.min(qty, qty - Math.max(0, Number(before.stock) || 0));
@@ -868,10 +869,10 @@ async function oweStock(t: Tx, productId: number, qty: number, refId: Id = null,
 
 // The real stock parts a cart line uses: a bundle uses its components.
 async function stockParts(t: Tx, productId: number, qty: number): Promise<StockPart[]> {
-  const p = (await t.query('SELECT id, product_type FROM products WHERE id=$1', [productId])).rows[0];
+  const p = (await t.query<Pick<ProductsRow, 'id' | 'product_type'>>('SELECT id, product_type FROM products WHERE id=$1', [productId])).rows[0];
   if (!p) return [];
   if (p.product_type !== 'bundle') return [{ product_id: productId, qty }];
-  const parts = (await t.query('SELECT product_id, qty FROM bundle_items WHERE bundle_id=$1', [productId])).rows;
+  const parts = (await t.query<Pick<BundleItemsRow, 'product_id' | 'qty'>>('SELECT product_id, qty FROM bundle_items WHERE bundle_id=$1', [productId])).rows;
   return parts.map((x) => ({ product_id: x.product_id as number, qty: (x.qty as number) * qty }));
 }
 
@@ -892,7 +893,7 @@ const STOCK_REASONS: Record<string, string> = {
 // stock / damaged = how much each one changes (e.g. { stock: -2, damaged: 2 } = 2 pieces broke). Null if not enough.
 async function changeDamaged(t: Tx, productId: number, { stock = 0, damaged = 0 }: { stock?: number; damaged?: number }, reason: string, refType = '', refId: Id = null, note = '', staffId: Id = null): Promise<true | null> {
   if (!stock && !damaged) return true;
-  const res = await t.query(`UPDATE products SET stock = stock + $1, damaged_stock = damaged_stock + $2, updated_at=now()
+  const res = await t.query<Pick<ProductsRow, 'stock'>>(`UPDATE products SET stock = stock + $1, damaged_stock = damaged_stock + $2, updated_at=now()
     WHERE id=$3 AND stock + $1 >= 0 AND damaged_stock + $2 >= 0 RETURNING stock`, [stock, damaged, productId]);
   if (!res.rows.length) return null;
   await t.query(`INSERT INTO stock_movements(product_id, change, damaged_change, balance, reason, ref_type, ref_id, note, staff_id)

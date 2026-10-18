@@ -8,6 +8,7 @@ import * as ui from './ui';
 import * as db from '../db';
 import * as $services_xlsx from '../services/xlsx';
 import type { AdminCtx, Loose, RouteMatch, Settings } from '../types';
+import type { CustomersRow, OrdersRow } from '../data/rows';
 function canDelete(ctx: AdminCtx) { return ctx.user.role === 'owner' && ctx.settings.customer_delete_on === '1'; }
 function deleteSwitch(ctx: AdminCtx) {
   if (ctx.user.role !== 'owner') return '';
@@ -80,10 +81,10 @@ async function removeCustomers(ctx: AdminCtx, ids: number[], withOrders: boolean
   let n = 0;
   let orders = 0;
   for (const id of ids) {
-    const c = await db.one('SELECT id, name, phone FROM customers WHERE id=$1', [id]);
+    const c = await db.one<Pick<CustomersRow, 'id' | 'name' | 'phone'>>('SELECT id, name, phone FROM customers WHERE id=$1', [id]);
     if (!c) continue;
     if (withOrders) {
-      const list = await db.q('SELECT id FROM orders WHERE customer_id=$1 OR phone=$2', [c.id, c.phone]);
+      const list = await db.q<Pick<OrdersRow, 'id'>>('SELECT id FROM orders WHERE customer_id=$1 OR phone=$2', [c.id, c.phone]);
       for (const o of list) { if (await ctx.trash('order', o.id)) orders += 1; }
     }
     if (await ctx.trash('customer', c.id)) {

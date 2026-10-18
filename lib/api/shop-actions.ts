@@ -133,7 +133,7 @@ export async function coupon(ctx: ApiCtx) {
     ...qt.gifts.map((g) => ({ product_id: g.id, price: g.price, qty: g.qty, kind: 'gift' }))];
   const subtotal = lines.length ? qt.subtotal : amount(b.subtotal);
   // a friend's referral code goes in the same box (when it is not one of the shop's coupons)
-  if (settings.ref_on === '1' && !(await db.one('SELECT 1 AS x FROM coupons WHERE upper(code)=upper($1)', [str(b.code, 40)]))) {
+  if (settings.ref_on === '1' && !(await db.one<{ x: number }>('SELECT 1 AS x FROM coupons WHERE upper(code)=upper($1)', [str(b.code, 40)]))) {
     const G = $models_giftcards;
     if (await G.referrerFor(b.code)) {
       const r = await G.checkReferral(settings, b.code, b.phone, subtotal);

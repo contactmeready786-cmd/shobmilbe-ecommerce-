@@ -12,6 +12,7 @@
 import { q, tx } from '../db';
 import type { Body, Loose } from '../types';
 import type { Tx } from '../pg';
+import type { CategoriesRow } from '../data/rows';
 const TREE = [
   ['electronics', 'ইলেকট্রনিক্স', '📟', [
     ['circuits', 'সার্কিট ও মডিউল', '🧩', [
@@ -221,7 +222,7 @@ async function ensureCategories(t: Tx, wanted?: Loose) {
   for (const slug of need) {
     const node = all.find((x) => x.slug === slug) || wanted.extra.get(slug);
     const parentId = node.parent ? ids.get(node.parent) : null;
-    const cur = (await t.query('SELECT id, name FROM categories WHERE slug=$1', [slug])).rows[0];
+    const cur = (await t.query<Pick<CategoriesRow, 'id' | 'name'>>('SELECT id, name FROM categories WHERE slug=$1', [slug])).rows[0];
     if (cur) {
       // the shop's first six categories get their new place (and a clearer name if never renamed)
       const rename = SEED_NAMES[slug] && cur.name === SEED_NAMES[slug] && SEED_NAMES[slug] !== node.name;
@@ -229,7 +230,7 @@ async function ensureCategories(t: Tx, wanted?: Loose) {
       if (SEED_NAMES[slug] && !node.parent) await t.query('UPDATE categories SET sort=$1 WHERE id=$2', [node.sort || 0, cur.id]);
       ids.set(slug, cur.id);
     } else {
-      const r = (await t.query('INSERT INTO categories(name, slug, icon, sort, active, parent_id) VALUES($1,$2,$3,$4,true,$5) RETURNING id',
+      const r = (await t.query<Pick<CategoriesRow, 'id'>>('INSERT INTO categories(name, slug, icon, sort, active, parent_id) VALUES($1,$2,$3,$4,true,$5) RETURNING id',
         [node.name, slug, node.icon || '📦', node.sort || 0, parentId])).rows[0];
       ids.set(slug, r.id);
     }

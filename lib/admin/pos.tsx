@@ -13,15 +13,16 @@ import * as W from '../models/warehouses';
 import { ASSET_V } from './layout';
 import * as $services_barcode from '../services/barcode';
 import type { AdminCtx, Loose, RouteMatch } from '../types';
+import type { ProductsRow, StaffRow } from '../data/rows';
 
 const PAY = [['cash', '💵 নগদ'], ['manual_bkash', 'বিকাশ'], ['manual_nagad', 'নগদ (মোবাইল)'], ['manual_rocket', 'রকেট'], ['card', '💳 কার্ড']];
 
 async function page(ctx: AdminCtx) {
   const stores = (await W.list({ activeOnly: true })).filter((w) => w.is_shop);
   const wh = int(ctx.query.get('wh'));
-  const today = await db.one(`SELECT count(*)::int AS n, coalesce(sum(total),0)::numeric(14,2) AS total FROM orders
+  const today = await db.one<{ n: number; total: number }>(`SELECT count(*)::int AS n, coalesce(sum(total),0)::numeric(14,2) AS total FROM orders
     WHERE source='pos' AND status='delivered' AND (created_at AT TIME ZONE 'Asia/Dhaka')::date = (now() AT TIME ZONE 'Asia/Dhaka')::date`);
-  const recent = await db.q(`SELECT o.id, o.code, o.total, o.customer_name, o.created_at, o.payment, w.name AS wh_name FROM orders o LEFT JOIN warehouses w ON w.id=o.warehouse_id
+  const recent = await db.q<{ id: number; code: string; total: number; customer_name: string; created_at: Date; payment: string; wh_name: string | null }>(`SELECT o.id, o.code, o.total, o.customer_name, o.created_at, o.payment, w.name AS wh_name FROM orders o LEFT JOIN warehouses w ON w.id=o.warehouse_id
     WHERE o.source='pos' ORDER BY o.id DESC LIMIT 8`);
   const canPrice = ctx.can('orders_edit');
   const body = <><div className="pos" data-pos="" data-no-dirty="" data-can-price={canPrice ? '1' : ''}><div className="pos-left"><div className="pos-top"><h1>🧾 দোকানে বিক্রি</h1>{(stores.length ? <label className="pos-wh">কোন দোকান{' '}{ui.select('wh', [['0', '🏠 মূল দোকান/গুদাম'], ...stores.map((w) => [w.id, `🏪 ${w.name}`])], wh || '0', { 'data-pos-wh': true })}</label> : null)}</div><form className="pos-scan" data-pos-scan="" autoComplete="off"><input type="search" name="q" placeholder="বারকোড স্ক্যান করুন বা নাম / SKU লিখুন" autoFocus data-pos-q="" aria-label="পণ্য খুঁজুন" />{' '}<button className="btn">যোগ</button>{' '}<button type="button" className="btn btn-ghost" data-pos-cam="" title="ক্যামেরায় বারকোড স্ক্যান">📷</button></form><div className="pos-cam" data-pos-cam-box="" hidden><video data-pos-video="" playsInline muted></video><button type="button" className="btn btn-sm btn-ghost" data-pos-cam-stop="">✕ ক্যামেরা বন্ধ</button></div><p className="pos-msg" data-pos-msg="" role="status"></p><ul className="pos-results" data-pos-results=""></ul><section className="panel pos-today"><h2>আজ দোকানে বিক্রি:{' '}<b>{money(today!.total)}</b>{' '}<small>{bn(today!.n)}টি মেমো</small></h2>{(recent.length ? <ul className="pos-recent">{jsxList(recent.map((o) => <li><a href={`/admin/orders/${attrValue(o.id)}`} className="mono"><Val v={o.code} /></a>{' '}<span className="small muted">{fmtDate(o.created_at)}{(o.wh_name ? ` · ${o.wh_name}` : null)}</span>{' '}<b>{money(o.total)}</b>{' '}<a className="small" href={`/admin/pos/memo/${attrValue(o.id)}`} target="_blank" rel="noopener">🖨️ মেমো</a></li>))}</ul> : null)}</section></div><aside className="pos-bill panel"><h2>বিল</h2><table className="pos-lines"><tbody data-pos-lines=""><tr><td className="muted">কোনো পণ্য নেই — বারকোড স্ক্যান করুন।</td></tr></tbody></table><div className="pos-sum"><div><span>পণ্যের দাম</span><b data-pos-sub="">৳০</b></div><div><label htmlFor="pos-disc">ছাড় (৳)</label><input id="pos-disc" type="number" min="0" step="0.01" defaultValue="0" data-pos-disc="" /></div><div className="grand"><span>মোট</span><b data-pos-total="">৳০</b></div></div><div className="field-row pos-cust"><label className="field"><span>কাস্টমারের মোবাইল (ঐচ্ছিক)</span><input inputMode="tel" maxLength={20} data-pos-phone="" placeholder="01XXXXXXXXX" /></label>{' '}<label className="field"><span>নাম (ঐচ্ছিক)</span><input maxLength={80} data-pos-name="" /></label></div><div className="pos-pay">{jsxList(PAY.map(([k, l], i) => <label className="pos-pay-opt"><input type="radio" name="pos_pay" defaultValue={attrValue(k)} defaultChecked={!!(i === 0)} /><span><Val v={l} /></span></label>))}</div><div className="field-row"><label className="field"><span>কাস্টমার দিলেন (৳)</span><input type="number" min="0" step="1" data-pos-given="" /></label><div className="field"><span>ফেরত দিতে হবে</span><b className="pos-change" data-pos-change="">—</b></div></div><label className="field"><span>নোট (ঐচ্ছিক)</span><input maxLength={200} data-pos-note="" /></label><p className="form-error" data-pos-error="" hidden></p><button className="btn btn-amber btn-lg btn-block" data-pos-done="" disabled>✅ বিক্রি সম্পন্ন ও মেমো প্রিন্ট</button>{' '}<button type="button" className="link-btn small" data-pos-clear="">বিল খালি করুন</button></aside></div><script type="module" src={`/js/admin/pos.js?v=${attrValue(ASSET_V)}`} /></>;
@@ -35,7 +36,7 @@ async function find(ctx: AdminCtx) {
   if (!q) return ctx.json(200, { exact: null, list: [] });
   const shape = (p?: Loose, st?: Loose) => ({ id: p.id, name: p.name, sku: p.sku, barcode: p.barcode, price: Number(p.base_price ?? p.price), stock: p.stock,
     here: wh ? ((st.get(p.id) || { by: {} }).by[wh] || 0) : (st.get(p.id) || { main: p.stock }).main, image: p.image_id ? `/media/${p.image_id}/t` : null, emoji: p.emoji, active: p.active });
-  const exact = await db.one(`SELECT id FROM products WHERE (upper(barcode)=upper($1) OR lower(sku)=lower($1)) AND variant_count = 0 LIMIT 1`, [q]);
+  const exact = await db.one<Pick<ProductsRow, 'id'>>(`SELECT id FROM products WHERE (upper(barcode)=upper($1) OR lower(sku)=lower($1)) AND variant_count = 0 LIMIT 1`, [q]);
   if (exact) {
     const p = await catalog.getProduct({ id: exact.id });
     const st = await W.stockFor([p!.id]);
@@ -88,7 +89,7 @@ async function memo(ctx: AdminCtx, m: RouteMatch) {
   const s = ctx.settings;
   const w = o.warehouse_id ? await W.get(o.warehouse_id) : null;
   const bc = $services_barcode.svg(o.code, { height: 40, module: 1.6, fontSize: 11 });
-  const sold = await db.one('SELECT name FROM staff WHERE id=$1', [o.created_by]);
+  const sold = await db.one<Pick<StaffRow, 'name'>>('SELECT name FROM staff WHERE id=$1', [o.created_by]);
   const change = Number(o.pos_tendered) ? round2(Number(o.pos_tendered) - Number(o.total)) : 0;
   const page = raw(`<!doctype html><html lang="bn"><head><meta charset="utf-8"><title>মেমো ${htmlValue(o.code)}</title><meta name="viewport" content="width=device-width,initial-scale=1">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;600;700&display=swap" rel="stylesheet">

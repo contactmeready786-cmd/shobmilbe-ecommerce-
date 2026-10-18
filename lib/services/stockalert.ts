@@ -5,12 +5,13 @@ import * as security from '../security';
 import * as $notify from './notify';
 import * as $push from './push';
 import type { Loose, Settings } from '../types';
+import type { ProductsRow } from '../data/rows';
 
 async function check(settings: Settings, productIds?: Loose) {
   if (!settings || settings.notify_low_stock === '0') return;
   const ids = [...new Set((productIds || []).map(Number).filter((x: number) => x > 0))].slice(0, 200);
   if (!ids.length) return;
-  const rows = await db.q(`SELECT id, name, sku, stock, low_stock FROM products
+  const rows = await db.q<Pick<ProductsRow, 'id' | 'name' | 'sku' | 'stock' | 'low_stock'>>(`SELECT id, name, sku, stock, low_stock FROM products
     WHERE id = ANY($1::int[]) AND active AND product_type='single' AND variant_count = 0 AND stock <= low_stock ORDER BY stock, id`, [ids]);
   const fresh: Loose[] = [];
   for (const r of rows) if (await security.hit(db, 'lowstock:' + r.id, 1, 86400)) fresh.push(r);

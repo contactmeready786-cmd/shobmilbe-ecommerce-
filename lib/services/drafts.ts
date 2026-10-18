@@ -8,6 +8,7 @@ import { str, int, normalizePhone, validPhone } from '../util';
 import * as $sms from './sms';
 import * as $models_customers from '../models/customers';
 import type { Body, Id, Loose, Settings } from '../types';
+import type { CheckoutDraftsRow } from '../data/rows';
 
 const ID_RE = /^[a-f0-9]{20}$/;
 const STATUSES: Record<string, Loose> = {
@@ -34,7 +35,7 @@ async function save({ b, ip, settings }: Body) {
   const vid = ID_RE.test(String(b.vid || '')) ? String(b.vid) : '';
   const sid = ID_RE.test(String(b.sid || '')) ? String(b.sid) : '';
   // one open draft per number: a second visit with the same number updates the same row
-  const same = await db.one(`SELECT id FROM checkout_drafts WHERE phone = $1 AND status IN ('open','called') AND updated_at > now() - interval '1 day'
+  const same = await db.one<Pick<CheckoutDraftsRow, 'id'>>(`SELECT id FROM checkout_drafts WHERE phone = $1 AND status IN ('open','called') AND updated_at > now() - interval '1 day'
     ORDER BY updated_at DESC LIMIT 1`, [phone]);
   const key = same ? same.id : id;
   await db.q(`INSERT INTO checkout_drafts(id, visitor_id, session_id, name, phone, district, thana, address, note, items, subtotal, ip)
@@ -84,7 +85,7 @@ async function count(f: Body) {
   return (await db.one(`SELECT count(*)::int AS n FROM checkout_drafts d ${where(f, params)}`, params))!.n;
 }
 async function counts() {
-  const rows = await db.q(`SELECT status, count(*)::int AS n, coalesce(sum(subtotal),0)::int AS value FROM checkout_drafts GROUP BY status`);
+  const rows = await db.q<{ status: string; n: number; value: number }>(`SELECT status, count(*)::int AS n, coalesce(sum(subtotal),0)::int AS value FROM checkout_drafts GROUP BY status`);
   const out: Record<string, Loose> = { all: 0 };
   rows.forEach((r) => { out[r.status] = r; out.all += r.n; });
   return out;
@@ -103,7 +104,7 @@ async function remindDue(settings: Settings, site = '') {
   const h = dhakaHour();
   if (h < 9 || h >= 22) return { sent: 0, night: true };
   const after = Math.max(15, Math.min(24 * 60, int(settings.draft_sms_after, 60)));
-  const rows = await db.q(`SELECT d.* FROM checkout_drafts d
+  const rows = await db.q<CheckoutDraftsRow>(`SELECT d.* FROM checkout_drafts d
     WHERE d.status='open' AND d.reminded_at IS NULL AND jsonb_array_length(d.items) > 0
       AND d.updated_at < now() - make_interval(mins => $1) AND d.updated_at > now() - interval '24 hours'
       AND NOT EXISTS (SELECT 1 FROM orders o WHERE o.phone=d.phone AND o.created_at > d.created_at - interval '10 minutes')
@@ -113,7 +114,7 @@ async function remindDue(settings: Settings, site = '') {
   const customers = $models_customers;
   for (const d of rows) {
     // claim it first: two servers never send the same reminder
-    const mine = await db.one(`UPDATE checkout_drafts SET reminded_at=now() WHERE id=$1 AND reminded_at IS NULL RETURNING id`, [d.id]);
+    const mine = await db.one<Pick<CheckoutDraftsRow, 'id'>>(`UPDATE checkout_drafts SET reminded_at=now() WHERE id=$1 AND reminded_at IS NULL RETURNING id`, [d.id]);
     if (!mine) continue;
     if (await customers.isBlocked(d.phone, '').catch(() => false)) { await db.q(`UPDATE checkout_drafts SET remind_result=$2 WHERE id=$1`, [d.id, 'ব্লক লিস্টে — পাঠানো হয়নি']); continue; }
     const base = (settings.site_url || site || '').replace(/\/+$/, '');

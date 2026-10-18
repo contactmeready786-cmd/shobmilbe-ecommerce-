@@ -5,6 +5,7 @@ import * as catalog from '../models/catalog';
 import * as ui from './ui';
 import * as $db from '../db';
 import type { AdminCtx, Body, Loose, RouteMatch } from '../types';
+import type { BrandsRow } from '../data/rows';
 
 function form(b: Body, error?: Loose) {
   const isNew = !b.id;
@@ -38,7 +39,7 @@ async function setActive(ctx: AdminCtx, m: RouteMatch) {
   const id = int(m[1]);
   const b = await ctx.body();
   const on = !!b.active && b.active !== '0';
-  const r = await $db.one('UPDATE brands SET active=$1 WHERE id=$2 RETURNING name', [on, id]);
+  const r = await $db.one<Pick<BrandsRow, 'name'>>('UPDATE brands SET active=$1 WHERE id=$2 RETURNING name', [on, id]);
   if (r) await ctx.log('brand_save', 'brand', id, `${r.name}: ${on ? 'চালু' : 'বন্ধ'}`);
   if (String(ctx.req.headers.accept || '').includes('application/json')) return ctx.json(r ? 200 : 404, { ok: !!r, active: on });
   return ctx.back('/admin/brands', 'saved');

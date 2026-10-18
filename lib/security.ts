@@ -9,6 +9,7 @@
 import * as crypto from 'node:crypto';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import type { DbRow, Param } from './pg';
+import type { RateLimitsRow } from './data/rows';
 
 /** The two query helpers of lib/db (passed in, so this file doesn't import the database module). */
 type Db = { one: (sql: string, params?: Param[]) => Promise<DbRow | null>; q: (sql: string, params?: Param[]) => Promise<DbRow[]> };

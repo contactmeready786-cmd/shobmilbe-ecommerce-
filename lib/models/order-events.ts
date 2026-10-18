@@ -7,6 +7,7 @@ import * as O from './orders';
 import * as notify from '../services/notify';
 import * as $services_sms from '../services/sms';
 import * as $models_giftcards from './giftcards';
+import type { OrderItemsRow, OrdersRow } from '../data/rows';
 
 // Customer SMS when an order is confirmed / handed to the courier / delivered (Admin → মার্কেটিং → কাস্টমারকে SMS).
 O.onStatusChange(async (id, status) => {

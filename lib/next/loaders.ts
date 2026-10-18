@@ -10,6 +10,7 @@ import * as accounts from '../models/accounts';
 import * as livescore from '../services/livescore';
 import { publishedPost } from '../shop/blog';
 import type { Loose, Settings, ShopRequest } from '../types';
+import type { ProductsRow } from '../data/rows';
 
 async function settingsNow(): Promise<Settings> { await db.ensureReady(); return db.getSettings(); }
 
@@ -88,7 +89,7 @@ export async function drawableHere(path: string, headers: Headers): Promise<bool
   m = /^\/p\/([^/]+)$/.exec(path);
   if (m) {
     await db.ensureReady();
-    const p = await db.one('SELECT active, parent_id FROM products WHERE slug=$1', [m[1]]);
+    const p = await db.one<Pick<ProductsRow, 'active' | 'parent_id'>>('SELECT active, parent_id FROM products WHERE slug=$1', [m[1]]);
     return !!(p && p.active && !p.parent_id);
   }
   return true;

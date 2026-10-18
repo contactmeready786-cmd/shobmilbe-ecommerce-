@@ -1,5 +1,5 @@
 // Suppliers, purchases, money accounts, transactions and financial reports.
-import type { PurchasesRow } from '../data/rows';
+import type { PurchasesRow, ProductsRow, PurchaseItemsRow } from '../data/rows';
 import { q, one, tx } from '../db';
 import { int, str, num, randomCode, validYmd, ymd, amount, round2 } from '../util';
 import * as catalog from './catalog';
@@ -82,7 +82,7 @@ async function getPurchase(id: Id) {
 async function receiveItems(t: Tx, purchaseId: Id, items: PurchaseLine[], staffId?: Id, costShare = 0): Promise<void> {
   for (const it of items) {
     if (!it.product_id) continue;
-    const p = (await t.query('SELECT stock, cost_price FROM products WHERE id=$1 FOR UPDATE', [it.product_id])).rows[0];
+    const p = (await t.query<Pick<ProductsRow, 'stock' | 'cost_price'>>('SELECT stock, cost_price FROM products WHERE id=$1 FOR UPDATE', [it.product_id])).rows[0];
     if (!p) continue;
     const landed = round2(Number(it.unit_cost) + (costShare ? costShare * Number(it.unit_cost) : 0));
     const oldStock = Math.max(0, p.stock);
@@ -116,7 +116,7 @@ async function savePurchase(data: Body, staffId?: Id): Promise<number> {
 
   return tx(async (t) => {
     const code = 'PO-' + randomCode(5);
-    const p = (await t.query(`INSERT INTO purchases(code, supplier_id, purchase_date, status, subtotal, discount, shipping, other_cost, vat, total, note, created_by, received_at)
+    const p = (await t.query<Pick<PurchasesRow, 'id'>>(`INSERT INTO purchases(code, supplier_id, purchase_date, status, subtotal, discount, shipping, other_cost, vat, total, note, created_by, received_at)
       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING id`,
     [code, int(data.supplier_id) || null, date, status, subtotal, discount, shipping, other, vat, total, str(data.note, 1000), staffId || null,
       status === 'received' ? new Date() : null])).rows[0];
@@ -135,9 +135,9 @@ async function savePurchase(data: Body, staffId?: Id): Promise<number> {
 }
 async function setPurchaseStatus(id: Id, status: string, staffId?: Id): Promise<void> {
   return tx(async (t) => {
-    const p = (await t.query('SELECT * FROM purchases WHERE id=$1 FOR UPDATE', [id])).rows[0];
+    const p = (await t.query<PurchasesRow>('SELECT * FROM purchases WHERE id=$1 FOR UPDATE', [id])).rows[0];
     if (!p || p.status === status || !PURCHASE_STATUSES[status]) return;
-    const items = (await t.query('SELECT * FROM purchase_items WHERE purchase_id=$1', [id])).rows as PurchaseLine[];
+    const items = (await t.query<PurchaseItemsRow>('SELECT * FROM purchase_items WHERE purchase_id=$1', [id])).rows as PurchaseLine[];
     if (status === 'received' && p.status === 'ordered') {
       const costShare = p.subtotal > 0 ? (p.shipping + p.other_cost - p.discount) / p.subtotal : 0;
       await receiveItems(t, id, items, staffId, costShare);

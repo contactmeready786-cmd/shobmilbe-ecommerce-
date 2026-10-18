@@ -6,6 +6,7 @@ import * as db from '../db';
 import * as ui from './ui';
 import * as catalog from '../models/catalog';
 import type { AdminCtx, Body, Loose, RouteMatch } from '../types';
+import type { ProductsRow } from '../data/rows';
 
 const PRESET_TITLES = ['রং', 'সাইজ', 'মডেল', 'রং / সাইজ', 'ধরন', 'ভোল্টেজ', 'ক্ষমতা (ওয়াট)', 'দৈর্ঘ্য', 'প্যাক'];
 
@@ -35,7 +36,7 @@ async function page(ctx: AdminCtx, m: RouteMatch) {
     try {
       // removed variants: into the recycle bin first (restorable), then the rest is saved
       for (const rid of remove) {
-        const own = await db.one('SELECT id, name FROM products WHERE id=$1 AND parent_id=$2', [rid, id]);
+        const own = await db.one<Pick<ProductsRow, 'id' | 'name'>>('SELECT id, name FROM products WHERE id=$1 AND parent_id=$2', [rid, id]);
         if (own) { await ctx.trash('product', rid); await ctx.log('product_delete', 'product', rid, `ভ্যারিয়েন্ট মুছে ফেলা: ${own.name}`); }
       }
       await catalog.saveVariants(id, { title: b.variant_title, rows: rows.filter((r) => !remove.has(r.id)) }, ctx.user.id, { withCost: seeCost });

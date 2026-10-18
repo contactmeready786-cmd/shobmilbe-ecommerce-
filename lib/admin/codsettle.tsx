@@ -31,9 +31,9 @@ async function page(ctx: AdminCtx) {
   const [open, settlements, accounts, month] = await Promise.all([
     cur ? db.q(`SELECT o.id, o.code, o.customer_name, o.consignment_id, o.tracking_code, o.total, o.delivery, o.gift_amount, o.payment, coalesce(o.delivered_at, o.updated_at) AS at, ${COD_EXPR} AS cod
       FROM orders o WHERE o.status='delivered' AND o.courier=$1 AND o.cod_settlement_id IS NULL AND o.source <> 'pos' ORDER BY coalesce(o.delivered_at, o.updated_at) LIMIT 500`, [cur]) : [],
-    db.q(`SELECT c.*, s.name AS staff_name, a.name AS account_name FROM cod_settlements c LEFT JOIN staff s ON s.id=c.staff_id LEFT JOIN accounts a ON a.id=c.account_id ORDER BY c.id DESC LIMIT 30`),
+    db.q<{ id: number; courier: string; ref: string; settled_on: string; collected: number; fee: number; received: number; account_id: number | null; order_count: number; note: string; staff_id: number | null; created_at: Date; staff_name: string | null; account_name: string | null }>(`SELECT c.*, s.name AS staff_name, a.name AS account_name FROM cod_settlements c LEFT JOIN staff s ON s.id=c.staff_id LEFT JOIN accounts a ON a.id=c.account_id ORDER BY c.id DESC LIMIT 30`),
     finance.listAccounts(),
-    db.one(`SELECT coalesce(sum(received),0)::numeric(14,2) AS received, coalesce(sum(fee),0)::numeric(14,2) AS fee FROM cod_settlements WHERE date_trunc('month', settled_on) = date_trunc('month', (now() AT TIME ZONE 'Asia/Dhaka')::date)`),
+    db.one<{ received: number; fee: number }>(`SELECT coalesce(sum(received),0)::numeric(14,2) AS received, coalesce(sum(fee),0)::numeric(14,2) AS fee FROM cod_settlements WHERE date_trunc('month', settled_on) = date_trunc('month', (now() AT TIME ZONE 'Asia/Dhaka')::date)`),
   ]);
   const totalOpen = list.reduce((s, x) => s + Number(x.open_amount), 0);
   const days = (d: string | number | Date) => Math.max(0, Math.floor((Date.now() - new Date(d).getTime()) / 864e5));
@@ -52,7 +52,7 @@ async function save(ctx: AdminCtx) {
     if (!rows.length) throw new Error('বাছাই করা পার্সেলগুলো আগেই মিলানো হয়েছে।');
     const collected = round2(rows.reduce((s, r) => s + Number(r.cod), 0));
     const fee = b.fee !== undefined && b.fee !== '' ? round2(amount(b.fee)) : round2(Math.max(0, collected - received));
-    const c = (await t.query(`INSERT INTO cod_settlements(courier, ref, settled_on, collected, fee, received, account_id, order_count, note, staff_id)
+    const c = (await t.query<Pick<CodSettlementsRow, 'id'>>(`INSERT INTO cod_settlements(courier, ref, settled_on, collected, fee, received, account_id, order_count, note, staff_id)
       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id`, [str(b.courier, 30), str(b.ref, 80), /^\d{4}-\d{2}-\d{2}$/.test(b.settled_on || '') ? b.settled_on : ymd(),
       collected, fee, received, int(b.account_id) || null, rows.length, str(b.note, 200), ctx.user.id])).rows[0];
     // the courier's charge, shared over the parcels (for each order's own profit)

@@ -7,6 +7,7 @@ import * as charts from './charts';
 import { saveKeys } from './marketing';
 import * as $vat from './vat';
 import type { AdminCtx, Loose, RouteMatch } from '../types';
+import type { TransactionsRow } from '../data/rows';
 
 const dd = (d: string) => fmtDate(String(d).slice(0, 10) + 'T06:00:00Z', false);
 
@@ -15,7 +16,7 @@ async function home(ctx: AdminCtx) {
   const monthStart = today.slice(0, 8) + '01';
   const [accounts, pnl, monthly, receivable, suppliers] = await Promise.all([
     F.listAccounts(), F.profitLoss(monthStart, today), F.monthlySeries(6),
-    db.one(`SELECT coalesce(sum(total - paid_amount),0)::numeric(14,2) AS cod, count(*)::int AS n FROM orders WHERE status='shipped'`),
+    db.one<{ cod: number; n: number }>(`SELECT coalesce(sum(total - paid_amount),0)::numeric(14,2) AS cod, count(*)::int AS n FROM orders WHERE status='shipped'`),
     F.listSuppliers(),
   ]);
   const cash = accounts.filter((a) => a.active).reduce((s, a) => s + Number(a.balance), 0);
@@ -23,10 +24,10 @@ async function home(ctx: AdminCtx) {
   // ---- live checklist: what the books still need, worked out from the shop's own data
   const owner = ctx.can('see_cost');
   const [noCost, monthCats, txCount, unpaidDelivered] = await Promise.all([
-    owner ? db.one(`SELECT count(*)::int AS n FROM products WHERE active AND product_type='single' AND coalesce(cost_price,0)=0`).catch(() => ({ n: 0 })) : { n: 0 },
-    db.q(`SELECT DISTINCT category FROM transactions WHERE type='expense' AND tx_date >= $1`, [monthStart]).catch(() => []),
-    db.one(`SELECT count(*)::int AS n FROM transactions`).catch(() => ({ n: 0 })),
-    db.one(`SELECT count(*)::int AS n, coalesce(sum(total - paid_amount),0)::numeric(14,2) AS due FROM orders WHERE status='delivered' AND total - paid_amount > 0`).catch(() => ({ n: 0, due: 0 })),
+    owner ? db.one<{ n: number }>(`SELECT count(*)::int AS n FROM products WHERE active AND product_type='single' AND coalesce(cost_price,0)=0`).catch(() => ({ n: 0 })) : { n: 0 },
+    db.q<Pick<TransactionsRow, 'category'>>(`SELECT DISTINCT category FROM transactions WHERE type='expense' AND tx_date >= $1`, [monthStart]).catch(() => []),
+    db.one<{ n: number }>(`SELECT count(*)::int AS n FROM transactions`).catch(() => ({ n: 0 })),
+    db.one<{ n: number; due: number }>(`SELECT count(*)::int AS n, coalesce(sum(total - paid_amount),0)::numeric(14,2) AS due FROM orders WHERE status='delivered' AND total - paid_amount > 0`).catch(() => ({ n: 0, due: 0 })),
   ]);
   const haveCat = new Set(monthCats.map((r) => r.category));
   const MONTHLY = [['দোকান/অফিস ভাড়া', '🏠'], ['স্টাফ বেতন', '👥'], ['ফেসবুক/গুগল বিজ্ঞাপন', '📣'], ['প্যাকেজিং খরচ', '📦'], ['কুরিয়ার চার্জ', '🛵'], ['ইন্টারনেট ও মোবাইল', '📶'], ['বিদ্যুৎ ও পানি', '💡']];

@@ -12,6 +12,7 @@ import * as db from '../db';
 import * as seo from './seo';
 import { words } from '../models/duplicates';
 import type { Loose } from '../types';
+import type { ProductsRow } from '../data/rows';
 
 const TTL = 5 * 60 * 1000;
 let cache: Loose = null;
@@ -25,7 +26,7 @@ function keyOf(name?: Loose) {
 // slug of a copy -> slug of its main page (main pages and single products are not in the map)
 async function copies() {
   if (cache && Date.now() - cachedAt < TTL) return cache;
-  const rows = await db.q(`SELECT id, slug, name, stock, product_type FROM products
+  const rows = await db.q<Pick<ProductsRow, 'id' | 'slug' | 'name' | 'stock' | 'product_type'>>(`SELECT id, slug, name, stock, product_type FROM products
     WHERE active AND NOT noindex AND parent_id IS NULL ORDER BY id`);
   const groups = new Map();
   for (const r of rows) {

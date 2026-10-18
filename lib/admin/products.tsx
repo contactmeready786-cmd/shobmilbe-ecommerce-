@@ -10,6 +10,7 @@ import * as $models_finance from '../models/finance';
 import * as $services_autocat from '../services/autocat';
 import * as $variants from './variants';
 import type { AdminCtx, Body, Id, Loose, RouteMatch, Settings } from '../types';
+import type { PriceTiersRow, ProductsRow } from '../data/rows';
 
 const PER_PAGE = 40;
 const ICONS = ['📦', '📟', '🧩', '🔋', '🔥', '🔌', '👕', '👗', '👟', '👜', '⌚', '📱', '💻', '🎧', '🔊', '📷', '🎮', '💡', '🔧', '🛠️', '⚙️',
@@ -113,7 +114,7 @@ async function bulkAction(ctx: AdminCtx) {
       const pct = act === 'price_pct' ? Math.max(-90, Math.min(500, Number(b.pct) || 0)) : 0;
       const add = act === 'price_add' ? Number(b.add) || 0 : 0;
       if (!pct && !add) throw new Error('কত বাড়াবেন/কমাবেন লিখুন।');
-      const rowsP = (await t.query('SELECT id, name, price, old_price FROM products WHERE id = ANY($1::int[]) FOR UPDATE', [ids])).rows;
+      const rowsP = (await t.query<Pick<ProductsRow, 'id' | 'name' | 'price' | 'old_price'>>('SELECT id, name, price, old_price FROM products WHERE id = ANY($1::int[]) FOR UPDATE', [ids])).rows;
       const out = rowsP.filter((r) => { const v = bulkPrice(r.price, { pct, add }); return v < PRICE_MIN || v > PRICE_MAX; });
       if (out.length) throw new Error(`${bn(out.length)}টি পণ্যের নতুন দাম ৳০.৫০–৳২০০০ এর বাইরে চলে যায় (যেমন "${out[0].name}")। ওগুলো বাদ দিয়ে আবার করুন।`);
       for (const r of rowsP) {
@@ -230,7 +231,7 @@ async function formExtras(ctx: AdminCtx, id?: Id) {
     id ? catalog.priceHistory(id as number, { withCost: ctx.can('see_cost'), limit: 15 }) : [],
     catalog.listLocations().catch(() => []),
   ]);
-  const [tiers, links] = id ? await Promise.all([db.q('SELECT min_qty, price FROM price_tiers WHERE product_id=$1 ORDER BY min_qty', [id]), catalog.linkedSkus(id)])
+  const [tiers, links] = id ? await Promise.all([db.q<Pick<PriceTiersRow, 'min_qty' | 'price'>>('SELECT min_qty, price FROM price_tiers WHERE product_id=$1 ORDER BY min_qty', [id]), catalog.linkedSkus(id)])
     : [[], { related: [], cross: [], upsell: [] }];
   // 📒 sales & profit of this product (owner only) — worked out from its orders, never typed
   const ledger = id && ctx.can('see_cost') ? await catalog.productLedger(id, { limit: 5 }).catch(() => null) : null;
@@ -273,7 +274,7 @@ async function formPage(ctx: AdminCtx, m: RouteMatch | null) {
   const id = m && m[1] ? int(m[1]) : null;
   // a variant is edited on its main product's variants page
   if (id) {
-    const v = await db.one('SELECT parent_id FROM products WHERE id=$1', [id]);
+    const v = await db.one<Pick<ProductsRow, 'parent_id'>>('SELECT parent_id FROM products WHERE id=$1', [id]);
     if (v && v.parent_id) return ctx.redirect(`/admin/products/${v.parent_id}/variants`);
   }
   const categories = await catalog.listCategories();
@@ -355,7 +356,7 @@ async function setActive(ctx: AdminCtx, m: RouteMatch) {
   const id = int(m[1]);
   const b = await ctx.body();
   const on = !!b.active && b.active !== '0';
-  const p = await db.one('UPDATE products SET active=$1, updated_at=now() WHERE id=$2 RETURNING name, parent_id', [on, id]);
+  const p = await db.one<Pick<ProductsRow, 'name' | 'parent_id'>>('UPDATE products SET active=$1, updated_at=now() WHERE id=$2 RETURNING name, parent_id', [on, id]);
   const parentId = p && p.parent_id;
   if (parentId) await db.tx((t) => catalog.syncVariants(t, parentId));
   if (p) await ctx.log('product_edit', 'product', id, `${on ? 'দোকানে চালু' : 'দোকান থেকে বন্ধ'}: ${p.name}`);

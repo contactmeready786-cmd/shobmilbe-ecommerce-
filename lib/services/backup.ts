@@ -5,6 +5,7 @@
 import * as crypto from 'node:crypto';
 import * as zlib from 'node:zlib';
 import type { Body, Loose } from '../types';
+import type { SettingsRow } from '../data/rows';
 
 const MAGIC = Buffer.from('SMBK1');
 // big and not needed to run the shop — left out unless asked for
@@ -22,7 +23,7 @@ const qi = (n?: Loose) => '"' + String(n).replace(/"/g, '""') + '"';
 // { withImages, withAnalytics } → { buffer (gzip json), tables, rows }
 async function dump(db: typeof import("../db"), { withImages = false, withAnalytics = false, password = '' }: Body = {}) {
   const tables = (await tableList(db)).filter((t: string) => !NEVER.has(t) && (withAnalytics || !ANALYTICS.has(t)) && (withImages || t !== 'media'));
-  const schema = await db.one("SELECT value FROM settings WHERE key='schema_version'");
+  const schema = await db.one<Pick<SettingsRow, 'value'>>("SELECT value FROM settings WHERE key='schema_version'");
   const out = { app: 'shobmilbe', format: 1, schema_version: schema ? Number(schema.value) : null, created_at: new Date().toISOString(), with_images: !!withImages, tables: {} as Record<string, Loose> };
   let rows = 0;
   for (const t of tables) {

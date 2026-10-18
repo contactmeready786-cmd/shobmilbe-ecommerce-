@@ -22,6 +22,7 @@ import { siteUrl, blockedBots } from '../gate';
 import { int, str, esc } from '../util';
 import { allow, json, tooMany, type ApiCtx } from '../next/api';
 import type { Body, Loose } from '../types';
+import type { BlogPostsRow, BrandsRow, CategoriesRow, KitsRow, PagesRow, ProductsRow } from '../data/rows';
 
 /** The original code's plain answer: its type, never kept unless said, the shop's security headers. */
 function text(status: number, body: BodyInit | null, type = 'text/html; charset=utf-8', extra: Record<string, string> = {}): Response {
@@ -79,7 +80,7 @@ export async function mediaWatermarked(ctx: ApiCtx) {
 
 /** /img/p/<product id> — a product's main picture (old links). */
 export async function productImage(ctx: ApiCtx) {
-  const p = await db.one('SELECT image_id FROM products WHERE id=$1', [int(ctx.path.split('/')[3])]);
+  const p = await db.one<Pick<ProductsRow, 'image_id'>>('SELECT image_id FROM products WHERE id=$1', [int(ctx.path.split('/')[3])]);
   return p && p.image_id ? seeOther(`/media/${p.image_id}`) : notFound();
 }
 
@@ -98,14 +99,14 @@ export async function sitemap(ctx: ApiCtx) {
   const settings = ctx.settings;
   const base = siteUrl(ctx.req, settings);
   const [products, categories, posts, pages, brands] = await Promise.all([
-    db.q('SELECT slug, updated_at, image_id, name FROM products WHERE active AND NOT noindex AND parent_id IS NULL ORDER BY id'),
-    db.q('SELECT slug FROM categories WHERE coalesce(active,true) AND NOT noindex ORDER BY sort'),
-    db.q(`SELECT slug, updated_at FROM blog_posts WHERE status='published' AND published_at <= now()`),
-    db.q('SELECT slug, updated_at FROM pages WHERE active'),
-    db.q('SELECT b.slug FROM brands b WHERE b.active AND NOT b.noindex AND EXISTS (SELECT 1 FROM products p WHERE p.brand_id=b.id AND p.active) ORDER BY b.sort, b.id'),
+    db.q<Pick<ProductsRow, 'slug' | 'updated_at' | 'image_id' | 'name'>>('SELECT slug, updated_at, image_id, name FROM products WHERE active AND NOT noindex AND parent_id IS NULL ORDER BY id'),
+    db.q<Pick<CategoriesRow, 'slug'>>('SELECT slug FROM categories WHERE coalesce(active,true) AND NOT noindex ORDER BY sort'),
+    db.q<Pick<BlogPostsRow, 'slug' | 'updated_at'>>(`SELECT slug, updated_at FROM blog_posts WHERE status='published' AND published_at <= now()`),
+    db.q<Pick<PagesRow, 'slug' | 'updated_at'>>('SELECT slug, updated_at FROM pages WHERE active'),
+    db.q<Pick<BrandsRow, 'slug'>>('SELECT b.slug FROM brands b WHERE b.active AND NOT b.noindex AND EXISTS (SELECT 1 FROM products p WHERE p.brand_id=b.id AND p.active) ORDER BY b.sort, b.id'),
   ]);
   // 🧰 project kits / guides (when the kit pages are switched on)
-  const kits = settings.kits_on !== '0' ? await db.q('SELECT slug, updated_at, image_id FROM kits WHERE active ORDER BY sort, id').catch(() => []) : [];
+  const kits = settings.kits_on !== '0' ? await db.q<Pick<KitsRow, 'slug' | 'updated_at' | 'image_id'>>('SELECT slug, updated_at, image_id FROM kits WHERE active ORDER BY sort, id').catch(() => []) : [];
   // the same product listed twice: only its main page goes to Google
   const dupSlugs = await dupcanon.copies().catch(() => new Map());
   const u = (loc: string, lastmod: string | number | Date | null, pri: string, img?: string | undefined) => `<url><loc>${esc(base + loc)}</loc>${lastmod ? `<lastmod>${new Date(lastmod).toISOString().slice(0, 10)}</lastmod>` : ''}${pri ? `<priority>${pri}</priority>` : ''}${img ? `<image:image><image:loc>${esc(base + img)}</image:loc></image:image>` : ''}</url>`;

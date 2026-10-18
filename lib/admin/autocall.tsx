@@ -7,6 +7,7 @@ import * as AC from '../services/autocall';
 import { saveKeys, secretInput } from './marketing';
 import type { AdminCtx, Loose, RouteMatch } from '../types';
 import type { Order } from '../models/orders';
+import type { OrderItemsRow, OrdersRow } from '../data/rows';
 
 const BASE = '/admin/autocall';
 function site(ctx: AdminCtx) {
@@ -54,10 +55,10 @@ async function page(ctx: AdminCtx) {
   const token = await AC.ensureSecret(s);
   const hookUrl = AC.callbackUrl(site(ctx), token);
   const [stats, calls] = await Promise.all([
-    db.one(`SELECT count(*)::int AS n, count(*) FILTER (WHERE state='confirmed')::int AS ok, count(*) FILTER (WHERE state='cancelled')::int AS cancel,
+    db.one<{ n: number; ok: number; cancel: number; miss: number; failed: number }>(`SELECT count(*)::int AS n, count(*) FILTER (WHERE state='confirmed')::int AS ok, count(*) FILTER (WHERE state='cancelled')::int AS cancel,
       count(*) FILTER (WHERE state IN ('no_answer','no_input'))::int AS miss, count(*) FILTER (WHERE state='failed')::int AS failed
       FROM autocalls WHERE created_at > now() - interval '30 days'`).catch(() => ({ n: 0, ok: 0, cancel: 0, miss: 0, failed: 0 })),
-    db.q(`SELECT a.*, o.code, o.customer_name, o.total FROM autocalls a JOIN orders o ON o.id=a.order_id ORDER BY a.id DESC LIMIT 30`).catch(() => []),
+    db.q<{ id: number; order_id: number | null; phone: string; state: string; digit: string; ref: string; attempt: number; detail: string; created_at: Date; updated_at: Date; code: string; customer_name: string; total: number }>(`SELECT a.*, o.code, o.customer_name, o.total FROM autocalls a JOIN orders o ON o.id=a.order_id ORDER BY a.id DESC LIMIT 30`).catch(() => []),
   ]);
   const sample = AC.varsFor(s, { code: 'SM1234', phone: '01712345678', customer_name: 'রহিম', total: 450, items: [{ name: 'Arduino Uno' }] }, site(ctx), token);
   const ready = AC.on(s);
@@ -70,10 +71,10 @@ async function page(ctx: AdminCtx) {
 // "📞 অটো কল করুন" on an order's page
 async function callOrder(ctx: AdminCtx, m: RouteMatch) {
   const id = int(m[1]);
-  const o = await db.one('SELECT id, code, phone, customer_name, total, payment FROM orders WHERE id=$1', [id]);
+  const o = await db.one<Pick<OrdersRow, 'id' | 'code' | 'phone' | 'customer_name' | 'total' | 'payment'>>('SELECT id, code, phone, customer_name, total, payment FROM orders WHERE id=$1', [id]);
   if (!o) return ctx.back('/admin/orders');
   if (!ctx.settings.autocall_url) return ctx.fail(`/admin/orders/${id}`, 'আগে "অটো কল" পেজে কল কোম্পানির সংযোগ দিন।');
-  const items = await db.q('SELECT name FROM order_items WHERE order_id=$1 LIMIT 3', [id]);
+  const items = await db.q<Pick<OrderItemsRow, 'name'>>('SELECT name FROM order_items WHERE order_id=$1 LIMIT 3', [id]);
   const r = await AC.call(ctx.settings, { ...o, items }, site(ctx));
   await ctx.log('autocall', 'order', id, r.ok ? 'হাতে অটো কল পাঠানো' : `অটো কল যায়নি: ${r.error}`);
   return r.ok ? ctx.redirect(`/admin/orders/${id}?info=` + encodeURIComponent('📞 কল পাঠানো হয়েছে — কাস্টমার চাপ দিলে ফলাফল এখানে আসবে।')) : ctx.fail(`/admin/orders/${id}`, 'কল যায়নি: ' + r.error);

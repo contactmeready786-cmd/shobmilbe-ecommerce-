@@ -103,7 +103,7 @@ async function live(ctx: AdminCtx) {
 
 // Customer list for Facebook "Custom Audience → Customer list": phone (with country code), first name.
 async function buyersCsv(ctx: AdminCtx) {
-  const rows = await db.q(`SELECT phone, max(customer_name) AS name FROM orders WHERE status NOT IN ('cancelled','returned') GROUP BY phone ORDER BY max(created_at) DESC LIMIT 50000`);
+  const rows = await db.q<{ phone: string; name: string | null }>(`SELECT phone, max(customer_name) AS name FROM orders WHERE status NOT IN ('cancelled','returned') GROUP BY phone ORDER BY max(created_at) DESC LIMIT 50000`);
   const esc = (v: string) => `"${String(v || '').replace(/"/g, '""')}"`;
   const phone = (p?: Loose) => { const d = String(p || '').replace(/\D/g, ''); return d.startsWith('880') ? '+' + d : d.startsWith('0') ? '+88' + d : d ? '+880' + d : ''; };
   const csv = 'phone,fn,country\n' + rows.map((r) => [esc(phone(r.phone)), esc(String(r.name || '').split(/\s+/)[0]), 'BD'].join(',')).join('\n');

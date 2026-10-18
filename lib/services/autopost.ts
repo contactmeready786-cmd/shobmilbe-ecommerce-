@@ -13,6 +13,7 @@ import * as $dupcanon from './dupcanon';
 import * as $seo from './seo';
 import * as $models_kits from '../models/kits';
 import type { Body, Id, Loose, Settings } from '../types';
+import type { CategoriesRow, KitsRow, MediaRow, SocialPostsRow } from '../data/rows';
 
 const GRAPH = 'https://graph.facebook.com/v21.0';
 const REPEAT_DAYS = 45;
@@ -130,7 +131,7 @@ function caption(p: Loose, settings: Settings, channel = 'facebook') {
 // ---------------------------------------------------------------- picture link
 // Facebook / Instagram fetch the picture themselves, so it has to be a public JPEG link.
 async function imageUrl(p: { image_id: unknown; }, settings: Settings) {
-  const m = await db.one('SELECT ik_url FROM media WHERE id=$1', [p.image_id]).catch(() => null);
+  const m = await db.one<Pick<MediaRow, 'ik_url'>>('SELECT ik_url FROM media WHERE id=$1', [p.image_id]).catch(() => null);
   if (m && m.ik_url) return `${m.ik_url}${m.ik_url.includes('?') ? '&' : '?'}tr=f-jpg,w-1080`;
   return `${siteBase(settings)}/media/${p.image_id}`;
 }
@@ -224,17 +225,17 @@ async function record(slot?: Loose, channel?: Loose, productId?: Id, ok?: Loose,
 const ROTATION = ['tip', 'quiz', 'tip', 'question', 'kit'];
 
 async function lastEngagement() {
-  return db.one(`SELECT kind, ref, product_id, post_id FROM social_posts WHERE channel='facebook' AND ok AND kind <> 'product' ORDER BY created_at DESC LIMIT 1`).catch(() => null);
+  return db.one<Pick<SocialPostsRow, 'kind' | 'ref' | 'product_id' | 'post_id'>>(`SELECT kind, ref, product_id, post_id FROM social_posts WHERE channel='facebook' AND ok AND kind <> 'product' ORDER BY created_at DESC LIMIT 1`).catch(() => null);
 }
 async function nextKind() {
   const last = await lastEngagement();
   if (last && last.kind === 'quiz') return 'answer';
-  const n = (await db.one(`SELECT count(*)::int AS n FROM social_posts WHERE channel='facebook' AND ok AND kind IN ('tip','quiz','question','kit')`).catch(() => ({ n: 0 })))!.n;
+  const n = (await db.one<{ n: number }>(`SELECT count(*)::int AS n FROM social_posts WHERE channel='facebook' AND ok AND kind IN ('tip','quiz','question','kit')`).catch(() => ({ n: 0 })))!.n;
   return ROTATION[n % ROTATION.length];
 }
 // the item of a list that was used longest ago (never-used first)
 async function freshIndex(kind?: Loose, length?: Loose) {
-  const used = await db.q(`SELECT ref, max(created_at) AS at FROM social_posts WHERE kind=$1 AND ok GROUP BY ref`, [kind]).catch(() => []);
+  const used = await db.q<{ ref: string; at: Date }>(`SELECT ref, max(created_at) AS at FROM social_posts WHERE kind=$1 AND ok GROUP BY ref`, [kind]).catch(() => []);
   const at = new Map(used.map((r) => [String(r.ref), new Date(r.at).getTime()]));
   const order = [...Array(length).keys()].sort((a, b) => (at.get(String(a)) || 0) - (at.get(String(b)) || 0) || Math.random() - 0.5);
   return order[0];
@@ -267,7 +268,7 @@ async function buildEngagement(settings: Settings, kind: string) {
     const kits = await db.q(`SELECT k.id, k.slug FROM kits k WHERE k.active AND k.steps <> ''
       AND EXISTS (SELECT 1 FROM kit_items i JOIN products p ON p.id=i.product_id WHERE i.kit_id=k.id AND p.active)`).catch(() => []);
     if (!kits.length) return buildEngagement(settings, 'tip');
-    const used = await db.q(`SELECT ref, max(created_at) AS at FROM social_posts WHERE kind='kit' AND ok GROUP BY ref`).catch(() => []);
+    const used = await db.q<{ ref: string; at: Date }>(`SELECT ref, max(created_at) AS at FROM social_posts WHERE kind='kit' AND ok GROUP BY ref`).catch(() => []);
     const at = new Map(used.map((r) => [String(r.ref), new Date(r.at).getTime()]));
     const pick = kits.sort((a, b) => (at.get(String(a.id)) || 0) - (at.get(String(b.id)) || 0) || Math.random() - 0.5)[0];
     const K = $models_kits;
@@ -310,7 +311,7 @@ async function buildEngagement(settings: Settings, kind: string) {
     const last = await lastEngagement();
     let quiz = null;
     try { quiz = JSON.parse(last!.ref); } catch (_) { quiz = null; }
-    const p = last && last.product_id ? await db.one(`SELECT p.*, coalesce(p.sold_count,0)::int AS sold FROM products p WHERE p.id=$1`, [last.product_id]) : null;
+    const p = last && last.product_id ? await db.one<{ id: number; name: string; slug: string; category_id: number; price: number; old_price: number; stock: number; description: string; emoji: string; image: string; featured: boolean; active: boolean; created_at: Date; updated_at: Date; sku: string; short_description: string; cost_price: number; youtube_url: string; product_type: string; image_id: number; seo_title: string; seo_description: string; low_stock: number; weight_g: number; unit: string; brand: string; sold_count: number; seo_keywords: string; allow_duplicate: boolean; import_ref: string; brand_id: number; model: string; specs: unknown; is_new: boolean; damaged_stock: number; supplier_id: number; noindex: boolean; wish_count: number; rating_avg: number; rating_count: number; warranty: string; warranty_type: string; barcode: string; parent_id: number; variant_label: string; variant_count: number; variant_title: string; variant_sort: number; preorder: boolean; preorder_days: number; location: string; seo_auto_at: Date; src_wm: boolean; src_wm_checked: boolean; sold: number }>(`SELECT p.*, coalesce(p.sold_count,0)::int AS sold FROM products p WHERE p.id=$1`, [last.product_id]) : null;
     if (!p || !quiz || !p.active) return buildEngagement(settings, 'tip'); // the part was removed meanwhile: skip to a tip
     const text = [`✅ গত কুইজের সঠিক উত্তর: ${BN_ABC[quiz.right]}) ${shortName(p.name)}`, '',
       'যারা ঠিক বলেছেন সবাইকে অভিনন্দন! 🎉', '',
@@ -382,7 +383,7 @@ async function tick(settings: Settings) {
   if (!due.length) return { idle: true };
   const slot = `${now.day}@${due[due.length - 1]}`;
   // claim the slot first: only one wake-up wins it
-  const claimed = await db.one(`INSERT INTO social_posts(slot, channel, ok, message) VALUES($1,'claim',NULL,'') ON CONFLICT (slot) DO NOTHING RETURNING id`, [slot]);
+  const claimed = await db.one<Pick<SocialPostsRow, 'id'>>(`INSERT INTO social_posts(slot, channel, ok, message) VALUES($1,'claim',NULL,'') ON CONFLICT (slot) DO NOTHING RETURNING id`, [slot]);
   if (!claimed) return { done: true };
   const hour = due[due.length - 1];
   const r: Loose = settings.autopost_fb !== '0' && engagementSlot(settings, hour, now.day) ? await postEngagement(settings, slot) : await postOne(settings, { slot });
@@ -392,7 +393,7 @@ async function tick(settings: Settings) {
 }
 
 async function recent(limit = 30) {
-  return db.q(`SELECT sp.*, p.name AS product_name, p.slug FROM social_posts sp LEFT JOIN products p ON p.id=sp.product_id
+  return db.q<{ id: number; slot: string; channel: string; product_id: number | null; ok: boolean | null; post_id: string; message: string; created_at: Date; kind: string; ref: string; product_name: string | null; slug: string | null }>(`SELECT sp.*, p.name AS product_name, p.slug FROM social_posts sp LEFT JOIN products p ON p.id=sp.product_id
     WHERE sp.channel <> 'claim' ORDER BY sp.created_at DESC LIMIT $1`, [limit]).catch(() => []);
 }
 

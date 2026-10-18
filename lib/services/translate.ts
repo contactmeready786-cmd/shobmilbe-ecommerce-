@@ -11,6 +11,7 @@ import * as crypto from 'node:crypto';
 import * as db from '../db';
 import * as security from '../security';
 import type { Body, Id, Loose, Settings } from '../types';
+import type { TranslationsRow } from '../data/rows';
 
 const BN = /[\u0980-\u09E5\u09F0-\u09F2\u09F4-\u09FF]/; // Bangla letters (digits and ৳ alone don't need translating)
 const BN_DIGITS = '০১২৩৪৫৬৭৮৯';
@@ -80,7 +81,7 @@ async function machine(texts: Loose, settings: Settings, deadline: number) {
 async function getMany(texts?: Loose) {
   const keys = [...new Set(texts.map(hash))];
   if (!keys.length) return new Map();
-  const rows = await db.q('SELECT hash, en FROM translations WHERE hash = ANY($1::text[]) AND en <> \'\'', [keys]);
+  const rows = await db.q<Pick<TranslationsRow, 'hash' | 'en'>>('SELECT hash, en FROM translations WHERE hash = ANY($1::text[]) AND en <> \'\'', [keys]);
   if (rows.length) db.q('UPDATE translations SET hits = hits + 1, last_seen = now() WHERE hash = ANY($1::text[])', [rows.map((r) => r.hash)]).catch(() => {});
   return new Map(rows.map((r) => [r.hash, r.en]));
 }
@@ -124,7 +125,7 @@ async function lookup(texts: Loose, settings: Settings, { auto = true, deadline 
 
 // Lines the owner corrected by hand: sent to every English visitor (they win over the built-in words too).
 async function manualAll() {
-  const rows = await db.q("SELECT src, en FROM translations WHERE origin = 'manual' AND en <> '' ORDER BY updated_at DESC LIMIT 4000");
+  const rows = await db.q<Pick<TranslationsRow, 'src' | 'en'>>("SELECT src, en FROM translations WHERE origin = 'manual' AND en <> '' ORDER BY updated_at DESC LIMIT 4000");
   const m: Record<string, Loose> = {};
   for (const r of rows) m[r.src] = r.en;
   return m;
@@ -136,7 +137,7 @@ async function manualAll() {
 async function siteTexts(settings: Settings) {
   const out = new Set();
   const add = (s: string | undefined) => { const t = norm(s); if (t && hasBangla(t) && t.length <= MAX_LEN) out.add(t); };
-  const rows = await db.q(`
+  const rows = await db.q<{ t: string }>(`
     SELECT name AS t FROM products WHERE active IS NOT FALSE
     UNION SELECT name FROM categories
     UNION SELECT brand FROM products WHERE coalesce(brand,'') <> ''
@@ -148,7 +149,7 @@ async function siteTexts(settings: Settings) {
     UNION SELECT subtitle FROM banners WHERE coalesce(subtitle,'') <> ''
     UNION SELECT button FROM banners WHERE coalesce(button,'') <> ''`).catch(async (e) => {
     console.error('site texts', e.message);
-    return db.q('SELECT name AS t FROM products UNION SELECT name FROM categories');
+    return db.q<{ t: string }>('SELECT name AS t FROM products UNION SELECT name FROM categories');
   });
   rows.forEach((r) => add(r.t));
   ['store_name', 'tagline', 'hero_title', 'notice', 'footer_about', 'manual_note', 'pay_cod_note', 'live_nav_label', 'block_message'].forEach((k) => add(settings[k]));
@@ -178,7 +179,7 @@ async function fillBatch(settings: Settings, size = 60) {
 }
 
 async function retranslate(id: Id, settings: Settings) {
-  const row = await db.one('SELECT src FROM translations WHERE id = $1', [id]);
+  const row = await db.one<Pick<TranslationsRow, 'src'>>('SELECT src FROM translations WHERE id = $1', [id]);
   if (!row) return null;
   const [en] = await machine([row.src], settings, Date.now() + 9000);
   if (!en) return '';

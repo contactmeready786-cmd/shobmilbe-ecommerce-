@@ -24,11 +24,11 @@ async function page(ctx: AdminCtx) {
     return ctx.back(BASE, 'saved');
   }
   const [stats, recent] = await Promise.all([
-    db.one(`SELECT count(*) FILTER (WHERE last_login IS NOT NULL)::int AS users, count(*) FILTER (WHERE last_login > now() - interval '30 days')::int AS active30,
+    db.one<{ users: number; active30: number; email_users: number; addresses: number; codes24: number; ecodes24: number }>(`SELECT count(*) FILTER (WHERE last_login IS NOT NULL)::int AS users, count(*) FILTER (WHERE last_login > now() - interval '30 days')::int AS active30,
       count(*) FILTER (WHERE email_verified AND phone IS NULL)::int AS email_users,
       (SELECT count(*)::int FROM customer_addresses) AS addresses, (SELECT count(*)::int FROM customer_otps WHERE created_at > now() - interval '1 day') AS codes24,
       (SELECT count(*)::int FROM customer_email_otps WHERE created_at > now() - interval '1 day') AS ecodes24 FROM customers`),
-    db.q(`SELECT id, name, phone, email, email_verified, contact_phone, last_login,
+    db.q<{ id: number; name: string; phone: string | null; email: string; email_verified: boolean; contact_phone: string; last_login: Date | null; orders: number }>(`SELECT id, name, phone, email, email_verified, contact_phone, last_login,
       (SELECT count(*)::int FROM orders o WHERE (o.phone=c.phone AND c.phone IS NOT NULL) OR o.account_id=c.id) AS orders FROM customers c WHERE last_login IS NOT NULL ORDER BY last_login DESC LIMIT 30`),
   ]);
   const smsOk = $services_sms.ready(s).ok;

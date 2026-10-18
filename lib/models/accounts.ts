@@ -17,7 +17,7 @@ import * as $security from '../security';
 import * as $customers from './customers';
 import * as $orders from './orders';
 import type { Body, Id, Settings, ShopRequest } from '../types';
-import type { CustomersRow, CustomerAddressesRow } from '../data/rows';
+import type { CustomersRow, CustomerAddressesRow, CustomerOtpsRow, CustomerEmailOtpsRow } from '../data/rows';
 
 /** A customer account (a row of the customers table). An e-mail account has no login phone (phone null). */
 export type Customer = CustomersRow;
@@ -81,7 +81,7 @@ async function verifyCode(settings: Settings, phone: unknown, code: unknown): Pr
     throw new AccountError(`কোডটা মেলেনি। আবার দেখে লিখুন (${bn(CODE_TRIES - row.tries - 1)} বার চেষ্টা বাকি)।`);
   }
   // used up at once: if two tries race, only one wins
-  const won = await db.one('UPDATE customer_otps SET used=true WHERE id=$1 AND NOT used RETURNING id', [row.id]);
+  const won = await db.one<Pick<CustomerOtpsRow, 'id'>>('UPDATE customer_otps SET used=true WHERE id=$1 AND NOT used RETURNING id', [row.id]);
   if (!won) throw new AccountError('আবার কোড চান।');
   await db.q('DELETE FROM customer_otps WHERE created_at < now() - interval \'2 days\'').catch(() => {});
   const cu = (await db.one<Customer>(`INSERT INTO customers(name, phone, login_via) VALUES('', $1, 'phone') ON CONFLICT (phone) DO UPDATE SET last_login=now() RETURNING *`, [ph]))!;
@@ -150,7 +150,7 @@ async function verifyEmailCode(settings: Settings, email: unknown, code: unknown
     await db.q('UPDATE customer_email_otps SET tries=tries+1 WHERE id=$1', [row.id]);
     throw new AccountError(`কোডটা মেলেনি। ইমেইল দেখে আবার লিখুন (${bn(CODE_TRIES - row.tries - 1)} বার চেষ্টা বাকি)।`);
   }
-  const won = await db.one('UPDATE customer_email_otps SET used=true WHERE id=$1 AND NOT used RETURNING id', [row.id]);
+  const won = await db.one<Pick<CustomerEmailOtpsRow, 'id'>>('UPDATE customer_email_otps SET used=true WHERE id=$1 AND NOT used RETURNING id', [row.id]);
   if (!won) throw new AccountError('আবার কোড চান।');
   // only an e-mail someone has already PROVED opens that account (an e-mail typed into a profile proves nothing)
   // the code proved the e-mail: the password chosen with it is now the account's password
@@ -200,7 +200,7 @@ async function logoutEverywhere(id?: Id) { await db.q('UPDATE customers SET sess
 
 // ---------- what the account page shows ----------
 async function ordersOf(cu: Pick<Customer, 'id' | 'phone'>, limit = 50) {
-  return db.q(`SELECT o.id, o.code, o.status, o.total, o.created_at, o.paid_amount, o.payment,
+  return db.q<{ id: number; code: string; status: string; total: number; created_at: Date; paid_amount: number; payment: string; items: unknown }>(`SELECT o.id, o.code, o.status, o.total, o.created_at, o.paid_amount, o.payment,
       (SELECT json_agg(json_build_object('id', i.product_id, 'qty', i.qty, 'name', i.name, 'kind', i.kind) ORDER BY i.id) FROM order_items i WHERE i.order_id=o.id) AS items
     FROM orders o WHERE (o.phone=$1 AND $1 <> '') OR o.customer_id=$2 OR o.account_id=$2 ORDER BY o.created_at DESC LIMIT $3`, [cu.phone || '', cu.id, limit]);
 }
@@ -217,7 +217,7 @@ async function saveAddress(customerId: Id, b: Body) {
   if (address.length < 5) throw new AccountError('পূর্ণ ঠিকানা লিখুন।');
   const phone = b.phone ? normalizePhone(b.phone) : '';
   if (phone && !validPhone(phone)) throw new AccountError('মোবাইল নম্বর ঠিক নেই।');
-  const count = (await db.one('SELECT count(*)::int AS n FROM customer_addresses WHERE customer_id=$1', [customerId]))!.n;
+  const count = (await db.one<{ n: number }>('SELECT count(*)::int AS n FROM customer_addresses WHERE customer_id=$1', [customerId]))!.n;
   const id = int(b.id);
   if (!id && count >= 10) throw new AccountError('সর্বোচ্চ ১০টা ঠিকানা রাখা যায় — পুরোনো একটা মুছুন।');
   const isDefault = !!b.is_default || count === 0;
@@ -228,7 +228,7 @@ async function saveAddress(customerId: Id, b: Body) {
         [str(b.label, 30), str(b.name, 80), phone, dist.en, thana, address, isDefault, id, customerId]);
       return id;
     }
-    return (await t.query(`INSERT INTO customer_addresses(customer_id, label, name, phone, district, thana, address, is_default) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`,
+    return (await t.query<Pick<CustomerAddressesRow, 'id'>>(`INSERT INTO customer_addresses(customer_id, label, name, phone, district, thana, address, is_default) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`,
       [customerId, str(b.label, 30), str(b.name, 80), phone, dist.en, thana, address, isDefault])).rows[0].id;
   });
 }

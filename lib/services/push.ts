@@ -4,7 +4,7 @@
 //
 // Standard Web Push: VAPID (RFC 8292) to prove the message is from this site, and aes128gcm (RFC 8291) so
 // only that phone's browser can read the message. Built with Node's crypto only (no npm packages).
-import type { ShopPushSubsRow } from '../data/rows';
+import type { ShopPushSubsRow, PushSubsRow } from '../data/rows';
 import * as crypto from 'node:crypto';
 import * as db from '../db';
 import type { Body, Id, Loose } from '../types';
@@ -87,7 +87,7 @@ async function sendOne(sub: db.pg.DbRow, msg?: Loose, v?: Loose) {
 
 // msg = { title, body, url, tag }
 async function sendAll(msg?: { title: string; body: string; url: string; tag: string; }) {
-  const subs = await db.q("SELECT p.* FROM push_subs p JOIN staff s ON s.id=p.staff_id WHERE s.role='owner' AND s.active");
+  const subs = await db.q<PushSubsRow>("SELECT p.* FROM push_subs p JOIN staff s ON s.id=p.staff_id WHERE s.role='owner' AND s.active");
   if (!subs.length) return 0;
   const v = await vapid();
   let ok = 0;
@@ -96,7 +96,7 @@ async function sendAll(msg?: { title: string; body: string; url: string; tag: st
   if (!ok && lastErr) throw lastErr;
   return ok;
 }
-async function count() { return (await db.one("SELECT count(*)::int AS n FROM push_subs p JOIN staff s ON s.id=p.staff_id WHERE s.role='owner'"))!.n; }
+async function count() { return (await db.one<{ n: number }>("SELECT count(*)::int AS n FROM push_subs p JOIN staff s ON s.id=p.staff_id WHERE s.role='owner'"))!.n; }
 
 async function subscribe(staffId?: Id, sub?: Loose, device?: Loose) {
   const endpoint = String(sub && sub.endpoint || '');
@@ -121,7 +121,7 @@ async function shopSubscribe(sub?: Loose, { customerId = null, device = '' }: Bo
   [endpoint, String(keys.p256dh), String(keys.auth), customerId, String(device || '').slice(0, 60)]);
 }
 async function shopUnsubscribe(endpoint?: Loose) { await db.q('DELETE FROM shop_push_subs WHERE endpoint=$1', [String(endpoint || '').slice(0, 1000)]); }
-async function shopCount() { return (await db.one('SELECT count(*)::int AS n FROM shop_push_subs'))!.n; }
+async function shopCount() { return (await db.one<{ n: number }>('SELECT count(*)::int AS n FROM shop_push_subs'))!.n; }
 // One batch of a campaign: the next `limit` subscribers after `afterId`. Returns { sent, failed, lastId, done }.
 async function shopSendBatch(msg?: Loose, { afterId = 0, limit = 300 }: Body = {}) {
   const subs = await db.q<ShopPushSubsRow>('SELECT * FROM shop_push_subs WHERE id > $1 ORDER BY id LIMIT $2', [afterId, limit]);

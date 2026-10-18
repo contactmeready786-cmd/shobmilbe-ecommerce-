@@ -9,6 +9,7 @@ import * as db from '../db';
 import * as ui from './ui';
 import * as pricing from '../services/pricing';
 import type { AdminCtx, Loose, RouteMatch } from '../types';
+import type { FlashSalesRow, OffersRow, ProductsRow } from '../data/rows';
 
 const BASE = '/admin/marketing/flash';
 const DHAKA_MS = 6 * 3600e3; // Bangladesh: UTC+6, no summer time
@@ -38,11 +39,11 @@ async function flashPage(ctx: AdminCtx) {
   if (tab === 'offers') return offersPage(ctx);
   const editId = int(ctx.query.get('edit')) || null;
   if (ctx.method === 'POST') return saveFlash(ctx);
-  const sales = await db.q(`SELECT fs.*, (SELECT count(*)::int FROM flash_items WHERE sale_id=fs.id) AS items,
+  const sales = await db.q<{ id: number; title: string; starts_at: Date; ends_at: Date; active: boolean; show_home: boolean; created_at: Date; items: number; sold: number | null }>(`SELECT fs.*, (SELECT count(*)::int FROM flash_items WHERE sale_id=fs.id) AS items,
       (SELECT coalesce(sum(sold),0)::int FROM flash_items WHERE sale_id=fs.id) AS sold
     FROM flash_sales fs ORDER BY (fs.active AND now() < fs.ends_at) DESC, fs.starts_at DESC LIMIT 100`);
   const editing = editId ? sales.find((x) => x.id === editId) : null;
-  const items = editing ? await db.q(`SELECT fi.*, p.name, p.sku, p.price AS base, p.stock FROM flash_items fi JOIN products p ON p.id=fi.product_id
+  const items = editing ? await db.q<{ id: number; sale_id: number; product_id: number; price: number; max_qty: number; sold: number; name: string; sku: string; base: number; stock: number }>(`SELECT fi.*, p.name, p.sku, p.price AS base, p.stock FROM flash_items fi JOIN products p ON p.id=fi.product_id
     WHERE fi.sale_id=$1 ORDER BY fi.id`, [editing.id]) : [];
   return ctx.page('ফ্ল্যাশ সেল', flashBody(ctx, sales, editing, items), 'flash');
 }
@@ -69,7 +70,7 @@ async function saveFlash(ctx: AdminCtx) {
   for (let i = 0; i < skus.length; i++) {
     const sku = str(skus[i], 40);
     if (!sku) continue;
-    const p = await db.one('SELECT id, name, price FROM products WHERE sku=$1', [sku]);
+    const p = await db.one<Pick<ProductsRow, 'id' | 'name' | 'price'>>('SELECT id, name, price FROM products WHERE sku=$1', [sku]);
     const price = shopPrice(amount(prices[i]));
     if (!p) { problems.push(`SKU ${sku} পাওয়া যায়নি`); continue; }
     if (!(price >= 0.5) || price >= Number(p.price)) { problems.push(`"${p.name}": সেলের দাম ৳০.৫০ বা বেশি আর এখনকার দাম ${money(p.price)} এর কম হতে হবে`); continue; }
@@ -78,7 +79,7 @@ async function saveFlash(ctx: AdminCtx) {
   const error = !title ? 'নাম লিখুন।' : !starts || !ends ? 'শুরু আর শেষের সময় দিন।' : ends <= starts ? 'শেষের সময় শুরুর পরে হতে হবে।'
     : problems.length ? 'এগুলো ঠিক করুন: ' + problems.join('; ') : !items.size ? 'অন্তত একটা পণ্যের SKU আর সেলের দাম দিন।' : null;
   if (error) {
-    const sales = await db.q('SELECT fs.*, 0 AS items, 0 AS sold FROM flash_sales fs ORDER BY fs.starts_at DESC LIMIT 100');
+    const sales = await db.q<{ id: number; title: string; starts_at: Date; ends_at: Date; active: boolean; show_home: boolean; created_at: Date; items: number; sold: number }>('SELECT fs.*, 0 AS items, 0 AS sold FROM flash_sales fs ORDER BY fs.starts_at DESC LIMIT 100');
     const editing = { id, title, starts_at: starts || new Date(), ends_at: ends || new Date(), show_home: !!b.show_home, active: id ? !!b.active : true };
     const rows: Loose[] = [];
     for (let i = 0; i < skus.length; i++) if (str(skus[i])) rows.push({ sku: skus[i], price: prices[i], max_qty: maxes[i] });
@@ -89,7 +90,7 @@ async function saveFlash(ctx: AdminCtx) {
     if (saleId) {
       await t.query('UPDATE flash_sales SET title=$1, starts_at=$2, ends_at=$3, show_home=$4, active=$5 WHERE id=$6', [title, starts, ends, !!b.show_home, !!b.active, saleId]);
     } else {
-      saleId = (await t.query('INSERT INTO flash_sales(title, starts_at, ends_at, show_home) VALUES($1,$2,$3,$4) RETURNING id', [title, starts, ends, !!b.show_home])).rows[0].id;
+      saleId = (await t.query<Pick<FlashSalesRow, 'id'>>('INSERT INTO flash_sales(title, starts_at, ends_at, show_home) VALUES($1,$2,$3,$4) RETURNING id', [title, starts, ends, !!b.show_home])).rows[0].id;
     }
     // keep the "sold" count of products that stay in the sale
     const keep = [...items.keys()];
@@ -104,7 +105,7 @@ async function saveFlash(ctx: AdminCtx) {
   return ctx.back(BASE, 'saved');
 }
 async function deleteFlash(ctx: AdminCtx, m: RouteMatch) {
-  const r = await db.one('DELETE FROM flash_sales WHERE id=$1 RETURNING title', [int(m[1])]);
+  const r = await db.one<Pick<FlashSalesRow, 'title'>>('DELETE FROM flash_sales WHERE id=$1 RETURNING title', [int(m[1])]);
   if (r) await ctx.log('delete', 'marketing', int(m[1]), `ফ্ল্যাশ সেল মুছা: ${r.title}`);
   return ctx.back(BASE, 'removed');
 }
@@ -113,7 +114,7 @@ async function deleteFlash(ctx: AdminCtx, m: RouteMatch) {
 async function offersPage(ctx: AdminCtx, error: Loose = null, values: Loose = null): Promise<Loose> {
   if (ctx.method === 'POST' && !error) return saveOffer(ctx);
   const editId = int(ctx.query.get('edit')) || null;
-  const offers = await db.q(`SELECT o.*, b.name AS buy_name, b.sku AS buy_sku, g.name AS get_name, g.sku AS get_sku,
+  const offers = await db.q<{ id: number; title: string; buy_product_id: number; buy_qty: number; get_product_id: number; get_qty: number; get_percent: number; max_times: number; starts_on: string; ends_on: string; active: boolean; created_at: Date; buy_name: string; buy_sku: string; get_name: string; get_sku: string; given: number }>(`SELECT o.*, b.name AS buy_name, b.sku AS buy_sku, g.name AS get_name, g.sku AS get_sku,
       (SELECT coalesce(sum(i.qty),0)::int FROM order_items i JOIN orders od ON od.id=i.order_id WHERE i.kind='gift' AND i.ref_id=o.id AND od.status NOT IN ('cancelled','returned')) AS given
     FROM offers o JOIN products b ON b.id=o.buy_product_id LEFT JOIN products g ON g.id=o.get_product_id ORDER BY o.active DESC, o.id DESC LIMIT 100`);
   const editing = values || (editId ? offers.find((o) => o.id === editId) : null);
@@ -125,8 +126,8 @@ async function offersPage(ctx: AdminCtx, error: Loose = null, values: Loose = nu
 async function saveOffer(ctx: AdminCtx): Promise<Loose> {
   const b = await ctx.body();
   const id = int(b.id) || null;
-  const buy = await db.one('SELECT id, name FROM products WHERE sku=$1', [str(b.buy_sku, 40)]);
-  const get = str(b.get_sku, 40) ? await db.one('SELECT id, name FROM products WHERE sku=$1', [str(b.get_sku, 40)]) : null;
+  const buy = await db.one<Pick<ProductsRow, 'id' | 'name'>>('SELECT id, name FROM products WHERE sku=$1', [str(b.buy_sku, 40)]);
+  const get = str(b.get_sku, 40) ? await db.one<Pick<ProductsRow, 'id' | 'name'>>('SELECT id, name FROM products WHERE sku=$1', [str(b.get_sku, 40)]) : null;
   const v = {
     title: str(b.title, 80), buy_qty: Math.max(1, Math.min(999, int(b.buy_qty, 1))), get_qty: Math.max(1, Math.min(999, int(b.get_qty, 1))),
     get_percent: Math.max(1, Math.min(100, int(b.get_percent, 100))), max_times: Math.max(1, Math.min(50, int(b.max_times, 1))),
@@ -141,14 +142,14 @@ async function saveOffer(ctx: AdminCtx): Promise<Loose> {
     await db.q(`UPDATE offers SET title=$1, buy_product_id=$2, buy_qty=$3, get_product_id=$4, get_qty=$5, get_percent=$6, max_times=$7,
       starts_on=$8, ends_on=$9, active=$10 WHERE id=$11`, [...vals, id]);
   } else {
-    oid = (await db.one(`INSERT INTO offers(title, buy_product_id, buy_qty, get_product_id, get_qty, get_percent, max_times, starts_on, ends_on, active)
+    oid = (await db.one<Pick<OffersRow, 'id'>>(`INSERT INTO offers(title, buy_product_id, buy_qty, get_product_id, get_qty, get_percent, max_times, starts_on, ends_on, active)
       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id`, vals))!.id;
   }
   await ctx.log('settings', 'marketing', oid, `অফার: ${v.buy_qty}× ${buy!.name} কিনলে ${v.get_qty}× ${get ? get.name : 'একই পণ্য'} ${v.get_percent >= 100 ? 'ফ্রি' : v.get_percent + '% ছাড়ে'}`);
   return ctx.back(`${BASE}?tab=offers`, 'saved');
 }
 async function deleteOffer(ctx: AdminCtx, m: RouteMatch) {
-  const r = await db.one('DELETE FROM offers WHERE id=$1 RETURNING id', [int(m[1])]);
+  const r = await db.one<Pick<OffersRow, 'id'>>('DELETE FROM offers WHERE id=$1 RETURNING id', [int(m[1])]);
   if (r) await ctx.log('delete', 'marketing', r.id, 'অফার মুছা');
   return ctx.back(`${BASE}?tab=offers`, 'removed');
 }

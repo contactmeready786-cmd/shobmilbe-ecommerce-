@@ -26,7 +26,7 @@ async function hosts() {
       count(*) FILTER (WHERE p.src_wm_checked)::int AS checked, min(p.created_at) AS first_at, max(p.created_at) AS last_at
     FROM products p WHERE p.import_ref <> '' AND p.parent_id IS NULL AND ${HOST} NOT IN ('', 'file')
     GROUP BY 1 ORDER BY count(*) DESC`),
-  db.one(`SELECT count(*)::int AS n, count(*) FILTER (WHERE p.src_wm)::int AS flagged, count(*) FILTER (WHERE p.src_wm_checked)::int AS checked,
+  db.one<{ n: number; flagged: number; checked: number; first_at: Date | null; last_at: Date | null }>(`SELECT count(*)::int AS n, count(*) FILTER (WHERE p.src_wm)::int AS flagged, count(*) FILTER (WHERE p.src_wm_checked)::int AS checked,
       min(p.created_at) AS first_at, max(p.created_at) AS last_at FROM products p WHERE p.parent_id IS NULL`)]);
   return all && all.n ? [...shops, { host: ALL, ...all }] : shops;
 }

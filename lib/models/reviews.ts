@@ -7,6 +7,7 @@ import * as $security from '../security';
 import * as $catalog from './catalog';
 import type { Body, Id, Loose, Settings } from '../types';
 import type { Tx } from '../pg';
+import type { ReviewsRow } from '../data/rows';
 
 const STATUS: Record<string, string> = { pending: 'অনুমোদনের অপেক্ষায়', approved: 'দেখানো হচ্ছে', hidden: 'লুকানো' };
 
@@ -67,7 +68,7 @@ async function submit({ code, productId, name, rating, body, ip, photos }: Body,
   const auto = settings.reviews_auto_approve === '1';
   const photoIds = settings.review_photos_on === '0' ? [] : await savePhotos(photos, auto);
   return tx(async (t) => {
-    const row = (await t.query(`INSERT INTO reviews(product_id, customer_id, order_id, name, phone, rating, body, status, verified, ip, approved_at, photos)
+    const row = (await t.query<Pick<ReviewsRow, 'id' | 'status'>>(`INSERT INTO reviews(product_id, customer_id, order_id, name, phone, rating, body, status, verified, ip, approved_at, photos)
       VALUES($1,$2,$3,$4,$5,$6,$7,$8,true,$9,$10,$11) ON CONFLICT DO NOTHING RETURNING id, status`,
     [pid, o.customer_id, o.id, who.slice(0, 60), o.phone, r, text, auto ? 'approved' : 'pending', str(ip, 64), auto ? new Date() : null, photoIds])).rows[0];
     if (!row) throw new ReviewError('এই অর্ডারের এই পণ্যের রিভিউ আগেই দেওয়া হয়েছে। ধন্যবাদ!');
@@ -109,7 +110,7 @@ async function counts() {
 async function setStatus(id?: Id, status?: Loose) {
   if (!STATUS[status]) return null;
   return tx(async (t) => {
-    const r = (await t.query(`UPDATE reviews SET status=$1, approved_at = CASE WHEN $1='approved' THEN coalesce(approved_at, now()) ELSE approved_at END
+    const r = (await t.query<Pick<ReviewsRow, 'product_id' | 'photos'>>(`UPDATE reviews SET status=$1, approved_at = CASE WHEN $1='approved' THEN coalesce(approved_at, now()) ELSE approved_at END
       WHERE id=$2 RETURNING product_id, photos`, [status, int(id)])).rows[0];
     if (r) await refresh(t, r.product_id);
     // photos are seen in the shop only while the review is shown
@@ -122,7 +123,7 @@ async function reply(id?: Id, text?: Loose) {
 }
 async function remove(id?: Id) {
   return tx(async (t) => {
-    const r = (await t.query('DELETE FROM reviews WHERE id=$1 RETURNING product_id, photos', [int(id)])).rows[0];
+    const r = (await t.query<Pick<ReviewsRow, 'product_id' | 'photos'>>('DELETE FROM reviews WHERE id=$1 RETURNING product_id, photos', [int(id)])).rows[0];
     if (r) await refresh(t, r.product_id);
     if (r && r.photos && r.photos.length) await t.query(`DELETE FROM media WHERE id = ANY($1::int[]) AND owner_type IN ('review','review_wait')`, [r.photos]);
     return r;

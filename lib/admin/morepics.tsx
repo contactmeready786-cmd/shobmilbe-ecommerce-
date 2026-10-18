@@ -32,12 +32,13 @@ import * as importer from '../services/importer';
 import { safeFetch, FetchError } from '../services/safefetch';
 import { readUrl } from './import';
 import type { AdminCtx, Loose } from '../types';
+import type { MediaRow, ProductsRow } from '../data/rows';
 
 const SAME_PHOTO = 24; // fingerprint distance: same photo ≈ 0-30, different photo ≈ 80+
 
 async function page(ctx: AdminCtx) {
   const s = ctx.settings;
-  const counts = await db.one(`SELECT (SELECT count(*)::int FROM products) AS total, count(*)::int AS imported,
+  const counts = await db.one<{ total: number; imported: number; one_pic: number }>(`SELECT (SELECT count(*)::int FROM products) AS total, count(*)::int AS imported,
       count(*) FILTER (WHERE (SELECT count(*) FROM media m WHERE m.owner_type='product' AND m.owner_id=p.id) <= 1)::int AS one_pic
     FROM products p WHERE p.import_ref <> ''`);
   const body = <><p className="crumbs"><a href="/admin/products">← সব পণ্য</a></p><div className="title-row"><h1>📥 পণ্য আমদানি{' '}<small>অন্য জায়গা থেকে পণ্য কপি করে আনুন</small></h1></div>{ui.importTabs('old')}{' '}{ui.flash(ctx.flash)}<p className="muted">পুরোনো সাইটের{' '}<b>সব পণ্য</b>{' '}এই দোকানে আনে — যেগুলো এখনো আসেনি সেগুলো নতুন করে যোগ করে, আর প্রতিটা পণ্যে পুরোনো সাইটে{' '}<b>যতগুলো ছবি আছে ঠিক ততগুলো</b>{' '}বসিয়ে দেয়। শুধু{' '}<b>সেই পণ্যেরই আসল ছবি</b>{' '}নেওয়া হয় — অন্য পণ্যের ছবি (যেমন "সম্পর্কিত পণ্য") কখনো আসবে না। মূল ছবি যেমন আছে তেমনই প্রথমে থাকবে, নতুন ছবি তার পরে বসবে। একই ছবি দুইবার বসবে না, আর একই পণ্য দুইবার যোগ হবে না। যে পণ্য আপনি মুছে ফেলেছেন (রিসাইকেল বিনে আছে) সেটা আবার আনা হবে না।</p><div className="kpis">{ui.kpi('দোকানে মোট পণ্য', ui.bn(counts!.total))}{' '}{ui.kpi('পুরোনো সাইট থেকে আনা পণ্য', ui.bn(counts!.imported))}{' '}{ui.kpi('এখনো ১টা বা ০টা ছবি', ui.bn(counts!.one_pic))}</div><div data-morepics=""><section className="panel" data-mp-step="1"><h2>ধাপ ১ — পুরোনো সাইটের ফিড লিংক</h2>{ui.field('Facebook ফিড লিংক (যেটা দিয়ে পণ্য আমদানি করেছিলেন)', ui.input('mp_feed', s.morepics_feed || '', { type: 'url', placeholder: 'https://…', 'data-mp-feed': true, autocomplete: 'off' }),
@@ -66,7 +67,7 @@ async function planApi(ctx: AdminCtx) {
   await ctx.reloadSettings();
 
   const byRef = new Map<Loose, Loose>(items.map((it: Loose) => [it.ref, it]));
-  const rows = await db.q(`SELECT p.id, p.name, p.sku, p.import_ref, p.image_id,
+  const rows = await db.q<{ id: number; name: string; sku: string; import_ref: string; image_id: number | null; pics: number }>(`SELECT p.id, p.name, p.sku, p.import_ref, p.image_id,
       (SELECT count(*)::int FROM media m WHERE m.owner_type='product' AND m.owner_id=p.id) AS pics
     FROM products p WHERE p.import_ref = ANY($1::text[]) ORDER BY p.id`, [[...byRef.keys()]]);
   const trashed = await trashedRefs();
@@ -107,7 +108,7 @@ function pathKey(link?: Loose) {
 }
 // products deleted in this shop (now in the recycle bin) — not brought back again by mistake
 async function trashedRefs() {
-  const r = await db.q(`SELECT DISTINCT lower(data->'row'->>'import_ref') AS ref FROM trash WHERE kind='product' AND coalesce(data->'row'->>'import_ref', '') <> ''`).catch(() => []);
+  const r = await db.q<{ ref: string }>(`SELECT DISTINCT lower(data->'row'->>'import_ref') AS ref FROM trash WHERE kind='product' AND coalesce(data->'row'->>'import_ref', '') <> ''`).catch(() => []);
   return new Set(r.map((x) => x.ref));
 }
 // Every product page the old site lists in its sitemap (follows a sitemap index one level down)
@@ -149,7 +150,7 @@ async function pageApi(ctx: AdminCtx) {
   const it = importer.finish(out.items || [], out.finalUrl || link)[0];
   if (!it || !it.title) return ctx.json(200, { error: 'এই পেজে কোনো পণ্য পাওয়া যায়নি' });
   if (!it.link) it.link = out.finalUrl || link;
-  const have = await db.one(`SELECT p.id, p.name, p.sku, p.image_id, (SELECT count(*)::int FROM media m WHERE m.owner_type='product' AND m.owner_id=p.id) AS pics
+  const have = await db.one<{ id: number; name: string; sku: string; image_id: number | null; pics: number }>(`SELECT p.id, p.name, p.sku, p.image_id, (SELECT count(*)::int FROM media m WHERE m.owner_type='product' AND m.owner_id=p.id) AS pics
     FROM products p WHERE p.import_ref=$1`, [it.ref]);
   const trashed = !have && (await trashedRefs()).has(it.ref);
   return ctx.json(200, {
@@ -227,7 +228,7 @@ async function attachApi(ctx: AdminCtx) {
   const pid = int(b.product_id);
   const max = Math.min(catalog.MAX_PRODUCT_IMAGES, Math.max(2, int(b.max, catalog.MAX_PRODUCT_IMAGES)));
   const ids = (Array.isArray(b.ids) ? b.ids : []).map((x) => int(x)).filter((x) => x > 0).slice(0, 20);
-  const p = await db.one('SELECT id, name FROM products WHERE id=$1', [pid]);
+  const p = await db.one<Pick<ProductsRow, 'id' | 'name'>>('SELECT id, name FROM products WHERE id=$1', [pid]);
   if (!p) return ctx.json(404, { error: 'পণ্যটি পাওয়া যায়নি' });
   const result = await db.tx(async (t) => {
     // lock the product so two runs never add the same picture at the same moment

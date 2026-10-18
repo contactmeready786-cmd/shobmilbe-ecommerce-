@@ -8,6 +8,7 @@ import { int, str } from '../util';
 import * as $db from '../db';
 import type { DbRow, Tx } from '../pg';
 import type { Settings } from '../types';
+import type { CustomersRow, OrdersRow } from '../data/rows';
 
 type Id = number | null | undefined;
 
@@ -43,7 +44,7 @@ async function add(t: Tx, customerId: Id, points: number, kind: string, { orderI
 
 // At checkout (inside the order's transaction). Returns { points, discount } actually used.
 async function redeem(t: Tx, customerId: Id, settings: Settings, goods: number, orderId: number): Promise<{ points: number; discount: number }> {
-  const row = (await t.query('SELECT points FROM customers WHERE id=$1 FOR UPDATE', [customerId])).rows[0];
+  const row = (await t.query<Pick<CustomersRow, 'points'>>('SELECT points FROM customers WHERE id=$1 FOR UPDATE', [customerId])).rows[0];
   if (!row) return { points: 0, discount: 0 };
   const u = usable(settings, row.points, goods);
   if (!u.points) return u;
@@ -53,7 +54,7 @@ async function redeem(t: Tx, customerId: Id, settings: Settings, goods: number, 
 
 // Called when an order's status changes (inside setStatus's transaction).
 async function onStatus(t: Tx, orderId: number, prev: string, next: string): Promise<void> {
-  const o = (await t.query('SELECT id, customer_id, code, subtotal, discount, points_used, points_discount, points_earned FROM orders WHERE id=$1', [orderId])).rows[0];
+  const o = (await t.query<Pick<OrdersRow, 'id' | 'customer_id' | 'code' | 'subtotal' | 'discount' | 'points_used' | 'points_discount' | 'points_earned'>>('SELECT id, customer_id, code, subtotal, discount, points_used, points_discount, points_earned FROM orders WHERE id=$1', [orderId])).rows[0];
   if (!o || !o.customer_id) return;
   const settings = await $db.getSettings();
   const back = next === 'cancelled' || next === 'returned';
@@ -70,7 +71,7 @@ async function onStatus(t: Tx, orderId: number, prev: string, next: string): Pro
   }
   // spent points come back once; if the order is opened again they are spent again
   if (o.points_used > 0) {
-    const given = (await t.query(`SELECT coalesce(sum(points),0)::int AS n FROM loyalty_ledger WHERE order_id=$1 AND kind IN ('refund','respend')`, [orderId])).rows[0].n;
+    const given = (await t.query<{ n: number }>(`SELECT coalesce(sum(points),0)::int AS n FROM loyalty_ledger WHERE order_id=$1 AND kind IN ('refund','respend')`, [orderId])).rows[0].n;
     if (back && given === 0) await add(t, o.customer_id, o.points_used, 'refund', { orderId, note: `অর্ডার ${o.code} ${next === 'returned' ? 'ফেরত' : 'বাতিল'} — ব্যবহার করা পয়েন্ট ফেরত` });
     if (!back && (prev === 'cancelled' || prev === 'returned') && given > 0) {
       await add(t, o.customer_id, -o.points_used, 'respend', { orderId, note: `অর্ডার ${o.code} আবার চালু` });

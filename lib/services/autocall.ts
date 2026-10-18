@@ -126,10 +126,10 @@ async function hook(s: Settings, token: string, b: Body) {
   const callId = pick(b, ['call_id', 'id', 'callId', 'uuid', 'CallSid', 'data.call_id']);
   const phone = localPhone(pick(b, ['phone', 'phone_number', 'to', 'msisdn', 'To', 'data.phone']));
   let row = null;
-  if (code) row = await db.one(`SELECT a.*, o.code, o.status AS order_status, o.total, o.customer_name, o.phone AS o_phone FROM autocalls a JOIN orders o ON o.id=a.order_id
+  if (code) row = await db.one<{ id: number; order_id: number | null; phone: string; state: string; digit: string; ref: string; attempt: number; detail: string; created_at: Date; updated_at: Date; code: string; order_status: string; total: number; customer_name: string; o_phone: string }>(`SELECT a.*, o.code, o.status AS order_status, o.total, o.customer_name, o.phone AS o_phone FROM autocalls a JOIN orders o ON o.id=a.order_id
     WHERE o.code=$1 ORDER BY a.id DESC LIMIT 1`, [code.toUpperCase()]);
-  if (!row && callId) row = await db.one(`SELECT a.*, o.code, o.status AS order_status, o.total, o.customer_name, o.phone AS o_phone FROM autocalls a JOIN orders o ON o.id=a.order_id WHERE a.ref=$1 ORDER BY a.id DESC LIMIT 1`, [callId]);
-  if (!row && phone) row = await db.one(`SELECT a.*, o.code, o.status AS order_status, o.total, o.customer_name, o.phone AS o_phone FROM autocalls a JOIN orders o ON o.id=a.order_id
+  if (!row && callId) row = await db.one<{ id: number; order_id: number | null; phone: string; state: string; digit: string; ref: string; attempt: number; detail: string; created_at: Date; updated_at: Date; code: string; order_status: string; total: number; customer_name: string; o_phone: string }>(`SELECT a.*, o.code, o.status AS order_status, o.total, o.customer_name, o.phone AS o_phone FROM autocalls a JOIN orders o ON o.id=a.order_id WHERE a.ref=$1 ORDER BY a.id DESC LIMIT 1`, [callId]);
+  if (!row && phone) row = await db.one<{ id: number; order_id: number | null; phone: string; state: string; digit: string; ref: string; attempt: number; detail: string; created_at: Date; updated_at: Date; code: string; order_status: string; total: number; customer_name: string; o_phone: string }>(`SELECT a.*, o.code, o.status AS order_status, o.total, o.customer_name, o.phone AS o_phone FROM autocalls a JOIN orders o ON o.id=a.order_id
     WHERE a.phone=$1 AND a.created_at > now() - interval '2 days' ORDER BY a.id DESC LIMIT 1`, [phone]);
   const result = resultOf(b);
   await db.logIntegration('autocall', 'webhook', !!(row && result), `${result || 'অজানা ফলাফল'} · ${str(JSON.stringify(b), 250)}`, row ? row.code : code).catch(() => {});

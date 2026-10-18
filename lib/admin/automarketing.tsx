@@ -139,10 +139,10 @@ async function page(ctx: AdminCtx) {
     autopost.recent(30),
     autoblog.list(),
     autopost.pickProduct(autopost.dhakaNow().weekday).catch(() => null),
-    db.one(`SELECT count(*) FILTER (WHERE ok AND channel='facebook')::int AS fb, count(*) FILTER (WHERE ok AND channel='instagram')::int AS ig,
+    db.one<{ fb: number; ig: number; week: number }>(`SELECT count(*) FILTER (WHERE ok AND channel='facebook')::int AS fb, count(*) FILTER (WHERE ok AND channel='instagram')::int AS ig,
       count(*) FILTER (WHERE ok AND created_at > now() - interval '7 days' AND channel IN ('facebook','instagram'))::int AS week FROM social_posts`).catch(() => ({ fb: 0, ig: 0, week: 0 })),
     autopost.buildEngagement(s, nextKind).catch(() => null),
-    db.q(`SELECT kind, count(*)::int AS n FROM social_posts WHERE ok AND channel='facebook' AND kind <> 'product' GROUP BY kind`).catch(() => []),
+    db.q<{ kind: string; n: number }>(`SELECT kind, count(*)::int AS n FROM social_posts WHERE ok AND channel='facebook' AND kind <> 'product' GROUP BY kind`).catch(() => []),
   ]);
   const engN = Object.fromEntries(engStats.map((r) => [r.kind, r.n]));
   const [replies, replyStats, tgRecent] = await Promise.all([fbreply.recent(20), fbreply.stats(), telegram.recent(8)]);

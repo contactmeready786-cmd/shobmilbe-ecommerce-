@@ -8,6 +8,7 @@ import * as H from '../models/homerows';
 import * as catalog from '../models/catalog';
 import * as $design from './design';
 import type { AdminCtx, Loose, RouteMatch } from '../types';
+import type { BrandsRow } from '../data/rows';
 
 const BASE = '/admin/design/rows';
 // The list of rows lives on "লোগো, রং ও হোমপেজ" — this file only makes / edits / deletes the owner's own rows.
@@ -65,7 +66,7 @@ async function form(ctx: AdminCtx, m: RouteMatch | null) {
   const v = r || { title: '', sub: '', source: 'category', ref: '', sort: 'popular', lim: 16, badge: '', style: 'rail', in_stock_only: false, product_ids: [] };
   const [cats, brands, skus, preview] = await Promise.all([
     catalog.listCategories({ includeInactive: false }),
-    db.q('SELECT id, name FROM brands ORDER BY name').catch(() => []),
+    db.q<Pick<BrandsRow, 'id' | 'name'>>('SELECT id, name FROM brands ORDER BY name').catch(() => []),
     H.skusOf(v.product_ids),
     r ? H.productsFor(r, {}).catch(() => []) : [],
   ]);

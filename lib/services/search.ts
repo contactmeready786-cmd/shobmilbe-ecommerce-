@@ -213,10 +213,10 @@ async function index() {
   if (building) return building;
   building = (async () => {
     try {
-      const s = await db.one(`SELECT count(*)::int AS n, coalesce(max(updated_at), 'epoch')::text AS u FROM products`);
+      const s = await db.one<{ n: number; u: string }>(`SELECT count(*)::int AS n, coalesce(max(updated_at), 'epoch')::text AS u FROM products`);
       const nowSig = `${s!.n}:${s!.u}`;
       if (INDEX && nowSig === sig) { builtAt = Date.now(); return INDEX; }
-      const rows = await db.q(`SELECT p.id, p.name, p.brand, p.model, p.sku, p.barcode, p.short_description, p.seo_keywords, c.name AS cat,
+      const rows = await db.q<{ id: number; name: string; brand: string; model: string; sku: string; barcode: string; short_description: string; seo_keywords: string; cat: string | null; sold: number; variants: string | null }>(`SELECT p.id, p.name, p.brand, p.model, p.sku, p.barcode, p.short_description, p.seo_keywords, c.name AS cat,
           coalesce(p.sold_count, 0) AS sold,
           (SELECT string_agg(v.variant_label || ' ' || coalesce(v.sku, ''), ' ') FROM products v WHERE v.parent_id=p.id) AS variants
         FROM products p LEFT JOIN categories c ON c.id=p.category_id WHERE p.active AND p.parent_id IS NULL`);

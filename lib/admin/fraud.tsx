@@ -7,6 +7,7 @@ import * as ui from './ui';
 import * as fraud from '../services/fraud';
 import * as courier from '../services/courier';
 import type { AdminCtx, Loose } from '../types';
+import type { FraudChecksRow } from '../data/rows';
 
 const BASE = '/admin/fraud';
 

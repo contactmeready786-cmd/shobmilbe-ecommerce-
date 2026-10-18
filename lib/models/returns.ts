@@ -2,7 +2,7 @@
 //   Customer: from a delivered order's page (or "আমার অ্যাকাউন্ট") — which items, how many, why, photos, refund number.
 //   Shop:     Admin → অর্ডার → রিটার্ন — approve / reject with a reply, "পণ্য ফেরত পেয়েছি" (each item back on the shelf,
 //             to damaged stock, or nowhere), then the refund (recorded on the order and, if chosen, in the accounts) or a replacement.
-import type { ReturnRequestsRow } from '../data/rows';
+import type { ReturnRequestsRow, ProductsRow, OrdersRow } from '../data/rows';
 import * as db from '../db';
 import * as security from '../security';
 import { str, int, amount, round2, randomCode, normalizePhone, validPhone } from '../util';
@@ -122,7 +122,7 @@ async function get(id: Id) {
 // approve / reject / cancel with a reply the customer sees
 async function decide(id: Id, status: string, { reply, note }: { reply?: unknown; note?: unknown }, staffId?: Id) {
   if (!['approved', 'rejected', 'cancelled', 'replaced'].includes(status)) throw new ReturnError('অজানা কাজ।');
-  const r = await db.one(`UPDATE return_requests SET status=$1, reply=CASE WHEN $2<>'' THEN $2 ELSE reply END, admin_note=CASE WHEN $3<>'' THEN $3 ELSE admin_note END,
+  const r = await db.one<ReturnRequestsRow>(`UPDATE return_requests SET status=$1, reply=CASE WHEN $2<>'' THEN $2 ELSE reply END, admin_note=CASE WHEN $3<>'' THEN $3 ELSE admin_note END,
       handled_by=$4, updated_at=now() WHERE id=$5 AND status = ANY($6::text[]) RETURNING *`,
   [status, str(reply, 500), str(note, 1000), staffId, int(id), status === 'replaced' ? ['approved', 'received', 'requested'] : ['requested', 'approved', 'received']]);
   if (!r) throw new ReturnError('এই আবেদনের অবস্থা এখন বদলানো যায় না।');
@@ -132,7 +132,7 @@ async function decide(id: Id, status: string, { reply, note }: { reply?: unknown
 // The goods came back: each item to the shelf ("stock"), to damaged stock ("damaged"), or nowhere ("none" — thrown away / kept by courier).
 async function receive(id: Id, actions: Record<string, unknown>, staffId?: Id): Promise<Restock[]> {
   return db.tx(async (t) => {
-    const r = (await t.query('SELECT * FROM return_requests WHERE id=$1 FOR UPDATE', [int(id)])).rows[0];
+    const r = (await t.query<ReturnRequestsRow>('SELECT * FROM return_requests WHERE id=$1 FOR UPDATE', [int(id)])).rows[0];
     if (!r) throw new ReturnError('আবেদন পাওয়া যায়নি।');
     if (r.received_at) throw new ReturnError('এই আবেদনের পণ্য আগেই ফেরত নেওয়া হয়েছে।');
     if (!['requested', 'approved'].includes(r.status)) throw new ReturnError('এই আবেদনের অবস্থায় পণ্য ফেরত নেওয়া যায় না।');
@@ -144,7 +144,7 @@ async function receive(id: Id, actions: Record<string, unknown>, staffId?: Id): 
       const parts = it.components && it.components.length ? it.components.map((c) => ({ product_id: c.product_id, qty: Math.max(1, Math.round((c.qty * it.qty) / Math.max(1, it.ordered || it.qty))) }))
         : [{ product_id: it.product_id, qty: it.qty }];
       for (const part of parts) {
-        const exists = (await t.query('SELECT id FROM products WHERE id=$1', [part.product_id])).rows[0];
+        const exists = (await t.query<Pick<ProductsRow, 'id'>>('SELECT id FROM products WHERE id=$1', [part.product_id])).rows[0];
         if (!exists) continue;
         if (how === 'stock') await catalog.moveStock(t, part.product_id, part.qty, 'return', 'return', r.id, `রিটার্ন ${r.code}`, staffId);
         if (how === 'damaged') await catalog.changeDamaged(t, part.product_id, { damaged: part.qty }, 'return_damaged', 'return', r.id, `রিটার্ন ${r.code} — নষ্ট`, staffId);
@@ -160,10 +160,10 @@ async function receive(id: Id, actions: Record<string, unknown>, staffId?: Id): 
 // Money back: written on the order (paid amount goes down) and in the return. Never more than was paid.
 async function refund(id: Id, { amount: amt, method, reference, note }: { amount?: unknown; method?: unknown; reference?: unknown; note?: unknown }, staffId?: Id) {
   return db.tx(async (t) => {
-    const r = (await t.query('SELECT * FROM return_requests WHERE id=$1 FOR UPDATE', [int(id)])).rows[0];
+    const r = (await t.query<ReturnRequestsRow>('SELECT * FROM return_requests WHERE id=$1 FOR UPDATE', [int(id)])).rows[0];
     if (!r) throw new ReturnError('আবেদন পাওয়া যায়নি।');
     if (['rejected', 'cancelled'].includes(r.status)) throw new ReturnError('বাতিল আবেদনে টাকা ফেরত দেওয়া যায় না।');
-    const o = (await t.query('SELECT id, code, paid_amount FROM orders WHERE id=$1 FOR UPDATE', [r.order_id])).rows[0];
+    const o = (await t.query<Pick<OrdersRow, 'id' | 'code' | 'paid_amount'>>('SELECT id, code, paid_amount FROM orders WHERE id=$1 FOR UPDATE', [r.order_id])).rows[0];
     const a = round2(amount(amt));
     if (!(a > 0)) throw new ReturnError('ফেরতের টাকার পরিমাণ দিন।');
     if (a > Number(o.paid_amount) + 0.001) throw new ReturnError(`এই অর্ডারে পরিশোধ হয়েছে ${o.paid_amount} টাকা — এর বেশি ফেরত দেওয়া যায় না।`);
