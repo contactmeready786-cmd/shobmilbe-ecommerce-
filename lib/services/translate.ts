@@ -10,6 +10,7 @@
 import * as crypto from 'node:crypto';
 import * as db from '../db';
 import * as security from '../security';
+import { fields } from '../util';
 import type { Id, Settings, Caught, MenuLink } from '../types';
 import type { TranslationsRow } from '../data/rows';
 
@@ -39,8 +40,9 @@ async function googleFree(text: string | number | boolean) {
   const u = 'https://translate.googleapis.com/translate_a/single?client=gtx&sl=bn&tl=en&dt=t&q=' + encodeURIComponent(text);
   const r = await fetch(u, { signal: AbortSignal.timeout(6000), headers: { 'User-Agent': 'Mozilla/5.0' } });
   if (!r.ok) throw new Error(`translate ${r.status}`);
-  const j = await r.json();
-  return (Array.isArray(j && j[0]) ? j[0] : []).map((x: unknown) => (Array.isArray(x) ? x[0] || '' : '')).join('');
+  const top = fields(await r.json());
+  const first: unknown = top ? top[0] : undefined;
+  return (Array.isArray(first) ? first : []).map((x: unknown) => (Array.isArray(x) ? x[0] || '' : '')).join('');
 }
 
 // The shop's name and Bangla digits are fixed before sending, so they always come back right.
@@ -120,7 +122,7 @@ async function lookup(texts: string[], settings: Settings, { auto = true, deadli
       for (let i = 0; i < allowed.length; i++) {
         if (!out[i] || out[i] === prep(allowed[i])) continue;
         result[allowed[i]] = out[i];
-        await save(allowed[i], out[i], 'auto').catch((e) => console.error('translate save', e.message));
+        await save(allowed[i], out[i], 'auto').catch((e: Error) => console.error('translate save', e.message));
       }
     }
   }
@@ -151,7 +153,7 @@ async function siteTexts(settings: Settings) {
     UNION SELECT title FROM pages WHERE active IS NOT FALSE
     UNION SELECT title FROM banners WHERE coalesce(title,'') <> ''
     UNION SELECT subtitle FROM banners WHERE coalesce(subtitle,'') <> ''
-    UNION SELECT button FROM banners WHERE coalesce(button,'') <> ''`).catch(async (e) => {
+    UNION SELECT button FROM banners WHERE coalesce(button,'') <> ''`).catch(async (e: Error) => {
     console.error('site texts', e.message);
     return db.q<{ t: string }>('SELECT name AS t FROM products UNION SELECT name FROM categories');
   });

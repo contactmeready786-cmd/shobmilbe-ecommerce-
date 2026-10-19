@@ -494,7 +494,7 @@ function onStatusChange(fn: StatusListener): void { statusListeners.push(fn); }
 // the shop's own listeners (lib/models/order-events.ts) are loaded the first time they are needed, by whichever
 // route changed the status — so they never depend on some other file having been loaded first
 let statusEvents: Promise<unknown> | null = null;
-const loadStatusEvents = () => (statusEvents ??= import('./order-events').catch((e) => { statusEvents = null; console.error('order events', e); }));
+const loadStatusEvents = () => (statusEvents ??= import('./order-events').catch((e: Error) => { statusEvents = null; console.error('order events', e); }));
 type StatusOpts = { damaged?: boolean };
 type StatusResult = { changed: boolean; prev: string; returnedTo?: string };
 async function setStatus(id: number, status: string, staffId: number | null | undefined, opts: StatusOpts = {}): Promise<StatusResult> {

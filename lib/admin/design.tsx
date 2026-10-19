@@ -34,7 +34,7 @@ async function general(ctx: AdminCtx) {
     const order = list(b.section_order);
     const on = list(b.section_on);
     const { labels } = await $homerows.allLabels();
-    b.home_sections = JSON.stringify(order.filter((x) => labels[x] && on.includes(x)));
+    b.home_sections = JSON.stringify(order.filter((x) => labels[String(x)] && on.includes(x)));
     b.grid_cols = oneOf(['3', '4', '5'], b.grid_cols, '4');
     await saveKeys(ctx, ['store_name', 'tagline', 'hero_title', 'notice', 'logo_id', 'favicon_id', 'color_primary', 'color_accent', 'grid_cols',
       'home_sections', 'footer_about', 'copy_protect', 'copy_title', 'photo_download'], b, { checkboxes: ['copy_protect', 'copy_title', 'photo_download'] });

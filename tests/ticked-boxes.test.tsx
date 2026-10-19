@@ -13,7 +13,7 @@ before(loadRenderer);
 
 // every <input> inside a piece
 function inputs(node: unknown, out: ReactElement[] = []): ReactElement[] {
-  if (Array.isArray(node)) { node.forEach((n) => inputs(n, out)); return out; }
+  if (Array.isArray(node)) { node.forEach((n: unknown) => inputs(n, out)); return out; }
   if (!isValidElement(node)) return out;
   if (node.type === 'input') out.push(node);
   inputs((node.props as { children?: unknown }).children, out);

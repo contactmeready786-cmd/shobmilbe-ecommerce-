@@ -168,7 +168,7 @@ async function setPhoto(id: Id, photoId: unknown): Promise<void> {
   if (next) {
     const ok = await one(`UPDATE media SET owner_type='staff', owner_id=$2 WHERE id=$1 AND (owner_type IS NULL OR (owner_type='staff' AND owner_id=$2)) RETURNING id`, [next, id]);
     if (!ok) return;
-    await $catalog.keepPrivate(next).catch((e) => console.error('keepPrivate:', e.message));
+    await $catalog.keepPrivate(next).catch((e: Error) => console.error('keepPrivate:', e.message));
   }
   await q('UPDATE staff SET photo_id=$1 WHERE id=$2', [next, id]);
   if (cur.photo_id) await q(`DELETE FROM media WHERE id=$1 AND owner_type='staff'`, [cur.photo_id]);

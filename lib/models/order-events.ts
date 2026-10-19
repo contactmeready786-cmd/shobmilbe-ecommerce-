@@ -25,7 +25,7 @@ O.onStatusChange(async (id, status) => {
 O.onStatusChange(async (id, status, prev) => {
   const G = $models_giftcards;
   if (O.RELEASED.has(status)) {
-    await G.refundOrder(id).catch((e) => console.error('gift refund', e.message));
+    await G.refundOrder(id).catch((e: Error) => console.error('gift refund', e.message));
     const o = await db.one<Pick<OrdersRow, 'warehouse_id'>>('SELECT warehouse_id FROM orders WHERE id=$1', [id]);
     if (o && o.warehouse_id && !O.RELEASED.has(prev)) {
       const items = await db.q<{ product_id: number; qty: number; components: { product_id: number; qty: number }[] | null }>('SELECT product_id, qty, components FROM order_items WHERE order_id=$1 AND product_id IS NOT NULL', [id]);
@@ -38,10 +38,10 @@ O.onStatusChange(async (id, status, prev) => {
       }
     }
   } else if (O.RELEASED.has(prev)) {
-    await G.respendOrder(id).catch((e) => console.error('gift respend', e.message));
+    await G.respendOrder(id).catch((e: Error) => console.error('gift respend', e.message));
   }
   if (status === 'delivered') {
     const settings = await db.getSettings();
-    await G.rewardReferral(settings, id).catch((e) => console.error('referral reward', e.message));
+    await G.rewardReferral(settings, id).catch((e: Error) => console.error('referral reward', e.message));
   }
 });

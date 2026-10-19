@@ -4,7 +4,7 @@ import * as crypto from 'node:crypto';
 import * as db from '../db';
 import * as staffModel from '../models/staff';
 import * as catalog from '../models/catalog';
-import { parseCookies, parseBody, verifyPassword, passwordProblem, sign, unsign, int, str, bn } from '../util';
+import { parseCookies, parseBody, verifyPassword, passwordProblem, sign, unsign, int, str, bn, arr, fields } from '../util';
 import { adminLayout, MENU, allowed, resolveItem } from './layout';
 import * as ui from './ui';
 import * as security from '../security';
@@ -621,7 +621,7 @@ ${link}
   // image upload used by every image picker
   // 🔔 products that came back in stock: SMS the people waiting for them (at most every 2 minutes, in the background)
   if (method === 'GET' && !path.startsWith('/admin/api/') && await security.hit(db, 'restock-sweep', 1, 120)) {
-    notify.later($models_extras.restockSweep(settings).catch((e) => console.error('restock sweep', e.message)));
+    notify.later($models_extras.restockSweep(settings).catch((e: Error) => console.error('restock sweep', e.message)));
   }
 
   if (path === '/admin/api/media' && method === 'POST') {
@@ -648,8 +648,7 @@ ${link}
     if (method === 'GET') return json(200, { ids: (await catalog.mediaWithoutHash(30)).map((r) => r.id) });
     if (method === 'POST') {
       const b = await parseBody(req);
-      const items = Array.isArray(b.items) ? b.items.slice(0, 60) : [];
-      for (const it of items) await catalog.setMediaHash(it && it.id, it && it.phash, it && it.phash_m);
+      for (const it of arr(b.items).slice(0, 60)) { const o = fields(it); await catalog.setMediaHash(o && o.id, o && o.phash, o && o.phash_m); }
       return json(200, { ok: true });
     }
   }

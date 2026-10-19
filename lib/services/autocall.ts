@@ -56,7 +56,7 @@ type FillOpts = {
   json?: boolean;
 };
 function fill(tpl: string | undefined, vars: Record<string, string>, { json = false }: FillOpts = {}) {
-  return String(tpl || '').replace(/\{\{\s*(\w+)\s*\}\}/g, (_, k) => {
+  return String(tpl || '').replace(/\{\{\s*(\w+)\s*\}\}/g, (_: string, k: string) => {
     const v = vars[k] == null ? '' : String(vars[k]);
     return json ? JSON.stringify(v).slice(1, -1) : v;
   });
@@ -97,7 +97,7 @@ async function call(s: Settings, order: CallOrder, site: string, { test = false 
   if (!test) {
     await db.q(`INSERT INTO autocalls(order_id, phone, state, ref, attempt, detail) VALUES($1,$2,$3,$4,
       coalesce((SELECT max(attempt) FROM autocalls WHERE order_id=$1),0)+1, $5)`,
-    [order.id, localPhone(order.phone), failed ? 'failed' : 'calling', ref, failed ? str(r.text || JSON.stringify(d), 300) : '']).catch((e) => console.error('autocall log', e.message));
+    [order.id, localPhone(order.phone), failed ? 'failed' : 'calling', ref, failed ? str(r.text || JSON.stringify(d), 300) : '']).catch((e: Error) => console.error('autocall log', e.message));
     await db.logActivity(null, 'autocall', 'order', order.id, failed ? `📞 অটো কল যায়নি: ${str(r.text, 120)}` : `📞 অটো কল পাঠানো হয়েছে (${localPhone(order.phone)})`).catch(() => {});
   }
   await db.logIntegration('autocall', test ? 'test call' : 'call ' + order.code, !failed, failed ? str(r.text || JSON.stringify(d), 300) : `ref ${ref || '—'}`, order.code || '').catch(() => {});

@@ -4,7 +4,7 @@
 // "বিক্রি সম্পন্ন" saves it as an order (source: দোকান, already delivered and paid) — stock goes down at once
 // (from the chosen branch, when there are branches) — and the cash memo opens for printing.
 import { Val, attrValue, jsxList, htmlValue } from '../react/html';
-import { raw, int, str, bn, money, fmtDate, amount, round2, normalizePhone, validPhone } from '../util';
+import { raw, int, str, bn, money, fmtDate, amount, round2, normalizePhone, validPhone, arr, fields } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
 import * as O from '../models/orders';
@@ -49,7 +49,7 @@ async function find(ctx: AdminCtx) {
 
 async function sale(ctx: AdminCtx) {
   const b = await ctx.body();
-  const items = (Array.isArray(b.items) ? b.items : []).slice(0, 100).map((x) => ({ id: int(x.id), qty: Math.min(9999, int(x.qty)), price: x.price }))
+  const items = arr(b.items).slice(0, 100).map((x) => { const o = fields(x) || {}; return { id: int(o.id), qty: Math.min(9999, int(o.qty)), price: o.price }; })
     .filter((x) => x.id > 0 && x.qty > 0);
   if (!items.length) return ctx.json(400, { error: 'বিলে কোনো পণ্য নেই।' });
   // only staff who may edit orders can change a price at the counter; others sell at the saved price

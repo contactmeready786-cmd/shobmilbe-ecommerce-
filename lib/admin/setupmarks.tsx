@@ -10,11 +10,12 @@
 import { Val, attrValue } from '../react/html';
 
 import * as db from '../db';
+import { fields } from '../util';
 import type { AdminCtx, Settings } from '../types';
 const ADS_ONLY = new Set(['fb_pixel', 'fb_capi', 'fb_domain', 'tiktok_pixel', 'tiktok_events']);
 
 function marks(s: Settings) {
-  try { const m = JSON.parse((s && s.setup_marks) || '{}'); return m && typeof m === 'object' ? m : {}; } catch (_) { return {}; }
+  try { return fields(JSON.parse((s && s.setup_marks) || '{}')) || {}; } catch (_) { return {}; }
 }
 // what the owner (or the ads rule) says about one item: 'done', 'skip' or ''
 function markOf(s: Settings, key: string, isSetUp: boolean) {

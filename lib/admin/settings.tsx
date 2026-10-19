@@ -28,7 +28,7 @@ async function settingsPage(ctx: AdminCtx) {
     }
     if ('del_cutoff_hour' in b) b.del_cutoff_hour = String(Math.min(23, Math.max(0, int(b.del_cutoff_hour, 17))));
     if ('order_prefix' in b) b.order_prefix = String(b.order_prefix).toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4) || 'SM';
-    const areas = list(b.city_area).filter((a) => O.GEO.dhakaCity.includes(a) || O.GEO.districts[0].areas.some((x) => x[0] === a));
+    const areas = list(b.city_area).filter((a): a is string => typeof a === 'string').filter((a) => O.GEO.dhakaCity.includes(a) || O.GEO.districts[0].areas.some((x) => x[0] === a));
     b.dhaka_city_areas = JSON.stringify(areas);
     // extra delivery zones: name + charge + districts (a district belongs to the first zone that lists it)
     if ('zone_name' in b) {
@@ -37,7 +37,7 @@ async function settingsPage(ctx: AdminCtx) {
       const known = new Set(O.GEO.districts.map((d) => d.en));
       const zones: unknown[] = [];
       names.forEach((n, i) => {
-        const ds = list(b['zone_d_' + i]).filter((d) => known.has(d));
+        const ds = list(b['zone_d_' + i]).filter((d): d is string => typeof d === 'string' && known.has(d));
         if (String(n || '').trim() && ds.length) zones.push({ name: String(n).trim().slice(0, 60), fee: Math.max(0, Math.round(num(fees[i], 0) * 100) / 100), districts: [...new Set(ds)] });
       });
       b.delivery_zones = JSON.stringify(zones.slice(0, 8));

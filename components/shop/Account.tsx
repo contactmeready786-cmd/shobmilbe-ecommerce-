@@ -264,9 +264,9 @@ export function Dashboard({ cu, orders, addresses, settings: s, tab = 'orders', 
 }
 
 // ---------------------------------------------------------------- return request (customer)
-export const REASONS = [['broken', 'ভাঙা / নষ্ট পণ্য এসেছে'], ['wrong', 'ভুল পণ্য এসেছে'], ['missing', 'পণ্য কম এসেছে / পার্টস নেই'], ['not_working', 'কাজ করছে না'],
+export const REASONS: [string, string][] = [['broken', 'ভাঙা / নষ্ট পণ্য এসেছে'], ['wrong', 'ভুল পণ্য এসেছে'], ['missing', 'পণ্য কম এসেছে / পার্টস নেই'], ['not_working', 'কাজ করছে না'],
   ['not_as_described', 'ছবি/বিবরণের সাথে মিলছে না'], ['warranty', 'ওয়ারেন্টি দাবি'], ['other', 'অন্য কারণ']];
-export const WANTS = [['refund', '💵 টাকা ফেরত'], ['replace', '🔄 বদলে দিন (একই পণ্য)'], ['fix', '🛠️ মেরামত / ওয়ারেন্টি সার্ভিস']];
+export const WANTS: [string, string][] = [['refund', '💵 টাকা ফেরত'], ['replace', '🔄 বদলে দিন (একই পণ্য)'], ['fix', '🛠️ মেরামত / ওয়ারেন্টি সার্ভিস']];
 export const RETURN_LABELS: Record<string, string> = { requested: 'আবেদন পেয়েছি', approved: 'অনুমোদিত — পণ্য পাঠান', received: 'পণ্য ফেরত পেয়েছি', refunded: 'টাকা ফেরত দেওয়া হয়েছে', replaced: 'বদলে দেওয়া হয়েছে', rejected: 'গ্রহণ করা যায়নি', cancelled: 'বাতিল' };
 
 function ReturnFormBody({ order, s, error, items }: { order: Order; s: Settings; error: string; items: Order['items'] }) {

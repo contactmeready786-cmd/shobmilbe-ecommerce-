@@ -6,6 +6,7 @@ import * as crypto from 'node:crypto';
 import * as zlib from 'node:zlib';
 import type { DbRow, Tx } from '../pg';
 import type { SettingsRow } from '../data/rows';
+import { fields } from '../util';
 
 const MAGIC = Buffer.from('SMBK1');
 // big and not needed to run the shop — left out unless asked for
@@ -65,9 +66,9 @@ function unlock(buf: Buffer, password?: unknown): Buffer {
   try { return Buffer.concat([d.update(buf.subarray(49)), d.final()]); } catch (_) { throw new Error('পাসওয়ার্ড ভুল, অথবা ফাইলটা নষ্ট।'); }
 }
 function read(buf: Buffer, password?: unknown): BackupData {
-  const data = JSON.parse(zlib.gunzipSync(unlock(buf, password)).toString('utf8'));
-  if (data.app !== 'shobmilbe' || !data.tables) throw new Error('এটা এই দোকানের ব্যাকআপ ফাইল না।');
-  return data;
+  const data = fields(JSON.parse(zlib.gunzipSync(unlock(buf, password)).toString('utf8')));
+  if (!data || data.app !== 'shobmilbe' || !data.tables) throw new Error('এটা এই দোকানের ব্যাকআপ ফাইল না।');
+  return data as BackupData; // checked just above: it is this shop's backup file
 }
 
 // Tables in an order where every table comes after the tables it points to.

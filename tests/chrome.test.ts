@@ -16,7 +16,7 @@ for (const [name, props] of variants) {
     // the style/script version number changes on purpose with each update
     const clean = (h: string) => normalise(h).replace(/\?v=[\w.«»-]+/g, '?v=');
     const want = clean(fs.readFileSync(`tests/golden/chrome-${name}.html`, 'utf8'));
-    const got = clean(String(shopLayout(props)));
+    const got = clean(String(shopLayout(props as unknown as Parameters<typeof shopLayout>[0])));
     if (want !== got) {
       let i = 0; while (want[i] === got[i]) i++;
       assert.fail(`differs at ${i}:\n  before: ${want.slice(Math.max(0, i - 100), i + 120)}\n  now:    ${got.slice(Math.max(0, i - 100), i + 120)}`);

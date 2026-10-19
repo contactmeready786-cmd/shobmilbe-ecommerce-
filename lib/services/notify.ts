@@ -123,8 +123,8 @@ function smtpWire({ user, pass, to, subject, text, htmlBody, fromName, headers =
     };
     const timer = setTimeout(() => finish(new Error('ইমেইল সার্ভার সাড়া দেয়নি (timeout)')), 12000);
     sock.setEncoding('utf8');
-    sock.on('error', (e) => finish(e));
-    sock.on('data', (d) => {
+    sock.on('error', (e: Error) => finish(e));
+    sock.on('data', (d: string) => {
       buf += d;
       // a full reply ends with a line "NNN text" (no dash after the code)
       const lines = buf.split('\r\n');
@@ -227,7 +227,7 @@ async function sendGreenApi(c: { id?: string; key: string; phone: string }, text
         body: JSON.stringify({ chatId: c.phone.replace(/\D/g, '') + '@c.us', message: String(text).slice(0, 4000) }),
         signal: AbortSignal.timeout(10000),
       });
-      const j = await r.json().catch(() => ({}));
+      const j = (await r.json().catch(() => ({}))) as { idMessage?: string; message?: string };
       if (r.ok && j.idMessage) return;
       last = new Error('WhatsApp মেসেজ যায়নি: ' + (j.message || (r.status === 401 || r.status === 403 ? 'idInstance বা apiTokenInstance ঠিক নেই' : r.status === 466 ? 'ফ্রি প্ল্যানের ৩টা চ্যাটের সীমা' : 'Green-API ' + r.status)));
       if (r.status !== 404) break;
@@ -240,7 +240,7 @@ async function sendGreenApi(c: { id?: string; key: string; phone: string }, text
 // On Vercel, work started after the page is sent can be frozen. Vercel gives a "waitUntil" hook for exactly
 // this; if it isn't there (local server), we simply wait up to a few seconds.
 function later(promise: unknown, capMs = 6000): Promise<unknown> {
-  const p = Promise.resolve(promise).catch((e) => console.error('notify', e && e.message));
+  const p = Promise.resolve(promise).catch((e: Error) => console.error('notify', e && e.message));
   try {
     // Vercel's hook, when there: { get(): { waitUntil(p) } }
     const ctx = (globalThis as Record<symbol, { get?: () => { waitUntil?: (p: Promise<unknown>) => void } | undefined } | undefined>)[Symbol.for('@vercel/request-context')];

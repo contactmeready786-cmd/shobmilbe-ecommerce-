@@ -66,7 +66,8 @@ async function adjust(ctx: AdminCtx) {
       const ch = int(changes[i]);
       if (!ch) continue;
       const pid = int(pids[i]);
-      const reason = catalog.STOCK_REASONS[reasons[i]] ? reasons[i] : 'adjust';
+      const asked = String(reasons[i]);
+      const reason = catalog.STOCK_REASONS[asked] ? asked : 'adjust';
       const qty = Math.abs(ch);
       let ok: unknown = true;
       // damaged goods: kept apart from the stock that can be sold

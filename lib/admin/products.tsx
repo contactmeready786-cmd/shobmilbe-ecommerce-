@@ -1,5 +1,5 @@
 import { Val, RawHtml, attrValue, jsxList, renderHtml } from '../react/html';
-import { money, bn, int, str, pageNum, list, youtubeId, pct, fmtDate, amount, qtyRule, shopPrice, priceProblem, PRICE_MIN, PRICE_MAX, oneOf } from '../util';
+import { money, bn, int, str, pageNum, list, youtubeId, pct, fmtDate, amount, qtyRule, shopPrice, priceProblem, PRICE_MIN, PRICE_MAX, oneOf, arr } from '../util';
 import * as catalog from '../models/catalog';
 import * as dupes from '../models/duplicates';
 import * as security from '../security';
@@ -128,7 +128,7 @@ async function bulkAction(ctx: AdminCtx) {
     } else {
       throw new Error('কী করবেন বাছুন।');
     }
-  }).catch((e) => { what = ''; ctx.__err = e.message; });
+  }).catch((e: Error) => { what = ''; ctx.__err = e.message; });
   if (!what) return ctx.fail(back, ctx.__err || 'কাজটা করা যায়নি।');
   await ctx.log('product_bulk', 'product', null, `${ids.length}টি পণ্য: ${what}`);
   return ctx.redirect(back + (back.includes('?') ? '&' : '?') + 'info=' + encodeURIComponent(`✅ ${bn(ids.length)}টি পণ্যে করা হয়েছে: ${what}`));
@@ -205,7 +205,7 @@ async function dupCheckOnSave(ctx: AdminCtx, b: Body, id?: Id) {
 }
 
 function specsBox(specs?: unknown) {
-  const rows = (Array.isArray(specs) ? specs : []).filter((r) => Array.isArray(r) && r[0]);
+  const rows = arr(specs).filter((r): r is unknown[] => Array.isArray(r) && !!r[0]);
   const blank = Math.max(2, 4 - rows.length);
   const row = (k?: unknown, v?: unknown) => <div className="field-row spec-row"><input name="spec_key[]" defaultValue={attrValue(k)} maxLength={60} placeholder="যেমন: ভোল্টেজ" aria-label="বিষয়" />{' '}<input name="spec_val[]" defaultValue={attrValue(v)} maxLength={300} placeholder="যেমন: 5V DC" aria-label="মান" /></div>;
   return <section className="panel"><h2>স্পেসিফিকেশন{' '}<small>পণ্যের পেজে টেবিল আকারে দেখাবে</small></h2><p className="muted small">বাম ঘরে বিষয়, ডান ঘরে মান। যেমন "ভোল্টেজ — 5V DC", "পাওয়ার — 3W × 2", "মাপ — 25 × 20 mm"। খালি সারি সেভ হবে না।</p><div data-repeat="specs"><Val v={rows.map((r) => row(r[0], r[1]))} /><Val v={Array.from({ length: blank }, () => row('', ''))} /></div><button type="button" className="btn btn-sm btn-ghost" data-repeat-add="specs">+ আরও সারি</button></section>;
@@ -253,7 +253,7 @@ async function formExtras(ctx: AdminCtx, id?: Id) {
     id ? catalog.priceHistory(id as number, { withCost: ctx.can('see_cost'), limit: 15 }) : [],
     catalog.listLocations().catch(() => []),
   ]);
-  const [tiers, links] = id ? await Promise.all([db.q<Pick<PriceTiersRow, 'min_qty' | 'price'>>('SELECT min_qty, price FROM price_tiers WHERE product_id=$1 ORDER BY min_qty', [id]), catalog.linkedSkus(id)])
+  const [tiers, links]: [{ min_qty: unknown; price: unknown }[], Record<string, string[]>] = id ? await Promise.all([db.q<Pick<PriceTiersRow, 'min_qty' | 'price'>>('SELECT min_qty, price FROM price_tiers WHERE product_id=$1 ORDER BY min_qty', [id]), catalog.linkedSkus(id)])
     : [[], { related: [], cross: [], upsell: [] }];
   // 📒 sales & profit of this product (owner only) — worked out from its orders, never typed
   const ledger = id && ctx.can('see_cost') ? await catalog.productLedger(id, { limit: 5 }).catch(() => null) : null;

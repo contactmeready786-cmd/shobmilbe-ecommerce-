@@ -1,6 +1,7 @@
 // Types shared across the shop code.
 import type { Reply, HeaderMap, ReplyBody } from './reply';
 import type { Flash } from './admin/ui';
+import type { StaffRow } from './data/rows';
 
 /** Every admin setting, as stored in the settings table (all values are text; a missing one is undefined). */
 export type Settings = Record<string, string | undefined> & { store_name: string; session_secret: string };
@@ -25,8 +26,7 @@ export type Body = Record<string, unknown>;
 export type Form<K extends string = never> = Body & Partial<Record<K, string>>;
 
 /** A database row whose columns aren't described by a more specific type yet. */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- columns vary by query
-export type Row = Record<string, any>;
+export type Row = Record<string, unknown>;
 
 
 // What some admin pages save as JSON in the settings (read with db.jsonSetting<…>)
@@ -58,7 +58,9 @@ export type Base = {
 export type AdminDrawn = { bare?: boolean; settings: Settings; user?: StaffUser; title: unknown; body: unknown; active?: string; readOnly?: boolean; path?: string; status: number };
 /** A signed-in admin user (a row of the staff table plus the session's marks). */
 // (columns: id, name, username, role, permissions[], active …; plus __session, __token, __verified from the login)
-export type StaffUser = Row & { id: number; name: string; username: string; role: string; permissions: string[] | null; active: boolean };
+/** a logged-in staff member: their staff row, plus (while logged in) this login's session token, id and lock state */
+export type StaffUser = Row & Partial<Omit<StaffRow, 'permissions'>> & { id: number; name: string; username: string; role: string; permissions: string[] | null; active: boolean;
+  __token?: string; __session?: string; __verified?: boolean };
 /** The parts of the address an admin route matched: [whole path, ...the regex's groups] (lib/admin/index.tsx). */
 export type RouteMatch = string[];
 /** one admin address a module answers */

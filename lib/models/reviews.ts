@@ -2,7 +2,7 @@
 // (unless the owner turned on "show at once"). A review from a phone number that really bought
 // the product (delivered order) is marked "✓ যাচাই করা ক্রেতা".
 import { q, one, tx } from '../db';
-import { int, str } from '../util';
+import { int, str, arr } from '../util';
 import * as $security from '../security';
 import * as $catalog from './catalog';
 import type { Body, Id, Settings } from '../types';
@@ -40,7 +40,7 @@ async function savePhotos(list?: unknown, visible?: unknown) {
   const security = $security;
   const catalog = $catalog;
   const out = [];
-  for (const d of (Array.isArray(list) ? list : []).slice(0, 3)) {
+  for (const d of arr(list).slice(0, 3)) {
     const m = String(d || '').match(/^data:image\/[a-z+.-]+;base64,([A-Za-z0-9+/=]+)$/);
     if (!m) continue;
     const data = Buffer.from(m[1], 'base64');

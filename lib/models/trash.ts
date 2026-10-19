@@ -215,7 +215,8 @@ async function restore(id?: Id) {
 
 // Gone for good. When no products are left anywhere (shop or bin), SKU numbers start again from 1.
 async function purge(ids?: unknown) {
-  const clean = (Array.isArray(ids) ? ids : [ids]).map((x) => int(x)).filter(Boolean);
+  const given: unknown[] = Array.isArray(ids) ? ids : [ids];
+  const clean = given.map((x) => int(x)).filter(Boolean);
   if (!clean.length) return 0;
   const n = await tx(async (t) => {
     const rows = (await t.query<Pick<TrashRow, 'media'>>('DELETE FROM trash WHERE id = ANY($1::int[]) RETURNING media', [clean])).rows;

@@ -57,25 +57,28 @@ function buildRequest(settings: Settings, p: string, to: string, message: string
   if (p === 'smsnetbd') return 'https://api.sms.net.bd/sendsms?' + new URLSearchParams({ api_key: key, msg: message, to });
   if (p === 'greenweb') return 'https://api.greenweb.com.bd/api.php?' + new URLSearchParams({ token: key, to, message });
   // custom: the owner's link with {to}, {message}, {key}, {sender}
-  return String(settings.sms_custom_url).replace(/\{(to|message|key|sender)\}/g, (_, k) => encodeURIComponent(
+  return String(settings.sms_custom_url).replace(/\{(to|message|key|sender)\}/g, (_: string, k: string) => encodeURIComponent(
     ({ to, message, key, sender: settings.sms_sender_id || '' } as Record<string, string>)[k]));
 }
 // The company's answer → ok / its message
+/** an SMS company's JSON answer: the fields the companies above send (someone else's JSON, so every one may be missing) */
+type SmsAnswer = { id?: string | number; state?: string; message?: string; error?: string | number; data?: SmsAnswer; success?: boolean; failureCount?: unknown;
+  successCount?: unknown; smsBatchId?: string; response_code?: string | number; success_message?: string; error_message?: string; msg?: string };
 function readAnswer(p: string, status: number, text: unknown): SmsResult {
   const t = String(text || '').slice(0, 400);
-  let j = null;
-  try { j = JSON.parse(t); } catch (_) { /* not JSON */ }
+  let j: SmsAnswer | null = null;
+  try { j = JSON.parse(t) as SmsAnswer; } catch (_) { /* not JSON */ }
   if (p === 'textbee' && (status === 401 || status === 403)) return { ok: false, msg: 'textbee-র API Key মিলছে না — textbee.dev ড্যাশবোর্ড থেকে নতুন Key কপি করুন' };
   if (p === 'android' && status === 401) return { ok: false, msg: 'অ্যাপের Username/Password মিলছে না — অ্যাপের Cloud Server অংশ থেকে আবার কপি করুন' };
   if (status < 200 || status >= 300) return { ok: false, msg: `HTTP ${status}: ${t.slice(0, 150)}` };
-  if (p === 'android') return j && j.id ? { ok: true, id: String(j.id), msg: 'ফোনে পাঠানো হয়েছে (' + (j.state || 'Pending') + ')' } : { ok: false, msg: (j && (j.message || j.error)) || t.slice(0, 150) };
+  if (p === 'android') return j && j.id ? { ok: true, id: String(j.id), msg: 'ফোনে পাঠানো হয়েছে (' + (j.state || 'Pending') + ')' } : { ok: false, msg: String((j && (j.message || j.error)) || t.slice(0, 150)) };
   if (p === 'textbee') {
-    const d = (j && (j.data || j)) || {};
+    const d: SmsAnswer = (j && (j.data || j)) || {};
     if (d.success === false || (Number(d.failureCount) > 0 && !Number(d.successCount))) return { ok: false, msg: String(d.message || d.error || t.slice(0, 150)) };
     return { ok: true, id: String(d.smsBatchId || ''), msg: 'ফোনে পাঠানো হয়েছে' };
   }
-  if (p === 'bulksmsbd') return j && Number(j.response_code) === 202 ? { ok: true, msg: j.success_message || 'পাঠানো হয়েছে' } : { ok: false, msg: (j && (j.error_message || j.response_code)) || t.slice(0, 150) };
-  if (p === 'smsnetbd') return j && Number(j.error) === 0 ? { ok: true, msg: j.msg || 'পাঠানো হয়েছে' } : { ok: false, msg: (j && (j.msg || j.error)) || t.slice(0, 150) };
+  if (p === 'bulksmsbd') return j && Number(j.response_code) === 202 ? { ok: true, msg: j.success_message || 'পাঠানো হয়েছে' } : { ok: false, msg: String((j && (j.error_message || j.response_code)) || t.slice(0, 150)) };
+  if (p === 'smsnetbd') return j && Number(j.error) === 0 ? { ok: true, msg: j.msg || 'পাঠানো হয়েছে' } : { ok: false, msg: String((j && (j.msg || j.error)) || t.slice(0, 150)) };
   if (p === 'greenweb') return /ok/i.test(t) && !/error/i.test(t) ? { ok: true, msg: t.slice(0, 120) } : { ok: false, msg: t.slice(0, 150) };
   return /error|invalid|fail/i.test(t) ? { ok: false, msg: t.slice(0, 150) } : { ok: true, msg: t.slice(0, 120) || 'পাঠানো হয়েছে' };
 }
@@ -166,9 +169,9 @@ async function androidState(settings: Settings, id?: Id) {
     headers: { Accept: 'application/json', Authorization: 'Basic ' + Buffer.from(`${String(settings.sms_sender_id || '').trim()}:${String(settings.sms_api_key || '').trim()}`).toString('base64') },
   });
   if (res.status < 200 || res.status >= 300) return null;
-  let j = null;
+  let j: { state?: string; recipients?: { error?: string }[] } | null = null;
   try { j = JSON.parse(res.body.toString('utf8')); } catch (_) { return null; }
-  const rc = (j && Array.isArray(j.recipients) && j.recipients[0]) || {};
+  const rc: { error?: string } = (j && Array.isArray(j.recipients) && j.recipients[0]) || {};
   return { state: String((j && j.state) || ''), error: rc.error ? String(rc.error).slice(0, 150) : '' };
 }
 
@@ -215,16 +218,17 @@ async function phoneStatus(settings: Settings): Promise<PhoneStatus> {
     });
     if (res.status === 401 || res.status === 403) { out.phoneLevel = 'bad'; out.phoneWhy = 'textbee-র API Key মিলছে না'; return out; }
     if (res.status < 200 || res.status >= 300) return out; // textbee itself busy: say nothing rather than a false alarm
-    const j = JSON.parse(res.body.toString('utf8'));
     // (textbee's own answer: its fields are read as it sends them)
-    const list: Record<string, any>[] = Array.isArray(j?.data) ? j.data : [];
+    type TbDevice = { _id?: string; isDefault?: boolean; enabled?: boolean; brand?: string; model?: string; lastHeartbeat?: string; batteryInfo?: { percentage?: number | null; isCharging?: boolean } };
+    const j = JSON.parse(res.body.toString('utf8')) as { data?: unknown } | null;
+    const list: TbDevice[] = Array.isArray(j?.data) ? j.data : [];
     const want = String(settings.sms_sender_id || '').trim();
     const d = list.find((x) => want && String(x._id) === want) || list.find((x) => x.isDefault && x.enabled) || list.find((x) => x.enabled) || list[0];
     if (!d) { out.phoneLevel = 'bad'; out.phoneWhy = 'textbee-তে কোনো ফোন যুক্ত নেই'; return out; }
     out.model = [d.brand, d.model].filter(Boolean).join(' ').slice(0, 60);
     out.lastSeen = d.lastHeartbeat ? new Date(d.lastHeartbeat) : null;
     out.minutesAgo = out.lastSeen && !Number.isNaN(out.lastSeen.getTime()) ? Math.max(0, (Date.now() - out.lastSeen.getTime()) / 60e3) : null;
-    const b = d.batteryInfo || {};
+    const b: NonNullable<TbDevice['batteryInfo']> = d.batteryInfo || {};
     out.battery = Number.isFinite(Number(b.percentage)) && b.percentage !== null && b.percentage !== undefined ? Math.round(Number(b.percentage)) : null;
     out.charging = typeof b.isCharging === 'boolean' ? b.isCharging : null;
     const lv = phoneLevelFor(out.minutesAgo, out.battery, out.charging, d.enabled !== false);

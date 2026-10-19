@@ -92,8 +92,8 @@ async function parseSent(req: ShopRequest): Promise<Body> {
   const type = (req.headers['content-type'] || '').split(';')[0].trim();
   if (type === 'application/json') {
     try {
-      const v = JSON.parse(text || '{}', (k, val) => (BAD_KEYS.has(k) ? undefined : val));
-      return v && typeof v === 'object' ? v : {};
+      const v: unknown = JSON.parse(text || '{}', (k: string, val: unknown) => (BAD_KEYS.has(k) ? undefined : val));
+      return fields(v) || {};
     } catch (_) { return {}; }
   }
   const out: Record<string, string | string[]> = {};
@@ -112,8 +112,7 @@ async function parseSent(req: ShopRequest): Promise<Body> {
   }
   return out;
 }
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- form values: one or many
-function list(v: unknown): any[] { return v === undefined || v === null || v === '' ? [] : ([] as unknown[]).concat(v); }
+function list(v: unknown): unknown[] { return v === undefined || v === null || v === '' ? [] : ([] as unknown[]).concat(v); }
 
 // Passwords: scrypt with random salt
 function hashPassword(pw: string): string {
@@ -218,6 +217,8 @@ function ifKey<F>(table: Record<string, unknown>, v: unknown, fallback: F): stri
 }
 
 /** `v` as an object whose fields are still unchecked (JSON a browser sent), or null when it isn't an object. */
+/** a list sent from outside (JSON, a form): the list itself, or an empty one when it isn't a list */
+function arr(v: unknown): unknown[] { return Array.isArray(v) ? v : []; }
 function fields(v: unknown): Record<string, unknown> | null { return v && typeof v === 'object' ? (v as Record<string, unknown>) : null; }
 
 function normalizePhone(p: unknown): string {
@@ -303,4 +304,4 @@ function minOrder(s: Settings | null | undefined): number { return Math.max(0, N
 
 function pageNum(query: URLSearchParams): number { return Math.max(1, int(query.get('page'), 1)); }
 
-export { fields, oneOf, ifKey, PRICE_MIN, PRICE_MAX, priceProblem, contact, qtyRule, amount, round2, roundOff, shopPrice, wholeTaka, roundOffLabel, esc, raw, Raw, bn, money, pct, slugify, randomCode, parseCookies, parseBody, readBody, list, hashPassword, verifyPassword, passwordProblem, sign, unsign, sha256, fmtDate, ymd, validYmd, dateRange, int, num, str, minOrder, normalizePhone, validPhone, csv, fetchJson, youtubeId, pageNum, TZ };
+export { fields, arr, oneOf, ifKey, PRICE_MIN, PRICE_MAX, priceProblem, contact, qtyRule, amount, round2, roundOff, shopPrice, wholeTaka, roundOffLabel, esc, raw, Raw, bn, money, pct, slugify, randomCode, parseCookies, parseBody, readBody, list, hashPassword, verifyPassword, passwordProblem, sign, unsign, sha256, fmtDate, ymd, validYmd, dateRange, int, num, str, minOrder, normalizePhone, validPhone, csv, fetchJson, youtubeId, pageNum, TZ };

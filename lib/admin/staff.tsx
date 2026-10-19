@@ -34,7 +34,7 @@ async function formPage(ctx: AdminCtx, m: RouteMatch | null) {
       return ctx.back(`/admin/staff/${sid}`, 'saved');
     } catch (caught) { const e = caught as Caught;
       const cur = id ? await S.getStaff(id) : {};
-      return ctx.page('স্টাফ', form({ ...cur, ...b, id: id ?? undefined, permissions: list(b.permissions) }, e.message, id === ctx.user.id), 'staff', { status: 400 });
+      return ctx.page('স্টাফ', form({ ...cur, ...b, id: id ?? undefined, permissions: list(b.permissions).filter((x): x is string => typeof x === 'string') }, e.message, id === ctx.user.id), 'staff', { status: 400 });
     }
   }
   // (a new staff member: an empty form, switched on, no permissions yet)

@@ -96,7 +96,7 @@ function donut(rows: { label: unknown; value: number }[], { center = '', centerS
 
 // 24-hour heat strip.
 function hours(rows: { h: number; n: number }[], unit = 'টি অর্ডার') {
-  const by = new Array(24).fill(0);
+  const by = new Array<number>(24).fill(0);
   rows.forEach((r) => { by[r.h] = r.n; });
   const max = Math.max(...by, 1);
   return <div className="hours">{jsxList(by.map((n, h) => <span style={styleOf(`--a:${(0.08 + (0.92 * n) / max).toFixed(2)}`)} title={`${bn(h)}টা: ${bn(n)}${attrValue(unit)}`}><i>{bn(h)}</i></span>))}</div>;

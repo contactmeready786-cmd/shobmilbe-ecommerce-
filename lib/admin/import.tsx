@@ -9,7 +9,7 @@
 //                                       browser can resize it and make its fingerprint, then upload it
 //   3. POST /admin/api/import/save   — duplicate check + save one product
 import { attrValue } from '../react/html';
-import { fields, int, str, amount, csv, youtubeId, shopPrice, priceProblem } from '../util';
+import { fields, int, str, amount, csv, youtubeId, shopPrice, priceProblem, arr } from '../util';
 import * as catalog from '../models/catalog';
 import * as dupes from '../models/duplicates';
 import * as security from '../security';
@@ -148,7 +148,7 @@ async function imageApi(ctx: AdminCtx) {
 
 // ---------------------------------------------------------------- 3. save one product
 function categoryFinder(categories: db.pg.DbRow[]) {
-  const byName = new Map();
+  const byName = new Map<string, unknown>();
   for (const c of categories) {
     byName.set(String(c.name).toLowerCase().trim(), c.id);
     if (c.slug) byName.set(String(c.slug).toLowerCase(), c.id);
@@ -175,7 +175,7 @@ async function saveApi(ctx: AdminCtx) {
   if (!name) return ctx.json(200, { result: 'error', message: 'পণ্যের নাম নেই' });
   if (!(price > 0)) return ctx.json(200, { result: 'error', message: 'দাম নেই' });
   if (priceProblem(price)) return ctx.json(200, { result: 'error', message: `দাম ৳${price} — দোকানে ৳০.৫০ থেকে ৳২০০০ পর্যন্ত পণ্যই রাখা হয়` });
-  const images = (Array.isArray(b.images) ? b.images : []).map((x) => int(x)).filter((x) => x > 0).slice(0, catalog.MAX_PRODUCT_IMAGES);
+  const images = arr(b.images).map((x) => int(x)).filter((x) => x > 0).slice(0, catalog.MAX_PRODUCT_IMAGES);
   const oldPrice = shopPrice(amount(it.old_price)) > price ? shopPrice(amount(it.old_price)) : null;
   const hasStock = it.stock !== null && it.stock !== undefined && it.stock !== '';
   const stock = hasStock ? Math.max(0, int(it.stock)) : it.in_stock === false ? 0 : Math.max(0, int(opt.default_stock, 10));

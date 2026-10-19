@@ -218,7 +218,7 @@ async function sweep(settings: Settings, { force = false, max = PER_RUN }: Sweep
       if (c) { changed++; if (c.some((x) => x.field === 'model')) models++; if (c.some((x) => x.field === 'specs')) specs++; }
     } catch (caught) { const e = caught as Caught; console.error('autoseo', p.id, e.message); }
   }
-  await snapshot().catch((e) => console.error('autoseo snapshot', e.message));
+  await snapshot().catch((e: Error) => console.error('autoseo snapshot', e.message));
   await db.setMany({ autoseo_last: String(Date.now()) });
   return { looked: rows.length, changed, models, specs };
 }

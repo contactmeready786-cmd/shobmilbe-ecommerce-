@@ -5,7 +5,7 @@
 import type { ReturnRequestsRow, ProductsRow, OrdersRow } from '../data/rows';
 import * as db from '../db';
 import * as security from '../security';
-import { str, int, amount, round2, randomCode, normalizePhone, validPhone } from '../util';
+import { str, int, amount, round2, randomCode, normalizePhone, validPhone, arr } from '../util';
 import * as catalog from './catalog';
 import * as $views_account from '../views/account';
 import type { Param } from '../pg';
@@ -46,7 +46,7 @@ const WANTS = Object.fromEntries($views_account.WANTS);
 // Photos come from the browser already made small (data: URLs). Kept private: only the admin can see them.
 async function savePhotos(list: unknown): Promise<number[]> {
   const out: number[] = [];
-  for (const d of (Array.isArray(list) ? list : []).slice(0, 4)) {
+  for (const d of arr(list).slice(0, 4)) {
     const m = String(d || '').match(/^data:image\/[a-z+.-]+;base64,([A-Za-z0-9+/=]+)$/);
     if (!m) continue;
     const data = Buffer.from(m[1], 'base64');

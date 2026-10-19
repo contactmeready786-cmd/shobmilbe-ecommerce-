@@ -60,11 +60,11 @@ async function upload(buffer: Buffer, mime: string, name: string, sub = 'media',
   fd.append('fileName', fname);
   fd.append('folder', `${FOLDER}/${sub}`);
   fd.append('useUniqueFileName', 'true');
-  let last;
+  let last: unknown;
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
       const r = await fetch('https://upload.imagekit.io/api/v1/files/upload', { method: 'POST', headers: { Authorization: auth() }, body: fd, signal: AbortSignal.timeout(20000) });
-      const j = await r.json().catch(() => ({}));
+      const j = (await r.json().catch(() => ({}))) as { url?: string; fileId?: string; message?: string };
       if (r.ok && j.url && j.fileId) return { url: j.url, fileId: j.fileId };
       last = new Error(`ImageKit: ${j.message || r.status}`);
       if (r.status === 401 || r.status === 403) break; // wrong key: retrying won't help

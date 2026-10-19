@@ -68,7 +68,7 @@ const cache = new Map<string, { ok: boolean; at: number }>();
 function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
   return new Promise((resolve, reject) => {
     const t = setTimeout(() => reject(new Error('dns timeout')), ms);
-    p.then((v) => { clearTimeout(t); resolve(v); }, (e) => { clearTimeout(t); reject(e); });
+    p.then((v) => { clearTimeout(t); resolve(v); }, (e: unknown) => { clearTimeout(t); reject(e); });
   });
 }
 const sameIp = (a: string, b: string) => a.toLowerCase().replace(/^::ffff:/, '') === b.toLowerCase().replace(/^::ffff:/, '');

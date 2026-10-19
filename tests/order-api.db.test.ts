@@ -56,7 +56,7 @@ test('wrong details are refused, each with the field to fix', { skip }, async ()
 test('a good order: saved with the shop\'s own price (not the browser\'s), stock down, "my orders" cookie set', { skip }, async () => {
   const r = await send(good());
   assert.equal(r.status, 200);
-  const j = await r.json();
+  const j = (await r.json()) as { code: string; redirect: string };
   assert.match(j.code, /^[A-Z0-9]+$/);
   assert.equal(j.redirect, `/order/${j.code}?new=1`);
   assert.match(r.headers.get('set-cookie') || '', /^sm_orders=.+HttpOnly/);

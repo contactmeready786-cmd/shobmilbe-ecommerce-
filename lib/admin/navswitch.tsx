@@ -51,7 +51,8 @@ async function toggle(ctx: AdminCtx) {
   let rowsChanged = false;
   const fixedBody: Record<string, string> = {};
   const fixedKeys: string[] = [];
-  for (const k of keys) {
+  for (const raw of keys) {
+    const k = String(raw);
     const on = !!b['on_' + k];
     if (k.startsWith('url:')) {
       const url = k.slice(4);

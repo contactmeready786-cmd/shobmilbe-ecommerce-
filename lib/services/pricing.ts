@@ -111,7 +111,8 @@ async function giftsFor(lines: { kind?: string; product_id?: number; qty: unknow
 async function quote(items: unknown) {
   const catalog = $models_catalog;
   const want = new Map<number, number>();
-  for (const x of (Array.isArray(items) ? items : []).slice(0, 60)) {
+  const sent: unknown[] = Array.isArray(items) ? items : [];
+  for (const x of sent.slice(0, 60)) {
     const it = fields(x);
     const id = int(it && it.id); const qty = Math.min(999, int(it && it.qty));
     if (id > 0 && qty > 0) want.set(id, (want.get(id) || 0) + qty);

@@ -6,7 +6,7 @@
 import * as crypto from 'node:crypto';
 import * as db from '../db';
 import * as security from '../security';
-import { str, int, normalizePhone, validPhone, bn } from '../util';
+import { str, int, normalizePhone, validPhone, bn, arr } from '../util';
 import * as $catalog from './catalog';
 import * as $orders from './orders';
 import * as $services_sms from '../services/sms';
@@ -46,7 +46,7 @@ async function newCode() {
 async function savePhotos(list?: unknown) {
   const catalog = $catalog;
   const out: number[] = [];
-  for (const d of (Array.isArray(list) ? list : []).slice(0, 4)) {
+  for (const d of arr(list).slice(0, 4)) {
     const m = String(d || '').match(/^data:image\/[a-z+.-]+;base64,([A-Za-z0-9+/=]+)$/);
     if (!m) continue;
     const data = Buffer.from(m[1], 'base64');

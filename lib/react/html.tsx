@@ -15,7 +15,7 @@ export function setRenderer(fn: Renderer): void { renderer = fn; }
 function plainText(node: unknown): string | null {
   if (node === null || node === undefined || node === false || node === true) return '';
   if (typeof node === 'string' || typeof node === 'number') return String(node).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#x27;');
-  if (Array.isArray(node)) { let out = ''; for (const x of node) { const t = plainText(x); if (t === null) return null; out += t; } return out; }
+  if (Array.isArray(node)) { let out = ''; for (const x of node as unknown[]) { const t = plainText(x); if (t === null) return null; out += t; } return out; }
   if (isValidElement(node) && node.type === Fragment) return plainText((node.props as { children?: unknown }).children);
   return null;
 }
@@ -27,7 +27,7 @@ function describe(el: ReactElement): string {
   const name = typeof t === 'string' ? t : typeof t === 'function' ? (t as { name?: string }).name || 'component' : t === Fragment ? 'fragment' : 'element';
   const cls = typeof props.className === 'string' ? ` class=${props.className}` : '';
   const kids = props.children;
-  const first = Array.isArray(kids) ? kids.find((k) => k && typeof k === 'object') : kids;
+  const first: unknown = Array.isArray(kids) ? kids.find((k: unknown) => k && typeof k === 'object') : kids;
   return `<${name}${cls}>` + (first && isValidElement(first) && name === 'fragment' ? ' ' + describe(first) : '');
 }
 
@@ -118,7 +118,7 @@ export function cx(...names: unknown[]): string {
 export function Val({ v }: { v: unknown }): ReactNode {
   if (isValidElement(v)) return v; // a piece that is React already
   if (v instanceof Raw) return <RawHtml html={v} />;
-  if (Array.isArray(v)) return createElement(Fragment, null, ...v.map((x) => (isValidElement(x) ? x : x instanceof Raw ? <RawHtml html={x} /> : x === null || x === undefined || x === false ? null : String(x))));
+  if (Array.isArray(v)) return createElement(Fragment, null, ...v.map((x: unknown) => (isValidElement(x) ? x : x instanceof Raw ? <RawHtml html={x} /> : x === null || x === undefined || x === false ? null : String(x))));
   if (v === false || v === null || v === undefined) return null;
   return String(v);
 }
@@ -128,7 +128,7 @@ const unescape = (s: string) => s.replace(/&quot;/g, '"').replace(/&#0?39;|&#x27
 export function attrValue(v: unknown): string {
   if (v instanceof Raw) return unescape(v.s);
   if (isValidElement(v)) return unescape(renderHtml(v));
-  if (Array.isArray(v)) return v.map((x) => (x instanceof Raw ? unescape(x.s) : isValidElement(x) ? unescape(renderHtml(x)) : x === null || x === undefined ? '' : String(x))).join('');
+  if (Array.isArray(v)) return v.map((x: unknown) => (x instanceof Raw ? unescape(x.s) : isValidElement(x) ? unescape(renderHtml(x)) : x === null || x === undefined ? '' : String(x))).join('');
   if (v === false || v === null || v === undefined) return '';
   return String(v);
 }
@@ -138,7 +138,7 @@ export function htmlValue(v: unknown): string {
   const esc = (x: unknown) => String(x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   if (v instanceof Raw) return v.s;
   if (isValidElement(v)) return renderHtml(v);
-  if (Array.isArray(v)) return v.map((x) => (x instanceof Raw ? x.s : isValidElement(x) ? renderHtml(x) : x === null || x === undefined ? '' : esc(x))).join('');
+  if (Array.isArray(v)) return v.map((x: unknown) => (x instanceof Raw ? x.s : isValidElement(x) ? renderHtml(x) : x === null || x === undefined ? '' : esc(x))).join('');
   if (v === false || v === null || v === undefined) return '';
   return esc(v);
 }
@@ -171,7 +171,7 @@ export function styleOf(text: unknown): Record<string, string> {
 export function jsxList(items: unknown): ReactNode {
   if (!Array.isArray(items)) return items instanceof Raw ? <Val v={items} /> : (items as ReactNode);
   // ready-made HTML among them is shown as it is
-  return createElement(Fragment, null, ...items.map((x) => (x instanceof Raw ? <Val v={x} /> : (x as ReactNode))));
+  return createElement(Fragment, null, ...items.map((x: unknown) => (x instanceof Raw ? <Val v={x} /> : (x as ReactNode))));
 }
 
 /**
@@ -189,7 +189,7 @@ export function insertAfterTag(node: unknown, tag: string, extra: ReactNode): { 
   }
   if (Array.isArray(node)) {
     for (let k = 0; k < node.length; k++) {
-      const item = node[k];
+      const item: unknown = node[k];
       if (isValidElement(item) && item.type === tag) return { node: [...node.slice(0, k + 1), extra, ...node.slice(k + 1)], found: true };
       const r = insertAfterTag(item, tag, extra);
       if (r.found) return { node: [...node.slice(0, k), r.node, ...node.slice(k + 1)], found: true };

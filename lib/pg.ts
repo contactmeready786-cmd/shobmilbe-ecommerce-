@@ -11,7 +11,6 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 import type { ConnectionOptions } from 'node:tls';
 import pg from 'pg';
 import { SUPABASE_ROOT_CA } from './data/supabase-ca';
-
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- a row's columns depend on the query
 export type DbRow = Record<string, unknown>;
 export type QueryResult<R = DbRow> = { rows: R[]; rowCount: number; command: string };
@@ -52,7 +51,7 @@ function serialize(v: Param): string | null {
   if (typeof v === 'boolean') return v ? 't' : 'f';
   if (v instanceof Date) return v.toISOString();
   if (Buffer.isBuffer(v)) return '\\x' + v.toString('hex');
-  if (Array.isArray(v)) return '{' + v.map((x) => (x === null ? 'NULL' : '"' + String(x).replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"')).join(',') + '}';
+  if (Array.isArray(v)) return '{' + v.map((x: unknown) => (x === null ? 'NULL' : '"' + String(x).replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"')).join(',') + '}';
   if (typeof v === 'object') return JSON.stringify(v);
   return String(v);
 }
@@ -292,7 +291,7 @@ async function getConnection(): Promise<Connection> {
       }
     };
     sharedPromise = open().then((conn) => { shared = conn; sharedPromise = null; return conn; },
-      (e) => { sharedPromise = null; throw e; });
+      (e: unknown) => { sharedPromise = null; throw e; });
   }
   return sharedPromise;
 }

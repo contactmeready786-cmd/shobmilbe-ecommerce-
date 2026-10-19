@@ -16,7 +16,7 @@ function seoScore(p: SeoRow, seo: typeof $services_seo) {
   if (textLen > 0 || p.auto_desc) n += W.text; // 🤖 the auto description counts as text (the long-text bonus needs the owner's own)
   if (textLen >= 200) n += W.textLong;
   if (String(p.model || '').trim()) n += W.model;
-  if (Array.isArray(p.specs) && p.specs.filter((r) => Array.isArray(r) && r[0] && r[1]).length >= 2) n += W.specs;
+  if (Array.isArray(p.specs) && p.specs.filter((r: unknown) => Array.isArray(r) && r[0] && r[1]).length >= 2) n += W.specs;
   if (p.category_id) n += W.category;
   if (String(p.brand || '').trim()) n += W.brand;
   const t = seo.productTitle(p);
@@ -52,7 +52,7 @@ async function seoProblems() {
     if (textLen > 0 && textLen < 80) why.push(autoOn ? ['info', 'নিজের বিবরণ ছোট — সাথে 🤖 অটো বিবরণ দেখানো হচ্ছে'] : ['warn', 'বিবরণ খুব ছোট — কয়েক লাইন নিজের ভাষায় লিখুন (কী কাজে লাগে, স্পেসিফিকেশন)']);
     else if (textLen >= 80 && textLen < 200) why.push(['info', 'বিবরণ আরেকটু বড় করলে ভালো (২০০+ অক্ষর) — কী কাজে লাগে, কীভাবে লাগাবেন']);
     if (!String(p.model || '').trim()) why.push(['warn', 'মডেল / পার্ট নম্বর নেই — মানুষ "PAM8403", "SG90" এভাবেই খোঁজে']);
-    if (!(Array.isArray(p.specs) && p.specs.filter((r) => Array.isArray(r) && r[0] && r[1]).length >= 2)) why.push(['info', 'স্পেসিফিকেশন (ভোল্টেজ, কারেন্ট, সাইজ…) অন্তত ২টা সারি দিন']);
+    if (!(Array.isArray(p.specs) && p.specs.filter((r: unknown) => Array.isArray(r) && r[0] && r[1]).length >= 2)) why.push(['info', 'স্পেসিফিকেশন (ভোল্টেজ, কারেন্ট, সাইজ…) অন্তত ২টা সারি দিন']);
     if (p.image_id && p.pics < 2) why.push(['info', 'মাত্র ১টা ছবি — পেছন/পাশ থেকে আরেকটা দিলে ভালো']);
     if (!p.category_id) why.push(['warn', 'ক্যাটাগরি নেই']);
     if (p.same_name) why.push(['warn', 'একই নামের আরেকটা পণ্য আছে']);

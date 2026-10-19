@@ -42,7 +42,7 @@ async function saveOrder(ctx: AdminCtx) {
   const { labels } = await allLabels();
   const order = asList(b.section_order);
   const on = asList(b.section_on);
-  await db.setSetting('home_sections', JSON.stringify(order.filter((k) => labels[k] && on.includes(k))));
+  await db.setSetting('home_sections', JSON.stringify(order.filter((k) => labels[String(k)] && on.includes(k))));
   await ctx.log('settings', 'design', null, 'হোমপেজের সারির ক্রম');
   return ctx.back(HOME, 'saved');
 }

@@ -6,7 +6,7 @@
 // so it works on Vercel without any paid service. Locally these headers are missing.
 import type { PageViewsRow, VisitEventsRow, VisitSessionsRow } from '../data/rows';
 import * as db from '../db';
-import { parseCookies, str, int } from '../util';
+import { parseCookies, str, int, fields } from '../util';
 import type { Body, Id, Settings, ShopRequest } from '../types';
 
 const { q, one } = db;
@@ -231,7 +231,7 @@ function cleanPath(p?: unknown) {
   return s.slice(0, 300);
 }
 function readJson(text?: unknown): Body {
-  try { const v = JSON.parse(String(text || '{}')); return v && typeof v === 'object' ? v : {}; } catch (_) { return {}; }
+  try { return fields(JSON.parse(String(text || '{}'))) || {}; } catch (_) { return {}; }
 }
 function shouldSkip(req: ShopRequest, settings: Settings) {
   if (settings.visitor_tracking === '0') return true;
@@ -293,7 +293,7 @@ async function record({ req, settings, body, ip, ownHost }: RecordOpts) {
     const pv = await one(`INSERT INTO page_views(session_id, visitor_id, path, title, product_id)
       VALUES($1,$2,$3,$4, ${slug ? '(SELECT id FROM products WHERE slug=$5)' : 'NULL'}) RETURNING id`,
     slug ? [sid, vid, path, title, slug] : [sid, vid, path, title]);
-    if (Math.random() < 0.01) cleanup(settings).catch((e) => console.error('visitor cleanup', e.message));
+    if (Math.random() < 0.01) cleanup(settings).catch((e: Error) => console.error('visitor cleanup', e.message));
     return { pv: pv!.id };
   }
 

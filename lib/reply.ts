@@ -40,7 +40,7 @@ export class Reply {
   toResponse(): Response {
     const h = new Headers();
     for (const { name, value } of this.headers.values()) {
-      if (Array.isArray(value)) for (const v of value) h.append(name, String(v));
+      if (Array.isArray(value)) for (const v of value as unknown[]) h.append(name, String(v));
       else h.set(name, String(value));
     }
     const noBody = this.status === 204 || this.status === 304 || this.status < 200;

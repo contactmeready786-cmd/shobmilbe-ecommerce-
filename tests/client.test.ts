@@ -55,9 +55,9 @@ test('pages load the compiled modules (type="module"), never the old script file
 });
 
 test('the district / thana list in the browser is the same as the server\'s', () => {
-  const server = JSON.parse(read('lib/data/bd-geo.json'));
+  const server: unknown = JSON.parse(read('lib/data/bd-geo.json'));
   const src = read('client/geo-data.ts');
-  const browser = JSON.parse(src.slice(src.indexOf('= {') + 2, src.lastIndexOf('}') + 1));
+  const browser: unknown = JSON.parse(src.slice(src.indexOf('= {') + 2, src.lastIndexOf('}') + 1));
   assert.deepEqual(browser, server, 'copy lib/data/bd-geo.json into client/geo-data.ts');
 });
 

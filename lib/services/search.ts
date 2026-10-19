@@ -103,7 +103,7 @@ const WORDS = {
   set: 'সেট',
   pcs: 'পিস পিচ',
 };
-const BN_TO_EN = new Map();
+const BN_TO_EN = new Map<string, string>();
 for (const [en, bnList] of Object.entries(WORDS)) for (const w of bnList.split(/\s+/).filter(Boolean)) BN_TO_EN.set(w, en);
 
 // ---------------------------------------------------------------- Bangla → sound-alike Latin
@@ -156,11 +156,11 @@ function words(text: string) {
 // a Bangla word → the English it may mean (word list, then sound-alike)
 function bnVariants(w: string) {
   if (!/[ঀ-৿]/.test(w)) return [];
-  const v = [];
-  if (BN_TO_EN.has(w)) v.push(BN_TO_EN.get(w));
+  const v: string[] = [];
+  if (BN_TO_EN.has(w)) v.push(BN_TO_EN.get(w)!);
   // with a Bangla ending stuck on: "রিমোটের", "ব্যাটারিটা"
   const stem = w.replace(/(ের|গুলো|গুলি|গুলা)$/, '');
-  if (stem !== w && stem.length >= 2 && BN_TO_EN.has(stem)) v.push(BN_TO_EN.get(stem));
+  if (stem !== w && stem.length >= 2 && BN_TO_EN.has(stem)) v.push(BN_TO_EN.get(stem)!);
   for (const x of new Set([w, stem])) {
     const t = translit(x);
     if (t.length >= 2) { v.push(t); if (t.includes('k')) v.push(t.replace(/k/g, 'c')); } // panasonik → panasonic
@@ -252,7 +252,7 @@ type FindOpts = {
 async function find(query: string, { limit = 500 }: FindOpts = {}) {
   const typed = words(query).filter((w) => !STOP.has(w));
   // each typed word with the other ways it may be meant
-  const groups = [];
+  const groups: string[][] = [];
   const seen = new Set();
   for (const w of typed) {
     if (seen.has(w)) continue;

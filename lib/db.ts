@@ -1399,8 +1399,8 @@ function ensureReady(): Promise<void> {
         const fp = await one("SELECT value FROM settings WHERE key='enc_key_fp'");
         if (!fp) await q("INSERT INTO settings(key,value) VALUES('enc_key_fp',$1) ON CONFLICT DO NOTHING", [security.keyFingerprint()]);
       }
-      await lockPublicApi().catch((e) => console.error('lockPublicApi', e.message));
-    })().catch((e) => { ready = null; throw e; });
+      await lockPublicApi().catch((e: Error) => console.error('lockPublicApi', e.message));
+    })().catch((e: Error) => { ready = null; throw e; });
   }
   return ready;
 }
@@ -1620,7 +1620,7 @@ async function setMany(obj: Record<string, unknown>): Promise<void> {
 /** a setting the admin saves as JSON (a list, a map …), or the fallback when it is missing or broken. The caller says
  * what shape that admin page saves (T); without one it is unknown. */
 function jsonSetting<T = unknown>(settings: Settings, key: string, fallback: T | unknown[] = []): T {
-  try { const v = JSON.parse(settings[key] || ''); return (v ?? fallback) as T; } catch (_) { return fallback as T; }
+  try { const v: unknown = JSON.parse(settings[key] || ''); return (v ?? fallback) as T; } catch (_) { return fallback as T; }
 }
 
 // ---------------------------------------------------------------------------

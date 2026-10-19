@@ -160,7 +160,7 @@ async function sendOne(settings: Settings, sub: Subscriber, { kind, subject, hea
           subject: str(subject, 150), htmlContent: htmlBody, textContent: text, headers, tags: [kind] }),
       });
       const t = res.body.toString('utf8').slice(0, 400);
-      let j = null;
+      let j: { message?: string; code?: string } | null = null;
       try { j = JSON.parse(t); } catch (_) { /* not JSON */ }
       if (res.status === 401) throw new Error('Brevo-র API Key মিলছে না — Brevo → SMTP & API → API Keys থেকে নতুন Key দিন');
       if (res.status < 200 || res.status >= 300) throw new Error(`Brevo: ${(j && (j.message || j.code)) || 'HTTP ' + res.status}`);
@@ -327,12 +327,12 @@ async function tick(settings: Settings) {
   const c = cfg(settings);
   if (!c.on || !c.ready) return { skipped: true };
   if (!(await $security.hit(db, 'mail:tick', 1, 240))) return { busy: true };
-  await weekly(settings).catch((e) => console.error('mail weekly', e.message));
+  await weekly(settings).catch((e: Error) => console.error('mail weekly', e.message));
   let left = Math.min(await leftToday(settings), 120); // one run stays well inside the 60-second limit
   const out: Record<string, number> = {};
   out.welcome = await welcome(settings, left).catch(() => 0); left -= out.welcome;
   out.review = await review(settings, left).catch(() => 0); left -= out.review;
-  out.campaigns = await runCampaigns(settings, left).catch((e) => { console.error('mail campaigns', e.message); return 0; }); left -= out.campaigns;
+  out.campaigns = await runCampaigns(settings, left).catch((e: Error) => { console.error('mail campaigns', e.message); return 0; }); left -= out.campaigns;
   out.winback = await winback(settings, left).catch(() => 0);
   return out;
 }

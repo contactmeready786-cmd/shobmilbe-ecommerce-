@@ -55,7 +55,7 @@ async function keepPrivate(id?: Id): Promise<void> {
 async function mediaWithoutHash(limit = 40): Promise<Pick<MediaRow, 'id'>[]> {
   return q<Pick<MediaRow, 'id'>>(`SELECT id FROM media WHERE owner_type='product' AND phash IS NULL ORDER BY id DESC LIMIT $1`, [limit]);
 }
-async function setMediaHash(id: Id, phash: unknown, phashM: unknown): Promise<void> {
+async function setMediaHash(id: unknown, phash: unknown, phashM: unknown): Promise<void> {
   const h = cleanHash(phash);
   if (h === null) return;
   await q('UPDATE media SET phash=$1, phash_m=$2 WHERE id=$3 AND phash IS NULL', [h, h ? cleanHash(phashM) : '', int(id)]);
@@ -640,8 +640,7 @@ async function saveProduct(data: Body & { bundle?: { product_id: unknown; qty: u
   const type = data.product_type === 'bundle' ? 'bundle' : 'single';
   const hasVariants = int(data.id) ? !!(await one('SELECT 1 AS x FROM products WHERE id=$1 AND variant_count > 0', [int(data.id)])) : false;
   if (!hasVariants) { const pp = priceProblem(shopPrice(amount(data.price)), 'বিক্রির দাম'); if (pp) throw new Error(pp); }
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- one value per products column
-  const f: Record<string, any> = {
+  const f: Record<string, unknown> = {
     name: str(data.name, 140),
     category_id: int(data.category_id) || null,
     price: shopPrice(amount(data.price)),
@@ -692,7 +691,8 @@ async function saveProduct(data: Body & { bundle?: { product_id: unknown; qty: u
     f.warranty = w === 'custom' ? (str(data.warranty_custom, 60) ? 'c:' + str(data.warranty_custom, 60) : '') : (WARRANTY[w] ? w : '');
     f.warranty_type = f.warranty && WARRANTY_TYPES[String(data.warranty_type)] ? data.warranty_type : '';
   }
-  const images = (Array.isArray(data.images) ? data.images : String(data.images || '').split(','))
+  const given: unknown[] = Array.isArray(data.images) ? data.images : String(data.images || '').split(',');
+  const images = given
     .map((x) => int(x)).filter((x) => x > 0).filter((x, i, a) => a.indexOf(x) === i).slice(0, MAX_PRODUCT_IMAGES);
   const parts: StockPart[] = (data.bundle || []).map((b) => ({ product_id: int(b.product_id), qty: Math.max(1, int(b.qty, 1)) }))
     .filter((b: StockPart) => b.product_id > 0);

@@ -94,7 +94,7 @@ async function sendAll(msg?: { title: string; body: string; url: string; tag: st
   const v = await vapid();
   let ok = 0;
   let lastErr = null;
-  await Promise.all(subs.map((s) => sendOne(s, msg, v).then((r) => { if (r === 'ok') ok += 1; }).catch((e) => { lastErr = e; })));
+  await Promise.all(subs.map((s) => sendOne(s, msg, v).then((r) => { if (r === 'ok') ok += 1; }).catch((e: Error) => { lastErr = e; })));
   if (!ok && lastErr) throw lastErr;
   return ok;
 }

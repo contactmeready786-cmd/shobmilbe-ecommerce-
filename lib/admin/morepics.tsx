@@ -22,7 +22,7 @@
 //   3. GET  /admin/api/import/image    — (existing) bring each picture safely; the browser
 //                                         resizes + fingerprints + uploads it
 //   4. POST /admin/api/morepics/attach — add the uploaded pictures to the product (no repeats)
-import { int, str } from '../util';
+import { int, str, arr } from '../util';
 import * as catalog from '../models/catalog';
 import { hamming } from '../models/duplicates';
 import * as security from '../security';
@@ -165,19 +165,19 @@ async function pageApi(ctx: AdminCtx) {
 // public product API gives the full picture list ("gallery") for exactly that product — read it there.
 const STOREX_API = 'https://api-live.storex.com.bd/api/v4';
 const STOREX_CDN = 'https://media-cdn.storex.dev';
-const tenants = new Map();
+const tenants = new Map<string, string | null | undefined>();
 async function storexTenant(origin: string) {
   if (tenants.has(origin)) return tenants.get(origin);
   const r = await safeFetch(STOREX_API + '/stores/store-id', { method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ siteUrl: origin }), accept: 'application/json', timeoutMs: 8000, maxBytes: 200000 });
-  let id = null;
-  try { const j = JSON.parse(r.body.toString('utf8')); id = j && j.success && j.data && /^[a-z0-9]{4,40}$/i.test(j.data.storeId) ? j.data.storeId : null; } catch (_) { id = null; }
+  let id: string | null | undefined = null;
+  try { const j = JSON.parse(r.body.toString('utf8')) as { success?: boolean; data?: { storeId?: string } } | null; id = j && j.success && j.data && /^[a-z0-9]{4,40}$/i.test(String(j.data.storeId)) ? j.data.storeId : null; } catch (_) { id = null; }
   tenants.set(origin, id);
   return id;
 }
 // null = not a StoreX product page (fall back to reading the page); otherwise { images, confirmed }
 async function storexGallery(link: string | URL, main: string) {
-  let u;
+  let u: URL;
   try { u = new URL(link); } catch (_) { return null; }
   const m = u.pathname.match(/^\/products\/([^/?#]+)\/?$/);
   if (!m) return null;
@@ -185,16 +185,16 @@ async function storexGallery(link: string | URL, main: string) {
   if (!tenant) return null;
   const r = await safeFetch(`${STOREX_API}/products/${encodeURIComponent(decodeURIComponent(m[1]))}`, { headers: { 'x-tenant-id': tenant }, accept: 'application/json', timeoutMs: 10000, maxBytes: 2 * 1024 * 1024 });
   if (r.status === 404) return { images: [], confirmed: false, error: 'পুরোনো সাইটে পণ্যটি আর নেই' };
-  let d;
-  try { d = JSON.parse(r.body.toString('utf8')).data; } catch (_) { return null; }
+  let d: { gallery?: unknown; gallery_folder?: string } | null | undefined;
+  try { d = (JSON.parse(r.body.toString('utf8')) as { data?: typeof d }).data; } catch (_) { return null; }
   if (!d || !Array.isArray(d.gallery) || !/^[a-z0-9]{6,60}$/i.test(String(d.gallery_folder || ''))) return null;
-  const files = d.gallery.filter((f: string) => typeof f === 'string' && /^[\w.%-]{3,200}\.(webp|jpe?g|png|gif)$/i.test(f));
-  const images = files.map((f: unknown) => `${STOREX_CDN}/${tenant}/images/products/${d.gallery_folder}/${f}`);
+  const files = (d.gallery as unknown[]).filter((f): f is string => typeof f === 'string' && /^[\w.%-]{3,200}\.(webp|jpe?g|png|gif)$/i.test(f));
+  const images = files.map((f) => `${STOREX_CDN}/${tenant}/images/products/${d.gallery_folder}/${f}`);
   // the product's own picture list — sure it's this product when its main picture is in the list
   const name = (x: string) => decodeURIComponent(String(x || '').split('?')[0].split('/').pop() || '').toLowerCase();
   const mainName = name(main);
-  const confirmed = !main || String(main).includes(d.gallery_folder)
-    || files.some((f: string) => f.toLowerCase() === mainName || mainName.includes(f.toLowerCase().replace(/\.[a-z]+$/, '')));
+  const confirmed = !main || String(main).includes(String(d.gallery_folder))
+    || files.some((f) => f.toLowerCase() === mainName || mainName.includes(f.toLowerCase().replace(/\.[a-z]+$/, '')));
   return { images, confirmed, rule: 'storex' };
 }
 
@@ -228,7 +228,7 @@ async function attachApi(ctx: AdminCtx) {
   const b = await ctx.body();
   const pid = int(b.product_id);
   const max = Math.min(catalog.MAX_PRODUCT_IMAGES, Math.max(2, int(b.max, catalog.MAX_PRODUCT_IMAGES)));
-  const ids = (Array.isArray(b.ids) ? b.ids : []).map((x) => int(x)).filter((x) => x > 0).slice(0, 20);
+  const ids = arr(b.ids).map((x) => int(x)).filter((x) => x > 0).slice(0, 20);
   const p = await db.one<Pick<ProductsRow, 'id' | 'name'>>('SELECT id, name FROM products WHERE id=$1', [pid]);
   if (!p) return ctx.json(404, { error: 'পণ্যটি পাওয়া যায়নি' });
   const result = await db.tx(async (t) => {
