@@ -660,10 +660,35 @@ function zoomPictures(): void {
   });
 }
 
+// 📐 Two columns of different length (a long form beside a short box): the short one follows while the page scrolls, so
+// the page has no big empty half. Only when the short one fits on the screen; never on phones (one column there).
+function stickySides(): void {
+  const rows = $all<HTMLElement>('#main .two-col');
+  if (!rows.length || typeof ResizeObserver === 'undefined') return;
+  const check = () => {
+    const wide = window.matchMedia('(min-width: 901px)').matches;
+    for (const row of rows) {
+      const cols = [...row.children].filter((c): c is HTMLElement => c instanceof HTMLElement);
+      for (const c of cols) c.classList.remove('is-sticky');
+      if (!wide || cols.length !== 2) continue;
+      const [a, b] = cols.map((c) => c.getBoundingClientRect().height);
+      const short = a < b ? cols[0] : cols[1];
+      const diff = Math.abs(a - b);
+      if (diff > 160 && Math.min(a, b) < window.innerHeight - 100) short.classList.add('is-sticky');
+    }
+  };
+  let t = 0;
+  const later = () => { clearTimeout(t); t = window.setTimeout(check, 120); };
+  const ro = new ResizeObserver(later);
+  for (const row of rows) for (const c of row.children) ro.observe(c);
+  window.addEventListener('resize', later);
+  check();
+}
+
 export function startCore(): void {
   for (const [name, start] of [
     ['refresh', refreshButton], ['side menu', sideMenu], ['save reminder', saveReminder], ['confirmations', confirmations],
-    ['helpers', smallHelpers], ['live parts', liveParts], ['instant saves', instantSaves], ['lists', lists], ['jobs', jobs], ['zoom', zoomPictures],
+    ['helpers', smallHelpers], ['live parts', liveParts], ['instant saves', instantSaves], ['lists', lists], ['jobs', jobs], ['zoom', zoomPictures], ['sticky sides', stickySides],
   ] as [string, () => void][]) {
     try { start(); } catch (e) { console.error(`সবমিলবে admin: ${name} could not start`, e); }
   }

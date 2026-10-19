@@ -1462,3 +1462,72 @@ html[data-admin-lang="en"] .side-drop[data-side-group="দোকানের ড
 #main.admin-main .date-filter input[type=date]:focus { outline: none; border-color: var(--v2-blue); box-shadow: 0 0 0 3px #DBE6FE; }
 #main.admin-main .date-filter .btn { min-height: 38px; }
 #main.admin-main .flash { border-radius: 12px; }
+
+/* ================================================================================================
+   2026-10-20 · Page layout standard (owner: boxes of random sizes, lone boxes, half-empty columns, very wide fields).
+   The same few sizes everywhere, the way admin software lays pages out:
+     • a row of figures (.kpis) is ONE row on a computer — 4, 5 or 6 equal boxes, never 5 + a lone one; on a tablet /
+       phone two per row, and an odd last box takes the whole row. The first row of figures is the main one; rows
+       right after it are smaller ("secondary") so the important numbers stand out.
+     • two boxes side by side (.grid-2) are 2/3 + 1/3 (a chart and its summary); three (.grid-3) are thirds;
+       boxes in one row are always the same height.
+     • a form column with a short side column (.two-col): the short side follows while scrolling (client/admin/core.tsx
+       stickySides), so no half-empty page.
+     • fields have a sensible width: names, links and choices up to 560px, numbers / phones / codes up to 280px;
+       only long text boxes take the whole width. A button is never as wide as the page.
+   ================================================================================================ */
+#main.admin-main .kpis { display: grid; gap: 12px; margin-bottom: 16px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+#main.admin-main .kpis > .kpi:last-child:nth-child(odd) { grid-column: 1 / -1; }
+@media (min-width: 1000px) {
+  #main.admin-main .kpis { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); }
+  #main.admin-main .kpis > .kpi:last-child:nth-child(odd) { grid-column: auto; }
+  /* more than 6 figures: rows of 4 (8 → 4 + 4); a small :has() on the row itself, which is cheap */
+  #main.admin-main .kpis:has(> :nth-child(7)) { grid-auto-flow: row; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+#main.admin-main .kpi { padding: 14px 16px; min-height: 0; gap: 2px; }
+#main.admin-main .kpi-value { font-size: 1.45rem; line-height: 1.2; }
+/* rows of figures right after the first one: the same boxes, smaller */
+#main.admin-main .kpis + .kpis { margin-top: -4px; }
+#main.admin-main .kpis + .kpis .kpi { padding: 10px 14px; }
+#main.admin-main .kpis + .kpis .kpi-value { font-size: 1.15rem; }
+#main.admin-main .kpis + .kpis .kpi-label { font-size: .8rem; }
+#main.admin-main .kpis + .kpis .kpi-sub { font-size: .75rem; }
+#main.admin-main .kpis + .kpis .kpi.kpi-alert, #main.admin-main .kpis + .kpis .kpi.kpi-blue, #main.admin-main .kpis + .kpis .kpi.kpi-green, #main.admin-main .kpis + .kpis .kpi.kpi-amber, #main.admin-main .kpis + .kpis .kpi.kpi-red { border-top-width: 2px; }
+
+#main.admin-main .grid-2 { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 20px; align-items: stretch; margin-bottom: 20px; }
+#main.admin-main .grid-3 { gap: 20px; align-items: stretch; margin-bottom: 20px; }
+#main.admin-main :is(.grid-2, .grid-3) > .panel { margin-bottom: 0; display: flex; flex-direction: column; min-width: 0; }
+#main.admin-main :is(.grid-2, .grid-3) > .panel > :is(.chart, .donut, .hbars, .hours, .table-wrap, table) { flex: 1 1 auto; }
+#main.admin-main :is(.grid-2, .grid-3) > .panel > * { min-width: 0; }
+#main.admin-main .hours { grid-template-columns: repeat(12, minmax(0, 1fr)); }
+@media (max-width: 900px) { #main.admin-main .hours { grid-template-columns: repeat(8, minmax(0, 1fr)); } }
+#main.admin-main .chart svg { max-height: 280px; }
+#main.admin-main .donut { justify-content: center; align-content: center; }
+#main.admin-main .donut svg { width: 150px; height: 150px; flex: none; }
+#main.admin-main .dn-legend { font-size: .85rem; }
+#main.admin-main .section-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+#main.admin-main .section-head h2 { margin: 0; }
+
+#main.admin-main .two-col { gap: 20px; align-items: start; }
+#main.admin-main .two-col > .is-sticky { position: sticky; top: 76px; }
+#main.admin-main .two-col > div > .panel:last-child, #main.admin-main .two-col > .panel:last-child { margin-bottom: 0; }
+#main.admin-main .two-col > div > .panel + .panel { margin-top: 0; }
+
+#main.admin-main .field > :is(input:not([type=radio]):not([type=checkbox]):not([type=file]):not([type=color]):not([type=range]):not([type=hidden]), select),
+#main.admin-main .field > label > :is(input:not([type=radio]):not([type=checkbox]):not([type=file]):not([type=color]):not([type=range]):not([type=hidden]), select) { max-width: 560px; }
+#main.admin-main .field :is(input[type=number], input[type=tel], input[type=date], input[type=time], .w-num) { max-width: 280px; }
+#main.admin-main .field-row .field :is(input, select) { max-width: none; }
+#main.admin-main .btn-block { max-width: 360px; }
+#main.admin-main .panel > .btn:only-child { align-self: flex-start; }
+#main.admin-main .panel p.muted.small, #main.admin-main .panel .help-line { max-width: 80ch; }
+@media (max-width: 900px) {
+  #main.admin-main .kpis { gap: 10px; margin-bottom: 12px; }
+  #main.admin-main .kpi { padding: 10px 12px; }
+  #main.admin-main .kpi-value { font-size: 1.2rem; }
+  #main.admin-main .kpi-label { font-size: .8rem; line-height: 1.35; }
+  #main.admin-main .kpi-sub { font-size: .74rem; }
+  #main.admin-main .grid-2, #main.admin-main .grid-3 { grid-template-columns: minmax(0, 1fr); }
+  #main.admin-main .two-col > .is-sticky { position: static; }
+  /* a table sitting straight in a box (not in a scrolling .table-wrap) scrolls sideways instead of being cut off */
+  #main.admin-main .panel > table.table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+}
