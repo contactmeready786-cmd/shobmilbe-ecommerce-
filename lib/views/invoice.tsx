@@ -41,7 +41,16 @@ const siteOf = (s: Settings) => String(s.site_url || '').replace(/\/+$/, '');
 const bare = (u: string) => u.replace(/^https?:\/\//, '');
 // The shop's mark: the uploaded logo, or the "সব" tile + two-colour "সবমিলবে" wordmark
 function brandMark(s: Settings, cls = '') {
-  if (s.logo_id) return <img className={`dc-logo-img ${attrValue(cls)}`} src={`/media/${attrValue(s.logo_id)}`} alt={attrValue(s.store_name)} />;
+  if (s.logo_id) {
+    // An uploaded logo is drawn the size of the written name it replaces (about as tall as the "সব" tile + wordmark
+    // block reads), not as big as it may get: the checklist/invoice header 44px, the parcel label 26px. Its width and
+    // height (saved with the logo) let the paper keep the logo's place even before the picture has arrived.
+    const w = Number(s.logo_w), h = Number(s.logo_h);
+    const size = w > 0 && h > 0 ? { width: w, height: h } : {};
+    const small = String(cls).includes('lb');
+    return <img className={`dc-logo-img ${attrValue(cls)}`} src={`/media/${attrValue(s.logo_id)}`} alt={attrValue(s.store_name)} {...size}
+      style={{ height: small ? '26px' : '44px', width: 'auto', maxHeight: 'none', maxWidth: small ? '150px' : '260px', objectFit: 'contain', objectPosition: 'left center', verticalAlign: 'middle' }} />;
+  }
   const name = s.store_name || 'সবমিলবে';
   return <><img className={`dc-mark ${attrValue(cls)}`} src="/brand/favicon-192.png" alt="" aria-hidden="true" /><span className="dc-word">{(name === 'সবমিলবে' ? <><b className="a">সব</b><b className="b">মিলবে</b></> : <b className="a"><Val v={name} /></b>)}</span></>;
 }

@@ -1277,8 +1277,11 @@ body.admin { background: #F4F6FA; --side: 248px; --v2-line: #E4E8EF; --v2-line-2
 .side-logo { background: transparent; padding: 6px 10px 18px; margin-bottom: 4px; border-radius: 0; border-bottom: 1px solid rgba(255,255,255,.06); }
 .side-logo .logo-a { color: #fff; }
 .side-logo small { color: #8FA0BD; font-size: .72rem; font-weight: 600; letter-spacing: .03em; }
-.side-logo .logo-img { box-sizing: content-box; height: 30px; max-height: none; width: auto; max-width: 148px; margin: 0; padding: 5px 9px; background: #fff; border-radius: 8px; object-fit: contain; }
-.side-logo { gap: 10px; }
+/* an uploaded logo takes the place the written name had (same size as in the shop's header: style.css .logo-img), on a
+   small white chip so its colours read well on the dark menu */
+.side-logo .logo-img { box-sizing: content-box; height: .985em; max-height: none; width: auto; max-width: 5em; margin: -.1em 0 0; padding: 3px 7px; background: #fff; border-radius: 7px; object-fit: contain; }
+.side-logo { gap: 0; } /* the written name's two parts (সব + মিলবে) stay one word */
+.side-logo small { margin-left: 10px; }
 .side a, .side-drop > summary { color: #B4BED1; font-size: .92rem; font-weight: 500; padding: 8px 10px; gap: 12px; border-radius: 8px; }
 .side a:hover, .side-drop > summary:hover { background: rgba(255,255,255,.06); color: #fff; }
 .side-drop.has-on > summary, .side-drop[open] > summary { color: #fff; font-weight: 600; }
