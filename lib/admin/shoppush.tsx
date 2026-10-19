@@ -7,7 +7,7 @@ import { int, str, bn, fmtDate } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
 import * as push from '../services/push';
-import type { AdminCtx, Loose, Settings } from '../types';
+import type { AdminCtx, Settings } from '../types';
 
 const BASE = '/admin/marketing/push';
 const BATCH = 300; // phones per click
@@ -22,7 +22,7 @@ async function page(ctx: AdminCtx, note: ui.Flash | null = null) {
   return ctx.page('অফারের নোটিফিকেশন', body, 'shoppush');
 }
 
-function message(s: Settings, c?: Loose) {
+function message(s: Settings, c: PushCampaignsRow) {
   const base = String(s.site_url || '').replace(/\/+$/, '');
   const url = /^https?:\/\//i.test(c.url) || !base ? (c.url || '/') : base + (c.url.startsWith('/') ? c.url : '/' + c.url);
   return { title: c.title, body: c.body, url: c.url && c.url.startsWith('/') ? c.url : url, tag: 'offer-' + c.id, image: c.image_id ? `${base}/media/${c.image_id}` : undefined, icon: s.favicon_id ? `${base}/media/${s.favicon_id}/t` : undefined };
@@ -53,7 +53,7 @@ async function post(ctx: AdminCtx) {
     if (!c) return ctx.back(BASE);
   } else return ctx.back(BASE);
   const cursor = int(s[`push_cursor_${c!.id}`]);
-  const r = await push.shopSendBatch(message(s, c), { afterId: cursor, limit: BATCH });
+  const r = await push.shopSendBatch(message(s, c!), { afterId: cursor, limit: BATCH });
   await db.setSetting(`push_cursor_${c!.id}`, String(r.lastId));
   const upd = await db.one<PushCampaignsRow>('UPDATE push_campaigns SET sent=sent+$1, failed=failed+$2, total=CASE WHEN $3 THEN sent+$1+failed+$2 ELSE total END WHERE id=$4 RETURNING *', [r.sent, r.failed, r.done, c!.id]);
   await ctx.log('push_campaign', 'marketing', c!.id, `নোটিফিকেশন "${c!.title}": ${r.sent} জন`);

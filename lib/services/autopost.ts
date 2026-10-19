@@ -12,7 +12,7 @@ import * as C from '../data/fbcontent';
 import * as $dupcanon from './dupcanon';
 import * as $seo from './seo';
 import * as $models_kits from '../models/kits';
-import type { Body, Id, Loose, Settings, Caught } from '../types';
+import type { Body, Id, Settings, Caught } from '../types';
 import type { CategoriesRow, KitsRow, MediaRow, SocialPostsRow, ProductsRow } from '../data/rows';
 
 const GRAPH = 'https://graph.facebook.com/v21.0';

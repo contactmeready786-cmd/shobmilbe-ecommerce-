@@ -8,7 +8,7 @@ import * as db from '../db';
 import * as ui from './ui';
 import * as G from '../models/giftcards';
 import * as finance from '../models/finance';
-import type { AdminCtx, Loose, RouteMatch } from '../types';
+import type { AdminCtx, RouteMatch } from '../types';
 
 const BASE = '/admin/giftcards';
 const PILL: Record<string, string> = { pending: 'pill-warn', active: 'pill-ok', used: '', disabled: '', expired: '' };

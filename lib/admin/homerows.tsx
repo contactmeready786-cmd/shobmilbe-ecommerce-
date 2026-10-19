@@ -7,7 +7,7 @@ import * as ui from './ui';
 import * as H from '../models/homerows';
 import * as catalog from '../models/catalog';
 import * as $design from './design';
-import type { AdminCtx, Loose, RouteMatch } from '../types';
+import type { AdminCtx, RouteMatch } from '../types';
 import type { BrandsRow, HomeRowsRow } from '../data/rows';
 
 const BASE = '/admin/design/rows';
@@ -29,7 +29,7 @@ async function page(ctx: AdminCtx) {
   const { labels, own } = await allLabels();
   const enabled = db.jsonSetting<string[]>(s, 'home_sections', []).filter((k) => labels[k]);
   const ordered = [...enabled, ...Object.keys(labels).filter((k) => !enabled.includes(k))];
-  const counts = new Map(await Promise.all(own.map(async (r): Promise<[Loose, number]> => [r.id, (await H.productsFor(r, {}).catch(() => [])).length])));
+  const counts = new Map(await Promise.all(own.map(async (r): Promise<[unknown, number]> => [r.id, (await H.productsFor(r, {}).catch(() => [])).length])));
   const body = <><h1>🏠 হোমপেজের সারি</h1>{ui.flash(ctx.flash)}<p className="muted">হোমপেজে কোন কোন সারি দেখাবে, কোনটা আগে-পরে — সব এখানে। আগে থেকে থাকা সারির পাশাপাশি{' '}<b>নিজের নতুন সারি</b>{' '}বানাতে পারবেন (যেমন "শীতের অফার", "৳৫০ এর নিচে রিমোট", "নতুন সোল্ডারিং টুলস")।</p><p><a className="btn" href={`${attrValue(BASE)}/new`}>➕ নতুন সারি বানান</a></p><section className="panel"><h2>সব সারি — ক্রম ও চালু/বন্ধ</h2><p className="small muted">▲▼ দিয়ে ক্রম বদলান, টিক দিয়ে চালু/বন্ধ করুন, তারপর "ক্রম সেভ করুন" চাপুন। ✨ চিহ্ন = আপনার নিজের সারি।</p><form method="post" action={`${attrValue(BASE)}/order`} className="form"><ul className="sortable" data-sortable="">{jsxList(ordered.map((k) => {
     const id = H.idOf(k);
     return <li><input type="hidden" name="section_order[]" defaultValue={attrValue(k)} />{' '}{ui.check('section_on[]', enabled.includes(k), labels[k], k)}{' '}{(id ? <><span className="small muted">({bn(counts.get(id) || 0)}টি পণ্য)</span>{' '}<a className="small" href={`${attrValue(BASE)}/${attrValue(id)}`}>✏️ এডিট</a></> : null)}{' '}<span className="sort-btns"><button type="button" data-up="" aria-label="উপরে">▲</button><button type="button" data-down="" aria-label="নিচে">▼</button></span></li>;

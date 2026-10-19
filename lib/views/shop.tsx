@@ -16,7 +16,7 @@ import * as $models_kits from '../models/kits';
 import * as $services_courier from '../services/courier';
 import * as $models_selfservice from '../models/selfservice';
 import * as $models_complaints from '../models/complaints';
-import type { Body, Id, Loose, Settings } from '../types';
+import type { Body, Id, Settings } from '../types';
 import type { DbRow } from '../pg';
 import type { BannersRow, FlashSalesRow, HomeRowsRow } from '../data/rows';
 import type { BrandCount, Category, CategoryNode, FullProduct, Product, SpecFacet } from '../models/catalog';
@@ -442,25 +442,19 @@ type TrackPageProps = {
   phone?: string;
 };
 function trackPage({ error, code, phone }: TrackPageProps) { return (createElement(R.TrackPage, { error, code, phone })); }
-type BlogListProps = {
-  posts: DbRow[];
-  categories: DbRow[];
-  category?: DbRow | null;
-};
+type BlogListProps = Parameters<typeof R.BlogList>[0];
 function blogList({ posts, categories, category }: BlogListProps) { return (createElement(R.BlogList, { posts, categories, category })); }
 function blogPost({ post, contentHtml, related }: { post: Post & Record<string, unknown>; contentHtml?: string; related: PostSummary[] }) { return (createElement(R.BlogPost, { post, contentHtml, related })); }
-type StaticPageProps = {
-  page: DbRow;
-};
+type StaticPageProps = Parameters<typeof R.StaticPage>[0];
 function staticPage({ page }: StaticPageProps) { return (createElement(R.StaticPage, { page })); }
 function notFound() { return (createElement(R.NotFound)); }
-function postCard(p?: unknown) { return (createElement(R.PostCard, { p })); }
+function postCard(p: PostSummary) { return (createElement(R.PostCard, { p })); }
 
 // ---------------------------------------------------------------- live scores
 type LivePageProps = {
   sport: string;
   on: Record<string, boolean>;
-  data: Loose;
+  data: unknown;
   embed: string | false;
   settings: Settings;
 };

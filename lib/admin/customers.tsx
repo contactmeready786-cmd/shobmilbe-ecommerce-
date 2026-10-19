@@ -7,7 +7,7 @@ import * as O from '../models/orders';
 import * as ui from './ui';
 import * as db from '../db';
 import * as $services_xlsx from '../services/xlsx';
-import type { AdminCtx, Loose, RouteMatch, Settings } from '../types';
+import type { AdminCtx, RouteMatch, Settings } from '../types';
 import type { CustomersRow, OrdersRow } from '../data/rows';
 function canDelete(ctx: AdminCtx) { return ctx.user.role === 'owner' && ctx.settings.customer_delete_on === '1'; }
 function deleteSwitch(ctx: AdminCtx) {

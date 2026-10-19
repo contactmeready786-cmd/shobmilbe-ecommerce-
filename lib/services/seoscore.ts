@@ -3,7 +3,6 @@
 import type { ProductsRow } from '../data/rows';
 import * as db from '../db';
 import * as $services_seo from './seo';
-import type { Loose } from '../types';
 
 const SEO_WEIGHTS = { image: 20, text: 20, textLong: 10, model: 12, specs: 10, category: 10, gallery: 6, brand: 4, title: 4, reviews: 4 };
 type SeoRow = Pick<ProductsRow, 'id' | 'name' | 'sku' | 'seo_title' | 'seo_description' | 'short_description' | 'description' | 'image_id' | 'category_id' | 'noindex' | 'model' | 'brand' | 'rating_count'>
@@ -31,12 +30,14 @@ async function seoProblems() {
       (SELECT count(*) FROM media m WHERE m.owner_type='product' AND m.owner_id=p.id)::int AS pics,
       (SELECT count(*) FROM products x WHERE x.active AND lower(x.name)=lower(p.name) AND x.id<>p.id)::int AS same_name
     FROM products p WHERE p.active AND p.parent_id IS NULL ORDER BY p.id`);
-  const out: Loose[] = [];
+  /** [kind, what to fix] — kind is bad / warn / info */
+  type Why = [string, string];
+  const out: (SeoRow & { score: number; why: Why[] })[] = [];
   const seo = $services_seo;
   const autoOn = (await db.getSettings()).autoseo_desc !== '0';
   let sum = 0;
   for (const p of rows) {
-    const why: Loose[] = [];
+    const why: Why[] = [];
     p.auto_desc = autoOn;
     const title = seo.productTitle(p);
     p.score = seoScore(p, seo);
@@ -56,7 +57,7 @@ async function seoProblems() {
     if (!p.category_id) why.push(['warn', 'ক্যাটাগরি নেই']);
     if (p.same_name) why.push(['warn', 'একই নামের আরেকটা পণ্য আছে']);
     if (p.noindex) why.push(['info', 'noindex — গুগলে দেখাবে না']);
-    if (why.length) out.push({ ...p, why });
+    if (why.length) out.push({ ...p, score: p.score!, why });
   }
   return { total: rows.length, list: out, avg: rows.length ? Math.round(sum / rows.length) : 0, perfect: rows.filter((p) => p.score! >= 90).length };
 }

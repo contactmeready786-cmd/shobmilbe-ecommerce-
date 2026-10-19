@@ -6,7 +6,7 @@ import { bn, fmtDate, int, str, csv, dateRange, pageNum, validYmd, ifKey } from 
 import * as db from '../db';
 import * as ui from './ui';
 import * as sessions from '../models/sessions';
-import type { AdminCtx, Body, Loose, ShopQuery } from '../types';
+import type { AdminCtx, Body, ShopQuery } from '../types';
 import type { ActivityLogRow, StaffRow } from '../data/rows';
 const ENTITIES: Record<string, string> = {
   product: '📦 পণ্য', order: '🧾 অর্ডার', customer: '👤 কাস্টমার', category: '🗂️ ক্যাটাগরি', brand: '🏷️ ব্র্যান্ড', staff: '🧑‍💼 স্টাফ',
@@ -14,7 +14,7 @@ const ENTITIES: Record<string, string> = {
   design: '🎨 ডিজাইন', supplier: '🚚 সাপ্লায়ার', purchase: '🛒 পারচেজ', transaction: '💰 হিসাব', accounting: '💰 হিসাব', trash: '🗑️ রিসাইকেল বিন',
   translation: '🌐 অনুবাদ', payments: '💳 পেমেন্ট', courier: '🛵 কুরিয়ার', domain: '🌐 ডোমেইন', account: '🏦 অ্যাকাউন্ট',
 };
-const ACTIONS: Record<string, Loose> = {
+const ACTIONS: Record<string, string> = {
   login: 'লগইন', login_step: 'পাসওয়ার্ড ঠিক, দ্বিতীয় যাচাই বাকি', password: 'নিজের পাসওয়ার্ড বদল', password_reset: 'পাসওয়ার্ড রিসেট', reset_mail: 'রিসেট লিংক পাঠানো',
   blocked: '⛔ আটকানো', product_add: 'পণ্য যোগ', product_edit: 'পণ্য এডিট', product_delete: 'পণ্য মুছা', product_dup_allow: 'ডুপ্লিকেট হলেও প্রকাশের অনুমতি',
   product_dup_blocked: 'ডুপ্লিকেট বলে সেভ আটকানো', price_change: '💲 দাম বদল', cost_change: '💲 কেনা দাম বদল', stock_adjust: 'স্টক বদল', product_bulk: 'একসাথে অনেক পণ্য বদল',
@@ -49,7 +49,7 @@ function filters(query: ShopQuery) {
     from: validYmd(r.from), to: validYmd(r.to),
   };
 }
-function where(f: Body, params?: Loose) {
+function where(f: Body, params: unknown[]) {
   const w: unknown[] = [];
   if (f.staffId) { params.push(f.staffId); w.push(`a.staff_id=$${params.length}`); }
   if (f.entity) { params.push(f.entity); w.push(`a.entity=$${params.length}`); }

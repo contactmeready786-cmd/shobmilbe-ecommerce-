@@ -10,7 +10,7 @@ import { str, int, normalizePhone, validPhone, bn } from '../util';
 import * as $catalog from './catalog';
 import * as $orders from './orders';
 import * as $services_sms from '../services/sms';
-import type { Body, Id, Loose, Settings } from '../types';
+import type { Body, Id, Settings } from '../types';
 import type { ComplaintNotesRow, ComplaintsRow } from '../data/rows';
 
 class ComplaintError extends Error {}

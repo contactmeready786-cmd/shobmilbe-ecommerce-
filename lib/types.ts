@@ -29,9 +29,6 @@ export type Form<K extends string = never> = Body & Partial<Record<K, string>>;
 export type Row = Record<string, any>;
 
 
-/** Old code that has not been given exact types yet. Searching for "Loose" finds every place still to tighten. */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- legacy: type me
-export type Loose = any;
 // What some admin pages save as JSON in the settings (read with db.jsonSetting<…>)
 /** Admin → মেনু: one header menu button or footer link */
 export type MenuLink = { label: string; url: string; on?: boolean };
@@ -77,7 +74,7 @@ export type AdminCtx = Base & {
   back: (to: string, msgKey?: string) => void;
   fail: (to: string, text: string) => void;
   log: (action: string, entity?: string, entityId?: number | string | null, detail?: unknown) => Promise<void>;
-  trash: (kind: string, id: number | string) => Promise<Loose>;
+  trash: (kind: string, id: number | string) => Promise<unknown>;
   markVerified: () => Promise<unknown>;
   newSession: (u: StaffUser) => Promise<string>;
   reloadSettings: () => Promise<Settings>;

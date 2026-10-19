@@ -10,7 +10,7 @@ import { resolveShop, type Resolved } from '../shop/router';
 import { resolveMore } from '../shop/more';
 import { resolveForms } from '../shop/forms';
 import { servesShopRouter, servesForms } from './routes';
-import type { Loose, Settings } from '../types';
+import type { Settings } from '../types';
 
 export const getSettings = cache(async (): Promise<Settings> => {
   await db.ensureReady();

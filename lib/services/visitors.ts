@@ -7,7 +7,7 @@
 import type { PageViewsRow, VisitEventsRow, VisitSessionsRow } from '../data/rows';
 import * as db from '../db';
 import { parseCookies, str, int } from '../util';
-import type { Body, Id, Loose, Settings, ShopRequest } from '../types';
+import type { Body, Id, Settings, ShopRequest } from '../types';
 
 const { q, one } = db;
 const DAY = (col: string) => `(${col} AT TIME ZONE 'Asia/Dhaka')::date`;
@@ -24,7 +24,7 @@ const BD_DISTRICTS = ['বান্দরবান', 'বরগুনা', 'ব�
   'মেহেরপুর', 'নারায়ণগঞ্জ', 'নেত্রকোণা', 'নরসিংদী', 'নড়াইল', 'নাটোর', 'চাঁপাইনবাবগঞ্জ', 'নীলফামারী', 'নোয়াখালী', 'নওগাঁ', 'পাবনা', 'পিরোজপুর', 'পটুয়াখালী',
   'পঞ্চগড়', 'রাজবাড়ী', 'রাজশাহী', 'রংপুর', 'রাঙ্গামাটি', 'শেরপুর', 'সাতক্ষীরা', 'সিরাজগঞ্জ', 'সিলেট', 'সুনামগঞ্জ', 'শরীয়তপুর', 'টাঙ্গাইল', 'ঠাকুরগাঁও'];
 
-let regionNames: Loose = null;
+let regionNames: Intl.DisplayNames | null = null;
 function countryName(code: string) {
   if (!code) return 'অজানা';
   try {
@@ -32,8 +32,8 @@ function countryName(code: string) {
     return regionNames.of(code) || code;
   } catch (_) { return code; }
 }
-function flag(code?: Loose) {
-  if (!/^[A-Z]{2}$/.test(code || '')) return '🌐';
+function flag(code?: unknown) {
+  if (typeof code !== 'string' || !/^[A-Z]{2}$/.test(code)) return '🌐';
   return String.fromCodePoint(...[...code].map((c) => 0x1F1E6 + c.charCodeAt(0) - 65));
 }
 function regionName(country: string, region: string | number) {
@@ -64,9 +64,9 @@ function geoFrom(req: ShopRequest) {
 
 // ---------------------------------------------------------------- browser / device
 const BOT_RE = /bot|crawl|spider|slurp|facebookexternalhit|facebookcatalog|meta-externalagent|bingpreview|headless|lighthouse|pagespeed|gtmetrix|pingdom|uptime|monitor|curl|wget|python|axios|node-fetch|go-http|java\/|okhttp|preview|whatsapp\/|telegrambot|discordbot|skypeuripreview|vercel/i;
-function isBot(ua?: Loose) { return !ua || ua.length < 20 || BOT_RE.test(ua); }
+function isBot(ua: string) { return !ua || ua.length < 20 || BOT_RE.test(ua); }
 
-function parseUA(ua?: Loose) {
+function parseUA(ua: string) {
   ua = String(ua || '');
   const tablet = /iPad|Tablet|PlayBook|Silk|(Android(?!.*Mobile))/i.test(ua);
   const mobile = !tablet && /Mobi|iPhone|iPod|Android|Opera Mini|IEMobile/i.test(ua);
@@ -190,7 +190,7 @@ function hostOf(u: string | URL) {
 type SourceOfOpts = {
   referrer: string;
   params: URLSearchParams;
-  ownHost: Loose;
+  ownHost: string;
   browser: string;
 };
 function sourceOf({ referrer, params, ownHost, browser }: SourceOfOpts) {
@@ -230,8 +230,8 @@ function cleanPath(p?: unknown) {
   } catch (_) { /* keep */ }
   return s.slice(0, 300);
 }
-function readJson(text?: Loose) {
-  try { const v = JSON.parse(text || '{}'); return v && typeof v === 'object' ? v : {}; } catch (_) { return {}; }
+function readJson(text?: unknown): Body {
+  try { const v = JSON.parse(String(text || '{}')); return v && typeof v === 'object' ? v : {}; } catch (_) { return {}; }
 }
 function shouldSkip(req: ShopRequest, settings: Settings) {
   if (settings.visitor_tracking === '0') return true;

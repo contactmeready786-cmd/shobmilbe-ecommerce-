@@ -7,7 +7,7 @@ import * as V from '../services/visitors';
 import * as ui from './ui';
 import * as charts from './charts';
 import * as $services_geolock from '../services/geolock';
-import type { AdminCtx, Loose, Settings, RouteMatch } from '../types';
+import type { AdminCtx, Settings, RouteMatch } from '../types';
 
 const BASE = '/admin/marketing/visitors';
 const PER_PAGE = 50;

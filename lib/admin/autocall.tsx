@@ -5,7 +5,7 @@ import * as db from '../db';
 import * as ui from './ui';
 import * as AC from '../services/autocall';
 import { saveKeys, secretInput } from './marketing';
-import type { AdminCtx, Loose, RouteMatch } from '../types';
+import type { AdminCtx, RouteMatch } from '../types';
 import type { Order } from '../models/orders';
 import type { OrderItemsRow, OrdersRow } from '../data/rows';
 

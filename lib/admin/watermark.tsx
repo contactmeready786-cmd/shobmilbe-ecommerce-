@@ -12,7 +12,7 @@ import * as db from '../db';
 import * as catalog from '../models/catalog';
 import * as security from '../security';
 import * as ui from './ui';
-import type { AdminCtx, Loose, RouteMatch, Settings } from '../types';
+import type { AdminCtx, RouteMatch, Settings } from '../types';
 import type { MediaRow } from '../data/rows';
 
 const TYPES: Record<string, unknown> = { domain: 'ওয়েবসাইটের ডোমেইন নাম', text: 'নিজের লেখা', logo: 'লোগো (ছবি)' };
@@ -26,11 +26,12 @@ function domainOf(ctx: AdminCtx) {
   const host = from(s.site_url || '') || String(ctx.req.headers['x-forwarded-host'] || ctx.req.headers.host || '').split(',')[0].split(':')[0].replace(/^www\./, '');
   return host && !/vercel\.app$|localhost|^\d/.test(host) ? host : 'shobmilbe.com';
 }
-function config(s?: Loose) {
+function config(s: Settings) {
+  const type = String(s.wm_type); const strength = String(s.wm_strength); const size = String(s.wm_size); const place = String(s.wm_place);
   return {
-    on: s.wm_on === '1', type: TYPES[s.wm_type] ? s.wm_type : 'domain', text: s.wm_type === 'text' ? (s.wm_text || '') : (s.wm_domain || ''),
-    logo: int(s.wm_logo_id) || int(s.logo_id) || null, strength: STRENGTH[s.wm_strength] ? s.wm_strength : 'normal',
-    size: SIZES[s.wm_size] ? s.wm_size : 'm', place: PLACES[s.wm_place] ? s.wm_place : 'auto', ver: s.wm_ver || '',
+    on: s.wm_on === '1', type: TYPES[type] ? type : 'domain', text: s.wm_type === 'text' ? (s.wm_text || '') : (s.wm_domain || ''),
+    logo: int(s.wm_logo_id) || int(s.logo_id) || null, strength: STRENGTH[strength] ? strength : 'normal',
+    size: SIZES[size] ? size : 'm', place: PLACES[place] ? place : 'auto', ver: s.wm_ver || '',
   };
 }
 

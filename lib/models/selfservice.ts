@@ -14,7 +14,6 @@ import * as $services_sms from '../services/sms';
 import * as $customers from './customers';
 import * as $checkoutotp from './checkoutotp';
 import type { Body, Id, Settings, ShopRequest } from '../types';
-import type { Loose } from '../types';
 
 /** What these changes read of an order (a row of orders; money columns may arrive as numbers or numeric text). */
 type Money = number | string | null | undefined;
@@ -73,12 +72,12 @@ async function cancel(order: SelfOrder | null, { reason, details }: { reason?: u
 
 // New name / number / address. Returns the new delivery charge and total.
 type ChangeOpts = {
-  name?: Loose;
-  phone?: Loose;
-  address?: Loose;
-  district?: Loose;
-  thana?: Loose;
-  otp_token?: Loose;
+  name?: unknown;
+  phone?: unknown;
+  address?: unknown;
+  district?: unknown;
+  thana?: unknown;
+  otp_token?: unknown;
 };
 async function change(order: SelfOrder | null, b: ChangeOpts, { req, settings }: { req: ShopRequest; settings: Settings }): Promise<{ delivery: number; total: number; oldDelivery: number; phoneChanged: boolean }> {
   const c = canChange(order);

@@ -5,7 +5,7 @@ import { bn, money, int } from '../util';
 import * as ui from './ui';
 import * as K from '../models/kits';
 import * as $db from '../db';
-import type { AdminCtx, Loose, RouteMatch } from '../types';
+import type { AdminCtx, RouteMatch } from '../types';
 
 const BASE = '/admin/kits';
 

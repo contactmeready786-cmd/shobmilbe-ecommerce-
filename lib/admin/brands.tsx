@@ -4,19 +4,19 @@ import { bn, int, str } from '../util';
 import * as catalog from '../models/catalog';
 import * as ui from './ui';
 import * as $db from '../db';
-import type { AdminCtx, Body, Loose, RouteMatch, Caught } from '../types';
+import type { AdminCtx, Body, Id, RouteMatch, Caught } from '../types';
 import type { BrandsRow } from '../data/rows';
 
 type FormProps = {
-  id?: Loose;
-  name?: Loose;
-  logo_id?: Loose;
-  description?: Loose;
-  seo_title?: Loose;
-  seo_description?: Loose;
-  noindex?: Loose;
-  sort?: Loose;
-  active?: Loose;
+  id?: unknown;
+  name?: unknown;
+  logo_id?: Id | null;
+  description?: unknown;
+  seo_title?: unknown;
+  seo_description?: unknown;
+  noindex?: unknown;
+  sort?: unknown;
+  active?: unknown;
 };
 function form(b: FormProps, error?: unknown) {
   const isNew = !b.id;

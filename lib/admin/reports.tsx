@@ -8,7 +8,7 @@ import * as O from '../models/orders';
 import * as ui from './ui';
 import * as charts from './charts';
 import * as xlsx from '../services/xlsx';
-import type { AdminCtx, Loose } from '../types';
+import type { AdminCtx } from '../types';
 import type { OrdersRow } from '../data/rows';
 
 const DAY = `(o.created_at AT TIME ZONE 'Asia/Dhaka')::date`;
@@ -96,9 +96,9 @@ async function page(ctx: AdminCtx) {
   const { from, to } = dateRange(ctx.query, 30);
   const seeCost = ctx.can('see_cost');
   const tabs = TABS.filter(([k]) => k !== 'profit' || seeCost);
-  const tab = tabs.some(([k]) => k === ctx.query.get('tab')) ? ctx.query.get('tab') : 'sales';
+  const tab = tabs.some(([k]) => k === ctx.query.get('tab')) ? ctx.query.get('tab')! : 'sales';
   const unit = oneOf(['day', 'week', 'month'], ctx.query.get('by'), 'day');
-  const qs = (extra?: Loose) => '?' + new URLSearchParams({ from, to, tab, ...(unit !== 'day' ? { by: unit } : {}), ...extra });
+  const qs = (extra: Record<string, string>) => '?' + new URLSearchParams({ from, to, tab, ...(unit !== 'day' ? { by: unit } : {}), ...extra });
   let content: unknown = '';
 
   if (tab === 'sales') {

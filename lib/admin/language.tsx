@@ -7,7 +7,7 @@ import { bn, int, str, oneOf } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
 import * as translate from '../services/translate';
-import type { AdminCtx, Body, Loose, Settings } from '../types';
+import type { AdminCtx, Body, Settings } from '../types';
 import type { TranslationsRow } from '../data/rows';
 
 const BASE = '/admin/design/language';
@@ -72,7 +72,7 @@ async function page(ctx: AdminCtx) {
 }
 
 type BackToProps = {
-  back?: Loose;
+  back?: unknown;
 };
 function backTo(b: BackToProps) { const v = str(b.back, 400); return v.startsWith(BASE) ? v : BASE; }
 

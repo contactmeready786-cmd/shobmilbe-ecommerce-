@@ -6,7 +6,6 @@ import * as content from '@/lib/models/content';
 import { blogCategory } from '@/lib/next/loaders';
 import { getSettings } from '@/lib/next/shop-data';
 import { shopMetadata, shopViewport } from '@/lib/next/meta';
-import type { Loose } from '@/lib/types';
 
 type Props = { params: Promise<{ slug: string }> };
 const load = (slug: string) => blogCategory(decodeURIComponent(slug));
@@ -21,6 +20,6 @@ export async function generateViewport(): Promise<Viewport> { return shopViewpor
 export default async function BlogCategory({ params }: Props) {
   const { cats, category } = await load((await params).slug);
   if (!category) notFound();
-  const posts = (await content.listPosts({ published: true, categorySlug: category.slug, limit: 60 })) as unknown[];
+  const posts = await content.listPosts({ published: true, categorySlug: category.slug, limit: 60 });
   return <BlogList posts={posts} categories={cats} category={category} />;
 }

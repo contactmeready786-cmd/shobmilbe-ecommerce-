@@ -2,7 +2,7 @@
 // the return / refund request form, and the gift card page.
 import { createElement } from 'react';
 import * as R from '../../components/shop/Account';
-import type { Body, Loose } from '../types';
+import type { Body } from '../types';
 
 function maskPhone(p?: unknown) { const s = String(p || ''); return s.length > 6 ? s.slice(0, 3) + '•'.repeat(s.length - 6) + s.slice(-3) : '•••'; }
 

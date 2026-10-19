@@ -6,7 +6,7 @@ import * as db from '../db';
 import * as ui from './ui';
 import * as U from '../services/uiswitch';
 import * as $homerows from './homerows';
-import type { AdminCtx, Loose, RouteMatch, Settings } from '../types';
+import type { AdminCtx, RouteMatch, Settings } from '../types';
 
 const BASE = '/admin/design/switches';
 const HOME_LABELS: Record<string, unknown> = {

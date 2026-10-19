@@ -4,7 +4,7 @@ import { bn, int, str, money, fmtDate, normalizePhone, validPhone } from '../uti
 import * as db from '../db';
 import * as ui from './ui';
 import * as L from '../models/loyalty';
-import type { AdminCtx, Loose } from '../types';
+import type { AdminCtx } from '../types';
 import type { CustomersRow } from '../data/rows';
 
 const BASE = '/admin/marketing/loyalty';

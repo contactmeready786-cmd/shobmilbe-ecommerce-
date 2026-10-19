@@ -10,7 +10,6 @@ import * as $loyalty from './loyalty';
 import type { DbRow, Tx } from '../pg';
 import type { CouponsRow, OrdersRow, OrderItemsRow, ProductsRow, FlashItemsRow, WarehouseStockRow } from '../data/rows';
 import type { Body, Settings } from '../types';
-import type { Loose } from '../types';
 
 /** A priced order line, as saved in order_items. */
 export type OrderLine = {
@@ -281,7 +280,7 @@ async function insertItems(t: Tx, orderId: number, lines: OrderLine[]): Promise<
 
 // ---------------------------------------------------------------- create
 type CreateOrderOpts = {
-  items: Loose;
+  items: Body[];
   source: string;
   phone: string;
   district?: string;
@@ -291,16 +290,16 @@ type CreateOrderOpts = {
   address: string;
   createdBy?: number;
   coupon?: string;
-  discount?: Loose;
-  delivery?: Loose;
+  discount?: unknown;
+  delivery?: unknown;
   email?: string;
   usePoints?: boolean;
   note?: string;
-  payment: Loose;
+  payment: unknown;
   trxId?: string;
   paymentNumber?: string;
   ip?: string;
-  status?: Loose;
+  status?: unknown;
   adminNote?: string;
   giftCode?: string;
   warehouseId?: number | null;
@@ -389,7 +388,7 @@ async function createOrder(input: CreateOrderOpts, settings: Settings) {
          created_by=$16, customer_id=$17, status=$18, admin_note=$19, zone_name=$21, weight_g=$22, points_used=$23, points_discount=$24 WHERE id=$20`,
       [input.email || '', input.district || '', input.thana || '', input.note || '', subtotal, discount, delivery, total, costTotal,
         input.payment || 'cod', input.trxId || '', input.paymentNumber || '', couponCode, input.ip || '', input.source || 'web',
-        input.createdBy || null, customerId, input.status && STATUSES[input.status] ? input.status : 'pending',
+        input.createdBy || null, customerId, input.status && STATUSES[String(input.status)] ? String(input.status) : 'pending',
         input.adminNote || '', order.id, dz ? dz.name : '', weightG, pts.points, pts.discount]);
     await insertItems(t, order.id, lines);
     if (ref) await t.query('UPDATE orders SET ref_code=$1, ref_by=$2, ref_discount=$3 WHERE id=$4', [ref.code, ref.by, ref.discount, order.id]);
@@ -580,22 +579,22 @@ async function setStatusTx(id: number, status: string, staffId: number | null | 
 
 // Edit an order's details and (optionally) its items. Stock is kept right.
 type UpdateOrderOpts = {
-  customer_name?: Loose;
+  customer_name?: unknown;
   phone: string;
-  email?: Loose;
-  address?: Loose;
-  district?: Loose;
-  thana?: Loose;
-  note?: Loose;
-  admin_note?: Loose;
-  payment?: Loose;
-  payment_status?: Loose;
-  paid_amount?: Loose;
-  transaction_id?: Loose;
-  payment_number?: Loose;
-  items: Loose;
-  discount?: Loose;
-  delivery?: Loose;
+  email?: unknown;
+  address?: unknown;
+  district?: unknown;
+  thana?: unknown;
+  note?: unknown;
+  admin_note?: unknown;
+  payment?: unknown;
+  payment_status?: unknown;
+  paid_amount?: unknown;
+  transaction_id?: unknown;
+  payment_number?: unknown;
+  items: unknown;
+  discount?: unknown;
+  delivery?: unknown;
 };
 async function updateOrder(id: number, data: UpdateOrderOpts, settings: Settings, staffId: number | null | undefined): Promise<{ total: number }> {
   return tx(async (t) => {
@@ -610,8 +609,8 @@ async function updateOrder(id: number, data: UpdateOrderOpts, settings: Settings
       thana: str(data.thana, 60),
       note: str(data.note, 300),
       admin_note: str(data.admin_note, 1000),
-      payment: data.payment && PAYMENT_METHODS[data.payment] ? data.payment : o.payment,
-      payment_status: data.payment_status && PAYMENT_STATUSES[data.payment_status] ? data.payment_status : o.payment_status,
+      payment: data.payment && PAYMENT_METHODS[String(data.payment)] ? String(data.payment) : o.payment,
+      payment_status: data.payment_status && PAYMENT_STATUSES[String(data.payment_status)] ? String(data.payment_status) : o.payment_status,
       paid_amount: data.paid_amount !== undefined ? amount(data.paid_amount) : o.paid_amount,
       transaction_id: str(data.transaction_id, 80),
       payment_number: str(data.payment_number, 20),

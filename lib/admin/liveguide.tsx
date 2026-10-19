@@ -5,7 +5,6 @@
 import { Val, attrValue, jsxList } from '../react/html';
 import { bn } from '../util';
 import * as db from '../db';
-import type { Loose } from '../types';
 import type { DbRow } from '../pg';
 
 const DAY = 864e5;
@@ -44,7 +43,7 @@ function dhakaNow() {
 }
 const bnTime = (h: number, m: number) => `${bn(((h + 11) % 12) + 1)}:${bn(String(m).padStart(2, '0'))} ${h < 12 ? 'সকাল' : h < 16 ? 'দুপুর' : h < 19 ? 'বিকেল' : 'রাত'}`;
 
-function timeTip(t?: Loose) {
+function timeTip(t: { h: number; wd: number }) {
   const { h, wd } = t;
   const weekend = wd === 5 || wd === 6; // Friday, Saturday
   if (h >= 0 && h < 7) return ['🌙', 'এখন গভীর রাত', 'নতুন পোস্ট না দিয়ে কাল সকালের পোস্ট শিডিউল করে রাখুন (সকাল ৯-১০টা)। রাতে আসা অর্ডারগুলো সকালেই কনফার্ম করবেন।'];

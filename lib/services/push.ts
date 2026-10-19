@@ -7,14 +7,16 @@
 import type { PushSubsRow, ShopPushSubsRow } from '../data/rows';
 import * as crypto from 'node:crypto';
 import * as db from '../db';
-import type { Body, Id, Loose } from '../types';
+import { fields } from '../util';
+import type { Body, Id } from '../types';
 
 const b64u = (b: string | Buffer<ArrayBuffer>) => Buffer.from(b).toString('base64url');
-const fromB64u = (s: string | undefined) => Buffer.from(String(s || ''), 'base64url');
+const fromB64u = (s: unknown) => Buffer.from(String(s || ''), 'base64url');
 
 // ---------------------------------------------------------------- the site's own key pair (made once)
-let cached: Loose = null;
-async function vapid() {
+type Vapid = { pub: string; key: crypto.KeyObject };
+let cached: Vapid | null = null;
+async function vapid(): Promise<Vapid> {
   if (cached) return cached;
   const s = await db.getSettings();
   let pub = s.push_vapid_public;
@@ -28,12 +30,12 @@ async function vapid() {
     await db.setSetting('push_vapid_private', priv);
     await db.setSetting('push_vapid_public', pub);
   }
-  cached = { pub, key: crypto.createPrivateKey({ key: JSON.parse(priv), format: 'jwk' }) };
+  cached = { pub: String(pub), key: crypto.createPrivateKey({ key: JSON.parse(priv), format: 'jwk' }) };
   return cached;
 }
 async function publicKey() { return (await vapid()).pub; }
 
-function vapidHeader(endpoint?: Loose, v?: Loose) {
+function vapidHeader(endpoint: string, v: Vapid) {
   const aud = new URL(endpoint).origin;
   const head = b64u(JSON.stringify({ typ: 'JWT', alg: 'ES256' }));
   const body = b64u(JSON.stringify({ aud, exp: Math.floor(Date.now() / 1000) + 12 * 3600, sub: 'mailto:contact.shobmilbe@gmail.com' }));
@@ -42,7 +44,7 @@ function vapidHeader(endpoint?: Loose, v?: Loose) {
 }
 
 // ---------------------------------------------------------------- RFC 8291 message encryption
-function encrypt(sub?: Loose, payload?: Loose) {
+function encrypt(sub: { p256dh?: unknown; auth?: unknown }, payload: string) {
   const uaPublic = fromB64u(sub.p256dh);
   const authSecret = fromB64u(sub.auth);
   if (uaPublic.length !== 65 || authSecret.length < 16) throw new Error('bad subscription keys');
@@ -66,7 +68,7 @@ function okEndpoint(u: string | URL) {
   try { const x = new URL(u); return x.protocol === 'https:' && PUSH_HOSTS.test(x.hostname); } catch (_) { return false; }
 }
 
-async function sendOne(sub: Pick<PushSubsRow, 'endpoint' | 'p256dh' | 'auth'> & { id: number }, msg: { title: string; body: string; url: string; tag: string; } | undefined, v?: unknown) {
+async function sendOne(sub: Pick<PushSubsRow, 'endpoint' | 'p256dh' | 'auth'> & { id: number }, msg: { title: string; body: string; url: string; tag: string; } | undefined, v: Vapid) {
   const body = encrypt(sub, JSON.stringify(msg));
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), 8000);
@@ -98,9 +100,10 @@ async function sendAll(msg?: { title: string; body: string; url: string; tag: st
 }
 async function count() { return (await db.one<{ n: number }>("SELECT count(*)::int AS n FROM push_subs p JOIN staff s ON s.id=p.staff_id WHERE s.role='owner'"))!.n; }
 
-async function subscribe(staffId?: Id, sub?: Loose, device?: unknown) {
-  const endpoint = String(sub && sub.endpoint || '');
-  const keys = (sub && sub.keys) || {};
+async function subscribe(staffId?: Id, sub?: unknown, device?: unknown) {
+  const o = fields(sub);
+  const endpoint = String(o && o.endpoint || '');
+  const keys = fields(o && o.keys) || {};
   if (!okEndpoint(endpoint) || endpoint.length > 1000) throw new Error('এই ব্রাউজারের নোটিফিকেশন ঠিকানা চেনা যায়নি');
   if (fromB64u(keys.p256dh).length !== 65 || fromB64u(keys.auth).length < 16) throw new Error('নোটিফিকেশনের চাবি ঠিক নেই');
   if ((await count()) >= 10) throw new Error('সর্বোচ্চ ১০টা ডিভাইস রাখা যায়, পুরোনো একটা মুছুন');
@@ -115,9 +118,10 @@ type ShopSubscribeOpts = {
   customerId?: number | null;
   device?: string;
 };
-async function shopSubscribe(sub?: Loose, { customerId = null, device = '' }: ShopSubscribeOpts = {}) {
-  const endpoint = String(sub && sub.endpoint || '');
-  const keys = (sub && sub.keys) || {};
+async function shopSubscribe(sub?: unknown, { customerId = null, device = '' }: ShopSubscribeOpts = {}) {
+  const o = fields(sub);
+  const endpoint = String(o && o.endpoint || '');
+  const keys = fields(o && o.keys) || {};
   if (!okEndpoint(endpoint) || endpoint.length > 1000) throw new Error('bad endpoint');
   if (fromB64u(keys.p256dh).length !== 65 || fromB64u(keys.auth).length < 16) throw new Error('bad keys');
   await db.q(`INSERT INTO shop_push_subs(endpoint, p256dh, auth, customer_id, device) VALUES($1,$2,$3,$4,$5)

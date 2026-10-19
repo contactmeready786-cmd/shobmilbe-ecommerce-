@@ -7,11 +7,11 @@ import * as catalog from '../models/catalog';
 import { str, int, normalizePhone, validPhone, fields } from '../util';
 import * as $sms from './sms';
 import * as $models_customers from '../models/customers';
-import type { Body, Id, Loose, Settings, Caught } from '../types';
+import type { Body, Id, Settings, Caught } from '../types';
 import type { CheckoutDraftsRow } from '../data/rows';
 
 const ID_RE = /^[a-f0-9]{20}$/;
-const STATUSES: Record<string, Loose> = {
+const STATUSES: Record<string, [string, string]> = {
   open: ['🆕', 'নতুন — কল করা হয়নি'],
   called: ['📞', 'কল করা হয়েছে'],
   ordered: ['✅', 'অর্ডার হয়েছে'],
@@ -93,9 +93,10 @@ async function count(f: Filter) {
 }
 async function counts() {
   const rows = await db.q<{ status: string; n: number; value: number }>(`SELECT status, count(*)::int AS n, coalesce(sum(subtotal),0)::int AS value FROM checkout_drafts GROUP BY status`);
-  const out: Record<string, Loose> = { all: 0 };
-  rows.forEach((r) => { out[r.status] = r; out.all += r.n; });
-  return out;
+  const by: Record<string, { status: string; n: number; value: number }> = {};
+  let all = 0;
+  rows.forEach((r) => { by[r.status] = r; all += r.n; });
+  return { all, by };
 }
 // 📩 One reminder SMS for an unfinished checkout (Admin → অসম্পূর্ণ অর্ডার → অটো SMS):
 //  • only when switched on and SMS works; sent `draft_sms_after` minutes after the shopper left (not while still typing)
@@ -144,8 +145,8 @@ async function resume(id?: Id) {
 }
 
 async function get(id?: Id) { return ID_RE.test(String(id)) ? db.one<Omit<CheckoutDraftsRow, 'items'> & { items: DraftItem[] | null }>('SELECT * FROM checkout_drafts WHERE id = $1', [id]) : null; }
-async function setStatus(id?: Id, status?: Loose, staffId?: Id) {
-  if (!STATUSES[status] || !ID_RE.test(String(id))) return;
+async function setStatus(id?: Id, status?: unknown, staffId?: Id) {
+  if (!STATUSES[String(status)] || !ID_RE.test(String(id))) return;
   await db.q(`UPDATE checkout_drafts SET status = $2, updated_at = now(),
     called_by = CASE WHEN $2 = 'called' THEN $3::int ELSE called_by END, called_at = CASE WHEN $2 = 'called' THEN now() ELSE called_at END
     WHERE id = $1`, [id, status, staffId || null]);

@@ -7,7 +7,7 @@ import * as payments from '../services/payments';
 import * as finance from '../models/finance';
 import * as ui from './ui';
 import { saveKeys, secretInput } from './marketing';
-import type { AdminCtx, Loose } from '../types';
+import type { AdminCtx } from '../types';
 import type { IntegrationLogsRow } from '../data/rows';
 
 function siteBase(ctx: AdminCtx) {

@@ -17,7 +17,7 @@ import * as $services_xlsx from '../services/xlsx';
 import * as $autocall from './autocall';
 import * as $services_drafts from '../services/drafts';
 import * as $services_stockalert from '../services/stockalert';
-import type { AdminCtx, Body, Id, Loose, ShopQuery, RouteMatch, Settings } from '../types';
+import type { AdminCtx, Body, Id, ShopQuery, RouteMatch, Settings } from '../types';
 import type { CustomersRow, OrdersRow, PaymentsRow } from '../data/rows';
 function canDelete(ctx: AdminCtx) { return ctx.user.role === 'owner' && ctx.settings.order_delete_on === '1'; }
 function deleteSwitch(ctx: AdminCtx) {

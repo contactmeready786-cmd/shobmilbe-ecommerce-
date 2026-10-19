@@ -7,7 +7,7 @@
 import type { ProductsRow, WarehouseMovesRow, WarehouseStockRow, WarehousesRow } from '../data/rows';
 import * as db from '../db';
 import { str, int } from '../util';
-import type { Body, Id, Loose } from '../types';
+import type { Body, Id } from '../types';
 
 class WhError extends Error {}
 
@@ -20,14 +20,14 @@ async function list({ activeOnly = false }: ListOpts = {}) {
 }
 async function get(id?: Id) { return db.one<WarehousesRow>('SELECT * FROM warehouses WHERE id=$1', [int(id)]); }
 type SaveOpts = {
-  name?: Loose;
-  id?: Loose;
-  address?: Loose;
-  phone?: Loose;
-  is_shop?: Loose;
-  active?: Loose;
-  sort?: Loose;
-  note?: Loose;
+  name?: unknown;
+  id?: unknown;
+  address?: unknown;
+  phone?: unknown;
+  is_shop?: unknown;
+  active?: unknown;
+  sort?: unknown;
+  note?: unknown;
 };
 async function save(b: SaveOpts & Body) {
   const name = str(b.name, 80);
@@ -39,14 +39,16 @@ async function save(b: SaveOpts & Body) {
 }
 
 // How many pieces of these products each store has, plus the main store. → Map(product_id → { total, main, by: { whId: qty } })
-async function stockFor(productIds?: Loose) {
-  const ids = (productIds || []).map((x: unknown) => int(x)).filter((x: number) => x > 0);
-  if (!ids.length) return new Map();
+/** one product's pieces: all stores together, the main store, and each other store by its id */
+export type StockSplit = { total: number; main: number; by: Record<string, number> };
+async function stockFor(productIds?: unknown[] | null): Promise<Map<number, StockSplit>> {
+  const ids = (productIds || []).map((x) => int(x)).filter((x) => x > 0);
+  if (!ids.length) return new Map<number, StockSplit>();
   const [prods, rows] = await Promise.all([
     db.q<Pick<ProductsRow, 'id' | 'stock'>>('SELECT id, stock FROM products WHERE id = ANY($1::int[])', [ids]),
     db.q<WarehouseStockRow>('SELECT warehouse_id, product_id, qty FROM warehouse_stock WHERE product_id = ANY($1::int[])', [ids]),
   ]);
-  const m = new Map(prods.map((p) => [p.id, { total: p.stock, main: p.stock, by: {} as Record<string, number> }]));
+  const m = new Map(prods.map((p): [number, StockSplit] => [p.id, { total: p.stock, main: p.stock, by: {} }]));
   rows.forEach((r) => { const x = m.get(r.product_id); if (x) { x.by[r.warehouse_id] = r.qty; x.main -= r.qty; } });
   return m;
 }
@@ -68,10 +70,10 @@ async function storeStock(whId?: Id, { q = '', limit = 200 }: StoreStockOpts = {
 // Move pieces from one store to another (0 / null = the main store).
 type TransferOpts = {
   productId: number;
-  qty: Loose;
-  from: Loose;
-  to: Loose;
-  note: Loose;
+  qty: unknown;
+  from: unknown;
+  to: unknown;
+  note: unknown;
 };
 async function transfer({ productId, qty, from, to, note }: TransferOpts, staffId?: Id) {
   const n = int(qty);

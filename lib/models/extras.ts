@@ -7,12 +7,12 @@ import type { PriceAlertsRow, ProductQuestionsRow, ProductsRow, StockAlertsRow }
 import * as db from '../db';
 import { str, int, normalizePhone, validPhone, fmtDate } from '../util';
 import * as $services_sms from '../services/sms';
-import type { Body, Id, Loose, Settings } from '../types';
+import type { Body, Id, Settings } from '../types';
 class UserError extends Error {}
 
 type SubscribeStockOpts = {
-  productId: Loose;
-  phone: Loose;
+  productId: unknown;
+  phone: unknown;
   ip: string;
 };
 async function subscribeStock({ productId, phone, ip }: SubscribeStockOpts) {
@@ -66,8 +66,8 @@ async function restockSweep(settings: Settings, { limit = 30 }: RestockSweepOpts
 const FLASH_NOW = `(SELECT min(fi.price) FROM flash_items fi JOIN flash_sales fs ON fs.id=fi.sale_id
   WHERE fi.product_id=p.id AND fs.active AND now() >= fs.starts_at AND now() < fs.ends_at AND (fi.max_qty = 0 OR fi.sold < fi.max_qty) AND fi.price < p.price)`;
 type SubscribePriceOpts = {
-  productId: Loose;
-  phone: Loose;
+  productId: unknown;
+  phone: unknown;
   ip: string;
 };
 async function subscribePrice({ productId, phone, ip }: SubscribePriceOpts) {
@@ -126,10 +126,10 @@ async function stockAlertTop(limit = 15) {
 const Q_STATUSES: Record<string, string> = { pending: 'উত্তরের অপেক্ষায়', published: 'দোকানে দেখাচ্ছে', hidden: 'লুকানো' };
 
 type AskQuestionOpts = {
-  productId: Loose;
-  name: Loose;
-  phone: Loose;
-  question: Loose;
+  productId: unknown;
+  name: unknown;
+  phone: unknown;
+  question: unknown;
   ip: string;
 };
 async function askQuestion({ productId, name, phone, question, ip }: AskQuestionOpts) {
@@ -166,15 +166,15 @@ async function listQuestions({ status = 'pending', limit = 100, offset = 0 }: Li
 }
 async function questionCounts() {
   const rows = await db.q<{ status: string; n: number }>('SELECT status, count(*)::int AS n FROM product_questions GROUP BY status');
-  const out: Record<string, Loose> = { all: 0 };
+  const out: Record<string, number> = { all: 0 };
   rows.forEach((r) => { out[r.status] = r.n; out.all += r.n; });
   return out;
 }
 // Save the shop's answer. publish=false keeps it hidden. Returns the question (for the "answered" SMS).
 type AnswerQuestionOpts = {
-  answer: Loose;
+  answer: unknown;
   publish: boolean;
-  question: Loose;
+  question: unknown;
 };
 async function answerQuestion(id: Id, { answer, publish, question }: AnswerQuestionOpts, staffId?: Id) {
   const a = str(answer, 1500);

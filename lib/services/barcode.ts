@@ -1,4 +1,4 @@
-import type { Body, Id, Loose } from '../types';
+import type { Body, Id } from '../types';
 // Code 128 barcodes (no outside library): text → SVG. Every phone scanner app, USB/Bluetooth barcode
 // gun and courier scanner reads Code 128. Uses code set B (all normal letters, digits and signs),
 // switching to code set C for long runs of digits so number-only codes stay short.
@@ -14,10 +14,10 @@ const P = ['212222', '222122', '222221', '121223', '121322', '131222', '122213',
 const START_B = 104; const START_C = 105; const TO_C = 99; const TO_B = 100; const STOP = 106;
 
 // Only printable ASCII is allowed in a barcode (what a scanner can type back)
-function clean(text: string) { return String(text || '').replace(/[^\x20-\x7e]/g, '').slice(0, 48); }
+function clean(text: unknown) { return String(text || '').replace(/[^\x20-\x7e]/g, '').slice(0, 48); }
 
 // text → list of symbol values (with start, checksum and stop)
-function values(text?: Loose) {
+function values(text: unknown) {
   const s = clean(text);
   if (!s) throw new Error('empty barcode');
   const out = [];
@@ -57,7 +57,7 @@ type SvgOpts = {
   showText?: boolean;
   fontSize?: number;
   quiet?: number;
-  label?: Loose;
+  label?: string;
 };
 function svg(text: string, { height = 60, module = 2, showText = true, fontSize = 14, quiet = 10, label }: SvgOpts = {}) {
   const w = widths(text);

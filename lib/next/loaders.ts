@@ -9,14 +9,14 @@ import * as kits from '../models/kits';
 import * as accounts from '../models/accounts';
 import * as livescore from '../services/livescore';
 import { publishedPost } from '../shop/blog';
-import type { Loose, Settings, ShopRequest } from '../types';
+import type { Settings, ShopRequest } from '../types';
 import type { ProductsRow } from '../data/rows';
 
 async function settingsNow(): Promise<Settings> { await db.ensureReady(); return db.getSettings(); }
 
 export const blogCategory = cache(async (slug: string) => {
   await db.ensureReady();
-  const cats = (await content.listBlogCategories()) as Loose[];
+  const cats = await content.listBlogCategories();
   return { cats, category: cats.find((c) => c.slug === slug) || null };
 });
 

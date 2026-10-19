@@ -7,7 +7,7 @@ import * as crypto from 'node:crypto';
 import { fmtDate } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
-import type { AdminCtx, Loose } from '../types';
+import type { AdminCtx } from '../types';
 import type { RecoveryCodesRow } from '../data/rows';
 
 const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O, 1/I
@@ -30,7 +30,7 @@ async function consume(code: string) {
   return !!(await db.one<Pick<RecoveryCodesRow, 'id'>>('UPDATE recovery_codes SET used_at=now() WHERE hash=$1 AND used_at IS NULL RETURNING id', [hash(code)]));
 }
 
-async function page(ctx: AdminCtx, fresh?: Loose) {
+async function page(ctx: AdminCtx, fresh?: string[]) {
   const [left, made] = await Promise.all([
     available(),
     db.one<{ at: Date | null; n: number }>('SELECT max(created_at) AS at, count(*)::int AS n FROM recovery_codes'),

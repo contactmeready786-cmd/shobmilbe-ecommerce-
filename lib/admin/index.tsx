@@ -90,7 +90,7 @@ import * as $email from './email';
 import * as $services_guard from '../services/guard';
 import * as $models_trash from '../models/trash';
 import * as $models_extras from '../models/extras';
-import type { AdminCtx, AdminRoute, RouteMatch, Base, Body, Form, Id, Loose, Settings, ShopRequest, StaffUser, Caught } from '../types';
+import type { AdminCtx, AdminRoute, RouteMatch, Base, Body, Form, Id, Settings, ShopRequest, StaffUser, Caught } from '../types';
 import type { JSX } from 'react/jsx-runtime';
 import type { StaffRow } from '../data/rows';
 
@@ -163,7 +163,7 @@ async function tfaUser(req: ShopRequest, settings: Settings) {
 
 // ---------- owner login lock: the half-way login (password done, second check not yet) ----------
 const PRE_MINUTES = 10;
-function preCookie(req: ShopRequest, settings: Settings, user: StaffUser, passed?: Loose) {
+function preCookie(req: ShopRequest, settings: Settings, user: StaffUser, passed: { passkey?: unknown; face?: unknown }) {
   const value = sign(`pre:${user.id}:${Date.now()}:${pwTag(user)}:${passed.passkey ? 'p' : ''}${passed.face ? 'f' : ''}`, settings.session_secret);
   return `sm_pre=${encodeURIComponent(value)}; Path=/admin; HttpOnly; SameSite=Strict; Max-Age=${PRE_MINUTES * 60}${secureFlag(req)}`;
 }
@@ -189,7 +189,7 @@ const IP_MAX = 8;
 const IP_WINDOW = 15 * 60;
 const USER_MAX = 15;
 const USER_WINDOW = 60 * 60;
-let currentDb: Loose = null;
+let currentDb: typeof db = db;
 async function tooMany(ip: string, login?: unknown) {
   if (await security.blocked(currentDb, 'login:ip:' + ip, IP_MAX)) return true;
   return !!login && security.blocked(currentDb, 'login:user:' + String(login).toLowerCase().trim().slice(0, 60), USER_MAX);
@@ -232,7 +232,7 @@ type ResetPageProps = {
   settings: Settings;
   error?: string;
   done?: boolean;
-  values?: Loose;
+  values?: Body;
   enabled?: boolean;
   mailMsg?: string;
 };
@@ -258,7 +258,7 @@ function baseUrl(req: ShopRequest, settings: Settings) {
 }
 type MailResetPageProps = {
   settings: Settings;
-  token?: Loose;
+  token?: unknown;
   error?: string;
   done?: boolean;
 };
@@ -598,9 +598,9 @@ ${link}
       ? draw({ settings: ctx.settings, user, title, body: $testclear.decorate(ctx, active, body), active, readOnly: ctx.readOnly, path, status: opts.status || 200 })
       : send(opts.status || 200, adminLayout({ settings: ctx.settings, user, title,
         body: $testclear.decorate(ctx, active, body), active, readOnly: ctx.readOnly, path }))),
-    back: (to?: Loose, msgKey?) => redirect(to + (msgKey ? (to.includes('?') ? '&' : '?') + 'msg=' + msgKey : '')),
-    fail: (to?: Loose, text?: Loose) => redirect(to + (to.includes('?') ? '&' : '?') + 'err=' + encodeURIComponent(text)),
-    log: (action?: Loose, entity?, entityId?: Id, detail?) => db.logActivity(user.id, action, entity, entityId, detail),
+    back: (to: string, msgKey?: string) => redirect(to + (msgKey ? (to.includes('?') ? '&' : '?') + 'msg=' + msgKey : '')),
+    fail: (to: string, text: string) => redirect(to + (to.includes('?') ? '&' : '?') + 'err=' + encodeURIComponent(text)),
+    log: (action: string, entity?: string, entityId?: Id | null, detail?: unknown) => db.logActivity(user.id, action, entity, entityId, detail),
     // every delete goes to the recycle bin (Admin → রিসাইকেল বিন), with who / when / from where
     trash: (kind: string, id: Id) => $models_trash.move(kind, id, { id: user.id, name: user.name, ip,
       path: (() => { try { return new URL(req.headers.referer || '').pathname; } catch (_) { return path; } })() }),

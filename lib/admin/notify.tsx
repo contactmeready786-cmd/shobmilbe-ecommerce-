@@ -9,7 +9,7 @@ import * as push from '../services/push';
 import * as errors from '../services/errors';
 import { fmtDate, int } from '../util';
 import * as $layout from './layout';
-import type { AdminCtx, Loose, RouteMatch, Caught } from '../types';
+import type { AdminCtx, RouteMatch, Caught } from '../types';
 import type { IntegrationLogsRow, PushSubsRow } from '../data/rows';
 
 const dots = (v: string | undefined) => (v ? '••••••••' : '');
@@ -79,7 +79,7 @@ async function page(ctx: AdminCtx) {
     if (dsnChanged) await errors.flush(3000);
     // a channel that was just set up gets a test message at once, so the owner sees it working
     const waKeyChanged = (key && !/^•+$/.test(key)) || !!gId;
-    const tried: Loose[] = [];
+    const tried: [string, () => Promise<unknown>][] = [];
     if (emailChanged && !passChanged && N.emailConfig(ctx.settings).ready) tried.push(['email', () => N.sendEmail(ctx.settings, `✅ ${ctx.settings.store_name}: ইমেইল নোটিফিকেশন চালু হয়েছে`, 'অভিনন্দন! এখন থেকে নতুন অর্ডার এলে এই ইমেইলে জানানো হবে।')]);
     if ((waKeyChanged || providerChanged || phone !== String(s.wa_notify_phone || '')) && N.waConfig(ctx.settings).ready) tried.push(['wa', () => N.sendWhatsApp(ctx.settings, `✅ ${ctx.settings.store_name}: WhatsApp নোটিফিকেশন চালু হয়েছে। নতুন অর্ডার এলে এখানে মেসেজ আসবে।`)]);
     const failedCh: unknown[] = [];

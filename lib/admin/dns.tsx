@@ -10,7 +10,7 @@ import { int, str, fmtDate, fetchJson, bn, oneOf } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
 import { saveKeys, secretInput } from './marketing';
-import type { AdminCtx, Body, Loose, Settings, Caught } from '../types';
+import type { AdminCtx, Body, Settings, Caught } from '../types';
 
 const BASE = '/admin/integrations/dns';
 const API = 'https://api.cloudflare.com/client/v4';

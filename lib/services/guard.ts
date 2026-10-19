@@ -13,9 +13,9 @@ import type { SecurityEventsRow, VisitSessionsRow, BlocklistRow } from '../data/
 import * as db from '../db';
 import * as security from '../security';
 import * as $notify from './notify';
-import type { Body, Id, Loose, Settings, ShopRequest, Caught } from '../types';
+import type { Body, Id, Settings, ShopRequest, Caught } from '../types';
 
-const KINDS: Record<string, Loose> = {
+const KINDS: Record<string, [string, string]> = {
   probe: ['🕳️', 'হ্যাকিংয়ের দুর্বল জায়গা খুঁজেছে'],
   attack: ['💉', 'লিংকে ক্ষতিকর কোড পাঠিয়েছে'],
   login_fail: ['🔑', 'অ্যাডমিনে ভুল পাসওয়ার্ড'],
@@ -43,7 +43,7 @@ function header(req: ShopRequest, name: string) {
 // Recording is usually started without waiting for it (the visitor's answer doesn't wait); `settled()` waits for the
 // ones still running (the tests do this before they close the database).
 const running = new Set<Promise<void>>();
-function record(event: Body): Promise<void> {
+function record(event: RecordNowOpts): Promise<void> {
   const p = recordNow(event).finally(() => running.delete(p));
   running.add(p);
   return p;
@@ -53,12 +53,12 @@ async function settled(): Promise<void> {
   while (running.size) await Promise.allSettled([...running]);
 }
 type RecordNowOpts = {
-  req?: Loose;
-  ip?: Loose;
-  kind?: Loose;
+  req?: ShopRequest | null;
+  ip?: unknown;
+  kind: string;
   detail?: string;
   path?: string;
-  settings?: Loose;
+  settings?: Settings | null;
 };
 async function recordNow({ req, ip, kind, detail = '', path = '', settings }: RecordNowOpts) {
   try {
@@ -85,7 +85,7 @@ async function recordNow({ req, ip, kind, detail = '', path = '', settings }: Re
 }
 
 // After an event: tell the owner once, and (if allowed) shut out an IP that keeps trying to hack.
-async function react(ip?: unknown, kind?: Loose, s?: Loose) {
+async function react(ip: unknown, kind: string, s: Settings) {
   const r = await db.one<{ hack: number; n: number }>(`SELECT count(*) FILTER (WHERE kind IN ('probe','attack'))::int AS hack, count(*)::int AS n
     FROM security_events WHERE ip = $1 AND created_at > now() - interval '1 hour'`, [ip]);
   if (!r) return;
@@ -120,7 +120,7 @@ function inspect(req: ShopRequest, path: string, search: string, settings: Setti
 }
 
 // ---------------------------------------------------------------- whole-site block (cached for a minute per server)
-let cache: Loose = null;
+let cache: Set<string> | null = null;
 let cacheAt = 0;
 function resetCache() { cache = null; cacheAt = 0; }
 async function siteBlocked(ip: string) {

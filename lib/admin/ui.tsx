@@ -2,7 +2,7 @@
 import { Val, RawHtml, attrValue, jsxList, styleOf } from '../react/html';
 import { bn, money } from '../util';
 import * as $models_catalog from '../models/catalog';
-import type { Body, Id, Loose } from '../types';
+import type { Body, Id } from '../types';
 import type { JSX } from 'react/jsx-runtime';
 import type { DbRow } from '../pg';
 
@@ -103,7 +103,7 @@ type ImagePickerProps = {
   hint?: string;
   wide?: boolean;
 };
-function imagePicker(name?: unknown, mediaId?: Id, { label = 'ছবি', hint = '', wide = false }: ImagePickerProps = {}) {
+function imagePicker(name?: unknown, mediaId?: Id | null, { label = 'ছবি', hint = '', wide = false }: ImagePickerProps = {}) {
   return <div className={`field image-pick ${wide ? 'wide' : ''}`} data-image-pick=""><span className="label"><Val v={label} /></span><div className="pick-preview" data-pick-preview="">{(mediaId ? <img src={`/media/${attrValue(mediaId)}/t`} alt="" /> : <span className="muted small">ছবি নেই</span>)}</div><p className={`pick-status ${mediaId ? 'is-live' : ''}`} data-pick-status="" data-live={mediaId ? '1' : ''}>{(mediaId ? "✅ এখন সাইটে এই ছবিটা চলছে" : "এখনো কোনো ছবি দেওয়া হয়নি")}</p><input type="hidden" name={attrValue(name)} defaultValue={attrValue(mediaId || '')} data-pick-value="" /><div className="pick-actions"><label className="btn btn-sm btn-ghost">{(mediaId ? "🔄 ছবি বদলান" : "📷 ছবি বাছুন")}<input type="file" accept="image/*" hidden data-pick-file="" data-wide={(wide) ? "" : undefined} /></label>{' '}{(mediaId ? <a className="btn btn-sm btn-ghost" href={`/media/${attrValue(mediaId)}`} target="_blank" rel="noopener">🔍 বড় করে দেখুন</a> : null)}{' '}<button type="button" className="link-btn danger" data-pick-clear="" hidden={!(mediaId)}>🗑️ সরান</button></div>{(hint ? <small><Val v={hint} /></small> : null)}</div>;
 }
 

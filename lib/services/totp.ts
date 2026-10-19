@@ -1,7 +1,6 @@
 // Two-step login codes (TOTP, RFC 6238) — the 6-digit code that changes every 30 seconds in
 // Google Authenticator / Microsoft Authenticator / Authy. Works without internet on the phone.
 import * as crypto from 'node:crypto';
-import type { Loose, Settings } from '../types';
 
 const B32 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
 function base32(buf: Buffer<ArrayBuffer>) {
@@ -13,7 +12,7 @@ function base32(buf: Buffer<ArrayBuffer>) {
   if (bits > 0) out += B32[(val << (5 - bits)) & 31];
   return out;
 }
-function unbase32(s: Settings) {
+function unbase32(s: string) {
   const clean = String(s || '').toUpperCase().replace(/[^A-Z2-7]/g, '');
   let bits = 0; let val = 0; const out = [];
   for (const ch of clean) {
@@ -27,7 +26,7 @@ const newSecret = () => base32(crypto.randomBytes(20)); // 160 bits, as the stan
 const STEP = 30;
 const stepNow = (t = Date.now()) => Math.floor(t / 1000 / STEP);
 
-function codeAt(secret?: Loose, step?: Loose) {
+function codeAt(secret: string, step: number) {
   const msg = Buffer.alloc(8);
   msg.writeBigUInt64BE(BigInt(step));
   const h = crypto.createHmac('sha1', unbase32(secret)).update(msg).digest();
@@ -51,7 +50,7 @@ function check(secret: string, code: unknown, lastStep = 0) {
 }
 
 // The link the authenticator app reads (shown as a QR code).
-function uri(secret?: unknown, account?: Loose, issuer?: unknown) {
+function uri(secret: string, account: string, issuer?: unknown) {
   const iss = String(issuer || 'Shop').replace(/:/g, '');
   return `otpauth://totp/${encodeURIComponent(iss)}:${encodeURIComponent(account)}?secret=${secret}&issuer=${encodeURIComponent(iss)}&algorithm=SHA1&digits=6&period=${STEP}`;
 }

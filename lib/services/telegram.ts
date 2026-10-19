@@ -8,7 +8,7 @@
 import * as db from '../db';
 import { fetchJson, str } from '../util';
 import * as autopost from './autopost';
-import type { Body, Id, Loose, Settings, Caught } from '../types';
+import type { Body, Id, Settings, Caught } from '../types';
 import type { SocialPostsRow } from '../data/rows';
 
 const API = 'https://api.telegram.org';
@@ -50,7 +50,7 @@ async function connect(token: string, chatInput?: unknown) {
 
 type SendOpts = {
   text: string;
-  product: Loose;
+  product?: { image_id: unknown } | null;
 };
 async function send(settings: Settings, { text, product }: SendOpts) {
   const token = settings.telegram_bot_token;

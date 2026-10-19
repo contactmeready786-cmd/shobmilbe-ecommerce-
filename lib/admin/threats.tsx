@@ -7,7 +7,7 @@ import * as db from '../db';
 import * as G from '../services/guard';
 import * as V from '../services/visitors';
 import * as ui from './ui';
-import type { AdminCtx, Loose } from '../types';
+import type { AdminCtx } from '../types';
 
 const BASE = '/admin/security/threats';
 
@@ -30,7 +30,7 @@ function place(r: { country: string; city?: string }) {
   const p = V.place({ country: r.country, region: '', city: r.city });
   return <span title={attrValue(p.country)}>{ui.flag(r.country)}{' '}<Val v={p.text} /></span>;
 }
-function blockButtons(ip?: unknown, blocked?: unknown, until?: Loose) {
+function blockButtons(ip: unknown, blocked: unknown, until?: Date | string | null) {
   if (blocked) {
     return <><span className="pill pill-red">⛔ ব্লক করা{(until ? <>{' '}·{' '}{fmtDate(until)}{' '}পর্যন্ত</> : " · স্থায়ী")}</span><form method="post" action={`${attrValue(BASE)}/unblock`}><input type="hidden" name="ip" defaultValue={attrValue(ip)} /><button className="btn btn-sm btn-ghost">ব্লক তুলুন</button></form></>;
   }

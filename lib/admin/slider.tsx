@@ -6,7 +6,7 @@ import { raw, bn, int, str } from '../util';
 import * as db from '../db';
 import * as content from '../models/content';
 import * as ui from './ui';
-import type { AdminCtx, Loose } from '../types';
+import type { AdminCtx } from '../types';
 
 const BASE = '/admin/design/slider';
 const MAX = 5;

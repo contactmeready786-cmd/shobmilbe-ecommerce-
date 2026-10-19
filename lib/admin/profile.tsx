@@ -9,7 +9,7 @@ import { fmtDate, str, int, normalizePhone, validPhone } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
 import * as S from '../models/staff';
-import type { AdminCtx, Body, Id, Loose, RouteMatch, StaffUser } from '../types';
+import type { AdminCtx, Body, Id, RouteMatch, StaffUser } from '../types';
 import type { MediaRow, StaffRow } from '../data/rows';
 function ymd(v?: unknown) {
   if (!v) return '';
@@ -72,11 +72,11 @@ async function servePhoto(ctx: AdminCtx, m: RouteMatch) {
   return ctx.reply.answer(200, { 'Content-Type': type, 'Cache-Control': 'private, max-age=31536000, immutable', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'; sandbox" }, p.data);
 }
 
-function answer(ctx: AdminCtx, ok: boolean, back?: Loose, msg?: Loose) {
+function answer(ctx: AdminCtx, ok: boolean, back: string, msg = '') {
   if (String(ctx.req.headers.accept || '').includes('application/json')) return ctx.json(ok ? 200 : 400, ok ? { ok: true } : { error: msg });
   return ok ? ctx.back(back, 'saved') : ctx.fail(back, msg);
 }
-async function changePhoto(ctx: AdminCtx, id?: Id, back?: string) {
+async function changePhoto(ctx: AdminCtx, id: Id, back: string) {
   const b = await ctx.body();
   const want = int(b.photo_id) || null;
   if (want) {

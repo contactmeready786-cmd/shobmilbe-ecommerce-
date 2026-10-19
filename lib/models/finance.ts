@@ -5,7 +5,6 @@ import { int, str, num, randomCode, validYmd, ymd, amount, round2, oneOf } from 
 import * as catalog from './catalog';
 import type { Body, Id, Settings } from '../types';
 import type { DbRow, Param, Tx } from '../pg';
-import type { Loose } from '../types';
 
 /** A day as YYYY-MM-DD (Dhaka), the way the report pages send it. */
 type Day = string;
@@ -59,15 +58,15 @@ async function getSupplier(id: Id): Promise<SupplierFull | null> {
   return s;
 }
 type SaveSupplierOpts = {
-  name?: Loose;
-  company?: Loose;
-  phone?: Loose;
-  email?: Loose;
-  address?: Loose;
-  note?: Loose;
-  opening_due?: Loose;
-  active: Loose;
-  id?: Loose;
+  name?: unknown;
+  company?: unknown;
+  phone?: unknown;
+  email?: unknown;
+  address?: unknown;
+  note?: unknown;
+  opening_due?: unknown;
+  active: unknown;
+  id?: unknown;
 };
 async function saveSupplier(data: SaveSupplierOpts) {
   const f = [str(data.name, 100), str(data.company, 120), str(data.phone, 30), str(data.email, 120), str(data.address, 400),
@@ -122,17 +121,17 @@ async function receiveItems(t: Tx, purchaseId: Id, items: PurchaseLine[], staffI
 }
 
 type SavePurchaseOpts = {
-  items: Loose;
-  discount?: Loose;
-  shipping?: Loose;
-  other_cost?: Loose;
-  vat?: Loose;
-  status?: Loose;
-  purchase_date?: Loose;
-  supplier_id?: Loose;
-  note?: Loose;
-  paid_now?: Loose;
-  account_id?: Loose;
+  items?: Body[] | null;
+  discount?: unknown;
+  shipping?: unknown;
+  other_cost?: unknown;
+  vat?: unknown;
+  status?: unknown;
+  purchase_date?: unknown;
+  supplier_id?: unknown;
+  note?: unknown;
+  paid_now?: unknown;
+  account_id?: unknown;
 };
 async function savePurchase(data: SavePurchaseOpts, staffId?: Id): Promise<number> {
   const items: PurchaseLine[] = [];
@@ -150,7 +149,7 @@ async function savePurchase(data: SavePurchaseOpts, staffId?: Id): Promise<numbe
   const other = amount(data.other_cost);
   const vat = amount(data.vat);
   const total = round2(Math.max(0, subtotal - discount + shipping + other + vat));
-  const status = PURCHASE_STATUSES[data.status] && data.status !== 'cancelled' ? data.status : 'received';
+  const status = PURCHASE_STATUSES[String(data.status)] && data.status !== 'cancelled' ? String(data.status) : 'received';
   const date = validYmd(data.purchase_date) || ymd();
   // Spread shipping/other costs/discount over items so the product cost is the real landed cost.
   const costShare = subtotal > 0 ? (shipping + other - discount) / subtotal : 0;
@@ -201,15 +200,15 @@ async function listAccounts(): Promise<AccountListed[]> {
     FROM accounts a ORDER BY a.active DESC, a.sort, a.id`);
 }
 type SaveAccountOpts = {
-  name?: Loose;
-  type?: Loose;
-  details?: Loose;
-  opening_balance?: Loose;
-  active: Loose;
-  id?: Loose;
+  name?: unknown;
+  type?: unknown;
+  details?: unknown;
+  opening_balance?: unknown;
+  active: unknown;
+  id?: unknown;
 };
 async function saveAccount(data: SaveAccountOpts) {
-  const f = [str(data.name, 80), ACCOUNT_TYPES[data.type] ? data.type : 'cash', str(data.details, 300), num(data.opening_balance), data.active !== undefined ? !!data.active : true];
+  const f = [str(data.name, 80), ACCOUNT_TYPES[String(data.type)] ? String(data.type) : 'cash', str(data.details, 300), num(data.opening_balance), data.active !== undefined ? !!data.active : true];
   if (int(data.id)) {
     await q('UPDATE accounts SET name=$1, type=$2, details=$3, opening_balance=$4, active=$5 WHERE id=$6', [...f, int(data.id)]);
     return int(data.id);

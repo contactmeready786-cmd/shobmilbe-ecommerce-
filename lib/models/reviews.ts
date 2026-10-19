@@ -5,7 +5,7 @@ import { q, one, tx } from '../db';
 import { int, str } from '../util';
 import * as $security from '../security';
 import * as $catalog from './catalog';
-import type { Body, Id, Loose, Settings } from '../types';
+import type { Body, Id, Settings } from '../types';
 import type { Tx } from '../pg';
 import type { OrdersRow, ProductsRow, ReviewsRow } from '../data/rows';
 
@@ -54,12 +54,12 @@ async function savePhotos(list?: unknown, visible?: unknown) {
 
 type SubmitOpts = {
   code: string;
-  productId: Loose;
-  name: Loose;
-  rating: Loose;
-  body: Loose;
+  productId: unknown;
+  name: unknown;
+  rating: unknown;
+  body: unknown;
   ip: string;
-  photos: Loose;
+  photos: unknown;
 };
 async function submit({ code, productId, name, rating, body, ip, photos }: SubmitOpts, settings: Settings) {
   const pid = int(productId);
@@ -119,8 +119,8 @@ async function counts() {
   rows.forEach((r) => { c[r.status] = r.n; c.all += r.n; });
   return c;
 }
-async function setStatus(id?: Id, status?: Loose) {
-  if (!STATUS[status]) return null;
+async function setStatus(id?: Id, status?: unknown) {
+  if (!STATUS[String(status)]) return null;
   return tx(async (t) => {
     const r = (await t.query<Pick<ReviewsRow, 'product_id' | 'photos'>>(`UPDATE reviews SET status=$1, approved_at = CASE WHEN $1='approved' THEN coalesce(approved_at, now()) ELSE approved_at END
       WHERE id=$2 RETURNING product_id, photos`, [status, int(id)])).rows[0];

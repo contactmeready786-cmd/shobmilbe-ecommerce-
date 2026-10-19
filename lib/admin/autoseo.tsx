@@ -9,7 +9,7 @@ import * as charts from './charts';
 import * as md from '../views/md';
 import * as A from '../services/autoseo';
 import * as $status from './status';
-import type { AdminCtx, Loose } from '../types';
+import type { AdminCtx } from '../types';
 
 const BASE = '/admin/marketing/autoseo';
 

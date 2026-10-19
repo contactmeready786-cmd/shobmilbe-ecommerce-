@@ -5,13 +5,13 @@ import { bn, int, str, fmtDate, pageNum, ifKey } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
 import * as R from '../models/reviews';
-import type { AdminCtx, Loose, RouteMatch } from '../types';
+import type { AdminCtx, RouteMatch } from '../types';
 import type { MediaRow, ProductsRow } from '../data/rows';
 
 const BASE = '/admin/reviews';
 const PER = 30;
 const MSG: Record<string, string> = { approved: 'রিভিউ এখন দোকানে দেখাচ্ছে।', hidden: 'রিভিউ লুকানো হয়েছে।', replied: 'উত্তর সেভ হয়েছে।', gone: 'রিভিউ মুছে ফেলা হয়েছে।', set: 'সেটিংস সেভ হয়েছে।' };
-const stars = (n?: Loose) => <span className="stars" aria-label={`${bn(n)} স্টার`}>{'★'.repeat(n)}<span className="muted">{'★'.repeat(5 - n)}</span></span>;
+const stars = (n: number) => <span className="stars" aria-label={`${bn(n)} স্টার`}>{'★'.repeat(n)}<span className="muted">{'★'.repeat(5 - n)}</span></span>;
 
 async function page(ctx: AdminCtx) {
   const status = ifKey(R.STATUS, ctx.query.get('status'), '');

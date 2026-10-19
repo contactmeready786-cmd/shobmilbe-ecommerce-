@@ -6,7 +6,7 @@ import * as db from '../db';
 import * as ui from './ui';
 import { saveKeys } from './marketing';
 import * as feeds from '../services/feeds';
-import type { AdminCtx, Loose } from '../types';
+import type { AdminCtx } from '../types';
 
 function baseUrl(ctx: AdminCtx) {
   const s = ctx.settings;

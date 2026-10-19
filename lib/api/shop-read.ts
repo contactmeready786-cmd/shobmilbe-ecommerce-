@@ -9,7 +9,6 @@ import { loadRenderer, renderHtml } from '../react/render';
 import { myOrders } from '../gate';
 import { int, str, contact } from '../util';
 import { allow, json, tooMany, type ApiCtx } from '../next/api';
-import type { Loose } from '../types';
 import type { OrderItemsRow, PushCampaignsRow } from '../data/rows';
 
 const ids = (v: string | null, max: number) => (v || '').split(',').map((x) => int(x)).filter((x) => x > 0).slice(0, max);
@@ -17,11 +16,11 @@ const ids = (v: string | null, max: number) => (v || '').split(',').map((x) => i
 const readLimit = (ctx: ApiCtx) => allow(ctx, 'readapi:', 600, 600);
 
 /** Product cards as HTML (the pages put them straight into a list). */
-async function cardsHtml(prods: Loose[], ctx: ApiCtx): Promise<string> {
+async function cardsHtml(prods: Parameters<typeof shop.productCard>[0][], ctx: ApiCtx): Promise<string> {
   await loadRenderer();
   return prods.map((p) => renderHtml(shop.productCard(p, ctx.settings))).join('');
 }
-const sortLike = (prods: Loose[], order: number[]) => {
+const sortLike = <T extends { id: number }>(prods: T[], order: number[]) => {
   const pos = new Map(order.map((id, i) => [id, i]));
   return prods.sort((a, b) => (pos.get(a.id) as number) - (pos.get(b.id) as number));
 };

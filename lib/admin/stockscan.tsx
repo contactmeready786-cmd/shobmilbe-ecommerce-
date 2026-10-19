@@ -13,7 +13,7 @@ import * as W from '../models/warehouses';
 import * as ui from './ui';
 import { ASSET_V } from './layout';
 import * as $services_stockalert from '../services/stockalert';
-import type { AdminCtx, Loose } from '../types';
+import type { AdminCtx } from '../types';
 import type { ProductsRow } from '../data/rows';
 
 const BASE = '/admin/stock-scan';

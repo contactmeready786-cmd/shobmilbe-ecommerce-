@@ -3,7 +3,7 @@ import { int, list, num, bn, money, qtyRule } from '../util';
 import * as O from '../models/orders';
 import * as ui from './ui';
 import { saveKeys } from './marketing';
-import type { AdminCtx, Loose } from '../types';
+import type { AdminCtx } from '../types';
 
 async function settingsPage(ctx: AdminCtx) {
   const s = ctx.settings;

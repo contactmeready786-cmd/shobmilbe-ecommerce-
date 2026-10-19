@@ -182,7 +182,7 @@ Admin → স্টোর ডিজাইন → ভাষা → "অ্যা�
 | `proxy.ts`, `next.config.ts`, `instrumentation.ts`, `sentry.server.config.ts` | Next.js সেটআপ, Sentry |
 | `client/` | ব্রাউজারের কোড (TypeScript): দোকান `client/shop`, ভাষা `client/i18n`, অ্যাডমিন `client/admin`, নোটিফিকেশন `client/sw` — `npm run build:client` বানায় `public/js/…` (git-এ রাখা হয় না) |
 | `lib/reply.ts` | একটা অনুরোধের উত্তর (স্ট্যাটাস, হেডার, বডি) → Web Response |
-| `lib/types.ts` | সব কোডের শেয়ার করা TypeScript টাইপ (`Loose` = এখনো পুরো টাইট করা হয়নি এমন জায়গা) |
+| `lib/types.ts` | সব কোডের শেয়ার করা TypeScript টাইপ (`Body` = ফর্ম/JSON থেকে আসা অচেনা তথ্য, `Form<…>` = জানা ফর্ম-ঘর) |
 | `lib/site.ts` | শপ ও অ্যাডমিনের ফর্ম, অ্যাডমিনের ফাইল/এক্সপোর্ট, শপের ৪০৪, দেশ-লক পেজ |
 | `lib/api/` | শপের API, ছবি, পেমেন্ট, ওয়েবহুক, ফিড (Next.js route handler) |
 | `lib/admin/` | Admin Panel এর প্রতিটা মেনু |

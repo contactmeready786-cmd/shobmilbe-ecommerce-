@@ -7,9 +7,9 @@ import { ASSET_V as PA_V } from './layout';
 import { money, int, str, bn, ifKey } from '../util';
 import * as db from '../db';
 import * as BC from '../services/barcode';
-import type { AdminCtx, Loose } from '../types';
+import type { AdminCtx } from '../types';
 import type { ProductsRow } from '../data/rows';
-const SIZES: Record<string, Loose> = {
+const SIZES: Record<string, { w: number; h: number; label: string; sheet?: boolean }> = {
   '38x25': { w: 38, h: 25, label: '৩৮×২৫ মিমি (ছোট রোল স্টিকার)' },
   '50x30': { w: 50, h: 30, label: '৫০×৩০ মিমি (রোল স্টিকার, প্রস্তাবিত)' },
   '60x40': { w: 60, h: 40, label: '৬০×৪০ মিমি (বড় রোল স্টিকার)' },
@@ -28,7 +28,7 @@ async function labels(ctx: AdminCtx) {
   if (ctx.query.get('size') && ctx.query.get('size') !== ctx.settings.label_size) await db.setSetting('label_size', size).catch(() => {});
   const rows = await db.q<Pick<ProductsRow, 'id' | 'name' | 'sku' | 'barcode' | 'price' | 'stock' | 'unit' | 'location'>>(`SELECT id, name, sku, barcode, price, stock, unit, location FROM products WHERE id = ANY($1::int[]) ORDER BY array_position($1::int[], id)`, [ids]);
   const z = SIZES[size];
-  const stickers: Loose[] = [];
+  const stickers: typeof rows = [];
   for (const p of rows) {
     const n = byStock ? Math.min(200, Math.max(1, p.stock)) : copies;
     for (let i = 0; i < n; i++) stickers.push(p);

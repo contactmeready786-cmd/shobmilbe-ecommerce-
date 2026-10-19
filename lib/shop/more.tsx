@@ -16,7 +16,7 @@ import * as courier from '../services/courier';
 import { refFromCookie, myOrders } from '../gate';
 import { int, str, bn } from '../util';
 import type { PageOpts, Resolved } from './router';
-import type { Loose, Settings, ShopRequest } from '../types';
+import type { Settings, ShopRequest } from '../types';
 import type { JSX } from 'react/jsx-runtime';
 
 export type MoreCtx = { path: string; query: URLSearchParams; settings: Settings; base: string; req: Pick<ShopRequest, 'headers'> };
@@ -58,10 +58,10 @@ export async function resolveMore({ path, query, settings, base: siteBase, req }
     if (settings.ui_compare === '0') return NOT_FOUND;
     // ⚖️ the shopper's own comparison list (kept in the browser): /compare?ids=1,2,3
     const ids = (query.get('ids') || '').split(',').map((x) => int(x)).filter((x) => x > 0).slice(0, 4);
-    const prods = ids.length ? (await Promise.all(ids.map((id) => catalog.getProduct({ id, public: true })))).filter((p): p is Loose => !!(p && p.active && !p.parent_id)) : [];
+    const prods = ids.length ? (await Promise.all(ids.map((id) => catalog.getProduct({ id, public: true })))).filter((p): p is catalog.FullProduct => !!(p && p.active && !p.parent_id)) : [];
     const rv = await Promise.all(prods.map((p) => (settings.reviews_on === '0' ? { stats: { count: 0 } } : $models_reviews.forProduct(p.id))));
-    prods.forEach((p, i) => { p.review_stats = rv[i].stats; });
-    return page('পণ্য তুলনা', shop.comparePage({ products: prods, settings, asked: query.has('ids') }), { noindex: true, canonical: '/compare' });
+    const compared = prods.map((p, i) => Object.assign(p, { review_stats: rv[i].stats }));
+    return page('পণ্য তুলনা', shop.comparePage({ products: compared, settings, asked: query.has('ids') }), { noindex: true, canonical: '/compare' });
   }
   if (path === '/checkout') {
     const A = $models_accounts;

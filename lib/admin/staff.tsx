@@ -6,7 +6,7 @@ import * as db from '../db';
 import * as ui from './ui';
 import * as P from './profile';
 import * as $account from './account';
-import type { AdminCtx, Loose, StaffUser, RouteMatch, Caught } from '../types';
+import type { AdminCtx, StaffUser, RouteMatch, Caught } from '../types';
 
 async function listPage(ctx: AdminCtx) {
   const rows = await S.listStaff();
@@ -14,7 +14,7 @@ async function listPage(ctx: AdminCtx) {
   return ctx.page('স্টাফ', body, 'staff');
 }
 
-function form(s?: Loose, error?: unknown, isSelf?: unknown) {
+function form(s: Partial<StaffUser>, error?: unknown, isSelf?: unknown) {
   const isNew = !s.id;
   const owner = s.role === 'owner';
   const perms = s.permissions || [];
@@ -34,7 +34,7 @@ async function formPage(ctx: AdminCtx, m: RouteMatch | null) {
       return ctx.back(`/admin/staff/${sid}`, 'saved');
     } catch (caught) { const e = caught as Caught;
       const cur = id ? await S.getStaff(id) : {};
-      return ctx.page('স্টাফ', form({ ...cur, ...b, id, permissions: list(b.permissions) }, e.message, id === ctx.user.id), 'staff', { status: 400 });
+      return ctx.page('স্টাফ', form({ ...cur, ...b, id: id ?? undefined, permissions: list(b.permissions) }, e.message, id === ctx.user.id), 'staff', { status: 400 });
     }
   }
   // (a new staff member: an empty form, switched on, no permissions yet)

@@ -10,7 +10,7 @@
 // ---------------------------------------------------------------- the tree
 // [slug, name, icon, children]
 import { q, tx } from '../db';
-import type { Body, Loose } from '../types';
+import type { Body } from '../types';
 import type { Tx } from '../pg';
 import type { CategoriesRow } from '../data/rows';
 /** [slug, name, icon, sub-categories?] */

@@ -4,7 +4,11 @@ import type { ReactNode } from 'react';
 import { RawHtml } from '../../lib/react/html';
 import { fmtDate } from '../../lib/util';
 import * as md from '../../lib/views/md';
-import type { Loose } from '../../lib/types';
+import type { Post, PostSummary } from '../../lib/models/content';
+import type { BlogCategoriesRow, PagesRow } from '../../lib/data/rows';
+
+/** a blog category as the list shows it */
+type BlogCat = Pick<BlogCategoriesRow, 'id' | 'name' | 'slug'>;
 
 export function TrackPage({ error, code, phone }: { error?: string; code?: string; phone?: string }) {
   return (
@@ -31,7 +35,7 @@ export function NotFound() {
   );
 }
 
-export function StaticPage({ page }: { page: Loose }) {
+export function StaticPage({ page }: { page: Pick<PagesRow, 'title' | 'content'> }) {
   return (
     <div className="wrap section narrow"><nav className="crumbs"><a href="/">হোম</a> / <span>{page.title}</span></nav>
       <article className="post rich"><h1>{page.title}</h1><RawHtml html={md.render(page.content)} /></article></div>
@@ -39,14 +43,14 @@ export function StaticPage({ page }: { page: Loose }) {
 }
 
 // ---------------------------------------------------------------- blog
-export function PostCard({ p }: { p: Loose }) {
+export function PostCard({ p }: { p: PostSummary }) {
   return (
     <article className="post-card"><a href={`/blog/${p.slug}`} className="post-pic">{p.cover_id ? <img src={`/media/${p.cover_id}/t`} alt="" loading="lazy" draggable="false" /> : <span>📝</span>}</a>
       <div><span className="small muted">{p.category_name || ''} · {fmtDate(p.published_at, false)}</span><h3><a href={`/blog/${p.slug}`}>{p.title}</a></h3><p>{p.excerpt}</p></div></article>
   );
 }
 
-export function BlogList({ posts, categories, category }: { posts: Loose[]; categories: Loose[]; category: Loose }) {
+export function BlogList({ posts, categories, category }: { posts: PostSummary[]; categories: BlogCat[]; category?: BlogCat | null }) {
   return (
     <div className="wrap section">
       <nav className="crumbs"><a href="/">হোম</a> / <a href="/blog">ব্লগ</a>{category ? <> / <span>{category.name}</span></> : null}</nav>
@@ -58,7 +62,7 @@ export function BlogList({ posts, categories, category }: { posts: Loose[]; cate
 }
 
 /** content = the article as React (lib/shop/blog.tsx, with product cards); contentHtml = ready-made HTML instead. */
-export function BlogPost({ post, content, contentHtml, related }: { post: Loose; content?: ReactNode; contentHtml?: string; related: Loose[] }) {
+export function BlogPost({ post, content, contentHtml, related }: { post: Post; content?: ReactNode; contentHtml?: string; related: PostSummary[] }) {
   return (
     <div className="wrap section narrow">
       <nav className="crumbs"><a href="/">হোম</a> / <a href="/blog">ব্লগ</a>{post.category_slug ? <> / <a href={`/blog/category/${post.category_slug}`}>{post.category_name}</a></> : null}</nav>

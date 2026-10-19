@@ -1,4 +1,4 @@
-import type { Id, Loose, Caught } from '../types';
+import type { Id, Caught } from '../types';
 import type { IkTrashRow, MediaRow } from '../data/rows';
 // Pictures live on ImageKit (free CDN), not inside the database — the database only keeps
 // each picture's address and fingerprints. Needs two Vercel environment variables:
@@ -34,7 +34,7 @@ function problem() {
 }
 function configured() { return !problem(); }
 // Ask ImageKit itself whether the key works (cached for 10 minutes).
-let checkCache: Loose = null;
+let checkCache: { at: number; msg: string } | null = null;
 async function check() {
   if (!configured()) return problem();
   if (checkCache && Date.now() - checkCache.at < 600000) return checkCache.msg;
@@ -52,11 +52,11 @@ function auth() { return 'Basic ' + Buffer.from(key() + ':').toString('base64');
 const EXT: Record<string, string> = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif', 'image/x-icon': 'ico' };
 
 // Upload one picture → { url, fileId }. fileName (optional) gives the full name, e.g. for backup files.
-async function upload(buffer?: Loose, mime?: Loose, name?: Loose, sub = 'media', fileName = '') {
+async function upload(buffer: Buffer, mime: string, name: string, sub = 'media', fileName = '') {
   if (!configured()) throw new Error('ImageKit চাবি বসানো হয়নি');
   const fd = new FormData();
   const fname = fileName || `${name}.${EXT[mime] || 'jpg'}`;
-  fd.append('file', new Blob([buffer], { type: mime || 'application/octet-stream' }), fname);
+  fd.append('file', new Blob([new Uint8Array(buffer)], { type: mime || 'application/octet-stream' }), fname);
   fd.append('fileName', fname);
   fd.append('folder', `${FOLDER}/${sub}`);
   fd.append('useUniqueFileName', 'true');
@@ -95,7 +95,7 @@ async function usage(): Promise<IkUsage | null> {
     const r = await fetch(`https://api.imagekit.io/v1/accounts/usage?startDate=${since}&endDate=${until}`,
       { headers: { Authorization: auth() }, signal: AbortSignal.timeout(8000) });
     if (r.ok) {
-      const j = (await r.json()) as Loose;
+      const j = (await r.json()) as { bandwidthBytes?: unknown; mediaLibraryStorageBytes?: unknown };
       value = { bandwidthBytes: Number(j.bandwidthBytes) || 0, storageBytes: Number(j.mediaLibraryStorageBytes) || 0, since };
     }
   } catch (_) { value = null; }
@@ -127,7 +127,7 @@ async function moveOld(db: typeof import("../db"), limit = 20) {
   let n = 0;
   for (const m of rows) {
     try {
-      const a = await upload(m.data, m.mime, `m${m.id}`);
+      const a = await upload(m.data!, m.mime, `m${m.id}`);
       const w = m.wm ? await upload(m.wm, 'image/jpeg', `m${m.id}-wm`, 'wm') : null;
       await db.q('UPDATE media SET ik_url=$1, ik_id=$2, wm_url=$3, wm_ik_id=$4, data=NULL, thumb=NULL, wm=NULL WHERE id=$5',
         [a.url, a.fileId, w ? w.url : null, w ? w.fileId : null, m.id]);

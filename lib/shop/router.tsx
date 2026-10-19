@@ -19,7 +19,7 @@ import * as $models_reviews from '../models/reviews';
 import * as $models_extras from '../models/extras';
 import * as $models_kits from '../models/kits';
 import * as $models_homerows from '../models/homerows';
-import type { Loose, Settings } from '../types';
+import type { Settings } from '../types';
 
 export const HOME_DEFAULT = ['slider', 'trust', 'categories', 'new', 'offers', 'bestsellers', 'popular', 'promo', 'cat_rows', 'budget', 'featured'];
 
@@ -250,12 +250,12 @@ export async function resolveShop(ctx: ShopCtx): Promise<Resolved> {
           merchantReturnDays: Number(settings.returns_days) || 7,
           returnMethod: 'https://schema.org/ReturnByMail', returnFees: 'https://schema.org/ReturnFeesCustomerResponsibility' } },
       // star rating in Google results (only real, approved reviews)
-      aggregateRating: rv.stats.count ? { '@type': 'AggregateRating', ratingValue: (rv.stats as Loose).avg, reviewCount: rv.stats.count, bestRating: 5, worstRating: 1 } : undefined,
+      aggregateRating: rv.stats.count ? { '@type': 'AggregateRating', ratingValue: 'avg' in rv.stats ? rv.stats.avg : undefined, reviewCount: rv.stats.count, bestRating: 5, worstRating: 1 } : undefined,
       review: rv.reviews.length ? rv.reviews.slice(0, 5).map((r) => ({ '@type': 'Review', author: { '@type': 'Person', name: r.name || 'Customer' },
         reviewRating: { '@type': 'Rating', ratingValue: r.rating, bestRating: 5 }, reviewBody: String(r.body).slice(0, 500), datePublished: new Date(r.created_at).toISOString().slice(0, 10) })) : undefined,
     };
     // breadcrumb for Google: Home › main category › … › product
-    const crumbs: Loose[] = [];
+    const crumbs: { name: string; url: string }[] = [];
     if (product.category_id) {
       const node = catalog.categoryTree(categories).byId.get(product.category_id);
       (node ? node.path : [])!.forEach((c) => crumbs.push({ name: c.name, url: `${base}/products?cat=${c.slug}` }));

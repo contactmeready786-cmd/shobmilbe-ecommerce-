@@ -8,7 +8,7 @@ import * as crypto from 'node:crypto';
 import * as db from '../db';
 import * as backup from './backup';
 import * as imagekit from './imagekit';
-import type { Body, Loose, Caught } from '../types';
+import type { Body, Caught } from '../types';
 import type { BackupsRow, SettingsRow } from '../data/rows';
 
 const KEEP = 30;

@@ -9,8 +9,8 @@ import { raw } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
 import * as delcode from '../services/delcode';
-import type { AdminCtx, Loose } from '../types';
-const PAGES: Record<string, Loose> = {
+import type { AdminCtx } from '../types';
+const PAGES: Record<string, { path: string; what: string; sql: string[] }> = {
   'cust-accounts': { path: '/admin/customer-accounts', what: 'লগইনের কোড, কে কখন লগইন করেছেন আর সেভ করা ঠিকানা',
     sql: ['DELETE FROM customer_otps', 'DELETE FROM customer_email_otps', 'DELETE FROM customer_addresses',
       // test e-mail accounts with no order go entirely
@@ -26,9 +26,9 @@ const BASE = '/admin/test-clear';
 const key = (k: string) => `tc_${k.replace(/-/g, '_')}`;
 
 // called from ctx.page: adds the switch under the page title and the button at the end
-function decorate(ctx: AdminCtx, active?: Loose, body?: Loose) {
-  const p = PAGES[active];
-  if (!p || !ctx.can('settings')) return body;
+function decorate(ctx: AdminCtx, active: string | undefined, body: unknown) {
+  const p = active ? PAGES[active] : undefined;
+  if (!active || !p || !ctx.can('settings')) return body;
   const on = ctx.settings[key(active)] === '1';
   const top = <form method="post" action={attrValue(BASE)} className="panel form sms-clear-switch"><input type="hidden" name="page" defaultValue={attrValue(active)} /><input type="hidden" name="action" defaultValue="switch" />{' '}{ui.switchRow('on', on, '🗑️ ইতিহাস মোছার বাটন', 'চালু করলে পেজের নিচে মোছার বাটন আসবে। দোকান আসলভাবে চালু করার পর বন্ধ করে দিন, তখন ইতিহাস থেকে যাবে।')}{' '}<button className="btn btn-sm">সেভ করুন</button></form>;
   const bottom = on ? <section className="panel"><form method="post" action={attrValue(BASE)} data-confirm={`এই পেজের ${attrValue(p.what)} মুছে যাবে। আর ফেরত আনা যাবে না। মুছবেন?`} data-delcode="test_clear" data-delcode-to={attrValue(delcode.masked())} data-delcode-what={attrValue(p.what)}><input type="hidden" name="page" defaultValue={attrValue(active)} /><input type="hidden" name="action" defaultValue="clear" />{' '}<button className="btn btn-sm btn-danger">🗑️ এই পেজের ইতিহাস মুছুন</button>{' '}<span className="small muted">যা মুছবে:{' '}<Val v={p.what} />। অর্ডার, কাস্টমার, পণ্য বা টাকার হিসাব মুছবে না। মুছতে{' '}<Val v={delcode.masked()} />{' '}ঠিকানায় যাওয়া কোড লাগবে।</span></form></section> : '';

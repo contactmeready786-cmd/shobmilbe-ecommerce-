@@ -1,4 +1,4 @@
-import type { Body, Loose } from '../types';
+import type { Body } from '../types';
 // Tiny QR code maker (no outside library): text → SVG picture.
 // Byte mode, error-correction level M, versions 1–14 (up to ~330 characters) — plenty for the
 // Google Authenticator setup link. Follows the QR standard (ISO/IEC 18004); the structure mirrors
@@ -43,12 +43,12 @@ function rsDivisor(degree: number) {
   }
   return r;
 }
-function rsRemainder(data: number[], divisor?: Loose) {
+function rsRemainder(data: number[], divisor: number[]) {
   const r = divisor.map(() => 0);
   for (const b of data) {
-    const factor = b ^ r.shift();
+    const factor = b ^ r.shift()!;
     r.push(0);
-    divisor.forEach((coef: number, i: string | number) => { r[i] ^= gfMul(coef, factor); });
+    divisor.forEach((coef, i) => { r[i] ^= gfMul(coef, factor); });
   }
   return r;
 }
@@ -92,14 +92,14 @@ function encode(text: string) {
     if (i < shortBlocks) dat.push(0); // placeholder so all blocks line up
     blocks.push(dat.concat(ecc));
   }
-  const all: Loose[] = [];
+  const all: number[] = [];
   for (let i = 0; i < blocks[0].length; i++) {
     blocks.forEach((b, j) => { if (i !== shortLen - eccLen || j >= shortBlocks) all.push(b[i]); });
   }
 
   const size = ver * 4 + 17;
-  const mod = Array.from({ length: size }, () => new Array(size).fill(false));
-  const fn = Array.from({ length: size }, () => new Array(size).fill(false));
+  const mod = Array.from({ length: size }, () => new Array<boolean>(size).fill(false));
+  const fn = Array.from({ length: size }, () => new Array<boolean>(size).fill(false));
   const set = (x: number, y: number, dark: boolean) => { mod[y][x] = dark; fn[y][x] = true; };
 
   // timing patterns
@@ -172,9 +172,9 @@ function encode(text: string) {
   }
 
   const MASKS = [
-    (x?: Loose, y?: unknown) => (x + y) % 2 === 0, (x?: unknown, y?: Loose) => y % 2 === 0, (x?: Loose) => x % 3 === 0, (x?: Loose, y?: unknown) => (x + y) % 3 === 0,
-    (x?: Loose, y?: Loose) => (Math.floor(x / 3) + Math.floor(y / 2)) % 2 === 0, (x?: Loose, y?: Loose) => ((x * y) % 2) + ((x * y) % 3) === 0,
-    (x?: Loose, y?: Loose) => (((x * y) % 2) + ((x * y) % 3)) % 2 === 0, (x?: Loose, y?: Loose) => (((x + y) % 2) + ((x * y) % 3)) % 2 === 0,
+    (x: number, y: number) => (x + y) % 2 === 0, (x: number, y: number) => y % 2 === 0, (x: number) => x % 3 === 0, (x: number, y: number) => (x + y) % 3 === 0,
+    (x: number, y: number) => (Math.floor(x / 3) + Math.floor(y / 2)) % 2 === 0, (x: number, y: number) => ((x * y) % 2) + ((x * y) % 3) === 0,
+    (x: number, y: number) => (((x * y) % 2) + ((x * y) % 3)) % 2 === 0, (x: number, y: number) => (((x + y) % 2) + ((x * y) % 3)) % 2 === 0,
   ];
   const applyMask = (m: number) => {
     for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) if (!fn[y][x] && MASKS[m](x, y)) mod[y][x] = !mod[y][x];
@@ -182,7 +182,7 @@ function encode(text: string) {
   // pick the mask with the lowest penalty (the standard's four rules)
   const penalty = () => {
     let p = 0;
-    const line = (get?: Loose) => {
+    const line = (get: (a: number, b: number) => boolean) => {
       for (let a = 0; a < size; a++) {
         let run = 1;
         for (let b = 1; b <= size; b++) {
@@ -197,8 +197,8 @@ function encode(text: string) {
         }
       }
     };
-    line((a?: Loose, b?: Loose) => mod[a][b]);
-    line((a?: Loose, b?: Loose) => mod[b][a]);
+    line((a, b) => mod[a][b]);
+    line((a, b) => mod[b][a]);
     for (let y = 0; y < size - 1; y++) {
       for (let x = 0; x < size - 1; x++) {
         const c = mod[y][x];

@@ -7,7 +7,7 @@ import * as finance from '../models/finance';
 import * as ui from './ui';
 import * as $db from '../db';
 import * as $services_stockalert from '../services/stockalert';
-import type { AdminCtx, Loose, RouteMatch, Caught } from '../types';
+import type { AdminCtx, RouteMatch, Caught } from '../types';
 import type { ProductsRow, PurchasesRow } from '../data/rows';
 const INV_PER_PAGE = 50;
 const ADJUST_REASONS = [['adjust', 'হাতে বদল'], ['count', 'গণনা ঠিক করা'], ['damage', 'নষ্ট/ভাঙা → নষ্ট স্টকে'], ['lost', 'হারানো'], ['return', 'কাস্টমার ফেরত (ভালো মাল)'],
@@ -59,7 +59,7 @@ async function adjust(ctx: AdminCtx) {
   const note = str(b.note, 200);
   let n = 0;
   const problems: unknown[] = [];
-  const touched: Loose[] = [];
+  const touched: number[] = [];
   const { tx } = $db;
   await tx(async (t) => {
     for (let i = 0; i < pids.length; i++) {

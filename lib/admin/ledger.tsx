@@ -8,12 +8,12 @@ import { money, bn, int, str, fmtDate, pct } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
 import * as catalog from '../models/catalog';
-import type { AdminCtx, Body, Loose, RouteMatch, Caught } from '../types';
+import type { AdminCtx, Body, RouteMatch, Caught } from '../types';
 import type { ProductsRow } from '../data/rows';
 
 type DateOfProps = {
-  purchase_date?: Loose;
-  created_at?: Loose;
+  purchase_date?: string | null;
+  created_at?: Date | string | null;
 };
 const dateOf = (b: DateOfProps) => (b.purchase_date ? fmtDate(b.purchase_date + 'T06:00:00Z', false) : fmtDate(b.created_at, false));
 

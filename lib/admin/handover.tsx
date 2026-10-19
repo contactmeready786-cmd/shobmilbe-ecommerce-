@@ -11,7 +11,7 @@ import * as ui from './ui';
 import { ASSET_V } from './layout';
 import * as $services_courier from '../services/courier';
 import * as $orders from './orders';
-import type { AdminCtx, Loose, Caught } from '../types';
+import type { AdminCtx, Caught } from '../types';
 import type { OrdersRow, ProductsRow } from '../data/rows';
 
 const BASE = '/admin/handover';

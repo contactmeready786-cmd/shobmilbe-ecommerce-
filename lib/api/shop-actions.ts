@@ -21,9 +21,8 @@ import * as $services_pricing from '../services/pricing';
 import * as $services_mailer from '../services/mailer';
 import * as $services_health from '../services/health';
 import { myOrders } from '../gate';
-import { readBody, int, str, normalizePhone, validPhone, amount } from '../util';
+import { readBody, int, str, normalizePhone, validPhone, amount, fields } from '../util';
 import { allow, json, tooMany, type ApiCtx } from '../next/api';
-import type { Loose } from '../types';
 
 // (an empty "got it", exactly as before: no headers needed)
 const nothing = () => new Response(null, { status: 204 });
@@ -279,8 +278,8 @@ export async function points(ctx: ApiCtx) {
 export async function cspReport(ctx: ApiCtx) {
   if (await allow(ctx, 'csp:', 20, 3600)) {
     const text = await readBody(ctx.req, 16 * 1024).catch(() => '');
-    let r: Loose = null;
-    try { const j = JSON.parse(text); r = j['csp-report'] || (Array.isArray(j) ? j[0] && j[0].body : j.body || j); } catch (_) { r = null; }
+    let r: Record<string, unknown> | null = null;
+    try { const j = JSON.parse(text); r = fields(j['csp-report'] || (Array.isArray(j) ? j[0] && j[0].body : j.body || j)); } catch (_) { r = null; }
     let page = '';
     try { page = new URL(String((r && (r['document-uri'] || r.documentURL)) || ''), 'https://x').pathname; } catch (_) { page = ''; }
     if (r && (page === '/admin' || page.startsWith('/admin/'))) {

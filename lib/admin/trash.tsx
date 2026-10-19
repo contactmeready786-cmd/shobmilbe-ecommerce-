@@ -6,7 +6,7 @@ import * as db from '../db';
 import * as T from '../models/trash';
 import * as ui from './ui';
 import * as delcode from '../services/delcode';
-import type { AdminCtx, Loose, RouteMatch } from '../types';
+import type { AdminCtx, RouteMatch } from '../types';
 import type { CategoriesRow } from '../data/rows';
 
 const PER_PAGE = 100;
@@ -22,11 +22,11 @@ const HIDE = new Set(['password', 'permissions', 'image', 'seo_title', 'seo_desc
 const ENTITY: Record<string, string> = { product: 'product', category: 'category', blog_post: 'blog', banner: 'banner', page: 'page', coupon: 'coupon', transaction: 'transaction', staff: 'staff', customer: 'customer', order: 'order' };
 
 function who(e: db.pg.DbRow) { return e.deleted_by_name || (e.deleted_by ? `স্টাফ #${e.deleted_by}` : '—'); }
-function where(path?: Loose) {
+function where(path?: unknown) {
   const map: [RegExp, string][] = [[/^\/admin\/products\/\d+/, 'পণ্যের এডিট পেজ'], [/^\/admin\/products/, 'সব পণ্য তালিকা'], [/^\/admin\/categories/, 'ক্যাটাগরি পেজ'], [/^\/admin\/blog/, 'ব্লগ'],
     [/^\/admin\/design\/banners/, 'ব্যানার'], [/^\/admin\/design\/pages/, 'পেজ'], [/^\/admin\/marketing\/coupons/, 'কুপন'], [/^\/admin\/accounts/, 'হিসাব'], [/^\/admin\/staff/, 'স্টাফ'],
     [/^\/admin\/research/, 'মার্কেট রিসার্চ'], [/^\/admin\/customers\/\d+/, 'কাস্টমারের পেজ'], [/^\/admin\/customers/, 'সব কাস্টমার তালিকা'], [/^\/admin\/trash/, 'রিসাইকেল বিন']];
-  const m = map.find(([re]) => (re as RegExp).test(path || ''));
+  const m = map.find(([re]) => re.test(String(path || '')));
   return m ? m[1] : (path || '—');
 }
 
@@ -83,11 +83,11 @@ async function page(ctx: AdminCtx) {
   return ctx.page('রিসাইকেল বিন', body, 'trash');
 }
 
-function valueOf(k: string, v?: Loose, cats?: Loose) {
+function valueOf(k: string, v: unknown, cats: Map<number, string>) {
   if (v === null || v === undefined || v === '') return <span className="muted">—</span>;
   if (typeof v === 'boolean') return v ? 'হ্যাঁ' : 'না';
   if (['price', 'old_price', 'cost_price', 'amount'].includes(k)) return money(v);
-  if (/_at$|_date$/.test(k)) return fmtDate(v);
+  if (/_at$|_date$/.test(k)) return fmtDate(typeof v === 'string' || typeof v === 'number' ? v : String(v));
   if ((k === 'category_id' || k === 'parent_id') && cats.has(Number(v))) return cats.get(Number(v));
   const s = typeof v === 'object' ? JSON.stringify(v) : String(v);
   return s.length > 400 ? <details><summary>{s.slice(0, 160)}…</summary><div className="trash-long"><Val v={s} /></div></details> : s;
@@ -102,7 +102,7 @@ async function detail(ctx: AdminCtx, m: RouteMatch) {
   const history = ENTITY[e.kind] ? await db.q<{ id: number; staff_id: number | null; action: string; entity: string; entity_id: number | null; detail: string; created_at: Date; staff_name: string | null }>(`SELECT a.*, s.name AS staff_name FROM activity_log a LEFT JOIN staff s ON s.id=a.staff_id
     WHERE a.entity=$1 AND a.entity_id=$2 ORDER BY a.created_at DESC LIMIT 60`, [ENTITY[e.kind], e.ref_id]) : [];
   const fields = Object.keys(row).filter((k) => !HIDE.has(k));
-  const parts = Object.entries(e.data.children || {}).reduce((a, [, v]: Loose) => a + v.length, 0);
+  const parts = Object.entries(e.data.children || {}).reduce((a, [, v]) => a + v.length, 0);
   const body = <><p className="crumbs"><a href="/admin/trash">← রিসাইকেল বিন</a></p><h1><Val v={K.icon} />{' '}<Val v={e.name || '(নাম নেই)'} />{' '}<small><Val v={K.label} />{' '}· মুছে ফেলা হয়েছে</small></h1><div className="two-col"><section className="panel"><h2>কে, কখন, কোথা থেকে মুছেছে</h2><table className="table kv"><tbody><tr><th>কে মুছেছে</th><td><b><Val v={who(e)} /></b></td></tr><tr><th>কখন</th><td>{fmtDate(e.deleted_at)}</td></tr><tr><th>কোন পেজ থেকে</th><td><Val v={where(e.from_path)} />{' '}<span className="small muted"><Val v={e.from_path} /></span></td></tr><tr><th>কোন নেটওয়ার্ক থেকে (IP)</th><td className="small"><Val v={e.ip || '—'} /></td></tr><tr><th>আগের আইডি</th><td>#<Val v={e.ref_id} /></td></tr>{(parts ? <tr><th>সাথে যা ছিল</th><td>{bn(parts)}টি সংযুক্ত অংশ (যেমন বান্ডেলের পণ্য) — ফেরত আনলে এগুলোও ফিরবে</td></tr> : null)}</tbody></table><form method="post" action="/admin/trash" className="row-actions trash-one"><input type="hidden" name="id" defaultValue={attrValue(e.id)} />{' '}<button className="btn" name="form" value="restore">↩️ ফেরত আনুন</button>{' '}<input type="hidden" name="from_detail" defaultValue="1" />{' '}<button className="btn btn-danger" name="form" value="purge" data-delcode="trash_purge" data-delcode-to={attrValue(delcode.masked())} data-delcode-what={attrValue(e.name || 'এই জিনিস')} data-confirm-btn="এটা স্থায়ীভাবে মুছে ফেলবেন? আর কখনো ফেরত আনা যাবে না।">🗑️ স্থায়ীভাবে মুছুন</button></form>{(e.media && e.media.length ? <><h2>ছবি</h2><div className="trash-pics">{jsxList(e.media.map((id: unknown) => <a href={`/media/${attrValue(id)}`} target="_blank" rel="noopener"><img src={`/media/${attrValue(id)}/t`} alt="" loading="lazy" /></a>))}</div></> : null)}</section><section className="panel"><h2>এর ইতিহাস{' '}<small>কে কখন কী করেছে</small></h2>{(history.length ? <ul className="timeline">{jsxList(history.map((a) => <li><b><Val v={a.staff_name || 'সিস্টেম'} /></b>{' '}·{' '}<Val v={a.action} />{(a.detail ? ` · ${a.detail}` : null)}<br /><span className="small muted">{fmtDate(a.created_at)}</span></li>))}</ul> : <p className="muted">কোনো ইতিহাস লেখা নেই।</p>)}</section></div><section className="panel"><h2>মোছার আগে যা ছিল (সব তথ্য)</h2><table className="table kv"><tbody>{jsxList(fields.map((k) => <tr><th><Val v={FIELD[k] || k} /></th><td><Val v={valueOf(k, row[k], cats)} /></td></tr>))}</tbody></table></section></>;
   return ctx.page('রিসাইকেল বিন', body, 'trash');
 }

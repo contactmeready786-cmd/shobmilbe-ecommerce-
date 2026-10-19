@@ -6,7 +6,7 @@ import { bn, fmtDate } from '../util';
 import * as ui from './ui';
 import * as H from '../services/health';
 import * as ik from '../services/imagekit';
-import type { AdminCtx, Loose } from '../types';
+import type { AdminCtx } from '../types';
 
 const ICON: Record<H.Level | 'off', string> = { ok: '✅', warn: '⚠️', bad: '❌', off: '⚪' };
 function line(level: H.Level | 'off', title: unknown, detail: unknown, link?: [string, string]) {

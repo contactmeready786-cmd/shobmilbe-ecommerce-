@@ -10,7 +10,7 @@ import * as db from '../db';
 import * as ui from './ui';
 import * as courier from '../services/courier';
 import * as finance from '../models/finance';
-import type { AdminCtx, Loose } from '../types';
+import type { AdminCtx } from '../types';
 
 const BASE = '/admin/accounts/cod';
 // what the courier collects for an order: the total minus what was paid before delivery (gift card, advance)
@@ -58,8 +58,8 @@ async function save(ctx: AdminCtx) {
     // the courier's charge, shared over the parcels (for each order's own profit)
     for (const r of rows) await t.query('UPDATE orders SET cod_settlement_id=$1, courier_fee=$2 WHERE id=$3', [c.id, collected ? round2(fee * (Number(r.cod) / collected)) : 0, r.id]);
     return { id: c.id, n: rows.length, collected, fee };
-  }).catch((e) => ({ error: e.message })) as Loose;
-  if (res.error) return ctx.fail(back, res.error);
+  }).catch((e: Error) => ({ error: e.message }));
+  if ('error' in res) return ctx.fail(back, res.error);
   if (int(b.account_id) && ctx.can('accounting')) {
     const note = `${courier.label(b.courier)} COD${b.ref ? ` #${str(b.ref, 60)}` : ''} (${res.n}টি পার্সেল)`;
     const tx1 = await finance.addTransaction({ type: 'income', category: 'কুরিয়ার থেকে COD টাকা', amount: res.collected, account_id: b.account_id, tx_date: b.settled_on, note }, ctx.user.id).catch(() => null);

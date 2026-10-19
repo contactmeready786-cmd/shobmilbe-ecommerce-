@@ -13,7 +13,7 @@ import * as $services_payments from '../services/payments';
 import { myOrders } from '../gate';
 import { str, int, parseCookies, sign, unsign } from '../util';
 import type { PageOpts, Resolved } from './router';
-import type { Loose, Settings, ShopRequest } from '../types';
+import type { Settings, ShopRequest } from '../types';
 import type { ReactNode } from 'react';
 import type { FunctionComponentElement } from 'react';
 

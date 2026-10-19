@@ -14,9 +14,9 @@ import * as $security from '../security';
 import * as $models_orders from '../models/orders';
 import * as $notify from './notify';
 import * as $push from './push';
-import type { Body, Id, Loose, Settings, Caught } from '../types';
+import type { Body, Id, Settings, Caught } from '../types';
 
-const STATES: Record<string, Loose> = {
+const STATES: Record<string, [string, string]> = {
   calling: ['📞', 'কল যাচ্ছে'],
   confirmed: ['✅', 'কাস্টমার কনফার্ম করেছে (১ চেপেছে)'],
   cancelled: ['❌', 'কাস্টমার বাতিল করেছে (২ চেপেছে)'],
@@ -26,7 +26,7 @@ const STATES: Record<string, Loose> = {
 };
 
 // Ready-made starting points. The exact API differs per company — the owner checks it against their docs.
-const PRESETS: Record<string, Loose> = {
+const PRESETS: Record<string, { label: string; url: string; header: string; body: string }> = {
   epbx: { label: 'ePBX (epbx.bd) — অটো অর্ডার কল', url: 'https://epbx.bd/api/v1/calls/initiate', header: 'Authorization', body: JSON.stringify({ phone_number: '{{phone}}', customer_name: '{{name}}', amount: '{{amount}}', order_id: '{{order_code}}', confirm_text: '{{message}}', cancel_text: 'অর্ডার বাতিল করতে ২ চাপুন', callback_url: '{{callback_url}}' }, null, 2) },
   manydial: { label: 'ManyDial', url: 'https://api.manydial.com/v1/calls', header: 'Authorization', body: JSON.stringify({ to: '{{phone_intl}}', from: '{{caller_id}}', message: '{{message}}', reference: '{{order_code}}', webhook: '{{callback_url}}' }, null, 2) },
   custom: { label: 'অন্য কোম্পানি (নিজে API বসান)', url: '', header: 'Authorization', body: JSON.stringify({ phone: '{{phone}}', message: '{{message}}', reference: '{{order_code}}', callback: '{{callback_url}}' }, null, 2) },
@@ -48,8 +48,8 @@ async function ensureSecret(s: Settings) {
   return t;
 }
 function callbackUrl(site: string, token: string) { return `${String(site || '').replace(/\/+$/, '')}/webhook/autocall/${token}`; }
-const localPhone = (p: string) => { const d = String(p || '').replace(/\D/g, ''); return d.startsWith('880') ? '0' + d.slice(3) : d; };
-const intlPhone = (p: string) => { const l = localPhone(p); return l.startsWith('0') ? '880' + l.slice(1) : l; };
+const localPhone = (p: unknown) => { const d = String(p || '').replace(/\D/g, ''); return d.startsWith('880') ? '0' + d.slice(3) : d; };
+const intlPhone = (p: unknown) => { const l = localPhone(p); return l.startsWith('0') ? '880' + l.slice(1) : l; };
 const words = (n?: unknown) => String(Math.round(Number(n || 0)));
 
 type FillOpts = {
@@ -61,11 +61,13 @@ function fill(tpl: string | undefined, vars: Record<string, string>, { json = fa
     return json ? JSON.stringify(v).slice(1, -1) : v;
   });
 }
-function varsFor(s: Settings, o?: Loose, site?: Loose, token?: Loose) {
+/** what a call needs from an order */
+type CallOrder = { id?: number; code?: string; customer_name?: unknown; name?: unknown; phone?: unknown; total?: unknown; payment?: unknown; items?: { name: unknown }[]; lines?: { name: unknown }[] };
+function varsFor(s: Settings, o: CallOrder, site: string, token: string) {
   const vars: Record<string, string> = {
     name: str(o.customer_name || o.name, 60) || 'গ্রাহক', phone: localPhone(o.phone), phone_intl: intlPhone(o.phone), phone_plus: '+' + intlPhone(o.phone),
-    amount: words(o.total), order_code: o.code, shop: s.store_name || 'সবমিলবে', caller_id: s.autocall_caller || '',
-    items: (o.items || o.lines || []).slice(0, 2).map((i: { name: unknown; }) => str(i.name, 40)).join(' আর ') || 'পণ্যের',
+    amount: words(o.total), order_code: o.code ?? '', shop: s.store_name || 'সবমিলবে', caller_id: s.autocall_caller || '',
+    items: (o.items || o.lines || []).slice(0, 2).map((i) => str(i.name, 40)).join(' আর ') || 'পণ্যের',
     callback_url: callbackUrl(site, token),
   };
   vars.message = fill(s.autocall_message || MESSAGES[0], vars);
@@ -76,13 +78,13 @@ function varsFor(s: Settings, o?: Loose, site?: Loose, token?: Loose) {
 type CallOpts = {
   test?: boolean;
 };
-async function call(s: Settings, order?: Loose, site?: unknown, { test = false }: CallOpts = {}) {
+async function call(s: Settings, order: CallOrder, site: string, { test = false }: CallOpts = {}) {
   const token = await ensureSecret(s);
   const vars = varsFor(s, order, site, token);
   let body = fill(s.autocall_body || PRESETS.custom.body, vars, { json: true });
   let parsed = null;
   try { parsed = JSON.parse(body); } catch (_) { /* sent as typed */ }
-  const headers: Record<string, Loose> = { 'Content-Type': parsed ? 'application/json' : 'application/x-www-form-urlencoded', Accept: 'application/json' };
+  const headers: Record<string, string> = { 'Content-Type': parsed ? 'application/json' : 'application/x-www-form-urlencoded', Accept: 'application/json' };
   if (s.autocall_api_key) headers[(s.autocall_header || 'Authorization').trim() || 'Authorization'] = s.autocall_api_key;
   const url = fill(s.autocall_url, vars).trim();
   if (!/^https:\/\//i.test(url)) return { ok: false, error: 'কল কোম্পানির API ঠিকানা https:// দিয়ে শুরু হতে হবে।' };
@@ -103,7 +105,7 @@ async function call(s: Settings, order?: Loose, site?: unknown, { test = false }
 }
 
 // After a new order (from the checkout)
-async function afterOrder(s: Settings, order?: Loose, site?: unknown) {
+async function afterOrder(s: Settings, order: CallOrder, site: string) {
   if (!on(s)) return null;
   if (s.autocall_only_cod !== '0' && order.payment && order.payment !== 'cod') return null;
   return call(s, order, site);

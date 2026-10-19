@@ -2,9 +2,9 @@
 // row fades when off. Same behaviour as the product list switch.
 import { int } from '../util';
 import * as db from '../db';
-import type { AdminCtx, Loose, RouteMatch } from '../types';
+import type { AdminCtx, RouteMatch } from '../types';
 
-const KINDS: Record<string, Loose> = {
+const KINDS: Record<string, { perm: string; entity: string; sql: string }> = {
   blog: { perm: 'blog', entity: 'blog', sql: `UPDATE blog_posts SET status=CASE WHEN $2 THEN 'published' ELSE 'draft' END,
     published_at=CASE WHEN $2 THEN coalesce(published_at, now()) ELSE published_at END, updated_at=now() WHERE id=$1 RETURNING title AS name` },
   page: { perm: 'design', entity: 'page', sql: 'UPDATE pages SET active=$2, updated_at=now() WHERE id=$1 RETURNING title AS name' },
@@ -23,7 +23,7 @@ async function toggle(ctx: AdminCtx, m: RouteMatch) {
   if (m[1] === 'staff' && id === ctx.user.id) return ctx.json(400, { error: 'নিজেকে বন্ধ করতে পারবেন না।' });
   const b = await ctx.body();
   const on = !!b.active && b.active !== '0';
-  const r = await db.one(K.sql, [id, on]);
+  const r = await db.one<{ name: string }>(K.sql, [id, on]);
   if (!r) return ctx.json(404, { error: 'পাওয়া যায়নি।' });
   await ctx.log(on ? 'enable' : 'disable', K.entity, id, `${on ? 'চালু' : 'বন্ধ'}: ${r.name}`);
   if (String(ctx.req.headers.accept || '').includes('application/json')) return ctx.json(200, { ok: true, active: on });

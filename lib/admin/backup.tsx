@@ -8,7 +8,7 @@ import * as security from '../security';
 import * as backup from '../services/backup';
 import * as $services_imagekit from '../services/imagekit';
 import * as $services_autobackup from '../services/autobackup';
-import type { AdminCtx, Loose, Caught } from '../types';
+import type { AdminCtx, Caught } from '../types';
 
 const MAX_BYTES = 4 * 1024 * 1024; // Vercel can send at most ~4.5 MB in one reply
 

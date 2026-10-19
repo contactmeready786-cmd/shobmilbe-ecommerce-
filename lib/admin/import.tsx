@@ -18,7 +18,7 @@ import * as ui from './ui';
 import * as importer from '../services/importer';
 import { safeFetch, FetchError } from '../services/safefetch';
 import * as $services_autocat from '../services/autocat';
-import type { AdminCtx, Body, Loose, Caught } from '../types';
+import type { AdminCtx, Body, Caught } from '../types';
 import type { ProductsRow } from '../data/rows';
 
 const FILE_MAX = 3 * 1024 * 1024; // what fits in one request
@@ -60,13 +60,15 @@ const PAGE_ACCEPT = 'text/html,application/xhtml+xml,application/xml;q=0.9,appli
 type ReadUrlProps = {
   follow?: boolean;
 };
-async function readUrl(u: string, { follow = true }: ReadUrlProps = {}): Promise<Loose> {
+/** a read page, with where it ended up and the next page of a list */
+type ReadResult = Partial<importer.Parsed> & { items: importer.ReadItem[]; finalUrl?: string; next?: string | null };
+async function readUrl(u: string, { follow = true }: ReadUrlProps = {}): Promise<ReadResult> {
   const r = await safeFetch(u, { maxBytes: 20 * 1024 * 1024, timeoutMs: follow ? 10000 : 9000, accept: PAGE_ACCEPT });
   if (!r.ok) {
     const why = r.status === 404 ? 'পেজটি পাওয়া যায়নি (404)' : r.status === 403 || r.status === 401 ? 'ওয়েবসাইটটি পড়তে দিচ্ছে না (অনুমতি নেই)' : `ওয়েবসাইট ভুল উত্তর দিয়েছে (${r.status})`;
     return { items: [], error: why + '।' };
   }
-  const out: Loose = importer.parseContent(r.body, { contentType: r.contentType, baseUrl: r.finalUrl });
+  const out: ReadResult = importer.parseContent(r.body, { contentType: r.contentType, baseUrl: r.finalUrl });
   out.finalUrl = r.finalUrl;
   if (out.items.length) {
     out.next = nextPageUrl(r.finalUrl, out.items.length);
@@ -91,7 +93,7 @@ async function readUrl(u: string, { follow = true }: ReadUrlProps = {}): Promise
 async function readApi(ctx: AdminCtx) {
   if (!(await security.hit(db, 'impread:' + ctx.user.id, 4000, 3600))) return ctx.json(429, { error: 'এক ঘণ্টায় অনেক বেশি পড়া হয়েছে, একটু পরে চেষ্টা করুন।' });
   const b = await ctx.body();
-  let out;
+  let out: ReadResult;
   let source = '';
   try {
     const file = fields(b.file);

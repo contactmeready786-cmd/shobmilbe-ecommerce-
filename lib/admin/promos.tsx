@@ -8,7 +8,7 @@ import { bn, int, str, list, money, amount, fmtDate, shopPrice } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
 import * as pricing from '../services/pricing';
-import type { AdminCtx, Loose, RouteMatch } from '../types';
+import type { AdminCtx, RouteMatch } from '../types';
 import type { FlashSalesRow, OffersRow, ProductsRow } from '../data/rows';
 
 const BASE = '/admin/marketing/flash';

@@ -7,7 +7,7 @@ import { saveKeys } from './marketing';
 import * as $homerows from './homerows';
 import * as $navswitch from './navswitch';
 import * as $models_catalog from '../models/catalog';
-import type { AdminCtx, Body, Id, Loose, RouteMatch, MenuLink } from '../types';
+import type { AdminCtx, Body, Id, RouteMatch, MenuLink } from '../types';
 import type { PagesRow } from '../data/rows';
 
 const SECTIONS = {
@@ -78,7 +78,7 @@ function pageSwitch(id?: Id, on?: unknown, title?: unknown, desc?: unknown) {
 type LinkRowsProps = {
   onOff?: boolean;
 };
-function linkRows(name?: unknown, rows?: Loose, { onOff = false }: LinkRowsProps = {}) {
+function linkRows(name: string, rows: MenuLink[], { onOff = false }: LinkRowsProps = {}) {
   return <><div data-repeat={attrValue(name)}>{jsxList([...rows, { label: '', url: '' }].map((r) => <div className="field-row repeat-row">{ui.field('লেখা', ui.input(`${name}_label[]`, r.label, { maxlength: 40 }))}{' '}{ui.field('লিংক', ui.input(`${name}_url[]`, r.url, { maxlength: 300, placeholder: '/products?cat=… বা https://…' }))}{' '}{(onOff ? ui.field('দেখাবে?', ui.select(`${name}_on[]`, [['1', '✅ চালু'], ['0', '⛔ বন্ধ']], r.on === false ? '0' : '1')) : null)}</div>))}</div><button type="button" className="btn btn-sm btn-ghost" data-repeat-add={attrValue(name)}>+ আরেকটা লিংক</button></>;
 }
 function readRows(b: Body, name: string) {

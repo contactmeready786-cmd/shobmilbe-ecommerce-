@@ -26,9 +26,9 @@ function idleHours(settings: Settings) {
   return Number.isFinite(h) && h >= 1 ? Math.min(h, MAX_DAYS * 24) : 72;
 }
 
-function deviceName(ua: unknown): string {
+function deviceName(ua: string | undefined): string {
   const { parseUA } = $services_visitors;
-  const d = parseUA(ua);
+  const d = parseUA(ua || '');
   const kind = d.device === 'mobile' ? '📱 মোবাইল' : d.device === 'tablet' ? '📱 ট্যাবলেট' : '💻 কম্পিউটার';
   return `${kind} · ${d.os} · ${d.browser}`.slice(0, 120);
 }

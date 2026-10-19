@@ -18,7 +18,6 @@ import * as $customers from './customers';
 import * as $orders from './orders';
 import type { Body, Id, Settings, ShopRequest } from '../types';
 import type { CustomersRow, CustomerAddressesRow, CustomerOtpsRow, CustomerEmailOtpsRow } from '../data/rows';
-import type { Loose } from '../types';
 
 /** A customer account (a row of the customers table). An e-mail account has no login phone (phone null). */
 export type Customer = CustomersRow;
@@ -212,14 +211,14 @@ async function addresses(customerId?: Id) {
   return db.q<CustomerAddressesRow>('SELECT * FROM customer_addresses WHERE customer_id=$1 ORDER BY is_default DESC, id DESC', [int(customerId)]);
 }
 type SaveAddressOpts = {
-  district?: Loose;
-  thana?: Loose;
-  address?: Loose;
-  phone?: Loose;
-  id?: Loose;
-  is_default?: Loose;
-  label?: Loose;
-  name?: Loose;
+  district?: unknown;
+  thana?: unknown;
+  address?: unknown;
+  phone?: unknown;
+  id?: unknown;
+  is_default?: unknown;
+  label?: unknown;
+  name?: unknown;
 };
 async function saveAddress(customerId: Id, b: SaveAddressOpts) {
   const O = $orders;
@@ -248,9 +247,9 @@ async function saveAddress(customerId: Id, b: SaveAddressOpts) {
 }
 async function deleteAddress(customerId?: Id, id?: Id) { await db.q('DELETE FROM customer_addresses WHERE id=$1 AND customer_id=$2', [int(id), int(customerId)]); }
 type SaveProfileOpts = {
-  name?: Loose;
-  contact_phone?: Loose;
-  email?: Loose;
+  name?: unknown;
+  contact_phone?: unknown;
+  email?: unknown;
 };
 async function saveProfile(cu: Pick<Customer, 'id' | 'email_verified'>, b: SaveProfileOpts): Promise<void> {
   const name = str(b.name, 80);

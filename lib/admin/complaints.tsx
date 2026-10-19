@@ -6,7 +6,7 @@ import { bn, fmtDate, int, str, pageNum, oneOf } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
 import * as C from '../models/complaints';
-import type { AdminCtx, Loose, RouteMatch } from '../types';
+import type { AdminCtx, RouteMatch } from '../types';
 import type { ComplaintsRow, MediaRow, StaffRow } from '../data/rows';
 
 const BASE = '/admin/complaints';

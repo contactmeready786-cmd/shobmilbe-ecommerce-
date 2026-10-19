@@ -12,7 +12,7 @@ import * as catalog from '../models/catalog';
 import * as W from '../models/warehouses';
 import { ASSET_V } from './layout';
 import * as $services_barcode from '../services/barcode';
-import type { AdminCtx, Loose, RouteMatch } from '../types';
+import type { AdminCtx, RouteMatch } from '../types';
 import type { ProductsRow, StaffRow } from '../data/rows';
 
 const PAY = [['cash', '💵 নগদ'], ['manual_bkash', 'বিকাশ'], ['manual_nagad', 'নগদ (মোবাইল)'], ['manual_rocket', 'রকেট'], ['card', '💳 কার্ড']];
@@ -34,13 +34,13 @@ async function find(ctx: AdminCtx) {
   const q = str(ctx.query.get('q'), 100);
   const wh = int(ctx.query.get('wh'));
   if (!q) return ctx.json(200, { exact: null, list: [] });
-  const shape = (p?: Loose, st?: Loose) => ({ id: p.id, name: p.name, sku: p.sku, barcode: p.barcode, price: Number(p.base_price ?? p.price), stock: p.stock,
-    here: wh ? ((st.get(p.id) || { by: {} }).by[wh] || 0) : (st.get(p.id) || { main: p.stock }).main, image: p.image_id ? `/media/${p.image_id}/t` : null, emoji: p.emoji, active: p.active });
+  const shape = (p: catalog.Product, st: Map<number, W.StockSplit>) => ({ id: p.id, name: p.name, sku: p.sku, barcode: p.barcode, price: Number(p.base_price ?? p.price), stock: p.stock,
+    here: wh ? (st.get(p.id)?.by[wh] || 0) : (st.get(p.id)?.main ?? p.stock), image: p.image_id ? `/media/${p.image_id}/t` : null, emoji: p.emoji, active: p.active });
   const exact = await db.one<Pick<ProductsRow, 'id'>>(`SELECT id FROM products WHERE (upper(barcode)=upper($1) OR lower(sku)=lower($1)) AND variant_count = 0 LIMIT 1`, [q]);
   if (exact) {
     const p = await catalog.getProduct({ id: exact.id });
     const st = await W.stockFor([p!.id]);
-    return ctx.json(200, { exact: shape(p, st), list: [] });
+    return ctx.json(200, { exact: shape(p!, st), list: [] });
   }
   const list = await catalog.listProducts({ q, items: true, includeInactive: true, limit: 12, sort: 'name' });
   const st = await W.stockFor(list.map((p) => p.id));

@@ -15,7 +15,7 @@ import * as db from '../db';
 import { bn, str } from '../util';
 import * as autopost from './autopost';
 import * as $seo from './seo';
-import type { Body, Id, Loose, Settings, Caught } from '../types';
+import type { Body, Id, Settings, Caught } from '../types';
 
 const EVERY_MS = 9 * 60 * 1000;
 const PER_RUN = 12;
@@ -105,7 +105,9 @@ type FbComment = { id: string; message?: string; from?: { id?: string; name?: st
 type RunOpts = {
   force?: boolean;
 };
-async function run(settings: Settings, { force = false }: RunOpts = {}): Promise<Loose> {
+/** what one round of auto replies did (or why it did nothing) */
+type RunResult = { off?: boolean; skipped?: boolean; limit?: boolean; error?: string; checked?: number; replied?: number; errors?: string[] };
+async function run(settings: Settings, { force = false }: RunOpts = {}): Promise<RunResult> {
   if (settings.fbreply_on !== '1' || !settings.autopost_page_token || !settings.autopost_page_id) return { off: true };
   if (!force && Date.now() - (Number(settings.fbreply_try) || 0) < EVERY_MS) return { skipped: true };
   await db.setMany({ fbreply_try: String(Date.now()) });
@@ -152,7 +154,7 @@ async function run(settings: Settings, { force = false }: RunOpts = {}): Promise
       if (!text || QUIZ.test(text) || !ASK.test(text)) continue; // not a buying question: left for the owner
       if (!subject) subject = await postSubject(post.id);
       const named = await productInText(text);
-      const about: Loose = named ? { product: named } : subject.product || subject.kit ? subject : {};
+      const about: Subject = named ? { product: named } : subject.product || subject.kit ? subject : {};
       const reply = replyText(about, settings, c.id);
       try {
         const r = await autopost.graph(`${c.id}/comments`, { method: 'POST', token, params: { message: reply } });

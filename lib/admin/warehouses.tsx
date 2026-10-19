@@ -5,7 +5,7 @@ import { int, str, bn, fmtDate } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
 import * as W from '../models/warehouses';
-import type { AdminCtx, Body, Loose, RouteMatch } from '../types';
+import type { AdminCtx, Body, RouteMatch } from '../types';
 import type { ProductsRow } from '../data/rows';
 
 const BASE = '/admin/warehouses';

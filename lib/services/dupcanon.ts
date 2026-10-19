@@ -11,7 +11,6 @@
 import * as db from '../db';
 import * as seo from './seo';
 import { words } from '../models/duplicates';
-import type { Loose } from '../types';
 import type { ProductsRow } from '../data/rows';
 
 const TTL = 5 * 60 * 1000;
@@ -58,8 +57,8 @@ async function canonicalFor(slug: string) {
   }
 }
 
-async function isCopy(slug?: Loose) {
-  try { return (await copies()).has(slug); } catch (_) { return false; }
+async function isCopy(slug?: unknown) {
+  try { return typeof slug === 'string' && (await copies()).has(slug); } catch (_) { return false; }
 }
 
 function forget() { cache = null; }

@@ -8,7 +8,6 @@ import { hashPassword, passwordProblem, str, int } from '../util';
 import * as $catalog from './catalog';
 import type { Param } from '../pg';
 import type { Body, Id, StaffUser } from '../types';
-import type { Loose } from '../types';
 
 /** A staff member who may be missing (not logged in, deleted). */
 type MaybeUser = StaffUser | null | undefined;
@@ -109,14 +108,14 @@ function cleanUsername(u: unknown): string { return String(u || '').trim().toLow
 
 type SaveStaffOpts = {
   id: number | null;
-  username?: Loose;
-  name?: Loose;
-  permissions: Loose;
-  active?: Loose;
-  password?: Loose;
-  phone?: Loose;
-  email?: Loose;
-  note?: Loose;
+  username?: unknown;
+  name?: unknown;
+  permissions: unknown;
+  active?: unknown;
+  password?: unknown;
+  phone?: unknown;
+  email?: unknown;
+  note?: unknown;
 };
 async function saveStaff(data: SaveStaffOpts, { isOwnerEditing = true }: { isOwnerEditing?: boolean } = {}): Promise<number> {
   const id = int(data.id);

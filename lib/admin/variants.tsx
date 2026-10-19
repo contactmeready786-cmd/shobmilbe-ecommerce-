@@ -5,7 +5,7 @@ import { int, str, bn, money } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
 import * as catalog from '../models/catalog';
-import type { AdminCtx, Body, Loose, RouteMatch, Caught } from '../types';
+import type { AdminCtx, Body, RouteMatch, Caught } from '../types';
 import type { ProductsRow } from '../data/rows';
 
 const PRESET_TITLES = ['রং', 'সাইজ', 'মডেল', 'রং / সাইজ', 'ধরন', 'ভোল্টেজ', 'ক্ষমতা (ওয়াট)', 'দৈর্ঘ্য', 'প্যাক'];
@@ -19,13 +19,13 @@ type RowHtmlProps_ = {
 type RowHtmlProps = {
   active?: boolean;
   id?: number;
-  variant_label?: Loose;
+  variant_label?: string | null;
   price?: number | string;
-  old_price?: Loose;
+  old_price?: number | string | null;
   cost_price?: number | null;
   stock?: number;
-  sku?: Loose;
-  barcode?: Loose;
+  sku?: string | null;
+  barcode?: string | null;
   image_id?: number | null;
 };
 function rowHtml(v: RowHtmlProps, { seeCost, images, i, blank = false }: RowHtmlProps_) {

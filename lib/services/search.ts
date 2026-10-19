@@ -12,7 +12,7 @@
 // ---------------------------------------------------------------- Bangla → English words
 // Common ways Bangladeshi customers write shop words. Several spellings per word on purpose.
 import * as db from '../db';
-import type { Body, Loose } from '../types';
+import type { Body } from '../types';
 const WORDS = {
   capacitor: 'ক্যাপাসিটর ক্যাপাসিটার কেপাসিটর কেপাসিটার ক্যাপাসিটি কন্ডেন্সার কনডেন্সার',
   resistor: 'রেজিস্টর রেজিস্টার রেসিস্টর রেজিস্ট্যান্স রেজিস্টেন্স',
@@ -206,10 +206,12 @@ function wordScore(q: string, p: string) {
 }
 
 // ---------------------------------------------------------------- the product list in memory
-let INDEX: Loose = null; let builtAt = 0; let sig = ''; let building: unknown = null;
-async function index() {
+/** one product as the search keeps it: its words in groups, each group with its weight */
+type Indexed = { id: number; sold: number; fields: [string[], number][]; nameLen: number };
+let INDEX: Indexed[] | null = null; let builtAt = 0; let sig = ''; let building: Promise<Indexed[]> | null = null;
+async function index(): Promise<Indexed[]> {
   const fresh = INDEX && Date.now() - builtAt < 60e3;
-  if (fresh) return INDEX;
+  if (fresh) return INDEX!;
   if (building) return building;
   building = (async () => {
     try {
@@ -221,13 +223,14 @@ async function index() {
           (SELECT string_agg(v.variant_label || ' ' || coalesce(v.sku, ''), ' ') FROM products v WHERE v.parent_id=p.id) AS variants
         FROM products p LEFT JOIN categories c ON c.id=p.category_id WHERE p.active AND p.parent_id IS NULL`);
       INDEX = rows.map((r) => {
-        const fields = [
+        const parts: [string[], number][] = [
           [words(`${r.name} ${r.brand || ''} ${r.model || ''} ${r.variants || ''}`), 1],
           [words(`${r.sku || ''} ${r.barcode || ''}`), 1],
           [words(`${r.cat || ''} ${r.seo_keywords || ''}`), 0.6],
           [words(String(r.short_description || '').slice(0, 300)), 0.35],
-        ].map(([ws, wt]: Loose[]) => {
-          const all = new Set<Loose>(ws);
+        ];
+        const fields = parts.map(([ws, wt]): [string[], number] => {
+          const all = new Set<string>(ws);
           for (const w of ws) for (const v of bnVariants(w)) all.add(v);
           return [[...all], wt];
         });

@@ -10,7 +10,7 @@
 import { Val, attrValue } from '../react/html';
 
 import * as db from '../db';
-import type { AdminCtx, Loose, Settings } from '../types';
+import type { AdminCtx, Settings } from '../types';
 const ADS_ONLY = new Set(['fb_pixel', 'fb_capi', 'fb_domain', 'tiktok_pixel', 'tiktok_events']);
 
 function marks(s: Settings) {
@@ -24,8 +24,8 @@ function markOf(s: Settings, key: string, isSetUp: boolean) {
   if (!isSetUp && ADS_ONLY.has(key)) return 'skip';
   return '';
 }
-function buttons(key?: Loose, mark?: Loose, back?: Loose) {
-  const f = (val?: Loose, label?: Loose, title?: Loose) => <form method="post" action="/admin/setup-mark" className="mark-form"><input type="hidden" name="key" defaultValue={attrValue(key)} /><input type="hidden" name="val" defaultValue={attrValue(val)} /><input type="hidden" name="back" defaultValue={attrValue(back)} />{' '}<button className="link-btn small" title={attrValue(title)}><Val v={label} /></button></form>;
+function buttons(key?: unknown, mark?: unknown, back?: unknown) {
+  const f = (val?: unknown, label?: unknown, title?: unknown) => <form method="post" action="/admin/setup-mark" className="mark-form"><input type="hidden" name="key" defaultValue={attrValue(key)} /><input type="hidden" name="val" defaultValue={attrValue(val)} /><input type="hidden" name="back" defaultValue={attrValue(back)} />{' '}<button className="link-btn small" title={attrValue(title)}><Val v={label} /></button></form>;
   if (mark === 'done') return <><span className="small muted">✔ আপনি "করা আছে" দিয়েছেন</span>{' '}{f('', '↩️ ফেরান', 'আবার সাইটের নিজের যাচাই দেখাবে')}</>;
   if (mark === 'skip') return f('', '↩️ তালিকায় ফেরান', 'আবার তালিকায় দেখাবে');
   return <>{f('done', '✓ করা আছে', 'অন্যভাবে (যেমন DNS দিয়ে) করা আছে — সাইট দেখতে পায় না')}{' '}{f('skip', '✕ দরকার নেই', 'এই সার্ভিস ব্যবহার করি না — তালিকা থেকে সরান')}</>;

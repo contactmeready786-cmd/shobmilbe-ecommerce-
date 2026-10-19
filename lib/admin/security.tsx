@@ -12,7 +12,7 @@ import * as $services_imagekit from '../services/imagekit';
 import * as $pg from '../pg';
 import * as $services_notify from '../services/notify';
 import * as delcode from '../services/delcode';
-import type { AdminCtx, Loose } from '../types';
+import type { AdminCtx } from '../types';
 import type { ActivityLogRow, SettingsRow, StaffRow } from '../data/rows';
 
 function row(ok: boolean | null, title?: unknown, desc?: unknown) {
@@ -20,7 +20,7 @@ function row(ok: boolean | null, title?: unknown, desc?: unknown) {
 }
 
 // what each saved secret is, and where the owner types it again
-const SECRET_NAMES: Record<string, Loose> = {
+const SECRET_NAMES: Record<string, [string, string]> = {
   gmail_app_password: ['Gmail-এর Google কোড (ইমেইল নোটিফিকেশন)', '/admin/notify'],
   acct_gmail_password: ['কাস্টমারের কোড পাঠানোর Gmail-এর Google কোড', '/admin/customer-accounts'],
   callmebot_key: ['CallMeBot WhatsApp কোড', '/admin/notify'],

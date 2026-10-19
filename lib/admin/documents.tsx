@@ -6,7 +6,7 @@ import * as ui from './ui';
 import * as docs from '../services/docs';
 import * as O from '../models/orders';
 import { invoicePage, checklistPage, type PrintItem, type PrintOrder } from '../views/invoice';
-import type { AdminCtx, Loose } from '../types';
+import type { AdminCtx } from '../types';
 import type { OrdersRow, ProductsRow } from '../data/rows';
 
 const BASE = '/admin/design/documents';

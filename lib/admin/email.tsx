@@ -14,7 +14,7 @@ import * as M from '../services/mailer';
 import * as notify from '../services/notify';
 import { secretInput } from './marketing';
 import * as $security from '../security';
-import type { AdminCtx, Loose } from '../types';
+import type { AdminCtx } from '../types';
 
 const BASE = '/admin/marketing/email';
 const DAYS = [['6', 'শনিবার'], ['0', 'রবিবার'], ['1', 'সোমবার'], ['2', 'মঙ্গলবার'], ['3', 'বুধবার'], ['4', 'বৃহস্পতিবার'], ['5', 'শুক্রবার']];
@@ -23,7 +23,7 @@ const pct = (a: number, b: number) => (b ? `${bn(Math.round((a * 100) / b))}%` :
 // "1023, 1024", product links (/p/slug) or SKUs → product ids (in the order given)
 async function resolveProducts(text?: string) {
   const parts = String(text || '').split(/[\s,;]+/).map((x) => x.trim()).filter(Boolean).slice(0, 12);
-  const ids: Loose[] = [];
+  const ids: number[] = [];
   for (const p of parts) {
     const slug = (p.match(/\/p\/([^/?#\s]+)/) || [])[1];
     const row = slug

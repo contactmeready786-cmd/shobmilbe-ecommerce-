@@ -14,7 +14,7 @@ type ShopPage = Pick<PagesRow, 'title' | 'slug' | 'in_footer'>;
 type Popup = Pick<BannersRow, 'id' | 'link' | 'image_id' | 'title'>;
 import { BodyHtml } from '../../../lib/react/head-html';
 import { cx } from '../../../lib/react/html';
-import type { CustomScript, Loose, MenuLink, Settings } from '../../../lib/types';
+import type { CustomScript, MenuLink, Settings } from '../../../lib/types';
 import { SearchIcon, CartIcon, UserIcon, MenuIcon, WhatsAppIcon, MessengerIcon, SOCIAL_ICONS } from './icons';
 
 export const ASSET_V = '46';

@@ -71,7 +71,7 @@ test('answers are cached per IP', async () => {
 });
 
 // ---- the country block itself ----
-const settings = { geo_lock_on: '1', geo_allow: 'BD', session_secret: 'test-secret', geo_tz_check: '0' };
+const settings = { store_name: 'Test', geo_lock_on: '1', geo_allow: 'BD', session_secret: 'test-secret', geo_tz_check: '0' };
 const req = (ua: string, ip: string, country: string) => ({ headers: { 'user-agent': ua, 'x-real-ip': ip, 'x-vercel-ip-country': country } });
 
 test('country block: Bangladesh in, USA visitor out', async () => {

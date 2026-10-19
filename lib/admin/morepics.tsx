@@ -31,7 +31,7 @@ import * as ui from './ui';
 import * as importer from '../services/importer';
 import { safeFetch, FetchError } from '../services/safefetch';
 import { readUrl } from './import';
-import type { AdminCtx, Loose } from '../types';
+import type { AdminCtx } from '../types';
 import type { MediaRow, ProductsRow } from '../data/rows';
 
 const SAME_PHOTO = 24; // fingerprint distance: same photo ≈ 0-30, different photo ≈ 80+
@@ -66,7 +66,7 @@ async function planApi(ctx: AdminCtx) {
   await db.setMany({ morepics_feed: u });
   await ctx.reloadSettings();
 
-  const byRef = new Map<Loose, Loose>(items.map((it) => [it.ref, it]));
+  const byRef = new Map(items.map((it) => [it.ref, it]));
   const rows = await db.q<{ id: number; name: string; sku: string; import_ref: string; image_id: number | null; pics: number }>(`SELECT p.id, p.name, p.sku, p.import_ref, p.image_id,
       (SELECT count(*)::int FROM media m WHERE m.owner_type='product' AND m.owner_id=p.id) AS pics
     FROM products p WHERE p.import_ref = ANY($1::text[]) ORDER BY p.id`, [[...byRef.keys()]]);
@@ -77,6 +77,7 @@ async function planApi(ctx: AdminCtx) {
   for (const r of rows) {
     const it = byRef.get(r.import_ref);
     if (r.pics >= max) { full++; continue; }
+    if (!it) continue;
     list.push({ id: r.id, name: r.name, sku: r.sku, link: it.link, main: (it.images || [])[0] || '', pics: r.pics, thumb: r.image_id ? `/media/${r.image_id}/t` : '' });
   }
   // in the old shop's feed but not in this shop (never came over, or was stopped as a "duplicate") — brought in now

@@ -11,8 +11,9 @@ import * as $services_notify from '../services/notify';
 import * as $services_payments from '../services/payments';
 import * as $services_feeds from '../services/feeds';
 import * as $security from '../security';
-import type { AdminCtx, Loose } from '../types';
+import type { AdminCtx } from '../types';
 import type { BackupsRow, IntegrationLogsRow } from '../data/rows';
+import type { ReactNode } from 'react';
 
 const OK = 'ok'; const WARN = 'warn'; const OFF = 'off'; const BAD = 'bad';
 const ICON: Record<string, string> = { ok: '✅', warn: '⚠️', off: '⚪', bad: '❌' };
@@ -20,16 +21,17 @@ const ICON: Record<string, string> = { ok: '✅', warn: '⚠️', off: '⚪', ba
 function row(state: string, title: string, detail: string, link: string[], key?: string | undefined, setUp?: boolean | undefined) {
   return { state, title, detail, link, key, setUp: setUp === undefined ? state === OK : setUp };
 }
-function line(r: { state: string; title: unknown; detail: unknown; link: unknown[]; }, buttons?: Loose) {
+function line(r: { state: string; title: unknown; detail: unknown; link: unknown[]; }, buttons?: unknown) {
   return <li className={`sec-row ${r.state === OK ? 'ok' : r.state === OFF ? 'info' : 'todo'}`}><span className="sec-ic" aria-hidden="true"><Val v={ICON[r.state]} /></span>{' '}<span><b><Val v={r.title} /></b><br /><span className="small muted"><Val v={r.detail} /></span>{(r.link ? <>{' '}<a className="small" href={attrValue(r.link[0])}><Val v={r.link[1]} />{' '}→</a></> : null)}{(buttons ? <><br /><Val v={buttons} /></> : null)}</span></li>;
 }
 // a section: what needs looking at stays in view; ⚪ not set up (optional) and "দরকার নেই" go into a closed box
-function section(ctx: AdminCtx, title?: Loose, rows?: Loose) {
+type Row = ReturnType<typeof row>;
+function section(ctx: AdminCtx, title: string, rows: (Row | null | false | undefined | '')[]) {
   const M = $setupmarks;
   const owner = ctx.user.role === 'owner';
   const back = '/admin/integrations/status';
-  const shown: Loose[] = []; const quiet = [];
-  for (const r of rows.filter(Boolean)) {
+  const shown: ReactNode[] = []; const quiet: ReactNode[] = [];
+  for (const r of rows.filter((x): x is Row => !!x)) {
     const mark = r.key ? M.markOf(ctx.settings, r.key, r.setUp) : '';
     if (mark === 'done' && r.state !== OK) { shown.push(line({ ...r, state: OK, detail: 'আপনি জানিয়েছেন অন্যভাবে করা আছে (সাইট নিজে দেখতে পায় না)।' }, owner ? M.buttons(r.key, 'done', back) : '')); continue; }
     if (mark === 'skip' && r.state !== OK) { quiet.push(line({ ...r, state: OFF, detail: 'দরকার নেই — এখন ব্যবহার করছেন না।' }, owner ? M.buttons(r.key, 'skip', back) : '')); continue; }
@@ -41,16 +43,18 @@ function section(ctx: AdminCtx, title?: Loose, rows?: Loose) {
 }
 
 // latest success / failure per service from the integration log
+type LogRow = Pick<IntegrationLogsRow, 'service' | 'ok' | 'action' | 'message' | 'created_at'>;
+type LastLog = { good?: LogRow; fail?: LogRow };
 async function lastLogs() {
   const rows = await db.q<Pick<IntegrationLogsRow, 'service' | 'ok' | 'action' | 'message' | 'created_at'>>(`SELECT DISTINCT ON (service, ok) service, ok, action, message, created_at FROM integration_logs
     WHERE created_at > now() - interval '30 days' ORDER BY service, ok, created_at DESC`);
-  const m: Record<string, string> = {};
-  rows.forEach((r) => { (m[r.service] = m[r.service] || {} as Loose)[r.ok ? 'good' : 'fail'] = r; });
+  const m: Record<string, LastLog> = {};
+  rows.forEach((r) => { (m[r.service] = m[r.service] || {})[r.ok ? 'good' : 'fail'] = r; });
   return m;
 }
 // ✅ when the last thing that happened worked, ❌ when the last thing failed
-function fromLog(L?: Loose, service?: Loose, setUp?: Loose) {
-  const x = L[service] || {};
+function fromLog(L: Record<string, LastLog>, service: string, setUp: unknown) {
+  const x: LastLog = L[service] || {};
   if (!setUp) return { state: OFF, note: 'সেটআপ করা নেই' };
   if (x.fail && (!x.good || new Date(x.fail.created_at) > new Date(x.good.created_at))) return { state: BAD, note: `শেষ চেষ্টা ব্যর্থ (${fmtDate(x.fail.created_at)}): ${String(x.fail.message || '').slice(0, 160)}` };
   if (x.good) return { state: OK, note: `শেষবার ঠিকমতো কাজ করেছে: ${fmtDate(x.good.created_at)}` };
@@ -59,7 +63,7 @@ function fromLog(L?: Loose, service?: Loose, setUp?: Loose) {
 
 async function statusPage(ctx: AdminCtx) {
   const s = ctx.settings;
-  const L: Loose = await lastLogs();
+  const L = await lastLogs();
   const courier = $services_courier;
   const notify = $services_notify;
   const payments = $services_payments;
@@ -72,7 +76,7 @@ async function statusPage(ctx: AdminCtx) {
   const ownDomain = /^https?:\/\//.test(site) && !/vercel\.app/.test(site) ? site.replace(/^https?:\/\//, '').replace(/\/.*$/, '') : '';
   const fbPage = !!(s.autopost_page_token && s.autopost_page_id);
   const ageDays = lastBackup ? (Date.now() - new Date(lastBackup.created_at).getTime()) / 864e5 : null;
-  const feedSeen = (ch: string) => { const x = (L[ch + '-feed'] || {}).good; return x ? `শেষবার ${x.message || 'কেউ'} পড়েছে: ${fmtDate(x.created_at)}` : 'এখনো কেউ ফিডটা পড়েনি (Merchant Center / Commerce Manager-এ লিংক দেওয়া হয়েছে কি না দেখুন)'; };
+  const feedSeen = (ch: string) => { const x = L[ch + '-feed']?.good; return x ? `শেষবার ${x.message || 'কেউ'} পড়েছে: ${fmtDate(x.created_at)}` : 'এখনো কেউ ফিডটা পড়েনি (Merchant Center / Commerce Manager-এ লিংক দেওয়া হয়েছে কি না দেখুন)'; };
 
   const body = <><h1>🔌 সংযোগের অবস্থা</h1>{ui.flash(ctx.flash)}<p className="muted">বাইরের প্রতিটা সার্ভিস ঠিকমতো জোড়া আছে কি না, আর শেষবার কাজ করেছে কি না — এক জায়গায়। ❌ দেখলে পাশের লিংকে গিয়ে ঠিক করুন। অন্যভাবে করা থাকলে "✓ করা আছে", ব্যবহার না করলে "✕ দরকার নেই" চাপুন — তালিকা থেকে সরে যাবে।</p>{(ctx.user.role === 'owner' ? <p><a className="btn btn-ghost btn-sm" href="/admin/health">🩺 সার্ভার, ডাটাবেস ও ছবির জায়গা দেখুন →</a></p> : null)}{' '}{section(ctx, 'ওয়েবসাইট', [
   row(site ? OK : BAD, 'ওয়েবসাইটের ঠিকানা (site URL)', site ? site : 'দেওয়া নেই — Google-এর canonical লিংক, sitemap, শেয়ার ছবি আর পেমেন্ট ফেরার লিংক ঠিক হবে না।', ['/admin/marketing/seo', 'SEO']),

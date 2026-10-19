@@ -7,7 +7,7 @@ import * as db from '../db';
 import * as customers from '../models/customers';
 import * as courier from './courier';
 import { normalizePhone, validPhone } from '../util';
-import type { Body, Loose, Settings, Caught } from '../types';
+import type { Body, Settings, Caught } from '../types';
 import type { FraudChecksRow } from '../data/rows';
 
 const CACHE_HOURS = 24;

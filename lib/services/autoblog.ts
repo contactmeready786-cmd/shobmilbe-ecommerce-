@@ -7,7 +7,7 @@
 import * as db from '../db';
 import { bn, slugify } from '../util';
 import * as $seo from './seo';
-import type { Body, Id, Loose, Settings } from '../types';
+import type { Body, Id, Settings } from '../types';
 import type { BlogCategoriesRow, BlogPostsRow, CategoriesRow, ProductsRow } from '../data/rows';
 
 const REFRESH_DAYS = 7;

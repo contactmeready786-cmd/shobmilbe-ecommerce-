@@ -11,7 +11,7 @@ import * as db from '../db';
 import * as security from '../security';
 import * as notify from './notify';
 import { bn } from '../util';
-import type { AdminCtx, Loose, Caught } from '../types';
+import type { AdminCtx, Caught } from '../types';
 import type { DeleteCodesRow } from '../data/rows';
 
 const CODE_EMAIL = (process.env.DELETE_CODE_EMAIL || 'contact.shobmilbe@gmail.com').trim();
@@ -47,7 +47,7 @@ const device = (ctx: AdminCtx) => String((ctx.req && ctx.req.headers && ctx.req.
 const when = () => new Date().toLocaleString('en-GB', { timeZone: 'Asia/Dhaka' });
 
 // Make a new code for this person and this kind of delete, and e-mail it. Throws with a message the admin can read.
-async function send(ctx: AdminCtx, action?: Loose, detail = '') {
+async function send(ctx: AdminCtx, action: string, detail = '') {
   if (!ACTIONS[action]) throw new Error('অজানা কাজ।');
   if (!notify.emailConfig(ctx.settings).ready) {
     throw new Error('কোড পাঠানোর ইমেইল (Gmail) সেটআপ করা নেই, তাই এখন স্থায়ীভাবে মোছা যাবে না। Admin → নোটিফিকেশনে Gmail App Password দিন।');
@@ -91,7 +91,7 @@ async function send(ctx: AdminCtx, action?: Loose, detail = '') {
 }
 
 // Check the code typed for this kind of delete. Returns null when it is right (and spends it), or the error to show.
-async function check(ctx: AdminCtx, action?: Loose, typed?: unknown) {
+async function check(ctx: AdminCtx, action: string, typed?: unknown) {
   const uid = ctx.user.id;
   const code = String(typed || '').replace(/[^\d০-৯]/g, '').replace(/[০-৯]/g, (d) => String('০১২৩৪৫৬৭৮৯'.indexOf(d))).slice(0, 6);
   if (await security.blocked(db, 'delcode-fail:' + uid, FAIL_MAX)) return 'অনেকবার ভুল কোড দেওয়া হয়েছে — এক ঘণ্টা মোছা বন্ধ থাকবে।';

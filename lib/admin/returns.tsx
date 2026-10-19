@@ -10,12 +10,12 @@ import * as O from '../models/orders';
 import * as finance from '../models/finance';
 import * as $views_account from '../views/account';
 import * as $services_sms from '../services/sms';
-import type { AdminCtx, Loose, RouteMatch, Caught } from '../types';
+import type { AdminCtx, RouteMatch, Caught } from '../types';
 import type { MediaRow } from '../data/rows';
 
 const BASE = '/admin/returns';
 const PILL: Record<string, string> = { requested: 'pill-warn', approved: 'pill-blue', received: 'pill-blue', refunded: 'pill-ok', replaced: 'pill-ok', rejected: '', cancelled: '' };
-const HOW: Record<string, Loose> = { stock: '✅ স্টকে ফেরত (আবার বিক্রি হবে)', damaged: '⚠️ নষ্ট স্টকে (বিক্রি হবে না)', none: '✖ কোথাও না (ফেলে দেওয়া / কুরিয়ারের কাছে)' };
+const HOW: Record<string, string> = { stock: '✅ স্টকে ফেরত (আবার বিক্রি হবে)', damaged: '⚠️ নষ্ট স্টকে (বিক্রি হবে না)', none: '✖ কোথাও না (ফেলে দেওয়া / কুরিয়ারের কাছে)' };
 
 async function listPage(ctx: AdminCtx) {
   const s = ctx.settings;

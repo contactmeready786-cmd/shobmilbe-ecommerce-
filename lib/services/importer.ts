@@ -752,7 +752,9 @@ type ParseContentOpts = {
   /** the address it came from (to complete relative links) */
   baseUrl?: string;
 };
-function parseContent(buf: Buffer, { name = '', contentType = '', baseUrl = '' }: ParseContentOpts = {}) {
+/** what was read from a file or a page */
+export type Parsed = { items: ReadItem[]; format: string; notes: string[]; error?: string; links?: FoundLink[]; shop?: string; columns?: string[]; unknownColumns?: boolean };
+function parseContent(buf: Buffer, { name = '', contentType = '', baseUrl = '' }: ParseContentOpts = {}): Parsed {
   const notes: string[] = [];
   const kind = sniff(buf, name, contentType);
   if (kind === 'xls') return { items: [], format: 'xls', notes, error: 'পুরোনো .xls ফাইল পড়া যায় না। Excel-এ খুলে "Save As" → "Excel Workbook (.xlsx)" বা "CSV UTF-8" হিসেবে সেভ করে আবার দিন।' };

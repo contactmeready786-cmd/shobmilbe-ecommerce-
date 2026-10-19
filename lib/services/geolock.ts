@@ -22,7 +22,7 @@
 import * as db from '../db';
 import { parseCookies, sign, unsign } from '../util';
 import * as COUNTRIES from '../data/countries';
-import type { Body, Loose, Settings, ShopRequest } from '../types';
+import type { Body, Settings, ShopRequest } from '../types';
 import { clientIp } from '../security';
 import * as crawlers from './crawlers';
 
@@ -34,17 +34,19 @@ const GOOD_BOTS = /googlebot|google-inspectiontool|googleother|storebot-google|a
 // paths other servers call, or that crawlers need, which must answer from anywhere
 const OPEN_PATHS = /^\/(e\/[oc]\/|unsubscribe$|webhook\/|pay\/|media\/|img\/|brand\/|feeds\/|api\/(research|backup)\/tick$|robots\.txt$|sitemap[^/]*\.xml$|[a-f0-9]{32}\.txt$|favicon|__region)/;
 
-const codeOk = (c?: Loose) => Object.prototype.hasOwnProperty.call(COUNTRIES, c);
+/** country code → the time zones a browser there reports */
+const ZONES: Record<string, string[]> = COUNTRIES;
+const codeOk = (c: string) => Object.prototype.hasOwnProperty.call(COUNTRIES, c);
 function allowedList(s: Settings) {
   return [...new Set(String(s.geo_allow || '').toUpperCase().split(/[\s,]+/).filter(codeOk))];
 }
 function config(s: Settings) {
   const allow = allowedList(s);
-  const zones = new Set();
+  const zones = new Set<string>();
   let zonesComplete = true;
   for (const c of allow) {
-    if (!(COUNTRIES as Loose)[c].length) zonesComplete = false;
-    (COUNTRIES as Loose)[c].forEach((z: unknown) => zones.add(z));
+    if (!ZONES[c].length) zonesComplete = false;
+    ZONES[c].forEach((z) => zones.add(z));
   }
   return {
     on: s.geo_lock_on === '1' && allow.length > 0,
@@ -77,7 +79,7 @@ function passCookie(req: ShopRequest, s: Settings) {
 const loggedIntoAdmin = (req: ShopRequest, s: { session_secret: string | null | undefined; }) => !!unsign(parseCookies(req.headers.cookie).sm_admin, s.session_secret);
 
 // For a shop request (not /admin): null = let in, or { country } = show the blocked page.
-async function check(req: ShopRequest, path: string, s?: Loose, method = 'GET'): Promise<{ country: string } | null> {
+async function check(req: ShopRequest, path: string, s: Settings, method = 'GET'): Promise<{ country: string } | null> {
   const c = config(s);
   if (!c.on) return null;
   if (OPEN_PATHS.test(path)) return null;

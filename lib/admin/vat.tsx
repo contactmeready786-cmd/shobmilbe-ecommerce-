@@ -9,7 +9,7 @@ import { raw, money, bn, fmtDate, int, ymd, csv, num, str, oneOf } from '../util
 import * as db from '../db';
 import * as ui from './ui';
 import * as $models_orders from '../models/orders';
-import type { AdminCtx, Loose, RouteMatch, Settings } from '../types';
+import type { AdminCtx, RouteMatch, Settings } from '../types';
 
 const MODES = {
   none: 'ভ্যাট হিসাব করব না',
@@ -19,7 +19,7 @@ const MODES = {
   margin: 'শুধু লাভের (মার্জিন) উপর ভ্যাট',
 };
 const BN_MONTH = ['জানুয়ারি', 'ফেব্রুয়ারি', 'মার্চ', 'এপ্রিল', 'মে', 'জুন', 'জুলাই', 'আগস্ট', 'সেপ্টেম্বর', 'অক্টোবর', 'নভেম্বর', 'ডিসেম্বর'];
-const monthName = (ym?: Loose) => `${BN_MONTH[Number(ym.slice(5, 7)) - 1]} ${bn(ym.slice(0, 4))}`;
+const monthName = (ym: string) => `${BN_MONTH[Number(ym.slice(5, 7)) - 1]} ${bn(ym.slice(0, 4))}`;
 const r2 = (n: number) => Math.round(Number(n || 0) * 100) / 100;
 
 // VAT inside / on top of an amount for one mode
@@ -35,7 +35,7 @@ function split(amount: number, s: Settings, cost = 0) {
   }
 }
 function validMonth(m?: string | null): string { return /^\d{4}-(0[1-9]|1[0-2])$/.test(String(m || '')) ? (m as string) : ymd().slice(0, 7); }
-function nextMonth15(ym?: Loose) {
+function nextMonth15(ym: string) {
   const [y, m] = ym.split('-').map(Number);
   return new Date(Date.UTC(m === 12 ? y + 1 : y, m === 12 ? 0 : m, 15));
 }
@@ -60,7 +60,7 @@ async function returnPage(ctx: AdminCtx) {
   const kind = oneOf(['sales', 'purchase'], ctx.query.get('reg'), '');
   const [sales, buys, paid] = await Promise.all([salesRows(month), purchaseRows(month),
     db.one<{ n: number }>(`SELECT coalesce(sum(amount),0)::numeric(14,2) AS n FROM transactions WHERE type='expense' AND category='ভ্যাট/ট্যাক্স পরিশোধ' AND to_char(tx_date,'YYYY-MM')=$1`, [month])]);
-  const saleLines: Loose[] = sales.map((o) => ({ ...o, ...split(o.goods, s, Number(o.cost_total)) }));
+  const saleLines = sales.map((o) => ({ ...o, ...split(o.goods, s, Number(o.cost_total)) }));
   const out = saleLines.reduce((a, o) => ({ value: a.value + Number(o.value), vat: a.vat + o.vat }), { value: 0, vat: 0 });
   const inn = buys.reduce((a, p) => ({ value: a.value + Number(p.value), vat: a.vat + Number(p.vat) }), { value: 0, vat: 0 });
   const turnover = s.vat_mode === 'turnover';
@@ -76,7 +76,7 @@ async function returnPage(ctx: AdminCtx) {
       : [['Date', 'Purchase No', 'Supplier', 'Note / Challan', 'Value', 'VAT', 'Total'], ...buys.map((p) => [String(p.purchase_date).slice(0, 10), p.code, p.supplier, p.note || '', p.value, p.vat, p.total])];
     return ctx.send(200, csv(rows), 'text/csv; charset=utf-8', { 'Content-Disposition': `attachment; filename="mushak-${kind === 'sales' ? '6.2-sales' : '6.1-purchase'}-${month}.csv"` });
   }
-  const months: unknown[] = [];
+  const months: string[] = [];
   for (let i = 0; i < 12; i++) { const d = new Date(); d.setUTCDate(1); d.setUTCMonth(d.getUTCMonth() - i); months.push(d.toISOString().slice(0, 7)); }
   const box = (no?: unknown, label?: unknown, value?: unknown, note?: unknown) => <tr><td className="small muted"><Val v={no} /></td><td><Val v={label} />{(note ? <><br /><span className="small muted"><Val v={note} /></span></> : null)}</td><td className="num"><b>{money(value)}</b></td></tr>;
 

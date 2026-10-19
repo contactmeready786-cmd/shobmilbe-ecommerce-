@@ -9,7 +9,7 @@ import { int, str, bn, money, fmtDate, ymd, validYmd, round2 } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
 import * as finance from '../models/finance';
-import type { AdminCtx, Id, Loose, RouteMatch } from '../types';
+import type { AdminCtx, Id, RouteMatch } from '../types';
 async function entries(id?: Id) {
   return db.q<{ kind: string | null; id: number | null; d: string | null; ref: string | null; amount: number | null; status: string | null; note: string | null; at: Date | null; lines: number | null }>(`SELECT * FROM (
       SELECT 'p' AS kind, p.id, p.purchase_date AS d, p.code AS ref, p.total AS amount, p.status, p.note, p.created_at AS at,

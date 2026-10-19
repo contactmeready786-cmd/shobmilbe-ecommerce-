@@ -22,7 +22,6 @@ import * as $models_checkoutotp from '../models/checkoutotp';
 import { siteUrl, myOrdersCookie } from '../gate';
 import { int, str, normalizePhone, validPhone, contact } from '../util';
 import { allow, json, tooMany, type ApiCtx } from '../next/api';
-import type { Loose } from '../types';
 
 // 🔐 চেকআউট OTP: /api/checkout-otp/status (does this number need a code?), /send (SMS a code), /verify (check it).
 // /smscheck: did the shop's phone really send the code? (tells the owner when the SMS app is off)

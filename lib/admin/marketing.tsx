@@ -11,7 +11,7 @@ import * as ui from './ui';
 import * as $services_seo from '../services/seo';
 import * as $status from './status';
 import * as $models_catalog from '../models/catalog';
-import type { AdminCtx, Body, Loose, RouteMatch, Caught, VerificationFile, CustomScript } from '../types';
+import type { AdminCtx, Body, RouteMatch, Caught, VerificationFile, CustomScript } from '../types';
 const OWNER_ONLY_KEYS = new Set(['custom_scripts', 'custom_head', 'custom_body', 'chat_script', 'verification_files', 'live_cricket_embed', 'live_football_embed']);
 async function saveKeys(ctx: AdminCtx, keys: string[], body: Body, { secrets = [], checkboxes = [] }: { secrets?: string[]; checkboxes?: string[] } = {}) {
   const owner = ctx.user && ctx.user.role === 'owner';
@@ -48,7 +48,7 @@ async function tracking(ctx: AdminCtx) {
       const m = String(b[k] || '').match(/content=["']([^"']+)["']/);
       if (m) b[k] = m[1];
     }
-    const files: Loose[] = [];
+    const files: VerificationFile[] = [];
     list(b.vf_path).forEach((p, i) => {
       const path = String(p || '').trim().replace(/^\/+/, '');
       const body = String(list(b.vf_content)[i] || '');
@@ -56,7 +56,7 @@ async function tracking(ctx: AdminCtx) {
     });
     b.verification_files = JSON.stringify(files);
     // "যেকোনো স্ক্রিপ্ট বসান": named codes, each with its own place and on/off
-    const scripts: Loose[] = [];
+    const scripts: CustomScript[] = [];
     list(b.sc_name).forEach((n, i) => {
       const code = String(list(b.sc_code)[i] || '').trim();
       const name = String(n || '').trim().slice(0, 60);

@@ -6,7 +6,6 @@ import { AdminBare, AdminBody } from '@/lib/admin/layout';
 import { Val } from '@/lib/react/html';
 import { currentAdminPage, SITE_MARK } from '@/lib/next/admin';
 import { getRequestUrl } from '@/lib/next/shop-data';
-import type { Loose } from '@/lib/types';
 
 export async function generateMetadata(): Promise<Metadata> {
   const cur = await currentAdminPage();
@@ -25,7 +24,7 @@ export default async function AdminPage() {
   }
   if (cur.bare) return <AdminBare settings={cur.settings}><Val v={cur.body} /></AdminBare>;
   return (
-    <AdminBody settings={cur.settings} user={cur.user as Loose} active={cur.active} readOnly={cur.readOnly} path={cur.path} nonce={cur.nonce}>
+    <AdminBody settings={cur.settings} user={cur.user!} active={cur.active} readOnly={cur.readOnly} path={cur.path} nonce={cur.nonce}>
       <Val v={cur.body} />
     </AdminBody>
   );

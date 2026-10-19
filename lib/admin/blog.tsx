@@ -2,7 +2,7 @@ import { Val, attrValue, jsxList } from '../react/html';
 import { bn, fmtDate, int, str } from '../util';
 import * as content from '../models/content';
 import * as ui from './ui';
-import type { AdminCtx, Loose, RouteMatch } from '../types';
+import type { AdminCtx, RouteMatch } from '../types';
 import type { DbRow } from '../pg';
 
 async function listPage(ctx: AdminCtx) {
