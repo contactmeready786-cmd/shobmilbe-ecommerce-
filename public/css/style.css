@@ -456,8 +456,13 @@ body.protect .card-pic img, body.protect .g-main img, body.protect .g-thumb img,
 
 
 /* ---------- live scores ---------- */
-.live-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #E0262B; margin-right: 6px; vertical-align: middle; box-shadow: 0 0 0 0 rgba(224,38,43,.6); animation: livepulse 1.6s infinite; }
-@keyframes livepulse { 0% { box-shadow: 0 0 0 0 rgba(224,38,43,.55); } 70% { box-shadow: 0 0 0 7px rgba(224,38,43,0); } 100% { box-shadow: 0 0 0 0 rgba(224,38,43,0); } }
+/* The pulsing ring is drawn by a separate layer that only grows and fades (transform + opacity): the graphics chip does
+   that alone. Animating box-shadow made the phone redo the page's styles 60 times a second on every page (measured
+   2026-10-20: 1-4 s of busy time per 10 s idle on a slowed phone). */
+.live-dot { position: relative; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #E0262B; margin-right: 6px; vertical-align: middle; }
+.live-dot::before { content: ''; position: absolute; inset: 0; border-radius: 50%; background: rgba(224,38,43,.55); animation: livepulse 1.6s ease-out infinite; will-change: transform, opacity; }
+.live-dot::after { content: ''; position: absolute; inset: 0; border-radius: 50%; background: #E0262B; } /* the dot itself, over its ring */
+@keyframes livepulse { 0% { transform: scale(1); opacity: 1; } 70%, 100% { transform: scale(2.75); opacity: 0; } }
 .nav-drop { position: relative; }
 .nav-drop > summary { list-style: none; cursor: pointer; color: var(--ink-2); font-weight: 600; padding: 8px 11px; border-radius: 8px; white-space: nowrap; user-select: none; }
 .nav-drop > summary::-webkit-details-marker { display: none; }
@@ -588,6 +593,7 @@ body.protect .card-pic img, body.protect .g-main img, body.protect .g-thumb img,
 @media (max-width: 380px) {
   .cat-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
+@media (prefers-reduced-motion: reduce) { .live-dot::before { animation: none; opacity: 0; } }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; animation: none !important; }
 }
