@@ -1420,3 +1420,18 @@ html[data-admin-lang="en"] .side-drop[data-side-group="দোকানের ড
   .admin-main:not(:has(> .home-tabs:not(.page-tabs))) .sticky-actions { margin: 16px -14px 0; padding: 10px 14px; }
   .admin-main:not(:has(> .home-tabs:not(.page-tabs))) h1 { font-size: 1.3rem; }
 }
+
+/* 🖼️ Product pictures in admin lists never shrink to a thin line on a phone: a long product name used to squeeze
+   the picture column (the picture may be at most "100% of its cell", and the table made that cell almost 0 wide). */
+.table .thumb, .inv-table .thumb, .lines .li-pic, .restock-table .thumb { min-width: 92px; }
+.table .thumb img, .table .thumb span, .inv-table .thumb img, .inv-table .thumb span,
+.lines .li-pic img, .lines .li-pic span, .restock-table .thumb img, .restock-table .thumb span,
+.review-admin .thumb img, .qa-head .thumb img, .qa-head .thumb span, .bundle-rows .b-img img, .ho-items img {
+  max-width: none; min-width: 80px; flex: none; box-sizing: border-box;
+}
+@media (max-width: 700px) {
+  .table .thumb, .inv-table .thumb, .lines .li-pic, .restock-table .thumb { min-width: 74px; }
+  .table .thumb img, .table .thumb span, .inv-table .thumb img, .inv-table .thumb span,
+  .lines .li-pic img, .lines .li-pic span, .restock-table .thumb img, .restock-table .thumb span,
+  .review-admin .thumb img, .qa-head .thumb img, .qa-head .thumb span, .bundle-rows .b-img img, .ho-items img { min-width: 64px; }
+}
