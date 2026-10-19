@@ -109,8 +109,10 @@ code { background: var(--bin); padding: 1px 6px; border-radius: 5px; font-size: 
 /* An uploaded logo takes exactly the place of the shop name written in text: as tall as the text line (1em of the
    logo's font size, so header, phone header, side menu and footer each get the right size by themselves), never wider
    than 5 letters' worth, kept whole and pinned to the left. Logos are cut down to their drawing when uploaded
-   (client/admin/images.tsx trimLogo), so any logo, made at any size, fills this place the same way. */
-.logo-img { display: block; height: .92em; margin-block: .04em; width: auto; max-width: 5em; max-height: none; object-fit: contain; object-position: left center; }
+   (client/admin/images.tsx trimLogo), so any logo, made at any size, fills this place the same way.
+   Bengali letters sit high in their line (the drawing spans -0.115em … 0.80em of a 1em line), so the picture is placed
+   on exactly that span: same height, same top, same bottom as the written name; the space it takes stays 1em. */
+.logo-img { display: block; height: .985em; margin: -.175em 0 .19em; width: auto; max-width: 5em; max-height: none; object-fit: contain; object-position: left center; }
 .logo-a { color: var(--blue); }
 .logo-b { color: var(--amber); }
 .logo-sm { font-size: 1.5rem; }
