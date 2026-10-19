@@ -661,7 +661,8 @@ function zoomPictures(): void {
 }
 
 // 📐 Two columns of different length (a long form beside a short box): the short one follows while the page scrolls, so
-// the page has no big empty half. Only when the short one fits on the screen; never on phones (one column there).
+// the page has no big empty half. A short column taller than the screen first scrolls to its end, then stays.
+// Never on phones (one column there).
 function stickySides(): void {
   const rows = $all<HTMLElement>('#main .two-col');
   if (!rows.length || typeof ResizeObserver === 'undefined') return;
@@ -669,12 +670,15 @@ function stickySides(): void {
     const wide = window.matchMedia('(min-width: 901px)').matches;
     for (const row of rows) {
       const cols = [...row.children].filter((c): c is HTMLElement => c instanceof HTMLElement);
-      for (const c of cols) c.classList.remove('is-sticky');
+      for (const c of cols) { c.classList.remove('is-sticky'); c.style.top = ''; }
       if (!wide || cols.length !== 2) continue;
       const [a, b] = cols.map((c) => c.getBoundingClientRect().height);
       const short = a < b ? cols[0] : cols[1];
-      const diff = Math.abs(a - b);
-      if (diff > 160 && Math.min(a, b) < window.innerHeight - 100) short.classList.add('is-sticky');
+      if (Math.abs(a - b) <= 160) continue;
+      short.classList.add('is-sticky');
+      // taller than the screen: it scrolls with the page until its end is in view, then stays there (top below 0)
+      const h = Math.min(a, b);
+      if (h > window.innerHeight - 100) short.style.top = `${Math.round(window.innerHeight - h - 16)}px`;
     }
   };
   let t = 0;

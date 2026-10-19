@@ -1531,3 +1531,26 @@ html[data-admin-lang="en"] .side-drop[data-side-group="দোকানের ড
   /* a table sitting straight in a box (not in a scrolling .table-wrap) scrolls sideways instead of being cut off */
   #main.admin-main .panel > table.table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
 }
+
+/* ---------- 2026-10-20 (all pages): what the page-by-page check found ---------- */
+/* "How it works" steps in the admin are a numbered list read top to bottom — the shop's checkout progress-bubble style
+   (style.css .steps: 4 columns, centred text) turned them into squeezed columns with lone 5th items. */
+#main.admin-main ol.steps { display: block; list-style: none; padding: 0; margin: 8px 0 14px; counter-reset: s; max-width: 82ch; }
+#main.admin-main ol.steps > li { position: relative; padding: 1px 0 10px 36px; text-align: left; font-size: .9rem; line-height: 1.55; color: var(--v2-ink); }
+#main.admin-main ol.steps > li::before { content: counter(s); position: absolute; left: 0; top: 0; transform: none; width: 24px; height: 24px; border-radius: 50%; background: var(--v2-blue-l); color: var(--v2-blue-d); box-shadow: none; font-weight: 700; font-size: .78rem; display: flex; align-items: center; justify-content: center; }
+#main.admin-main ol.steps > li::after { content: ''; display: block; position: absolute; left: 11.5px; top: 26px; bottom: 2px; width: 1px; height: auto; background: var(--v2-line); }
+#main.admin-main ol.steps > li:last-child::after { display: none; }
+#main.admin-main ol.steps > li.done::before { content: '✓'; background: #DCFCE7; color: #15803D; }
+#main.admin-main ol.steps > li.done { font-weight: 500; }
+#main.admin-main ol.steps.small > li { font-size: .84rem; }
+/* reading width: long explanations stop at a comfortable line length instead of running across the whole page */
+#main.admin-main .panel p:not(.flash), #main.admin-main .help > div, #main.admin-main > p.muted { max-width: 82ch; }
+/* small cards in a list: four in a row on a computer, so 4 items are never 3 + 1 */
+#main.admin-main .lg-list { grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); }
+#main.admin-main .panel li, #main.admin-main .help li { max-width: 82ch; }
+#main.admin-main :is(.lg-list, .hbars, .chips, .steps-grid) > li { max-width: none; }
+/* code / sample text blocks wrap inside their box instead of pushing the page wider (seen on phones) */
+#main.admin-main pre { white-space: pre-wrap; overflow-wrap: anywhere; max-width: 100%; overflow-x: auto; }
+/* filter rows: the search box takes the spare room, the other filters keep their own width */
+#main.admin-main .toolbar > input[type=search], #main.admin-main .toolbar > label:has(> input[type=search]) { flex: 1 1 240px; }
+#main.admin-main .toolbar > select { flex: 0 1 auto; max-width: 220px; }
