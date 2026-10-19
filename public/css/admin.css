@@ -1262,3 +1262,161 @@ img[data-zoomable] { cursor: zoom-in; }
 .geo-bar { position: absolute; inset: 0 auto 0 0; background: linear-gradient(90deg, rgba(37, 99, 235, .18), rgba(37, 99, 235, .06)); border-radius: inherit; }
 .geo-visits > :not(.geo-bar) { position: relative; }
 @media (max-width: 600px) { .geo-row { padding: 9px 8px; } .geo-name .small { display: none; } }
+
+/* ================================================================================================
+   2026-10-19 · New look for the admin (owner approved the mock-ups). Only the LOOK changes here —
+   the pages' markup, links, forms and scripts are the same. The side menu and the top bar are new
+   everywhere; the inner pages get the new cards, buttons, tables and form fields, while the
+   dashboard (and its visitor tab) keep their own look (.admin-main:not(:has(> .home-tabs:not(.page-tabs))) = every admin page except those).
+   A browser too old for :has() simply keeps the earlier look.
+   ================================================================================================ */
+body.admin { background: #F4F6FA; --side: 248px; --v2-line: #E4E8EF; --v2-line-2: #D5DBE5; --v2-muted: #5B6577; --v2-ink: #0F172A; --v2-blue: #2563EB; --v2-blue-d: #1D4ED8; --v2-blue-l: #EEF3FF; }
+
+/* ---------- side menu ---------- */
+.side { background: #0E1B33; color: #B4BED1; padding: 16px 12px 30px; }
+.side-logo { background: transparent; padding: 6px 10px 18px; margin-bottom: 4px; border-radius: 0; border-bottom: 1px solid rgba(255,255,255,.06); }
+.side-logo .logo-a { color: #fff; }
+.side-logo small { color: #8FA0BD; font-size: .72rem; font-weight: 600; letter-spacing: .03em; }
+.side-logo .logo-img { max-height: 32px; background: #fff; border-radius: 8px; padding: 3px 6px; }
+.side a, .side-drop > summary { color: #B4BED1; font-size: .92rem; font-weight: 500; padding: 8px 10px; gap: 12px; border-radius: 8px; }
+.side a:hover, .side-drop > summary:hover { background: rgba(255,255,255,.06); color: #fff; }
+.side-drop.has-on > summary, .side-drop[open] > summary { color: #fff; font-weight: 600; }
+.side-sub { margin: 2px 0 8px 19px; padding-left: 12px; border-left: 1px solid #22345A; }
+.side-sub a { color: #9AA7BE; font-size: .88rem; padding: 6px 10px; }
+.side-sub .side-ic { display: none; }
+.side a.on { background: var(--v2-blue); color: #fff; font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,.25); }
+.side-arrow { color: #5E6E8C; }
+/* line icons instead of emoji */
+.side-group > a > .side-ic, .side-drop > summary > .side-ic {
+  width: 18px; height: 18px; font-size: 0; line-height: 0; color: transparent; background: currentColor;
+  background: #8FA0BD; -webkit-mask: var(--ic) center / 18px 18px no-repeat; mask: var(--ic) center / 18px 18px no-repeat;
+}
+.side-group > a:hover > .side-ic, .side-group > a.on > .side-ic, .side-drop > summary:hover > .side-ic, .side-drop.has-on > summary > .side-ic, .side-drop[open] > summary > .side-ic { background: #fff; }
+.side-group > a[href="/admin"] > .side-ic { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='3' width='7' height='9' rx='1.5'/%3E%3Crect x='14' y='3' width='7' height='5' rx='1.5'/%3E%3Crect x='14' y='12' width='7' height='9' rx='1.5'/%3E%3Crect x='3' y='16' width='7' height='5' rx='1.5'/%3E%3C/svg%3E"); }
+.side-group > a[href="/admin/trash"] > .side-ic { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13'/%3E%3C/svg%3E"); }
+.side-drop[data-side-group="অর্ডার"] > summary > .side-ic { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 3h12v18l-3-2-3 2-3-2-3 2V3z'/%3E%3Cpath d='M9 8h6M9 12h6'/%3E%3C/svg%3E"); }
+.side-drop[data-side-group="কাস্টমার"] > summary > .side-ic { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='9' cy='8' r='3.5'/%3E%3Cpath d='M2.5 20c.8-3.5 3.4-5.5 6.5-5.5s5.7 2 6.5 5.5'/%3E%3Cpath d='M16 4.5a3.5 3.5 0 010 7M18 14.8c1.8.8 3 2.5 3.5 5.2'/%3E%3C/svg%3E"); }
+.side-drop[data-side-group="পণ্য"] > summary > .side-ic { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 7.5L12 3l9 4.5v9L12 21l-9-4.5v-9z'/%3E%3Cpath d='M3 7.5l9 4.5 9-4.5M12 12v9'/%3E%3C/svg%3E"); }
+.side-drop[data-side-group="স্টক ও কেনাকাটা"] > summary > .side-ic { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 21V9l9-6 9 6v12'/%3E%3Cpath d='M7 21v-8h10v8'/%3E%3C/svg%3E"); }
+.side-drop[data-side-group="হিসাব"] > summary > .side-ic { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='6' width='18' height='14' rx='2'/%3E%3Cpath d='M3 10h18'/%3E%3Ccircle cx='16.5' cy='15' r='1.2'/%3E%3C/svg%3E"); }
+.side-drop[data-side-group="রিপোর্ট ও গ্রোথ"] > summary > .side-ic { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 20V10M10 20V4M16 20v-7M22 20H2'/%3E%3C/svg%3E"); }
+.side-drop[data-side-group="অফার"] > summary > .side-ic { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 12V4h8l10 10-8 8L3 12z'/%3E%3Ccircle cx='7.5' cy='7.5' r='1.5'/%3E%3C/svg%3E"); }
+.side-drop[data-side-group="মার্কেটিং"] > summary > .side-ic { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 10v4h4l8 5V5L7 10H3z'/%3E%3Cpath d='M19 9a4 4 0 010 6'/%3E%3C/svg%3E"); }
+.side-drop[data-side-group="দোকানের ডিজাইন"] > summary > .side-ic { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3a9 9 0 100 18c1.2 0 2-.8 2-1.9 0-1.4-1-1.7-1-3 0-1 .8-1.6 1.8-1.6H17a4 4 0 004-4C21 6.5 17 3 12 3z'/%3E%3Ccircle cx='7.5' cy='11' r='1'/%3E%3Ccircle cx='10' cy='7' r='1'/%3E%3Ccircle cx='15' cy='7' r='1'/%3E%3C/svg%3E"); }
+.side-drop[data-side-group="সেটিংস"] > summary > .side-ic { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3Cpath d='M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1'/%3E%3C/svg%3E"); }
+.side-drop[data-side-group="স্টাফ ও নিরাপত্তা"] > summary > .side-ic { --ic: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3l8 3v6c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V6l8-3z'/%3E%3C/svg%3E"); }
+/* section names above the groups */
+.side-drop:is([data-side-group="অর্ডার"], [data-side-group="পণ্য"], [data-side-group="হিসাব"], [data-side-group="অফার"], [data-side-group="দোকানের ডিজাইন"]) { position: relative; margin-top: 28px; }
+.side-drop:is([data-side-group="অর্ডার"], [data-side-group="পণ্য"], [data-side-group="হিসাব"], [data-side-group="অফার"], [data-side-group="দোকানের ডিজাইন"]) > summary::before {
+  position: absolute; top: -22px; left: 10px; font-size: .72rem; font-weight: 700; letter-spacing: .05em; color: #6B7A96; pointer-events: none;
+}
+.side-drop[data-side-group="অর্ডার"] > summary::before { content: "বিক্রি"; }
+.side-drop[data-side-group="পণ্য"] > summary::before { content: "পণ্য ও স্টক"; }
+.side-drop[data-side-group="হিসাব"] > summary::before { content: "ব্যবসা"; }
+.side-drop[data-side-group="অফার"] > summary::before { content: "অফার ও প্রচার"; }
+.side-drop[data-side-group="দোকানের ডিজাইন"] > summary::before { content: "দোকান"; }
+html[data-admin-lang="en"] .side-drop[data-side-group="অর্ডার"] > summary::before { content: "SALES"; }
+html[data-admin-lang="en"] .side-drop[data-side-group="পণ্য"] > summary::before { content: "PRODUCTS & STOCK"; }
+html[data-admin-lang="en"] .side-drop[data-side-group="হিসাব"] > summary::before { content: "BUSINESS"; }
+html[data-admin-lang="en"] .side-drop[data-side-group="অফার"] > summary::before { content: "OFFERS & PROMOTION"; }
+html[data-admin-lang="en"] .side-drop[data-side-group="দোকানের ডিজাইন"] > summary::before { content: "SHOP"; }
+.side-group:last-child { margin-top: 18px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,.06); }
+
+/* ---------- top bar ---------- */
+.topbar { min-height: 60px; padding: 8px 24px; border-bottom: 1px solid var(--v2-line); box-shadow: none; }
+.top-search input { border: 1px solid var(--v2-line); border-radius: 10px; background: #F4F6FA url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%235B6577' stroke-width='1.8' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='M20 20l-3.5-3.5'/%3E%3C/svg%3E") 12px center no-repeat; padding: 8px 12px 8px 36px; height: 40px; font-size: .92rem; }
+.top-search input:focus { border-color: var(--v2-blue); background-color: #fff; box-shadow: 0 0 0 3px #DBE6FE; }
+.top-link { display: inline-flex; align-items: center; height: 34px; padding: 0 12px; border: 1px solid var(--v2-line); border-radius: 8px; color: var(--v2-ink); font-weight: 500; }
+.top-link:hover { border-color: #BFD3FE; background: var(--v2-blue-l); color: var(--v2-blue-d); }
+.user-menu .avatar { background: #DBE6FE; color: var(--v2-blue-d); }
+.user-pop { border-color: var(--v2-line); border-radius: 12px; box-shadow: 0 12px 32px rgba(15,23,42,.12); }
+.burger:hover { background: #F4F6FA; }
+
+/* ---------- inner pages (.admin-main:not(:has(> .home-tabs:not(.page-tabs))) = every admin page except the dashboard and its visitor tab) ---------- */
+.admin-main:not(:has(> .home-tabs:not(.page-tabs))) { color: var(--v2-ink); padding: 24px 28px 90px; }
+.admin-main:not(:has(> .home-tabs:not(.page-tabs))) h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: -.01em; }
+.admin-main:not(:has(> .home-tabs:not(.page-tabs))) h1 small, .admin-main:not(:has(> .home-tabs:not(.page-tabs))) h2 small { display: inline-flex; align-items: center; vertical-align: middle; font-size: .78rem; font-weight: 600; color: var(--v2-muted); background: #E9EDF3; border-radius: 999px; padding: 1px 10px; margin-left: 8px; letter-spacing: 0; }
+.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .title-row { margin-bottom: 18px; align-items: center; }
+.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .crumbs { font-size: .85rem; margin-bottom: 4px; }
+.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .crumbs a { color: var(--v2-muted); text-decoration: none; }
+.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .crumbs a:hover { color: var(--v2-blue); }
+.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .muted { color: var(--v2-muted); }
+
+/* buttons: one primary blue, the rest white with a thin border */
+.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .btn { border-width: 1px; border-radius: 10px; font-weight: 600; font-size: .92rem; padding: 8px 16px; min-height: 40px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; background: var(--v2-blue); border-color: var(--v2-blue); box-shadow: 0 1px 2px rgba(37,99,235,.18); line-height: 1.3; }
+.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .btn:hover { background: var(--v2-blue-d); border-color: var(--v2-blue-d); }
+.admin-main:not(:has(> .home-tabs:not(.page-tabs))) :is(.btn-ghost, .btn-outline) { background: #fff; color: var(--v2-ink); border-color: var(--v2-line-2); box-shadow: 0 1px 2px rgba(15,23,42,.04); }
+.admin-main:not(:has(> .home-tabs:not(.page-tabs))) :is(.btn-ghost, .btn-outline):hover { background: #F8FAFC; border-color: #B8C2D3; color: var(--v2-ink); }
+.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .btn-sm { min-height: 32px; padding: 4px 12px; font-size: .85rem; border-radius: 8px; }
+.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .btn-lg { min-height: 46px; padding: 10px 22px; font-size: 1rem; }
+.admin-main:not(:has(> .home-tabs:not(.page-tabs))) :is(.btn.danger, .btn-danger) { background: #fff; color: #B91C1C; border-color: #F5C2C2; box-shadow: none; }
+.admin-main:not(:has(> .home-tabs:not(.page-tabs))) :is(.btn.danger, .btn-danger):hover { background: #FEF2F2; border-color: #EF9A9A; }
+.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .btn:disabled, .admin-main:not(:has(> .home-tabs:not(.page-tabs))) .btn[disabled] { background: #EEF1F5; border-color: var(--v2-line); color: #98A2B3; box-shadow: none; opacity: 1; cursor: not-allowed; }
+.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .icon-btn { border-radius: 8px; border-color: var(--v2-line); width: 32px; height: 32px; }
+.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .row-actions { gap: 8px; }
+
+/* page tabs (pages that belong together) */
+.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .page-tabs { border-bottom: 1px solid var(--v2-line); gap: 2px; margin: 0 0 20px; }
+.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .page-tabs .home-tab { background: transparent; border: 0; border-bottom: 2px solid transparent; border-radius: 0; padding: 10px 14px; margin-bottom: -1px; color: var(--v2-muted); font-weight: 500; }
+.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .page-tabs .home-tab:hover { color: var(--v2-ink); background: transparent; }
+.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .page-tabs .home-tab.on { color: var(--v2-blue-d); border-bottom-color: var(--v2-blue); font-weight: 600; background: transparent; }
+.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .page-tabs .home-tab > span[aria-hidden] { display: none; }
+
+/* cards */
+.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .panel { border: 1px solid var(--v2-line); border-radius: 12px; box-shadow: 0 1px 2px rgba(15,23,42,.04); padding: 20px 22px; margin-bottom: 20px; }
+.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .panel h2 { font-size: 1.05rem; font-weight: 700; }
+.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .panel h3 { font-size: .98rem; font-weight: 700; }
+.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .table-wrap.panel { padding: 0; overflow: auto; }
+.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .table-wrap.panel > p { margin: 0; padding: 18px 20px; color: var(--v2-muted); }
+.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .kpi { border: 1px solid var(--v2-line); border-radius: 12px; box-shadow: 0 1px 2px rgba(15,23,42,.04); padding: 14px 18px; }
+.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .kpi-label { color: var(--v2-muted); font-size: .85rem; }
+.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .kpi-value { font-size: 1.5rem; font-weight: 700; }
+.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .kpi-sub { color: var(--v2-muted); font-size: .8rem; }
+.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .help { background: #F5F8FF; border-color: #D6E2FB; border-radius: 12px; color: #1E3A6E; }
+.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .help summary { cursor: pointer; }
+
+/* status / filter chips */
+.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .chips { gap: 6px; }
+.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .chip { background: #fff; border: 1px solid var(--v2-line); color: #334155; padding: 6px 14px; font-size: .88rem; font-weight: 500; }
+.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .chip:hover { border-color: #BFD3FE; color: var(--v2-blue-d); background: var(--v2-blue-l); }
+.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .chip.on { background: var(--v2-blue-l); border-color: #BFD3FE; color: var(--v2-blue-d); font-weight: 600; }
+.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .status-chips .chip b, .admin-main:not(:has(> .home-tabs:not(.page-tabs))) .chip b { background: #EEF1F5; color: var(--v2-muted); font-weight: 600; }
+.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .chip.on b { background: #DBE6FE; color: var(--v2-blue-d); }
+
+/* filter rows */
+.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .toolbar { gap: 8px; padding: 12px; background: #fff; border: 1px solid var(--v2-line); border-radius: 12px; margin-bottom: 16px; }
+.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .toolbar :is(input[type=search], input[type=text], input[type=date], input[type=number], select) { height: 38px; padding: 0 12px; border: 1px solid var(--v2-line-2); border-radius: 9px; background-color: #fff; font-size: .9rem; color: var(--v2-ink); }
+.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .toolbar input[type=search] { max-width: none; background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='15' height='15' viewBox='0 0 24 24' fill='none' stroke='%235B6577' stroke-width='1.8' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='M20 20l-3.5-3.5'/%3E%3C/svg%3E") 11px center no-repeat; padding-left: 34px; }
+.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .toolbar :is(input, select):focus { outline: none; border-color: var(--v2-blue); box-shadow: 0 0 0 3px #DBE6FE; }
+.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .toolbar label { color: var(--v2-muted); font-size: .85rem; }
+.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .toolbar .btn { min-height: 38px; }
+.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .bulk-bar { border-radius: 12px; }
+
+/* tables */
+.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .table { font-size: .92rem; }
+.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .table th { background: #F8FAFC; color: var(--v2-muted); font-size: .78rem; font-weight: 600; padding: 11px 14px; border-bottom: 1px solid var(--v2-line); letter-spacing: .01em; }
+.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .table td { padding: 12px 14px; border-bottom: 1px solid #EEF1F5; vertical-align: middle; }
+.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .table tbody tr:hover > td { background: #F8FAFD; }
+.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .table td a:not(.btn):not(.icon-btn) { font-weight: 600; }
+.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .table .thumb img, .admin-main:not(:has(> .home-tabs:not(.page-tabs))) .table .thumb span { border-radius: 10px; border: 1px solid var(--v2-line); }
+.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .prod-actions .btn, .admin-main:not(:has(> .home-tabs:not(.page-tabs))) .row-acts .btn, .admin-main:not(:has(> .home-tabs:not(.page-tabs))) .table td .btn-sm { min-height: 30px; padding: 3px 10px; font-size: .82rem; }
+.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .pill { font-weight: 600; font-size: .78rem; border-radius: 999px; padding: 2px 10px; }
+
+/* form fields: same height, thin border, clear focus ring */
+.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .field > label, .admin-main:not(:has(> .home-tabs:not(.page-tabs))) .field legend, .admin-main:not(:has(> .home-tabs:not(.page-tabs))) .field > .label { font-size: .9rem; font-weight: 600; color: var(--v2-ink); }
+.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .field small, .admin-main:not(:has(> .home-tabs:not(.page-tabs))) .field .small.muted { font-size: .8rem; color: var(--v2-muted); line-height: 1.5; }
+.admin-main:not(:has(> .home-tabs:not(.page-tabs))) :is(.field, .field-row, .form) :is(input:not([type=radio]):not([type=checkbox]):not([type=file]):not([type=color]):not([type=range]):not([type=hidden]), select) { min-height: 40px; border: 1px solid var(--v2-line-2); border-radius: 9px; padding: 8px 12px; font-size: .95rem; background-color: #fff; color: var(--v2-ink); box-shadow: 0 1px 2px rgba(15,23,42,.03); }
+.admin-main:not(:has(> .home-tabs:not(.page-tabs))) :is(.field, .field-row, .form) textarea { border: 1px solid var(--v2-line-2); border-radius: 9px; padding: 10px 12px; font-size: .95rem; line-height: 1.6; box-shadow: 0 1px 2px rgba(15,23,42,.03); }
+.admin-main:not(:has(> .home-tabs:not(.page-tabs))) :is(.field, .field-row, .form) :is(input, select, textarea):focus { outline: none; border-color: var(--v2-blue); box-shadow: 0 0 0 3px #DBE6FE; }
+.admin-main:not(:has(> .home-tabs:not(.page-tabs))) :is(.field, .field-row, .form) :is(input, textarea)::placeholder { color: #98A2B3; }
+.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .check, .admin-main:not(:has(> .home-tabs:not(.page-tabs))) .radio { color: var(--v2-ink); }
+.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .switch-row { border-color: var(--v2-line); border-radius: 10px; }
+.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .switch-row:has(input:checked) { background: #F5F8FF; border-color: #BFD3FE; }
+
+/* the save buttons stay in a white bar at the bottom of the screen */
+.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .sticky-actions { background: #fff; justify-content: flex-end; border-top: 1px solid var(--v2-line); box-shadow: 0 -4px 16px rgba(15,23,42,.06); margin: 20px -28px 0; padding: 12px 28px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+@media (max-width: 760px) {
+  .admin-main:not(:has(> .home-tabs:not(.page-tabs))) { padding: 16px 14px 90px; }
+  .admin-main:not(:has(> .home-tabs:not(.page-tabs))) .sticky-actions { margin: 16px -14px 0; padding: 10px 14px; }
+  .admin-main:not(:has(> .home-tabs:not(.page-tabs))) h1 { font-size: 1.3rem; }
+}
