@@ -7,7 +7,7 @@ import { can, canSee } from '../models/staff';
 import * as $profile from './profile';
 import type { AdminDrawn, Body, Settings, StaffUser } from '../types';
 
-const ASSET_V = '61';
+const ASSET_V = '62';
 
 // 📑 Small jobs that belong together sit on one page as tabs (like browser tabs). Each tab is still its own
 // page with its own link (bookmarks and the phone app keep working); the menu shows one entry for the set.
@@ -223,7 +223,12 @@ function head(title: unknown, settings: Settings) {
 }
 
 function logoMark(settings: Settings) {
-  if (settings.logo_id) return <img className="logo-img" src={`/media/${attrValue(settings.logo_id)}`} alt={attrValue(settings.store_name)} />;
+  if (settings.logo_id) {
+    // the logo's shape (saved with it, lib/admin/design.tsx), so its place is kept before the picture arrives
+    const w = Number(settings.logo_w), h = Number(settings.logo_h);
+    const size = w > 0 && h > 0 ? { width: w, height: h } : {};
+    return <img className="logo-img" src={`/media/${attrValue(settings.logo_id)}`} alt={attrValue(settings.store_name)} {...size} />;
+  }
   const name = settings.store_name || 'সবমিলবে';
   if (name === 'সবমিলবে') return <><span className="logo-a">সব</span><span className="logo-b">মিলবে</span></>;
   return <span className="logo-a"><Val v={name} /></span>;

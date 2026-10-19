@@ -17,10 +17,16 @@ import { cx } from '../../../lib/react/html';
 import type { CustomScript, MenuLink, Settings } from '../../../lib/types';
 import { SearchIcon, CartIcon, UserIcon, MenuIcon, WhatsAppIcon, MessengerIcon, SOCIAL_ICONS } from './icons';
 
-export const ASSET_V = '48';
+export const ASSET_V = '49';
 
 export function Logo({ settings }: { settings: Settings }) {
-  if (settings.logo_id) return <img className="logo-img" src={`/media/${settings.logo_id}`} alt={settings.store_name} />;
+  if (settings.logo_id) {
+    // width/height (saved with the logo, lib/admin/design.tsx) only tell the browser the logo's shape, so its place is
+    // kept before the picture arrives; the size on screen still comes from the CSS (.logo-img)
+    const w = Number(settings.logo_w), h = Number(settings.logo_h);
+    const size = w > 0 && h > 0 ? { width: w, height: h } : {};
+    return <img className="logo-img" src={`/media/${settings.logo_id}`} alt={settings.store_name} {...size} />;
+  }
   const name = settings.store_name || 'সবমিলবে';
   if (name === 'সবমিলবে') return <><span className="logo-a">সব</span><span className="logo-b">মিলবে</span></>;
   return <span className="logo-a">{name}</span>;

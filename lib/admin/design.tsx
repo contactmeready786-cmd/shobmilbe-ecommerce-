@@ -38,6 +38,15 @@ async function general(ctx: AdminCtx) {
     b.grid_cols = oneOf(['3', '4', '5'], b.grid_cols, '4');
     await saveKeys(ctx, ['store_name', 'tagline', 'hero_title', 'notice', 'logo_id', 'favicon_id', 'color_primary', 'color_accent', 'grid_cols',
       'home_sections', 'footer_about', 'copy_protect', 'copy_title', 'photo_download'], b, { checkboxes: ['copy_protect', 'copy_title', 'photo_download'] });
+    // the logo's own width and height: the shop pages give them to the <img>, so the browser keeps the logo's place
+    // before the picture has arrived and the header doesn't jump when it does (components/shop/chrome Logo)
+    if ('logo_id' in b) {
+      const m = int(b.logo_id) ? await db.one<{ width: number | null; height: number | null }>('SELECT width, height FROM media WHERE id=$1', [int(b.logo_id)]) : null;
+      const ok = !!(m && Number(m.width) > 0 && Number(m.height) > 0);
+      await db.setSetting('logo_w', ok ? String(m!.width) : '');
+      await db.setSetting('logo_h', ok ? String(m!.height) : '');
+      await ctx.reloadSettings();
+    }
     await ctx.log('settings', 'design', null, 'লোগো ও ডিজাইন');
     return ctx.back('/admin/design', 'saved');
   }
