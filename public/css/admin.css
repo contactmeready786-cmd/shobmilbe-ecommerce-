@@ -1267,7 +1267,9 @@ img[data-zoomable] { cursor: zoom-in; }
    2026-10-19 · New look for the admin (owner approved the mock-ups). Only the LOOK changes here —
    the pages' markup, links, forms and scripts are the same. The side menu and the top bar are new
    everywhere; the inner pages get the new cards, buttons, tables and form fields, while the
-   dashboard (and its visitor tab) keep their own look (.admin-main:not(:has(> .home-tabs:not(.page-tabs))) = every admin page except those).
+   dashboard (and its visitor tab) keep their own look (body:not(:has(.side a.on[href="/admin"])) .admin-main = every admin page except those). body:not(:has(.side a.on[href="/admin"])) .admin-main is decided by the side
+   menu's highlighted link, which the browser has before it draws the page — deciding it from the page's own content made
+   the dashboard first draw in the inner-page look and then jump to its own while it loaded (seen on phones, 2026-10-19).
    A browser too old for :has() simply keeps the earlier look.
    ================================================================================================ */
 body.admin { background: #F4F6FA; --side: 248px; --v2-line: #E4E8EF; --v2-line-2: #D5DBE5; --v2-muted: #5B6577; --v2-ink: #0F172A; --v2-blue: #2563EB; --v2-blue-d: #1D4ED8; --v2-blue-l: #EEF3FF; }
@@ -1326,99 +1328,101 @@ html[data-admin-lang="en"] .side-drop[data-side-group="দোকানের ড
 .topbar { min-height: 60px; padding: 8px 24px; border-bottom: 1px solid var(--v2-line); box-shadow: none; }
 .top-search input { border: 1px solid var(--v2-line); border-radius: 10px; background: #F4F6FA url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%235B6577' stroke-width='1.8' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='M20 20l-3.5-3.5'/%3E%3C/svg%3E") 12px center no-repeat; padding: 8px 12px 8px 36px; height: 40px; font-size: .92rem; }
 .top-search input:focus { border-color: var(--v2-blue); background-color: #fff; box-shadow: 0 0 0 3px #DBE6FE; }
-.top-link { display: inline-flex; align-items: center; height: 34px; padding: 0 12px; border: 1px solid var(--v2-line); border-radius: 8px; color: var(--v2-ink); font-weight: 500; }
-.top-link:hover { border-color: #BFD3FE; background: var(--v2-blue-l); color: var(--v2-blue-d); }
+@media (min-width: 901px) {
+  .top-link { display: inline-flex; align-items: center; height: 34px; padding: 0 12px; border: 1px solid var(--v2-line); border-radius: 8px; color: var(--v2-ink); font-weight: 500; }
+  .top-link:hover { border-color: #BFD3FE; background: var(--v2-blue-l); color: var(--v2-blue-d); }
+}
 .user-menu .avatar { background: #DBE6FE; color: var(--v2-blue-d); }
 .user-pop { border-color: var(--v2-line); border-radius: 12px; box-shadow: 0 12px 32px rgba(15,23,42,.12); }
 .burger:hover { background: #F4F6FA; }
 
-/* ---------- inner pages (.admin-main:not(:has(> .home-tabs:not(.page-tabs))) = every admin page except the dashboard and its visitor tab) ---------- */
-.admin-main:not(:has(> .home-tabs:not(.page-tabs))) { color: var(--v2-ink); padding: 24px 28px 90px; }
-.admin-main:not(:has(> .home-tabs:not(.page-tabs))) h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: -.01em; }
-.admin-main:not(:has(> .home-tabs:not(.page-tabs))) h1 small, .admin-main:not(:has(> .home-tabs:not(.page-tabs))) h2 small { display: inline-flex; align-items: center; vertical-align: middle; font-size: .78rem; font-weight: 600; color: var(--v2-muted); background: #E9EDF3; border-radius: 999px; padding: 1px 10px; margin-left: 8px; letter-spacing: 0; }
-.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .title-row { margin-bottom: 18px; align-items: center; }
-.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .crumbs { font-size: .85rem; margin-bottom: 4px; }
-.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .crumbs a { color: var(--v2-muted); text-decoration: none; }
-.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .crumbs a:hover { color: var(--v2-blue); }
-.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .muted { color: var(--v2-muted); }
+/* ---------- inner pages (body:not(:has(.side a.on[href="/admin"])) .admin-main = every admin page except the dashboard and its visitor tab) ---------- */
+body:not(:has(.side a.on[href="/admin"])) .admin-main { color: var(--v2-ink); padding: 24px 28px 90px; }
+body:not(:has(.side a.on[href="/admin"])) .admin-main h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: -.01em; }
+body:not(:has(.side a.on[href="/admin"])) .admin-main h1 small, body:not(:has(.side a.on[href="/admin"])) .admin-main h2 small { display: inline-flex; align-items: center; vertical-align: middle; font-size: .78rem; font-weight: 600; color: var(--v2-muted); background: #E9EDF3; border-radius: 999px; padding: 1px 10px; margin-left: 8px; letter-spacing: 0; }
+body:not(:has(.side a.on[href="/admin"])) .admin-main .title-row { margin-bottom: 18px; align-items: center; }
+body:not(:has(.side a.on[href="/admin"])) .admin-main .crumbs { font-size: .85rem; margin-bottom: 4px; }
+body:not(:has(.side a.on[href="/admin"])) .admin-main .crumbs a { color: var(--v2-muted); text-decoration: none; }
+body:not(:has(.side a.on[href="/admin"])) .admin-main .crumbs a:hover { color: var(--v2-blue); }
+body:not(:has(.side a.on[href="/admin"])) .admin-main .muted { color: var(--v2-muted); }
 
 /* buttons: one primary blue, the rest white with a thin border */
-.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .btn { border-width: 1px; border-radius: 10px; font-weight: 600; font-size: .92rem; padding: 8px 16px; min-height: 40px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; background: var(--v2-blue); border-color: var(--v2-blue); box-shadow: 0 1px 2px rgba(37,99,235,.18); line-height: 1.3; }
-.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .btn:hover { background: var(--v2-blue-d); border-color: var(--v2-blue-d); }
-.admin-main:not(:has(> .home-tabs:not(.page-tabs))) :is(.btn-ghost, .btn-outline) { background: #fff; color: var(--v2-ink); border-color: var(--v2-line-2); box-shadow: 0 1px 2px rgba(15,23,42,.04); }
-.admin-main:not(:has(> .home-tabs:not(.page-tabs))) :is(.btn-ghost, .btn-outline):hover { background: #F8FAFC; border-color: #B8C2D3; color: var(--v2-ink); }
-.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .btn-sm { min-height: 32px; padding: 4px 12px; font-size: .85rem; border-radius: 8px; }
-.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .btn-lg { min-height: 46px; padding: 10px 22px; font-size: 1rem; }
-.admin-main:not(:has(> .home-tabs:not(.page-tabs))) :is(.btn.danger, .btn-danger) { background: #fff; color: #B91C1C; border-color: #F5C2C2; box-shadow: none; }
-.admin-main:not(:has(> .home-tabs:not(.page-tabs))) :is(.btn.danger, .btn-danger):hover { background: #FEF2F2; border-color: #EF9A9A; }
-.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .btn:disabled, .admin-main:not(:has(> .home-tabs:not(.page-tabs))) .btn[disabled] { background: #EEF1F5; border-color: var(--v2-line); color: #98A2B3; box-shadow: none; opacity: 1; cursor: not-allowed; }
-.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .icon-btn { border-radius: 8px; border-color: var(--v2-line); width: 32px; height: 32px; }
-.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .row-actions { gap: 8px; }
+body:not(:has(.side a.on[href="/admin"])) .admin-main .btn { border-width: 1px; border-radius: 10px; font-weight: 600; font-size: .92rem; padding: 8px 16px; min-height: 40px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; background: var(--v2-blue); border-color: var(--v2-blue); box-shadow: 0 1px 2px rgba(37,99,235,.18); line-height: 1.3; }
+body:not(:has(.side a.on[href="/admin"])) .admin-main .btn:hover { background: var(--v2-blue-d); border-color: var(--v2-blue-d); }
+body:not(:has(.side a.on[href="/admin"])) .admin-main :is(.btn-ghost, .btn-outline) { background: #fff; color: var(--v2-ink); border-color: var(--v2-line-2); box-shadow: 0 1px 2px rgba(15,23,42,.04); }
+body:not(:has(.side a.on[href="/admin"])) .admin-main :is(.btn-ghost, .btn-outline):hover { background: #F8FAFC; border-color: #B8C2D3; color: var(--v2-ink); }
+body:not(:has(.side a.on[href="/admin"])) .admin-main .btn-sm { min-height: 32px; padding: 4px 12px; font-size: .85rem; border-radius: 8px; }
+body:not(:has(.side a.on[href="/admin"])) .admin-main .btn-lg { min-height: 46px; padding: 10px 22px; font-size: 1rem; }
+body:not(:has(.side a.on[href="/admin"])) .admin-main :is(.btn.danger, .btn-danger) { background: #fff; color: #B91C1C; border-color: #F5C2C2; box-shadow: none; }
+body:not(:has(.side a.on[href="/admin"])) .admin-main :is(.btn.danger, .btn-danger):hover { background: #FEF2F2; border-color: #EF9A9A; }
+body:not(:has(.side a.on[href="/admin"])) .admin-main .btn:disabled, body:not(:has(.side a.on[href="/admin"])) .admin-main .btn[disabled] { background: #EEF1F5; border-color: var(--v2-line); color: #98A2B3; box-shadow: none; opacity: 1; cursor: not-allowed; }
+body:not(:has(.side a.on[href="/admin"])) .admin-main .icon-btn { border-radius: 8px; border-color: var(--v2-line); width: 32px; height: 32px; }
+body:not(:has(.side a.on[href="/admin"])) .admin-main .row-actions { gap: 8px; }
 
 /* page tabs (pages that belong together) */
-.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .page-tabs { border-bottom: 1px solid var(--v2-line); gap: 2px; margin: 0 0 20px; }
-.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .page-tabs .home-tab { background: transparent; border: 0; border-bottom: 2px solid transparent; border-radius: 0; padding: 10px 14px; margin-bottom: -1px; color: var(--v2-muted); font-weight: 500; }
-.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .page-tabs .home-tab:hover { color: var(--v2-ink); background: transparent; }
-.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .page-tabs .home-tab.on { color: var(--v2-blue-d); border-bottom-color: var(--v2-blue); font-weight: 600; background: transparent; }
-.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .page-tabs .home-tab > span[aria-hidden] { display: none; }
+body:not(:has(.side a.on[href="/admin"])) .admin-main .page-tabs { border-bottom: 1px solid var(--v2-line); gap: 2px; margin: 0 0 20px; }
+body:not(:has(.side a.on[href="/admin"])) .admin-main .page-tabs .home-tab { background: transparent; border: 0; border-bottom: 2px solid transparent; border-radius: 0; padding: 10px 14px; margin-bottom: -1px; color: var(--v2-muted); font-weight: 500; }
+body:not(:has(.side a.on[href="/admin"])) .admin-main .page-tabs .home-tab:hover { color: var(--v2-ink); background: transparent; }
+body:not(:has(.side a.on[href="/admin"])) .admin-main .page-tabs .home-tab.on { color: var(--v2-blue-d); border-bottom-color: var(--v2-blue); font-weight: 600; background: transparent; }
+body:not(:has(.side a.on[href="/admin"])) .admin-main .page-tabs .home-tab > span[aria-hidden] { display: none; }
 
 /* cards */
-.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .panel { border: 1px solid var(--v2-line); border-radius: 12px; box-shadow: 0 1px 2px rgba(15,23,42,.04); padding: 20px 22px; margin-bottom: 20px; }
-.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .panel h2 { font-size: 1.05rem; font-weight: 700; }
-.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .panel h3 { font-size: .98rem; font-weight: 700; }
-.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .table-wrap.panel { padding: 0; overflow: auto; }
-.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .table-wrap.panel > p { margin: 0; padding: 18px 20px; color: var(--v2-muted); }
-.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .kpi { border: 1px solid var(--v2-line); border-radius: 12px; box-shadow: 0 1px 2px rgba(15,23,42,.04); padding: 14px 18px; }
-.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .kpi-label { color: var(--v2-muted); font-size: .85rem; }
-.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .kpi-value { font-size: 1.5rem; font-weight: 700; }
-.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .kpi-sub { color: var(--v2-muted); font-size: .8rem; }
-.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .help { background: #F5F8FF; border-color: #D6E2FB; border-radius: 12px; color: #1E3A6E; }
-.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .help summary { cursor: pointer; }
+body:not(:has(.side a.on[href="/admin"])) .admin-main .panel { border: 1px solid var(--v2-line); border-radius: 12px; box-shadow: 0 1px 2px rgba(15,23,42,.04); padding: 20px 22px; margin-bottom: 20px; }
+body:not(:has(.side a.on[href="/admin"])) .admin-main .panel h2 { font-size: 1.05rem; font-weight: 700; }
+body:not(:has(.side a.on[href="/admin"])) .admin-main .panel h3 { font-size: .98rem; font-weight: 700; }
+body:not(:has(.side a.on[href="/admin"])) .admin-main .table-wrap.panel { padding: 0; overflow: auto; }
+body:not(:has(.side a.on[href="/admin"])) .admin-main .table-wrap.panel > p { margin: 0; padding: 18px 20px; color: var(--v2-muted); }
+body:not(:has(.side a.on[href="/admin"])) .admin-main .kpi { border: 1px solid var(--v2-line); border-radius: 12px; box-shadow: 0 1px 2px rgba(15,23,42,.04); padding: 14px 18px; }
+body:not(:has(.side a.on[href="/admin"])) .admin-main .kpi-label { color: var(--v2-muted); font-size: .85rem; }
+body:not(:has(.side a.on[href="/admin"])) .admin-main .kpi-value { font-size: 1.5rem; font-weight: 700; }
+body:not(:has(.side a.on[href="/admin"])) .admin-main .kpi-sub { color: var(--v2-muted); font-size: .8rem; }
+body:not(:has(.side a.on[href="/admin"])) .admin-main .help { background: #F5F8FF; border-color: #D6E2FB; border-radius: 12px; color: #1E3A6E; }
+body:not(:has(.side a.on[href="/admin"])) .admin-main .help summary { cursor: pointer; }
 
 /* status / filter chips */
-.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .chips { gap: 6px; }
-.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .chip { background: #fff; border: 1px solid var(--v2-line); color: #334155; padding: 6px 14px; font-size: .88rem; font-weight: 500; }
-.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .chip:hover { border-color: #BFD3FE; color: var(--v2-blue-d); background: var(--v2-blue-l); }
-.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .chip.on { background: var(--v2-blue-l); border-color: #BFD3FE; color: var(--v2-blue-d); font-weight: 600; }
-.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .status-chips .chip b, .admin-main:not(:has(> .home-tabs:not(.page-tabs))) .chip b { background: #EEF1F5; color: var(--v2-muted); font-weight: 600; }
-.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .chip.on b { background: #DBE6FE; color: var(--v2-blue-d); }
+body:not(:has(.side a.on[href="/admin"])) .admin-main .chips { gap: 6px; }
+body:not(:has(.side a.on[href="/admin"])) .admin-main .chip { background: #fff; border: 1px solid var(--v2-line); color: #334155; padding: 6px 14px; font-size: .88rem; font-weight: 500; }
+body:not(:has(.side a.on[href="/admin"])) .admin-main .chip:hover { border-color: #BFD3FE; color: var(--v2-blue-d); background: var(--v2-blue-l); }
+body:not(:has(.side a.on[href="/admin"])) .admin-main .chip.on { background: var(--v2-blue-l); border-color: #BFD3FE; color: var(--v2-blue-d); font-weight: 600; }
+body:not(:has(.side a.on[href="/admin"])) .admin-main .status-chips .chip b, body:not(:has(.side a.on[href="/admin"])) .admin-main .chip b { background: #EEF1F5; color: var(--v2-muted); font-weight: 600; }
+body:not(:has(.side a.on[href="/admin"])) .admin-main .chip.on b { background: #DBE6FE; color: var(--v2-blue-d); }
 
 /* filter rows */
-.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .toolbar { gap: 8px; padding: 12px; background: #fff; border: 1px solid var(--v2-line); border-radius: 12px; margin-bottom: 16px; }
-.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .toolbar :is(input[type=search], input[type=text], input[type=date], input[type=number], select) { height: 38px; padding: 0 12px; border: 1px solid var(--v2-line-2); border-radius: 9px; background-color: #fff; font-size: .9rem; color: var(--v2-ink); }
-.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .toolbar input[type=search] { max-width: none; background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='15' height='15' viewBox='0 0 24 24' fill='none' stroke='%235B6577' stroke-width='1.8' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='M20 20l-3.5-3.5'/%3E%3C/svg%3E") 11px center no-repeat; padding-left: 34px; }
-.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .toolbar :is(input, select):focus { outline: none; border-color: var(--v2-blue); box-shadow: 0 0 0 3px #DBE6FE; }
-.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .toolbar label { color: var(--v2-muted); font-size: .85rem; }
-.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .toolbar .btn { min-height: 38px; }
-.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .bulk-bar { border-radius: 12px; }
+body:not(:has(.side a.on[href="/admin"])) .admin-main .toolbar { gap: 8px; padding: 12px; background: #fff; border: 1px solid var(--v2-line); border-radius: 12px; margin-bottom: 16px; }
+body:not(:has(.side a.on[href="/admin"])) .admin-main .toolbar :is(input[type=search], input[type=text], input[type=date], input[type=number], select) { height: 38px; padding: 0 12px; border: 1px solid var(--v2-line-2); border-radius: 9px; background-color: #fff; font-size: .9rem; color: var(--v2-ink); }
+body:not(:has(.side a.on[href="/admin"])) .admin-main .toolbar input[type=search] { max-width: none; background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='15' height='15' viewBox='0 0 24 24' fill='none' stroke='%235B6577' stroke-width='1.8' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='M20 20l-3.5-3.5'/%3E%3C/svg%3E") 11px center no-repeat; padding-left: 34px; }
+body:not(:has(.side a.on[href="/admin"])) .admin-main .toolbar :is(input, select):focus { outline: none; border-color: var(--v2-blue); box-shadow: 0 0 0 3px #DBE6FE; }
+body:not(:has(.side a.on[href="/admin"])) .admin-main .toolbar label { color: var(--v2-muted); font-size: .85rem; }
+body:not(:has(.side a.on[href="/admin"])) .admin-main .toolbar .btn { min-height: 38px; }
+body:not(:has(.side a.on[href="/admin"])) .admin-main .bulk-bar { border-radius: 12px; }
 
 /* tables */
-.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .table { font-size: .92rem; }
-.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .table th { background: #F8FAFC; color: var(--v2-muted); font-size: .78rem; font-weight: 600; padding: 11px 14px; border-bottom: 1px solid var(--v2-line); letter-spacing: .01em; }
-.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .table td { padding: 12px 14px; border-bottom: 1px solid #EEF1F5; vertical-align: middle; }
-.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .table tbody tr:hover > td { background: #F8FAFD; }
-.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .table td a:not(.btn):not(.icon-btn) { font-weight: 600; }
-.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .table .thumb img, .admin-main:not(:has(> .home-tabs:not(.page-tabs))) .table .thumb span { border-radius: 10px; border: 1px solid var(--v2-line); }
-.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .prod-actions .btn, .admin-main:not(:has(> .home-tabs:not(.page-tabs))) .row-acts .btn, .admin-main:not(:has(> .home-tabs:not(.page-tabs))) .table td .btn-sm { min-height: 30px; padding: 3px 10px; font-size: .82rem; }
-.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .pill { font-weight: 600; font-size: .78rem; border-radius: 999px; padding: 2px 10px; }
+body:not(:has(.side a.on[href="/admin"])) .admin-main .table { font-size: .92rem; }
+body:not(:has(.side a.on[href="/admin"])) .admin-main .table th { background: #F8FAFC; color: var(--v2-muted); font-size: .78rem; font-weight: 600; padding: 11px 14px; border-bottom: 1px solid var(--v2-line); letter-spacing: .01em; }
+body:not(:has(.side a.on[href="/admin"])) .admin-main .table td { padding: 12px 14px; border-bottom: 1px solid #EEF1F5; vertical-align: middle; }
+body:not(:has(.side a.on[href="/admin"])) .admin-main .table tbody tr:hover > td { background: #F8FAFD; }
+body:not(:has(.side a.on[href="/admin"])) .admin-main .table td a:not(.btn):not(.icon-btn) { font-weight: 600; }
+body:not(:has(.side a.on[href="/admin"])) .admin-main .table .thumb img, body:not(:has(.side a.on[href="/admin"])) .admin-main .table .thumb span { border-radius: 10px; border: 1px solid var(--v2-line); }
+body:not(:has(.side a.on[href="/admin"])) .admin-main .prod-actions .btn, body:not(:has(.side a.on[href="/admin"])) .admin-main .row-acts .btn, body:not(:has(.side a.on[href="/admin"])) .admin-main .table td .btn-sm { min-height: 30px; padding: 3px 10px; font-size: .82rem; }
+body:not(:has(.side a.on[href="/admin"])) .admin-main .pill { font-weight: 600; font-size: .78rem; border-radius: 999px; padding: 2px 10px; }
 
 /* form fields: same height, thin border, clear focus ring */
-.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .field > label, .admin-main:not(:has(> .home-tabs:not(.page-tabs))) .field legend, .admin-main:not(:has(> .home-tabs:not(.page-tabs))) .field > .label { font-size: .9rem; font-weight: 600; color: var(--v2-ink); }
-.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .field small, .admin-main:not(:has(> .home-tabs:not(.page-tabs))) .field .small.muted { font-size: .8rem; color: var(--v2-muted); line-height: 1.5; }
-.admin-main:not(:has(> .home-tabs:not(.page-tabs))) :is(.field, .field-row, .form) :is(input:not([type=radio]):not([type=checkbox]):not([type=file]):not([type=color]):not([type=range]):not([type=hidden]), select) { min-height: 40px; border: 1px solid var(--v2-line-2); border-radius: 9px; padding: 8px 12px; font-size: .95rem; background-color: #fff; color: var(--v2-ink); box-shadow: 0 1px 2px rgba(15,23,42,.03); }
-.admin-main:not(:has(> .home-tabs:not(.page-tabs))) :is(.field, .field-row, .form) textarea { border: 1px solid var(--v2-line-2); border-radius: 9px; padding: 10px 12px; font-size: .95rem; line-height: 1.6; box-shadow: 0 1px 2px rgba(15,23,42,.03); }
-.admin-main:not(:has(> .home-tabs:not(.page-tabs))) :is(.field, .field-row, .form) :is(input, select, textarea):focus { outline: none; border-color: var(--v2-blue); box-shadow: 0 0 0 3px #DBE6FE; }
-.admin-main:not(:has(> .home-tabs:not(.page-tabs))) :is(.field, .field-row, .form) :is(input, textarea)::placeholder { color: #98A2B3; }
-.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .check, .admin-main:not(:has(> .home-tabs:not(.page-tabs))) .radio { color: var(--v2-ink); }
-.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .switch-row { border-color: var(--v2-line); border-radius: 10px; }
-.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .switch-row:has(input:checked) { background: #F5F8FF; border-color: #BFD3FE; }
+body:not(:has(.side a.on[href="/admin"])) .admin-main .field > label, body:not(:has(.side a.on[href="/admin"])) .admin-main .field legend, body:not(:has(.side a.on[href="/admin"])) .admin-main .field > .label { font-size: .9rem; font-weight: 600; color: var(--v2-ink); }
+body:not(:has(.side a.on[href="/admin"])) .admin-main .field small, body:not(:has(.side a.on[href="/admin"])) .admin-main .field .small.muted { font-size: .8rem; color: var(--v2-muted); line-height: 1.5; }
+body:not(:has(.side a.on[href="/admin"])) .admin-main :is(.field, .field-row, .form) :is(input:not([type=radio]):not([type=checkbox]):not([type=file]):not([type=color]):not([type=range]):not([type=hidden]), select) { min-height: 40px; border: 1px solid var(--v2-line-2); border-radius: 9px; padding: 8px 12px; font-size: .95rem; background-color: #fff; color: var(--v2-ink); box-shadow: 0 1px 2px rgba(15,23,42,.03); }
+body:not(:has(.side a.on[href="/admin"])) .admin-main :is(.field, .field-row, .form) textarea { border: 1px solid var(--v2-line-2); border-radius: 9px; padding: 10px 12px; font-size: .95rem; line-height: 1.6; box-shadow: 0 1px 2px rgba(15,23,42,.03); }
+body:not(:has(.side a.on[href="/admin"])) .admin-main :is(.field, .field-row, .form) :is(input, select, textarea):focus { outline: none; border-color: var(--v2-blue); box-shadow: 0 0 0 3px #DBE6FE; }
+body:not(:has(.side a.on[href="/admin"])) .admin-main :is(.field, .field-row, .form) :is(input, textarea)::placeholder { color: #98A2B3; }
+body:not(:has(.side a.on[href="/admin"])) .admin-main .check, body:not(:has(.side a.on[href="/admin"])) .admin-main .radio { color: var(--v2-ink); }
+body:not(:has(.side a.on[href="/admin"])) .admin-main .switch-row { border-color: var(--v2-line); border-radius: 10px; }
+body:not(:has(.side a.on[href="/admin"])) .admin-main .switch-row:has(input:checked) { background: #F5F8FF; border-color: #BFD3FE; }
 
 /* the save buttons stay in a white bar at the bottom of the screen */
-.admin-main:not(:has(> .home-tabs:not(.page-tabs))) .sticky-actions { background: #fff; justify-content: flex-end; border-top: 1px solid var(--v2-line); box-shadow: 0 -4px 16px rgba(15,23,42,.06); margin: 20px -28px 0; padding: 12px 28px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+body:not(:has(.side a.on[href="/admin"])) .admin-main .sticky-actions { background: #fff; justify-content: flex-end; border-top: 1px solid var(--v2-line); box-shadow: 0 -4px 16px rgba(15,23,42,.06); margin: 20px -28px 0; padding: 12px 28px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 @media (max-width: 760px) {
-  .admin-main:not(:has(> .home-tabs:not(.page-tabs))) { padding: 16px 14px 90px; }
-  .admin-main:not(:has(> .home-tabs:not(.page-tabs))) .sticky-actions { margin: 16px -14px 0; padding: 10px 14px; }
-  .admin-main:not(:has(> .home-tabs:not(.page-tabs))) h1 { font-size: 1.3rem; }
+  body:not(:has(.side a.on[href="/admin"])) .admin-main { padding: 16px 14px 90px; }
+  body:not(:has(.side a.on[href="/admin"])) .admin-main .sticky-actions { margin: 16px -14px 0; padding: 10px 14px; }
+  body:not(:has(.side a.on[href="/admin"])) .admin-main h1 { font-size: 1.3rem; }
 }
 
 /* 🖼️ Product pictures in admin lists never shrink to a thin line on a phone: a long product name used to squeeze
