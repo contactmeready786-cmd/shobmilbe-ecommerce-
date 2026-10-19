@@ -106,11 +106,14 @@ code { background: var(--bin); padding: 1px 6px; border-radius: 5px; font-size: 
 .header-row { display: flex; align-items: center; gap: 18px; min-height: 66px; }
 .menu-btn { display: none; background: none; border: 0; padding: 6px; color: var(--ink); cursor: pointer; }
 .logo { font-family: var(--display); font-weight: 800; font-size: 1.9rem; line-height: 1; text-decoration: none; white-space: nowrap; display: inline-flex; align-items: center; }
-.logo-img { max-height: 46px; width: auto; max-width: 200px; object-fit: contain; }
+/* An uploaded logo takes exactly the place of the shop name written in text: as tall as the text line (1em of the
+   logo's font size, so header, phone header, side menu and footer each get the right size by themselves), never wider
+   than 5 letters' worth, kept whole and pinned to the left. Logos are cut down to their drawing when uploaded
+   (client/admin/images.tsx trimLogo), so any logo, made at any size, fills this place the same way. */
+.logo-img { display: block; height: .92em; margin-block: .04em; width: auto; max-width: 5em; max-height: none; object-fit: contain; object-position: left center; }
 .logo-a { color: var(--blue); }
 .logo-b { color: var(--amber); }
 .logo-sm { font-size: 1.5rem; }
-.logo-sm .logo-img { max-height: 38px; }
 .logo small { font-family: var(--body); font-size: .8rem; color: var(--muted); font-weight: 600; margin-left: 6px; }
 .search { flex: 1; display: flex; max-width: 560px; }
 .search input { flex: 1; min-width: 0; font: inherit; padding: 10px 14px; border: 2px solid var(--line); border-right: 0; border-radius: 10px 0 0 10px; background: var(--paper); }
@@ -542,7 +545,6 @@ body.protect .card-pic img, body.protect .g-main img, body.protect .g-thumb img,
   .menu-btn { display: block; }
   .header-row { flex-wrap: wrap; gap: 6px 10px; padding-top: 8px; padding-bottom: 8px; min-height: 0; }
   .logo { font-size: 1.6rem; }
-  .logo-img { max-height: 38px; max-width: 150px; }
   .search { order: 3; flex-basis: 100%; max-width: none; }
   .header-nav a:not(.cart-link) { display: none; }
   .header-nav .nav-drop-menu a { display: block; }

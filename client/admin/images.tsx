@@ -300,6 +300,56 @@ function pickStatus(box: Element, what: 'added' | 'removed'): void {
   }
   form.setAttribute('data-dirty', '1');
 }
+/** 🏷️ A logo is cut down to its drawing: empty edges (see-through, or one plain colour such as white) are removed, so
+ *  every logo fills the same space in the header and footer as the shop name written in text — whatever size it was made at.
+ *  Returns a PNG (see-through stays see-through); the original file when there is nothing to cut or it can't be read. */
+export function trimLogo(file: File): Promise<File> {
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      try {
+        const w = img.naturalWidth, hh = img.naturalHeight;
+        if (!w || !hh) { resolve(file); return; }
+        const c = document.createElement('canvas');
+        c.width = w; c.height = hh;
+        const ctx = c.getContext('2d', { willReadFrequently: true })!;
+        ctx.drawImage(img, 0, 0);
+        const px = ctx.getImageData(0, 0, w, hh).data;
+        // the background: the top-left corner (see-through, or a plain colour)
+        const [br, bg, bb, ba] = [px[0], px[1], px[2], px[3]];
+        const plainBg = ba >= 16;
+        const blank = (i: number) => px[i + 3] < 16
+          || (plainBg && Math.abs(px[i] - br) < 24 && Math.abs(px[i + 1] - bg) < 24 && Math.abs(px[i + 2] - bb) < 24);
+        let top = hh, left = w, right = -1, bottom = -1;
+        for (let y = 0; y < hh; y++) {
+          for (let x = 0; x < w; x++) {
+            if (blank((y * w + x) * 4)) continue;
+            if (y < top) top = y;
+            if (y > bottom) bottom = y;
+            if (x < left) left = x;
+            if (x > right) right = x;
+          }
+        }
+        if (right < 0) { resolve(file); return; } // nothing drawn at all
+        // keep a hair of room so no letter touches the edge
+        const pad = Math.round(Math.max(right - left, bottom - top) * 0.01);
+        left = Math.max(0, left - pad); top = Math.max(0, top - pad);
+        right = Math.min(w - 1, right + pad); bottom = Math.min(hh - 1, bottom + pad);
+        const cw = right - left + 1, ch = bottom - top + 1;
+        if (cw === w && ch === hh) { resolve(file); return; }
+        const out = document.createElement('canvas');
+        out.width = cw; out.height = ch;
+        out.getContext('2d')!.drawImage(c, left, top, cw, ch, 0, 0, cw, ch);
+        out.toBlob((b) => resolve(b ? new File([b], 'logo.png', { type: 'image/png' }) : file), 'image/png');
+      } catch { resolve(file); }
+    };
+    img.src = url;
+  });
+}
+
 function imagePickers(): void {
   for (const box of $all('[data-image-pick]')) {
     const file = $<HTMLInputElement>('[data-pick-file]', box)!;
@@ -308,8 +358,10 @@ function imagePickers(): void {
     const clear = $('[data-pick-clear]', box);
     const form = box.closest('form');
     file.addEventListener('change', async () => {
-      const f = file.files?.[0];
+      let f = file.files?.[0];
       if (!f) return;
+      // the header logo: empty edges cut away, so it sits in the header and footer exactly like the shop name does
+      if (value.name === 'logo_id') f = await trimLogo(f);
       const btns = form ? $all<HTMLButtonElement>('button', form) : [];
       for (const b of btns) b.disabled = true;
       paint(preview, <span className="muted small">আপলোড হচ্ছে…</span>);
