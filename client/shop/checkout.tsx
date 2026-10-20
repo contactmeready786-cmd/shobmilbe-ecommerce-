@@ -1,10 +1,10 @@
 // Checkout (/checkout): order summary, delivery charge, coupon, gift card, points, the unfinished-order draft,
 // the checkout OTP (SMS code) and sending the order.
 import { h, Fragment, paint } from '../jsx.js';
-import { $, $all, bn, cleanPhone, getJson, money, phoneOk, postJson, randomId, readJson, replay, store } from '../dom.js';
+import { $, $all, bn, cleanPhone, getJson, hit, money, phoneOk, postJson, randomId, readJson, replay, store } from '../dom.js';
 import type { GiftcardAnswer, OrderAnswer, OtpAnswer, ResumeAnswer } from '../api-types.js';
-import { minNote, minShort, saveCartQuietly, writeCart } from './cart.js';
-import { Thumb, giftRows, giftTotal, loadCart, type Gift, type Line } from './cartpage.js';
+import { minNote, minShort, readCart, rule, saveCartQuietly, toPacks, writeCart } from './cart.js';
+import { PackChoice, Thumb, giftRows, giftTotal, loadCart, type Gift, type Line } from './cartpage.js';
 import { fillGeo } from './geo.js';
 import { VA, track } from './track.js';
 
@@ -137,7 +137,7 @@ function runCheckout(checkout: HTMLElement): void {
     const t = totals();
     const rows = state.lines.map((l) =>
       <div className="cart-line"><Thumb p={l.product} /><div><b>{l.product.name}</b><br />{l.note ? <><span className="small good">{l.note}</span><br /></> : null}
-        <span className="muted small">{bn(l.qty)} × {money(l.price)}</span></div><div className="line-total">{money(l.price * l.qty)}</div></div>);
+        <span className="muted small">{bn(l.qty)} × {money(l.price)}</span><PackChoice l={l} /></div><div className="line-total">{money(l.price * l.qty)}</div></div>);
     paint(summary, rows, giftRows(state.gifts, 'div'),
       <div className="totals">
         <Row label="পণ্যের দাম" value={money(t.subtotal)} />
@@ -235,6 +235,23 @@ function runCheckout(checkout: HTMLElement): void {
       track('begin_checkout', { items: res.lines.map((l) => ({ id: l.product.id, name: l.product.name, price: l.price, qty: l.qty })) });
     }
   }).catch(() => paint(summary, <p className="form-error">কার্ট লোড করা যায়নি। পেজটি রিফ্রেশ করুন।</p>));
+  // 📦 a pack product: the customer can still switch the pack here (25 → 50 → 100 pieces)
+  summary.addEventListener('click', (e) => {
+    const pk = hit(e, '[data-pack-set]');
+    if (!pk) return;
+    const id = pk.getAttribute('data-pack-set') || '';
+    const cart = readCart();
+    const l = state.lines.find((x) => String(x.product.id) === id);
+    if (!l) return;
+    cart[id] = toPacks(Number(pk.getAttribute('data-pack')) || 1, rule(l.product.price, id));
+    writeCart(cart);
+    loadCart().then((r) => {
+      state.lines = r.lines;
+      state.gifts = r.gifts || [];
+      renderSummary();
+      if (state.coupon) cApply?.click(); // the coupon is checked again for the new amount
+    }).catch(() => {});
+  });
   form.addEventListener('change', (e) => {
     const name = (e.target as Field).name;
     if (name === 'district' || name === 'thana') renderSummary();

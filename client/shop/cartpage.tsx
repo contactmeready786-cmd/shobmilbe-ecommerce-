@@ -68,6 +68,23 @@ export function giftRows(gifts: Gift[], tag: 'li' | 'div'): Node[] {
     <div className="line-total">{g.price > 0 ? money(g.price * g.qty) : <span className="good">ফ্রি</span>}</div>));
 }
 
+/** 📦 a pack product's line: one button per pack (pieces and total) — the customer picks the pack right here */
+export function PackChoice({ l }: { l: Line }): HTMLElement | null {
+  const id = String(l.product.id);
+  const r = rule(l.product.price, id);
+  if (r.step <= 1) return null;
+  return (
+    <div className="pack-choice"><span className="small">📦 প্যাক বাছুন:</span>
+      <div className="pack-list">{r.packs.map((n) => {
+        const on = n === l.qty;
+        return <button type="button" className={`pack-opt ${on ? 'on' : ''}`} data-pack-set={id} data-pack={String(n)} aria-pressed={on ? 'true' : 'false'} disabled={n > r.max}>
+          <b>{bn(n)} পিস</b><span>{money(Math.round(n * l.price * 100) / 100)}</span></button>;
+      })}</div>
+      {r.packs.includes(l.qty) ? null : <p className="small muted">এখন: {packText(l.qty, r)}</p>}
+    </div>
+  ) as HTMLElement;
+}
+
 function CartLine({ l, over, pre }: { l: Line; over: boolean; pre: boolean }) {
   const p = l.product;
   const r = rule(p.price, String(p.id));
@@ -83,6 +100,7 @@ function CartLine({ l, over, pre }: { l: Line; over: boolean; pre: boolean }) {
           <button className="link-btn danger" data-remove={String(p.id)}>সরান</button>
           <span className="muted small">{l.base && l.price < l.base ? <><s>{money(l.base)}</s>{' '}</> : null}{money(l.price)} করে</span></div>
         {pack ? <p className="small pack-line">{pack} — প্রতি পিস {money(l.price)}</p> : null}
+        <PackChoice l={l} />
         {hint ? <p className="small tier-hint">💡 {hint}</p> : null}
         {r.small ? <p className="muted small">🔩 কম দামের পণ্য: কমপক্ষে {bn(r.min)}টি ({money(r.min * p.price)})</p> : null}
         {over ? <p className="cart-warn">{p.stock > 0 ? `স্টকে আছে মাত্র ${bn(p.stock)}টি` : 'এখন স্টকে নেই'}</p> : null}
@@ -134,6 +152,14 @@ export function startCartPage(): void {
       const cart = readCart();
       const rm = hit(e, '[data-remove]');
       if (rm) { delete cart[rm.getAttribute('data-remove') || '']; writeCart(cart); void render(); return; }
+      const pk = hit(e, '[data-pack-set]');
+      if (pk) {
+        const id = pk.getAttribute('data-pack-set') || '';
+        cart[id] = toPacks(Number(pk.getAttribute('data-pack')) || 1, rule(PRICES[id] || 0, id));
+        writeCart(cart);
+        void render();
+        return;
+      }
       const step = hit(e, '[data-d]');
       if (!step) return;
       const id = step.parentElement?.getAttribute('data-line') || '';

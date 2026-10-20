@@ -136,7 +136,8 @@ export function startCartButtons(): void {
     updateCount(true);
     if (res.capped) { say(limitText(res.rule.max)); return; }
     if (res.rule.step > 1) {
-      toastLink(`✅ "${name}" — ${packText(res.qty, res.rule)} কার্টে আছে`, ['/cart', 'কার্ট দেখুন'], 4500);
+      const more = res.rule.packs.length > 1 ? ` — কার্টে ${res.rule.packs.map((n) => bn(n)).join('/')} পিস বাছতে পারবেন` : '';
+      toastLink(`✅ "${name}" — ${packText(res.qty, res.rule)} কার্টে আছে${more}`, ['/cart', 'প্যাক বাছুন'], 5500);
       return;
     }
     if (res.raised) {

@@ -1082,3 +1082,6 @@ body.protect .card-pic img, body.protect .g-main img, body.protect .g-thumb img,
 .pack-opt:disabled { opacity: .45; cursor: not-allowed; text-decoration: line-through; }
 .pack-total { margin: 8px 0 0; }
 .pack-line { margin: 4px 0 0; color: var(--ink-2); }
+.pack-choice { margin: 8px 0 4px; }
+.pack-choice .pack-list { grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 6px; margin-top: 4px; }
+.pack-choice .pack-opt { padding: 6px; }
