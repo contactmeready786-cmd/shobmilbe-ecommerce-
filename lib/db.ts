@@ -1149,6 +1149,16 @@ INSERT INTO research_sources(url, name, kind, segment) VALUES
 ON CONFLICT (url) DO NOTHING;
 UPDATE research_sources SET segment='components' WHERE url IN ('https://www.robotechbd.com', 'https://techshopbd.com') AND segment='electronics';
 `,
+  // 📊 মার্কেট রিসার্চ (owner, 2026-10-20): the electronics / circuit shops the owner watches are read round the clock, not
+  // only when the owner searches — Circuits BD and Ripon150 added; Udvabony, Dunia and Robotics BD move off "search only".
+  `
+INSERT INTO research_sources(url, name, kind, segment) VALUES
+  ('https://circuits.com.bd', 'Circuits BD', 'auto', 'components'),
+  ('https://ripon150.com', 'Ripon150', 'auto', 'components')
+ON CONFLICT (url) DO NOTHING;
+UPDATE research_sources SET search_only=false, active=true, segment='components'
+  WHERE url IN ('https://udvabony.com', 'https://www.dunia.com.bd', 'https://store.roboticsbd.com');
+`,
 ];
 
 // Data steps that need code, keyed by migration number (run after its SQL).
