@@ -1128,6 +1128,27 @@ CREATE TABLE IF NOT EXISTS error_log (
 CREATE UNIQUE INDEX IF NOT EXISTS error_log_day_uq ON error_log(day, path, message);
 CREATE INDEX IF NOT EXISTS error_log_last_idx ON error_log(last_at DESC);
 `,
+  // 📊 মার্কেট রিসার্চ, wider (owner, 2026-10-20): more Bangladeshi shops across the owner's product groups — marketplaces,
+  // gadget and appliance shops, clothing brands. Added as 'auto': on its first visit each shop is recognised (WooCommerce,
+  // Shopify or page by page); a shop that refuses robots or can't be reached just shows its reason on the shops tab.
+  // The shops already on the list move to the owner's new groups (only when they still have the old default group).
+  `
+INSERT INTO research_sources(url, name, kind, segment) VALUES
+  ('https://www.rokomari.com', 'Rokomari', 'auto', 'other'),
+  ('https://www.daraz.com.bd', 'Daraz', 'auto', 'other'),
+  ('https://www.ryans.com', 'Ryans', 'auto', 'electronics'),
+  ('https://www.waltonbd.com', 'Walton', 'auto', 'home'),
+  ('https://www.singerbd.com', 'Singer', 'auto', 'home'),
+  ('https://transcomdigital.com', 'Transcom Digital', 'auto', 'home'),
+  ('https://www.lerevecraze.com', 'Le Reve', 'auto', 'fashion'),
+  ('https://sailor.clothing', 'Sailor', 'auto', 'fashion'),
+  ('https://www.ecstasybd.com', 'Ecstasy', 'auto', 'fashion_men'),
+  ('https://www.infinitymegamall.com', 'Infinity', 'auto', 'fashion_men'),
+  ('https://www.richmanbd.com', 'Richman', 'auto', 'fashion_men'),
+  ('https://catseye.com.bd', 'Cats Eye', 'auto', 'fashion_men')
+ON CONFLICT (url) DO NOTHING;
+UPDATE research_sources SET segment='components' WHERE url IN ('https://www.robotechbd.com', 'https://techshopbd.com') AND segment='electronics';
+`,
 ];
 
 // Data steps that need code, keyed by migration number (run after its SQL).

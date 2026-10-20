@@ -55,7 +55,31 @@ type RobotsRule = { allow: boolean; path: string };
 
 
 
-const SEGMENTS: Record<string, string> = { electronics: 'ইলেকট্রনিক্স', electrical: 'ইলেকট্রিক্যাল', fashion: 'ফ্যাশন', other: 'অন্যান্য' };
+// The owner's own product groups (2026-10-20). A shop has one group (what it mostly sells); each PRODUCT is put in its
+// own group by its name (segmentOf), so a big marketplace's soldering iron still counts under "সোল্ডারিং ও টুলস".
+const SEGMENTS: Record<string, string> = {
+  components: 'সার্কিট পার্টস ও মডিউল', electronics: 'ইলেকট্রনিক্স ও গ্যাজেট', tools: 'সোল্ডারিং ও টুলস', electrical: 'ইলেকট্রিক্যাল',
+  remote: 'রিমোট (এসি/টিভি)', home: 'হোম অ্যাপ্লায়েন্স', fashion_men: 'ছেলেদের ফ্যাশন', fashion_women: 'মেয়েদের ফ্যাশন', fashion: 'ফ্যাশন',
+  digital: 'ডিজিটাল প্রোডাক্ট', other: 'অন্যান্য',
+};
+// Words that say which group a product belongs to, checked in this order (the first match wins).
+const SEGMENT_WORDS: [string, RegExp][] = [
+  ['digital', /gift ?card|top ?up|\d+\s*diamonds?\b|free ?fire|pubg|mobile legends|\buc\b|game ?card|voucher|subscription|netflix|spotify|play ?store card|steam (?:wallet|card)|গিফট কার্ড|টপ ?আপ|ডায়মন্ড/i],
+  ['remote', /remote|রিমোট/i],
+  ['tools', /solder|multimeter|multi-meter|clamp ?meter|screw ?driver|plier|wire stripper|glue gun|heat gun|hot air|desolder|tweezer|tool ?kit|tool ?set|drill machine|tester|সোল্ডার|মাল্টিমিটার|টুলস/i],
+  ['components', /arduino|esp ?32|esp ?8266|node ?mcu|raspberry|sensor|\bmodule\b|relay|resistor|capacitor|transistor|mosfet|diode|\bic\b|breadboard|jumper|pcb|servo|stepper|motor driver|potentiometer|buck|boost converter|lcd display|oled|bms|battery holder|sensor kit|সেন্সর|মডিউল|রেজিস্টর|ক্যাপাসিটর|ট্রানজিস্টর/i],
+  ['home', /rice cooker|blender|juicer|mixer grinder|kettle|oven|microwave|induction|cooker|refrigerator|fridge|freezer|air ?fryer|washing machine|vacuum|geyser|water purifier|water heater|room heater|iron \(|electric iron|dry iron|steam iron|ceiling fan|table fan|stand fan|rechargeable fan|air cooler|\bac\b|air condition|ব্লেন্ডার|রাইস কুকার|কেটলি|ওভেন|ফ্রিজ|ফ্যান/i],
+  ['electrical', /switch|socket|circuit breaker|\bmcb\b|extension|multi ?plug|\bplug\b|bulb|\bled light|tube light|ips\b|inverter|ups\b|voltage stabilizer|cable|wire\b|সুইচ|সকেট|বাল্ব|ক্যাবল|তার\b/i],
+  ['fashion_women', /women|woman|ladies|lady|girls?\b|kurti|saree|sari\b|three ?piece|3 ?piece|salwar|kameez|abaya|hijab|borka|burqa|lehenga|orna|মেয়েদের|মহিলা|শাড়ি|কুর্তি|থ্রি ?পিস|হিজাব|বোরকা/i],
+  ['fashion_men', /\bmen\b|\bmens\b|men's|\bboys?\b|gents|panjabi|punjabi|lungi|polo|t-?shirt|shirt\b|trouser|jeans|chino|blazer|ছেলেদের|পুরুষ|পাঞ্জাবি|লুঙ্গি|শার্ট/i],
+  ['electronics', /earbuds?|earphone|headphone|headset|smart ?watch|power ?bank|charger|speaker|camera|router|mouse|keyboard|mobile|phone|laptop|tablet|monitor|projector|trimmer|shaver|hair dryer|গ্যাজেট|চার্জার|হেডফোন/i],
+];
+/** The owner's product group for one product, by its name (and the shop's own category name); else the shop's group. */
+function segmentOf(title: string, category: string | null | undefined, fallback: string): string {
+  const text = `${title} ${category || ''}`;
+  for (const [seg, re] of SEGMENT_WORDS) if (re.test(text)) return seg;
+  return SEGMENTS[fallback] ? fallback : 'other';
+}
 const UA_NAME = '*'; // follow the rules every robot must follow
 const RANK_PAGES = 3; // WooCommerce: top 300 most popular per shop
 const SHOPIFY_PAGES = 4;
@@ -494,12 +518,19 @@ async function tick({ force = false }: TickOpts = {}) {
     if (last && Date.now() - Number(last.value) < 50 * 1000) return { skipped: true };
   }
   await q(`INSERT INTO settings(key, value) VALUES('research_tick_at', $1) ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value`, [String(Date.now())]);
+  await trends().catch(() => null); // Google's trending searches in Bangladesh, at most every 3 hours
   const src = await one<ResearchSourcesRow>(`SELECT * FROM research_sources WHERE active AND NOT coalesce(search_only, false) AND (last_run IS NULL
       OR last_run < now() - make_interval(mins => CASE WHEN kind='site' THEN $2::int ELSE $1::int END))
     ORDER BY last_run NULLS FIRST LIMIT 1`, [force ? 0 : REFRESH_MIN, force ? 0 : SITE_REFRESH_MIN]);
   if (!src) return { idle: true };
   await q('UPDATE research_sources SET last_run=now() WHERE id=$1', [src.id]);
   try {
+    // a shop put on the list without knowing how its products can be read: find out first (WooCommerce / Shopify / pages)
+    if (src.kind === 'auto') {
+      const d = await detect(src.url);
+      await q('UPDATE research_sources SET kind=$2, last_error=$3 WHERE id=$1', [src.id, d.kind, '']);
+      src.kind = d.kind;
+    }
     if (src.kind === 'site') {
       const r = await readSite(src, started);
       const total = await one<{ n: number }>(`SELECT count(*)::int AS n FROM research_items WHERE source_id=$1 AND last_seen > now() - interval '12 days'`, [src.id]);
@@ -513,6 +544,45 @@ async function tick({ force = false }: TickOpts = {}) {
     await q('UPDATE research_sources SET last_error=$2 WHERE id=$1', [src.id, String(e.message || e).slice(0, 300)]);
     return { source: src.name, error: e.message };
   }
+}
+
+// ---------------------------------------------------------------- what Bangladesh is searching for on Google
+// Google's public "Trending now" feed for Bangladesh (an RSS page Google publishes for everyone). Read at most every
+// 3 hours from the research round, kept in settings (research_trends). Mostly news and sport, sometimes a product,
+// a brand, a festival or a season — each one can be looked up in the market (find tab) with one tap.
+export type Trend = { title: string; traffic: string; news: { title: string; url: string; source: string }[]; at: string };
+const TRENDS_URL = 'https://trends.google.com/trending/rss?geo=BD';
+function xmlText(s: string) { return cleanText(s.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1')).replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&apos;/g, "'"); }
+function parseTrends(xml: string): Trend[] {
+  const out: Trend[] = [];
+  for (const m of xml.matchAll(/<item>([\s\S]*?)<\/item>/g)) {
+    const it = m[1];
+    const tag = (name: string) => xmlText((it.match(new RegExp(`<${name}>([\\s\\S]*?)<\\/${name}>`)) || [, ''])[1] || '');
+    const title = tag('title');
+    if (!title) continue;
+    const news = [...it.matchAll(/<ht:news_item>([\s\S]*?)<\/ht:news_item>/g)].slice(0, 2).map((n) => {
+      const t = (name: string) => xmlText((n[1].match(new RegExp(`<ht:${name}>([\\s\\S]*?)<\\/ht:${name}>`)) || [, ''])[1] || '');
+      return { title: t('news_item_title'), url: t('news_item_url'), source: t('news_item_source') };
+    }).filter((n) => n.title && /^https?:\/\//.test(n.url));
+    out.push({ title: title.slice(0, 120), traffic: tag('ht:approx_traffic').slice(0, 20), news, at: tag('pubDate') });
+  }
+  return out.slice(0, 40);
+}
+async function trends({ refresh = false } = {}): Promise<{ at: number; items: Trend[]; error?: string }> {
+  const row = await one<{ value: string }>(`SELECT value FROM settings WHERE key='research_trends'`);
+  let saved: { at: number; items: Trend[]; error?: string } = { at: 0, items: [] };
+  try { if (row) saved = JSON.parse(row.value); } catch (_) { /* start again */ }
+  if (!refresh && Date.now() - (saved.at || 0) < 3 * 3600e3) return saved;
+  let next: { at: number; items: Trend[]; error?: string };
+  try {
+    if (!(await allowed(TRENDS_URL))) throw new Error('Google এই পেজ রোবটকে পড়তে দেয় না।');
+    const r = await fetchImpl(TRENDS_URL, { maxBytes: 2 * 1024 * 1024, timeoutMs: 8000, accept: 'application/rss+xml,application/xml,text/xml,*/*' });
+    if (!r.ok) throw new Error(`Google উত্তর দিয়েছে ${r.status}`);
+    const items = parseTrends(r.body.toString('utf8'));
+    next = items.length ? { at: Date.now(), items } : { ...saved, at: Date.now(), error: 'তালিকা খালি এসেছে' };
+  } catch (caught) { const e = caught as Caught; next = { ...saved, at: Date.now(), error: String(e.message || e).slice(0, 200) }; }
+  await q(`INSERT INTO settings(key, value) VALUES('research_trends', $1) ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value`, [JSON.stringify(next)]);
+  return next;
 }
 
 // ---------------------------------------------------------------- this shop's own signals
@@ -561,9 +631,12 @@ type Group = {
   oursAll: Match[]; ours: Match | null;
 };
 async function winners({ segment = '', limit = 60, margin = 30, mine = null }: WinnersOpts = {}) {
-  const rows = (await q<Omit<WinRow, 'prep' | 'score' | 'why'>>(`SELECT i.*, s.name AS shop, s.segment, s.kind, s.created_at AS source_since
+  const all = (await q<Omit<WinRow, 'prep' | 'score' | 'why'>>(`SELECT i.*, s.name AS shop, s.segment, s.kind, s.created_at AS source_since
     FROM research_items i JOIN research_sources s ON s.id=i.source_id
-    WHERE s.active AND ${FRESH} ${segment ? 'AND s.segment=$1' : ''}`, segment ? [segment] : [])) as WinRow[]; // (prep, score and why are added below)
+    WHERE s.active AND ${FRESH}`)) as WinRow[]; // (prep, score and why are added below)
+  // each product in the owner's group it belongs to (by its name), then only the chosen group
+  for (const r of all) r.segment = segmentOf(r.title, r.category, r.segment);
+  const rows = segment ? all.filter((r) => r.segment === segment) : all;
   const { searches } = await demand(30);
   const terms = searches.map((s) => ({ ...s, prep: pairsOf(s.term) }));
   const now = Date.now();
@@ -958,10 +1031,12 @@ type NewInMarketOpts = {
   limit?: number;
 };
 async function newInMarket({ segment = '', limit = 30 }: NewInMarketOpts = {}) {
-  return q<ResearchItemsRow & { shop: string; segment: string }>(`SELECT i.*, s.name AS shop, s.segment FROM research_items i JOIN research_sources s ON s.id=i.source_id
+  const rows = await q<ResearchItemsRow & { shop: string; segment: string }>(`SELECT i.*, s.name AS shop, s.segment FROM research_items i JOIN research_sources s ON s.id=i.source_id
     WHERE s.active AND i.first_seen > now() - interval '7 days'
-      AND i.first_seen > s.created_at + CASE WHEN s.kind='site' THEN interval '10 days' ELSE interval '1 day' END ${segment ? 'AND s.segment=$2' : ''}
-    ORDER BY i.first_seen DESC LIMIT $1`, segment ? [limit, segment] : [limit]);
+      AND i.first_seen > s.created_at + CASE WHEN s.kind IN ('site', 'auto') THEN interval '10 days' ELSE interval '1 day' END
+    ORDER BY i.first_seen DESC LIMIT $1`, [segment ? limit * 8 : limit]);
+  for (const r of rows) r.segment = segmentOf(r.title, r.category, r.segment);
+  return (segment ? rows.filter((r) => r.segment === segment) : rows).slice(0, limit);
 }
 type PriceDropsOpts = {
   limit?: number;
@@ -989,4 +1064,4 @@ function sourcingLinks(term: string) {
   ];
 }
 
-export { searchMarket, sameProduct, prepFull, matchOurs, SEGMENTS, listSources, addSource, detect, tick, setFetch, readSitemap, pageLinks, productish, demand, winners, newInMarket, priceDrops, status, sourcingLinks, robotsRules, robotsAllow };
+export { segmentOf, trends, parseTrends, searchMarket, sameProduct, prepFull, matchOurs, SEGMENTS, listSources, addSource, detect, tick, setFetch, readSitemap, pageLinks, productish, demand, winners, newInMarket, priceDrops, status, sourcingLinks, robotsRules, robotsAllow };
