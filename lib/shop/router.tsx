@@ -57,7 +57,7 @@ export async function resolveShop(ctx: ShopCtx): Promise<Resolved> {
       want('promo') ? content.listBanners({ active: true, placement: 'promo' }) : [],
       want('featured') || want('popular') ? catalog.listProducts({ public: true, hideOut, featured: true, limit: ROW }) : [],
       want('new') ? catalog.listProducts({ public: true, hideOut, sort: 'new', limit: ROW * 2 }) : [],
-      want('bestsellers') ? catalog.listProducts({ public: true, hideOut, sort: 'popular', limit: ROW * 2 }) : [],
+      want('bestsellers') ? catalog.listProducts({ public: true, hideOut, sold: true, sort: 'popular', limit: ROW * 2 }) : [],
       want('offers') ? catalog.listProducts({ public: true, hideOut, offer: true, sort: 'offer', limit: ROW * 2 }) : [],
       want('blog') ? content.listPosts({ published: true, limit: 3 }) : [],
       viewedIds.length ? catalog.getProductsByIds(viewedIds, { public: true }).then((r) => (hideOut ? r.filter((p) => p.stock > 0) : r)) : [],

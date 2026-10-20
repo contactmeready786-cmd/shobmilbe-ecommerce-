@@ -21,7 +21,7 @@ export type CategoryNode = Category & { children: CategoryNode[]; depth?: number
 /** Product list filters (shop and admin). */
 export type ProductFilter = {
   hideOut?: boolean; category?: string | null; categoryId?: Id; brandId?: Id; brandIds?: unknown[] | null; damaged?: boolean; supplierId?: Id; q?: string;
-  featured?: boolean; includeInactive?: boolean; type?: string; lowStock?: boolean; offer?: boolean; maxPrice?: unknown; minPrice?: unknown;
+  featured?: boolean; sold?: boolean; includeInactive?: boolean; type?: string; lowStock?: boolean; offer?: boolean; maxPrice?: unknown; minPrice?: unknown;
   status?: string; outStock?: boolean; inStock?: boolean; isNew?: boolean; newDays?: unknown; items?: boolean; ids?: unknown[] | null;
   specs?: Record<string, unknown[]> | null; sort?: string; limit?: number; offset?: number; public?: boolean;
 };
@@ -234,7 +234,7 @@ const PRODUCT_COLS = PUBLIC_COLS.replace(PRICE_COLS, `p.price, p.old_price, ${FL
 if (/cost|supplier|damaged|location/.test(PUBLIC_COLS)) throw new Error('PUBLIC_COLS must not contain private columns');
 const colsFor = (o?: { public?: boolean } | null): string => (o && o.public ? PUBLIC_COLS : PRODUCT_COLS);
 
-function productWhere({ hideOut, category, categoryId, brandId, brandIds, damaged, supplierId, q: search, featured, includeInactive, type, lowStock, offer, maxPrice, minPrice, status, outStock, inStock, isNew, newDays, items, ids, specs }: ProductFilter, params: Param[]): string {
+function productWhere({ hideOut, category, categoryId, brandId, brandIds, damaged, supplierId, q: search, featured, sold, includeInactive, type, lowStock, offer, maxPrice, minPrice, status, outStock, inStock, isNew, newDays, items, ids, specs }: ProductFilter, params: Param[]): string {
   const where: string[] = [];
   // Variants (size / colour / model) are products of their own under a "parent" product.
   // Lists show the parent only; items=true (stock, orders, counter sale) shows each variant instead of its parent.
@@ -268,6 +268,8 @@ function productWhere({ hideOut, category, categoryId, brandId, brandIds, damage
   if (category) { params.push(category); where.push(SUBTREE(`slug=$${params.length}`)); }
   if (categoryId) { params.push(int(categoryId)); where.push(SUBTREE(`id=$${params.length}`)); }
   if (featured) where.push('p.featured');
+  // 🏆 best sellers: only products that have really sold (no sales yet → an empty row, which the home page hides)
+  if (sold) where.push('p.sold_count > 0');
   if (type) { params.push(type); where.push(`p.product_type=$${params.length}`); }
   if (offer) where.push(`(p.old_price > p.price OR ${FLASH_SUB} IS NOT NULL)`);
   if (lowStock) where.push(`(${STOCK_EXPR}) <= p.low_stock`);

@@ -1164,6 +1164,11 @@ UPDATE research_sources SET search_only=false, active=true, segment='components'
   `
 ALTER TABLE products ADD COLUMN IF NOT EXISTS pack_sizes text NOT NULL DEFAULT '';
 `,
+  // 🏆 "সবচেয়ে বেশি বিক্রি" on the home page: off until real sales come (owner, 2026-10-20) — the owner switches it on at
+  // Admin → লোগো, রং ও হোমপেজ. (The row now lists only products that have really sold.)
+  `
+UPDATE settings SET value = (value::jsonb - 'bestsellers')::text WHERE key = 'home_sections' AND ltrim(value) LIKE '[%' AND value::jsonb ? 'bestsellers';
+`,
 ];
 
 // Data steps that need code, keyed by migration number (run after its SQL).
