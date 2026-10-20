@@ -36,6 +36,13 @@ uses that one setup. Never add a second Gmail / App Password / SMS / API-key fie
   warns that the key is missing, tell the owner. Never put the key or its password in the repository (it is public).
   The APK is served by GitHub, not by the web host, so it keeps working when the shop moves off Vercel (the repo must
   stay public for that link; if it ever goes private, move the file to the new host first).
+  ⚠️ As of 2026-10-20 the owner chose NOT to put the key in the secrets, so the workflow only warns and nothing is
+  published there. Until that changes, the app is served from the shop itself: the signed file is
+  public/downloads/shobmilbe-v<version>.apk and lib/app-release.ts `file` points to it. For a new version: ask the
+  owner for shobmilbe-release-2026.jks + its password note, sign the workflow's unsigned APK (android-builds branch)
+  with apksigner, put the new file in public/downloads/ and DELETE the old one, update both app-release.ts files, and
+  hand the signed admin APK to the owner. Delete your copies of the key afterwards. (A session cannot set repository
+  secrets or create GitHub releases itself.)
 - Automatic SEO (`services/autoseo.ts`) only fills EMPTY fields, never overwrites or re-adds what the owner wrote or removed,
   logs every change for undo; the auto description is made at page view and never saved over the owner's text.
 - Admin script rule (2026-10-17): admin pages run only scripts that carry the page nonce. Every inline `<script>` in an
