@@ -49,6 +49,7 @@ export function appPage({ inAppVersion, android }: { inAppVersion: string; andro
           <li>📱 সবসময় মোবাইলের মাপে, ব্রাউজারের ঝামেলা ছাড়া</li>
         </ul>
         <p className="small muted">নতুন সংস্করণ এলে অ্যাপের ভেতরেই জানিয়ে দেওয়া হবে — এই পেজ থেকে নামিয়ে আগেরটার উপর ইনস্টল করলেই হবে।</p>
+        {!android && !inAppVersion ? <p className="small muted">💻 কম্পিউটার থেকে দেখছেন? ফোনের ব্রাউজারে <b>shobmilbe.com/app</b> লিখে খুলুন, তারপর ডাউনলোড চাপুন।</p> : null}
         {!android && !inAppVersion ? <p className="small muted">🍎 আইফোনের জন্য অ্যাপ এখনো নেই। Safari-তে <b>শেয়ার → "Add to Home Screen"</b> চাপলে দোকানটা অ্যাপের মতোই হোম স্ক্রিনে থাকবে।</p> : null}
       </section>
     </div>

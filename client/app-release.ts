@@ -17,3 +17,18 @@ export function olderVersion(a: string, b: string): boolean {
   }
   return false;
 }
+
+export type InviteKind = 'update' | 'android' | 'computer';
+
+/** Which card this visitor gets, or null. */
+export function inviteKind(ua: string, touchPoints: number): InviteKind | null {
+  const inApp = appVersionOf(ua);
+  if (inApp) return olderVersion(inApp, APP_VERSION) ? 'update' : null;
+  if (/iPhone|iPad|iPod/i.test(ua) || (/Macintosh/.test(ua) && touchPoints > 1)) return null; // iPhone / iPad: no app yet
+  if (/Android/i.test(ua)) return /Mobile/i.test(ua) ? 'android' : null; // Android tablets: skip
+  if (/Windows|Macintosh|CrOS/.test(ua)) return 'computer'; // (touch-screen laptops too)
+  // Chrome's "desktop site" on an Android phone says "Linux x86_64" — but it has a touch screen
+  if (/Linux/.test(ua) && !/CrOS/.test(ua) && touchPoints > 0) return 'android';
+  if (touchPoints > 0) return null; // some other touch device
+  return 'computer';
+}

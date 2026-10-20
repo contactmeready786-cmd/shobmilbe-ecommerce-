@@ -30,3 +30,18 @@ test('app download: versions read from the app and compared', () => {
     assert.equal(f('1.4', '1.4.1'), true);
   }
 });
+
+test('app download: who sees the "get the app" card', () => {
+  const k = client.inviteKind;
+  const phone = 'Mozilla/5.0 (Linux; Android 14; SM-A155F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0 Mobile Safari/537.36';
+  const desktopMode = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0 Safari/537.36';
+  assert.equal(k(phone, 5), 'android');
+  assert.equal(k(desktopMode, 5), 'android', "an Android phone in Chrome's desktop-site mode");
+  assert.equal(k(desktopMode, 0), 'computer', 'a Linux computer');
+  assert.equal(k('Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/141.0', 0), 'computer');
+  assert.equal(k('Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/141.0', 10), 'computer', 'touch-screen laptop');
+  assert.equal(k('Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Safari', 5), null, 'no iPhone app');
+  assert.equal(k('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Safari', 5), null, 'an iPad says Macintosh');
+  assert.equal(k('Mozilla/5.0 (Linux; Android 14) wv ShobmilbeApp/' + client.APP_VERSION, 5), null, 'already on the newest app');
+  assert.equal(k('Mozilla/5.0 (Linux; Android 14) wv ShobmilbeApp/1.0', 5), 'update');
+});

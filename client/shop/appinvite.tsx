@@ -1,41 +1,52 @@
-// 📱 A small card inviting Android phone visitors to download the সবমিলবে app (/app), and — inside an older copy of
-// the app — telling them a new version is out. Fixed at the bottom (the page never jumps), shown a few seconds after
-// the page opens, never on the cart / checkout / the app page itself, never over a product page's buy bar or the
-// notification question, and "পরে" keeps it away for a while (this browser only).
+// 📱 A small card telling visitors the সবমিলবে Android app exists (/app) — and, inside an older copy of the app, that a
+// new version is out. Fixed at the bottom (the page never jumps). Android phones (also Chrome's "desktop site" mode)
+// get "ডাউনলোড"; computers get "দেখুন" (how to get it on the phone); iPhones get nothing (no app for them yet).
+// Waits while something else sits at the bottom (a product page's buy bar, the notification question, the offer
+// pop-up, the compare bar) instead of covering it; never on the cart / checkout / order / the app page itself.
+// "✕" keeps it away for a while (this browser only).
 import { h } from '../jsx.js';
 import { store } from '../dom.js';
-import { APP_VERSION, appVersionOf, olderVersion } from '../app-release.js';
+import { appVersionOf, inviteKind, type InviteKind as Kind } from '../app-release.js';
 
 const HIDE_KEY = 'sm_app_invite_hide';
 const DAY = 24 * 60 * 60 * 1000;
 
 export function startAppInvite(): void {
-  const ua = navigator.userAgent;
-  const inApp = appVersionOf(ua);
-  const update = !!inApp && olderVersion(inApp, APP_VERSION);
-  if (inApp && !update) return; // already on the newest app
-  if (!inApp && !(/Android/i.test(ua) && /Mobile/i.test(ua))) return; // only Android phones (no app for iPhone yet)
-  const path = location.pathname;
-  if (path === '/app' || path.startsWith('/checkout') || path.startsWith('/cart') || path.startsWith('/admin')) return;
-  const until = Number(store(HIDE_KEY) || 0);
-  if (until > Date.now()) return;
-  setTimeout(() => show(update, inApp), 6000);
+  const kind = inviteKind(navigator.userAgent, navigator.maxTouchPoints || 0);
+  if (!kind) return;
+  if (/^\/(app|checkout|cart|order|admin)(\/|$)/.test(location.pathname)) return;
+  if (Number(store(HIDE_KEY) || 0) > Date.now()) return;
+  let tries = 0;
+  const attempt = () => {
+    if (busyBottom()) { if (++tries < 15) setTimeout(attempt, 4000); return; }
+    show(kind);
+  };
+  setTimeout(attempt, 3000);
 }
 
-function show(update: boolean, inApp: string): void {
-  // something else already sits at the bottom: try another page
-  const buyBar = document.querySelector<HTMLElement>('.sticky-buy');
-  if ((buyBar && getComputedStyle(buyBar).display !== 'none') || document.querySelector('.push-ask, .compare-bar')) return;
+/** Something else is showing at the bottom of the screen (or the offer pop-up is open). */
+function busyBottom(): boolean {
+  const shown = (el: Element | null) => !!el && getComputedStyle(el).display !== 'none' && !(el as HTMLElement).hidden;
+  return shown(document.querySelector('.sticky-buy.show')) || shown(document.querySelector('.push-ask'))
+    || shown(document.querySelector('.compare-bar')) || shown(document.querySelector('[data-popup]'));
+}
+
+function show(kind: Kind): void {
+  if (document.querySelector('.app-invite')) return;
+  const inApp = appVersionOf(navigator.userAgent);
   const close = (days: number) => {
     store(HIDE_KEY, String(Date.now() + days * DAY));
     card.remove();
   };
+  const text = {
+    update: ['🎉 অ্যাপের নতুন সংস্করণ এসেছে', `আপনার আছে ${inApp} — নতুনটা নিলে আরও ভালো চলবে।`, 'আপডেট'],
+    android: ['📱 সবমিলবে অ্যাপ', 'অর্ডার, অফার আর ট্র্যাক — এক চাপে।', 'ডাউনলোড'],
+    computer: ['📱 আমাদের Android অ্যাপ আছে', 'ফোনে অর্ডার, অফার আর ট্র্যাক — এক চাপে।', 'দেখুন'],
+  }[kind];
   const card = h('div', { className: 'app-invite', role: 'dialog', 'aria-label': 'সবমিলবে অ্যাপ' },
     h('img', { src: '/icon-192.png', alt: '', width: '44', height: '44' }),
-    h('div', { className: 'app-invite-text' },
-      h('b', null, update ? '🎉 অ্যাপের নতুন সংস্করণ এসেছে' : '📱 সবমিলবে অ্যাপ'),
-      h('span', null, update ? `আপনার আছে ${inApp} — নতুনটা নিলে আরও ভালো চলবে।` : 'অর্ডার, অফার আর ট্র্যাক — এক চাপে।')),
-    h('a', { className: 'btn btn-amber btn-sm', href: '/app', onClick: () => close(update ? 3 : 30) }, update ? 'আপডেট' : 'ডাউনলোড'),
-    h('button', { type: 'button', className: 'app-invite-x', 'aria-label': 'পরে', onClick: () => close(update ? 3 : 21) }, '✕'));
+    h('div', { className: 'app-invite-text' }, h('b', null, text[0]), h('span', null, text[1])),
+    h('a', { className: 'btn btn-amber btn-sm', href: '/app', onClick: () => close(kind === 'update' ? 3 : 30) }, text[2]),
+    h('button', { type: 'button', className: 'app-invite-x', 'aria-label': 'পরে', onClick: () => close(kind === 'update' ? 3 : 21) }, '✕'));
   document.body.appendChild(card);
 }
