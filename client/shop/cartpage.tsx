@@ -2,10 +2,10 @@
 import { h, Fragment, paint } from '../jsx.js';
 import { $, bn, getJson, hit, money, postJson } from '../dom.js';
 import type { QuoteAnswer } from '../api-types.js';
-import { PRICES, limitText, minNote, minShort, minText, readCart, rule, say, writeCart, type Cart } from './cart.js';
+import { PRICES, limitText, minNote, minShort, minText, packText, readCart, rememberPacks, rule, say, toPacks, writeCart, type Cart } from './cart.js';
 
 void Fragment;
-export type Product = { id: number | string; slug: string; name: string; price: number; stock: number; image?: string; emoji?: string; preorder?: boolean; preorder_days?: number; weight?: number };
+export type Product = { id: number | string; slug: string; name: string; price: number; stock: number; image?: string; emoji?: string; preorder?: boolean; preorder_days?: number; weight?: number; packs?: number[] };
 export type Tier = { min_qty: number; price: number };
 export type Line = { product: Product; qty: number; price: number; kind?: string; note?: string; base?: number; tiers?: Tier[] };
 export type Gift = { name: string; note: string; qty: number; price: number; image?: string | null; emoji?: string | null };
@@ -22,8 +22,9 @@ export async function loadCart(): Promise<Loaded> {
     const id = String(p.id);
     known.add(id);
     PRICES[id] = p.price;
-    const r = rule(p.price);
-    const fixed = Math.min(Math.max(cart[id], r.min), r.max);
+    if (p.packs) rememberPacks(id, p.packs);
+    const r = rule(p.price, id);
+    const fixed = r.step > 1 ? toPacks(cart[id], r) : Math.min(Math.max(cart[id], r.min), r.max);
     if (fixed !== cart[id]) { cart[id] = fixed; changed = true; }
     return { product: p, qty: cart[id], price: p.price };
   });
@@ -51,7 +52,7 @@ export async function loadCart(): Promise<Loaded> {
 
 /** "10+ pieces ৳4 each" — the next cheaper step for this line, if any */
 function nextTier(l: Line): string {
-  const max = rule(l.product.price).max;
+  const max = rule(l.product.price, String(l.product.id)).max;
   const t = (l.tiers || []).find((x) => x.min_qty > l.qty && x.min_qty <= max && x.price < l.price);
   return t ? `আরও ${bn(t.min_qty - l.qty)}টি নিলে প্রতিটা ${money(t.price)} করে পড়বে` : '';
 }
@@ -67,19 +68,39 @@ export function giftRows(gifts: Gift[], tag: 'li' | 'div'): Node[] {
     <div className="line-total">{g.price > 0 ? money(g.price * g.qty) : <span className="good">ফ্রি</span>}</div>));
 }
 
+/** 📦 a pack product's line: one button per pack (pieces and total) — the customer picks the pack right here */
+export function PackChoice({ l }: { l: Line }): HTMLElement | null {
+  const id = String(l.product.id);
+  const r = rule(l.product.price, id);
+  if (r.step <= 1) return null;
+  return (
+    <div className="pack-choice"><span className="small">📦 প্যাক বাছুন:</span>
+      <div className="pack-list">{r.packs.map((n) => {
+        const on = n === l.qty;
+        return <button type="button" className={`pack-opt ${on ? 'on' : ''}`} data-pack-set={id} data-pack={String(n)} aria-pressed={on ? 'true' : 'false'} disabled={n > r.max}>
+          <b>{bn(n)} পিস</b><span>{money(Math.round(n * l.price * 100) / 100)}</span></button>;
+      })}</div>
+      {r.packs.includes(l.qty) ? null : <p className="small muted">এখন: {packText(l.qty, r)}</p>}
+    </div>
+  ) as HTMLElement;
+}
+
 function CartLine({ l, over, pre }: { l: Line; over: boolean; pre: boolean }) {
   const p = l.product;
-  const r = rule(p.price);
+  const r = rule(p.price, String(p.id));
   const hint = nextTier(l);
+  const pack = packText(l.qty, r);
   return (
     <li className="cart-line"><Thumb p={p} />
       <div><h3><a href={`/p/${p.slug}`}>{p.name}</a></h3>
         {l.note ? <p className="small good line-note">{l.note}</p> : null}
         <div className="cart-line-controls">
           <div className="qty sm" data-line={String(p.id)}><button type="button" data-d="-1" aria-label="কমান">−</button>
-            <input type="number" min={String(r.min)} max={String(r.max)} value={String(l.qty)} aria-label="পরিমাণ" /><button type="button" data-d="1" aria-label="বাড়ান">+</button></div>
+            <input type="number" min={String(r.min)} max={String(r.max)} step={String(r.step)} value={String(l.qty)} aria-label="পরিমাণ" /><button type="button" data-d="1" aria-label="বাড়ান">+</button></div>
           <button className="link-btn danger" data-remove={String(p.id)}>সরান</button>
           <span className="muted small">{l.base && l.price < l.base ? <><s>{money(l.base)}</s>{' '}</> : null}{money(l.price)} করে</span></div>
+        {pack ? <p className="small pack-line">{pack} — প্রতি পিস {money(l.price)}</p> : null}
+        <PackChoice l={l} />
         {hint ? <p className="small tier-hint">💡 {hint}</p> : null}
         {r.small ? <p className="muted small">🔩 কম দামের পণ্য: কমপক্ষে {bn(r.min)}টি ({money(r.min * p.price)})</p> : null}
         {over ? <p className="cart-warn">{p.stock > 0 ? `স্টকে আছে মাত্র ${bn(p.stock)}টি` : 'এখন স্টকে নেই'}</p> : null}
@@ -131,14 +152,22 @@ export function startCartPage(): void {
       const cart = readCart();
       const rm = hit(e, '[data-remove]');
       if (rm) { delete cart[rm.getAttribute('data-remove') || '']; writeCart(cart); void render(); return; }
+      const pk = hit(e, '[data-pack-set]');
+      if (pk) {
+        const id = pk.getAttribute('data-pack-set') || '';
+        cart[id] = toPacks(Number(pk.getAttribute('data-pack')) || 1, rule(PRICES[id] || 0, id));
+        writeCart(cart);
+        void render();
+        return;
+      }
       const step = hit(e, '[data-d]');
       if (!step) return;
       const id = step.parentElement?.getAttribute('data-line') || '';
       const pr = PRICES[id] || 0;
-      const r = rule(pr);
-      const want = (cart[id] || 1) + parseInt(step.getAttribute('data-d') || '0', 10);
+      const r = rule(pr, id);
+      const want = (cart[id] || 1) + parseInt(step.getAttribute('data-d') || '0', 10) * r.step;
       if (want > r.max) { say(limitText(r.max)); return; }
-      if (want < r.min) { say(r.small ? minText(r, pr) : 'কমপক্ষে ১টি থাকতে হবে। না চাইলে "সরান" চাপুন।'); return; }
+      if (want < r.min) { say(r.small ? minText(r, pr) : r.step > 1 ? `কমপক্ষে ${bn(r.min)} পিসের একটা প্যাক থাকতে হবে। না চাইলে "সরান" চাপুন।` : 'কমপক্ষে ১টি থাকতে হবে। না চাইলে "সরান" চাপুন।'); return; }
       cart[id] = want;
       writeCart(cart);
       void render();
@@ -149,11 +178,12 @@ export function startCartPage(): void {
       const cart = readCart();
       const id = box.getAttribute('data-line') || '';
       const pr = PRICES[id] || 0;
-      const r = rule(pr);
+      const r = rule(pr, id);
       const v = parseInt((e.target as HTMLInputElement).value, 10) || 1;
       if (v > r.max) say(limitText(r.max));
-      else if (v < r.min) say('কমপক্ষে ১টি থাকতে হবে। না চাইলে "সরান" চাপুন।');
-      cart[id] = Math.min(r.max, Math.max(r.min, v));
+      else if (v < r.min) say(r.step > 1 ? `কমপক্ষে ${bn(r.min)} পিসের একটা প্যাক থাকতে হবে।` : 'কমপক্ষে ১টি থাকতে হবে। না চাইলে "সরান" চাপুন।');
+      else if (r.step > 1 && v % r.step) say(`এই পণ্য শুধু প্যাকে বিক্রি হয় — ${bn(r.step)} পিসের গুণিতকে নিতে হবে।`);
+      cart[id] = r.step > 1 ? toPacks(v, r) : Math.min(r.max, Math.max(r.min, v));
       writeCart(cart);
       void render();
     });

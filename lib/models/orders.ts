@@ -1,6 +1,6 @@
 // Orders: create, edit, status changes (with stock), delivery zones, coupons.
 import { q, one, tx, txRetry, jsonSetting } from '../db';
-import { int, str, randomCode, bn, normalizePhone, ymd, amount, round2, money, qtyRule, contact, minOrder, wholeTaka } from '../util';
+import { int, str, randomCode, bn, normalizePhone, ymd, amount, round2, money, qtyRule, contact, minOrder, wholeTaka, packSizes, packRule, packProblem } from '../util';
 import * as catalog from './catalog';
 import * as customers from './customers';
 import GEO from '../data/bd-geo.json';
@@ -329,9 +329,16 @@ async function createOrder(input: CreateOrderOpts, settings: Settings) {
     if (!isAdmin) {
       const C = contact(settings);
       const how = [C.phone && `কল করুন ${C.phone}`, C.wa && 'WhatsApp এ মেসেজ দিন'].filter(Boolean).join(' অথবা ');
+      // 📦 products sold in packs: whole packs only (a multiple of the smallest pack), up to the bigger limit
+      const packIds = lines.filter((l) => l.kind !== 'gift').map((l) => l.product_id);
+      const packRows = packIds.length ? (await t.query<{ id: number; pack_sizes: string }>("SELECT id, pack_sizes FROM products WHERE id = ANY($1::int[]) AND pack_sizes <> ''", [packIds])).rows : [];
+      const packsOf = new Map(packRows.map((x) => [x.id, packSizes(x.pack_sizes)]));
       for (const l of lines) {
         if (l.kind === 'gift') continue;
-        const r = qtyRule(settings, l.price);
+        const packs = packsOf.get(l.product_id) || [];
+        const pp = packProblem(l.name, l.qty, packs);
+        if (pp) throw new OrderError(pp);
+        const r = packRule(qtyRule(settings, l.price), packs);
         if (l.qty > r.max) {
           throw new OrderError(`"${l.name}" একসাথে সর্বোচ্চ ${bn(r.max)}টি অর্ডার করা যাবে। এর বেশি দরকার হলে সরাসরি আমাদের সাথে যোগাযোগ করুন${how ? ' — ' + how : ''}।`);
         }

@@ -905,6 +905,7 @@ export type ProductsRow = {
   seo_auto_at: Date | null;
   src_wm: boolean;
   src_wm_checked: boolean;
+  pack_sizes: string;
 };
 
 /** A row of purchase_items. */

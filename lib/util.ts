@@ -289,6 +289,27 @@ function qtyRule(s: Settings, price: unknown) {
   if (!on || p <= 0 || p > cap + 1e-9) return { min: 1, max: maxQty, small: false, cheap: false };
   return { min: 1, max: Math.max(maxQty, Math.floor(maxVal / p + 1e-9)), small: false, cheap: true };
 }
+// 📦 প্যাক / বান্ডেল: the pack sizes the owner ticked for a product ("25,50,100" → [25, 50, 100]); empty = sold by the piece.
+const PACK_PRESETS = [25, 50, 100];
+function packSizes(v: unknown): number[] {
+  const list = (Array.isArray(v) ? v : String(v ?? '').split(/[^0-9]+/)).map((x) => Math.floor(Number(x))).filter((n) => n >= 2 && n <= 999);
+  return [...new Set(list)].sort((a, b) => a - b).slice(0, 8);
+}
+// A pack product: the customer takes whole packs — at least the smallest pack, always a multiple of it (2 × 25 = 50),
+// and up to the normal limit or the biggest pack, whichever is more. Normal products: rule unchanged.
+function packRule<T extends { min: number; max: number }>(rule: T, packs: number[]): T & { step: number; packs: number[] } {
+  if (!packs.length) return { ...rule, step: 1, packs };
+  const step = packs[0];
+  const max = Math.min(999, Math.max(Math.floor(rule.max / step) * step, packs[packs.length - 1]));
+  return { ...rule, min: step, max, step, packs };
+}
+/** Why this many pieces can't be ordered (a message), or null. */
+function packProblem(name: string, qty: number, packs: number[]): string | null {
+  if (!packs.length) return null;
+  const step = packs[0];
+  if (qty >= step && qty % step === 0) return null;
+  return `"${name}" শুধু প্যাকে বিক্রি হয় (${packs.map((n) => bn(n)).join(' / ')} পিস) — পরিমাণ ${bn(step)} এর গুণিতক হতে হবে।`;
+}
 // The smallest order (goods, without delivery) a web customer may place, e.g. ৳10.
 // 🏷️ The shop sells only products priced ৳0.50 – ৳2000 (the price the customer sees). Returns a message, or null.
 const PRICE_MIN = 0.5;
@@ -304,4 +325,4 @@ function minOrder(s: Settings | null | undefined): number { return Math.max(0, N
 
 function pageNum(query: URLSearchParams): number { return Math.max(1, int(query.get('page'), 1)); }
 
-export { fields, arr, oneOf, ifKey, PRICE_MIN, PRICE_MAX, priceProblem, contact, qtyRule, amount, round2, roundOff, shopPrice, wholeTaka, roundOffLabel, esc, raw, Raw, bn, money, pct, slugify, randomCode, parseCookies, parseBody, readBody, list, hashPassword, verifyPassword, passwordProblem, sign, unsign, sha256, fmtDate, ymd, validYmd, dateRange, int, num, str, minOrder, normalizePhone, validPhone, csv, fetchJson, youtubeId, pageNum, TZ };
+export { fields, arr, oneOf, ifKey, PRICE_MIN, PRICE_MAX, priceProblem, contact, qtyRule, PACK_PRESETS, packSizes, packRule, packProblem, amount, round2, roundOff, shopPrice, wholeTaka, roundOffLabel, esc, raw, Raw, bn, money, pct, slugify, randomCode, parseCookies, parseBody, readBody, list, hashPassword, verifyPassword, passwordProblem, sign, unsign, sha256, fmtDate, ymd, validYmd, dateRange, int, num, str, minOrder, normalizePhone, validPhone, csv, fetchJson, youtubeId, pageNum, TZ };

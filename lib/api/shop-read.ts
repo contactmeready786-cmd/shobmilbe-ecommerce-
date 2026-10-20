@@ -7,7 +7,7 @@ import * as shop from '../views/shop';
 import * as $services_search from '../services/search';
 import { loadRenderer, renderHtml } from '../react/render';
 import { myOrders } from '../gate';
-import { int, str, contact } from '../util';
+import { int, str, contact, packSizes } from '../util';
 import { allow, json, tooMany, type ApiCtx } from '../next/api';
 import type { OrderItemsRow, PushCampaignsRow } from '../data/rows';
 
@@ -33,6 +33,7 @@ export async function cart(ctx: ApiCtx) {
     products: products.map((p) => ({
       id: p.id, name: p.name, slug: p.slug, price: p.price, stock: p.stock, preorder: !!p.preorder && p.product_type !== 'bundle', preorder_days: p.preorder_days || 0, emoji: p.emoji, sku: p.sku, weight: p.weight_g || 0,
       category: p.category_name || '', image: p.image_id ? `/media/${p.image_id}/t` : null,
+      ...(packSizes(p.pack_sizes).length ? { packs: packSizes(p.pack_sizes) } : {}),
     })),
   });
 }
