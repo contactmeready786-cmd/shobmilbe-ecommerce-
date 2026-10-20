@@ -1,6 +1,7 @@
 // সবমিলবে — the storefront's browser code (cart, checkout, gallery, live scores, tracking, small forms).
 // Starts once React has taken over the page (see whenReady), so React never finds something already changed.
 import { whenReady } from '../dom.js';
+import { startAppInvite } from './appinvite.js';
 import { startCartButtons, updateCount } from './cart.js';
 import { startCartPage } from './cartpage.js';
 import { startCheckout } from './checkout.js';
@@ -14,7 +15,7 @@ import { startUi } from './ui.js';
 whenReady(() => {
   const parts: [string, () => void][] = [
     ['tracking', startTracking], ['ui', startUi], ['cart', startCartButtons], ['product', startProduct],
-    ['cart page', startCartPage], ['checkout', startCheckout], ['live', startLive], ['lists', startLists], ['forms', startForms],
+    ['cart page', startCartPage], ['checkout', startCheckout], ['live', startLive], ['lists', startLists], ['forms', startForms], ['app invite', startAppInvite],
   ];
   // one broken part must never stop the rest of the page (the cart keeps working even if, say, live scores fail)
   for (const [name, start] of parts) {

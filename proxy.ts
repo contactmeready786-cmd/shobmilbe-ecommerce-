@@ -88,5 +88,5 @@ async function adminProxy(request: NextRequest, path: string, headers: Headers) 
 export const config = {
   // Next.js's own build files never need it, and neither do the site's fixed files (styles, browser code, icons): for
   // those it only passed the request on, so leaving them out saves a step on every file a page loads.
-  matcher: ['/((?!_next/static|_next/image|css/|js/|brand/favicon-|brand/apple-touch-icon|flags/|favicon.ico|favicon.svg|icon-192.png|icon-512.png).*)'],
+  matcher: ['/((?!_next/static|_next/image|css/|js/|brand/favicon-|brand/apple-touch-icon|flags/|downloads/|favicon.ico|favicon.svg|icon-192.png|icon-512.png).*)'],
 };

@@ -18,6 +18,8 @@ const config: NextConfig = {
       { source: '/css/:path*', headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }] },
       { source: '/brand/:file(favicon-\\d+\\.png|apple-touch-icon\\.png)', headers: [{ key: 'Cache-Control', value: 'public, max-age=604800, stale-while-revalidate=86400' }] },
       { source: '/flags/:path*', headers: [{ key: 'Cache-Control', value: 'public, max-age=604800, stale-while-revalidate=86400' }] },
+      // 📱 the Android app (/app): the phone must see it as an app file to install; a new version gets a new file name
+      { source: '/downloads/:file*.apk', headers: [{ key: 'Content-Type', value: 'application/vnd.android.package-archive' }, { key: 'Cache-Control', value: 'public, max-age=86400' }] },
       { source: '/icon-:size(\\d+).png', headers: [{ key: 'Cache-Control', value: 'public, max-age=604800, stale-while-revalidate=86400' }] },
     ];
   },

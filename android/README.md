@@ -29,3 +29,11 @@ GitHub-এ `android/` এ কিছু বদলালে `android` কাজট
 ২০২৬-১০-১১ থেকে নতুন কী: `shobmilbe-release-2026.jks` (alias `shobmilbe`) আর তার পাসওয়ার্ড মালিকের কাছে আলাদাভাবে দেওয়া হয়েছে (পুরোনো `shobmilbe-upload.jks` হারিয়ে গেছে, তাই সংস্করণ ১.৩ থেকে নতুন কী)। হারালে অ্যাডমিন অ্যাপ আপডেট করা যাবে না (আর Play Store-এ নতুন আপলোড-কী চাইতে হবে)। Google Drive আর একটা পেনড্রাইভে কপি রাখুন। এর SHA-256 `public/.well-known/assetlinks.json` এ আছে।
 
 Play Store-এ প্রথম আপলোডের পর Play Console → Test and release → App integrity → **App signing key certificate** এর SHA-256 টাও `assetlinks.json` এ `com.shobmilbe.app` এর তালিকায় যোগ করতে হবে, নইলে Play থেকে নামানো অ্যাপে উপরে ঠিকানার বার দেখাবে।
+
+## দোকান থেকে ডাউনলোড (/app) — নতুন সংস্করণ দেওয়া
+কাস্টমার অ্যাপ দোকানের নিজের পেজ `/app` থেকে নামানো যায় (Play Store ছাড়া)। Android ফোনে দোকানে এলে নিচে ছোট একটা "অ্যাপ নিন" কার্ড আসে; পুরোনো অ্যাপের ভেতরে "নতুন সংস্করণ এসেছে" দেখায় (অ্যাপের নাম `ShobmilbeApp/<সংস্করণ>` থেকে বোঝা যায়)।
+নতুন সংস্করণে:
+1. `gradle.properties` এ `appVersionCode` ও `appVersionName` বাড়ান → `android` কাজ সাইন ছাড়া APK বানায়।
+2. মালিকের চাবি দিয়ে সাইন করুন: `java -jar apksigner.jar sign --ks shobmilbe-release-2026.jks --ks-key-alias shobmilbe --out shobmilbe-v<সংস্করণ>.apk app-customer-aligned-unsigned.apk`
+3. ফাইলটা `public/downloads/` এ রাখুন (পুরোনোটা মুছে দিন), আর `lib/app-release.ts` ও `client/app-release.ts` এ সংস্করণ/ফাইল বদলান (`tests/app-release.test.ts` মিলিয়ে দেখে)।
+অ্যাডমিন অ্যাপ সবার জন্য রাখা হয় না — সাইন করে সরাসরি মালিককে দেওয়া হয়।

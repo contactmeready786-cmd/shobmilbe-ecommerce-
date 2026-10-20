@@ -14,6 +14,8 @@ import * as $models_checkoutotp from '../models/checkoutotp';
 import * as $models_kits from '../models/kits';
 import * as courier from '../services/courier';
 import { refFromCookie, myOrders } from '../gate';
+import { appPage } from '../views/apppage';
+import { appVersionOf } from '../app-release';
 import { int, str, bn } from '../util';
 import type { PageOpts, Resolved } from './router';
 import type { Settings, ShopRequest } from '../types';
@@ -73,6 +75,12 @@ export async function resolveMore({ path, query, settings, base: siteBase, req }
     return page('অর্ডার করুন', shop.checkoutPage({ settings, methods: payments.methods(settings), cityAreas: O.dhakaCityAreas(settings), zones: O.customZones(settings), account, refCode,
       otp: $models_checkoutotp.active(settings) }),
       { active: 'cart', noindex: true, track: { event: 'begin_checkout' } });
+  }
+  // 📱 the Android app to download (inside the app: is this the newest version?)
+  if (path === '/app') {
+    const ua = String(req.headers['user-agent'] || '');
+    return page('সবমিলবে অ্যাপ ডাউনলোড', appPage({ inAppVersion: appVersionOf(ua), android: /Android/i.test(ua) }), {
+      canonical: '/app', description: 'সবমিলবের Android অ্যাপ নামান — অর্ডার, অফার আর অর্ডার ট্র্যাক এক চাপে, নতুন অফারের নোটিফিকেশন।' });
   }
   // 🧰 project kits
   if (path === '/kits' && settings.kits_on !== '0') {

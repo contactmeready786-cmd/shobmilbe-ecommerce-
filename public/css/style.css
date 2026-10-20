@@ -1069,3 +1069,26 @@ body.protect .card-pic img, body.protect .g-main img, body.protect .g-thumb img,
 .news-form input[type=email] { flex: 1; min-width: 0; padding: 11px 12px; border-radius: 10px; border: 1px solid #c9d2e0; font: inherit; }
 .news-form .hp { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
 .news-msg { flex-basis: 100%; font-size: .9em; margin: 0; }
+
+/* ---------- 📱 the Android app: /app page + the invite card ---------- */
+.app-hero { display: flex; gap: 18px; align-items: flex-start; }
+.app-icon { width: 72px; height: 72px; border-radius: 18px; flex: none; box-shadow: 0 6px 18px rgba(20,33,61,.15); }
+.app-hero h1 { margin: 0 0 6px; }
+.app-dl { margin: 6px 0 4px; }
+.app-ok, .app-new { padding: 10px 12px; border-radius: 10px; background: #ecfdf3; color: #14532d; margin: 10px 0; }
+.app-new { background: #fff7e6; color: #7a4b00; }
+.app-steps { padding-left: 1.3em; margin: 0 0 10px; }
+.app-steps li { margin: 0 0 10px; line-height: 1.6; }
+.app-steps code { font-size: .85em; word-break: break-all; }
+.app-feats { list-style: none; padding: 0; margin: 0 0 8px; display: grid; gap: 8px; }
+.app-invite { position: fixed; left: 12px; right: 80px; bottom: 14px; z-index: 46; display: flex; align-items: center; gap: 10px; max-width: 460px;
+  background: var(--white, #fff); border: 1px solid var(--line); border-radius: 14px; padding: 10px 10px 10px 12px;
+  box-shadow: 0 10px 30px rgba(20,33,61,.2); animation: app-invite-in .3s ease-out; }
+.app-invite img { width: 44px; height: 44px; border-radius: 11px; flex: none; }
+.app-invite-text { display: flex; flex-direction: column; min-width: 0; flex: 1; font-size: .88rem; line-height: 1.35; }
+.app-invite-text span { color: var(--muted, #667085); font-size: .82rem; }
+.app-invite .btn { flex: none; }
+.app-invite-x { flex: none; background: none; border: 0; font-size: 1rem; color: var(--muted, #667085); padding: 6px; cursor: pointer; }
+@keyframes app-invite-in { from { transform: translateY(20px); opacity: 0; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .app-invite { animation: none; } }
+@media (max-width: 560px) { .app-hero { flex-direction: column; gap: 10px; } .app-dl { width: 100%; text-align: center; } }
