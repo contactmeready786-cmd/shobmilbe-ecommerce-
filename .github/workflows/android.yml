@@ -6,7 +6,7 @@ on:
   push:
     # main: build and publish; the migration branch: only check that the apps still build
     branches: [main, nextjs-migration]
-    paths: ['android/**', '.github/workflows/android.yml']
+    paths: ['android/**', '.github/workflows/android.yml', 'public/.well-known/assetlinks.json']
   workflow_dispatch: {}
 permissions:
   contents: write
@@ -35,6 +35,14 @@ jobs:
       - name: Build must succeed (checks on other branches)
         if: github.ref != 'refs/heads/main'
         run: test "$(cat "$RUNNER_TEMP/out/status")" = 0
+      # 📱 sign with the owner's key (repository secrets) and publish: customer app = the latest GitHub release that the
+      # shop's download button opens (older versions removed); admin app = a private draft release. See android/publish.sh.
+      - name: Sign and publish the apps
+        env:
+          KS_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+          KS_PASS: ${{ secrets.ANDROID_KEY_PASS }}
+          GH_TOKEN: ${{ github.token }}
+        run: bash android/publish.sh
       - name: Collect files
         if: github.ref == 'refs/heads/main'
         run: |

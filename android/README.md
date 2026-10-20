@@ -30,10 +30,11 @@ GitHub-এ `android/` এ কিছু বদলালে `android` কাজট
 
 Play Store-এ প্রথম আপলোডের পর Play Console → Test and release → App integrity → **App signing key certificate** এর SHA-256 টাও `assetlinks.json` এ `com.shobmilbe.app` এর তালিকায় যোগ করতে হবে, নইলে Play থেকে নামানো অ্যাপে উপরে ঠিকানার বার দেখাবে।
 
-## দোকান থেকে ডাউনলোড (/app) — নতুন সংস্করণ দেওয়া
-কাস্টমার অ্যাপ দোকানের নিজের পেজ `/app` থেকে নামানো যায় (Play Store ছাড়া)। Android ফোনে দোকানে এলে নিচে ছোট একটা "অ্যাপ নিন" কার্ড আসে; পুরোনো অ্যাপের ভেতরে "নতুন সংস্করণ এসেছে" দেখায় (অ্যাপের নাম `ShobmilbeApp/<সংস্করণ>` থেকে বোঝা যায়)।
-নতুন সংস্করণে:
-1. `gradle.properties` এ `appVersionCode` ও `appVersionName` বাড়ান → `android` কাজ সাইন ছাড়া APK বানায়।
-2. মালিকের চাবি দিয়ে সাইন করুন: `java -jar apksigner.jar sign --ks shobmilbe-release-2026.jks --ks-key-alias shobmilbe --out shobmilbe-v<সংস্করণ>.apk app-customer-aligned-unsigned.apk`
-3. ফাইলটা `public/downloads/` এ রাখুন (পুরোনোটা মুছে দিন), আর `lib/app-release.ts` ও `client/app-release.ts` এ সংস্করণ/ফাইল বদলান (`tests/app-release.test.ts` মিলিয়ে দেখে)।
-অ্যাডমিন অ্যাপ সবার জন্য রাখা হয় না — সাইন করে সরাসরি মালিককে দেওয়া হয়।
+## দোকান থেকে ডাউনলোড (/app) — নতুন সংস্করণ নিজে থেকে যায়
+কাস্টমার অ্যাপ দোকানের `/app` পেজ থেকে নামানো যায় (Play Store ছাড়া)। Android ফোনে দোকানে এলে নিচে ছোট "অ্যাপ নিন" কার্ড আসে; পুরোনো অ্যাপের ভেতরে "নতুন সংস্করণ এসেছে" দেখায়।
+নতুন সংস্করণ দিতে শুধু:
+1. `gradle.properties` এ `appVersionCode` ও `appVersionName` বাড়ান, আর `lib/app-release.ts` ও `client/app-release.ts` এ একই সংস্করণ লিখুন (`tests/app-release.test.ts` মিলিয়ে দেখে)।
+2. বাকিটা `android` কাজ নিজে করে (`android/publish.sh`): দুই অ্যাপ মালিকের চাবি দিয়ে সাইন করে; কাস্টমার অ্যাপ GitHub-এর সর্বশেষ রিলিজ `app-v<সংস্করণ>` (`shobmilbe.apk`) হয় — দোকানের ডাউনলোড বোতাম সবসময় এটাই দেয় — আর পুরোনো রিলিজ মুছে যায়; অ্যাডমিন অ্যাপ একটা খসড়া (draft) রিলিজ `admin-v<সংস্করণ>` হয়, যা শুধু মালিক দেখেন (GitHub → Releases)।
+
+চাবি থাকে রিপোজিটরির গোপন সেটিংসে (Settings → Secrets and variables → Actions): `ANDROID_KEYSTORE_B64` (`.jks` ফাইল base64 করে) আর `ANDROID_KEY_PASS` (পাসওয়ার্ড)। রিপোজিটরিতে কখনো না।
+ফাইলটা GitHub থেকে যায়, ওয়েবসাইটের সার্ভার থেকে নয় — তাই Vercel ছেড়ে অন্য হোস্টে গেলেও ডাউনলোড একই থাকে।

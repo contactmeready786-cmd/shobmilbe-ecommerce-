@@ -25,6 +25,17 @@ uses that one setup. Never add a second Gmail / App Password / SMS / API-key fie
 - Permanent deletes need the e-mailed delete code (`services/delcode.ts`).
 - Admin menu: related small pages are tabs (`TABS` in lib/admin/layout.tsx), not new menu lines.
 - The camera face check was removed on purpose; only the fingerprint / passkey login lock stays.
+- 📱 Android app releases (owner, 2026-10-20 — never ask the owner again): every change to the customer app that customers
+  should get MUST raise `appVersionCode` and `appVersionName` in android/gradle.properties AND set the same version in
+  lib/app-release.ts and client/app-release.ts (tests/app-release.test.ts fails otherwise). The "android" workflow then
+  signs both apps with the owner's key (repository secrets ANDROID_KEYSTORE_B64 + ANDROID_KEY_PASS) and publishes them
+  itself (android/publish.sh): the customer app becomes the latest GitHub release `app-v<version>` (file `shobmilbe.apk`)
+  that the shop's download button opens (/app → /app/download → …/releases/latest/download/shobmilbe.apk), older customer
+  releases are deleted; the admin app is a private draft release `admin-v<version>`. Older apps then show "নতুন সংস্করণ
+  এসেছে" (client/shop/appinvite.tsx) and /app says so. Check the workflow's "Sign and publish" step after merging; if it
+  warns that the key is missing, tell the owner. Never put the key or its password in the repository (it is public).
+  The APK is served by GitHub, not by the web host, so it keeps working when the shop moves off Vercel (the repo must
+  stay public for that link; if it ever goes private, move the file to the new host first).
 - Automatic SEO (`services/autoseo.ts`) only fills EMPTY fields, never overwrites or re-adds what the owner wrote or removed,
   logs every change for undo; the auto description is made at page view and never saved over the owner's text.
 - Admin script rule (2026-10-17): admin pages run only scripts that carry the page nonce. Every inline `<script>` in an
