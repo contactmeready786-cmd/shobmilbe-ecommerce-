@@ -1069,3 +1069,16 @@ body.protect .card-pic img, body.protect .g-main img, body.protect .g-thumb img,
 .news-form input[type=email] { flex: 1; min-width: 0; padding: 11px 12px; border-radius: 10px; border: 1px solid #c9d2e0; font: inherit; }
 .news-form .hp { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
 .news-msg { flex-basis: 100%; font-size: .9em; margin: 0; }
+
+/* 📦 প্যাক / বান্ডেল: a product sold only in the packs the owner ticked */
+.pack-picker { margin: 12px 0; }
+.pack-title { margin: 0 0 8px; font-weight: 600; }
+.pack-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; }
+.pack-opt { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 10px 8px; border: 1.5px solid var(--line);
+  border-radius: var(--radius); background: var(--white); color: var(--ink); font: inherit; cursor: pointer; }
+.pack-opt span { font-size: .85rem; color: var(--muted); }
+.pack-opt.on { border-color: var(--blue); background: var(--blue-l); box-shadow: 0 0 0 1px var(--blue) inset; }
+.pack-opt.on span { color: var(--blue-d); }
+.pack-opt:disabled { opacity: .45; cursor: not-allowed; text-decoration: line-through; }
+.pack-total { margin: 8px 0 0; }
+.pack-line { margin: 4px 0 0; color: var(--ink-2); }

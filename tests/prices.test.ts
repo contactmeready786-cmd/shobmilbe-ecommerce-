@@ -76,6 +76,24 @@ test('how many pieces a customer may order', () => {
   assert.equal(U.qtyRule({ ...(s as object), small_qty_on: '0' } as never, 0.5).max, 10);
 });
 
+test('📦 products sold in packs (25 / 50 / 100 pieces): whole packs only', () => {
+  const s = { max_qty_per_item: '10', small_qty_on: '1', small_max_price: '5', small_max_value: '100' } as never;
+  assert.deepEqual(U.packSizes('100,25, 50'), [25, 50, 100]);
+  assert.deepEqual(U.packSizes(['25', '25', '1', 'x', '5000']), [25]); // no doubles, no 1-piece or 1000+ "packs"
+  assert.deepEqual(U.packSizes(''), []);
+  // a ৳2 box sold in 25 / 50 / 100: at least 25, up to the biggest pack even past the normal ৳100-worth limit
+  const r = U.packRule(U.qtyRule(s, 2), [25, 50, 100]);
+  assert.equal(r.min, 25); assert.equal(r.step, 25); assert.equal(r.max, 100);
+  // a normal product keeps its rule
+  assert.deepEqual(U.packRule(U.qtyRule(s, 50), []), { min: 1, max: 10, small: false, cheap: false, step: 1, packs: [] });
+  // the order check: multiples of the smallest pack go through (2 × 25 = 50, 25 + 50 = 75), anything else is stopped
+  assert.equal(U.packProblem('বক্স', 100, [25, 50, 100]), null);
+  assert.equal(U.packProblem('বক্স', 75, [25, 50, 100]), null);
+  assert.match(String(U.packProblem('বক্স', 30, [25, 50, 100])), /প্যাকে/);
+  assert.match(String(U.packProblem('বক্স', 10, [25])), /প্যাকে/);
+  assert.equal(U.packProblem('বক্স', 3, []), null);
+});
+
 test('cart line price: the cheapest of normal / flash sale / buy-more price', () => {
   const tiers = [{ min_qty: 10, price: 8 }, { min_qty: 5, price: 9 }] as never;
   assert.deepEqual(P.linePrice({ base: 10, qty: 1, tiers }), { price: 10, kind: '', note: '', ref_id: null });

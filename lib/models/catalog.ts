@@ -5,7 +5,7 @@
 // made in the browser, so a resized or re-saved copy of the same photo is still recognised.
 import { q, one, tx, uniqueSlug } from '../db';
 import { memo } from '../cache';
-import { slugify, int, str, youtubeId, amount, shopPrice, priceProblem } from '../util';
+import { slugify, int, str, youtubeId, amount, shopPrice, priceProblem, packSizes } from '../util';
 import * as imagekit from '../services/imagekit';
 import * as $crypto from 'node:crypto';
 import type { DbRow, Param, Tx } from '../pg';
@@ -223,7 +223,7 @@ const PUBLIC_COLS = `p.id, p.name, p.slug, p.category_id, ${PRICE_COLS}, ${STOCK
   p.brand, p.brand_id, (SELECT slug FROM brands WHERE id=p.brand_id AND active) AS brand_slug, p.model, p.specs, p.is_new, p.noindex, p.warranty, p.warranty_type, p.barcode,
   p.allow_duplicate, (p.preorder OR coalesce((SELECT pp.preorder FROM products pp WHERE pp.id=p.parent_id), false)) AS preorder,
   greatest(p.preorder_days, coalesce((SELECT pp.preorder_days FROM products pp WHERE pp.id=p.parent_id), 0)) AS preorder_days, p.sold_count, p.wish_count, p.rating_avg, p.rating_count, p.created_at, p.updated_at,
-  p.parent_id, p.variant_label, p.variant_count, p.variant_title,
+  p.parent_id, p.variant_label, p.variant_count, p.variant_title, p.pack_sizes,
   (SELECT m.ik_url FROM media m WHERE m.id=p.image_id AND m.owner_type IS DISTINCT FROM 'staff') AS image_ik,
   c.name AS category_name, c.slug AS category_slug, c.icon AS category_icon`;
 // The admin also sees the buying price, damaged stock and the usual supplier.
@@ -306,6 +306,8 @@ export type Product = {
   preorder: boolean; preorder_days: number; sold_count: number; wish_count: number; rating_avg: number; rating_count: number;
   created_at: Date; updated_at: Date;
   parent_id: number | null; variant_label: string; variant_count: number; variant_title: string;
+  /** 📦 pack sizes the owner ticked ("25,50,100"); empty = sold by the piece */
+  pack_sizes: string;
   category_name: string | null; category_slug: string | null; category_icon: string | null;
   // the admin's query only
   flash_price?: number | null; cost_price?: number | null; damaged_stock?: number; supplier_id?: number | null; location?: string;
@@ -670,6 +672,12 @@ async function saveProduct(data: Body & { bundle?: { product_id: unknown; qty: u
   if (data.preorder_form !== undefined) {
     f.preorder = !!data.preorder && type !== 'bundle';
     f.preorder_days = Math.max(0, Math.min(180, int(data.preorder_days)));
+  }
+  // 📦 প্যাক / বান্ডেল: only when the form sends it (copies / imports / bulk edits never change it).
+  // A product with variants or a package (bundle) is not sold in packs.
+  if (data.pack_form !== undefined) {
+    const ticked = ([] as unknown[]).concat(data.pack ?? [], String(data.pack_custom ?? '').split(/[^0-9]+/));
+    f.pack_sizes = type === 'bundle' || hasVariants ? '' : packSizes(ticked).join(',');
   }
   // specifications: from the form (spec_key[] / spec_val[]) or already as a list (copy, import)
   if (data.spec_key !== undefined) f.specs = JSON.stringify(cleanSpecs(data.spec_key, data.spec_val));

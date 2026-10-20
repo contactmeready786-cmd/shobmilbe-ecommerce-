@@ -1159,6 +1159,11 @@ ON CONFLICT (url) DO NOTHING;
 UPDATE research_sources SET search_only=false, active=true, segment='components'
   WHERE url IN ('https://udvabony.com', 'https://www.dunia.com.bd', 'https://store.roboticsbd.com');
 `,
+  // 📦 প্যাক / বান্ডেল (owner, 2026-10-20): a product sold only in packs the owner ticks (e.g. packaging boxes / poly in
+  // 25, 50, 100 pieces). The price stays per piece; the customer picks a pack and pays pieces × price. Empty = normal product.
+  `
+ALTER TABLE products ADD COLUMN IF NOT EXISTS pack_sizes text NOT NULL DEFAULT '';
+`,
 ];
 
 // Data steps that need code, keyed by migration number (run after its SQL).

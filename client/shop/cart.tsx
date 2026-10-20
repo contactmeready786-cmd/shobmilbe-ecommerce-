@@ -24,13 +24,31 @@ const count = (cart: Cart): number => Object.values(cart).reduce((s, n) => s + n
 const MAXQ = Math.max(1, Number(SM.maxQty) || 10);
 const RULE: { on: boolean; cap: number; maxVal: number } = SM.rule || { on: true, cap: 5, maxVal: 100 };
 const MIN_ORDER = Math.max(0, Number(SM.minOrder) || 0);
-export type Rule = { min: number; max: number; small: boolean };
+export type Rule = { min: number; max: number; small: boolean; step: number; packs: number[] };
 
-export function rule(price: unknown): Rule {
-  const p = Number(price) || 0;
-  if (!RULE.on || p <= 0 || p > RULE.cap + 1e-9) return { min: 1, max: MAXQ, small: false };
-  return { min: 1, max: Math.max(MAXQ, Math.floor(RULE.maxVal / p + 1e-9)), small: false };
+/** 📦 product id → the packs it is sold in (25 / 50 / 100 …), learnt from the page and the cart API */
+export const PACKS: Record<string, number[]> = {};
+export function rememberPacks(id: string, packs: unknown): void {
+  const list = (Array.isArray(packs) ? packs : String(packs || '').split(',')).map((x) => Math.floor(Number(x))).filter((n) => n >= 2);
+  if (list.length) PACKS[id] = [...new Set(list)].sort((a, b) => a - b);
 }
+
+export function rule(price: unknown, id?: string): Rule {
+  const p = Number(price) || 0;
+  const base = !RULE.on || p <= 0 || p > RULE.cap + 1e-9 ? MAXQ : Math.max(MAXQ, Math.floor(RULE.maxVal / p + 1e-9));
+  const packs = (id && PACKS[id]) || [];
+  if (!packs.length) return { min: 1, max: base, small: false, step: 1, packs };
+  // same as the server (util.packRule): whole packs — a multiple of the smallest, up to the limit or the biggest pack
+  const step = packs[0];
+  return { min: step, max: Math.min(999, Math.max(Math.floor(base / step) * step, packs[packs.length - 1])), small: false, step, packs };
+}
+/** a pack product: this many pieces rounded to whole packs (up), within its limits */
+export const toPacks = (qty: number, r: Rule): number => Math.min(r.max, Math.max(r.min, Math.ceil(qty / r.step) * r.step));
+export const packText = (qty: number, r: Rule): string => {
+  if (r.step <= 1) return '';
+  const exact = r.packs.filter((n) => n === qty);
+  return exact.length ? `📦 ${bn(qty)} পিসের প্যাক` : `📦 ${bn(qty / r.step)} × ${bn(r.step)} পিস = ${bn(qty)} পিস`;
+};
 /** "add ৳3 more" — the whole order must reach the shop's minimum (goods only, without delivery) */
 export const minShort = (subtotal: number): number =>
   MIN_ORDER > 0 && subtotal + 1e-9 < MIN_ORDER ? Math.round((MIN_ORDER - subtotal) * 100) / 100 : 0;
@@ -78,9 +96,9 @@ export function say(text: Node | string): void {
 /** Adds pieces, keeping the product between its minimum and maximum. Returns what happened. */
 export function addToCart(id: string, qty: number, price: number) {
   const cart = readCart();
-  const r = rule(price);
+  const r = rule(price, id);
   const want = (cart[id] || 0) + qty;
-  const got = Math.min(Math.max(want, r.min), r.max);
+  const got = r.step > 1 ? toPacks(want, r) : Math.min(Math.max(want, r.min), r.max);
   cart[id] = got;
   writeCart(cart);
   return { raised: want < r.min, capped: want > r.max, qty: got, rule: r };
@@ -107,8 +125,9 @@ export function startCartButtons(): void {
     const id = btn.getAttribute('data-add') || '';
     const name = btn.getAttribute('data-name') || '';
     const price = Number(btn.getAttribute('data-price')) || 0;
+    if (btn.hasAttribute('data-packs')) rememberPacks(id, btn.getAttribute('data-packs'));
     const inCart = readCart()[id] || 0;
-    const r0 = rule(price);
+    const r0 = rule(price, id);
     const buyNow = btn.hasAttribute('data-buy-now');
     if (inCart >= r0.max && !buyNow) { say(limitText(r0.max)); return; }
     const res = addToCart(id, qty, price);
@@ -116,6 +135,10 @@ export function startCartButtons(): void {
     if (buyNow) { location.href = '/checkout'; return; }
     updateCount(true);
     if (res.capped) { say(limitText(res.rule.max)); return; }
+    if (res.rule.step > 1) {
+      toastLink(`✅ "${name}" — ${packText(res.qty, res.rule)} কার্টে আছে`, ['/cart', 'কার্ট দেখুন'], 4500);
+      return;
+    }
     if (res.raised) {
       toastLink(`✅ "${name}" — কম দামের পণ্য, তাই কমপক্ষে ${bn(res.rule.min)}টি (${money(res.rule.min * price)}) কার্টে যোগ হয়েছে`, ['/cart', 'কার্ট দেখুন'], 5000);
       return;
@@ -128,19 +151,41 @@ export function startCartButtons(): void {
     if (!input) continue;
     const addBtn = $('[data-add][data-with-qty]');
     const price = addBtn ? Number(addBtn.getAttribute('data-price')) || 0 : 0;
-    const r = rule(price);
+    const pid = addBtn?.getAttribute('data-add') || '';
+    if (input.hasAttribute('data-packs')) rememberPacks(pid, input.getAttribute('data-packs'));
+    const r = rule(price, pid);
+    // 📦 pack products: the pack buttons and the total follow the number of pieces
+    const picker = $('[data-pack-picker]');
+    const showPacks = () => {
+      if (!picker) return;
+      const q = parseInt(input.value, 10) || r.min;
+      for (const b of $all<HTMLButtonElement>('[data-pack]', picker)) {
+        const on = Number(b.getAttribute('data-pack')) === q;
+        b.classList.toggle('on', on);
+        b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      }
+      const tot = $('[data-pack-total]', picker);
+      if (tot) tot.textContent = `${bn(q)} পিস × ${money(price)} = ${money(Math.round(q * price * 100) / 100)}`;
+    };
     const fix = (v: number) => {
       const max = parseInt(input.max, 10) || r.max;
       const min = parseInt(input.min, 10) || 1;
       if (v > max && max >= r.max) say(limitText(r.max));
       else if (v < min && r.small) say(`কম দামের পণ্য — কমপক্ষে ${bn(min)}টি নিতে হবে (${money(min * price)})।`);
-      input.value = String(Math.min(max, Math.max(min, v)));
+      else if (r.step > 1 && v % r.step) say(`এই পণ্য শুধু প্যাকে বিক্রি হয় — ${bn(r.step)} পিসের গুণিতকে নিতে হবে।`);
+      const w = r.step > 1 ? Math.ceil(v / r.step) * r.step : v;
+      input.value = String(Math.min(max, Math.max(min, w)));
+      showPacks();
     };
     box.addEventListener('click', (e) => {
       const b = hit(e, '[data-step]');
-      if (b) fix((parseInt(input.value, 10) || 1) + parseInt(b.getAttribute('data-step') || '0', 10));
+      if (b) fix((parseInt(input.value, 10) || 1) + parseInt(b.getAttribute('data-step') || '0', 10) * r.step);
     });
     input.addEventListener('change', () => fix(parseInt(input.value, 10) || 1));
+    picker?.addEventListener('click', (e) => {
+      const b = hit(e, '[data-pack]');
+      if (b) fix(Number(b.getAttribute('data-pack')) || r.min);
+    });
   }
 
   // WhatsApp button on the product page: message carries the product name, price and this page's link
