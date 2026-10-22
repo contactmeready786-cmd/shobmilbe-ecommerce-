@@ -906,6 +906,7 @@ export type ProductsRow = {
   src_wm: boolean;
   src_wm_checked: boolean;
   pack_sizes: string;
+  dims: string;
 };
 
 /** A row of purchase_items. */

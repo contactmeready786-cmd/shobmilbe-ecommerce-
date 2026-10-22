@@ -295,6 +295,14 @@ function variants(): void {
     const old = Number(attr('data-old')) || 0;
     const stock = Number(attr('data-stock')) || 0;
     const low = Number(attr('data-low')) || 0;
+    // 📐 a box's measure, when the owner gave one for this size
+    const dl = $('[data-var-dims]', vp);
+    if (dl) {
+      const d = attr('data-dims') || '';
+      dl.hidden = !d;
+      const dt = $('[data-var-dims-text]', dl);
+      if (dt) dt.textContent = d;
+    }
     const nm = $('[data-var-name]', vp);
     if (nm) nm.textContent = attr('data-label');
     for (const el of $all('[data-p-price]')) el.textContent = money(price);

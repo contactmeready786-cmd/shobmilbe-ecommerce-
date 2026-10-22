@@ -93,6 +93,9 @@ export function startVariantBuilder(): void {
       sync();
       return;
     }
+    // ✍️ a value typed by hand ("৩ নং বক্স") → added to its list
+    const own = t?.closest<HTMLElement>('[data-vb-ownadd]');
+    if (own) { e.preventDefault(); addOwn(own.dataset.vbOwnadd || ''); return; }
     const chip = t?.closest<HTMLElement>('[data-vb-chip]');
     if (chip) {
       e.preventDefault();
@@ -114,6 +117,19 @@ export function startVariantBuilder(): void {
       if (x !== r && (x.dataset.c || '') === c && f && !f.value) f.value = sel.value;
     }
   });
+  function addOwn(kind: string) {
+    const src = box!.querySelector<HTMLInputElement>(`[data-vb-own="${kind}"]`);
+    const input = kind === 'size' ? si! : ci!;
+    const v = (src?.value || '').replace(/[,/]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 28);
+    if (!src || !v) { src?.focus(); return; }
+    const now = split(input.value);
+    input.value = (now.some((x) => x.toLowerCase() === v.toLowerCase()) ? now : [...now, v]).join(', ');
+    src.value = '';
+    src.focus();
+  }
+  for (const own of box.querySelectorAll<HTMLInputElement>('[data-vb-own]')) {
+    own.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addOwn(own.dataset.vbOwn || ''); } });
+  }
   // Enter in the colour / size boxes makes the table instead of saving the whole product
   for (const inp of [ci, si]) inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); make(); } });
   sync();

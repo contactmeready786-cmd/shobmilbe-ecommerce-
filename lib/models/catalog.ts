@@ -223,7 +223,7 @@ const PUBLIC_COLS = `p.id, p.name, p.slug, p.category_id, ${PRICE_COLS}, ${STOCK
   p.brand, p.brand_id, (SELECT slug FROM brands WHERE id=p.brand_id AND active) AS brand_slug, p.model, p.specs, p.is_new, p.noindex, p.warranty, p.warranty_type, p.barcode,
   p.allow_duplicate, (p.preorder OR coalesce((SELECT pp.preorder FROM products pp WHERE pp.id=p.parent_id), false)) AS preorder,
   greatest(p.preorder_days, coalesce((SELECT pp.preorder_days FROM products pp WHERE pp.id=p.parent_id), 0)) AS preorder_days, p.sold_count, p.wish_count, p.rating_avg, p.rating_count, p.created_at, p.updated_at,
-  p.parent_id, p.variant_label, p.variant_count, p.variant_title, p.pack_sizes,
+  p.parent_id, p.variant_label, p.variant_count, p.variant_title, p.pack_sizes, p.dims,
   CASE WHEN p.variant_count > 0 THEN (SELECT v.id FROM products v WHERE v.parent_id=p.id AND v.active ORDER BY (v.stock > 0) DESC, v.price, v.variant_sort, v.id LIMIT 1) END AS first_variant,
   (SELECT m.ik_url FROM media m WHERE m.id=p.image_id AND m.owner_type IS DISTINCT FROM 'staff') AS image_ik,
   c.name AS category_name, c.slug AS category_slug, c.icon AS category_icon`;
@@ -313,6 +313,8 @@ export type Product = {
   first_variant?: number | null;
   /** 📦 pack sizes the owner ticked ("25,50,100"); empty = sold by the piece */
   pack_sizes: string;
+  /** 📐 a variant's own measure, e.g. "30 × 20 × 10 সেমি" (boxes); empty = none */
+  dims?: string;
   category_name: string | null; category_slug: string | null; category_icon: string | null;
   // the admin's query only
   flash_price?: number | null; cost_price?: number | null; damaged_stock?: number; supplier_id?: number | null; location?: string;
@@ -827,8 +829,9 @@ async function saveVariants(parentId: Id, { title, rows }: { title: unknown; row
         // an existing variant's buying price and stock change only through purchases / adjustments / a cost correction
         const cost = old.cost_price;
         await logPriceChange(t, old.id, old, { price, old_price: oldPrice, name: old.name }, staffId, 'ভ্যারিয়েন্ট');
-        await t.query(`UPDATE products SET variant_label=$1, price=$2, old_price=$3, cost_price=$4, sku=$5, image_id=$6, active=$7, variant_sort=$8, updated_at=now() WHERE id=$9`,
-          [label, price, oldPrice, cost, sku, img, !!r.active, sort, old.id]);
+        await t.query(`UPDATE products SET variant_label=$1, price=$2, old_price=$3, cost_price=$4, sku=$5, image_id=$6, active=$7, variant_sort=$8,
+            dims = CASE WHEN $10::text IS NULL THEN dims ELSE $10 END, updated_at=now() WHERE id=$9`,
+          [label, price, oldPrice, cost, sku, img, !!r.active, sort, old.id, r.dims === undefined ? null : str(r.dims, 60)]);
       } else {
         if (kept >= MAX_VARIANTS) throw new Error(`একটা পণ্যে সর্বোচ্চ ${MAX_VARIANTS}টা ভ্যারিয়েন্ট রাখা যায়।`);
         if (!sku) sku = await takeSku(t);
@@ -840,6 +843,7 @@ async function saveVariants(parentId: Id, { title, rows }: { title: unknown; row
         [`${parent.name} — ${label}`.slice(0, 200), slug, parent.category_id, price, oldPrice, cost, parent.emoji, !!r.active, sku, parent.id, label, sort,
           img, parent.brand, parent.brand_id, parent.unit, parent.weight_g || 0, parent.low_stock, parent.supplier_id])).rows[0].id;
         kept += 1;
+        if (r.dims !== undefined && str(r.dims, 60)) await t.query('UPDATE products SET dims=$1 WHERE id=$2', [str(r.dims, 60), vid]);
         if (stock > 0) await moveStock(t, vid, stock, 'opening', 'product', vid, 'ভ্যারিয়েন্টের শুরুর স্টক', staffId, false, cost || null);
       }
     }

@@ -17,7 +17,7 @@ import { cx } from '../../../lib/react/html';
 import type { CustomScript, MenuLink, Settings } from '../../../lib/types';
 import { SearchIcon, CartIcon, UserIcon, MenuIcon, WhatsAppIcon, MessengerIcon, SOCIAL_ICONS } from './icons';
 
-export const ASSET_V = '54';
+export const ASSET_V = '55';
 
 export function Logo({ settings }: { settings: Settings }) {
   if (settings.logo_id) {

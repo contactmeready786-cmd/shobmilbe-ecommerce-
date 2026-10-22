@@ -1168,6 +1168,9 @@ ALTER TABLE products ADD COLUMN IF NOT EXISTS pack_sizes text NOT NULL DEFAULT '
   // Admin → লোগো, রং ও হোমপেজ. (The row now lists only products that have really sold.)
   `
 UPDATE settings SET value = (value::jsonb - 'bestsellers')::text WHERE key = 'home_sections' AND ltrim(value) LIKE '[%' AND value::jsonb ? 'bestsellers';
+`,  // 📐 a colour/size's own measure (owner, 2026-10-22: boxes — দৈর্ঘ্য × প্রস্থ × উচ্চতা), e.g. "30 × 20 × 10 সেমি"; empty = none
+  `
+ALTER TABLE products ADD COLUMN IF NOT EXISTS dims text NOT NULL DEFAULT '';
 `,
 ];
 

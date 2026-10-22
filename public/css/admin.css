@@ -1568,3 +1568,8 @@ html[data-admin-lang="en"] .side-drop[data-side-group="দোকানের ড
 #main.admin-main .vb-table select { width: 100%; }
 #main.admin-main .vb-table .vb-del { white-space: nowrap; }
 @media (min-width: 900px) { #main.admin-main .vb .table-wrap { overflow-x: visible; } }
+/* 📐 measure (boxes) and ✍️ hand-written values in the colour/size table */
+#main.admin-main .vb-dims { white-space: nowrap; }
+#main.admin-main .vb-dims .w-dim { width: 52px; font: inherit; padding: 6px 4px; border: 2px solid var(--line); border-radius: 8px; text-align: center; margin: 0 2px; }
+#main.admin-main .vb-own { display: inline-flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+#main.admin-main .vb-own input { width: 220px; max-width: 100%; }
