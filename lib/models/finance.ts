@@ -402,6 +402,9 @@ async function listTransactions({ from, to, type, accountId, category, limit = 2
 
 // ---------------------------------------------------------------- reports
 const DHAKA_DAY = `(o.created_at AT TIME ZONE 'Asia/Dhaka')::date`;
+// 📦 what an order's parcel was packed with (lib/models/packing.ts) — taken off the profit, also for a parcel that came
+// back (its packing was really used), unless the packing was marked reused
+const PACKING = `coalesce((SELECT sum(op.cost) FROM order_packing op WHERE op.order_id=o.id AND op.state='used'),0)`;
 
 // Profit & loss for a date range. Sales are counted on delivered orders (by delivery date).
 async function profitLoss(from: Day, to: Day) {
@@ -460,14 +463,16 @@ async function dailySeries(from: Day, to: Day) {
   return q<{ day: string; orders: number; sales: number; profit: number; delivered: number }>(`SELECT d::date AS day,
       coalesce((SELECT count(*) FROM orders o WHERE ${DHAKA_DAY} = d::date),0)::int AS orders,
       coalesce((SELECT sum(total) FROM orders o WHERE ${DHAKA_DAY} = d::date AND o.status NOT IN ('cancelled','returned')),0)::numeric(14,2) AS sales,
-      coalesce((SELECT sum(total - cost_total - delivery) FROM orders o WHERE ${DHAKA_DAY} = d::date AND o.status NOT IN ('cancelled','returned')),0)::int AS profit,
+      (coalesce((SELECT sum(total - cost_total - delivery) FROM orders o WHERE ${DHAKA_DAY} = d::date AND o.status NOT IN ('cancelled','returned')),0)
+        - coalesce((SELECT sum(${PACKING}) FROM orders o WHERE ${DHAKA_DAY} = d::date),0))::int AS profit,
       coalesce((SELECT count(*) FROM orders o WHERE ${DHAKA_DAY} = d::date AND o.status='delivered'),0)::int AS delivered
     FROM generate_series($1::date, $2::date, interval '1 day') d ORDER BY d`, [from, to]);
 }
 async function monthlySeries(months: number | string = 12) {
   return q<{ month: string; sales: number; gross: number; expenses: number }>(`SELECT to_char(m, 'YYYY-MM') AS month,
       coalesce((SELECT sum(total) FROM orders o WHERE date_trunc('month', o.created_at AT TIME ZONE 'Asia/Dhaka') = m AND o.status NOT IN ('cancelled','returned')),0)::numeric(14,2) AS sales,
-      coalesce((SELECT sum(total - cost_total - delivery) FROM orders o WHERE date_trunc('month', o.created_at AT TIME ZONE 'Asia/Dhaka') = m AND o.status NOT IN ('cancelled','returned')),0)::numeric(14,2) AS gross,
+      (coalesce((SELECT sum(total - cost_total - delivery) FROM orders o WHERE date_trunc('month', o.created_at AT TIME ZONE 'Asia/Dhaka') = m AND o.status NOT IN ('cancelled','returned')),0)
+        - coalesce((SELECT sum(${PACKING}) FROM orders o WHERE date_trunc('month', o.created_at AT TIME ZONE 'Asia/Dhaka') = m),0))::numeric(14,2) AS gross,
       coalesce((SELECT sum(amount) FROM transactions t WHERE date_trunc('month', t.tx_date) = m AND t.type='expense'
          AND t.category NOT IN ('সাপ্লায়ার পেমেন্ট','মালিকের উত্তোলন','ঋণ পরিশোধ','ভ্যাট/ট্যাক্স পরিশোধ')),0)::numeric(14,2) AS expenses
     FROM generate_series(date_trunc('month', (now() AT TIME ZONE 'Asia/Dhaka')) - ($1::int - 1) * interval '1 month',
@@ -481,7 +486,7 @@ async function dashboard(from: Day, to: Day) {
       count(*) FILTER (WHERE status='delivered')::int AS delivered,
       count(*) FILTER (WHERE status IN ('cancelled','returned'))::int AS failed,
       coalesce(sum(total) FILTER (WHERE status NOT IN ('cancelled','returned')),0)::numeric(14,2) AS sales,
-      coalesce(sum(total - cost_total - delivery) FILTER (WHERE status NOT IN ('cancelled','returned')),0)::numeric(14,2) AS gross,
+      (coalesce(sum(total - cost_total - delivery) FILTER (WHERE status NOT IN ('cancelled','returned')),0) - coalesce(sum(${PACKING}),0))::numeric(14,2) AS gross,
       coalesce(avg(total) FILTER (WHERE status NOT IN ('cancelled','returned')),0)::numeric(14,2) AS aov,
       count(DISTINCT phone)::int AS buyers
     FROM orders o WHERE ${DHAKA_DAY} BETWEEN $1 AND $2`, [from, to]);
@@ -532,4 +537,4 @@ async function staffReport(from: Day, to: Day) {
     FROM staff s ORDER BY s.role='owner' DESC, s.name`, [from, to]);
 }
 
-export { EXPENSE_CATEGORIES, INCOME_CATEGORIES, ACCOUNT_TYPES, PURCHASE_STATUSES, listSuppliers, getSupplier, saveSupplier, supplierDue, listPurchases, getPurchase, savePurchase, setPurchaseStatus, editPurchase, editSupplierPayment, notePaymentDeleted, purchaseHistory, supplierPaymentHistory, correctedCost, listAccounts, saveAccount, addTransaction, deleteTransaction, listTransactions, profitLoss, vatReport, dailySeries, monthlySeries, dashboard, staffReport };
+export { PACKING, EXPENSE_CATEGORIES, INCOME_CATEGORIES, ACCOUNT_TYPES, PURCHASE_STATUSES, listSuppliers, getSupplier, saveSupplier, supplierDue, listPurchases, getPurchase, savePurchase, setPurchaseStatus, editPurchase, editSupplierPayment, notePaymentDeleted, purchaseHistory, supplierPaymentHistory, correctedCost, listAccounts, saveAccount, addTransaction, deleteTransaction, listTransactions, profitLoss, vatReport, dailySeries, monthlySeries, dashboard, staffReport };

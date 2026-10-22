@@ -64,3 +64,15 @@ test('returned with the box still good: reused — cost out, boxes back', { skip
   await O.setStatus(order, 'shipped', null);
   assert.equal(await stockOf(box), 48);
 });
+
+test('dashboard profit takes the packing off too', { skip }, async () => {
+  const day = (d: number) => new Date(Date.now() + d * 864e5).toISOString().slice(0, 10);
+  const d = await finance.dashboard(day(-1), day(1));
+  const raw = await db.one<{ g: number; p: number }>(`SELECT
+      coalesce(sum(total - cost_total - delivery) FILTER (WHERE status NOT IN ('cancelled','returned')),0)::numeric(14,2) AS g,
+      coalesce((SELECT sum(cost) FROM order_packing WHERE state='used' AND order_id IN (SELECT id FROM orders o2
+        WHERE (o2.created_at AT TIME ZONE 'Asia/Dhaka')::date BETWEEN $1 AND $2)),0)::numeric(14,2) AS p
+    FROM orders o WHERE (o.created_at AT TIME ZONE 'Asia/Dhaka')::date BETWEEN $1 AND $2`, [day(-1), day(1)]);
+  assert.ok(Number(raw!.p) > 0);
+  assert.equal(Number(d.k!.gross), Math.round((Number(raw!.g) - Number(raw!.p)) * 100) / 100);
+});
