@@ -23,8 +23,9 @@ uses that one setup. Never add a second Gmail / App Password / SMS / API-key fie
 - Product prices: ৳0.50 – ৳2000 only (`util.priceProblem`). ৳10 or more = whole taka.
 - Product cards (owner, 2026-10-20 and again 2026-10-22 — don't break it again): EVERY card looks the same, with
   "কার্টে যোগ করুন" + "এখনই কিনুন" — also pack products (adding puts the smallest pack in the cart; the cart/checkout
-  switch packs) and products with colours/sizes (the buttons open the product page at `#choose`, where colour → size →
-  pack is picked). Never a different card button such as "অপশন বাছুন".
+  switch packs) and products with colours/sizes (owner, 2026-10-22: the buttons put the first available colour/size —
+  `first_variant`, smallest pack — straight in the cart; the cart and checkout have colour / size dropdowns next to the
+  pack buttons, client/shop/cartpage.tsx VariantChoice). Never a different card button such as "অপশন বাছুন".
 - Offer SMS (bulk) skip customers with `promo_sms = false` and stay within `sms_mkt_day` / `sms_mkt_month`, so the free SIM plan keeps room for checkout codes.
 - Permanent deletes need the e-mailed delete code (`services/delcode.ts`).
 - Admin menu: related small pages are tabs (`TABS` in lib/admin/layout.tsx), not new menu lines.
