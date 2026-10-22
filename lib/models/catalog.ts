@@ -676,10 +676,11 @@ async function saveProduct(data: Body & { bundle?: { product_id: unknown; qty: u
     f.preorder_days = Math.max(0, Math.min(180, int(data.preorder_days)));
   }
   // 📦 প্যাক / বান্ডেল: only when the form sends it (copies / imports / bulk edits never change it).
-  // A product with variants or a package (bundle) is not sold in packs.
+  // A package (bundle) is not sold in packs. A product with variants: the packs ticked here go to every variant
+  // (syncVariants) — e.g. a poly in White / Silver × Small / Large, each sold in 25 / 50 / 100 pieces at its own price.
   if (data.pack_form !== undefined) {
     const ticked = ([] as unknown[]).concat(data.pack ?? [], String(data.pack_custom ?? '').split(/[^0-9]+/));
-    f.pack_sizes = type === 'bundle' || hasVariants ? '' : packSizes(ticked).join(',');
+    f.pack_sizes = type === 'bundle' ? '' : packSizes(ticked).join(',');
   }
   // specifications: from the form (spec_key[] / spec_val[]) or already as a list (copy, import)
   if (data.spec_key !== undefined) f.specs = JSON.stringify(cleanSpecs(data.spec_key, data.spec_val));
@@ -770,12 +771,13 @@ async function saveProduct(data: Body & { bundle?: { product_id: unknown; qty: u
 const MAX_VARIANTS = 40;
 // Keep the variants in line with their main product (name, category, brand …) and the main product's price/stock line.
 async function syncVariants(t: Tx, parentId: number): Promise<void> {
-  const p = (await t.query<Pick<ProductsRow, 'id' | 'name' | 'category_id' | 'brand' | 'brand_id' | 'emoji' | 'unit' | 'weight_g' | 'warranty' | 'warranty_type' | 'image_id'>>('SELECT id, name, category_id, brand, brand_id, emoji, unit, weight_g, warranty, warranty_type, image_id FROM products WHERE id=$1', [parentId])).rows[0];
+  const p = (await t.query<Pick<ProductsRow, 'id' | 'name' | 'category_id' | 'brand' | 'brand_id' | 'emoji' | 'unit' | 'weight_g' | 'warranty' | 'warranty_type' | 'image_id' | 'pack_sizes'>>('SELECT id, name, category_id, brand, brand_id, emoji, unit, weight_g, warranty, warranty_type, image_id, pack_sizes FROM products WHERE id=$1', [parentId])).rows[0];
   if (!p) return;
+  // 📦 the main product's packs (25 / 50 / 100 …) are every variant's packs — the cart and the order check read them per variant
   await t.query(`UPDATE products SET name = left($2 || ' — ' || variant_label, 200), category_id=$3, brand=$4, brand_id=$5, emoji=$6, unit=$7,
       weight_g = CASE WHEN weight_g > 0 THEN weight_g ELSE $8 END, warranty = $9, warranty_type = $10, noindex = true,
-      image_id = coalesce(image_id, $11), updated_at = now()
-    WHERE parent_id=$1`, [p.id, p.name, p.category_id, p.brand, p.brand_id, p.emoji, p.unit, p.weight_g || 0, p.warranty || '', p.warranty_type || '', p.image_id]);
+      image_id = coalesce(image_id, $11), pack_sizes = $12, updated_at = now()
+    WHERE parent_id=$1`, [p.id, p.name, p.category_id, p.brand, p.brand_id, p.emoji, p.unit, p.weight_g || 0, p.warranty || '', p.warranty_type || '', p.image_id, p.pack_sizes || '']);
   const agg = (await t.query<{ n: number; lo: number | null; old: number | null }>(`SELECT count(*) FILTER (WHERE active)::int AS n, min(price) FILTER (WHERE active) AS lo,
       (array_agg(old_price ORDER BY price) FILTER (WHERE active))[1] AS old FROM products WHERE parent_id=$1`, [p.id])).rows[0];
   await t.query(`UPDATE products SET variant_count=$2, price = coalesce($3, price), old_price = CASE WHEN $2 > 0 THEN $4 ELSE old_price END WHERE id=$1`,

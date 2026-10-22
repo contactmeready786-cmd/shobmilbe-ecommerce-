@@ -274,7 +274,25 @@ function notifyBox(productId: Id, s: Settings, hidden = false) {
 }
 // The size / colour / model picker. Each variant carries what the page needs to switch to it without reloading.
 function variantPicker(p: FullProduct, V: Product[], sel: Product, big: (id?: Id) => string) {
-  return (<div className="var-pick" data-variants=""><p className="var-head"><Val v={p.variant_title || 'অপশন'} />:{' '}<b data-var-name=""><Val v={sel.variant_label} /></b></p><div className="var-list" role="radiogroup" aria-label={`${attrValue(p.variant_title || 'অপশন')} বাছাই করুন`}>{jsxList(V.map((v) => <button type="button" role="radio" className={`var-opt ${v.id === sel.id ? 'on' : ''} ${v.stock <= 0 ? 'is-out' : ''}`} data-var={attrValue(v.id)} data-label={attrValue(v.variant_label)} data-name={attrValue(v.name)} data-price={attrValue(v.price)} data-old={attrValue(v.old_price || '')} data-stock={attrValue(v.stock)} data-low={attrValue(v.low_stock)} data-sku={attrValue(v.sku || '')} data-img={attrValue(v.image_id ? big(v.image_id) : '')} data-flash={attrValue(v.flash_ends ? new Date(v.flash_ends).toISOString() : '')} aria-checked={v.id === sel.id ? 'true' : 'false'}>{' '}{(v.image_id ? <img src={`/media/${attrValue(v.image_id)}/t`} alt="" loading="lazy" draggable="false" /> : null)}<span><Val v={v.variant_label} /></span>{(v.stock <= 0 ? <small>স্টকে নেই</small> : null)}</button>))}</div></div>);
+  // "সাদা / Small", "সিলভার / Large" … (the same number of parts on every variant) → one row of buttons per part:
+  // রং: সাদা · সিলভার · প্রাইভেসি, then সাইজ: Small · Medium · Large (client/shop/product.ts finds the matching variant)
+  const parts = (v: Product) => String(v.variant_label || '').split('/').map((x) => x.trim());
+  const n = V.length ? parts(V[0]).length : 0;
+  const grouped = n >= 2 && n <= 3 && V.length > 1 && V.every((v) => parts(v).length === n && parts(v).every(Boolean));
+  const titles = String(p.variant_title || '').split('/').map((x) => x.trim());
+  // 🖼️ a variant without its own photo shows the photo of one with the same first option (the same colour)
+  const imgOf = (v: Product) => v.image_id || (grouped ? V.find((w) => w.image_id && parts(w)[0] === parts(v)[0])?.image_id : null) || null;
+  const list = (<div className="var-list" role="radiogroup" aria-label={`${attrValue(p.variant_title || 'অপশন')} বাছাই করুন`} hidden={grouped}>{jsxList(V.map((v) => <button type="button" role="radio" className={`var-opt ${v.id === sel.id ? 'on' : ''} ${v.stock <= 0 ? 'is-out' : ''}`} data-var={attrValue(v.id)} data-label={attrValue(v.variant_label)} data-name={attrValue(v.name)} data-price={attrValue(v.price)} data-old={attrValue(v.old_price || '')} data-stock={attrValue(v.stock)} data-low={attrValue(v.low_stock)} data-sku={attrValue(v.sku || '')} data-img={attrValue(imgOf(v) ? big(imgOf(v)!) : '')} data-flash={attrValue(v.flash_ends ? new Date(v.flash_ends).toISOString() : '')} aria-checked={v.id === sel.id ? 'true' : 'false'}>{' '}{(v.image_id ? <img src={`/media/${attrValue(v.image_id)}/t`} alt="" loading="lazy" draggable="false" /> : null)}<span><Val v={v.variant_label} /></span>{(v.stock <= 0 ? <small>স্টকে নেই</small> : null)}</button>))}</div>);
+  if (!grouped) return (<div className="var-pick" data-variants=""><p className="var-head"><Val v={p.variant_title || 'অপশন'} />:{' '}<b data-var-name=""><Val v={sel.variant_label} /></b></p>{list}</div>);
+  const cur = parts(sel);
+  return (<div className="var-pick var-groups" data-variants="" data-var-groups={String(n)}>{jsxList(Array.from({ length: n }, (_, g) => {
+    const values = [...new Set(V.map((v) => parts(v)[g]))];
+    const label = titles.length === n ? titles[g] : `অপশন ${bn(g + 1)}`;
+    return <div className="var-group"><p className="var-head"><Val v={label} />:{' '}<b data-var-gname={String(g)}><Val v={cur[g]} /></b></p><div className="var-list" role="radiogroup" aria-label={`${attrValue(label)} বাছাই করুন`}>{jsxList(values.map((val) => {
+      const pic = g === 0 ? V.map(imgOf).find((x, i) => x && parts(V[i])[0] === val) : null;
+      return <button type="button" role="radio" className={`var-opt ${cur[g] === val ? 'on' : ''}`} data-vg={String(g)} data-vv={attrValue(val)} aria-checked={cur[g] === val ? 'true' : 'false'}>{(pic ? <img src={`/media/${attrValue(pic)}/t`} alt="" loading="lazy" draggable="false" /> : null)}<span><Val v={val} /></span></button>;
+    }))}</div></div>;
+  }))}{list}</div>);
 }
 // Questions & answers on a product: what others asked and the shop's answers, plus a small form to ask.
 function questionsBlock(p: { id: unknown; }, s: Settings, questions: Question[]) {
@@ -283,7 +301,7 @@ function questionsBlock(p: { id: unknown; }, s: Settings, questions: Question[])
 }
 // 📦 the packs a product is sold in: one button per pack with its total (pieces × price per piece)
 function packPicker(packs: number[], price: number, maxQ: number) {
-  return (<div className="pack-picker" data-pack-picker="" data-price={attrValue(price)}><p className="pack-title">📦 প্যাক বাছাই করুন <span className="small muted">(দাম প্রতি পিস {money(price)})</span></p><div className="pack-list" role="group" aria-label="প্যাক">{jsxList(packs.map((n, i) => <button type="button" className={`pack-opt ${i === 0 ? 'on' : ''}`} data-pack={String(n)} aria-pressed={i === 0 ? 'true' : 'false'} disabled={n > maxQ}><b>{bn(n)} পিস</b><span data-pack-price="">{money(Math.round(n * price * 100) / 100)}</span></button>))}</div><p className="pack-total">মোট: <b data-pack-total="">{bn(packs[0])} পিস × {money(price)} = {money(Math.round(packs[0] * price * 100) / 100)}</b></p></div>);
+  return (<div className="pack-picker" data-pack-picker="" data-price={attrValue(price)}><p className="pack-title">📦 প্যাক বাছাই করুন <span className="small muted">(দাম প্রতি পিস <span data-pack-unit="">{money(price)}</span>)</span></p><div className="pack-list" role="group" aria-label="প্যাক">{jsxList(packs.map((n, i) => <button type="button" className={`pack-opt ${i === 0 ? 'on' : ''}`} data-pack={String(n)} aria-pressed={i === 0 ? 'true' : 'false'} disabled={n > maxQ}><b>{bn(n)} পিস</b><span data-pack-price="">{money(Math.round(n * price * 100) / 100)}</span></button>))}</div><p className="pack-total">মোট: <b data-pack-total="">{bn(packs[0])} পিস × {money(price)} = {money(Math.round(packs[0] * price * 100) / 100)}</b></p></div>);
 }
 type ProductPageProps = {
   product: FullProduct; related: Product[]; settings: Settings; inlineProducts?: Record<string, FullProduct>; categories?: Category[];
@@ -310,7 +328,8 @@ function productPage({ product: p, related, settings: s, inlineProducts = {}, ca
   const waText = `আসসালামু আলাইকুম। এই পণ্যটি সম্পর্কে জানতে চাই:\n${p.name}${p.sku ? ` (SKU: ${p.sku})` : ''}\nদাম: ৳${p.price}`;
   const waBtn = C.waButton ? (<a className="btn btn-wa btn-lg" href={`https://wa.me/${attrValue(C.waButton)}?text=${attrValue(encodeURIComponent(waText))}`} target="_blank" rel="noopener" data-wa-text={attrValue(waText)} data-wa={attrValue(C.waButton)} aria-label="WhatsApp এ কথা বলুন"><RawHtml html={WA_ICON} />{' '}WhatsApp</a>) : '';
   // 📦 sold in packs (owner ticked 25 / 50 / 100 …): the price is per piece, the customer picks a pack
-  const packs = V.length ? [] : packSizes(p.pack_sizes);
+  // (a product with variants: every variant is sold in the main product's packs, each at its own price per piece)
+  const packs = packSizes(p.pack_sizes);
   const R = packRule(qtyRule(s, cur.price), packs);
   // ⏳ pre-order: the owner switched it on for this product — out of stock, it can still be ordered (sent when it arrives)
   const preorderOk = !!p.preorder && p.product_type !== 'bundle';

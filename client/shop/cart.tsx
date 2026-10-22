@@ -151,23 +151,48 @@ export function startCartButtons(): void {
     const input = $<HTMLInputElement>('input', box);
     if (!input) continue;
     const addBtn = $('[data-add][data-with-qty]');
-    const price = addBtn ? Number(addBtn.getAttribute('data-price')) || 0 : 0;
-    const pid = addBtn?.getAttribute('data-add') || '';
-    if (input.hasAttribute('data-packs')) rememberPacks(pid, input.getAttribute('data-packs'));
-    const r = rule(price, pid);
-    // 📦 pack products: the pack buttons and the total follow the number of pieces
+    // the price and the product can change on the page (a variant picked) — always read them from the add button
+    let price = 0;
+    let r: Rule = rule(0, '');
+    const now = () => {
+      price = addBtn ? Number(addBtn.getAttribute('data-price')) || 0 : 0;
+      const pid = addBtn?.getAttribute('data-add') || '';
+      if (input.hasAttribute('data-packs')) rememberPacks(pid, input.getAttribute('data-packs'));
+      r = rule(price, pid);
+    };
+    now();
+    // 📦 pack products: the pack buttons and the total follow the number of pieces (and the variant's price)
     const picker = $('[data-pack-picker]');
     const showPacks = () => {
       if (!picker) return;
       const q = parseInt(input.value, 10) || r.min;
+      const max = parseInt(input.max, 10) || r.max;
       for (const b of $all<HTMLButtonElement>('[data-pack]', picker)) {
-        const on = Number(b.getAttribute('data-pack')) === q;
+        const n = Number(b.getAttribute('data-pack'));
+        const on = n === q;
         b.classList.toggle('on', on);
         b.setAttribute('aria-pressed', on ? 'true' : 'false');
+        b.disabled = n > max;
+        const pp = $('[data-pack-price]', b);
+        if (pp) pp.textContent = money(Math.round(n * price * 100) / 100);
       }
+      const unit = $('[data-pack-unit]', picker);
+      if (unit) unit.textContent = money(price);
       const tot = $('[data-pack-total]', picker);
       if (tot) tot.textContent = `${bn(q)} পিস × ${money(price)} = ${money(Math.round(q * price * 100) / 100)}`;
     };
+    document.addEventListener('sm:variant', () => {
+      now();
+      if (r.step > 1) {
+        // whole packs only, within this variant's stock
+        const mx = parseInt(input.max, 10) || r.max;
+        input.max = String(Math.max(r.min, Math.floor(mx / r.step) * r.step));
+        input.min = String(r.min);
+      }
+      const q = parseInt(input.value, 10) || r.min;
+      input.value = String(Math.min(parseInt(input.max, 10) || r.max, Math.max(r.min, r.step > 1 ? Math.ceil(q / r.step) * r.step : q)));
+      showPacks();
+    });
     const fix = (v: number) => {
       const max = parseInt(input.max, 10) || r.max;
       const min = parseInt(input.min, 10) || 1;

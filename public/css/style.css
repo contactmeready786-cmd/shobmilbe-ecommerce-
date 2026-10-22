@@ -1108,3 +1108,7 @@ body.protect .card-pic img, body.protect .g-main img, body.protect .g-thumb img,
 @keyframes app-invite-in { from { transform: translateY(20px); opacity: 0; } to { transform: none; opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .app-invite { animation: none; } }
 @media (max-width: 560px) { .app-hero { flex-direction: column; gap: 10px; } .app-dl { width: 100%; text-align: center; } }
+
+/* ---------- 🎨 variants in two rows (রং · সাইজ) ---------- */
+.var-groups .var-group + .var-group { margin-top: 12px; }
+.var-groups .var-group .var-head { margin-bottom: 6px; }

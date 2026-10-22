@@ -353,8 +353,44 @@ function variants(): void {
       for (const t of $all('[data-g-img]')) t.classList.toggle('on', t.getAttribute('data-g-img') === im);
     }
     try { history.replaceState(null, '', `${location.pathname}?v=${id}${location.hash}`); } catch { /* ignore */ }
+    // 📦 the pack buttons and the quantity box follow the chosen variant's price (client/shop/cart.tsx)
+    document.dispatchEvent(new CustomEvent('sm:variant'));
   };
   vp.addEventListener('click', (e) => { const b = hit(e, '[data-var]'); if (b) pick(b); });
+  // "রং: সাদা · সিলভার" + "সাইজ: Small · Large": one row per option; the chosen values pick the matching variant
+  const groups = Number(vp.getAttribute('data-var-groups')) || 0;
+  const all = $all('[data-var]', vp);
+  const partsOf = (b: Element) => (b.getAttribute('data-label') || '').split('/').map((x) => x.trim());
+  const chosen = () => { const on = $('[data-var].on', vp) || all[0]; return on ? partsOf(on) : []; };
+  const match = (want: string[]) => all.find((b) => partsOf(b).every((x, i) => x === want[i]));
+  const paintGroups = () => {
+    const cur = chosen();
+    for (const o of $all('[data-vg]', vp)) {
+      const g = Number(o.getAttribute('data-vg'));
+      const val = o.getAttribute('data-vv') || '';
+      const on = cur[g] === val;
+      o.classList.toggle('on', on);
+      o.setAttribute('aria-checked', on ? 'true' : 'false');
+      const want = cur.slice(); want[g] = val;
+      const m = match(want);
+      o.classList.toggle('is-out', !m || Number(m.getAttribute('data-stock')) <= 0);
+    }
+    for (const el of $all('[data-var-gname]', vp)) el.textContent = cur[Number(el.getAttribute('data-var-gname'))] || '';
+  };
+  if (groups) {
+    vp.addEventListener('click', (e) => {
+      const o = hit(e, '[data-vg]');
+      if (!o) return;
+      const g = Number(o.getAttribute('data-vg'));
+      const val = o.getAttribute('data-vv') || '';
+      const want = chosen(); want[g] = val;
+      // the exact combination, or else the first one with this value that is in stock (then any with this value)
+      const b = match(want) || all.find((x) => partsOf(x)[g] === val && Number(x.getAttribute('data-stock')) > 0) || all.find((x) => partsOf(x)[g] === val);
+      if (b) pick(b);
+      paintGroups();
+    });
+  }
   const first = $('[data-var].on', vp);
   if (first) pick(first);
+  if (groups) paintGroups();
 }
