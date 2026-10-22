@@ -139,7 +139,8 @@ const design: string[] = [];
   const shots = outFile.replace(/\.json$/, '') + '-shots';
   fs.mkdirSync(shots, { recursive: true });
   for (const [w, h, tag] of [[1366, 800, 'computer'], [390, 844, 'phone']] as const) {
-    const page = await adm.newPage({ viewport: { width: w, height: h } });
+    const page = await adm.newPage();
+    await page.setViewportSize({ width: w, height: h });
     for (const p of paths) {
       const res = await page.goto(origin + p, { waitUntil: 'load', timeout: 60000 }).catch(() => null);
       if (!res || res.status() !== 200 || !page.url().includes('/admin')) continue;

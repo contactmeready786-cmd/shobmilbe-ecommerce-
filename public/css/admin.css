@@ -1575,3 +1575,17 @@ html[data-admin-lang="en"] .side-drop[data-side-group="দোকানের ড
 #main.admin-main .vb-own input { width: 220px; max-width: 100%; }
 #main.admin-main .vb-table .vb-brand { font-weight: 600; }
 #main.admin-main .vb-dims .vb-unit-tag { font-size: .82rem; color: var(--muted, #667085); margin-left: 2px; }
+
+/* 📐 List + small "new …" form side by side (suppliers, brands, blog, block list, warehouses, categories …): the list
+   gets the room, the form a fixed narrow column — no squeezed table with a sideways scroll bar (owner, 2026-10-23). */
+@media (min-width: 1000px) {
+  #main.admin-main .two-col:has(> .table-wrap:first-child),
+  #main.admin-main .two-col:has(> section:first-child > table),
+  #main.admin-main .two-col:has(> section:first-child > .table-wrap),
+  #main.admin-main .two-col:has(> div:first-child > .table-wrap:first-child) { grid-template-columns: minmax(0, 1fr) minmax(300px, 360px); }
+}
+/* the stock table: a little tighter so all its columns fit a laptop screen */
+.inv-table th, .inv-table td { padding-left: 6px; padding-right: 6px; }
+.inv-table td.thumb img, .inv-table td.thumb span { width: 44px; height: 44px; }
+/* row buttons never break into two lines */
+.table .row-actions, .table td .btn-sm { white-space: nowrap; }
