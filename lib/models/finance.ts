@@ -135,15 +135,7 @@ type SavePurchaseOpts = {
   account_id?: unknown;
 };
 async function savePurchase(data: SavePurchaseOpts, staffId?: Id): Promise<number> {
-  const items: PurchaseLine[] = [];
-  for (const row of data.items || []) {
-    const pid = int(row.product_id);
-    const qty = int(row.qty);
-    if (!pid || qty <= 0) continue;
-    const prod = await one<{ id: number; name: string }>('SELECT id, name FROM products WHERE id=$1', [pid]);
-    if (prod) items.push({ product_id: pid, name: prod.name, qty, unit_cost: amount(row.unit_cost) });
-  }
-  if (!items.length) throw new Error('অন্তত একটি পণ্য আর পরিমাণ দিন।');
+  const items = await purchaseLines(data.items);
   const subtotal = round2(items.reduce((s, i) => s + i.qty * i.unit_cost, 0));
   const discount = amount(data.discount);
   const shipping = amount(data.shipping);
@@ -181,14 +173,17 @@ async function savePurchase(data: SavePurchaseOpts, staffId?: Id): Promise<numbe
 // corrected price. Stock never goes below zero: pieces of this purchase that are already sold cannot be taken back.
 // Every correction is kept in purchase_edits (who, when, before, after).
 
-async function purchaseLines(rows: Body[] | null | undefined): Promise<PurchaseLine[]> {
+// A product with colours / sizes is bought colour by colour (each has its own stock and buying price) — the main
+// product itself only when it was already in the purchase being corrected (bought before it had colours / sizes).
+async function purchaseLines(rows: Body[] | null | undefined, keepIds: Set<number> = new Set()): Promise<PurchaseLine[]> {
   const items: PurchaseLine[] = [];
   for (const row of rows || []) {
     const pid = int(row.product_id);
     const qty = int(row.qty);
     if (!pid || qty <= 0) continue;
-    const prod = await one<{ id: number; name: string }>('SELECT id, name FROM products WHERE id=$1', [pid]);
+    const prod = await one<{ id: number; name: string; variant_count: number }>('SELECT id, name, variant_count FROM products WHERE id=$1', [pid]);
     if (!prod) continue;
+    if (prod.variant_count > 0 && !keepIds.has(pid)) throw new Error(`"${prod.name}" এর রং/সাইজ আছে — খুঁজে প্রতিটা রং/সাইজ আলাদা করে যোগ করুন।`);
     const same = items.find((x) => x.product_id === pid);
     if (same) { same.qty += qty; continue; } // the same product twice → one line
     items.push({ product_id: pid, name: prod.name, qty, unit_cost: amount(row.unit_cost) });
@@ -233,8 +228,11 @@ const snap = (p: PurchasesRow, items: PurchaseSnapshot['items']): PurchaseSnapsh
   items: items.map((i) => ({ product_id: i.product_id, name: i.name, qty: Number(i.qty), unit_cost: Number(i.unit_cost) })),
 });
 
-async function editPurchase(id: Id, data: SavePurchaseOpts, staffId?: Id): Promise<void> {
-  const items = await purchaseLines(data.items);
+async function editPurchase(id: Id, data: SavePurchaseOpts & { stock_too?: unknown }, staffId?: Id): Promise<void> {
+  const had = new Set((await q<{ product_id: number | null }>('SELECT product_id FROM purchase_items WHERE purchase_id=$1', [id])).map((r) => Number(r.product_id)).filter(Boolean));
+  const items = await purchaseLines(data.items, had);
+  // "স্টকেও বদলান" off: only the record is corrected (the stock was already put right by hand, e.g. on the colours / sizes)
+  const moveStock = data.stock_too === undefined || data.stock_too === '1' || data.stock_too === true;
   const subtotal = round2(items.reduce((s, i) => s + i.qty * i.unit_cost, 0));
   const discount = amount(data.discount);
   const shipping = amount(data.shipping);
@@ -258,13 +256,16 @@ async function editPurchase(id: Id, data: SavePurchaseOpts, staffId?: Id): Promi
         const n = after.get(pid) || { qty: 0, value: 0 };
         const prod = (await t.query<Pick<ProductsRow, 'stock' | 'cost_price' | 'name'>>('SELECT stock, cost_price, name FROM products WHERE id=$1 FOR UPDATE', [pid])).rows[0];
         if (!prod) continue;
-        const delta = n.qty - o.qty;
+        const delta = moveStock ? n.qty - o.qty : 0;
         if (prod.stock + delta < 0) {
           const least = o.qty - prod.stock;
           throw new Error(`"${prod.name}" — এই পারচেজের ${o.qty - Math.max(0, prod.stock)} পিস এর মধ্যে বিক্রি/বের হয়ে গেছে (এখন স্টক ${prod.stock})। পরিমাণ ${least} এর কম করা যাবে না।`);
         }
-        if (delta || o.value !== n.value) {
-          await t.query('UPDATE products SET cost_price=$1 WHERE id=$2', [correctedCost(prod.stock, Number(prod.cost_price) || 0, o, n), pid]);
+        if (n.qty - o.qty || o.value !== n.value) {
+          // (stock not moved: the stock already holds the corrected pieces, not the old ones)
+          const cost = moveStock ? correctedCost(prod.stock, Number(prod.cost_price) || 0, o, n)
+            : correctedCost(prod.stock - n.qty + o.qty, Number(prod.cost_price) || 0, o, n);
+          await t.query('UPDATE products SET cost_price=$1 WHERE id=$2', [cost, pid]);
         }
         if (delta) await catalog.moveStock(t, pid, delta, 'purchase_edit', 'purchase', id, '', staffId, true, n.qty ? round2(n.value / n.qty) : null);
       }

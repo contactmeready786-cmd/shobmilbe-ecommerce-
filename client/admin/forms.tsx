@@ -155,14 +155,14 @@ function productForm(): void {
 }
 
 // ---------- product search picker (order items, bundle parts, purchases) ----------
-function picker(input: HTMLInputElement | null, results: HTMLElement | null, onPick: (p: Found) => void, opts: { all?: boolean; type?: string } = {}): void {
+function picker(input: HTMLInputElement | null, results: HTMLElement | null, onPick: (p: Found) => void, opts: { all?: boolean; type?: string; variants?: boolean } = {}): void {
   if (!input || !results) return;
   let timer = 0;
   let list: Found[] = [];
   const run = async () => {
     const q = input.value.trim();
     try {
-      const j = await getJSON<{ products: Found[] }>(`/admin/api/products/search?q=${encodeURIComponent(q)}${opts.all ? '&all=1' : ''}${opts.type ? `&type=${opts.type}` : ''}`);
+      const j = await getJSON<{ products: Found[] }>(`/admin/api/products/search?q=${encodeURIComponent(q)}${opts.all ? '&all=1' : ''}${opts.type ? `&type=${opts.type}` : ''}${opts.variants ? '&variants=1' : ''}`);
       list = j.products;
       paint(results, list.length ? list.map((p, i) =>
         <li><button type="button" data-i={String(i)}><Pic p={p} /><span><b>{p.name}</b><small>{p.sku ? `${p.sku} · ` : ''}{money(p.price)} · স্টক {bn(p.stock)}</small></span></button></li>)
@@ -337,7 +337,7 @@ function purchaseForm(): void {
         <td className="num" data-line-total="" /><td><button type="button" className="btn btn-sm btn-danger" data-remove-row="">🗑️ মুছুন</button></td></tr>);
     total();
   };
-  picker($('[data-product-search]', pur), $('[data-product-results]', pur), (p) => { addRow(p); markChanged(pur); }, { all: true });
+  picker($('[data-product-search]', pur), $('[data-product-results]', pur), (p) => { addRow(p); markChanged(pur); }, { all: true, variants: true });
   try { (JSON.parse(pur.getAttribute('data-prefill') || '[]') as Found[]).forEach(addRow); } catch { /* nothing to prefill */ }
   // pack maths: 2 packets × 1000 pcs at ৳200 each → 2000 pcs at ৳0.20
   pur.addEventListener('click', (e) => {

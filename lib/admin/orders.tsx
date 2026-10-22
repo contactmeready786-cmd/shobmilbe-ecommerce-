@@ -463,7 +463,18 @@ async function editOrder(ctx: AdminCtx, m: RouteMatch) {
 // ---------------------------------------------------------------- small JSON APIs
 async function productSearch(ctx: AdminCtx) {
   const q = str(ctx.query.get('q'), 60);
-  const rows = await catalog.listProducts({ q, includeInactive: ctx.query.get('all') === '1', limit: 12, sort: 'name', type: ctx.query.get('type') || undefined, items: !ctx.query.get('type') });
+  let rows = await catalog.listProducts({ q, includeInactive: ctx.query.get('all') === '1', limit: 12, sort: 'name', type: ctx.query.get('type') || undefined, items: !ctx.query.get('type') });
+  // 🛒 the purchase form (owner, 2026-10-23): a product with colours / sizes is bought colour by colour — each one has
+  // its own stock and buying price — so its colours / sizes are offered instead of the main product
+  if (ctx.query.get('variants') === '1') {
+    const out: typeof rows = [];
+    for (const p of rows) {
+      if (p.variant_count > 0) out.push(...(await catalog.listVariants(p.id)).map((v) => ({ ...v, image_id: v.image_id || p.image_id })));
+      else out.push(p);
+      if (out.length >= 40) break;
+    }
+    rows = out.slice(0, 40);
+  }
   return ctx.json(200, { products: rows.map((p) => ({ id: p.id, name: p.name, sku: p.sku, price: p.price, cost: ctx.can('see_cost') ? p.cost_price : undefined, stock: p.stock, unit: p.unit, image: p.image_id ? `/media/${p.image_id}/t` : null, emoji: p.emoji, type: p.product_type })) });
 }
 async function courierList(ctx: AdminCtx, m: RouteMatch) {

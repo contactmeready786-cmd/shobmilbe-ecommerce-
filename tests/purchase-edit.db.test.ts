@@ -69,3 +69,21 @@ test('a cancelled purchase cannot be corrected', { skip }, async () => {
   await finance.setPurchaseStatus(p2, 'cancelled');
   await assert.rejects(finance.editPurchase(p2, { items: [{ product_id: pid, qty: 6, unit_cost: 4 }] }, null), /বাতিল/);
 });
+
+test('colours / sizes: bought one by one; an old main-product line can be split without touching the stock', { skip }, async () => {
+  const parent = (await db.one<{ id: number }>("INSERT INTO products(name, slug, price, stock, active) VALUES('পলি', $1, 3, 0, true) RETURNING id", [`poly-${Date.now()}`]))!.id;
+  // bought before it had colours
+  const old = await finance.savePurchase({ supplier_id: sup, status: 'received', items: [{ product_id: parent, qty: 100, unit_cost: 2 }] });
+  const catalog = await import('../lib/models/catalog');
+  await catalog.saveVariants(parent, { title: 'রং', rows: [{ label: 'সাদা', price: 3, active: true }, { label: 'সিলভার', price: 3, active: true }] });
+  const kids = await db.q<{ id: number }>('SELECT id FROM products WHERE parent_id=$1 ORDER BY id', [parent]);
+  await db.q('UPDATE products SET stock=50 WHERE parent_id=$1', [parent]); // stock put on the colours by hand
+  // a new purchase can't use the main product any more
+  await assert.rejects(finance.savePurchase({ supplier_id: sup, items: [{ product_id: parent, qty: 5, unit_cost: 2 }] }), /রং\/সাইজ/);
+  // the old purchase split into the colours, record only
+  await finance.editPurchase(old, { supplier_id: sup, stock_too: '0', items: [{ product_id: kids[0].id, qty: 50, unit_cost: 2 }, { product_id: kids[1].id, qty: 50, unit_cost: 2 }] }, null);
+  const st = await db.q<{ stock: number }>('SELECT stock FROM products WHERE parent_id=$1 ORDER BY id', [parent]);
+  assert.deepEqual(st.map((r) => r.stock), [50, 50]);
+  const items = await db.q<{ product_id: number }>('SELECT product_id FROM purchase_items WHERE purchase_id=$1 ORDER BY id', [old]);
+  assert.deepEqual(items.map((r) => r.product_id), [kids[0].id, kids[1].id]);
+});
