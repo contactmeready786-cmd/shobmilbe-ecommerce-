@@ -166,7 +166,7 @@ async function categorySubtree(id?: Id): Promise<number[]> {
   return (await q<{ id: number }>(`WITH RECURSIVE t AS (SELECT id FROM categories WHERE id=$1
     UNION SELECT c.id FROM categories c JOIN t ON c.parent_id=t.id) SELECT id FROM t`, [int(id)])).map((r) => r.id);
 }
-type CategoryInput = { id?: number | null; name: unknown; icon?: unknown; sort?: unknown; active?: boolean; imageId?: unknown; parentId?: unknown; seo?: { title?: unknown; description?: unknown; text?: unknown; bannerId?: unknown; noindex?: boolean }; sizeChart?: unknown };
+type CategoryInput = { id?: number | null; name: unknown; icon?: unknown; sort?: unknown; active?: boolean; imageId?: unknown; parentId?: unknown; seo?: { title?: unknown; description?: unknown; text?: unknown; bannerId?: unknown; noindex?: boolean }; sizeChart?: unknown; noFreeDelivery?: boolean };
 async function saveCategory({ id, name, icon, sort, active, imageId, parentId, seo, sizeChart, noFreeDelivery }: CategoryInput): Promise<number> {
   const vals = [str(name, 60), str(icon, 8) || '📦', int(sort), active !== false, int(imageId) || null];
   // SEO title / description, the text shown above the products, and a wide banner picture (Admin → ক্যাটাগরি → SEO ও ব্যানার)
