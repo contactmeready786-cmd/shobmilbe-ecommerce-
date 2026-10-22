@@ -87,3 +87,22 @@ test('colours / sizes: bought one by one; an old main-product line can be split 
   const items = await db.q<{ product_id: number }>('SELECT product_id FROM purchase_items WHERE purchase_id=$1 ORDER BY id', [old]);
   assert.deepEqual(items.map((r) => r.product_id), [kids[0].id, kids[1].id]);
 });
+
+test('a trial purchase deleted: stock back out, its payment gone with it, due right; restored as cancelled', { skip }, async () => {
+  const trash = await import('../lib/models/trash');
+  const s0 = (await stock()).stock;
+  const before = await due(sup);
+  const p = await finance.savePurchase({ supplier_id: sup, status: 'received', items: [{ product_id: pid, qty: 7, unit_cost: 4 }], paid_now: 10 });
+  assert.equal((await stock()).stock, s0 + 7);
+  await finance.setPurchaseStatus(p, 'cancelled');
+  const bin = await trash.move('purchase', p, { name: 'test' });
+  assert.ok(bin);
+  assert.equal((await stock()).stock, s0);
+  assert.equal(await due(sup), before);
+  assert.equal((await db.q('SELECT 1 FROM transactions WHERE purchase_id=$1', [p])).length, 0);
+  const r = await trash.restore(bin!);
+  assert.ok(!('error' in r && r.error), JSON.stringify(r));
+  const back = await db.one<{ status: string }>('SELECT status FROM purchases WHERE id=$1', [p]);
+  assert.equal(back!.status, 'cancelled');
+  assert.equal((await db.q('SELECT 1 FROM purchase_items WHERE purchase_id=$1', [p])).length, 1);
+});

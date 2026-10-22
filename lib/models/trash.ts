@@ -45,6 +45,12 @@ const KINDS: Record<string, Kind> = {
   research_source: { label: 'রিসার্চের দোকান', icon: '🏪', table: 'research_sources', name: (r) => r.name },
   question: { label: 'পণ্যের প্রশ্ন', icon: '❓', table: 'product_questions', name: (r) => String(r.question || '').slice(0, 120) },
   warehouse: { label: 'গুদাম / শাখা', icon: '🏬', table: 'warehouses', name: (r) => r.name, children: [['warehouse_stock', 'warehouse_id']] },
+  // 🛒 a purchase (owner only, 2026-10-23 — for trial entries): cancelled first, so the stock it brought goes back out;
+  // its lines and its payments go with it (the supplier's due stays right) and come back with it, still cancelled
+  purchase: {
+    label: 'পারচেজ (মাল কেনা)', icon: '🛒', table: 'purchases', name: (r) => `${r.code} — ৳${r.total}`,
+    children: [['purchase_items', 'purchase_id'], ['transactions', 'purchase_id']],
+  },
   customer: { label: 'কাস্টমার', icon: '👤', table: 'customers', name: (r) => `${r.name || '(নাম নেই)'} (${r.phone})` },
   // a brand: its products stay, they just lose the brand (given back when it is restored)
   brand: { label: 'ব্র্যান্ড', icon: '🏷️', table: 'brands', name: (r) => r.name, refs: [['products', 'brand_id']], imageCol: 'logo_id' },
@@ -103,6 +109,7 @@ async function move(kind: string, id: Id, who: Who = {}) {
       }
       await t.query('DELETE FROM transactions WHERE order_id=$1', [id]);
     }
+    if (kind === 'purchase') await t.query('DELETE FROM transactions WHERE purchase_id=$1', [id]);
     await t.query(`DELETE FROM ${K.table} WHERE id=$1`, [id]);
     const e = (await t.query<Pick<TrashRow, 'id'>>(`INSERT INTO trash(kind, ref_id, name, data, media, deleted_by, deleted_by_name, from_path, ip)
       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id`,
@@ -182,6 +189,11 @@ async function restore(id?: Id) {
           if (r.bundle_id && r.product_id) {
             const ok = (await t.query<{ n: number }>('SELECT count(*)::int AS n FROM products WHERE id = ANY($1::int[])', [[r.bundle_id, r.product_id]])).rows[0].n === 2;
             if (!ok) continue;
+          }
+          // a purchase line whose product was deleted for good comes back without the link
+          if (table === 'purchase_items' && r.product_id && !(await t.query('SELECT 1 FROM products WHERE id=$1', [r.product_id])).rows.length) {
+            await ins(table, { ...r, product_id: null });
+            continue;
           }
           await ins(table, r);
         }
