@@ -338,7 +338,7 @@ function variants(): void {
     if (pn) pn.hidden = !(pre && stock <= 0);
     const qi = $<HTMLInputElement>('[data-qty] input');
     if (qi) {
-      const mx = Math.max(1, pre ? rule(price).max : Math.min(stock, rule(price).max));
+      const mx = Math.max(1, pre ? rule(price, id).max : Math.min(stock, rule(price, id).max));
       qi.max = String(mx);
       qi.setAttribute('data-stock', String(stock));
       if ((parseInt(qi.value, 10) || 1) > mx) qi.value = String(mx);

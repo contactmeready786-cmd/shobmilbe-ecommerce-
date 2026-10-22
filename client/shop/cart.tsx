@@ -189,8 +189,11 @@ export function startCartButtons(): void {
     document.addEventListener('sm:variant', () => {
       now();
       if (r.step > 1) {
-        // whole packs only, within this variant's stock
-        const mx = parseInt(input.max, 10) || r.max;
+        // whole packs only: up to the pack rule's limit (the biggest pack is always allowed) and this variant's stock —
+        // not the per-piece limit of a dearer item (that once locked the 100-piece pack of a ৳6+ box)
+        const stock = Number(input.getAttribute('data-stock'));
+        const pre = !!$('[data-buy-box][data-preorder]');
+        const mx = pre || !Number.isFinite(stock) || input.getAttribute('data-stock') === null ? r.max : Math.min(stock, r.max);
         input.max = String(Math.max(r.min, Math.floor(mx / r.step) * r.step));
         input.min = String(r.min);
       }
