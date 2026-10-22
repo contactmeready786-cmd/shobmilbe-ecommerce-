@@ -101,3 +101,17 @@ test('real DNS: a Googlebot address from Google\'s published list verifies', { s
   assert.equal(await crawlers.verdict(GOOGLEBOT, '66.249.66.1'), 'verified');
   assert.equal(await crawlers.verdict(GOOGLEBOT, '1.1.1.1'), 'fake');
 });
+
+test('a DNS hiccup does not shut Google out for hours (checked again after 2 minutes)', async () => {
+  let fail = true;
+  crawlers.setResolver({
+    reverse: async () => { if (fail) throw Object.assign(new Error('dns timeout'), { code: 'ETIMEOUT' }); return ['crawl-66-249-66-9.googlebot.com']; },
+    lookup: async () => ['66.249.66.9'],
+  });
+  const ua = 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)';
+  assert.equal(await crawlers.verdict(ua, '66.249.66.9'), 'fake');
+  fail = false;
+  const real = Date.now;
+  Date.now = () => real() + 3 * 60e3;
+  try { assert.equal(await crawlers.verdict(ua, '66.249.66.9'), 'verified'); } finally { Date.now = real; crawlers.setResolver(null); }
+});

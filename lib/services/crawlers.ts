@@ -80,15 +80,21 @@ export async function ipBelongsTo(ip: string, family: Family): Promise<boolean> 
   const hit = cache.get(key);
   if (hit && Date.now() - hit.at < TTL) return hit.ok;
   let ok = false;
+  let unsure = false;
   try {
     const names = await withTimeout(resolver.reverse(ip.replace(/^::ffff:/, '')), 2000);
     for (const name of names.filter((n) => family.domains.some((d) => endsWithDomain(n, d))).slice(0, 3)) {
       const addrs = await withTimeout(resolver.lookup(name), 2000);
       if (addrs.some((a) => sameIp(a, ip))) { ok = true; break; }
     }
-  } catch (_) { ok = false; }
+  } catch (e) {
+    // "no such name" is a clear no; a timeout or a DNS hiccup is not — that must not shut Google out for hours
+    const code = (e as { code?: string }).code;
+    unsure = !(code === 'ENOTFOUND' || code === 'ENODATA');
+  }
   if (cache.size >= MAX) cache.delete(cache.keys().next().value as string);
-  cache.set(key, { ok, at: Date.now() });
+  // a hiccup is remembered for 2 minutes only (then checked again), a real answer for 6 hours
+  cache.set(key, { ok, at: unsure ? Date.now() - TTL + 120e3 : Date.now() });
   return ok;
 }
 
