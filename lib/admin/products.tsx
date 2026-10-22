@@ -241,7 +241,7 @@ type ProductFormProps = Partial<Omit<FormExtras, 'tiers' | 'links'>> & {
 // (client/admin/vbuilder.ts) → one row per colour × size with its own selling price, buying price, stock and photo.
 // Saved with the product (catalog.saveVariants); the packs ticked above (25 / 50 / 100) go to every variant.
 // The shop then shows: রং → সাইজ → প্যাক → অর্ডার.
-export type VbRow = { id: number; color: string; size: string; price: string; cost: string; stock: string; img: string; on: boolean; del: boolean; cur?: { cost: number; stock: number } };
+export type VbRow = { id: number; color: string; size: string; price: string; cost: string; stock: string; img: string; on: boolean; del: boolean; cur?: { cost: number; stock: number; barcode?: string } };
 const VB_COLORS = ['সাদা', 'কালো', 'সিলভার', 'প্রাইভেসি', 'লাল', 'নীল', 'সবুজ', 'হলুদ', 'গোল্ডেন', 'ধূসর', 'গোলাপি', 'বাদামি', 'স্বচ্ছ'];
 const VB_SIZES = ['Small', 'Medium', 'Large', 'XL', 'XXL', 'ছোট', 'মাঝারি', 'বড়'];
 const vbClean = (v: unknown) => String(v ?? '').replace(/\//g, '-').replace(/\s+/g, ' ').trim().slice(0, 28);
@@ -255,7 +255,7 @@ function vbRowsFromVariants(variants: catalog.Product[], images: number[], title
   return variants.map((v) => {
     const [color, size] = vbSplit(v.variant_label, title);
     const k = v.image_id ? images.indexOf(int(v.image_id)) : -1;
-    return { id: v.id, color, size, price: String(v.price ?? ''), cost: '', stock: '', img: k >= 0 ? String(k + 1) : '', on: !!v.active, del: false, cur: { cost: Number(v.cost_price) || 0, stock: Number(v.stock) || 0 } };
+    return { id: v.id, color, size, price: String(v.price ?? ''), cost: '', stock: '', img: k >= 0 ? String(k + 1) : '', on: !!v.active, del: false, cur: { cost: Number(v.cost_price) || 0, stock: Number(v.stock) || 0, barcode: v.barcode || '' } };
   });
 }
 export function vbRowsFromBody(b: Body): VbRow[] {
@@ -269,7 +269,7 @@ function vbRow(r: VbRow | null, seeCost: boolean, nImg: number, tpl = false) {
   const x = r || { id: 0, color: '', size: '', price: '', cost: '', stock: '', img: '', on: true, del: false };
   const old = !!x.id;
   return <tr data-vb-row="" data-c={x.color} data-s={x.size} className={x.on ? '' : 'row-off'} hidden={x.del} data-deleted={x.del ? '1' : undefined}>
-    <td><input disabled={tpl} type="hidden" name="vb_del" defaultValue={x.del ? '1' : '0'} /><input disabled={tpl} type="hidden" name="vb_id" defaultValue={x.id ? String(x.id) : ''} /><input disabled={tpl} type="hidden" name="vb_color" defaultValue={x.color} /><input disabled={tpl} type="hidden" name="vb_size" defaultValue={x.size} /><b data-vb-ctext=""><Val v={x.color || '—'} /></b></td>
+    <td><input disabled={tpl} type="hidden" name="vb_del" defaultValue={x.del ? '1' : '0'} /><input disabled={tpl} type="hidden" name="vb_id" defaultValue={x.id ? String(x.id) : ''} /><input disabled={tpl} type="hidden" name="vb_color" defaultValue={x.color} /><input disabled={tpl} type="hidden" name="vb_size" defaultValue={x.size} /><b data-vb-ctext=""><Val v={x.color || '—'} /></b>{(x.cur && x.cur.barcode ? <><br /><span className="small muted mono" title="এই রং-সাইজের নিজের বারকোড"><Val v={x.cur.barcode} /></span></> : null)}</td>
     <td data-vb-stext=""><Val v={x.size || '—'} /></td>
     <td><input disabled={tpl} name="vb_price" type="number" step="0.01" min="0" className="w-num" defaultValue={x.price} aria-label="বিক্রির দাম (১ পিস)" /></td>
     {(seeCost ? <td>{(old ? <><input disabled={tpl} type="hidden" name="vb_cost" defaultValue="" /><span className="small">{money(x.cur ? x.cur.cost : 0)}</span></> : <input disabled={tpl} name="vb_cost" type="number" step="0.01" min="0" className="w-num" defaultValue={x.cost} aria-label="কেনা দাম (১ পিস)" />)}</td> : null)}
@@ -291,7 +291,7 @@ function variantBuilder(p: ProductDraft, rows: VbRow[], seeCost: boolean) {
     <p><button type="button" className="btn btn-sm" data-vb-make="">📋 দামের টেবিল তৈরি করুন</button></p>
     <div className="table-wrap"><table className="table compact vb-table"><thead><tr><th>রং</th><th>সাইজ</th><th>বিক্রির দাম ৳ (১ পিস)</th>{(seeCost ? <th>কেনা দাম ৳ (১ পিস)</th> : null)}<th>স্টক (পিস)</th><th>ছবি</th><th>দোকানে</th><th></th></tr></thead>
       <tbody data-vb-body="">{jsxList(rows.map((r) => vbRow(r, seeCost, nImg)))}</tbody></table></div>
-    <p className="small muted" data-vb-empty="" hidden={rows.some((r) => !r.del)}>এখনো কোনো রং/সাইজ নেই।</p><p className="note small" data-vb-delnote="" hidden>🗑️ মুছে ফেলা রং/সাইজ "সেভ" চাপলে রিসাইকেল বিনে যাবে।</p>
+    {(rows.some((r) => r.id && !r.del) ? <p><a className="btn btn-sm btn-ghost" href={`/admin/products/labels?ids=${rows.filter((r) => r.id && !r.del).map((r) => r.id).join(',')}`} target="_blank" rel="noopener">🏷️ সব রং/সাইজের বারকোড লেবেল প্রিন্ট</a>{' '}<span className="small muted">প্রতিটা রং-সাইজের প্যাকেটে তার নিজের লেবেল লাগান — প্যাক করা আর কুরিয়ারে দেওয়ার সময় স্ক্যান করলে ঠিক সেটাই মেলে।</span></p> : null)}<p className="small muted" data-vb-empty="" hidden={rows.some((r) => !r.del)}>এখনো কোনো রং/সাইজ নেই।</p><p className="note small" data-vb-delnote="" hidden>🗑️ মুছে ফেলা রং/সাইজ "সেভ" চাপলে রিসাইকেল বিনে যাবে।</p>
     <table hidden data-vb-template=""><tbody>{vbRow(null, seeCost, nImg, true)}</tbody></table>
     <ul className="small muted"><li><b>ছবি:</b> উপরে পণ্যের ছবিগুলো তুলুন (ছবি ১, ২, ৩…), তারপর প্রতিটা রঙের সারিতে তার ছবির নম্বর বাছুন — একই রঙের বাকি সারিতে নিজে থেকে বসে যাবে। কাস্টমার রং বাছলে বড় ছবিটা বদলে যাবে।</li>
       <li><b>প্যাক:</b> উপরের "📦 প্যাক / বান্ডেল" অংশে ২৫ / ৫০ / ১০০ টিক দিলে সব রং-সাইজে চলবে — দাম হবে প্যাকের পিস × সেই রং-সাইজের ১ পিসের দাম।</li>
