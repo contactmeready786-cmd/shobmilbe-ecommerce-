@@ -127,6 +127,48 @@ await adm.addInitScript(NAME_HELPER);
 await adm.addCookies(cookies);
 for (const p of ADMIN) await check(adm, p, true);
 
+// 📐 Design check of every admin page (owner, 2026-10-23: no squeezed tables with a sideways scroll bar where the
+// page has room). Never fails the run — it writes a list of what spills over, at a computer width and a phone width,
+// and a picture of each page at the computer width (ci-results/shots/) to look at.
+const design: string[] = [];
+{
+  const { ADMIN_GET_ROUTES } = await import('../../lib/next/admin-routes.ts');
+  const skip = /\/api\/|\.csv$|\.xlsx$|\.xml$|\.json$|download|export|logout|\/print|invoice|checklist|labels|memo|preview|\/media/;
+  const paths = [...new Set(ADMIN_GET_ROUTES.map((r) => (typeof r === 'string' ? r : r.source.replace(/^\^|\$$/g, '').replace(/\\\//g, '/').replace(/\(\\d\+\)/g, '1').replace(/\([^)]*\)/g, 'x'))))]
+    .filter((p) => p.startsWith('/admin') && !skip.test(p) && !/[\\[\]?*+]/.test(p));
+  const shots = outFile.replace(/\.json$/, '') + '-shots';
+  fs.mkdirSync(shots, { recursive: true });
+  for (const [w, h, tag] of [[1366, 800, 'computer'], [390, 844, 'phone']] as const) {
+    const page = await adm.newPage({ viewport: { width: w, height: h } });
+    for (const p of paths) {
+      const res = await page.goto(origin + p, { waitUntil: 'load', timeout: 60000 }).catch(() => null);
+      if (!res || res.status() !== 200 || !page.url().includes('/admin')) continue;
+      await page.waitForTimeout(300);
+      const found = await page.evaluate(() => {
+        const out: string[] = [];
+        const doc = document.documentElement;
+        if (doc.scrollWidth > doc.clientWidth + 4) out.push(`the whole page is ${doc.scrollWidth - doc.clientWidth}px too wide`);
+        for (const el of document.querySelectorAll<HTMLElement>('.table-wrap, .panel, section, table, form, .two-col > *')) {
+          const cs = getComputedStyle(el);
+          if (el.offsetParent === null) continue;
+          if (el.scrollWidth > el.clientWidth + 6 && /auto|scroll/.test(cs.overflowX)) {
+            const head = el.querySelector('h1, h2, h3, th')?.textContent?.trim().slice(0, 40) || el.className.slice(0, 40);
+            out.push(`sideways scroll (${el.clientWidth}px box, needs ${el.scrollWidth}px): ${head}`);
+          }
+        }
+        return [...new Set(out)].slice(0, 6);
+      }).catch(() => [] as string[]);
+      if (found.length) design.push(`${tag} ${p}\n   ${found.join('\n   ')}`);
+      if (tag === 'computer') {
+        const file = p.replace(/^\/admin\/?/, '').replace(/[^a-z0-9]+/gi, '_') || 'dashboard';
+        await page.screenshot({ path: `${shots}/${file}.jpg`, fullPage: true, type: 'jpeg', quality: 45 }).catch(() => {});
+      }
+    }
+    await page.close();
+  }
+  fs.writeFileSync(outFile.replace(/\.json$/, '') + '-design.txt', design.length ? design.join('\n') + '\n' : 'nothing spills over\n');
+}
+
 await browser.close();
 fs.writeFileSync(outFile, JSON.stringify(results, null, 1));
 for (const r of results) console.log(`${r.problems.length ? '❌' : '✅'} ${r.path} (${r.status})${r.problems.length ? '\n   ' + r.problems.join('\n   ') : ''}`);

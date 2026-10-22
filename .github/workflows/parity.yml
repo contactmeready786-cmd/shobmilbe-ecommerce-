@@ -117,6 +117,8 @@ jobs:
           cp package-lock.json "$OUT/" 2>/dev/null || true
           for f in versions typecheck tests build compare compare-all coverage scenarios browser pieces; do cp "$RUNNER_TEMP/$f.txt" "$OUT/" 2>/dev/null || true; done
           [ -d "$RUNNER_TEMP/diff-pages" ] && cp -r "$RUNNER_TEMP/diff-pages" "$OUT/"
+          [ -d "$RUNNER_TEMP/browser-shots" ] && cp -r "$RUNNER_TEMP/browser-shots" "$OUT/shots"
+          cp "$RUNNER_TEMP/browser-design.txt" "$OUT/design.txt" 2>/dev/null || true
           for f in "$RUNNER_TEMP"/*.server.log; do [ -f "$f" ] && tail -c 20000 "$f" > "$OUT/$(basename "$f")"; done
           echo "${{ github.sha }} ${{ job.status }}" > "$OUT/RESULT"
           echo '{"git":{"deploymentEnabled":false}}' > "$OUT/vercel.json"  # Vercel must never build this branch
