@@ -71,6 +71,9 @@ async function post(ctx: AdminCtx) {
 // ♻️ a returned parcel's packing is still good (from the order page)
 async function reused(ctx: AdminCtx, m: RouteMatch) {
   const id = int(m[1]);
+  // only a parcel that came back (returned / cancelled after it went out)
+  const o = await db.one<{ status: string }>('SELECT status FROM orders WHERE id=$1', [id]);
+  if (!o || !['returned', 'cancelled'].includes(o.status)) return ctx.fail(`/admin/orders/${id}`, 'শুধু ফেরত আসা / বাতিল অর্ডারের প্যাকিং আবার ব্যবহারযোগ্য করা যায়।');
   const n = await db.tx((t) => P.markReused(t, id, ctx.user.id));
   await ctx.log('packing_reused', 'order', id, `${n}টি প্যাকিং জিনিস আবার ব্যবহারযোগ্য`);
   return ctx.back(`/admin/orders/${id}`, 'saved');

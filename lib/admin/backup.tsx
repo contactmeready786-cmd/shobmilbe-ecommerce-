@@ -1,7 +1,7 @@
 // Admin → ব্যাকআপ ও রিস্টোর (owner only): download a backup now, see every backup made (by hand and the nightly
 // automatic one), and the step-by-step way to get the shop back from a backup.
 import { Val, attrValue, jsxList } from '../react/html';
-import { bn, fmtDate, str } from '../util';
+import { bn, fmtDate, str, ymd } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
 import * as security from '../security';
@@ -54,7 +54,7 @@ async function download(ctx: AdminCtx) {
   await db.q(`INSERT INTO backups(kind, ok, size_bytes, tables, rows_count, with_images, encrypted, staff_id) VALUES('manual', true, $1, $2, $3, false, $4, $5)`,
     [r.buffer.length, r.tables, r.rows, r.encrypted, ctx.user.id]);
   await ctx.log('export', 'security', null, `ব্যাকআপ নামানো (${r.rows} সারি${r.encrypted ? ', তালাবদ্ধ' : ', তালা ছাড়া'})`);
-  const name = `shobmilbe-backup-${new Date().toISOString().slice(0, 10)}${r.encrypted ? '.smbk' : '.json.gz'}`;
+  const name = `shobmilbe-backup-${ymd()}${r.encrypted ? '.smbk' : '.json.gz'}`;
   return ctx.reply.answer(200, { 'Content-Type': 'application/octet-stream', 'Content-Disposition': `attachment; filename="${name}"`, 'Content-Length': r.buffer.length, 'Cache-Control': 'no-store' }, r.buffer);
 }
 

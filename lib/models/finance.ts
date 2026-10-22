@@ -230,8 +230,12 @@ const snap = (p: PurchasesRow, items: PurchaseSnapshot['items']): PurchaseSnapsh
 });
 
 async function editPurchase(id: Id, data: SavePurchaseOpts & { stock_too?: unknown }, staffId?: Id): Promise<void> {
-  const had = new Set((await q<{ product_id: number | null }>('SELECT product_id FROM purchase_items WHERE purchase_id=$1', [id])).map((r) => Number(r.product_id)).filter(Boolean));
-  const items = await purchaseLines(data.items, had);
+  const before = await q<{ product_id: number | null; name: string; qty: number; unit_cost: number }>('SELECT product_id, name, qty, unit_cost FROM purchase_items WHERE purchase_id=$1 ORDER BY id', [id]);
+  const had = new Set(before.map((r) => Number(r.product_id)).filter(Boolean));
+  // lines whose product was deleted for good can't be shown in the form — they stay exactly as they were, so the bill
+  // (and what the supplier is owed) doesn't change by itself
+  const kept = before.filter((r) => !r.product_id).map((r) => ({ product_id: null as unknown as number, name: r.name, qty: Number(r.qty), unit_cost: Number(r.unit_cost) }));
+  const items = [...(await purchaseLines(data.items, had)), ...kept];
   // "স্টকেও বদলান" off: only the record is corrected (the stock was already put right by hand, e.g. on the colours / sizes)
   const moveStock = data.stock_too === undefined || data.stock_too === '1' || data.stock_too === true;
   const subtotal = round2(items.reduce((s, i) => s + i.qty * i.unit_cost, 0));

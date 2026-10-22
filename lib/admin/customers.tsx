@@ -1,7 +1,7 @@
 
 // Deleting customers: only the owner, and only while the switch on the customers page is on.
 import { Val, attrValue, jsxList } from '../react/html';
-import { money, bn, fmtDate, int, str, pageNum, csv, normalizePhone, validPhone, list, oneOf, ifKey } from '../util';
+import { money, bn, fmtDate, int, str, pageNum, csv, normalizePhone, validPhone, list, oneOf, ifKey, ymd } from '../util';
 import * as C from '../models/customers';
 import * as O from '../models/orders';
 import * as ui from './ui';
@@ -63,9 +63,9 @@ async function exportCsv(ctx: AdminCtx, m: RouteMatch, excel = false) {
   const rows = await C.listCustomers({ ...listFilters(ctx), limit: 100000 });
   const out: unknown[][] = [['Name', 'Phone', 'Email', 'Address', 'Thana', 'District', 'Group', 'Tags', 'Orders', 'Delivered', 'Cancelled', 'Returned', 'Spent', 'Last order', 'Blocked']];
   rows.forEach((c) => out.push([c.name, c.phone, c.email, c.address, c.thana, c.district, c.grp, c.tags, c.orders, c.delivered, c.cancelled, c.returned, c.spent,
-    c.last_order ? new Date(c.last_order).toISOString().slice(0, 10) : '', c.blocked ? 'yes' : '']));
+    c.last_order ? ymd(c.last_order) : '', c.blocked ? 'yes' : '']));
   await ctx.log('export', 'customer', null, `${rows.length} জন কাস্টমার ${excel ? 'Excel' : 'CSV'}`);
-  if (excel) return $services_xlsx.send(ctx.reply, `customers-${new Date().toISOString().slice(0, 10)}.xlsx`, [{ name: 'Customers', rows: out }]);
+  if (excel) return $services_xlsx.send(ctx.reply, `customers-${ymd()}.xlsx`, [{ name: 'Customers', rows: out }]);
   return ctx.send(200, csv(out), 'text/csv; charset=utf-8', { 'Content-Disposition': `attachment; filename="customers-${Date.now()}.csv"` });
 }
 async function saveSettings(ctx: AdminCtx) {

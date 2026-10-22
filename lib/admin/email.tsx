@@ -7,7 +7,7 @@
 //  - the list: added from the footer box, the checkout tick, or pasted by the owner; one-click leave in every mail
 import type { EmailLogRow, EmailSubsRow, ProductsRow, EmailCampaignsRow } from '../data/rows';
 import { Val, attrValue, jsxList } from '../react/html';
-import { bn, int, str, fmtDate, ifKey } from '../util';
+import { bn, int, str, fmtDate, ifKey, ymd } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
 import * as M from '../services/mailer';
@@ -172,7 +172,7 @@ async function subsCsv(ctx: AdminCtx) {
   const rows = await db.q<Pick<EmailSubsRow, 'email' | 'name' | 'phone' | 'source' | 'on_list' | 'created_at' | 'unsub_at'>>('SELECT email, name, phone, source, on_list, created_at, unsub_at FROM email_subs ORDER BY id');
   const esc = (v?: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
   const csv = 'email,name,phone,source,subscribed,joined,left\n' + rows.map((r) => [r.email, r.name, r.phone, r.source, r.on_list ? 'yes' : 'no',
-    r.created_at ? new Date(r.created_at).toISOString().slice(0, 10) : '', r.unsub_at ? new Date(r.unsub_at).toISOString().slice(0, 10) : ''].map(esc).join(',')).join('\n');
+    r.created_at ? ymd(r.created_at) : '', r.unsub_at ? ymd(r.unsub_at) : ''].map(esc).join(',')).join('\n');
   await ctx.log('export', 'marketing', null, `ইমেইল তালিকা ডাউনলোড (${rows.length} জন)`);
   return ctx.reply.answer(200, { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename="shobmilbe-email-list.csv"', 'Cache-Control': 'no-store' }, '﻿' + csv);
 }

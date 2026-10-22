@@ -2,7 +2,7 @@
 // 🗑️ deleting orders: only the owner, and only while this switch is on (so nobody deletes by a slip of the finger).
 // A deleted order goes to the recycle bin (রিসাইকেল বিন) with its items and payments; its goods go back on the shelf.
 import { Val, attrValue, jsxList } from '../react/html';
-import { money, bn, fmtDate, int, str, csv, pageNum, normalizePhone, validPhone, validYmd, list, amount as amt, roundOff, roundOffLabel, oneOf, ifKey } from '../util';
+import { money, bn, fmtDate, int, str, csv, pageNum, normalizePhone, validPhone, validYmd, list, amount as amt, roundOff, roundOffLabel, oneOf, ifKey, ymd } from '../util';
 import * as db from '../db';
 import * as $packing from '../models/packing';
 import * as O from '../models/orders';
@@ -151,7 +151,7 @@ async function exportCsv(ctx: AdminCtx, m: RouteMatch, excel = false) {
       courier.label(o.courier), o.consignment_id, o.zone_name || '', ...(seeCost ? [o.cost_total, o.total - o.cost_total - o.delivery] : []), o.note]);
   }
   await ctx.log('export', 'order', null, `${rows.length}টি অর্ডার ${excel ? 'Excel' : 'CSV'}`);
-  if (excel) return $services_xlsx.send(ctx.reply, `orders-${new Date().toISOString().slice(0, 10)}.xlsx`, [{ name: 'Orders', rows: out }]);
+  if (excel) return $services_xlsx.send(ctx.reply, `orders-${ymd()}.xlsx`, [{ name: 'Orders', rows: out }]);
   return ctx.send(200, csv(out), 'text/csv; charset=utf-8', { 'Content-Disposition': `attachment; filename="orders-${Date.now()}.csv"` });
 }
 

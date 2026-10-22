@@ -48,8 +48,9 @@ test('sent to the courier: packing written down once, boxes from their stock', {
 });
 
 test('profit & loss subtracts the packing', { skip }, async () => {
-  const today = new Date().toISOString().slice(0, 10);
-  const p = await finance.profitLoss(today, today);
+  // (the shop counts days in Dhaka time — take yesterday … tomorrow so the test machine's own clock doesn't matter)
+  const day = (d: number) => new Date(Date.now() + d * 864e5).toISOString().slice(0, 10);
+  const p = await finance.profitLoss(day(-1), day(1));
   assert.ok(p.packing.cost >= 30.4);
   assert.equal(Math.round((p.gross + p.otherIncomeTotal - p.expenseTotal - p.packing.cost) * 100), Math.round(p.net * 100));
 });

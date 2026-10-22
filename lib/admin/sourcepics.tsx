@@ -4,7 +4,7 @@
 // "✅ পরিষ্কার" on each (saved at once, no page reload), then downloads an Excel list of the flagged SKUs to fix them.
 // Which shop a product came from is known from its import reference ("techshopbd.com#…", set by পণ্য আমদানি).
 import { Val, attrValue, jsxList } from '../react/html';
-import { bn, fmtDate, int, str, ifKey } from '../util';
+import { bn, fmtDate, int, str, ifKey, ymd } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
 import * as $services_xlsx from '../services/xlsx';
@@ -62,7 +62,7 @@ async function excel(ctx: AdminCtx, host: string, f: string) {
     out.push([r.sku || '', r.name, r.src_wm ? 'আছে' : r.src_wm_checked ? 'নেই' : 'দেখা হয়নি', r.pics, r.active ? 'চালু' : 'বন্ধ',
       fmtDate(r.created_at), `${base}/admin/products/${r.id}`, `${base}/p/${r.slug}`, srcLink(host, r.import_ref)]);
   }
-  const day = new Date().toISOString().slice(0, 10);
+  const day = ymd();
   const name = `${f === 'flag' ? 'watermark' : 'products'}-${host === ALL ? 'all' : host.replace(/[^a-z0-9.-]/gi, '')}-${day}.xlsx`;
   return $services_xlsx.send(ctx.reply, name, [{ name: f === 'flag' ? 'Watermark' : 'Products', rows: out }]);
 }
