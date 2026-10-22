@@ -179,7 +179,12 @@ async function sendOne(settings: Settings, sub: Subscriber, { kind, subject, hea
 }
 
 // ---------------------------------------------------------------- campaigns
+// 📥 a list the owner brought from Excel (lib/admin/contacts.tsx): audience "xl:<group>" = the e-mails saved with
+// source "xl:<group>". The group name is cleaned to letters, digits, spaces and - _ (so it is safe inside the SQL).
+const XL = /^xl:[\p{L}\p{N}\p{M} _-]{1,27}$/u;
+const isXl = (aud: unknown): aud is string => typeof aud === 'string' && XL.test(aud);
 function audienceSql(aud: unknown): string {
+  if (isXl(aud)) return `s.source = '${aud.replace(/'/g, '')}'`;
   const bought = `(EXISTS (SELECT 1 FROM orders o WHERE o.status='delivered' AND (lower(o.email)=lower(s.email) OR (s.phone<>'' AND o.phone=s.phone)))
     OR EXISTS (SELECT 1 FROM orders o JOIN customers c ON c.id=o.account_id WHERE o.status='delivered' AND lower(c.email)=lower(s.email)))`;
   if (aud === 'buyers') return bought;
@@ -193,7 +198,7 @@ async function createCampaign(settings: Settings, { subject, intro, productIds =
   const total = await audienceCount(audience);
   return db.one<EmailCampaignsRow>(`INSERT INTO email_campaigns(subject, intro, product_ids, button_text, button_url, audience, kind, total, staff_id)
     VALUES($1,$2,$3::int[],$4,$5,$6,$7,$8,$9) RETURNING *`,
-  [str(subject, 150), str(intro, 4000), productIds.slice(0, 12), str(buttonText, 40), safePath(buttonPath), AUDIENCES[audience] ? audience : 'all', kind, total, staffId]);
+  [str(subject, 150), str(intro, 4000), productIds.slice(0, 12), str(buttonText, 40), safePath(buttonPath), AUDIENCES[audience] || isXl(audience) ? audience : 'all', kind, total, staffId]);
 }
 // "/offers" or "https://shobmilbe.com/offers" → "/offers"; anything outside the shop → "/"
 function safePath(v: unknown, settings: Settings = {} as Settings): string {
@@ -350,4 +355,4 @@ async function stats() {
 }
 
 export const _ = { weekly, welcome, review, winback, paragraphs };
-export { cfg, leftToday, sentToday, addSub, unsubscribe, bySubToken, sendOne, createCampaign, runCampaigns, audienceCount, tick, stats, mac, macOk, safePath, siteBase, KINDS, AUDIENCES, MAX_GMAIL_DAY, layout };
+export { isXl, cfg, leftToday, sentToday, addSub, unsubscribe, bySubToken, sendOne, createCampaign, runCampaigns, audienceCount, tick, stats, mac, macOk, safePath, siteBase, KINDS, AUDIENCES, MAX_GMAIL_DAY, layout };

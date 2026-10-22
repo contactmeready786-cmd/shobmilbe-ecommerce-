@@ -9,6 +9,7 @@ import { SEGMENTS } from '../models/customers';
 import * as $models_catalog from '../models/catalog';
 import * as $models_orders from '../models/orders';
 import type { AdminCtx, Body } from '../types';
+import { contactRoutes } from './contacts';
 import type { CustomersRow, SmsCampaignsRow } from '../data/rows';
 
 const BASE = '/admin/marketing/sms';
@@ -167,4 +168,6 @@ async function post(ctx: AdminCtx) {
 export const routes = [
     { method: 'GET', path: BASE, perm: 'marketing', handler: (ctx: AdminCtx) => page(ctx) },
     { method: 'POST', path: BASE, perm: 'marketing', handler: post },
+    // 📥 Excel তালিকা (lib/admin/contacts.tsx) — sits next to the SMS page it feeds
+    ...contactRoutes,
   ];

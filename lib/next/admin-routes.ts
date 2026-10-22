@@ -100,6 +100,7 @@ export const ADMIN_GET_ROUTES: (string | RegExp)[] = [
   /^\/admin\/reviews\/photo\/(\d+)$/,
   "/admin/marketing/loyalty",
   "/admin/marketing/sms",
+  "/admin/marketing/contacts",
   "/admin/design/switches",
   "/admin/integrations/status",
   "/admin/health",

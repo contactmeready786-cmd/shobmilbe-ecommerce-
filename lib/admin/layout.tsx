@@ -54,6 +54,7 @@ const TABS: Record<string, Tab[]> = {
   messages: [
     ['/admin/marketing/sms', 'SMS', 'marketing', 'sms', '📱'],
     ['/admin/marketing/email', 'ইমেইল', 'marketing', 'email', '📧'],
+    ['/admin/marketing/contacts', 'Excel তালিকা', 'marketing', 'contacts', '📥'],
     ['/admin/marketing/push', 'ফোনে নোটিফিকেশন', 'marketing', 'shoppush', '🔔'],
     ['/admin/marketing/restock', 'স্টকে এলে / দাম কমলে জানাও', 'marketing', 'restock', '⏰'],
   ],
