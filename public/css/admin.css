@@ -1562,3 +1562,9 @@ html[data-admin-lang="en"] .side-drop[data-side-group="দোকানের ড
 #main.admin-main .vb-chips .chip:hover { border-color: #1565c0; color: #1565c0; }
 #main.admin-main .vb-table td { vertical-align: middle; }
 #main.admin-main .vb-table select { min-width: 80px; }
+/* the table uses the page's full width (no sideways scroll on a computer) */
+#main.admin-main .vb-table { width: 100%; }
+#main.admin-main .vb-table .w-num { width: 100%; min-width: 72px; }
+#main.admin-main .vb-table select { width: 100%; }
+#main.admin-main .vb-table .vb-del { white-space: nowrap; }
+@media (min-width: 900px) { #main.admin-main .vb .table-wrap { overflow-x: visible; } }

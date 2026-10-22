@@ -16,7 +16,8 @@ export function startVariantBuilder(): void {
   const tpl = box.querySelector<HTMLTableRowElement>('[data-vb-template] tr[data-vb-row]');
   const empty = box.querySelector<HTMLElement>('[data-vb-empty]');
   if (!ci || !si || !body || !tpl) return;
-  const rows = () => [...body.querySelectorAll<HTMLTableRowElement>('tr[data-vb-row]')];
+  // (rows the owner deleted stay hidden in the form until it is saved — they are not part of the table any more)
+  const rows = () => [...body.querySelectorAll<HTMLTableRowElement>('tr[data-vb-row]')].filter((r) => !r.dataset.deleted);
   const field = (r: Element, name: string) => r.querySelector<HTMLInputElement | HTMLSelectElement>(`[name="${name}"]`);
   const mainPrice = document.querySelector<HTMLInputElement>('input[name="price"]');
   const mainCost = document.querySelector<HTMLInputElement>('input[name="cost_price"]');
@@ -76,6 +77,22 @@ export function startVariantBuilder(): void {
   box.addEventListener('click', (e) => {
     const t = e.target as Element | null;
     if (t?.closest('[data-vb-make]')) { e.preventDefault(); make(); return; }
+    // 🗑️ a new row just goes; a saved one is marked and hidden — it goes to the recycle bin when the product is saved
+    const del = t?.closest('[data-vb-del]');
+    if (del) {
+      e.preventDefault();
+      const r = del.closest<HTMLTableRowElement>('tr[data-vb-row]');
+      if (!r) return;
+      if (!field(r, 'vb_id')?.value) r.remove();
+      else {
+        const d = field(r, 'vb_del'); if (d) d.value = '1';
+        r.dataset.deleted = '1';
+        r.hidden = true;
+        const note = box.querySelector<HTMLElement>('[data-vb-delnote]'); if (note) note.hidden = false;
+      }
+      sync();
+      return;
+    }
     const chip = t?.closest<HTMLElement>('[data-vb-chip]');
     if (chip) {
       e.preventDefault();
