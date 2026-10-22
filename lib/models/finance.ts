@@ -24,7 +24,7 @@ const ACCOUNT_TYPES: Record<string, string> = { cash: 'ক্যাশ', bank: '
 /** a supplier with what was bought from them and paid to them */
 export type SupplierListed = SuppliersRow & { purchased: number; paid: number; purchase_count: number; last_purchase: string | null };
 export type TxListed = TransactionsRow & { account_name: string | null };
-export type SupplierFull = SupplierListed & { purchases: PurchasesRow[]; payments: TxListed[];
+export type SupplierFull = SupplierListed & { purchases: PurchaseListed[]; payments: TxListed[];
   products: { product_id: number | null; name: string; qty: number; avg_cost: number | null; last_date: string }[] };
 export type PurchaseListed = PurchasesRow & { supplier_name: string | null; lines: number; units: number | null };
 export type PurchaseFull = PurchasesRow & { supplier_name: string | null; staff_name: string | null;
@@ -48,7 +48,8 @@ async function getSupplier(id: Id): Promise<SupplierFull | null> {
   const found = (await listSuppliers()).find((x) => x.id === id);
   if (!found) return null;
   const s = found as SupplierFull;
-  s.purchases = await q<PurchasesRow>(`SELECT * FROM purchases WHERE supplier_id=$1 ORDER BY purchase_date DESC, id DESC LIMIT 100`, [id]);
+  // (with the pieces and the supplier's name, like the purchases page — they showed 0 and "—" here before)
+  s.purchases = await listPurchases({ supplierId: id, limit: 100 });
   s.payments = await q<TxListed>(`SELECT t.*, a.name AS account_name FROM transactions t LEFT JOIN accounts a ON a.id=t.account_id
                         WHERE t.supplier_id=$1 ORDER BY t.tx_date DESC, t.id DESC LIMIT 100`, [id]);
   s.products = await q<SupplierFull['products'][number]>(`SELECT i.product_id, i.name, sum(i.qty)::int AS qty, round(avg(i.unit_cost), 2) AS avg_cost,
