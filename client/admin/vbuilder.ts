@@ -116,6 +116,12 @@ export function startVariantBuilder(): void {
       input.value = (now.some((x) => x.toLowerCase() === v.toLowerCase()) ? now : [...now, v]).join(', ');
     }
   });
+  // 📐 the unit shown next to every row's measure follows the unit box
+  box.addEventListener('change', (e) => {
+    const u = (e.target as Element | null)?.closest<HTMLSelectElement>('[data-vb-unit]');
+    if (!u) return;
+    for (const t of box.querySelectorAll('[data-vb-unit-tag]')) t.textContent = u.value;
+  });
   // a photo picked on one row → the other rows of the same colour that have none
   body.addEventListener('change', (e) => {
     const sel = e.target as HTMLSelectElement | null;

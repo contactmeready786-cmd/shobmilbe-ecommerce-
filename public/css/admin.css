@@ -1574,3 +1574,4 @@ html[data-admin-lang="en"] .side-drop[data-side-group="দোকানের ড
 #main.admin-main .vb-own { display: inline-flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
 #main.admin-main .vb-own input { width: 220px; max-width: 100%; }
 #main.admin-main .vb-table .vb-brand { font-weight: 600; }
+#main.admin-main .vb-dims .vb-unit-tag { font-size: .82rem; color: var(--muted, #667085); margin-left: 2px; }
