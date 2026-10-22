@@ -28,6 +28,13 @@ uses that one setup. Never add a second Gmail / App Password / SMS / API-key fie
   pack buttons, client/shop/cartpage.tsx VariantChoice). Never a different card button such as "অপশন বাছুন".
 - Offer SMS (bulk) skip customers with `promo_sms = false` and stay within `sms_mkt_day` / `sms_mkt_month`, so the free SIM plan keeps room for checkout codes.
 - Permanent deletes need the e-mailed delete code (`services/delcode.ts`).
+- Roles (owner, 2026-10-22): owner / 👔 manager / staff. A manager has every staff permission without ticks
+  (`staff.can`), never the owner's own things (`OWNER_ONLY`: `see_cost`, `owner` routes — buying prices and profit,
+  staff, security, backups, recycle bin, notifications, purchase corrections). Keep `MANAGER_CAN` / `OWNER_KEEPS` in
+  lib/models/staff.ts true when adding a page; a new owner-only page uses `perm: 'owner'`.
+- Purchases and supplier payments can be corrected by the owner only (lib/admin/inventory.tsx purchaseEdit /
+  paymentEdit → finance.editPurchase / editSupplierPayment): only the stock difference moves ("পারচেজ সংশোধন"),
+  the buying price is worked out again, stock never below zero, every change is kept in `purchase_edits`.
 - Admin menu: related small pages are tabs (`TABS` in lib/admin/layout.tsx), not new menu lines.
 - The camera face check was removed on purpose; only the fingerprint / passkey login lock stays.
 - 📱 Android app releases (owner, 2026-10-20 — never ask the owner again): every change to the customer app that customers

@@ -54,6 +54,8 @@ function can(user: MaybeUser, perm: string): boolean {
   if (!user) return false;
   if (user.role === 'owner') return true;
   if (OWNER_ONLY.has(perm)) return false;
+  // 👔 a manager (owner, 2026-10-22) has every staff permission at once — only the owner's own things stay the owner's
+  if (user.role === 'manager') return true;
   return Array.isArray(user.permissions) && user.permissions.includes(perm);
 }
 
@@ -111,6 +113,8 @@ type SaveStaffOpts = {
   username?: unknown;
   name?: unknown;
   permissions: unknown;
+  /** 'manager' or 'staff' (the owner stays the owner) */
+  role?: unknown;
   active?: unknown;
   password?: unknown;
   phone?: unknown;
@@ -126,21 +130,21 @@ async function saveStaff(data: SaveStaffOpts, { isOwnerEditing = true }: { isOwn
   if (clash) throw new Error('এই ইউজারনেম আগে থেকেই আছে, অন্য একটা দিন।');
   const perms = ([] as unknown[]).concat(data.permissions || []).filter((p): p is string => typeof p === 'string' && PERMISSION_KEYS.includes(p));
   const existing = id ? await getStaff(id) : null;
-  const role = existing && existing.role === 'owner' ? 'owner' : 'staff';
+  const role = existing && existing.role === 'owner' ? 'owner' : data.role === 'manager' ? 'manager' : 'staff';
   const active = role === 'owner' ? true : !!data.active;
   if (id && !existing) throw new Error('স্টাফ পাওয়া যায়নি।');
   if (!id && !data.password) throw new Error('পাসওয়ার্ড দিন।');
   if (data.password) { const bad = passwordProblem(data.password, { username, name: data.name }); if (bad) throw new Error(bad); }
   void isOwnerEditing;
   if (id) {
-    await q(`UPDATE staff SET name=$1, username=$2, phone=$3, email=$4, permissions=$5, active=$6, note=$7 WHERE id=$8`,
-      [str(data.name, 80), username, str(data.phone, 20), str(data.email, 120), JSON.stringify(role === 'owner' ? [] : perms), active, str(data.note, 500), id]);
+    await q(`UPDATE staff SET name=$1, username=$2, phone=$3, email=$4, permissions=$5, active=$6, note=$7, role=$9 WHERE id=$8`,
+      [str(data.name, 80), username, str(data.phone, 20), str(data.email, 120), JSON.stringify(role === 'owner' ? [] : perms), active, str(data.note, 500), id, role]);
     if (data.password) await q('UPDATE staff SET password=$1, password_changed_at=now() WHERE id=$2', [hashPassword(String(data.password)), id]);
     return id;
   }
   return (await one<{ id: number }>(`INSERT INTO staff(name, username, phone, email, password, role, permissions, active, note)
-    VALUES($1,$2,$3,$4,$5,'staff',$6,$7,$8) RETURNING id`,
-  [str(data.name, 80), username, str(data.phone, 20), str(data.email, 120), hashPassword(String(data.password)), JSON.stringify(perms), !!data.active, str(data.note, 500)]))!.id;
+    VALUES($1,$2,$3,$4,$5,$9,$6,$7,$8) RETURNING id`,
+  [str(data.name, 80), username, str(data.phone, 20), str(data.email, 120), hashPassword(String(data.password)), JSON.stringify(perms), !!data.active, str(data.note, 500), role]))!.id;
 }
 // ---------------------------------------------------------------- profile (picture, job title, address …)
 // Used by the owner (Admin → স্টাফ) for anyone, and by each person for themself (Admin → আমার প্রোফাইল).
@@ -196,4 +200,13 @@ async function activity({ staffId, entity, entityId, limit = 100 }: { staffId?: 
             ${where.length ? 'WHERE ' + where.join(' AND ') : ''} ORDER BY a.created_at DESC, a.id DESC LIMIT $${params.length}`, params);
 }
 
-export { PROFILE_FIELDS, saveProfile, setPhoto, photoOf, cleanDate, PERMISSIONS, PERMISSION_KEYS, PRESETS, LEVELS, can, routeAllows, canSee, viewOnly, listStaff, getStaff, findLogin, countStaff, saveStaff, createOwner, setPassword, deleteStaff, touchLogin, activity, cleanUsername };
+// 👔 What a manager can and cannot do (shown on the staff form). A manager gets every permission above;
+// these stay the owner's alone.
+const MANAGER_CAN = ['অর্ডার দেখা, এডিট, কনফার্ম/বাতিল, কুরিয়ারে পাঠানো, দোকানে বিক্রি (POS)', 'পণ্য যোগ, এডিট, মুছা (রিসাইকেল বিনে যায়)',
+  'স্টক বদল, নতুন পারচেজ (মাল কেনা) আর সাপ্লায়ারকে পেমেন্ট এন্ট্রি', 'কাস্টমার দেখা, এডিট, ব্লক', 'মার্কেটিং, কুপন, SMS/ইমেইল, রিভিউ, ব্লগ, স্টোর ডিজাইন',
+  'আয়-ব্যয় এন্ট্রি, ব্যাংক ব্যালেন্স, রিপোর্ট ও এক্সপোর্ট', 'দোকানের সেটিংস, পেমেন্ট, কুরিয়ার, ডোমেইন'];
+const OWNER_KEEPS = ['কেনা দাম, লাভ-ক্ষতি আর সাপ্লায়ারের বাকির খাতা', 'পুরনো পারচেজ আর সাপ্লায়ারের পেমেন্ট এডিট/মুছা',
+  'স্টাফ আর ম্যানেজার যোগ/বাদ, তাদের অনুমতি', 'নিরাপত্তা, লগইন ইতিহাস, অডিট লগ, দেশ তালা', 'ব্যাকআপ ও রিস্টোর, সার্ভার ও ডাটাবেস',
+  'রিসাইকেল বিন (মুছা জিনিস ফেরত/চিরতরে মুছা)', 'আমার নোটিফিকেশন (Gmail, WhatsApp)', 'অর্ডার/কাস্টমার চিরতরে মুছা'];
+
+export { MANAGER_CAN, OWNER_KEEPS, PROFILE_FIELDS, saveProfile, setPhoto, photoOf, cleanDate, PERMISSIONS, PERMISSION_KEYS, PRESETS, LEVELS, can, routeAllows, canSee, viewOnly, listStaff, getStaff, findLogin, countStaff, saveStaff, createOwner, setPassword, deleteStaff, touchLogin, activity, cleanUsername };

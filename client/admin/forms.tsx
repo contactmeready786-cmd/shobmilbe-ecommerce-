@@ -6,7 +6,7 @@ import { fillGeo } from '../shop/geo.js';
 import { getJSON, markChanged, money, toast } from './core.js';
 
 void Fragment;
-type Found = { id: number; name: string; sku?: string; price: number; stock: number; cost?: number; type?: string; image?: string; emoji?: string };
+type Found = { id: number; name: string; sku?: string; price: number; stock: number; cost?: number; type?: string; image?: string; emoji?: string; qty?: number };
 const field = (f: HTMLFormElement, n: string) => f.elements.namedItem(n) as HTMLInputElement | null;
 const num = (el: Element | null | undefined) => Number((el as HTMLInputElement | null)?.value) || 0;
 const Pic = ({ p, cls = 'pe' }: { p: { image?: string; emoji?: string }; cls?: string }) => (p.image ? <img src={p.image} alt="" /> : <span className={cls}>{p.emoji || '📦'}</span>);
@@ -332,7 +332,7 @@ function purchaseForm(): void {
           <label className="small">প্রতি প্যাকেটে পিস<input type="number" min="1" step="1" placeholder="যেমন ১০০০" data-pk-per="" /></label>
           <label className="small">প্রতি প্যাকেটের দাম ৳<input type="number" min="0" step="0.01" placeholder="যেমন ২০০" data-pk-price="" /></label></div>
           <span className="small muted" data-pk-out="">{PACK_HINT}</span></div></td>
-        <td className="num"><input type="number" name="item_qty[]" value="1" min="1" className="w-num" data-qty="" required /></td>
+        <td className="num"><input type="number" name="item_qty[]" value={String(p.qty || 1)} min="1" className="w-num" data-qty="" required /></td>
         <td className="num"><input type="number" name="item_cost[]" value={String(p.cost || '')} min="0" step="0.01" className="w-num" data-cost="" required /><br /><button type="button" className="link-btn small" data-pack-open="">📦 প্যাকেট দামে</button></td>
         <td className="num" data-line-total="" /><td><button type="button" className="btn btn-sm btn-danger" data-remove-row="">🗑️ মুছুন</button></td></tr>);
     total();

@@ -42,6 +42,7 @@ export const ADMIN_GET_ROUTES: (string | RegExp)[] = [
   "/admin/purchases",
   "/admin/purchases/new",
   /^\/admin\/purchases\/(\d+)$/,
+  /^\/admin\/purchases\/(\d+)\/edit$/,
   "/admin/customers",
   "/admin/customers/export.csv",
   "/admin/customers/export.xlsx",

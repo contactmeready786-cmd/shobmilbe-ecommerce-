@@ -173,6 +173,152 @@ async function savePurchase(data: SavePurchaseOpts, staffId?: Id): Promise<numbe
     return p.id;
   });
 }
+// ---------------------------------------------------------------- correcting a purchase (owner only, 2026-10-22)
+// A purchase saved with a mistake can be corrected: products added or taken out, quantities, prices, the supplier,
+// the date, discount / transport / other costs / VAT, the note. For goods already received only the difference goes
+// to the stock ("পারচেজ সংশোধন" in the stock history), and the product's buying price is worked out again with the
+// corrected price. Stock never goes below zero: pieces of this purchase that are already sold cannot be taken back.
+// Every correction is kept in purchase_edits (who, when, before, after).
+
+async function purchaseLines(rows: Body[] | null | undefined): Promise<PurchaseLine[]> {
+  const items: PurchaseLine[] = [];
+  for (const row of rows || []) {
+    const pid = int(row.product_id);
+    const qty = int(row.qty);
+    if (!pid || qty <= 0) continue;
+    const prod = await one<{ id: number; name: string }>('SELECT id, name FROM products WHERE id=$1', [pid]);
+    if (!prod) continue;
+    const same = items.find((x) => x.product_id === pid);
+    if (same) { same.qty += qty; continue; } // the same product twice → one line
+    items.push({ product_id: pid, name: prod.name, qty, unit_cost: amount(row.unit_cost) });
+  }
+  if (!items.length) throw new Error('অন্তত একটি পণ্য আর পরিমাণ দিন।');
+  return items;
+}
+
+/** What each product got from a purchase: pieces and their landed value (cost spread over the goods). */
+function landedByProduct(items: { product_id: number | null; qty: number; unit_cost: number }[], share: number): Map<number, { qty: number; value: number }> {
+  const m = new Map<number, { qty: number; value: number }>();
+  for (const it of items) {
+    if (!it.product_id) continue;
+    const landed = round2(Number(it.unit_cost) + (share ? share * Number(it.unit_cost) : 0));
+    const x = m.get(it.product_id) || { qty: 0, value: 0 };
+    x.qty += Number(it.qty);
+    x.value = round2(x.value + Number(it.qty) * landed);
+    m.set(it.product_id, x);
+  }
+  return m;
+}
+
+/**
+ * The buying price after a purchase is corrected: what the purchase brought in is taken out of the product's
+ * average and the corrected purchase put in. When the rest of the stock is gone (sold), the corrected price is used.
+ */
+function correctedCost(stock: number, cost: number, old: { qty: number; value: number }, now: { qty: number; value: number }): number {
+  const S = Math.max(0, stock);
+  const restQty = S - old.qty;
+  const restVal = round2(cost * S - old.value);
+  const newQty = restQty + now.qty;
+  if (restQty > 0 && restVal > 0 && newQty > 0) return round2((restVal + now.value) / newQty);
+  if (now.qty > 0) return round2(now.value / now.qty);
+  if (restQty > 0 && restVal > 0) return round2(restVal / restQty);
+  return cost;
+}
+
+type PurchaseSnapshot = { supplier_id: number | null; purchase_date: string; discount: number; shipping: number; other_cost: number; vat: number; total: number; note: string; items: { product_id: number | null; name: string; qty: number; unit_cost: number }[] };
+const snap = (p: PurchasesRow, items: PurchaseSnapshot['items']): PurchaseSnapshot => ({
+  supplier_id: p.supplier_id, purchase_date: String(p.purchase_date), discount: Number(p.discount), shipping: Number(p.shipping),
+  other_cost: Number(p.other_cost), vat: Number(p.vat), total: Number(p.total), note: p.note || '',
+  items: items.map((i) => ({ product_id: i.product_id, name: i.name, qty: Number(i.qty), unit_cost: Number(i.unit_cost) })),
+});
+
+async function editPurchase(id: Id, data: SavePurchaseOpts, staffId?: Id): Promise<void> {
+  const items = await purchaseLines(data.items);
+  const subtotal = round2(items.reduce((s, i) => s + i.qty * i.unit_cost, 0));
+  const discount = amount(data.discount);
+  const shipping = amount(data.shipping);
+  const other = amount(data.other_cost);
+  const vat = amount(data.vat);
+  const total = round2(Math.max(0, subtotal - discount + shipping + other + vat));
+  const supplierId = int(data.supplier_id) || null;
+  await tx(async (t) => {
+    const p = (await t.query<PurchasesRow>('SELECT * FROM purchases WHERE id=$1 FOR UPDATE', [id])).rows[0];
+    if (!p) throw new Error('পারচেজটি পাওয়া যায়নি।');
+    if (p.status === 'cancelled') throw new Error('বাতিল করা পারচেজ এডিট করা যায় না।');
+    const oldItems = (await t.query<PurchaseItemsRow>('SELECT * FROM purchase_items WHERE purchase_id=$1 ORDER BY id', [id])).rows;
+    const date = validYmd(data.purchase_date) || String(p.purchase_date);
+    if (p.status === 'received') {
+      const oldShare = Number(p.subtotal) > 0 ? (Number(p.shipping) + Number(p.other_cost) - Number(p.discount)) / Number(p.subtotal) : 0;
+      const newShare = subtotal > 0 ? (shipping + other - discount) / subtotal : 0;
+      const before = landedByProduct(oldItems, oldShare);
+      const after = landedByProduct(items, newShare);
+      for (const pid of new Set([...before.keys(), ...after.keys()])) {
+        const o = before.get(pid) || { qty: 0, value: 0 };
+        const n = after.get(pid) || { qty: 0, value: 0 };
+        const prod = (await t.query<Pick<ProductsRow, 'stock' | 'cost_price' | 'name'>>('SELECT stock, cost_price, name FROM products WHERE id=$1 FOR UPDATE', [pid])).rows[0];
+        if (!prod) continue;
+        const delta = n.qty - o.qty;
+        if (prod.stock + delta < 0) {
+          const least = o.qty - prod.stock;
+          throw new Error(`"${prod.name}" — এই পারচেজের ${o.qty - Math.max(0, prod.stock)} পিস এর মধ্যে বিক্রি/বের হয়ে গেছে (এখন স্টক ${prod.stock})। পরিমাণ ${least} এর কম করা যাবে না।`);
+        }
+        if (delta || o.value !== n.value) {
+          await t.query('UPDATE products SET cost_price=$1 WHERE id=$2', [correctedCost(prod.stock, Number(prod.cost_price) || 0, o, n), pid]);
+        }
+        if (delta) await catalog.moveStock(t, pid, delta, 'purchase_edit', 'purchase', id, '', staffId, true, n.qty ? round2(n.value / n.qty) : null);
+      }
+    }
+    await t.query(`UPDATE purchases SET supplier_id=$1, purchase_date=$2, subtotal=$3, discount=$4, shipping=$5, other_cost=$6, vat=$7, total=$8, note=$9 WHERE id=$10`,
+      [supplierId, date, subtotal, discount, shipping, other, vat, total, str(data.note, 1000), id]);
+    await t.query('DELETE FROM purchase_items WHERE purchase_id=$1', [id]);
+    for (const it of items) {
+      await t.query('INSERT INTO purchase_items(purchase_id, product_id, name, qty, unit_cost) VALUES($1,$2,$3,$4,$5)', [id, it.product_id, it.name, it.qty, it.unit_cost]);
+    }
+    // the payments made for this purchase follow it to the corrected supplier
+    if (supplierId !== p.supplier_id) await t.query('UPDATE transactions SET supplier_id=$1 WHERE purchase_id=$2', [supplierId, id]);
+    const now = (await t.query<PurchasesRow>('SELECT * FROM purchases WHERE id=$1', [id])).rows[0];
+    await t.query(`INSERT INTO purchase_edits(purchase_id, kind, staff_id, before, after) VALUES($1,'purchase',$2,$3,$4)`,
+      [id, staffId || null, JSON.stringify(snap(p, oldItems)), JSON.stringify(snap(now, items))]);
+  });
+}
+
+/** A supplier payment corrected (amount, date, account, note) — the change is kept. */
+async function editSupplierPayment(txId: Id, data: Body, staffId?: Id): Promise<TransactionsRow> {
+  const amt = amount(data.amount);
+  if (amt <= 0) throw new Error('টাকার পরিমাণ দিন।');
+  return tx(async (t) => {
+    const r = (await t.query<TransactionsRow>('SELECT * FROM transactions WHERE id=$1 FOR UPDATE', [txId])).rows[0];
+    if (!r || !r.supplier_id) throw new Error('পেমেন্টটি পাওয়া যায়নি।');
+    const now = (await t.query<TransactionsRow>('UPDATE transactions SET amount=$1, tx_date=$2, account_id=$3, note=$4 WHERE id=$5 RETURNING *',
+      [amt, validYmd(data.tx_date) || r.tx_date, int(data.account_id) || null, str(data.note, 500), txId])).rows[0];
+    const pick = (x: TransactionsRow) => ({ amount: Number(x.amount), tx_date: String(x.tx_date), account_id: x.account_id, note: x.note || '', supplier_id: x.supplier_id });
+    await t.query(`INSERT INTO purchase_edits(purchase_id, tx_id, kind, staff_id, before, after) VALUES($1,$2,'payment',$3,$4,$5)`,
+      [r.purchase_id || null, txId, staffId || null, JSON.stringify(pick(r)), JSON.stringify(pick(now))]);
+    return now;
+  });
+}
+
+/** A supplier payment about to go to the recycle bin — the history keeps what it was. */
+async function notePaymentDeleted(txId: Id, staffId?: Id): Promise<TransactionsRow | null> {
+  const r = await one<TransactionsRow>('SELECT * FROM transactions WHERE id=$1', [txId]);
+  if (!r || !r.supplier_id) return null;
+  await q(`INSERT INTO purchase_edits(purchase_id, tx_id, kind, staff_id, before, after) VALUES($1,$2,'payment_delete',$3,$4,NULL)`,
+    [r.purchase_id || null, txId, staffId || null, JSON.stringify({ amount: Number(r.amount), tx_date: String(r.tx_date), account_id: r.account_id, note: r.note || '', supplier_id: r.supplier_id })]);
+  return r;
+}
+
+async function purchaseHistory(purchaseId: Id) {
+  return q<{ id: number; kind: string; before: unknown; after: unknown; created_at: Date; staff_name: string | null }>(
+    `SELECT e.id, e.kind, e.before, e.after, e.created_at, st.name AS staff_name FROM purchase_edits e LEFT JOIN staff st ON st.id=e.staff_id
+      WHERE e.purchase_id=$1 ORDER BY e.id DESC LIMIT 50`, [purchaseId]);
+}
+async function supplierPaymentHistory(supplierId: Id) {
+  return q<{ id: number; kind: string; before: unknown; after: unknown; created_at: Date; staff_name: string | null }>(
+    `SELECT e.id, e.kind, e.before, e.after, e.created_at, st.name AS staff_name FROM purchase_edits e LEFT JOIN staff st ON st.id=e.staff_id
+      WHERE e.kind <> 'purchase' AND (e.before->>'supplier_id')::int = $1
+      ORDER BY e.id DESC LIMIT 50`, [supplierId]);
+}
+
 async function setPurchaseStatus(id: Id, status: string, staffId?: Id): Promise<void> {
   return tx(async (t) => {
     const p = (await t.query<PurchasesRow>('SELECT * FROM purchases WHERE id=$1 FOR UPDATE', [id])).rows[0];
@@ -376,4 +522,4 @@ async function staffReport(from: Day, to: Day) {
     FROM staff s ORDER BY s.role='owner' DESC, s.name`, [from, to]);
 }
 
-export { EXPENSE_CATEGORIES, INCOME_CATEGORIES, ACCOUNT_TYPES, PURCHASE_STATUSES, listSuppliers, getSupplier, saveSupplier, supplierDue, listPurchases, getPurchase, savePurchase, setPurchaseStatus, listAccounts, saveAccount, addTransaction, deleteTransaction, listTransactions, profitLoss, vatReport, dailySeries, monthlySeries, dashboard, staffReport };
+export { EXPENSE_CATEGORIES, INCOME_CATEGORIES, ACCOUNT_TYPES, PURCHASE_STATUSES, listSuppliers, getSupplier, saveSupplier, supplierDue, listPurchases, getPurchase, savePurchase, setPurchaseStatus, editPurchase, editSupplierPayment, notePaymentDeleted, purchaseHistory, supplierPaymentHistory, correctedCost, listAccounts, saveAccount, addTransaction, deleteTransaction, listTransactions, profitLoss, vatReport, dailySeries, monthlySeries, dashboard, staffReport };

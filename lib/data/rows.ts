@@ -910,6 +910,18 @@ export type ProductsRow = {
   dims: string;
 };
 
+/** A row of purchase_edits. */
+export type PurchaseEditsRow = {
+  id: number;
+  purchase_id: number | null;
+  tx_id: number | null;
+  kind: string;
+  staff_id: number | null;
+  before: unknown;
+  after: unknown;
+  created_at: Date;
+};
+
 /** A row of purchase_items. */
 export type PurchaseItemsRow = {
   id: number;
@@ -1474,6 +1486,7 @@ export type Tables = {
   product_links: ProductLinksRow;
   product_questions: ProductQuestionsRow;
   products: ProductsRow;
+  purchase_edits: PurchaseEditsRow;
   purchase_items: PurchaseItemsRow;
   purchases: PurchasesRow;
   push_campaigns: PushCampaignsRow;

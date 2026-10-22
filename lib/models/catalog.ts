@@ -935,7 +935,7 @@ async function listLocations(): Promise<LocationCount[]> {
 
 const STOCK_REASONS: Record<string, string> = {
   opening: 'শুরুর স্টক', order: 'অর্ডার', cancel: 'অর্ডার বাতিল/ফেরত', edit: 'অর্ডার এডিট', purchase: 'পারচেজ (কেনা)',
-  purchase_cancel: 'পারচেজ বাতিল', adjust: 'হাতে বদল', damage: 'নষ্ট/ভাঙা → নষ্ট স্টকে', lost: 'হারানো', count: 'গণনা ঠিক করা', return: 'কাস্টমার ফেরত',
+  purchase_cancel: 'পারচেজ বাতিল', purchase_edit: 'পারচেজ সংশোধন', adjust: 'হাতে বদল', damage: 'নষ্ট/ভাঙা → নষ্ট স্টকে', lost: 'হারানো', count: 'গণনা ঠিক করা', return: 'কাস্টমার ফেরত',
   return_damaged: 'ফেরত আসা নষ্ট মাল → নষ্ট স্টকে', damage_out: 'নষ্ট মাল ফেলে দেওয়া', repair: 'মেরামত হয়ে আবার বিক্রিযোগ্য',
 };
 // Damaged goods are kept apart from the stock that can be sold: a change can move pieces between the two.

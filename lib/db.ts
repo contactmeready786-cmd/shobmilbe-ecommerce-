@@ -1176,6 +1176,14 @@ ALTER TABLE products ADD COLUMN IF NOT EXISTS dims text NOT NULL DEFAULT '';
   `
 ALTER TABLE categories ADD COLUMN IF NOT EXISTS no_free_delivery boolean NOT NULL DEFAULT false;
 UPDATE categories SET no_free_delivery = true WHERE name ILIKE '%প্যাকেজিং%' OR lower(name) LIKE '%packag%' OR slug ILIKE '%packag%';
+`,  // ✏️ every change the owner makes to a purchase or a supplier payment (owner, 2026-10-22: purchases are editable,
+  // only by the owner, and every edit is kept — who, when, what it was and what it became)
+  `
+CREATE TABLE IF NOT EXISTS purchase_edits (
+  id serial PRIMARY KEY, purchase_id int, tx_id int, kind text NOT NULL DEFAULT 'purchase',
+  staff_id int, before jsonb, after jsonb, created_at timestamptz DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS purchase_edits_purchase_idx ON purchase_edits(purchase_id, id DESC);
 `,
 ];
 
