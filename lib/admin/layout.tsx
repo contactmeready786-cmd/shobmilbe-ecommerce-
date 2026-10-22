@@ -132,7 +132,7 @@ const MENU: { title: string; icon?: string; items: MenuItem[] }[] = [
     ['/admin/accounts/transactions', 'আয়-ব্যয় এন্ট্রি', 'accounting', 'acc-tx', '✍️'],
     ['/admin/accounts/banks', 'ব্যাংক ও ক্যাশ', 'accounting', 'acc-banks', '🏦'],
     ['/admin/accounts/cod', 'কুরিয়ারের COD মিলানো', 'accounting', 'acc-cod', '🚚'],
-    tabSet('pnl', 'লাভ-ক্ষতি ও প্যাকিং খরচ', '📉'),
+    tabSet('pnl', 'লাভ-ক্ষতি', '📉'),
     ['/admin/accounts/vat', 'ভ্যাট ও ট্যাক্স', 'accounting', 'acc-vat', '🧮'],
   ] },
   { title: 'রিপোর্ট ও গ্রোথ', icon: '📈', items: [
