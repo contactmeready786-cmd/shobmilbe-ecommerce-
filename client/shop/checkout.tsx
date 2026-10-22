@@ -4,7 +4,7 @@ import { h, Fragment, paint } from '../jsx.js';
 import { $, $all, bn, cleanPhone, getJson, hit, money, phoneOk, postJson, randomId, readJson, replay, store } from '../dom.js';
 import type { GiftcardAnswer, OrderAnswer, OtpAnswer, ResumeAnswer } from '../api-types.js';
 import { minNote, minShort, readCart, rule, saveCartQuietly, toPacks, writeCart } from './cart.js';
-import { PackChoice, Thumb, giftRows, giftTotal, loadCart, type Gift, type Line } from './cartpage.js';
+import { PackChoice, Thumb, VariantChoice, giftRows, giftTotal, loadCart, swapInCart, variantTarget, type Gift, type Line } from './cartpage.js';
 import { fillGeo } from './geo.js';
 import { VA, track } from './track.js';
 
@@ -137,7 +137,7 @@ function runCheckout(checkout: HTMLElement): void {
     const t = totals();
     const rows = state.lines.map((l) =>
       <div className="cart-line"><Thumb p={l.product} /><div><b>{l.product.name}</b><br />{l.note ? <><span className="small good">{l.note}</span><br /></> : null}
-        <span className="muted small">{bn(l.qty)} × {money(l.price)}</span><PackChoice l={l} /></div><div className="line-total">{money(l.price * l.qty)}</div></div>);
+        <span className="muted small">{bn(l.qty)} × {money(l.price)}</span><VariantChoice l={l} /><PackChoice l={l} /></div><div className="line-total">{money(l.price * l.qty)}</div></div>);
     paint(summary, rows, giftRows(state.gifts, 'div'),
       <div className="totals">
         <Row label="পণ্যের দাম" value={money(t.subtotal)} />
@@ -250,6 +250,21 @@ function runCheckout(checkout: HTMLElement): void {
       state.gifts = r.gifts || [];
       renderSummary();
       if (state.coupon) cApply?.click(); // the coupon is checked again for the new amount
+    }).catch(() => {});
+  });
+  // 🎨 a colour/size line: switch colour / size here too
+  summary.addEventListener('change', (e) => {
+    const vs = hit<HTMLSelectElement>(e, 'select[data-var-line]');
+    if (!vs) return;
+    e.stopPropagation();
+    const cart = readCart();
+    if (!swapInCart(cart, vs.getAttribute('data-var-line') || '', variantTarget(vs))) return;
+    writeCart(cart);
+    loadCart().then((r) => {
+      state.lines = r.lines;
+      state.gifts = r.gifts || [];
+      renderSummary();
+      if (state.coupon) cApply?.click();
     }).catch(() => {});
   });
   form.addEventListener('change', (e) => {

@@ -224,6 +224,7 @@ const PUBLIC_COLS = `p.id, p.name, p.slug, p.category_id, ${PRICE_COLS}, ${STOCK
   p.allow_duplicate, (p.preorder OR coalesce((SELECT pp.preorder FROM products pp WHERE pp.id=p.parent_id), false)) AS preorder,
   greatest(p.preorder_days, coalesce((SELECT pp.preorder_days FROM products pp WHERE pp.id=p.parent_id), 0)) AS preorder_days, p.sold_count, p.wish_count, p.rating_avg, p.rating_count, p.created_at, p.updated_at,
   p.parent_id, p.variant_label, p.variant_count, p.variant_title, p.pack_sizes,
+  CASE WHEN p.variant_count > 0 THEN (SELECT v.id FROM products v WHERE v.parent_id=p.id AND v.active ORDER BY (v.stock > 0) DESC, v.price, v.variant_sort, v.id LIMIT 1) END AS first_variant,
   (SELECT m.ik_url FROM media m WHERE m.id=p.image_id AND m.owner_type IS DISTINCT FROM 'staff') AS image_ik,
   c.name AS category_name, c.slug AS category_slug, c.icon AS category_icon`;
 // The admin also sees the buying price, damaged stock and the usual supplier.
@@ -308,6 +309,8 @@ export type Product = {
   preorder: boolean; preorder_days: number; sold_count: number; wish_count: number; rating_avg: number; rating_count: number;
   created_at: Date; updated_at: Date;
   parent_id: number | null; variant_label: string; variant_count: number; variant_title: string;
+  /** a product with colours/sizes: the variant a card's "কার্টে যোগ করুন" puts in the cart (in stock first, then cheapest) */
+  first_variant?: number | null;
   /** 📦 pack sizes the owner ticked ("25,50,100"); empty = sold by the piece */
   pack_sizes: string;
   category_name: string | null; category_slug: string | null; category_icon: string | null;

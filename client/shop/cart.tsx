@@ -135,6 +135,11 @@ export function startCartButtons(): void {
     if (buyNow) { location.href = '/checkout'; return; }
     updateCount(true);
     if (res.capped) { say(limitText(res.rule.max)); return; }
+    // 🎨 added from a card of a product with colours/sizes: they can be changed in the cart
+    if (btn.hasAttribute('data-options')) {
+      toastLink(`✅ "${name}" কার্টে যোগ হয়েছে — রং, সাইজ${res.rule.step > 1 ? ' আর কত পিস' : ''} কার্টে বেছে নিন`, ['/cart', 'বেছে নিন'], 6000);
+      return;
+    }
     if (res.rule.step > 1) {
       const more = res.rule.packs.length > 1 ? ` — কার্টে ${res.rule.packs.map((n) => bn(n)).join('/')} পিস বাছতে পারবেন` : '';
       toastLink(`✅ "${name}" — ${packText(res.qty, res.rule)} কার্টে আছে${more}`, ['/cart', 'প্যাক বাছুন'], 5500);

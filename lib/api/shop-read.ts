@@ -29,8 +29,19 @@ const sortLike = <T extends { id: number }>(prods: T[], order: number[]) => {
 export async function cart(ctx: ApiCtx) {
   if (!(await readLimit(ctx))) return tooMany(ctx);
   const products = await catalog.getProductsByIds(ids(ctx.query.get('ids'), 100), { public: true });
+  // 🎨 a colour/size line: its brothers and sisters, so the cart and checkout can switch colour / size right there
+  const parents = [...new Set(products.map((p) => p.parent_id).filter((x): x is number => !!x))];
+  const sibs = parents.length ? await db.q<{ id: number; parent_id: number; label: string; price: number; stock: number; title: string }>(`SELECT v.id, v.parent_id, v.variant_label AS label, v.price, v.stock,
+      (SELECT pp.variant_title FROM products pp WHERE pp.id=v.parent_id) AS title
+    FROM products v WHERE v.parent_id = ANY($1::int[]) AND v.active ORDER BY v.variant_sort, v.id`, [parents]) : [];
+  const byParent = new Map<number, typeof sibs>();
+  for (const v of sibs) byParent.set(v.parent_id, [...(byParent.get(v.parent_id) || []), v]);
   return json(200, {
     products: products.map((p) => ({
+      ...(p.parent_id && (byParent.get(p.parent_id) || []).length > 1 ? {
+        vtitle: (byParent.get(p.parent_id) || [])[0].title || '',
+        variants: (byParent.get(p.parent_id) || []).map((v) => ({ id: v.id, label: v.label, price: Number(v.price), stock: Number(v.stock) })),
+      } : {}),
       id: p.id, name: p.name, slug: p.slug, price: p.price, stock: p.stock, preorder: !!p.preorder && p.product_type !== 'bundle', preorder_days: p.preorder_days || 0, emoji: p.emoji, sku: p.sku, weight: p.weight_g || 0,
       category: p.category_name || '', image: p.image_id ? `/media/${p.image_id}/t` : null,
       ...(packSizes(p.pack_sizes).length ? { packs: packSizes(p.pack_sizes) } : {}),

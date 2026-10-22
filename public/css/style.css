@@ -1115,3 +1115,7 @@ body.protect .card-pic img, body.protect .g-main img, body.protect .g-thumb img,
 /* came from a card's buttons (#choose): the options get a soft highlight and a one-line hint */
 .var-pick.var-attn { outline: 2px solid var(--amber, #f2a516); outline-offset: 6px; border-radius: 10px; }
 .var-pick .var-note { margin: 0 0 8px; font-weight: 600; color: var(--ink, #14213d); }
+/* 🎨 colour / size dropdowns on a cart / checkout line */
+.var-choice { display: flex; flex-wrap: wrap; gap: 8px 14px; margin: 6px 0 4px; }
+.var-choice label { display: flex; align-items: center; gap: 6px; }
+.var-choice select { font: inherit; padding: 4px 8px; border: 1.5px solid var(--line); border-radius: 8px; background: var(--white, #fff); max-width: 180px; }

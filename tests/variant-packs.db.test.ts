@@ -15,6 +15,7 @@ import { closeConnection } from '../lib/pg';
 import { loadRenderer } from '../lib/react/render';
 import { apiRoute } from '../lib/next/api';
 import { placeOrder } from '../lib/api/checkout';
+import { cart } from '../lib/api/shop-read';
 import * as catalog from '../lib/models/catalog';
 import * as sms from '../lib/services/sms';
 import * as guard from '../lib/services/guard';
@@ -71,4 +72,16 @@ test('a variant is ordered only in whole packs, at that variant\'s price', { ski
   const j = (await ok.json()) as { code: string };
   const o = await db.one<{ subtotal: number }>('SELECT subtotal FROM orders WHERE code=$1', [j.code]);
   assert.equal(Number(o!.subtotal), 150); // 50 × ৳3 (the variant's own price, not the browser's)
+});
+
+test('the cart knows a line\'s other colours/sizes (to switch them in the cart and at checkout)', { skip }, async () => {
+  const GET = apiRoute(cart);
+  const small = kids['সাদা / Small'];
+  const r = await GET(new Request(`http://shop.test/api/cart?ids=${small.id}`, { headers: { 'x-real-ip': '10.66.9.9', host: 'shop.test' } }));
+  assert.equal(r.status, 200);
+  const j = (await r.json()) as { products: { id: number; vtitle?: string; variants?: { id: number; label: string; price: number }[]; packs?: number[] }[] };
+  const line = j.products.find((p) => p.id === small.id)!;
+  assert.equal(line.vtitle, 'রং / সাইজ');
+  assert.deepEqual(line.variants!.map((v) => v.label).sort(), ['সাদা / Small', 'সিলভার / Large'].sort());
+  assert.deepEqual(line.packs, [25, 50, 100]);
 });

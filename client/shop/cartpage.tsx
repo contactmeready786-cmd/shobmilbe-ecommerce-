@@ -5,7 +5,10 @@ import type { QuoteAnswer } from '../api-types.js';
 import { PRICES, limitText, minNote, minShort, minText, packText, readCart, rememberPacks, rule, say, toPacks, writeCart, type Cart } from './cart.js';
 
 void Fragment;
-export type Product = { id: number | string; slug: string; name: string; price: number; stock: number; image?: string; emoji?: string; preorder?: boolean; preorder_days?: number; weight?: number; packs?: number[] };
+export type Product = { id: number | string; slug: string; name: string; price: number; stock: number; image?: string; emoji?: string; preorder?: boolean; preorder_days?: number; weight?: number; packs?: number[];
+  /** 🎨 a colour/size line: all colours/sizes of its product (lib/api/shop-read.ts cart) */
+  vtitle?: string; variants?: VarOpt[] };
+export type VarOpt = { id: number; label: string; price: number; stock: number };
 export type Tier = { min_qty: number; price: number };
 export type Line = { product: Product; qty: number; price: number; kind?: string; note?: string; base?: number; tiers?: Tier[] };
 export type Gift = { name: string; note: string; qty: number; price: number; image?: string | null; emoji?: string | null };
@@ -85,6 +88,53 @@ export function PackChoice({ l }: { l: Line }): HTMLElement | null {
   ) as HTMLElement;
 }
 
+// 🎨 a colour/size line: the customer switches colour / size right in the cart (and at checkout) — one dropdown per
+// option ("রং", "সাইজ") when every label is "সাদা / Small"-like, else one dropdown of all of them
+const VARS: Record<string, VarOpt[]> = {};
+const partsOf = (s: string) => String(s || '').split('/').map((x) => x.trim());
+export function VariantChoice({ l }: { l: Line }): HTMLElement | null {
+  const p = l.product;
+  const id = String(p.id);
+  const list = p.variants || [];
+  const cur = list.find((v) => String(v.id) === id);
+  if (list.length < 2 || !cur) return null;
+  VARS[id] = list;
+  const n = partsOf(cur.label).length;
+  const grouped = n >= 2 && list.every((v) => partsOf(v.label).length === n);
+  const titles = partsOf(p.vtitle || '');
+  if (!grouped) {
+    return (<div className="var-choice"><label className="small">{p.vtitle || 'অপশন'}:{' '}
+      <select data-var-line={id} data-g="all">{list.map((v) => <option value={String(v.id)} selected={String(v.id) === id} disabled={v.stock <= 0 && String(v.id) !== id}>{v.label}{v.stock <= 0 ? ' (স্টকে নেই)' : ''}</option>)}</select></label></div>) as HTMLElement;
+  }
+  const cp = partsOf(cur.label);
+  return (<div className="var-choice">{Array.from({ length: n }, (_, g) => {
+    const vals = [...new Set(list.map((v) => partsOf(v.label)[g]))];
+    return <label className="small">{titles.length === n ? titles[g] : `অপশন ${bn(g + 1)}`}:{' '}
+      <select data-var-line={id} data-g={String(g)}>{vals.map((val) => <option value={val} selected={val === cp[g]}>{val}</option>)}</select></label>;
+  })}</div>) as HTMLElement;
+}
+/** The colour/size a changed dropdown points to (the exact combination, or the first in stock with the new value). */
+export function variantTarget(sel: HTMLSelectElement): string | null {
+  const id = sel.getAttribute('data-var-line') || '';
+  const list = VARS[id];
+  if (!list) return null;
+  if (sel.getAttribute('data-g') === 'all') return sel.value;
+  const box = sel.closest('.var-choice');
+  const want = box ? [...box.querySelectorAll<HTMLSelectElement>('select')].map((x) => x.value) : [];
+  const g = Number(sel.getAttribute('data-g'));
+  const t = list.find((v) => partsOf(v.label).every((x, i) => x === want[i]))
+    || list.find((v) => partsOf(v.label)[g] === sel.value && v.stock > 0) || list.find((v) => partsOf(v.label)[g] === sel.value);
+  return t ? String(t.id) : null;
+}
+/** Moves a line to another colour/size (same number of pieces; the packs are checked again when the cart loads). */
+export function swapInCart(cart: Cart, from: string, to: string | null): boolean {
+  if (!to || to === from || !(from in cart)) return false;
+  const q = cart[from];
+  delete cart[from];
+  cart[to] = (cart[to] || 0) + q;
+  return true;
+}
+
 function CartLine({ l, over, pre }: { l: Line; over: boolean; pre: boolean }) {
   const p = l.product;
   const r = rule(p.price, String(p.id));
@@ -100,6 +150,7 @@ function CartLine({ l, over, pre }: { l: Line; over: boolean; pre: boolean }) {
           <button className="link-btn danger" data-remove={String(p.id)}>সরান</button>
           <span className="muted small">{l.base && l.price < l.base ? <><s>{money(l.base)}</s>{' '}</> : null}{money(l.price)} করে</span></div>
         {pack ? <p className="small pack-line">{pack} — প্রতি পিস {money(l.price)}</p> : null}
+        <VariantChoice l={l} />
         <PackChoice l={l} />
         {hint ? <p className="small tier-hint">💡 {hint}</p> : null}
         {r.small ? <p className="muted small">🔩 কম দামের পণ্য: কমপক্ষে {bn(r.min)}টি ({money(r.min * p.price)})</p> : null}
@@ -173,6 +224,12 @@ export function startCartPage(): void {
       void render();
     });
     root.addEventListener('change', (e) => {
+      const vs = hit<HTMLSelectElement>(e, 'select[data-var-line]');
+      if (vs) {
+        const cart = readCart();
+        if (swapInCart(cart, vs.getAttribute('data-var-line') || '', variantTarget(vs))) { writeCart(cart); void render(); }
+        return;
+      }
       const box = hit(e, '[data-line]');
       if (!box) return;
       const cart = readCart();
