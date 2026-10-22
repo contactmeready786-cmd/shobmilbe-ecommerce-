@@ -232,8 +232,8 @@ const PUBLIC_COLS = `p.id, p.name, p.slug, p.category_id, ${PRICE_COLS}, ${STOCK
 // The shop side (customers, robots, feeds) never even loads these — they are not in the public query at all.
 // In the admin the price is the saved normal price (so editing never saves a sale price by mistake).
 const PRODUCT_COLS = PUBLIC_COLS.replace(PRICE_COLS, `p.price, p.old_price, ${FLASH_SUB} AS flash_price, ${FLASH_END} AS flash_ends, p.price AS base_price`)
-  + ', p.cost_price, p.damaged_stock, p.supplier_id, p.location';
-if (/cost|supplier|damaged|location/.test(PUBLIC_COLS)) throw new Error('PUBLIC_COLS must not contain private columns');
+  + ', p.cost_price, p.damaged_stock, p.supplier_id, p.location, p.packing_set_id';
+if (/cost|supplier|damaged|location|packing/.test(PUBLIC_COLS)) throw new Error('PUBLIC_COLS must not contain private columns');
 const colsFor = (o?: { public?: boolean } | null): string => (o && o.public ? PUBLIC_COLS : PRODUCT_COLS);
 
 function productWhere({ hideOut, category, categoryId, brandId, brandIds, damaged, supplierId, q: search, featured, sold, includeInactive, type, lowStock, offer, maxPrice, minPrice, status, outStock, inStock, isNew, newDays, items, ids, specs }: ProductFilter, params: Param[]): string {
@@ -692,6 +692,8 @@ async function saveProduct(data: Body & { bundle?: { product_id: unknown; qty: u
   if (data.spec_key !== undefined) f.specs = JSON.stringify(cleanSpecs(data.spec_key, data.spec_val));
   else if (Array.isArray(data.specs)) f.specs = JSON.stringify(cleanSpecs(data.specs.map((x: unknown[]) => x[0]), data.specs.map((x: unknown[]) => x[1])));
   if (data.supplier_id !== undefined) f.supplier_id = int(data.supplier_id) || null;
+  // 📦 the packing set (owner only, only when the form sends it)
+  if (data.packing_form !== undefined) f.packing_set_id = int(data.packing_set_id) || null;
   // 📍 where it is kept at home / in the store (বক্স ৩, তাক ২…) — only when the form sends it
   if (data.location !== undefined) f.location = cleanLocation(data.location);
   // barcode: typed by the owner (e.g. the maker's EAN) or left empty → the shop's own SB000123
@@ -935,7 +937,7 @@ async function listLocations(): Promise<LocationCount[]> {
 
 const STOCK_REASONS: Record<string, string> = {
   opening: 'শুরুর স্টক', order: 'অর্ডার', cancel: 'অর্ডার বাতিল/ফেরত', edit: 'অর্ডার এডিট', purchase: 'পারচেজ (কেনা)',
-  purchase_cancel: 'পারচেজ বাতিল', purchase_edit: 'পারচেজ সংশোধন', adjust: 'হাতে বদল', damage: 'নষ্ট/ভাঙা → নষ্ট স্টকে', lost: 'হারানো', count: 'গণনা ঠিক করা', return: 'কাস্টমার ফেরত',
+  purchase_cancel: 'পারচেজ বাতিল', purchase_edit: 'পারচেজ সংশোধন', packing: 'অর্ডারের প্যাকিংয়ে ব্যবহার', packing_back: 'ফেরত আসা প্যাকিং আবার ব্যবহারযোগ্য', adjust: 'হাতে বদল', damage: 'নষ্ট/ভাঙা → নষ্ট স্টকে', lost: 'হারানো', count: 'গণনা ঠিক করা', return: 'কাস্টমার ফেরত',
   return_damaged: 'ফেরত আসা নষ্ট মাল → নষ্ট স্টকে', damage_out: 'নষ্ট মাল ফেলে দেওয়া', repair: 'মেরামত হয়ে আবার বিক্রিযোগ্য',
 };
 // Damaged goods are kept apart from the stock that can be sold: a change can move pieces between the two.

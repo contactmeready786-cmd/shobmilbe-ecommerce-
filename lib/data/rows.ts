@@ -165,6 +165,7 @@ export type CategoriesRow = {
   noindex: boolean;
   size_chart: string;
   no_free_delivery: boolean;
+  packing_set_id: number | null;
 };
 
 /** A row of checkout_drafts. */
@@ -682,6 +683,22 @@ export type OrderItemsRow = {
   preorder_qty: number;
 };
 
+/** A row of order_packing. */
+export type OrderPackingRow = {
+  id: number;
+  order_id: number;
+  item_id: number | null;
+  name: string;
+  qty: number;
+  unit_cost: number;
+  cost: number;
+  product_id: number | null;
+  stock_taken: number;
+  state: string;
+  created_at: Date;
+  reused_at: Date | null;
+};
+
 /** A row of orders. */
 export type OrdersRow = {
   id: number;
@@ -767,6 +784,28 @@ export type OwnerPasskeysRow = {
   transports: string;
   created_at: Date;
   last_used: Date | null;
+};
+
+/** A row of packing_items. */
+export type PackingItemsRow = {
+  id: number;
+  name: string;
+  buy_price: number;
+  uses: number;
+  product_id: number | null;
+  note: string;
+  active: boolean;
+  created_at: Date;
+};
+
+/** A row of packing_sets. */
+export type PackingSetsRow = {
+  id: number;
+  name: string;
+  per: string;
+  items: unknown;
+  active: boolean;
+  created_at: Date;
 };
 
 /** A row of page_views. */
@@ -908,6 +947,7 @@ export type ProductsRow = {
   src_wm_checked: boolean;
   pack_sizes: string;
   dims: string;
+  packing_set_id: number | null;
 };
 
 /** A row of purchase_edits. */
@@ -1475,9 +1515,12 @@ export type Tables = {
   media: MediaRow;
   offers: OffersRow;
   order_items: OrderItemsRow;
+  order_packing: OrderPackingRow;
   orders: OrdersRow;
   owner_faces: OwnerFacesRow;
   owner_passkeys: OwnerPasskeysRow;
+  packing_items: PackingItemsRow;
+  packing_sets: PackingSetsRow;
   page_views: PageViewsRow;
   pages: PagesRow;
   payments: PaymentsRow;

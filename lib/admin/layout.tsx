@@ -20,6 +20,10 @@ type MenuItem = Tab | TabSet;
 /** a menu entry the user may open: a link, plus (for a tab set) the keys of all its tabs */
 type Resolved = [string, string, string, string, string, string[]?];
 const TABS: Record<string, Tab[]> = {
+  pnl: [
+    ['/admin/accounts/pnl', 'লাভ-ক্ষতি', 'see_cost', 'acc-pnl', '📉'],
+    ['/admin/accounts/packing', 'প্যাকিং খরচ', 'see_cost', 'packing', '📦'],
+  ],
   returns: [
     ['/admin/returns', 'রিটার্ন ও রিফান্ড', 'orders', 'returns', '↩️'],
     ['/admin/complaints', 'অভিযোগ (৭২ ঘণ্টা)', 'orders', 'complaints', '📮'],
@@ -128,7 +132,7 @@ const MENU: { title: string; icon?: string; items: MenuItem[] }[] = [
     ['/admin/accounts/transactions', 'আয়-ব্যয় এন্ট্রি', 'accounting', 'acc-tx', '✍️'],
     ['/admin/accounts/banks', 'ব্যাংক ও ক্যাশ', 'accounting', 'acc-banks', '🏦'],
     ['/admin/accounts/cod', 'কুরিয়ারের COD মিলানো', 'accounting', 'acc-cod', '🚚'],
-    ['/admin/accounts/pnl', 'লাভ-ক্ষতি', 'see_cost', 'acc-pnl', '📉'],
+    tabSet('pnl', 'লাভ-ক্ষতি ও প্যাকিং খরচ', '📉'),
     ['/admin/accounts/vat', 'ভ্যাট ও ট্যাক্স', 'accounting', 'acc-vat', '🧮'],
   ] },
   { title: 'রিপোর্ট ও গ্রোথ', icon: '📈', items: [

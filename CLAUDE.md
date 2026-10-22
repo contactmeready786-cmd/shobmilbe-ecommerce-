@@ -35,6 +35,12 @@ uses that one setup. Never add a second Gmail / App Password / SMS / API-key fie
 - Purchases and supplier payments can be corrected by the owner only (lib/admin/inventory.tsx purchaseEdit /
   paymentEdit → finance.editPurchase / editSupplierPayment): only the stock difference moves ("পারচেজ সংশোধন"),
   the buying price is worked out again, stock never below zero, every change is kept in `purchase_edits`.
+- 📦 Packing costs (owner, 2026-10-23; lib/models/packing.ts, Admin → লাভ-ক্ষতি → প্যাকিং খরচ, owner only): things at cost
+  per use (price ÷ parcels), sets (per piece or once per product line), set per product (else main product, else
+  category / parent category) + one set per order (`packing_order_set`). Written into `order_packing` when an order goes
+  to `shipped`/`delivered` (orders.setStatusTx, inside a SAVEPOINT — never blocks the status change); a thing linked to
+  a shop product and used whole comes out of its stock. Returned parcel with good packing → "reused" (cost out, stock
+  back). Profit & loss subtracts `packing.cost`.
 - Admin menu: related small pages are tabs (`TABS` in lib/admin/layout.tsx), not new menu lines.
 - The camera face check was removed on purpose; only the fingerprint / passkey login lock stays.
 - 📱 Android app releases (owner, 2026-10-20 — never ask the owner again): every change to the customer app that customers

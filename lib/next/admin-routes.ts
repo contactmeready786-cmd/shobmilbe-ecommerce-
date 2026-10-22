@@ -155,4 +155,5 @@ export const ADMIN_GET_ROUTES: (string | RegExp)[] = [
   /^\/admin\/products\/(\d+)\/ledger$/,
   "/admin/marketing/email",
   "/admin/marketing/email/preview",
+  "/admin/accounts/packing",
 ];

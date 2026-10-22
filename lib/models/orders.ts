@@ -7,6 +7,7 @@ import GEO from '../data/bd-geo.json';
 import * as $services_pricing from '../services/pricing';
 import * as $giftcards from './giftcards';
 import * as $loyalty from './loyalty';
+import * as $packing from './packing';
 import type { DbRow, Tx } from '../pg';
 import type { CouponsRow, OrdersRow, OrderItemsRow, ProductsRow, FlashItemsRow, WarehouseStockRow } from '../data/rows';
 import type { Body, Settings } from '../types';
@@ -600,6 +601,13 @@ async function setStatusTx(id: number, status: string, staffId: number | null | 
     }
     await t.query(`UPDATE orders SET status=$1, returned_to=$3, updated_at=now() ${extra} WHERE id=$2`, [status, id, returnedTo || '']);
     await $loyalty.onStatus(t, id, o.status, status);
+    // 📦 handed to the courier (or delivered straight away): what the parcel was packed with is written down
+    // (packing costs, lib/models/packing.ts). Never stops the status change — a problem there is only logged.
+    if ((status === 'shipped' || status === 'delivered') && o.status !== 'shipped' && o.status !== 'delivered') {
+      await t.query('SAVEPOINT packing');
+      try { await $packing.recordForOrder(t, id, staffId ?? null); await t.query('RELEASE SAVEPOINT packing'); }
+      catch (e) { await t.query('ROLLBACK TO SAVEPOINT packing'); console.error('packing', (e as Error).message); }
+    }
     return { changed: true, prev: o.status, returnedTo };
   });
 }

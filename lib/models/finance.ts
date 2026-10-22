@@ -3,6 +3,7 @@ import type { AccountsRow, PurchasesRow, ProductsRow, PurchaseItemsRow, StaffRow
 import { q, one, tx } from '../db';
 import { int, str, num, randomCode, validYmd, ymd, amount, round2, oneOf } from '../util';
 import * as catalog from './catalog';
+import * as $packing from './packing';
 import type { Body, Id, Settings } from '../types';
 import type { DbRow, Param, Tx } from '../pg';
 
@@ -411,9 +412,12 @@ async function profitLoss(from: Day, to: Day) {
   const expenseTotal = expenses.reduce((s, e) => s + Number(e.amount), 0);
   const otherIncomeTotal = otherIncome.reduce((s, e) => s + Number(e.amount), 0);
   const gross = Number(sales!.revenue) - Number(sales!.cogs);
+  // 📦 what the parcels were packed with (box, tape, sticker …), counted on the day they went out — also for parcels
+  // that came back, unless the packing was marked reused (lib/models/packing.ts)
+  const packing = await $packing.totalBetween(from, to);
   return {
-    sales, returns: returns!.n, expenses, otherIncome, expenseTotal, otherIncomeTotal, gross,
-    net: gross + otherIncomeTotal - expenseTotal,
+    sales, returns: returns!.n, expenses, otherIncome, expenseTotal, otherIncomeTotal, gross, packing,
+    net: gross + otherIncomeTotal - expenseTotal - packing.cost,
     movements: { income: inc.filter((e) => NON_PNL_INCOME.has(e.category)), expense: exp.filter((e) => NON_PNL_EXPENSE.has(e.category)) },
   };
 }

@@ -1184,6 +1184,28 @@ CREATE TABLE IF NOT EXISTS purchase_edits (
   staff_id int, before jsonb, after jsonb, created_at timestamptz DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS purchase_edits_purchase_idx ON purchase_edits(purchase_id, id DESC);
+`,  // 📦 packing costs (owner, 2026-10-23): the things a parcel is packed with (box, tape, sticker, cello poly …) at their
+  // cost per use, ready-made sets of them, the set each product / category needs, and what each order really used
+  // (taken when it goes to the courier; a box that comes back whole can be marked "reused")
+  `
+CREATE TABLE IF NOT EXISTS packing_items (
+  id serial PRIMARY KEY, name text NOT NULL, buy_price numeric(12,2) NOT NULL DEFAULT 0, uses int NOT NULL DEFAULT 1,
+  product_id int REFERENCES products(id) ON DELETE SET NULL, note text NOT NULL DEFAULT '', active boolean NOT NULL DEFAULT true,
+  created_at timestamptz DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS packing_sets (
+  id serial PRIMARY KEY, name text NOT NULL, per text NOT NULL DEFAULT 'piece', items jsonb NOT NULL DEFAULT '[]',
+  active boolean NOT NULL DEFAULT true, created_at timestamptz DEFAULT now()
+);
+ALTER TABLE products ADD COLUMN IF NOT EXISTS packing_set_id int;
+ALTER TABLE categories ADD COLUMN IF NOT EXISTS packing_set_id int;
+CREATE TABLE IF NOT EXISTS order_packing (
+  id serial PRIMARY KEY, order_id int NOT NULL REFERENCES orders(id) ON DELETE CASCADE, item_id int, name text NOT NULL DEFAULT '',
+  qty numeric(12,3) NOT NULL DEFAULT 0, unit_cost numeric(12,4) NOT NULL DEFAULT 0, cost numeric(12,2) NOT NULL DEFAULT 0,
+  product_id int, stock_taken int NOT NULL DEFAULT 0, state text NOT NULL DEFAULT 'used', created_at timestamptz DEFAULT now(), reused_at timestamptz
+);
+CREATE INDEX IF NOT EXISTS order_packing_order_idx ON order_packing(order_id);
+CREATE INDEX IF NOT EXISTS order_packing_day_idx ON order_packing(created_at);
 `,
 ];
 
