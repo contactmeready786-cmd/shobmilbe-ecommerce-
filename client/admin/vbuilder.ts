@@ -5,13 +5,14 @@
 // to take the page over). Picking a photo for one row puts it on the other rows of the same colour.
 
 const split = (v: string) => [...new Set(v.split(/[,،\n]+/).map((x) => x.replace(/\//g, '-').replace(/\s+/g, ' ').trim().slice(0, 28)).filter(Boolean))];
-const key = (c: string, s: string) => `${c.toLowerCase()}|${s.toLowerCase()}`;
+const key = (b: string, c: string, s: string) => `${b.toLowerCase()}|${c.toLowerCase()}|${s.toLowerCase()}`;
 
 export function startVariantBuilder(): void {
   const box = document.querySelector<HTMLElement>('[data-vb]');
   if (!box) return;
   const ci = box.querySelector<HTMLInputElement>('[data-vb-colors]');
   const si = box.querySelector<HTMLInputElement>('[data-vb-sizes]');
+  const bi = box.querySelector<HTMLInputElement>('[data-vb-brands]'); // 🏷️ ব্র্যান্ড (Daraz / Cartup / নন-ব্র্যান্ড …)
   const body = box.querySelector<HTMLElement>('[data-vb-body]');
   const tpl = box.querySelector<HTMLTableRowElement>('[data-vb-template] tr[data-vb-row]');
   const empty = box.querySelector<HTMLElement>('[data-vb-empty]');
@@ -30,32 +31,42 @@ export function startVariantBuilder(): void {
   };
 
   const make = () => {
+    const B = bi ? split(bi.value) : [];
     const C = split(ci.value);
     const S = split(si.value);
+    if (bi) bi.value = B.join(', ');
     ci.value = C.join(', ');
     si.value = S.join(', ');
-    const combos: [string, string][] = C.length && S.length ? C.flatMap((c) => S.map((s): [string, string] => [c, s]))
-      : C.length ? C.map((c): [string, string] => [c, '']) : S.map((s): [string, string] => ['', s]);
-    const have = new Map(rows().map((r) => [key(r.dataset.c || '', r.dataset.s || ''), r]));
+    // every brand × colour × size that was given (a list left empty is simply left out)
+    let combos: [string, string, string][] = [['', '', '']];
+    ([B, C, S] as string[][]).forEach((list, i) => {
+      if (!list.length) return;
+      combos = combos.flatMap((x) => list.map((v): [string, string, string] => { const y = [...x] as [string, string, string]; y[i] = v; return y; }));
+    });
+    if (!B.length && !C.length && !S.length) combos = [];
+    const have = new Map(rows().map((r) => [key(r.dataset.b || '', r.dataset.c || '', r.dataset.s || ''), r]));
     const want = new Set<string>();
-    for (const [c, s] of combos) {
-      const k = key(c, s);
+    for (const [b, c, s] of combos) {
+      const k = key(b, c, s);
       want.add(k);
       let r = have.get(k);
       if (!r) {
         r = tpl.cloneNode(true) as HTMLTableRowElement;
         // the hidden blank row's fields are switched off (so they are never sent); the copy's are on
         for (const el of r.querySelectorAll<HTMLInputElement | HTMLSelectElement>('input, select')) el.disabled = false;
+        r.dataset.b = b;
         r.dataset.c = c;
         r.dataset.s = s;
+        const fb = field(r, 'vb_brand'); if (fb) fb.value = b;
+        const tb = r.querySelector('[data-vb-btext]'); if (tb) tb.textContent = b || '—';
         const fc = field(r, 'vb_color'); if (fc) fc.value = c;
         const fs = field(r, 'vb_size'); if (fs) fs.value = s;
         const tc = r.querySelector('[data-vb-ctext]'); if (tc) tc.textContent = c || '—';
         const ts = r.querySelector('[data-vb-stext]'); if (ts) ts.textContent = s || '—';
         const fp = field(r, 'vb_price'); if (fp && mainPrice) fp.value = mainPrice.value;
         const fk = field(r, 'vb_cost'); if (fk && mainCost) fk.value = mainCost.value;
-        // the same colour's photo, if another row already has one
-        const twin = rows().find((x) => (x.dataset.c || '') === c && c && field(x, 'vb_img')?.value);
+        // the same brand + colour's photo, if another row already has one
+        const twin = rows().find((x) => (b || c) && (x.dataset.b || '') === b && (x.dataset.c || '') === c && field(x, 'vb_img')?.value);
         const fi = field(r, 'vb_img'); if (fi && twin) fi.value = field(twin, 'vb_img')!.value;
       } else if (r.dataset.autoOff) {
         const on = field(r, 'vb_on'); if (on) on.value = '1';
@@ -65,7 +76,7 @@ export function startVariantBuilder(): void {
       body.appendChild(r); // (in the order of the lists)
     }
     for (const r of rows()) {
-      if (want.has(key(r.dataset.c || '', r.dataset.s || ''))) continue;
+      if (want.has(key(r.dataset.b || '', r.dataset.c || '', r.dataset.s || ''))) continue;
       if (!field(r, 'vb_id')?.value) { r.remove(); continue; }
       const on = field(r, 'vb_on'); if (on) on.value = '0';
       r.classList.add('row-off');
@@ -99,7 +110,7 @@ export function startVariantBuilder(): void {
     const chip = t?.closest<HTMLElement>('[data-vb-chip]');
     if (chip) {
       e.preventDefault();
-      const input = chip.dataset.vbChip === 'size' ? si : ci;
+      const input = chip.dataset.vbChip === 'size' ? si : chip.dataset.vbChip === 'brand' && bi ? bi : ci;
       const v = chip.dataset.v || '';
       const now = split(input.value);
       input.value = (now.some((x) => x.toLowerCase() === v.toLowerCase()) ? now : [...now, v]).join(', ');
@@ -110,16 +121,17 @@ export function startVariantBuilder(): void {
     const sel = e.target as HTMLSelectElement | null;
     if (!sel || sel.name !== 'vb_img') return;
     const r = sel.closest<HTMLElement>('tr[data-vb-row]');
+    const b = r?.dataset.b || '';
     const c = r?.dataset.c || '';
-    if (!c) return;
+    if (!b && !c) return;
     for (const x of rows()) {
       const f = field(x, 'vb_img');
-      if (x !== r && (x.dataset.c || '') === c && f && !f.value) f.value = sel.value;
+      if (x !== r && (x.dataset.b || '') === b && (x.dataset.c || '') === c && f && !f.value) f.value = sel.value;
     }
   });
   function addOwn(kind: string) {
     const src = box!.querySelector<HTMLInputElement>(`[data-vb-own="${kind}"]`);
-    const input = kind === 'size' ? si! : ci!;
+    const input = kind === 'size' ? si! : kind === 'brand' && bi ? bi : ci!;
     const v = (src?.value || '').replace(/[,/]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 28);
     if (!src || !v) { src?.focus(); return; }
     const now = split(input.value);
@@ -131,7 +143,7 @@ export function startVariantBuilder(): void {
     own.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addOwn(own.dataset.vbOwn || ''); } });
   }
   // Enter in the colour / size boxes makes the table instead of saving the whole product
-  for (const inp of [ci, si]) inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); make(); } });
+  for (const inp of [ci, si, ...(bi ? [bi] : [])]) inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); make(); } });
   sync();
 }
 

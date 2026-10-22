@@ -10,12 +10,12 @@ test('variant table: rows read from the form in order', () => {
     vb_price: ['2', '3.5', ''], vb_cost: ['1.2', '', ''], vb_stock: ['500', '', ''], vb_img: ['1', '1', ''], vb_on: ['1', '0', '1'], vb_del: ['1', '0', '0'],
   });
   assert.deepEqual(rows, [
-    { id: 0, color: 'সাদা', size: 'Small', price: '2', cost: '1.2', stock: '500', img: '1', on: true, del: false, dl: '', dw: '', dh: '' }, // (a new row can't be 'deleted')
-    { id: 12, color: 'সাদা', size: 'Large - XL', price: '3.5', cost: '', stock: '', img: '1', on: false, del: false, dl: '', dw: '', dh: '' }, // "/" can't break the label
+    { id: 0, brand: '', color: 'সাদা', size: 'Small', price: '2', cost: '1.2', stock: '500', img: '1', on: true, del: false, dl: '', dw: '', dh: '' }, // (a new row can't be 'deleted')
+    { id: 12, brand: '', color: 'সাদা', size: 'Large - XL', price: '3.5', cost: '', stock: '', img: '1', on: false, del: false, dl: '', dw: '', dh: '' }, // "/" can't break the label
   ]);
   // one row only (the form sends single values, not lists)
   assert.deepEqual(vbRowsFromBody({ vb_id: '', vb_color: 'সিলভার', vb_size: '', vb_price: '4', vb_stock: '', vb_img: '', vb_on: '1' }),
-    [{ id: 0, color: 'সিলভার', size: '', price: '4', cost: '', stock: '', img: '', on: true, del: false, dl: '', dw: '', dh: '' }]);
+    [{ id: 0, brand: '', color: 'সিলভার', size: '', price: '4', cost: '', stock: '', img: '', on: true, del: false, dl: '', dw: '', dh: '' }]);
   assert.deepEqual(vbRowsFromBody({}), []);
   // a saved row marked 🗑️
   assert.equal(vbRowsFromBody({ vb_id: '7', vb_color: 'লাল', vb_size: 'M', vb_price: '5', vb_on: '1', vb_del: '1' })[0].del, true);
@@ -28,4 +28,11 @@ test('variant table: a box\'s measure (দৈর্ঘ্য × প্রস্�
   assert.equal(dimsText('', '', '', 'ইঞ্চি'), ''); // nothing given → no measure
   assert.equal(dimsText('4', '4', '2', 'ইঞ্চি'), '4 × 4 × 2 ইঞ্চি');
   assert.equal(dimsText('4', '4', '2', 'furlong'), '4 × 4 × 2 সেমি'); // unknown unit → সেমি
+});
+
+test('variant table: a brand (Daraz / Cartup / নন-ব্র্যান্ড) is a row\'s third option', () => {
+  const rows = vbRowsFromBody({ vb_id: ['', ''], vb_brand: ['Daraz', 'নন-ব্র্যান্ড'], vb_color: ['', ''], vb_size: ['১ নং', '১ নং'], vb_price: ['10', '8'], vb_on: ['1', '1'] });
+  assert.deepEqual(rows.map((r) => [r.brand, r.color, r.size]), [['Daraz', '', '১ নং'], ['নন-ব্র্যান্ড', '', '১ নং']]);
+  // a row with only a brand is still a row
+  assert.equal(vbRowsFromBody({ vb_brand: 'Cartup', vb_color: '', vb_size: '', vb_price: '5', vb_on: '1' }).length, 1);
 });
