@@ -1112,3 +1112,6 @@ body.protect .card-pic img, body.protect .g-main img, body.protect .g-thumb img,
 /* ---------- 🎨 variants in two rows (রং · সাইজ) ---------- */
 .var-groups .var-group + .var-group { margin-top: 12px; }
 .var-groups .var-group .var-head { margin-bottom: 6px; }
+/* came from a card's buttons (#choose): the options get a soft highlight and a one-line hint */
+.var-pick.var-attn { outline: 2px solid var(--amber, #f2a516); outline-offset: 6px; border-radius: 10px; }
+.var-pick .var-note { margin: 0 0 8px; font-weight: 600; color: var(--ink, #14213d); }

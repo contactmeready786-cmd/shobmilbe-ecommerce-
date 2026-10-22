@@ -393,4 +393,13 @@ function variants(): void {
   const first = $('[data-var].on', vp);
   if (first) pick(first);
   if (groups) paintGroups();
+  // came from a card's "কার্টে যোগ করুন" / "এখনই কিনুন" (#choose): show the options to pick first
+  if (location.hash === '#choose') {
+    vp.classList.add('var-attn');
+    const note = document.createElement('p');
+    note.className = 'var-note';
+    note.textContent = '👇 আগে রং / সাইজ / প্যাক বেছে নিন, তারপর কার্টে যোগ করুন।';
+    vp.prepend(note);
+    setTimeout(() => vp.scrollIntoView({ behavior: 'smooth', block: 'center' }), 300);
+  }
 }
