@@ -1,7 +1,8 @@
 // 🎨 রং / সাইজ in the product form (lib/admin/products.tsx variantBuilder): the owner types the colours and the sizes
 // (or taps the ready-made chips), presses "📋 দামের টেবিল তৈরি করুন" → one row per colour × size, made from the page's
 // own <template> row. Rows already there keep what was typed; a combination taken away is switched "বন্ধ" (a saved
-// one) or removed (a new one). Picking a photo for one row puts it on the other rows of the same colour.
+// one) or removed (a new one). Rows are copied from a hidden blank row (not a <template> — React must be able
+// to take the page over). Picking a photo for one row puts it on the other rows of the same colour.
 
 const split = (v: string) => [...new Set(v.split(/[,،\n]+/).map((x) => x.replace(/\//g, '-').replace(/\s+/g, ' ').trim().slice(0, 28)).filter(Boolean))];
 const key = (c: string, s: string) => `${c.toLowerCase()}|${s.toLowerCase()}`;
@@ -12,7 +13,7 @@ export function startVariantBuilder(): void {
   const ci = box.querySelector<HTMLInputElement>('[data-vb-colors]');
   const si = box.querySelector<HTMLInputElement>('[data-vb-sizes]');
   const body = box.querySelector<HTMLElement>('[data-vb-body]');
-  const tpl = box.querySelector<HTMLTemplateElement>('template[data-vb-template]');
+  const tpl = box.querySelector<HTMLTableRowElement>('[data-vb-template] tr[data-vb-row]');
   const empty = box.querySelector<HTMLElement>('[data-vb-empty]');
   if (!ci || !si || !body || !tpl) return;
   const rows = () => [...body.querySelectorAll<HTMLTableRowElement>('tr[data-vb-row]')];
@@ -41,9 +42,9 @@ export function startVariantBuilder(): void {
       want.add(k);
       let r = have.get(k);
       if (!r) {
-        const frag = tpl.content.cloneNode(true) as DocumentFragment;
-        r = frag.querySelector<HTMLTableRowElement>('tr[data-vb-row]') || undefined;
-        if (!r) continue;
+        r = tpl.cloneNode(true) as HTMLTableRowElement;
+        // the hidden blank row's fields are switched off (so they are never sent); the copy's are on
+        for (const el of r.querySelectorAll<HTMLInputElement | HTMLSelectElement>('input, select')) el.disabled = false;
         r.dataset.c = c;
         r.dataset.s = s;
         const fc = field(r, 'vb_color'); if (fc) fc.value = c;

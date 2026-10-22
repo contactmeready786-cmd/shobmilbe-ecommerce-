@@ -265,17 +265,17 @@ export function vbRowsFromBody(b: Body): VbRow[] {
   return cs.map((c, i) => ({ id: int(ids[i]), color: vbClean(c), size: vbClean(ss[i]), price: str(pr[i], 20), cost: str(co[i], 20), stock: str(st[i], 10), img: str(im[i], 3), on: on[i] !== '0' }))
     .filter((r) => r.color || r.size).slice(0, catalog.MAX_VARIANTS);
 }
-function vbRow(r: VbRow | null, seeCost: boolean, nImg: number) {
+function vbRow(r: VbRow | null, seeCost: boolean, nImg: number, tpl = false) {
   const x = r || { id: 0, color: '', size: '', price: '', cost: '', stock: '', img: '', on: true };
   const old = !!x.id;
   return <tr data-vb-row="" data-c={x.color} data-s={x.size} className={x.on ? '' : 'row-off'}>
-    <td><input type="hidden" name="vb_id" defaultValue={x.id ? String(x.id) : ''} /><input type="hidden" name="vb_color" defaultValue={x.color} /><input type="hidden" name="vb_size" defaultValue={x.size} /><b data-vb-ctext=""><Val v={x.color || '—'} /></b></td>
+    <td><input disabled={tpl} type="hidden" name="vb_id" defaultValue={x.id ? String(x.id) : ''} /><input disabled={tpl} type="hidden" name="vb_color" defaultValue={x.color} /><input disabled={tpl} type="hidden" name="vb_size" defaultValue={x.size} /><b data-vb-ctext=""><Val v={x.color || '—'} /></b></td>
     <td data-vb-stext=""><Val v={x.size || '—'} /></td>
-    <td><input name="vb_price" type="number" step="0.01" min="0" className="w-num" defaultValue={x.price} aria-label="বিক্রির দাম (১ পিস)" /></td>
-    {(seeCost ? <td>{(old ? <><input type="hidden" name="vb_cost" defaultValue="" /><span className="small">{money(x.cur ? x.cur.cost : 0)}</span></> : <input name="vb_cost" type="number" step="0.01" min="0" className="w-num" defaultValue={x.cost} aria-label="কেনা দাম (১ পিস)" />)}</td> : null)}
-    <td>{(old ? <><input type="hidden" name="vb_stock" defaultValue="" /><span className="small">{bn(x.cur ? x.cur.stock : 0)}</span></> : <input name="vb_stock" type="number" min="0" className="w-num" defaultValue={x.stock} aria-label="স্টক (পিস)" />)}</td>
-    <td><select name="vb_img" defaultValue={x.img} aria-label="ছবি"><option value="">—</option>{jsxList(Array.from({ length: Math.max(8, nImg) }, (_, i) => <option value={String(i + 1)}>ছবি {bn(i + 1)}</option>))}</select></td>
-    <td><select name="vb_on" defaultValue={x.on ? '1' : '0'} aria-label="দোকানে"><option value="1">চালু</option><option value="0">বন্ধ</option></select></td>
+    <td><input disabled={tpl} name="vb_price" type="number" step="0.01" min="0" className="w-num" defaultValue={x.price} aria-label="বিক্রির দাম (১ পিস)" /></td>
+    {(seeCost ? <td>{(old ? <><input disabled={tpl} type="hidden" name="vb_cost" defaultValue="" /><span className="small">{money(x.cur ? x.cur.cost : 0)}</span></> : <input disabled={tpl} name="vb_cost" type="number" step="0.01" min="0" className="w-num" defaultValue={x.cost} aria-label="কেনা দাম (১ পিস)" />)}</td> : null)}
+    <td>{(old ? <><input disabled={tpl} type="hidden" name="vb_stock" defaultValue="" /><span className="small">{bn(x.cur ? x.cur.stock : 0)}</span></> : <input disabled={tpl} name="vb_stock" type="number" min="0" className="w-num" defaultValue={x.stock} aria-label="স্টক (পিস)" />)}</td>
+    <td><select disabled={tpl} name="vb_img" defaultValue={x.img} aria-label="ছবি"><option value="">—</option>{jsxList(Array.from({ length: Math.max(8, nImg) }, (_, i) => <option value={String(i + 1)}>ছবি {bn(i + 1)}</option>))}</select></td>
+    <td><select disabled={tpl} name="vb_on" defaultValue={x.on ? '1' : '0'} aria-label="দোকানে"><option value="1">চালু</option><option value="0">বন্ধ</option></select></td>
   </tr>;
 }
 function variantBuilder(p: ProductDraft, rows: VbRow[], seeCost: boolean) {
@@ -291,7 +291,7 @@ function variantBuilder(p: ProductDraft, rows: VbRow[], seeCost: boolean) {
     <div className="table-wrap"><table className="table compact vb-table"><thead><tr><th>রং</th><th>সাইজ</th><th>বিক্রির দাম ৳ (১ পিস)</th>{(seeCost ? <th>কেনা দাম ৳ (১ পিস)</th> : null)}<th>স্টক (পিস)</th><th>ছবি</th><th>দোকানে</th></tr></thead>
       <tbody data-vb-body="">{jsxList(rows.map((r) => vbRow(r, seeCost, nImg)))}</tbody></table></div>
     <p className="small muted" data-vb-empty="" hidden={rows.length > 0}>এখনো কোনো রং/সাইজ নেই।</p>
-    <template data-vb-template="">{vbRow(null, seeCost, nImg)}</template>
+    <table hidden data-vb-template=""><tbody>{vbRow(null, seeCost, nImg, true)}</tbody></table>
     <ul className="small muted"><li><b>ছবি:</b> উপরে পণ্যের ছবিগুলো তুলুন (ছবি ১, ২, ৩…), তারপর প্রতিটা রঙের সারিতে তার ছবির নম্বর বাছুন — একই রঙের বাকি সারিতে নিজে থেকে বসে যাবে। কাস্টমার রং বাছলে বড় ছবিটা বদলে যাবে।</li>
       <li><b>প্যাক:</b> উপরের "📦 প্যাক / বান্ডেল" অংশে ২৫ / ৫০ / ১০০ টিক দিলে সব রং-সাইজে চলবে — দাম হবে প্যাকের পিস × সেই রং-সাইজের ১ পিসের দাম।</li>
       <li>পুরোনো রং/সাইজের স্টক আর কেনা দাম এখানে বদলায় না (স্টক বাড়ে পারচেজে)। কোনোটা বাদ দিলে সেটা "বন্ধ" হয়ে যায়, মোছে না। SKU/বারকোড দেখতে: {(p.id ? <a href={`/admin/products/${attrValue(p.id)}/variants`}>ভ্যারিয়েন্টের বিস্তারিত পাতা</a> : 'সেভ করার পর ভ্যারিয়েন্ট পাতায়')}।</li></ul>

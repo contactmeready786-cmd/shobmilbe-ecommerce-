@@ -14,7 +14,8 @@ const [base, outFile] = process.argv.slice(2);
 const origin = new URL(base).origin;
 const SHOP = ['/', '/products', '/products?cat=arduino', '/p/arduino-uno-r3', '/cart', '/checkout', '/blog', '/track', '/account', '/complaint', '/order/TEST1001', '/kits'];
 const ADMIN = ['/admin', '/admin/orders', '/admin/orders/1', '/admin/products', '/admin/products/1', '/admin/customers', '/admin/settings',
-  '/admin/design/menus', '/admin/reports', '/admin/marketing/visitors', '/admin/orders/incomplete', '/admin/notify'];
+  '/admin/design/menus', '/admin/reports', '/admin/marketing/visitors', '/admin/orders/incomplete', '/admin/notify',
+  '/admin/products/new', '/admin/products/1/variants', '/admin/marketing/contacts'];
 
 async function form(path: string, data: Record<string, string>, cookie = ''): Promise<string[]> {
   const res = await fetch(origin + path, { method: 'POST', redirect: 'manual', body: new URLSearchParams(data),

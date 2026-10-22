@@ -511,9 +511,10 @@ function instantSaves(): void {
       row.classList.toggle('row-off', !sw.checked);
     });
     const vadd = $('[data-var-add]');
-    const vtpl = $<HTMLTemplateElement>('[data-var-template]');
+    // the blank row is kept in a hidden table (not a <template>: React must be able to take the page over)
+    const vtpl = $('[data-var-template] tr');
     const vbody = $('[data-var-body]');
-    if (vadd && vtpl && vbody) vadd.addEventListener('click', () => { vbody.appendChild(vtpl.content.cloneNode(true)); $all<HTMLInputElement>('input[name=vlabel]', vbody).at(-1)?.focus(); });
+    if (vadd && vtpl && vbody) vadd.addEventListener('click', () => { vbody.appendChild(vtpl.cloneNode(true)); $all<HTMLInputElement>('input[name=vlabel]', vbody).at(-1)?.focus(); });
   }
 }
 
