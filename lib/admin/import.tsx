@@ -74,21 +74,47 @@ async function readUrl(u: string, { follow = true }: ReadUrlProps = {}): Promise
     out.next = nextPageUrl(r.finalUrl, out.items.length);
     return out;
   }
-  // A whole shop's home page: try the shop's own product list, then its sitemap.
-  if (follow && out.format === 'html' && out.links!.length < 2) {
+  // a shop / category page split into pages ("পরের পেজ →"): the next page is read too (owner, 2026-10-23: only the
+  // first 25 products of a 300-product shop came)
+  if (out.format === 'html' && out.links && out.links.length) out.next = htmlNextPage(r.body.toString('utf8'), r.finalUrl);
+  // A whole shop (its home page shows only a few products, or none): the shop's own full product list, else its
+  // sitemap — used when it has more than the page itself.
+  const home = new URL(r.finalUrl).pathname.replace(/\/+$/, '') === '';
+  if (follow && out.format === 'html' && (out.links!.length < 2 || home)) {
     const origin = new URL(r.finalUrl).origin;
-    const tries = out.shop === 'shopify' ? [`${origin}/products.json?limit=250&page=1`]
-      : out.shop === 'woocommerce' ? [`${origin}/wp-json/wc/store/v1/products?per_page=100&page=1`]
-        : [`${origin}/sitemap.xml`];
+    const wc = `${origin}/wp-json/wc/store/v1/products?per_page=100&page=1`;
+    const sp = `${origin}/products.json?limit=250&page=1`;
+    const maps = [`${origin}/sitemap.xml`, `${origin}/sitemap_index.xml`, `${origin}/product-sitemap.xml`];
+    const tries = out.shop === 'shopify' ? [sp, ...maps] : out.shop === 'woocommerce' ? [wc, ...maps] : [...maps, wc, sp];
+    const have = out.links!.length;
     for (const t of tries) {
       try {
         const sub = await readUrl(t, { follow: false });
-        if (sub.items.length || (sub.links && sub.links.length)) return sub;
+        if (sub.items.length || (sub.links && sub.links.length && (sub.links.length > have || sub.format === 'sitemap'))) {
+          if (have) sub.notes = [...(sub.notes || []), `হোমপেজে মাত্র ${have}টা পণ্য দেখা যায় — তাই দোকানের পুরো পণ্যের তালিকা থেকে আনা হচ্ছে।`];
+          return sub;
+        }
       } catch (_) { /* try next */ }
     }
   }
   return out;
 }
+/** The "next page" of a list page (rel="next", or a link marked "next"), on the same site. */
+function htmlNextPage(html: string, base: string): string | null {
+  const pats = [/<link[^>]+rel=["']next["'][^>]*href=["']([^"']+)["']/i, /<link[^>]+href=["']([^"']+)["'][^>]*rel=["']next["']/i,
+    /<a[^>]+rel=["']next["'][^>]*href=["']([^"']+)["']/i, /<a[^>]+href=["']([^"']+)["'][^>]*rel=["']next["']/i,
+    /<a[^>]+class=["'][^"']*\bnext\b[^"']*["'][^>]*href=["']([^"']+)["']/i, /<a[^>]+href=["']([^"']+)["'][^>]*class=["'][^"']*\bnext\b[^"']*["']/i];
+  for (const re of pats) {
+    const m = re.exec(html);
+    if (!m) continue;
+    try {
+      const u = new URL(m[1].replace(/&amp;/g, '&'), base);
+      if (u.origin === new URL(base).origin && u.toString() !== base) return u.toString();
+    } catch (_) { /* not a link */ }
+  }
+  return null;
+}
+export { htmlNextPage };
 
 async function readApi(ctx: AdminCtx) {
   if (!(await security.hit(db, 'impread:' + ctx.user.id, 4000, 3600))) return ctx.json(429, { error: 'এক ঘণ্টায় অনেক বেশি পড়া হয়েছে, একটু পরে চেষ্টা করুন।' });
