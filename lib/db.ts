@@ -1171,6 +1171,11 @@ UPDATE settings SET value = (value::jsonb - 'bestsellers')::text WHERE key = 'ho
 `,  // 📐 a colour/size's own measure (owner, 2026-10-22: boxes — দৈর্ঘ্য × প্রস্থ × উচ্চতা), e.g. "30 × 20 × 10 সেমি"; empty = none
   `
 ALTER TABLE products ADD COLUMN IF NOT EXISTS dims text NOT NULL DEFAULT '';
+`,  // 🚚 a category whose products never count towards free delivery (owner, 2026-10-22: packaging materials — the
+  // "৳… বা বেশি কিনলে ডেলিভারি ফ্রি" rule is for everything else). Switched on for the packaging category.
+  `
+ALTER TABLE categories ADD COLUMN IF NOT EXISTS no_free_delivery boolean NOT NULL DEFAULT false;
+UPDATE categories SET no_free_delivery = true WHERE name ILIKE '%প্যাকেজিং%' OR lower(name) LIKE '%packag%' OR slug ILIKE '%packag%';
 `,
 ];
 

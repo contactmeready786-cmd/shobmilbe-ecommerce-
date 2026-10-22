@@ -7,7 +7,9 @@ import { PRICES, limitText, minNote, minShort, minText, packText, readCart, reme
 void Fragment;
 export type Product = { id: number | string; slug: string; name: string; price: number; stock: number; image?: string; emoji?: string; preorder?: boolean; preorder_days?: number; weight?: number; packs?: number[];
   /** 🎨 a colour/size line: all colours/sizes of its product (lib/api/shop-read.ts cart) */
-  vtitle?: string; variants?: VarOpt[] };
+  vtitle?: string; variants?: VarOpt[];
+  /** 🚚 doesn't count towards free delivery (packaging materials) */
+  nofree?: boolean };
 export type VarOpt = { id: number; label: string; price: number; stock: number; dims?: string };
 export type Tier = { min_qty: number; price: number };
 export type Line = { product: Product; qty: number; price: number; kind?: string; note?: string; base?: number; tiers?: Tier[] };
@@ -60,6 +62,9 @@ function nextTier(l: Line): string {
   return t ? `আরও ${bn(t.min_qty - l.qty)}টি নিলে প্রতিটা ${money(t.price)} করে পড়বে` : '';
 }
 export const giftTotal = (gifts: Gift[] = []): number => gifts.reduce((s, g) => s + g.price * g.qty, 0);
+/** 🚚 what counts towards free delivery: everything but packaging materials (the server: orders.freeDeliveryBase) */
+export const freeBase = (lines: Line[]): number => Math.round(lines.filter((l) => !l.product.nofree).reduce((s, l) => s + l.price * l.qty, 0) * 100) / 100;
+export const hasNoFree = (lines: Line[]): boolean => lines.some((l) => l.product.nofree);
 export const Thumb = ({ p }: { p: { image?: string | null; emoji?: string | null } }) =>
   <span className="cart-thumb">{p.image ? <img src={p.image} alt="" /> : (p.emoji || '📦')}</span>;
 
@@ -188,7 +193,7 @@ export function startCartPage(): void {
         paint(root,
           <div className="panel"><ul className="cart-lines">{items}{giftRows(res.gifts, 'li')}</ul>
             <div className="totals"><div className="grand"><span>পণ্যের মোট দাম</span><span>{money(subtotal)}</span></div></div>
-            {freeMin > 0 ? <p className="muted small">{subtotal >= freeMin ? '🎉 আপনি ফ্রি ডেলিভারি পাচ্ছেন!' : `আরও ${money(freeMin - subtotal)} কিনলে ডেলিভারি ফ্রি।`}</p> : null}
+            {freeMin > 0 ? <p className="muted small">{freeBase(res.lines) >= freeMin ? '🎉 আপনি ফ্রি ডেলিভারি পাচ্ছেন!' : `আরও ${money(freeMin - freeBase(res.lines))} কিনলে ডেলিভারি ফ্রি।`}{hasNoFree(res.lines) ? ' (প্যাকেজিং ম্যাটেরিয়ালস ফ্রি ডেলিভারির হিসাবে ধরা হয় না।)' : ''}</p> : null}
             <p className="muted small">ডেলিভারি চার্জ পরের ধাপে এলাকা অনুযায়ী যোগ হবে।</p>
             {problem ? <p className="form-error">কিছু পণ্যের পরিমাণ স্টকের চেয়ে বেশি। পরিমাণ কমিয়ে নিন।</p> : null}
             {minShort(subtotal)

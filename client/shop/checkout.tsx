@@ -4,7 +4,7 @@ import { h, Fragment, paint } from '../jsx.js';
 import { $, $all, bn, cleanPhone, getJson, hit, money, phoneOk, postJson, randomId, readJson, replay, store } from '../dom.js';
 import type { GiftcardAnswer, OrderAnswer, OtpAnswer, ResumeAnswer } from '../api-types.js';
 import { minNote, minShort, readCart, rule, saveCartQuietly, toPacks, writeCart } from './cart.js';
-import { PackChoice, Thumb, VariantChoice, giftRows, giftTotal, loadCart, swapInCart, variantTarget, type Gift, type Line } from './cartpage.js';
+import { PackChoice, Thumb, VariantChoice, freeBase, giftRows, giftTotal, loadCart, swapInCart, variantTarget, type Gift, type Line } from './cartpage.js';
 import { fillGeo } from './geo.js';
 import { VA, track } from './track.js';
 
@@ -109,7 +109,8 @@ function runCheckout(checkout: HTMLElement): void {
     const subtotal = state.lines.reduce((s, l) => s + l.price * l.qty, 0) + giftTotal(state.gifts);
     const z = zone();
     let delivery: number | null = z ? z.fee + weightExtra() : null;
-    if (fee.freeMin > 0 && subtotal >= fee.freeMin) delivery = 0;
+    // 🚚 packaging materials don't count towards free delivery (same as the server)
+    if (fee.freeMin > 0 && freeBase(state.lines) + giftTotal(state.gifts) >= fee.freeMin) delivery = 0;
     let discount = 0;
     if (state.coupon) {
       discount = Math.min(subtotal, state.coupon.discount || 0);

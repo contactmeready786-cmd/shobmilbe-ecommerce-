@@ -87,11 +87,29 @@ function weightExtra(settings: Settings, weightG: number): number {
   const free = Math.max(0, Number(settings.delivery_free_kg) || 1);
   return Math.max(0, Math.ceil(weightG / 1000 - 1e-9) - free) * per;
 }
-// The full delivery charge for a cart.
-function deliveryFor(settings: Settings, { district, thana, subtotal, weightG = 0 }: { district: unknown; thana: unknown; subtotal: number; weightG?: number }) {
+// 🚚 the products (of these) in a category where free delivery doesn't apply — or inside one (packaging materials)
+async function noFreeIds(productIds: unknown[]): Promise<Set<number>> {
+  const ids = [...new Set(productIds.map((x) => int(x)).filter((x) => x > 0))];
+  if (!ids.length) return new Set();
+  const rows = await q<{ id: number }>(`WITH RECURSIVE nf AS (SELECT id FROM categories WHERE no_free_delivery
+      UNION SELECT c.id FROM categories c JOIN nf ON c.parent_id = nf.id)
+    SELECT p.id FROM products p LEFT JOIN products pp ON pp.id = p.parent_id
+    WHERE p.id = ANY($1::int[]) AND coalesce(p.category_id, pp.category_id) IN (SELECT id FROM nf)`, [ids]).catch(() => []);
+  return new Set(rows.map((r) => r.id));
+}
+/** The part of a cart that counts towards free delivery (its products outside those categories). */
+async function freeDeliveryBase(lines: { product_id: unknown; price: unknown; qty: unknown }[], subtotal: number): Promise<number> {
+  const nf = await noFreeIds(lines.map((l) => l.product_id));
+  if (!nf.size) return subtotal;
+  const out = lines.filter((l) => nf.has(int(l.product_id))).reduce((t, l) => t + amount(l.price) * int(l.qty), 0);
+  return Math.max(0, round2(subtotal - out));
+}
+// The full delivery charge for a cart. freeBase: what counts towards free delivery (default: the whole subtotal).
+function deliveryFor(settings: Settings, { district, thana, subtotal, weightG = 0, freeBase }: { district: unknown; thana: unknown; subtotal: number; weightG?: number; freeBase?: number }) {
   const z = deliveryZone(settings, district, thana);
   const freeMin = int(settings.free_delivery_min);
-  const fee = freeMin > 0 && subtotal >= freeMin ? 0 : round2(z.fee + weightExtra(settings, weightG));
+  const base = freeBase === undefined ? subtotal : freeBase;
+  const fee = freeMin > 0 && base >= freeMin ? 0 : round2(z.fee + weightExtra(settings, weightG));
   return { ...z, fee };
 }
 function areaLabel(order: { district?: string; thana?: string }): string {
@@ -375,7 +393,9 @@ async function createOrder(input: CreateOrderOpts, settings: Settings) {
     }
     if (isAdmin && input.discount !== undefined && input.discount !== '') discount = Math.min(subtotal, amount(input.discount));
     const weightG = lines.reduce((w, l) => w + (l.weight_g || 0) * l.qty, 0);
-    let delivery = freeDelivery ? 0 : (input.district ? deliveryFor(settings, { district: input.district, thana: input.thana, subtotal, weightG }).fee : deliveryFee(settings, zone, subtotal));
+    // 🚚 packaging materials (a category with "no free delivery") don't count towards the free-delivery amount
+    const freeBase = await freeDeliveryBase(lines.filter((l) => l.kind !== 'gift'), subtotal);
+    let delivery = freeDelivery ? 0 : (input.district ? deliveryFor(settings, { district: input.district, thana: input.thana, subtotal, weightG, freeBase }).fee : deliveryFee(settings, zone, freeBase));
     if (isAdmin && input.delivery !== undefined && input.delivery !== '') delivery = amount(input.delivery);
     let total = wholeTaka(subtotal - discount + delivery); // whole taka: paisa are dropped as a rounding discount
     const costTotal = round2(lines.reduce((s, l) => s + Number(l.cost || 0) * l.qty, 0));
@@ -683,4 +703,4 @@ async function markPaid(id: number, { amount: amt, trxId, method }: { amount: un
     [amount(amt), String(trxId || ''), method || null, id]);
 }
 
-export { onStatusChange, STATUSES, RELEASED, PAYMENT_METHODS, PAYMENT_STATUSES, OrderError, GEO, dhakaCityAreas, findDistrict, zoneFor, deliveryFee, deliveryZone, deliveryFor, customZones, weightExtra, areaLabel, checkCoupon, createOrder, getOrder, listOrders, countOrders, statusCounts, setStatus, updateOrder, setCourierInfo, setCourierStatus, markPaid };
+export { noFreeIds, freeDeliveryBase, onStatusChange, STATUSES, RELEASED, PAYMENT_METHODS, PAYMENT_STATUSES, OrderError, GEO, dhakaCityAreas, findDistrict, zoneFor, deliveryFee, deliveryZone, deliveryFor, customZones, weightExtra, areaLabel, checkCoupon, createOrder, getOrder, listOrders, countOrders, statusCounts, setStatus, updateOrder, setCourierInfo, setCourierStatus, markPaid };

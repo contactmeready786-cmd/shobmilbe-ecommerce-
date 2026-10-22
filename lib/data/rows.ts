@@ -164,6 +164,7 @@ export type CategoriesRow = {
   banner_id: number | null;
   noindex: boolean;
   size_chart: string;
+  no_free_delivery: boolean;
 };
 
 /** A row of checkout_drafts. */

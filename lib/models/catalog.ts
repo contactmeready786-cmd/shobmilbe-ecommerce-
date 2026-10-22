@@ -167,11 +167,12 @@ async function categorySubtree(id?: Id): Promise<number[]> {
     UNION SELECT c.id FROM categories c JOIN t ON c.parent_id=t.id) SELECT id FROM t`, [int(id)])).map((r) => r.id);
 }
 type CategoryInput = { id?: number | null; name: unknown; icon?: unknown; sort?: unknown; active?: boolean; imageId?: unknown; parentId?: unknown; seo?: { title?: unknown; description?: unknown; text?: unknown; bannerId?: unknown; noindex?: boolean }; sizeChart?: unknown };
-async function saveCategory({ id, name, icon, sort, active, imageId, parentId, seo, sizeChart }: CategoryInput): Promise<number> {
+async function saveCategory({ id, name, icon, sort, active, imageId, parentId, seo, sizeChart, noFreeDelivery }: CategoryInput): Promise<number> {
   const vals = [str(name, 60), str(icon, 8) || '📦', int(sort), active !== false, int(imageId) || null];
   // SEO title / description, the text shown above the products, and a wide banner picture (Admin → ক্যাটাগরি → SEO ও ব্যানার)
   const saveSeo = async (cid: number) => {
     if (sizeChart !== undefined) await q('UPDATE categories SET size_chart=$1 WHERE id=$2', [str(sizeChart, 3000), cid]);
+    if (noFreeDelivery !== undefined) await q('UPDATE categories SET no_free_delivery=$1 WHERE id=$2', [!!noFreeDelivery, cid]);
     if (!seo) return;
     await q('UPDATE categories SET seo_title=$1, seo_description=$2, description=$3, banner_id=$4, noindex=$5 WHERE id=$6',
       [str(seo.title, 120), str(seo.description, 300), str(seo.text, 3000), int(seo.bannerId) || null, !!seo.noindex, cid]);

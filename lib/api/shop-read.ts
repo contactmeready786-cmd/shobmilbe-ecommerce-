@@ -2,6 +2,7 @@
 // "আপনার জন্য", offer notifications). Each one is served by its own route in app/api/… (lib/next/api.ts runs the gate).
 import * as db from '../db';
 import * as catalog from '../models/catalog';
+import { noFreeIds } from '../models/orders';
 import * as drafts from '../services/drafts';
 import * as shop from '../views/shop';
 import * as $services_search from '../services/search';
@@ -34,6 +35,8 @@ export async function cart(ctx: ApiCtx) {
   const sibs = parents.length ? await db.q<{ id: number; parent_id: number; label: string; price: number; stock: number; title: string; dims: string }>(`SELECT v.id, v.parent_id, v.variant_label AS label, v.price, v.stock, v.dims,
       (SELECT pp.variant_title FROM products pp WHERE pp.id=v.parent_id) AS title
     FROM products v WHERE v.parent_id = ANY($1::int[]) AND v.active ORDER BY v.variant_sort, v.id`, [parents]) : [];
+  // 🚚 lines that don't count towards free delivery (packaging materials) — the cart / checkout show it the same way
+  const nofree = await noFreeIds(products.map((p) => p.id));
   const byParent = new Map<number, typeof sibs>();
   for (const v of sibs) byParent.set(v.parent_id, [...(byParent.get(v.parent_id) || []), v]);
   return json(200, {
@@ -45,6 +48,7 @@ export async function cart(ctx: ApiCtx) {
       id: p.id, name: p.name, slug: p.slug, price: p.price, stock: p.stock, preorder: !!p.preorder && p.product_type !== 'bundle', preorder_days: p.preorder_days || 0, emoji: p.emoji, sku: p.sku, weight: p.weight_g || 0,
       category: p.category_name || '', image: p.image_id ? `/media/${p.image_id}/t` : null,
       ...(packSizes(p.pack_sizes).length ? { packs: packSizes(p.pack_sizes) } : {}),
+      ...(nofree.has(p.id) ? { nofree: true } : {}),
     })),
   });
 }
