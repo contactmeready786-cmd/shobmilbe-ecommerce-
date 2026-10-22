@@ -32,3 +32,32 @@ export function inviteKind(ua: string, touchPoints: number): InviteKind | null {
   if (touchPoints > 0) return null; // some other touch device
   return 'computer';
 }
+
+// ---------- the card's rules (the owner sets them on Admin → মেসেজ → 📱 অ্যাপের কার্ড; lib/app-invite.ts) ----------
+export type InviteTexts = { title: string; sub: string; btn: string };
+export type InviteConfig = {
+  on: boolean; android: boolean; computer: boolean; update: boolean;
+  /** seconds after the page opens */
+  delay: number;
+  /** after ✕: 0 = only this page, otherwise hidden for this many days */
+  hideDays: number;
+  product: boolean;
+  texts: { android: InviteTexts; computer: InviteTexts };
+};
+
+/** The built-in rules (the same as lib/app-invite.ts INVITE_DEFAULTS — tests/app-invite.test.ts checks it). */
+export const INVITE_DEFAULTS: InviteConfig = {
+  on: true, android: true, computer: true, update: true, delay: 3, hideDays: 0, product: true,
+  texts: {
+    android: { title: '📱 সবমিলবে অ্যাপ', sub: 'অর্ডার, অফার আর ট্র্যাক — এক চাপে।', btn: 'ডাউনলোড' },
+    computer: { title: '📱 আমাদের Android অ্যাপ আছে', sub: 'ফোনে অর্ডার, অফার আর ট্র্যাক — এক চাপে।', btn: 'দেখুন' },
+  },
+};
+
+/** Does the owner's rule let this visitor see the card now? (kind = inviteKind(); hiddenUntil = ms from the ✕) */
+export function inviteAllowed(c: InviteConfig, kind: InviteKind | null, path: string, now: number, hiddenUntil: number): boolean {
+  if (!c.on || !kind || !c[kind]) return false;
+  if (/^\/(app|checkout|cart|order|admin)(\/|$)/.test(path)) return false;
+  if (!c.product && /^\/p\//.test(path)) return false;
+  return !(c.hideDays > 0 && hiddenUntil > now);
+}

@@ -129,6 +129,7 @@ export const ADMIN_GET_ROUTES: (string | RegExp)[] = [
   "/admin/giftcards",
   /^\/admin\/giftcards\/(\d+)$/,
   "/admin/marketing/push",
+  "/admin/marketing/app-invite",
   "/admin/pos",
   "/admin/api/pos/find",
   /^\/admin\/pos\/memo\/(\d+)$/,

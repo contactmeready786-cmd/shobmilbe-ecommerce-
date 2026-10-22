@@ -70,6 +70,7 @@ import * as $custaccounts from './custaccounts';
 import * as $returns from './returns';
 import * as $giftcards from './giftcards';
 import * as $shoppush from './shoppush';
+import * as $appinvite from './appinvite';
 import * as $pos from './pos';
 import * as $warehouses from './warehouses';
 import * as $codsettle from './codsettle';
@@ -103,7 +104,7 @@ const MODULES = [$dashboard, $orders, $import, $morepics, $watermark,
   $promos, $reviews, $loyalty, $sms, $uiswitches, $status, $health,
   $backup, $homerows, $reach, $dns, $autocall, $vat, $slider,
   $labels, $documents, $handover, $qa, $variants, $custaccounts,
-  $returns, $giftcards, $shoppush, $pos, $warehouses, $codsettle,
+  $returns, $giftcards, $shoppush, $appinvite, $pos, $warehouses, $codsettle,
   $supplierledger, $fraud, $checkoutotp, $searchreport, $complaints, $kits,
   $automarketing, $autoseo, $sourcepics, $testclear, $stockscan, $setupmarks,
   $ledger, $email];

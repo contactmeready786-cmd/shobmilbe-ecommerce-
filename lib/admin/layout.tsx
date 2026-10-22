@@ -56,6 +56,7 @@ const TABS: Record<string, Tab[]> = {
     ['/admin/marketing/email', 'ইমেইল', 'marketing', 'email', '📧'],
     ['/admin/marketing/contacts', 'Excel তালিকা', 'marketing', 'contacts', '📥'],
     ['/admin/marketing/push', 'ফোনে নোটিফিকেশন', 'marketing', 'shoppush', '🔔'],
+    ['/admin/marketing/app-invite', 'অ্যাপের কার্ড', 'marketing', 'appinvite', '📱'],
     ['/admin/marketing/restock', 'স্টকে এলে / দাম কমলে জানাও', 'marketing', 'restock', '⏰'],
   ],
   gfb: [

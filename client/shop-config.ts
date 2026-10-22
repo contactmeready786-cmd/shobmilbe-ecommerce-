@@ -1,5 +1,6 @@
 // What the shop page hands to its browser code as window.SM (written by components/shop/chrome/Chrome.tsx, read by
 // client/shop/* and client/i18n). One type for both sides, so a field can't be renamed on one side only.
+import type { InviteConfig } from './app-release.js';
 
 /** A product line in a tracked event. */
 export type TrackItem = { id: string | number; name?: string; price: number; qty?: number; category?: string };
@@ -30,4 +31,6 @@ export type ShopConfig = {
   i18n: { rev: string; def: 'bn' | 'en' } | null;
   /** offer notifications */
   push: { key: string; ask: boolean; delay: number; text: string } | null;
+  /** the app card's rules (only once the owner saved them; otherwise the built-in ones) */
+  invite?: InviteConfig;
 };

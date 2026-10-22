@@ -16,6 +16,7 @@ import { BodyHtml } from '../../../lib/react/head-html';
 import { cx } from '../../../lib/react/html';
 import type { CustomScript, MenuLink, Settings } from '../../../lib/types';
 import { SearchIcon, CartIcon, UserIcon, MenuIcon, WhatsAppIcon, MessengerIcon, SOCIAL_ICONS } from './icons';
+import { inviteConfig } from '../../../lib/app-invite';
 
 export const ASSET_V = '56';
 
@@ -104,6 +105,7 @@ export function ShopBody({ settings: s, categories, pages, popup = null, q = '',
   const noticeText = U.on(s, 'ui_notice') ? s.notice : '';
   const C = contact(s);
   const wa = C.wa || (C.phone ? C.phone.replace(/\D/g, '').replace(/^0/, '880') : '');
+  const invite = inviteConfig(s);
   const cfg = {
     maxQty: C.maxQty, phone: C.phone, wa: C.wa, rule: { on: s.small_qty_on !== '0', cap: Number(s.small_max_price) || 5, maxVal: Number(s.small_max_value) || 100 },
     minOrder: Math.max(0, Number(s.min_order) || 0), fb: !!s.fb_pixel_id, tt: !!s.tiktok_pixel_id, ga: !!(s.ga4_id || s.gtm_id), g4: !!s.ga4_id,
@@ -114,6 +116,8 @@ export function ShopBody({ settings: s, categories, pages, popup = null, q = '',
       key: s.push_vapid_public, ask: s.shoppush_prompt !== '0', delay: Math.max(5, Number(s.shoppush_delay) || 25),
       text: s.shoppush_text || 'নতুন অফার আর ফ্ল্যাশ সেলের খবর ফোনে পেতে চান?',
     } : null,
+    // 📱 the app card's rules (Admin → মেসেজ → অ্যাপের কার্ড) — only once the owner has saved them
+    ...(invite ? { invite } : {}),
   };
   const chatSecond = s.chat_whatsapp_button === '1' && wa;
   return (
