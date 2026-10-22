@@ -231,19 +231,80 @@ function packBox(p: ProductDraft) {
 /** What the product form shows: a saved product, a new one's starting values, or what the owner just sent (with an error). */
 type DraftBundleLine = { product_id: number; name: string; sku?: string | null; price: number; stock: number; qty: number; image_id?: number | null; emoji?: string | null };
 type ProductDraft = Record<string, unknown> & { id?: Id | null; name?: string; sku?: string | null; barcode?: string | null; warranty?: string | null; images?: number[];
-  bundle?: DraftBundleLine[]; variants?: { variant_label: string }[]; variant_count?: number; flash_price?: unknown; price?: unknown };
+  bundle?: DraftBundleLine[]; variants?: { variant_label: string }[]; variant_count?: number; vb_rows?: VbRow[]; flash_price?: unknown; price?: unknown };
 type FormExtras = Awaited<ReturnType<typeof formExtras>>;
 type ProductFormProps = Partial<Omit<FormExtras, 'tiers' | 'links'>> & {
   product: ProductDraft | null; categories: catalog.Category[]; error?: string | null; seeCost: boolean; dup?: Awaited<ReturnType<typeof dupes.findDuplicates>> | null;
   canOverride: boolean; guardOn?: boolean; settings?: Settings; nextSku?: string; tiers?: { min_qty: unknown; price: unknown }[]; links?: Record<string, string[]>;
 };
+// 🎨 রং / সাইজ, right in the product form (owner, 2026-10-22): type the colours and the sizes, press "টেবিল তৈরি করুন"
+// (client/admin/vbuilder.ts) → one row per colour × size with its own selling price, buying price, stock and photo.
+// Saved with the product (catalog.saveVariants); the packs ticked above (25 / 50 / 100) go to every variant.
+// The shop then shows: রং → সাইজ → প্যাক → অর্ডার.
+export type VbRow = { id: number; color: string; size: string; price: string; cost: string; stock: string; img: string; on: boolean; cur?: { cost: number; stock: number } };
+const VB_COLORS = ['সাদা', 'কালো', 'সিলভার', 'প্রাইভেসি', 'লাল', 'নীল', 'সবুজ', 'হলুদ', 'গোল্ডেন', 'ধূসর', 'গোলাপি', 'বাদামি', 'স্বচ্ছ'];
+const VB_SIZES = ['Small', 'Medium', 'Large', 'XL', 'XXL', 'ছোট', 'মাঝারি', 'বড়'];
+const vbClean = (v: unknown) => String(v ?? '').replace(/\//g, '-').replace(/\s+/g, ' ').trim().slice(0, 28);
+/** "সাদা / Small" → [সাদা, Small]; one part → a colour when the option's name says রং, else a size */
+function vbSplit(label: string, title: string): [string, string] {
+  const parts = String(label || '').split('/').map((x) => x.trim()).filter(Boolean);
+  if (parts.length >= 2) return [parts[0], parts.slice(1).join(' - ')];
+  return /রং|রঙ|colou?r/i.test(title || '') ? [parts[0] || '', ''] : ['', parts[0] || ''];
+}
+function vbRowsFromVariants(variants: catalog.Product[], images: number[], title: string): VbRow[] {
+  return variants.map((v) => {
+    const [color, size] = vbSplit(v.variant_label, title);
+    const k = v.image_id ? images.indexOf(int(v.image_id)) : -1;
+    return { id: v.id, color, size, price: String(v.price ?? ''), cost: '', stock: '', img: k >= 0 ? String(k + 1) : '', on: !!v.active, cur: { cost: Number(v.cost_price) || 0, stock: Number(v.stock) || 0 } };
+  });
+}
+export function vbRowsFromBody(b: Body): VbRow[] {
+  const L = (k: string) => ([] as unknown[]).concat(b[k] === undefined ? [] : b[k]);
+  const ids = L('vb_id'); const cs = L('vb_color'); const ss = L('vb_size'); const pr = L('vb_price'); const co = L('vb_cost');
+  const st = L('vb_stock'); const im = L('vb_img'); const on = L('vb_on');
+  return cs.map((c, i) => ({ id: int(ids[i]), color: vbClean(c), size: vbClean(ss[i]), price: str(pr[i], 20), cost: str(co[i], 20), stock: str(st[i], 10), img: str(im[i], 3), on: on[i] !== '0' }))
+    .filter((r) => r.color || r.size).slice(0, catalog.MAX_VARIANTS);
+}
+function vbRow(r: VbRow | null, seeCost: boolean, nImg: number) {
+  const x = r || { id: 0, color: '', size: '', price: '', cost: '', stock: '', img: '', on: true };
+  const old = !!x.id;
+  return <tr data-vb-row="" data-c={x.color} data-s={x.size} className={x.on ? '' : 'row-off'}>
+    <td><input type="hidden" name="vb_id" defaultValue={x.id ? String(x.id) : ''} /><input type="hidden" name="vb_color" defaultValue={x.color} /><input type="hidden" name="vb_size" defaultValue={x.size} /><b data-vb-ctext=""><Val v={x.color || '—'} /></b></td>
+    <td data-vb-stext=""><Val v={x.size || '—'} /></td>
+    <td><input name="vb_price" type="number" step="0.01" min="0" className="w-num" defaultValue={x.price} aria-label="বিক্রির দাম (১ পিস)" /></td>
+    {(seeCost ? <td>{(old ? <><input type="hidden" name="vb_cost" defaultValue="" /><span className="small">{money(x.cur ? x.cur.cost : 0)}</span></> : <input name="vb_cost" type="number" step="0.01" min="0" className="w-num" defaultValue={x.cost} aria-label="কেনা দাম (১ পিস)" />)}</td> : null)}
+    <td>{(old ? <><input type="hidden" name="vb_stock" defaultValue="" /><span className="small">{bn(x.cur ? x.cur.stock : 0)}</span></> : <input name="vb_stock" type="number" min="0" className="w-num" defaultValue={x.stock} aria-label="স্টক (পিস)" />)}</td>
+    <td><select name="vb_img" defaultValue={x.img} aria-label="ছবি"><option value="">—</option>{jsxList(Array.from({ length: Math.max(8, nImg) }, (_, i) => <option value={String(i + 1)}>ছবি {bn(i + 1)}</option>))}</select></td>
+    <td><select name="vb_on" defaultValue={x.on ? '1' : '0'} aria-label="দোকানে"><option value="1">চালু</option><option value="0">বন্ধ</option></select></td>
+  </tr>;
+}
+function variantBuilder(p: ProductDraft, rows: VbRow[], seeCost: boolean) {
+  const nImg = (p.images || []).length;
+  const colors = [...new Set(rows.map((r) => r.color).filter(Boolean))].join(', ');
+  const sizes = [...new Set(rows.map((r) => r.size).filter(Boolean))].join(', ');
+  const chips = (kind: string, items: string[]) => <span className="vb-chips">{jsxList(items.map((t) => <button type="button" className="chip" data-vb-chip={kind} data-v={t}>+ {t}</button>))}</span>;
+  return <section className="panel vb" data-vb="" id="variants"><h2>🎨 রং / সাইজ (ভ্যারিয়েন্ট)</h2><input type="hidden" name="vb_form" defaultValue="1" />
+    <p className="small muted">একই পণ্য কয়েক রঙে বা সাইজে থাকলে (যেমন পলি: সাদা / সিলভার / প্রাইভেসি × Small / Medium / Large) — নিচে রং আর সাইজ লিখুন, তারপর <b>"📋 দামের টেবিল তৈরি করুন"</b> চাপুন। প্রতিটা রং-সাইজের আলাদা বিক্রির দাম, কেনা দাম, স্টক আর ছবি দিন। না লাগলে খালি রাখুন।</p>
+    {ui.field('রং (কমা দিয়ে আলাদা করে)', <><input name="vb_colors" defaultValue={colors} maxLength={300} placeholder="যেমন: সাদা, সিলভার, প্রাইভেসি" data-vb-colors="" />{chips('color', VB_COLORS)}</>)}
+    {ui.field('সাইজ (কমা দিয়ে আলাদা করে)', <><input name="vb_sizes" defaultValue={sizes} maxLength={300} placeholder="যেমন: Small, Medium, Large" data-vb-sizes="" />{chips('size', VB_SIZES)}</>)}
+    <p><button type="button" className="btn btn-sm" data-vb-make="">📋 দামের টেবিল তৈরি করুন</button></p>
+    <div className="table-wrap"><table className="table compact vb-table"><thead><tr><th>রং</th><th>সাইজ</th><th>বিক্রির দাম ৳ (১ পিস)</th>{(seeCost ? <th>কেনা দাম ৳ (১ পিস)</th> : null)}<th>স্টক (পিস)</th><th>ছবি</th><th>দোকানে</th></tr></thead>
+      <tbody data-vb-body="">{jsxList(rows.map((r) => vbRow(r, seeCost, nImg)))}</tbody></table></div>
+    <p className="small muted" data-vb-empty="" hidden={rows.length > 0}>এখনো কোনো রং/সাইজ নেই।</p>
+    <template data-vb-template="">{vbRow(null, seeCost, nImg)}</template>
+    <ul className="small muted"><li><b>ছবি:</b> উপরে পণ্যের ছবিগুলো তুলুন (ছবি ১, ২, ৩…), তারপর প্রতিটা রঙের সারিতে তার ছবির নম্বর বাছুন — একই রঙের বাকি সারিতে নিজে থেকে বসে যাবে। কাস্টমার রং বাছলে বড় ছবিটা বদলে যাবে।</li>
+      <li><b>প্যাক:</b> উপরের "📦 প্যাক / বান্ডেল" অংশে ২৫ / ৫০ / ১০০ টিক দিলে সব রং-সাইজে চলবে — দাম হবে প্যাকের পিস × সেই রং-সাইজের ১ পিসের দাম।</li>
+      <li>পুরোনো রং/সাইজের স্টক আর কেনা দাম এখানে বদলায় না (স্টক বাড়ে পারচেজে)। কোনোটা বাদ দিলে সেটা "বন্ধ" হয়ে যায়, মোছে না। SKU/বারকোড দেখতে: {(p.id ? <a href={`/admin/products/${attrValue(p.id)}/variants`}>ভ্যারিয়েন্টের বিস্তারিত পাতা</a> : 'সেভ করার পর ভ্যারিয়েন্ট পাতায়')}।</li></ul>
+  </section>;
+}
+
 function productForm({ product, categories, error, seeCost, dup, canOverride, guardOn = true, settings = {} as Settings, nextSku = '', brands = [], locations = [], suppliers = [], prices = [], canDelete = true, tiers = [], links = { related: [], cross: [], upsell: [] }, canStock = false, ledger = null }: ProductFormProps) {
   const p: ProductDraft = product || { active: true, stock: 10, emoji: '📦', images: [], bundle: [], product_type: 'single', low_stock: 3, unit: 'পিস' };
   const isNew = !p.id;
   const bundle = p.product_type === 'bundle';
   return <><p className="crumbs"><a href={`/admin/products${bundle ? '?type=bundle' : ''}`}>← সব{' '}{(bundle ? "বান্ডেল" : "পণ্য")}</a></p><div className="title-row"><h1>{(isNew ? (bundle ? "নতুন বান্ডেল / প্যাকেজ" : "নতুন পণ্য আপলোড") : <Val v={p.name} />)}</h1>{(isNew ? (bundle ? null : <div className="row-actions"><a className="btn btn-ghost btn-sm" href="/admin/products/import">📥 অনেক পণ্য একসাথে আমদানি করুন</a></div>) : <div className="row-actions"><a className="btn btn-ghost btn-sm" href={`/p/${attrValue(p.slug)}`} target="_blank" rel="noopener">দোকানে দেখুন ↗</a><form method="post" action={`/admin/products/${attrValue(p.id)}/duplicate`}><button className="btn btn-ghost btn-sm">কপি করুন</button></form></div>)}</div>{(error ? <p className="flash flash-error"><Val v={error} /></p> : null)}<form method="post" action={isNew ? '/admin/products/new' : `/admin/products/${p.id}`} className="form product-form" data-product-form=""><input type="hidden" name="product_type" defaultValue={bundle ? 'bundle' : 'single'} />{' '}{(guardOn ? dupPanel({ dup, canOverride, allow: !!p.allow_duplicate, id: p.id }) : null)}<div className="two-col"><div><section className="panel"><h2>মূল তথ্য</h2>{ui.field('পণ্যের নাম', ui.input('name', p.name || '', { required: true, maxlength: 140, placeholder: 'যেমন: PAM8403 Mini Amplifier Board' }))}<div className="field-row">{(isNew ? ui.field('SKU (পণ্যের কোড)', ui.input('sku', p.sku || '', { maxlength: 60, placeholder: `নিজে থেকে বসবে: ${bn(nextSku || '')}`.trim() }),
       <>খালি রাখুন — সেভ করলে <b>নিজে থেকে পরের নম্বর</b> ({bn(nextSku || '১')}) বসে যাবে: ১, ২, ৩… এভাবে। চাইলে নিজের কোডও লিখতে পারেন।</>) : ui.field('SKU (পণ্যের কোড)', ui.input('sku', p.sku || '', { maxlength: 60 }), 'অর্ডার আর ইনভয়েসে দেখাবে। খালি করে সেভ দিলে আগের SKU-ই থাকবে।'))}{' '}{ui.field('ক্যাটাগরি', ui.select('category_id', [['', 'কোনোটি না'], ...ui.catOpts(categories)], p.category_id || ''))}</div><div className="field-row">{ui.field('ব্র্যান্ড (ঐচ্ছিক)', ui.input('brand', p.brand || '', { maxlength: 60, list: 'brand-list', autocomplete: 'off', placeholder: 'লিখুন বা তালিকা থেকে বাছুন' }), <>নতুন নাম লিখলে নিজে থেকে নতুন ব্র্যান্ড তৈরি হবে। <a href="/admin/brands" target="_blank" rel="noopener">সব ব্র্যান্ড</a></>)}{' '}<datalist id="brand-list">{jsxList(brands.map((b: { name: unknown; }) => <option value={attrValue(b.name)}></option>))}</datalist>{' '}{ui.field('মডেল / পার্ট নম্বর (ঐচ্ছিক)', ui.input('model', p.model || '', { maxlength: 80, placeholder: 'যেমন: PAM8403, LM7805, DS18B20' }), 'কোম্পানির দেওয়া কোড। সার্চে আর Google-এ কাজে লাগে।')}</div><div className="field-row warranty-row" data-warranty="">{ui.field('🛡️ ওয়ারেন্টি', ui.select('warranty', [['', 'ওয়ারেন্টি নেই'], ...Object.entries(catalog.WARRANTY), ['custom', '✍️ নিজে লিখুন…']], String(p.warranty || '').startsWith('c:') ? 'custom' : (p.warranty || ''), { 'data-warranty-sel': true }), 'পণ্যের পেজে আর ইনভয়েসে দেখাবে।')}{' '}{ui.field('ওয়ারেন্টির ধরন', ui.select('warranty_type', [['', '— উল্লেখ নেই —'], ...Object.entries(catalog.WARRANTY_TYPES)], p.warranty_type || ''), 'রিপ্লেসমেন্ট = বদলে দেবেন · সার্ভিস = মেরামত করে দেবেন')}{' '}<span data-warranty-custom="" hidden={!(String(p.warranty || '').startsWith('c:'))}>{ui.field('নিজের মতো লিখুন', ui.input('warranty_custom', String(p.warranty || '').startsWith('c:') ? p.warranty!.slice(2) : '', { maxlength: 60, placeholder: 'যেমন: ১০ বছর মোটর ওয়ারেন্টি' }))}</span></div><div className="field-row barcode-row">{ui.field('🔢 বারকোড', ui.input('barcode', p.barcode || '', { maxlength: 40, placeholder: isNew ? 'খালি রাখুন — নিজে থেকে বসবে (SB…)' : '', class: 'mono', autocomplete: 'off' }),
-    'প্রতিটা পণ্যের নিজস্ব। খালি রাখলে দোকানের নিজের কোড বসে (যেমন SB000123)। পণ্যের প্যাকেটে কোম্পানির বারকোড থাকলে সেটা স্ক্যান করে/লিখে দিতে পারেন।')}{' '}{(!isNew && p.barcode ? <div className="bc-preview"><RawHtml html={$services_barcode.svg(p.barcode, { height: 46, module: 2, fontSize: 13 })} />{' '}<a className="btn btn-sm btn-ghost" href={`/admin/products/labels?ids=${attrValue(p.id)}`} target="_blank">🏷️ লেবেল প্রিন্ট</a></div> : null)}</div><div className="field-row">{ui.field('একক', ui.select('unit', [['পিস', 'পিস'], ['সেট', 'সেট'], ['প্যাক', 'প্যাক'], ['কেজি', 'কেজি'], ['গ্রাম', 'গ্রাম'], ['মিটার', 'মিটার'], ['জোড়া', 'জোড়া'], ['লিটার', 'লিটার']], p.unit || 'পিস'))}{' '}{ui.field('📍 কোথায় রাখা', ui.input('location', p.location || '', { maxlength: 40, placeholder: 'যেমন: বক্স ৩', list: 'loc-list', autocomplete: 'off' }), 'কোন বক্স/তাকে আছে। শুধু অ্যাডমিনে দেখায় — প্যাক করার সময় খুঁজে পেতে।')}{' '}<datalist id="loc-list">{jsxList(locations.map((x: { location: unknown; }) => <option value={attrValue(x.location)}></option>))}</datalist></div></section>{(!isNew && !bundle ? <section className="panel var-panel"><h2>🎨 ভ্যারিয়েন্ট (সাইজ / রং / মডেল)</h2>{(Number(p.variant_count) > 0 || (p.variants || []).length ? <p>এই পণ্যের{' '}<b>{bn((p.variants || []).length || p.variant_count)}টি ভ্যারিয়েন্ট</b>{' '}আছে:{' '}<Val v={(p.variants || []).map((v) => v.variant_label).join(', ')} />। প্রতিটার দাম, স্টক আর SKU আলাদা — নিচের দাম আর স্টক ভ্যারিয়েন্ট থেকে নিজে থেকে হিসাব হয়।</p> : <p className="muted small">একই পণ্যের আলাদা সাইজ, রং বা মডেল থাকলে (যেমন ট্রিমার: কালো/নীল, রিমোট: Singer AC/Singer TV) প্রতিটা আলাদা দাম আর স্টকসহ যোগ করুন। কাস্টমার পণ্যের পেজে বাছাই করবে।</p>)}{' '}<a className="btn btn-sm" href={`/admin/products/${attrValue(p.id)}/variants`}>{(Number(p.variant_count) > 0 ? "✏️ ভ্যারিয়েন্ট এডিট করুন" : "+ ভ্যারিয়েন্ট যোগ করুন")}</a></section> : null)}<section className="panel"><h2>দাম ও স্টক</h2>{(Number(p.variant_count) > 0 ? <p className="note small">এই পণ্যে ভ্যারিয়েন্ট আছে — দোকানে দাম দেখাবে সবচেয়ে কম দামের ভ্যারিয়েন্টের, আর স্টক = সব ভ্যারিয়েন্টের যোগফল ({bn(p.stock)}টি)। দাম/স্টক বদলাতে "ভ্যারিয়েন্ট এডিট" এ যান।</p> : null)}<div className="field-row">{ui.field('বিক্রির দাম (৳)', ui.input('price', p.price ?? '', { type: 'number', min: 0.5, max: 2000, required: true, 'data-price': true }), '৳০.৫০ থেকে ৳২০০০ পর্যন্ত। ৳১০-এর নিচে পয়সা থাকে (০.২৫, ১.৭৫); ৳১০ বা বেশি হলে পয়সা পরের টাকায় উঠে যায় (১০.০৪ → ১১)।')}{' '}{ui.field('আগের দাম (৳, ঐচ্ছিক)', ui.input('old_price', p.old_price ?? '', { type: 'number', min: 0 }), 'দিলে "% ছাড়" ব্যাজ দেখাবে')}{' '}{(!seeCost ? null : (isNew || bundle ? ui.field(isNew && !bundle ? 'কেনা দাম (৳, প্রতি পিস)' : 'কেনা দাম (৳)', ui.input('cost_price', p.cost_price ?? '', { type: 'number', min: 0, step: '0.01', 'data-cost': true }),
+    'প্রতিটা পণ্যের নিজস্ব। খালি রাখলে দোকানের নিজের কোড বসে (যেমন SB000123)। পণ্যের প্যাকেটে কোম্পানির বারকোড থাকলে সেটা স্ক্যান করে/লিখে দিতে পারেন।')}{' '}{(!isNew && p.barcode ? <div className="bc-preview"><RawHtml html={$services_barcode.svg(p.barcode, { height: 46, module: 2, fontSize: 13 })} />{' '}<a className="btn btn-sm btn-ghost" href={`/admin/products/labels?ids=${attrValue(p.id)}`} target="_blank">🏷️ লেবেল প্রিন্ট</a></div> : null)}</div><div className="field-row">{ui.field('একক', ui.select('unit', [['পিস', 'পিস'], ['সেট', 'সেট'], ['প্যাক', 'প্যাক'], ['কেজি', 'কেজি'], ['গ্রাম', 'গ্রাম'], ['মিটার', 'মিটার'], ['জোড়া', 'জোড়া'], ['লিটার', 'লিটার']], p.unit || 'পিস'))}{' '}{ui.field('📍 কোথায় রাখা', ui.input('location', p.location || '', { maxlength: 40, placeholder: 'যেমন: বক্স ৩', list: 'loc-list', autocomplete: 'off' }), 'কোন বক্স/তাকে আছে। শুধু অ্যাডমিনে দেখায় — প্যাক করার সময় খুঁজে পেতে।')}{' '}<datalist id="loc-list">{jsxList(locations.map((x: { location: unknown; }) => <option value={attrValue(x.location)}></option>))}</datalist></div></section>{(bundle ? null : variantBuilder(p, p.vb_rows || [], seeCost))}<section className="panel"><h2>দাম ও স্টক</h2>{(Number(p.variant_count) > 0 ? <p className="note small">এই পণ্যে ভ্যারিয়েন্ট আছে — দোকানে দাম দেখাবে সবচেয়ে কম দামের ভ্যারিয়েন্টের, আর স্টক = সব ভ্যারিয়েন্টের যোগফল ({bn(p.stock)}টি)। দাম/স্টক বদলাতে "ভ্যারিয়েন্ট এডিট" এ যান।</p> : null)}<div className="field-row">{ui.field('বিক্রির দাম (৳)', ui.input('price', p.price ?? '', { type: 'number', min: 0.5, max: 2000, required: true, 'data-price': true }), '৳০.৫০ থেকে ৳২০০০ পর্যন্ত। ৳১০-এর নিচে পয়সা থাকে (০.২৫, ১.৭৫); ৳১০ বা বেশি হলে পয়সা পরের টাকায় উঠে যায় (১০.০৪ → ১১)।')}{' '}{ui.field('আগের দাম (৳, ঐচ্ছিক)', ui.input('old_price', p.old_price ?? '', { type: 'number', min: 0 }), 'দিলে "% ছাড়" ব্যাজ দেখাবে')}{' '}{(!seeCost ? null : (isNew || bundle ? ui.field(isNew && !bundle ? 'কেনা দাম (৳, প্রতি পিস)' : 'কেনা দাম (৳)', ui.input('cost_price', p.cost_price ?? '', { type: 'number', min: 0, step: '0.01', 'data-cost': true }),
     isNew && !bundle ? 'শুধু আপনি দেখবেন। শুরুর স্টক এই দামে কেনা হিসেবে আজকের তারিখে খাতায় উঠবে।' : 'শুধু আপনি দেখবেন। লাভ হিসাবের জন্য') : <div className="field"><span className="label">কেনা দাম (গড়, প্রতি পিস)</span><b className="ro-value">{(Number(p.cost_price) > 0 ? money(p.cost_price) : <span className="warn">দেওয়া নেই</span>)}</b>{' '}<input type="hidden" defaultValue={attrValue(p.cost_price ?? '')} data-cost="" />{' '}<small>পারচেজ এন্ট্রি দিলে নিজে থেকে বদলায়।{' '}<a href={`/admin/products/${attrValue(p.id)}/ledger`}>📒 কেনার ইতিহাস / ভুল হলে ঠিক করুন →</a></small></div>))}</div>{(seeCost ? <p className="margin-box" data-margin=""></p> : null)}<p className="small-rule-hint" data-small-rule={attrValue(JSON.stringify({ on: settings.small_qty_on !== '0', cap: Number(settings.small_max_price) || 5, minVal: Number(settings.small_min_value) || 10, maxVal: Number(settings.small_max_value) || 100, maxQty: Number(settings.max_qty_per_item) || 10 }))} hidden></p>{(bundle ? <p className="muted small">বান্ডেলের নিজের স্টক নেই — ভেতরের পণ্যগুলোর স্টক থেকে হিসাব হয়।</p> : <><div className="field-row">{(Number(p.variant_count) > 0 ? null : (isNew ? ui.field('শুরুর স্টক (এখন হাতে কয়টি আছে)', ui.input('stock', p.stock ?? 0, { type: 'number', min: 0, required: true }), 'পরে স্টক বাড়বে পারচেজ দিয়ে, কমবে অর্ডার দিয়ে।') : <div className="field"><span className="label">স্টক (কয়টি আছে)</span><b className={`ro-value ${Number(p.own_stock ?? p.stock) <= Number(p.low_stock) ? 'warn' : ''}`}>{bn(p.own_stock ?? p.stock ?? 0)}টি</b>{' '}{(Number(p.own_stock ?? p.stock ?? 0) < 0 ? <small><b className="warn">⏳{' '}{bn(-Number(p.own_stock ?? p.stock))}টি প্রি-অর্ডারে বাকি</b>{' '}— মাল কিনে পারচেজ দিলে নিজে থেকে মিটে যাবে।</small> : null)}{' '}{(canStock ? <small className="stock-acts"><a className="btn btn-sm" href={`/admin/purchases/new?add=${attrValue(p.id)}`}>➕ মাল কিনেছি</a>{' '}<a className="btn btn-sm btn-ghost" href={`/admin/inventory?q=${attrValue(encodeURIComponent(p.sku || p.name || ''))}`}>🔧 স্টক ঠিক করুন</a></small> : <small>স্টক বদলায় পারচেজ, অর্ডার আর ইনভেন্টরির এন্ট্রি দিয়ে।</small>)}</div>))}{' '}{ui.field('স্টক এর কম হলে সতর্ক করুন', ui.input('low_stock', p.low_stock ?? 3, { type: 'number', min: 0 }))}{' '}{ui.field('ওজন (গ্রাম, কুরিয়ারের জন্য)', ui.input('weight_g', p.weight_g || '', { type: 'number', min: 0 }))}</div><input type="hidden" name="preorder_form" defaultValue="1" />{' '}{ui.switchRow('preorder', !!p.preorder, '⏳ প্রি-অর্ডার নিন (স্টক শেষ হলেও)', 'চালু থাকলে স্টক শেষ হলেও কাস্টমার অর্ডার করতে পারবেন — পণ্যের পেজে "প্রি-অর্ডার" লেখা থাকবে। অর্ডারে কয়টা পরে পাঠাতে হবে লেখা থাকে; মাল কিনে পারচেজ এন্ট্রি দিলে আগে প্রি-অর্ডারগুলো মেটে।')}{' '}{ui.field('মাল আসতে আনুমানিক কত দিন (কাস্টমারকে দেখাবে)', ui.input('preorder_days', p.preorder_days || '', { type: 'number', min: 0, max: 180, placeholder: 'যেমন 7' }))}{' '}{(p.damaged_stock ? <p className="small warn">নষ্ট/ভাঙা স্টক আলাদা রাখা আছে:{' '}<b>{bn(p.damaged_stock)}টি</b>{' '}(বিক্রি হবে না) —{' '}<a href={`/admin/inventory?q=${attrValue(encodeURIComponent(p.sku || p.name || ''))}`}>ইনভেন্টরিতে দেখুন</a></p> : null)}</>)}{' '}{(suppliers.length ? ui.field('যে সাপ্লায়ার থেকে সাধারণত কেনা হয় (ঐচ্ছিক)', ui.select('supplier_id', [['', '— বাছাই করা নেই —'], ...suppliers.map((x) => [x.id, x.name + (x.company ? ` (${x.company})` : '')])], p.supplier_id || ''),
     'শুধু অ্যাডমিনে দেখা যায়, কাস্টমার কখনো দেখবে না। পারচেজের সময় কাজে লাগে।') : null)}</section>{(bundle ? <section className="panel" data-bundle=""><h2>বান্ডেলে কী কী থাকবে</h2><div className="item-picker"><input type="search" placeholder="পণ্য খুঁজে যোগ করুন…" data-bundle-search="" autoComplete="off" /><ul className="picker-results" data-bundle-results="" hidden></ul></div><div className="table-wrap"><table className="table item-rows bundle-rows"><thead><tr><th>ছবি</th><th>পণ্য</th><th className="num">একক দাম</th><th className="num">পরিমাণ (কমান / বাড়ান)</th><th className="num">মোট</th><th className="num">স্টক</th><th>কাজ</th></tr></thead><tbody data-bundle-rows="">{jsxList((p.bundle || []).map((b) => <tr data-row="" data-price={attrValue(b.price)}><td className="b-img">{(b.image_id ? <img src={`/media/${attrValue(b.image_id)}/t`} alt="" loading="lazy" /> : <span className="pe"><Val v={b.emoji || '📦'} /></span>)}</td><td className="b-name"><b><Val v={b.name} /></b>{(b.sku ? <><br /><span className="small muted">SKU{' '}<Val v={b.sku} /></span></> : null)}<input type="hidden" name="bundle_id[]" defaultValue={attrValue(b.product_id)} /></td><td className="num">{money(b.price)}</td><td className="num"><span className="qty-step"><button type="button" className="qs-btn" data-bq="-1" aria-label="কমান">−</button><input type="number" name="bundle_qty[]" defaultValue={attrValue(b.qty)} min="1" className="w-num" data-qty="" /><button type="button" className="qs-btn" data-bq="1" aria-label="বাড়ান">+</button></span></td><td className="num" data-line="">{money(b.price * b.qty)}</td><td className="num">{bn(b.stock)}</td><td className="b-act"><a className="btn btn-sm btn-ghost" href={`/admin/products/${attrValue(b.product_id)}`} target="_blank" rel="noopener" title="এই পণ্যটি এডিট করুন (নতুন ট্যাবে)">✏️ এডিট</a><button type="button" className="btn btn-sm btn-danger" data-remove-row="" title="বান্ডেল থেকে সরান">🗑️ মুছুন</button></td></tr>))}</tbody></table></div><p className="muted small" data-bundle-empty="" hidden={!!((p.bundle || []).length)}>এখনো কোনো পণ্য যোগ হয়নি — উপরে খুঁজে যোগ করুন।</p><p className="muted small" data-bundle-sum=""></p></section> : null)}<section className="panel"><h2>বিবরণ</h2>{ui.field('ছোট বিবরণ (Short description)', ui.textarea('short_description', p.short_description || '', { rows: 3, maxlength: 1000 }), 'পণ্যের পেজে দামের ঠিক নিচে "📝 সংক্ষেপে" বক্সে দেখাবে। ২-৪ লাইনে মূল কথা।')}{' '}{ui.field('বিস্তারিত বিবরণ (Long description)', ui.textarea('description', p.description || '', { rows: 10, maxlength: 20000 }),
     <>পেজের নিচে "📋 পণ্যের বিস্তারিত বিবরণ" অংশে দেখাবে। নতুন লাইন = নতুন প্যারাগ্রাফ। <b>## শিরোনাম</b> লিখলে বড় হেডিং, <b>- </b> দিয়ে শুরু করলে বুলেট পয়েন্ট, <b>**মোটা লেখা**</b>।</>)}</section>{(bundle ? null : packBox(p))}{specsBox(p.specs)}{' '}{(p.product_type === 'bundle' ? null : extrasBox(p, tiers, links, settings))}<section className="panel"><h2>SEO (গুগলে কেমন দেখাবে)</h2>{(isNew ? null : ui.field('পণ্যের লিংক (URL)', <span className="slug-field"><span className="muted">/p/</span>{ui.input('slug', p.slug || '', { maxlength: 80, pattern: '[^/?#]+', spellcheck: 'false' })}</span>,
@@ -303,6 +364,34 @@ function extrasBox(p: ProductDraft, tiers: { min_qty: unknown; price: unknown }[
   const row = (t: { min_qty?: unknown; price?: unknown }) => <div className="field-row tier-row">{ui.field('কমপক্ষে কয়টা নিলে', ui.input('tier_qty[]', t.min_qty || '', { type: 'number', min: 2, class: 'w-num', placeholder: 'যেমন 10' }))}{' '}{ui.field('প্রতি পিস দাম (৳)', ui.input('tier_price[]', t.price ?? '', { type: 'number', min: 0.01, step: '0.01', class: 'w-num', placeholder: 'যেমন 4.5' }))}</div>;
   return <><section className="panel"><h2>📦 বেশি কিনলে কম দাম{' '}<small>পাইকারি দাম</small></h2>{(p.flash_price ? <p className="flash">⚡ এই পণ্যে এখন ফ্ল্যাশ সেল চলছে — দোকানে দাম{' '}{money(p.flash_price)}।{' '}<a href="/admin/marketing/flash">ফ্ল্যাশ সেল দেখুন →</a></p> : null)}<p className="muted small">যেমন "১০টি বা বেশি নিলে ৳৪.৫০ করে", "৫০টি বা বেশি নিলে ৳৪ করে"। কাস্টমার কার্টে পরিমাণ বাড়ালে কম দাম নিজে থেকে বসবে, আর পণ্যের পেজে একটা ছোট টেবিল দেখাবে। খালি রাখলে কিছু হবে না। ফ্ল্যাশ সেলের সাথে মিলিয়ে দুইবার ছাড় হয় না — যেটা কম সেটাই বসে।</p>{(Number(p.price) > 0 ? <p className="small warn">মনে রাখবেন: অনলাইনে এই পণ্য একবারে সর্বোচ্চ{' '}{bn(qtyRule(settings, p.price).max)}টি অর্ডার করা যায় (সেটিংস থেকে বদলানো যায়) — তার বেশির ধাপ কাস্টমার পাবে না।</p> : null)}<div data-repeat="tiers"><Val v={rows.map(row)} /><Val v={Array.from({ length: blank }, () => row({}))} /></div><button type="button" className="btn btn-sm btn-ghost" data-repeat-add="tiers">+ আরও ধাপ</button></section><section className="panel"><h2>🔗 সাথে দেখানোর পণ্য</h2><p className="muted small">পণ্যের SKU কমা দিয়ে লিখুন (যেমন: 12, 45, 101)। খালি রাখলে "একই রকম আরও পণ্য" একই ক্যাটাগরি থেকে নিজে থেকে আসবে।</p>{ui.field('এর সাথে যা লাগবে (ক্রস-সেল)', ui.input('cross_skus', links.cross.join(', '), { maxlength: 400, placeholder: 'যেমন সোল্ডারিং আয়রনের সাথে তার, ফ্লাক্স' }), 'পণ্যের পেজে আর কার্টে "এগুলোও লাগতে পারে" হিসেবে দেখাবে')}{' '}{ui.field('আরও ভালো বিকল্প (আপসেল)', ui.input('upsell_skus', links.upsell.join(', '), { maxlength: 400, placeholder: 'একটু দামি কিন্তু ভালো মডেল' }))}{' '}{ui.field('একই রকম পণ্য (নিজে বেছে দিন)', ui.input('related_skus', links.related.join(', '), { maxlength: 400 }))}</section></>;
 }
+/** Saves the colour × size table of the product form as the product's variants (see variantBuilder). Rows taken away
+ * are switched off (not deleted). Returns an error text, or null. */
+async function saveVb(pid: number, rows: VbRow[], ctx: AdminCtx, seeCost: boolean): Promise<string | null> {
+  const old = await catalog.listVariants(pid);
+  if (!rows.length && !old.length) return null;
+  const full = await catalog.getProduct({ id: pid });
+  const images = (full && full.images) || [];
+  const byId = new Map(old.map((v) => [v.id, v]));
+  const used = new Set<number>();
+  const hasC = rows.some((r) => r.color);
+  const hasS = rows.some((r) => r.size);
+  const out: Body[] = rows.filter((r) => r.id || r.on || str(r.price)).map((r) => {
+    const v = r.id ? byId.get(r.id) : undefined;
+    if (v) used.add(v.id);
+    const label = [r.color, r.size].filter(Boolean).join(' / ');
+    const n = int(r.img);
+    return { id: v ? v.id : 0, label, price: r.price, old_price: v ? v.old_price : null, sku: v ? v.sku : '', cost_price: v ? undefined : (str(r.cost) ? r.cost : (full ? full.cost_price : 0)),
+      stock: v ? undefined : r.stock, image_id: n > 0 && images[n - 1] ? images[n - 1] : null, active: r.on };
+  });
+  for (const v of old) if (!used.has(v.id)) out.push({ id: v.id, label: v.variant_label, price: v.price, old_price: v.old_price, sku: v.sku, image_id: v.image_id, active: false });
+  const title = hasC && hasS ? 'রং / সাইজ' : hasC ? 'রং' : hasS ? (full && full.variant_title && !/\//.test(full.variant_title) && !/রং/.test(full.variant_title) ? full.variant_title : 'সাইজ') : (full ? full.variant_title : '');
+  try {
+    await catalog.saveVariants(pid, { title, rows: out }, ctx.user.id, { withCost: seeCost });
+  } catch (e) { return e instanceof Error ? e.message : 'রং/সাইজ সেভ হয়নি।'; }
+  await ctx.log('product_edit', 'product', pid, `রং/সাইজ: ${out.filter((r) => r.active).map((r) => str(r.label, 30)).join(', ').slice(0, 300)}`);
+  return null;
+}
+
 async function formPage(ctx: AdminCtx, m: RouteMatch | null) {
   const id = m && m[1] ? int(m[1]) : null;
   // a variant is edited on its main product's variants page
@@ -320,8 +409,21 @@ async function formPage(ctx: AdminCtx, m: RouteMatch | null) {
     // Only the owner, or staff given that permission, may switch "publish anyway" on or off.
     if (!canOverride(ctx)) b.allow_duplicate = cur ? cur.allow_duplicate : false;
     else b.allow_duplicate = !!b.allow_duplicate;
+    // 🎨 the colour × size table (variantBuilder): the main price is the cheapest one; a new product's pieces are the variants'
+    const vb = b.vb_form === '1' && b.product_type !== 'bundle' ? vbRowsFromBody(b) : [];
+    const vbOn = vb.filter((r) => r.on && str(r.price));
+    if (vbOn.length) {
+      if (!str(b.price)) b.price = String(Math.min(...vbOn.map((r) => amount(r.price))));
+      if (!id) b.stock = 0;
+    }
     let error = !str(b.name) ? 'পণ্যের নাম লিখুন।' : null;
-    if (!error && !(cur && cur.variant_count > 0)) error = priceProblem(shopPrice(amount(b.price)), 'বিক্রির দাম');
+    if (!error && !(cur && cur.variant_count > 0) && !vbOn.length) error = priceProblem(shopPrice(amount(b.price)), 'বিক্রির দাম');
+    if (!error) for (const r of vb) {
+      const label = [r.color, r.size].filter(Boolean).join(' / ');
+      const pp = r.on ? priceProblem(shopPrice(amount(r.price)), `"${label}" এর বিক্রির দাম`) : null;
+      if (pp) { error = pp; break; }
+    }
+    if (!error && new Set(vb.map((r) => `${r.color}|${r.size}`.toLowerCase())).size !== vb.length) error = 'একই রং-সাইজ দুইবার আছে — টেবিলটা আবার তৈরি করুন।';
     if (!error && b.sku && await catalog.skuTaken(str(b.sku, 60), id)) error = 'এই SKU অন্য একটা পণ্যে আছে। আলাদা SKU দিন।';
     if (!error && b.youtube_url && !youtubeId(b.youtube_url)) error = 'YouTube লিংকটি ঠিক নেই।';
     if (!error && b.product_type === 'bundle' && !b.bundle.length) error = 'বান্ডেলে অন্তত একটি পণ্য যোগ করুন।';
@@ -340,11 +442,17 @@ async function formPage(ctx: AdminCtx, m: RouteMatch | null) {
       if (cur) product.slug = cur.slug;
       product.specs = catalog.cleanSpecs(b.spec_key, b.spec_val);
       product.is_new = !!b.is_new;
+      if (b.vb_form === '1') product.vb_rows = vb.map((r) => {
+        const v = r.id && cur ? (cur.variants || []).find((x) => x.id === r.id) : undefined;
+        return v ? { ...r, cur: { cost: Number(v.cost_price) || 0, stock: Number(v.stock) || 0 } } : { ...r, id: 0 };
+      });
       extras.tiers = list(b.tier_qty).map((n, i) => ({ min_qty: n, price: list(b.tier_price)[i] })).filter((t) => t.min_qty || t.price);
       extras.links = { related: [str(b.related_skus, 400)].filter(Boolean), cross: [str(b.cross_skus, 400)].filter(Boolean), upsell: [str(b.upsell_skus, 400)].filter(Boolean) };
       return ctx.page('পণ্য', productForm({ product, categories, error, seeCost, dup, canOverride: canOverride(ctx), guardOn: guardOn(ctx), settings: ctx.settings, nextSku: id ? '' : await catalog.nextSku(), ...extras }), id ? 'products' : 'product-new', { status: 400 });
     }
     const pid = await catalog.saveProduct({ ...b, id }, ctx.user.id);
+    const vbProblem = b.vb_form === '1' && b.product_type !== 'bundle' ? await saveVb(pid, vb, ctx, seeCost) : null;
+    if (vbProblem) return ctx.fail(`/admin/products/${pid}#variants`, `পণ্য সেভ হয়েছে, কিন্তু রং/সাইজ সেভ হয়নি: ${vbProblem}`);
     const extraProblems = b.tier_qty !== undefined || b.cross_skus !== undefined ? await saveExtras(pid, b, ctx.settings) : [];
     await ctx.log(id ? 'product_edit' : 'product_add', 'product', pid, str(b.name, 100));
     if (extraProblems.length) return ctx.fail(`/admin/products/${pid}`, `পণ্য সেভ হয়েছে, তবে: ${extraProblems.join('; ')}`);
@@ -354,6 +462,8 @@ async function formPage(ctx: AdminCtx, m: RouteMatch | null) {
   if (id) {
     const product = await catalog.getProduct({ id });
     if (!product) return ctx.redirect('/admin/products');
+    const draft: ProductDraft = product;
+    draft.vb_rows = vbRowsFromVariants(await catalog.listVariants(id), product.images || [], product.variant_title || '');
     return ctx.page(product.name, <>{ui.flash(ctx.flash)}{productForm({ product, categories, seeCost, canOverride: canOverride(ctx), guardOn: guardOn(ctx), settings: ctx.settings, ...extras })}</>, product.product_type === 'bundle' ? 'bundles' : 'products');
   }
   const type = ctx.query.get('type') === 'bundle' ? 'bundle' : 'single';

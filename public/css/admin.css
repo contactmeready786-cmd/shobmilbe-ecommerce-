@@ -1555,3 +1555,10 @@ html[data-admin-lang="en"] .side-drop[data-side-group="দোকানের ড
 #main.admin-main .toolbar > input[type=search], #main.admin-main .toolbar > label:has(> input[type=search]) { flex: 1 1 240px; }
 #main.admin-main .toolbar > select { flex: 0 1 auto; max-width: 220px; }
 .check-row { display: flex; flex-wrap: wrap; gap: 8px 22px; margin: 6px 0 12px; }
+
+/* 🎨 রং / সাইজ in the product form (lib/admin/products.tsx variantBuilder) */
+#main.admin-main .vb-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+#main.admin-main .vb-chips .chip { font-size: .82rem; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--line, #d9e1ec); background: #fff; cursor: pointer; }
+#main.admin-main .vb-chips .chip:hover { border-color: #1565c0; color: #1565c0; }
+#main.admin-main .vb-table td { vertical-align: middle; }
+#main.admin-main .vb-table select { min-width: 80px; }
