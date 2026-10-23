@@ -8,6 +8,7 @@ import type { DbRow, Param, Tx } from './pg';
 import type { Settings } from './types';
 import * as $services_autocat from './services/autocat';
 import * as $services_uiswitch from './services/uiswitch';
+import { bnTitle } from './services/bntitle';
 
 /** All rows of a query. */
 const q = async <R extends DbRow = DbRow>(sql: string, params: Param[] = []): Promise<R[]> => (await pg.query(sql, params)).rows as R[];
@@ -1222,6 +1223,12 @@ CREATE TABLE IF NOT EXISTS desc_clean_log (
 );
 CREATE INDEX IF NOT EXISTS desc_clean_log_product_idx ON desc_clean_log(product_id);
 ALTER TABLE media ADD COLUMN IF NOT EXISTS emb bytea;
+`,  // 🇧🇩 বাংলা নাম (owner, 2026-10-24): each product's Bangla name (lib/services/bntitle.ts), shown under the English one;
+  // name_bn_auto = made from the English name (made again when it changes) — false once the owner writes his own.
+  // The data step below gives every existing product its Bangla name.
+  `
+ALTER TABLE products ADD COLUMN IF NOT EXISTS name_bn text NOT NULL DEFAULT '';
+ALTER TABLE products ADD COLUMN IF NOT EXISTS name_bn_auto boolean NOT NULL DEFAULT true;
 `,
 ];
 
@@ -1429,6 +1436,14 @@ const MIGRATION_STEPS: Record<number, () => Promise<void>> = {
       ('শর্তাবলি', 'terms', 'অর্ডার করার মাধ্যমে আপনি আমাদের শর্তাবলিতে সম্মত হচ্ছেন।', 3)
       ON CONFLICT (slug) DO NOTHING`);
   },
+};
+// (the migration that adds products.name_bn) every product already in the shop gets its Bangla name
+MIGRATION_STEPS[MIGRATIONS.findIndex((m) => m.includes('ADD COLUMN IF NOT EXISTS name_bn text')) + 1] = async () => {
+  const rows = await q<{ id: number; name: string }>(`SELECT id, name FROM products WHERE name_bn=''`);
+  for (let i = 0; i < rows.length; i += 200) {
+    const part = rows.slice(i, i + 200).map((r) => ({ id: r.id, bn: bnTitle(r.name) }));
+    await q(`UPDATE products p SET name_bn=x.bn FROM jsonb_to_recordset($1::jsonb) AS x(id int, bn text) WHERE p.id=x.id AND p.name_bn=''`, [JSON.stringify(part)]);
+  }
 };
 
 const SEED_CATEGORIES = [

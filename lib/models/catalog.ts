@@ -11,6 +11,7 @@ import * as $crypto from 'node:crypto';
 import type { DbRow, Param, Tx } from '../pg';
 import type { Body } from '../types';
 import type { ActivityLogRow, BrandsRow, BundleItemsRow, CategoriesRow, MediaRow, ProductsRow, StockMovementsRow } from '../data/rows';
+import { bnTitle } from '../services/bntitle';
 
 type Id = number | string | null | undefined;
 /** A category row plus what categoryTree() adds. */
@@ -220,7 +221,7 @@ const PRICE_COLS = `coalesce(${FLASH_SUB}, p.price) AS price,
   CASE WHEN ${FLASH_SUB} IS NOT NULL THEN greatest(coalesce(p.old_price, 0), p.price) ELSE p.old_price END AS old_price,
   ${FLASH_END} AS flash_ends, p.price AS base_price`;
 const PUBLIC_COLS = `p.id, p.name, p.slug, p.category_id, ${PRICE_COLS}, ${STOCK_EXPR} AS stock, p.stock AS own_stock,
-  p.description, p.short_description, p.emoji, p.image_id, (p.image_id IS NOT NULL) AS has_image, p.featured, p.active,
+  p.name_bn, p.description, p.short_description, p.emoji, p.image_id, (p.image_id IS NOT NULL) AS has_image, p.featured, p.active,
   p.sku, p.youtube_url, p.product_type, p.seo_title, p.seo_description, p.seo_keywords, p.low_stock, p.weight_g, p.unit,
   p.brand, p.brand_id, (SELECT slug FROM brands WHERE id=p.brand_id AND active) AS brand_slug, p.model, p.specs, p.is_new, p.noindex, p.warranty, p.warranty_type, p.barcode,
   p.allow_duplicate, (p.preorder OR coalesce((SELECT pp.preorder FROM products pp WHERE pp.id=p.parent_id), false)) AS preorder,
@@ -282,7 +283,7 @@ function productWhere({ hideOut, category, categoryId, brandId, brandIds, damage
   if (search) {
     params.push(`%${search}%`);
     const n = params.length;
-    where.push(`(p.name ILIKE $${n} OR p.sku ILIKE $${n} OR p.model ILIKE $${n} OR p.short_description ILIKE $${n} OR c.name ILIKE $${n} OR p.brand ILIKE $${n} OR p.barcode ILIKE $${n})`);
+    where.push(`(p.name ILIKE $${n} OR p.name_bn ILIKE $${n} OR p.sku ILIKE $${n} OR p.model ILIKE $${n} OR p.short_description ILIKE $${n} OR c.name ILIKE $${n} OR p.brand ILIKE $${n} OR p.barcode ILIKE $${n})`);
   }
   return where.length ? 'WHERE ' + where.join(' AND ') : '';
 }
@@ -301,6 +302,8 @@ export type Product = {
   price: number; old_price: number | null; flash_ends: Date | null; base_price: number;
   /** what can be sold now (variants: their sum; bundles: what the parts allow) */
   stock: number; own_stock: number;
+  /** 🇧🇩 the Bangla name (lib/services/bntitle.ts), '' until made */
+  name_bn: string;
   description: string; short_description: string; emoji: string; image_id: number | null; has_image: boolean; image_ik: string | null;
   featured: boolean; active: boolean; sku: string; youtube_url: string; product_type: string;
   seo_title: string; seo_description: string; seo_keywords: string; low_stock: number; weight_g: number; unit: string;
@@ -753,6 +756,14 @@ async function saveProduct(data: Body & { bundle?: { product_id: unknown; qty: u
       if (data.import_ref) await t.query('UPDATE products SET import_ref=$1 WHERE id=$2', [str(data.import_ref, 300), pid]);
       if (type === 'single' && newStock > 0) await moveStock(t, pid, newStock, 'opening', 'product', pid, 'শুরুর স্টক', staffId, false, f.cost_price || null);
     }
+    // 🇧🇩 the Bangla name: typed on the form (kept as written), or made from the English name — and made again when
+    // the English name changes, unless the owner wrote his own
+    const auto = bnTitle(f.name);
+    if (data.name_bn !== undefined) {
+      const typed = str(data.name_bn, 200).trim();
+      const own = !!typed && typed !== auto;
+      await t.query('UPDATE products SET name_bn=$1, name_bn_auto=$2 WHERE id=$3', [own ? typed : auto, !own, pid]);
+    } else await t.query(`UPDATE products SET name_bn=$1, name_bn_auto=true WHERE id=$2 AND (name_bn_auto OR name_bn='')`, [auto, pid]);
     const kept = await attachMedia(t, images, 'product', pid);
     const main = (await t.query<Pick<MediaRow, 'id'>>(`SELECT id FROM media WHERE owner_type='product' AND owner_id=$1 ORDER BY sort, id LIMIT 1`, [pid])).rows[0];
     await t.query('UPDATE products SET image_id=$1 WHERE id=$2', [main ? main.id : null, pid]);

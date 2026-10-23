@@ -127,9 +127,31 @@ function dupCheck(): void {
 }
 
 // ---------- product form helpers ----------
+// 🇧🇩 the Bangla name follows the English one (lib/services/bntitle.ts) until the owner writes his own
+function bnName(form: HTMLElement): void {
+  const en = form.querySelector<HTMLInputElement>('input[name="name"]');
+  const bnBox = form.querySelector<HTMLInputElement>('[data-bn-name]');
+  if (!en || !bnBox) return;
+  let t = 0;
+  let seq = 0;
+  bnBox.addEventListener('input', () => { bnBox.dataset.auto = bnBox.value.trim() ? '' : '1'; });
+  en.addEventListener('input', () => {
+    if (!bnBox.dataset.auto) return;
+    clearTimeout(t);
+    t = window.setTimeout(async () => {
+      const my = ++seq;
+      try {
+        const j = (await (await fetch(`/admin/api/products/bn-title?name=${encodeURIComponent(en.value)}`, { credentials: 'same-origin' })).json()) as { bn?: string };
+        if (my === seq && bnBox.dataset.auto) bnBox.value = j.bn || '';
+      } catch { /* the server makes it on save anyway */ }
+    }, 350);
+  });
+}
+
 function productForm(): void {
   const pform = $('[data-product-form]');
   if (!pform) return;
+  bnName(pform);
   const price = $<HTMLInputElement>('[data-price]', pform);
   const cost = $<HTMLInputElement>('[data-cost]', pform);
   const marginBox = $('[data-margin]', pform);

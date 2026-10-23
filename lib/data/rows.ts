@@ -962,6 +962,8 @@ export type ProductsRow = {
   pack_sizes: string;
   dims: string;
   packing_set_id: number | null;
+  name_bn: string;
+  name_bn_auto: boolean;
 };
 
 /** A row of purchase_edits. */
