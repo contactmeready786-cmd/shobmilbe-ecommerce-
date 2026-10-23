@@ -89,6 +89,13 @@ async function getMedia(id?: Id, wantThumb?: boolean): Promise<Pick<MediaRow, 'm
   return one<Pick<MediaRow, 'mime' | 'data' | 'ik_url'>>(`SELECT mime, ${wantThumb ? 'coalesce(thumb, data)' : 'data'} AS data, ik_url FROM media WHERE id=$1
     AND (owner_type IS NULL OR owner_type NOT IN ('staff', 'trash:staff', 'return', 'complaint', 'review_wait'))`, [id]);
 }
+/** 🇧🇩 Products still without a Bangla name get one (a safety net beside the migration's data step; at most `limit`). */
+async function fillBnNames(limit = 500): Promise<number> {
+  const rows = await q<{ id: number; name: string }>(`SELECT id, name FROM products WHERE name_bn='' AND name_bn_auto LIMIT $1`, [limit]);
+  const part = rows.map((r) => ({ id: r.id, bn: bnTitle(r.name) })).filter((r) => r.bn);
+  if (part.length) await q(`UPDATE products p SET name_bn=x.bn FROM jsonb_to_recordset($1::jsonb) AS x(id int, bn text) WHERE p.id=x.id AND p.name_bn=''`, [JSON.stringify(part)]);
+  return part.length;
+}
 /** ⚡ The product page's big picture as the address /media/<id>/w (or /media/<id>) would send the browser to — the
  *  ImageKit file itself — or null when the picture is kept in the database (then the page links /media/… as before). */
 async function directPictureUrl(id: Id, settings: Settings): Promise<string | null> {
@@ -1015,4 +1022,4 @@ async function inventorySummary(): Promise<InventorySummary | null> {
     FROM products WHERE active AND product_type='single' AND variant_count = 0`);
 }
 
-export { brandsIn, oweStock, specFacets, directPictureUrl, saveMedia, keepPrivate, mediaWithoutHash, setMediaHash, getMedia, mediaNeedingWatermark, watermarkProgress, setWatermark, getWatermarked, attachMedia, claimMedia, deleteMedia, cleanupMedia, listCategories, categoryTree, categoryOptions, categorySubtree, saveCategory, deleteCategory, listBrands, getBrand, saveBrand, brandIdFor, cleanSpecs, addRedirect, findRedirect, LINK_KINDS, linkedSkus, setLinks, linkedProducts, crossFor, listProducts, countProducts, productStats, getProduct, getProductsByIds, listVariants, saveVariants, syncVariants, MAX_VARIANTS, bundleItems, saveProduct, deleteProduct, deleteAllProducts, duplicateProduct, skuTaken, nextSku, moveStock, changeDamaged, cleanLocation, listLocations, reservedFor, OPEN_STATUSES, stockParts, stockMovements, inventorySummary, STOCK_REASONS, MAX_PRODUCT_IMAGES, WARRANTY, WARRANTY_TYPES, warrantyText, logPriceChange, priceHistory, productLedger, correctCost };
+export { brandsIn, oweStock, specFacets, directPictureUrl, fillBnNames, saveMedia, keepPrivate, mediaWithoutHash, setMediaHash, getMedia, mediaNeedingWatermark, watermarkProgress, setWatermark, getWatermarked, attachMedia, claimMedia, deleteMedia, cleanupMedia, listCategories, categoryTree, categoryOptions, categorySubtree, saveCategory, deleteCategory, listBrands, getBrand, saveBrand, brandIdFor, cleanSpecs, addRedirect, findRedirect, LINK_KINDS, linkedSkus, setLinks, linkedProducts, crossFor, listProducts, countProducts, productStats, getProduct, getProductsByIds, listVariants, saveVariants, syncVariants, MAX_VARIANTS, bundleItems, saveProduct, deleteProduct, deleteAllProducts, duplicateProduct, skuTaken, nextSku, moveStock, changeDamaged, cleanLocation, listLocations, reservedFor, OPEN_STATUSES, stockParts, stockMovements, inventorySummary, STOCK_REASONS, MAX_PRODUCT_IMAGES, WARRANTY, WARRANTY_TYPES, warrantyText, logPriceChange, priceHistory, productLedger, correctCost };

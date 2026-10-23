@@ -21,6 +21,8 @@ const ICONS = ['📦', '📟', '🧩', '🔋', '🔥', '🔌', '👕', '👗', '
   '🧲', '🧪', '🏠', '🛋️', '🍳', '🧴', '💄', '🧸', '📚', '✏️', '⚽', '🚲', '🚗', '🌱', '🐾', '🍎', '☕', '🎁', '💍', '🕶️', '🧢', '🧥', '🩺', '🧼', '📡', '🔦', '🪛', '🧵'];
 
 async function listPage(ctx: AdminCtx) {
+  // 🇧🇩 any product still without its Bangla name gets it (once in a while; quick when there is nothing to do)
+  await memo('bn-fill', () => catalog.fillBnNames(), 600_000).catch(() => 0);
   const page = pageNum(ctx.query);
   const categories = await catalog.listCategories();
   const f = {
