@@ -3,6 +3,7 @@
 import { h, Fragment, paint } from '../jsx.js';
 import { $, $all, bn, hit } from '../dom.js';
 import { getJSON, show, toast } from './core.js';
+import { embedImage } from './recognize.js';
 
 void Fragment;
 export type Fingerprint = { h: string; m: string };
@@ -156,10 +157,13 @@ export async function upload(file: Blob, opts: UploadOpts = {}): Promise<Uploade
   if (full.png && full.data.length > 900000) full = await resize(new File([file], 'x.jpg', { type: 'image/jpeg' }), max, 0.82, opts.square);
   const th = await resize(file, opts.thumb || 420, 0.78, opts.square);
   const fp = await loadImage(th.data).then(fingerprint, () => null);
+  // 🧠 the picture-recognition AI's view (so a duplicate is found by the picture, not only the name); not for
+  // private pictures; never holds an upload up for long (the background job does it later then)
+  const emb = opts.private || opts.square ? null : await Promise.race([embedImage(th.data), new Promise<null>((r) => setTimeout(() => r(null), 30000))]);
   const r = await fetch('/admin/api/media', {
     method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ data: full.data, thumb: th.data, width: full.width, height: full.height,
-      phash: fp ? fp.h : undefined, phash_m: fp ? fp.m : undefined, import: opts.import ? 1 : undefined, private: opts.private ? 1 : undefined }),
+      phash: fp ? fp.h : undefined, phash_m: fp ? fp.m : undefined, emb: emb || undefined, import: opts.import ? 1 : undefined, private: opts.private ? 1 : undefined }),
   });
   const j = (await r.json()) as Uploaded & { error?: string };
   if (!r.ok) throw new Error(j.error || 'আপলোড হয়নি');

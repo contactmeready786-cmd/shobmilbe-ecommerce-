@@ -12,11 +12,14 @@ import { int, str } from '../util';
 import type { Body, Id, Settings } from '../types';
 import type { MediaRow, ProductsRow } from '../data/rows';
 /** How strict the guard is: how alike two names (0…1) or two pictures (bit distance) must be. */
-type Level = { label: string; titleHigh: number; titleMid: number; imgStrong: number; imgWeak: number };
+// aiStrong / aiWeak: how alike the picture-recognition AI must find two pictures (0…1). Measured on DINOv2: the
+// same thing photographed again / cropped / turned / brighter ≈ 0.8–0.95, two different cars of the same colour 0.72,
+// unrelated pictures under 0.4.
+type Level = { label: string; titleHigh: number; titleMid: number; imgStrong: number; imgWeak: number; aiStrong: number; aiWeak: number };
 const LEVELS: Record<string, Level> = {
-  strict: { label: 'কড়া', titleHigh: 0.84, titleMid: 0.66, imgStrong: 38, imgWeak: 56 },
-  normal: { label: 'সাধারণ (প্রস্তাবিত)', titleHigh: 0.9, titleMid: 0.75, imgStrong: 30, imgWeak: 46 },
-  relaxed: { label: 'নরম', titleHigh: 0.95, titleMid: 0.86, imgStrong: 18, imgWeak: 30 },
+  strict: { label: 'কড়া', titleHigh: 0.84, titleMid: 0.66, imgStrong: 38, imgWeak: 56, aiStrong: 0.8, aiWeak: 0.68 },
+  normal: { label: 'সাধারণ (প্রস্তাবিত)', titleHigh: 0.9, titleMid: 0.75, imgStrong: 30, imgWeak: 46, aiStrong: 0.84, aiWeak: 0.72 },
+  relaxed: { label: 'নরম', titleHigh: 0.95, titleMid: 0.86, imgStrong: 18, imgWeak: 30, aiStrong: 0.88, aiWeak: 0.78 },
 };
 function levelOf(settings: Settings) { return LEVELS[(settings && settings.dup_level) || 'normal'] || LEVELS.normal; }
 
@@ -103,8 +106,26 @@ function hamming(a: Fingerprint, b: Fingerprint) {
   return d;
 }
 const similarity = (d: number) => Math.max(0, Math.round(100 * (1 - d / 128)));
-type PrepImage = { sha: string | null; h: Uint32Array | null; hm: Uint32Array | null };
-function prepImage(m: Pick<MediaRow, 'sha' | 'phash' | 'phash_m'>): PrepImage { return { sha: m.sha || null, h: split(m.phash as string), hm: split(m.phash_m as string) }; }
+// 🧠 The picture-recognition AI's view of a picture (client/admin/recognize.ts): 384 numbers kept as 384 bytes
+// (-127…127, the direction is what counts). Two pictures are alike by how much they point the same way (0…1).
+type PrepImage = { sha: string | null; h: Uint32Array | null; hm: Uint32Array | null; e: Int8Array | null };
+const EMB = 384;
+function embOf(b: unknown): Int8Array | null {
+  if (!b || !(b instanceof Uint8Array) || b.length !== EMB) return null;
+  return new Int8Array(b.buffer, b.byteOffset, EMB);
+}
+function aiSim(a: Int8Array, b: Int8Array): number {
+  let d = 0, na = 0, nb = 0;
+  for (let i = 0; i < EMB; i++) { d += a[i] * b[i]; na += a[i] * a[i]; nb += b[i] * b[i]; }
+  return na && nb ? d / Math.sqrt(na * nb) : 0;
+}
+/** the best AI likeness between two products' pictures (0 when either has none yet) */
+function aiBest(newImgs: PrepImage[], oldImgs: PrepImage[]): number {
+  let best = 0;
+  for (const a of newImgs) if (a.e) for (const b of oldImgs) if (b.e) best = Math.max(best, aiSim(a.e, b.e));
+  return best;
+}
+function prepImage(m: Pick<MediaRow, 'sha' | 'phash' | 'phash_m'> & { emb?: unknown }): PrepImage { return { sha: m.sha || null, h: split(m.phash as string), hm: split(m.phash_m as string), e: embOf(m.emb) }; }
 // smallest picture distance between two products (0 = same picture)
 function imageDistance(newImgs: PrepImage[], oldImgs: PrepImage[]) {
   let best = 999;
@@ -140,6 +161,12 @@ function compare(a: Comparable, b: Comparable, lv: Level, { sameDesc = false }: 
   if (d === 0) reasons.push('হুবহু একই ছবি');
   else if (imgStrong) reasons.push(`ছবি প্রায় একই (${bnNum(similarity(d))}% মিল)`);
   else if (imgWeak) reasons.push(`ছবি অনেকটা একই রকম (${bnNum(similarity(d))}% মিল)`);
+  // 🧠 the AI looked at the pictures: the same product even from another angle, light or background
+  const ai = imgStrong ? 0 : aiBest(a.images, b.images);
+  const aiStrong = ai >= lv.aiStrong;
+  const aiWeak = !aiStrong && ai >= lv.aiWeak;
+  if (aiStrong) reasons.push(`🧠 ছবি দেখে একই পণ্য মনে হচ্ছে (AI: ${bnNum(Math.round(ai * 100))}% মিল)`);
+  else if (aiWeak) reasons.push(`🧠 ছবিতে পণ্যটা দেখতে অনেকটা একই রকম (AI: ${bnNum(Math.round(ai * 100))}% মিল)`);
 
   // name
   let titleSame = false;
@@ -161,11 +188,14 @@ function compare(a: Comparable, b: Comparable, lv: Level, { sameDesc = false }: 
   if (sameDesc) reasons.push('বিস্তারিত বিবরণ হুবহু একই');
   if (a.youtube && a.youtube === b.youtube) reasons.push('একই YouTube ভিডিও');
 
-  if (imgStrong || titleSame || titleHigh || (titleMid && (imgWeak || sameDesc)) || (sameDesc && imgWeak)) block = true;
-  else if (imgWeak || titleMid || sameDesc || (a.youtube && a.youtube === b.youtube)) warn = true;
+  // a model / size number that differs in the names (40W vs 60W) keeps two look-alike pictures apart: only a warning
+  const aiBlock = aiStrong && !numberClash;
+  if (imgStrong || aiBlock || titleSame || titleHigh || (titleMid && (imgWeak || aiWeak || aiStrong || sameDesc)) || (sameDesc && (imgWeak || aiWeak))) block = true;
+  else if (imgWeak || aiWeak || aiStrong || titleMid || sameDesc || (a.youtube && a.youtube === b.youtube)) warn = true;
   if (block && numberClash && (imgStrong || imgWeak)) reasons.push('তবে নামে মাপ/মডেল আলাদা — একই ছবির আলাদা ভ্যারিয়েন্ট হলে নিচের সুইচ চালু করুন');
+  if (aiStrong && numberClash) reasons.push('তবে নামে মাপ/মডেল আলাদা — তাই শুধু সতর্ক করা হলো');
 
-  score += (imgStrong ? 50 : imgWeak ? 20 : 0) + (titleSame ? 50 : titleHigh ? 35 : titleMid ? 15 : 0) + (sameDesc ? 25 : 0);
+  score += (imgStrong ? 50 : imgWeak ? 20 : 0) + (aiStrong ? 40 : aiWeak ? 15 : 0) + (titleSame ? 50 : titleHigh ? 35 : titleMid ? 15 : 0) + (sameDesc ? 25 : 0);
   return { level: block ? 'block' : warn ? 'warn' : null, reasons, score: Math.round(score), imageDistance: d };
 }
 
@@ -180,7 +210,7 @@ async function loadCatalog(type: string, exceptId: Id = 0): Promise<CatalogEntry
   const rows = await q<CatalogRow>(`SELECT p.id, p.name, p.sku, p.slug, p.active, p.price, p.image_id, p.emoji, p.youtube_url, p.allow_duplicate,
       p.created_at, CASE WHEN ${DESC_LEN} >= 60 THEN ${DESC_HASH} ELSE NULL END AS desc_hash
     FROM products p WHERE p.product_type=$1 AND p.id<>$2 AND p.parent_id IS NULL`, [type, int(exceptId)]);
-  const media = await q<Pick<MediaRow, 'owner_id' | 'sha' | 'phash' | 'phash_m'>>(`SELECT owner_id, sha, phash, phash_m FROM media WHERE owner_type='product' AND owner_id = ANY($1::int[])`,
+  const media = await q<Pick<MediaRow, 'owner_id' | 'sha' | 'phash' | 'phash_m' | 'emb'>>(`SELECT owner_id, sha, phash, phash_m, emb FROM media WHERE owner_type='product' AND owner_id = ANY($1::int[])`,
     [rows.map((r) => r.id)]);
   const byOwner = new Map<number | null, typeof media>();
   for (const m of media) { if (!byOwner.has(m.owner_id)) byOwner.set(m.owner_id, []); byOwner.get(m.owner_id)!.push(m); }
@@ -197,7 +227,7 @@ async function findDuplicates(data: Body, settings: Settings) {
     .map((x) => int(x)).filter((x) => x > 0);
   const [others, imgs, desc] = await Promise.all([
     loadCatalog(type, id),
-    imageIds.length ? q<Pick<MediaRow, 'id' | 'sha' | 'phash' | 'phash_m'>>('SELECT id, sha, phash, phash_m FROM media WHERE id = ANY($1::int[])', [imageIds]) : [],
+    imageIds.length ? q<Pick<MediaRow, 'id' | 'sha' | 'phash' | 'phash_m' | 'emb'>>('SELECT id, sha, phash, phash_m, emb FROM media WHERE id = ANY($1::int[])', [imageIds]) : [],
     one<{ h: string | null }>(`SELECT CASE WHEN length(regexp_replace($1::text, '\\s', '', 'g')) >= 60
       THEN md5(lower(regexp_replace($1::text, '\\s', '', 'g'))) END AS h`, [str(data.description, 20000)]),
   ]);
@@ -250,6 +280,16 @@ async function scanCatalog(settings: Settings, { includeAllowed = false }: ScanC
         if (hamming(h, h2) <= lv.imgWeak || (hm && hamming(hm, h2) <= lv.imgWeak)) pair(i, j);
       }
     }
+    // 🧠 pictures the AI finds alike (all against all: 1,000 products × 3 pictures is well under a second)
+    const embs: [number, Int8Array][] = [];
+    all.forEach((p, i) => { for (const im of p.images) if (im.e) embs.push([i, im.e]); });
+    for (let x = 0; x < embs.length; x++) {
+      const [i, e] = embs[x];
+      for (let y = x + 1; y < embs.length; y++) {
+        const [j, e2] = embs[y];
+        if (i !== j && aiSim(e, e2) >= lv.aiWeak) pair(i, j);
+      }
+    }
     for (const c of cand) {
       const a = all[Math.floor(c / 100000)];
       const b = all[c % 100000];
@@ -280,4 +320,4 @@ async function scanCatalog(settings: Settings, { includeAllowed = false }: ScanC
     .sort((x, y) => (x.level === y.level ? y.score - x.score : x.level === 'block' ? -1 : 1));
 }
 
-export { LEVELS, levelOf, findDuplicates, scanCatalog, prepName, compare, hamming, words };
+export { LEVELS, levelOf, findDuplicates, scanCatalog, prepName, compare, hamming, words, aiSim, EMB };

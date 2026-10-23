@@ -91,6 +91,7 @@ import * as $email from './email';
 import * as $packingadmin from './packing';
 import * as $whiten from './whiten';
 import * as $descclean from './descclean';
+import * as recognize from '../models/recognize';
 import * as $services_guard from '../services/guard';
 import * as $models_trash from '../models/trash';
 import * as $models_extras from '../models/extras';
@@ -644,6 +645,7 @@ ${link}
     const thumb = t ? Buffer.from(t[1], 'base64') : null;
     const okThumb = thumb && thumb.length < 600 * 1024 && /^image\/(jpeg|png|webp)$/.test(security.imageKind(thumb) || '') ? thumb : null;
     const id = await catalog.saveMedia({ mime, data, thumb: okThumb, width: int(b.width), height: int(b.height), phash: b.phash, phashM: b.phash_m, keepPrivate: !!b.private });
+    if (b.emb && !b.private) await recognize.save(id, b.emb); // 🧠 the picture-recognition AI's view, made in the browser
     if (Math.random() < 0.05) catalog.cleanupMedia().catch(() => {});
     return json(200, { id, url: `/media/${id}`, thumb: `/media/${id}/t` });
   }
@@ -654,6 +656,17 @@ ${link}
       const b = await parseBody(req);
       for (const it of arr(b.items).slice(0, 60)) { const o = fields(it); await catalog.setMediaHash(o && o.id, o && o.phash, o && o.phash_m); }
       return json(200, { ok: true });
+    }
+  }
+
+  // 🧠 Product pictures the picture-recognition AI hasn't seen yet: the admin's browser does them quietly.
+  if (path === '/admin/api/media/embeddings' && allowed(user, 'products')) {
+    if (method === 'GET') return json(200, { ids: await recognize.waiting(24), ...(await recognize.progress()) });
+    if (method === 'POST') {
+      const b = await parseBody(req);
+      let n = 0;
+      for (const it of arr(b.items).slice(0, 60)) { const o = fields(it); if (o && (await recognize.save(o.id, o.emb))) n++; }
+      return json(200, { ok: true, saved: n });
     }
   }
 

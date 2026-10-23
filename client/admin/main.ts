@@ -9,6 +9,7 @@ import { startImporter } from './importer.js';
 import { startPages } from './pages.js';
 import { startVariantBuilder } from './vbuilder.js';
 import { startWhiten } from './whiten.js';
+import { startRecognize } from './recognize.js';
 
 whenReady(() => {
   window.__smAdminReady = true; // (tools/parity/browser.mts checks the admin's script started)
@@ -20,4 +21,5 @@ whenReady(() => {
   startPages();
   startVariantBuilder();
   startWhiten();
+  startRecognize();
 });
