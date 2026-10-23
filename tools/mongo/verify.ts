@@ -72,6 +72,8 @@ async function main() {
   console.log(summary);
   if (process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, '## 🍃 MongoDB copy vs PostgreSQL\n\n' + summary);
   fs.writeFileSync(path.join(dir, '_verify.md'), summary);
+  const docsTotal = lines.slice(2).reduce((t, l) => t + (Number(l.split('|')[3]) || 0), 0);
+  console.log(`::notice title=MongoDB copy::${bad ? bad + ' collection(s) differ' : `all ${names.length} collections match`} — ${docsTotal} documents`);
   if (bad) for (const l of lines.filter((x) => x.includes('❌'))) console.log(`::error title=MongoDB differs::${l.slice(0, 900)}`);
   process.exit(bad ? 1 : 0);
 }
