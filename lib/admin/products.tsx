@@ -40,7 +40,7 @@ async function listPage(ctx: AdminCtx) {
   ]);
   // 👯 how many copies the duplicate scan finds (owner, 2026-10-24) — worked out at most every 5 minutes
   const isBundleList = f.type === 'bundle';
-  const dupExtra = isBundleList ? null : await memo(`dup-count:${ctx.settings.dup_level || 'normal'}:${stats.total}:${stats.active}`, async () => {
+  const dupExtra = isBundleList ? null : await memo(`dup-count:${ctx.settings.dup_level || 'normal'}:${stats?.total}:${stats?.active}`, async () => {
     const g = await dupes.scanCatalog(ctx.settings);
     return g.filter((x) => x.level === 'block').reduce((n, x) => n + x.products.length - 1, 0);
   }, 300_000).catch(() => null);
