@@ -144,7 +144,7 @@ async function mask(src: HTMLCanvasElement, key: ModelKey, say: (t: string) => v
     for (let i = 0, p = 0; p < S * S; i += 4, p++) for (let c = 0; c < 3; c++) f[c * S * S + p] = d[i + c] / max - 0.5;
   }
   const out = await session.run({ [session.inputNames[0]]: new o.Tensor('float32', f, [1, 3, S, S]) });
-  const raw = out[session.outputNames[session.outputNames.length - 1]].data;
+  const raw = out[session.outputNames[0]].data; // (ISNet gives several masks: the first is the finished one; BiRefNet gives one)
   const m = new Float32Array(S * S);
   let lo = Infinity, hi = -Infinity;
   for (let i = 0; i < S * S; i++) { if (raw[i] < lo) lo = raw[i]; if (raw[i] > hi) hi = raw[i]; }
@@ -234,10 +234,10 @@ export async function whiten(id: string, say: (t: string) => void, opt: Options 
   if (opt.model === 'best' && !bestFails) {
     try { m = await mask(src, 'best', say); } catch (e) {
       // the big AI needs a graphics chip (WebGPU); without one the quick AI does it instead
-      if (!(e instanceof NoGpu)) throw e;
+      // (any failure of the big AI — no graphics chip, or the chip too small — never stops the work)
       bestFails = true; ready = null;
       console.warn('BiRefNet failed, using ISNet:', e);
-      toast('🧠 সেরা মান এই কম্পিউটারে চলছে না (গ্রাফিক্স সাপোর্ট নেই) — ⚡ দ্রুত AI দিয়ে করা হচ্ছে।');
+      toast(e instanceof NoGpu ? '🧠 সেরা মান এই কম্পিউটারে চলছে না (গ্রাফিক্স সাপোর্ট নেই) — ⚡ দ্রুত AI দিয়ে করা হচ্ছে।' : '🧠 সেরা মান এই কম্পিউটারে চলল না — ⚡ দ্রুত AI দিয়ে করা হচ্ছে।');
       m = await mask(src, 'fast', say);
     }
   } else m = await mask(src, opt.model === 'best' ? 'fast' : opt.model, say);
