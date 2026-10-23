@@ -8,6 +8,7 @@ import { startImages } from './images.js';
 import { startImporter } from './importer.js';
 import { startPages } from './pages.js';
 import { startVariantBuilder } from './vbuilder.js';
+import { startWhiten } from './whiten.js';
 
 whenReady(() => {
   window.__smAdminReady = true; // (tools/parity/browser.mts checks the admin's script started)
@@ -18,4 +19,5 @@ whenReady(() => {
   startImporter();
   startPages();
   startVariantBuilder();
+  startWhiten();
 });

@@ -1589,3 +1589,19 @@ html[data-admin-lang="en"] .side-drop[data-side-group="দোকানের ড
 .inv-table td.thumb img, .inv-table td.thumb span { width: 44px; height: 44px; }
 /* row buttons never break into two lines */
 .table .row-actions, .table td .btn-sm { white-space: nowrap; }
+
+/* ⬜ ব্যাকগ্রাউন্ড সাদা (lib/admin/whiten.tsx) — before / after side by side */
+.wt-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; position: sticky; top: 0; z-index: 2; background: var(--card, #fff); padding: 8px 0; border-bottom: 1px solid var(--line, #e5e7eb); }
+.wt-list { display: grid; gap: 14px; margin-top: 12px; }
+.wt-product { border: 1px solid var(--line, #e5e7eb); border-radius: 10px; padding: 10px 12px; }
+.wt-head { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 8px; }
+.wt-pics { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
+.wt-pic { margin: 0; border: 1px solid var(--line, #e5e7eb); border-radius: 8px; padding: 6px; background: #fafafa; }
+.wt-pic.is-white { border-color: #93c5fd; background: #eff6ff; }
+.wt-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.wt-pair img { width: 100%; aspect-ratio: 1; object-fit: contain; background: #fff; border-radius: 6px; border: 1px solid #eee; display: block; }
+.wt-after[hidden] { display: none; }
+.wt-pair:has(> .wt-after[hidden]) { grid-template-columns: 1fr; max-width: 140px; }
+.wt-pic figcaption { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.wt-msg { color: var(--muted, #6b7280); }
+@media (max-width: 600px) { .wt-pics { grid-template-columns: 1fr; } }

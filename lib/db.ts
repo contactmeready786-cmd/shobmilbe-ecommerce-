@@ -1206,6 +1206,12 @@ CREATE TABLE IF NOT EXISTS order_packing (
 );
 CREATE INDEX IF NOT EXISTS order_packing_order_idx ON order_packing(order_id);
 CREATE INDEX IF NOT EXISTS order_packing_day_idx ON order_packing(created_at);
+`,  // ⬜ ব্যাকগ্রাউন্ড সাদা (owner, 2026-10-24 — only the pictures the owner picks and approves, never automatic): the
+  // white copy is a NEW picture that takes the original's place in the product (new address, so no browser or CDN
+  // keeps showing the old one); the original is set aside (owner_type 'wb_orig') and wb_from points to it, for undo.
+  `
+ALTER TABLE media ADD COLUMN IF NOT EXISTS wb_from int;
+CREATE INDEX IF NOT EXISTS media_wb_from_idx ON media(wb_from);
 `,
 ];
 

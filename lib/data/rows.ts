@@ -648,6 +648,7 @@ export type MediaRow = {
   wb_orig_url: string | null;
   wb_orig_id: string | null;
   wb_orig_mime: string | null;
+  wb_from: number | null;
 };
 
 /** A row of offers. */

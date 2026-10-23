@@ -7,7 +7,7 @@ import { can, canSee } from '../models/staff';
 import * as $profile from './profile';
 import type { AdminDrawn, Body, Settings, StaffUser } from '../types';
 
-const ASSET_V = '72';
+const ASSET_V = '73';
 
 // 📑 Small jobs that belong together sit on one page as tabs (like browser tabs). Each tab is still its own
 // page with its own link (bookmarks and the phone app keep working); the menu shows one entry for the set.
@@ -50,6 +50,7 @@ const TABS: Record<string, Tab[]> = {
     ['/admin/products/watermark', 'ওয়াটারমার্ক', 'products', 'watermark', '💧'],
     ['/admin/products/duplicates', 'ডুপ্লিকেট পণ্য', 'products', 'duplicates', '👯'],
     ['/admin/products/source-pics', 'অন্য দোকানের ছবি', 'products', 'source-pics', '🚩'],
+    ['/admin/products/whiten', 'ব্যাকগ্রাউন্ড সাদা', 'products', 'whiten', '⬜'],
   ],
   suppliers: [
     ['/admin/suppliers', 'সাপ্লায়ার', 'inventory', 'suppliers', '🚚'],

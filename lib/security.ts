@@ -122,7 +122,7 @@ const BASE_HEADERS: Record<string, string> = {
   'Content-Security-Policy': "object-src 'none'; base-uri 'self'; frame-ancestors 'self'; form-action 'self' https://*.sslcommerz.com https://*.bka.sh; upgrade-insecure-requests",
 };
 // Admin pages: much stricter — scripts only from this site, data can only be sent back to this site.
-const ADMIN_CSP = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+const ADMIN_CSP = "default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
   + "font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self'; frame-src 'self' https://www.youtube-nocookie.com https://www.youtube.com; "
   + "object-src 'none'; base-uri 'self'; frame-ancestors 'self'; form-action 'self'";
 
@@ -142,7 +142,7 @@ function startNonce(): string {
 function cspNonce(): string { return nonceStore.getStore()?.nonce || ''; }
 function adminCsp(nonce: string): string {
   if (!nonce) return ADMIN_CSP; // never break a page because no nonce was made
-  return ADMIN_CSP.replace("script-src 'self' 'unsafe-inline'", `script-src 'self' 'nonce-${nonce}'`) + "; script-src-attr 'none'; report-uri /api/csp-report";
+  return ADMIN_CSP.replace("script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'", `script-src 'self' 'nonce-${nonce}' 'wasm-unsafe-eval'`) + "; script-src-attr 'none'; report-uri /api/csp-report";
 }
 
 /** Runs fn with this request's admin nonce current (Next.js admin pages: the nonce proxy.ts made). */

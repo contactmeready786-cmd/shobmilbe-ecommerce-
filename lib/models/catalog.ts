@@ -93,7 +93,8 @@ async function attachMedia(t: Tx, ids: unknown[], ownerType: string, ownerId: nu
   const clean = ids.map((x) => int(x)).filter((x) => x > 0);
   await t.query(`DELETE FROM media WHERE owner_type=$1 AND owner_id=$2 AND NOT (id = ANY($3::int[]))`, [ownerType, ownerId, clean]);
   for (const [i, id] of clean.entries()) {
-    await t.query(`UPDATE media SET owner_type=$1, owner_id=$2, sort=$3 WHERE id=$4 AND (owner_type IS NULL OR (owner_type=$1 AND owner_id=$2))`,
+    // (a product form opened before a picture was made white still lists the original: it comes back — the form wins)
+    await t.query(`UPDATE media SET owner_type=$1, owner_id=$2, sort=$3 WHERE id=$4 AND (owner_type IS NULL OR (owner_id=$2 AND (owner_type=$1 OR ($1='product' AND owner_type='wb_orig'))))`,
       [ownerType, ownerId, i, id]);
   }
   return clean;
@@ -865,7 +866,7 @@ async function saveVariants(parentId: Id, { title, rows }: { title: unknown; row
 
 async function deleteProduct(id: number): Promise<void> {
   await tx(async (t) => {
-    await t.query(`DELETE FROM media WHERE owner_type='product' AND owner_id=$1`, [id]);
+    await t.query(`DELETE FROM media WHERE owner_type IN ('product', 'wb_orig') AND owner_id=$1`, [id]);
     await t.query('DELETE FROM products WHERE id=$1', [id]);
   });
 }
@@ -874,7 +875,7 @@ async function deleteProduct(id: number): Promise<void> {
 async function deleteAllProducts(): Promise<number> {
   return tx(async (t) => {
     const n = (await t.query<{ n: number }>('SELECT count(*)::int AS n FROM products')).rows[0].n;
-    await t.query(`DELETE FROM media WHERE owner_type='product'`);
+    await t.query(`DELETE FROM media WHERE owner_type IN ('product', 'wb_orig')`);
     await t.query('DELETE FROM stock_movements');
     await t.query('DELETE FROM bundle_items');
     await t.query('DELETE FROM products');
