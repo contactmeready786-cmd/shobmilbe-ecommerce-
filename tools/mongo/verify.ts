@@ -6,7 +6,9 @@
 // Prints a table (also to the GitHub job summary) and fails when anything differs.
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { MongoClient, Decimal128, Binary } from 'mongodb';
+import { MongoClient, BSON } from 'mongodb';
+
+const { Decimal128, Binary } = BSON;
 import * as db from '../../lib/db';
 import { planOf } from './schema';
 

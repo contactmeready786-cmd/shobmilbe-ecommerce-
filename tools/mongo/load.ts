@@ -5,7 +5,9 @@
 // (CI installs it on the fly: npm i --no-save mongodb).
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { MongoClient, EJSON } from 'mongodb';
+import { MongoClient, BSON } from 'mongodb';
+
+const { EJSON } = BSON;
 import type { IndexPlan } from './schema';
 
 const NON_NULL = ['string', 'int', 'long', 'double', 'decimal', 'date', 'bool', 'objectId', 'object', 'array', 'binData'];
