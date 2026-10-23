@@ -102,6 +102,10 @@ const WORDS: Record<string, string> = {
   // counts, sizes and small words
   pcs: 'পিস', pc: 'পিস', piece: 'পিস', pieces: 'পিস', pack: 'প্যাক', packs: 'প্যাক', packet: 'প্যাকেট', pair: 'জোড়া', pairs: 'জোড়া', roll: 'রোল', rolls: 'রোল',
   meters: 'মিটার', metre: 'মিটার', feet: 'ফুট', foot: 'ফুট', inch: 'ইঞ্চি', inches: 'ইঞ্চি', channel: 'চ্যানেল', channels: 'চ্যানেল', way: 'ওয়ে', port: 'পোর্ট',
+  ultrasonic: 'আল্ট্রাসনিক', humidifier: 'হিউমিডিফায়ার', mist: 'মিস্ট', maker: 'মেকার', fogger: 'ফগার', fountain: 'ফোয়ারা', pond: 'পুকুর', egg: 'ডিম',
+  incubator: 'ইনকিউবেটর', body: 'বডি', aquarium: 'অ্যাকুরিয়াম', filter: 'ফিল্টার', oxygen: 'অক্সিজেন', cleaner: 'ক্লিনার', vacuum: 'ভ্যাকুয়াম', spray: 'স্প্রে',
+  massager: 'ম্যাসাজার', scale: 'স্কেল', weighing: 'ওজন মাপার', printer: 'প্রিন্টার', scanner: 'স্কানার', barcode: 'বারকোড', projector: 'প্রজেক্টর',
+  hijab: 'হিজাব', scarf: 'স্কার্ফ', dress: 'ড্রেস', bra: 'ব্রা', panty: 'প্যান্টি', saree: 'শাড়ি', borka: 'বোরকা', burka: 'বোরকা', abaya: 'আবায়া', kurti: 'কুর্তি',
   ports: 'পোর্ট', point: 'পয়েন্ট', points: 'পয়েন্ট', monocrystalline: 'মনোক্রিস্টালাইন', polycrystalline: 'পলিক্রিস্টালাইন', stick: 'স্টিক', sticks: 'স্টিক', gang: 'গ্যাং', phase: 'ফেজ', layer: 'লেয়ার', side: 'সাইড', sided: 'সাইড', size: 'সাইজ', type: 'টাইপ', model: 'মডেল', version: 'ভার্সন', series: 'সিরিজ',
   accessories: 'এক্সেসরিজ', accessory: 'এক্সেসরি', parts: 'পার্টস', part: 'পার্ট', spare: 'স্পেয়ার', replacement: 'রিপ্লেসমেন্ট', extension: 'এক্সটেনশন', tool: 'টুল', tools: 'টুলস',
   machine: 'মেশিন', device: 'ডিভাইস', system: 'সিস্টেম', unit: 'ইউনিট', supply: 'সাপ্লাই', protection: 'প্রটেকশন', protector: 'প্রটেক্টর', guard: 'গার্ড', control: 'কন্ট্রোল',
@@ -189,4 +193,49 @@ export function bnTitle(name: string): string {
 /** true when the Bangla name says something more than the English one (not just the same letters again) */
 export function worthShowing(name: string, bn: string): boolean {
   return !!bn && hasBangla(bn) && bn.replace(/\s+/g, '') !== String(name || '').replace(/\s+/g, '');
+}
+
+// ---------------------------------------------------------------- words not in the list
+// A name with words the list doesn't know ("Ultrasonic Humidifier Mist Maker Fogger"): Google Translate (the same
+// free service the shop's English version uses) translates the whole name, then the shop's own words are put back
+// where Google picks a bookish one, and the answer is used only if every model number / size came back unchanged.
+// Without the internet (or on any doubt) the list's own name stays.
+const BOOKISH: [RegExp, string][] = [
+  [/অতিস্বনক/g, 'আল্ট্রাসনিক'], [/পরিবর্ধক/g, 'অ্যামপ্লিফায়ার'], [/তক্তা/g, 'বোর্ড'], [/ঝালাই/g, 'সোল্ডারিং'], [/সংবেদক/g, 'সেন্সর'],
+  [/প্রতিরোধক/g, 'রেজিস্টর'], [/রোধক/g, 'রেজিস্টর'], [/ধারক/g, 'ক্যাপাসিটর'], [/বৈদ্যুতিক মোটর/g, 'ইলেকট্রিক মোটর'], [/ব্যাটারী/g, 'ব্যাটারি'],
+  [/চার্জিং মডিউল/g, 'চার্জিং মডিউল'], [/তারবিহীন/g, 'ওয়্যারলেস'], [/জলরোধী/g, 'ওয়াটারপ্রুফ'], [/বহনযোগ্য/g, 'পোর্টেবল'], [/স্বয়ংক্রিয়/g, 'অটোমেটিক'],
+];
+/** words the list didn't know (left in English), not counting model numbers / sizes */
+export function leftover(bn: string): string[] {
+  return (bn.match(/[A-Za-z][A-Za-z'-]{2,}/g) || []).filter((w) => !isCode(w) && !/^[A-Z]{2,}$/.test(w));
+}
+async function googleEnBn(text: string): Promise<string> {
+  const u = 'https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=bn&dt=t&q=' + encodeURIComponent(text);
+  const r = await fetch(u, { signal: AbortSignal.timeout(5000), headers: { 'User-Agent': 'Mozilla/5.0' } });
+  if (!r.ok) throw new Error(`translate ${r.status}`);
+  const j = (await r.json()) as unknown[];
+  const parts = Array.isArray(j) && Array.isArray(j[0]) ? (j[0] as unknown[]) : [];
+  return parts.map((x) => (Array.isArray(x) ? String(x[0] || '') : '')).join('').replace(/\s{2,}/g, ' ').trim();
+}
+const memoBn = new Map<string, string>();
+/** The Bangla name, with Google's help for words not in the list (falls back to bnTitle). */
+export async function bnTitleSmart(name: string): Promise<string> {
+  const own = bnTitle(name);
+  // one unknown word is nearly always a brand (Kemei, Xiaomi): it stays as written
+  if (leftover(own).length < 2) return own;
+  const key = String(name || '').trim();
+  if (memoBn.has(key)) return memoBn.get(key)!;
+  try {
+    const src = key.replace(/^\s*product\s+details?\s+of\s+/i, '');
+    let g = await googleEnBn(src);
+    for (const [re, to] of BOOKISH) g = g.replace(re, to);
+    if (/\biron\b/i.test(src)) g = g.replace(/লোহা/g, 'আয়রন');
+    // every model number / size must come back exactly (DT9205A, 60W, 12V …); and it must really be Bangla
+    const codes = (src.match(/[A-Za-z0-9-]*\d[A-Za-z0-9-]*/g) || []).filter((c) => /[A-Za-z]/.test(c) || c.length > 1);
+    const ok = g && hasBangla(g) && codes.every((c) => g.includes(c)) && g.length < src.length * 3;
+    const out = ok ? g : own;
+    if (memoBn.size > 2000) memoBn.clear();
+    memoBn.set(key, out);
+    return out;
+  } catch { return own; }
 }

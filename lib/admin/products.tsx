@@ -13,7 +13,7 @@ import * as $variants from './variants';
 import type { AdminCtx, Body, Id, RouteMatch, Settings } from '../types';
 import type { PriceTiersRow, ProductsRow } from '../data/rows';
 import * as recognize from '../models/recognize';
-import { bnTitle } from '../services/bntitle';
+import { bnTitle, bnTitleSmart } from '../services/bntitle';
 import { memo } from '../cache';
 
 const PER_PAGE = 40;
@@ -22,7 +22,8 @@ const ICONS = ['📦', '📟', '🧩', '🔋', '🔥', '🔌', '👕', '👗', '
 
 async function listPage(ctx: AdminCtx) {
   // 🇧🇩 any product still without its Bangla name gets it (once in a while; quick when there is nothing to do)
-  await memo('bn-fill', () => catalog.fillBnNames(), 600_000).catch(() => 0);
+  // (never holds the page up for more than a moment: what isn't done now is done on a later visit)
+  await Promise.race([memo('bn-fill', () => catalog.fillBnNames(), 300_000).catch(() => 0), new Promise((r) => setTimeout(r, 1200))]);
   const page = pageNum(ctx.query);
   const categories = await catalog.listCategories();
   const f = {
@@ -191,7 +192,7 @@ const guardOn = (ctx: AdminCtx) => ctx.settings.dup_guard !== '0';
 
 // 🇧🇩 the Bangla name for an English one, while the form is filled (lib/services/bntitle.ts)
 async function bnTitleApi(ctx: AdminCtx) {
-  return ctx.json(200, { bn: bnTitle(str(ctx.query.get('name'), 200)) });
+  return ctx.json(200, { bn: await bnTitleSmart(str(ctx.query.get('name'), 200)) });
 }
 
 // Live check while the form is being filled (name typed, picture added).

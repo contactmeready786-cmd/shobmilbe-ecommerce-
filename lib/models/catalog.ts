@@ -11,7 +11,7 @@ import * as $crypto from 'node:crypto';
 import type { DbRow, Param, Tx } from '../pg';
 import type { Body, Settings } from '../types';
 import type { ActivityLogRow, BrandsRow, BundleItemsRow, CategoriesRow, MediaRow, ProductsRow, StockMovementsRow } from '../data/rows';
-import { bnTitle } from '../services/bntitle';
+import { bnTitle, bnTitleSmart, leftover } from '../services/bntitle';
 
 type Id = number | string | null | undefined;
 /** A category row plus what categoryTree() adds. */
@@ -90,10 +90,19 @@ async function getMedia(id?: Id, wantThumb?: boolean): Promise<Pick<MediaRow, 'm
     AND (owner_type IS NULL OR owner_type NOT IN ('staff', 'trash:staff', 'return', 'complaint', 'review_wait'))`, [id]);
 }
 /** 🇧🇩 Products still without a Bangla name get one (a safety net beside the migration's data step; at most `limit`). */
+const bnTried = new Set<number>();
 async function fillBnNames(limit = 500): Promise<number> {
   const rows = await q<{ id: number; name: string }>(`SELECT id, name FROM products WHERE name_bn='' AND name_bn_auto LIMIT $1`, [limit]);
   const part = rows.map((r) => ({ id: r.id, bn: bnTitle(r.name) })).filter((r) => r.bn);
-  if (part.length) await q(`UPDATE products p SET name_bn=x.bn FROM jsonb_to_recordset($1::jsonb) AS x(id int, bn text) WHERE p.id=x.id AND p.name_bn=''`, [JSON.stringify(part)]);
+  // names the word list left partly in English: Google's help, a few each time (bnTitleSmart)
+  const half = (await q<{ id: number; name: string; name_bn: string }>(`SELECT id, name, name_bn FROM products WHERE name_bn_auto AND name_bn ~ '[A-Za-z]{3,}' ORDER BY id DESC LIMIT 300`))
+    .filter((r) => !bnTried.has(r.id) && leftover(r.name_bn).length).slice(0, 25);
+  for (const r of half) {
+    bnTried.add(r.id);
+    const bn = await bnTitleSmart(r.name).catch(() => '');
+    if (bn && bn !== r.name_bn) part.push({ id: r.id, bn });
+  }
+  if (part.length) await q(`UPDATE products p SET name_bn=x.bn FROM jsonb_to_recordset($1::jsonb) AS x(id int, bn text) WHERE p.id=x.id AND p.name_bn_auto`, [JSON.stringify(part)]);
   return part.length;
 }
 /** ⚡ The product page's big picture as the address /media/<id>/w (or /media/<id>) would send the browser to — the
@@ -741,6 +750,8 @@ async function saveProduct(data: Body & { bundle?: { product_id: unknown; qty: u
     .filter((b: StockPart) => b.product_id > 0);
   const newStock = type === 'bundle' ? 0 : Math.max(0, int(data.stock));
   const id = int(data.id) || null;
+  // 🇧🇩 the Bangla name made from the English one (asked before the database work starts: it may go to Google)
+  const autoBn = await bnTitleSmart(String(f.name)).catch(() => bnTitle(String(f.name)));
 
   return tx(async (t) => {
     let pid = id as number;
@@ -778,7 +789,7 @@ async function saveProduct(data: Body & { bundle?: { product_id: unknown; qty: u
     }
     // 🇧🇩 the Bangla name: typed on the form (kept as written), or made from the English name — and made again when
     // the English name changes, unless the owner wrote his own
-    const auto = bnTitle(String(f.name));
+    const auto = autoBn;
     if (data.name_bn !== undefined) {
       const typed = str(data.name_bn, 200).trim();
       const own = !!typed && typed !== auto;
