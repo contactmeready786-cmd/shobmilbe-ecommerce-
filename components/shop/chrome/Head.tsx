@@ -17,18 +17,25 @@ export function colors(s: Settings) {
 }
 
 /** Google / Facebook / TikTok tags, in the order they must load. */
+// ⚡ The trackers' own files (Google ~200 KB, Facebook ~230 KB, TikTok) are fetched only after the page has finished
+// loading, so on a slow line they don't hold up the product picture (Lighthouse, 2026-10-24: the big picture waited
+// 4 s behind them). Their small starters run at once, so every event (PageView, AddToCart…) is queued and sent.
+export const LATER = "window.__smLater=window.__smLater||function(f){function g(){(window.requestIdleCallback||function(c){setTimeout(c,300)})(f,{timeout:2000})}document.readyState==='complete'?g():addEventListener('load',g,{once:true})};";
+const later = (code: string) => `__smLater(function(){${code}});`;
+
 function Tracking({ s }: { s: Settings }) {
   const out = [];
+  if (s.gtm_id || s.ga4_id || s.fb_pixel_id || s.tiktok_pixel_id) out.push(inline(LATER, 'later'));
   // Google consent mode: this shop sells in Bangladesh (no EU cookie-consent rule), so measurement is allowed by default.
   // Without this, Google's tag can start in "denied" mode and GA4/Ads count almost nothing.
   if (s.gtm_id || s.ga4_id) out.push(inline("window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('consent','default',{ad_storage:'granted',analytics_storage:'granted',ad_user_data:'granted',ad_personalization:'granted'});", 'consent'));
-  if (s.gtm_id) out.push(inline(`(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer',${JSON.stringify(s.gtm_id)});`, 'gtm'));
+  if (s.gtm_id) out.push(inline(`(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;${later('f.parentNode.insertBefore(j,f)')}})(window,document,'script','dataLayer',${JSON.stringify(s.gtm_id)});`, 'gtm'));
   if (s.ga4_id) {
-    out.push(<script key="ga4src" async src={`https://www.googletagmanager.com/gtag/js?id=${s.ga4_id}`}></script>);
+    out.push(inline(later(`var j=document.createElement('script');j.async=true;j.src=${JSON.stringify(`https://www.googletagmanager.com/gtag/js?id=${s.ga4_id}`)};document.head.appendChild(j)`), 'ga4src'));
     out.push(inline(`gtag('js',new Date());gtag('config',${JSON.stringify(s.ga4_id)});`, 'ga4'));
   }
-  if (s.fb_pixel_id) out.push(inline(`!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');fbq('init',${JSON.stringify(s.fb_pixel_id)});fbq('track','PageView');`, 'fb'));
-  if (s.tiktok_pixel_id) out.push(inline(`!function(w,d,t){w.TiktokAnalyticsObject=t;var ttq=w[t]=w[t]||[];ttq.methods=["page","track","identify","instances","debug","on","off","once","ready","alias","group","enableCookie","disableCookie","holdConsent","revokeConsent","grantConsent"],ttq.setAndDefer=function(t,e){t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}};for(var i=0;i<ttq.methods.length;i++)ttq.setAndDefer(ttq,ttq.methods[i]);ttq.instance=function(t){for(var e=ttq._i[t]||[],n=0;n<ttq.methods.length;n++)ttq.setAndDefer(e,ttq.methods[n]);return e},ttq.load=function(e,n){var r="https://analytics.tiktok.com/i18n/pixel/events.js",o=n&&n.partner;ttq._i=ttq._i||{},ttq._i[e]=[],ttq._i[e]._u=r,ttq._t=ttq._t||{},ttq._t[e]=+new Date,ttq._o=ttq._o||{},ttq._o[e]=n||{};n=document.createElement("script");n.type="text/javascript",n.async=!0,n.src=r+"?sdkid="+e+"&lib="+t;e=document.getElementsByTagName("script")[0];e.parentNode.insertBefore(n,e)};ttq.load(${JSON.stringify(s.tiktok_pixel_id)});ttq.page();}(window,document,'ttq');`, 'tt'));
+  if (s.fb_pixel_id) out.push(inline(`!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];${later('s.parentNode.insertBefore(t,s)')}}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');fbq('init',${JSON.stringify(s.fb_pixel_id)});fbq('track','PageView');`, 'fb'));
+  if (s.tiktok_pixel_id) out.push(inline(`!function(w,d,t){w.TiktokAnalyticsObject=t;var ttq=w[t]=w[t]||[];ttq.methods=["page","track","identify","instances","debug","on","off","once","ready","alias","group","enableCookie","disableCookie","holdConsent","revokeConsent","grantConsent"],ttq.setAndDefer=function(t,e){t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}};for(var i=0;i<ttq.methods.length;i++)ttq.setAndDefer(ttq,ttq.methods[i]);ttq.instance=function(t){for(var e=ttq._i[t]||[],n=0;n<ttq.methods.length;n++)ttq.setAndDefer(e,ttq.methods[n]);return e},ttq.load=function(e,n){var r="https://analytics.tiktok.com/i18n/pixel/events.js",o=n&&n.partner;ttq._i=ttq._i||{},ttq._i[e]=[],ttq._i[e]._u=r,ttq._t=ttq._t||{},ttq._t[e]=+new Date,ttq._o=ttq._o||{},ttq._o[e]=n||{};n=document.createElement("script");n.type="text/javascript",n.async=!0,n.src=r+"?sdkid="+e+"&lib="+t;e=document.getElementsByTagName("script")[0];${later('e.parentNode.insertBefore(n,e)')}};ttq.load(${JSON.stringify(s.tiktok_pixel_id)});ttq.page();}(window,document,'ttq');`, 'tt'));
   return <>{out}</>;
 }
 
