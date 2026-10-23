@@ -20,9 +20,7 @@ export default async function AdminRoot({ children }: { children: ReactNode }) {
     <html lang="bn" suppressHydrationWarning>
       <head>
         <link rel="icon" href={s.favicon_id ? `/media/${s.favicon_id}/t` : '/brand/favicon-32.png'} />
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
-        <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+        <link rel="preload" href="/fonts/noto-sans-bengali-bn-v5.woff2" as="font" type="font/woff2" crossOrigin="" />
         <link rel="stylesheet" href={`/css/style.css?v=${ASSET_V}`} />
         <link rel="stylesheet" href={`/css/admin.css?v=${ASSET_V}`} />
         <link rel="manifest" href="/admin.webmanifest" />

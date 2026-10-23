@@ -118,8 +118,8 @@ const BASE_HEADERS: Record<string, string> = {
   'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), usb=(), payment=(self)',
   'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
   // Store pages: allow the marketing tools (Facebook, TikTok, Google, chat), but no plugins, no other site framing us,
-  // and forms may only send data to this site or the payment gateways.
-  'Content-Security-Policy': "object-src 'none'; base-uri 'self'; frame-ancestors 'self'; form-action 'self' https://*.sslcommerz.com https://*.bka.sh; upgrade-insecure-requests",
+  // and forms may only send data to this site, the payment gateways and the Facebook pixel (it posts big events as a form).
+  'Content-Security-Policy': "object-src 'none'; base-uri 'self'; frame-ancestors 'self'; form-action 'self' https://*.sslcommerz.com https://*.bka.sh https://www.facebook.com; upgrade-insecure-requests",
 };
 // Admin pages: much stricter — scripts only from this site, data can only be sent back to this site.
 const ADMIN_CSP = "default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "

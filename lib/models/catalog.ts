@@ -9,7 +9,7 @@ import { slugify, int, str, youtubeId, amount, shopPrice, priceProblem, packSize
 import * as imagekit from '../services/imagekit';
 import * as $crypto from 'node:crypto';
 import type { DbRow, Param, Tx } from '../pg';
-import type { Body } from '../types';
+import type { Body, Settings } from '../types';
 import type { ActivityLogRow, BrandsRow, BundleItemsRow, CategoriesRow, MediaRow, ProductsRow, StockMovementsRow } from '../data/rows';
 import { bnTitle } from '../services/bntitle';
 
@@ -88,6 +88,19 @@ async function getMedia(id?: Id, wantThumb?: boolean): Promise<Pick<MediaRow, 'm
   // staff profile pictures are private: only the admin sees them (/admin/avatar/<staff id>)
   return one<Pick<MediaRow, 'mime' | 'data' | 'ik_url'>>(`SELECT mime, ${wantThumb ? 'coalesce(thumb, data)' : 'data'} AS data, ik_url FROM media WHERE id=$1
     AND (owner_type IS NULL OR owner_type NOT IN ('staff', 'trash:staff', 'return', 'complaint', 'review_wait'))`, [id]);
+}
+/** ⚡ The product page's big picture as the address /media/<id>/w (or /media/<id>) would send the browser to — the
+ *  ImageKit file itself — or null when the picture is kept in the database (then the page links /media/… as before). */
+async function directPictureUrl(id: Id, settings: Settings): Promise<string | null> {
+  const ver = settings.wm_on === '1' ? String(settings.wm_ver || '') : '';
+  // (the same choice as lib/api/files.ts mediaWatermarked / media, without reading the picture itself)
+  const m = await one<{ ik_url: string | null; wm_url: string | null; has_wm: boolean }>(`SELECT ik_url, CASE WHEN wm_ver = $2 THEN wm_url END AS wm_url,
+      (wm IS NOT NULL AND wm_ver = $2) AS has_wm FROM media WHERE id=$1
+      AND (owner_type IS NULL OR owner_type NOT IN ('staff', 'trash:staff', 'return', 'complaint', 'review_wait'))`, [int(id), ver]);
+  if (!m) return null;
+  if (ver && m.wm_url) return m.wm_url;
+  if (!(ver && m.has_wm) && m.ik_url) return m.ik_url;
+  return null;
 }
 // Give media rows to an owner in the given order; that owner's other media are removed.
 async function attachMedia(t: Tx, ids: unknown[], ownerType: string, ownerId: number): Promise<number[]> {
@@ -1002,4 +1015,4 @@ async function inventorySummary(): Promise<InventorySummary | null> {
     FROM products WHERE active AND product_type='single' AND variant_count = 0`);
 }
 
-export { brandsIn, oweStock, specFacets, saveMedia, keepPrivate, mediaWithoutHash, setMediaHash, getMedia, mediaNeedingWatermark, watermarkProgress, setWatermark, getWatermarked, attachMedia, claimMedia, deleteMedia, cleanupMedia, listCategories, categoryTree, categoryOptions, categorySubtree, saveCategory, deleteCategory, listBrands, getBrand, saveBrand, brandIdFor, cleanSpecs, addRedirect, findRedirect, LINK_KINDS, linkedSkus, setLinks, linkedProducts, crossFor, listProducts, countProducts, productStats, getProduct, getProductsByIds, listVariants, saveVariants, syncVariants, MAX_VARIANTS, bundleItems, saveProduct, deleteProduct, deleteAllProducts, duplicateProduct, skuTaken, nextSku, moveStock, changeDamaged, cleanLocation, listLocations, reservedFor, OPEN_STATUSES, stockParts, stockMovements, inventorySummary, STOCK_REASONS, MAX_PRODUCT_IMAGES, WARRANTY, WARRANTY_TYPES, warrantyText, logPriceChange, priceHistory, productLedger, correctCost };
+export { brandsIn, oweStock, specFacets, directPictureUrl, saveMedia, keepPrivate, mediaWithoutHash, setMediaHash, getMedia, mediaNeedingWatermark, watermarkProgress, setWatermark, getWatermarked, attachMedia, claimMedia, deleteMedia, cleanupMedia, listCategories, categoryTree, categoryOptions, categorySubtree, saveCategory, deleteCategory, listBrands, getBrand, saveBrand, brandIdFor, cleanSpecs, addRedirect, findRedirect, LINK_KINDS, linkedSkus, setLinks, linkedProducts, crossFor, listProducts, countProducts, productStats, getProduct, getProductsByIds, listVariants, saveVariants, syncVariants, MAX_VARIANTS, bundleItems, saveProduct, deleteProduct, deleteAllProducts, duplicateProduct, skuTaken, nextSku, moveStock, changeDamaged, cleanLocation, listLocations, reservedFor, OPEN_STATUSES, stockParts, stockMovements, inventorySummary, STOCK_REASONS, MAX_PRODUCT_IMAGES, WARRANTY, WARRANTY_TYPES, warrantyText, logPriceChange, priceHistory, productLedger, correctCost };

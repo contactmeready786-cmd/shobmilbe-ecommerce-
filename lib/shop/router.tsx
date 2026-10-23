@@ -263,7 +263,10 @@ export async function resolveShop(ctx: ShopCtx): Promise<Resolved> {
     const breadcrumb = { '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: [{ name: settings.store_name, url: base + '/' }, ...crumbs, { name: seo.cleanName(product.name), url: `${base}/p/${product.slug}` }]
       .map((c, i) => ({ '@type': 'ListItem', position: i + 1, name: c.name, item: c.url || undefined })) };
     product.name = seo.cleanName(product.name); // "Product details of …" copied from other shops never shows
-    return done(seo.productTitle(product), shop.productPage({ product, related, settings, inlineProducts, categories,
+    // ⚡ the big picture straight from ImageKit (no stop at /media/…/w on the way — one round trip less on a slow line)
+    const first = (product.images || [])[0];
+    const mainSrc = first ? await catalog.directPictureUrl(first, settings).catch(() => null) : null;
+    return done(seo.productTitle(product), shop.productPage({ product, related, settings, inlineProducts, categories, mainSrc,
       tiers: tiersMap.get(product.id) || [], offers, reviews: rv.reviews, reviewStats: rv.stats, cross, upsell, questions, selectedVariant: int(query.get('v')),
       kits: settings.kits_on !== '0' ? await $models_kits.kitsWith(product.id).catch(() => []) : [] }), {
       noindex: !!product.noindex, jsonLdExtra: breadcrumb,

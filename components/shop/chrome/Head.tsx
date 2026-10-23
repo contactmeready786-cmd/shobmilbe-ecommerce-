@@ -63,10 +63,9 @@ export function ShopHeadExtras({ settings: s }: { settings: Settings }) {
   return (
     <>
       {tz ? inline(tz) : null}
-      <link rel="preconnect" href="https://fonts.googleapis.com" />
-      <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
       {ik ? <link rel="preconnect" href={ik} /> : null}
-      <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+      {/* the font is the shop's own (public/fonts, @font-face in style.css): fetched at once, no Google Fonts on the way */}
+      <link rel="preload" href="/fonts/noto-sans-bengali-bn-v5.woff2" as="font" type="font/woff2" crossOrigin="" />
       <link rel="stylesheet" href={`/css/style.css?v=${ASSET_V}`} />
       <style dangerouslySetInnerHTML={{ __html: `:root{--blue:${primary};--amber:${accent}}` }} />
       {s.i18n_on === '1' ? <LangBoot s={s} /> : null}
