@@ -20,6 +20,7 @@ type FindAnswer = { images?: string[]; rule?: string; confirmed?: boolean; error
 type AttachAnswer = { added: number; repeat: number; total: number };
 type PageAnswer = { error?: string; item: Item; trashed: boolean; exists: { id: number; name: string; sku: string; pics: number; thumb: string } | null };
 const Thumb = ({ it }: { it: { images?: string[] } }) => (it.images?.[0] ? <img src={it.images[0]} alt="" loading="lazy" referrerpolicy="no-referrer" /> : <span>📦</span>);
+const withScheme = (u: string) => (u && !/^https?:\/\//i.test(u) && /^[\w.-]+\.[a-z]{2,}(?:[/?#]|$)/i.test(u) ? `https://${u}` : u);
 const unloadGuard = (running: () => boolean) => window.addEventListener('beforeunload', (e) => { if (running()) { e.preventDefault(); e.returnValue = ''; } });
 
 /** bring one picture through our server, resize + fingerprint it here, upload it */
@@ -163,11 +164,13 @@ function importer(imp: HTMLElement): void {
         addResult(j);
         if ((j.links || []).length) await crawl(j.links!);
       } else if (kind === 'many') {
-        const lines = ($<HTMLTextAreaElement>('[data-imp-links]', imp)?.value || '').split(/\s+/).filter((x) => /^https?:\/\/\S+\.\S+/i.test(x));
+        // (a link written without https:// — "shop.com/product/x" — works too)
+        const lines = ($<HTMLTextAreaElement>('[data-imp-links]', imp)?.value || '').split(/\s+/).map(withScheme).filter((x) => /^https?:\/\/\S+\.\S+/i.test(x));
         if (!lines.length) { busy(false); say('অন্তত একটা লিংক দিন (https:// দিয়ে শুরু)।', true); return; }
         await crawl(lines.slice(0, 3000).map((u) => ({ url: u, kind: 'page' })));
       } else {
-        const url = ($<HTMLInputElement>('[data-imp-url]', imp)?.value || '').trim();
+        // just the shop's name ("electrox.com.bd") is enough: its home page → every product it lists
+        const url = withScheme(($<HTMLInputElement>('[data-imp-url]', imp)?.value || '').trim());
         if (!url) { busy(false); say('লিংক দিন।', true); return; }
         say('⏳ লিংক খোলা হচ্ছে… (বড় ফিড হলে ১০-২০ সেকেন্ড লাগতে পারে)');
         const j = await read({ url });
@@ -234,6 +237,18 @@ function importer(imp: HTMLElement): void {
   };
   const logList = $('[data-imp-log]', imp)!;
   const log = (li: Node) => { $('[data-imp-log-title]', imp)!.hidden = false; logList.appendChild(li); };
+  // "সব ডুপ্লিকেট তবুও যোগ করুন": every product held back as a duplicate, added after one confirm
+  const pending = new Set<() => Promise<void>>();
+  const bulk = <button type="button" className="btn btn-sm" hidden>➕ সব ডুপ্লিকেট তবুও যোগ করুন</button> as HTMLButtonElement;
+  logList.before(bulk);
+  const showBulk = () => { bulk.hidden = pending.size < 2; bulk.textContent = `➕ সব ডুপ্লিকেট তবুও যোগ করুন (${bn(pending.size)}টি)`; };
+  bulk.addEventListener('click', async () => {
+    if (!pending.size || !confirm(`ডুপ্লিকেট হিসেবে আটকানো ${bn(pending.size)}টি পণ্যের সবগুলোই দোকানে যোগ হবে। প্রতিটা আসলেই আলাদা পণ্য তো?`)) return;
+    bulk.disabled = true;
+    for (const f of [...pending]) await f();
+    bulk.disabled = false;
+    showBulk();
+  });
 
   // bring each picture through our server, resize + fingerprint it in the browser, upload it
   const copyImages = (it: Item) => copyAll((it.images || []).slice(0, 6));
@@ -247,12 +262,21 @@ function importer(imp: HTMLElement): void {
     if (r.result === 'duplicate') {
       st.k.duplicate++;
       const btn = canOverride ? <button type="button" className="btn btn-ghost btn-sm" data-imp-force="">তবুও যোগ করুন</button> as HTMLButtonElement : null;
+      const m0 = (r.matches || [])[0];
+      const mine = (r.images || ids)[0];
+      // the new product and the one already in the shop, side by side (owner, 2026-10-24)
       const li = (
-        <li className="dup-item is-block"><span className="dup-thumb"><Thumb it={it} /></span><div className="dup-info"><b>{it.title}</b>
-          <span className="dup-why">⛔ দোকানে আগে থেকেই আছে: {(r.matches || []).flatMap((m, i) => [i ? <br /> : null,
-            <a href={`/admin/products/${m.id}`} target="_blank" rel="noopener">{m.name}{m.sku ? ` (SKU ${m.sku})` : ''}</a>, ` — ${(m.reasons || []).join(' · ')}`])}</span></div>{btn}</li>
+        <li className="dup-item is-block imp-dup">
+          <div className="imp-dup-pair">
+            <figure><span className="dup-thumb">{mine ? <img src={`/media/${mine}/t`} alt="" loading="lazy" /> : <Thumb it={it} />}</span><figcaption className="small"><b>নতুন:</b> {it.title}</figcaption></figure>
+            <span className="imp-dup-eq" aria-hidden="true">≈</span>
+            {m0 ? <figure><a className="dup-thumb" href={`/admin/products/${m0.id}`} target="_blank" rel="noopener">{m0.image ? <img src={m0.image} alt="" loading="lazy" /> : <span>{m0.emoji || '📦'}</span>}</a><figcaption className="small"><b>দোকানে আছে:</b> <a href={`/admin/products/${m0.id}`} target="_blank" rel="noopener">{m0.name}{m0.sku ? ` (SKU ${m0.sku})` : ''}</a></figcaption></figure> : null}
+          </div>
+          <div className="dup-info"><span className="dup-why">⛔ {(r.matches || []).flatMap((m, i) => [i ? <br /> : null,
+            i ? <><a href={`/admin/products/${m.id}`} target="_blank" rel="noopener">{m.name}{m.sku ? ` (SKU ${m.sku})` : ''}</a>{' — '}</> : null, (m.reasons || []).join(' · ')])}</span></div>{btn}</li>
       );
-      btn?.addEventListener('click', async () => {
+      const force = async () => {
+        if (!btn || btn.disabled) return;
         btn.disabled = true;
         btn.textContent = '⏳';
         try {
@@ -262,10 +286,14 @@ function importer(imp: HTMLElement): void {
             st.k.added++;
             draw();
             li.classList.remove('is-block');
+            pending.delete(force);
+            showBulk();
             btn.replaceWith(<a className="btn btn-ghost btn-sm" href={`/admin/products/${r2.id}`} target="_blank">✅ যোগ হয়েছে (SKU {r2.sku})</a>);
           } else { btn.disabled = false; btn.textContent = 'তবুও যোগ করুন'; toast(r2.message || 'যোগ করা যায়নি'); }
         } catch (e) { btn.disabled = false; btn.textContent = 'তবুও যোগ করুন'; toast((e as Error).message); }
-      });
+      };
+      btn?.addEventListener('click', () => { void force(); });
+      if (btn) { pending.add(force); showBulk(); }
       log(li);
     } else if (r.result === 'error') {
       st.k.error++;
@@ -300,7 +328,7 @@ function importer(imp: HTMLElement): void {
     st.done = 0;
     st.total = st.items.length;
     for (const k of Object.keys(st.k) as (keyof typeof K)[]) st.k[k] = 0;
-    paint(logList);
+    paint(logList); pending.clear(); showBulk();
     $('[data-imp-log-title]', imp)!.hidden = true;
     $('[data-imp-done]', imp)!.hidden = true;
     pauseBtn.hidden = false;
