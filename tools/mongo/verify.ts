@@ -73,4 +73,4 @@ async function main() {
   if (bad) for (const l of lines.filter((x) => x.includes('❌'))) console.log(`::error title=MongoDB differs::${l.slice(0, 900)}`);
   process.exit(bad ? 1 : 0);
 }
-main().catch((e) => { console.error('VERIFY FAILED:', e.message); process.exit(1); });
+main().catch((e) => { console.log(`::error title=MongoDB verify failed::${String(e && e.stack || e).slice(0, 1500).replace(/\n/g, ' | ')}`); process.exit(1); });

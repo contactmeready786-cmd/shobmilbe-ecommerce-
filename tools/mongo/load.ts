@@ -54,5 +54,5 @@ if (process.argv[1] && /load\.ts$/.test(process.argv[1])) {
   const dir = process.argv.slice(2).find((a) => !a.startsWith('--'));
   const uri = process.env.MONGODB_URI || '';
   if (!dir || !uri) { console.error('usage: MONGODB_URI=… [MONGODB_DB=shobmilbe] npx tsx tools/mongo/load.ts <folder> [--fresh]'); process.exit(2); }
-  load(dir, uri, process.env.MONGODB_DB || 'shobmilbe', { fresh: process.argv.includes('--fresh') }).then(() => process.exit(0), (e) => { console.error('LOAD FAILED:', e.message); process.exit(1); });
+  load(dir, uri, process.env.MONGODB_DB || 'shobmilbe', { fresh: process.argv.includes('--fresh') }).then(() => process.exit(0), (e) => { console.log(`::error title=MongoDB load failed::${String(e && e.stack || e).slice(0, 1500).replace(/\n/g, ' | ')}`); process.exit(1); });
 }
