@@ -1624,3 +1624,9 @@ html[data-admin-lang="en"] .side-drop[data-side-group="দোকানের ড
 .imp-dup-pair .dup-thumb img { width: 72px; height: 72px; object-fit: contain; background: #fff; border-radius: 6px; }
 .imp-dup-eq { font-size: 1.6em; color: var(--muted, #6b7280); }
 @media (max-width: 600px) { .imp-dup-pair { flex-direction: column; align-items: stretch; } .imp-dup-eq { text-align: center; } }
+
+/* 👯 duplicates: tick the copies to remove (lib/admin/products.tsx duplicatesPage) */
+.dup-pick { display: flex; align-items: center; padding: 0 6px 0 0; }
+.dup-pick input { width: 18px; height: 18px; }
+.dup-group-acts { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--line, #e5e7eb); }
+.chip-dup b { color: #b42318; }
