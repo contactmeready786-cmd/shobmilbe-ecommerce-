@@ -758,7 +758,7 @@ async function saveProduct(data: Body & { bundle?: { product_id: unknown; qty: u
     }
     // 🇧🇩 the Bangla name: typed on the form (kept as written), or made from the English name — and made again when
     // the English name changes, unless the owner wrote his own
-    const auto = bnTitle(f.name);
+    const auto = bnTitle(String(f.name));
     if (data.name_bn !== undefined) {
       const typed = str(data.name_bn, 200).trim();
       const own = !!typed && typed !== auto;
