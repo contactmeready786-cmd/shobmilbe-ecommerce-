@@ -56,6 +56,13 @@ async function modelBytes(base: string, say: (t: string) => void): Promise<Uint8
   return all;
 }
 
+class NoGpu extends Error {}
+let gpuCheck: Promise<boolean> | null = null;
+const hasGpu = () => (gpuCheck ??= (async () => {
+  const g = (navigator as Navigator & { gpu?: { requestAdapter(): Promise<unknown> } }).gpu;
+  try { return !!(g && (await g.requestAdapter())); } catch { return false; }
+})());
+
 function load(key: ModelKey, say: (t: string) => void) {
   if (ready && ready.key === key) return ready.p;
   const old = ready;
@@ -68,10 +75,16 @@ function load(key: ModelKey, say: (t: string) => void) {
       return o;
     })();
     const o = await ort;
+    // the big AI runs only on a graphics chip: in WebAssembly it runs out of its 4 GB and breaks the runtime for
+    // the quick AI too — so without WebGPU it isn't even downloaded
+    const gpu = await hasGpu();
+    if (key === 'best' && !gpu) throw new NoGpu();
     const bytes = await modelBytes(MODELS[key].base, say);
     say('⏳ AI চালু হচ্ছে…');
-    if ('gpu' in navigator) {
-      try { return { session: await o.InferenceSession.create(bytes, { executionProviders: ['webgpu'] }), how: 'WebGPU (দ্রুত)' }; } catch { /* fall back below */ }
+    if (gpu) {
+      try { return { session: await o.InferenceSession.create(bytes, { executionProviders: ['webgpu'] }), how: 'WebGPU (দ্রুত)' }; } catch (e) {
+        if (key === 'best') throw new NoGpu(String(e));
+      }
     }
     // (WebAssembly has at most 4 GB: no memory kept in reserve, so the big AI fits)
     return { session: await o.InferenceSession.create(bytes, { executionProviders: ['wasm'], enableMemPattern: false, enableCpuMemArena: false }), how: 'WebAssembly' };
@@ -104,7 +117,8 @@ function bigPieces(m: ArrayLike<number>): Uint8Array {
     }
     sizes.push(n);
   }
-  const big = Math.max(0, ...sizes);
+  let big = 0;
+  for (const n of sizes) if (n > big) big = n; // (not Math.max(...sizes): a busy photo has too many pieces for that)
   const out = new Uint8Array(N);
   for (let p = 0; p < N; p++) out[p] = label[p] === -1 ? 1 : sizes[label[p]] >= big * 0.08 ? 1 : 0;
   return out;
@@ -219,8 +233,9 @@ export async function whiten(id: string, say: (t: string) => void, opt: Options 
   let m: Float32Array;
   if (opt.model === 'best' && !bestFails) {
     try { m = await mask(src, 'best', say); } catch (e) {
-      // the big AI needs a graphics chip (WebGPU); without one it runs out of room — the quick AI does it instead
-      bestFails = true;
+      // the big AI needs a graphics chip (WebGPU); without one the quick AI does it instead
+      if (!(e instanceof NoGpu)) throw e;
+      bestFails = true; ready = null;
       console.warn('BiRefNet failed, using ISNet:', e);
       toast('🧠 সেরা মান এই কম্পিউটারে চলছে না (গ্রাফিক্স সাপোর্ট নেই) — ⚡ দ্রুত AI দিয়ে করা হচ্ছে।');
       m = await mask(src, 'fast', say);
