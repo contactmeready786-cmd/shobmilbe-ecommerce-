@@ -70,6 +70,7 @@ async function main() {
   console.log(summary);
   if (process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, '## 🍃 MongoDB copy vs PostgreSQL\n\n' + summary);
   fs.writeFileSync(path.join(dir, '_verify.md'), summary);
+  if (bad) for (const l of lines.filter((x) => x.includes('❌'))) console.log(`::error title=MongoDB differs::${l.slice(0, 900)}`);
   process.exit(bad ? 1 : 0);
 }
 main().catch((e) => { console.error('VERIFY FAILED:', e.message); process.exit(1); });
