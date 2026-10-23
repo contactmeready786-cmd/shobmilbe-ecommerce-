@@ -1,0 +1,62 @@
+# 🍃 MongoDB copy check (owner, 2026-10-23 — experimental, never touches the live shop or its database).
+# Runs on the "mongodb" branch: a test shop (the same seed the parity check uses) is backed up with the shop's own
+# backup, turned into a MongoDB copy (tools/mongo/convert.ts), loaded into a brand-new empty MongoDB (tools/mongo/load.ts)
+# and compared with the PostgreSQL database table by table (tools/mongo/verify.ts): counts, money totals, sample rows.
+name: mongodb
+on:
+  push:
+    branches: [mongodb]
+  workflow_dispatch: {}
+permissions:
+  contents: read
+concurrency:
+  group: mongodb-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  copy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: ci-only
+          POSTGRES_DB: shop_mongo
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 20
+      mongo:
+        image: mongo:7
+        ports: ['27017:27017']
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.runCommand({ping:1})'" --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      DATABASE_URL: postgres://postgres:ci-only@127.0.0.1:5432/shop_mongo?sslmode=disable
+      PGPASSWORD: ci-only
+      MONGODB_URI: mongodb://127.0.0.1:27017
+      MONGODB_DB: shobmilbe
+      BACKUP_PASSWORD: ci-only-backup-password
+      BACKUP_IMAGES: '1'
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install
+        run: npm ci --no-audit --no-fund && npm i --no-save --no-audit --no-fund mongodb@6
+      - name: Converter tests
+        run: npx tsx --test tests/mongo-convert.test.ts
+      - name: A test shop in PostgreSQL (the shop's own layout + the parity seed)
+        run: |
+          npx tsx -e "import('./lib/db').then(async (d) => { await d.ensureReady(); process.exit(0); })"
+          psql -h 127.0.0.1 -U postgres -q -v ON_ERROR_STOP=1 -d shop_mongo -f tools/parity/seed.sql
+      - name: Backup → MongoDB copy
+        run: |
+          npx tsx tools/backup.ts "$RUNNER_TEMP/bk"
+          npx tsx tools/mongo/convert.ts "$(ls "$RUNNER_TEMP"/bk/*.smbk | head -1)" "$RUNNER_TEMP/mongo-copy"
+      - name: Load into MongoDB
+        run: npx tsx tools/mongo/load.ts "$RUNNER_TEMP/mongo-copy" --fresh
+      - name: Same as PostgreSQL?
+        run: npx tsx tools/mongo/verify.ts "$RUNNER_TEMP/mongo-copy"

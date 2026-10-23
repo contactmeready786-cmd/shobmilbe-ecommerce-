@@ -8,7 +8,7 @@
 
 // A column is "present" (no `| null`) when it is NOT NULL or has a DEFAULT: the shop never writes NULL into a column
 // that has a default, so such a column is always filled in practice.
-export type Column = { name: string; ts: string; notNull: boolean; hasDefault: boolean; nullable: boolean };
+export type Column = { name: string; ts: string; notNull: boolean; hasDefault: boolean; nullable: boolean; /** the SQL type as written (for tools/mongo) */ sql?: string };
 const settle = (c: Column) => { c.nullable = !(c.notNull || c.hasDefault); };
 export type Table = { name: string; columns: Map<string, Column> };
 
@@ -31,7 +31,7 @@ export function tsType(sqlType: string): string {
 }
 
 /** Splits at commas that are not inside brackets or quotes. */
-function splitTop(s: string): string[] {
+export function splitTop(s: string): string[] {
   const out: string[] = [];
   let depth = 0; let quote = ''; let cur = '';
   for (const ch of s) {
@@ -58,13 +58,13 @@ function columnOf(def: string): Column | null {
   const rest = def.slice(def.indexOf(words[0]) + words[0].length);
   const notNull = /\bnot null\b/i.test(rest) || /\bprimary key\b/i.test(rest) || /serial/i.test(sqlType);
   const hasDefault = /\bdefault\b/i.test(rest) && !/\bdefault\s+null\b/i.test(rest);
-  const c: Column = { name, ts: tsType(sqlType), notNull, hasDefault, nullable: true };
+  const c: Column = { name, ts: tsType(sqlType), notNull, hasDefault, nullable: true, sql: sqlType.toLowerCase() };
   settle(c);
   return c;
 }
 
 /** The body between the brackets that open at `start` (index of "("). */
-function bracketed(s: string, start: number): string {
+export function bracketed(s: string, start: number): string {
   let depth = 0;
   for (let i = start; i < s.length; i++) {
     if (s[i] === '(') depth++;
@@ -96,7 +96,7 @@ export function tablesOf(dbTs: string): Map<string, Table> {
         if (c && !t.columns.has(c.name)) t.columns.set(c.name, c);
       } else if ((a = action.match(/^ALTER COLUMN (\w+) (?:SET DATA )?TYPE ([\w\s(),[\]]+?)(?: USING [\s\S]*)?$/i))) {
         const c = t.columns.get(a[1]);
-        if (c) c.ts = tsType(a[2]);
+        if (c) { c.ts = tsType(a[2]); c.sql = a[2].trim().toLowerCase(); }
       } else if ((a = action.match(/^ALTER COLUMN (\w+) DROP NOT NULL$/i))) {
         const c = t.columns.get(a[1]); if (c) { c.notNull = false; settle(c); }
       } else if ((a = action.match(/^ALTER COLUMN (\w+) SET NOT NULL$/i))) {
