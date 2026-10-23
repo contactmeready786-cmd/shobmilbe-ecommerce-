@@ -55,6 +55,8 @@ jobs:
       - name: Backup → MongoDB copy
         run: |
           npx tsx tools/backup.ts "$RUNNER_TEMP/bk"
+          # (the backup tool writes "a backup was made" into the backups log after taking the copy — not part of the copy)
+          psql -h 127.0.0.1 -U postgres -q -d shop_mongo -c "DELETE FROM backups"
           npx tsx tools/mongo/convert.ts "$(ls "$RUNNER_TEMP"/bk/*.smbk | head -1)" "$RUNNER_TEMP/mongo-copy"
       - name: Load into MongoDB
         run: npx tsx tools/mongo/load.ts "$RUNNER_TEMP/mongo-copy" --fresh
