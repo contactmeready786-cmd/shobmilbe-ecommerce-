@@ -51,7 +51,20 @@ function dupCheck(): void {
         dupBox.classList.add(j.blocked ? 'is-block' : 'is-warn');
         const list = <div />;
         serverHtml(list, j.html!);
-        paint(out, <p className="dup-head">{j.blocked ? '⛔ এই পণ্যটি দোকানে আগে থেকেই আছে বলে মনে হচ্ছে। এভাবে সেভ দিলে আটকে যাবে:' : '⚠️ কাছাকাছি কিছু পণ্য আছে। একবার দেখে নিন (সেভ আটকাবে না):'}</p>, ...Array.from(list.childNodes), waiting);
+        const n = j.matches.length;
+        if (allowInput?.checked && data.id) {
+          // the owner already kept this one as a separate product: one quiet line, the list folded away
+          const det = <details className="dup-fold"><summary className="small">✅ আপনি এটাকে আলাদা পণ্য হিসেবে রেখেছেন · কাছাকাছি {bn(n)}টি পণ্য দেখুন</summary></details>;
+          det.append(...Array.from(list.childNodes));
+          paint(out, det);
+        } else if (!j.blocked && data.id) {
+          // a saved product with look-alikes that don't block: folded, so the form stays at the top
+          const det = <details className="dup-fold"><summary className="small">⚠️ কাছাকাছি {bn(n)}টি পণ্য আছে (সেভ আটকাবে না) — দেখতে চাপুন</summary></details>;
+          det.append(...Array.from(list.childNodes));
+          paint(out, det, waiting);
+        } else {
+          paint(out, <p className="dup-head">{j.blocked ? '⛔ এই পণ্যটি দোকানে আগে থেকেই আছে বলে মনে হচ্ছে। এভাবে সেভ দিলে আটকে যাবে:' : '⚠️ কাছাকাছি কিছু পণ্য আছে। একবার দেখে নিন (সেভ আটকাবে না):'}</p>, ...Array.from(list.childNodes), waiting);
+        }
       }
       if (allowRow) allowRow.hidden = !(j.blocked || allowInput?.checked);
       if (noperm) noperm.hidden = !j.blocked;
@@ -107,8 +120,10 @@ function dupCheck(): void {
     } catch (err) { toast((err as Error).message); }
     for (const x of buttons) x.disabled = false;
   });
-  // editing an existing product: check once when the page opens (unless the page already shows a result)
-  if (!$('.dup-list', dupBox) && dupBox.getAttribute('data-dup-id')) later(400);
+  // editing an existing product: check once when the page opens (unless the page already shows a result, or the
+  // owner already kept it as a separate product — then only when the name or pictures change)
+  if (!$('.dup-list', dupBox) && !$('[data-dup-settled]', dupBox) && dupBox.getAttribute('data-dup-id')) later(400);
+  else if ($('[data-dup-settled]', dupBox)) lastKey = JSON.stringify([val('name').trim(), val('images').split(',').filter(Boolean), val('description').length, val('youtube_url')]);
 }
 
 // ---------- product form helpers ----------

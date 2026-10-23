@@ -1212,6 +1212,16 @@ CREATE INDEX IF NOT EXISTS order_packing_day_idx ON order_packing(created_at);
   `
 ALTER TABLE media ADD COLUMN IF NOT EXISTS wb_from int;
 CREATE INDEX IF NOT EXISTS media_wb_from_idx ON media(wb_from);
+`,  // 🧹 বিবরণ পরিষ্কার (owner, 2026-10-24): the description before each clean-up, for undo (lib/admin/descclean.tsx).
+  // 🧠 ছবি চেনা: emb = the picture-recognition AI's "description" of a picture (384 numbers, made in the admin's
+  // browser — client/admin/recognize.ts), so the same product photographed differently is found as a duplicate.
+  `
+CREATE TABLE IF NOT EXISTS desc_clean_log (
+  id serial PRIMARY KEY, product_id int NOT NULL REFERENCES products(id) ON DELETE CASCADE, before text NOT NULL, after text NOT NULL,
+  removed int NOT NULL DEFAULT 0, by_user int, created_at timestamptz DEFAULT now(), undone boolean NOT NULL DEFAULT false
+);
+CREATE INDEX IF NOT EXISTS desc_clean_log_product_idx ON desc_clean_log(product_id);
+ALTER TABLE media ADD COLUMN IF NOT EXISTS emb bytea;
 `,
 ];
 

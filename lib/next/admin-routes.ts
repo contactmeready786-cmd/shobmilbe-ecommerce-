@@ -157,4 +157,5 @@ export const ADMIN_GET_ROUTES: (string | RegExp)[] = [
   "/admin/marketing/email/preview",
   "/admin/accounts/packing",
   "/admin/products/whiten",
+  "/admin/products/clean-desc",
 ];

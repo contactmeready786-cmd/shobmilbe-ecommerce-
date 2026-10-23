@@ -77,8 +77,9 @@ function dice(a: Pairs, b: Pairs) {
   for (const [k, c] of small) { const d = big.get(k); if (d) both += Math.min(c, d); }
   return (2 * both) / (a.n + b.n);
 }
-// words that hold a number: model numbers and sizes (pam8403, 60w, 12v, 3p7v)
-function numberWords(ws: string[]) { return new Set(ws.filter((w) => /\d/.test(w))); }
+// words that hold a number: model numbers and sizes (pam8403, 60w, 12v, 3p7v). A model number's letters in front
+// don't count (owner, 2026-10-24: "DT9205A", "DT-9205A" and "9205A" are the same multimeter), so 9205a, 8403, 60w.
+function numberWords(ws: string[]) { return new Set(ws.filter((w) => /\d/.test(w)).map((w) => w.replace(/^\p{L}+(?=\d)/u, ''))); }
 function sameSet(a: Set<string>, b: Set<string>) { if (a.size !== b.size) return false; for (const x of a) if (!b.has(x)) return false; return true; }
 
 function prepName(name: string) {
@@ -201,12 +202,12 @@ async function findDuplicates(data: Body, settings: Settings) {
       THEN md5(lower(regexp_replace($1::text, '\\s', '', 'g'))) END AS h`, [str(data.description, 20000)]),
   ]);
   const me: Comparable = { name: prepName(String(data.name ?? '')), images: imgs.map(prepImage), youtube: youtubeKey(data.youtube_url) };
-  const matches: { id: number; name: string; sku: string; slug: string; active: boolean; price: number; image: string | null; emoji: string; level: string; reasons: string[]; score: number }[] = [];
+  const matches: { id: number; name: string; sku: string; slug: string; active: boolean; price: number; image: string | null; emoji: string; level: string; reasons: string[]; score: number; allowed: boolean }[] = [];
   for (const o of others) {
     const r = compare(me, o, lv, { sameDesc: !!(desc && desc.h && desc.h === o.desc_hash) });
     if (!r.level) continue;
     matches.push({ id: o.id, name: o.title, sku: o.sku, slug: o.slug, active: o.active, price: o.price, image: o.image_id ? `/media/${o.image_id}/t` : null,
-      emoji: o.emoji, level: r.level, reasons: r.reasons, score: r.score });
+      emoji: o.emoji, level: r.level, reasons: r.reasons, score: r.score, allowed: !!o.allow_duplicate });
   }
   matches.sort((x, y) => (x.level === y.level ? y.score - x.score : x.level === 'block' ? -1 : 1));
   const hashed = imgs.filter((m) => m.phash !== null).length;

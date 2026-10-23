@@ -362,6 +362,18 @@ export type DeleteCodesRow = {
   used_at: Date | null;
 };
 
+/** A row of desc_clean_log. */
+export type DescCleanLogRow = {
+  id: number;
+  product_id: number;
+  before: string;
+  after: string;
+  removed: number;
+  by_user: number | null;
+  created_at: Date;
+  undone: boolean;
+};
+
 /** A row of email_campaigns. */
 export type EmailCampaignsRow = {
   id: number;
@@ -649,6 +661,7 @@ export type MediaRow = {
   wb_orig_id: string | null;
   wb_orig_mime: string | null;
   wb_from: number | null;
+  emb: Buffer | null;
 };
 
 /** A row of offers. */
@@ -1493,6 +1506,7 @@ export type Tables = {
   customer_otps: CustomerOtpsRow;
   customers: CustomersRow;
   delete_codes: DeleteCodesRow;
+  desc_clean_log: DescCleanLogRow;
   email_campaigns: EmailCampaignsRow;
   email_log: EmailLogRow;
   email_subs: EmailSubsRow;

@@ -12,6 +12,7 @@ import { attrValue } from '../react/html';
 import { fields, int, str, amount, csv, youtubeId, shopPrice, priceProblem, arr } from '../util';
 import * as catalog from '../models/catalog';
 import * as dupes from '../models/duplicates';
+import { clean as cleanDesc } from '../models/descclean';
 import * as security from '../security';
 import * as db from '../db';
 import * as ui from './ui';
@@ -227,7 +228,12 @@ async function saveApi(ctx: AdminCtx) {
     }
   }
 
-  const description = str(it.description, 20000);
+  // 🧹 the copied shop's own text (its FAQ, delivery rules, web address, phone) is left behind (owner, 2026-10-24);
+  // a file the owner made himself is taken as written
+  const srcHost = ref.split('#')[0];
+  const fromShop = !!srcHost && srcHost !== 'file';
+  const description = fromShop ? cleanDesc(str(it.description, 20000), srcHost).text : str(it.description, 20000);
+  const shortDescription = fromShop ? cleanDesc(str(it.short_description, 1000), srcHost).text : str(it.short_description, 1000);
   const youtube = youtubeId(it.youtube) ? str(it.youtube, 300) : '';
   // duplicate guard (same rules as adding a product by hand)
   const allow = !!b.allow_duplicate && ctx.can('dup_override');
@@ -260,7 +266,7 @@ async function saveApi(ctx: AdminCtx) {
   try {
     pid = await catalog.saveProduct({
       name, price, old_price: oldPrice, cost_price: ctx.can('see_cost') ? amount(it.cost_price) : 0,
-      short_description: str(it.short_description, 1000), description, brand: str(it.brand, 60),
+      short_description: shortDescription, description, brand: str(it.brand, 60),
       category_id: categoryId, stock, images, youtube_url: youtube, weight_g: int(it.weight_g),
       active, featured: false, emoji: '📦', unit: 'পিস', low_stock: 3, product_type: 'single', sku: '',
       allow_duplicate: allow, import_ref: ref,

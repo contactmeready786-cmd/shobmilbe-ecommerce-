@@ -1605,3 +1605,14 @@ html[data-admin-lang="en"] .side-drop[data-side-group="দোকানের ড
 .wt-pic figcaption { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .wt-msg { color: var(--muted, #6b7280); }
 @media (max-width: 600px) { .wt-pics { grid-template-columns: 1fr; } }
+
+/* duplicate list folded away on a saved product (client/admin/forms.tsx) */
+.dup-fold > summary { cursor: pointer; padding: 4px 0; }
+.dup-fold[open] > summary { margin-bottom: 6px; }
+
+/* 🧹 বিবরণ পরিষ্কার (lib/admin/descclean.tsx) */
+.dc-list { display: grid; gap: 10px; }
+.dc-item.is-clean { opacity: .75; }
+.dc-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 6px; }
+.dc-gone { white-space: pre-wrap; font-size: .85em; color: #b42318; background: #fef3f2; border-left: 3px solid #f04438; padding: 4px 8px; margin: 4px 0; text-decoration: line-through; text-decoration-color: rgba(180, 35, 24, .45); border-radius: 4px; max-height: 9em; overflow: auto; }
+.dc-after { white-space: pre-wrap; font: inherit; font-size: .9em; background: #f8fafc; border: 1px solid var(--line, #e5e7eb); border-radius: 6px; padding: 8px; max-height: 18em; overflow: auto; }
