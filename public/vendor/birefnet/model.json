@@ -1,0 +1,1 @@
+{"model":"BiRefNet_lite","size":224005088,"sha256":"5600024376f572a557870a5eb0afb1e5961636bef4e1e22132025467d0f03333","parts":["birefnet.part00","birefnet.part01","birefnet.part02","birefnet.part03","birefnet.part04"],"input":1024}
