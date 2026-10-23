@@ -23,7 +23,8 @@ const CLIENT = walk('client', (f) => /\.tsx?$/.test(f));
 test('no hand-written JavaScript is kept in git: the browser code is client/*.ts', () => {
   let tracked: string[] = [];
   try { tracked = execFileSync('git', ['ls-files', 'public', 'lib', 'components', 'app'], { cwd: ROOT, encoding: 'utf8' }).split('\n').filter(Boolean); } catch { return; } // not a git checkout
-  const js = tracked.filter((f) => /\.(js|mjs|cjs)$/.test(f));
+  // (public/vendor holds third-party libraries kept exactly as published — e.g. the AI runtime of ⬜ ব্যাকগ্রাউন্ড সাদা)
+  const js = tracked.filter((f) => /\.(js|mjs|cjs)$/.test(f) && !f.startsWith('public/vendor/'));
   assert.deepEqual(js, [], 'write it in client/ as TypeScript (public/js is made by npm run build:client)');
 });
 
