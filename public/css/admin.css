@@ -1699,3 +1699,13 @@ html[data-admin-lang="en"] .side-drop[data-side-group="দোকানের ড
 .ai-old, .ai-new { white-space: pre-line; overflow-wrap: anywhere; margin: 2px 0; }
 .ai-new { color: #15603A; }
 .ai-edit .toolbar form { margin: 0; }
+
+/* 📱 small lists without column names (dashboard "recent orders", a customer's orders): on a phone each row wraps
+   into a short card instead of pushing the page sideways (2026-10-25 phone check) */
+@media (max-width: 720px) {
+  table.table.compact:not(:has(thead)) { display: block; }
+  table.table.compact:not(:has(thead)) tbody { display: block; }
+  table.table.compact:not(:has(thead)) tr { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 12px; padding: 8px 2px; border-bottom: 1px solid var(--line); }
+  table.table.compact:not(:has(thead)) td { display: block; border: 0; padding: 0; min-width: 0; overflow-wrap: anywhere; }
+  table.table.compact:not(:has(thead)) td:first-child { flex: 1 1 100%; }
+}
