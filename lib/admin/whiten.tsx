@@ -176,9 +176,9 @@ async function minePage(ctx: AdminCtx) {
   const list = await cloud.listMine(ctx.user.id);
   const fast = !!ctx.settings.whiten_gh_token;
   const body = <><div className="title-row"><h1>📤 নিজের ছবি সাদা</h1></div>{ui.flash(ctx.flash)}
-    <section className="panel" data-tojpg=""><h2>🔗 লিংক থেকে ছবি → JPG</h2>
-      <p className="small">যেকোনো ওয়েবসাইটের ছবির লিংক (WebP, AVIF, PNG, GIF, BMP, SVG — যেকোনো রকম) বা পণ্যের পেজের লিংক এখানে দিন — ছবিটা নিচে দেখাবে, তারপর <b>⬇️ JPG ডাউনলোড</b> চাপলেই সাদা ব্যাকগ্রাউন্ডে JPG হয়ে নামবে। ছবির লিংক পেতে: ছবির উপর চেপে ধরুন (কম্পিউটারে ডান ক্লিক) → <b>Copy image address / ছবির ঠিকানা কপি</b>। একসাথে কয়েকটা লিংক দিতে চাইলে প্রতিটা আলাদা লাইনে দিন।</p>
-      <div className="tojpg-form">{ui.textarea('tojpg_urls', '', { rows: 2, placeholder: 'https://… ছবির লিংক (প্রতি লাইনে একটা)', 'aria-label': 'ছবির লিংক', 'data-tojpg-urls': '' })}<button type="button" className="btn" data-tojpg-go="">🔄 ছবি আনুন ও JPG করুন</button></div>
+    <section className="panel" data-tojpg=""><h2>🔗 লিংক থেকে ছবি → JPG / PNG</h2>
+      <p className="small">যেকোনো ওয়েবসাইটের ছবির লিংক (WebP, AVIF, PNG, GIF, BMP, SVG — যেকোনো রকম) বা পণ্যের পেজের লিংক এখানে দিন — ছবিটা নিচে দেখাবে, তারপর <b>⬇️ ডাউনলোড</b> চাপলেই আপনার বাছা ফরম্যাটে (JPG / PNG / WebP) নামবে — ছবির মাপ (রেজোলিউশন) আসলটার মতোই থাকে, ছোট করা হয় না। আগে থেকেই সেই ফরম্যাটে থাকলে আসল ফাইলটাই হুবহু দেওয়া হয়। ছবির লিংক পেতে: ছবির উপর চেপে ধরুন (কম্পিউটারে ডান ক্লিক) → <b>Copy image address / ছবির ঠিকানা কপি</b>। একসাথে কয়েকটা লিংক দিতে চাইলে প্রতিটা আলাদা লাইনে দিন।</p>
+      <div className="tojpg-form">{ui.textarea('tojpg_urls', '', { rows: 2, placeholder: 'https://… ছবির লিংক (প্রতি লাইনে একটা)', 'aria-label': 'ছবির লিংক', 'data-tojpg-urls': '' })}<div className="toolbar"><label className="small">কোন ফরম্যাটে নেবেন{' '}<select data-tojpg-fmt="" defaultValue="jpg" aria-label="ফরম্যাট"><option value="jpg">JPG (সব জায়গায় চলে)</option><option value="png">PNG (একটুও মান কমে না, স্বচ্ছ অংশ থাকে)</option><option value="webp">WebP (ছোট ফাইল)</option></select></label>{' '}<button type="button" className="btn" data-tojpg-go="">🔄 ছবি আনুন ও বদলান</button></div></div>
       <p className="small" data-tojpg-status="" aria-live="polite"></p>
       <div className="mine-grid" data-tojpg-list=""></div>
     </section>

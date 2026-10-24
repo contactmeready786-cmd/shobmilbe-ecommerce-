@@ -94,33 +94,43 @@ export function startToJpg(): void {
   const status = $('[data-tojpg-status]', box);
   const list = $('[data-tojpg-list]', box)!;
   const say = (t: string) => { if (status) status.textContent = t; };
-  const toJpg = (blob: Blob): Promise<{ jpg: Blob; w: number; h: number }> => new Promise((resolve, reject) => {
+  type Fmt = 'jpg' | 'png' | 'webp';
+  const MIME: Record<Fmt, string> = { jpg: 'image/jpeg', png: 'image/png', webp: 'image/webp' };
+  // the picture at its own full size (only a giant beyond what a browser can draw — over 16,000px — is made smaller)
+  const convert = (blob: Blob, fmt: Fmt): Promise<{ out: Blob; w: number; h: number }> => new Promise((resolve, reject) => {
     const url = URL.createObjectURL(blob);
     const img = new Image();
     img.onload = () => {
-      // SVGs without a size get a sensible one; very big pictures stay within 4000px
-      let w = img.naturalWidth || 1200, h = img.naturalHeight || 1200;
-      const k = Math.min(1, 4000 / Math.max(w, h)); w = Math.round(w * k); h = Math.round(h * k);
-      const c = document.createElement('canvas'); c.width = w; c.height = h;
+      let w = img.naturalWidth || 1200, ht = img.naturalHeight || 1200;
+      const k = Math.min(1, 16000 / Math.max(w, ht), Math.sqrt(250e6 / (w * ht))); w = Math.round(w * k); ht = Math.round(ht * k);
+      const c = document.createElement('canvas'); c.width = w; c.height = ht;
       const x = c.getContext('2d')!;
-      x.fillStyle = '#fff'; x.fillRect(0, 0, w, h); // see-through parts become white, as a JPG has no see-through
-      x.drawImage(img, 0, 0, w, h);
+      if (fmt === 'jpg') { x.fillStyle = '#fff'; x.fillRect(0, 0, w, ht); } // a JPG has no see-through: those parts become white
+      x.imageSmoothingQuality = 'high';
+      x.drawImage(img, 0, 0, w, ht);
       URL.revokeObjectURL(url);
-      c.toBlob((b) => (b ? resolve({ jpg: b, w, h }) : reject(new Error('JPG বানানো যায়নি'))), 'image/jpeg', 0.92);
+      c.toBlob((b) => (b ? resolve({ out: b, w, h: ht }) : reject(new Error('ফাইল বানানো যায়নি'))), MIME[fmt], fmt === 'png' ? undefined : 0.97);
     };
     img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('এই ব্রাউজার ছবিটা খুলতে পারছে না')); };
     img.src = url;
   });
-  const one = async (link: string) => {
+  const EXT: Record<string, string> = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif', 'image/avif': 'avif', 'image/bmp': 'bmp', 'image/svg+xml': 'svg', 'image/tiff': 'tif', 'image/x-icon': 'ico' };
+  const one = async (link: string, fmt: Fmt) => {
     const r = await fetch(`/admin/api/img-fetch?url=${encodeURIComponent(link)}`, { credentials: 'same-origin' });
     if (!r.ok) { const j = (await r.json().catch(() => ({}))) as { error?: string }; throw new Error(j.error || 'ছবিটা আনা যায়নি'); }
     const name = decodeURIComponent(r.headers.get('X-Picture-Name') || 'picture');
-    const { jpg, w, h: ht } = await toJpg(await r.blob());
-    const href = URL.createObjectURL(jpg);
+    const original = await r.blob();
+    const origExt = EXT[original.type] || 'img';
+    // already in the asked format: the original file itself, untouched (no quality lost at all)
+    const same = (fmt === 'jpg' && original.type === 'image/jpeg') || MIME[fmt] === original.type;
+    const { out, w, h: ht } = same ? { out: original, ...(await convert(original, fmt).then((x) => ({ w: x.w, h: x.h }))) } : await convert(original, fmt);
+    const href = URL.createObjectURL(out);
+    const origHref = URL.createObjectURL(original);
     const fig = h('figure', { className: 'mine-pic' },
       h('a', { href, target: '_blank', rel: 'noopener' }, h('img', { src: href, alt: name, className: 'tojpg-img' })),
-      h('figcaption', { className: 'small' }, `${w}×${ht} · ${Math.max(1, Math.round(jpg.size / 1024))} KB `,
-        h('a', { className: 'btn btn-sm', href, download: `${name}.jpg` }, '⬇️ JPG ডাউনলোড')));
+      h('figcaption', { className: 'small' }, `${w}×${ht} · ${Math.max(1, Math.round(out.size / 1024))} KB · মূল ফাইল ${origExt.toUpperCase()} `,
+        h('a', { className: 'btn btn-sm', href, download: `${name}.${fmt}` }, `⬇️ ${fmt.toUpperCase()} ডাউনলোড`), ' ',
+        same ? null : h('a', { className: 'link-btn small', href: origHref, download: `${name}.${origExt}` }, `মূল ${origExt.toUpperCase()} ফাইল`)));
     list.prepend(fig);
   };
   $('[data-tojpg-go]', box)?.addEventListener('click', async () => {
@@ -130,9 +140,9 @@ export function startToJpg(): void {
     let ok = 0;
     for (let i = 0; i < links.length; i++) {
       say(`⏳ ছবি আনা হচ্ছে ${i + 1} / ${links.length}…`);
-      try { await one(links[i]); ok++; } catch (e) { toast(`${links[i].slice(0, 60)} — ${(e as Error).message}`); }
+      try { await one(links[i], (($<HTMLSelectElement>('[data-tojpg-fmt]', box)?.value || 'jpg') as Fmt)); ok++; } catch (e) { toast(`${links[i].slice(0, 60)} — ${(e as Error).message}`); }
     }
-    say(ok ? `✅ ${ok}টি ছবি JPG হয়েছে — প্রতিটার নিচে "⬇️ JPG ডাউনলোড" চাপুন।` : '⚠️ কোনো ছবি আনা যায়নি।');
+    say(ok ? `✅ ${ok}টি ছবি তৈরি — প্রতিটার নিচে "⬇️ ডাউনলোড" চাপুন (পুরো আসল মাপে)।` : '⚠️ কোনো ছবি আনা যায়নি।');
     if (ok && area) area.value = '';
   });
 }
