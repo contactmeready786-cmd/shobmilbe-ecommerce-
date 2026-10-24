@@ -219,7 +219,15 @@ export async function researchTick(ctx: ApiCtx) {
   // 📧 ইমেইল মার্কেটিং: welcome / review / weekly new products / campaigns / 'we miss you' (within the day's allowance)
   try { await $services_mailer.tick(settings); } catch (e) { console.error('mailer', (e as Error).message); }
   try { await $services_autobackup.run(); } catch (_) { /* the daily one will try again */ }
-  // 🤖 AI স্টাফ: the day's check of the whole shop and its report to the owner (once a day, at the owner's hour)
-  try { await (await import('../services/aistaff')).tick(settings); } catch (e) { console.error('aistaff', (e as Error).message); }
   return json(200, { ok: true, done: !r.skipped && !r.idle });
+}
+
+/** /api/aistaff/tick (app/api/aistaff/tick, called every few minutes by .github/workflows/market-research.yml):
+ *  🤖 AI স্টাফ — the day's whole-shop report at the owner's hour, and ✍️ one product page written again (when on). */
+export async function aistaffTick(ctx: ApiCtx) {
+  if (!(await allow(ctx, 'aistaff:', 40, 3600))) return json(429, { ok: false });
+  const settings = ctx.settings;
+  try { await (await import('../services/aistaff')).tick(settings); } catch (e) { console.error('aistaff', (e as Error).message); }
+  try { await (await import('../services/aiwriter')).tick(settings); } catch (e) { console.error('aiwriter', (e as Error).message); }
+  return json(200, { ok: true });
 }

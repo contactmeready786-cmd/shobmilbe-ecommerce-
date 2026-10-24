@@ -32,7 +32,7 @@ const BLOCK_PATH = '/__region';
 // search engines, link previews, shopping and ad checkers — matched by their user agent
 const GOOD_BOTS = /googlebot|google-inspectiontool|googleother|storebot-google|adsbot-google|mediapartners-google|apis-google|feedfetcher-google|google-read-aloud|duplexweb-google|google-site-verification|googleimageproxy|google-pagerenderer|chrome-lighthouse|bingbot|bingpreview|msnbot|adidxbot|applebot|duckduckbot|yandex(bot|images)|facebookexternalhit|facebookcatalog|facebot|meta-externalagent|meta-externalfetcher|twitterbot|linkedinbot|pinterestbot|slackbot|telegrambot|whatsapp|discordbot|skypeuripreview|tiktokbot|bytespider-ads/i;
 // paths other servers call, or that crawlers need, which must answer from anywhere
-const OPEN_PATHS = /^\/(e\/[oc]\/|unsubscribe$|webhook\/|pay\/|media\/|img\/|brand\/|feeds\/|api\/(research|backup)\/tick$|api\/whiten-jobs$|robots\.txt$|sitemap[^/]*\.xml$|[a-f0-9]{32}\.txt$|google[a-f0-9]{8,32}\.html$|BingSiteAuth\.xml$|yandex_[a-f0-9]+\.html$|favicon|__region)/;
+const OPEN_PATHS = /^\/(e\/[oc]\/|unsubscribe$|webhook\/|pay\/|media\/|img\/|brand\/|feeds\/|api\/(research|backup|aistaff)\/tick$|api\/whiten-jobs$|robots\.txt$|sitemap[^/]*\.xml$|[a-f0-9]{32}\.txt$|google[a-f0-9]{8,32}\.html$|BingSiteAuth\.xml$|yandex_[a-f0-9]+\.html$|favicon|__region)/;
 
 /** country code → the time zones a browser there reports */
 const ZONES: Record<string, string[]> = COUNTRIES;

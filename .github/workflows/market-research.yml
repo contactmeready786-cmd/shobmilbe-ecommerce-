@@ -17,5 +17,7 @@ jobs:
           for i in 1 2 3 4 5 6 7 8 9 10 11; do
             curl -s -m 30 "$SITE/api/research/tick" || true
             echo
+            # 🤖 AI স্টাফ: the daily report at the owner's hour, and one product page written again (when switched on)
+            if [ $((i % 3)) = 1 ]; then curl -s -m 65 "$SITE/api/aistaff/tick" || true; echo; fi
             sleep 58
           done

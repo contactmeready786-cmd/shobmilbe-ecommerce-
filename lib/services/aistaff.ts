@@ -80,7 +80,28 @@ async function catalog(settings: Settings): Promise<Section> {
   if (groups.length) items.push({ level: sure ? 'warn' : 'info', text: `ডুপ্লিকেট পণ্য: ${bn(sure)}টি প্রায় নিশ্চিত, ${bn(groups.length - sure)}টি সম্ভাব্য দল`, link: '/admin/products/duplicates' });
   const noBn = await db.one<{ n: number }>(`SELECT count(*)::int AS n FROM products WHERE active AND parent_id IS NULL AND coalesce(name_bn, '') = ''`);
   if (n(noBn?.n)) items.push({ level: 'info', text: `${bn(n(noBn!.n))}টি পণ্যের বাংলা নাম নেই`, link: '/admin/products' });
+  const w = await db.one<{ n: number; p: number; waiting: number }>(`SELECT count(*) FILTER (WHERE status='applied')::int AS n, count(DISTINCT product_id) FILTER (WHERE status='applied')::int AS p,
+      count(DISTINCT product_id) FILTER (WHERE status='proposed')::int AS waiting FROM ai_staff_edits WHERE created_at > now() - interval '24 hours'`).catch(() => null);
+  if (w && (w.n || w.waiting)) items.push({ level: 'good', text: `✍️ গত ২৪ ঘণ্টায় আমি ${bn(w.p)}টি পণ্যের ${bn(w.n)}টি লেখা (নাম/SEO/বিবরণ) ইন্টারনেট দেখে নতুন করে লিখে বসিয়েছি${w.waiting ? `; ${bn(w.waiting)}টি পণ্যের লেখা আপনার ✅-এর অপেক্ষায়` : ''}`, link: '/admin/ai-staff#writer' });
   return { key: 'catalog', title: '📝 পণ্যের তথ্য ও SEO', items };
+}
+
+async function pictures(): Promise<Section> {
+  const items: Item[] = [];
+  const rows = await db.q<{ id: number; name: string; pics: number; wm: boolean; white: number; views: number }>(`SELECT p.id, p.name,
+      (SELECT count(*)::int FROM media m WHERE m.owner_type='product' AND m.owner_id=p.id) AS pics, coalesce(p.src_wm, false) AS wm,
+      (SELECT count(*)::int FROM media m WHERE m.owner_type='product' AND m.owner_id=p.id AND m.wb_from IS NOT NULL) AS white,
+      coalesce((SELECT count(*)::int FROM page_views v WHERE v.product_id=p.id AND v.created_at > now() - interval '30 days'), 0) AS views
+    FROM products p WHERE p.active AND p.parent_id IS NULL ORDER BY views DESC LIMIT 400`);
+  const none = rows.filter((r) => r.pics === 0);
+  const foreign = rows.filter((r) => r.wm);
+  const single = rows.filter((r) => r.pics === 1 && r.views >= 10);
+  for (const r of foreign.slice(0, 5)) items.push({ level: 'warn', text: `${r.name} — ছবিতে অন্য দোকানের লোগো/নম্বর আছে: "ব্যাকগ্রাউন্ড সাদা" দিয়ে পরিষ্কার করুন বা নিজের তোলা ছবি দিন`, link: '/admin/products/whiten' });
+  for (const r of none.slice(0, 5)) items.push({ level: 'bad', text: `${r.name} — কোনো ছবি নেই: ছবি ছাড়া পণ্য প্রায় বিক্রি হয় না`, link: `/admin/products/${r.id}` });
+  for (const r of single.slice(0, 5)) items.push({ level: 'info', text: `${r.name} — ${bn(r.views)} জন দেখেছে কিন্তু ছবি মাত্র ১টা: পেছন/পাশ/প্যাকেট আর হাতে ধরা একটা ছবি দিলে বিক্রি বাড়ে`, link: `/admin/products/${r.id}` });
+  const notWhite = rows.filter((r) => r.pics > 0 && r.white === 0).length;
+  if (notWhite) items.push({ level: 'info', text: `${bn(notWhite)}টি দেখা-বেশি পণ্যের ছবি এখনো সাদা ব্যাকগ্রাউন্ড করা হয়নি — এক চাপে অনলাইনে করা যায়`, link: '/admin/products/whiten' });
+  return { key: 'pictures', title: '🖼️ ছবির পরামর্শ', items };
 }
 
 async function security(): Promise<Section> {
@@ -150,6 +171,7 @@ export async function inspect(settings: Settings): Promise<Report> {
     await safe(stock, empty('stock', '📦 স্টক')),
     await safe(money_, empty('money', '💰 দাম ও লাভ')),
     await safe(() => catalog(settings), empty('catalog', '📝 পণ্যের তথ্য ও SEO')),
+    await safe(pictures, empty('pictures', '🖼️ ছবির পরামর্শ')),
     await safe(security, empty('security', '🔐 নিরাপত্তা')),
     await safe(health, empty('health', '🩺 সাইটের স্বাস্থ্য')),
     await safe(market, empty('market', '📈 বাজার ও ট্রেন্ড')),

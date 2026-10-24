@@ -1692,3 +1692,10 @@ html[data-admin-lang="en"] .side-drop[data-side-group="দোকানের ড
 .ai-list li.ai-warn { background: #FFF9EC; }
 .ai-list li.ai-good { background: #EFFAF2; }
 .ai-answer { margin-top: 10px; padding: 10px; border-radius: 10px; background: #F3F6FF; }
+.ai-edits { display: grid; gap: 8px; margin-top: 10px; }
+.ai-edit { border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; background: #fff; }
+.ai-edit summary { cursor: pointer; }
+.ai-field { border-top: 1px dashed var(--line); padding-top: 6px; margin-top: 6px; }
+.ai-old, .ai-new { white-space: pre-line; overflow-wrap: anywhere; margin: 2px 0; }
+.ai-new { color: #15603A; }
+.ai-edit .toolbar form { margin: 0; }

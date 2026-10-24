@@ -1245,6 +1245,12 @@ CREATE TABLE IF NOT EXISTS ai_staff_reports (
   id serial PRIMARY KEY, report jsonb NOT NULL, created_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS ai_staff_reports_created_idx ON ai_staff_reports(created_at DESC);
+CREATE TABLE IF NOT EXISTS ai_staff_edits (
+  id serial PRIMARY KEY, product_id int NOT NULL, field text NOT NULL, old_value text NOT NULL DEFAULT '', new_value text NOT NULL DEFAULT '',
+  status text NOT NULL DEFAULT 'applied', created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS ai_staff_edits_product_idx ON ai_staff_edits(product_id, id);
+CREATE INDEX IF NOT EXISTS ai_staff_edits_created_idx ON ai_staff_edits(created_at DESC);
 `,
 ];
 
@@ -1581,7 +1587,7 @@ const DEFAULT_SETTINGS: Record<string, string> = {
   // cheap parts (৳0.25-৳5) may be bought up to small_max_value worth; the minimum is on the whole order (min_order)
   small_qty_on: '1', small_max_price: '5', small_min_value: '10', small_max_value: '100',
   site_url: '',
-  ai_staff_on: '1', ai_staff_hour: '9', ai_staff_email: '1',
+  ai_staff_on: '1', ai_staff_hour: '9', ai_staff_email: '1', ai_write_on: '1', ai_write_auto: '1', ai_write_daily: '30', ai_work_from: '9', ai_work_to: '18',
   autopost_on: '0', autopost_fb: '1', autopost_ig: '0', autopost_hours: '11,20', autoblog_on: '0',
   delivery_dhaka: '60', delivery_outside: '110', free_delivery_min: '0',
   dhaka_city_areas: '', // JSON list; empty = default Dhaka Metropolitan thanas

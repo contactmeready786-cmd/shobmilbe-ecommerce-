@@ -6,6 +6,7 @@ import { bn, str, int, fmtDate } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
 import * as staff from '../services/aistaff';
+import * as writer from '../services/aiwriter';
 import type { AdminCtx } from '../types';
 
 const BASE = '/admin/ai-staff';
@@ -21,7 +22,7 @@ function ReportView({ r }: { r: staff.Report }) {
 }
 
 async function page(ctx: AdminCtx) {
-  const [r, hist] = await Promise.all([staff.latest(), staff.history(10)]);
+  const [r, hist, edits] = await Promise.all([staff.latest(), staff.history(10), writer.recent(30)]);
   const s = ctx.settings;
   // the last question and its answer (kept in one setting — an answer is too long for an address)
   const qa = db.jsonSetting<{ q?: string; a?: string }>(s, 'ai_staff_last_qa', {});
@@ -35,6 +36,22 @@ async function page(ctx: AdminCtx) {
       <li>নিচে একটা ফ্রি Google Gemini চাবি দিলে মানুষের মতো গুছিয়ে লেখে আর আপনার যেকোনো প্রশ্নের উত্তর দেয়।</li></ul>)}
     <div className="toolbar"><form method="post" action={`${BASE}/run`}><button className="btn">▶ এখনই পুরো দোকান চেক করুন</button></form>{' '}<span className="small muted">১০–৪০ সেকেন্ড লাগতে পারে; রিপোর্ট ইমেইলেও যাবে।</span></div>
     {(r ? <ReportView r={r} /> : <p className="muted">এখনো কোনো রিপোর্ট হয়নি — উপরের বোতাম চাপুন।</p>)}
+    <section className="panel" id="writer"><h2>✍️ পণ্যের লেখা — ইন্টারনেট দেখে নতুন করে</h2>
+      <p className="small">প্রতিদিন কাজের সময়ে (বাংলাদেশ সময় {bn(int(s.ai_work_from ?? 9))}টা–{bn(int(s.ai_work_to ?? 18))}টা) স্টাফ সবচেয়ে দুর্বল পণ্যের পেজগুলো একটা একটা করে নেয়, গুগলে পণ্যটা খুঁজে দেখে, তারপর নাম, SEO টাইটেল, মেটা বিবরণ, কিওয়ার্ড, ছোট আর বিস্তারিত বিবরণ নতুন করে লেখে। মডেল/মাপ নম্বর কখনো বাদ যায় না; লিংক, ফোন নম্বর, অন্য দোকানের নাম বসায় না। প্রতিটা বদল লেখা থাকে — "↩️ ফেরত" চাপলে আগের লেখা ফিরে আসে।</p>
+      {(s.ai_gemini_key ? null : <p className="small warn">এর জন্য নিচে Gemini চাবি বসাতে হবে (ফ্রি)।</p>)}
+      <form method="post" action={`${BASE}/settings`} className="form-grid"><input type="hidden" name="form" defaultValue="writer" />
+        {ui.switchRow('ai_write_on', s.ai_write_on !== '0', 'নিজে থেকে পণ্যের লেখা উন্নত করবে', 'কাজের সময়ে, দিনে নিচের সংখ্যা পর্যন্ত')}
+        {ui.switchRow('ai_write_auto', s.ai_write_auto !== '0', 'নিজেই বসিয়ে দেবে', 'বন্ধ করলে নতুন লেখা এখানে আপনার ✅-এর অপেক্ষায় থাকবে')}
+        {ui.field('দিনে সর্বোচ্চ কয়টা পণ্য', ui.input('ai_write_daily', s.ai_write_daily || '30', { type: 'number', min: 1, max: 100 }))}
+        {ui.field('কাজ শুরু (টা)', ui.select('ai_work_from', Array.from({ length: 24 }, (_, h) => [String(h), `${bn(h)}:০০`]), String(s.ai_work_from ?? '9')))}
+        {ui.field('কাজ শেষ (টা)', ui.select('ai_work_to', Array.from({ length: 24 }, (_, h) => [String(h + 1), `${bn(h + 1)}:০০`]), String(s.ai_work_to ?? '18')))}
+        <button className="btn btn-sm">💾 সেভ করুন</button></form>
+      {(s.ai_gemini_key ? <form method="post" action={`${BASE}/write`}><button className="btn btn-sm">▶ এখনই একটা পণ্য নতুন করে লিখুন</button></form> : null)}
+      {(edits.length ? <div className="ai-edits">{jsxList(edits.map((e) => <details className={`ai-edit ai-${e.status}`}><summary><b><Val v={e.name} /></b>{' '}<span className="small muted">{fmtDate(e.at)} · {(e.status === 'applied' ? '✅ বসানো হয়েছে' : e.status === 'proposed' ? '⏳ আপনার ✅-এর অপেক্ষায়' : e.status === 'undone' ? '↩️ ফেরত আনা হয়েছে' : '❌ বাদ')}</span></summary>
+        {jsxList(e.fields.map((f) => <div className="ai-field"><p className="small"><b><Val v={writer.FIELD_LABEL[f.field] || f.field} /></b></p><p className="small muted ai-old">আগে: <Val v={f.old_value || '(খালি)'} /></p><p className="small ai-new">এখন: <Val v={f.new_value} /></p></div>))}
+        <div className="toolbar"><a className="btn btn-sm btn-ghost" href={`/admin/products/${attrValue(e.product_id)}`}>✏️ পণ্য খুলুন</a>{(e.status === 'applied' ? <form method="post" action={`${BASE}/undo`}><input type="hidden" name="id" defaultValue={attrValue(e.product_id)} /><button className="btn btn-sm btn-ghost">↩️ আগের লেখা ফেরত</button></form> : null)}{(e.status === 'proposed' ? <><form method="post" action={`${BASE}/decide`}><input type="hidden" name="id" defaultValue={attrValue(e.product_id)} /><input type="hidden" name="ok" defaultValue="1" /><button className="btn btn-sm">✅ বসান</button></form><form method="post" action={`${BASE}/decide`}><input type="hidden" name="id" defaultValue={attrValue(e.product_id)} /><button className="btn btn-sm btn-ghost">❌ বাদ</button></form></> : null)}</div>
+      </details>))}</div> : <p className="small muted">এখনো কোনো পণ্যের লেখা বদলানো হয়নি।</p>)}
+    </section>
     <section className="panel" id="ask"><h2>💬 স্টাফকে জিজ্ঞেস করুন</h2>
       {(s.ai_gemini_key ? <form method="post" action={`${BASE}/ask`}>{ui.textarea('question', '', { rows: 3, maxlength: 1500, placeholder: 'যেমন: এই সপ্তাহে কোন পণ্যের দাম কমালে বিক্রি বাড়বে? ফেসবুকে আজ কী পোস্ট দেব?', required: true })}<button className="btn btn-sm">জিজ্ঞেস করুন</button></form> : <p className="small muted">প্রশ্নের উত্তর পেতে নিচে Gemini চাবি বসান (ফ্রি)।</p>)}
       {(answer ? <div className="ai-answer">{(q ? <p className="small muted">প্রশ্ন: <Val v={q} /></p> : null)}<p className="ai-say"><Val v={answer} /></p></div> : null)}
@@ -77,6 +94,16 @@ async function askNow(ctx: AdminCtx) {
 }
 async function saveSettings(ctx: AdminCtx) {
   const b = await ctx.body();
+  if (b.form === 'writer') {
+    await db.setSetting('ai_write_on', b.ai_write_on ? '1' : '0');
+    await db.setSetting('ai_write_auto', b.ai_write_auto ? '1' : '0');
+    await db.setSetting('ai_write_daily', String(Math.min(100, Math.max(1, int(b.ai_write_daily) || 30))));
+    const from = Math.min(23, Math.max(0, int(b.ai_work_from))), to = Math.min(24, Math.max(from + 1, int(b.ai_work_to) || 18));
+    await db.setSetting('ai_work_from', String(from));
+    await db.setSetting('ai_work_to', String(to));
+    await ctx.reloadSettings();
+    return ctx.redirect(`${BASE}?msg=saved#writer`);
+  }
   await db.setSetting('ai_staff_on', b.ai_staff_on ? '1' : '0');
   await db.setSetting('ai_staff_email', b.ai_staff_email ? '1' : '0');
   await db.setSetting('ai_staff_hour', String(Math.min(23, Math.max(0, int(b.ai_staff_hour)))));
@@ -97,7 +124,32 @@ async function saveKey(ctx: AdminCtx) {
   return back('✅ চাবি কাজ করছে — এখন স্টাফ মানুষের মতো লিখবে আর প্রশ্নের উত্তর দেবে।');
 }
 
+async function writeNow(ctx: AdminCtx) {
+  let msg: string;
+  try {
+    const r = await writer.improve(ctx.settings, { limit: 1 });
+    msg = r.errors.length ? `হয়নি: ${r.errors[0]}` : r.products ? `✅ ${r.fields}টি লেখা নতুন করে ${ctx.settings.ai_write_auto !== '0' ? 'বসানো হয়েছে' : 'তৈরি — নিচে দেখে ✅ দিন'}` : 'এখন নতুন করে লেখার মতো পণ্য পাওয়া যায়নি।';
+  } catch (e) { msg = (e as Error).message; }
+  return ctx.redirect(`${BASE}?info=${encodeURIComponent(msg)}#writer`);
+}
+async function undoNow(ctx: AdminCtx) {
+  const b = await ctx.body();
+  const n = await writer.undo(int(b.id));
+  await ctx.log('product_save', 'product', int(b.id), 'AI স্টাফের লেখা ফেরত');
+  return ctx.redirect(`${BASE}?info=${encodeURIComponent(`↩️ ${n}টি লেখা আগের মতো করা হয়েছে`)}#writer`);
+}
+async function decideNow(ctx: AdminCtx) {
+  const b = await ctx.body();
+  const ok = b.ok === '1';
+  await writer.decide(int(b.id), ok);
+  if (ok) await ctx.log('product_save', 'product', int(b.id), 'AI স্টাফের লেখা বসানো');
+  return ctx.redirect(`${BASE}?info=${encodeURIComponent(ok ? '✅ বসানো হয়েছে' : '❌ বাদ দেওয়া হয়েছে')}#writer`);
+}
+
 export const routes = [
+  { method: 'POST', path: `${BASE}/write`, perm: 'owner', handler: writeNow },
+  { method: 'POST', path: `${BASE}/undo`, perm: 'owner', handler: undoNow },
+  { method: 'POST', path: `${BASE}/decide`, perm: 'owner', handler: decideNow },
   { method: 'GET', path: BASE, perm: 'owner', handler: page },
   { method: 'POST', path: `${BASE}/run`, perm: 'owner', handler: runNow },
   { method: 'POST', path: `${BASE}/ask`, perm: 'owner', handler: askNow },
