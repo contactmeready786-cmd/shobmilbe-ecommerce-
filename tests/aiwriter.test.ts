@@ -29,3 +29,9 @@ test('a new name must still be the same product', () => {
   assert.equal(check({ name: 'Soldering Iron Stand' }, { name: 'Wireless Bluetooth Speaker Portable' }).name, undefined);
   assert.equal(check({ name: 'Soldering Iron Stand' }, { name: 'Soldering Iron Stand with Sponge Holder' }).name, 'Soldering Iron Stand with Sponge Holder');
 });
+
+test('the Bangla name keeps the numbers and is really in Bangla', () => {
+  assert.equal(check({ name: 'PAM8403 Amplifier Board' }, { name_bn: 'PAM8403 অ্যামপ্লিফায়ার বোর্ড' }).name_bn, 'PAM8403 অ্যামপ্লিফায়ার বোর্ড');
+  assert.equal(check({ name: 'PAM8403 Amplifier Board' }, { name_bn: 'অ্যামপ্লিফায়ার বোর্ড' }).name_bn, undefined);
+  assert.equal(check({ name: 'PAM8403 Amplifier Board' }, { name_bn: 'PAM8403 Amplifier Board' }).name_bn, undefined);
+});

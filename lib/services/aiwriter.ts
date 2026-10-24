@@ -11,12 +11,12 @@ import * as seoscore from './seoscore';
 import { gemini } from './aistaff';
 import type { Settings } from '../types';
 
-export const FIELDS = ['name', 'seo_title', 'seo_description', 'seo_keywords', 'short_description', 'description'] as const;
+export const FIELDS = ['name', 'name_bn', 'seo_title', 'seo_description', 'seo_keywords', 'short_description', 'description'] as const;
 export type Field = (typeof FIELDS)[number];
-export const FIELD_LABEL: Record<Field, string> = { name: 'নাম (টাইটেল)', seo_title: 'SEO টাইটেল', seo_description: 'মেটা বিবরণ', seo_keywords: 'কিওয়ার্ড', short_description: 'ছোট বিবরণ', description: 'বিস্তারিত বিবরণ' };
-const LIMIT: Record<Field, [number, number]> = { name: [10, 120], seo_title: [20, 65], seo_description: [70, 165], seo_keywords: [3, 300], short_description: [40, 700], description: [200, 8000] };
+export const FIELD_LABEL: Record<Field, string> = { name: 'নাম (টাইটেল)', name_bn: 'বাংলা নাম', seo_title: 'SEO টাইটেল', seo_description: 'মেটা বিবরণ', seo_keywords: 'কিওয়ার্ড', short_description: 'ছোট বিবরণ', description: 'বিস্তারিত বিবরণ' };
+const LIMIT: Record<Field, [number, number]> = { name: [10, 120], name_bn: [5, 150], seo_title: [20, 65], seo_description: [70, 165], seo_keywords: [3, 300], short_description: [40, 700], description: [200, 8000] };
 
-type P = { id: number; name: string; brand: string; model: string; category: string | null; price: number; specs: unknown; short_description: string; description: string; seo_title: string; seo_description: string; seo_keywords: string };
+type P = { id: number; name: string; name_bn: string; brand: string; model: string; category: string | null; price: number; specs: unknown; short_description: string; description: string; seo_title: string; seo_description: string; seo_keywords: string };
 export type Draft = Partial<Record<Field, string>>;
 
 /** the numbers / part codes a name carries (DT9205A, 12V, 18650 …) — none may be lost */
@@ -35,6 +35,10 @@ export function check(p: Pick<P, 'name'>, raw: Record<string, unknown>): Draft {
     const [min, max] = LIMIT[f];
     if (v.length < min || v.length > max) continue;
     if (/(https?:\/\/|www\.)|\b01[3-9]\d{8}\b/i.test(v)) continue; // no links, no phone numbers (another shop's)
+    if (f === 'name_bn') {
+      const have = codesIn(v).join(' ');
+      if (!codesIn(p.name).every((c) => have.includes(c)) || !/[\u0980-\u09ff]/.test(v)) continue; // Bangla, numbers kept
+    }
     if (f === 'name') {
       const have = codesIn(v).join(' ');
       if (!codesIn(p.name).every((c) => have.includes(c))) continue; // a model / size number went missing
@@ -65,8 +69,11 @@ function prompt(p: P): string {
  "seo_title": "৬০ অক্ষরের মধ্যে, মূল কিওয়ার্ড শুরুতে, শেষে 'Price in BD' জাতীয় শব্দ চলবে",
  "seo_description": "১২০–১৫৫ অক্ষর, বাংলা+ইংরেজি মিশিয়ে, দাম/ক্যাশ অন ডেলিভারির কথা থাকতে পারে",
  "seo_keywords": "৬–১০টা কিওয়ার্ড, কমা দিয়ে (ইংরেজি ও বাংলা — মানুষ যা লিখে খোঁজে)",
+ "name_bn": "বাংলা নাম — যতটা পারা যায় বাংলায়; শুধু যে শব্দ বাংলায় অদ্ভুত শোনায় বা কাস্টমার চিনবে না (মডেল নম্বর, Arduino, PCB, Bluetooth, USB, ব্র্যান্ড) সেটুকু ইংরেজিতে; মাপ/মডেল নম্বর হুবহু",
  "short_description": "বাংলায় ২–৪ লাইন: পণ্যটা কী আর কেন কিনবে",
- "description": "বাংলায় বিস্তারিত (প্রযুক্তিগত শব্দ ইংরেজিতে): কী কাজে লাগে, বৈশিষ্ট্য ('- ' দিয়ে তালিকা), স্পেসিফিকেশন, কীভাবে ব্যবহার করবেন, প্যাকেজে কী থাকে (জানা থাকলে)। কোনো লিংক, ফোন নম্বর, অন্য দোকানের নাম বা HTML নয়।"}`;
+ "description": "বাংলায় বিস্তারিত: কী কাজে লাগে, বৈশিষ্ট্য ('- ' দিয়ে তালিকা), স্পেসিফিকেশন, কীভাবে ব্যবহার করবেন, প্যাকেজে কী থাকে (জানা থাকলে)। কোনো লিংক, ফোন নম্বর, অন্য দোকানের নাম বা HTML নয়।"}
+
+ভাষার নিয়ম (খুব জরুরি — দোকানটা বাংলাদেশের কাস্টমারদের জন্য): ছোট ও বিস্তারিত বিবরণ যতটা সম্ভব সহজ, সাবলীল বাংলায় লিখবে — মানুষ যেভাবে কথা বলে। শুধু যে শব্দ বাংলায় লিখলে কাস্টমার বুঝবে না বা অদ্ভুত লাগে, সেগুলো ইংরেজিতে রাখবে: মডেল/পার্ট নম্বর, একক (V, A, mAh, W, Hz), আর পরিচিত প্রযুক্তি শব্দ (Arduino, Bluetooth, USB, PCB, Module, Sensor, Driver, IC, LED, Battery ইত্যাদি)। পুরো বাক্য ইংরেজিতে লিখবে না। স্পেসিফিকেশনের নাম বাংলায় (যেমন "কাজের ভোল্টেজ: 5V")। বাংলা বানান শুদ্ধ রাখবে।`;
 }
 
 /** Gemini with Google Search: the answer's JSON (search answers can't be forced into JSON, so it is read out) */
@@ -92,7 +99,7 @@ async function geminiSearch(key: string, text: string): Promise<string> {
   return gemini(key, text, 40000); // search unavailable: the model's own knowledge, same checks
 }
 
-const load = (id: number) => db.one<P>(`SELECT p.id, p.name, p.brand, p.model, c.name AS category, p.price, p.specs, p.short_description, p.description, p.seo_title, p.seo_description, p.seo_keywords
+const load = (id: number) => db.one<P>(`SELECT p.id, p.name, p.name_bn, p.brand, p.model, c.name AS category, p.price, p.specs, p.short_description, p.description, p.seo_title, p.seo_description, p.seo_keywords
   FROM products p LEFT JOIN categories c ON c.id=p.category_id WHERE p.id=$1`, [id]);
 
 /** write the changes down, then make them (or leave them waiting for the owner) */
@@ -102,7 +109,7 @@ async function keep(p: P, d: Draft, apply: boolean): Promise<number> {
     const v = d[f];
     if (!v || v === String(p[f] || '').trim()) continue;
     await db.q(`INSERT INTO ai_staff_edits(product_id, field, old_value, new_value, status) VALUES($1, $2, $3, $4, $5)`, [p.id, f, String(p[f] || ''), v, apply ? 'applied' : 'proposed']);
-    if (apply) await db.q(`UPDATE products SET ${f}=$2, updated_at=now() WHERE id=$1`, [p.id, v]);
+    if (apply) await db.q(`UPDATE products SET ${f}=$2, ${f === 'name_bn' ? 'name_bn_auto=false, ' : ''}updated_at=now() WHERE id=$1`, [p.id, v]);
     n++;
   }
   await db.q(`INSERT INTO ai_staff_edits(product_id, field, old_value, new_value, status) VALUES($1, 'checked', '', '', 'checked')`, [p.id]);
@@ -164,7 +171,7 @@ export async function undo(productId: number): Promise<number> {
 export async function decide(productId: number, ok: boolean): Promise<number> {
   const rows = await db.q<{ id: number; field: Field; new_value: string }>(`SELECT id, field, new_value FROM ai_staff_edits WHERE product_id=$1 AND status='proposed'`, [productId]);
   for (const r of rows) {
-    if (ok && (FIELDS as readonly string[]).includes(r.field)) await db.q(`UPDATE products SET ${r.field}=$2, updated_at=now() WHERE id=$1`, [productId, r.new_value]);
+    if (ok && (FIELDS as readonly string[]).includes(r.field)) await db.q(`UPDATE products SET ${r.field}=$2, ${r.field === 'name_bn' ? 'name_bn_auto=false, ' : ''}updated_at=now() WHERE id=$1`, [productId, r.new_value]);
     await db.q(`UPDATE ai_staff_edits SET status=$2 WHERE id=$1`, [r.id, ok ? 'applied' : 'rejected']);
   }
   if (ok && rows.length) cache.clearAll();
