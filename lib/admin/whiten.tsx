@@ -132,6 +132,42 @@ async function saveToken(ctx: AdminCtx) {
   return back('✅ চাবি কাজ করছে ও সেভ হয়েছে। এখন থেকে ছবি পাঠালেই সাথে সাথে কাজ শুরু হবে (১–৩ মিনিট)।');
 }
 
+// ---------------------------------------------------------------- 📤 নিজের ছবি সাদা (owner, 2026-10-24)
+// The owner's own pictures (from the computer or the phone, not a product's): the same cloud AI makes them white,
+// each one can be downloaded. Nothing goes into the shop. Kept 7 days.
+const MINE_BASE = '/admin/products/whiten/mine';
+async function minePage(ctx: AdminCtx) {
+  const list = await cloud.listMine(ctx.user.id);
+  const fast = !!ctx.settings.whiten_gh_token;
+  const body = <><div className="title-row"><h1>📤 নিজের ছবি সাদা</h1></div>{ui.flash(ctx.flash)}
+    <section className="panel" data-mine="" data-wt-fast={fast ? '1' : undefined}>
+      <p className="small">আপনার কম্পিউটার বা ফোনের যেকোনো ছবি দিন — একটা বা একসাথে অনেকগুলো। "ব্যাকগ্রাউন্ড সাদা"-র একই AI অনলাইনে পণ্যটা কেটে একদম সাদা ব্যাকগ্রাউন্ডে বসায় (লোগো, ফোন নম্বর, আলাদা লেখা মুছে যায়)। তৈরি হলে প্রতিটা আলাদা করে ডাউনলোড করুন। দোকানে কিছু বদলায় না। ছবিগুলো {bn(cloud.MINE_DAYS)} দিন রাখা থাকে, তারপর নিজে থেকে মুছে যায়।</p>
+      <div className="wt-bar"><label className="btn">📁 ছবি বাছুন<input type="file" accept="image/*" multiple hidden data-mine-files="" /></label>{' '}<label className="check" title="পণ্যটা একটু উজ্জ্বল ও পরিষ্কার হয়"><input type="checkbox" data-mine-bright="" />{' '}<span>✨ উজ্জ্বল ও পরিষ্কার</span></label>{' '}<label className="check" title="পণ্য থেকে আলাদা লোগো, ফোন নম্বর, লেখা মুছে দেয়"><input type="checkbox" data-mine-clean="" defaultChecked />{' '}<span>আলাদা লোগো/লেখা মুছুন</span></label>{' '}{(list.some((x) => x.status === 'done') ? <button type="button" className="btn btn-ghost" data-mine-all="">⬇️ তৈরি সবগুলো ডাউনলোড</button> : null)}</div>
+      <p className="small" data-mine-status="" aria-live="polite">{(fast ? '' : 'ছবি তৈরি হতে কখনো ৩০ মিনিটও লাগতে পারে — "ব্যাকগ্রাউন্ড সাদা" পেজের নিচে "⚡ সাথে সাথে শুরু" চালু থাকলে ১–৩ মিনিট।')}</p>
+      {(list.length ? <div className="mine-grid">{jsxList(list.map((x) => <figure className="mine-pic" data-mine-job={attrValue(x.job)} data-mine-state={attrValue(x.status)}>
+        <div className="wt-pair"><a href={`/media/${attrValue(x.media_id)}`} target="_blank" rel="noopener"><img src={`/media/${attrValue(x.media_id)}/t`} alt="আগে" loading="lazy" /></a><span className="wt-after" data-mine-after=""></span></div>
+        <figcaption className="small"><span data-mine-msg="">{(x.status === 'failed' ? `⚠️ ${x.error || 'হয়নি'}` : x.status === 'queued' ? '☁️ অনলাইনে তৈরি হচ্ছে…' : '')}</span>{' '}<a className="btn btn-sm" data-mine-dl="" href={`/admin/api/whiten-mine/${attrValue(x.job)}/download`} hidden={x.status !== 'done' && x.status !== 'kept'}>⬇️ ডাউনলোড</a>{' '}<button type="button" className="link-btn small" data-mine-del={attrValue(x.media_id)}>🗑️ মুছুন</button></figcaption>
+      </figure>))}</div> : <p className="muted small">এখনো কোনো ছবি দেওয়া হয়নি।</p>)}
+    </section></>;
+  return ctx.page('নিজের ছবি সাদা', body, 'whiten-mine');
+}
+async function mineQueue(ctx: AdminCtx) {
+  const b = await ctx.body();
+  const ids = await cloud.claimMine((Array.isArray(b.ids) ? b.ids : []).map((x: unknown) => int(x)), ctx.user.id);
+  const jobs = await cloud.queue(ids, { bright: !!b.bright, clean: b.clean !== false && b.clean !== 0 }, ctx.user.id, 'mine');
+  const k = Object.keys(jobs).length ? await cloud.kick(ctx.settings) : { ok: false };
+  return ctx.json(200, { jobs, fast: k.ok });
+}
+async function mineDownload(ctx: AdminCtx, m: RouteMatch) {
+  try {
+    const r = await cloud.resultFile(int(m[1]), ctx.user.id);
+    return ctx.reply.answer(200, { 'Content-Type': 'image/jpeg', 'Content-Disposition': `attachment; filename="white-${r.media_id}.jpg"`, 'Content-Length': r.data.length, 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' }, r.data);
+  } catch (e) { return ctx.send(e instanceof cloud.CloudError ? 409 : 500, (e as Error).message, 'text/plain; charset=utf-8'); }
+}
+async function mineDelete(ctx: AdminCtx, m: RouteMatch) {
+  return ctx.json(200, { ok: await cloud.deleteMine(int(m[1]), ctx.user.id) });
+}
+
 export const routes = [
   { method: 'POST', path: '/admin/products/whiten/token', perm: 'owner', handler: saveToken },
   { method: 'POST', path: '/admin/api/whiten-cloud', perm: 'products', handler: cloudQueue },
@@ -140,4 +176,8 @@ export const routes = [
   { method: 'GET', path: BASE, perm: 'products', handler: page },
   { method: 'POST', path: /^\/admin\/api\/whiten\/(\d+)$/, perm: 'products', handler: keepApi },
   { method: 'POST', path: /^\/admin\/api\/whiten\/(\d+)\/undo$/, perm: 'products', handler: undoApi },
+  { method: 'GET', path: MINE_BASE, perm: 'products', handler: minePage },
+  { method: 'POST', path: '/admin/api/whiten-mine', perm: 'products', handler: mineQueue },
+  { method: 'GET', path: /^\/admin\/api\/whiten-mine\/(\d+)\/download$/, perm: 'products', handler: mineDownload },
+  { method: 'POST', path: /^\/admin\/api\/whiten-mine\/(\d+)\/delete$/, perm: 'products', handler: mineDelete },
 ];

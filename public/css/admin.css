@@ -1676,3 +1676,9 @@ html[data-admin-lang="en"] .side-drop[data-side-group="দোকানের ড
 .dup-card-acts form { margin: 0; }
 .dup-group-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 @media (max-width: 600px) { .dup-cmp { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; } .dup-card { padding: 8px; } .dup-card-acts .btn { width: 100%; } }
+
+/* 📤 নিজের ছবি সাদা */
+.mine-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; margin-top: 10px; }
+.mine-pic { margin: 0; background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 8px; display: flex; flex-direction: column; gap: 6px; }
+.mine-pic figcaption { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+@media (max-width: 600px) { .mine-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; } }

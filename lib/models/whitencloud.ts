@@ -53,10 +53,12 @@ async function db_log(ok: boolean, msg: string) {
 export type CloudOpts = { bright?: boolean; clean?: boolean };
 
 /** Queue pictures (product pictures only; one waiting job per picture). Returns job ids by media id. */
-export async function queue(mediaIds: number[], opts: CloudOpts, userId?: number): Promise<Record<number, number>> {
+export async function queue(mediaIds: number[], opts: CloudOpts, userId?: number, kind: 'product' | 'mine' = 'product'): Promise<Record<number, number>> {
   const ids = [...new Set(mediaIds.map((x) => int(x)).filter((x) => x > 0))].slice(0, 60);
   if (!ids.length) return {};
-  const ok = await q<{ id: number }>(`SELECT id FROM media WHERE id = ANY($1::int[]) AND owner_type='product'`, [ids]);
+  const ok = kind === 'mine'
+    ? await q<{ id: number }>(`SELECT id FROM media WHERE id = ANY($1::int[]) AND owner_type=$2 AND owner_id=$3`, [ids, MINE, int(userId)])
+    : await q<{ id: number }>(`SELECT id FROM media WHERE id = ANY($1::int[]) AND owner_type='product'`, [ids]);
   const out: Record<number, number> = {};
   for (const { id } of ok) {
     const old = await one<{ id: number }>(`SELECT id FROM whiten_jobs WHERE media_id=$1 AND status='queued' AND created_at > now() - interval '2 days'`, [id]);
@@ -109,6 +111,38 @@ export async function status(jobIds: number[]): Promise<{ id: number; media_id: 
 }
 
 export class CloudError extends Error {}
+
+// 📤 নিজের ছবি সাদা (owner, 2026-10-24): any picture of the owner's own (not a product's) made white the same way,
+// then downloaded. Kept 7 days, then removed by itself.
+export const MINE = 'whiten_mine';
+export const MINE_DAYS = 7;
+/** claim freshly uploaded pictures as this person's own (only pictures nobody owns yet) */
+export async function claimMine(mediaIds: number[], userId: number): Promise<number[]> {
+  const ids = [...new Set(mediaIds.map((x) => int(x)).filter((x) => x > 0))].slice(0, 60);
+  if (!ids.length) return [];
+  return (await q<{ id: number }>(`UPDATE media SET owner_type=$2, owner_id=$3 WHERE id = ANY($1::int[]) AND owner_type IS NULL RETURNING id`, [ids, MINE, int(userId)])).map((r) => r.id);
+}
+/** this person's own pictures and where each one is (newest first) */
+export async function listMine(userId: number): Promise<{ job: number; media_id: number; status: string; created_at: Date; error: string }[]> {
+  await q(`DELETE FROM whiten_jobs WHERE media_id IN (SELECT id FROM media WHERE owner_type=$1 AND created_at < now() - ($2 || ' days')::interval)`, [MINE, String(MINE_DAYS)]);
+  await q(`DELETE FROM media WHERE owner_type=$1 AND created_at < now() - ($2 || ' days')::interval`, [MINE, String(MINE_DAYS)]);
+  return q(`SELECT DISTINCT ON (m.id) j.id AS job, m.id AS media_id, j.status, m.created_at, j.error FROM media m JOIN whiten_jobs j ON j.media_id=m.id
+    WHERE m.owner_type=$1 AND m.owner_id=$2 ORDER BY m.id DESC, j.id DESC LIMIT 200`, [MINE, int(userId)]);
+}
+/** remove one of this person's own pictures */
+export async function deleteMine(mediaId: number, userId: number): Promise<boolean> {
+  await q('DELETE FROM whiten_jobs WHERE media_id=$1 AND EXISTS (SELECT 1 FROM media WHERE id=$1 AND owner_type=$2 AND owner_id=$3)', [int(mediaId), MINE, int(userId)]);
+  return !!(await one('DELETE FROM media WHERE id=$1 AND owner_type=$2 AND owner_id=$3 RETURNING id', [int(mediaId), MINE, int(userId)]));
+}
+/** the finished white picture of one job (fetched by the shop itself from the repository) */
+export async function resultFile(jobId: number, userId?: number): Promise<{ data: Buffer; media_id: number }> {
+  const j = await one<WhitenJobsRow>(userId === undefined ? 'SELECT * FROM whiten_jobs WHERE id=$1'
+    : `SELECT j.* FROM whiten_jobs j JOIN media m ON m.id=j.media_id WHERE j.id=$1 AND m.owner_type='${MINE}' AND m.owner_id=$2`, userId === undefined ? [int(jobId)] : [int(jobId), int(userId)]);
+  if (!j || (j.status !== 'done' && j.status !== 'kept')) throw new CloudError('ছবিটা এখনো তৈরি হয়নি।');
+  const r = await safeFetch(RAW(`results/${j.token}.jpg`), { timeoutMs: 15000, maxBytes: 4 * 1024 * 1024 });
+  if (!r.ok || security.imageKind(r.body) !== 'image/jpeg') throw new CloudError('তৈরি ছবিটা আনা যায়নি — একটু পরে আবার চেষ্টা করুন।');
+  return { data: r.body, media_id: j.media_id };
+}
 /** Put a finished picture into its product (the original is kept; lib/models/whiten.ts). Returns the new media id. */
 export async function keep(jobId: number): Promise<{ id: number; from: number }> {
   const j = await one<WhitenJobsRow>('SELECT * FROM whiten_jobs WHERE id=$1', [int(jobId)]);

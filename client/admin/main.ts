@@ -11,6 +11,7 @@ import { startVariantBuilder } from './vbuilder.js';
 import { startWhiten } from './whiten.js';
 import { startRecognize } from './recognize.js';
 import { startCards } from './cards.js';
+import { startWhitenMine } from './whitenmine.js';
 
 whenReady(() => {
   window.__smAdminReady = true; // (tools/parity/browser.mts checks the admin's script started)
@@ -24,4 +25,5 @@ whenReady(() => {
   startWhiten();
   startRecognize();
   startCards();
+  startWhitenMine();
 });
