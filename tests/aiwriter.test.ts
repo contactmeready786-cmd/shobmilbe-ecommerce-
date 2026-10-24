@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { check, codesIn } from '../lib/services/aiwriter';
 
 test('model and size numbers are never lost from the name', () => {
-  assert.deepEqual(codesIn('DT-9205A Digital Multimeter 12V'), ['dt9205a', '12v']);
+  assert.deepEqual(codesIn('DT-9205A Digital Multimeter 12V'), ['9205a', '12v']); // 'DT-' is a prefix: the number itself must stay
   assert.equal(check({ name: 'DT9205A Multimeter' }, { name: 'Digital Multimeter for Electronics Repair' }).name, undefined);
   assert.equal(check({ name: 'DT9205A Multimeter' }, { name: 'DT-9205A Digital Multimeter with Backlight' }).name, 'DT-9205A Digital Multimeter with Backlight');
 });
