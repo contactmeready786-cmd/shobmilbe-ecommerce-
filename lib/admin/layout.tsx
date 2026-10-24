@@ -75,7 +75,6 @@ const TABS: Record<string, Tab[]> = {
   ],
   system: [
     ['/admin/health', 'সার্ভার ও ডাটাবেস', 'owner', 'health', '🩺'],
-    ['/admin/ai-staff', 'AI স্টাফ', 'owner', 'ai-staff', '🤖'],
     ['/admin/backup', 'ব্যাকআপ ও রিস্টোর', 'owner', 'backup', '💾'],
   ],
   slides: [
@@ -177,6 +176,7 @@ const MENU: { title: string; icon?: string; items: MenuItem[] }[] = [
     tabSet('domain', 'ডোমেইন ও DNS', '🌐'),
   ] },
   { title: 'স্টাফ ও নিরাপত্তা', icon: '🛡️', items: [
+    ['/admin/ai-staff', 'AI স্টাফ', 'owner', 'ai-staff', '🤖'],
     ['/admin/staff', 'স্টাফ ও অনুমতি', 'owner', 'staff', '🧑‍💼'],
     ['/admin/security', 'নিরাপত্তার অবস্থা', 'owner', 'security', '🛡️'],
     tabSet('login', 'লগইন ও ডিভাইস', '🔐'),
