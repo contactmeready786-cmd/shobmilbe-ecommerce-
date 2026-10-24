@@ -31,6 +31,8 @@ type Result = { data: string; width: number; height: number; url: string };
 
 let ort: Promise<Ort> | null = null;
 let bestFails = false;
+/** AIs this computer's graphics chip couldn't run: WebAssembly for them from now on */
+const noGpuFor = new Set<ModelKey>((['best', 'fast'] as ModelKey[]).filter((k) => { try { return localStorage.getItem('sm_wt_nogpu_' + k) === '1'; } catch { return false; } }));
 let ready: { key: ModelKey; p: Promise<{ session: Session; how: string }> } | null = null;
 
 async function modelBytes(base: string, say: (t: string) => void): Promise<Uint8Array> {
@@ -81,7 +83,7 @@ function load(key: ModelKey, say: (t: string) => void) {
     if (key === 'best' && !gpu) throw new NoGpu();
     const bytes = await modelBytes(MODELS[key].base, say);
     say('⏳ AI চালু হচ্ছে…');
-    if (gpu) {
+    if (gpu && !noGpuFor.has(key)) {
       try { return { session: await o.InferenceSession.create(bytes, { executionProviders: ['webgpu'] }), how: 'WebGPU (দ্রুত)' }; } catch (e) {
         if (key === 'best') throw new NoGpu(String(e));
       }
@@ -126,7 +128,7 @@ function bigPieces(m: ArrayLike<number>): Uint8Array {
 
 /** The AI's mask (0…1, 1024 × 1024) for the picture on canvas `src`. */
 async function mask(src: HTMLCanvasElement, key: ModelKey, say: (t: string) => void): Promise<Float32Array> {
-  const { session } = await load(key, say);
+  const { session, how } = await load(key, say);
   const o = await ort!;
   const inp = canvas(S, S); const ic = ctx2d(inp);
   ic.imageSmoothingQuality = 'high';
@@ -143,7 +145,22 @@ async function mask(src: HTMLCanvasElement, key: ModelKey, say: (t: string) => v
     for (let i = 0; i < d.length; i += 4) max = Math.max(max, d[i], d[i + 1], d[i + 2]);
     for (let i = 0, p = 0; p < S * S; i += 4, p++) for (let c = 0; c < 3; c++) f[c * S * S + p] = d[i + c] / max - 0.5;
   }
-  const out = await session.run({ [session.inputNames[0]]: new o.Tensor('float32', f, [1, 3, S, S]) });
+  let out: Record<string, Tensor>;
+  try {
+    out = await session.run({ [session.inputNames[0]]: new o.Tensor('float32', f, [1, 3, S, S]) });
+  } catch (e) {
+    // some graphics chips can't run every step of an AI (owner's computer, 2026-10-24: "using ceil() in shape
+    // computation is not yet supported for MaxPool") — then this AI runs in WebAssembly from now on, and this
+    // picture again right away
+    if (!how.startsWith('WebGPU')) throw e;
+    if (key === 'best') throw new NoGpu(String(e));
+    noGpuFor.add(key);
+    try { localStorage.setItem('sm_wt_nogpu_' + key, '1'); } catch { /* remembered for this page only */ }
+    ready = null;
+    say('⏳ গ্রাফিক্স চিপে চলল না — সাধারণভাবে চালানো হচ্ছে (একটু ধীর)…');
+    const again = await load(key, say);
+    out = await again.session.run({ [again.session.inputNames[0]]: new o.Tensor('float32', f, [1, 3, S, S]) });
+  }
   const raw = out[session.outputNames[0]].data; // (ISNet gives several masks: the first is the finished one; BiRefNet gives one)
   const m = new Float32Array(S * S);
   let lo = Infinity, hi = -Infinity;
