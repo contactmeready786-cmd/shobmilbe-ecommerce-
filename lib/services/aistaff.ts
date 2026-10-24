@@ -196,7 +196,7 @@ export function asText(r: Report, settings: Settings): string {
 }
 
 // ---------------------------------------------------------------- 🧠 Gemini (optional, the owner's own free key)
-const GEMINI = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
+const GEMINI = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent';
 const PERSONA = 'তুমি "সবমিলবে" নামের একটা বাংলাদেশি অনলাইন ইলেকট্রনিক্স দোকানের অভিজ্ঞ, বিশ্বস্ত স্টাফ। মালিকের সাথে আন্তরিক, সম্মান দিয়ে, সহজ বাংলায় কথা বলো — যেমন একজন মানুষ স্টাফ বলে। ' +
   'শুধু দেওয়া তথ্যের উপর ভিত্তি করে কথা বলো; যা জানো না তা বানিয়ে বলবে না, বরং বলবে "এটা আমি দেখতে পাচ্ছি না"। তুমি নিজে দোকানে কিছু বদলাতে পারো না — কী করতে হবে তা ধাপে ধাপে বলো।';
 export async function gemini(key: string, prompt: string, timeoutMs = 25000): Promise<string> {

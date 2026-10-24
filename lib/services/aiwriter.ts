@@ -87,7 +87,7 @@ async function draftFor(key: string, p: P): Promise<Draft> {
 }
 async function geminiSearch(key: string, text: string): Promise<string> {
   try {
-    const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent', {
+    const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent', {
       method: 'POST', signal: AbortSignal.timeout(45000), headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
       body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text }] }], tools: [{ google_search: {} }], generationConfig: { temperature: 0.4, maxOutputTokens: 4096 } }),
     });
