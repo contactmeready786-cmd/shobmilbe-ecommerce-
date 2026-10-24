@@ -55,7 +55,8 @@ test('a 4-digit code goes by SMS; the right code gives a pass the order accepts'
   assert.ok(sent[0].text.includes(base.store_name || ''), 'the SMS names the shop');
   // stored only as a hash, never the code itself
   const row = await db.one('SELECT code_hash FROM checkout_otps WHERE phone=$1 ORDER BY id DESC LIMIT 1', [phone]);
-  assert.ok(row && !String(row.code_hash).includes(code) && String(row.code_hash).length === 64);
+  // (a 64-letter hash can contain 4 digits in a row by chance — about 1 run in 1,000 — so only its shape is checked)
+  assert.ok(row && String(row.code_hash) !== code && /^[0-9a-f]{64}$/.test(String(row.code_hash)));
 
   const v = await OTP.verifyCode(S(), phone, code);
   assert.equal(v.phone, phone);
