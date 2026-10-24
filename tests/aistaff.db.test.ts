@@ -70,17 +70,17 @@ test('✍️ the writer puts in the new texts, writes every change down, and ↩
   assert.equal(back!.seo_title, '');
 });
 
-test('✍️ written from the AI\'s memory alone (no Google Search): waits for the owner\'s ✅', { skip }, async () => {
+test('✍️ written from the AI\'s memory alone (no Google Search): still put in, and marked as such', { skip }, async () => {
   const writer = await import('../lib/services/aiwriter');
   const id = (await db.one<{ id: number }>("INSERT INTO products(name, slug, price, stock, active) VALUES('LM2596 buck module', $1, 80, 9, true) RETURNING id", [`aw2-${Date.now()}`]))!.id;
   const answer = { seo_title: 'LM2596 Buck Converter Module Price in BD' };
   const real = globalThis.fetch;
   globalThis.fetch = (async () => new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: JSON.stringify(answer) }] } }] }), { status: 200 })) as typeof fetch;
+  let via = '';
   try {
     const s = await db.getSettings();
-    await writer.improve({ ...s, ai_gemini_key: 'k', ai_write_auto: '1' }, { ids: [id] });
+    via = (await writer.improve({ ...s, ai_gemini_key: 'k', ai_write_auto: '1' }, { ids: [id] })).via;
   } finally { globalThis.fetch = real; }
-  assert.equal((await db.one<{ seo_title: string }>('SELECT seo_title FROM products WHERE id=$1', [id]))!.seo_title, '');
-  assert.equal(await writer.decide(id, true), 1);
+  assert.match(via, /নিজের জানা/);
   assert.equal((await db.one<{ seo_title: string }>('SELECT seo_title FROM products WHERE id=$1', [id]))!.seo_title, answer.seo_title);
 });

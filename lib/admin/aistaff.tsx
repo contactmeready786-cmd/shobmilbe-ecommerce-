@@ -130,8 +130,8 @@ async function writeNow(ctx: AdminCtx) {
   let msg: string;
   try {
     const r = await writer.improve(ctx.settings, { limit: 1 });
-    const placed = ctx.settings.ai_write_auto !== '0' && r.via.startsWith('🔎');
-    msg = r.errors.length ? `হয়নি: ${r.errors[0]}` : r.products ? `✅ ${r.fields}টি লেখা নতুন করে ${placed ? 'বসানো হয়েছে' : 'তৈরি — নিচে দেখে ✅ দিন'} · ${r.via}${r.via.startsWith('🔎') ? '' : ' (গুগলে খোঁজা যায়নি, তাই নিজে বসায়নি)'}` : 'এখন নতুন করে লেখার মতো পণ্য পাওয়া যায়নি।';
+    const placed = ctx.settings.ai_write_auto !== '0';
+    msg = r.errors.length ? `হয়নি: ${r.errors[0]}` : r.products ? `✅ ${r.fields}টি লেখা নতুন করে ${placed ? 'বসানো হয়েছে' : 'তৈরি — নিচে দেখে ✅ দিন'} · ${r.via}` : 'এখন নতুন করে লেখার মতো পণ্য পাওয়া যায়নি।';
   } catch (e) { msg = (e as Error).message; }
   return ctx.redirect(`${BASE}?info=${encodeURIComponent(msg)}#writer`);
 }

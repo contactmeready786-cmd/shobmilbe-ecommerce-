@@ -119,8 +119,8 @@ const load = (id: number) => db.one<P>(`SELECT p.id, p.name, p.name_bn, p.brand,
 
 /** write the changes down, then make them (or leave them waiting for the owner) */
 async function keep(p: P, d: Draft, applyIfAuto: boolean, via: string): Promise<number> {
-  // put in by itself only what was looked up on the internet; from the AI's memory alone it waits for the owner's ✅
-  const apply = applyIfAuto && via.startsWith('🔎');
+  // owner, 2026-10-24: put it in by itself either way ("no waiting for my ✅") — where it came from is shown beside it
+  const apply = applyIfAuto;
   let n = 0;
   for (const f of FIELDS) {
     const v = d[f];
