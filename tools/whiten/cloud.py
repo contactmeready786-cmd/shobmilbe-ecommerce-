@@ -50,8 +50,10 @@ def mask_of(sess, img):
 
 
 def clean_pieces(m):
-    """Keep the product: drop small separate pieces, and pieces that look like a shop's logo / banner / text line —
-    smaller than the product and sitting in a corner / along the top or bottom edge, or long and thin."""
+    """Keep the product: drop small stray pieces, and pieces that look like a shop's logo / phone-number badge / banner /
+    text line — wholly in a corner or along the top or bottom edge, or long and thin — whenever a piece in the middle
+    of the picture (the product) is there. (2026-10-24: a yellow phone badge stayed on 11 pictures because the product
+    was small and the badge nearly as big, so size alone didn't tell them apart.)"""
     lab, n = ndimage.label(m > 0.1)
     if n <= 1:
         return m
@@ -59,19 +61,32 @@ def clean_pieces(m):
     area = ndimage.sum(np.ones_like(m), lab, idx)
     big = area.max()
     objs = ndimage.find_objects(lab)
-    keep = np.zeros(n + 1, dtype=bool)
-    for i, (a, sl) in enumerate(zip(area, objs), start=1):
-        if a < big * 0.12:
-            continue  # small stray piece
+    side = []
+    for a, sl in zip(area, objs):
         ys, xs = sl
         h, w = ys.stop - ys.start, xs.stop - xs.start
-        edge = ys.stop <= S * 0.24 or ys.start >= S * 0.76  # wholly in the top or bottom band
-        corner = (xs.stop <= S * 0.3 or xs.start >= S * 0.7) and (ys.stop <= S * 0.35 or ys.start >= S * 0.65)
+        edge = ys.stop <= S * 0.26 or ys.start >= S * 0.74  # wholly in the top or bottom band
+        corner = (xs.stop <= S * 0.32 or xs.start >= S * 0.68) and (ys.stop <= S * 0.4 or ys.start >= S * 0.6)
         thin = w > h * 5 or h > w * 5
-        if a < big * 0.45 and (edge or corner or thin):
-            continue  # a logo / banner / text line, not the product
-        keep[i] = True
-    keep[np.argmax(area) + 1] = True  # the biggest piece is always the product
+        side.append(edge or corner or thin)
+    side = np.array(side)
+    middle = [i for i in range(n) if not side[i] and area[i] >= big * 0.03]
+    keep = np.zeros(n + 1, dtype=bool)
+    if middle:
+        prod = max(area[i] for i in middle)
+        for i in range(n):
+            if area[i] < max(prod, big) * 0.03:
+                continue  # dust
+            if side[i] and area[i] < prod * 2.5:
+                continue  # a logo / badge / banner / text line beside the product
+            if not side[i] and area[i] < prod * 0.08:
+                continue  # a small stray piece
+            keep[i + 1] = True
+    else:  # nothing in the middle: the old careful rule
+        for i in range(n):
+            if area[i] >= big * 0.45 or (area[i] >= big * 0.12 and not side[i]):
+                keep[i + 1] = True
+        keep[np.argmax(area) + 1] = True
     return np.where(keep[lab], m, 0).astype(np.float32)
 
 
@@ -142,6 +157,7 @@ def main():
     ap.add_argument('--out', required=True)
     ap.add_argument('--vendor', default='public/vendor/birefnet')
     ap.add_argument('--minutes', type=float, default=9)
+    ap.add_argument('--redo', action='store_true', help='clean up the pictures already made again (the newest clean-up rule), in place')
     ap.add_argument('--try', dest='try_dir', help='test: make every picture in this folder white into --out (no shop, no git)')
     args = ap.parse_args()
     if args.try_dir:
@@ -156,6 +172,21 @@ def main():
                     print(f, 'bright' if bright else '', f'{time.time() - t0:.1f}s')
                 except Exception as e:
                     print(f, 'failed:', e)
+        return 0
+    if args.redo:
+        idx_path = os.path.join(args.out, 'results', 'index.json')
+        index = json.load(open(idx_path))
+        sess = load_model(args.vendor)
+        for tok, v in index.items():
+            f = os.path.join(args.out, 'results', tok + '.jpg')
+            if not (v.get('ok') and os.path.exists(f)):
+                continue
+            try:
+                open(f, 'wb').write(whiten(sess, open(f, 'rb').read(), {'clean': True}))  # never brightened twice
+                print('redone', tok, flush=True)
+            except Exception as e:
+                print(f'::warning::{tok}: {e}', flush=True)
+        publish(args.out, index, idx_path, 'whiten: cleaned again')
         return 0
     os.makedirs(os.path.join(args.out, 'results'), exist_ok=True)
     idx_path = os.path.join(args.out, 'results', 'index.json')
