@@ -166,30 +166,43 @@ def main():
         try:
             jobs = json.loads(fetch(args.shop.rstrip('/') + '/api/whiten-jobs').decode()).get('jobs', [])
         except Exception as e:
-            print('jobs list failed:', e)
+            print('jobs list failed:', e, flush=True)
             jobs = []
         jobs = [j for j in jobs if j['token'] not in index]
         if not jobs:
-            time.sleep(20)
+            time.sleep(15)
             continue
         if sess is None:
+            t0 = time.time()
             sess = load_model(args.vendor)
+            print(f'AI ready in {time.time() - t0:.1f}s', flush=True)
         for j in jobs:
             t0 = time.time()
             try:
                 jpg = whiten(sess, fetch(j['src']), j.get('opts') or {})
                 open(os.path.join(args.out, 'results', j['token'] + '.jpg'), 'wb').write(jpg)
                 index[j['token']] = {'ok': True}
-                print(f"job {j['id']}: done in {time.time() - t0:.1f}s ({len(jpg) // 1024} KB)")
+                print(f"job {j['id']}: done in {time.time() - t0:.1f}s ({len(jpg) // 1024} KB)", flush=True)
             except Exception as e:
                 index[j['token']] = {'ok': False, 'error': str(e)[:200]}
-                print(f"job {j['id']}: failed: {e}")
-        json.dump(index, open(idx_path, 'w'))
-        git(args.out, 'add', '-A')
-        git(args.out, '-c', 'user.name=whiten-cloud', '-c', 'user.email=actions@github.com', 'commit', '-qm', f'whiten: {len(jobs)} picture(s)')
-        git(args.out, 'push', '-q', 'origin', 'HEAD:whiten-results')
-        stop_at = max(stop_at, time.time() + 4 * 60)  # more may come: keep watching a little longer
+                print(f"::warning::job {j['id']}: failed: {e}", flush=True)
+            # each picture goes out as soon as it is ready, so the owner sees them one by one
+            publish(args.out, index, idx_path, f"whiten: job {j['id']}")
+        stop_at = max(stop_at, time.time() + 6 * 60)  # more may come: keep watching a little longer
+    return 0
 
+
+def publish(out, index, idx_path, msg):
+    json.dump(index, open(idx_path, 'w'))
+    git(out, 'add', '-A')
+    git(out, 'commit', '-qm', msg)
+    for attempt in range(4):
+        try:
+            git(out, 'push', '-q', 'origin', 'HEAD:whiten-results')
+            return
+        except subprocess.CalledProcessError:
+            time.sleep(3 + attempt * 3)
+    raise RuntimeError('could not save the results')
 
 if __name__ == '__main__':
     sys.exit(main())
