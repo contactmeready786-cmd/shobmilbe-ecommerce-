@@ -1,9 +1,26 @@
-name: whiten-check
+name: whiten-redo
 on: push
+permissions:
+  contents: write
 jobs:
   c:
     runs-on: ubuntu-24.04
     steps:
-      - run: |
-          code=$(curl -sS -o out.txt -w '%{http_code}' -A shobmilbe-whiten-cloud https://shobmilbe.com/api/whiten-jobs)
-          echo "::notice::http $code len $(wc -c < out.txt) jobs $(python3 -c 'import json;print(len(json.load(open("out.txt")).get("jobs",[])))' 2>&1) head $(head -c 300 out.txt | tr -d '\n' | sed 's/token":"[^"]*/token":"x/g')"
+      - uses: actions/checkout@v7
+        with:
+          ref: 059eccf558e04e0649430483f7d331e9eb383789
+          sparse-checkout: |
+            tools/whiten
+            public/vendor/birefnet
+      - uses: actions/setup-python@v6
+        with: { python-version: '3.12', cache: pip, cache-dependency-path: tools/whiten/requirements.txt }
+      - env:
+          TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -eu
+          pip install -q -r tools/whiten/requirements.txt
+          git clone -q --depth 1 --branch whiten-results "https://x-access-token:${TOKEN}@github.com/${REPO}.git" /tmp/res
+          git -C /tmp/res config user.name whiten-cloud && git -C /tmp/res config user.email actions@github.com
+          python tools/whiten/cloud.py --shop https://shobmilbe.com --out /tmp/res --redo
+          echo "::notice::redo done"
