@@ -30,3 +30,12 @@ test('⚡ fast start: nothing without the owner\'s key; with it, one call to Git
     assert.equal(calls[0].auth, 'Bearer github_pat_TESTTESTTESTTESTTESTTEST');
   } finally { globalThis.fetch = real; }
 });
+
+test('picture descriptions are copied in only on the live shop', async () => {
+  const { liveHost } = await import('../lib/models/recognize');
+  assert.ok(liveHost('shobmilbe.com'));
+  assert.ok(liveHost('www.shobmilbe.com'));
+  assert.ok(!liveHost('localhost:3200'));
+  assert.ok(!liveHost('shobmilbe-ecommerce-git-x.vercel.app'));
+  assert.ok(!liveHost('evil-shobmilbe.com'));
+});

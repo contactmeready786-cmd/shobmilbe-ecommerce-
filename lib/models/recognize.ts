@@ -39,27 +39,33 @@ export async function cloudWaiting(siteUrl: string, limit = 300): Promise<{ id: 
   return rows.map((r) => ({ id: r.id, src: r.ik_url || `${base}/media/${r.id}?raw=1` }));
 }
 let lastImport = 0;
+/** where the last copy-in stands (shown on the duplicates page; empty = fine) */
+export let lastImportNote = '';
+/** Is this the live shop? (the ids in the cloud's file are the live shop's pictures — a test copy has others) */
+export const liveHost = (host: string) => /^(www\.)?shobmilbe\.com$/i.test(String(host || '').split(':')[0]);
 /** copy the cloud AI's finished descriptions in (at most every 2 minutes per server unless forced); returns how many */
-export async function importCloud(rawUrl: (path: string) => string, force = false): Promise<number> {
-  // only the live shop: the ids in the file are the live shop's pictures (a preview / test copy has other pictures)
-  if (process.env.VERCEL_ENV !== 'production' && process.env.SM_PRODUCTION !== '1') return 0;
+export async function importCloud(rawUrl: (path: string) => string, host: string, force = false): Promise<number> {
+  if (!liveHost(host)) return 0;
   if (!force && Date.now() - lastImport < 120_000) return 0;
   lastImport = Date.now();
   let data: Record<string, string>;
   try {
     const r = await fetch(rawUrl(`results/emb.json?t=${Date.now()}`), { signal: AbortSignal.timeout(8000), cache: 'no-store' });
-    if (!r.ok) return 0;
+    if (!r.ok) { lastImportNote = `GitHub ${r.status}`; return 0; }
     data = (await r.json()) as Record<string, string>;
-  } catch { return 0; }
-  const ids: number[] = [], vals: Buffer[] = [];
+  } catch (e) { lastImportNote = (e as Error).message; return 0; }
+  const ids: number[] = [], vals: string[] = [];
   for (const [k, v] of Object.entries(data || {})) {
     const id = int(k);
     // '' = the cloud couldn't read that picture: 384 zeros, so it is never asked again and never matches anything
     const b = v === '' ? Buffer.alloc(EMB) : embFrom(v);
-    if (id > 0 && b) { ids.push(id); vals.push(b); }
+    if (id > 0 && b) { ids.push(id); vals.push(b.toString('base64')); }
   }
   if (!ids.length) return 0;
-  const done = await q<{ id: number }>(`UPDATE media SET emb = v.emb FROM (SELECT unnest($1::int[]) AS id, unnest($2::bytea[]) AS emb) v
-    WHERE media.id = v.id AND media.emb IS NULL AND media.owner_type='product' RETURNING media.id`, [ids, vals]);
-  return done.length;
+  try {
+    const done = await q<{ id: number }>(`UPDATE media SET emb = decode(v.emb, 'base64') FROM (SELECT unnest($1::int[]) AS id, unnest($2::text[]) AS emb) v
+      WHERE media.id = v.id AND media.emb IS NULL AND media.owner_type='product' RETURNING media.id`, [ids, vals]);
+    lastImportNote = '';
+    return done.length;
+  } catch (e) { lastImportNote = (e as Error).message; return 0; }
 }
