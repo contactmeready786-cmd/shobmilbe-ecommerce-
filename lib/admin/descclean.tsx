@@ -12,6 +12,7 @@ import type { AdminCtx } from '../types';
 
 const BASE = '/admin/products/clean-desc';
 const PER_PAGE = 20;
+const KEEP_DAYS = 7; // how long the list (and with it the way back) is kept
 const HOST = "split_part(p.import_ref, '#', 1)";
 const FILTERS: Record<string, string> = { todo: 'পরিষ্কার করার আছে', all: 'সব পণ্য' };
 
@@ -66,6 +67,12 @@ async function handle(ctx: AdminCtx) {
     const b = await ctx.body<'host' | 'f'>();
     const host = list.some((h) => h.host === b.host) ? String(b.host) : '';
     const f = ifKey(FILTERS, b.f, 'todo');
+    // 🧹 the list itself: cleared by the owner (the descriptions stay as they are now; only the way back goes)
+    if (b.action === 'clear_log') {
+      const r = await db.q('DELETE FROM desc_clean_log RETURNING id');
+      await ctx.log('product_bulk', 'product', null, `বিবরণ পরিষ্কারের তালিকা মুছে ফেলা হলো (${r.length}টি)`);
+      return ctx.redirect(back(host, f, `&info=${encodeURIComponent(`🧹 তালিকা খালি করা হয়েছে (${bn(r.length)}টি)। বিবরণগুলো যেমন আছে তেমনই থাকবে।`)}#log`));
+    }
     if (b.action === 'undo') {
       const ok = await undo(ctx, int(b.log));
       return ctx.redirect(back(host, f, `&info=${encodeURIComponent(ok ? '↩️ আগের বিবরণ ফেরত এসেছে।' : 'এটা আগেই ফেরত আনা হয়েছে।')}#log`));
@@ -86,6 +93,8 @@ async function handle(ctx: AdminCtx) {
   const shown = f === 'todo' ? todo : all;
   const pages = Math.max(1, Math.ceil(shown.length / PER_PAGE));
   const slice = shown.slice((pg - 1) * PER_PAGE, pg * PER_PAGE);
+  // the list keeps a week: older entries go by themselves (after that a clean-up can no longer be undone)
+  await db.q(`DELETE FROM desc_clean_log WHERE created_at < now() - interval '${KEEP_DAYS} days'`);
   const log = await db.q<{ id: number; product_id: number; name: string; removed: number; created_at: Date; undone: boolean }>(`SELECT l.id, l.product_id, p.name, l.removed, l.created_at, l.undone
     FROM desc_clean_log l JOIN products p ON p.id=l.product_id ORDER BY l.id DESC LIMIT 40`);
   const info = ctx.query.get('info');
@@ -106,7 +115,7 @@ async function handle(ctx: AdminCtx) {
         {(slice.some((x) => x.c.d.changed || x.c.s.changed) ? <div className="form-actions"><button className="btn">🧹 টিক দেওয়াগুলো পরিষ্কার করুন</button></div> : null)}
       </form> : <p className="muted">{(f === 'todo' ? '🎉 এই দোকানের সব পণ্যের বিবরণ পরিষ্কার।' : 'কোনো পণ্য নেই।')}</p>)}
       {(pages > 1 ? <nav className="pager">{(pg > 1 ? <a className="btn btn-sm btn-ghost" href={attrValue(q({ page: String(pg - 1) }))}>← আগের</a> : null)}{' '}<span className="small">পেজ {bn(pg)} / {bn(pages)}</span>{' '}{(pg < pages ? <a className="btn btn-sm" href={attrValue(q({ page: String(pg + 1) }))}>পরের →</a> : null)}</nav> : null)}</> : null)}
-    <section className="panel table-wrap" id="log"><h2>🧾 পরিষ্কারের তালিকা</h2>{(log.length ? <table className="table compact"><thead><tr><th>সময়</th><th>পণ্য</th><th className="num">মোছা অংশ</th><th></th></tr></thead><tbody>{jsxList(log.map((l) => <tr className={l.undone ? 'muted' : undefined}><td className="small nowrap">{fmtDate(l.created_at)}</td><td><a href={`/admin/products/${attrValue(l.product_id)}`}><Val v={l.name} /></a></td><td className="num">{bn(l.removed)}</td><td>{(l.undone ? <span className="small">↩️ ফেরত আনা হয়েছে</span> : <form method="post" action={attrValue(BASE)}><input type="hidden" name="action" defaultValue="undo" /><input type="hidden" name="log" defaultValue={attrValue(l.id)} /><input type="hidden" name="host" defaultValue={attrValue(host)} /><input type="hidden" name="f" defaultValue={attrValue(f)} /><button className="btn btn-sm btn-ghost">↩️ ফেরত</button></form>)}</td></tr>))}</tbody></table> : <p className="muted small">এখনো কিছু পরিষ্কার করা হয়নি।</p>)}</section>
+    <section className="panel table-wrap" id="log"><div className="title-row"><h2>🧾 পরিষ্কারের তালিকা</h2>{(log.length ? <form method="post" action={attrValue(BASE)} data-confirm="পুরো তালিকা মুছে ফেলবেন? বিবরণগুলো যেমন আছে তেমনই থাকবে — শুধু আর ফেরত আনা যাবে না."><input type="hidden" name="action" defaultValue="clear_log" /><input type="hidden" name="host" defaultValue={attrValue(host)} /><input type="hidden" name="f" defaultValue={attrValue(f)} /><button className="btn btn-sm btn-ghost">🧹 তালিকা মুছে ফেলুন</button></form> : null)}</div><p className="small muted">তালিকা {bn(KEEP_DAYS)} দিন রাখা থাকে, তারপর নিজে থেকেই মুছে যায় — এই সময়ের মধ্যে যেকোনোটা "↩️ ফেরত" দিয়ে আগের মতো করা যায়। চাইলে এখনই মুছে ফেলতে পারেন।</p>{(log.length ? <table className="table compact"><thead><tr><th>সময়</th><th>পণ্য</th><th className="num">মোছা অংশ</th><th></th></tr></thead><tbody>{jsxList(log.map((l) => <tr className={l.undone ? 'muted' : undefined}><td className="small nowrap">{fmtDate(l.created_at)}</td><td><a href={`/admin/products/${attrValue(l.product_id)}`}><Val v={l.name} /></a></td><td className="num">{bn(l.removed)}</td><td>{(l.undone ? <span className="small">↩️ ফেরত আনা হয়েছে</span> : <form method="post" action={attrValue(BASE)}><input type="hidden" name="action" defaultValue="undo" /><input type="hidden" name="log" defaultValue={attrValue(l.id)} /><input type="hidden" name="host" defaultValue={attrValue(host)} /><input type="hidden" name="f" defaultValue={attrValue(f)} /><button className="btn btn-sm btn-ghost">↩️ ফেরত</button></form>)}</td></tr>))}</tbody></table> : <p className="muted small">এখনো কিছু পরিষ্কার করা হয়নি।</p>)}</section>
   </>;
   return ctx.page('বিবরণ পরিষ্কার', body, 'clean-desc');
 }
