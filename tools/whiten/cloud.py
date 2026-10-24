@@ -147,6 +147,38 @@ def whiten(sess, data, opts):
     return buf.getvalue()
 
 
+E = 224
+
+
+def load_dino(vendor):
+    return load_model(vendor)
+
+
+def describe(sess, data):
+    """The picture-recognition AI's description, exactly as client/admin/recognize.ts makes it in a browser: the whole
+    picture on a white 224 × 224 square, DINOv2's first token, scaled to ±127, one byte each, base64."""
+    import base64
+    img = Image.open(io.BytesIO(data))
+    img.load()
+    if img.mode in ('RGBA', 'LA', 'P'):
+        img = img.convert('RGBA')
+        bg = Image.new('RGBA', img.size, (255, 255, 255, 255))
+        bg.alpha_composite(img)
+        img = bg
+    img = img.convert('RGB')
+    k = E / max(img.size)
+    w, h = max(1, round(img.width * k)), max(1, round(img.height * k))
+    sq = Image.new('RGB', (E, E), (255, 255, 255))
+    sq.paste(img.resize((w, h), Image.LANCZOS), ((E - w) // 2, (E - h) // 2))
+    x = np.asarray(sq, dtype=np.float32) / 255.0
+    x = ((x - MEAN) / SD).transpose(2, 0, 1)[None].astype(np.float32)
+    o = sess.run(None, {sess.get_inputs()[0].name: x})[0]
+    v = o.reshape(-1)[:384]
+    m = float(np.abs(v).max()) or 1.0
+    b = (np.round(v * (127 / m)).astype(np.int16) & 0xFF).astype(np.uint8)
+    return base64.b64encode(b.tobytes()).decode()
+
+
 def git(out, *args):
     subprocess.run(['git', '-C', out, *args], check=True)
 
@@ -156,6 +188,7 @@ def main():
     ap.add_argument('--shop', required=True)
     ap.add_argument('--out', required=True)
     ap.add_argument('--vendor', default='public/vendor/birefnet')
+    ap.add_argument('--dino', default='public/vendor/dinov2')
     ap.add_argument('--minutes', type=float, default=9)
     ap.add_argument('--redo', action='store_true', help='clean up the pictures already made again (the newest clean-up rule), in place')
     ap.add_argument('--try', dest='try_dir', help='test: make every picture in this folder white into --out (no shop, no git)')
@@ -197,15 +230,36 @@ def main():
     index = json.load(open(idx_path)) if os.path.exists(idx_path) else {}
     sess = None
     stop_at = time.time() + args.minutes * 60
+    emb_path = os.path.join(args.out, 'results', 'emb.json')
+    embs = json.load(open(emb_path)) if os.path.exists(emb_path) else {}
+    dino = None
     while time.time() < stop_at:
         try:
-            jobs = json.loads(fetch(args.shop.rstrip('/') + '/api/whiten-jobs').decode()).get('jobs', [])
+            got = json.loads(fetch(args.shop.rstrip('/') + '/api/whiten-jobs').decode())
         except Exception as e:
             print('jobs list failed:', e, flush=True)
-            jobs = []
-        jobs = [j for j in jobs if j['token'] not in index]
+            got = {}
+        jobs = [j for j in got.get('jobs', []) if j['token'] not in index]
+        pics = [p for p in got.get('emb', []) if str(p['id']) not in embs]
+        if pics:
+            # 🧠 picture recognition for the duplicate check (the shop copies results/emb.json in by itself)
+            if dino is None:
+                dino = load_dino(args.dino)
+            t0, n = time.time(), 0
+            for p in pics:
+                try:
+                    embs[str(p['id'])] = describe(dino, fetch(p['src']))
+                    n += 1
+                except Exception as e:
+                    embs[str(p['id'])] = ''  # unreadable: never asked again
+                    print(f"pic {p['id']}: {e}", flush=True)
+            json.dump(embs, open(emb_path, 'w'), separators=(',', ':'))
+            publish(args.out, index, idx_path, f'recognize: {len(pics)} picture(s)')
+            print(f'described {n}/{len(pics)} pictures in {time.time() - t0:.0f}s', flush=True)
+            stop_at = max(stop_at, time.time() + 4 * 60)
         if not jobs:
-            time.sleep(15)
+            if not pics:
+                time.sleep(15)
             continue
         if sess is None:
             t0 = time.time()

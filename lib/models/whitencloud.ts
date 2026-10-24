@@ -17,7 +17,7 @@ import type { Settings } from '../types';
 
 /** where the cloud AI puts the finished pictures (this shop's public repository) */
 export const REPO = process.env.WHITEN_REPO || 'contactmeready786-cmd/shobmilbe-ecommerce-';
-const RAW = (path: string) => `https://raw.githubusercontent.com/${REPO}/whiten-results/${path}`;
+export const RAW = (path: string) => `https://raw.githubusercontent.com/${REPO}/whiten-results/${path}`;
 const WORKFLOW = 'whiten-cloud.yml';
 
 /** ⚡ Start the cloud AI now instead of waiting for GitHub's timer (which can lag 30–60 minutes). Needs the owner's

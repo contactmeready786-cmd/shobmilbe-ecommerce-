@@ -15,11 +15,13 @@ import type { MediaRow, ProductsRow } from '../data/rows';
 // aiStrong / aiWeak: how alike the picture-recognition AI must find two pictures (0…1). Measured on DINOv2: the
 // same thing photographed again / cropped / turned / brighter ≈ 0.8–0.95, two different cars of the same colour 0.72,
 // unrelated pictures under 0.4.
+// AI likeness (2026-10-24, measured on the shop's own pictures): the same product ≈ 0.92–0.99; two different boards
+// photographed the same way (blue PCB on white) reach 0.75–0.85 — so "sure" starts at 0.9.
 type Level = { label: string; titleHigh: number; titleMid: number; imgStrong: number; imgWeak: number; aiStrong: number; aiWeak: number };
 const LEVELS: Record<string, Level> = {
-  strict: { label: 'কড়া', titleHigh: 0.84, titleMid: 0.66, imgStrong: 38, imgWeak: 56, aiStrong: 0.8, aiWeak: 0.68 },
-  normal: { label: 'সাধারণ (প্রস্তাবিত)', titleHigh: 0.9, titleMid: 0.75, imgStrong: 30, imgWeak: 46, aiStrong: 0.84, aiWeak: 0.72 },
-  relaxed: { label: 'নরম', titleHigh: 0.95, titleMid: 0.86, imgStrong: 18, imgWeak: 30, aiStrong: 0.88, aiWeak: 0.78 },
+  strict: { label: 'কড়া', titleHigh: 0.84, titleMid: 0.66, imgStrong: 38, imgWeak: 56, aiStrong: 0.87, aiWeak: 0.8 },
+  normal: { label: 'সাধারণ (প্রস্তাবিত)', titleHigh: 0.9, titleMid: 0.75, imgStrong: 30, imgWeak: 46, aiStrong: 0.9, aiWeak: 0.84 },
+  relaxed: { label: 'নরম', titleHigh: 0.95, titleMid: 0.86, imgStrong: 18, imgWeak: 30, aiStrong: 0.93, aiWeak: 0.88 },
 };
 function levelOf(settings: Settings) { return LEVELS[(settings && settings.dup_level) || 'normal'] || LEVELS.normal; }
 
