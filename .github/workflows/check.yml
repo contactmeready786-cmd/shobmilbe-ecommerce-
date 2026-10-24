@@ -1,4 +1,4 @@
-name: aistaff-check
+name: aistaff-check2
 on: push
 jobs:
   c:
