@@ -47,7 +47,7 @@ async function page(ctx: AdminCtx) {
         {ui.field('কাজ শেষ (টা)', ui.select('ai_work_to', Array.from({ length: 24 }, (_, h) => [String(h + 1), `${bn(h + 1)}:০০`]), String(s.ai_work_to ?? '18')))}
         <button className="btn btn-sm">💾 সেভ করুন</button></form>
       {(s.ai_gemini_key ? <form method="post" action={`${BASE}/write`}><button className="btn btn-sm">▶ এখনই একটা পণ্য নতুন করে লিখুন</button></form> : null)}
-      {(edits.length ? <div className="ai-edits">{jsxList(edits.map((e) => <details className={`ai-edit ai-${e.status}`}><summary><b><Val v={e.name} /></b>{' '}<span className="small muted">{fmtDate(e.at)} · {(e.status === 'applied' ? '✅ বসানো হয়েছে' : e.status === 'proposed' ? '⏳ আপনার ✅-এর অপেক্ষায়' : e.status === 'undone' ? '↩️ ফেরত আনা হয়েছে' : '❌ বাদ')}</span></summary>
+      {(edits.length ? <div className="ai-edits">{jsxList(edits.map((e) => <details className={`ai-edit ai-${e.status}`}><summary><b><Val v={e.name} /></b>{' '}<span className="small muted">{fmtDate(e.at)} · {(e.status === 'applied' ? '✅ বসানো হয়েছে' : e.status === 'proposed' ? '⏳ আপনার ✅-এর অপেক্ষায়' : e.status === 'undone' ? '↩️ ফেরত আনা হয়েছে' : '❌ বাদ')}</span>{(e.via ? <><br /><span className="small"><Val v={e.via} /></span></> : null)}</summary>
         {jsxList(e.fields.map((f) => <div className="ai-field"><p className="small"><b><Val v={writer.FIELD_LABEL[f.field] || f.field} /></b></p><p className="small muted ai-old">আগে: <Val v={f.old_value || '(খালি)'} /></p><p className="small ai-new">এখন: <Val v={f.new_value} /></p></div>))}
         <div className="toolbar"><a className="btn btn-sm btn-ghost" href={`/admin/products/${attrValue(e.product_id)}`}>✏️ পণ্য খুলুন</a>{(e.status === 'applied' ? <form method="post" action={`${BASE}/undo`}><input type="hidden" name="id" defaultValue={attrValue(e.product_id)} /><button className="btn btn-sm btn-ghost">↩️ আগের লেখা ফেরত</button></form> : null)}{(e.status === 'proposed' ? <><form method="post" action={`${BASE}/decide`}><input type="hidden" name="id" defaultValue={attrValue(e.product_id)} /><input type="hidden" name="ok" defaultValue="1" /><button className="btn btn-sm">✅ বসান</button></form><form method="post" action={`${BASE}/decide`}><input type="hidden" name="id" defaultValue={attrValue(e.product_id)} /><button className="btn btn-sm btn-ghost">❌ বাদ</button></form></> : null)}</div>
       </details>))}</div> : <p className="small muted">এখনো কোনো পণ্যের লেখা বদলানো হয়নি।</p>)}
@@ -130,7 +130,8 @@ async function writeNow(ctx: AdminCtx) {
   let msg: string;
   try {
     const r = await writer.improve(ctx.settings, { limit: 1 });
-    msg = r.errors.length ? `হয়নি: ${r.errors[0]}` : r.products ? `✅ ${r.fields}টি লেখা নতুন করে ${ctx.settings.ai_write_auto !== '0' ? 'বসানো হয়েছে' : 'তৈরি — নিচে দেখে ✅ দিন'}` : 'এখন নতুন করে লেখার মতো পণ্য পাওয়া যায়নি।';
+    const placed = ctx.settings.ai_write_auto !== '0' && r.via.startsWith('🔎');
+    msg = r.errors.length ? `হয়নি: ${r.errors[0]}` : r.products ? `✅ ${r.fields}টি লেখা নতুন করে ${placed ? 'বসানো হয়েছে' : 'তৈরি — নিচে দেখে ✅ দিন'} · ${r.via}${r.via.startsWith('🔎') ? '' : ' (গুগলে খোঁজা যায়নি, তাই নিজে বসায়নি)'}` : 'এখন নতুন করে লেখার মতো পণ্য পাওয়া যায়নি।';
   } catch (e) { msg = (e as Error).message; }
   return ctx.redirect(`${BASE}?info=${encodeURIComponent(msg)}#writer`);
 }

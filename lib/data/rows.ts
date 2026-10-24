@@ -51,6 +51,7 @@ export type AiStaffEditsRow = {
   new_value: string;
   status: string;
   created_at: Date;
+  via: string;
 };
 
 /** A row of ai_staff_reports. */

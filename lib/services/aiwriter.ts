@@ -76,15 +76,16 @@ function prompt(p: P): string {
 }
 
 /** Gemini with Google Search: the answer's JSON (search answers can't be forced into JSON, so it is read out) */
-async function draftFor(key: string, p: P): Promise<Draft> {
-  const text = await geminiSearch(key, prompt(p));
+type Found = { text: string; via: string };
+async function draftFor(key: string, p: P): Promise<{ d: Draft; via: string }> {
+  const { text, via } = await geminiSearch(key, prompt(p));
   const m = text.match(/\{[\s\S]*\}/);
   if (!m) throw new Error('AI ঠিকমতো উত্তর দেয়নি');
   const raw = JSON.parse(m[0]) as Record<string, unknown>;
-  if (raw.same_product === false || raw.skip === true) return {}; // the search didn't find this exact product: leave it as it is
-  return check(p, raw);
+  if (raw.same_product === false || raw.skip === true) return { d: {}, via }; // not sure it is this exact product: leave it
+  return { d: check(p, raw), via };
 }
-async function geminiSearch(key: string, text: string): Promise<string> {
+async function geminiSearch(key: string, text: string): Promise<Found> {
   // 1) with Google Search: the bigger model, then the quick one; 2) if Search isn't allowed on this key / is busy,
   // the same models from what they already know (the same safety checks run on the answer either way)
   const why: string[] = [];
@@ -98,10 +99,14 @@ async function geminiSearch(key: string, text: string): Promise<string> {
         method: 'POST', signal: AbortSignal.timeout(Math.min(left - 3000, search ? 25000 : 20000)), headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
         body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text }] }], ...(search ? { tools: [{ google_search: {} }] } : {}), generationConfig: { temperature: 0.4, maxOutputTokens: 4096 } }),
       });
-      const j = (await r.json().catch(() => ({}))) as { candidates?: { content?: { parts?: { text?: string }[] } }[]; error?: { message?: string } };
+      const j = (await r.json().catch(() => ({}))) as { candidates?: { content?: { parts?: { text?: string }[] }; groundingMetadata?: { webSearchQueries?: string[]; groundingChunks?: { web?: { title?: string } }[] } }[]; error?: { message?: string } };
       if (!r.ok) { why.push(`${m}${search ? '+search' : ''}: ${r.status} ${String(j.error?.message || '').slice(0, 120)}`); continue; }
       const out = (j.candidates?.[0]?.content?.parts || []).map((x) => x.text || '').join('').trim();
-      if (out) return out;
+      // did it really search? Google says so in the answer (the searches it made and the pages it read)
+      const g = j.candidates?.[0]?.groundingMetadata;
+      const pages = (g?.groundingChunks || []).map((c) => c.web?.title).filter(Boolean).slice(0, 4).join(', ');
+      const via = search && g && (g.webSearchQueries?.length || pages) ? `🔎 গুগলে খুঁজে${pages ? ` (${pages})` : ''}` : '🧠 AI-এর নিজের জানা থেকে';
+      if (out) return { text: out, via };
       why.push(`${m}: খালি উত্তর`);
     } catch (e) { why.push(`${m}: ${(e as Error).name === 'TimeoutError' || /abort/i.test((e as Error).message) ? 'সময় শেষ' : (e as Error).message}`); }
   }
@@ -113,12 +118,14 @@ const load = (id: number) => db.one<P>(`SELECT p.id, p.name, p.name_bn, p.brand,
   FROM products p LEFT JOIN categories c ON c.id=p.category_id WHERE p.id=$1`, [id]);
 
 /** write the changes down, then make them (or leave them waiting for the owner) */
-async function keep(p: P, d: Draft, apply: boolean): Promise<number> {
+async function keep(p: P, d: Draft, applyIfAuto: boolean, via: string): Promise<number> {
+  // put in by itself only what was looked up on the internet; from the AI's memory alone it waits for the owner's ✅
+  const apply = applyIfAuto && via.startsWith('🔎');
   let n = 0;
   for (const f of FIELDS) {
     const v = d[f];
     if (!v || v === String(p[f] || '').trim()) continue;
-    await db.q(`INSERT INTO ai_staff_edits(product_id, field, old_value, new_value, status) VALUES($1, $2, $3, $4, $5)`, [p.id, f, String(p[f] || ''), v, apply ? 'applied' : 'proposed']);
+    await db.q(`INSERT INTO ai_staff_edits(product_id, field, old_value, new_value, status, via) VALUES($1, $2, $3, $4, $5, $6)`, [p.id, f, String(p[f] || ''), v, apply ? 'applied' : 'proposed', via.slice(0, 300)]);
     if (apply) await db.q(`UPDATE products SET ${f}=$2, ${f === 'name_bn' ? 'name_bn_auto=false, ' : ''}updated_at=now() WHERE id=$1`, [p.id, v]);
     n++;
   }
@@ -135,15 +142,15 @@ async function nextProducts(limit: number): Promise<number[]> {
 }
 
 /** improve up to `limit` products now; returns how many fields changed / wait */
-export async function improve(settings: Settings, { limit = 1, ids }: { limit?: number; ids?: number[] } = {}): Promise<{ products: number; fields: number; errors: string[] }> {
+export async function improve(settings: Settings, { limit = 1, ids }: { limit?: number; ids?: number[] } = {}): Promise<{ products: number; fields: number; errors: string[]; via: string }> {
   const key = String(settings.ai_gemini_key || '').trim();
   if (!key) throw new Error('এর জন্য Gemini চাবি লাগবে (AI স্টাফ পেজে বসান — ফ্রি)।');
   const apply = settings.ai_write_auto !== '0';
-  const out = { products: 0, fields: 0, errors: [] as string[] };
+  const out = { products: 0, fields: 0, errors: [] as string[], via: '' };
   for (const id of ids || (await nextProducts(limit))) {
     const p = await load(id);
     if (!p) continue;
-    try { out.fields += await keep(p, await draftFor(key, p), apply); out.products++; } catch (e) { out.errors.push(`${p.name}: ${(e as Error).message}`); }
+    try { const r = await draftFor(key, p); out.fields += await keep(p, r.d, apply, r.via); out.products++; out.via = r.via; } catch (e) { out.errors.push(`${p.name}: ${(e as Error).message}`); }
   }
   return out;
 }
@@ -188,10 +195,10 @@ export async function decide(productId: number, ok: boolean): Promise<number> {
   return rows.length;
 }
 /** the latest work, one entry per product */
-export async function recent(limit = 30): Promise<{ product_id: number; name: string; at: Date; status: string; fields: { field: Field; old_value: string; new_value: string }[] }[]> {
+export async function recent(limit = 30): Promise<{ product_id: number; name: string; at: Date; status: string; via: string | null; fields: { field: Field; old_value: string; new_value: string }[] }[]> {
   return db.q(`SELECT e.product_id, p.name, max(e.created_at) AS at,
       CASE WHEN bool_or(e.status='proposed') THEN 'proposed' WHEN bool_or(e.status='applied') THEN 'applied' WHEN bool_or(e.status='undone') THEN 'undone' ELSE 'rejected' END AS status,
-      json_agg(json_build_object('field', e.field, 'old_value', left(e.old_value, 400), 'new_value', left(e.new_value, 600)) ORDER BY e.id) AS fields
+      max(e.via) AS via, json_agg(json_build_object('field', e.field, 'old_value', left(e.old_value, 400), 'new_value', left(e.new_value, 600)) ORDER BY e.id) AS fields
     FROM ai_staff_edits e JOIN products p ON p.id=e.product_id WHERE e.field <> 'checked' AND e.created_at > now() - interval '30 days'
     GROUP BY e.product_id, p.name ORDER BY max(e.id) DESC LIMIT $1`, [limit]);
 }
