@@ -6,11 +6,14 @@ name: live-check
 on:
   deployment_status: {}
   workflow_dispatch: {}
+  # 🚨 every half hour too (2026-10-25): if the live shop stops answering, this run fails and GitHub e-mails the owner
+  schedule:
+    - cron: '23,53 * * * *'
 permissions:
   contents: read
 jobs:
   check:
-    if: github.event_name == 'workflow_dispatch' || (github.event.deployment_status.state == 'success' && github.event.deployment.environment == 'Production')
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || (github.event.deployment_status.state == 'success' && github.event.deployment.environment == 'Production')
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
