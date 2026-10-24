@@ -323,6 +323,7 @@ export function startWhiten(): void {
       after.replaceChildren(h('a', { href: r.url, target: '_blank', rel: 'noopener', title: 'বড় করে দেখুন' }, h('img', { src: r.url, alt: 'পরে' })));
       after.hidden = false;
       const keep = $('[data-wt-keep-label]', fig); if (keep) keep.hidden = false;
+      if (!$('[data-wt-save-one]', fig)) keep?.after(h('button', { type: 'button', className: 'btn btn-sm', 'data-wt-save-one': '' }, '💾 এটা পণ্যে বসান'));
       msg(fig, '');
       if (saveBtn) saveBtn.disabled = false;
     } catch (e) { msg(fig, ' ⚠️ ' + (e as Error).message); }
@@ -339,8 +340,33 @@ export function startWhiten(): void {
         await one(f);
       }
       const r = await ready?.p.catch(() => null);
-      say(`✅ ${figs.length}টা ছবি তৈরি${r ? ` (${r.how})` : ''} — আগে/পরে দেখে খারাপগুলোর টিক তুলে দিন, তারপর "💾 টিক দেওয়াগুলো রাখুন"।`);
+      say(`✅ ${figs.length}টা ছবি তৈরি${r ? ` (${r.how})` : ''} — "পরে"-র ছবি ভালো লাগলে তার নিচে "💾 এটা পণ্যে বসান" চাপুন; অনেকগুলো একসাথে: খারাপগুলোর টিক তুলে উপরের "💾 টিক দেওয়াগুলো রাখুন"।`);
     } catch (e) { say('⚠️ ' + (e as Error).message); } finally { busy = false; if (runBtn) runBtn.disabled = false; }
+  };
+
+  /** Put these pictures' white copies into their products (the original is kept for "↺ আসল ছবি ফেরত"). */
+  const saveFigs = async (picks: HTMLElement[]) => {
+    busy = true; if (saveBtn) saveBtn.disabled = true;
+    let ok = 0;
+    for (const f of picks) {
+      const id = f.dataset.wtMedia!; const r = done.get(id);
+      if (!r) continue;
+      say(`💾 ${ok + 1} / ${picks.length} সেভ হচ্ছে…`);
+      try {
+        const j = await postJSON<{ id: number }>(`/admin/api/whiten/${id}`, { data: r.data, width: r.width, height: r.height });
+        ok++; done.delete(id);
+        // the white copy is a new picture: this tile now stands for it (so "আসল ছবি ফেরত" works right away)
+        f.dataset.wtMedia = String(j.id); f.dataset.white = '1';
+        f.classList.add('is-white');
+        const k = $('[data-wt-keep-label]', f); if (k) k.hidden = true;
+        $('[data-wt-save-one]', f)?.remove();
+        const o = $('[data-wt-one]', f); if (o) o.replaceWith(h('button', { type: 'button', className: 'link-btn small', 'data-wt-undo': '' }, '↺ আসল ছবি ফেরত'));
+        msg(f, ' ✅ পণ্যে বসানো হয়েছে');
+      } catch (er) { msg(f, ' ⚠️ ' + (er as Error).message); }
+    }
+    busy = false;
+    if (saveBtn) saveBtn.disabled = !done.size;
+    say(`✅ ${ok}টা ছবি সাদা ব্যাকগ্রাউন্ডে পণ্যে বসানো হলো${ok < picks.length ? ` (${picks.length - ok}টা হয়নি)` : ''}। দোকানে এখন এই ছবিই দেখাবে।`);
   };
 
   box.addEventListener('click', async (e) => {
@@ -362,28 +388,14 @@ export function startWhiten(): void {
       } catch (er) { toast((er as Error).message); }
       return;
     }
+    // 💾 one picture straight into its product (owner, 2026-10-24: the step after "পরে" wasn't clear)
+    const one1 = hit(e, '[data-wt-save-one]');
+    if (one1) { const f = one1.closest<HTMLElement>('[data-wt-media]'); if (f && !busy) void saveFigs([f]); return; }
     if (hit(e, '[data-wt-save]')) {
       if (busy) return;
       const picks = $all<HTMLElement>('[data-wt-media]', box).filter((f) => done.has(f.dataset.wtMedia!) && $<HTMLInputElement>('[data-wt-keep]', f)?.checked);
       if (!picks.length) { toast('কোনো ছবিতে টিক নেই।'); return; }
-      busy = true; if (saveBtn) saveBtn.disabled = true;
-      let ok = 0;
-      for (const f of picks) {
-        const id = f.dataset.wtMedia!; const r = done.get(id)!;
-        say(`💾 ${ok + 1} / ${picks.length} সেভ হচ্ছে…`);
-        try {
-          const j = await postJSON<{ id: number }>(`/admin/api/whiten/${id}`, { data: r.data, width: r.width, height: r.height });
-          ok++; done.delete(id);
-          // the white copy is a new picture: this tile now stands for it (so "আসল ছবি ফেরত" works right away)
-          f.dataset.wtMedia = String(j.id); f.dataset.white = '1';
-          f.classList.add('is-white');
-          const k = $('[data-wt-keep-label]', f); if (k) k.hidden = true;
-          const o = $('[data-wt-one]', f); if (o) o.replaceWith(h('button', { type: 'button', className: 'link-btn small', 'data-wt-undo': '' }, '↺ আসল ছবি ফেরত'));
-          msg(f, ' ✅ রাখা হয়েছে');
-        } catch (er) { msg(f, ' ⚠️ ' + (er as Error).message); }
-      }
-      busy = false;
-      say(`✅ ${ok}টা ছবি সাদা ব্যাকগ্রাউন্ডে রাখা হলো${ok < picks.length ? ` (${picks.length - ok}টা হয়নি)` : ''}। পরের পেজে যান, অথবা পেজটা রিফ্রেশ করুন।`);
+      void saveFigs(picks);
     }
   });
 }
