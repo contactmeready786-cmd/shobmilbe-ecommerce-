@@ -36,11 +36,11 @@ export function check(p: Pick<P, 'name'>, raw: Record<string, unknown>): Draft {
     if (v.length < min || v.length > max) continue;
     if (/(https?:\/\/|www\.)|\b01[3-9]\d{8}\b/i.test(v)) continue; // no links, no phone numbers (another shop's)
     if (f === 'name_bn') {
-      const have = codesIn(v).join(' ');
+      const have = v.toLowerCase().replace(/[^a-z0-9]/g, ''); // DT-9205A = DT9205A
       if (!codesIn(p.name).every((c) => have.includes(c)) || !/[\u0980-\u09ff]/.test(v)) continue; // Bangla, numbers kept
     }
     if (f === 'name') {
-      const have = codesIn(v).join(' ');
+      const have = v.toLowerCase().replace(/[^a-z0-9]/g, ''); // DT-9205A = DT9205A
       if (!codesIn(p.name).every((c) => have.includes(c))) continue; // a model / size number went missing
       // still the same product: at least one real word of the old name stays (no wandering off to another thing)
       const words = (x: string) => new Set(x.toLowerCase().match(/[a-z]{3,}|[\u0980-\u09ff]{2,}/g) || []);
