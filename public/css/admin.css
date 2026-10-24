@@ -1630,3 +1630,26 @@ html[data-admin-lang="en"] .side-drop[data-side-group="দোকানের ড
 .dup-pick input { width: 18px; height: 18px; }
 .dup-group-acts { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--line, #e5e7eb); }
 .chip-dup b { color: #b42318; }
+
+/* 📱 wide admin tables become cards on a phone (client/admin/cards.ts marks them .as-cards) */
+@media (max-width: 720px) {
+  table.as-cards, table.as-cards tbody, table.as-cards tfoot, table.as-cards tr, table.as-cards td { display: block; width: 100%; }
+  table.as-cards thead { display: none; }
+  table.as-cards tr { display: flex; flex-wrap: wrap; align-items: center; column-gap: 10px; border: 1px solid var(--line, #e3e7ef); border-radius: 12px; margin: 10px 0; padding: 8px 12px; background: var(--card, #fff); box-shadow: 0 1px 3px rgba(20,33,61,.06); }
+  table.as-cards td { flex: 1 1 100%; }
+  /* a tick box / picture sits beside the card's title, in one line */
+  table.as-cards td.c-plain { flex: 0 0 auto; width: auto; border-top: 0; }
+  table.as-cards td.c-title { flex: 1 1 0; min-width: 0; width: auto; border-top: 0; }
+  .table-wrap table.as-cards tr { margin: 10px; width: auto; }
+  table.as-cards td { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 6px 0; border: 0 !important; text-align: right; min-height: 0; white-space: normal; }
+  table.as-cards td[data-label]:not(.c-title) { border-top: 1px dashed var(--line, #e9edf3) !important; }
+  table.as-cards td[data-label]::before { content: attr(data-label); flex: 0 0 40%; text-align: left; color: var(--muted, #5b6b85); font-size: .8rem; font-weight: 500; }
+  table.as-cards td.c-plain { justify-content: flex-start; gap: 8px; text-align: left; }
+  table.as-cards td.c-plain ~ td.c-plain:last-child { flex: 1 1 100%; } /* buttons at the end of a row: a line of their own */
+  table.as-cards td.c-plain:empty { display: none; }
+  table.as-cards td.c-title { display: block; text-align: left; font-weight: 600; font-size: 1rem; padding-bottom: 8px; }
+  table.as-cards td.c-title::before { display: block; margin-bottom: 2px; }
+  table.as-cards td > :is(form, .row-actions, .btn) { margin: 0; }
+  table.as-cards td img { max-width: 64px; height: auto; }
+  table.as-cards tr.total, table.as-cards tfoot tr { background: var(--bg-soft, #f6f8fb); font-weight: 600; }
+}
