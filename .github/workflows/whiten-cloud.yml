@@ -1,0 +1,51 @@
+# ☁️ ব্যাকগ্রাউন্ড সাদা — অনলাইনে (owner, 2026-10-24): the pictures the owner sends from Admin → ব্যাকগ্রাউন্ড সাদা are
+# made white here, on GitHub's computers (free for this public repository) — never on the owner's laptop or phone.
+# Every 10 minutes: a quick look at GET /api/whiten-jobs; when pictures wait, tools/whiten/cloud.py makes them and
+# commits them to the `whiten-results` branch (the shop reads them from there), and keeps watching a few minutes.
+name: whiten-cloud
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: whiten-cloud
+  cancel-in-progress: false
+jobs:
+  whiten:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      SHOP: https://shobmilbe.com
+    steps:
+      - name: Anything waiting?
+        id: look
+        run: |
+          n=$(curl -fsS -A shobmilbe-whiten-cloud "$SHOP/api/whiten-jobs" | python3 -c 'import json,sys; print(len(json.load(sys.stdin).get("jobs",[])))' || echo 0)
+          echo "waiting: $n"; echo "n=$n" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v7
+        if: steps.look.outputs.n != '0'
+        with:
+          sparse-checkout: |
+            tools/whiten
+            public/vendor/birefnet
+      - uses: actions/setup-python@v6
+        if: steps.look.outputs.n != '0'
+        with: { python-version: '3.12', cache: pip, cache-dependency-path: tools/whiten/requirements.txt }
+      - name: Make the pictures white
+        if: steps.look.outputs.n != '0'
+        run: |
+          set -eu
+          pip install -q -r tools/whiten/requirements.txt
+          git config --global user.name whiten-cloud && git config --global user.email actions@github.com
+          if git ls-remote --exit-code origin whiten-results >/dev/null; then
+            git fetch -q --depth 1 origin whiten-results && git worktree add -q /tmp/res FETCH_HEAD && git -C /tmp/res checkout -q -B whiten-results
+          else
+            git worktree add -q --detach /tmp/res && git -C /tmp/res checkout -q --orphan whiten-results && git -C /tmp/res rm -rfq . && mkdir -p /tmp/res/results
+            echo '# Pictures made white by .github/workflows/whiten-cloud.yml — read by the shop (lib/models/whitencloud.ts)' > /tmp/res/README.md
+            echo '{"git":{"deploymentEnabled":false}}' > /tmp/res/vercel.json
+            echo '{}' > /tmp/res/results/index.json
+            git -C /tmp/res add -A && git -C /tmp/res commit -qm "whiten results branch" && git -C /tmp/res push -q origin HEAD:whiten-results
+          fi
+          python tools/whiten/cloud.py --shop "$SHOP" --out /tmp/res --minutes 9

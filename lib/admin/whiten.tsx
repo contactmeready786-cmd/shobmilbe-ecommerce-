@@ -9,6 +9,7 @@ import * as db from '../db';
 import * as ui from './ui';
 import * as security from '../security';
 import * as W from '../models/whiten';
+import * as cloud from '../models/whitencloud';
 import type { AdminCtx, RouteMatch } from '../types';
 
 const BASE = '/admin/products/whiten';
@@ -44,17 +45,21 @@ async function page(ctx: AdminCtx) {
     db.q<{ id: number }>(`SELECT p.id FROM products p WHERE p.parent_id IS NULL AND ${cond}`, args).then((r) => r.map((x) => x.id)),
   ]);
   const prog = await W.progress(ids);
+  // ☁️ pictures already sent to the cloud AI (waiting or finished, not yet kept)
+  const mids = rows.flatMap((p) => p.pics.map((m) => m.id));
+  const jobs = new Map((mids.length ? await db.q<{ media_id: number; id: number }>(`SELECT DISTINCT ON (media_id) media_id, id FROM whiten_jobs
+    WHERE media_id = ANY($1::int[]) AND status IN ('queued','done','failed') AND created_at > now() - interval '2 days' ORDER BY media_id, id DESC`, [mids]) : []).map((j) => [j.media_id, j.id]));
   const pages = Math.max(1, Math.ceil(count / PER_PAGE));
   const q = (o: Record<string, string>) => `${BASE}?${new URLSearchParams({ host, f, ...o })}`;
   const body = <><div className="title-row"><h1>⬜ ছবির ব্যাকগ্রাউন্ড সাদা</h1></div>{ui.flash(ctx.flash)}
-    {ui.helpBox('কীভাবে কাজ করে', <ol className="steps"><li>নিচে দোকান বাছুন। <b>"▶ এই পেজের ছবি সাদা করুন"</b> চাপলে আপনার কম্পিউটারেই একটা AI প্রতিটা ছবি থেকে শুধু পণ্যটা কেটে একদম সাদা (#FFFFFF) ব্যাকগ্রাউন্ডে বসায় — পেছনের লেখা, ফোন নম্বর, রং সব চলে যায়। ফ্রি, কোনো সীমা নেই।</li><li>দুইটা AI আছে: <b>🧠 সেরা মান</b> (BiRefNet — পণ্যের কিনারা, তার, স্বচ্ছ প্লাস্টিক সবচেয়ে নিখুঁত) আর <b>⚡ দ্রুত</b> (ISNet — ধীর কম্পিউটারে)। প্রথমবার AI-এর ফাইল নামে (প্রায় ২০০ MB, একবারই — পরে কম্পিউটারে রাখা থাকে)। কাজ চলার সময় পেজটা খোলা রাখুন।</li><li><b>✨ উজ্জ্বল ও পরিষ্কার</b> টিক দিলে পণ্যটা একটু উজ্জ্বল হয়, রং একটু ঝকঝকে হয় — পণ্যের আকার বা লেখা কিছুই বদলায় না।</li><li>প্রতিটা ছবির <b>আগে / পরে</b> দেখুন। ভালো হলে টিক থাকুক, খারাপ হলে টিক তুলে দিন — তারপর <b>"💾 টিক দেওয়াগুলো রাখুন"</b>। শুধু টিক দেওয়াগুলোই বদলায়।</li><li>আসল ছবি সবসময় রাখা থাকে: সাদা করা ছবির নিচে <b>"↺ আসল ছবি ফেরত"</b> চাপলে আগের মতো হয়ে যায়।</li><li>পণ্যের নিজের গায়ে কোনো লেখা থাকলে AI সেটা পণ্যের অংশ ভেবে রেখে দেয় — ওগুলো আলাদা করে দেখে নেবেন।</li></ol>)}
+    {ui.helpBox('কীভাবে কাজ করে', <ol className="steps"><li>নিচে দোকান বাছুন। <b>"▶ এই পেজের ছবি সাদা করুন"</b> চাপলে আপনার কম্পিউটারেই একটা AI প্রতিটা ছবি থেকে শুধু পণ্যটা কেটে একদম সাদা (#FFFFFF) ব্যাকগ্রাউন্ডে বসায় — পেছনের লেখা, ফোন নম্বর, রং সব চলে যায়। ফ্রি, কোনো সীমা নেই।</li><li><b>☁️ অনলাইনে (প্রস্তাবিত):</b> ছবিগুলো অনলাইনের শক্তিশালী কম্পিউটারে (GitHub, ফ্রি) সাদা হয় — আপনার ল্যাপটপ বা ফোনে কোনো চাপ পড়ে না, পেজ বন্ধ করলেও কাজ চলতে থাকে। কয়েক মিনিট লাগে; তৈরি হলে এখানেই "পরে"-র ছবি দেখাবে। ছবির কোণের লোগো আর আলাদা লেখাও মুছে দেয়।</li><li>নিজের কম্পিউটারে চালাতে চাইলে দুইটা AI আছে: <b>🧠 সেরা মান</b> (BiRefNet — পণ্যের কিনারা, তার, স্বচ্ছ প্লাস্টিক সবচেয়ে নিখুঁত) আর <b>⚡ দ্রুত</b> (ISNet — ধীর কম্পিউটারে)। প্রথমবার AI-এর ফাইল নামে (প্রায় ২০০ MB, একবারই — পরে কম্পিউটারে রাখা থাকে)। কাজ চলার সময় পেজটা খোলা রাখুন।</li><li><b>✨ উজ্জ্বল ও পরিষ্কার</b> টিক দিলে পণ্যটা একটু উজ্জ্বল হয়, রং একটু ঝকঝকে হয় — পণ্যের আকার বা লেখা কিছুই বদলায় না।</li><li>প্রতিটা ছবির <b>আগে / পরে</b> দেখুন। ভালো হলে টিক থাকুক, খারাপ হলে টিক তুলে দিন — তারপর <b>"💾 টিক দেওয়াগুলো রাখুন"</b>। শুধু টিক দেওয়াগুলোই বদলায়।</li><li>আসল ছবি সবসময় রাখা থাকে: সাদা করা ছবির নিচে <b>"↺ আসল ছবি ফেরত"</b> চাপলে আগের মতো হয়ে যায়।</li><li>পণ্যের নিজের গায়ে কোনো লেখা থাকলে AI সেটা পণ্যের অংশ ভেবে রেখে দেয় — ওগুলো আলাদা করে দেখে নেবেন।</li></ol>)}
     <form method="get" action={attrValue(BASE)} className="toolbar">{ui.select('host', list.map((h) => [h.host, h.host === ALL ? 'দোকানের সব পণ্য' : `${h.host} — ${bn(h.n)}টি পণ্য`]), host)}{' '}<input type="hidden" name="f" defaultValue={attrValue(f)} /><button className="btn btn-sm btn-ghost">দেখুন</button></form>
     <div className="kpis kpis-tight">{ui.kpi('ছবি', bn(prog.pics), `${bn(ids.length)}টি পণ্যে`)}{' '}{ui.kpi('সাদা করা হয়েছে', `${bn(prog.white)} / ${bn(prog.pics)}`, `${bn(prog.pics ? Math.round((prog.white * 100) / prog.pics) : 0)}%`, 'kpi-blue')}</div>
     <nav className="toolbar">{jsxList(Object.entries(FILTERS).map(([k, v]) => <>{' '}<a className={`chip ${k === f ? 'on' : ''}`} href={attrValue(`${BASE}?${new URLSearchParams({ host, f: k })}`)}><Val v={v} /></a></>))}</nav>
     {(rows.length ? <section className="panel wt" data-whiten="">
-      <div className="wt-bar"><button type="button" className="btn" data-wt-run="">▶ এই পেজের ছবি সাদা করুন</button>{' '}<button type="button" className="btn btn-ghost" data-wt-save="" disabled>💾 টিক দেওয়াগুলো রাখুন</button>{' '}<label className="check"><input type="checkbox" data-wt-only-new="" defaultChecked />{' '}<span>আগে সাদা করা ছবি বাদ</span></label>{' '}<select data-wt-model="" aria-label="কোন AI" defaultValue="best"><option value="best">🧠 সেরা মান (BiRefNet)</option><option value="fast">⚡ দ্রুত (ISNet)</option></select>{' '}<label className="check" title="পণ্যটা একটু উজ্জ্বল ও পরিষ্কার হয় (আলো আর রং হালকা বাড়ে)। আগে/পরে দেখে তবেই রাখবেন।"><input type="checkbox" data-wt-bright="" />{' '}<span>✨ উজ্জ্বল ও পরিষ্কার</span></label>{' '}<label className="check" title="পণ্য থেকে আলাদা ছোট টুকরো — যেমন পেছনের লেখা বা ফোন নম্বর — মুছে দেয়। পণ্যের আলাদা ছোট অংশ (যেমন চিরুনি) কেটে গেলে এটা তুলে দিয়ে আবার চালান।"><input type="checkbox" data-wt-clean="" defaultChecked />{' '}<span>আলাদা ছোট লেখা/টুকরো মুছুন</span></label>{' '}<span className="small" data-wt-status="" aria-live="polite"></span></div>
+      <div className="wt-bar"><button type="button" className="btn" data-wt-run="">▶ এই পেজের ছবি সাদা করুন</button>{' '}<button type="button" className="btn btn-ghost" data-wt-save="" disabled>💾 টিক দেওয়াগুলো রাখুন</button>{' '}<label className="check"><input type="checkbox" data-wt-only-new="" defaultChecked />{' '}<span>আগে সাদা করা ছবি বাদ</span></label>{' '}<select data-wt-model="" aria-label="কোন AI" defaultValue="cloud"><option value="cloud">☁️ অনলাইনে — সেরা মান, কম্পিউটার/ফোনে চাপ নেই</option><option value="best">🧠 এই কম্পিউটারে — সেরা মান (শক্তিশালী গ্রাফিক্স লাগে)</option><option value="fast">⚡ এই কম্পিউটারে — দ্রুত (ISNet)</option></select>{' '}<label className="check" title="পণ্যটা একটু উজ্জ্বল ও পরিষ্কার হয় (আলো আর রং হালকা বাড়ে)। আগে/পরে দেখে তবেই রাখবেন।"><input type="checkbox" data-wt-bright="" />{' '}<span>✨ উজ্জ্বল ও পরিষ্কার</span></label>{' '}<label className="check" title="পণ্য থেকে আলাদা ছোট টুকরো — যেমন পেছনের লেখা বা ফোন নম্বর — মুছে দেয়। পণ্যের আলাদা ছোট অংশ (যেমন চিরুনি) কেটে গেলে এটা তুলে দিয়ে আবার চালান।"><input type="checkbox" data-wt-clean="" defaultChecked />{' '}<span>আলাদা ছোট লেখা/টুকরো মুছুন</span></label>{' '}<span className="small" data-wt-status="" aria-live="polite"></span></div>
       <div className="wt-list">{jsxList(rows.map((p) => <div className="wt-product"><div className="wt-head"><b>SKU <Val v={p.sku || '—'} /></b>{' '}<a href={`/admin/products/${attrValue(p.id)}`} target="_blank" rel="noopener"><Val v={p.name} /></a>{(p.active ? null : <>{' '}<span className="pill pill-grey">বন্ধ</span></>)}</div>
-        <div className="wt-pics">{(p.pics.length ? jsxList(p.pics.map((m) => <figure className={`wt-pic ${m.white ? 'is-white' : ''}`} data-wt-media={attrValue(m.id)} data-white={m.white ? '1' : undefined}>
+        <div className="wt-pics">{(p.pics.length ? jsxList(p.pics.map((m) => <figure className={`wt-pic ${m.white ? 'is-white' : ''}`} data-wt-media={attrValue(m.id)} data-white={m.white ? '1' : undefined} data-wt-job={jobs.has(m.id) ? String(jobs.get(m.id)) : undefined}>
           <div className="wt-pair"><a href={`/media/${attrValue(m.id)}`} target="_blank" rel="noopener"><img src={`/media/${attrValue(m.id)}/t`} alt="আগে" loading="lazy" /></a><span className="wt-after" data-wt-after="" hidden></span></div>
           <figcaption className="small">{(m.white ? <><span>⬜ সাদা করা</span>{' '}<button type="button" className="link-btn small" data-wt-undo="">↺ আসল ছবি ফেরত</button></> : <><button type="button" className="link-btn small" data-wt-one="">▶ শুধু এটা</button>{' '}<label className="check" data-wt-keep-label="" hidden><input type="checkbox" data-wt-keep="" defaultChecked />{' '}<span>রাখুন</span></label></>)}<span className="wt-msg" data-wt-msg=""></span></figcaption>
         </figure>)) : <span className="muted small">ছবি নেই</span>)}</div></div>))}</div>
@@ -85,7 +90,29 @@ async function undoApi(ctx: AdminCtx, m: RouteMatch) {
   } catch (e) { return ctx.json(e instanceof W.WhitenError ? 409 : 500, { error: (e as Error).message }); }
 }
 
+// ☁️ send pictures to the cloud AI / see where they are / put a finished one into its product
+async function cloudQueue(ctx: AdminCtx) {
+  const b = await ctx.body();
+  const ids = (Array.isArray(b.ids) ? b.ids : []).map((x: unknown) => int(x));
+  const jobs = await cloud.queue(ids, { bright: !!b.bright, clean: b.clean !== false && b.clean !== 0 }, ctx.user.id);
+  return ctx.json(200, { jobs });
+}
+async function cloudStatus(ctx: AdminCtx) {
+  const ids = String(ctx.query.get('ids') || '').split(',').map((x) => int(x)).filter(Boolean);
+  return ctx.json(200, { jobs: await cloud.status(ids) });
+}
+async function cloudKeep(ctx: AdminCtx, m: RouteMatch) {
+  try {
+    const r = await cloud.keep(int(m[1]));
+    await ctx.log('product_photo', 'media', r.id, `ব্যাকগ্রাউন্ড সাদা — অনলাইনে (আসল ছবি #${r.from} রাখা আছে)`);
+    return ctx.json(200, { ok: true, id: r.id });
+  } catch (e) { return ctx.json(e instanceof cloud.CloudError || e instanceof W.WhitenError ? 409 : 500, { error: (e as Error).message }); }
+}
+
 export const routes = [
+  { method: 'POST', path: '/admin/api/whiten-cloud', perm: 'products', handler: cloudQueue },
+  { method: 'GET', path: '/admin/api/whiten-cloud', perm: 'products', handler: cloudStatus },
+  { method: 'POST', path: /^\/admin\/api\/whiten-cloud\/(\d+)\/keep$/, perm: 'products', handler: cloudKeep },
   { method: 'GET', path: BASE, perm: 'products', handler: page },
   { method: 'POST', path: /^\/admin\/api\/whiten\/(\d+)$/, perm: 'products', handler: keepApi },
   { method: 'POST', path: /^\/admin\/api\/whiten\/(\d+)\/undo$/, perm: 'products', handler: undoApi },

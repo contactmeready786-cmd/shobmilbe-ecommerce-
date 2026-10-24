@@ -1229,6 +1229,15 @@ ALTER TABLE media ADD COLUMN IF NOT EXISTS emb bytea;
   `
 ALTER TABLE products ADD COLUMN IF NOT EXISTS name_bn text NOT NULL DEFAULT '';
 ALTER TABLE products ADD COLUMN IF NOT EXISTS name_bn_auto boolean NOT NULL DEFAULT true;
+`,  // ☁️ ব্যাকগ্রাউন্ড সাদা — অনলাইনে (owner, 2026-10-24): pictures waiting for the cloud AI (lib/models/whitencloud.ts).
+  `
+CREATE TABLE IF NOT EXISTS whiten_jobs (
+  id serial PRIMARY KEY, media_id int NOT NULL, token text NOT NULL, opts text NOT NULL DEFAULT '{}',
+  status text NOT NULL DEFAULT 'queued', error text NOT NULL DEFAULT '', by_user int,
+  created_at timestamptz DEFAULT now(), done_at timestamptz
+);
+CREATE INDEX IF NOT EXISTS whiten_jobs_media_idx ON whiten_jobs(media_id);
+CREATE INDEX IF NOT EXISTS whiten_jobs_status_idx ON whiten_jobs(status, created_at);
 `,
 ];
 

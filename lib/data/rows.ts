@@ -1483,6 +1483,19 @@ export type WarehousesRow = {
   created_at: Date;
 };
 
+/** A row of whiten_jobs. */
+export type WhitenJobsRow = {
+  id: number;
+  media_id: number;
+  token: string;
+  opts: string;
+  status: string;
+  error: string;
+  by_user: number | null;
+  created_at: Date;
+  done_at: Date | null;
+};
+
 /** Every table's row type by table name. */
 export type Tables = {
   accounts: AccountsRow;
@@ -1583,4 +1596,5 @@ export type Tables = {
   warehouse_moves: WarehouseMovesRow;
   warehouse_stock: WarehouseStockRow;
   warehouses: WarehousesRow;
+  whiten_jobs: WhitenJobsRow;
 };

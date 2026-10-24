@@ -329,7 +329,54 @@ export function startWhiten(): void {
     } catch (e) { msg(fig, ' ⚠️ ' + (e as Error).message); }
   };
 
+  // ☁️ অনলাইনে (lib/models/whitencloud.ts): the pictures go to the cloud AI; this page only watches for them
+  const cloudDone = new Map<string, number>(); // media id → finished job
+  const isCloud = () => $<HTMLSelectElement>('[data-wt-model]', box)?.value === 'cloud';
+  let polling = 0;
+  const showAfter = (fig: HTMLElement, url: string) => {
+    const after = $('[data-wt-after]', fig)!;
+    after.replaceChildren(h('a', { href: url, target: '_blank', rel: 'noopener', title: 'বড় করে দেখুন' }, h('img', { src: url, alt: 'পরে' })));
+    after.hidden = false;
+    const keep = $('[data-wt-keep-label]', fig); if (keep) keep.hidden = false;
+    if (!$('[data-wt-save-one]', fig)) keep?.after(h('button', { type: 'button', className: 'btn btn-sm', 'data-wt-save-one': '' }, '💾 এটা পণ্যে বসান'));
+    if (saveBtn) saveBtn.disabled = false;
+  };
+  const poll = async () => {
+    polling = 0;
+    const waiting = $all<HTMLElement>('[data-wt-job]', box).filter((f) => !cloudDone.has(f.dataset.wtMedia!) && !f.dataset.white);
+    if (!waiting.length) return;
+    try {
+      const r = (await (await fetch(`/admin/api/whiten-cloud?ids=${waiting.map((f) => f.dataset.wtJob).join(',')}`, { credentials: 'same-origin' })).json()) as { jobs: { id: number; media_id: number; status: string; url?: string; error?: string }[] };
+      let left = 0;
+      for (const j of r.jobs) {
+        const f = waiting.find((x) => x.dataset.wtJob === String(j.id));
+        if (!f) continue;
+        if (j.status === 'done' && j.url) { cloudDone.set(f.dataset.wtMedia!, j.id); showAfter(f, j.url); msg(f, ' ✅ তৈরি'); }
+        else if (j.status === 'failed') { msg(f, ' ⚠️ ' + (j.error || 'হয়নি — আবার চেষ্টা করুন')); delete f.dataset.wtJob; }
+        else if (j.status === 'queued') { left++; msg(f, ' ☁️ অনলাইনে তৈরি হচ্ছে…'); }
+      }
+      say(left ? `☁️ ${left}টা ছবি অনলাইনে তৈরি হচ্ছে — সাধারণত ৫-১৫ মিনিট লাগে। পেজটা বন্ধ করলেও কাজ চলবে; পরে এসে দেখলেও হবে।` : `✅ অনলাইনের ছবিগুলো তৈরি — "পরে"-র ছবি ভালো লাগলে "💾 এটা পণ্যে বসান" চাপুন।`);
+      if (left) polling = window.setTimeout(() => void poll(), 20000);
+    } catch { polling = window.setTimeout(() => void poll(), 30000); }
+  };
+  const sendCloud = async (figs: HTMLElement[]) => {
+    const o = options();
+    say('☁️ অনলাইনে পাঠানো হচ্ছে…');
+    const r = await postJSON<{ jobs: Record<string, number> }>('/admin/api/whiten-cloud', { ids: figs.map((f) => Number(f.dataset.wtMedia)), bright: o.bright, clean: o.clean });
+    for (const f of figs) {
+      const j = r.jobs[f.dataset.wtMedia!];
+      if (!j) { msg(f, ' ⚠️ পাঠানো যায়নি'); continue; }
+      f.dataset.wtJob = String(j);
+      cloudDone.delete(f.dataset.wtMedia!);
+      msg(f, ' ☁️ অনলাইনে লাইনে আছে…');
+    }
+    clearTimeout(polling);
+    void poll();
+  };
+  if ($all('[data-wt-job]', box).length) void poll(); // pictures sent earlier (even from another visit)
+
   const run = async (figs: HTMLElement[]) => {
+    if (isCloud()) { try { await sendCloud(figs); } catch (e) { say('⚠️ ' + (e as Error).message); } return; }
     if (busy) return;
     busy = true; if (runBtn) runBtn.disabled = true;
     try {
@@ -349,12 +396,13 @@ export function startWhiten(): void {
     busy = true; if (saveBtn) saveBtn.disabled = true;
     let ok = 0;
     for (const f of picks) {
-      const id = f.dataset.wtMedia!; const r = done.get(id);
-      if (!r) continue;
+      const id = f.dataset.wtMedia!; const r = done.get(id); const job = cloudDone.get(id);
+      if (!r && !job) continue;
       say(`💾 ${ok + 1} / ${picks.length} সেভ হচ্ছে…`);
       try {
-        const j = await postJSON<{ id: number }>(`/admin/api/whiten/${id}`, { data: r.data, width: r.width, height: r.height });
-        ok++; done.delete(id);
+        const j = job ? await postJSON<{ id: number }>(`/admin/api/whiten-cloud/${job}/keep`, {})
+          : await postJSON<{ id: number }>(`/admin/api/whiten/${id}`, { data: r!.data, width: r!.width, height: r!.height });
+        ok++; done.delete(id); cloudDone.delete(id); delete f.dataset.wtJob;
         // the white copy is a new picture: this tile now stands for it (so "আসল ছবি ফেরত" works right away)
         f.dataset.wtMedia = String(j.id); f.dataset.white = '1';
         f.classList.add('is-white');
@@ -365,7 +413,7 @@ export function startWhiten(): void {
       } catch (er) { msg(f, ' ⚠️ ' + (er as Error).message); }
     }
     busy = false;
-    if (saveBtn) saveBtn.disabled = !done.size;
+    if (saveBtn) saveBtn.disabled = !done.size && !cloudDone.size;
     say(`✅ ${ok}টা ছবি সাদা ব্যাকগ্রাউন্ডে পণ্যে বসানো হলো${ok < picks.length ? ` (${picks.length - ok}টা হয়নি)` : ''}। দোকানে এখন এই ছবিই দেখাবে।`);
   };
 
@@ -393,7 +441,7 @@ export function startWhiten(): void {
     if (one1) { const f = one1.closest<HTMLElement>('[data-wt-media]'); if (f && !busy) void saveFigs([f]); return; }
     if (hit(e, '[data-wt-save]')) {
       if (busy) return;
-      const picks = $all<HTMLElement>('[data-wt-media]', box).filter((f) => done.has(f.dataset.wtMedia!) && $<HTMLInputElement>('[data-wt-keep]', f)?.checked);
+      const picks = $all<HTMLElement>('[data-wt-media]', box).filter((f) => (done.has(f.dataset.wtMedia!) || cloudDone.has(f.dataset.wtMedia!)) && $<HTMLInputElement>('[data-wt-keep]', f)?.checked);
       if (!picks.length) { toast('কোনো ছবিতে টিক নেই।'); return; }
       void saveFigs(picks);
     }
