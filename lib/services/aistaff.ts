@@ -219,7 +219,7 @@ export async function gemini(key: string, prompt: string, timeoutMs = 25000, mod
         body: JSON.stringify({ systemInstruction: { parts: [{ text: PERSONA }] }, contents: [{ role: 'user', parts: [{ text: prompt }] }], generationConfig: { temperature: 0.5, maxOutputTokens: 4096 } }),
       });
       const j = (await r.json().catch(() => ({}))) as { candidates?: { content?: { parts?: { text?: string }[] } }[]; error?: { message?: string } };
-      if (!r.ok) { last = new Error(j.error?.message || `Gemini ${r.status}`); if (r.status === 404 || r.status === 400) continue; throw last; }
+      if (!r.ok) { last = new Error(j.error?.message || `Gemini ${r.status}`); if ([400, 404, 429, 500, 503].includes(r.status)) continue; throw last; } // busy or not there: the other model
       const text = (j.candidates?.[0]?.content?.parts || []).map((p) => p.text || '').join('').trim();
       if (text) return text;
       last = new Error('Gemini কিছু লেখেনি');
