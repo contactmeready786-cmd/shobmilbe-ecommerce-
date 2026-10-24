@@ -160,9 +160,10 @@ const design: string[] = [];
         return [...new Set(out)].slice(0, 6);
       }).catch(() => [] as string[]);
       if (found.length) design.push(`${tag} ${p}\n   ${found.join('\n   ')}`);
-      if (tag === 'computer') {
-        const file = p.replace(/^\/admin\/?/, '').replace(/[^a-z0-9]+/gi, '_') || 'dashboard';
-        await page.screenshot({ path: `${shots}/${file}.jpg`, fullPage: true, type: 'jpeg', quality: 45 }).catch(() => {});
+      {
+        // a picture of each page (the phone one beside it, phone_…, to see the cards) — ci-results/shots/
+        const file = (tag === 'phone' ? 'phone_' : '') + (p.replace(/^\/admin\/?/, '').replace(/[^a-z0-9]+/gi, '_') || 'dashboard');
+        await page.screenshot({ path: `${shots}/${file}.jpg`, fullPage: true, type: 'jpeg', quality: tag === 'phone' ? 40 : 45 }).catch(() => {});
       }
     }
     await page.close();

@@ -1651,5 +1651,11 @@ html[data-admin-lang="en"] .side-drop[data-side-group="দোকানের ড
   table.as-cards td.c-title::before { display: block; margin-bottom: 2px; }
   table.as-cards td > :is(form, .row-actions, .btn) { margin: 0; }
   table.as-cards td img { max-width: 64px; height: auto; }
+  /* nothing may push a card wider than the phone: long words / links break, values wrap under their name */
+  table.as-cards td { flex-wrap: wrap; overflow-wrap: anywhere; word-break: break-word; }
+  table.as-cards td[data-label]::before { max-width: 45%; }
+  table.as-cards .nowrap, table.as-cards td.nowrap { white-space: normal; }
+  table.as-cards td :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea) { width: auto; flex: 1 1 140px; min-width: 0; max-width: 100%; }
+  table.as-cards td :is(.pill, .btn) { white-space: normal; }
   table.as-cards tr.total, table.as-cards tfoot tr { background: var(--bg-soft, #f6f8fb); font-weight: 600; }
 }

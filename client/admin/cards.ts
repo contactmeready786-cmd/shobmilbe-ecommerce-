@@ -1,10 +1,9 @@
 // 📱 Admin tables on a phone (owner, 2026-10-24): a wide list (orders, products, customers, purchases …) no longer
 // needs sideways scrolling — on a narrow screen each row becomes a card, every value under its column's name
-// (public/css/admin.css `.as-cards`). Tables where something is typed in a row (purchase lines, variant prices, the
-// POS) stay tables; so do small ones. Nothing changes on a computer screen.
+// (public/css/admin.css `.as-cards`); a box to type in (purchase lines, variant prices) sits under its name too.
+// The POS and small tables that fit stay tables. Nothing changes on a computer screen.
 import { $all } from '../dom.js';
 
-const EDITABLE = 'input:not([type="checkbox"]):not([type="hidden"]):not([type="radio"]), select, textarea';
 
 function label(th: HTMLTableCellElement): string {
   return (th.getAttribute('aria-label') || th.textContent || '').replace(/\s+/g, ' ').trim();
@@ -14,13 +13,16 @@ function label(th: HTMLTableCellElement): string {
 function asCards(t: HTMLTableElement): void {
   const head = t.tHead?.rows[0];
   if (!head || t.dataset.cards === 'no') return;
-  if (!t.classList.contains('as-cards') && (t.classList.contains('no-cards') || t.closest('.no-cards, [data-pos], [data-vb], .chart') || t.querySelector(EDITABLE))) {
+  if (!t.classList.contains('as-cards') && (t.classList.contains('no-cards') || t.closest('.no-cards, [data-pos], .chart'))) {
     t.dataset.cards = 'no';
     return;
   }
   const names: string[] = [];
   for (const th of Array.from(head.cells)) for (let k = 0; k < (th.colSpan || 1); k++) names.push(k ? '' : label(th as HTMLTableCellElement));
-  if (names.length < 4) { t.dataset.cards = 'no'; return; } // two or three columns fit a phone as they are
+  // two or three columns usually fit a phone as they are — unless this one doesn't (wider than its box)
+  const box = t.parentElement;
+  const tooWide = !!box && t.scrollWidth > box.clientWidth + 4;
+  if (names.length < 2 || (names.length < 4 && !tooWide && !t.classList.contains('as-cards'))) return;
   for (const body of Array.from(t.tBodies)) {
     for (const tr of Array.from(body.rows)) {
       if (tr.dataset.cardsDone) continue;
