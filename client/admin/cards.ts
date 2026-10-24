@@ -29,7 +29,9 @@ function asCards(t: HTMLTableElement): void {
       tr.dataset.cardsDone = '1';
       let col = 0;
       for (const td of Array.from(tr.cells)) {
-        const n = names[col] || '';
+        // a cell that is only a picture (or an emoji box) needs no name in front: it sits beside the title
+        const onlyPic = !!td.querySelector('img, .emoji, .pe') && !(td.textContent || '').replace(/[\s\p{Extended_Pictographic}\uFE0F]/gu, '');
+        const n = onlyPic ? '' : names[col] || '';
         if (n && !td.hasAttribute('data-label')) td.setAttribute('data-label', n);
         if (!n) td.classList.add('c-plain'); // a picture, a tick box, buttons: no name in front
         col += td.colSpan || 1;
