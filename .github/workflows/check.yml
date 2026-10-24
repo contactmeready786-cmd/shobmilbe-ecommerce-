@@ -1,4 +1,4 @@
-name: whiten-redo
+name: whiten-try2
 on: push
 permissions:
   contents: write
@@ -7,20 +7,18 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
+        with: { path: tryin }
+      - uses: actions/checkout@v7
         with:
-          ref: 26060be1556963e3efd0f8efde8cc4f5e01848df
+          ref: 29a7aef83d0416d1ad745994a12ae98a6b1bcba1
+          path: app
           sparse-checkout: |
             tools/whiten
             public/vendor/birefnet
       - uses: actions/setup-python@v6
-        with: { python-version: '3.12', cache: pip, cache-dependency-path: tools/whiten/requirements.txt }
-      - env:
-          TOKEN: ${{ github.token }}
-          REPO: ${{ github.repository }}
-        run: |
+        with: { python-version: '3.12' }
+      - run: |
           set -eu
-          pip install -q -r tools/whiten/requirements.txt
-          git clone -q --depth 5 --branch whiten-results "https://x-access-token:${TOKEN}@github.com/${REPO}.git" /tmp/res
-          git -C /tmp/res checkout -q 534ec91 -- results/ && git -C /tmp/res config user.name whiten-cloud && git -C /tmp/res config user.email actions@github.com
-          python tools/whiten/cloud.py --shop https://shobmilbe.com --out /tmp/res --redo
-          echo "::notice::redo done"
+          cd app && pip install -q -r tools/whiten/requirements.txt
+          python tools/whiten/cloud.py --shop x --out ../tryin/try-out --try ../tryin/try-in 2>&1 | tail -20
+          cd ../tryin && git config user.name t && git config user.email t@t && git add try-out && git commit -qm out && git push -q origin HEAD:whiten-check
