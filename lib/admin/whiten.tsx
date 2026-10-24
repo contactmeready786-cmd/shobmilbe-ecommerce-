@@ -10,6 +10,7 @@ import * as ui from './ui';
 import * as security from '../security';
 import * as W from '../models/whiten';
 import * as cloud from '../models/whitencloud';
+import { safeFetch } from '../services/safefetch';
 import type { AdminCtx, RouteMatch } from '../types';
 
 const BASE = '/admin/products/whiten';
@@ -136,10 +137,51 @@ async function saveToken(ctx: AdminCtx) {
 // The owner's own pictures (from the computer or the phone, not a product's): the same cloud AI makes them white,
 // each one can be downloaded. Nothing goes into the shop. Kept 7 days.
 const MINE_BASE = '/admin/products/whiten/mine';
+// 🔗 লিংক থেকে ছবি → JPG (owner, 2026-10-25): any picture address (or a product page that has a picture) from any
+// website; the shop fetches it (only public internet addresses — services/safefetch.ts) and hands the bytes to this
+// admin's browser, which draws it on white and saves it as a JPG. WebP, AVIF, PNG, GIF, BMP, SVG … whatever the browser
+// can show. Nothing is kept on the shop.
+function pictureKind(buf: Buffer, type: string): string | null {
+  const known = security.imageKind(buf);
+  if (known) return known;
+  const head = buf.subarray(0, 64).toString('latin1');
+  if (head.slice(4, 12) === 'ftypavif' || head.slice(4, 12) === 'ftypavis') return 'image/avif';
+  if (head.startsWith('BM')) return 'image/bmp';
+  if (/^II\*\0|^MM\0\*/.test(head)) return 'image/tiff';
+  if (/^\s*(<\?xml[^>]*>\s*)?<svg[\s>]/i.test(buf.subarray(0, 400).toString('utf8'))) return 'image/svg+xml';
+  return /^image\//.test(type) ? type.split(';')[0].trim() : null;
+}
+async function imgFetch(ctx: AdminCtx) {
+  const fail = (m: string) => ctx.json(400, { error: m });
+  if (!(await security.hit(db, 'imgfetch:' + ctx.user.id, 200, 3600))) return fail('এক ঘণ্টায় অনেক বেশি লিংক — একটু পরে আবার চেষ্টা করুন।');
+  let u = str(ctx.query.get('url'), 2000).trim();
+  if (!/^https?:\/\//i.test(u)) u = 'https://' + u.replace(/^\/+/, '');
+  try {
+    let r = await safeFetch(u, { maxBytes: 15 * 1024 * 1024, timeoutMs: 15000, accept: 'image/avif,image/webp,image/*,text/html;q=0.8,*/*;q=0.5' });
+    let kind = r.ok ? pictureKind(r.body, r.contentType) : null;
+    // a product page instead of a picture: its main picture (og:image)
+    if (r.ok && !kind && /html/i.test(r.contentType)) {
+      const html = r.body.toString('utf8');
+      const m = html.match(/<meta[^>]+property=["']og:image(?::secure_url)?["'][^>]+content=["']([^"']+)["']/i) || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
+      if (m) { r = await safeFetch(new URL(m[1].replace(/&amp;/g, '&'), r.finalUrl).toString(), { maxBytes: 15 * 1024 * 1024, timeoutMs: 15000 }); kind = r.ok ? pictureKind(r.body, r.contentType) : null; }
+    }
+    if (!r.ok) return fail(`ওয়েবসাইট ছবিটা দিল না (${r.status})।`);
+    if (!kind) return fail('এই লিংকে কোনো ছবি পাওয়া যায়নি — ছবির উপর চেপে ধরে "Copy image address" দিয়ে লিংক নিন।');
+    const name = (new URL(r.finalUrl).pathname.split('/').pop() || 'picture').replace(/\.[a-z0-9]{2,5}$/i, '').replace(/[^\w\u0980-\u09ff-]+/g, '-').slice(0, 60) || 'picture';
+    return ctx.reply.answer(200, { 'Content-Type': kind, 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; sandbox", 'X-Picture-Name': encodeURIComponent(name) }, r.body);
+  } catch (e) { return fail((e as Error).message || 'ছবিটা আনা যায়নি।'); }
+}
+
 async function minePage(ctx: AdminCtx) {
   const list = await cloud.listMine(ctx.user.id);
   const fast = !!ctx.settings.whiten_gh_token;
   const body = <><div className="title-row"><h1>📤 নিজের ছবি সাদা</h1></div>{ui.flash(ctx.flash)}
+    <section className="panel" data-tojpg=""><h2>🔗 লিংক থেকে ছবি → JPG</h2>
+      <p className="small">যেকোনো ওয়েবসাইটের ছবির লিংক (WebP, AVIF, PNG, GIF, BMP, SVG — যেকোনো রকম) বা পণ্যের পেজের লিংক এখানে দিন — ছবিটা নিচে দেখাবে, তারপর <b>⬇️ JPG ডাউনলোড</b> চাপলেই সাদা ব্যাকগ্রাউন্ডে JPG হয়ে নামবে। ছবির লিংক পেতে: ছবির উপর চেপে ধরুন (কম্পিউটারে ডান ক্লিক) → <b>Copy image address / ছবির ঠিকানা কপি</b>। একসাথে কয়েকটা লিংক দিতে চাইলে প্রতিটা আলাদা লাইনে দিন।</p>
+      <div className="tojpg-form">{ui.textarea('tojpg_urls', '', { rows: 2, placeholder: 'https://… ছবির লিংক (প্রতি লাইনে একটা)', 'aria-label': 'ছবির লিংক', 'data-tojpg-urls': '' })}<button type="button" className="btn" data-tojpg-go="">🔄 ছবি আনুন ও JPG করুন</button></div>
+      <p className="small" data-tojpg-status="" aria-live="polite"></p>
+      <div className="mine-grid" data-tojpg-list=""></div>
+    </section>
     <section className="panel" data-mine="" data-wt-fast={fast ? '1' : undefined}>
       <p className="small">আপনার কম্পিউটার বা ফোনের যেকোনো ছবি দিন — একটা বা একসাথে অনেকগুলো। "ব্যাকগ্রাউন্ড সাদা"-র একই AI অনলাইনে পণ্যটা কেটে একদম সাদা ব্যাকগ্রাউন্ডে বসায় (লোগো, ফোন নম্বর, আলাদা লেখা মুছে যায়)। তৈরি হলে প্রতিটা আলাদা করে ডাউনলোড করুন। দোকানে কিছু বদলায় না। ছবিগুলো {bn(cloud.MINE_DAYS)} দিন রাখা থাকে, তারপর নিজে থেকে মুছে যায়।</p>
       <div className="wt-bar"><label className="btn">📁 ছবি বাছুন<input type="file" accept="image/*" multiple hidden data-mine-files="" /></label>{' '}<label className="check" title="পণ্যটা একটু উজ্জ্বল ও পরিষ্কার হয়"><input type="checkbox" data-mine-bright="" />{' '}<span>✨ উজ্জ্বল ও পরিষ্কার</span></label>{' '}<label className="check" title="পণ্য থেকে আলাদা লোগো, ফোন নম্বর, লেখা মুছে দেয়"><input type="checkbox" data-mine-clean="" defaultChecked />{' '}<span>লোগো, ফোন নম্বর, ওয়েবসাইট মুছুন</span></label>{' '}<label className="check" title="ছবিতে ক্যামেরার ফ্ল্যাশের সাদা ঝলক থাকলে আশেপাশের রং দিয়ে ভরে দেয় — পণ্যের নিজের সাদা লেখা/বোতাম ঠিক থাকে"><input type="checkbox" data-mine-glare="" defaultChecked />{' '}<span>💡 ফ্ল্যাশের ঝলক কমান</span></label>{' '}<label className="check" title="পণ্যের নিচে সাদা/ধূসর স্ট্যান্ড বা বেস (প্লেট) থাকলে মুছে দেয়। স্বচ্ছ বাক্সে রাখা পণ্যে টিক দেবেন না।"><input type="checkbox" data-mine-base="" />{' '}<span>🧹 নিচের স্ট্যান্ড/বেস মুছুন</span></label>{' '}{(list.some((x) => x.status === 'done') ? <button type="button" className="btn btn-ghost" data-mine-all="">⬇️ তৈরি সবগুলো ডাউনলোড</button> : null)}</div>
@@ -177,6 +219,7 @@ export const routes = [
   { method: 'POST', path: /^\/admin\/api\/whiten\/(\d+)$/, perm: 'products', handler: keepApi },
   { method: 'POST', path: /^\/admin\/api\/whiten\/(\d+)\/undo$/, perm: 'products', handler: undoApi },
   { method: 'GET', path: MINE_BASE, perm: 'products', handler: minePage },
+  { method: 'GET', path: '/admin/api/img-fetch', perm: 'products', handler: imgFetch },
   { method: 'POST', path: '/admin/api/whiten-mine', perm: 'products', handler: mineQueue },
   { method: 'GET', path: /^\/admin\/api\/whiten-mine\/(\d+)\/download$/, perm: 'products', handler: mineDownload },
   { method: 'POST', path: /^\/admin\/api\/whiten-mine\/(\d+)\/delete$/, perm: 'products', handler: mineDelete },

@@ -85,3 +85,54 @@ export function startWhitenMine(): void {
   void poll();
   window.addEventListener('pagehide', () => clearTimeout(timer));
 }
+
+// 🔗 লিংক থেকে ছবি → JPG (lib/admin/whiten.tsx imgFetch): the shop brings the picture, this browser turns it into a
+// JPG on white (any format the browser can show: WebP, AVIF, PNG, GIF, BMP, SVG …) and offers it for download.
+export function startToJpg(): void {
+  const box = $('[data-tojpg]');
+  if (!box) return;
+  const status = $('[data-tojpg-status]', box);
+  const list = $('[data-tojpg-list]', box)!;
+  const say = (t: string) => { if (status) status.textContent = t; };
+  const toJpg = (blob: Blob): Promise<{ jpg: Blob; w: number; h: number }> => new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
+    img.onload = () => {
+      // SVGs without a size get a sensible one; very big pictures stay within 4000px
+      let w = img.naturalWidth || 1200, h = img.naturalHeight || 1200;
+      const k = Math.min(1, 4000 / Math.max(w, h)); w = Math.round(w * k); h = Math.round(h * k);
+      const c = document.createElement('canvas'); c.width = w; c.height = h;
+      const x = c.getContext('2d')!;
+      x.fillStyle = '#fff'; x.fillRect(0, 0, w, h); // see-through parts become white, as a JPG has no see-through
+      x.drawImage(img, 0, 0, w, h);
+      URL.revokeObjectURL(url);
+      c.toBlob((b) => (b ? resolve({ jpg: b, w, h }) : reject(new Error('JPG বানানো যায়নি'))), 'image/jpeg', 0.92);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('এই ব্রাউজার ছবিটা খুলতে পারছে না')); };
+    img.src = url;
+  });
+  const one = async (link: string) => {
+    const r = await fetch(`/admin/api/img-fetch?url=${encodeURIComponent(link)}`, { credentials: 'same-origin' });
+    if (!r.ok) { const j = (await r.json().catch(() => ({}))) as { error?: string }; throw new Error(j.error || 'ছবিটা আনা যায়নি'); }
+    const name = decodeURIComponent(r.headers.get('X-Picture-Name') || 'picture');
+    const { jpg, w, h: ht } = await toJpg(await r.blob());
+    const href = URL.createObjectURL(jpg);
+    const fig = h('figure', { className: 'mine-pic' },
+      h('a', { href, target: '_blank', rel: 'noopener' }, h('img', { src: href, alt: name, className: 'tojpg-img' })),
+      h('figcaption', { className: 'small' }, `${w}×${ht} · ${Math.max(1, Math.round(jpg.size / 1024))} KB `,
+        h('a', { className: 'btn btn-sm', href, download: `${name}.jpg` }, '⬇️ JPG ডাউনলোড')));
+    list.prepend(fig);
+  };
+  $('[data-tojpg-go]', box)?.addEventListener('click', async () => {
+    const area = $<HTMLTextAreaElement>('[data-tojpg-urls]', box);
+    const links = String(area?.value || '').split(/\s+/).map((x) => x.trim()).filter((x) => /\w\.\w/.test(x)).slice(0, 20);
+    if (!links.length) { say('আগে একটা ছবির লিংক দিন।'); return; }
+    let ok = 0;
+    for (let i = 0; i < links.length; i++) {
+      say(`⏳ ছবি আনা হচ্ছে ${i + 1} / ${links.length}…`);
+      try { await one(links[i]); ok++; } catch (e) { toast(`${links[i].slice(0, 60)} — ${(e as Error).message}`); }
+    }
+    say(ok ? `✅ ${ok}টি ছবি JPG হয়েছে — প্রতিটার নিচে "⬇️ JPG ডাউনলোড" চাপুন।` : '⚠️ কোনো ছবি আনা যায়নি।');
+    if (ok && area) area.value = '';
+  });
+}

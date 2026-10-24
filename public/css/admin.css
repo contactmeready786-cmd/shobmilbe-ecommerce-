@@ -1709,3 +1709,6 @@ html[data-admin-lang="en"] .side-drop[data-side-group="দোকানের ড
   table.table.compact:not(:has(thead)) td { display: block; border: 0; padding: 0; min-width: 0; overflow-wrap: anywhere; }
   table.table.compact:not(:has(thead)) td:first-child { flex: 1 1 100%; }
 }
+.tojpg-form { display: grid; gap: 8px; }
+.tojpg-form textarea { width: 100%; }
+.tojpg-img { width: 100%; aspect-ratio: 1; object-fit: contain; background: #fff; border-radius: 6px; border: 1px solid #eee; display: block; }

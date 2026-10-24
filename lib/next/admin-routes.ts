@@ -160,6 +160,7 @@ export const ADMIN_GET_ROUTES: (string | RegExp)[] = [
   "/admin/api/whiten-cloud",
   "/admin/products/whiten",
   "/admin/products/whiten/mine",
+  "/admin/api/img-fetch",
   /^\/admin\/api\/whiten-mine\/(\d+)\/download$/,
   "/admin/products/clean-desc",
   "/admin/ai-staff",
