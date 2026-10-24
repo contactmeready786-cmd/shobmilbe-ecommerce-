@@ -65,8 +65,8 @@ async function page(ctx: AdminCtx) {
       {(s.notify_email ? null : <p className="small warn">ইমেইল পাঠাতে আগে <a href="/admin/notify">আমার নোটিফিকেশন</a>-এ Gmail সেট করুন।</p>)}
     </section>
     <section className="panel" id="gemini"><h2>🧠 মানুষের মতো লেখা — Google Gemini চাবি {(s.ai_gemini_key ? <span className="pill pill-green">চালু ✅</span> : <span className="pill pill-grey">বন্ধ</span>)}</h2>
-      <ol className="steps small"><li>Google-এ লগইন করে খুলুন: <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a></li><li><b>Create API key</b> চাপুন (প্রজেক্ট চাইলে যেকোনো একটা বাছুন) — ফ্রি, কার্ড লাগে না।</li><li>যে চাবিটা দেখায় (<code>AIza…</code>) কপি করে এখানে বসান — সেভের আগে পরীক্ষা হয়।</li></ol>
-      <form method="post" action={`${BASE}/key`} className="toolbar">{ui.input('key', '', { type: 'password', autocomplete: 'off', placeholder: s.ai_gemini_key ? 'সেভ করা আছে (বদলাতে নতুন দিন)' : 'AIza…', 'aria-label': 'Gemini চাবি' })}{' '}<button className="btn btn-sm">পরীক্ষা করে সেভ করুন</button></form>
+      <ol className="steps small"><li>Google-এ লগইন করে খুলুন: <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a></li><li><b>Create API key</b> চাপুন (প্রজেক্ট চাইলে যেকোনো একটা বাছুন) — ফ্রি, কার্ড লাগে না।</li><li>চাবির পাশের 📋 চিহ্ন চেপে কপি করে এখানে বসান — সেভের আগে পরীক্ষা হয়।</li></ol>
+      <form method="post" action={`${BASE}/key`} className="toolbar">{ui.input('key', '', { type: 'password', autocomplete: 'off', placeholder: s.ai_gemini_key ? 'সেভ করা আছে (বদলাতে নতুন দিন)' : 'চাবিটা এখানে পেস্ট করুন', 'aria-label': 'Gemini চাবি' })}{' '}<button className="btn btn-sm">পরীক্ষা করে সেভ করুন</button></form>
       {(s.ai_gemini_key ? <form method="post" action={`${BASE}/key`} data-confirm="Gemini চাবি মুছবেন? স্টাফ তখন সাধারণ ভাষায় রিপোর্ট দেবে, প্রশ্নের উত্তর দেবে না।"><input type="hidden" name="action" defaultValue="clear" /><button className="btn btn-sm btn-ghost">চাবি মুছুন</button></form> : null)}
       <p className="small muted">আপনার দোকানের সারসংক্ষেপ (সংখ্যা ও পণ্যের নাম — কাস্টমারের নাম/ফোন নয়) Google-এর কাছে যায় লেখার জন্য।</p>
     </section>
@@ -115,8 +115,10 @@ async function saveKey(ctx: AdminCtx) {
   const b = await ctx.body();
   const back = (m: string) => ctx.redirect(`${BASE}?info=${encodeURIComponent(m)}#gemini`);
   if (b.action === 'clear') { await db.setSetting('ai_gemini_key', ''); await ctx.reloadSettings(); return back('চাবি মুছে ফেলা হয়েছে।'); }
-  const key = str(b.key, 200).trim();
-  if (!/^AIza[0-9A-Za-z_-]{30,}$/.test(key)) return back('এটা Gemini চাবি মনে হচ্ছে না — "AIza" দিয়ে শুরু হওয়া পুরো লেখাটা দিন।');
+  // whatever the phone pasted around it (spaces, line breaks, quotes) goes; the real test is asking Gemini itself
+  // (Google's newer keys don't all start with "AIza" any more)
+  const key = str(b.key, 400).replace(/[\s"'`<>]/g, '');
+  if (!/^[0-9A-Za-z._-]{20,300}$/.test(key)) return back('চাবিটা পুরোটা কপি হয়নি মনে হচ্ছে — Google-এর পাতায় চাবির পাশের 📋 চিহ্ন চেপে আবার কপি করে দিন।');
   try { await staff.gemini(key, 'শুধু লেখো: ঠিক আছে', 20000); } catch (e) { return back(`চাবিটা কাজ করেনি: ${(e as Error).message}। আগের অবস্থা যেমন ছিল তেমনই আছে।`); }
   await db.setSetting('ai_gemini_key', key);
   await ctx.reloadSettings();
