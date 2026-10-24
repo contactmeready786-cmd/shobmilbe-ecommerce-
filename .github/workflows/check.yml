@@ -8,7 +8,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: 059eccf558e04e0649430483f7d331e9eb383789
+          ref: 26060be1556963e3efd0f8efde8cc4f5e01848df
           sparse-checkout: |
             tools/whiten
             public/vendor/birefnet
@@ -20,7 +20,7 @@ jobs:
         run: |
           set -eu
           pip install -q -r tools/whiten/requirements.txt
-          git clone -q --depth 1 --branch whiten-results "https://x-access-token:${TOKEN}@github.com/${REPO}.git" /tmp/res
-          git -C /tmp/res config user.name whiten-cloud && git -C /tmp/res config user.email actions@github.com
+          git clone -q --depth 5 --branch whiten-results "https://x-access-token:${TOKEN}@github.com/${REPO}.git" /tmp/res
+          git -C /tmp/res checkout -q 534ec91 -- results/ && git -C /tmp/res config user.name whiten-cloud && git -C /tmp/res config user.email actions@github.com
           python tools/whiten/cloud.py --shop https://shobmilbe.com --out /tmp/res --redo
           echo "::notice::redo done"
