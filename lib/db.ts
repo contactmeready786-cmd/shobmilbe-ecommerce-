@@ -1251,6 +1251,9 @@ CREATE TABLE IF NOT EXISTS ai_staff_edits (
 );
 CREATE INDEX IF NOT EXISTS ai_staff_edits_product_idx ON ai_staff_edits(product_id, id);
 CREATE INDEX IF NOT EXISTS ai_staff_edits_created_idx ON ai_staff_edits(created_at DESC);
+`,
+  // ✍️ where the AI staff's text came from (🔎 Google Search / 🧠 its own knowledge) — a new step: the one above already ran
+  `
 ALTER TABLE ai_staff_edits ADD COLUMN IF NOT EXISTS via text NOT NULL DEFAULT '';
 `,
 ];
