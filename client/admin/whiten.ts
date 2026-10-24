@@ -355,8 +355,8 @@ export function startWhiten(): void {
         else if (j.status === 'failed') { msg(f, ' ⚠️ ' + (j.error || 'হয়নি — আবার চেষ্টা করুন')); delete f.dataset.wtJob; }
         else if (j.status === 'queued') { left++; msg(f, ' ☁️ অনলাইনে তৈরি হচ্ছে…'); }
       }
-      say(left ? `☁️ ${left}টা ছবি অনলাইনে তৈরি হচ্ছে — সাধারণত ৫-১৫ মিনিট লাগে। পেজটা বন্ধ করলেও কাজ চলবে; পরে এসে দেখলেও হবে।` : `✅ অনলাইনের ছবিগুলো তৈরি — "পরে"-র ছবি ভালো লাগলে "💾 এটা পণ্যে বসান" চাপুন।`);
-      if (left) polling = window.setTimeout(() => void poll(), 20000);
+      say(left ? `☁️ ${left}টা ছবি অনলাইনে তৈরি হচ্ছে — ${box.dataset.wtFast ? 'সাধারণত ১–৩ মিনিট লাগে' : 'GitHub-এর সময়সূচিতে চলে, কখনো ৩০ মিনিটের বেশি লাগে (নিচে "⚡ সাথে সাথে শুরু" চালু করলে ১–৩ মিনিটে হয়)'}। পেজটা বন্ধ করলেও কাজ চলবে; পরে এসে দেখলেও হবে।` : `✅ অনলাইনের ছবিগুলো তৈরি — "পরে"-র ছবি ভালো লাগলে "💾 এটা পণ্যে বসান" চাপুন।`);
+      if (left) polling = window.setTimeout(() => void poll(), box.dataset.wtFast ? 10000 : 20000);
     } catch { polling = window.setTimeout(() => void poll(), 30000); }
   };
   const sendCloud = async (figs: HTMLElement[]) => {

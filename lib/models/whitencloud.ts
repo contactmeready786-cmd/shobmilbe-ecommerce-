@@ -13,10 +13,43 @@ import { safeFetch } from '../services/safefetch';
 import * as security from '../security';
 import * as W from './whiten';
 import type { WhitenJobsRow } from '../data/rows';
+import type { Settings } from '../types';
 
 /** where the cloud AI puts the finished pictures (this shop's public repository) */
 export const REPO = process.env.WHITEN_REPO || 'contactmeready786-cmd/shobmilbe-ecommerce-';
 const RAW = (path: string) => `https://raw.githubusercontent.com/${REPO}/whiten-results/${path}`;
+const WORKFLOW = 'whiten-cloud.yml';
+
+/** ⚡ Start the cloud AI now instead of waiting for GitHub's timer (which can lag 30–60 minutes). Needs the owner's
+ *  GitHub key (Admin → ব্যাকগ্রাউন্ড সাদা → ⚡ সাথে সাথে শুরু; only "Actions: write" on this one repository).
+ *  At most once a minute per server; a run that is already going picks the new pictures up by itself. */
+let lastKick = 0;
+export async function kick(settings: Settings, force = false): Promise<{ ok: boolean; message: string }> {
+  const token = String(settings.whiten_gh_token || '').trim();
+  if (!token) return { ok: false, message: 'none' };
+  if (!force && Date.now() - lastKick < 60_000) return { ok: true, message: 'recent' };
+  lastKick = Date.now();
+  try {
+    const r = await fetch(`https://api.github.com/repos/${REPO}/actions/workflows/${WORKFLOW}/dispatches`, {
+      method: 'POST', signal: AbortSignal.timeout(8000),
+      headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', 'User-Agent': 'shobmilbe', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ref: 'main' }),
+    });
+    if (r.status === 204) return { ok: true, message: 'started' };
+    const why = r.status === 401 ? 'চাবিটা ঠিক নেই বা মেয়াদ শেষ' : r.status === 403 || r.status === 404 ? 'চাবিতে এই রিপোজিটরির "Actions: Read and write" অনুমতি নেই' : `GitHub উত্তর দিল ${r.status}`;
+    lastKick = 0;
+    await db_log(false, why);
+    return { ok: false, message: why };
+  } catch (e) {
+    lastKick = 0;
+    await db_log(false, (e as Error).message);
+    return { ok: false, message: 'GitHub-এ পৌঁছানো যায়নি' };
+  }
+}
+async function db_log(ok: boolean, msg: string) {
+  try { const db = await import('../db'); await db.logIntegration('github', 'whiten_kick', ok, msg); } catch { /* best effort */ }
+}
+
 export type CloudOpts = { bright?: boolean; clean?: boolean };
 
 /** Queue pictures (product pictures only; one waiting job per picture). Returns job ids by media id. */

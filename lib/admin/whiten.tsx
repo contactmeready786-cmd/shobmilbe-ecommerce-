@@ -13,6 +13,7 @@ import * as cloud from '../models/whitencloud';
 import type { AdminCtx, RouteMatch } from '../types';
 
 const BASE = '/admin/products/whiten';
+const REPO_NAME = cloud.REPO.split('/')[1] || cloud.REPO;
 const PER_PAGE = 12;
 const HOST = "split_part(p.import_ref, '#', 1)";
 const ALL = '*';
@@ -56,7 +57,7 @@ async function page(ctx: AdminCtx) {
     <form method="get" action={attrValue(BASE)} className="toolbar">{ui.select('host', list.map((h) => [h.host, h.host === ALL ? 'দোকানের সব পণ্য' : `${h.host} — ${bn(h.n)}টি পণ্য`]), host)}{' '}<input type="hidden" name="f" defaultValue={attrValue(f)} /><button className="btn btn-sm btn-ghost">দেখুন</button></form>
     <div className="kpis kpis-tight">{ui.kpi('ছবি', bn(prog.pics), `${bn(ids.length)}টি পণ্যে`)}{' '}{ui.kpi('সাদা করা হয়েছে', `${bn(prog.white)} / ${bn(prog.pics)}`, `${bn(prog.pics ? Math.round((prog.white * 100) / prog.pics) : 0)}%`, 'kpi-blue')}</div>
     <nav className="toolbar">{jsxList(Object.entries(FILTERS).map(([k, v]) => <>{' '}<a className={`chip ${k === f ? 'on' : ''}`} href={attrValue(`${BASE}?${new URLSearchParams({ host, f: k })}`)}><Val v={v} /></a></>))}</nav>
-    {(rows.length ? <section className="panel wt" data-whiten="">
+    {(rows.length ? <section className="panel wt" data-whiten="" data-wt-fast={ctx.settings.whiten_gh_token ? '1' : undefined}>
       <div className="wt-bar"><button type="button" className="btn" data-wt-run="">▶ এই পেজের ছবি সাদা করুন</button>{' '}<button type="button" className="btn btn-ghost" data-wt-save="" disabled>💾 টিক দেওয়াগুলো রাখুন</button>{' '}<label className="check"><input type="checkbox" data-wt-only-new="" defaultChecked />{' '}<span>আগে সাদা করা ছবি বাদ</span></label>{' '}<select data-wt-model="" aria-label="কোন AI" defaultValue="cloud"><option value="cloud">☁️ অনলাইনে — সেরা মান, কম্পিউটার/ফোনে চাপ নেই</option><option value="best">🧠 এই কম্পিউটারে — সেরা মান (শক্তিশালী গ্রাফিক্স লাগে)</option><option value="fast">⚡ এই কম্পিউটারে — দ্রুত (ISNet)</option></select>{' '}<label className="check" title="পণ্যটা একটু উজ্জ্বল ও পরিষ্কার হয় (আলো আর রং হালকা বাড়ে)। আগে/পরে দেখে তবেই রাখবেন।"><input type="checkbox" data-wt-bright="" />{' '}<span>✨ উজ্জ্বল ও পরিষ্কার</span></label>{' '}<label className="check" title="পণ্য থেকে আলাদা ছোট টুকরো — যেমন পেছনের লেখা বা ফোন নম্বর — মুছে দেয়। পণ্যের আলাদা ছোট অংশ (যেমন চিরুনি) কেটে গেলে এটা তুলে দিয়ে আবার চালান।"><input type="checkbox" data-wt-clean="" defaultChecked />{' '}<span>আলাদা ছোট লেখা/টুকরো মুছুন</span></label>{' '}<span className="small" data-wt-status="" aria-live="polite"></span></div>
       <div className="wt-list">{jsxList(rows.map((p) => <div className="wt-product"><div className="wt-head"><b>SKU <Val v={p.sku || '—'} /></b>{' '}<a href={`/admin/products/${attrValue(p.id)}`} target="_blank" rel="noopener"><Val v={p.name} /></a>{(p.active ? null : <>{' '}<span className="pill pill-grey">বন্ধ</span></>)}</div>
         <div className="wt-pics">{(p.pics.length ? jsxList(p.pics.map((m) => <figure className={`wt-pic ${m.white ? 'is-white' : ''}`} data-wt-media={attrValue(m.id)} data-white={m.white ? '1' : undefined} data-wt-job={jobs.has(m.id) ? String(jobs.get(m.id)) : undefined}>
@@ -64,6 +65,12 @@ async function page(ctx: AdminCtx) {
           <figcaption className="small">{(m.white ? <><span>⬜ সাদা করা</span>{' '}<button type="button" className="link-btn small" data-wt-undo="">↺ আসল ছবি ফেরত</button></> : <><button type="button" className="link-btn small" data-wt-one="">▶ শুধু এটা</button>{' '}<label className="check" data-wt-keep-label="" hidden><input type="checkbox" data-wt-keep="" defaultChecked />{' '}<span>রাখুন</span></label></>)}<span className="wt-msg" data-wt-msg=""></span></figcaption>
         </figure>)) : <span className="muted small">ছবি নেই</span>)}</div></div>))}</div>
     </section> : <p className="muted">{(f === 'todo' ? '🎉 এই দোকানের সব ছবি সাদা করা হয়ে গেছে।' : 'এই তালিকায় কোনো পণ্য নেই।')}</p>)}
+    {(ctx.user.role === 'owner' ? <section className="panel" id="fast"><h2>⚡ সাথে সাথে শুরু {(ctx.settings.whiten_gh_token ? <span className="pill pill-green">চালু ✅</span> : <span className="pill pill-grey">বন্ধ</span>)}</h2>
+      <p className="small">GitHub নিজের সময়সূচি অনেক সময় ৩০–৬০ মিনিট পিছিয়ে চালায়। একটা GitHub চাবি দিলে ছবি পাঠানোর সাথে সাথে কাজ শুরু হয় — সাধারণত ১–৩ মিনিটে ছবি তৈরি।</p>
+      <ol className="steps small"><li>GitHub-এ লগইন করে খুলুন: <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">github.com/settings/personal-access-tokens/new</a></li><li><b>Token name</b>: <code>shobmilbe whiten</code> · <b>Expiration</b>: সবচেয়ে লম্বা (বা No expiration)</li><li><b>Repository access</b> → <b>Only select repositories</b> → <code>{REPO_NAME}</code></li><li><b>Permissions</b> → <b>Actions</b> → <b>Read and write</b> (আর কিছু লাগবে না)</li><li>নিচে <b>Generate token</b> → যে লেখাটা দেখায় (<code>github_pat_…</code>) কপি করে এখানে বসান।</li></ol>
+      <form method="post" action="/admin/products/whiten/token" className="toolbar">{ui.input('token', '', { type: 'password', autocomplete: 'off', placeholder: ctx.settings.whiten_gh_token ? 'সেভ করা আছে (বদলাতে নতুন দিন)' : 'github_pat_…', 'aria-label': 'GitHub চাবি' })}{' '}<button className="btn btn-sm">পরীক্ষা করে সেভ করুন</button></form>
+      {(ctx.settings.whiten_gh_token ? <form method="post" action="/admin/products/whiten/token" data-confirm="চাবি মুছে ফেলবেন? তখন ছবি GitHub-এর নিজের সময়সূচিতে তৈরি হবে।"><input type="hidden" name="action" defaultValue="clear" /><button className="btn btn-sm btn-ghost">চাবি মুছুন</button></form> : null)}
+    </section> : null)}
     {(pages > 1 ? <nav className="pager">{(pg > 1 ? <a className="btn btn-sm btn-ghost" href={attrValue(q({ page: String(pg - 1) }))}>← আগের</a> : null)}{' '}<span className="small">পেজ {bn(pg)} / {bn(pages)} · মোট {bn(count)}টি পণ্য</span>{' '}{(pg < pages ? <a className="btn btn-sm" href={attrValue(q({ page: String(pg + 1) }))}>পরের →</a> : null)}</nav> : null)}
   </>;
   return ctx.page('ব্যাকগ্রাউন্ড সাদা', body, 'whiten');
@@ -95,7 +102,8 @@ async function cloudQueue(ctx: AdminCtx) {
   const b = await ctx.body();
   const ids = (Array.isArray(b.ids) ? b.ids : []).map((x: unknown) => int(x));
   const jobs = await cloud.queue(ids, { bright: !!b.bright, clean: b.clean !== false && b.clean !== 0 }, ctx.user.id);
-  return ctx.json(200, { jobs });
+  const k = Object.keys(jobs).length ? await cloud.kick(ctx.settings) : { ok: false, message: 'none' };
+  return ctx.json(200, { jobs, fast: k.ok });
 }
 async function cloudStatus(ctx: AdminCtx) {
   const ids = String(ctx.query.get('ids') || '').split(',').map((x) => int(x)).filter(Boolean);
@@ -109,7 +117,23 @@ async function cloudKeep(ctx: AdminCtx, m: RouteMatch) {
   } catch (e) { return ctx.json(e instanceof cloud.CloudError || e instanceof W.WhitenError ? 409 : 500, { error: (e as Error).message }); }
 }
 
+// ⚡ the owner's GitHub key that starts the cloud AI at once (tested before it is saved: a wrong key never replaces a working one)
+async function saveToken(ctx: AdminCtx) {
+  const b = await ctx.body();
+  const back = (msg: string) => ctx.redirect(`${BASE}?info=${encodeURIComponent(msg)}#fast`);
+  if (b.action === 'clear') { await db.setSetting('whiten_gh_token', ''); await ctx.reloadSettings(); return back('চাবি মুছে ফেলা হয়েছে। এখন ছবি GitHub-এর নিজের সময়সূচিতে তৈরি হবে।'); }
+  const token = str(b.token, 400).trim();
+  if (!/^(github_pat_|ghp_)[A-Za-z0-9_]{20,}$/.test(token)) return back('এটা GitHub-এর চাবি মনে হচ্ছে না — "github_pat_" দিয়ে শুরু হওয়া পুরো লেখাটা কপি করে দিন।');
+  const t = await cloud.kick({ ...ctx.settings, whiten_gh_token: token }, true);
+  if (!t.ok) return back(`চাবিটা কাজ করেনি: ${t.message}। আগের অবস্থা যেমন ছিল তেমনই আছে।`);
+  await db.setSetting('whiten_gh_token', token);
+  await ctx.reloadSettings();
+  await ctx.log('settings', 'setting', 0, 'ব্যাকগ্রাউন্ড সাদা — GitHub চাবি সেভ (পরীক্ষা করে)');
+  return back('✅ চাবি কাজ করছে ও সেভ হয়েছে। এখন থেকে ছবি পাঠালেই সাথে সাথে কাজ শুরু হবে (১–৩ মিনিট)।');
+}
+
 export const routes = [
+  { method: 'POST', path: '/admin/products/whiten/token', perm: 'owner', handler: saveToken },
   { method: 'POST', path: '/admin/api/whiten-cloud', perm: 'products', handler: cloudQueue },
   { method: 'GET', path: '/admin/api/whiten-cloud', perm: 'products', handler: cloudStatus },
   { method: 'POST', path: /^\/admin\/api\/whiten-cloud\/(\d+)\/keep$/, perm: 'products', handler: cloudKeep },
