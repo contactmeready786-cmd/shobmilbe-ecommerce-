@@ -191,8 +191,11 @@ function compare(a: Comparable, b: Comparable, lv: Level, { sameDesc = false }: 
   // a model / size number that differs in the names (40W vs 60W) keeps two look-alike pictures apart: only a warning
   const aiBlock = aiStrong && !numberClash;
   if (imgStrong || aiBlock || titleSame || titleHigh || (titleMid && (imgWeak || aiWeak || aiStrong || sameDesc)) || (sameDesc && (imgWeak || aiWeak))) block = true;
-  else if (imgWeak || aiWeak || aiStrong || titleMid || sameDesc || (a.youtube && a.youtube === b.youtube)) warn = true;
-  if (block && numberClash && (imgStrong || imgWeak)) reasons.push('তবে নামে মাপ/মডেল আলাদা — একই ছবির আলাদা ভ্যারিয়েন্ট হলে নিচের সুইচ চালু করুন');
+  // a picture that is only "somewhat alike" says nothing alone (shop photos share a style, a badge, a logo) — it needs
+  // the name, the AI or the description to back it up (owner, 2026-10-24)
+  else if (aiWeak || aiStrong || titleMid || sameDesc || (a.youtube && a.youtube === b.youtube)) warn = true;
+  // the same picture under another model number (MQ4 / MQ8 on one board photo): look, but never "sure"
+  if (block && numberClash && !sameDesc) { block = false; warn = true; reasons.push('তবে নামে মাপ/মডেল আলাদা — আলাদা পণ্য হলে "আলাদা পণ্য ✓" চাপুন'); }
   if (aiStrong && numberClash) reasons.push('তবে নামে মাপ/মডেল আলাদা — তাই শুধু সতর্ক করা হলো');
 
   score += (imgStrong ? 50 : imgWeak ? 20 : 0) + (aiStrong ? 40 : aiWeak ? 15 : 0) + (titleSame ? 50 : titleHigh ? 35 : titleMid ? 15 : 0) + (sameDesc ? 25 : 0);
@@ -300,24 +303,43 @@ async function scanCatalog(settings: Settings, { includeAllowed = false }: ScanC
       pairsOut.push({ older, newer, ...r });
     }
   }
-  // join pairs into groups
-  const parent = new Map<number, number>();
-  const find = (x: number) => { while (parent.get(x) !== x) { parent.set(x, parent.get(parent.get(x)!)!); x = parent.get(x)!; } return x; };
-  const unite = (x: number, y: number) => { [x, y].forEach((v) => { if (!parent.has(v)) parent.set(v, v); }); parent.set(find(x), find(y)); };
-  pairsOut.forEach((p) => unite(p.older.id, p.newer.id));
-  const groups = new Map<number, { level: string; products: Map<number, CatalogEntry>; pairs: Pair[]; score: number }>();
+  return groupPairs(pairsOut);
+}
+
+type ScanPair = { older: CatalogEntry; newer: CatalogEntry } & ReturnType<typeof compare>;
+function groupPairs<Pair extends ScanPair>(pairsOut: Pair[]) {
+// join pairs into groups — every product in a group must match EVERY other one there (owner, 2026-10-24: chaining
+  // A~B, B~C, C~D … had put 250 unrelated products into one group because their photos shared a shop's badge).
+  // Strongest pairs first; a product belongs to one group only.
+  pairsOut.sort((x, y) => (x.level === y.level ? y.score - x.score : x.level === 'block' ? -1 : 1));
+  const key = (x: number, y: number) => (x < y ? `${x}:${y}` : `${y}:${x}`);
+  const pairOf = new Map<string, Pair>();
+  for (const p of pairsOut) pairOf.set(key(p.older.id, p.newer.id), p);
+  type Group = { level: string; products: Map<number, CatalogEntry>; pairs: Pair[]; score: number };
+  const groupOf = new Map<number, Group>();
+  const groups: Group[] = [];
+  const fits = (G: Group, x: CatalogEntry) => [...G.products.keys()].every((id) => pairOf.has(key(id, x.id)));
+  const join = (G: Group, x: CatalogEntry) => {
+    for (const id of G.products.keys()) { const pp = pairOf.get(key(id, x.id))!; G.pairs.push(pp); if (pp.level === 'block') G.level = 'block'; G.score = Math.max(G.score, pp.score); }
+    G.products.set(x.id, x);
+    groupOf.set(x.id, G);
+  };
   for (const p of pairsOut) {
-    const g = find(p.older.id);
-    if (!groups.has(g)) groups.set(g, { level: 'warn', products: new Map(), pairs: [], score: 0 });
-    const G = groups.get(g)!;
-    if (p.level === 'block') G.level = 'block';
-    G.score = Math.max(G.score, p.score);
-    for (const x of [p.older, p.newer]) G.products.set(x.id, x);
-    G.pairs.push(p);
+    const ga = groupOf.get(p.older.id), gb = groupOf.get(p.newer.id);
+    if (ga && gb) continue;
+    if (!ga && !gb) {
+      const G: Group = { level: p.level === 'block' ? 'block' : 'warn', products: new Map([[p.older.id, p.older], [p.newer.id, p.newer]]), pairs: [p], score: p.score };
+      groupOf.set(p.older.id, G); groupOf.set(p.newer.id, G);
+      groups.push(G);
+      continue;
+    }
+    const G = (ga || gb)!;
+    const x = ga ? p.newer : p.older;
+    if (G.products.size < 12 && fits(G, x)) join(G, x);
   }
-  return [...groups.values()]
+  return groups
     .map((G) => ({ ...G, products: [...G.products.values()].sort((x, y) => x.created_at.getTime() - y.created_at.getTime()) }))
     .sort((x, y) => (x.level === y.level ? y.score - x.score : x.level === 'block' ? -1 : 1));
 }
 
-export { LEVELS, levelOf, findDuplicates, scanCatalog, prepName, compare, hamming, words, aiSim, EMB };
+export { groupPairs, LEVELS, levelOf, findDuplicates, scanCatalog, prepName, compare, hamming, words, aiSim, EMB };

@@ -45,3 +45,14 @@ test('look-alike pictures with a different size / model in the name only warn', 
   const r = compare(withPic('Soldering Iron 40W', vec(5, 0.2, a)), withPic('Soldering Iron 60W', a), LEVELS.normal);
   assert.equal(r.level, 'warn');
 });
+
+test('a group never chains: every product in it matches every other one', async () => {
+  // A~B and B~C but A and C are different things → two separate looks, not one group of three
+  const { groupPairs } = await import('../lib/models/duplicates');
+  const P = (id: number) => ({ id, created_at: new Date(2026, 0, id) }) as never;
+  const pr = (a: number, b: number, score = 50) => ({ older: P(a), newer: P(b), level: 'block', reasons: [], score, imageDistance: 0 }) as never;
+  const g = groupPairs([pr(1, 2, 90), pr(2, 3, 80), pr(3, 4, 70)]);
+  assert.deepEqual(g.map((x) => x.products.map((p) => p.id)), [[1, 2], [3, 4]]);
+  const tri = groupPairs([pr(1, 2), pr(2, 3), pr(1, 3)]);
+  assert.deepEqual(tri.map((x) => x.products.map((p) => p.id)), [[1, 2, 3]]);
+});
