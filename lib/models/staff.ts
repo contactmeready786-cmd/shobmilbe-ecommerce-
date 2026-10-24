@@ -207,6 +207,6 @@ const MANAGER_CAN = ['অর্ডার দেখা, এডিট, কনফ�
   'আয়-ব্যয় এন্ট্রি, ব্যাংক ব্যালেন্স, রিপোর্ট ও এক্সপোর্ট', 'দোকানের সেটিংস, পেমেন্ট, কুরিয়ার, ডোমেইন'];
 const OWNER_KEEPS = ['কেনা দাম, লাভ-ক্ষতি আর সাপ্লায়ারের বাকির খাতা', 'পুরনো পারচেজ আর সাপ্লায়ারের পেমেন্ট এডিট/মুছা',
   'স্টাফ আর ম্যানেজার যোগ/বাদ, তাদের অনুমতি', 'নিরাপত্তা, লগইন ইতিহাস, অডিট লগ, দেশ তালা', 'ব্যাকআপ ও রিস্টোর, সার্ভার ও ডাটাবেস',
-  'রিসাইকেল বিন (মুছা জিনিস ফেরত/চিরতরে মুছা)', 'আমার নোটিফিকেশন (Gmail, WhatsApp)', 'অর্ডার/কাস্টমার চিরতরে মুছা'];
+  'রিসাইকেল বিন (মুছা জিনিস ফেরত/চিরতরে মুছা)', 'আমার নোটিফিকেশন (Gmail, WhatsApp)', '🤖 AI স্টাফের রিপোর্ট ও প্রশ্ন', 'অর্ডার/কাস্টমার চিরতরে মুছা'];
 
 export { MANAGER_CAN, OWNER_KEEPS, PROFILE_FIELDS, saveProfile, setPhoto, photoOf, cleanDate, PERMISSIONS, PERMISSION_KEYS, PRESETS, LEVELS, can, routeAllows, canSee, viewOnly, listStaff, getStaff, findLogin, countStaff, saveStaff, createOwner, setPassword, deleteStaff, touchLogin, activity, cleanUsername };

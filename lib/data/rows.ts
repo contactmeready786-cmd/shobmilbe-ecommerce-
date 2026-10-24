@@ -42,6 +42,13 @@ export type AdminSessionsRow = {
   revoked_why: string;
 };
 
+/** A row of ai_staff_reports. */
+export type AiStaffReportsRow = {
+  id: number;
+  report: unknown;
+  created_at: Date;
+};
+
 /** A row of autocalls. */
 export type AutocallsRow = {
   id: number;
@@ -1501,6 +1508,7 @@ export type Tables = {
   accounts: AccountsRow;
   activity_log: ActivityLogRow;
   admin_sessions: AdminSessionsRow;
+  ai_staff_reports: AiStaffReportsRow;
   autocalls: AutocallsRow;
   backups: BackupsRow;
   banners: BannersRow;

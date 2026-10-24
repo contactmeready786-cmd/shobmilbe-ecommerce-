@@ -1239,6 +1239,13 @@ CREATE TABLE IF NOT EXISTS whiten_jobs (
 CREATE INDEX IF NOT EXISTS whiten_jobs_media_idx ON whiten_jobs(media_id);
 CREATE INDEX IF NOT EXISTS whiten_jobs_status_idx ON whiten_jobs(status, created_at);
 `,
+  // 🤖 AI স্টাফ (owner, 2026-10-24): the daily reports (lib/services/aistaff.ts), kept 60 days.
+  `
+CREATE TABLE IF NOT EXISTS ai_staff_reports (
+  id serial PRIMARY KEY, report jsonb NOT NULL, created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS ai_staff_reports_created_idx ON ai_staff_reports(created_at DESC);
+`,
 ];
 
 // Data steps that need code, keyed by migration number (run after its SQL).
@@ -1574,6 +1581,7 @@ const DEFAULT_SETTINGS: Record<string, string> = {
   // cheap parts (৳0.25-৳5) may be bought up to small_max_value worth; the minimum is on the whole order (min_order)
   small_qty_on: '1', small_max_price: '5', small_min_value: '10', small_max_value: '100',
   site_url: '',
+  ai_staff_on: '1', ai_staff_hour: '9', ai_staff_email: '1',
   autopost_on: '0', autopost_fb: '1', autopost_ig: '0', autopost_hours: '11,20', autoblog_on: '0',
   delivery_dhaka: '60', delivery_outside: '110', free_delivery_min: '0',
   dhaka_city_areas: '', // JSON list; empty = default Dhaka Metropolitan thanas
@@ -1700,7 +1708,7 @@ for (const [k, v] of Object.entries($services_uiswitch.DEFAULTS)) if (!(k in DEF
 
 const SECRET_KEYS = new Set(['session_secret', 'admin_password', 'fb_capi_token', 'tiktok_events_token', 'bkash_app_secret',
   'bkash_password', 'ssl_store_password', 'steadfast_secret_key', 'pathao_client_secret', 'pathao_password',
-  'pathao_token', 'redx_token', 'vercel_token', 'gmail_app_password', 'acct_gmail_password', 'callmebot_key', 'reset_mail_token', 'push_vapid_private', 'i18n_google_key', 'sms_api_key', 'cf_api_token', 'autocall_api_key', 'fraudbd_api_key', 'autopost_page_token', 'autopost_app_secret', 'telegram_bot_token', 'brevo_api_key', 'sentry_dsn', 'whiten_gh_token']);
+  'pathao_token', 'redx_token', 'vercel_token', 'gmail_app_password', 'acct_gmail_password', 'callmebot_key', 'reset_mail_token', 'push_vapid_private', 'i18n_google_key', 'sms_api_key', 'cf_api_token', 'autocall_api_key', 'fraudbd_api_key', 'autopost_page_token', 'autopost_app_secret', 'telegram_bot_token', 'brevo_api_key', 'sentry_dsn', 'whiten_gh_token', 'ai_gemini_key']);
 
 // Passwords and API keys are stored encrypted (AES-256-GCM) when ENCRYPTION_KEY is set in Vercel.
 // session_secret is left out on purpose: if the key were ever removed, nobody could log in.

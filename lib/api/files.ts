@@ -219,5 +219,7 @@ export async function researchTick(ctx: ApiCtx) {
   // 📧 ইমেইল মার্কেটিং: welcome / review / weekly new products / campaigns / 'we miss you' (within the day's allowance)
   try { await $services_mailer.tick(settings); } catch (e) { console.error('mailer', (e as Error).message); }
   try { await $services_autobackup.run(); } catch (_) { /* the daily one will try again */ }
+  // 🤖 AI স্টাফ: the day's check of the whole shop and its report to the owner (once a day, at the owner's hour)
+  try { await (await import('../services/aistaff')).tick(settings); } catch (e) { console.error('aistaff', (e as Error).message); }
   return json(200, { ok: true, done: !r.skipped && !r.idle });
 }

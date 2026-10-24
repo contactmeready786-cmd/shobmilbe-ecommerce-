@@ -1682,3 +1682,13 @@ html[data-admin-lang="en"] .side-drop[data-side-group="দোকানের ড
 .mine-pic { margin: 0; background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 8px; display: flex; flex-direction: column; gap: 6px; }
 .mine-pic figcaption { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 @media (max-width: 600px) { .mine-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; } }
+
+/* 🤖 AI স্টাফ */
+.ai-say { white-space: pre-line; line-height: 1.6; }
+.ai-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.ai-list li { display: flex; gap: 6px; align-items: baseline; padding: 6px 8px; border-radius: 8px; background: #F8F9FB; }
+.ai-list .ai-text { white-space: pre-line; flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.ai-list li.ai-bad { background: #FFF1F1; }
+.ai-list li.ai-warn { background: #FFF9EC; }
+.ai-list li.ai-good { background: #EFFAF2; }
+.ai-answer { margin-top: 10px; padding: 10px; border-radius: 10px; background: #F3F6FF; }
