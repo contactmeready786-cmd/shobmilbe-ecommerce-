@@ -1,9 +1,13 @@
-name: aistaff-check2
+name: ticks-check
 on: push
 jobs:
   c:
     runs-on: ubuntu-24.04
     steps:
       - run: |
-          code=$(curl -sS -m 70 -o t.json -w '%{http_code}' -A shobmilbe-tick https://shobmilbe.com/api/aistaff/tick)
-          echo "::notice::tick http $code $(head -c 200 t.json)"
+          out=""
+          for p in /api/research/tick /api/backup/tick /api/aistaff/tick /api/whiten-jobs /robots.txt /sitemap.xml /feeds/google.xml; do
+            code=$(curl -sS -m 60 -o b.txt -w '%{http_code}' -A shobmilbe-tick "https://shobmilbe.com$p" || echo 000)
+            out="$out $p=$code($(head -c 60 b.txt | tr -d '\n' | tr -c '[:print:]' ' '))"
+          done
+          echo "::notice::$out"
