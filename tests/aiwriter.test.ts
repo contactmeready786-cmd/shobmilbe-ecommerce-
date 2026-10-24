@@ -24,3 +24,8 @@ test('links, phone numbers, HTML and wrong lengths are refused', () => {
   assert.equal(d.seo_keywords, 'multimeter, digital multimeter, মাল্টিমিটার');
   assert.equal(d.description, undefined);
 });
+
+test('a new name must still be the same product', () => {
+  assert.equal(check({ name: 'Soldering Iron Stand' }, { name: 'Wireless Bluetooth Speaker Portable' }).name, undefined);
+  assert.equal(check({ name: 'Soldering Iron Stand' }, { name: 'Soldering Iron Stand with Sponge Holder' }).name, 'Soldering Iron Stand with Sponge Holder');
+});

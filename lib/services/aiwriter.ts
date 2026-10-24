@@ -38,6 +38,10 @@ export function check(p: Pick<P, 'name'>, raw: Record<string, unknown>): Draft {
     if (f === 'name') {
       const have = codesIn(v).join(' ');
       if (!codesIn(p.name).every((c) => have.includes(c))) continue; // a model / size number went missing
+      // still the same product: at least one real word of the old name stays (no wandering off to another thing)
+      const words = (x: string) => new Set(x.toLowerCase().match(/[a-z]{3,}|[\u0980-\u09ff]{2,}/g) || []);
+      const old = words(p.name), now = words(v);
+      if (old.size && ![...old].some((w) => now.has(w))) continue;
     }
     out[f] = v;
   }
@@ -55,8 +59,9 @@ function prompt(p: P): string {
 ছোট বিবরণ: ${p.short_description.slice(0, 600) || '-'}
 বিস্তারিত বিবরণ: ${p.description.slice(0, 2500) || '-'}
 
-শুধু একটা JSON দাও (আর কিছু না):
-{"name": "ইংরেজিতে পরিষ্কার পণ্যের নাম — মানুষ যেভাবে খোঁজে; মডেল/মাপ নম্বর হুবহু রাখবে; ১২০ অক্ষরের মধ্যে; অন্য দোকানের নাম নয়",
+শুধু একটা JSON দাও (আর কিছু না)। খোঁজে যদি নিশ্চিত না হও যে এটা ঠিক এই পণ্যটাই, তাহলে শুধু {"same_product": false} দাও।
+{"same_product": true,
+ "name": "ইংরেজিতে পরিষ্কার পণ্যের নাম — মানুষ যেভাবে খোঁজে; মডেল/মাপ নম্বর হুবহু রাখবে; ১২০ অক্ষরের মধ্যে; অন্য দোকানের নাম নয়",
  "seo_title": "৬০ অক্ষরের মধ্যে, মূল কিওয়ার্ড শুরুতে, শেষে 'Price in BD' জাতীয় শব্দ চলবে",
  "seo_description": "১২০–১৫৫ অক্ষর, বাংলা+ইংরেজি মিশিয়ে, দাম/ক্যাশ অন ডেলিভারির কথা থাকতে পারে",
  "seo_keywords": "৬–১০টা কিওয়ার্ড, কমা দিয়ে (ইংরেজি ও বাংলা — মানুষ যা লিখে খোঁজে)",
@@ -69,7 +74,9 @@ async function draftFor(key: string, p: P): Promise<Draft> {
   const text = await geminiSearch(key, prompt(p));
   const m = text.match(/\{[\s\S]*\}/);
   if (!m) throw new Error('AI ঠিকমতো উত্তর দেয়নি');
-  return check(p, JSON.parse(m[0]) as Record<string, unknown>);
+  const raw = JSON.parse(m[0]) as Record<string, unknown>;
+  if (raw.same_product === false || raw.skip === true) return {}; // the search didn't find this exact product: leave it as it is
+  return check(p, raw);
 }
 async function geminiSearch(key: string, text: string): Promise<string> {
   try {
@@ -126,6 +133,8 @@ export async function improve(settings: Settings, { limit = 1, ids }: { limit?: 
 
 /** a little every hour from the scheduled job, within the day's allowance (Gemini's free plan has daily limits) */
 export async function tick(settings: Settings): Promise<void> {
+  // the old texts are kept 30 days for "↩️ ফেরত", then removed (a few KB per product — the shop never gets heavier)
+  await db.q(`DELETE FROM ai_staff_edits WHERE created_at < now() - interval '30 days'`);
   if (settings.ai_write_on === '0' || !String(settings.ai_gemini_key || '').trim()) return;
   // a working day like a person's: 9 to 6, Bangladesh time (the owner can change the hours)
   const h = new Date(Date.now() + 6 * 3600e3).getUTCHours();
