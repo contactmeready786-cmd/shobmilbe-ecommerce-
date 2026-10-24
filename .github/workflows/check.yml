@@ -1,9 +1,9 @@
-name: whiten-check3
+name: aistaff-check
 on: push
 jobs:
   c:
     runs-on: ubuntu-24.04
     steps:
       - run: |
-          curl -sS -A shobmilbe-whiten-cloud https://shobmilbe.com/api/whiten-jobs -o j.json
-          echo "::notice::$(python3 -c 'import json;d=json.load(open("j.json"));e=[x["id"] for x in d.get("emb",[])];print("jobs",len(d["jobs"]),"emb",len(e),"min",min(e) if e else 0,"max",max(e) if e else 0, "has4225", 4225 in e)')"
+          code=$(curl -sS -m 70 -o t.json -w '%{http_code}' -A shobmilbe-tick https://shobmilbe.com/api/aistaff/tick)
+          echo "::notice::tick http $code $(head -c 200 t.json)"
