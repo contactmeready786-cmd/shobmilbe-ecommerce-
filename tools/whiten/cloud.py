@@ -104,6 +104,132 @@ def brighten(o, al):
     return np.where(w, np.clip(t, 0, 255), o)
 
 
+# 📞 shop contact text printed on a picture (phone number, website, WhatsApp, Facebook page) — read with a small free
+# OCR (RapidOCR, Apache-2.0) and cut out of the product, even where it touches the product or its stand
+# (owner, 2026-10-24: "01648475572" under a remote stayed). The product's own printing (OK, RANGS, LM386) stays:
+# only text that looks like contact details goes.
+CONTACT = None
+def contact_boxes(img):
+    global CONTACT
+    import re
+    if CONTACT is None:
+        try:
+            from rapidocr_onnxruntime import RapidOCR
+            CONTACT = RapidOCR()
+        except Exception as e:  # never stop a picture for this
+            print('OCR not available:', e, flush=True)
+            CONTACT = False
+    if not CONTACT:
+        return []
+    k = min(1.0, 1280 / max(img.size))
+    small = img.resize((round(img.width * k), round(img.height * k))) if k < 1 else img
+    try:
+        res, _ = CONTACT(np.asarray(small)[:, :, ::-1])
+    except Exception as e:
+        print('OCR failed:', e, flush=True)
+        return []
+    out = []
+    for box, text, score in res or []:
+        t = str(text)
+        digits = re.sub(r'[^0-9০-৯]', '', t)
+        low = t.lower()
+        if len(digits) >= 8 or re.search(r'www|http|\.com|\.bd|\.net|@|whats|facebook|fb\.|call|hotline|phone|imo|বিকাশ|অর্ডার|কল', low):
+            pts = np.array(box, dtype=np.float32) / k
+            out.append((pts, t))
+    return out
+
+
+def erase_boxes(m, boxes, W, H):
+    """Take the contact text (and the icon just before it) out of the mask (mask is S × S, boxes in picture pixels)."""
+    from PIL import ImageDraw
+    if not boxes:
+        return m
+    cut = Image.new('L', (W, H), 0)
+    d = ImageDraw.Draw(cut)
+    for pts, _ in boxes:
+        x0, y0 = pts[:, 0].min(), pts[:, 1].min()
+        x1, y1 = pts[:, 0].max(), pts[:, 1].max()
+        hh = y1 - y0
+        d.rectangle([x0 - hh * 1.8, y0 - hh * 0.35, x1 + hh * 0.35, y1 + hh * 0.35], fill=255)  # a WhatsApp / phone icon sits before the number
+    c = np.asarray(cut.resize((S, S), Image.NEAREST), dtype=np.float32) / 255
+    return m * (1 - c)
+
+
+def drop_stand(m, img):
+    """🧹 a white / grey stand or podium under the product (opt-in: a white product would look like one): bright,
+    colourless parts of the cut-out in the lower part of it, wider than the rest of the product, go."""
+    x = np.asarray(img.resize((S, S), Image.BILINEAR), dtype=np.float32)
+    lum = 0.299 * x[..., 0] + 0.587 * x[..., 1] + 0.114 * x[..., 2]
+    chroma = x.max(axis=2) - x.min(axis=2)
+    fg = m > 0.5
+    if fg.sum() < 500:
+        return m
+    ys, xs = np.nonzero(fg)
+    top, bot = ys.min(), ys.max()
+    pale = fg & (lum > 135) & (chroma < 30)
+    core = fg & ~pale
+    if core.sum() < 300:
+        return m
+    # only the lower part of the cut-out can be a stand (a product's own grey / white parts higher up stay);
+    # the product's width is measured above it
+    cut = int(top + (bot - top) * 0.45)
+    upper = core.copy()
+    upper[cut:] = False
+    if upper.sum() < 100:
+        return m
+    cx0, cx1 = np.nonzero(upper)[1].min(), np.nonzero(upper)[1].max()
+    pale[:cut] = False
+    lab, n = ndimage.label(ndimage.binary_closing(pale, iterations=2))
+    out = m.copy()
+    for i, sl in enumerate(ndimage.find_objects(lab), start=1):
+        if sl is None:
+            continue
+        y0, y1 = sl[0].start, sl[0].stop
+        x0, x1 = sl[1].start, sl[1].stop
+        wide = (x1 - x0) >= (cx1 - cx0) * 1.15 or (x1 - x0) > (y1 - y0) * 2.2
+        if wide and y1 >= bot - (bot - top) * 0.15:  # reaches the bottom of the cut-out
+            out[(lab == i) & fg] = 0
+    return out
+
+
+def soften_glare(o, al):
+    """💡 a camera flash's white glare on a darker product (opt-in): broad, colourless, very bright spots on a darker
+    surface are filled in from around them. Thin bright printing (white "OK", a logo) is too narrow to count."""
+    try:
+        import cv2
+    except Exception:
+        return o
+    H, W = al.shape
+    lum = 0.299 * o[..., 0] + 0.587 * o[..., 1] + 0.114 * o[..., 2]
+    chroma = o.max(axis=2) - o.min(axis=2)
+    glare = (lum > 215) & (chroma < 35) & (al > 0.95)
+    r = max(3, round(max(W, H) / 140))
+    broad = ndimage.binary_opening(glare, structure=np.ones((r, r), bool))
+    lab, n = ndimage.label(broad)
+    if not n:
+        return o
+    fill = np.zeros((H, W), np.uint8)
+    prod = max(1, int((al > 0.5).sum()))
+    for i, sl in enumerate(ndimage.find_objects(lab), start=1):
+        blob = lab[sl] == i
+        if blob.sum() < prod * 0.001 or blob.sum() > prod * 0.25:
+            continue
+        ys, xs = slice(max(0, sl[0].start - 2 * r), sl[0].stop + 2 * r), slice(max(0, sl[1].start - 2 * r), sl[1].stop + 2 * r)
+        b = lab[ys, xs] == i
+        ring = ndimage.binary_dilation(b, iterations=r) & ~b & (al[ys, xs] > 0.95)
+        near = ndimage.binary_dilation(b, iterations=2) & ~b
+        # glare fades out softly (still bright just outside it); a white button or label stops sharply (dark right outside)
+        soft = near.sum() and lum[ys, xs][near].mean() > 165
+        if soft and ring.sum() and lum[ys, xs][ring].mean() < 150:  # glare on a darker surface
+            fill[ys, xs][ndimage.binary_dilation(b, iterations=2)] = 255
+    if not fill.any():
+        return o
+    src = np.clip(o, 0, 255).astype(np.uint8)
+    out = cv2.inpaint(src, fill, r * 2, cv2.INPAINT_TELEA).astype(np.float32)
+    w = (cv2.GaussianBlur(fill, (0, 0), r) / 255.0)[..., None] * 0.9
+    return o * (1 - w) + out * w
+
+
 def whiten(sess, data, opts):
     img = Image.open(io.BytesIO(data))
     img.load()
@@ -118,6 +244,10 @@ def whiten(sess, data, opts):
         img = img.resize((round(img.width * k), round(img.height * k)), Image.LANCZOS)
     W, H = img.size
     m = mask_of(sess, img)
+    if opts.get('contact'):  # 📤 own pictures (the product page's pictures keep their tried way, owner 2026-10-24)
+        m = erase_boxes(m, contact_boxes(img), W, H)
+    if opts.get('base'):
+        m = drop_stand(m, img)
     if opts.get('clean', True):
         m = clean_pieces(m)
     if (m > 0.5).mean() < 0.01:
@@ -134,6 +264,8 @@ def whiten(sess, data, opts):
     edge = (al > 0.15) & (al < 0.98)
     F = np.clip((o - (1 - al)[..., None] * local_bg) / np.maximum(al, 1e-3)[..., None], 0, 255)
     o = np.where(edge[..., None], F, o)
+    if opts.get('glare'):
+        o = soften_glare(o, al)
     if opts.get('bright'):
         o = brighten(o, al)
     out = 255 + (o - 255) * al[..., None]
@@ -200,7 +332,7 @@ def main():
             for bright in (False, True):
                 t0 = time.time()
                 try:
-                    jpg = whiten(sess, open(os.path.join(args.try_dir, f), 'rb').read(), {'clean': True, 'bright': bright})
+                    jpg = whiten(sess, open(os.path.join(args.try_dir, f), 'rb').read(), {'clean': True, 'bright': bright, 'base': True, 'glare': True, 'contact': True})
                     open(os.path.join(args.out, f.rsplit('.', 1)[0] + ('-b' if bright else '') + '.jpg'), 'wb').write(jpg)
                     print(f, 'bright' if bright else '', f'{time.time() - t0:.1f}s')
                 except Exception as e:

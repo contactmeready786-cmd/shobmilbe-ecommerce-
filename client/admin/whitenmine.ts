@@ -61,7 +61,8 @@ export function startWhitenMine(): void {
     if (!ids.length) { say('⚠️ কোনো ছবি তোলা যায়নি।'); return; }
     say('☁️ অনলাইনে পাঠানো হচ্ছে…');
     try {
-      await postJSON('/admin/api/whiten-mine', { ids, bright: !!$<HTMLInputElement>('[data-mine-bright]', box)?.checked, clean: !!$<HTMLInputElement>('[data-mine-clean]', box)?.checked });
+      await postJSON('/admin/api/whiten-mine', { ids, bright: !!$<HTMLInputElement>('[data-mine-bright]', box)?.checked, clean: !!$<HTMLInputElement>('[data-mine-clean]', box)?.checked,
+        glare: !!$<HTMLInputElement>('[data-mine-glare]', box)?.checked, base: !!$<HTMLInputElement>('[data-mine-base]', box)?.checked });
       location.reload();
     } catch (e) { say('⚠️ ' + (e as Error).message); }
   });

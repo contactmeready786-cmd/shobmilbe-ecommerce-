@@ -50,7 +50,7 @@ async function db_log(ok: boolean, msg: string) {
   try { const db = await import('../db'); await db.logIntegration('github', 'whiten_kick', ok, msg); } catch { /* best effort */ }
 }
 
-export type CloudOpts = { bright?: boolean; clean?: boolean };
+export type CloudOpts = { bright?: boolean; clean?: boolean; base?: boolean; glare?: boolean; contact?: boolean };
 
 /** Queue pictures (product pictures only; one waiting job per picture). Returns job ids by media id. */
 export async function queue(mediaIds: number[], opts: CloudOpts, userId?: number, kind: 'product' | 'mine' = 'product'): Promise<Record<number, number>> {
@@ -64,7 +64,7 @@ export async function queue(mediaIds: number[], opts: CloudOpts, userId?: number
     const old = await one<{ id: number }>(`SELECT id FROM whiten_jobs WHERE media_id=$1 AND status='queued' AND created_at > now() - interval '2 days'`, [id]);
     if (old) { await q('UPDATE whiten_jobs SET opts=$2 WHERE id=$1', [old.id, JSON.stringify(opts)]); out[id] = old.id; continue; }
     const r = await one<{ id: number }>(`INSERT INTO whiten_jobs(media_id, token, opts, by_user) VALUES($1, $2, $3, $4) RETURNING id`,
-      [id, randomCode(20).toLowerCase(), JSON.stringify({ bright: !!opts.bright, clean: opts.clean !== false }), userId || null]);
+      [id, randomCode(20).toLowerCase(), JSON.stringify({ bright: !!opts.bright, clean: opts.clean !== false, base: !!opts.base, glare: !!opts.glare, contact: !!opts.contact }), userId || null]);
     out[id] = r!.id;
   }
   return out;
