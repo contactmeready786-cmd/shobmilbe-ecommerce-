@@ -44,7 +44,8 @@ function available(settings: Settings) { return Object.keys(PROVIDERS).filter((p
 
 // Map a courier's own status words onto ours (only final states matter).
 function mapStatus(courier: string, raw: unknown): 'delivered' | 'returned' | null {
-  const s = String(raw || '').toLowerCase();
+  // the webhook writes "Partial Delivered", the status call "partial_delivered" — read both the same way
+  const s = String(raw || '').trim().toLowerCase().replace(/[\s-]+/g, '_');
   if (!s) return null;
   if (courier === 'steadfast') {
     if (s === 'delivered' || s === 'partial_delivered') return 'delivered';
@@ -52,12 +53,12 @@ function mapStatus(courier: string, raw: unknown): 'delivered' | 'returned' | nu
     return null;
   }
   if (courier === 'pathao') {
-    if (s === 'delivered' || s === 'partial_delivery' || s === 'partial delivery') return 'delivered';
-    if (s === 'return' || s === 'paid_return' || s === 'returned' || s === 'paid return') return 'returned';
+    if (s === 'delivered' || s === 'partial_delivery') return 'delivered';
+    if (s === 'return' || s === 'paid_return' || s === 'returned') return 'returned';
     return null;
   }
   if (courier === 'redx') {
-    if (s === 'delivered' || s === 'delivery-completed') return 'delivered';
+    if (s === 'delivered' || s === 'delivery_completed') return 'delivered';
     if (s.includes('return')) return 'returned';
     return null;
   }
