@@ -95,8 +95,11 @@ async function geminiSearch(key: string, text: string): Promise<string> {
     if (!r.ok) throw new Error(j.error?.message || `Gemini ${r.status}`);
     const out = (j.candidates?.[0]?.content?.parts || []).map((x) => x.text || '').join('').trim();
     if (out) return out;
-  } catch (e) { console.error('aiwriter search', (e as Error).message); }
-  return gemini(key, text, 40000); // search unavailable: the model's own knowledge, same checks
+  } catch (e) {
+    console.error('aiwriter search', (e as Error).message);
+    if ((e as Error).name === 'TimeoutError' || /abort/i.test((e as Error).message)) throw new Error('Google-এর উত্তর আসতে দেরি হলো — পরে আবার চেষ্টা করবে');
+  }
+  return gemini(key, text, 40000, ['gemini-flash-latest', 'gemini-flash-lite-latest']); // search unavailable: the model's own knowledge, same checks
 }
 
 const load = (id: number) => db.one<P>(`SELECT p.id, p.name, p.name_bn, p.brand, p.model, c.name AS category, p.price, p.specs, p.short_description, p.description, p.seo_title, p.seo_description, p.seo_keywords

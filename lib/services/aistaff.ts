@@ -196,20 +196,36 @@ export function asText(r: Report, settings: Settings): string {
 }
 
 // ---------------------------------------------------------------- 🧠 Gemini (optional, the owner's own free key)
-const GEMINI = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent';
+// the newest free models by their 'latest' names (a fixed version can be closed to new projects, as 2.5 Flash was);
+// the quick 'lite' one first for writing reports and answers, the bigger one if it isn't there
+const MODEL_URL = (m: string) => `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent`;
+export const QUICK = ['gemini-flash-lite-latest', 'gemini-flash-latest'];
+/** Is this key good? (lists the models — answers in a second, no text to write) */
+export async function keyWorks(key: string): Promise<void> {
+  const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=5', { headers: { 'x-goog-api-key': key }, signal: AbortSignal.timeout(15000) });
+  if (r.ok) return;
+  const j = (await r.json().catch(() => ({}))) as { error?: { message?: string } };
+  throw new Error(j.error?.message || `Google ${r.status}`);
+}
 const PERSONA = 'তুমি "সবমিলবে" নামের একটা বাংলাদেশি অনলাইন ইলেকট্রনিক্স দোকানের অভিজ্ঞ, বিশ্বস্ত স্টাফ। মালিকের সাথে আন্তরিক, সম্মান দিয়ে, সহজ বাংলায় কথা বলো — যেমন একজন মানুষ স্টাফ বলে। ' +
   'শুধু দেওয়া তথ্যের উপর ভিত্তি করে কথা বলো; যা জানো না তা বানিয়ে বলবে না, বরং বলবে "এটা আমি দেখতে পাচ্ছি না"। তুমি নিজে দোকানে কিছু বদলাতে পারো না — কী করতে হবে তা ধাপে ধাপে বলো।';
-export async function gemini(key: string, prompt: string, timeoutMs = 25000): Promise<string> {
-  const r = await fetch(GEMINI, {
-    method: 'POST', signal: AbortSignal.timeout(timeoutMs),
-    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
-    body: JSON.stringify({ systemInstruction: { parts: [{ text: PERSONA }] }, contents: [{ role: 'user', parts: [{ text: prompt }] }], generationConfig: { temperature: 0.5, maxOutputTokens: 2048 } }),
-  });
-  const j = (await r.json().catch(() => ({}))) as { candidates?: { content?: { parts?: { text?: string }[] } }[]; error?: { message?: string } };
-  if (!r.ok) throw new Error(j.error?.message || `Gemini ${r.status}`);
-  const text = (j.candidates?.[0]?.content?.parts || []).map((p) => p.text || '').join('').trim();
-  if (!text) throw new Error('Gemini কিছু লেখেনি');
-  return text;
+export async function gemini(key: string, prompt: string, timeoutMs = 25000, models = QUICK): Promise<string> {
+  let last: Error = new Error('Gemini');
+  for (const m of models) {
+    try {
+      const r = await fetch(MODEL_URL(m), {
+        method: 'POST', signal: AbortSignal.timeout(timeoutMs),
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
+        body: JSON.stringify({ systemInstruction: { parts: [{ text: PERSONA }] }, contents: [{ role: 'user', parts: [{ text: prompt }] }], generationConfig: { temperature: 0.5, maxOutputTokens: 4096 } }),
+      });
+      const j = (await r.json().catch(() => ({}))) as { candidates?: { content?: { parts?: { text?: string }[] } }[]; error?: { message?: string } };
+      if (!r.ok) { last = new Error(j.error?.message || `Gemini ${r.status}`); if (r.status === 404 || r.status === 400) continue; throw last; }
+      const text = (j.candidates?.[0]?.content?.parts || []).map((p) => p.text || '').join('').trim();
+      if (text) return text;
+      last = new Error('Gemini কিছু লেখেনি');
+    } catch (e) { last = e as Error; if ((e as Error).name !== 'TimeoutError' && !/abort/i.test((e as Error).message)) throw e; }
+  }
+  throw last;
 }
 const facts = (r: Report) => r.sections.map((s) => `${s.title}\n${s.items.map((i) => `- [${i.level}] ${i.text.replace(/\n/g, ' | ')}`).join('\n')}`).join('\n\n');
 async function humanSummary(r: Report, key: string): Promise<string> {

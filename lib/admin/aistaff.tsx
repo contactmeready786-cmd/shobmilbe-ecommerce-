@@ -119,7 +119,7 @@ async function saveKey(ctx: AdminCtx) {
   // (Google's newer keys don't all start with "AIza" any more)
   const key = str(b.key, 400).replace(/[\s"'`<>]/g, '');
   if (!/^[0-9A-Za-z._-]{20,300}$/.test(key)) return back('চাবিটা পুরোটা কপি হয়নি মনে হচ্ছে — Google-এর পাতায় চাবির পাশের 📋 চিহ্ন চেপে আবার কপি করে দিন।');
-  try { await staff.gemini(key, 'শুধু লেখো: ঠিক আছে', 20000); } catch (e) { return back(`চাবিটা কাজ করেনি: ${(e as Error).message}। আগের অবস্থা যেমন ছিল তেমনই আছে।`); }
+  try { await staff.keyWorks(key); } catch (e) { return back(`চাবিটা কাজ করেনি: ${(e as Error).message}। আগের অবস্থা যেমন ছিল তেমনই আছে।`); }
   await db.setSetting('ai_gemini_key', key);
   await ctx.reloadSettings();
   await ctx.log('settings', 'setting', 0, 'AI স্টাফ — Gemini চাবি সেভ (পরীক্ষা করে)');
