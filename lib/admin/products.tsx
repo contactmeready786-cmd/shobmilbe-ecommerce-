@@ -14,6 +14,7 @@ import type { AdminCtx, Body, Id, RouteMatch, Settings } from '../types';
 import type { PriceTiersRow, ProductsRow } from '../data/rows';
 import * as recognize from '../models/recognize';
 import * as $whitencloud from '../models/whitencloud';
+import * as $notify from '../services/notify';
 import { bnTitle, bnTitleSmart } from '../services/bntitle';
 import { memo } from '../cache';
 
@@ -21,10 +22,17 @@ const PER_PAGE = 40;
 const ICONS = ['📦', '📟', '🧩', '🔋', '🔥', '🔌', '👕', '👗', '👟', '👜', '⌚', '📱', '💻', '🎧', '🔊', '📷', '🎮', '💡', '🔧', '🛠️', '⚙️',
   '🧲', '🧪', '🏠', '🛋️', '🍳', '🧴', '💄', '🧸', '📚', '✏️', '⚽', '🚲', '🚗', '🌱', '🐾', '🍎', '☕', '🎁', '💍', '🕶️', '🧢', '🧥', '🩺', '🧼', '📡', '🔦', '🪛', '🧵'];
 
+/** 👯 the duplicate chip's count, worked out again (after a page is sent, and by the scheduled job) */
+export async function refreshDupChip(settings: Settings): Promise<number> {
+  const g = await dupes.scanCatalog(settings);
+  const n = g.filter((x) => x.level === 'block').reduce((sum, x) => sum + x.products.length - 1, 0);
+  await db.setSetting('dup_chip_cache', JSON.stringify({ n, at: Date.now() }));
+  return n;
+}
+
 async function listPage(ctx: AdminCtx) {
-  // 🇧🇩 any product still without its Bangla name gets it (once in a while; quick when there is nothing to do)
-  // (never holds the page up for more than a moment: what isn't done now is done on a later visit)
-  await Promise.race([memo('bn-fill', () => catalog.fillBnNames(), 300_000).catch(() => 0), new Promise((r) => setTimeout(r, 1200))]);
+  // (the Bangla names still missing are filled in by the scheduled job now — lib/api/files.ts aistaffTick — so the
+  //  list never waits for it; owner, 2026-10-24: "the product list is slow")
   const page = pageNum(ctx.query);
   const categories = await catalog.listCategories();
   const f = {
@@ -44,10 +52,11 @@ async function listPage(ctx: AdminCtx) {
   ]);
   // 👯 how many copies the duplicate scan finds (owner, 2026-10-24) — worked out at most every 5 minutes
   const isBundleList = f.type === 'bundle';
-  const dupExtra = isBundleList ? null : await memo(`dup-count:${ctx.settings.dup_level || 'normal'}:${stats?.total}:${stats?.active}`, async () => {
-    const g = await dupes.scanCatalog(ctx.settings);
-    return g.filter((x) => x.level === 'block').reduce((n, x) => n + x.products.length - 1, 0);
-  }, 300_000).catch(() => null);
+  // the whole-shop scan takes seconds (pictures × pictures): the list shows the last count at once and, when it is
+  // older than half an hour, has it worked out again after the page is sent
+  const dupCache = db.jsonSetting<{ n?: number; at?: number }>(ctx.settings, 'dup_chip_cache', {});
+  const dupExtra = isBundleList || typeof dupCache.n !== 'number' ? null : dupCache.n;
+  if (!isBundleList && Date.now() - (dupCache.at || 0) > 30 * 60e3) $notify.later(refreshDupChip(ctx.settings));
   const seeCost = ctx.can('see_cost');
   const qsBase = new URLSearchParams();
   if (f.q) qsBase.set('q', f.q);

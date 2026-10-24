@@ -229,5 +229,11 @@ export async function aistaffTick(ctx: ApiCtx) {
   const settings = ctx.settings;
   try { await (await import('../services/aistaff')).tick(settings); } catch (e) { console.error('aistaff', (e as Error).message); }
   try { await (await import('../services/aiwriter')).tick(settings); } catch (e) { console.error('aiwriter', (e as Error).message); }
+  // 🇧🇩 Bangla names still missing, and the product list's 👯 count — work kept off the admin pages so they stay quick
+  try { const c = await import('../models/catalog'); await c.fillBnNames(200); } catch (e) { console.error('bn names', (e as Error).message); }
+  try {
+    const at = Number((JSON.parse(String(settings.dup_chip_cache || '{}')) as { at?: number }).at) || 0;
+    if (Date.now() - at > 30 * 60e3) { const p = await import('../admin/products'); await p.refreshDupChip(settings); }
+  } catch (e) { console.error('dup chip', (e as Error).message); }
   return json(200, { ok: true });
 }
