@@ -1,24 +1,9 @@
-name: whiten-try2
+name: whiten-check3
 on: push
-permissions:
-  contents: write
 jobs:
   c:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v7
-        with: { path: tryin }
-      - uses: actions/checkout@v7
-        with:
-          ref: 29a7aef83d0416d1ad745994a12ae98a6b1bcba1
-          path: app
-          sparse-checkout: |
-            tools/whiten
-            public/vendor/birefnet
-      - uses: actions/setup-python@v6
-        with: { python-version: '3.12' }
       - run: |
-          set -eu
-          cd app && pip install -q -r tools/whiten/requirements.txt
-          python tools/whiten/cloud.py --shop x --out ../tryin/try-out --try ../tryin/try-in 2>&1 | tail -20
-          cd ../tryin && git config user.name t && git config user.email t@t && git add try-out && git commit -qm out && git push -q origin HEAD:whiten-check
+          curl -sS -A shobmilbe-whiten-cloud https://shobmilbe.com/api/whiten-jobs -o j.json
+          echo "::notice::$(python3 -c 'import json;d=json.load(open("j.json"));e=[x["id"] for x in d.get("emb",[])];print("jobs",len(d["jobs"]),"emb",len(e),"min",min(e) if e else 0,"max",max(e) if e else 0, "has4225", 4225 in e)')"
