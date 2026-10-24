@@ -182,7 +182,11 @@ def main():
             if not (v.get('ok') and os.path.exists(f)):
                 continue
             try:
-                open(f, 'wb').write(whiten(sess, open(f, 'rb').read(), {'clean': True}))  # never brightened twice
+                with open(f, 'rb') as fh:
+                    before = fh.read()
+                jpg = whiten(sess, before, {'clean': True})  # never brightened twice
+                with open(f, 'wb') as fh:  # opened only now: opening for writing empties the file
+                    fh.write(jpg)
                 print('redone', tok, flush=True)
             except Exception as e:
                 print(f'::warning::{tok}: {e}', flush=True)
