@@ -85,23 +85,28 @@ async function draftFor(key: string, p: P): Promise<Draft> {
   return check(p, raw);
 }
 async function geminiSearch(key: string, text: string): Promise<string> {
-  // the bigger model first; when Google says it is busy (503 / 429) or it isn't there, the quick one — both with Search
-  for (const m of ['gemini-flash-latest', 'gemini-flash-lite-latest']) {
+  // 1) with Google Search: the bigger model, then the quick one; 2) if Search isn't allowed on this key / is busy,
+  // the same models from what they already know (the same safety checks run on the answer either way)
+  const why: string[] = [];
+  const started = Date.now();
+  const tries: [string, boolean][] = [['gemini-flash-latest', true], ['gemini-flash-lite-latest', true], ['gemini-flash-lite-latest', false], ['gemini-flash-latest', false]];
+  for (const [m, search] of tries) {
+    const left = 55000 - (Date.now() - started);
+    if (left < 8000) break; // the page must answer within a minute
     try {
       const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent`, {
-        method: 'POST', signal: AbortSignal.timeout(m === 'gemini-flash-latest' ? 30000 : 25000), headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
-        body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text }] }], tools: [{ google_search: {} }], generationConfig: { temperature: 0.4, maxOutputTokens: 4096 } }),
+        method: 'POST', signal: AbortSignal.timeout(Math.min(left - 3000, search ? 25000 : 20000)), headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
+        body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text }] }], ...(search ? { tools: [{ google_search: {} }] } : {}), generationConfig: { temperature: 0.4, maxOutputTokens: 4096 } }),
       });
       const j = (await r.json().catch(() => ({}))) as { candidates?: { content?: { parts?: { text?: string }[] } }[]; error?: { message?: string } };
-      if (!r.ok) { console.error('aiwriter', m, r.status, j.error?.message); if ([404, 429, 500, 503].includes(r.status)) continue; throw new Error(j.error?.message || `Gemini ${r.status}`); }
+      if (!r.ok) { why.push(`${m}${search ? '+search' : ''}: ${r.status} ${String(j.error?.message || '').slice(0, 120)}`); continue; }
       const out = (j.candidates?.[0]?.content?.parts || []).map((x) => x.text || '').join('').trim();
       if (out) return out;
-    } catch (e) {
-      if ((e as Error).name === 'TimeoutError' || /abort/i.test((e as Error).message)) { console.error('aiwriter', m, 'timeout'); continue; }
-      throw e;
-    }
+      why.push(`${m}: খালি উত্তর`);
+    } catch (e) { why.push(`${m}: ${(e as Error).name === 'TimeoutError' || /abort/i.test((e as Error).message) ? 'সময় শেষ' : (e as Error).message}`); }
   }
-  throw new Error('Google এখন খুব ব্যস্ত — একটু পরে আবার চেষ্টা করবে (নিজে থেকেই আবার চেষ্টা হয়)');
+  console.error('aiwriter', why.join(' | '));
+  throw new Error(`Google এখন উত্তর দিল না — পরে নিজে থেকে আবার চেষ্টা হবে। (${why.slice(-2).join(' · ')})`);
 }
 
 const load = (id: number) => db.one<P>(`SELECT p.id, p.name, p.name_bn, p.brand, p.model, c.name AS category, p.price, p.specs, p.short_description, p.description, p.seo_title, p.seo_description, p.seo_keywords
