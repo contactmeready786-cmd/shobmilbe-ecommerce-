@@ -5,6 +5,7 @@
 import { q, one } from '../db';
 import { int } from '../util';
 import { EMB } from './duplicates';
+import { thumbUrl } from '../services/imagekit';
 
 /** 384 bytes from what the browser sends (base64), or null when it isn't one */
 export function embFrom(v: unknown): Buffer | null {
@@ -36,7 +37,8 @@ export async function progress(): Promise<{ total: number; done: number }> {
 export async function cloudWaiting(siteUrl: string, limit = 300): Promise<{ id: number; src: string }[]> {
   const base = String(siteUrl || '').replace(/\/+$/, '');
   const rows = await q<{ id: number; ik_url: string | null }>(`SELECT id, ik_url FROM media WHERE owner_type='product' AND emb IS NULL ORDER BY id DESC LIMIT $1`, [limit]);
-  return rows.map((r) => ({ id: r.id, src: r.ik_url || `${base}/media/${r.id}?raw=1` }));
+  // the small copy is plenty for a 224 × 224 look, and costs the shop's server a tenth of the traffic (Vercel's limit)
+  return rows.map((r) => ({ id: r.id, src: r.ik_url ? thumbUrl(r.ik_url, false) : `${base}/media/${r.id}/t` }));
 }
 let lastImport = 0;
 /** where the last copy-in stands (shown on the duplicates page; empty = fine) */

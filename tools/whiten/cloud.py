@@ -391,7 +391,7 @@ def main():
             stop_at = max(stop_at, time.time() + 4 * 60)
         if not jobs:
             if not pics:
-                time.sleep(15)
+                time.sleep(30)  # every half minute is quick enough, and light on the shop's traffic allowance
             continue
         if sess is None:
             t0 = time.time()
