@@ -1,0 +1,11 @@
+shobmilbe-ecommerce@2.0.0 /home/runner/work/shobmilbe-ecommerce-/shobmilbe-ecommerce-/new
+├── next@16.4.2
+├── react-dom@19.3.1
+├── react@19.3.1
+└── typescript@6.0.3
+
+latest on npm:
+next 16.4.3
+react 19.3.1
+typescript 7.0.2
+@sentry/nextjs 11.9.0

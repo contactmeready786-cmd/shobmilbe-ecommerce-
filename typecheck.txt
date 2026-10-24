@@ -1,0 +1,4 @@
+
+> shobmilbe-ecommerce@2.0.0 typecheck
+> tsc --noEmit && tsc -p client/tsconfig.json --noEmit && tsc -p client/sw/tsconfig.json --noEmit
+

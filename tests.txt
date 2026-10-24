@@ -1,0 +1,1600 @@
+TAP version 13
+# Subtest: admin frame unchanged: bare
+ok 1 - admin frame unchanged: bare
+  ---
+  duration_ms: 74.781464
+  type: 'test'
+  ...
+# Subtest: admin frame unchanged: bare-nolang
+ok 2 - admin frame unchanged: bare-nolang
+  ---
+  duration_ms: 1.951495
+  type: 'test'
+  ...
+# Subtest: admin frame unchanged: owner-home
+ok 3 - admin frame unchanged: owner-home
+  ---
+  duration_ms: 14.947407
+  type: 'test'
+  ...
+# Subtest: admin frame unchanged: owner-visitors
+ok 4 - admin frame unchanged: owner-visitors
+  ---
+  duration_ms: 13.900746
+  type: 'test'
+  ...
+# Subtest: admin frame unchanged: owner-tabs
+ok 5 - admin frame unchanged: owner-tabs
+  ---
+  duration_ms: 13.608733
+  type: 'test'
+  ...
+# Subtest: admin frame unchanged: staff-readonly
+ok 6 - admin frame unchanged: staff-readonly
+  ---
+  duration_ms: 5.472194
+  type: 'test'
+  ...
+# Subtest: admin frame unchanged: staff-other
+ok 7 - admin frame unchanged: staff-other
+  ---
+  duration_ms: 5.461265
+  type: 'test'
+  ...
+# Subtest: every inline admin <script> carries the page nonce
+ok 8 - every inline admin <script> carries the page nonce
+  ---
+  duration_ms: 18.864924
+  type: 'test'
+  ...
+# Subtest: no inline event handlers or javascript: links in admin pages
+ok 9 - no inline event handlers or javascript: links in admin pages
+  ---
+  duration_ms: 15.720897
+  type: 'test'
+  ...
+# Subtest: the admin scripts the pages load also avoid inline handlers
+ok 10 - the admin scripts the pages load also avoid inline handlers
+  ---
+  duration_ms: 2.262194
+  type: 'test'
+  ...
+# Subtest: pages are React: no html`…`, toHtml, attribute snippets or held-ticked boxes
+ok 11 - pages are React: no html`…`, toHtml, attribute snippets or held-ticked boxes
+  ---
+  duration_ms: 15.032595
+  type: 'test'
+  ...
+# Subtest: the check runs, finds a loss-making product, and keeps the report
+ok 12 - the check runs, finds a loss-making product, and keeps the report # SKIP needs TEST_DATABASE_URL (a throw-away Postgres)
+  ---
+  duration_ms: 0.649409
+  type: 'test'
+  ...
+# Subtest: the daily run happens once a day, only after the owner's hour
+ok 13 - the daily run happens once a day, only after the owner's hour # SKIP needs TEST_DATABASE_URL (a throw-away Postgres)
+  ---
+  duration_ms: 0.140843
+  type: 'test'
+  ...
+# Subtest: ✍️ the writer puts in the new texts, writes every change down, and ↩️ puts them back
+ok 14 - ✍️ the writer puts in the new texts, writes every change down, and ↩️ puts them back # SKIP needs TEST_DATABASE_URL (a throw-away Postgres)
+  ---
+  duration_ms: 0.094747
+  type: 'test'
+  ...
+# Subtest: ✍️ written from the AI's memory alone (no Google Search): still put in, and marked as such
+ok 15 - ✍️ written from the AI's memory alone (no Google Search): still put in, and marked as such # SKIP needs TEST_DATABASE_URL (a throw-away Postgres)
+  ---
+  duration_ms: 0.099745
+  type: 'test'
+  ...
+# Subtest: model and size numbers are never lost from the name
+ok 16 - model and size numbers are never lost from the name
+  ---
+  duration_ms: 2.143724
+  type: 'test'
+  ...
+# Subtest: links, phone numbers, HTML and wrong lengths are refused
+ok 17 - links, phone numbers, HTML and wrong lengths are refused
+  ---
+  duration_ms: 0.319986
+  type: 'test'
+  ...
+# Subtest: a new name must still be the same product
+ok 18 - a new name must still be the same product
+  ---
+  duration_ms: 0.2036
+  type: 'test'
+  ...
+# Subtest: the Bangla name keeps the numbers and is really in Bangla
+ok 19 - the Bangla name keeps the numbers and is really in Bangla
+  ---
+  duration_ms: 0.259323
+  type: 'test'
+  ...
+# Subtest: app card: the shop and the browser have the same built-in rules
+ok 20 - app card: the shop and the browser have the same built-in rules
+  ---
+  duration_ms: 1.61062
+  type: 'test'
+  ...
+# Subtest: app card: nothing is handed to the browser until the owner saves
+ok 21 - app card: nothing is handed to the browser until the owner saves
+  ---
+  duration_ms: 0.25778
+  type: 'test'
+  ...
+# Subtest: app card: owner values are kept within limits, empty texts keep the old text
+ok 22 - app card: owner values are kept within limits, empty texts keep the old text
+  ---
+  duration_ms: 0.262298
+  type: 'test'
+  ...
+# Subtest: app card: who sees it and where
+ok 23 - app card: who sees it and where
+  ---
+  duration_ms: 0.334022
+  type: 'test'
+  ...
+# Subtest: app download: one version everywhere, and the file exists
+ok 24 - app download: one version everywhere, and the file exists
+  ---
+  duration_ms: 3.370359
+  type: 'test'
+  ...
+# Subtest: app download: versions read from the app and compared
+ok 25 - app download: versions read from the app and compared
+  ---
+  duration_ms: 0.341146
+  type: 'test'
+  ...
+# Subtest: app download: who sees the "get the app" card
+ok 26 - app download: who sees the "get the app" card
+  ---
+  duration_ms: 0.456941
+  type: 'test'
+  ...
+# Subtest: electronics names
+ok 27 - electronics names
+  ---
+  duration_ms: 2.969983
+  type: 'test'
+  ...
+# Subtest: never the odd dictionary words
+ok 28 - never the odd dictionary words
+  ---
+  duration_ms: 0.292976
+  type: 'test'
+  ...
+# Subtest: Bangla names stay, empty stays empty, the same letters again are not shown
+ok 29 - Bangla names stay, empty stays empty, the same letters again are not shown
+  ---
+  duration_ms: 0.267488
+  type: 'test'
+  ...
+# Subtest: shop reads share one database read within 15 seconds
+ok 30 - shop reads share one database read within 15 seconds
+  ---
+  duration_ms: 1.508851
+  type: 'test'
+  ...
+# Subtest: each caller gets its own copy
+ok 31 - each caller gets its own copy
+  ---
+  duration_ms: 0.887072
+  type: 'test'
+  ...
+# Subtest: expired entries are read again
+ok 32 - expired entries are read again
+  ---
+  duration_ms: 6.101657
+  type: 'test'
+  ...
+# Subtest: fresh scope always reads the database
+ok 33 - fresh scope always reads the database
+  ---
+  duration_ms: 1.660192
+  type: 'test'
+  ...
+# Subtest: a failed read is not remembered
+ok 34 - a failed read is not remembered
+  ---
+  duration_ms: 0.931806
+  type: 'test'
+  ...
+# Subtest: SHOP_CACHE=0 switches it off
+ok 35 - SHOP_CACHE=0 switches it off
+  ---
+  duration_ms: 0.261738
+  type: 'test'
+  ...
+# Subtest: shop GET pages use the memory
+ok 36 - shop GET pages use the memory
+  ---
+  duration_ms: 0.460378
+  type: 'test'
+  ...
+# Subtest: admin pages always read fresh
+ok 37 - admin pages always read fresh
+  ---
+  duration_ms: 0.314576
+  type: 'test'
+  ...
+# Subtest: a change (POST) reads fresh and empties the memory for the next shop page
+ok 38 - a change (POST) reads fresh and empties the memory for the next shop page
+  ---
+  duration_ms: 0.515179
+  type: 'test'
+  ...
+# Subtest: a 4-digit code goes by SMS; the right code gives a pass the order accepts
+ok 39 - a 4-digit code goes by SMS; the right code gives a pass the order accepts # SKIP needs TEST_DATABASE_URL (a throw-away Postgres)
+  ---
+  duration_ms: 0.838682
+  type: 'test'
+  ...
+# Subtest: a code works once only
+ok 40 - a code works once only # SKIP needs TEST_DATABASE_URL (a throw-away Postgres)
+  ---
+  duration_ms: 0.112029
+  type: 'test'
+  ...
+# Subtest: Bangla digits are accepted
+ok 41 - Bangla digits are accepted # SKIP needs TEST_DATABASE_URL (a throw-away Postgres)
+  ---
+  duration_ms: 0.084637
+  type: 'test'
+  ...
+# Subtest: 5 wrong tries and the code is dead, even the right one
+ok 42 - 5 wrong tries and the code is dead, even the right one # SKIP needs TEST_DATABASE_URL (a throw-away Postgres)
+  ---
+  duration_ms: 0.099655
+  type: 'test'
+  ...
+# Subtest: an expired code (over 10 minutes) is refused
+ok 43 - an expired code (over 10 minutes) is refused # SKIP needs TEST_DATABASE_URL (a throw-away Postgres)
+  ---
+  duration_ms: 0.175657
+  type: 'test'
+  ...
+# Subtest: asking again within a minute sends no second SMS; a new code replaces the old one
+ok 44 - asking again within a minute sends no second SMS; a new code replaces the old one # SKIP needs TEST_DATABASE_URL (a throw-away Postgres)
+  ---
+  duration_ms: 0.093995
+  type: 'test'
+  ...
+# Subtest: one number: at most 3 codes in 10 minutes (each costs an SMS)
+ok 45 - one number: at most 3 codes in 10 minutes (each costs an SMS) # SKIP needs TEST_DATABASE_URL (a throw-away Postgres)
+  ---
+  duration_ms: 0.147435
+  type: 'test'
+  ...
+# Subtest: one connection: at most 8 codes an hour
+ok 46 - one connection: at most 8 codes an hour # SKIP needs TEST_DATABASE_URL (a throw-away Postgres)
+  ---
+  duration_ms: 0.183091
+  type: 'test'
+  ...
+# Subtest: a blocked number gets no code
+ok 47 - a blocked number gets no code # SKIP needs TEST_DATABASE_URL (a throw-away Postgres)
+  ---
+  duration_ms: 0.330766
+  type: 'test'
+  ...
+# Subtest: wrong numbers are refused before any SMS
+ok 48 - wrong numbers are refused before any SMS # SKIP needs TEST_DATABASE_URL (a throw-away Postgres)
+  ---
+  duration_ms: 0.182299
+  type: 'test'
+  ...
+# Subtest: SMS not working: the customer is told plainly, and the owner's alarm counts it
+ok 49 - SMS not working: the customer is told plainly, and the owner's alarm counts it # SKIP needs TEST_DATABASE_URL (a throw-away Postgres)
+  ---
+  duration_ms: 0.070842
+  type: 'test'
+  ...
+# Subtest: OTP switched off: orders go in without a code
+ok 50 - OTP switched off: orders go in without a code # SKIP needs TEST_DATABASE_URL (a throw-away Postgres)
+  ---
+  duration_ms: 0.060533
+  type: 'test'
+  ...
+# Subtest: page frame unchanged: rich
+ok 51 - page frame unchanged: rich
+  ---
+  duration_ms: 119.96582
+  type: 'test'
+  ...
+# Subtest: page frame unchanged: plain
+ok 52 - page frame unchanged: plain
+  ---
+  duration_ms: 5.184949
+  type: 'test'
+  ...
+# Subtest: page frame unchanged: live
+ok 53 - page frame unchanged: live
+  ---
+  duration_ms: 10.298465
+  type: 'test'
+  ...
+# Subtest: no hand-written JavaScript is kept in git: the browser code is client/*.ts
+ok 54 - no hand-written JavaScript is kept in git: the browser code is client/*.ts
+  ---
+  duration_ms: 6.056022
+  type: 'test'
+  ...
+# Subtest: the browser code builds pages with JSX, never with HTML strings
+ok 55 - the browser code builds pages with JSX, never with HTML strings
+  ---
+  duration_ms: 7.854302
+  type: 'test'
+  ...
+# Subtest: pages load the compiled modules (type="module"), never the old script files
+ok 56 - pages load the compiled modules (type="module"), never the old script files
+  ---
+  duration_ms: 36.228242
+  type: 'test'
+  ...
+# Subtest: the district / thana list in the browser is the same as the server's
+ok 57 - the district / thana list in the browser is the same as the server's
+  ---
+  duration_ms: 1.469528
+  type: 'test'
+  ...
+# Subtest: the boot scripts written into the page are valid modern JavaScript
+ok 58 - the boot scripts written into the page are valid modern JavaScript
+  ---
+  duration_ms: 6.876033
+  type: 'test'
+  ...
+# Subtest: contacts: mobile numbers in every common form
+ok 59 - contacts: mobile numbers in every common form
+  ---
+  duration_ms: 1.140905
+  type: 'test'
+  ...
+# Subtest: contacts: any column order, names, e-mails, duplicates once, junk skipped
+ok 60 - contacts: any column order, names, e-mails, duplicates once, junk skipped
+  ---
+  duration_ms: 1.393196
+  type: 'test'
+  ...
+# Subtest: contacts: list names are safe for tags and e-mail lists
+ok 61 - contacts: list names are safe for tags and e-mail lists
+  ---
+  duration_ms: 2.728713
+  type: 'test'
+  ...
+# Subtest: Steadfast: webhook and status-call spellings
+ok 62 - Steadfast: webhook and status-call spellings
+  ---
+  duration_ms: 0.977181
+  type: 'test'
+  ...
+# Subtest: Pathao and RedX keep their words
+ok 63 - Pathao and RedX keep their words
+  ---
+  duration_ms: 0.174836
+  type: 'test'
+  ...
+# Subtest: real Googlebot and Bingbot are verified
+ok 64 - real Googlebot and Bingbot are verified
+  ---
+  duration_ms: 2.264438
+  type: 'test'
+  ...
+# Subtest: "Googlebot" from an ordinary IP is fake
+ok 65 - "Googlebot" from an ordinary IP is fake
+  ---
+  duration_ms: 0.394846
+  type: 'test'
+  ...
+# Subtest: a faked reverse name without the matching forward record is fake
+ok 66 - a faked reverse name without the matching forward record is fake
+  ---
+  duration_ms: 0.341246
+  type: 'test'
+  ...
+# Subtest: a Bing IP claiming to be Googlebot is fake (domains are per engine)
+ok 67 - a Bing IP claiming to be Googlebot is fake (domains are per engine)
+  ---
+  duration_ms: 0.394404
+  type: 'test'
+  ...
+# Subtest: preview bots and normal browsers
+ok 68 - preview bots and normal browsers
+  ---
+  duration_ms: 0.881713
+  type: 'test'
+  ...
+# Subtest: preview bots may only read public pages
+ok 69 - preview bots may only read public pages
+  ---
+  duration_ms: 0.451
+  type: 'test'
+  ...
+# Subtest: answers are cached per IP
+ok 70 - answers are cached per IP
+  ---
+  duration_ms: 0.374588
+  type: 'test'
+  ...
+# Subtest: country block: Bangladesh in, USA visitor out
+ok 71 - country block: Bangladesh in, USA visitor out
+  ---
+  duration_ms: 1.666464
+  type: 'test'
+  ...
+# Subtest: country block: real Googlebot in, fake Googlebot out
+ok 72 - country block: real Googlebot in, fake Googlebot out
+  ---
+  duration_ms: 0.853569
+  type: 'test'
+  ...
+# Subtest: country block: Facebook preview reads product pages, not checkout
+ok 73 - country block: Facebook preview reads product pages, not checkout
+  ---
+  duration_ms: 0.559613
+  type: 'test'
+  ...
+# Subtest: robots.txt and sitemap stay open to everyone
+ok 74 - robots.txt and sitemap stay open to everyone
+  ---
+  duration_ms: 0.207346
+  type: 'test'
+  ...
+# Subtest: real DNS: a Googlebot address from Google's published list verifies
+ok 75 - real DNS: a Googlebot address from Google's published list verifies
+  ---
+  duration_ms: 154.57124
+  type: 'test'
+  ...
+# Subtest: a DNS hiccup does not shut Google out for hours (checked again after 2 minutes)
+ok 76 - a DNS hiccup does not shut Google out for hours (checked again after 2 minutes)
+  ---
+  duration_ms: 0.562769
+  type: 'test'
+  ...
+# Subtest: the copied shop's FAQ, contact and selling talk go; the product text stays exactly
+ok 77 - the copied shop's FAQ, contact and selling talk go; the product text stays exactly
+  ---
+  duration_ms: 6.311207
+  type: 'test'
+  ...
+# Subtest: English FAQ and the shop named in the middle
+ok 78 - English FAQ and the shop named in the middle
+  ---
+  duration_ms: 0.57459
+  type: 'test'
+  ...
+# Subtest: a clean description is left untouched
+ok 79 - a clean description is left untouched
+  ---
+  duration_ms: 0.802124
+  type: 'test'
+  ...
+# Subtest: a "delivery" heading right at the start is not taken for the shop part (no product text before it)
+ok 80 - a "delivery" heading right at the start is not taken for the shop part (no product text before it)
+  ---
+  duration_ms: 1.281297
+  type: 'test'
+  ...
+# Subtest: shop names from its web address
+ok 81 - shop names from its web address
+  ---
+  duration_ms: 0.287256
+  type: 'test'
+  ...
+# Subtest: product lines that only look like shop words stay (a relay's "Contact type")
+ok 82 - product lines that only look like shop words stay (a relay's "Contact type")
+  ---
+  duration_ms: 1.034637
+  type: 'test'
+  ...
+# Subtest: the same model number written differently is the same product
+ok 83 - the same model number written differently is the same product
+  ---
+  duration_ms: 3.804938
+  type: 'test'
+  ...
+# Subtest: a different size or model is still a different product
+ok 84 - a different size or model is still a different product
+  ---
+  duration_ms: 1.231694
+  type: 'test'
+  ...
+# Subtest: the AI finds the same product photographed differently, even under another name
+ok 85 - the AI finds the same product photographed differently, even under another name
+  ---
+  duration_ms: 2.100994
+  type: 'test'
+  ...
+# Subtest: look-alike pictures with a different size / model in the name only warn
+ok 86 - look-alike pictures with a different size / model in the name only warn
+  ---
+  duration_ms: 0.487799
+  type: 'test'
+  ...
+# Subtest: a group never chains: every product in it matches every other one
+ok 87 - a group never chains: every product in it matches every other one
+  ---
+  duration_ms: 17.615384
+  type: 'test'
+  ...
+# Error: boom
+#     at TestContext.<anonymous> (/home/runner/work/shobmilbe-ecommerce-/shobmilbe-ecommerce-/new/tests/errors.test.ts:60:17)
+#     at async Test.run (node:internal/test_runner/test:1054:7)
+#     at async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+# Subtest: valid and invalid keys
+ok 88 - valid and invalid keys
+  ---
+  duration_ms: 2.051652
+  type: 'test'
+  ...
+# Subtest: no key: nothing starts, errors only logged
+ok 89 - no key: nothing starts, errors only logged
+  ---
+  duration_ms: 0.748825
+  type: 'test'
+  ...
+# Subtest: key saved in admin starts Sentry once, not on every request
+ok 90 - key saved in admin starts Sentry once, not on every request
+  ---
+  duration_ms: 0.396599
+  type: 'test'
+  ...
+# Subtest: changing and clearing the key
+ok 91 - changing and clearing the key
+  ---
+  duration_ms: 0.260225
+  type: 'test'
+  ...
+# Subtest: a broken saved key is ignored
+ok 92 - a broken saved key is ignored
+  ---
+  duration_ms: 0.453184
+  type: 'test'
+  ...
+# Subtest: SENTRY_DSN in Vercel wins over the admin key
+ok 93 - SENTRY_DSN in Vercel wins over the admin key
+  ---
+  duration_ms: 0.222384
+  type: 'test'
+  ...
+# Subtest: reports go out, and are flushed only when something was reported
+ok 94 - reports go out, and are flushed only when something was reported
+  ---
+  duration_ms: 155.713426
+  type: 'test'
+  ...
+# Subtest: packaging (a sub-category of a "no free delivery" category) never makes delivery free
+ok 95 - packaging (a sub-category of a "no free delivery" category) never makes delivery free # SKIP needs TEST_DATABASE_URL (a throw-away Postgres)
+  ---
+  duration_ms: 0.635914
+  type: 'test'
+  ...
+# Subtest: other products still get free delivery from the amount
+ok 96 - other products still get free delivery from the amount # SKIP needs TEST_DATABASE_URL (a throw-away Postgres)
+  ---
+  duration_ms: 0.204551
+  type: 'test'
+  ...
+# Subtest: limit: Supabase free plan by default, owner can set another
+ok 97 - limit: Supabase free plan by default, owner can set another
+  ---
+  duration_ms: 1.06826
+  type: 'test'
+  ...
+# Subtest: levels: warn at 80 %, bad at 90 %
+ok 98 - levels: warn at 80 %, bad at 90 %
+  ---
+  duration_ms: 0.152884
+  type: 'test'
+  ...
+# Subtest: all fine: no warnings
+ok 99 - all fine: no warnings
+  ---
+  duration_ms: 0.849593
+  type: 'test'
+  ...
+# Subtest: database filling up: one warning naming the biggest tables
+ok 100 - database filling up: one warning naming the biggest tables
+  ---
+  duration_ms: 0.481107
+  type: 'test'
+  ...
+# Subtest: no backup for days, and connections nearly used up
+ok 101 - no backup for days, and connections nearly used up
+  ---
+  duration_ms: 0.310949
+  type: 'test'
+  ...
+# Subtest: MB formatting
+ok 102 - MB formatting
+  ---
+  duration_ms: 0.133569
+  type: 'test'
+  ...
+# Subtest: error log groups the same page and hides personal details
+ok 103 - error log groups the same page and hides personal details
+  ---
+  duration_ms: 1.661555
+  type: 'test'
+  ...
+# Subtest: errors: 5 a day on one page = look at it, 30 = serious
+ok 104 - errors: 5 a day on one page = look at it, 30 = serious
+  ---
+  duration_ms: 0.265445
+  type: 'test'
+  ...
+# Subtest: ImageKit: free plan limits, warning before images stop
+ok 105 - ImageKit: free plan limits, warning before images stop
+  ---
+  duration_ms: 0.53623
+  type: 'test'
+  ...
+# Subtest: ImageKit not reachable: no false warning
+ok 106 - ImageKit not reachable: no false warning
+  ---
+  duration_ms: 0.392501
+  type: 'test'
+  ...
+# Subtest: database certificate that failed the check is a red alarm
+ok 107 - database certificate that failed the check is a red alarm
+  ---
+  duration_ms: 0.219719
+  type: 'test'
+  ...
+# Subtest: SMS phone: quiet phone and failing codes are warned about, a healthy phone is not
+ok 108 - SMS phone: quiet phone and failing codes are warned about, a healthy phone is not
+  ---
+  duration_ms: 0.338651
+  type: 'test'
+  ...
+# Subtest: import: the next page of a shop list
+ok 109 - import: the next page of a shop list
+  ---
+  duration_ms: 1.589962
+  type: 'test'
+  ...
+# Subtest: after the first heading, wherever it sits
+ok 110 - after the first heading, wherever it sits
+  ---
+  duration_ms: 83.685415
+  type: 'test'
+  ...
+# Subtest: manager: every staff permission without ticks
+ok 111 - manager: every staff permission without ticks
+  ---
+  duration_ms: 1.205255
+  type: 'test'
+  ...
+# Subtest: manager: the owner's own things stay the owner's
+ok 112 - manager: the owner's own things stay the owner's
+  ---
+  duration_ms: 0.189273
+  type: 'test'
+  ...
+# Subtest: staff: only what is ticked; owner: everything
+ok 113 - staff: only what is ticked; owner: everything
+  ---
+  duration_ms: 0.159567
+  type: 'test'
+  ...
+# Subtest: title, description, canonical, image
+ok 114 - title, description, canonical, image
+  ---
+  duration_ms: 1.588419
+  type: 'test'
+  ...
+# Subtest: product pages: no Open Graph type key at all (the page writes og:type product itself)
+ok 115 - product pages: no Open Graph type key at all (the page writes og:type product itself)
+  ---
+  duration_ms: 0.267539
+  type: 'test'
+  ...
+# Subtest: home title and noindex
+ok 116 - home title and noindex
+  ---
+  duration_ms: 0.271807
+  type: 'test'
+  ...
+# Subtest: wrong details are refused, each with the field to fix
+ok 117 - wrong details are refused, each with the field to fix # SKIP needs TEST_DATABASE_URL (a throw-away Postgres)
+  ---
+  duration_ms: 0.700765
+  type: 'test'
+  ...
+# Subtest: a good order: saved with the shop's own price (not the browser's), stock down, "my orders" cookie set
+ok 118 - a good order: saved with the shop's own price (not the browser's), stock down, "my orders" cookie set # SKIP needs TEST_DATABASE_URL (a throw-away Postgres)
+  ---
+  duration_ms: 0.136724
+  type: 'test'
+  ...
+# Subtest: at most 10 orders an hour from one connection
+ok 119 - at most 10 orders an hour from one connection # SKIP needs TEST_DATABASE_URL (a throw-away Postgres)
+  ---
+  duration_ms: 0.09679
+  type: 'test'
+  ...
+# Subtest: Dhaka city order: goods + ৳60, stock goes down, order saved with its lines
+ok 120 - Dhaka city order: goods + ৳60, stock goes down, order saved with its lines # SKIP needs TEST_DATABASE_URL (a throw-away Postgres)
+  ---
+  duration_ms: 0.907661
+  type: 'test'
+  ...
+# Subtest: outside Dhaka city: ৳110
+ok 121 - outside Dhaka city: ৳110 # SKIP needs TEST_DATABASE_URL (a throw-away Postgres)
+  ---
+  duration_ms: 0.123811
+  type: 'test'
+  ...
+# Subtest: the ৳10 minimum is on the whole cart, delivery not counted
+ok 122 - the ৳10 minimum is on the whole cart, delivery not counted # SKIP needs TEST_DATABASE_URL (a throw-away Postgres)
+  ---
+  duration_ms: 0.094586
+  type: 'test'
+  ...
+# Subtest: not enough stock: refused, and nothing is taken
+ok 123 - not enough stock: refused, and nothing is taken # SKIP needs TEST_DATABASE_URL (a throw-away Postgres)
+  ---
+  duration_ms: 0.098894
+  type: 'test'
+  ...
+# Subtest: one bad line stops the whole order (no half orders, no lost stock)
+ok 124 - one bad line stops the whole order (no half orders, no lost stock) # SKIP needs TEST_DATABASE_URL (a throw-away Postgres)
+  ---
+  duration_ms: 0.182981
+  type: 'test'
+  ...
+# Subtest: hidden products and empty carts are refused
+ok 125 - hidden products and empty carts are refused # SKIP needs TEST_DATABASE_URL (a throw-away Postgres)
+  ---
+  duration_ms: 0.110737
+  type: 'test'
+  ...
+# Subtest: a web customer can not set their own price
+ok 126 - a web customer can not set their own price # SKIP needs TEST_DATABASE_URL (a throw-away Postgres)
+  ---
+  duration_ms: 0.191267
+  type: 'test'
+  ...
+# Subtest: per-product maximum for online orders
+ok 127 - per-product maximum for online orders # SKIP needs TEST_DATABASE_URL (a throw-away Postgres)
+  ---
+  duration_ms: 0.20399
+  type: 'test'
+  ...
+# Subtest: the same product twice in the cart is one line
+ok 128 - the same product twice in the cart is one line # SKIP needs TEST_DATABASE_URL (a throw-away Postgres)
+  ---
+  duration_ms: 0.319996
+  type: 'test'
+  ...
+# Subtest: a deadlock with another order is tried again, other errors are not
+ok 129 - a deadlock with another order is tried again, other errors are not # SKIP needs TEST_DATABASE_URL (a throw-away Postgres)
+  ---
+  duration_ms: 0.218347
+  type: 'test'
+  ...
+# Subtest: an error thrown on purpose inside a transaction is not run a second time
+ok 130 - an error thrown on purpose inside a transaction is not run a second time # SKIP needs TEST_DATABASE_URL (a throw-away Postgres)
+  ---
+  duration_ms: 0.080099
+  type: 'test'
+  ...
+# Subtest: a status change sends the customer's SMS wherever it is made (no other file needs to be loaded first)
+ok 131 - a status change sends the customer's SMS wherever it is made (no other file needs to be loaded first) # SKIP needs TEST_DATABASE_URL (a throw-away Postgres)
+  ---
+  duration_ms: 0.072856
+  type: 'test'
+  ...
+# Subtest: sent to the courier: packing written down once, boxes from their stock
+ok 132 - sent to the courier: packing written down once, boxes from their stock # SKIP needs TEST_DATABASE_URL (a throw-away Postgres)
+  ---
+  duration_ms: 0.641525
+  type: 'test'
+  ...
+# Subtest: profit & loss subtracts the packing
+ok 133 - profit & loss subtracts the packing # SKIP needs TEST_DATABASE_URL (a throw-away Postgres)
+  ---
+  duration_ms: 0.127257
+  type: 'test'
+  ...
+# Subtest: returned with the box still good: reused — cost out, boxes back
+ok 134 - returned with the box still good: reused — cost out, boxes back # SKIP needs TEST_DATABASE_URL (a throw-away Postgres)
+  ---
+  duration_ms: 0.100697
+  type: 'test'
+  ...
+# Subtest: dashboard profit takes the packing off too
+ok 135 - dashboard profit takes the packing off too # SKIP needs TEST_DATABASE_URL (a throw-away Postgres)
+  ---
+  duration_ms: 0.109554
+  type: 'test'
+  ...
+# Subtest: packing: cost per use
+ok 136 - packing: cost per use
+  ---
+  duration_ms: 0.866023
+  type: 'test'
+  ...
+# Subtest: packing: a set costs its things
+ok 137 - packing: a set costs its things
+  ---
+  duration_ms: 0.253742
+  type: 'test'
+  ...
+# Subtest: oneOf: an allowed word is kept, anything else gives the fallback
+ok 138 - oneOf: an allowed word is kept, anything else gives the fallback
+  ---
+  duration_ms: 0.825658
+  type: 'test'
+  ...
+# Subtest: ifKey: a key with a (non-empty) entry is kept, anything else gives the fallback
+ok 139 - ifKey: a key with a (non-empty) entry is kept, anything else gives the fallback
+  ---
+  duration_ms: 0.19312
+  type: 'test'
+  ...
+# Use the `defaultValue` or `value` props on <select> instead of setting `selected` on <option>.
+# Subtest: a card on ImageKit links straight to the small ImageKit picture
+ok 140 - a card on ImageKit links straight to the small ImageKit picture
+  ---
+  duration_ms: 93.068303
+  type: 'test'
+  ...
+# Subtest: a card without ImageKit keeps the shop address
+ok 141 - a card without ImageKit keeps the shop address
+  ---
+  duration_ms: 0.904144
+  type: 'test'
+  ...
+# Subtest: the listing loads its first four cards at once, the first two first
+ok 142 - the listing loads its first four cards at once, the first two first
+  ---
+  duration_ms: 8.936006
+  type: 'test'
+  ...
+# Subtest: price range: only ৳0.50 – ৳2000
+ok 143 - price range: only ৳0.50 – ৳2000
+  ---
+  duration_ms: 1.176542
+  type: 'test'
+  ...
+# Subtest: shop price: paisa kept below ৳10, rounded UP to whole taka from ৳10
+ok 144 - shop price: paisa kept below ৳10, rounded UP to whole taka from ৳10
+  ---
+  duration_ms: 0.202427
+  type: 'test'
+  ...
+# Subtest: order total: paisa are dropped (customer pays less), never added
+ok 145 - order total: paisa are dropped (customer pays less), never added
+  ---
+  duration_ms: 0.330395
+  type: 'test'
+  ...
+# Subtest: typed money amounts: Bangla digits, paisa kept, never negative
+ok 146 - typed money amounts: Bangla digits, paisa kept, never negative
+  ---
+  duration_ms: 0.273419
+  type: 'test'
+  ...
+# Subtest: minimum order is on the whole cart (default ৳10)
+ok 147 - minimum order is on the whole cart (default ৳10)
+  ---
+  duration_ms: 0.157924
+  type: 'test'
+  ...
+# Subtest: how many pieces a customer may order
+ok 148 - how many pieces a customer may order
+  ---
+  duration_ms: 0.743154
+  type: 'test'
+  ...
+# Subtest: 📦 products sold in packs (25 / 50 / 100 pieces): whole packs only
+ok 149 - 📦 products sold in packs (25 / 50 / 100 pieces): whole packs only
+  ---
+  duration_ms: 0.603053
+  type: 'test'
+  ...
+# Subtest: cart line price: the cheapest of normal / flash sale / buy-more price
+ok 150 - cart line price: the cheapest of normal / flash sale / buy-more price
+  ---
+  duration_ms: 0.467982
+  type: 'test'
+  ...
+# Subtest: delivery: ৳60 Dhaka city, ৳110 everywhere else
+ok 151 - delivery: ৳60 Dhaka city, ৳110 everywhere else
+  ---
+  duration_ms: 0.86429
+  type: 'test'
+  ...
+# Subtest: phone numbers: Bangla digits and +880 accepted, wrong numbers refused
+ok 152 - phone numbers: Bangla digits and +880 accepted, wrong numbers refused
+  ---
+  duration_ms: 0.59578
+  type: 'test'
+  ...
+# Subtest: a received purchase corrected: only the difference goes to the stock, the price follows
+ok 153 - a received purchase corrected: only the difference goes to the stock, the price follows # SKIP needs TEST_DATABASE_URL (a throw-away Postgres)
+  ---
+  duration_ms: 0.668886
+  type: 'test'
+  ...
+# Subtest: pieces already sold cannot be taken back — stock never goes below zero
+ok 154 - pieces already sold cannot be taken back — stock never goes below zero # SKIP needs TEST_DATABASE_URL (a throw-away Postgres)
+  ---
+  duration_ms: 0.11243
+  type: 'test'
+  ...
+# Subtest: the supplier corrected: the purchase and its payment move to the right supplier
+ok 155 - the supplier corrected: the purchase and its payment move to the right supplier # SKIP needs TEST_DATABASE_URL (a throw-away Postgres)
+  ---
+  duration_ms: 0.096139
+  type: 'test'
+  ...
+# Subtest: a payment corrected changes the due; every change is in the history
+ok 156 - a payment corrected changes the due; every change is in the history # SKIP needs TEST_DATABASE_URL (a throw-away Postgres)
+  ---
+  duration_ms: 0.098062
+  type: 'test'
+  ...
+# Subtest: a cancelled purchase cannot be corrected
+ok 157 - a cancelled purchase cannot be corrected # SKIP needs TEST_DATABASE_URL (a throw-away Postgres)
+  ---
+  duration_ms: 0.105637
+  type: 'test'
+  ...
+# Subtest: colours / sizes: bought one by one; an old main-product line can be split without touching the stock
+ok 158 - colours / sizes: bought one by one; an old main-product line can be split without touching the stock # SKIP needs TEST_DATABASE_URL (a throw-away Postgres)
+  ---
+  duration_ms: 0.162172
+  type: 'test'
+  ...
+# Subtest: a trial purchase deleted: stock back out, its payment gone with it, due right; restored as cancelled
+ok 159 - a trial purchase deleted: stock back out, its payment gone with it, due right; restored as cancelled # SKIP needs TEST_DATABASE_URL (a throw-away Postgres)
+  ---
+  duration_ms: 0.087002
+  type: 'test'
+  ...
+# Subtest: purchase edit: buying price follows the corrected price
+ok 160 - purchase edit: buying price follows the corrected price
+  ---
+  duration_ms: 0.902361
+  type: 'test'
+  ...
+# Subtest: purchase edit: history in plain words
+ok 161 - purchase edit: history in plain words
+  ---
+  duration_ms: 14.367473
+  type: 'test'
+  ...
+# Subtest: same page as before: track-empty
+ok 162 - same page as before: track-empty
+  ---
+  duration_ms: 68.681353
+  type: 'test'
+  ...
+# Subtest: same page as before: track-error
+ok 163 - same page as before: track-error
+  ---
+  duration_ms: 1.220691
+  type: 'test'
+  ...
+# Subtest: same page as before: not-found
+ok 164 - same page as before: not-found
+  ---
+  duration_ms: 0.793115
+  type: 'test'
+  ...
+# Subtest: same page as before: static-page
+ok 165 - same page as before: static-page
+  ---
+  duration_ms: 1.766196
+  type: 'test'
+  ...
+# Subtest: same page as before: blog-list
+ok 166 - same page as before: blog-list
+  ---
+  duration_ms: 15.869124
+  type: 'test'
+  ...
+# Subtest: same page as before: blog-list-cat
+ok 167 - same page as before: blog-list-cat
+  ---
+  duration_ms: 1.292816
+  type: 'test'
+  ...
+# Subtest: same page as before: blog-list-empty
+ok 168 - same page as before: blog-list-empty
+  ---
+  duration_ms: 0.765213
+  type: 'test'
+  ...
+# Subtest: same page as before: blog-post
+ok 169 - same page as before: blog-post
+  ---
+  duration_ms: 1.843229
+  type: 'test'
+  ...
+# Subtest: same page as before: blog-post-plain
+ok 170 - same page as before: blog-post-plain
+  ---
+  duration_ms: 1.423239
+  type: 'test'
+  ...
+# Subtest: same page as before: complaint-form
+ok 171 - same page as before: complaint-form
+  ---
+  duration_ms: 3.598104
+  type: 'test'
+  ...
+# Subtest: same page as before: complaint-form-filled
+ok 172 - same page as before: complaint-form-filled
+  ---
+  duration_ms: 2.513937
+  type: 'test'
+  ...
+# Subtest: same page as before: complaint-warranty-item
+ok 173 - same page as before: complaint-warranty-item
+  ---
+  duration_ms: 3.12786
+  type: 'test'
+  ...
+# Subtest: same page as before: complaint-warranty-list
+ok 174 - same page as before: complaint-warranty-list
+  ---
+  duration_ms: 2.700454
+  type: 'test'
+  ...
+# Subtest: same page as before: complaint-warranty-none
+ok 175 - same page as before: complaint-warranty-none
+  ---
+  duration_ms: 2.729529
+  type: 'test'
+  ...
+# Subtest: same page as before: complaint-done
+ok 176 - same page as before: complaint-done
+  ---
+  duration_ms: 0.651412
+  type: 'test'
+  ...
+# Subtest: same page as before: complaint-done-nosms
+ok 177 - same page as before: complaint-done-nosms
+  ---
+  duration_ms: 0.592242
+  type: 'test'
+  ...
+# Subtest: same page as before: complaint-status-form
+ok 178 - same page as before: complaint-status-form
+  ---
+  duration_ms: 0.942403
+  type: 'test'
+  ...
+# Subtest: same page as before: complaint-status-open
+ok 179 - same page as before: complaint-status-open
+  ---
+  duration_ms: 1.440019
+  type: 'test'
+  ...
+# Subtest: same page as before: complaint-status-closed
+ok 180 - same page as before: complaint-status-closed
+  ---
+  duration_ms: 1.407579
+  type: 'test'
+  ...
+# Subtest: same page as before: login-phone
+ok 181 - same page as before: login-phone
+  ---
+  duration_ms: 1.325125
+  type: 'test'
+  ...
+# Subtest: same page as before: login-none
+ok 182 - same page as before: login-none
+  ---
+  duration_ms: 0.629471
+  type: 'test'
+  ...
+# Subtest: same page as before: login-both-email
+ok 183 - same page as before: login-both-email
+  ---
+  duration_ms: 1.9728
+  type: 'test'
+  ...
+# Subtest: same page as before: login-email-empty
+ok 184 - same page as before: login-email-empty
+  ---
+  duration_ms: 1.320507
+  type: 'test'
+  ...
+# Subtest: same page as before: login-email-signup
+ok 185 - same page as before: login-email-signup
+  ---
+  duration_ms: 1.847787
+  type: 'test'
+  ...
+# Subtest: same page as before: login-email-reset
+ok 186 - same page as before: login-email-reset
+  ---
+  duration_ms: 1.646243
+  type: 'test'
+  ...
+# Subtest: same page as before: login-email-code
+ok 187 - same page as before: login-email-code
+  ---
+  duration_ms: 1.462942
+  type: 'test'
+  ...
+# Subtest: same page as before: login-email-code-signup
+ok 188 - same page as before: login-email-code-signup
+  ---
+  duration_ms: 1.552556
+  type: 'test'
+  ...
+# Subtest: same page as before: login-phone-code
+ok 189 - same page as before: login-phone-code
+  ---
+  duration_ms: 1.607982
+  type: 'test'
+  ...
+# Subtest: same page as before: login-phone-start
+ok 190 - same page as before: login-phone-start
+  ---
+  duration_ms: 1.204621
+  type: 'test'
+  ...
+# Subtest: same page as before: acct-orders
+ok 191 - same page as before: acct-orders
+  ---
+  duration_ms: 6.757292
+  type: 'test'
+  ...
+# Subtest: same page as before: acct-orders-empty
+ok 192 - same page as before: acct-orders-empty
+  ---
+  duration_ms: 0.96738
+  type: 'test'
+  ...
+# Subtest: same page as before: acct-addresses
+ok 193 - same page as before: acct-addresses
+  ---
+  duration_ms: 5.200085
+  type: 'test'
+  ...
+# Subtest: same page as before: acct-addresses-empty
+ok 194 - same page as before: acct-addresses-empty
+  ---
+  duration_ms: 1.96744
+  type: 'test'
+  ...
+# Subtest: same page as before: acct-profile-phone
+ok 195 - same page as before: acct-profile-phone
+  ---
+  duration_ms: 1.429791
+  type: 'test'
+  ...
+# Subtest: same page as before: acct-profile-email-welcome
+ok 196 - same page as before: acct-profile-email-welcome
+  ---
+  duration_ms: 1.368386
+  type: 'test'
+  ...
+# Subtest: same page as before: acct-profile-phone-welcome
+ok 197 - same page as before: acct-profile-phone-welcome
+  ---
+  duration_ms: 1.183211
+  type: 'test'
+  ...
+# Subtest: same page as before: acct-refer
+ok 198 - same page as before: acct-refer
+  ---
+  duration_ms: 3.985886
+  type: 'test'
+  ...
+# Subtest: same page as before: acct-refer-nosite
+ok 199 - same page as before: acct-refer-nosite
+  ---
+  duration_ms: 1.722385
+  type: 'test'
+  ...
+# Subtest: same page as before: acct-gift
+ok 200 - same page as before: acct-gift
+  ---
+  duration_ms: 2.269121
+  type: 'test'
+  ...
+# Subtest: same page as before: acct-gift-empty
+ok 201 - same page as before: acct-gift-empty
+  ---
+  duration_ms: 0.981045
+  type: 'test'
+  ...
+# Subtest: same page as before: return-form
+ok 202 - same page as before: return-form
+  ---
+  duration_ms: 3.954798
+  type: 'test'
+  ...
+# Subtest: same page as before: return-done
+ok 203 - same page as before: return-done
+  ---
+  duration_ms: 3.265676
+  type: 'test'
+  ...
+# Subtest: same page as before: return-not-mine
+ok 204 - same page as before: return-not-mine
+  ---
+  duration_ms: 0.514827
+  type: 'test'
+  ...
+# Subtest: same page as before: return-not-mine-noacct
+ok 205 - same page as before: return-not-mine-noacct
+  ---
+  duration_ms: 0.475634
+  type: 'test'
+  ...
+# Subtest: same page as before: return-not-delivered
+ok 206 - same page as before: return-not-delivered
+  ---
+  duration_ms: 0.421134
+  type: 'test'
+  ...
+# Subtest: same page as before: gift-page
+ok 207 - same page as before: gift-page
+  ---
+  duration_ms: 2.878986
+  type: 'test'
+  ...
+# Subtest: same page as before: gift-page-values
+ok 208 - same page as before: gift-page-values
+  ---
+  duration_ms: 2.388314
+  type: 'test'
+  ...
+# Subtest: same page as before: gift-page-amount
+ok 209 - same page as before: gift-page-amount
+  ---
+  duration_ms: 2.417157
+  type: 'test'
+  ...
+# Subtest: same page as before: gift-page-single
+ok 210 - same page as before: gift-page-single
+  ---
+  duration_ms: 1.541658
+  type: 'test'
+  ...
+# Subtest: same page as before: gift-page-done
+ok 211 - same page as before: gift-page-done
+  ---
+  duration_ms: 0.703438
+  type: 'test'
+  ...
+# reply: answered twice — the first answer stands 500
+# Subtest: headers given with the answer replace the same header set earlier (a page's own cookie wins)
+ok 212 - headers given with the answer replace the same header set earlier (a page's own cookie wins)
+  ---
+  duration_ms: 20.027711
+  type: 'test'
+  ...
+# Subtest: a header set before the answer stays when the answer does not set it
+ok 213 - a header set before the answer stays when the answer does not set it
+  ---
+  duration_ms: 0.321609
+  type: 'test'
+  ...
+# Subtest: only the first answer counts
+ok 214 - only the first answer counts
+  ---
+  duration_ms: 2.05878
+  type: 'test'
+  ...
+# Subtest: bodies: text as UTF-8, files as bytes, nothing for 204 / 304
+ok 215 - bodies: text as UTF-8, files as bytes, nothing for 204 / 304
+  ---
+  duration_ms: 1.222415
+  type: 'test'
+  ...
+# Subtest: done settles when the answer is given
+ok 216 - done settles when the answer is given
+  ---
+  duration_ms: 0.194552
+  type: 'test'
+  ...
+# Subtest: research: each product goes to the owner's product group by its name
+ok 217 - research: each product goes to the owner's product group by its name
+  ---
+  duration_ms: 3.245789
+  type: 'test'
+  ...
+# Subtest: research: Google trending searches for Bangladesh are read from the feed
+ok 218 - research: Google trending searches for Bangladesh are read from the feed
+  ---
+  duration_ms: 1.684253
+  type: 'test'
+  ...
+# Subtest: customer pages that moved are drawn by Next.js
+ok 219 - customer pages that moved are drawn by Next.js
+  ---
+  duration_ms: 1.34349
+  type: 'test'
+  ...
+# Subtest: forms and look-ups are never drawn by the Next.js pages
+ok 220 - forms and look-ups are never drawn by the Next.js pages
+  ---
+  duration_ms: 0.346234
+  type: 'test'
+  ...
+# Subtest: customer forms have Next.js routes of their own (lib/shopx.tsx)
+ok 221 - customer forms have Next.js routes of their own (lib/shopx.tsx)
+  ---
+  duration_ms: 419.354109
+  type: 'test'
+  ...
+# Subtest: each moved page has exactly one drawer
+ok 222 - each moved page has exactly one drawer
+  ---
+  duration_ms: 0.352015
+  type: 'test'
+  ...
+# Subtest: the order page and the old invoice address share one address rule
+ok 223 - the order page and the old invoice address share one address rule
+  ---
+  duration_ms: 40.218584
+  type: 'test'
+  ...
+# Subtest: admin pages are drawn by Next.js; forms, files and data go to app/api/admin
+ok 224 - admin pages are drawn by Next.js; forms, files and data go to app/api/admin
+  ---
+  duration_ms: 4.300855
+  type: 'test'
+  ...
+# Subtest: lib/next/admin-routes.ts lists today's admin pages (run tools/gen-admin-routes.ts after changing admin routes)
+ok 225 - lib/next/admin-routes.ts lists today's admin pages (run tools/gen-admin-routes.ts after changing admin routes)
+  ---
+  duration_ms: 816.893976
+  type: 'test'
+  ...
+# Subtest: app/api/admin answers only admin addresses, for every way of asking
+ok 226 - app/api/admin answers only admin addresses, for every way of asking
+  ---
+  duration_ms: 29.495507
+  type: 'test'
+  ...
+# Subtest: every table and column in lib/data/rows.ts matches the real database
+ok 227 - every table and column in lib/data/rows.ts matches the real database # SKIP needs TEST_DATABASE_URL (a throw-away Postgres)
+  ---
+  duration_ms: 0.586791
+  type: 'test'
+  ...
+# Subtest: lib/data/rows.ts is up to date with lib/db.ts
+ok 228 - lib/data/rows.ts is up to date with lib/db.ts
+  ---
+  duration_ms: 24.372215
+  type: 'test'
+  ...
+# Subtest: SQL types arrive as the JavaScript types lib/pg reads them into
+ok 229 - SQL types arrive as the JavaScript types lib/pg reads them into
+  ---
+  duration_ms: 0.191175
+  type: 'test'
+  ...
+# Subtest: the layout is read through every change: added columns, new types, dropped NOT NULL
+ok 230 - the layout is read through every change: added columns, new types, dropped NOT NULL
+  ---
+  duration_ms: 0.95658
+  type: 'test'
+  ...
+# Subtest: the main tables are there with their key columns
+ok 231 - the main tables are there with their key columns
+  ---
+  duration_ms: 7.177544
+  type: 'test'
+  ...
+# Subtest: saved secrets: AES-256-GCM, unreadable without the key, tamper-proof
+ok 232 - saved secrets: AES-256-GCM, unreadable without the key, tamper-proof
+  ---
+  duration_ms: 2.307173
+  type: 'test'
+  ...
+# Subtest: links typed in the admin can never run code
+ok 233 - links typed in the admin can never run code
+  ---
+  duration_ms: 0.541057
+  type: 'test'
+  ...
+# Subtest: uploads: only real pictures, whatever the file name says
+ok 234 - uploads: only real pictures, whatever the file name says
+  ---
+  duration_ms: 0.32251
+  type: 'test'
+  ...
+# Subtest: admin forms only from this site
+ok 235 - admin forms only from this site
+  ---
+  duration_ms: 0.276624
+  type: 'test'
+  ...
+# Subtest: admin script rule: a fresh nonce per page, no inline handlers, never weaker than before
+ok 236 - admin script rule: a fresh nonce per page, no inline handlers, never weaker than before
+  ---
+  duration_ms: 0.337168
+  type: 'test'
+  ...
+# Subtest: admin passwords: scrypt, salted, checked in constant time
+ok 237 - admin passwords: scrypt, salted, checked in constant time
+  ---
+  duration_ms: 180.553934
+  type: 'test'
+  ...
+# Subtest: signed cookies can not be forged or edited
+ok 238 - signed cookies can not be forged or edited
+  ---
+  duration_ms: 0.547419
+  type: 'test'
+  ...
+# Subtest: two-step login codes (Google Authenticator)
+ok 239 - two-step login codes (Google Authenticator)
+  ---
+  duration_ms: 1.251549
+  type: 'test'
+  ...
+# Subtest: hacking attempts in an address are recognised, normal product links are not
+ok 240 - hacking attempts in an address are recognised, normal product links are not
+  ---
+  duration_ms: 2.362546
+  type: 'test'
+  ...
+# Subtest: database certificate: the bundled Supabase root is genuine and still valid
+ok 241 - database certificate: the bundled Supabase root is genuine and still valid
+  ---
+  duration_ms: 0.919441
+  type: 'test'
+  ...
+# Subtest: permanent-delete / key codes go only to the shop Gmail, shown masked
+ok 242 - permanent-delete / key codes go only to the shop Gmail, shown masked
+  ---
+  duration_ms: 1.297874
+  type: 'test'
+  ...
+# Subtest: the OTP phone: quiet for 1½ hours = warning, 4 hours = alarm, low battery = warning
+ok 243 - the OTP phone: quiet for 1½ hours = warning, 4 hours = alarm, low battery = warning
+  ---
+  duration_ms: 1.206427
+  type: 'test'
+  ...
+# Subtest: failing codes: 3 failed and none sent in 6 hours = alarm
+ok 244 - failing codes: 3 failed and none sent in 6 hours = alarm
+  ---
+  duration_ms: 0.165168
+  type: 'test'
+  ...
+# Subtest: SMS length: Bangla 70 / English 160 characters per part
+ok 245 - SMS length: Bangla 70 / English 160 characters per part
+  ---
+  duration_ms: 0.228576
+  type: 'test'
+  ...
+# Subtest: order SMS text fills in the order
+ok 246 - order SMS text fills in the order
+  ---
+  duration_ms: 0.454467
+  type: 'test'
+  ...
+# Subtest: SMS is "not ready" with a clear reason until it is set up
+ok 247 - SMS is "not ready" with a clear reason until it is set up
+  ---
+  duration_ms: 0.276685
+  type: 'test'
+  ...
+# Subtest: the admin switches and tick boxes are defaultChecked, never checked
+ok 248 - the admin switches and tick boxes are defaultChecked, never checked
+  ---
+  duration_ms: 9.830863
+  type: 'test'
+  ...
+# Subtest: a switch that is off has no checked at all
+ok 249 - a switch that is off has no checked at all
+  ---
+  duration_ms: 0.523185
+  type: 'test'
+  ...
+# Subtest: text boxes keep what the owner types (defaultValue, not a held value)
+ok 250 - text boxes keep what the owner types (defaultValue, not a held value)
+  ---
+  duration_ms: 1.278031
+  type: 'test'
+  ...
+# Subtest: every variant gets the main product's packs, each keeps its own price
+ok 251 - every variant gets the main product's packs, each keeps its own price # SKIP needs TEST_DATABASE_URL (a throw-away Postgres)
+  ---
+  duration_ms: 0.702328
+  type: 'test'
+  ...
+# Subtest: a variant is ordered only in whole packs, at that variant's price
+ok 252 - a variant is ordered only in whole packs, at that variant's price # SKIP needs TEST_DATABASE_URL (a throw-away Postgres)
+  ---
+  duration_ms: 0.111658
+  type: 'test'
+  ...
+# Subtest: the cart knows a line's other colours/sizes (to switch them in the cart and at checkout)
+ok 253 - the cart knows a line's other colours/sizes (to switch them in the cart and at checkout) # SKIP needs TEST_DATABASE_URL (a throw-away Postgres)
+  ---
+  duration_ms: 0.095138
+  type: 'test'
+  ...
+# Subtest: variant table: rows read from the form in order
+ok 254 - variant table: rows read from the form in order
+  ---
+  duration_ms: 2.077489
+  type: 'test'
+  ...
+# Subtest: variant table: a box's measure (দৈর্ঘ্য × প্রস্থ × উচ্চতা)
+ok 255 - variant table: a box's measure (দৈর্ঘ্য × প্রস্থ × উচ্চতা)
+  ---
+  duration_ms: 0.368997
+  type: 'test'
+  ...
+# Subtest: variant table: a brand (Daraz / Cartup / নন-ব্র্যান্ড) is a row's third option
+ok 256 - variant table: a brand (Daraz / Cartup / নন-ব্র্যান্ড) is a row's third option
+  ---
+  duration_ms: 0.370911
+  type: 'test'
+  ...
+# Subtest: the cloud worker passes the country lock
+ok 257 - the cloud worker passes the country lock
+  ---
+  duration_ms: 1.098226
+  type: 'test'
+  ...
+# Subtest: ⚡ fast start: nothing without the owner's key; with it, one call to GitHub, at most once a minute
+ok 258 - ⚡ fast start: nothing without the owner's key; with it, one call to GitHub, at most once a minute
+  ---
+  duration_ms: 109.335617
+  type: 'test'
+  ...
+# Subtest: picture descriptions are copied in only on the live shop
+ok 259 - picture descriptions are copied in only on the live shop
+  ---
+  duration_ms: 20.435057
+  type: 'test'
+  ...
+# Subtest: only unowned pictures can be claimed; a product picture never
+ok 260 - only unowned pictures can be claimed; a product picture never # SKIP needs TEST_DATABASE_URL (a throw-away Postgres)
+  ---
+  duration_ms: 0.701487
+  type: 'test'
+  ...
+# Subtest: only the owner queues and sees them; delete is the owner's only
+ok 261 - only the owner queues and sees them; delete is the owner's only # SKIP needs TEST_DATABASE_URL (a throw-away Postgres)
+  ---
+  duration_ms: 0.117579
+  type: 'test'
+  ...
+# Subtest: pictures older than 7 days go by themselves
+ok 262 - pictures older than 7 days go by themselves # SKIP needs TEST_DATABASE_URL (a throw-away Postgres)
+  ---
+  duration_ms: 0.0968
+  type: 'test'
+  ...
+# Subtest: keep: the white copy takes the original's place, the original is set aside
+ok 263 - keep: the white copy takes the original's place, the original is set aside # SKIP needs TEST_DATABASE_URL (a throw-away Postgres)
+  ---
+  duration_ms: 0.624554
+  type: 'test'
+  ...
+# Subtest: only product pictures, and a stale product form brings the original back
+ok 264 - only product pictures, and a stale product form brings the original back # SKIP needs TEST_DATABASE_URL (a throw-away Postgres)
+  ---
+  duration_ms: 0.122478
+  type: 'test'
+  ...
+1..264
+# tests 264
+# suites 0
+# pass 211
+# fail 0
+# cancelled 0
+# skipped 53
+# todo 0
+# duration_ms 17963.114418
