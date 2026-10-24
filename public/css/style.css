@@ -1134,3 +1134,14 @@ body.protect .card-pic img, body.protect .g-main img, body.protect .g-thumb img,
 .card-bn { font-size: .8rem; line-height: 1.4; margin: -2px 0 6px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .p-title-bn { font-size: 1.06rem; font-weight: 500; line-height: 1.45; margin: -2px 0 12px; padding: 2px 0 2px 10px; border-left: 3px solid var(--amber); }
 html[data-lang="en"] .name-bn { display: none; }
+
+/* 📱 A phone in Chrome's "desktop site" mode (owner, 2026-10-24): the page is laid out 980px wide; the header's links
+   were a little wider than that, so the browser zoomed the whole page out and left an empty strip on the right.
+   Between phone and big-screen widths the header is tighter, and nothing may ever widen the page sideways. */
+html, body { overflow-x: clip; }
+@media (min-width: 761px) and (max-width: 1180px) {
+  .header-row { gap: 10px; }
+  .header-nav { gap: 0; }
+  .header-nav a { padding: 8px 6px; font-size: .9rem; }
+  .logo { font-size: 1.6rem; }
+}

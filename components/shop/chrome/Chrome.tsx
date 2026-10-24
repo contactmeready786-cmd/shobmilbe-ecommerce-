@@ -18,7 +18,7 @@ import type { CustomScript, MenuLink, Settings } from '../../../lib/types';
 import { SearchIcon, CartIcon, UserIcon, MenuIcon, WhatsAppIcon, MessengerIcon, SOCIAL_ICONS } from './icons';
 import { inviteConfig } from '../../../lib/app-invite';
 
-export const ASSET_V = '57';
+export const ASSET_V = '58';
 
 export function Logo({ settings }: { settings: Settings }) {
   if (settings.logo_id) {
