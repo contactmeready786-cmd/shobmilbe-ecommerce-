@@ -1,0 +1,9 @@
+name: whiten-check
+on: push
+jobs:
+  c:
+    runs-on: ubuntu-24.04
+    steps:
+      - run: |
+          code=$(curl -sS -o out.txt -w '%{http_code}' -A shobmilbe-whiten-cloud https://shobmilbe.com/api/whiten-jobs)
+          echo "::notice::http $code len $(wc -c < out.txt) jobs $(python3 -c 'import json;print(len(json.load(open("out.txt")).get("jobs",[])))' 2>&1) head $(head -c 300 out.txt | tr -d '\n' | sed 's/token":"[^"]*/token":"x/g')"
