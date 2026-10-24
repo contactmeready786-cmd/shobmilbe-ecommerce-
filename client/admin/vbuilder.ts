@@ -30,6 +30,30 @@ export function startVariantBuilder(): void {
     if (mainPrice) mainPrice.required = n === 0;
   };
 
+  // ✏️ a brand / colour / size renamed: the same rows keep their stock, prices and sales — only the name changes
+  // (owner, 2026-10-24: "আলট্রা বক্স" should have been "আলট্রা মিনি বক্স"). Saved with the product (the label follows).
+  const DIMS = [['b', 'vb_brand', '[data-vb-btext]'], ['c', 'vb_color', '[data-vb-ctext]'], ['s', 'vb_size', '[data-vb-stext]']] as const;
+  const rename = (dim: 0 | 1 | 2, from: string, to: string) => {
+    const [d, fname, tsel] = DIMS[dim];
+    for (const r of rows()) {
+      if ((r.dataset[d] || '').toLowerCase() !== from.toLowerCase()) continue;
+      r.dataset[d] = to;
+      const f = field(r, fname); if (f) f.value = to;
+      const t = r.querySelector(tsel); if (t) t.textContent = to || '—';
+    }
+  };
+  const listOf = (dim: 0 | 1 | 2) => (dim === 0 ? bi : dim === 1 ? ci : si);
+  /** names that left a list and the same number that came in, in the same places: renames, not new rows */
+  const renamesIn = (dim: 0 | 1 | 2, wanted: string[]) => {
+    const d = DIMS[dim][0];
+    const had = [...new Set(rows().map((r) => r.dataset[d] || '').filter(Boolean))];
+    const low = (a: string[]) => a.map((x) => x.toLowerCase());
+    const gone = had.filter((x) => !low(wanted).includes(x.toLowerCase()));
+    const came = wanted.filter((x) => !low(had).includes(x.toLowerCase()));
+    if (!gone.length || gone.length !== came.length) return;
+    gone.forEach((g, i) => rename(dim, g, came[i]));
+  };
+
   const make = () => {
     const B = bi ? split(bi.value) : [];
     const C = split(ci.value);
@@ -37,6 +61,9 @@ export function startVariantBuilder(): void {
     if (bi) bi.value = B.join(', ');
     ci.value = C.join(', ');
     si.value = S.join(', ');
+    if (bi) renamesIn(0, B);
+    renamesIn(1, C);
+    renamesIn(2, S);
     // every brand × colour × size that was given (a list left empty is simply left out)
     let combos: [string, string, string][] = [['', '', '']];
     ([B, C, S] as string[][]).forEach((list, i) => {
@@ -86,6 +113,22 @@ export function startVariantBuilder(): void {
   };
 
   box.addEventListener('click', (e) => {
+    // ✏️ beside a row's colour / size: rename it (every row with that name, and the list above)
+    const ed = (e.target as Element | null)?.closest<HTMLElement>('[data-vb-rename]');
+    if (ed) {
+      e.preventDefault();
+      const dim = Number(ed.dataset.vbRename) as 0 | 1 | 2;
+      const r = ed.closest<HTMLTableRowElement>('tr[data-vb-row]');
+      const cur = r?.dataset[DIMS[dim][0]] || '';
+      if (!cur) return;
+      const to = split(prompt(`"${cur}" এর নতুন নাম লিখুন (স্টক, দাম, বিক্রির হিসাব একই থাকবে):`, cur) || '')[0];
+      if (!to || to === cur) return;
+      rename(dim, cur, to);
+      const L = listOf(dim);
+      if (L) L.value = split(L.value).map((x) => (x.toLowerCase() === cur.toLowerCase() ? to : x)).join(', ');
+      const note = box.querySelector<HTMLElement>('[data-vb-renamed]'); if (note) note.hidden = false;
+      return;
+    }
     const t = e.target as Element | null;
     if (t?.closest('[data-vb-make]')) { e.preventDefault(); make(); return; }
     // 🗑️ a new row just goes; a saved one is marked and hidden — it goes to the recycle bin when the product is saved
