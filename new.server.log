@@ -1,0 +1,14 @@
+▲ Next.js 16.4.2
+- Local:         http://localhost:3200
+- Network:       http://10.1.0.84:3200
+✓ Ready in 98ms
+✓ Running next.config.ts took 29ms
+lockPublicApi: closed 1 table(s), removed 0 API right(s)
+Error: Pathao লগইন হয়নি: The user credentials were incorrect
+    at g (.next/server/chunks/lib_services_courier_ts_1umhls-0c62l6._.js:1:3362)
+    at async k (.next/server/chunks/lib_services_courier_ts_1umhls-0c62l6._.js:1:3429)
+    at async Module.y [as pathaoList] (.next/server/chunks/lib_services_courier_ts_1umhls-0c62l6._.js:1:5142)
+    at async Object.Q [as handler] (.next/server/chunks/_1xl5tbqhbltvc._.js:131:10716)
+    at async N (.next/server/chunks/_1xl5tbqhbltvc._.js:345:1995)
+    at async x (.next/server/chunks/_1xl5tbqhbltvc._.js:345:2230)
+    at async Z (.next/server/chunks/_1xl5tbqhbltvc._.js:462:7052)

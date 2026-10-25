@@ -1,0 +1,16 @@
+scenarios: 176 admin forms
+scenarios: 276 steps, statuses 200,400,404,403,204,303,401,409
+scenarios: 176 admin forms
+scenarios: 276 steps, statuses 200,400,404,403,204,303,401,409
+▲ Next.js 16.4.2
+- Local:         http://localhost:3200
+- Network:       http://10.1.0.84:3200
+✓ Ready in 92ms
+✓ Running next.config.ts took 27ms
+lockPublicApi: closed 1 table(s), removed 0 API right(s)
+actions: DIFFERENT
+1943c1943,1944
+<             "status": 404,
+---
+>             "status": 303,
+>             "location": "/admin/reports/search#wants",

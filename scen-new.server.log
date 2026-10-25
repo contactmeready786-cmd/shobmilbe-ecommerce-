@@ -1,0 +1,6 @@
+▲ Next.js 16.4.2
+- Local:         http://localhost:3200
+- Network:       http://10.1.0.84:3200
+✓ Ready in 92ms
+✓ Running next.config.ts took 27ms
+lockPublicApi: closed 1 table(s), removed 0 API right(s)

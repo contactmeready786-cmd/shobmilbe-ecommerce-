@@ -1,0 +1,2 @@
+phone /admin/orders/1/mushak
+   the whole page is 645px too wide

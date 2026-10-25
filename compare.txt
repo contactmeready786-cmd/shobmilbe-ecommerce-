@@ -1,0 +1,18 @@
+pages compared: 597, differences: 4, head tags only: 0
+  4 × content differs
+
+- /admin/reports/search: content differs
+  old: "/label> <button class=\"btn btn-sm\">সেভ করুন</button></form><div class=\"toolbar\"><span class=\"muted small\">সময়:</span> <a class=\"chip\" href=\"/admin/reports/search?days=7\">গত ৭ দিন<"
+  new: "/label> <button class=\"btn btn-sm\">সেভ করুন</button></form><section class=\"panel\" id=\"wants\"><h2>🙋 পণ্য চেয়েছে — ফোন নম্বরসহ <small>০টি নতুন</small></h2><p class=\"small muted\">কে"
+
+- /admin/reports/search?days=7: content differs
+  old: "/label> <button class=\"btn btn-sm\">সেভ করুন</button></form><div class=\"toolbar\"><span class=\"muted small\">সময়:</span> <a class=\"chip on\" href=\"/admin/reports/search?days=7\">গত ৭ দ"
+  new: "/label> <button class=\"btn btn-sm\">সেভ করুন</button></form><section class=\"panel\" id=\"wants\"><h2>🙋 পণ্য চেয়েছে — ফোন নম্বরসহ <small>০টি নতুন</small></h2><p class=\"small muted\">কে"
+
+- /admin/reports/search?days=30: content differs
+  old: "/label> <button class=\"btn btn-sm\">সেভ করুন</button></form><div class=\"toolbar\"><span class=\"muted small\">সময়:</span> <a class=\"chip\" href=\"/admin/reports/search?days=7\">গত ৭ দিন<"
+  new: "/label> <button class=\"btn btn-sm\">সেভ করুন</button></form><section class=\"panel\" id=\"wants\"><h2>🙋 পণ্য চেয়েছে — ফোন নম্বরসহ <small>০টি নতুন</small></h2><p class=\"small muted\">কে"
+
+- /admin/reports/search?days=90: content differs
+  old: "/label> <button class=\"btn btn-sm\">সেভ করুন</button></form><div class=\"toolbar\"><span class=\"muted small\">সময়:</span> <a class=\"chip\" href=\"/admin/reports/search?days=7\">গত ৭ দিন<"
+  new: "/label> <button class=\"btn btn-sm\">সেভ করুন</button></form><section class=\"panel\" id=\"wants\"><h2>🙋 পণ্য চেয়েছে — ফোন নম্বরসহ <small>০টি নতুন</small></h2><p class=\"small muted\">কে"

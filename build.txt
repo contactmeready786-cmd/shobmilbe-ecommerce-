@@ -1,0 +1,114 @@
+
+> shobmilbe-ecommerce@2.0.0 build
+> npm run build:client && next build
+
+
+> shobmilbe-ecommerce@2.0.0 build:client
+> tsc -p client/tsconfig.json && tsc -p client/sw/tsconfig.json
+
+▲ Next.js 16.4.2 (Turbopack)
+✓ Running next.config.ts took 24ms
+⚠ No build cache found. Please configure build caching for faster rebuilds. Read more: https://nextjs.org/docs/messages/no-cache
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 7.6s
+  Running TypeScript ...
+  Finished TypeScript in 14.7s ...
+  Collecting page data using 3 workers ...
+  Generating static pages using 3 workers (0/2) ...
+✓ Generating static pages using 3 workers (2/2) in 76ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ƒ /
+├ ○ /_not-found
+├ ƒ /account
+├ ƒ /account/[...action]
+├ ƒ /admin/[[...path]]
+├ ƒ /api/admin
+├ ƒ /api/aistaff/tick
+├ ƒ /api/app/inbox
+├ ƒ /api/app/offers
+├ ƒ /api/backup/tick
+├ ƒ /api/cards
+├ ƒ /api/cart
+├ ƒ /api/checkout-draft
+├ ƒ /api/checkout-otp/[...step]
+├ ƒ /api/coupon
+├ ƒ /api/csp-report
+├ ƒ /api/for-you
+├ ƒ /api/forms/account
+├ ƒ /api/forms/complaint
+├ ƒ /api/forms/gift-card
+├ ƒ /api/forms/return
+├ ƒ /api/forms/track
+├ ƒ /api/giftcard
+├ ƒ /api/i18n
+├ ƒ /api/i18n/fix
+├ ƒ /api/live/click
+├ ƒ /api/live/cricket
+├ ƒ /api/live/football
+├ ƒ /api/orders
+├ ƒ /api/points
+├ ƒ /api/price-alert
+├ ƒ /api/push/subscribe
+├ ƒ /api/push/unsubscribe
+├ ƒ /api/question
+├ ƒ /api/quote
+├ ƒ /api/research/tick
+├ ƒ /api/resume
+├ ƒ /api/review
+├ ƒ /api/search-suggest
+├ ƒ /api/site/[[...path]]
+├ ƒ /api/stock-alert
+├ ƒ /api/subscribe
+├ ƒ /api/suggest
+├ ƒ /api/v
+├ ƒ /api/want
+├ ƒ /api/whiten-jobs
+├ ƒ /api/wish
+├ ƒ /app
+├ ƒ /blog
+├ ƒ /blog/[slug]
+├ ƒ /blog/category/[slug]
+├ ƒ /brand/[slug]
+├ ƒ /cart
+├ ƒ /checkout
+├ ƒ /compare
+├ ƒ /complaint
+├ ƒ /complaint/status
+├ ƒ /e/c/[id]/[mark]
+├ ƒ /e/o/[id]/[file]
+├ ƒ /feeds/[file]
+├ ƒ /gift-card
+├ ƒ /img/p/[id]
+├ ƒ /kit/[slug]
+├ ƒ /kits
+├ ƒ /live
+├ ƒ /live/[sport]
+├ ƒ /media/[id]
+├ ƒ /media/[id]/t
+├ ƒ /media/[id]/w
+├ ƒ /order/[code]
+├ ƒ /order/[code]/cancel
+├ ƒ /order/[code]/edit
+├ ƒ /order/[code]/return
+├ ƒ /p/[slug]
+├ ƒ /page/[slug]
+├ ƒ /pay/[...step]
+├ ƒ /products
+├ ƒ /robots.txt
+├ ƒ /sitemap.xml
+├ ƒ /track
+├ ƒ /unsubscribe
+├ ƒ /webhook/autocall/[token]
+├ ƒ /webhook/pathao
+├ ƒ /webhook/steadfast
+└ ƒ /wishlist
+
+
+ƒ Proxy (Middleware)
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
