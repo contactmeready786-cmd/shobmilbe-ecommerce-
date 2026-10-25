@@ -1256,6 +1256,15 @@ CREATE INDEX IF NOT EXISTS ai_staff_edits_created_idx ON ai_staff_edits(created_
   `
 ALTER TABLE ai_staff_edits ADD COLUMN IF NOT EXISTS via text NOT NULL DEFAULT '';
 `,
+  // 🙋 "এই পণ্যটা খুঁজে দিন" (owner, 2026-10-25): a search that found nothing can leave a name and phone, so the shop
+  // can bring the product in and call back
+  `
+CREATE TABLE IF NOT EXISTS product_wants (
+  id serial PRIMARY KEY, q text NOT NULL, name text NOT NULL DEFAULT '', phone text NOT NULL, note text NOT NULL DEFAULT '',
+  status text NOT NULL DEFAULT 'new', created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS product_wants_created_idx ON product_wants(created_at DESC);
+`,
 ];
 
 // Data steps that need code, keyed by migration number (run after its SQL).

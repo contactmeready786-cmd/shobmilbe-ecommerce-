@@ -922,6 +922,17 @@ export type ProductQuestionsRow = {
   created_at: Date;
 };
 
+/** A row of product_wants. */
+export type ProductWantsRow = {
+  id: number;
+  q: string;
+  name: string;
+  phone: string;
+  note: string;
+  status: string;
+  created_at: Date;
+};
+
 /** A row of products. */
 export type ProductsRow = {
   id: number;
@@ -1579,6 +1590,7 @@ export type Tables = {
   price_tiers: PriceTiersRow;
   product_links: ProductLinksRow;
   product_questions: ProductQuestionsRow;
+  product_wants: ProductWantsRow;
   products: ProductsRow;
   purchase_edits: PurchaseEditsRow;
   purchase_items: PurchaseItemsRow;

@@ -290,3 +290,23 @@ export async function cspReport(ctx: ApiCtx) {
   }
   return new Response(null, { status: 204, headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store', ...security.BASE_HEADERS } });
 }
+
+// 🙋 POST /api/want — "এই পণ্যটা খুঁজে দিন": a search that found nothing leaves the customer's phone (and name) so the
+// shop can bring the product in and call back (Admin → রিপোর্ট → কাস্টমার কী খুঁজছে). A plain form: back to the search
+// with a thank-you (#wanted-ok).
+export async function want(ctx: ApiCtx) {
+  const b = await ctx.body();
+  const q = str(b.q, 120).trim();
+  const back = (hash: string) => new Response(null, { status: 303, headers: { Location: `/products?q=${encodeURIComponent(q)}${hash}`, 'Cache-Control': 'no-store' } });
+  if (!security.sameSite(ctx.req)) return json(403, { error: 'অনুমতি নেই।' });
+  if (str(b.website, 50)) return back('#wanted-ok'); // the hidden box only robots fill in
+  if (!(await allow(ctx, 'want:', 6, 3600))) return tooMany(ctx);
+  const phone = normalizePhone(b.phone);
+  if (!q || !validPhone(phone)) return back('#wanted-bad');
+  const dup = await db.one('SELECT id FROM product_wants WHERE phone=$1 AND lower(q)=lower($2) AND created_at > now() - interval \'7 days\'', [phone, q]);
+  if (!dup) {
+    await db.q('INSERT INTO product_wants(q, name, phone, note) VALUES($1, $2, $3, $4)', [q, str(b.name, 80), phone, str(b.note, 300)]);
+    notify.later(notify.sendEmail(ctx.settings, `🙋 কাস্টমার একটা পণ্য চাইছে: ${q}`, `"${q}" খুঁজে কিছু পায়নি — ${str(b.name, 80) || 'নাম দেয়নি'}, ${phone}${str(b.note, 300) ? `\nলিখেছে: ${str(b.note, 300)}` : ''}\n\nসব অনুরোধ: Admin → রিপোর্ট → কাস্টমার কী খুঁজছে`).catch(() => {}));
+  }
+  return back('#wanted-ok');
+}

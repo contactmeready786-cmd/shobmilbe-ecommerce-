@@ -1145,3 +1145,14 @@ html, body { overflow-x: clip; }
   .header-nav a { padding: 8px 6px; font-size: .9rem; }
   .logo { font-size: 1.6rem; }
 }
+
+/* 🙋 "এই পণ্যটা খুঁজে দিন" */
+.want-box { margin: 18px 0; padding: 16px; border: 1px dashed var(--line); border-radius: 14px; background: #fff; scroll-margin-top: 90px; }
+.want-box h2 { margin: 0 0 4px; font-size: 1.1rem; }
+.want-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; margin-top: 8px; }
+.want-form input { font: inherit; padding: 10px 12px; border: 1.5px solid var(--line); border-radius: 10px; min-width: 0; }
+.want-form .hp { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
+.want-msg { display: none; margin: 0 0 10px; padding: 8px 12px; border-radius: 10px; }
+.want-msg:target { display: block; }
+.want-ok { background: #EFFAF2; color: #15603A; }
+.want-bad { background: #FFF1F1; color: #8A2A2A; }
