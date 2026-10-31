@@ -36,7 +36,7 @@ jobs:
             tools/whiten
             public/vendor/birefnet
             public/vendor/dinov2
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         if: steps.look.outputs.n != '0'
         with: { python-version: '3.12', cache: pip, cache-dependency-path: tools/whiten/requirements.txt }
       - name: Make the pictures white
