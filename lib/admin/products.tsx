@@ -23,6 +23,21 @@ const ICONS = ['📦', '📟', '🧩', '🔋', '🔥', '🔌', '👕', '👗', '
   '🧲', '🧪', '🏠', '🛋️', '🍳', '🧴', '💄', '🧸', '📚', '✏️', '⚽', '🚲', '🚗', '🌱', '🐾', '🍎', '☕', '🎁', '💍', '🕶️', '🧢', '🧥', '🩺', '🧼', '📡', '🔦', '🪛', '🧵'];
 
 /** 👯 the duplicate chip's count, worked out again (after a page is sent, and by the scheduled job) */
+/** ⚡ the 👯 count again only when products or their pictures changed since the last scan (or 6 hours passed): the scan
+ *  compares every picture with every other one, so running it every half hour for nothing kept the processor busy */
+export async function refreshDupChipIfChanged(settings: Settings): Promise<number | null> {
+  const cache = JSON.parse(String(settings.dup_chip_cache || '{}')) as { at?: number; fp?: string };
+  const age = Date.now() - (Number(cache.at) || 0);
+  if (age < 30 * 60e3) return null;
+  const f = await db.one<{ fp: string }>(`SELECT concat_ws('|', (SELECT count(*) FROM products), (SELECT max(updated_at)::text FROM products),
+      (SELECT count(*) FROM media WHERE owner_type='product'), (SELECT max(id) FROM media WHERE owner_type='product'),
+      (SELECT count(*) FROM media WHERE owner_type='product' AND emb IS NOT NULL), coalesce($1::text, '')) AS fp`, [settings.dup_level || '']);
+  const fp = f ? f.fp : '';
+  if (fp && fp === cache.fp && age < 6 * 3600e3) return null;
+  const n = await refreshDupChip(settings);
+  await db.setSetting('dup_chip_cache', JSON.stringify({ n, at: Date.now(), fp }));
+  return n;
+}
 export async function refreshDupChip(settings: Settings): Promise<number> {
   const g = await dupes.scanCatalog(settings);
   const n = g.filter((x) => x.level === 'block').reduce((sum, x) => sum + x.products.length - 1, 0);

@@ -204,26 +204,28 @@ export async function researchTick(ctx: ApiCtx) {
   if (!(await allow(ctx, 'tick:', 30, 3600))) return json(429, { ok: false });
   const settings = ctx.settings;
   let r: Record<string, unknown> = {};
-  try { r = await $services_research.tick(); } catch (_) { r = {}; }
-  try { const ik = $services_imagekit; await ik.moveOld(db, 10); await ik.flushTrash(db, 30); } catch (_) { /* next time */ }
-  try { await $models_extras.restockSweep(settings); } catch (_) { /* next time */ }
-  try { await seo.indexNowSweep(settings); } catch (_) { /* next hour */ }
+  // ⚡ jobs that can wait skip their turn while the server is busy (lib/services/perf.ts) — customers come first
+  const P = await import('../services/perf');
+  await P.timeJob('মার্কেট রিসার্চ', async () => { r = await $services_research.tick().catch(() => ({})); }, { optional: true });
+  await P.timeJob('ছবি গোছানো (ImageKit)', async () => { const ik = $services_imagekit; await ik.moveOld(db, 10); await ik.flushTrash(db, 30); }, { optional: true });
+  await P.timeJob('স্টকে এলে জানাও', () => $models_extras.restockSweep(settings));
+  await P.timeJob('IndexNow (সার্চ ইঞ্জিন)', () => seo.indexNowSweep(settings), { optional: true });
   // 🤖 অটো SEO: model numbers and specifications for a few dozen products, and the daily score
-  try { await $services_autoseo.sweep(settings); } catch (e) { console.error('autoseo', (e as Error).message); }
+  await P.timeJob('অটো SEO', () => $services_autoseo.sweep(settings), { optional: true });
   // 📝 অটো বিবরণ: the real product information other shops wrote for the same product (a few products each time)
-  try { await $services_specfetch.sweep(settings); } catch (e) { console.error('specfetch', (e as Error).message); }
+  await P.timeJob('অটো বিবরণ', () => $services_specfetch.sweep(settings), { optional: true });
   // 🤖 অটো মার্কেটিং: the day's Facebook / Instagram post at the owner's hours, and the weekly price-list articles
-  try { await $services_autopost.tick(settings); } catch (e) { console.error('autopost', (e as Error).message); }
+  await P.timeJob('Facebook/Instagram পোস্ট', () => $services_autopost.tick(settings));
   // 💬 "দাম কত?" under the page's posts → price + order link in the comment (every ~10 minutes, when switched on)
-  try { await $services_fbreply.run(settings); } catch (e) { console.error('fbreply', (e as Error).message); }
+  await P.timeJob('কমেন্টে অটো উত্তর', () => $services_fbreply.run(settings));
   // ✈️ the same daily posts to the shop's Telegram channel (when one is connected)
-  try { await $services_telegram.tick(settings); } catch (e) { console.error('telegram', (e as Error).message); }
+  await P.timeJob('Telegram পোস্ট', () => $services_telegram.tick(settings));
   // 📣 Threads, Pinterest, YouTube Shorts, TikTok — each at its own hours (lib/services/social.ts)
-  try { await (await import('../services/social')).tick(settings); } catch (e) { console.error('social', (e as Error).message); }
-  try { await $services_autoblog.run(settings, { max: 1 }); } catch (e) { console.error('autoblog', (e as Error).message); }
+  await P.timeJob('সোশ্যাল পোস্ট', async () => (await import('../services/social')).tick(settings));
+  await P.timeJob('দাম-তালিকা ব্লগ', () => $services_autoblog.run(settings, { max: 1 }), { optional: true });
   // 📧 ইমেইল মার্কেটিং: welcome / review / weekly new products / campaigns / 'we miss you' (within the day's allowance)
-  try { await $services_mailer.tick(settings); } catch (e) { console.error('mailer', (e as Error).message); }
-  try { await $services_autobackup.run(); } catch (_) { /* the daily one will try again */ }
+  await P.timeJob('ইমেইল মার্কেটিং', () => $services_mailer.tick(settings));
+  await P.timeJob('ব্যাকআপ', () => $services_autobackup.run());
   return json(200, { ok: true, done: !r.skipped && !r.idle });
 }
 
@@ -232,13 +234,13 @@ export async function researchTick(ctx: ApiCtx) {
 export async function aistaffTick(ctx: ApiCtx) {
   if (!(await allow(ctx, 'aistaff:', 40, 3600))) return json(429, { ok: false });
   const settings = ctx.settings;
-  try { await (await import('../services/aistaff')).tick(settings); } catch (e) { console.error('aistaff', (e as Error).message); }
-  try { await (await import('../services/aiwriter')).tick(settings); } catch (e) { console.error('aiwriter', (e as Error).message); }
+  const P = await import('../services/perf');
+  await P.timeJob('AI স্টাফ রিপোর্ট', async () => (await import('../services/aistaff')).tick(settings));
+  await P.timeJob('AI দিয়ে পণ্যের লেখা', async () => (await import('../services/aiwriter')).tick(settings), { optional: true });
   // 🇧🇩 Bangla names still missing, and the product list's 👯 count — work kept off the admin pages so they stay quick
-  try { const c = await import('../models/catalog'); await c.fillBnNames(200); } catch (e) { console.error('bn names', (e as Error).message); }
-  try {
-    const at = Number((JSON.parse(String(settings.dup_chip_cache || '{}')) as { at?: number }).at) || 0;
-    if (Date.now() - at > 30 * 60e3) { const p = await import('../admin/products'); await p.refreshDupChip(settings); }
-  } catch (e) { console.error('dup chip', (e as Error).message); }
+  await P.timeJob('বাংলা নাম', async () => (await import('../models/catalog')).fillBnNames(200), { optional: true });
+  // 👯 the duplicate scan compares every picture with every other one — heavy, so only when the catalogue changed
+  // (or every 6 hours at most), never while the server is busy
+  await P.timeJob('ডুপ্লিকেট খোঁজা', async () => { const p = await import('../admin/products'); await p.refreshDupChipIfChanged(settings); }, { optional: true });
   return json(200, { ok: true });
 }

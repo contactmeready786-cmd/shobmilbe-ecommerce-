@@ -286,13 +286,17 @@ async function scanCatalog(settings: Settings, { includeAllowed = false }: ScanC
       }
     }
     // 🧠 pictures the AI finds alike (all against all: 1,000 products × 3 pictures is well under a second)
-    const embs: [number, Int8Array][] = [];
-    all.forEach((p, i) => { for (const im of p.images) if (im.e) embs.push([i, im.e]); });
+    // ⚡ each picture's length worked out once (not again for every pair): the same answer as aiSim, ~3× less work
+    const embs: [number, Int8Array, number][] = [];
+    all.forEach((p, i) => { for (const im of p.images) if (im.e) { let n = 0; for (let k = 0; k < EMB; k++) n += im.e[k] * im.e[k]; if (n) embs.push([i, im.e, Math.sqrt(n)]); } });
     for (let x = 0; x < embs.length; x++) {
-      const [i, e] = embs[x];
+      const [i, e, ne] = embs[x];
       for (let y = x + 1; y < embs.length; y++) {
-        const [j, e2] = embs[y];
-        if (i !== j && aiSim(e, e2) >= lv.aiWeak) pair(i, j);
+        const [j, e2, ne2] = embs[y];
+        if (i === j) continue;
+        let d = 0;
+        for (let k = 0; k < EMB; k++) d += e[k] * e2[k];
+        if (d / (ne * ne2) >= lv.aiWeak) pair(i, j);
       }
     }
     for (const c of cand) {

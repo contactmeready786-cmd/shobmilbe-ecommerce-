@@ -91,9 +91,11 @@ async function getMedia(id?: Id, wantThumb?: boolean): Promise<Pick<MediaRow, 'm
 }
 /** 🇧🇩 Products still without a Bangla name get one (a safety net beside the migration's data step; at most `limit`). */
 const bnTried = new Set<number>();
+// ⚡ names the word list can't make Bangla stay empty: remember them, so they aren't worked through again every few minutes
+const bnNone = new Set<number>();
 async function fillBnNames(limit = 500): Promise<number> {
-  const rows = await q<{ id: number; name: string }>(`SELECT id, name FROM products WHERE name_bn='' AND name_bn_auto LIMIT $1`, [limit]);
-  const part = rows.map((r) => ({ id: r.id, bn: bnTitle(r.name) })).filter((r) => r.bn);
+  const rows = await q<{ id: number; name: string }>(`SELECT id, name FROM products WHERE name_bn='' AND name_bn_auto AND NOT (id = ANY($2::int[])) LIMIT $1`, [limit, [...bnNone].slice(-20000)]);
+  const part = rows.map((r) => ({ id: r.id, bn: bnTitle(r.name) })).filter((r) => r.bn || (bnNone.add(r.id), false));
   // names the word list left partly in English: Google's help, a few each time (bnTitleSmart)
   const half = (await q<{ id: number; name: string; name_bn: string }>(`SELECT id, name, name_bn FROM products WHERE name_bn_auto AND name_bn ~ '[A-Za-z]{3,}' ORDER BY id DESC LIMIT 300`))
     .filter((r) => !bnTried.has(r.id) && leftover(r.name_bn).length).slice(0, 25);
