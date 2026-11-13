@@ -8,7 +8,7 @@ on:
   workflow_dispatch: {}
   # 🚨 every half hour too (2026-10-25): if the live shop stops answering, this run fails and GitHub e-mails the owner
   schedule:
-    - cron: '23,53 * * * *'
+    - cron: '23 */3 * * *' # every 3 hours (was every half hour): the repository is private now and each run costs GitHub minutes
 permissions:
   contents: read
 jobs:

@@ -9,7 +9,7 @@
 // The shop never accepts a picture from outside: it fetches the finished file itself from the repository.
 import { q, one } from '../db';
 import { int, randomCode } from '../util';
-import { safeFetch } from '../services/safefetch';
+import * as gh from '../services/ghfile';
 import * as security from '../security';
 import * as W from './whiten';
 import type { WhitenJobsRow } from '../data/rows';
@@ -17,7 +17,8 @@ import type { Settings } from '../types';
 
 /** where the cloud AI puts the finished pictures (this shop's public repository) */
 export const REPO = process.env.WHITEN_REPO || 'contactmeready786-cmd/shobmilbe-ecommerce-';
-export const RAW = (path: string) => `https://raw.githubusercontent.com/${REPO}/whiten-results/${path}`;
+/** a file of the cloud AI's results branch (through the owner's GitHub key when the repository is private — lib/services/ghfile.ts) */
+export const resultsFile = (path: string, timeoutMs = 8000) => gh.repoFile('whiten-results', path, { timeoutMs });
 const WORKFLOW = 'whiten-cloud.yml';
 
 /** ⚡ Start the cloud AI now instead of waiting for GitHub's timer (which can lag 30–60 minutes). Needs the owner's
@@ -84,7 +85,7 @@ let index: { at: number; data: Record<string, { ok: boolean; error?: string }> }
 async function results(): Promise<Record<string, { ok: boolean; error?: string }>> {
   if (Date.now() - index.at < 20_000) return index.data;
   try {
-    const r = await fetch(RAW(`results/index.json?t=${Date.now()}`), { signal: AbortSignal.timeout(6000), cache: 'no-store' });
+    const r = await resultsFile('results/index.json', 6000);
     if (r.ok) index = { at: Date.now(), data: (await r.json()) as typeof index.data };
     else index.at = Date.now();
   } catch { index.at = Date.now(); }
@@ -105,7 +106,7 @@ export async function status(jobIds: number[]): Promise<{ id: number; media_id: 
       st = hit.ok ? 'done' : 'failed';
       await q('UPDATE whiten_jobs SET status=$2, error=$3, done_at=now() WHERE id=$1', [r.id, st, String(hit.error || '').slice(0, 300)]);
     }
-    out.push({ id: r.id, media_id: r.media_id, status: st, url: st === 'done' ? RAW(`results/${r.token}.jpg`) : undefined, error: st === 'failed' ? (hit?.error || r.error) : undefined });
+    out.push({ id: r.id, media_id: r.media_id, status: st, url: st === 'done' ? `/admin/api/whiten-cloud/${r.id}/result.jpg` : undefined, error: st === 'failed' ? (hit?.error || r.error) : undefined });
   }
   return out;
 }
@@ -139,17 +140,16 @@ export async function resultFile(jobId: number, userId?: number): Promise<{ data
   const j = await one<WhitenJobsRow>(userId === undefined ? 'SELECT * FROM whiten_jobs WHERE id=$1'
     : `SELECT j.* FROM whiten_jobs j JOIN media m ON m.id=j.media_id WHERE j.id=$1 AND m.owner_type='${MINE}' AND m.owner_id=$2`, userId === undefined ? [int(jobId)] : [int(jobId), int(userId)]);
   if (!j || (j.status !== 'done' && j.status !== 'kept')) throw new CloudError('ছবিটা এখনো তৈরি হয়নি।');
-  const r = await safeFetch(RAW(`results/${j.token}.jpg`), { timeoutMs: 15000, maxBytes: 4 * 1024 * 1024 });
-  if (!r.ok || security.imageKind(r.body) !== 'image/jpeg') throw new CloudError('তৈরি ছবিটা আনা যায়নি — একটু পরে আবার চেষ্টা করুন।');
-  return { data: r.body, media_id: j.media_id };
+  const data = await gh.repoBytes('whiten-results', `results/${j.token}.jpg`, 4 * 1024 * 1024);
+  if (!data || security.imageKind(data) !== 'image/jpeg') throw new CloudError('তৈরি ছবিটা আনা যায়নি — একটু পরে আবার চেষ্টা করুন।');
+  return { data, media_id: j.media_id };
 }
 /** Put a finished picture into its product (the original is kept; lib/models/whiten.ts). Returns the new media id. */
 export async function keep(jobId: number): Promise<{ id: number; from: number }> {
   const j = await one<WhitenJobsRow>('SELECT * FROM whiten_jobs WHERE id=$1', [int(jobId)]);
   if (!j || j.status !== 'done') throw new CloudError('ছবিটা এখনো তৈরি হয়নি।');
-  const r = await safeFetch(RAW(`results/${j.token}.jpg`), { timeoutMs: 15000, maxBytes: 4 * 1024 * 1024 });
-  const data = r.body;
-  if (!r.ok || security.imageKind(data) !== 'image/jpeg') throw new CloudError('তৈরি ছবিটা আনা যায়নি — একটু পরে আবার চেষ্টা করুন।');
+  const data = await gh.repoBytes('whiten-results', `results/${j.token}.jpg`, 4 * 1024 * 1024);
+  if (!data || security.imageKind(data) !== 'image/jpeg') throw new CloudError('তৈরি ছবিটা আনা যায়নি — একটু পরে আবার চেষ্টা করুন।');
   const id = await W.keep(j.media_id, data);
   await q(`UPDATE whiten_jobs SET status='kept' WHERE id=$1`, [j.id]);
   return { id, from: j.media_id };

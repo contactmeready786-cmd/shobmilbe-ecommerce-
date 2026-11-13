@@ -7,6 +7,7 @@ import { Val, attrValue, jsxList } from '../react/html';
 import { bn, int, str, ifKey } from '../util';
 import * as db from '../db';
 import * as ui from './ui';
+import * as ghfile from '../services/ghfile';
 import * as security from '../security';
 import * as W from '../models/whiten';
 import * as cloud from '../models/whitencloud';
@@ -68,7 +69,7 @@ async function page(ctx: AdminCtx) {
     </section> : <p className="muted">{(f === 'todo' ? '🎉 এই দোকানের সব ছবি সাদা করা হয়ে গেছে।' : 'এই তালিকায় কোনো পণ্য নেই।')}</p>)}
     {(ctx.user.role === 'owner' ? <section className="panel" id="fast"><h2>⚡ সাথে সাথে শুরু {(ctx.settings.whiten_gh_token ? <span className="pill pill-green">চালু ✅</span> : <span className="pill pill-grey">বন্ধ</span>)}</h2>
       <p className="small">GitHub নিজের সময়সূচি অনেক সময় ৩০–৬০ মিনিট পিছিয়ে চালায়। একটা GitHub চাবি দিলে ছবি পাঠানোর সাথে সাথে কাজ শুরু হয় — সাধারণত ১–৩ মিনিটে ছবি তৈরি।</p>
-      <ol className="steps small"><li>GitHub-এ লগইন করে খুলুন: <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">github.com/settings/personal-access-tokens/new</a></li><li><b>Token name</b>: <code>shobmilbe whiten</code> · <b>Expiration</b>: সবচেয়ে লম্বা (বা No expiration)</li><li><b>Repository access</b> → <b>Only select repositories</b> → <code>{REPO_NAME}</code></li><li><b>Permissions</b> → <b>Actions</b> → <b>Read and write</b> (আর কিছু লাগবে না)</li><li>নিচে <b>Generate token</b> → যে লেখাটা দেখায় (<code>github_pat_…</code>) কপি করে এখানে বসান।</li></ol>
+      <ol className="steps small"><li>GitHub-এ লগইন করে খুলুন: <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">github.com/settings/personal-access-tokens/new</a></li><li><b>Token name</b>: <code>shobmilbe whiten</code> · <b>Expiration</b>: সবচেয়ে লম্বা (বা No expiration)</li><li><b>Repository access</b> → <b>Only select repositories</b> → <code>{REPO_NAME}</code></li><li><b>Permissions</b> → <b>Repository permissions</b>-এ দুটো দিন: <b>Actions</b> → <b>Read and write</b>, আর <b>Contents</b> → <b>Read-only</b> (রিপোজিটরি প্রাইভেট হলে তৈরি ছবি আর ভিডিও আনতে এটা লাগে)</li><li>নিচে <b>Generate token</b> → যে লেখাটা দেখায় (<code>github_pat_…</code>) কপি করে এখানে বসান।</li></ol>
       <form method="post" action="/admin/products/whiten/token" className="toolbar">{ui.input('token', '', { type: 'password', autocomplete: 'off', placeholder: ctx.settings.whiten_gh_token ? 'সেভ করা আছে (বদলাতে নতুন দিন)' : 'github_pat_…', 'aria-label': 'GitHub চাবি' })}{' '}<button className="btn btn-sm">পরীক্ষা করে সেভ করুন</button></form>
       {(ctx.settings.whiten_gh_token ? <form method="post" action="/admin/products/whiten/token" data-confirm="চাবি মুছে ফেলবেন? তখন ছবি GitHub-এর নিজের সময়সূচিতে তৈরি হবে।"><input type="hidden" name="action" defaultValue="clear" /><button className="btn btn-sm btn-ghost">চাবি মুছুন</button></form> : null)}
     </section> : null)}
@@ -127,6 +128,8 @@ async function saveToken(ctx: AdminCtx) {
   if (!/^(github_pat_|ghp_)[A-Za-z0-9_]{20,}$/.test(token)) return back('এটা GitHub-এর চাবি মনে হচ্ছে না — "github_pat_" দিয়ে শুরু হওয়া পুরো লেখাটা কপি করে দিন।');
   const t = await cloud.kick({ ...ctx.settings, whiten_gh_token: token }, true);
   if (!t.ok) return back(`চাবিটা কাজ করেনি: ${t.message}। আগের অবস্থা যেমন ছিল তেমনই আছে।`);
+  // 🔒 once the repository is private the shop can only read the finished pictures / videos with this key
+  if (!(await ghfile.canRead(token))) return back('চাবিটা কাজ শুরু করাতে পারছে, কিন্তু ফাইল পড়তে পারছে না — চাবির Permissions-এ "Contents: Read-only" যোগ করে (ধাপ ৪) নতুন চাবি দিন। রিপোজিটরি প্রাইভেট হলে এটা ছাড়া তৈরি ছবি/ভিডিও আনা যাবে না। আগের অবস্থা যেমন ছিল তেমনই আছে।');
   await db.setSetting('whiten_gh_token', token);
   await ctx.reloadSettings();
   await ctx.log('settings', 'setting', 0, 'ব্যাকগ্রাউন্ড সাদা — GitHub চাবি সেভ (পরীক্ষা করে)');
@@ -206,6 +209,13 @@ async function mineDownload(ctx: AdminCtx, m: RouteMatch) {
     return ctx.reply.answer(200, { 'Content-Type': 'image/jpeg', 'Content-Disposition': `attachment; filename="white-${r.media_id}.jpg"`, 'Content-Length': r.data.length, 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' }, r.data);
   } catch (e) { return ctx.send(e instanceof cloud.CloudError ? 409 : 500, (e as Error).message, 'text/plain; charset=utf-8'); }
 }
+/** the finished picture of a job, shown in the admin page — fetched by the shop itself (the repository may be private) */
+async function cloudResult(ctx: AdminCtx, m: RouteMatch) {
+  try {
+    const r = await cloud.resultFile(int(m[1]));
+    return ctx.reply.answer(200, { 'Content-Type': 'image/jpeg', 'Content-Length': r.data.length, 'Cache-Control': 'private, max-age=600', 'X-Content-Type-Options': 'nosniff' }, r.data);
+  } catch (e) { return ctx.send(e instanceof cloud.CloudError ? 409 : 500, (e as Error).message, 'text/plain; charset=utf-8'); }
+}
 async function mineDelete(ctx: AdminCtx, m: RouteMatch) {
   return ctx.json(200, { ok: await cloud.deleteMine(int(m[1]), ctx.user.id) });
 }
@@ -215,6 +225,7 @@ export const routes = [
   { method: 'POST', path: '/admin/api/whiten-cloud', perm: 'products', handler: cloudQueue },
   { method: 'GET', path: '/admin/api/whiten-cloud', perm: 'products', handler: cloudStatus },
   { method: 'POST', path: /^\/admin\/api\/whiten-cloud\/(\d+)\/keep$/, perm: 'products', handler: cloudKeep },
+  { method: 'GET', path: /^\/admin\/api\/whiten-cloud\/(\d+)\/result\.jpg$/, perm: 'products', handler: cloudResult },
   { method: 'GET', path: BASE, perm: 'products', handler: page },
   { method: 'POST', path: /^\/admin\/api\/whiten\/(\d+)$/, perm: 'products', handler: keepApi },
   { method: 'POST', path: /^\/admin\/api\/whiten\/(\d+)\/undo$/, perm: 'products', handler: undoApi },

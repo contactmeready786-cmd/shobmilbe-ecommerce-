@@ -46,13 +46,13 @@ export let lastImportNote = '';
 /** Is this the live shop? (the ids in the cloud's file are the live shop's pictures — a test copy has others) */
 export const liveHost = (host: string) => /^(www\.)?shobmilbe\.com$/i.test(String(host || '').split(':')[0]);
 /** copy the cloud AI's finished descriptions in (at most every 2 minutes per server unless forced); returns how many */
-export async function importCloud(rawUrl: (path: string) => string, host: string, force = false): Promise<number> {
+export async function importCloud(getFile: (path: string) => Promise<Response>, host: string, force = false): Promise<number> {
   if (!liveHost(host)) return 0;
   if (!force && Date.now() - lastImport < 120_000) return 0;
   lastImport = Date.now();
   let data: Record<string, string>;
   try {
-    const r = await fetch(rawUrl(`results/emb.json?t=${Date.now()}`), { signal: AbortSignal.timeout(8000), cache: 'no-store' });
+    const r = await getFile('results/emb.json');
     if (!r.ok) { lastImportNote = `GitHub ${r.status}`; return 0; }
     data = (await r.json()) as Record<string, string>;
   } catch (e) { lastImportNote = (e as Error).message; return 0; }

@@ -657,7 +657,7 @@ async function duplicatesPage(ctx: AdminCtx) {
   }
   const showAllowed = ctx.query.get('all') === '1';
   const dupBack = '/admin/products/duplicates' + (showAllowed ? '?all=1' : '');
-  await recognize.importCloud($whitencloud.RAW, String(ctx.req.headers['x-forwarded-host'] || ctx.req.headers.host || ''), true).catch(() => 0); // ☁️ the cloud AI's newest picture descriptions
+  await recognize.importCloud($whitencloud.resultsFile, String(ctx.req.headers['x-forwarded-host'] || ctx.req.headers.host || ''), true).catch(() => 0); // ☁️ the cloud AI's newest picture descriptions
   const [groups, rc] = await Promise.all([dupes.scanCatalog(ctx.settings, { includeAllowed: showAllowed }), recognize.progress()]);
   // what the cards compare (one query for every product shown)
   type Extra = { stock: number; sold_count: number; pics: number; desc_len: number; excerpt: string; category: string };

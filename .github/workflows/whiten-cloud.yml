@@ -8,7 +8,9 @@
 name: whiten-cloud
 on:
   schedule:
-    - cron: '*/5 * * * *'
+    # every 3 hours only as a spare (private repository: each run costs GitHub minutes) — the shop starts this run
+    # itself the moment pictures are sent (the owner's GitHub key, lib/services/ghfile.ts dispatch)
+    - cron: '41 */3 * * *'
   workflow_dispatch:
 permissions:
   contents: write

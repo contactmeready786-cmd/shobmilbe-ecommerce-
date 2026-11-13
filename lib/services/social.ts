@@ -23,7 +23,7 @@ import * as db from '../db';
 import { bn, fetchJson, randomCode } from '../util';
 import * as autopost from './autopost';
 import * as $seo from './seo';
-import { REPO } from '../models/whitencloud';
+import * as gh from './ghfile';
 import type { Settings, Caught } from '../types';
 import type { SocialPostsRow } from '../data/rows';
 
@@ -224,14 +224,15 @@ async function token(settings: Settings, ch: Channel) {
 
 // ---------------------------------------------------------------- videos (made on GitHub, see the top)
 export const VIDEO_BRANCH = 'social-videos';
-export const VIDEO_RAW = (path: string) => `https://raw.githubusercontent.com/${REPO}/${VIDEO_BRANCH}/${path}`;
 let videoCache: { at: number; ids: Set<number> } = { at: 0, ids: new Set() };
 /** product ids that have a finished video */
 export async function readyVideos(): Promise<Set<number>> {
   if (Date.now() - videoCache.at < 5 * 60e3) return videoCache.ids;
-  const r = await fetchJson<Record<string, unknown>>(VIDEO_RAW(`index.json?t=${Date.now()}`), {}, 15000);
-  const ids = new Set(Object.keys(r.data || {}).map(Number).filter((n) => n > 0));
-  videoCache = { at: Date.now(), ids: r.ok ? ids : videoCache.ids };
+  // (through the owner's GitHub key when the repository is private — lib/services/ghfile.ts)
+  const r = await gh.repoFile(VIDEO_BRANCH, 'index.json', { timeoutMs: 15000 }).catch(() => null);
+  const data = r && r.ok ? ((await r.json().catch(() => null)) as Record<string, unknown> | null) : null;
+  const ids = new Set(Object.keys(data || {}).map(Number).filter((n) => n > 0));
+  videoCache = { at: Date.now(), ids: data ? ids : videoCache.ids };
   return videoCache.ids;
 }
 const videoOn = (settings: Settings) => (['youtube', 'tiktok'] as const).some((ch) => settings[k(ch, 'on')] === '1' && connected(settings, ch));
@@ -294,10 +295,9 @@ async function postPinterest(p: P, settings: Settings) {
 }
 
 async function videoBytes(p: P) {
-  const res = await fetch(VIDEO_RAW(`videos/${p.id}.mp4`));
-  if (!res.ok) throw new Error('ভিডিও ফাইল পাওয়া গেল না');
-  const buf = Buffer.from(await res.arrayBuffer());
-  if (buf.length < 10000 || buf.length > 60e6) throw new Error('ভিডিও ফাইলটা ঠিক নেই');
+  const buf = await gh.repoBytes(VIDEO_BRANCH, `videos/${p.id}.mp4`, 60e6, 60000);
+  if (!buf) throw new Error('ভিডিও ফাইল পাওয়া গেল না');
+  if (buf.length < 10000) throw new Error('ভিডিও ফাইলটা ঠিক নেই');
   return buf;
 }
 async function postYoutube(p: P, settings: Settings) {
@@ -386,8 +386,17 @@ export function postUrl(settings: Settings, ch: string, id: string) {
   return '';
 }
 
+let lastVideoKick = 0;
+/** videos are needed and none wait: start GitHub's video maker now (at most hourly; needs the owner's GitHub key) */
+async function kickVideos(settings: Settings) {
+  if (!videoOn(settings) || !settings.whiten_gh_token || Date.now() - lastVideoKick < 3600e3) return;
+  lastVideoKick = Date.now();
+  if ((await videoJobs(settings).catch(() => [])).length) await gh.dispatch('social-video.yml');
+}
+
 /** from the hourly wake-up: each switched-on platform at its own hours, one claim per slot */
 export async function tick(settings: Settings) {
+  await kickVideos(settings).catch(() => {});
   const now = autopost.dhakaNow();
   const out: Record<string, unknown> = {};
   for (const ch of CHANNELS) {

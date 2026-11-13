@@ -6,7 +6,8 @@
 name: social-video
 on:
   schedule:
-    - cron: '23 */2 * * *'
+    # a spare every 6 hours — the shop starts this run itself when videos are needed (lib/services/social.ts kickVideos)
+    - cron: '23 */6 * * *'
   workflow_dispatch:
 permissions:
   contents: write

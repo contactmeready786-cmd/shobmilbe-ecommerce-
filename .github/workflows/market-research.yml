@@ -1,9 +1,9 @@
 # Market research runs round the clock: every hour this wakes the shop up so it reads
 # the next few competitor shops (Admin → মার্কেট রিসার্চ). It sends no secrets and changes nothing else.
 name: market-research
+# (2026-11-13) No timer any more: the shop wakes its own jobs on the VPS every 5 minutes (lib/scheduler.ts), and the
+# repository is private now, where every run costs GitHub minutes. Kept only to be started by hand as a spare.
 on:
-  schedule:
-    - cron: "17 * * * *"
   workflow_dispatch: {}
 jobs:
   tick:
