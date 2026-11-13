@@ -29,7 +29,7 @@ export const safeNext = (n: unknown) => (/^\/(?!\/)[A-Za-z0-9/_?=&.%-]{0,200}$/.
 export function ordersCookie(req: Pick<ShopRequest, 'headers'>, settings: Settings, codes: string[]) {
   const old = (() => { const v = unsign(parseCookies(req.headers.cookie as string).sm_orders, settings.session_secret); return v ? v.split('.').filter(Boolean) : []; })();
   const all = [...new Set([...codes, ...old])].slice(0, 15);
-  const secure = String(req.headers['x-forwarded-proto'] || '').includes('https') ? '; Secure' : '';
+  const secure = String(req.headers['x-shop-proto'] || '').includes('https') ? '; Secure' : '';
   return `sm_orders=${encodeURIComponent(sign(all.join('.'), settings.session_secret))}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${120 * 86400}${secure}`;
 }
 

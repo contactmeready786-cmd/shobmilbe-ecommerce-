@@ -59,9 +59,11 @@ export async function searchSuggest(ctx: ApiCtx) {
   if (q.length < 2 || ctx.settings.ui_search === '0') return json(200, { products: [] });
   if (!(await allow(ctx, 'ssug:', 300, 3600))) return json(200, { products: [] });
   const found = (await $services_search.find(q, { limit: 60 }).catch(() => [])) || [];
+  // 🔎 the report (Admin → কাস্টমার কী খুঁজছে): what was typed, how much came up, and which browser typed it
+  if (ctx.query.get('log') !== '0') $services_search.log(q, found.length, str(ctx.query.get('v'), 64)).catch(() => {});
   const rows = found.length ? await catalog.listProducts({ public: true, ids: found, hideOut: ctx.settings.ui_show_out_of_stock === '0', limit: 6 }) : [];
   return json(200, { total: found.length, products: rows.map((p) => ({ name: p.name, slug: p.slug, price: p.price, image: p.image_id ? `/media/${p.image_id}/t` : null, emoji: p.emoji, out: p.stock <= 0 })) },
-    { 'Cache-Control': 'public, max-age=60' });
+    { 'Cache-Control': 'no-store' });
 }
 
 // "এর সাথে নিতে পারেন": products bought together with the cart's

@@ -287,10 +287,18 @@ async function find(query: string, { limit = 500 }: FindOpts = {}) {
 }
 
 // What people searched for (Admin → সার্চ রিপোর্ট): the words and how many products were found.
-async function log(query: string, found?: unknown) {
+// The instant box asks on every pause while typing ("ra", "ram", "ramp"): from one browser, a word that only grows or
+// shrinks within 3 minutes is one search — the longest one is kept.
+async function log(query: string, found?: unknown, visitorId = '') {
   const q = norm(query).replace(/\s+/g, ' ').trim().slice(0, 80);
   if (q.length < 2) return;
-  await db.q(`INSERT INTO search_log(q, found) VALUES($1,$2)`, [q, found]).catch(() => {});
+  const vid = /^[A-Za-z0-9_-]{8,64}$/.test(visitorId) ? visitorId : '';
+  if (vid) {
+    const longer = await db.one(`SELECT id FROM search_log WHERE visitor_id=$1 AND created_at > now() - interval '3 minutes' AND left(q, length($2)) = $2 LIMIT 1`, [vid, q]).catch(() => null);
+    if (longer) return; // the same word again, or the customer is deleting letters
+    await db.q(`DELETE FROM search_log WHERE visitor_id=$1 AND created_at > now() - interval '3 minutes' AND left($2, length(q)) = q`, [vid, q]).catch(() => {});
+  }
+  await db.q(`INSERT INTO search_log(q, found, visitor_id) VALUES($1,$2,$3)`, [q, found, vid]).catch(() => {});
   if (Math.random() < 0.02) db.q("DELETE FROM search_log WHERE created_at < now() - interval '90 days'").catch(() => {});
 }
 

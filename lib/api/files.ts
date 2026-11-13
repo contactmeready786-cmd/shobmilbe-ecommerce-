@@ -14,6 +14,7 @@ import * as $services_health from '../services/health';
 import * as $services_autobackup from '../services/autobackup';
 import * as $services_research from '../services/research';
 import * as $services_autoseo from '../services/autoseo';
+import * as $services_specfetch from '../services/specfetch';
 import * as $services_autopost from '../services/autopost';
 import * as $services_fbreply from '../services/fbreply';
 import * as $services_telegram from '../services/telegram';
@@ -209,6 +210,8 @@ export async function researchTick(ctx: ApiCtx) {
   try { await seo.indexNowSweep(settings); } catch (_) { /* next hour */ }
   // 🤖 অটো SEO: model numbers and specifications for a few dozen products, and the daily score
   try { await $services_autoseo.sweep(settings); } catch (e) { console.error('autoseo', (e as Error).message); }
+  // 📝 অটো বিবরণ: the real product information other shops wrote for the same product (a few products each time)
+  try { await $services_specfetch.sweep(settings); } catch (e) { console.error('specfetch', (e as Error).message); }
   // 🤖 অটো মার্কেটিং: the day's Facebook / Instagram post at the owner's hours, and the weekly price-list articles
   try { await $services_autopost.tick(settings); } catch (e) { console.error('autopost', (e as Error).message); }
   // 💬 "দাম কত?" under the page's posts → price + order link in the comment (every ~10 minutes, when switched on)

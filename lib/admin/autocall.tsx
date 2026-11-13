@@ -12,7 +12,7 @@ import type { OrderItemsRow, OrdersRow } from '../data/rows';
 const BASE = '/admin/autocall';
 function site(ctx: AdminCtx) {
   if (ctx.settings.site_url) return ctx.settings.site_url.replace(/\/+$/, '');
-  return `${String(ctx.req.headers['x-forwarded-proto'] || 'https').split(',')[0]}://${ctx.req.headers['x-forwarded-host'] || ctx.req.headers.host}`;
+  return `${String(ctx.req.headers['x-shop-proto'] || 'https').split(',')[0]}://${ctx.req.headers['x-forwarded-host'] || ctx.req.headers.host}`;
 }
 
 async function page(ctx: AdminCtx) {

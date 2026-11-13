@@ -1,6 +1,6 @@
 // Lists kept in this browser (wishlist, compare, recently viewed), "আপনার জন্য" and the instant search under the search box.
 import { h, Fragment, paint, serverHtml } from '../jsx.js';
-import { $, $all, bn, getJson, hit, money, readJson, store } from '../dom.js';
+import { $, $all, bn, cleanPhone, getJson, hit, money, phoneOk, postJson, readJson, store } from '../dom.js';
 import { readCart, toastLink } from './cart.js';
 import { track } from './track.js';
 
@@ -13,6 +13,37 @@ export function startLists(): void {
   recent();
   forYou();
   search();
+  searchPage();
+}
+
+// ---------- 🔎 "এটা এনে দিলে জানাবো?" — a search that found nothing can leave a number (Admin → কাস্টমার কী খুঁজছে) ----------
+const vid = (): string => { const v = store('sm_vid') || ''; return /^[A-Za-z0-9_-]{8,64}$/.test(v) ? v : ''; };
+function askForm(q: string): HTMLElement {
+  const msg = <p className="small" /> as HTMLElement;
+  const phone = <input type="tel" inputMode="numeric" placeholder="মোবাইল নম্বর (017XXXXXXXX)" maxLength={14} required /> as HTMLInputElement;
+  const name = <input type="text" placeholder="আপনার নাম (ঐচ্ছিক)" maxLength={60} /> as HTMLInputElement;
+  const form = <form className="search-ask" onSubmit={async (e: Event) => {
+    e.preventDefault();
+    const ph = cleanPhone(phone.value);
+    if (!phoneOk(ph)) { msg.textContent = 'সঠিক মোবাইল নম্বর দিন (যেমন 017XXXXXXXX)।'; return; }
+    const r = await postJson<{ message?: string; error?: string }>('/api/search-request', { q, phone: ph, name: name.value, v: vid() }).catch(() => null);
+    if (r && r.ok) paint(form, <p className="search-ask-ok">{r.j.message || '✅ ধন্যবাদ! পেলেই জানাব।'}</p>);
+    else msg.textContent = (r && r.j.error) || 'পাঠানো যায়নি, আবার চেষ্টা করুন।';
+  }}><p><b>"{q}" এনে দিলে জানাবো?</b> নম্বর রেখে যান — পণ্যটা এলেই আমরা ফোন করব।</p>{name}{phone}<button className="btn btn-sm" type="submit">জানাবেন</button>{msg}</form> as HTMLElement;
+  form.addEventListener('click', (e) => e.stopPropagation());
+  return form;
+}
+// the full search page: counted once (page 1) — the server can't tell which browser asked
+function searchPage(): void {
+  if (location.pathname !== '/products') return;
+  const u = new URLSearchParams(location.search);
+  const q = (u.get('q') || '').trim();
+  if (q.length < 2 || (u.get('page') && u.get('page') !== '1')) return;
+  getJson<Found>(`/api/search-suggest?q=${encodeURIComponent(q)}&v=${vid()}`).then((j) => {
+    if ((j.total || 0) > 0) return;
+    const empty = $('.empty');
+    if (empty) empty.after(askForm(q));
+  }).catch(() => {});
 }
 
 // ---------- ♡ wishlist (kept in this browser only) ----------
@@ -155,7 +186,7 @@ function search(): void {
   const show = (q: string, j: Found) => {
     if (input.value.trim() !== q) return;
     const list = j.products || [];
-    if (!list.length) paint(box, <p className="sd-empty">"{q}" — কিছু পাওয়া যায়নি। অন্য নামে লিখে দেখুন।</p>);
+    if (!list.length) paint(box, <p className="sd-empty">"{q}" — কিছু পাওয়া যায়নি। অন্য নামে লিখে দেখুন।</p>, askForm(q));
     else {
       paint(box, list.map((p) =>
         <a className="sd-item" role="option" href={`/p/${encodeURIComponent(p.slug)}`}>
@@ -174,7 +205,7 @@ function search(): void {
     if (hitCache) { show(q, hitCache); return; }
     const my = ++seq;
     try {
-      const j = await getJson<Found>(`/api/search-suggest?q=${encodeURIComponent(q)}`);
+      const j = await getJson<Found>(`/api/search-suggest?q=${encodeURIComponent(q)}&v=${vid()}`);
       cache.set(q, j);
       if (my === seq) show(q, j);
     } catch { /* the normal search still works */ }

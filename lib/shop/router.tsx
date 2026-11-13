@@ -160,7 +160,6 @@ export async function resolveShop(ctx: ShopCtx): Promise<Resolved> {
     let ids;
     if (q) {
       ids = await $services_search.find(q).catch(() => undefined);
-      if (ids && pageNo === 1 && !query.get('pmin') && !query.get('b')) $services_search.log(q, ids.length).catch(() => {});
     }
     const opts = { category: category && category.slug, brandId: brand && brand.id, q: ids ? '' : q, ids, sort, offer: sort === 'offer', hideOut };
     const fopts = { ...opts, minPrice: filters.pmin || undefined, maxPrice: filters.pmax || undefined, brandIds: filters.brands, inStock: filters.stock,

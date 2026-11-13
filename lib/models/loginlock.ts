@@ -42,7 +42,7 @@ function hostOf(req: ShopRequest) {
 function rpId(req: ShopRequest) { return hostOf(req).replace(/:\d+$/, ''); }
 function origin(req: ShopRequest) {
   const host = hostOf(req);
-  const proto = String(req.headers['x-forwarded-proto'] || (/^(localhost|127\.0\.0\.1)(:|$)/.test(host) ? 'http' : 'https')).split(',')[0].trim();
+  const proto = String(req.headers['x-shop-proto'] || (/^(localhost|127\.0\.0\.1)(:|$)/.test(host) ? 'http' : 'https')).split(',')[0].trim();
   return `${proto}://${host}`;
 }
 

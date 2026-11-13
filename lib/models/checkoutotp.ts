@@ -80,7 +80,7 @@ function rememberCookie(req: Req, s: Settings, phone: string): string | null {
   const days = rememberDays(s);
   if (!days) return null;
   const list = [{ phone, t: Math.floor(Date.now() / 1000) }, ...remembered(req, s).filter((r) => r.phone !== phone)].slice(0, 5);
-  const secure = String(req.headers['x-forwarded-proto'] || '').includes('https') ? '; Secure' : '';
+  const secure = String(req.headers['x-shop-proto'] || '').includes('https') ? '; Secure' : '';
   return `${COOKIE}=${encodeURIComponent(sign(list.map((r) => `${r.phone}-${r.t}`).join('.'), s.session_secret))}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${days * 86400}${secure}`;
 }
 
