@@ -64,7 +64,7 @@ function filtersFrom(query: ShopQuery) {
     q: str(query.get('q'), 80),
     from: validYmd(query.get('from')) || '',
     to: validYmd(query.get('to')) || '',
-    courier: oneOf(['steadfast', 'pathao', 'redx', 'none'], query.get('courier'), ''),
+    courier: oneOf(['steadfast', 'pathao', 'redx', 'carrybee', 'none'], query.get('courier'), ''),
     payment: ifKey(O.PAYMENT_METHODS, query.get('payment'), ''),
     paymentStatus: ifKey(O.PAYMENT_STATUSES, query.get('pstatus'), ''),
     phone: str(query.get('phone'), 20),

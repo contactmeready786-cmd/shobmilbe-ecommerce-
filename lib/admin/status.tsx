@@ -81,7 +81,7 @@ async function statusPage(ctx: AdminCtx) {
   const body = <><h1>🔌 সংযোগের অবস্থা</h1>{ui.flash(ctx.flash)}<p className="muted">বাইরের প্রতিটা সার্ভিস ঠিকমতো জোড়া আছে কি না, আর শেষবার কাজ করেছে কি না — এক জায়গায়। ❌ দেখলে পাশের লিংকে গিয়ে ঠিক করুন। অন্যভাবে করা থাকলে "✓ করা আছে", ব্যবহার না করলে "✕ দরকার নেই" চাপুন — তালিকা থেকে সরে যাবে।</p>{(ctx.user.role === 'owner' ? <p><a className="btn btn-ghost btn-sm" href="/admin/health">🩺 সার্ভার, ডাটাবেস ও ছবির জায়গা দেখুন →</a></p> : null)}{' '}{section(ctx, 'ওয়েবসাইট', [
   row(site ? OK : BAD, 'ওয়েবসাইটের ঠিকানা (site URL)', site ? site : 'দেওয়া নেই — Google-এর canonical লিংক, sitemap, শেয়ার ছবি আর পেমেন্ট ফেরার লিংক ঠিক হবে না।', ['/admin/marketing/seo', 'SEO']),
   // the domain may be added straight in Vercel (no token saved here): a site address that is not *.vercel.app counts too
-  row(s.custom_domain || ownDomain ? OK : WARN, 'নিজের ডোমেইন', s.custom_domain || ownDomain || 'এখনো vercel.app ঠিকানায় চলছে', ['/admin/integrations/domain', 'ডোমেইন'], 'domain'),
+  row(s.custom_domain || ownDomain ? OK : WARN, 'নিজের ডোমেইন', s.custom_domain || ownDomain || 'এখনো নিজের ডোমেইন সেট করা নেই', ['/admin/integrations/domain', 'ডোমেইন'], 'domain'),
   row($security.hasKey() ? OK : WARN, 'গোপন তথ্য এনক্রিপশন (ENCRYPTION_KEY)', $security.hasKey() ? 'চালু' : 'বন্ধ — পেমেন্ট/কুরিয়ারের পাসওয়ার্ড সাধারণ লেখায় সেভ হচ্ছে', ['/admin/security', 'নিরাপত্তা']),
   ctx.user.role === 'owner' ? row(ageDays === null ? BAD : ageDays > 8 ? WARN : OK, 'ব্যাকআপ', ageDays === null ? 'এখনো কোনো ব্যাকআপ নেওয়া হয়নি!' : `শেষ ব্যাকআপ: ${fmtDate(lastBackup!.created_at)} (${lastBackup!.kind === 'auto' ? 'নিজে থেকে' : 'হাতে'})`, ['/admin/backup', 'ব্যাকআপ']) : null,
 ])}{' '}{section(ctx, 'Google', [

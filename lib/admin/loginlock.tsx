@@ -16,7 +16,7 @@ const BASE = '/admin/security/login';
 
 // ---------------------------------------------------------------- challenge cookie for this page
 function chCookie(ctx: AdminCtx, value: string) {
-  const secure = String(ctx.req.headers['x-forwarded-proto'] || '').includes('https') ? '; Secure' : '';
+  const secure = String(ctx.req.headers['x-shop-proto'] || '').includes('https') ? '; Secure' : '';
   return `sm_ch2=${encodeURIComponent(sign(value, ctx.settings.session_secret))}; Path=/admin; HttpOnly; SameSite=Strict; Max-Age=300${secure}`;
 }
 function chValue(ctx: AdminCtx) { return unsign(parseCookies(ctx.req.headers.cookie).sm_ch2, ctx.settings.session_secret); }

@@ -119,7 +119,7 @@ const ROUTES: AdminRoute[] = MODULES.flatMap((m): readonly AdminRoute[] => m.rou
 // The browser keeps only a random token (signed, HttpOnly); the login itself lives in the admin_sessions table,
 // so any device can be logged out from the admin, and a stolen cookie stops working after "logout".
 function pwTag(user: StaffUser) { return String(user.password || '').slice(-12); }
-function secureFlag(req: ShopRequest) { return (req.headers['x-forwarded-proto'] || '').includes('https') ? '; Secure' : ''; }
+function secureFlag(req: ShopRequest) { return (req.headers['x-shop-proto'] || '').includes('https') ? '; Secure' : ''; }
 function cookieFor(req: ShopRequest, settings: Settings, user: StaffUser, token: string) {
   const value = sign(`v2:${token}:${pwTag(user)}`, settings.session_secret);
   return `sm_admin=${encodeURIComponent(value)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${sessions.MAX_DAYS * 86400}${secureFlag(req)}`;
