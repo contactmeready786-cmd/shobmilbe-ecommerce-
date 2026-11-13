@@ -1,0 +1,40 @@
+# 🚀 Auto-deploy (owner, 2026-11-13): every push to main goes live on the VPS (51.79.166.142) by itself, like Vercel did.
+# GitHub logs into the server with the deploy key kept in the repository secret VPS_DEPLOY_KEY. On the server that key
+# can run ONE thing only: /usr/local/bin/shobmilbe-deploy (newest main → npm run build in a copy → restart).
+#  • build fails → nothing changes, the site keeps running the old version (this run turns red)
+#  • the new version doesn't answer after the restart → the old version is put back by itself (red)
+#  • files were changed directly on the server → nothing is deployed, so that work isn't lost (red)
+# The country block never affects this: it is SSH, not the website. Log on the server: /var/log/shobmilbe-deploy.log
+name: deploy
+on:
+  push:
+    branches: [main]
+    paths-ignore: ['android/**', '**/*.md', 'tools/whiten/**']
+  workflow_dispatch: {}
+permissions:
+  contents: read
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Deploy to the VPS
+        env:
+          KEY: ${{ secrets.VPS_DEPLOY_KEY }}
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" | tr -d '\r' > ~/.ssh/deploy
+          chmod 600 ~/.ssh/deploy
+          # the server's own key, so nobody can pretend to be the server
+          echo '51.79.166.142 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDMuuJZ83onj2PGykFLeMiaei3ie+bv395V7qltLvzWi' > ~/.ssh/known_hosts
+          ssh -i ~/.ssh/deploy -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ServerAliveInterval=30 root@51.79.166.142 deploy
+      - name: Live site answers
+        run: |
+          sleep 5
+          code=$(curl -s -o /dev/null -w '%{http_code}' -m 30 https://shobmilbe.com/robots.txt)
+          echo "robots.txt: HTTP $code"
+          [ "$code" = 200 ]
