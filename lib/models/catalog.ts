@@ -942,7 +942,10 @@ async function duplicateProduct(id: number, staffId?: Id): Promise<number | null
 async function moveStock(t: Tx, productId: number, change: number, reason: string, refType = '', refId: Id = null, note = '', staffId: Id = null, mustHave = false, unitCost: unknown = null): Promise<true | null> {
   if (!change) return true;
   const res = await t.query(
-    `UPDATE products SET stock = ${mustHave ? 'stock + $1' : 'greatest(0, stock + $1)'}, updated_at=now()
+    // (adding pieces always adds — also while pre-orders are owed pieces (stock below 0): −5 + 3 = −2, never 0, or the
+    //  3 owed pieces left would be forgotten and sold twice; audit 2026-11-13. Taking pieces without "must have"
+    //  stops at 0 as before, and leaves a stock that is already below 0 where it is.)
+    `UPDATE products SET stock = ${mustHave ? 'stock + $1' : 'CASE WHEN $1 >= 0 THEN stock + $1 ELSE greatest(least(stock, 0), stock + $1) END'}, updated_at=now()
      WHERE id=$2 ${mustHave ? 'AND stock + $1 >= 0' : ''} RETURNING stock`, [change, productId]);
   if (!res.rows.length) return null;
   await t.query(`INSERT INTO stock_movements(product_id, change, balance, reason, ref_type, ref_id, note, staff_id, unit_cost)
