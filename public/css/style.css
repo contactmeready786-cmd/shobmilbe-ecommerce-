@@ -1145,3 +1145,10 @@ html, body { overflow-x: clip; }
   .header-nav a { padding: 8px 6px; font-size: .9rem; }
   .logo { font-size: 1.6rem; }
 }
+/* 🔎 "এনে দিলে জানাবো?" under a search that found nothing */
+.search-ask { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 10px 12px; border-top: 1px dashed var(--line); background: var(--white); }
+.search-ask p { margin: 0 0 2px; width: 100%; font-size: .9em; }
+.search-ask input { flex: 1 1 140px; min-width: 0; padding: 7px 9px; border: 1px solid var(--line); border-radius: 8px; font: inherit; }
+.search-ask .small { color: #b42318; }
+.search-ask-ok { margin: 0; padding: 10px 12px; color: #067647; font-weight: 600; }
+.empty + .search-ask { max-width: 520px; margin: 12px auto; border: 1px solid var(--line); border-radius: 12px; }
