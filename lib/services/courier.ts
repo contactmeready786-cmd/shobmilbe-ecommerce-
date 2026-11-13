@@ -1,4 +1,4 @@
-// Courier companies: Steadfast, Pathao, RedX — create parcels, read status, fraud signals.
+// Courier companies: Steadfast, Pathao, RedX, Carrybee — create parcels, read status, fraud signals.
 import * as db from '../db';
 import { fetchJson, int, type FetchResult } from '../util';
 import type { Id, Settings } from '../types';
@@ -25,6 +25,7 @@ const PROVIDERS: Record<string, { label: string; track: (o: TrackOrder) => strin
   steadfast: { label: 'Steadfast (স্টেডফাস্ট)', track: (o) => (o.tracking_code ? `https://steadfast.com.bd/t/${o.tracking_code}` : '') },
   pathao: { label: 'Pathao (পাঠাও)', track: (o) => (o.consignment_id ? `https://merchant.pathao.com/tracking?consignment_id=${o.consignment_id}&phone=${o.phone}` : '') },
   redx: { label: 'RedX (রেডএক্স)', track: (o) => (o.tracking_code ? `https://redx.com.bd/track-parcel/?trackingId=${o.tracking_code}` : '') },
+  carrybee: { label: 'Carrybee (ক্যারিবি)', track: (o) => (o.consignment_id ? `https://carrybee.com/tracking?consignment_id=${encodeURIComponent(o.consignment_id)}` : '') },
 };
 
 // Couriers without an API: the tracking number is typed by hand on the order page.
@@ -38,6 +39,7 @@ function configured(settings: Settings, name: string | null | undefined): boolea
   if (name === 'steadfast') return !!(settings.steadfast_api_key && settings.steadfast_secret_key);
   if (name === 'pathao') return !!(settings.pathao_client_id && settings.pathao_client_secret && settings.pathao_username && settings.pathao_password && settings.pathao_store_id);
   if (name === 'redx') return !!settings.redx_token;
+  if (name === 'carrybee') return !!(settings.carrybee_client_id && settings.carrybee_client_secret && settings.carrybee_client_context && settings.carrybee_store_id);
   return false;
 }
 function available(settings: Settings) { return Object.keys(PROVIDERS).filter((p) => configured(settings, p)); }
@@ -59,6 +61,11 @@ function mapStatus(courier: string, raw: unknown): 'delivered' | 'returned' | nu
   }
   if (courier === 'redx') {
     if (s === 'delivered' || s === 'delivery_completed') return 'delivered';
+    if (s.includes('return')) return 'returned';
+    return null;
+  }
+  if (courier === 'carrybee') {
+    if (s === 'delivered' || s === 'partial_delivered' || s === 'partially_delivered') return 'delivered';
     if (s.includes('return')) return 'returned';
     return null;
   }
@@ -234,6 +241,62 @@ async function redxAreas(s: Settings, district?: string): Promise<CourierList> {
   return { ok: true, rows: rows.map((a) => ({ id: a.id, name: a.name + (a.post_code ? ` (${a.post_code})` : '') })) };
 }
 
+
+// ---------------------------------------------------------------- Carrybee (developers.carrybee.com, API v2)
+// Login = three values from the Carrybee merchant panel (Client ID / Secret / Context) + the pickup Store ID.
+// The delivery city / zone is found from the customer's address by Carrybee's own address lookup.
+type CbAnswer = CourierError & { data?: Record<string, unknown> | null };
+function cbBase(s: Settings) { return s.carrybee_sandbox === '1' ? 'https://stage-sandbox.carrybee.com' : 'https://developers.carrybee.com'; }
+function cbHeaders(s: Settings): Record<string, string> {
+  return <Record<string, string>>{ 'Client-ID': String(s.carrybee_client_id || ''), 'Client-Secret': String(s.carrybee_client_secret || ''),
+    'Client-Context': String(s.carrybee_client_context || ''), 'Content-Type': 'application/json', Accept: 'application/json' };
+}
+function cbPhone(p: string): string { const d = String(p || '').replace(/\D/g, ''); return d.startsWith('880') && d.length > 11 ? d.slice(2) : d; }
+async function carrybeeCreate(order: ParcelOrder, s: Settings, extra: ParcelExtra): Promise<ParcelResult> {
+  const address = [order.address, order.thana, order.district].filter(Boolean).join(', ');
+  let city = int(extra.city_id), zone = int(extra.zone_id);
+  if (!city || !zone) {
+    const look = await fetchJson<CbAnswer>(`${cbBase(s)}/api/v2/address-details`, { method: 'POST', headers: cbHeaders(s), body: JSON.stringify({ query: address.slice(0, 250) }) });
+    const d: Record<string, unknown> = (look.data && look.data.data) || {};
+    city = city || int(d.city_id); zone = zone || int(d.zone_id);
+    if (!city || !zone) return { ok: false, message: 'Carrybee ঠিকানা থেকে শহর/এলাকা খুঁজে পায়নি — কাস্টমারের ঠিকানায় থানা ও জেলা পরিষ্কার লিখে আবার চেষ্টা করুন।' };
+  }
+  const body: Record<string, unknown> = {
+    store_id: String(s.carrybee_store_id),
+    merchant_order_id: order.code,
+    delivery_type: 1, product_type: 1,
+    recipient_phone: cbPhone(order.phone),
+    recipient_name: order.customer_name.slice(0, 100),
+    recipient_address: [order.address, extra.areaText].filter(Boolean).join(', ').slice(0, 250),
+    city_id: city, zone_id: zone,
+    item_weight: Math.round(Math.max(0.5, Number(extra.weight) || 0.5) * 1000),
+    item_quantity: Math.max(1, (order.items || []).reduce((a, i) => a + (Number(i.qty) || 0), 0) || 1),
+    collectable_amount: codAmount(order),
+    product_description: itemText(order),
+    special_instruction: (extra.note || order.note || '').slice(0, 250),
+  };
+  if (int(extra.area_id)) body.area_id = int(extra.area_id);
+  const r = await fetchJson<CbAnswer>(`${cbBase(s)}/api/v2/orders`, { method: 'POST', headers: cbHeaders(s), body: JSON.stringify(body) });
+  const o = (r.data && r.data.data && (r.data.data as Record<string, unknown>).order) as Record<string, unknown> | undefined;
+  if (r.ok && o && o.consignment_id) return { ok: true, consignment_id: String(o.consignment_id), tracking_code: String(o.consignment_id), status: 'pending' };
+  return { ok: false, message: errorText(r) };
+}
+async function carrybeeStatus(order: ParcelOrder, s: Settings): Promise<ParcelStatus> {
+  const r = await fetchJson<CbAnswer>(`${cbBase(s)}/api/v2/orders/${encodeURIComponent(order.consignment_id || '')}/details`, { headers: cbHeaders(s) });
+  const d = r.data && r.data.data;
+  const st = d && (d.transfer_status || d.status);
+  if (r.ok && st) return { ok: true, status: String(st) };
+  return { ok: false, message: errorText(r) };
+}
+async function carrybeeTest(s: Settings): Promise<{ ok: boolean; message: string }> {
+  const r = await fetchJson<CbAnswer>(`${cbBase(s)}/api/v2/stores`, { headers: cbHeaders(s) });
+  if (!r.ok) return { ok: false, message: errorText(r) };
+  const d = r.data && r.data.data;
+  const rows = (Array.isArray(d) ? d : (d && Array.isArray(d.stores) ? d.stores : [])) as { id?: unknown; name?: unknown }[];
+  const found = rows.some((x) => String(x.id) === String(s.carrybee_store_id));
+  return { ok: true, message: `সংযোগ ঠিক আছে। আপনার স্টোর: ${rows.map((x) => `${x.name} (ID ${x.id})`).join(', ') || '—'}${found ? '' : ' — সেটিংসে দেওয়া Store ID এই লিস্টে নেই, ঠিক করে নিন।'}` };
+}
+
 // ---------------------------------------------------------------- common
 function errorText(r: FetchResult<CourierError>): string {
   if (r.status === 0) return 'কুরিয়ার সার্ভারে পৌঁছানো যায়নি: ' + r.text;
@@ -257,7 +320,8 @@ async function send(order: ParcelOrder, courier: string, settings: Settings, ext
   try {
     res = courier === 'steadfast' ? await steadfastCreate(order, settings, extra)
       : courier === 'pathao' ? await pathaoCreate(order, settings, extra)
-        : await redxCreate(order, settings, extra);
+        : courier === 'carrybee' ? await carrybeeCreate(order, settings, extra)
+          : await redxCreate(order, settings, extra);
   } catch (e) {
     res = { ok: false, message: (e as Error).message };
   }
@@ -269,7 +333,8 @@ async function status(order: ParcelOrder, settings: Settings): Promise<ParcelSta
   let res: ParcelStatus;
   try {
     res = order.courier === 'steadfast' ? await steadfastStatus(order, settings)
-      : order.courier === 'pathao' ? await pathaoStatus(order, settings) : await redxStatus(order, settings);
+      : order.courier === 'pathao' ? await pathaoStatus(order, settings)
+        : order.courier === 'carrybee' ? await carrybeeStatus(order, settings) : await redxStatus(order, settings);
   } catch (e) {
     res = { ok: false, message: (e as Error).message };
   }
@@ -286,6 +351,7 @@ async function test(courier: string, settings: Settings): Promise<{ ok: boolean;
       const found = st.rows.find((x) => String(x.id) === String(settings.pathao_store_id));
       return { ok: true, message: `সংযোগ ঠিক আছে। আপনার স্টোর: ${st.rows.map((x) => `${x.name} (ID ${x.id})`).join(', ')}${found ? '' : ' — সেটিংসে দেওয়া Store ID এই লিস্টে নেই, ঠিক করে নিন।'}` };
     }
+    if (courier === 'carrybee') return await carrybeeTest(settings);
     if (courier === 'redx') {
       const a = await redxAreas(settings, 'Dhaka');
       return a.ok ? { ok: true, message: `সংযোগ ঠিক আছে। ঢাকায় ${a.rows.length}টি এরিয়া পাওয়া গেছে।` } : a;

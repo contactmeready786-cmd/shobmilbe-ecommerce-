@@ -90,7 +90,9 @@ async function react(ip: unknown, kind: string, s: Settings) {
     FROM security_events WHERE ip = $1 AND created_at > now() - interval '1 hour'`, [ip]);
   if (!r) return;
   const notify = $notify;
-  if (r.hack >= 20 && s.guard_autoblock !== '0') {
+  // an IP the owner let go ("ব্লক তুলুন") is never blocked again on its own
+  const trusted = r.hack >= 20 ? await db.one(`SELECT 1 FROM blocklist WHERE kind = 'trust' AND value = $1`, [String(ip)]) : null;
+  if (r.hack >= 20 && s.guard_autoblock !== '0' && !trusted) {
     const done = await db.one<Pick<BlocklistRow, 'id'>>(`INSERT INTO blocklist(kind, value, reason, expires_at) VALUES('site', $1, $2, now() + interval '24 hours')
       ON CONFLICT (kind, value) DO NOTHING RETURNING id`, [ip, `নিজে থেকে ব্লক: ১ ঘণ্টায় ${r.hack}বার হ্যাকিংয়ের চেষ্টা (২৪ ঘণ্টার জন্য)`]);
     if (done) {
@@ -124,7 +126,7 @@ let cache: Set<string> | null = null;
 let cacheAt = 0;
 function resetCache() { cache = null; cacheAt = 0; }
 async function siteBlocked(ip: string) {
-  if (!ip || ip === 'unknown') return false;
+  if (!ip || ip === 'unknown' || ip === '127.0.0.1' || ip === '::1') return false; // the server's own scheduled jobs
   if (!cache || Date.now() - cacheAt > 60e3) {
     try {
       const rows = await db.q<Pick<BlocklistRow, 'value'>>(`SELECT value FROM blocklist WHERE kind = 'site' AND (expires_at IS NULL OR expires_at > now())`);
@@ -140,11 +142,16 @@ async function blockSite(ip: string, reason: string, hours: number, staffId?: Id
   await db.q(`INSERT INTO blocklist(kind, value, reason, created_by, expires_at) VALUES('site', $1, $2, $3, CASE WHEN $4::int > 0 THEN now() + make_interval(hours => $4::int) END)
     ON CONFLICT (kind, value) DO UPDATE SET reason = EXCLUDED.reason, expires_at = EXCLUDED.expires_at, created_at = now(), created_by = EXCLUDED.created_by`,
   [v, String(reason || '').slice(0, 300), staffId || null, Math.max(0, Number(hours) || 0)]);
+  await db.q(`DELETE FROM blocklist WHERE kind = 'trust' AND value = $1`, [v]);
   resetCache();
   return true;
 }
+// Let an IP go (owner, 2026-11-13): the block is removed for good — it leaves the suspicious list, and the automatic
+// block never shuts it out again (until the owner blocks it by hand).
 async function unblockSite(ip: string) {
-  await db.q(`DELETE FROM blocklist WHERE kind = 'site' AND value = $1`, [String(ip || '')]);
+  const v = String(ip || '').trim().slice(0, 64);
+  await db.q(`DELETE FROM blocklist WHERE kind = 'site' AND value = $1`, [v]);
+  if (v) await db.q(`INSERT INTO blocklist(kind, value, reason) VALUES('trust', $1, 'মালিক ব্লক তুলে দিয়েছেন') ON CONFLICT (kind, value) DO UPDATE SET created_at = now()`, [v]);
   resetCache();
 }
 
@@ -161,6 +168,7 @@ async function suspects({ days = 7, ip = '' }: Body = {}) {
       (SELECT count(*)::int FROM visit_sessions vs WHERE vs.ip = g.ip) AS visits
     FROM g JOIN k USING (ip)
     LEFT JOIN blocklist b ON b.kind = 'site' AND b.value = g.ip AND (b.expires_at IS NULL OR b.expires_at > now())
+    WHERE ${ip ? 'true' : `NOT EXISTS (SELECT 1 FROM blocklist t WHERE t.kind = 'trust' AND t.value = g.ip)`}
     ORDER BY g.last_at DESC LIMIT 200`, params);
 }
 async function events(ip?: unknown, limit = 200) {

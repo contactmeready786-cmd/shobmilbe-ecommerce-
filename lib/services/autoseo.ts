@@ -26,7 +26,6 @@ const EVERY_MS = 9 * 60 * 1000;
 const PER_RUN = 40;
 const OWN_TEXT_ENOUGH = 150; // own description at least this long → no auto text
 
-const money = (n: unknown) => '৳' + bn(Math.round(Number(n) || 0).toLocaleString('en-IN'));
 const cleanName = (n: string) => $seo.cleanName(n);
 
 // ---------------------------------------------------------------- 1. model / part number from the name
@@ -83,7 +82,6 @@ function seedOf(id?: Id) { let h = 7; for (const ch of String(id)) h = (h * 31 +
 type OwnText = { short_description?: string | null; description?: string | null };
 function ownTextLength(p: OwnText) { return md.plain(`${p.short_description || ''} ${p.description || ''}`, 5000).trim().length; }
 function needsAuto(p: OwnText, settings: Settings = {} as Settings) { return settings.autoseo_desc !== '0' && ownTextLength(p) < OWN_TEXT_ENOUGH; }
-function cheapRule(settings: Settings, price?: unknown) { try { return $util.qtyRule(settings, price).cheap; } catch (_) { return false; } }
 
 // a short paragraph — meta description, feeds, Google's product description
 function summary(p: Pick<Product, 'name' | 'category_name' | 'model'>) {
@@ -101,49 +99,37 @@ function metaLine(p: Pick<Product, 'name' | 'category_name' | 'model'>, room = 9
   return full.length <= room ? full : `${k.what}${p.model ? ` (${p.model})` : ''}`;
 }
 
-// The full description (markdown). With settings, the price and delivery charges of today are in the questions.
-function describe(p: Pick<Product, 'id' | 'name' | 'category_name' | 'brand' | 'model' | 'price' | 'old_price' | 'stock'> & { specs: unknown }, settings: Settings = {} as Settings) {
+// The auto description (markdown): ONLY about the product (owner, 2026-11-13) — the real information another shop wrote
+// for the same product when it was found (services/specfetch.ts), else what it is, its model, uses and specifications.
+// No delivery charges, no "why buy here", no price questions: the page already shows those elsewhere.
+function describe(p: Pick<Product, 'id' | 'name' | 'category_name' | 'brand' | 'model' | 'price' | 'old_price' | 'stock'> & { specs: unknown; auto_desc?: string | null }, settings: Settings = {} as Settings) {
+  void settings;
   const name = cleanName(p.name);
-  const shop = settings.store_name || 'সবমিলবে';
   const k = kindOf(name, p.category_name);
   const seed = seedOf(p.id || name);
   const brand = p.brand && !/^(made\s*in|china|chinese|generic|no\s*brand|unbranded|চায়না|চাইনিজ)/i.test(String(p.brand).trim()) ? p.brand : '';
   const what = k ? k.what : p.category_name ? `${p.category_name} ক্যাটাগরির পণ্য` : 'পণ্য';
   const specs = (Array.isArray(p.specs) ? (p.specs as unknown[]) : []).filter((r): r is [string, string] => Array.isArray(r) && !!r[0] && !!r[1]).slice(0, 12);
-  const dhaka = Number(settings.delivery_dhaka) || 60;
-  const outside = Number(settings.delivery_outside) || 110;
+  const fetched = String(p.auto_desc || '').trim();
   const lines: string[] = [];
   lines.push(`## ${name} — ${pick(['বিস্তারিত', 'পণ্য পরিচিতি', 'যা জানা দরকার'], seed)}`);
-  lines.push([
-    pick([`**${name}** একটি ${what}${brand ? `, ব্র্যান্ড ${brand}` : ''}।`, `**${name}** হলো ${brand ? `${brand}-এর ` : ''}একটি ${what}।`], seed),
-    p.model ? pick([`এর মডেল / পার্ট নম্বর **${p.model}**।`, `মডেল নম্বর: **${p.model}**।`], seed >> 3) : '',
-    k ? k.uses : '',
-  ].filter(Boolean).join(' '));
+  if (fetched) {
+    const top = [brand ? `ব্র্যান্ড: **${brand}**।` : '', p.model ? `মডেল / পার্ট নম্বর: **${p.model}**।` : ''].filter(Boolean).join(' ');
+    if (top) lines.push(top);
+    lines.push('', fetched);
+  } else {
+    lines.push([
+      pick([`**${name}** একটি ${what}${brand ? `, ব্র্যান্ড ${brand}` : ''}।`, `**${name}** হলো ${brand ? `${brand}-এর ` : ''}একটি ${what}।`], seed),
+      p.model ? pick([`এর মডেল / পার্ট নম্বর **${p.model}**।`, `মডেল নম্বর: **${p.model}**।`], seed >> 3) : '',
+      k ? k.uses : '',
+    ].filter(Boolean).join(' '));
+  }
   if (specs.length) {
     lines.push('', `### ${pick(['মূল বৈশিষ্ট্য', 'স্পেসিফিকেশন এক নজরে', 'বৈশিষ্ট্য'], seed >> 2)}`);
     specs.forEach(([a, b]) => lines.push(`- **${a}:** ${b}`));
   }
-  lines.push('', `### ${pick(['কেনার আগে জেনে নিন', 'ব্যবহারের টিপস', 'যা খেয়াল রাখবেন'], seed >> 4)}`);
-  if (k) lines.push(`- ${k.tip}`);
-  lines.push(`- ${pick(['ছবি আর স্পেসিফিকেশন মিলিয়ে নিন — আপনার প্রজেক্টে ঠিক এই মডেলটাই লাগবে কিনা।', 'অর্ডারের আগে মডেল নম্বর আর মাপ আপনার সার্কিটের সাথে মিলিয়ে নিন।', 'নিশ্চিত না হলে পণ্যের পেজে প্রশ্ন করুন বা WhatsApp-এ ছবি পাঠান — আমরা মিলিয়ে দেব।'], seed >> 5)}`);
-  lines.push('', `### ${pick([`কেন ${shop} থেকে কিনবেন`, `${shop} থেকে অর্ডার করলে`], seed >> 6)}`);
-  lines.push(`- 🚚 সারা বাংলাদেশে হোম ডেলিভারি — ঢাকায় ${money(dhaka)}, ঢাকার বাইরে ${money(outside)}`);
-  lines.push('- 💵 ক্যাশ অন ডেলিভারি — পণ্য হাতে পেয়ে টাকা দিন');
-  if (p.price > 0 && cheapRule(settings, p.price)) lines.push('- 🔩 ১টা করেও কেনা যায় (পুরো অর্ডারে সর্বনিম্ন পরিমাণ মানলেই হলো)');
-  lines.push('- 📷 পণ্যের আসল ছবি, আর সমস্যা হলে রিটার্নের সুযোগ');
-  lines.push('', '### সাধারণ প্রশ্ন');
-  if (p.price > 0) {
-    lines.push(`**${pick([`বাংলাদেশে ${name} এর দাম কত?`, `${name} এর দাম কত?`], seed >> 7)}**`);
-    lines.push(`${shop} অনলাইন শপে এখন ${name} এর দাম ${money(p.price)}${Number(p.old_price) > p.price ? ` (আগে ছিল ${money(p.old_price)})` : ''}। ${p.stock > 0 ? 'স্টকে আছে।' : 'এই মুহূর্তে স্টকে নেই — "স্টকে এলে জানাও" চাপলে SMS পাবেন।'}`);
-    lines.push('');
-  }
-  lines.push(`**${name} price in Bangladesh?**`);
-  lines.push(`${p.price > 0 ? `দাম ${money(p.price)} — ` : ''}সারা দেশে ক্যাশ অন ডেলিভারিতে অর্ডার করা যায়।`, '');
-  lines.push(`**${pick(['অনলাইনে কীভাবে অর্ডার করব?', `${name} কোথায় পাওয়া যায়?`], seed >> 8)}**`);
-  lines.push(`এই পেজে "কার্টে যোগ করুন" চেপে নাম, মোবাইল নম্বর আর ঠিকানা দিলেই অর্ডার হয়ে যায়। চাইলে WhatsApp বা ফোনেও অর্ডার করতে পারেন।`, '');
-  lines.push('**ঢাকার বাইরে কত দিনে পাব?**');
-  lines.push('সাধারণত ঢাকায় ১-২ দিনে আর ঢাকার বাইরে ২-৪ দিনে কুরিয়ারে পৌঁছে যায়।');
-  return lines.join('\n');
+  if (!fetched && k && k.tip) lines.push('', '### কেনার আগে জেনে নিন', `- ${k.tip}`);
+  return lines.filter((l, i, a) => !(l === '' && a[i - 1] === '')).join('\n').trim();
 }
 
 // ---------------------------------------------------------------- the round-the-clock sweep

@@ -1,9 +1,11 @@
-// 🩺 সার্ভার ও ডাটাবেস: what the owner would otherwise have to log into Supabase / Vercel to see, measured by the
-// site itself — database space used against the plan's limit, the biggest tables, how fast the database answers,
+// 🩺 সার্ভার ও ডাটাবেস: the shop's own VPS (disk, memory, processor) and its own PostgreSQL database, measured by the
+// site itself — database space used against the server's disk, the biggest tables, how fast the database answers,
 // open connections, the last good backup — plus an e-mail BEFORE something runs out.
 //
 // Shown on Admin → সংযোগের অবস্থা (and a warning line on the dashboard). Warnings go to the shop's one Gmail
 // (আমার নোটিফিকেশন) at most once a day per problem, again when it gets worse.
+import * as os from 'node:os';
+import * as fs from 'node:fs';
 import * as db from '../db';
 import * as N from './notify';
 import * as security from '../security';
@@ -14,7 +16,8 @@ import { databaseTls, type TlsState } from '../pg';
 import type { Settings } from '../types';
 import type { BackupsRow } from '../data/rows';
 
-export const DEFAULT_LIMIT_MB = 500; // Supabase free plan
+export const DEFAULT_LIMIT_MB = 30000; // fallback when the server's disk can't be read
+const LOCAL_BACKUP_DIR = '/var/backups/shobmilbe'; // nightly pg_dump on the VPS (cron)
 const WARN_AT = 0.8;
 const BAD_AT = 0.9;
 const BACKUP_WARN_DAYS = 2;
@@ -30,12 +33,50 @@ export type Health = {
   sms: SMS.PhoneStatus | null;
   tls: TlsState; tlsLevel: Level;
   ik: null | { bandwidthBytes: number; bandwidthLimit: number; bwLevel: Level; storageBytes: number; storageLimit: number; storageLevel: Level; since: string };
+  server?: ServerStats;
   checkedAt: Date;
 };
+export type ServerStats = {
+  diskTotal: number; diskUsed: number; diskLevel: Level;
+  memTotal: number; memUsed: number; memLevel: Level;
+  cpus: number; load1: number; loadLevel: Level; uptimeSec: number;
+  localBackupAt: Date | null; localBackups: number;
+};
 
+/** The VPS itself: disk, memory (what is really free, cache counted as free), processor load. */
+function serverStats(): ServerStats {
+  let diskTotal = 0, diskUsed = 0;
+  try { const f = fs.statfsSync('/'); diskTotal = f.blocks * f.bsize; diskUsed = (f.blocks - f.bavail) * f.bsize; } catch { /* unknown */ }
+  const memTotal = os.totalmem();
+  let memFree = os.freemem();
+  try { const m = /MemAvailable:\s+(\d+)/.exec(fs.readFileSync('/proc/meminfo', 'utf8')); if (m) memFree = Number(m[1]) * 1024; } catch { /* not linux */ }
+  const memUsed = Math.max(0, memTotal - memFree);
+  const cpus = os.cpus().length || 1;
+  const load1 = os.loadavg()[0] || 0;
+  let localBackupAt: Date | null = null, localBackups = 0;
+  try {
+    for (const f of fs.readdirSync(LOCAL_BACKUP_DIR)) {
+      if (!/^db-.*\.dump$/.test(f)) continue;
+      const st = fs.statSync(LOCAL_BACKUP_DIR + '/' + f);
+      if (st.size < 1024) continue;
+      localBackups++;
+      if (!localBackupAt || st.mtime > localBackupAt) localBackupAt = st.mtime;
+    }
+  } catch { /* folder not readable */ }
+  return {
+    diskTotal, diskUsed, diskLevel: diskTotal ? levelFor(diskUsed / diskTotal) : 'warn',
+    memTotal, memUsed, memLevel: levelFor(memUsed / memTotal),
+    cpus, load1, loadLevel: load1 / cpus >= 1.5 ? 'bad' : load1 / cpus >= 0.9 ? 'warn' : 'ok', uptimeSec: os.uptime(),
+    localBackupAt, localBackups,
+  };
+}
+
+/** How big the database may grow: a size set in the settings, else the server's whole disk. */
 export function limitBytes(settings: Settings): number {
   const mb = Number(settings.db_limit_mb);
-  return (Number.isFinite(mb) && mb >= 100 && mb <= 1_000_000 ? mb : DEFAULT_LIMIT_MB) * 1024 * 1024;
+  if (Number.isFinite(mb) && mb >= 100 && mb <= 1_000_000) return mb * 1024 * 1024;
+  try { const f = fs.statfsSync('/'); if (f.blocks) return f.blocks * f.bsize; } catch { /* unknown */ }
+  return DEFAULT_LIMIT_MB * 1024 * 1024;
 }
 const GB = 1024 ** 3;
 // ImageKit free plan: 20 GB bandwidth a month, 3 GB storage (ik_bw_limit_gb / ik_storage_limit_gb to change)
@@ -86,7 +127,9 @@ async function load(settings: Settings): Promise<Health> {
   const dbBytes = Number(size?.bytes || 0);
   const lim = limitBytes(settings);
   const share = lim ? dbBytes / lim : 0;
-  const backupAt = backup?.created_at ? new Date(backup.created_at) : null;
+  const server = serverStats();
+  const shopBackup = backup?.created_at ? new Date(backup.created_at) : null;
+  const backupAt = [shopBackup, server.localBackupAt].filter(Boolean).sort((a, b) => b!.getTime() - a!.getTime())[0] || null;
   const backupDays = backupAt ? (Date.now() - backupAt.getTime()) / 864e5 : null;
   const connections = conn ? Number(conn.n) : null;
   const maxConnections = conn ? Number(conn.max) : null;
@@ -104,6 +147,7 @@ async function load(settings: Settings): Promise<Health> {
       bandwidthBytes: ikUse.bandwidthBytes, bandwidthLimit: lims.bandwidth, bwLevel: levelFor(ikUse.bandwidthBytes / lims.bandwidth),
       storageBytes: ikUse.storageBytes, storageLimit: lims.storage, storageLevel: levelFor(ikUse.storageBytes / lims.storage), since: ikUse.since,
     } : null,
+    server,
     checkedAt: new Date(),
   };
 }
@@ -165,11 +209,15 @@ type Warning = { key: string; level: Level; title: string; text: string };
 export function warnings(h: Health): Warning[] {
   const out: Warning[] = [];
   if (h.dbLevel !== 'ok') out.push({ key: 'db', level: h.dbLevel, title: `ডাটাবেস ${bn(Math.round(h.share * 100))}% ভরে গেছে`,
-    text: `ডাটাবেসে ${bn(mb(h.dbBytes))} MB / ${bn(mb(h.limitBytes))} MB ব্যবহার হয়েছে। পুরো ভরে গেলে নতুন অর্ডার সেভ হবে না।\nসবচেয়ে বড়: ${h.tables.slice(0, 3).map((t) => `${(TABLE_HELP[t.name] || [t.name])[0]} ${bn(mb(t.bytes))} MB`).join(', ')}।\nকরণীয়: ভিজিটর অ্যানালিটিক্সের তথ্য কম দিন রাখুন, বা Supabase-এর প্ল্যান বাড়ান।` });
+    text: `ডাটাবেসে ${bn(mb(h.dbBytes))} MB / ${bn(mb(h.limitBytes))} MB ব্যবহার হয়েছে। পুরো ভরে গেলে নতুন অর্ডার সেভ হবে না।\nসবচেয়ে বড়: ${h.tables.slice(0, 3).map((t) => `${(TABLE_HELP[t.name] || [t.name])[0]} ${bn(mb(t.bytes))} MB`).join(', ')}।\nকরণীয়: ভিজিটর অ্যানালিটিক্সের তথ্য কম দিন রাখুন, বা OVHcloud-এ VPS-এর প্ল্যান বাড়ান।` });
+  if (h.server && h.server.diskLevel !== 'ok') out.push({ key: 'disk', level: h.server.diskLevel, title: `সার্ভারের ডিস্ক ${bn(Math.round(100 * h.server.diskUsed / (h.server.diskTotal || 1)))}% ভরা`,
+    text: `VPS-এর ডিস্কে ${bn(gb(h.server.diskUsed))} GB / ${bn(gb(h.server.diskTotal))} GB ব্যবহার হয়েছে। পুরো ভরে গেলে সাইট আর ডাটাবেস বন্ধ হয়ে যাবে।\nকরণীয়: Claude-কে জানান, বা OVHcloud-এ বড় প্ল্যান নিন।` });
+  if (h.server && h.server.memLevel === 'bad') out.push({ key: 'mem', level: 'warn', title: `সার্ভারের মেমোরি (RAM) ${bn(Math.round(100 * h.server.memUsed / h.server.memTotal))}% ব্যবহার হচ্ছে`,
+    text: `RAM ${bn(gb(h.server.memUsed))} GB / ${bn(gb(h.server.memTotal))} GB। বেশিক্ষণ এমন থাকলে সাইট ধীর হতে পারে।` });
   if (h.connLevel !== 'ok') out.push({ key: 'conn', level: h.connLevel, title: 'ডাটাবেসে সংযোগ প্রায় শেষ',
     text: `${bn(h.connections)} / ${bn(h.maxConnections)} সংযোগ খোলা। সব শেষ হলে সাইট খুলবে না।` });
   if (h.backupLevel !== 'ok') out.push({ key: 'backup', level: h.backupLevel, title: h.backupAt ? `${bn(Math.floor(h.backupDays!))} দিন ধরে ব্যাকআপ হয়নি` : 'কোনো ব্যাকআপ নেই',
-    text: 'প্রতিদিন রাতে নিজে থেকে ব্যাকআপ হওয়ার কথা। Admin → ব্যাকআপ পেজে দেখুন।' });
+    text: 'প্রতিদিন রাতে নিজে থেকে ব্যাকআপ হওয়ার কথা (সার্ভারে আর ImageKit-এ)। Admin → ব্যাকআপ পেজে দেখুন, না হলে Claude-কে জানান।' });
   if (h.errorLevel !== 'ok') {
     const top = h.errors24.slice(0, 3);
     out.push({ key: 'errors', level: h.errorLevel, title: `${top[0]?.path || 'একটা পেজ'}-এ বারবার এরর হচ্ছে (২৪ ঘণ্টায় ${bn(top[0]?.n || 0)} বার)`,

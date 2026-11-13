@@ -322,6 +322,17 @@ function newComplaint(settings: Settings, site: string, c: ComplaintNews, topicL
   return later(Promise.all(jobs));
 }
 
+// 🔎 A customer could not find something and left a number to be told when it comes in.
+function searchRequest(settings: Settings, site: string, r: { id: number; q: string; name: string; phone: string }) {
+  const link = `${site}/admin/reports/search#requests`;
+  const who = `${r.name ? cleanLine(r.name, 60) + ' · ' : ''}${r.phone}`;
+  const text = [`🔎 কাস্টমার একটা পণ্য খুঁজে পায়নি, নম্বর রেখে গেছে`, '', `যা খুঁজেছে: ${cleanLine(r.q, 80)}`, `কাস্টমার: ${who}`, '', `দেখুন: ${link}`].join('\n');
+  const jobs: Promise<unknown>[] = [pushJob('search-request ' + r.id, { title: `🔎 খুঁজে পায়নি: ${cleanLine(r.q, 50)}`, body: `${who} — পণ্যটা এনে দিলে কল করুন`, url: '/admin/reports/search#requests', tag: 'sreq-' + r.id })];
+  if (settings.notify_order_email !== '0' && emailConfig(settings).ready) jobs.push(logResult('notify-email', 'search-request', () => sendEmail(settings, `🔎 কাস্টমার খুঁজছে: ${cleanLine(r.q, 60)}`, text)));
+  if (settings.notify_order_wa !== '0' && waConfig(settings).ready) jobs.push(logResult('notify-whatsapp', 'search-request', () => sendWhatsApp(settings, text)));
+  return later(Promise.all(jobs));
+}
+
 // Security alerts always try both channels (unless the owner switched them off).
 function securityAlert(settings: Settings, title: string, detail: unknown, { extraEmail }: { extraEmail?: string | null } = {}) {
   if (settings.notify_security === '0') return Promise.resolve();
@@ -339,4 +350,4 @@ function securityAlert(settings: Settings, title: string, detail: unknown, { ext
   return later(Promise.all(jobs));
 }
 
-export { DEFAULT_EMAIL, sendVia, emailConfig, acctEmailConfig, sendAcctEmail, waConfig, validEmail, maskEmail, sendEmail, sendWhatsApp, smtpSend, newOrder, newComplaint, securityAlert, later, escapeHtml };
+export { DEFAULT_EMAIL, sendVia, emailConfig, acctEmailConfig, sendAcctEmail, waConfig, validEmail, maskEmail, sendEmail, sendWhatsApp, smtpSend, newOrder, newComplaint, searchRequest, securityAlert, later, escapeHtml };

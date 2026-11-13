@@ -73,7 +73,7 @@ function hasPass(req: ShopRequest, s: { session_secret: string | null | undefine
   return k === 'geo' && Date.now() - Number(at) < PASS_DAYS * 864e5;
 }
 function passCookie(req: ShopRequest, s: Settings) {
-  const secure = String(req.headers['x-forwarded-proto'] || '').includes('https') ? '; Secure' : '';
+  const secure = String(req.headers['x-shop-proto'] || '').includes('https') ? '; Secure' : '';
   return `sm_geo=${encodeURIComponent(sign(`geo:${Date.now()}`, s.session_secret))}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${PASS_DAYS * 86400}${secure}`;
 }
 const loggedIntoAdmin = (req: ShopRequest, s: { session_secret: string | null | undefined; }) => !!unsign(parseCookies(req.headers.cookie).sm_admin, s.session_secret);

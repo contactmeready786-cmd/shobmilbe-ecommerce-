@@ -22,13 +22,8 @@ const PROVIDERS: Record<string, Provider> = {
   // 📱 the owner's own phone + SIM (e.g. Grameenphone) sends the SMS through the free "SMS Gateway for Android" app
   // (sms-gate.app, cloud mode). Username → Sender ID box, Password → API Key box. Each SMS costs the SIM's normal rate.
   android: { label: '📱 নিজের ফোনের SIM দিয়ে (SMS Gateway অ্যাপ, ফ্রি)', site: 'https://sms-gate.app', needsSender: true },
-  // 📱 textbee.dev (owner, 2026-10): the same idea — an Android phone with a SIM sends the SMS — but steadier.
-  // Free plan: 1 phone, about 50 SMS a day / 300 a month. API Key box = textbee API key; Sender ID box = Device ID (optional).
-  textbee: { label: '📱 নিজের ফোনের SIM দিয়ে (textbee.dev, ফ্রি)', site: 'https://textbee.dev', needsSender: false },
+  // (owner, 2026-11-13: only these two — the owner asked the other companies; only BulkSMSBD can give a sender.)
   bulksmsbd: { label: 'BulkSMSBD (bulksmsbd.net)', site: 'https://bulksmsbd.net', needsSender: true },
-  smsnetbd: { label: 'Alpha SMS (sms.net.bd)', site: 'https://sms.net.bd', needsSender: false },
-  greenweb: { label: 'Greenweb (greenweb.com.bd)', site: 'https://greenweb.com.bd', needsSender: false },
-  custom: { label: 'অন্য কোম্পানি (নিজের লিংক)', site: '', needsSender: false },
 };
 
 function ready(settings: Settings): SmsReady {

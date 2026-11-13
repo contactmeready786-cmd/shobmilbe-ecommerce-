@@ -1064,4 +1064,4 @@ function sourcingLinks(term: string) {
   ];
 }
 
-export { segmentOf, trends, parseTrends, searchMarket, sameProduct, prepFull, matchOurs, SEGMENTS, listSources, addSource, detect, tick, setFetch, readSitemap, pageLinks, productish, demand, winners, newInMarket, priceDrops, status, sourcingLinks, robotsRules, robotsAllow };
+export { allowed, segmentOf, trends, parseTrends, searchMarket, sameProduct, prepFull, matchOurs, SEGMENTS, listSources, addSource, detect, tick, setFetch, readSitemap, pageLinks, productish, demand, winners, newInMarket, priceDrops, status, sourcingLinks, robotsRules, robotsAllow };
