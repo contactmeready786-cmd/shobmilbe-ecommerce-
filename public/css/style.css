@@ -586,6 +586,9 @@ body.protect .card-pic img, body.protect .g-main img, body.protect .g-thumb img,
   .summary { position: static; order: -1; }
   .footer-grid { grid-template-columns: 1fr 1fr; gap: 18px; }
   .footer-grid > div:first-child { grid-column: 1 / -1; }
+  /* যোগাযোগ column gets the full row on phones, so ✉ and the email address stay on one line */
+  .footer-grid > div:last-child { grid-column: 1 / -1; }
+  .site-footer a { overflow-wrap: anywhere; }
   .post-grid { grid-template-columns: minmax(0, 1fr); }
   .order-meta { grid-template-columns: 1fr 1fr; }
   .steps li { font-size: .7rem; }
