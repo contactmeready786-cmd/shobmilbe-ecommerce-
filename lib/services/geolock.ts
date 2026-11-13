@@ -29,9 +29,11 @@ import * as crawlers from './crawlers';
 const PASS_DAYS = 7;
 const BLOCK_PATH = '/__region';
 
-// search engines, link previews, shopping and ad checkers — matched by their user agent
-const GOOD_BOTS = /googlebot|google-inspectiontool|googleother|storebot-google|adsbot-google|mediapartners-google|apis-google|feedfetcher-google|google-read-aloud|duplexweb-google|google-site-verification|googleimageproxy|google-pagerenderer|chrome-lighthouse|bingbot|bingpreview|msnbot|adidxbot|applebot|duckduckbot|yandex(bot|images)|facebookexternalhit|facebookcatalog|facebot|meta-externalagent|meta-externalfetcher|twitterbot|linkedinbot|pinterestbot|slackbot|telegrambot|whatsapp|discordbot|skypeuripreview|tiktokbot|bytespider-ads/i;
+// Search engines, link previews, shopping and ad checkers: services/crawlers.ts holds the one list (and checks them).
+// Never affected by the country block at all (it only looks at web pages): SSH, so the GitHub Actions auto-deploy
+// and Claude's work on the server; the deploy's own check of the new version (localhost, no country header).
 // paths other servers call, or that crawlers need, which must answer from anywhere
+// (GitHub Actions call /api/research|aistaff/tick, /api/whiten-jobs; the live-check accepts the country page)
 const OPEN_PATHS = /^\/(e\/[oc]\/|unsubscribe$|webhook\/|pay\/|media\/|img\/|brand\/|feeds\/|api\/(research|backup|aistaff)\/tick$|api\/whiten-jobs$|robots\.txt$|sitemap[^/]*\.xml$|[a-f0-9]{32}\.txt$|google[a-f0-9]{8,32}\.html$|BingSiteAuth\.xml$|yandex_[a-f0-9]+\.html$|favicon|__region)/;
 
 /** country code → the time zones a browser there reports */
@@ -64,7 +66,7 @@ function countryOf(req: ShopRequest) {
   const c = (header(req, 'x-vercel-ip-country') || header(req, 'cf-ipcountry')).toUpperCase().slice(0, 2);
   return /^[A-Z]{2}$/.test(c) && c !== 'XX' ? c : '';
 }
-const isGoodBot = (ua: string) => GOOD_BOTS.test(String(ua || ''));
+const isGoodBot = (ua: string) => crawlers.isCrawler(String(ua || ''));
 
 function hasPass(req: ShopRequest, s: { session_secret: string | null | undefined; }) {
   const v = unsign(parseCookies(req.headers.cookie).sm_geo, s.session_secret);
@@ -109,7 +111,7 @@ function count(country: string, why?: unknown) {
 function headScript(s: Settings) {
   const c = config(s);
   if (!c.on || !c.tzCheck) return '';
-  return `<script>(()=>{try{const u=navigator.userAgent||'';if(/bot|crawl|spider|slurp|lighthouse|headless|preview|facebookexternalhit|meta-external|whatsapp|telegram/i.test(u))return;const z=Intl.DateTimeFormat().resolvedOptions().timeZone;if(!z||/^(Etc\\/|UTC$|GMT)/.test(z))return;const ok=${JSON.stringify([...c.zones]).replace(/</g, '\\u003c')};if(!ok.includes(z))location.replace('${BLOCK_PATH}?w=tz&z='+encodeURIComponent(z));}catch{}})();</script>`;
+  return `<script>(()=>{try{const u=navigator.userAgent||'';if(/bot|crawl|spider|slurp|lighthouse|headless|preview|facebookexternalhit|meta-external|meta-webindexer|whatsapp|telegram|claude-user|claude-searchbot/i.test(u))return;const z=Intl.DateTimeFormat().resolvedOptions().timeZone;if(!z||/^(Etc\\/|UTC$|GMT)/.test(z))return;const ok=${JSON.stringify([...c.zones]).replace(/</g, '\\u003c')};if(!ok.includes(z))location.replace('${BLOCK_PATH}?w=tz&z='+encodeURIComponent(z));}catch{}})();</script>`;
 }
 
 function esc(v: string) { return String(v ?? '').replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' } as Record<string, string>)[ch]); }

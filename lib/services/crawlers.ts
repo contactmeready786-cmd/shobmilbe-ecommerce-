@@ -22,7 +22,7 @@ type Family = { name: string; ua: RegExp; domains: string[] };
 const VERIFIABLE: Family[] = [
   {
     name: 'Google',
-    ua: /googlebot|google-inspectiontool|googleother|storebot-google|adsbot-google|mediapartners-google|apis-google|feedfetcher-google|google-read-aloud|duplexweb-google|google-site-verification|googleimageproxy|google-pagerenderer/i,
+    ua: /googlebot|google-inspectiontool|googleother|storebot-google|adsbot-google|mediapartners-google|apis-google|feedfetcher-google|google-read-aloud|duplexweb-google|google-site-verification|googleimageproxy|google-pagerenderer|google-safety|google-cloudvertexbot|googleproducer/i,
     domains: ['googlebot.com', 'google.com', 'gae.googleusercontent.com'],
   },
   { name: 'Bing', ua: /bingbot|bingpreview|msnbot|adidxbot/i, domains: ['search.msn.com'] },
@@ -31,7 +31,10 @@ const VERIFIABLE: Family[] = [
 ];
 
 // No published DNS check: read-only access to public pages.
-const PREVIEW = /chrome-lighthouse|duckduckbot|facebookexternalhit|facebookcatalog|facebot|meta-externalagent|meta-externalfetcher|twitterbot|linkedinbot|pinterestbot|slackbot|telegrambot|whatsapp|discordbot|skypeuripreview|tiktokbot|bytespider-ads/i;
+// (owner, 2026-11-13: Google, Facebook/Meta, TikTok and Claude must never be shut out by the country block —
+//  TikTokSpider checks ad landing pages, meta-externalads / meta-webindexer are Meta's ad and search crawlers,
+//  Claude-User / Claude-SearchBot fetch a page when Claude is asked about the shop.)
+const PREVIEW = /chrome-lighthouse|duckduckbot|facebookexternalhit|facebookcatalog|facebot|meta-externalagent|meta-externalfetcher|meta-externalads|meta-webindexer|twitterbot|linkedinbot|pinterestbot|slackbot|telegrambot|whatsapp|discordbot|skypeuripreview|tiktokbot|tiktokspider|bytespider-ads|claude-user|claude-searchbot/i;
 
 // Addresses a preview bot never needs: anything personal, anything that changes data.
 const PRIVATE_PATHS = /^\/(api\/|cart$|checkout|account|wishlist$|compare$|track$|order\/|complaint|gift-card$|unsubscribe$|__region\/pass$)/;
@@ -41,6 +44,10 @@ export function familyOf(ua: string): Family | null {
 }
 export function isPreviewBot(ua: string): boolean {
   return !familyOf(ua) && PREVIEW.test(ua);
+}
+/** Says it is one of the crawlers above (not yet checked — verdict() does that). The one list the country block uses. */
+export function isCrawler(ua: string): boolean {
+  return !!familyOf(ua) || PREVIEW.test(ua);
 }
 /** Would a crawler of this kind ever need this request? (Preview bots only read public pages.) */
 export function previewMayOpen(method: string, path: string): boolean {
