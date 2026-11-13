@@ -1,0 +1,1 @@
+auto-deploy check: this file was pushed to GitHub main on 2026-11-13 and went live by itself.
