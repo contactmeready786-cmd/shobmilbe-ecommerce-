@@ -23,12 +23,14 @@ async function page(ctx: AdminCtx) {
   const warns = H.warnings(h);
   // ⚡ who is using the processor and memory right now, and the background jobs' cost (lib/services/perf.ts)
   const [procs, self, jobs] = [await P.topProcesses(1000).catch(() => null), P.selfMemory(), P.jobStats()];
+  const sched = (await import('../scheduler')).status();
   const MB = (b: number) => bn(Math.round(b / 1048576));
   const load = <section className="panel" id="load"><h2>⚡ কে কতটা প্রসেসর আর RAM নিচ্ছে (এই মুহূর্তে)</h2>
     {procs ? <div className="table-wrap"><table className="table compact"><thead><tr><th>প্রোগ্রাম</th><th>প্রসেসর</th><th>RAM</th></tr></thead><tbody>
       {jsxList(procs.groups.map((g) => <tr><td><Val v={g.label} />{g.count > 1 ? <span className="small muted"> · {bn(g.count)}টা</span> : null}</td><td>{bn(Math.round(g.cpuPct / procs.cores))}%</td><td>{MB(g.rss)} MB</td></tr>))}
     </tbody></table></div> : <p className="muted small">সার্ভারের প্রোগ্রামের তালিকা পড়া গেল না।</p>}
     <p className="small muted">প্রসেসর = সার্ভারের সব কোর মিলিয়ে। "🔨 নতুন আপডেট বানানো" দেখালে সেটা কয়েক মিনিটের জন্য — প্রতিটা আপডেটে একবার হয়, পরে নিজেই থামে। ওয়েবসাইট নিজে এখন {MB(self.rss)} MB RAM নিচ্ছে (চালু {bn(Math.floor(self.uptimeSec / 3600))} ঘণ্টা)।</p>
+    <p className="small">⏱️ দোকানের নিজের টাইমার: {sched.on ? <b>✅ চালু</b> : <b>⚪ এই সার্ভারে চালু নেই</b>}{sched.last.shop ? ` — শেষ রাউন্ড ${fmtDate(new Date(sched.last.shop))}` : sched.on ? ' — প্রথম রাউন্ড চালুর ১ মিনিট পর' : ''}। প্রতি ৫ মিনিটে নিজে থেকে পোস্ট, কমেন্টের উত্তর, ইমেইল, ব্যাকআপের কাজ দেখে (আগে GitHub দিনে মাত্র ৩-৪ বার জাগাতো)।</p>
     {jobs.length ? <><h3>পেছনের কাজগুলো (এই চালুর পর থেকে)</h3><div className="table-wrap"><table className="table compact"><thead><tr><th>কাজ</th><th>কতবার</th><th>গড় সময়</th><th>মোট প্রসেসর</th><th>সার্ভার ব্যস্ত তাই বাদ</th></tr></thead><tbody>
       {jsxList(jobs.map((j) => <tr><td><Val v={j.name} /></td><td>{bn(j.runs)}</td><td>{bn((j.avgMs / 1000).toFixed(1))} সে.</td><td>{bn((j.cpuMs / 1000).toFixed(1))} সে.</td><td>{bn(j.skipped)}</td></tr>))}
     </tbody></table></div><p className="small muted">সার্ভার ব্যস্ত থাকলে (প্রসেসরের চাপ ৮৫%-এর বেশি) মার্কেট রিসার্চ, অটো SEO, ডুপ্লিকেট খোঁজার মতো যেসব কাজ পরে করলেও চলে, সেগুলো নিজে থেকে পরের বারের জন্য রেখে দেওয়া হয় — কাস্টমারের পেজ আগে।</p></> : null}

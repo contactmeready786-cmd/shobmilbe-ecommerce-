@@ -16,6 +16,12 @@ PostgreSQL on the same server. Wherever older text in this file or in code comme
 3. Safety built in: tests fail → no deploy; build fails → the site keeps the old version; the new version doesn't
    answer → the old one is put back by itself. All of these turn the run red (GitHub e-mails the owner).
 
+**Background jobs wake themselves (2026-11-13):** lib/scheduler.ts (started from instrumentation.ts, only on the real
+server — not in CI, tests, builds or on Vercel) runs `runShopJobs` every 5 minutes and `runAiJobs` every 15
+(lib/api/files.ts). GitHub's "hourly" market-research workflow really starts only 3–4 times a day, so it is just a
+spare. A new scheduled job goes into `runShopJobs` with `P.timeJob(name, fn, { optional })` (lib/services/perf.ts:
+optional jobs wait while the server is busy; every job's cost shows on Admin → সার্ভার ও ডাটাবেস).
+
 Never ask the owner to open a terminal, SSH, Vercel or the server for a normal change — that is what the pipeline is
 for. Never change files on the server directly: the deploy then stops on purpose (so that work isn't lost) until it
 is in git. Database layout changes need nothing extra: lib/db.ts migrates on start.

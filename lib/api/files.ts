@@ -202,7 +202,12 @@ export async function backupTick(ctx: ApiCtx) {
 }
 export async function researchTick(ctx: ApiCtx) {
   if (!(await allow(ctx, 'tick:', 30, 3600))) return json(429, { ok: false });
-  const settings = ctx.settings;
+  const r = await runShopJobs(ctx.settings);
+  return json(200, { ok: true, done: !r.skipped && !r.idle });
+}
+/** The shop's regular background jobs, one round. Called by the shop's own timer on the VPS (lib/scheduler.ts, every
+ *  5 minutes) and by /api/research/tick (GitHub's spare wake-up). Every job decides itself whether it is due. */
+export async function runShopJobs(settings: ApiCtx['settings']): Promise<Record<string, unknown>> {
   let r: Record<string, unknown> = {};
   // ⚡ jobs that can wait skip their turn while the server is busy (lib/services/perf.ts) — customers come first
   const P = await import('../services/perf');
@@ -228,14 +233,18 @@ export async function researchTick(ctx: ApiCtx) {
   await P.timeJob('ব্যাকআপ', () => $services_autobackup.run());
   // 🗂️ owner, 2026-11-13: only today's and yesterday's backups are kept — older ones deleted (ImageKit + the server)
   await P.timeJob('পুরনো ব্যাকআপ মোছা', async () => { await $services_autobackup.pruneRemote(); $services_autobackup.pruneLocal(); });
-  return json(200, { ok: true, done: !r.skipped && !r.idle });
+  return r;
 }
 
 /** /api/aistaff/tick (app/api/aistaff/tick, called every few minutes by .github/workflows/market-research.yml):
  *  🤖 AI স্টাফ — the day's whole-shop report at the owner's hour, and ✍️ one product page written again (when on). */
 export async function aistaffTick(ctx: ApiCtx) {
   if (!(await allow(ctx, 'aistaff:', 40, 3600))) return json(429, { ok: false });
-  const settings = ctx.settings;
+  await runAiJobs(ctx.settings);
+  return json(200, { ok: true });
+}
+/** 🤖 the AI staff's round (lib/scheduler.ts every 15 minutes, and /api/aistaff/tick) */
+export async function runAiJobs(settings: ApiCtx['settings']): Promise<void> {
   const P = await import('../services/perf');
   await P.timeJob('AI স্টাফ রিপোর্ট', async () => (await import('../services/aistaff')).tick(settings));
   await P.timeJob('AI দিয়ে পণ্যের লেখা', async () => (await import('../services/aiwriter')).tick(settings), { optional: true });
@@ -244,5 +253,4 @@ export async function aistaffTick(ctx: ApiCtx) {
   // 👯 the duplicate scan compares every picture with every other one — heavy, so only when the catalogue changed
   // (or every 6 hours at most), never while the server is busy
   await P.timeJob('ডুপ্লিকেট খোঁজা', async () => { const p = await import('../admin/products'); await p.refreshDupChipIfChanged(settings); }, { optional: true });
-  return json(200, { ok: true });
 }
