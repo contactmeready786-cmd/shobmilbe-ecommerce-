@@ -27,13 +27,13 @@ export async function proxy(request: NextRequest) {
   if (!servedByNext(path, url.searchParams, request.method)) {
     // an address a Next.js page also has, but the page doesn't draw this request (/track?code=…&phone=…, or a form
     // sent to it): the customer forms' own route answers (lib/shopx.tsx), anything else the original code, as always
-    if (hasNextPage(path)) return NextResponse.rewrite(new URL(answeredBy(path, url.pathname) + url.search, request.url), { request: { headers } });
+    if (hasNextPage(path)) return NextResponse.rewrite(new URL(answeredBy(path, url.pathname) + url.search, request.nextUrl.origin), { request: { headers } });
     return NextResponse.next({ request: { headers } });
   }
 
   // something that doesn't exist: the shop's own 404 page (the original code also runs the gate for it);
   // something that moved: its new address — exactly as the original code does
-  if (!(await drawableHere(path, request.headers))) return NextResponse.rewrite(new URL(answeredBy(path, url.pathname) + url.search, request.url), { request: { headers } });
+  if (!(await drawableHere(path, request.headers))) return NextResponse.rewrite(new URL(answeredBy(path, url.pathname) + url.search, request.nextUrl.origin), { request: { headers } });
 
   const plain: Record<string, string> = {};
   request.headers.forEach((v, k) => { plain[k] = v; });
@@ -67,7 +67,7 @@ async function adminProxy(request: NextRequest, path: string, headers: Headers) 
     q.delete('__site');
     const search = q.toString();
     headers.set('x-shop-url', url.pathname + (search ? '?' + search : ''));
-    return NextResponse.rewrite(new URL('/api/admin' + (search ? '?' + search : ''), request.url), { request: { headers } });
+    return NextResponse.rewrite(new URL('/api/admin' + (search ? '?' + search : ''), request.nextUrl.origin), { request: { headers } });
   };
   if (!adminServedByNext(path, url.searchParams, request.method)) return toAdminRoute();
   const plain: Record<string, string> = {};
