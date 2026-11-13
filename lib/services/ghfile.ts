@@ -25,7 +25,7 @@ export async function repoFile(branch: string, path: string, { timeoutMs = 10000
   return fetch(`${publicUrl(branch, path)}?t=${Date.now()}`, { signal, cache: 'no-store' });
 }
 /** the file's bytes, or null (missing, no access, too big) */
-export async function repoBytes(branch: string, path: string, maxBytes: number, timeoutMs = 15000): Promise<Buffer | null> {
+export async function repoBytes(branch: string, path: string, maxBytes: number, timeoutMs = 15000): Promise<Buffer<ArrayBuffer> | null> {
   try {
     const r = await repoFile(branch, path, { timeoutMs });
     if (!r.ok) return null;
