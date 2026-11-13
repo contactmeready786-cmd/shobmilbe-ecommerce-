@@ -1256,6 +1256,21 @@ CREATE INDEX IF NOT EXISTS ai_staff_edits_created_idx ON ai_staff_edits(created_
   `
 ALTER TABLE ai_staff_edits ADD COLUMN IF NOT EXISTS via text NOT NULL DEFAULT '';
 `,
+  // 🔎 কাস্টমার কী খুঁজছে, with who (owner, 2026-11-13): every search (also the instant box) knows the browser that typed it, so
+  // a name and number given at checkout shows next to it; "not found" searches can leave a number to be called back.
+  `
+ALTER TABLE search_log ADD COLUMN IF NOT EXISTS visitor_id text NOT NULL DEFAULT '';
+CREATE INDEX IF NOT EXISTS search_log_visitor_idx ON search_log(visitor_id, created_at DESC) WHERE visitor_id <> '';
+CREATE TABLE IF NOT EXISTS search_requests (
+  id serial PRIMARY KEY, q text NOT NULL, name text NOT NULL DEFAULT '', phone text NOT NULL, visitor_id text NOT NULL DEFAULT '',
+  ip text NOT NULL DEFAULT '', status text NOT NULL DEFAULT 'new', admin_note text NOT NULL DEFAULT '',
+  created_at timestamptz NOT NULL DEFAULT now(), done_at timestamptz
+);
+CREATE INDEX IF NOT EXISTS search_requests_status_idx ON search_requests(status, created_at DESC);
+ALTER TABLE products ADD COLUMN IF NOT EXISTS auto_desc text NOT NULL DEFAULT '';
+ALTER TABLE products ADD COLUMN IF NOT EXISTS auto_desc_src text NOT NULL DEFAULT '';
+ALTER TABLE products ADD COLUMN IF NOT EXISTS auto_desc_at timestamptz;
+`,
 ];
 
 // Data steps that need code, keyed by migration number (run after its SQL).
@@ -1637,6 +1652,7 @@ const DEFAULT_SETTINGS: Record<string, string> = {
   pathao_client_id: '', pathao_client_secret: '', pathao_username: '', pathao_password: '', pathao_store_id: '', pathao_sandbox: '0',
   pathao_token: '', pathao_token_expires: '', pathao_webhook_secret: '',
   redx_token: '', redx_sandbox: '0', redx_pickup_store_id: '',
+  carrybee_client_id: '', carrybee_client_secret: '', carrybee_client_context: '', carrybee_store_id: '', carrybee_sandbox: '0',
   // accounting
   vat_mode: 'none', vat_rate: '15', vat_bin: '', tin: '', trade_license: '',
   // live sports scores
@@ -1674,7 +1690,7 @@ const DEFAULT_SETTINGS: Record<string, string> = {
   // 🔐 চেকআউট OTP (Admin → অর্ডার ও কাস্টমার → চেকআউট OTP): the order goes in only after the SMS code is typed.
   //    One switch: off = no box, orders as before; on = no order without the code (strict, even if SMS has trouble).
   //    remember = days this browser needn't ask again for a checked number; cap = most codes per day (protects the SMS balance).
-  co_otp_on: '0', co_otp_sms: '', co_otp_remember_days: '30', co_otp_daily_cap: '500', co_otp_webotp: '0',
+  co_otp_on: '0', acct_phone_otp: '1', co_otp_sms: '', co_otp_remember_days: '30', co_otp_daily_cap: '500', co_otp_webotp: '0',
   sms_log_clear_on: '0',
   // 🔎 filters on shop lists (price / brand / in stock)
   ui_filters: '1',
@@ -1719,7 +1735,7 @@ for (const [k, v] of Object.entries($services_uiswitch.DEFAULTS)) if (!(k in DEF
 
 const SECRET_KEYS = new Set(['session_secret', 'admin_password', 'fb_capi_token', 'tiktok_events_token', 'bkash_app_secret',
   'bkash_password', 'ssl_store_password', 'steadfast_secret_key', 'pathao_client_secret', 'pathao_password',
-  'pathao_token', 'redx_token', 'vercel_token', 'gmail_app_password', 'acct_gmail_password', 'callmebot_key', 'reset_mail_token', 'push_vapid_private', 'i18n_google_key', 'sms_api_key', 'cf_api_token', 'autocall_api_key', 'fraudbd_api_key', 'autopost_page_token', 'autopost_app_secret', 'telegram_bot_token', 'brevo_api_key', 'sentry_dsn', 'whiten_gh_token', 'ai_gemini_key']);
+  'pathao_token', 'redx_token', 'carrybee_client_secret', 'carrybee_client_context', 'vercel_token', 'gmail_app_password', 'acct_gmail_password', 'callmebot_key', 'reset_mail_token', 'push_vapid_private', 'i18n_google_key', 'sms_api_key', 'cf_api_token', 'autocall_api_key', 'fraudbd_api_key', 'autopost_page_token', 'autopost_app_secret', 'telegram_bot_token', 'brevo_api_key', 'sentry_dsn', 'whiten_gh_token', 'ai_gemini_key']);
 
 // Passwords and API keys are stored encrypted (AES-256-GCM) when ENCRYPTION_KEY is set in Vercel.
 // session_secret is left out on purpose: if the key were ever removed, nobody could log in.

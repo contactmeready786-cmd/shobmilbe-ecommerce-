@@ -29,7 +29,7 @@ export function blockedBots(settings: Settings): string[] {
 export function siteUrl(req: Pick<ShopRequest, 'headers'>, settings: Settings): string {
   if (settings.site_url) return settings.site_url.replace(/\/+$/, '');
   const host = String(req.headers['x-forwarded-host'] || req.headers.host || 'localhost');
-  const proto = String(req.headers['x-forwarded-proto'] || (host.startsWith('localhost') ? 'http' : 'https')).split(',')[0];
+  const proto = String(req.headers['x-shop-proto'] || (host.startsWith('localhost') ? 'http' : 'https')).split(',')[0];
   return `${proto}://${host}`;
 }
 
@@ -100,7 +100,7 @@ export async function shopGate(req: GateRequest, path: string, search: string, m
 
 // The referral link (?ref=CODE) is remembered for 30 days, so the code is in the box at checkout.
 export function refCookie(req: Pick<ShopRequest, 'headers'>, code?: unknown): string {
-  const secure = String(req.headers['x-forwarded-proto'] || '').includes('https') ? '; Secure' : '';
+  const secure = String(req.headers['x-shop-proto'] || '').includes('https') ? '; Secure' : '';
   return `sm_ref=${encodeURIComponent(String(code).toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 20))}; Path=/; SameSite=Lax; Max-Age=${30 * 86400}${secure}`;
 }
 export function refFromCookie(req: Pick<ShopRequest, 'headers'>): string { return String(parseCookies(req.headers.cookie as string).sm_ref || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 20); }
@@ -138,6 +138,6 @@ export async function adminGateOk(req: GateRequest, method: string): Promise<{ o
 // "This browser placed / verified these orders" — a signed cookie, so only that customer sees the full address and phone.
 export function myOrdersCookie(req: Pick<ShopRequest, 'headers'>, settings: Settings, code: string): string {
   const codes = [code, ...myOrders(req, settings).filter((c) => c !== code)].slice(0, 15);
-  const secure = String(req.headers['x-forwarded-proto'] || '').includes('https') ? '; Secure' : '';
+  const secure = String(req.headers['x-shop-proto'] || '').includes('https') ? '; Secure' : '';
   return `sm_orders=${encodeURIComponent(sign(codes.join('.'), settings.session_secret))}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${120 * 86400}${secure}`;
 }
