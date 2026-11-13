@@ -983,6 +983,9 @@ export type ProductsRow = {
   packing_set_id: number | null;
   name_bn: string;
   name_bn_auto: boolean;
+  auto_desc: string;
+  auto_desc_src: string;
+  auto_desc_at: Date | null;
 };
 
 /** A row of purchase_edits. */
@@ -1204,6 +1207,21 @@ export type SearchLogRow = {
   q: string;
   found: number;
   created_at: Date;
+  visitor_id: string;
+};
+
+/** A row of search_requests. */
+export type SearchRequestsRow = {
+  id: number;
+  q: string;
+  name: string;
+  phone: string;
+  visitor_id: string;
+  ip: string;
+  status: string;
+  admin_note: string;
+  created_at: Date;
+  done_at: Date | null;
 };
 
 /** A row of security_events. */
@@ -1596,6 +1614,7 @@ export type Tables = {
   return_requests: ReturnRequestsRow;
   reviews: ReviewsRow;
   search_log: SearchLogRow;
+  search_requests: SearchRequestsRow;
   security_events: SecurityEventsRow;
   seo_auto_log: SeoAutoLogRow;
   seo_score_history: SeoScoreHistoryRow;
