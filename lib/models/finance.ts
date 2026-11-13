@@ -422,9 +422,25 @@ async function profitLoss(from: Day, to: Day) {
   // 📦 what the parcels were packed with (box, tape, sticker …), counted on the day they went out — also for parcels
   // that came back, unless the packing was marked reused (lib/models/packing.ts)
   const packing = await $packing.totalBetween(from, to);
+  // ↩️ part of a delivered order came back (রিটার্ন ও রিফান্ড): the order stays "delivered", so its whole price and whole
+  // buying cost are in the sales above. The money given back is taken off here, and the buying cost of the pieces
+  // that went back on the shelf is added back (they can be sold again) — on the day each happened. (A whole order
+  // that is cancelled / returned is simply not in the sales, so its automatic cash refund is not counted here.)
+  const back = await one<{ refunds: number; n: number }>(`SELECT coalesce(sum(r.amount),0)::numeric(14,2) AS refunds, count(*)::int AS n
+    FROM refunds r JOIN orders o ON o.id=r.order_id AND o.status='delivered'
+    WHERE (r.created_at AT TIME ZONE 'Asia/Dhaka')::date BETWEEN $1 AND $2`, [from, to]);
+  const shelf = await one<{ cost: number }>(`SELECT coalesce(sum(oi.cost * (it->>'qty')::int),0)::numeric(14,2) AS cost
+    FROM return_requests rr JOIN orders o ON o.id=rr.order_id AND o.status='delivered'
+      CROSS JOIN LATERAL jsonb_array_elements(rr.items) it
+      JOIN order_items oi ON oi.order_id=rr.order_id AND oi.id::text = it->>'item_id'
+    WHERE rr.received_at IS NOT NULL AND (rr.received_at AT TIME ZONE 'Asia/Dhaka')::date BETWEEN $1 AND $2
+      AND EXISTS (SELECT 1 FROM jsonb_array_elements(coalesce(rr.restock, '[]'::jsonb)) rs WHERE rs->>'item_id' = it->>'item_id' AND rs->>'how'='stock')`, [from, to]);
+  const returnRefunds = Number(back!.refunds) || 0;
+  const returnedCost = Number(shelf!.cost) || 0;
   return {
     sales, returns: returns!.n, expenses, otherIncome, expenseTotal, otherIncomeTotal, gross, packing,
-    net: gross + otherIncomeTotal - expenseTotal - packing.cost,
+    returnRefunds, returnRefundCount: back!.n, returnedCost,
+    net: gross + otherIncomeTotal - expenseTotal - packing.cost - returnRefunds + returnedCost,
     movements: { income: inc.filter((e) => NON_PNL_INCOME.has(e.category)), expense: exp.filter((e) => NON_PNL_EXPENSE.has(e.category)) },
   };
 }
