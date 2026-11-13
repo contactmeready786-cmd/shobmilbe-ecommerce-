@@ -14,11 +14,12 @@ const base = (over: Partial<H.Health> = {}): H.Health => ({
   checkedAt: new Date(), ...over,
 });
 
-test('limit: Supabase free plan by default, owner can set another', () => {
-  assert.equal(H.limitBytes({} as never), 500 * MB);
+test('limit: the server\'s own disk by default (the shop runs on its VPS), owner can set another', () => {
+  const disk = H.limitBytes({} as never);
+  assert.ok(disk >= 1024 * MB, 'the whole disk, or 30 000 MB when it can\'t be read'); // never the old 500 MB Supabase plan
   assert.equal(H.limitBytes({ db_limit_mb: '8192' } as never), 8192 * MB);
-  assert.equal(H.limitBytes({ db_limit_mb: 'abc' } as never), 500 * MB);
-  assert.equal(H.limitBytes({ db_limit_mb: '5' } as never), 500 * MB); // nonsense values ignored
+  assert.equal(H.limitBytes({ db_limit_mb: 'abc' } as never), disk);
+  assert.equal(H.limitBytes({ db_limit_mb: '5' } as never), disk); // nonsense values ignored
 });
 
 test('levels: warn at 80 %, bad at 90 %', () => {

@@ -40,6 +40,12 @@ test('order SMS text fills in the order', () => {
 
 test('SMS is "not ready" with a clear reason until it is set up', () => {
   assert.equal(SMS.ready({ sms_on: '0' } as never).ok, false);
-  assert.equal(SMS.ready({ sms_on: '1', sms_provider: 'textbee' } as never).ok, false);
-  assert.equal(SMS.ready({ sms_on: '1', sms_provider: 'textbee', sms_api_key: 'k' } as never).ok, true);
+  // the two SMS companies the shop offers (owner, 2026-11-13): both need the key AND the sender / username
+  for (const p of ['bulksmsbd', 'android']) {
+    assert.equal(SMS.ready({ sms_on: '1', sms_provider: p } as never).ok, false, p);
+    assert.equal(SMS.ready({ sms_on: '1', sms_provider: p, sms_api_key: 'k' } as never).ok, false, p);
+    assert.equal(SMS.ready({ sms_on: '1', sms_provider: p, sms_api_key: 'k', sms_sender_id: 's' } as never).ok, true, p);
+  }
+  // a company that is no longer offered falls back to BulkSMSBD (and its rules), never sends half set up
+  assert.equal(SMS.ready({ sms_on: '1', sms_provider: 'textbee', sms_api_key: 'k' } as never).ok, false);
 });
