@@ -290,3 +290,24 @@ export async function cspReport(ctx: ApiCtx) {
   }
   return new Response(null, { status: 204, headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store', ...security.BASE_HEADERS } });
 }
+
+// 🔎 "এটা এনে দিলে জানাবো?" — a search that found nothing leaves a number; the owner sees it in the search report and
+// hears at once (phone notification / e-mail), so the customer can be called when the product comes in.
+export async function searchRequest(ctx: ApiCtx) {
+  const b = await ctx.body();
+  if (b.website) return json(200, { ok: true, message: 'ধন্যবাদ!' });
+  if (!(await allow(ctx, 'searchreq:', 8, 3600))) return tooMany(ctx);
+  const q = str(b.q, 80).replace(/\s+/g, ' ').trim();
+  const phone = normalizePhone(b.phone);
+  const name = str(b.name, 60).trim();
+  if (q.length < 2) return json(400, { error: 'কী খুঁজছেন লিখুন।' });
+  if (!validPhone(phone)) return json(400, { error: 'সঠিক মোবাইল নম্বর দিন (যেমন 017XXXXXXXX)।' });
+  const vid = /^[A-Za-z0-9_-]{8,64}$/.test(String(b.v || '')) ? String(b.v) : '';
+  const dup = await db.one(`SELECT id FROM search_requests WHERE phone=$1 AND lower(q)=lower($2) AND created_at > now() - interval '7 days'`, [phone, q]);
+  if (!dup) {
+    const r = await db.one<{ id: number }>(`INSERT INTO search_requests(q, name, phone, visitor_id, ip) VALUES($1,$2,$3,$4,$5) RETURNING id`, [q, name, phone, vid, str(ctx.ip, 64)]);
+    const site = (ctx.settings.site_url || ctx.url.origin).replace(/\/+$/, '');
+    notify.searchRequest(ctx.settings, site, { id: r!.id, q, name, phone }).catch(() => {});
+  }
+  return json(200, { ok: true, message: `✅ ধন্যবাদ! "${q}" পেলেই ${phone} নম্বরে আমরা যোগাযোগ করব।` });
+}
