@@ -1,5 +1,29 @@
 # সবমিলবে — rules for anyone changing this code
 
+## 🖥️ Where the shop runs and how a change goes live (owner, 2026-11-13 — read this first)
+
+The shop no longer runs on Vercel. It runs on the owner's own **OVHcloud VPS** (51.79.166.142, Singapore, Ubuntu):
+Cloudflare → nginx → `next start` (systemd service `shobmilbe`, user `shop`, folder `/home/shop/app`), with its own
+PostgreSQL on the same server. Wherever older text in this file or in code comments says "Vercel", read "the VPS".
+
+**The owner only talks to Claude. Claude → GitHub → the VPS goes live by itself, exactly like Vercel did:**
+1. Make the change, keep the tests green (below), commit, and get it onto **main** — push to main, or open a pull
+   request and merge it (the owner wants the work finished, so merge it unless they asked to look first).
+2. `.github/workflows/tests.yml` runs; when it passes on main, `.github/workflows/deploy.yml` logs into the VPS with
+   the deploy key (repository secret `VPS_DEPLOY_KEY`) and runs `/usr/local/bin/shobmilbe-deploy`: newest main →
+   `npm ci` if package-lock changed → `npm run build` in a copy (`app-new`) → swap → restart → check the home page.
+   About 3–4 minutes after the push the site is live. Look at the Actions run "deploy" to confirm.
+3. Safety built in: tests fail → no deploy; build fails → the site keeps the old version; the new version doesn't
+   answer → the old one is put back by itself. All of these turn the run red (GitHub e-mails the owner).
+
+Never ask the owner to open a terminal, SSH, Vercel or the server for a normal change — that is what the pipeline is
+for. Never change files on the server directly: the deploy then stops on purpose (so that work isn't lost) until it
+is in git. Database layout changes need nothing extra: lib/db.ts migrates on start.
+Only these need someone on the server itself (tell the owner plainly, don't improvise): a new or changed secret or
+environment value (they live in `/etc/shobmilbe.env`, not in GitHub or Vercel — e.g. ENCRYPTION_KEY, DATABASE_URL,
+IMAGEKIT_*), nginx/Cloudflare/firewall changes, and the deploy script itself.
+The country block (services/geolock.ts) only looks at web pages: it never blocks SSH, so it never blocks a deploy.
+
 ## One setup per service — never ask the owner to enter the same thing twice
 
 The owner sets each outside service up **once**, in one admin page. Every feature — today's and any added later —
@@ -68,9 +92,10 @@ uses that one setup. Never add a second Gmail / App Password / SMS / API-key fie
   `javascript:` links — use `data-print` / `data-autosubmit` / `data-back` (client/admin/page-actions.ts) or client/admin.
   `tests/admin-scripts.test.ts` fails otherwise. Blocked scripts show up on Admin → সার্ভার ও ডাটাবেস (error list).
 - Tests (2026-10-17): every change must pass `.github/workflows/tests.yml` (typecheck + `npm test` + build) before it
-  goes to main. New money, OTP, order or security code gets a test in `tests/`. Database tests (`*.db.test.ts`) run only on
+  goes to main — main only goes live after they pass (deploy.yml waits for them). New money, OTP, order or security code gets a test in `tests/`. Database tests (`*.db.test.ts`) run only on
   `TEST_DATABASE_URL` (a throw-away Postgres) and refuse Supabase/Neon addresses. SMS in tests goes through
-  `sms.setFakeSender`.
+  `sms.setFakeSender`. SMS companies offered (owner, 2026-11-13): only `android` (own SIM app) and `bulksmsbd` — tests
+  use one of those two.
 - The database certificate is checked with the bundled Supabase root (lib/data/supabase-ca.ts, valid to 2031-04-26);
   if a check ever fails the shop keeps running encrypted-unchecked and the owner is e-mailed — never remove that net.
 
