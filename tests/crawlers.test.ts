@@ -90,6 +90,47 @@ test('country block: Facebook preview reads product pages, not checkout', async 
   assert.deepEqual(await geo.check(req(FB, '198.51.100.7', 'US') as never, '/api/orders', settings, 'POST'), { country: 'US' });
 });
 
+// owner, 2026-11-13: only ordinary visitors are shut out — Google, Facebook/Meta, TikTok, Claude and the shop's own
+// GitHub jobs never are.
+const TIKTOK = 'Mozilla/5.0 (Linux; Android 5.0) AppleWebKit/537.36 (KHTML, like Gecko) Mobile Safari/537.36 (compatible; TikTokSpider; ttspider-feedback@tiktok.com)';
+const META_ADS = 'meta-externalads/1.1 (+https://developers.facebook.com/docs/sharing/webmasters/crawler)';
+const META_INDEX = 'meta-webindexer/1.1 (+https://developers.facebook.com/docs/sharing/webmasters/crawler)';
+const CLAUDE_USER = 'Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; Claude-User/1.0; +Claude-User@anthropic.com)';
+const CLAUDE_SEARCH = 'Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; Claude-SearchBot/1.0; +Claude-SearchBot@anthropic.com)';
+const STOREBOT = 'Mozilla/5.0 (X11; Linux x86_64; Storebot-Google/1.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130 Safari/537.36';
+
+test('country block: TikTok, Meta and Claude crawlers read public pages from abroad', async () => {
+  for (const ua of [TIKTOK, META_ADS, META_INDEX, CLAUDE_USER, CLAUDE_SEARCH]) {
+    assert.ok(geo.isGoodBot(ua), ua);
+    assert.equal(await geo.check(req(ua, '198.51.100.7', 'US') as never, '/', settings, 'GET'), null, ua);
+    assert.equal(await geo.check(req(ua, '198.51.100.7', 'SG') as never, '/p/arduino-uno-r3', settings, 'GET'), null, ua);
+    // still only public pages: never the checkout or anything that changes data
+    assert.deepEqual(await geo.check(req(ua, '198.51.100.7', 'US') as never, '/checkout', settings, 'GET'), { country: 'US' }, ua);
+    assert.deepEqual(await geo.check(req(ua, '198.51.100.7', 'US') as never, '/api/orders', settings, 'POST'), { country: 'US' }, ua);
+  }
+});
+
+test('country block: Google shopping crawler from a Google address gets in', async () => {
+  assert.equal(await geo.check(req(STOREBOT, '66.249.66.1', 'US') as never, '/p/arduino-uno-r3', settings), null);
+  assert.deepEqual(await geo.check(req(STOREBOT, '198.51.100.7', 'US') as never, '/p/arduino-uno-r3', settings), { country: 'US' });
+});
+
+test('country block: the GitHub jobs and the deploy check are never shut out', async () => {
+  const CURL = 'curl/8.5.0';
+  for (const p of ['/api/research/tick', '/api/aistaff/tick', '/api/whiten-jobs', '/robots.txt', '/sitemap.xml', '/webhook/steadfast', '/pay/bkash/callback', '/feeds/google.xml']) {
+    assert.equal(await geo.check(req(CURL, '20.42.1.1', 'US') as never, p, settings), null, p);
+  }
+  // the auto-deploy checks the new version on the server itself: no country header → never shut out
+  assert.equal(await geo.check({ headers: { 'user-agent': CURL, 'x-real-ip': '127.0.0.1' } } as never, '/', settings), null);
+});
+
+test('country block: an ordinary visitor abroad is still shut out, at home let in', async () => {
+  assert.deepEqual(await geo.check(req(PHONE, '198.51.100.7', 'SG') as never, '/p/arduino-uno-r3', settings), { country: 'SG' });
+  assert.equal(await geo.check(req(PHONE, '103.4.1.1', 'BD') as never, '/checkout', settings), null);
+  // someone typing "TikTokSpider" gets public pages only — the same Google shows anyway
+  assert.deepEqual(await geo.check(req(TIKTOK, '198.51.100.7', 'US') as never, '/cart', settings), { country: 'US' });
+});
+
 test('robots.txt and sitemap stay open to everyone', async () => {
   assert.equal(await geo.check(req(PHONE, '198.51.100.7', 'US') as never, '/robots.txt', settings), null);
   assert.equal(await geo.check(req(PHONE, '198.51.100.7', 'US') as never, '/sitemap.xml', settings), null);
