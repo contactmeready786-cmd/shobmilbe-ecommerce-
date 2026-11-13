@@ -1712,3 +1712,84 @@ html[data-admin-lang="en"] .side-drop[data-side-group="দোকানের ড
 .tojpg-form { display: grid; gap: 8px; }
 .tojpg-form textarea { width: 100%; }
 .tojpg-img { width: 100%; aspect-ratio: 1; object-fit: contain; background: #fff; border-radius: 6px; border: 1px solid #eee; display: block; }
+
+/* ================================================================================================================
+   v3 (owner approved the sample, 2026-11-13): one calm, even look on every admin page — the same card, the same
+   button and field heights, the same table rows, the same status chips. Looks only: nothing here changes what is
+   shown, hidden or where it sits on a phone, so every page keeps working exactly as before.
+   ================================================================================================================ */
+body.admin { --a-line: #E3E9F2; --a-bg: #F4F6FA; --a-mut: #5B6B85; --a-r: 14px; background: var(--a-bg); }
+/* side menu: 44px rows, the open page in solid blue */
+body.admin .side { background: #14213D; padding: 16px 12px 30px; }
+body.admin .side a, body.admin .side-drop > summary { min-height: 42px; border-radius: 10px; padding: 0 12px; color: #C5D0E2; }
+body.admin .side-sub a { min-height: 38px; }
+body.admin .side a.on { background: var(--blue); color: #fff; font-weight: 600; }
+body.admin .side-logo { border-radius: 12px; }
+/* top bar */
+body.admin .topbar { min-height: 64px; border-bottom: 1px solid var(--a-line); }
+/* page: title, then cards on an even 16px rhythm */
+body.admin #main.admin-main { padding: 26px 26px 80px; }
+body.admin #main.admin-main > h1, body.admin #main.admin-main .title-row h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: 0; line-height: 1.25; }
+body.admin #main.admin-main > h1 { margin: 0 0 16px; }
+body.admin #main.admin-main .title-row { margin-bottom: 16px; min-height: 44px; }
+body.admin #main.admin-main .panel { border: 1px solid var(--a-line); border-radius: var(--a-r); padding: 20px; margin-bottom: 16px; box-shadow: none; }
+body.admin #main.admin-main .panel > h2:first-child, body.admin #main.admin-main .panel > .title-row:first-child { margin-top: 0; }
+body.admin #main.admin-main .panel h2 { font-size: 1.06rem; font-weight: 700; line-height: 1.35; }
+body.admin #main.admin-main .panel h2 small { font-weight: 500; color: var(--a-mut); font-size: .86rem; margin-left: 6px; }
+body.admin #main.admin-main .panel.table-wrap { padding: 0; overflow-x: auto; }
+body.admin #main.admin-main .panel.table-wrap > h2, body.admin #main.admin-main .panel.table-wrap > .title-row { padding: 18px 20px 12px; margin: 0; }
+body.admin #main.admin-main .panel.table-wrap > p { padding-left: 20px; padding-right: 20px; }
+body.admin #main.admin-main .two-col { gap: 16px; }
+/* numbers on top: plain cards, the colour only in the number and a thin line */
+body.admin #main.admin-main .kpis { gap: 16px; margin-bottom: 16px; }
+body.admin #main.admin-main .kpi { border: 1px solid var(--a-line); border-top: 3px solid var(--a-line); border-radius: var(--a-r); padding: 16px 18px; gap: 6px; min-height: 104px; justify-content: space-between; }
+body.admin #main.admin-main .kpi-label { font-size: .86rem; font-weight: 500; color: var(--a-mut); }
+body.admin #main.admin-main .kpi-value { font-size: 1.7rem; font-weight: 700; line-height: 1.1; }
+body.admin #main.admin-main .kpi-sub { font-size: .8rem; color: var(--a-mut); }
+body.admin #main.admin-main .kpi-blue { border-top-color: var(--blue); }
+body.admin #main.admin-main .kpi-green { border-top-color: var(--green); }
+body.admin #main.admin-main .kpi-amber, body.admin #main.admin-main .kpi-alert { border-top-color: var(--amber); }
+body.admin #main.admin-main .kpi-red { border-top-color: var(--red); }
+body.admin #main.admin-main a.kpi:hover { border-color: #BFD3FE; border-top-color: var(--blue); }
+/* tables: even rows, everything on the row's middle line */
+body.admin #main.admin-main .table th { height: 42px; padding: 0 16px; background: #F8FAFD; font-size: .8rem; font-weight: 600; color: var(--a-mut); border-bottom: 1px solid var(--a-line); vertical-align: middle; }
+body.admin #main.admin-main .table td { padding: 10px 16px; border-bottom: 1px solid var(--a-line); vertical-align: middle; }
+body.admin #main.admin-main .table tbody tr:last-child td { border-bottom: 0; }
+body.admin #main.admin-main .table tbody tr:hover td { background: #FAFCFF; }
+body.admin #main.admin-main .table.compact:has(thead) th { height: 38px; padding: 0 12px; }
+body.admin #main.admin-main .table.compact:has(thead) td { padding: 8px 12px; }
+body.admin #main.admin-main .table td .btn-sm, body.admin #main.admin-main .table td .pill { vertical-align: middle; }
+body.admin #main.admin-main .table td.num, body.admin #main.admin-main .table th.num { text-align: right; }
+/* buttons: one height each size, text always on the middle line */
+body.admin #main.admin-main .btn { min-height: 42px; padding: 0 18px; border-width: 1px; border-radius: 10px; font-size: .95rem; line-height: 1.2; }
+body.admin #main.admin-main .btn-sm { min-height: 34px; padding: 0 12px; border-radius: 8px; font-size: .88rem; }
+body.admin #main.admin-main .btn-lg { min-height: 48px; padding: 0 24px; }
+body.admin #main.admin-main .btn-ghost { background: #fff; color: var(--ink); border-color: var(--a-line); }
+body.admin #main.admin-main .btn-ghost:hover { background: var(--blue-l); border-color: #BFD3FE; color: var(--blue-d); }
+body.admin #main.admin-main .row-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+body.admin #main.admin-main .form-actions { gap: 10px; }
+/* fields: one height, a thin line, a clear focus ring */
+body.admin #main.admin-main .field { margin-bottom: 14px; }
+body.admin #main.admin-main .field > label { font-size: .9rem; font-weight: 600; color: var(--ink); }
+body.admin #main.admin-main .field input:not([type=radio]):not([type=checkbox]):not([type=file]):not([type=color]), body.admin #main.admin-main .field select { min-height: 42px; padding: 8px 12px; border: 1px solid #CBD6E4; border-radius: 10px; }
+body.admin #main.admin-main .field textarea { padding: 10px 12px; border: 1px solid #CBD6E4; border-radius: 10px; }
+body.admin #main.admin-main .field input:focus, body.admin #main.admin-main .field select:focus, body.admin #main.admin-main .field textarea:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px #DBE6FE; }
+body.admin #main.admin-main .field small { color: var(--a-mut); font-size: .82rem; line-height: 1.45; }
+body.admin #main.admin-main .field-row { gap: 14px; align-items: start; }
+/* switches, help boxes, messages, chips */
+body.admin #main.admin-main .switch-row { min-height: 56px; padding: 10px 14px; border: 1px solid var(--a-line); border-radius: 12px; margin-bottom: 10px; }
+body.admin #main.admin-main .switch-row:has(input:checked) { border-color: #BFD3FE; background: #F5F9FF; }
+body.admin #main.admin-main .help { border: 1px solid var(--a-line); border-radius: 12px; background: #fff; padding: 12px 14px; margin-bottom: 16px; }
+body.admin #main.admin-main .flash { border-radius: 12px; padding: 12px 14px; font-weight: 500; margin-bottom: 16px; }
+body.admin #main.admin-main .pill { display: inline-flex; align-items: center; min-height: 24px; padding: 0 10px; font-size: .78rem; font-weight: 600; }
+body.admin #main.admin-main .muted, body.admin #main.admin-main .small.muted { color: var(--a-mut); }
+body.admin #main.admin-main code { background: #F1F5FB; border-radius: 6px; padding: 1px 6px; font-size: .88em; }
+body.admin #main.admin-main ol.steps { padding-left: 22px; }
+body.admin #main.admin-main ol.steps > li { margin-bottom: 8px; line-height: 1.55; }
+@media (max-width: 900px) {
+  body.admin #main.admin-main { padding: 16px 12px 80px; }
+  body.admin #main.admin-main .panel { padding: 16px; }
+  body.admin #main.admin-main .panel.table-wrap > h2, body.admin #main.admin-main .panel.table-wrap > .title-row { padding: 16px 16px 10px; }
+  body.admin #main.admin-main .btn:not(.btn-sm) { min-height: 44px; }
+  body.admin #main.admin-main .kpi { min-height: 92px; }
+}
