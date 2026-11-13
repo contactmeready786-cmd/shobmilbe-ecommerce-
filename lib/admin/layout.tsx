@@ -66,6 +66,10 @@ const TABS: Record<string, Tab[]> = {
     ['/admin/marketing/app-invite', 'অ্যাপের কার্ড', 'marketing', 'appinvite', '📱'],
     ['/admin/marketing/restock', 'স্টকে এলে / দাম কমলে জানাও', 'marketing', 'restock', '⏰'],
   ],
+  autosocial: [
+    ['/admin/marketing/channels', 'সব প্ল্যাটফর্ম', 'marketing', 'channels', '📣'],
+    ['/admin/marketing/auto', 'Facebook, Instagram ও Telegram', 'marketing', 'automarketing', '🤖'],
+  ],
   gfb: [
     ['/admin/marketing/seo', 'SEO', 'marketing', 'seo', '🔎'],
     ['/admin/marketing/autoseo', 'অটো SEO', 'marketing', 'autoseo', '🤖'],
@@ -152,7 +156,7 @@ const MENU: { title: string; icon?: string; items: MenuItem[] }[] = [
     ['/admin/marketing/loyalty', 'লয়ালটি পয়েন্ট', 'marketing', 'loyalty', '🎖️'],
   ] },
   { title: 'মার্কেটিং', icon: '📣', items: [
-    ['/admin/marketing/auto', 'অটো মার্কেটিং (Facebook)', 'marketing', 'automarketing', '🤖'],
+    tabSet('autosocial', 'সোশ্যাল অটো পোস্ট', '📣'),
     ['/admin/reach', 'রিটার্গেটিং', 'owner', 'reach', '🎯'],
     tabSet('messages', 'কাস্টমারকে মেসেজ', '📱'),
     ['/admin/marketing/social', 'সোশ্যাল ও লাইভ চ্যাট', 'marketing', 'social', '💬'],

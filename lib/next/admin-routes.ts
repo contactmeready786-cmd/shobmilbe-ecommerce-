@@ -149,6 +149,8 @@ export const ADMIN_GET_ROUTES: (string | RegExp)[] = [
   "/admin/kits",
   /^\/admin\/kits\/(new|\d+)$/,
   "/admin/marketing/auto",
+  "/admin/marketing/channels/callback",
+  "/admin/marketing/channels",
   "/admin/marketing/autoseo",
   "/admin/products/source-pics",
   "/admin/stock-scan",

@@ -181,7 +181,7 @@ const SOURCES = [
   [/(^|\.)yandex\./, 'Yandex', 'organic'],
   [/(^|\.)(chatgpt\.com|openai\.com|perplexity\.ai|claude\.ai|gemini\.google\.com|copilot\.microsoft\.com)$/, 'AI চ্যাট', 'referral'],
 ];
-const UTM_NAMES: Record<string, string> = { fb: 'Facebook', facebook: 'Facebook', ig: 'Instagram', instagram: 'Instagram', tiktok: 'TikTok', google: 'Google', youtube: 'YouTube', yt: 'YouTube', messenger: 'Facebook', whatsapp: 'WhatsApp' };
+const UTM_NAMES: Record<string, string> = { fb: 'Facebook', facebook: 'Facebook', ig: 'Instagram', instagram: 'Instagram', tiktok: 'TikTok', google: 'Google', youtube: 'YouTube', yt: 'YouTube', messenger: 'Facebook', whatsapp: 'WhatsApp', threads: 'Threads', pinterest: 'Pinterest', telegram: 'Telegram' };
 
 function hostOf(u: string | URL) {
   try { return new URL(u).hostname.toLowerCase().replace(/^www\.|^m\.|^l\.|^lm\.|^mobile\./, ''); } catch (_) { return ''; }

@@ -356,13 +356,39 @@ async function postEngagement(settings: Settings, slot: string | null, kindWante
       : await graph(`${settings.autopost_page_id}/feed`, { method: 'POST', token: settings.autopost_page_token, params: { message: e.text } });
     const id = r.post_id || r.id;
     await record(`${base}:fb`, 'facebook', e.product ? e.product.id : null, true, id, '', e.kind, e.ref);
-    return { engagement: e.kind, fb: id, product: e.product };
+    const ig = await engageInstagram(settings, e, base);
+    return { engagement: e.kind, fb: id, product: e.product, ...ig };
   } catch (caught) { const err = caught as Caught;
     await record(`${base}:fb`, 'facebook', e.product ? e.product.id : null, false, '', err.message, e.kind, e.ref);
     await db.logIntegration('facebook-autopost', 'engage', false, err.message, e.kind);
     return { engagement: e.kind, fbError: err.message, product: e.product };
   }
 }
+// 📸 the same tip / quiz / project post on Instagram too (owner, 2026-11-13: "what goes on Facebook should go on
+// Instagram"). Instagram needs a picture, so a text-only post stays on Facebook.
+async function engageInstagram(settings: Settings, e: { kind: string; ref: string; text: string; product?: { id: number | null; image_id: unknown } | null }, base: string): Promise<{ ig?: string; igError?: string }> {
+  if (settings.autopost_ig !== '1' || !settings.autopost_ig_id || !e.product || !e.product.image_id) return {};
+  const text = e.text.replace(/utm_source=facebook/g, 'utm_source=instagram').replace(/পেজটা ফলো করে রাখুন/g, 'অ্যাকাউন্টটা ফলো করে রাখুন').replace(/পেজ ফলো করে রাখুন/g, 'অ্যাকাউন্ট ফলো করে রাখুন').slice(0, 2150);
+  try {
+    const token = settings.autopost_page_token;
+    const box = await graph(`${settings.autopost_ig_id}/media`, { method: 'POST', token, params: { image_url: await imageUrl(e.product, settings), caption: text } });
+    let lastErr: unknown = null;
+    for (let i = 0; i < 4; i++) {
+      await new Promise((res) => setTimeout(res, 3000));
+      try {
+        const r = await graph(`${settings.autopost_ig_id}/media_publish`, { method: 'POST', token, params: { creation_id: box.id as string } });
+        await record(`${base}:ig`, 'instagram', e.product.id, true, r.id, '', e.kind, e.ref);
+        return { ig: r.id };
+      } catch (err) { lastErr = err; }
+    }
+    throw lastErr || new Error('Instagram পোস্ট হলো না');
+  } catch (caught) { const err = caught as Caught;
+    await record(`${base}:ig`, 'instagram', e.product.id, false, '', err.message, e.kind, e.ref);
+    await db.logIntegration('instagram-autopost', 'engage', false, err.message, e.kind);
+    return { igError: err.message };
+  }
+}
+
 // Is this slot an engagement one? The first picked hour each day; with only one hour, every other day.
 function engagementSlot(settings: Settings, hour: number, day: string) {
   if (settings.autopost_engage === '0') return false;

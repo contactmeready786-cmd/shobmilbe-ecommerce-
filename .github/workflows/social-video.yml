@@ -1,0 +1,56 @@
+# 🎬 সোশ্যাল ভিডিও (owner, 2026-11-13): the short product videos YouTube Shorts and TikTok need are made here, on
+# GitHub's free computers (this repository is public) — never on the shop's server or the owner's phone.
+# Every 2 hours: a quick look at GET /api/social-video-jobs (empty unless YouTube or TikTok posting is switched on);
+# when products wait, tools/socialvideo/make.py makes each video with ffmpeg and the newest 40 are kept on the
+# `social-videos` branch (one commit, replaced each time, so the repository never grows). The shop reads them there.
+name: social-video
+on:
+  schedule:
+    - cron: '23 */2 * * *'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: social-video
+  cancel-in-progress: false
+jobs:
+  video:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      SHOP: https://shobmilbe.com
+    steps:
+      - name: Anything waiting?
+        id: look
+        run: |
+          code=$(curl -sS -o jobs.json -w '%{http_code}' -A shobmilbe-social-video "$SHOP/api/social-video-jobs" || echo 000)
+          n=$(python3 -c 'import json; print(len(json.load(open("jobs.json")).get("jobs", [])))' 2>/dev/null || echo 0)
+          if [ "$code" != 200 ]; then echo "::warning::the shop's list answered $code"; n=0; fi
+          echo "waiting: $n"; echo "n=$n" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v7
+        if: steps.look.outputs.n != '0'
+        with:
+          sparse-checkout: tools/socialvideo
+      - name: Make the videos
+        if: steps.look.outputs.n != '0'
+        env:
+          TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -eu
+          command -v ffmpeg >/dev/null || { sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg; }
+          URL="https://x-access-token:${TOKEN}@github.com/${REPO}.git"
+          if git ls-remote --exit-code "$URL" social-videos >/dev/null; then
+            git clone -q --depth 1 --branch social-videos "$URL" /tmp/vid
+          else
+            git init -q -b social-videos /tmp/vid && git -C /tmp/vid remote add origin "$URL"
+            echo '{}' > /tmp/vid/index.json
+          fi
+          echo '# Short product videos made by .github/workflows/social-video.yml — read by the shop (lib/services/social.ts)' > /tmp/vid/README.md
+          python3 tools/socialvideo/make.py --shop "$SHOP" --out /tmp/vid
+          cd /tmp/vid
+          git config user.name social-video && git config user.email actions@github.com
+          git checkout -q --orphan fresh
+          git add -A
+          git commit -q -m "videos $(date -u +%F' '%H:%M)"
+          git push -q -f origin fresh:social-videos

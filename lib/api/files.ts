@@ -218,6 +218,8 @@ export async function researchTick(ctx: ApiCtx) {
   try { await $services_fbreply.run(settings); } catch (e) { console.error('fbreply', (e as Error).message); }
   // ✈️ the same daily posts to the shop's Telegram channel (when one is connected)
   try { await $services_telegram.tick(settings); } catch (e) { console.error('telegram', (e as Error).message); }
+  // 📣 Threads, Pinterest, YouTube Shorts, TikTok — each at its own hours (lib/services/social.ts)
+  try { await (await import('../services/social')).tick(settings); } catch (e) { console.error('social', (e as Error).message); }
   try { await $services_autoblog.run(settings, { max: 1 }); } catch (e) { console.error('autoblog', (e as Error).message); }
   // 📧 ইমেইল মার্কেটিং: welcome / review / weekly new products / campaigns / 'we miss you' (within the day's allowance)
   try { await $services_mailer.tick(settings); } catch (e) { console.error('mailer', (e as Error).message); }

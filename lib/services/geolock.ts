@@ -34,7 +34,7 @@ const BLOCK_PATH = '/__region';
 // and Claude's work on the server; the deploy's own check of the new version (localhost, no country header).
 // paths other servers call, or that crawlers need, which must answer from anywhere
 // (GitHub Actions call /api/research|aistaff/tick, /api/whiten-jobs; the live-check accepts the country page)
-const OPEN_PATHS = /^\/(e\/[oc]\/|unsubscribe$|webhook\/|pay\/|media\/|img\/|brand\/|feeds\/|api\/(research|backup|aistaff)\/tick$|api\/whiten-jobs$|robots\.txt$|sitemap[^/]*\.xml$|[a-f0-9]{32}\.txt$|google[a-f0-9]{8,32}\.html$|BingSiteAuth\.xml$|yandex_[a-f0-9]+\.html$|favicon|__region)/;
+const OPEN_PATHS = /^\/(e\/[oc]\/|unsubscribe$|webhook\/|pay\/|media\/|img\/|brand\/|feeds\/|api\/(research|backup|aistaff)\/tick$|api\/(whiten-jobs|social-video-jobs)$|robots\.txt$|sitemap[^/]*\.xml$|[a-f0-9]{32}\.txt$|google[a-f0-9]{8,32}\.html$|BingSiteAuth\.xml$|yandex_[a-f0-9]+\.html$|favicon|__region)/;
 
 /** country code → the time zones a browser there reports */
 const ZONES: Record<string, string[]> = COUNTRIES;

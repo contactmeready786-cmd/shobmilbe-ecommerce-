@@ -81,6 +81,7 @@ import * as $searchreport from './searchreport';
 import * as $complaints from './complaints';
 import * as $kits from './kits';
 import * as $automarketing from './automarketing';
+import * as $channels from './channels';
 import * as $autoseo from './autoseo';
 import * as $sourcepics from './sourcepics';
 import * as $testclear from './testclear';
@@ -111,7 +112,7 @@ const MODULES = [$dashboard, $orders, $import, $morepics, $watermark,
   $labels, $documents, $handover, $qa, $variants, $custaccounts,
   $returns, $giftcards, $shoppush, $appinvite, $pos, $warehouses, $codsettle,
   $supplierledger, $fraud, $checkoutotp, $searchreport, $complaints, $kits,
-  $automarketing, $autoseo, $sourcepics, $testclear, $stockscan, $setupmarks,
+  $automarketing, $channels, $autoseo, $sourcepics, $testclear, $stockscan, $setupmarks,
   $ledger, $email, $packingadmin, $whiten, $descclean, $aistaff];
 const ROUTES: AdminRoute[] = MODULES.flatMap((m): readonly AdminRoute[] => m.routes);
 
