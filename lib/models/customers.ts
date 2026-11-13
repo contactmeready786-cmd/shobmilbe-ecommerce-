@@ -148,7 +148,7 @@ export type Blocked = BlocklistRow & { staff_name: string | null; customer_name:
 async function listBlocked(): Promise<Blocked[]> {
   return q<Blocked>(`SELECT b.*, s.name AS staff_name, c.name AS customer_name, c.id AS customer_id FROM blocklist b
             LEFT JOIN staff s ON s.id=b.created_by LEFT JOIN customers c ON b.kind='phone' AND c.phone=b.value
-            ORDER BY b.created_at DESC`);
+            WHERE b.kind <> 'trust' ORDER BY b.created_at DESC`);
 }
 
 export { SEGMENTS, segmentCounts, addresses, allTags, cleanTags, upsertCustomer, listCustomers, countCustomers, getCustomer, updateCustomer, phoneStats, riskOf, isBlocked, block, unblock, unblockValue, listBlocked };

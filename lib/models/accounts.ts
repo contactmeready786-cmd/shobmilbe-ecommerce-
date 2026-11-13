@@ -34,7 +34,7 @@ class AccountError extends Error {}
 
 const on = (s: Settings) => s.acct_on === '1';
 // which ways in are working right now (a tab is shown only for a way that works)
-const phoneReady = (s: Settings) => $services_sms.ready(s).ok;
+const phoneReady = (s: Settings) => s.acct_phone_otp !== '0' && $services_sms.ready(s).ok;
 const emailReady = (s: Settings) => $services_notify.acctEmailConfig(s).ready;
 const validEmail = (e: string) => $services_notify.validEmail(e);
 const cleanEmail = (e: unknown) => String(e || '').trim().toLowerCase().slice(0, 120);
@@ -182,7 +182,7 @@ async function loginWithPassword(email: unknown, password: unknown, ip: string):
 // ---------- the login cookie: signed customer id + a version (bumped by "log out everywhere") ----------
 function cookieFor(req: Pick<ShopRequest, 'headers'>, settings: Settings, cu: Pick<Customer, 'id' | 'session_ver'>): string {
   const v = sign(`cu:${cu.id}:${cu.session_ver || 1}:${Date.now()}`, settings.session_secret);
-  const secure = String(req.headers['x-forwarded-proto'] || '').includes('https') ? '; Secure' : '';
+  const secure = String(req.headers['x-shop-proto'] || '').includes('https') ? '; Secure' : '';
   return `sm_cust=${encodeURIComponent(v)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${SESSION_DAYS * 86400}${secure}`;
 }
 const CLEAR = 'sm_cust=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax';
