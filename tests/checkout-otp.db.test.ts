@@ -21,8 +21,9 @@ let sent: Sent[] = [];
 let smsWorks = true;
 let base: Record<string, string> = {};
 const req = { headers: {} };
-// SMS on (through the fake), OTP on, no daily cap
-const S = (over: Record<string, string> = {}) => ({ ...base, co_otp_on: '1', sms_on: '1', sms_provider: 'custom', sms_custom_url: 'https://sms.example.com/?to={to}&m={message}', co_otp_daily_cap: '0', ...over }) as never;
+// SMS on (through the fake), OTP on, no daily cap. BulkSMSBD = one of the two SMS companies the shop offers
+// (owner, 2026-11-13: own SIM app or BulkSMSBD); the fake sender stands in for it, nothing is really sent.
+const S = (over: Record<string, string> = {}) => ({ ...base, co_otp_on: '1', sms_on: '1', sms_provider: 'bulksmsbd', sms_api_key: 'test-key', sms_sender_id: 'TEST', co_otp_daily_cap: '0', ...over }) as never;
 const codeIn = (t: string) => (t.match(/\b(\d{4})\b/) || [])[1];
 let n = 0;
 const newPhone = () => `0171${String(Date.now() % 1000000).padStart(6, '0').slice(0, 4)}${String(++n).padStart(3, '0')}`.slice(0, 11);

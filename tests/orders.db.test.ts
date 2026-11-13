@@ -143,7 +143,7 @@ test('a status change sends the customer\'s SMS wherever it is made (no other fi
   const sms = await import('../lib/services/sms');
   const sent: string[] = [];
   sms.setFakeSender(async (phone, text) => { sent.push(`${phone}: ${text}`); return { ok: true, msg: 'ok' }; });
-  for (const [k, v] of Object.entries({ sms_on: '1', sms_provider: 'custom', sms_custom_url: 'https://sms.test/send', sms_on_confirmed: '1' })) await db.setSetting(k, v);
+  for (const [k, v] of Object.entries({ sms_on: '1', sms_provider: 'bulksmsbd', sms_api_key: 'test-key', sms_sender_id: 'TEST', sms_on_confirmed: '1' })) await db.setSetting(k, v);
   try {
     const id = await product(120, 5);
     const r = await O.createOrder({ items: [{ id, qty: 1 }], name: 'এসএমএস টেস্ট', phone: '01710000088', address: 'বাসা ৯, রোড ১', district: 'Dhaka', thana: 'Banani', payment: 'cod', source: 'web', ip: '10.9.9.8' }, S());
