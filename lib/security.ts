@@ -115,7 +115,8 @@ const BASE_HEADERS: Record<string, string> = {
   'Referrer-Policy': 'strict-origin-when-cross-origin',
   'X-Frame-Options': 'SAMEORIGIN',
   'Strict-Transport-Security': 'max-age=63072000; includeSubDomains',
-  'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), usb=(), payment=(self)',
+  // geolocation=(self): only the checkout's "আমার লোকেশন দিয়ে ঠিকানা বসান" button asks, and only when pressed
+  'Permissions-Policy': 'camera=(), microphone=(), geolocation=(self), usb=(), payment=(self)',
   'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
   // Store pages: allow the marketing tools (Facebook, TikTok, Google, chat), but no plugins, no other site framing us,
   // and forms may only send data to this site, the payment gateways and the Facebook pixel (it posts big events as a form).

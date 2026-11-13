@@ -76,6 +76,7 @@ function runCheckout(checkout: HTMLElement): void {
 
   void fillGeo(form).then((g) => {
     if (!g) return;
+    locationButton(form, g);
     try {
       // logged-in customers already have their saved address filled in by the page
       const saved = form.hasAttribute('data-account') ? null : readJson<Record<string, string> | null>('sm_customer', null);
@@ -411,6 +412,7 @@ function runCheckout(checkout: HTMLElement): void {
       trx: el('trx') ? val('trx').trim() : '', payment_number: el('payment_number') ? val('payment_number').trim() : '',
       items: state.lines.map((l) => ({ id: l.product.id, qty: l.qty })),
       use_points: state.usePoints ? '1' : '', gift_code: state.gift ? state.gift.code : '',
+      geo_lat: form.dataset.geoLat || '', geo_lng: form.dataset.geoLng || '', geo_acc: form.dataset.geoAcc || '',
     };
     const sub = totals().subtotal;
     if (minShort(sub)) return showError(minNote(sub));
@@ -643,4 +645,35 @@ function checkoutOtp(
     },
     rejected(): void { otp.asked = ''; checkPhone(); },
   };
+}
+
+// 📍 "আমার লোকেশন দিয়ে ঠিকানা বসান" (owner, 2026-11-13): a button under the address box. Only when the customer presses
+// it does the phone ask "allow location?"; the place then fills the address (road, area) and the district, and goes
+// with the order so the courier finds the door. Not pressing it changes nothing — the address is typed as always.
+// (Not shown inside the Android app, whose page view can't ask for the location.)
+function locationButton(form: HTMLFormElement, g: { district: HTMLSelectElement; thana: HTMLSelectElement }): void {
+  const box = form.elements.namedItem('address') as HTMLTextAreaElement | null;
+  if (!box || !('geolocation' in navigator) || /ShobmilbeApp\//.test(navigator.userAgent) || $('[data-geo-btn]', form)) return;
+  const note = <span className="small muted" data-geo-note="" role="status"></span>;
+  const btn = <button type="button" className="btn btn-sm btn-ghost" data-geo-btn="">📍 আমার লোকেশন দিয়ে ঠিকানা বসান</button> as HTMLButtonElement;
+  const say = (t: string) => { note.textContent = t; };
+  btn.addEventListener('click', () => {
+    btn.disabled = true;
+    say('লোকেশন খোঁজা হচ্ছে… ফোন অনুমতি চাইলে "Allow" চাপুন।');
+    navigator.geolocation.getCurrentPosition(async (pos) => {
+      const { latitude, longitude, accuracy } = pos.coords;
+      form.dataset.geoLat = String(latitude); form.dataset.geoLng = String(longitude); form.dataset.geoAcc = String(Math.round(accuracy || 0));
+      try {
+        const { ok, j } = await postJson<{ address?: string; district?: string; error?: string }>('/api/geo/reverse', { lat: latitude, lng: longitude });
+        if (!ok) { delete form.dataset.geoLat; delete form.dataset.geoLng; delete form.dataset.geoAcc; say(j.error || 'লোকেশনটা নেওয়া গেল না — ঠিকানা লিখে দিন।'); return; }
+        if (j.address && (!box.value.trim() || box.dataset.geoFilled === box.value)) { box.value = j.address; box.dataset.geoFilled = j.address; }
+        if (j.district && !g.district.value) { g.district.value = j.district; g.district.dispatchEvent(new Event('change', { bubbles: true })); }
+        say(j.address ? '✅ লোকেশন যোগ হয়েছে। ঠিকানাটা মিলিয়ে নিন — বাসা/ফ্ল্যাট নম্বর আর থানা নিজে দিন।' : '✅ লোকেশন যোগ হয়েছে। ঠিকানাটা নিজে লিখে দিন।');
+      } catch { say('✅ লোকেশন যোগ হয়েছে। ঠিকানাটা নিজে লিখে দিন।'); } finally { btn.disabled = false; }
+    }, (err) => {
+      btn.disabled = false;
+      say(err.code === err.PERMISSION_DENIED ? 'লোকেশনের অনুমতি দেওয়া হয়নি — সমস্যা নেই, ঠিকানা লিখে দিন।' : 'লোকেশন পাওয়া গেল না (ফোনের লোকেশন/GPS চালু আছে?) — ঠিকানা লিখে দিন।');
+    }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 });
+  });
+  box.insertAdjacentElement('afterend', <p className="geo-row">{btn} {note}</p>);
 }

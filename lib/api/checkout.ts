@@ -2,6 +2,7 @@
 // checked here on the server, never trusted from the browser. Served by app/api/orders and app/api/checkout-otp/*
 // (lib/next/api.ts runs the gate first). Moved here from lib/site.ts unchanged; tests/orders.db.test.ts and
 // tests/checkout-otp.db.test.ts cover the order and code rules.
+import { cleanPoint } from './georeverse';
 import * as db from '../db';
 import * as O from '../models/orders';
 import * as customers from '../models/customers';
@@ -132,6 +133,9 @@ export async function placeOrder(ctx: ApiCtx) {
     const acct = await $models_accounts.current(ctx.req, settings).catch(() => null);
     if (acct) await db.q('UPDATE orders SET account_id=$1 WHERE id=$2', [acct.id, order.id]).catch(() => {});
     if (consented) await db.q('UPDATE orders SET consent_at=now() WHERE id=$1', [order.id]).catch(() => {});
+    // 📍 the place the customer chose to share with the "আমার লোকেশন" button (helps the courier find the address)
+    { const g = cleanPoint(body.geo_lat, body.geo_lng, body.geo_acc);
+      if (g) await db.q('UPDATE orders SET geo_lat=$1, geo_lng=$2, geo_acc=$3 WHERE id=$4', [g.lat, g.lng, g.acc || null, order.id]).catch(() => {}); }
     // 🎁 "অফারের খবর পেতে চাই" at checkout: tick = offer e-mails (when an e-mail was given) and offer SMS; no tick = no offer SMS
     {
       const wants = body.promo === '1' || body.promo === true;

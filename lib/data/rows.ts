@@ -792,6 +792,9 @@ export type OrdersRow = {
   phone_check: string;
   consent_at: Date | null;
   account_id: number | null;
+  geo_lat: number | null;
+  geo_lng: number | null;
+  geo_acc: number | null;
 };
 
 /** A row of owner_faces. */

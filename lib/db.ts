@@ -1013,6 +1013,12 @@ CREATE TABLE IF NOT EXISTS geo_blocks (
   `
 ALTER TABLE social_posts ADD COLUMN IF NOT EXISTS kind text NOT NULL DEFAULT 'product';
 ALTER TABLE social_posts ADD COLUMN IF NOT EXISTS ref text NOT NULL DEFAULT '';
+`,  // 📍 the place the customer's phone gave at checkout (only when they pressed "আমার লোকেশন দিয়ে ঠিকানা বসান" and
+  // allowed it): latitude, longitude and how exact it is in metres (owner, 2026-11-13)
+  `
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS geo_lat numeric(9,6);
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS geo_lng numeric(9,6);
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS geo_acc int;
 `,
   // 💰 রাউন্ড ফিগার দাম (owner, 2026-10-13): ৳10 or more never carries paisa — ৳10.04 / ৳10.50 → ৳11 (below ৳10 paisa stay)
   `
