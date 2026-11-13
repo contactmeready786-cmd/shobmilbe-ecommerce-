@@ -1532,6 +1532,7 @@ function ensureReady(): Promise<void> {
         for (const r of rows) {
           if (r.value && !security.isEncrypted(r.value)) await q('UPDATE settings SET value=$1 WHERE key=$2', [security.encrypt(r.value), r.key]);
         }
+        // first time only; after a key change loadSettings() brings it up to date once nothing old is left
         const fp = await one("SELECT value FROM settings WHERE key='enc_key_fp'");
         if (!fp) await q("INSERT INTO settings(key,value) VALUES('enc_key_fp',$1) ON CONFLICT DO NOTHING", [security.keyFingerprint()]);
       }
@@ -1744,7 +1745,27 @@ async function loadSettings(): Promise<Settings> {
   // tells the admin dashboard to warn if the key went missing or was changed
   s.__secrets_locked = locked ? String(locked) : '';
   s.__secrets_locked_keys = lockedKeys.join(',');
+  // 🔑 enc_key_fp is the fingerprint of the key the saved secrets are locked with. After ENCRYPTION_KEY was changed
+  // the security page warns for as long as something locked with the old key is left. Once nothing is (the owner
+  // typed each one again or pressed "মুছে দিন"), the new key is the shop's key: its fingerprint is saved here by
+  // itself and the warning goes away. Never lets a settings read fail.
+  if (!locked && security.hasKey() && s.enc_key_fp !== security.keyFingerprint()) {
+    try {
+      if (!(await staffCodesLocked()).length) {
+        const fp = security.keyFingerprint();
+        await q("INSERT INTO settings(key,value) VALUES('enc_key_fp',$1) ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value", [fp]);
+        s.enc_key_fp = fp;
+      }
+    } catch (e) { console.error('enc_key_fp', (e as Error).message); }
+  }
   return s;
+}
+/** Staff whose authenticator code (two-step login, switched on) was locked with another key and can't be read any
+ * more — the only thing besides the settings above that ENCRYPTION_KEY locks. The owner's login uses the passkey. */
+async function staffCodesLocked(): Promise<string[]> {
+  const rows = await q<{ name: string; username: string; totp_secret: string }>(
+    "SELECT name, username, totp_secret FROM staff WHERE totp_on AND role <> 'owner' AND totp_secret LIKE 'enc:v1:%' ORDER BY id");
+  return rows.filter((r) => !security.decrypt(r.totp_secret)).map((r) => r.name || r.username);
 }
 async function setSetting(key: string, value: unknown): Promise<void> {
   const v = String(value ?? '');
@@ -1786,4 +1807,4 @@ async function uniqueSlug(table: string, base: string, exceptId: number | null =
   return `${base}-${randomCode(4).toLowerCase()}`;
 }
 
-export { pg, q, one, tx, txRetry, ensureReady, lockPublicApi, getSettings, setSetting, setMany, jsonSetting, DEFAULT_SETTINGS, SECRET_KEYS, logActivity, logIntegration, uniqueSlug };
+export { pg, q, one, tx, txRetry, ensureReady, lockPublicApi, getSettings, staffCodesLocked, setSetting, setMany, jsonSetting, DEFAULT_SETTINGS, SECRET_KEYS, logActivity, logIntegration, uniqueSlug };
