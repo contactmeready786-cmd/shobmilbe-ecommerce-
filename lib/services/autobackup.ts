@@ -3,15 +3,19 @@
 //    locked with a password (AES-256-GCM), uploaded to ImageKit under /shobmilbe/backups with a random name.
 //  - Started by the daily Vercel cron and, as a spare, by the hourly market-research tick; it only runs when
 //    the last good automatic backup is more than 20 hours old.
-//  - The newest 30 are kept; older ones are removed from ImageKit.
+//  - Owner, 2026-11-13: only the running day's and the day before's are kept (the newest 2); older ones are removed
+//    from ImageKit — and the server's own nightly copies (/var/backups/shobmilbe) are cut to the newest 2 too.
 import * as crypto from 'node:crypto';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import * as db from '../db';
 import * as backup from './backup';
 import * as imagekit from './imagekit';
 import type { Body, Caught } from '../types';
 import type { BackupsRow, SettingsRow } from '../data/rows';
 
-const KEEP = 30;
+const KEEP = 2;
+export const LOCAL_DIR = '/var/backups/shobmilbe';
 
 // The password that locks the files. From Vercel (BACKUP_PASSWORD, or made from ENCRYPTION_KEY) when there,
 // so it survives even if the database is lost; otherwise one made once and kept in the settings.
@@ -51,11 +55,8 @@ async function run({ force = false }: RunOpts = {}) {
     const up = await imagekit.upload(r.buffer, 'application/octet-stream', name, 'backups', name);
     await db.q(`INSERT INTO backups(kind, ok, size_bytes, tables, rows_count, with_images, encrypted, note, ik_id, ik_url)
       VALUES('auto', true, $1, $2, $3, true, true, 'ImageKit', $4, $5)`, [r.buffer.length, r.tables, r.rows, up.fileId, up.url]);
-    // keep the newest KEEP automatic backups
-    const old = await db.q<Pick<BackupsRow, 'id' | 'ik_id'>>(`SELECT id, ik_id FROM backups WHERE kind='auto' AND ik_id IS NOT NULL ORDER BY created_at DESC OFFSET ${KEEP}`);
-    for (const o of old) {
-      try { if (await imagekit.remove(o.ik_id)) await db.q('UPDATE backups SET ik_id=NULL, ik_url=NULL, note=$1 WHERE id=$2', ['পুরনো, মুছে ফেলা হয়েছে', o.id]); } catch (_) { /* next time */ }
-    }
+    await pruneRemote();
+    pruneLocal();
     return { ok: true, size: r.buffer.length, rows: r.rows };
   } catch (caught) { const e = caught as Caught;
     await db.q(`INSERT INTO backups(kind, ok, note) VALUES('auto', false, $1)`, [String(e.message).slice(0, 300)]).catch(() => {});
@@ -63,6 +64,27 @@ async function run({ force = false }: RunOpts = {}) {
   } finally {
     await db.q(`UPDATE settings SET value=NULL WHERE key='auto_backup_lease'`).catch(() => {});
   }
+}
+
+/** ImageKit: keep the newest KEEP automatic backups, remove the older files (their rows stay, marked as removed) */
+export async function pruneRemote(): Promise<number> {
+  const old = await db.q<Pick<BackupsRow, 'id' | 'ik_id'>>(`SELECT id, ik_id FROM backups WHERE kind='auto' AND ok AND ik_id IS NOT NULL ORDER BY created_at DESC OFFSET ${KEEP}`).catch(() => []);
+  let n = 0;
+  for (const o of old) {
+    try { if (await imagekit.remove(o.ik_id)) { await db.q('UPDATE backups SET ik_id=NULL, ik_url=NULL, note=$1 WHERE id=$2', ['পুরনো, মুছে ফেলা হয়েছে', o.id]); n++; } } catch (_) { /* next time */ }
+  }
+  return n;
+}
+/** the server's own nightly database copies (cron pg_dump): keep the newest KEEP, delete the rest. Answers how many
+ *  were deleted, or -1 when the folder can't be changed from the website (then the server's cron keeps its own count). */
+export function pruneLocal(dir = LOCAL_DIR): number {
+  try {
+    const files = fs.readdirSync(dir).filter((f) => /^db-.*\.dump$/.test(f))
+      .map((f) => ({ f, t: fs.statSync(path.join(dir, f)).mtimeMs })).sort((a, b) => b.t - a.t);
+    let n = 0;
+    for (const x of files.slice(KEEP)) { fs.unlinkSync(path.join(dir, x.f)); n++; }
+    return n;
+  } catch { return -1; }
 }
 
 export { run, password, due, KEEP };

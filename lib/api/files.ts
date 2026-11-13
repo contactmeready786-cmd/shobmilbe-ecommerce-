@@ -226,6 +226,8 @@ export async function researchTick(ctx: ApiCtx) {
   // 📧 ইমেইল মার্কেটিং: welcome / review / weekly new products / campaigns / 'we miss you' (within the day's allowance)
   await P.timeJob('ইমেইল মার্কেটিং', () => $services_mailer.tick(settings));
   await P.timeJob('ব্যাকআপ', () => $services_autobackup.run());
+  // 🗂️ owner, 2026-11-13: only today's and yesterday's backups are kept — older ones deleted (ImageKit + the server)
+  await P.timeJob('পুরনো ব্যাকআপ মোছা', async () => { await $services_autobackup.pruneRemote(); $services_autobackup.pruneLocal(); });
   return json(200, { ok: true, done: !r.skipped && !r.idle });
 }
 
