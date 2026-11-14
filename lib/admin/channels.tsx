@@ -1,4 +1,4 @@
-// Admin → মার্কেটিং → 📣 সোশ্যাল অটো পোস্ট (owner, 2026-11-13): one page with every platform the shop posts on by
+// Admin → মার্কেটিং → 📣 সোশ্যাল মিডিয়া অটো পোস্ট (owner, 2026-11-13): one page with every platform the shop posts on by
 // itself — Facebook, Instagram, Threads, Pinterest, YouTube Shorts, TikTok, Telegram — what each is doing, how to
 // connect it (step by step, so the owner can do it again alone), its own posting hours, and the real result: how many
 // visits and orders came from each platform. Facebook, Instagram and Telegram keep their settings on the
@@ -172,7 +172,7 @@ async function page(ctx: AdminCtx) {
   };
 
   const body = <>
-    <div className="title-row"><h1>📣 সোশ্যাল অটো পোস্ট</h1><div className="row-actions"><a className="btn btn-ghost btn-sm" href={attrValue(BASE)}>🔄 রিফ্রেশ</a></div></div>
+    <div className="title-row"><h1>📣 সোশ্যাল মিডিয়া অটো পোস্ট</h1><div className="row-actions"><a className="btn btn-ghost btn-sm" href={attrValue(BASE)}>🔄 রিফ্রেশ</a></div></div>
     {ui.flash(ctx.flash)}
     <div className="kpis kpis-tight">
       {ui.kpi('চালু প্ল্যাটফর্ম', `${bn(onCount)} / ${bn(cards.length)}`, 'নিজে থেকে পোস্ট হচ্ছে')}{' '}
@@ -226,7 +226,7 @@ async function page(ctx: AdminCtx) {
       </tbody></table> : <p className="muted">এখনো কোনো পোস্ট হয়নি।</p>}
     </section>
   </>;
-  return ctx.page('সোশ্যাল অটো পোস্ট', body, 'channels');
+  return ctx.page('সোশ্যাল মিডিয়া অটো পোস্ট', body, 'channels');
 }
 
 export const routes = [

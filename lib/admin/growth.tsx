@@ -13,8 +13,10 @@ import type { AdminCtx, Body } from '../types';
 const ok = (b: unknown) => (b ? '✅' : '❌');
 const pct = (a: number, b: number) => (b ? Math.round((a * 100) / b) : 0);
 
+// The week number by Bangladesh's calendar (UTC+6 all year) — the server's own clock is UTC.
 function isoWeek(d = new Date()) {
-  const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const bd = new Date(d.getTime() + 6 * 3600e3);
+  const t = new Date(Date.UTC(bd.getUTCFullYear(), bd.getUTCMonth(), bd.getUTCDate()));
   const day = t.getUTCDay() || 7;
   t.setUTCDate(t.getUTCDate() + 4 - day);
   const y = new Date(Date.UTC(t.getUTCFullYear(), 0, 1));
@@ -62,17 +64,25 @@ async function page(ctx: AdminCtx) {
       count(*) FILTER (WHERE coalesce(seo_keywords,'') = '')::int AS no_kw,
       count(*) FILTER (WHERE coalesce(brand,'') = '')::int AS no_brand,
       count(*) FILTER (WHERE category_id IS NULL)::int AS no_cat,
-      count(*) FILTER (WHERE stock <= 0 AND product_type='single')::int AS out_stock,
+      count(*) FILTER (WHERE stock <= 0 AND product_type='single' AND variant_count = 0)::int AS out_stock,
       count(*) FILTER (WHERE coalesce(youtube_url,'') <> '')::int AS with_video,
       count(*) FILTER (WHERE old_price > price)::int AS on_offer
-    FROM products WHERE active`);
-  const [blog, coupons, pending, banners, pages] = await Promise.all([
+    FROM products WHERE active AND parent_id IS NULL`);
+  const [blog, coupons, pending, banners, pages, waiting] = await Promise.all([
     db.one<{ n: number; last: Date | null }>(`SELECT count(*)::int AS n, max(published_at) AS last FROM blog_posts WHERE status='published'`),
     db.one<{ n: number }>(`SELECT count(*)::int AS n FROM coupons WHERE active AND (ends_on IS NULL OR ends_on >= CURRENT_DATE)`),
     db.one<{ n: number }>(`SELECT count(*)::int AS n FROM orders WHERE status='pending'`),
     db.one<{ n: number }>(`SELECT count(*)::int AS n FROM banners WHERE active AND placement='slider'`),
     db.one<{ n: number }>(`SELECT count(*)::int AS n FROM pages WHERE active`),
+    // customers waiting for the shop: questions, reviews to approve, complaints, return requests
+    db.one<{ questions: number; reviews: number; complaints: number; late: number; returns: number }>(`SELECT
+      (SELECT count(*) FROM product_questions WHERE status='pending')::int AS questions,
+      (SELECT count(*) FROM reviews WHERE status='pending')::int AS reviews,
+      (SELECT count(*) FROM complaints WHERE status='open')::int AS complaints,
+      (SELECT count(*) FROM complaints WHERE status='open' AND due_at < now())::int AS late,
+      (SELECT count(*) FROM return_requests WHERE status='requested')::int AS returns`).catch(() => null),
   ]);
+  const w = waiting || { questions: 0, reviews: 0, complaints: 0, late: 0, returns: 0 };
   let missed: Awaited<ReturnType<typeof $services_research.demand>>['searches'] = [];
   try { missed = (await $services_research.demand(30)).searches.filter((x) => !x.found).slice(0, 8); } catch (_) { missed = []; }
   const blogDays = blog!.last ? Math.floor((Date.now() - new Date(blog!.last).getTime()) / 864e5) : null;
@@ -122,17 +132,21 @@ async function page(ctx: AdminCtx) {
   type Todo = [string, string, string, string];
   const today = ([
     pending!.n ? ['🔥', `${bn(pending!.n)}টি অর্ডার কনফার্ম বাকি`, 'অর্ডারের ১ ঘণ্টার মধ্যে ফোন করলে বাতিল অনেক কমে।', '/admin/orders?status=pending'] : null,
+    w.complaints ? ['🆘', `${bn(w.complaints)}টি অভিযোগ খোলা আছে${w.late ? ` — ${bn(w.late)}টির ৭২ ঘণ্টা পার হয়ে গেছে` : ''}`, '৭২ ঘণ্টার মধ্যে সমাধান দিলে কাস্টমার থেকে যায়, খারাপ রিভিউও আসে না।', '/admin/complaints'] : null,
+    w.returns ? ['↩️', `${bn(w.returns)}টি রিটার্নের আবেদন অপেক্ষায়`, 'দ্রুত উত্তর দিলে কাস্টমারের ভরসা থাকে।', '/admin/returns'] : null,
+    w.questions ? ['❓', `${bn(w.questions)}টি পণ্যের প্রশ্নের উত্তর বাকি`, 'যে প্রশ্ন করেছে সে কিনতে চায় — উত্তর পেলেই অর্ডার করে; উত্তরটা পেজে থাকলে পরের কাস্টমারেরও কাজে লাগে।', '/admin/questions'] : null,
+    w.reviews ? ['⭐', `${bn(w.reviews)}টি রিভিউ অনুমোদনের অপেক্ষায়`, 'রিভিউ পেজে দেখালে নতুন কাস্টমার বিশ্বাস পায়, গুগলেও তারা (★) দেখায়।', '/admin/reviews?status=pending'] : null,
     missed.length ? ['🔎', `কাস্টমার খুঁজেছে কিন্তু পায়নি: ${missed.map((m) => `"${m.term}"`).join(', ')}`, 'এগুলো এনে রাখলে প্রায় নিশ্চিত বিক্রি।', '/admin/research?tab=demand'] : null,
-    p!.no_img ? ['🖼️', `${bn(p!.no_img)}টি পণ্যে ছবি নেই`, 'ছবি ছাড়া পণ্য প্রায় বিক্রিই হয় না, আর Facebook/Google ফিডেও বাদ যায়।', '/admin/products'] : null,
-    p!.few_img ? ['📸', `${bn(p!.few_img)}টি পণ্যে ৩টার কম ছবি`, 'কয়েক দিক থেকে ছবি থাকলে কাস্টমার নিশ্চিন্তে কেনে।', '/admin/products'] : null,
-    p!.short_desc ? ['📝', `${bn(p!.short_desc)}টি পণ্যের বিবরণ খুব ছোট`, 'গুগল ছোট বিবরণের পেজ কম দেখায়। কী কাজে লাগে, মাপ, ভোল্টেজ, প্যাকেটে কী আছে — লিখুন।', '/admin/products'] : null,
-    p!.no_kw ? ['🏷️', `${bn(p!.no_kw)}টি পণ্যে SEO কিওয়ার্ড নেই`, 'মানুষ গুগলে যেভাবে লেখে (বাংলা + ইংরেজি) সেই শব্দগুলো দিন।', '/admin/products'] : null,
-    p!.no_brand ? ['🏢', `${bn(p!.no_brand)}টি পণ্যে ব্র্যান্ড নেই`, 'Google/Facebook ফিডে ব্র্যান্ড থাকলে পণ্য বেশি দেখায়।', '/admin/products'] : null,
+    p!.no_img ? ['🖼️', `${bn(p!.no_img)}টি পণ্যে ছবি নেই`, 'ছবি ছাড়া পণ্য প্রায় বিক্রিই হয় না, আর Facebook/Google ফিডেও বাদ যায়।', '/admin/products?status=on&need=img'] : null,
+    p!.few_img ? ['📸', `${bn(p!.few_img)}টি পণ্যে ৩টার কম ছবি`, 'কয়েক দিক থেকে ছবি থাকলে কাস্টমার নিশ্চিন্তে কেনে।', '/admin/products?status=on&need=imgs'] : null,
+    p!.short_desc ? ['📝', `${bn(p!.short_desc)}টি পণ্যের বিবরণ খুব ছোট`, 'এগুলোর পেজে এখন অটো SEO-র তৈরি বিবরণ দেখাচ্ছে, তাই জরুরি নয় — তবে নিজের লেখা (কী কাজে লাগে, মাপ, ভোল্টেজ, প্যাকেটে কী আছে) থাকলে গুগল আর কাস্টমার দুজনেই বেশি ভরসা পায়। বেশি বিক্রির পণ্য দিয়ে শুরু করুন।', '/admin/products?status=on&need=desc'] : null,
+    p!.no_kw ? ['🏷️', `${bn(p!.no_kw)}টি পণ্যে SEO কিওয়ার্ড নেই`, 'মানুষ গুগলে যেভাবে লেখে (বাংলা + ইংরেজি) সেই শব্দগুলো দিন — দোকানের সার্চেও এই শব্দ দিয়ে পণ্য খুঁজে পায়।', '/admin/products?status=on&need=kw'] : null,
+    p!.no_brand ? ['🏢', `${bn(p!.no_brand)}টি পণ্যে ব্র্যান্ড নেই`, 'Google/Facebook ফিডে ব্র্যান্ড থাকলে পণ্য বেশি দেখায়।', '/admin/products?status=on&need=brand'] : null,
     p!.no_cat ? ['🗂️', `${bn(p!.no_cat)}টি পণ্যের ক্যাটাগরি নেই`, '"স্বয়ংক্রিয়ভাবে সাজান" চাপলেই হয়ে যাবে।', '/admin/categories/auto'] : null,
-    p!.out_stock ? ['📦', `${bn(p!.out_stock)}টি পণ্য স্টকে নেই কিন্তু দোকানে দেখাচ্ছে`, 'স্টক আনুন, না আনলে সুইচ বন্ধ করে লুকিয়ে রাখুন — খালি পণ্যে বিজ্ঞাপন টাকা নষ্ট করে।', '/admin/products?low=1'] : null,
+    p!.out_stock ? ['📦', `${bn(p!.out_stock)}টি পণ্য স্টকে নেই কিন্তু দোকানে দেখাচ্ছে`, 'স্টক আনুন, না আনলে সুইচ বন্ধ করে লুকিয়ে রাখুন — খালি পণ্যে বিজ্ঞাপন টাকা নষ্ট করে।', '/admin/products?status=on&out=1'] : null,
     blogDays === null || blogDays > 14 ? ['✍️', blogDays === null ? 'এখনো কোনো ব্লগ পোস্ট নেই' : `${bn(blogDays)} দিন কোনো ব্লগ লেখা হয়নি`, 'নিয়মিত লেখা গুগলে নতুন কাস্টমার আনে।', '/admin/blog/new'] : null,
     !coupons!.n && !p!.on_offer ? ['🏷️', 'এখন কোনো অফার বা কুপন চালু নেই', 'অফার থাকলে Facebook পোস্টে মানুষ বেশি সাড়া দেয়।', '/admin/marketing/coupons'] : null,
-    p!.total && pct(p!.with_video, p!.total) < 10 ? ['🎬', `মাত্র ${bn(p!.with_video)}টি পণ্যে ভিডিও আছে`, 'চালু অবস্থার ছোট ভিডিও থাকলে বিক্রি বাড়ে আর ফেরত কমে।', '/admin/products'] : null,
+    p!.total && pct(p!.with_video, p!.total) < 10 ? ['🎬', `মাত্র ${bn(p!.with_video)}টি পণ্যে ভিডিও আছে`, 'চালু অবস্থার ছোট ভিডিও থাকলে বিক্রি বাড়ে আর ফেরত কমে।', '/admin/products?status=on&need=video'] : null,
   ] as (Todo | null)[]).filter((x): x is Todo => !!x);
 
   let weekDone: unknown[] = [];

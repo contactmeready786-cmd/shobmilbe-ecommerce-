@@ -156,7 +156,7 @@ const MENU: { title: string; icon?: string; items: MenuItem[] }[] = [
     ['/admin/marketing/loyalty', 'লয়ালটি পয়েন্ট', 'marketing', 'loyalty', '🎖️'],
   ] },
   { title: 'মার্কেটিং', icon: '📣', items: [
-    tabSet('autosocial', 'সোশ্যাল অটো পোস্ট', '📣'),
+    tabSet('autosocial', 'সোশ্যাল মিডিয়া অটো পোস্ট', '📣'),
     ['/admin/reach', 'রিটার্গেটিং', 'owner', 'reach', '🎯'],
     tabSet('messages', 'কাস্টমারকে মেসেজ', '📱'),
     ['/admin/marketing/social', 'সোশ্যাল ও লাইভ চ্যাট', 'marketing', 'social', '💬'],

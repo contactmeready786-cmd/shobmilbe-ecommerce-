@@ -1,4 +1,4 @@
-// 📣 সোশ্যাল অটো পোস্ট (lib/services/social.ts): every platform's limits are kept, every link says where the visitor
+// 📣 সোশ্যাল মিডিয়া অটো পোস্ট (lib/services/social.ts): every platform's limits are kept, every link says where the visitor
 // came from (so the owner sees which platform brings real orders), and GitHub's video maker passes the country lock.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

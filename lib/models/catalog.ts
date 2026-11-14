@@ -23,7 +23,7 @@ export type CategoryNode = Category & { children: CategoryNode[]; depth?: number
 export type ProductFilter = {
   hideOut?: boolean; category?: string | null; categoryId?: Id; brandId?: Id; brandIds?: unknown[] | null; damaged?: boolean; supplierId?: Id; q?: string;
   featured?: boolean; sold?: boolean; includeInactive?: boolean; type?: string; lowStock?: boolean; offer?: boolean; maxPrice?: unknown; minPrice?: unknown;
-  status?: string; outStock?: boolean; inStock?: boolean; isNew?: boolean; newDays?: unknown; items?: boolean; ids?: unknown[] | null;
+  status?: string; need?: string; outStock?: boolean; inStock?: boolean; isNew?: boolean; newDays?: unknown; items?: boolean; ids?: unknown[] | null;
   specs?: Record<string, unknown[]> | null; sort?: string; limit?: number; offset?: number; public?: boolean;
 };
 export type StockPart = { product_id: number; qty: number };
@@ -269,7 +269,16 @@ const PRODUCT_COLS = PUBLIC_COLS.replace(PRICE_COLS, `p.price, p.old_price, ${FL
 if (/cost|supplier|damaged|location|packing/.test(PUBLIC_COLS)) throw new Error('PUBLIC_COLS must not contain private columns');
 const colsFor = (o?: { public?: boolean } | null): string => (o && o.public ? PUBLIC_COLS : PRODUCT_COLS);
 
-function productWhere({ hideOut, category, categoryId, brandId, brandIds, damaged, supplierId, q: search, featured, sold, includeInactive, type, lowStock, offer, maxPrice, minPrice, status, outStock, inStock, isNew, newDays, items, ids, specs }: ProductFilter, params: Param[]): string {
+// What a product can still be missing (Admin → গ্রোথ গাইড counts these and links to the list with ?need=…).
+const NEED_SQL: Record<string, string> = {
+  img: 'p.image_id IS NULL',
+  imgs: `(SELECT count(*) FROM media m WHERE m.owner_type='product' AND m.owner_id=p.id) < 3`,
+  desc: `length(coalesce(p.description,'')) < 150`,
+  kw: `coalesce(p.seo_keywords,'') = ''`,
+  brand: `coalesce(p.brand,'') = ''`,
+  video: `coalesce(p.youtube_url,'') = ''`,
+};
+function productWhere({ hideOut, category, categoryId, brandId, brandIds, damaged, supplierId, q: search, featured, sold, includeInactive, type, lowStock, offer, maxPrice, minPrice, status, need, outStock, inStock, isNew, newDays, items, ids, specs }: ProductFilter, params: Param[]): string {
   const where: string[] = [];
   // Variants (size / colour / model) are products of their own under a "parent" product.
   // Lists show the parent only; items=true (stock, orders, counter sale) shows each variant instead of its parent.
@@ -297,6 +306,8 @@ function productWhere({ hideOut, category, categoryId, brandId, brandIds, damage
   if (status === 'on') where.push('p.active');
   if (status === 'off') where.push('NOT p.active');
   if (outStock) where.push(`(${STOCK_EXPR}) <= 0`);
+  // গ্রোথ গাইড's "আজকের কাজ" opens the list with exactly the products that still need something (NEED_SQL — fixed text, no input)
+  if (need && NEED_SQL[need]) where.push(NEED_SQL[need]);
   // a category shows its own products and those of all its sub-categories
   const SUBTREE = (cond: string) => `p.category_id IN (WITH RECURSIVE t AS (SELECT id FROM categories WHERE ${cond}
     UNION SELECT c3.id FROM categories c3 JOIN t ON c3.parent_id=t.id) SELECT id FROM t)`;
@@ -1038,4 +1049,4 @@ async function inventorySummary(): Promise<InventorySummary | null> {
     FROM products WHERE active AND product_type='single' AND variant_count = 0`);
 }
 
-export { brandsIn, oweStock, specFacets, directPictureUrl, fillBnNames, saveMedia, keepPrivate, mediaWithoutHash, setMediaHash, getMedia, mediaNeedingWatermark, watermarkProgress, setWatermark, getWatermarked, attachMedia, claimMedia, deleteMedia, cleanupMedia, listCategories, categoryTree, categoryOptions, categorySubtree, saveCategory, deleteCategory, listBrands, getBrand, saveBrand, brandIdFor, cleanSpecs, addRedirect, findRedirect, LINK_KINDS, linkedSkus, setLinks, linkedProducts, crossFor, listProducts, countProducts, productStats, getProduct, getProductsByIds, listVariants, saveVariants, syncVariants, MAX_VARIANTS, bundleItems, saveProduct, deleteProduct, deleteAllProducts, duplicateProduct, skuTaken, nextSku, moveStock, changeDamaged, cleanLocation, listLocations, reservedFor, OPEN_STATUSES, stockParts, stockMovements, inventorySummary, STOCK_REASONS, MAX_PRODUCT_IMAGES, WARRANTY, WARRANTY_TYPES, warrantyText, logPriceChange, priceHistory, productLedger, correctCost };
+export { NEED_SQL, brandsIn, oweStock, specFacets, directPictureUrl, fillBnNames, saveMedia, keepPrivate, mediaWithoutHash, setMediaHash, getMedia, mediaNeedingWatermark, watermarkProgress, setWatermark, getWatermarked, attachMedia, claimMedia, deleteMedia, cleanupMedia, listCategories, categoryTree, categoryOptions, categorySubtree, saveCategory, deleteCategory, listBrands, getBrand, saveBrand, brandIdFor, cleanSpecs, addRedirect, findRedirect, LINK_KINDS, linkedSkus, setLinks, linkedProducts, crossFor, listProducts, countProducts, productStats, getProduct, getProductsByIds, listVariants, saveVariants, syncVariants, MAX_VARIANTS, bundleItems, saveProduct, deleteProduct, deleteAllProducts, duplicateProduct, skuTaken, nextSku, moveStock, changeDamaged, cleanLocation, listLocations, reservedFor, OPEN_STATUSES, stockParts, stockMovements, inventorySummary, STOCK_REASONS, MAX_PRODUCT_IMAGES, WARRANTY, WARRANTY_TYPES, warrantyText, logPriceChange, priceHistory, productLedger, correctCost };

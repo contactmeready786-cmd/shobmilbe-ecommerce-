@@ -1,4 +1,4 @@
-// 📣 সোশ্যাল অটো পোস্ট (owner, 2026-11-13): besides the Facebook page (+ Instagram, lib/services/autopost.ts) and the
+// 📣 সোশ্যাল মিডিয়া অটো পোস্ট (owner, 2026-11-13): besides the Facebook page (+ Instagram, lib/services/autopost.ts) and the
 // Telegram channel (lib/services/telegram.ts), the shop now posts its own products by itself on
 //   🧵 Threads    — photo + short text with the order link (Meta's official Threads API)
 //   📌 Pinterest  — a Pin per product, in a board per main category, linking to the product page. Pinterest is a
