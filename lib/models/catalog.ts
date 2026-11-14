@@ -11,7 +11,7 @@ import * as $crypto from 'node:crypto';
 import type { DbRow, Param, Tx } from '../pg';
 import type { Body, Settings } from '../types';
 import type { ActivityLogRow, BrandsRow, BundleItemsRow, CategoriesRow, MediaRow, ProductsRow, StockMovementsRow } from '../data/rows';
-import { bnTitle, bnTitleSmart, leftover } from '../services/bntitle';
+import { bnTitle, bnTitleSmart, leftover, fullBangla } from '../services/bntitle';
 
 type Id = number | string | null | undefined;
 /** A category row plus what categoryTree() adds. */
@@ -105,6 +105,28 @@ async function fillBnNames(limit = 500): Promise<number> {
     if (bn && bn !== r.name_bn) part.push({ id: r.id, bn });
   }
   if (part.length) await q(`UPDATE products p SET name_bn=x.bn FROM jsonb_to_recordset($1::jsonb) AS x(id int, bn text) WHERE p.id=x.id AND p.name_bn_auto`, [JSON.stringify(part)]);
+  return part.length;
+}
+/** 🇧🇩 owner, 2026-11-14: every saved Bangla name fully in Bangla — no English letters or digits (fullBangla), the
+ *  owner's own names too. A few hundred at a time, until none is left; new names are made that way already. */
+async function fullBnNames(limit = 400): Promise<number> {
+  const rows = await q<{ id: number; name: string; name_bn: string; name_bn_auto: boolean }>(`SELECT id, name, name_bn, name_bn_auto FROM products WHERE name_bn ~ '[A-Za-z0-9]' ORDER BY id LIMIT $1`, [limit]);
+  const part: { id: number; bn: string }[] = [];
+  let google = 0;
+  for (const r of rows) {
+    // an automatic name with real English words still in it: translated first (Google, a few each time), so
+    // "Humidifier" becomes a Bangla word, not just Bangla letters; everything else is converted straight away
+    if (r.name_bn_auto && leftover(r.name_bn).length >= 2) {
+      if (google >= 25) continue;
+      google++;
+      const bn = await bnTitleSmart(r.name).catch(() => '');
+      part.push({ id: r.id, bn: bn && !/[A-Za-z0-9]/.test(bn) ? bn : fullBangla(r.name_bn) });
+      continue;
+    }
+    const bn = fullBangla(r.name_bn);
+    if (bn !== r.name_bn) part.push({ id: r.id, bn });
+  }
+  if (part.length) await q(`UPDATE products p SET name_bn=x.bn FROM jsonb_to_recordset($1::jsonb) AS x(id int, bn text) WHERE p.id=x.id`, [JSON.stringify(part)]);
   return part.length;
 }
 /** ⚡ The product page's big picture as the address /media/<id>/w (or /media/<id>) would send the browser to — the
@@ -1049,4 +1071,4 @@ async function inventorySummary(): Promise<InventorySummary | null> {
     FROM products WHERE active AND product_type='single' AND variant_count = 0`);
 }
 
-export { NEED_SQL, brandsIn, oweStock, specFacets, directPictureUrl, fillBnNames, saveMedia, keepPrivate, mediaWithoutHash, setMediaHash, getMedia, mediaNeedingWatermark, watermarkProgress, setWatermark, getWatermarked, attachMedia, claimMedia, deleteMedia, cleanupMedia, listCategories, categoryTree, categoryOptions, categorySubtree, saveCategory, deleteCategory, listBrands, getBrand, saveBrand, brandIdFor, cleanSpecs, addRedirect, findRedirect, LINK_KINDS, linkedSkus, setLinks, linkedProducts, crossFor, listProducts, countProducts, productStats, getProduct, getProductsByIds, listVariants, saveVariants, syncVariants, MAX_VARIANTS, bundleItems, saveProduct, deleteProduct, deleteAllProducts, duplicateProduct, skuTaken, nextSku, takeSku, moveStock, changeDamaged, cleanLocation, listLocations, reservedFor, OPEN_STATUSES, stockParts, stockMovements, inventorySummary, STOCK_REASONS, MAX_PRODUCT_IMAGES, WARRANTY, WARRANTY_TYPES, warrantyText, logPriceChange, priceHistory, productLedger, correctCost };
+export { NEED_SQL, brandsIn, oweStock, specFacets, directPictureUrl, fillBnNames, fullBnNames, saveMedia, keepPrivate, mediaWithoutHash, setMediaHash, getMedia, mediaNeedingWatermark, watermarkProgress, setWatermark, getWatermarked, attachMedia, claimMedia, deleteMedia, cleanupMedia, listCategories, categoryTree, categoryOptions, categorySubtree, saveCategory, deleteCategory, listBrands, getBrand, saveBrand, brandIdFor, cleanSpecs, addRedirect, findRedirect, LINK_KINDS, linkedSkus, setLinks, linkedProducts, crossFor, listProducts, countProducts, productStats, getProduct, getProductsByIds, listVariants, saveVariants, syncVariants, MAX_VARIANTS, bundleItems, saveProduct, deleteProduct, deleteAllProducts, duplicateProduct, skuTaken, nextSku, takeSku, moveStock, changeDamaged, cleanLocation, listLocations, reservedFor, OPEN_STATUSES, stockParts, stockMovements, inventorySummary, STOCK_REASONS, MAX_PRODUCT_IMAGES, WARRANTY, WARRANTY_TYPES, warrantyText, logPriceChange, priceHistory, productLedger, correctCost };

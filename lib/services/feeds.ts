@@ -86,15 +86,27 @@ function check(p: FeedProduct, channel: string) {
   return { ok: !problems.length, problems, warnings };
 }
 
+// 🚫 Words Google's "Guns and Parts" check reads as weapons (owner, 2026-11-14: a rechargeable torch called "Self Defensive"
+// was refused). Only the feed text changes — the product page keeps the owner's words.
+const WEAPONISH: [RegExp, string][] = [
+  [/\s*\b(?:self[\s-]*defen[cs]\w*|tactical)\b\s*/gi, ' '], [/\s*(?:সেলফ\s*ডিফেন্স\S*|আত্মরক্ষা\S*)\s*/g, ' '],
+  [/\btrigger\s+board\b/gi, 'decoy board'], [/\btrigger(s|ed|ing)?\b/gi, 'activate$1'],
+];
+function safeText(s: string) {
+  let t = String(s || '');
+  for (const [re, to] of WEAPONISH) t = t.replace(re, to);
+  return t.replace(/\s{2,}/g, ' ').replace(/\s+([,.।])/g, '$1').trim();
+}
+
 function item(p: FeedProduct, channel: string, settings: Settings, base: string) {
   const lim = CHANNELS[channel];
   const sale = p.old_price && Number(p.old_price) > Number(p.price);
   const brand = cut(p.brand || settings.feed_brand || settings.store_name || 'Generic', channel === 'google' ? 70 : 100);
-  const desc = cut(plainText(p.description) || plainText(p.short_description) || $autoseo.summary(p) || p.name, lim.desc);
+  const desc = cut(safeText(plainText(p.description) || plainText(p.short_description) || $autoseo.summary(p) || p.name), lim.desc);
   const shipping = Number(settings.feed_shipping || settings.delivery_outside || 0);
   return {
     id: String(p.id),
-    title: cut(p.name, lim.title),
+    title: cut(safeText(p.name), lim.title),
     description: desc,
     link: `${base}/p/${encodeURIComponent(p.slug)}`,
     image_link: `${base}/media/${p.main_image}`,
@@ -198,4 +210,4 @@ async function serve({ query, settings, send, siteUrl, req }: ServeOpts, channel
     { ...cache, 'Content-Disposition': `inline; filename="${channel}-products.${format}"` });
 }
 
-export { serve, build, CHANNELS, plainText };
+export { serve, build, CHANNELS, plainText, safeText };

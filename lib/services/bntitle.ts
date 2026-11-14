@@ -164,24 +164,26 @@ const forOf = (x: string) => (/[\u0980-\u09FF]$/.test(x) ? `${x}${/[\u09BE-\u09C
 const FOR_WHO: Record<string, string> = { men: 'ছেলেদের', man: 'ছেলেদের', boys: 'ছেলেদের', boy: 'ছেলেদের', gents: 'ছেলেদের', women: 'মেয়েদের', woman: 'মেয়েদের',
   ladies: 'মেয়েদের', girls: 'মেয়েদের', girl: 'মেয়েদের', kids: 'বাচ্চাদের', kid: 'বাচ্চাদের', children: 'বাচ্চাদের', child: 'বাচ্চাদের', baby: 'বেবিদের', babies: 'বেবিদের' };
 
-/** The Bangla name for an English product name ('' when there is nothing to translate). */
-export function bnTitle(name: string): string {
+/** The Bangla name for an English product name ('' when there is nothing to translate) — fully Bangla (see fullBangla). */
+export function bnTitle(name: string): string { return fullBangla(bnTitleRaw(name)); }
+/** the word-list translation, model numbers / sizes still as written (what bnTitleSmart compares with Google) */
+function bnTitleRaw(name: string): string {
   let s = String(name || '').normalize('NFC').replace(/\s+/g, ' ').trim();
   if (!s) return '';
   if (hasBangla(s) && !/[A-Za-z]{3,}/.test(s.replace(/[A-Z0-9-]{2,}/g, ''))) return s; // already Bangla
   s = s.replace(/^\s*product\s+details?\s+of\s+/i, '');
   // a name in two halves joined by " - " / " | ": each half on its own
   const halves = s.split(/\s+[|–—]\s+|\s+-\s+/);
-  if (halves.length > 1) return halves.map(bnTitle).filter(Boolean).join(' – ');
+  if (halves.length > 1) return halves.map(bnTitleRaw).filter(Boolean).join(' – ');
   // "10 Pcs" / "Pack of 10" / "Set of 5" → "10 পিস" / "10টির প্যাক" / "5টির সেট"
   s = s.replace(/\b(pack|set|box|pair|lot)\s+of\s+(\d+)\b/gi, (_m, k: string, n: string) => `${n}টির ${WORDS[k.toLowerCase()] || PHRASES[k.toLowerCase()] || k}`);
   const who = s.match(/\s+for\s+(men|man|boys?|gents|women|woman|ladies|girls?|kids?|children|child|bab(?:y|ies))\b/i);
-  if (who) return `${FOR_WHO[who[1].toLowerCase()]} ${bnTitle(s.replace(who[0], ''))}`.trim();
+  if (who) return `${FOR_WHO[who[1].toLowerCase()]} ${bnTitleRaw(s.replace(who[0], ''))}`.trim();
   // "A for B" → "B-এর জন্য A";  "A with B" → "B সহ A" (the first one only; the rest stays in order)
   const m = s.match(/^(.+?)\s+(compatible with|without|with|for)\s+(.+)$/i);
   if (m) {
     const [, a, how, b] = m;
-    const A = bnTitle(a), B = bnTitle(b);
+    const A = bnTitleRaw(a), B = bnTitleRaw(b);
     const k = how.toLowerCase();
     if (k === 'for' || k === 'compatible with') return `${forOf(B)} ${A}`.trim();
     if (k === 'with') return `${B} সহ ${A}`.trim();
@@ -192,7 +194,9 @@ export function bnTitle(name: string): string {
 
 /** true when the Bangla name says something more than the English one (not just the same letters again) */
 export function worthShowing(name: string, bn: string): boolean {
-  return !!bn && hasBangla(bn) && bn.replace(/\s+/g, '') !== String(name || '').replace(/\s+/g, '');
+  // a name that is only model numbers / sizes (ESP32, PAM8403 5V) gains nothing from the same letters in Bangla
+  const words = String(name || '').split(/[\s,/|()-]+/).filter((w) => /[A-Za-z]{2,}/.test(w) && !isCode(w));
+  return !!bn && hasBangla(bn) && words.length > 0 && bn.replace(/\s+/g, '') !== String(name || '').replace(/\s+/g, '');
 }
 
 // ---------------------------------------------------------------- words not in the list
@@ -220,11 +224,11 @@ async function googleEnBn(text: string): Promise<string> {
 const memoBn = new Map<string, string>();
 /** The Bangla name, with Google's help for words not in the list (falls back to bnTitle). */
 export async function bnTitleSmart(name: string): Promise<string> {
-  const own = bnTitle(name);
-  // one unknown word is nearly always a brand (Kemei, Xiaomi): it stays as written
-  if (leftover(own).length < 2) return own;
+  const own = bnTitleRaw(name);
+  // one unknown word is nearly always a brand (Kemei, Xiaomi): it is written in Bangla letters (fullBangla)
+  if (leftover(own).length < 2) return fullBangla(own);
   const key = String(name || '').trim();
-  if (memoBn.has(key)) return memoBn.get(key)!;
+  if (memoBn.has(key)) return fullBangla(memoBn.get(key)!);
   try {
     const src = key.replace(/^\s*product\s+details?\s+of\s+/i, '');
     let g = await googleEnBn(src);
@@ -236,6 +240,101 @@ export async function bnTitleSmart(name: string): Promise<string> {
     const out = ok ? g : own;
     if (memoBn.size > 2000) memoBn.clear();
     memoBn.set(key, out);
+    return fullBangla(out);
+  } catch { return fullBangla(own); }
+}
+
+// ---------------------------------------------------------------- fully Bangla (owner, 2026-11-14)
+// The Bangla name has no English letters or English digits at all: digits become Bangla (200 → ২০০), sizes are written
+// the way people say them (12V → ১২ ভোল্ট, 60W → ৬০ ওয়াট, 200A → ২০০ এ), model numbers / short capitals are read out
+// letter by letter (DT9205A → ডিটি৯২০৫এ, USB → ইউএসবি), and any other English word (mostly brand names) is written
+// in Bangla letters as it sounds (Kemei → কেমেই).
+const BN_DIGIT = '০১২৩৪৫৬৭৮৯';
+const bnDigits = (s: string) => s.replace(/[0-9]/g, (d) => BN_DIGIT[Number(d)]);
+const LETTER: Record<string, string> = { a: 'এ', b: 'বি', c: 'সি', d: 'ডি', e: 'ই', f: 'এফ', g: 'জি', h: 'এইচ', i: 'আই', j: 'জে', k: 'কে', l: 'এল', m: 'এম',
+  n: 'এন', o: 'ও', p: 'পি', q: 'কিউ', r: 'আর', s: 'এস', t: 'টি', u: 'ইউ', v: 'ভি', w: 'ডব্লিউ', x: 'এক্স', y: 'ওয়াই', z: 'জেড' };
+const spell = (w: string) => w.toLowerCase().split('').map((c) => LETTER[c] || c).join('');
+/** a size right after a number: 12V, 60W, 200A, 2000mAh, 50Hz, 10mm … */
+const UNIT: Record<string, string> = { v: 'ভোল্ট', kv: 'কিলোভোল্ট', mv: 'মিলিভোল্ট', vac: 'ভোল্ট এসি', vdc: 'ভোল্ট ডিসি', w: 'ওয়াট', kw: 'কিলোওয়াট', a: 'এ', ma: 'মিলিঅ্যাম্প',
+  mah: 'এমএএইচ', ah: 'এএইচ', hz: 'হার্জ', khz: 'কিলোহার্জ', mhz: 'মেগাহার্জ', ghz: 'গিগাহার্জ', mm: 'মিমি', cm: 'সেমি', m: 'মিটার', km: 'কিমি', ft: 'ফুট',
+  inch: 'ইঞ্চি', in: 'ইঞ্চি', kg: 'কেজি', g: 'গ্রাম', gm: 'গ্রাম', mg: 'মিলিগ্রাম', l: 'লিটার', ml: 'মিলি', gb: 'জিবি', mb: 'এমবি', tb: 'টিবি', pcs: 'পিস', pc: 'পিস',
+  rpm: 'আরপিএম', ohm: 'ওহম', k: 'কে', db: 'ডিবি', p: 'পি', x: 'x', uf: 'মাইক্রোফ্যারাড', nf: 'ন্যানোফ্যারাড', pf: 'পিকোফ্যারাড', awg: 'এডব্লিউজি', c: 'ডিগ্রি', f: 'এফ',
+  core: 'কোর', pin: 'পিন', pins: 'পিন', ch: 'চ্যানেল', way: 'ওয়ে', gang: 'গ্যাং', layer: 'লেয়ার', gauge: 'গেজ', bit: 'বিট', s: 'এস', th: 'তম', nd: 'য়', rd: 'য়', st: 'ম' };
+/** names people in Bangladesh already write in Bangla */
+const KNOWN: Record<string, string> = { arduino: 'আরডুইনো', raspberry: 'রাসবেরি', pi: 'পাই', samsung: 'স্যামসাং', sony: 'সনি', walton: 'ওয়ালটন', gree: 'গ্রি',
+  haier: 'হায়ার', midea: 'মিডিয়া', general: 'জেনারেল', rangs: 'র‍্যাংগস', singer: 'সিঙ্গার', xiaomi: 'শাওমি', mi: 'এমআই', kemei: 'কেমেই', philips: 'ফিলিপস',
+  panasonic: 'প্যানাসনিক', hitachi: 'হিটাচি', toshiba: 'তোশিবা', sharp: 'শার্প', vision: 'ভিশন', jamuna: 'যমুনা', minister: 'মিনিস্টার', google: 'গুগল',
+  android: 'অ্যান্ড্রয়েড', bluetooth: 'ব্লুটুথ', wifi: 'ওয়াইফাই', type: 'টাইপ', pro: 'প্রো', max: 'ম্যাক্স', mini: 'মিনি', plus: 'প্লাস', ultra: 'আল্ট্রা',
+  smart: 'স্মার্ট', new: 'নিউ', original: 'অরিজিনাল', remote: 'রিমোট', apple: 'অ্যাপল', iphone: 'আইফোন', oppo: 'অপো', vivo: 'ভিভো', realme: 'রিয়েলমি',
+  huawei: 'হুয়াওয়ে', nokia: 'নোকিয়া', lenovo: 'লেনোভো', dell: 'ডেল', hp: 'এইচপি', asus: 'আসুস', acer: 'এসার', intel: 'ইন্টেল', amd: 'এএমডি',
+  nodemcu: 'নোডএমসিইউ', esp: 'ইএসপি', atmega: 'এটমেগা', stm: 'এসটিএম', uno: 'উনো', nano: 'ন্যানো', mega: 'মেগা', micro: 'মাইক্রো', lora: 'লোরা',
+  chigo: 'চিগো', carrier: 'ক্যারিয়ার', daikin: 'ডাইকিন', fujitsu: 'ফুজিৎসু', hisense: 'হাইসেন্স', tcl: 'টিসিএল', vestel: 'ভেস্টেল', konka: 'কনকা',
+  marcel: 'মার্সেল', transtec: 'ট্রান্সটেক', eco: 'ইকো', inverter: 'ইনভার্টার', dual: 'ডুয়াল', led: 'এলইডি', lcd: 'এলসিডি', oled: 'ওলেড',
+  digital: 'ডিজিটাল', module: 'মডিউল', board: 'বোর্ড', sensor: 'সেন্সর', kit: 'কিট', set: 'সেট', box: 'বক্স', black: 'কালো', white: 'সাদা', red: 'লাল',
+  blue: 'নীল', green: 'সবুজ', yellow: 'হলুদ', silver: 'সিলভার', gold: 'গোল্ড', golden: 'গোল্ডেন', pink: 'গোলাপি', grey: 'ধূসর', gray: 'ধূসর', air: 'এয়ার', conditioner: 'কন্ডিশনার', op: 'অপ', amp: 'অ্যাম্প', band: 'ব্যান্ড', strap: 'স্ট্র্যাপ',
+  voice: 'ভয়েস', rgb: 'আরজিবি', ac: 'এসি', dc: 'ডিসি', tv: 'টিভি', usb: 'ইউএসবি', ic: 'আইসি', pcb: 'পিসিবি', ups: 'ইউপিএস', ir: 'আইআর', rf: 'আরএফ', gps: 'জিপিএস', sd: 'এসডি' };
+/** any other English word, written in Bangla letters as it sounds (a simple, predictable reading) */
+function sounds(word: string): string {
+  const w = word.toLowerCase().replace(/(.)\1+/g, '$1').replace(/er$/, '#');
+  const C: [string, string][] = [['tion', 'শন'], ['sion', 'শন'], ['sh', 'শ'], ['ch', 'চ'], ['th', 'থ'], ['ph', 'ফ'], ['kh', 'খ'], ['gh', 'ঘ'], ['ck', 'ক'], ['qu', 'কু'], ['ng', 'ং'],
+    ['b', 'ব'], ['c', 'ক'], ['d', 'ড'], ['f', 'ফ'], ['g', 'গ'], ['h', 'হ'], ['j', 'জ'], ['k', 'ক'], ['l', 'ল'], ['m', 'ম'], ['n', 'ন'], ['p', 'প'], ['q', 'ক'],
+    ['r', 'র'], ['s', 'স'], ['t', 'ট'], ['v', 'ভ'], ['w', 'ও'], ['x', 'ক্স'], ['z', 'জ']];
+  const V: [string, string, string][] = [['ee', 'ই', 'ী'], ['oo', 'উ', 'ু'], ['ea', 'ই', 'ি'], ['ai', 'আই', 'াই'], ['ay', 'এ', 'ে'], ['ou', 'আউ', 'াউ'],
+    ['ei', 'এই', 'েই'], ['oi', 'অয়', 'য়'], ['a', 'আ', 'া'], ['e', 'এ', 'ে'], ['i', 'ই', 'ি'], ['o', 'ও', 'ো'], ['u', 'উ', 'ু'], ['y', 'ই', 'ি']];
+  let out = '';
+  let afterConsonant = false;
+  for (let i = 0; i < w.length;) {
+    // "c"/"g" before e, i, y: s / j sound
+    if ((w[i] === 'c') && /[eiy]/.test(w[i + 1] || '')) { out += 'স'; afterConsonant = true; i++; continue; }
+    const v = V.find(([k]) => w.startsWith(k, i));
+    if (v && !(v[0] === 'y' && i === 0)) {
+      // a final "e" after a consonant is silent (Kite → কাইট is beyond this; "rope" → রোপ)
+      if (v[0] === 'e' && i === w.length - 1 && afterConsonant && w.length > 3) { i++; continue; }
+      out += afterConsonant ? v[2] : v[1];
+      afterConsonant = false;
+      i += v[0].length;
+      continue;
+    }
+    const c = C.find(([k]) => w.startsWith(k, i));
+    if (c) {
+      if (c[0] === 'w' && /[aeiou]/.test(w[i + 1] || '')) { out += 'ওয়'; afterConsonant = true; i++; continue; }
+      if (c[0] === 'y' || c[0] === 'r' && i === w.length - 1 && /[eo]r$/.test(w)) { out += 'র'; afterConsonant = true; i++; continue; }
+      // two consonants together are joined (st → স্ট, tr → ট্র); "ng" and "tion" stand alone
+      if (afterConsonant && !/[ংন]$/.test(out) && !out.endsWith('শন') && c[1] !== 'ং' && c[0] !== 'tion' && c[0] !== 'sion') out += '্';
+      out += c[1];
+      afterConsonant = c[0] !== 'tion' && c[0] !== 'sion';
+      i += c[0].length;
+      continue;
+    }
+    out += w[i] === '#' ? (afterConsonant ? 'ার' : 'আর') : w[i];
+    afterConsonant = false;
+    i++;
+  }
+  return out;
+}
+/** one English run inside the name → Bangla */
+function latinRun(run: string, afterNumber: boolean, whole: boolean): string {
+  const low = run.toLowerCase();
+  if (afterNumber && UNIT[low] !== undefined && whole) return ' ' + UNIT[low];
+  if (afterNumber && UNIT[low] !== undefined && run.length <= 3) return UNIT[low];
+  if (KNOWN[low]) return KNOWN[low];
+  if (WORDS[low] && !/[A-Za-z]/.test(WORDS[low])) return WORDS[low];
+  // short capitals / codes are read letter by letter: USB, HC, DT, KM, N; a word without vowels too (RGB, PCB)
+  if ((run === run.toUpperCase() && run.length <= 3) || run.length <= 2 || !/[aeiouy]/i.test(run)) return spell(run);
+  return sounds(run);
+}
+/** Any text → fully Bangla (no English letters, no English digits). Bangla text passes through unchanged. */
+export function fullBangla(text: string): string {
+  return String(text || '').replace(/[A-Za-z0-9]+(?:\.[0-9]+[A-Za-z0-9]*)*/g, (tok, at: number, all: string) => {
+    const prevChar = all[at - 1] || '';
+    const parts = tok.match(/[0-9]+(?:\.[0-9]+)?|[A-Za-z]+/g) || [tok];
+    // "200A", "12V", "2000mAh", "10.5mm": a number with a size after it (and nothing else)
+    const numUnit = parts.length === 2 && /^[0-9]/.test(parts[0]) && /^[A-Za-z]+$/.test(parts[1]) && UNIT[parts[1].toLowerCase()] !== undefined && !/[A-Za-z]/.test(prevChar);
+    let out = '';
+    parts.forEach((p, i) => {
+      if (/^[0-9]/.test(p)) out += bnDigits(p);
+      else out += latinRun(p, i > 0 && /^[0-9]/.test(parts[i - 1]), numUnit);
+    });
     return out;
-  } catch { return own; }
+  }).replace(/\s{2,}/g, ' ').trim();
 }
