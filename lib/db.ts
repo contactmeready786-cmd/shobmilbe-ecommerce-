@@ -1288,6 +1288,12 @@ CREATE TABLE IF NOT EXISTS landing_pages (
 );
 CREATE INDEX IF NOT EXISTS visit_sessions_lp_idx ON visit_sessions(landing, started_at DESC) WHERE landing LIKE '/lp/%';
 `,
+  // 🛡️ অফারে চালাকি বন্ধ (owner, 2026-11-15): a flash sale can allow each customer (mobile number) only so many pieces
+  // at the sale price, counted over all their orders of that sale (0 = no limit).
+  `
+ALTER TABLE flash_sales ADD COLUMN IF NOT EXISTS per_phone int NOT NULL DEFAULT 0;
+CREATE INDEX IF NOT EXISTS order_items_flash_idx ON order_items(ref_id) WHERE kind = 'flash';
+`,
 ];
 
 // Data steps that need code, keyed by migration number (run after its SQL).

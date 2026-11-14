@@ -1299,3 +1299,5 @@ body.shop.glass :is(input:not([type=radio]):not([type=checkbox]):not([type=file]
   .lp-pics { grid-template-columns: 1fr 1fr; }
   .lp-bar { left: auto; right: 20px; bottom: 20px; border: 1px solid var(--line); border-radius: 999px; padding: 8px 8px 8px 20px; }
 }
+/* ⏳ only a few left (card) */
+.card-low { margin: -2px 0 2px; font-size: .76rem; color: var(--red); font-weight: 600; }

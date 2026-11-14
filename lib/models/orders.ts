@@ -172,8 +172,8 @@ async function checkCoupon(code: unknown, subtotal: number, phone: unknown, line
 // Turn requested lines into priced lines, taking stock for them. Throws OrderError.
 // Prices: an admin may type a price; otherwise the lowest of normal / flash sale / quantity price (services/pricing).
 // Web orders also get the "buy X get Y" gift lines (when the gift is in stock).
-type TakeOpts = { allowPrice?: boolean; refId?: number | null; staffId?: number | null };
-async function takeLines(t: Tx, wanted: Wanted[], { allowPrice = false, refId = null, staffId = null }: TakeOpts = {}): Promise<OrderLine[]> {
+type TakeOpts = { allowPrice?: boolean; refId?: number | null; staffId?: number | null; phone?: string };
+async function takeLines(t: Tx, wanted: Wanted[], { allowPrice = false, refId = null, staffId = null, phone = '' }: TakeOpts = {}): Promise<OrderLine[]> {
   const pricing = $services_pricing;
   const ids = wanted.map((w) => w.id);
   // one after the other: a transaction's connection runs one query at a time
@@ -216,6 +216,19 @@ async function takeLines(t: Tx, wanted: Wanted[], { allowPrice = false, refId = 
       lp = { price: amount(w.price), kind: w.kind === 'gift' ? 'gift' : '', note: w.kind === 'gift' ? str(w.note, 120) : '', ref_id: null };
     } else {
       lp = pricing.linePrice({ base: p.price, qty: w.qty, flash: flash.get(p.id), tiers: tiers.get(p.id) });
+      if (lp.kind === 'flash' && phone) {
+        // 🛡️ one customer (mobile number) gets only so many pieces at the sale price, over all their orders of this sale
+        const lim = (await t.query<{ per_phone: number }>('SELECT fs.per_phone FROM flash_items fi JOIN flash_sales fs ON fs.id=fi.sale_id WHERE fi.id=$1', [lp.ref_id])).rows[0];
+        if (lim && lim.per_phone > 0) {
+          const had = Number((await t.query<{ n: number }>(`SELECT coalesce(sum(oi.qty), 0)::int AS n FROM order_items oi JOIN orders o ON o.id=oi.order_id
+            WHERE oi.kind='flash' AND oi.ref_id=$1 AND o.phone=$2 AND o.status NOT IN ('cancelled', 'returned') AND o.id <> $3`, [lp.ref_id, phone, refId || 0])).rows[0].n) || 0;
+          if (had + w.qty > lim.per_phone) {
+            throw new OrderError(had >= lim.per_phone
+              ? `"${p.name}" অফারের দামে একজন সর্বোচ্চ ${bn(lim.per_phone)}টি নিতে পারেন — এই নম্বরে আগেই নেওয়া হয়েছে। কার্ট থেকে সরিয়ে আবার অর্ডার করুন।`
+              : `"${p.name}" অফারের দামে একজন সর্বোচ্চ ${bn(lim.per_phone)}টি নিতে পারেন — পরিমাণ ${bn(lim.per_phone - had)}টি করে আবার অর্ডার করুন।`);
+          }
+        }
+      }
       if (lp.kind === 'flash') {
         // the sale's piece limit is counted here, at the moment of the order (two buyers can't both get the last piece)
         const got = (await t.query<Pick<FlashItemsRow, 'id'>>('UPDATE flash_items SET sold = sold + $1 WHERE id=$2 AND (max_qty = 0 OR sold + $1 <= max_qty) RETURNING id', [w.qty, lp.ref_id])).rows[0];
@@ -324,7 +337,10 @@ type CreateOrderOpts = {
   warehouseId?: number | null;
 };
 async function createOrder(input: CreateOrderOpts, settings: Settings) {
-  const wanted = mergeWanted(input.items);
+  // 🛡️ a web order's lines are product + amount only: a "gift" line or a price sent by the browser is ignored (gifts are
+  // added by the shop itself), so the same product can't come in twice to get past its limit
+  const fromWeb = !(input.source === 'admin' || input.source === 'pos');
+  const wanted = mergeWanted(fromWeb ? (input.items || []).map((it) => ({ id: it.id, product_id: it.product_id, qty: it.qty })) : input.items);
   if (!wanted.length) throw new OrderError('কার্ট খালি। আগে পণ্য যোগ করুন।');
   const isAdmin = input.source === 'admin' || input.source === 'pos';
   const phone = normalizePhone(input.phone);
@@ -343,7 +359,9 @@ async function createOrder(input: CreateOrderOpts, settings: Settings) {
         [prefix + randomCode(6), input.name, phone, input.address, zone])).rows[0];
     }
     const order = found!; // six random codes in a row all taken is not a real case (the old code failed here too)
-    const lines = await takeLines(t, wanted, { allowPrice: isAdmin, refId: order.id, staffId: input.createdBy || null });
+    // 🛡️ one mobile number's orders go one after the other (two orders sent at the same moment can't both pass a limit)
+    if (!isAdmin && phone) await t.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`order:${phone}`]);
+    const lines = await takeLines(t, wanted, { allowPrice: isAdmin, refId: order.id, staffId: input.createdBy || null, phone: isAdmin ? '' : phone });
     // Online customers: cheap parts need a minimum amount, and each product has a maximum (Admin → সেটিংস).
     if (!isAdmin) {
       const C = contact(settings);

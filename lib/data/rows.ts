@@ -487,6 +487,7 @@ export type FlashSalesRow = {
   active: boolean;
   show_home: boolean;
   created_at: Date;
+  per_phone: number;
 };
 
 /** A row of fraud_checks. */
