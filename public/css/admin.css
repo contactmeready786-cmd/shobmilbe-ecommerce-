@@ -2016,3 +2016,13 @@ body.admin #main.admin-main details.help > div { margin: 0; padding: 0 16px 14px
 body.admin #main.admin-main .switch-text small { font-size: .8rem; color: var(--g-mut); }
 /* a list that stands on its own on the page gets the same glass card as everything else */
 body.admin #main.admin-main > .table-wrap:not(.panel) { background-color: var(--g-surf); border: 1px solid var(--g-edge); border-radius: 22px; box-shadow: var(--g-shadow); margin-bottom: 16px; }
+
+/* 🖥️ বড় স্ক্রিন (owner, 2026-11-14): on 2K / 4K monitors the admin uses the extra room instead of a narrow column */
+@media (min-width: 1800px) {
+  .admin-main { max-width: 1640px; }
+  body.side-hidden .admin-main { max-width: 1900px; }
+}
+@media (min-width: 2400px) {
+  .admin-main { max-width: 2000px; }
+  body.side-hidden .admin-main { max-width: 2300px; }
+}

@@ -6,7 +6,7 @@
 //   and PgError with .code / .detail / .severity.
 // A small pool of connections per server instance (owner, 2026-11-14 — the shop runs on its own VPS now, so many
 // visitors' queries no longer wait in one line): a query takes a free connection, a few more are opened when all are
-// busy (DB_POOL, default 6), and the extra ones are closed again after a quiet minute. On one connection queries
+// busy (DB_POOL, default 12 — owner, 2026-11-14: with 6, visitors' queries had to wait in line 166 times in 20 minutes), and the extra ones are closed again after a quiet minute. On one connection queries
 // still take turns, and a transaction has its connection to itself.
 // Code running inside a transaction may call the plain query() helpers; those calls are routed into the open
 // transaction instead of queueing behind it.
@@ -299,7 +299,7 @@ function databaseInfo(): { provider: string; variable: string; host: string } {
 }
 
 // ---------- the pool ----------
-const POOL_MAX = Math.min(20, Math.max(1, Math.floor(Number(process.env.DB_POOL)) || 6));
+const POOL_MAX = Math.min(20, Math.max(1, Math.floor(Number(process.env.DB_POOL)) || 12));
 const IDLE_MS = 60e3; // an extra connection nobody used for a minute is closed again
 let pool: Connection[] = [];
 let opening = 0;

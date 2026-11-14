@@ -213,15 +213,25 @@ export async function resolveShop(ctx: ShopCtx): Promise<Resolved> {
       pricing.tiersFor([product.id]), pricing.offersFor([product.id]),
       settings.reviews_on === '0' ? { reviews: [], stats: { count: 0 } } : $models_reviews.forProduct(product.id),
     ]);
-    const questions = U.on(settings, 'ui_qa') ? await $models_extras.publishedQuestions(product.id) : [];
-    // related: the owner's own choice, otherwise the same category
-    const related = chosen.length ? chosen.slice(0, cols) : product.category_slug
-      ? (await catalog.listProducts({ public: true, hideOut, category: product.category_slug, limit: 9 })).filter((p) => p.id !== product.id).slice(0, cols)
-      : [];
-    const offers = offerRows.map((o) => ({ label: pricing.offerTitle(o, bn), ends_on: o.ends_on ? String(o.ends_on).slice(0, 10) : '' }));
+    // ⚡ (owner, 2026-11-14 — faster pages) everything below is read at the same time instead of one after another;
+    // the page that comes out is exactly the same
     const slugs = [...String(product.description || '').matchAll(/^\s*\/p\/([A-Za-z0-9ঀ-৿-]+)\s*$/gm)].map((x) => x[1]).slice(0, 6);
+    const first = (product.images || [])[0];
+    const [questions, related, inlineList, mainSrc, kits, canonical] = await Promise.all([
+      U.on(settings, 'ui_qa') ? $models_extras.publishedQuestions(product.id) : Promise.resolve([]),
+      // related: the owner's own choice, otherwise the same category
+      chosen.length ? Promise.resolve(chosen.slice(0, cols)) : product.category_slug
+        ? catalog.listProducts({ public: true, hideOut, category: product.category_slug, limit: 9 }).then((list) => list.filter((p) => p.id !== product.id).slice(0, cols))
+        : Promise.resolve([]),
+      Promise.all(slugs.map((sl) => catalog.getProduct({ slug: sl, public: true }))),
+      // ⚡ the big picture straight from ImageKit (no stop at /media/…/w on the way — one round trip less on a slow line)
+      first ? catalog.directPictureUrl(first, settings).catch(() => null) : Promise.resolve(null),
+      settings.kits_on !== '0' ? $models_kits.kitsWith(product.id).catch(() => []) : Promise.resolve([]),
+      dupcanon.canonicalFor(product.slug),
+    ]);
+    const offers = offerRows.map((o) => ({ label: pricing.offerTitle(o, bn), ends_on: o.ends_on ? String(o.ends_on).slice(0, 10) : '' }));
     const inlineProducts: Record<string, catalog.FullProduct> = {};
-    for (const s of slugs) { const ip = await catalog.getProduct({ slug: s, public: true }); if (ip && ip.active) inlineProducts[s] = ip; }
+    slugs.forEach((sl, i) => { const ip = inlineList[i]; if (ip && ip.active) inlineProducts[sl] = ip; });
     // full https:// links, so Google can read pictures and prices even when "site_url" is not set
     const base = ctx.base.replace(/\/+$/, '');
     const shipFee = Math.max(0, Number(settings.delivery_outside) || 0);
@@ -262,16 +272,13 @@ export async function resolveShop(ctx: ShopCtx): Promise<Resolved> {
     const breadcrumb = { '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: [{ name: settings.store_name, url: base + '/' }, ...crumbs, { name: seo.cleanName(product.name), url: `${base}/p/${product.slug}` }]
       .map((c, i) => ({ '@type': 'ListItem', position: i + 1, name: c.name, item: c.url || undefined })) };
     product.name = seo.cleanName(product.name); // "Product details of …" copied from other shops never shows
-    // ⚡ the big picture straight from ImageKit (no stop at /media/…/w on the way — one round trip less on a slow line)
-    const first = (product.images || [])[0];
-    const mainSrc = first ? await catalog.directPictureUrl(first, settings).catch(() => null) : null;
     return done(seo.productTitle(product), shop.productPage({ product, related, settings, inlineProducts, categories, mainSrc,
       tiers: tiersMap.get(product.id) || [], offers, reviews: rv.reviews, reviewStats: rv.stats, cross, upsell, questions, selectedVariant: int(query.get('v')),
-      kits: settings.kits_on !== '0' ? await $models_kits.kitsWith(product.id).catch(() => []) : [] }), {
+      kits }), {
       noindex: !!product.noindex, jsonLdExtra: breadcrumb,
       description: seo.productDescription(product, settings),
       keywords: seo.productKeywords(product),
-      canonical: await dupcanon.canonicalFor(product.slug), image: product.image_id ? `/media/${product.image_id}` : '', jsonLd, type: 'product',
+      canonical, image: product.image_id ? `/media/${product.image_id}` : '', jsonLd, type: 'product',
       track: { event: 'view_item', id: product.id, name: product.name, price: product.price, category: product.category_name || '' },
     });
   }

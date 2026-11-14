@@ -1212,3 +1212,12 @@ body.shop.glass :is(input:not([type=radio]):not([type=checkbox]):not([type=file]
   body.shop.glass :is(.site-header, .sticky-buy, .compare-bar, .drawer, .nav-drop-menu, .card, .panel, .pdp-facts, .tabs-box, .post-card, .post, .match, .cat-box, .pay-opt) { background-color: #fff; -webkit-backdrop-filter: none; backdrop-filter: none; }
 }
 @media print { body.shop.glass::before { display: none; } }
+
+/* 🖥️ বড় স্ক্রিন (owner, 2026-11-14): on a 14" laptop, a 2K or a 4K monitor the shop fills the screen nicely instead of
+   sitting in a thin 1240px strip. The design itself stays the same (same rows, same number of products per row, so no
+   half-empty rows) — on wide screens the page gets wider, and on 2K / 4K screens everything is drawn proportionally
+   larger, so text and pictures are never tiny. Phones and laptops are unchanged. */
+@media (min-width: 1600px) { .wrap:not(.narrow), .slider { max-width: 1480px; } }
+@media (min-width: 2200px) { html { zoom: 1.2; } }
+@media (min-width: 2800px) { html { zoom: 1.5; } }
+@media (min-width: 3600px) { html { zoom: 1.8; } }
