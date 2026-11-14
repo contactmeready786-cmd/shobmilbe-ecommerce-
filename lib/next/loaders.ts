@@ -6,6 +6,7 @@ import * as content from '../models/content';
 import * as catalog from '../models/catalog';
 import * as security from '../security';
 import * as kits from '../models/kits';
+import * as landing from '../models/landing';
 import * as accounts from '../models/accounts';
 import * as livescore from '../services/livescore';
 import { publishedPost } from '../shop/blog';
@@ -72,6 +73,8 @@ export async function drawableHere(path: string, headers: Headers): Promise<bool
   if (path === '/kits') return (await settingsNow()).kits_on !== '0';
   m = /^\/kit\/([^/]+)$/.exec(path);
   if (m) return (await settingsNow()).kits_on !== '0' && !!(await kits.forShop(safeDecode(m[1])));
+  m = /^\/lp\/([^/]+)$/.exec(path);
+  if (m) return !!(await landing.forShop(safeDecode(m[1])));
   if (path === '/checkout') {
     const s = await settingsNow();
     const cu = await accounts.current({ headers: { cookie: headers.get('cookie') || '' } } as ShopRequest, s);

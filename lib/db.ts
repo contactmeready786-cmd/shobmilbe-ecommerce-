@@ -1277,6 +1277,17 @@ ALTER TABLE products ADD COLUMN IF NOT EXISTS auto_desc text NOT NULL DEFAULT ''
 ALTER TABLE products ADD COLUMN IF NOT EXISTS auto_desc_src text NOT NULL DEFAULT '';
 ALTER TABLE products ADD COLUMN IF NOT EXISTS auto_desc_at timestamptz;
 `,
+  // 🚀 ল্যান্ডিং পেজ (owner, 2026-11-15): one product, one page for ads (/lp/<slug>) — headline, benefits, offer with a
+  // countdown, reviews, questions and the order form on the same page; visits and orders from visit_sessions.landing.
+  `
+CREATE TABLE IF NOT EXISTS landing_pages (
+  id serial PRIMARY KEY, slug text UNIQUE NOT NULL, product_id int NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+  headline text NOT NULL DEFAULT '', subhead text NOT NULL DEFAULT '', points text NOT NULL DEFAULT '', offer text NOT NULL DEFAULT '',
+  ends_at timestamptz, faq text NOT NULL DEFAULT '', video_url text NOT NULL DEFAULT '', active boolean NOT NULL DEFAULT true,
+  created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS visit_sessions_lp_idx ON visit_sessions(landing, started_at DESC) WHERE landing LIKE '/lp/%';
+`,
 ];
 
 // Data steps that need code, keyed by migration number (run after its SQL).

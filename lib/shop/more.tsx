@@ -12,6 +12,8 @@ import * as $models_accounts from '../models/accounts';
 import * as $models_reviews from '../models/reviews';
 import * as $models_checkoutotp from '../models/checkoutotp';
 import * as $models_kits from '../models/kits';
+import * as $models_landing from '../models/landing';
+import { landingPage } from '../views/landing';
 import * as courier from '../services/courier';
 import { refFromCookie, myOrders } from '../gate';
 import { appPage } from '../views/apppage';
@@ -75,6 +77,29 @@ export async function resolveMore({ path, query, settings, base: siteBase, req }
     return page('অর্ডার করুন', shop.checkoutPage({ settings, methods: payments.methods(settings), cityAreas: O.dhakaCityAreas(settings), zones: O.customZones(settings), account, refCode,
       otp: $models_checkoutotp.active(settings) }),
       { active: 'cart', noindex: true, track: { event: 'begin_checkout' } });
+  }
+  // 🚀 a landing page for ads: one product, its selling points and the order form on the same page
+  const lpm = path.match(/^\/lp\/([^/]+)$/);
+  if (lpm) {
+    const found = await $models_landing.forShop(decodeURIComponent(lpm[1]));
+    if (!found) return NOT_FOUND;
+    const { page: lp, product } = found;
+    const A = $models_accounts;
+    const cu = await A.current(req as ShopRequest, settings);
+    const [account, rv] = await Promise.all([
+      cu && !A.needsProfile(cu) ? A.addresses(cu.id).then((addresses) => ({ name: cu.name, phone: A.deliveryPhone(cu), addresses })) : null,
+      settings.reviews_on === '0' ? { reviews: [], stats: { count: 0 } } : $models_reviews.forProduct(product.id, 12),
+    ]);
+    const methods = payments.methods(settings);
+    const refCode = settings.ref_on === '1' ? (refFromCookie(req) || '') : '';
+    const checkout = shop.checkoutPage({ settings, methods, cityAreas: O.dhakaCityAreas(settings), zones: O.customZones(settings), account, refCode,
+      otp: $models_checkoutotp.active(settings), heading: '📝 অর্ডার করতে নিচের ফর্মটি পূরণ করুন' });
+    const img = product.images && product.images[0];
+    return page(lp.headline || product.name, landingPage({ page: lp, product, settings, reviews: rv.reviews, reviewStats: rv.stats, checkout, hasCod: methods.some((m) => m.id === 'cod') }), {
+      canonical: `/p/${product.slug}`, description: lp.subhead || md.plain(product.short_description || product.description || '', 160),
+      image: img ? `/media/${img}` : undefined, type: 'product',
+      track: { event: 'view_item', id: product.id, name: product.name, price: product.price, category: product.category_name || '' },
+    });
   }
   // 📱 the Android app to download (inside the app: is this the newest version?)
   if (path === '/app') {

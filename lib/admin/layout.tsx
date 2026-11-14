@@ -84,6 +84,7 @@ const TABS: Record<string, Tab[]> = {
     ['/admin/blog', 'ব্লগ', 'blog', 'blog', '📝'],
   ],
   ads: [
+    ['/admin/landing', 'ল্যান্ডিং পেজ', 'marketing', 'landing', '🚀'],
     ['/admin/marketing/tracking', 'পিক্সেল ও ট্র্যাকিং', 'marketing', 'tracking', '🎯'],
     ['/admin/marketing/feeds', 'প্রোডাক্ট ফিড', 'marketing', 'feeds', '🔗'],
     ['/admin/reach', 'রিটার্গেটিং', 'owner', 'reach', '🔁'],
@@ -176,7 +177,7 @@ const MENU: { title: string; icon?: string; items: MenuItem[] }[] = [
     ['/admin/marketing/social', 'সোশ্যাল লিংক ও লাইভ চ্যাট', 'marketing', 'social', '💬'],
     tabSet('messages', 'কাস্টমারকে মেসেজ', '📱'),
     tabSet('seoblog', 'SEO ও ব্লগ (Google)', '🔎'),
-    tabSet('ads', 'পিক্সেল, ফিড ও বিজ্ঞাপন', '🎯'),
+    tabSet('ads', 'ল্যান্ডিং পেজ ও বিজ্ঞাপন', '🚀'),
   ] },
   { title: 'দোকানের ডিজাইন', icon: '🎨', items: [
     ['/admin/design', 'লোগো, রং ও হোমপেজ', 'design', 'design', '🎨'],

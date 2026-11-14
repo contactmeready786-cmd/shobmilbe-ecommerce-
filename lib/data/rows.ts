@@ -608,6 +608,23 @@ export type KitsRow = {
   guide_key: string;
 };
 
+/** A row of landing_pages. */
+export type LandingPagesRow = {
+  id: number;
+  slug: string;
+  product_id: number;
+  headline: string;
+  subhead: string;
+  points: string;
+  offer: string;
+  ends_at: Date | null;
+  faq: string;
+  video_url: string;
+  active: boolean;
+  created_at: Date;
+  updated_at: Date;
+};
+
 /** A row of live_clicks. */
 export type LiveClicksRow = {
   day: string;
@@ -1580,6 +1597,7 @@ export type Tables = {
   integration_logs: IntegrationLogsRow;
   kit_items: KitItemsRow;
   kits: KitsRow;
+  landing_pages: LandingPagesRow;
   live_clicks: LiveClicksRow;
   login_history: LoginHistoryRow;
   login_lock_codes: LoginLockCodesRow;

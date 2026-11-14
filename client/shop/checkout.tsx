@@ -237,6 +237,15 @@ function runCheckout(checkout: HTMLElement): void {
       track('begin_checkout', { items: res.lines.map((l) => ({ id: l.product.id, name: l.product.name, price: l.price, qty: l.qty })) });
     }
   }).catch(() => paint(summary, <p className="form-error">কার্ট লোড করা যায়নি। পেজটি রিফ্রেশ করুন।</p>));
+  // 🚀 a landing page changed the amount (client/shop/landing.tsx): show the new cart
+  window.addEventListener('sm:cart', () => {
+    loadCart().then((r) => {
+      state.lines = r.lines;
+      state.gifts = r.gifts || [];
+      renderSummary();
+      if (state.coupon) cApply?.click();
+    }).catch(() => {});
+  });
   // 📦 a pack product: the customer can still switch the pack here (25 → 50 → 100 pieces)
   summary.addEventListener('click', (e) => {
     const pk = hit(e, '[data-pack-set]');
