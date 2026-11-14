@@ -1793,3 +1793,176 @@ body.admin #main.admin-main ol.steps > li { margin-bottom: 8px; line-height: 1.5
   body.admin #main.admin-main .btn:not(.btn-sm) { min-height: 44px; }
   body.admin #main.admin-main .kpi { min-height: 92px; }
 }
+
+/* ================================================================================================================
+   v4 · Glass look (owner, 2026-11-14 — "like the soft-light glass of Xiaomi HyperOS 4", in the shop's own blue and
+   amber; owner approved the dashboard sample). Looks only, like v3: no markup, link, form or script changes.
+   Speed on staff phones: real blur (backdrop-filter) only where page content slides underneath — side menu, top bar,
+   the save bar, pop-ups. Cards and tables lie on a calm, fixed background, so see-through white already reads as
+   frosted glass there without the phone having to blur anything.
+   ================================================================================================================ */
+body.admin {
+  --g-surf: rgba(255, 255, 255, .64); --g-surf-hi: rgba(255, 255, 255, .80); --g-edge: rgba(255, 255, 255, .92);
+  --g-line: rgba(20, 33, 61, .09); --g-line-2: rgba(20, 33, 61, .15); --g-mut: #4F5D77;
+  --g-shadow: 0 8px 28px rgba(20, 33, 61, .08), inset 0 1px 0 rgba(255, 255, 255, .95);
+  --g-blur: blur(22px) saturate(170%);
+  --a-line: var(--g-line); --a-mut: var(--g-mut); --a-r: 22px;
+  --v2-line: var(--g-line); --v2-line-2: var(--g-line-2); --v2-muted: var(--g-mut);
+  --v2-blue: var(--blue); --v2-blue-d: var(--blue-d); --v2-blue-l: rgba(8, 102, 214, .08);
+  background: #E8EEF7;
+}
+/* the light behind the glass: soft blue, amber and teal glows that stay still while the page scrolls */
+body.admin::before {
+  content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background:
+    radial-gradient(42vmax 36vmax at 8% 4%, rgba(8, 102, 214, .30), transparent 70%),
+    radial-gradient(40vmax 34vmax at 96% 8%, rgba(245, 165, 36, .30), transparent 70%),
+    radial-gradient(46vmax 38vmax at 70% 104%, rgba(20, 150, 140, .22), transparent 70%),
+    radial-gradient(34vmax 30vmax at 22% 86%, rgba(120, 90, 220, .14), transparent 70%);
+}
+
+/* ---------- side menu: a floating pane of glass ---------- */
+body.admin .side {
+  background: rgba(255, 255, 255, .62); -webkit-backdrop-filter: var(--g-blur); backdrop-filter: var(--g-blur);
+  border: 1px solid var(--g-edge); box-shadow: 0 14px 44px rgba(20, 33, 61, .14), inset 0 1px 0 #fff; color: #22304A;
+}
+body.admin .side-logo { border-bottom: 1px solid var(--g-line); border-radius: 0; }
+body.admin .side-logo .logo-a { color: var(--blue); }
+body.admin .side-logo small { color: var(--g-mut); }
+body.admin .side a, body.admin .side-drop > summary { color: #22304A; border-radius: 14px; }
+body.admin .side a:hover, body.admin .side-drop > summary:hover { background: rgba(8, 102, 214, .08); color: var(--ink); }
+body.admin .side-drop.has-on > summary, body.admin .side-drop[open] > summary { color: var(--ink); }
+body.admin .side a.on { background: var(--blue); color: #fff; box-shadow: 0 6px 16px rgba(8, 102, 214, .32); }
+body.admin .side-sub { border-left-color: var(--g-line-2); }
+body.admin .side-sub a { color: #3A4862; }
+body.admin .side-arrow { color: #6B7891; }
+body.admin .side-drop[open] > summary .side-arrow { color: var(--ink); }
+body.admin .side-group > a > .side-ic, body.admin .side-drop > summary > .side-ic { background: #5B6B85; }
+body.admin .side-group > a:hover > .side-ic, body.admin .side-drop > summary:hover > .side-ic,
+body.admin .side-drop.has-on > summary > .side-ic, body.admin .side-drop[open] > summary > .side-ic { background: var(--blue); }
+body.admin .side-group > a.on > .side-ic { background: #fff; }
+body.admin .side-drop > summary::before { color: #5B6B85; }
+body.admin .side-group:last-child { border-top-color: var(--g-line); }
+body.admin .side-x { background: rgba(20, 33, 61, .08); color: var(--ink); }
+body.admin .side-shade { background: rgba(14, 27, 51, .28); }
+
+/* ---------- top bar ---------- */
+body.admin .topbar {
+  background: rgba(255, 255, 255, .62); -webkit-backdrop-filter: var(--g-blur); backdrop-filter: var(--g-blur);
+  border: 1px solid var(--g-edge); border-top: 0; box-shadow: 0 8px 24px rgba(20, 33, 61, .08);
+}
+body.admin .top-search input { background-color: rgba(255, 255, 255, .72); border: 1px solid var(--g-line-2); border-radius: 14px; }
+body.admin .top-search input:focus { background-color: #fff; border-color: var(--blue); box-shadow: 0 0 0 3px rgba(8, 102, 214, .18); }
+body.admin .burger:hover { background: rgba(20, 33, 61, .06); }
+@media (min-width: 901px) {
+  body.admin .top-link { background: rgba(255, 255, 255, .6); border-color: var(--g-line-2); border-radius: 12px; }
+  body.admin .top-link:hover { background: rgba(8, 102, 214, .08); border-color: rgba(8, 102, 214, .3); }
+}
+body.admin .user-menu .avatar { background: rgba(8, 102, 214, .14); color: var(--blue-d); }
+body.admin .user-pop {
+  background: rgba(255, 255, 255, .80); -webkit-backdrop-filter: var(--g-blur); backdrop-filter: var(--g-blur);
+  border: 1px solid var(--g-edge); border-radius: 18px; box-shadow: 0 18px 44px rgba(20, 33, 61, .18);
+}
+
+/* computer: the menu and the top bar float a little away from the window's edges */
+@media (min-width: 901px) {
+  body.admin .side { top: 12px; left: 12px; bottom: 12px; width: calc(var(--side) - 20px); border-radius: 26px; }
+  body.side-hidden .side { transform: translateX(calc(-100% - 24px)); }
+  body.admin .topbar { top: 12px; margin: 12px 12px 0 0; border-top: 1px solid var(--g-edge); border-radius: 22px; }
+  body.side-hidden .topbar { margin-left: 12px; }
+  body.admin .bulk-bar { top: 88px; }
+  body.admin #main.admin-main .two-col > .is-sticky { top: 88px; }
+}
+@media (min-width: 1100px) { body.admin .doc-preview { top: 88px; } }
+/* phone: the menu slides in as a pane with rounded corners */
+@media (max-width: 900px) {
+  body.admin .side { top: 8px; left: 8px; bottom: 8px; border-radius: 24px; transform: translateX(calc(-100% - 16px)); }
+  body.side-open .side { transform: none; }
+  body.admin { --g-blur: blur(16px) saturate(160%); }
+}
+
+/* ---------- cards, number boxes, filter rows, help boxes ---------- */
+body.admin #main.admin-main :is(.panel, .kpi, .toolbar, .date-filter, .help) {
+  background-color: var(--g-surf); border: 1px solid var(--g-edge); box-shadow: var(--g-shadow);
+}
+body.admin #main.admin-main .panel { border-radius: 24px; }
+body.admin #main.admin-main :is(.toolbar, .date-filter, .help) { border-radius: 18px; }
+/* number boxes: the colour is a soft glow at the top instead of a hard line */
+body.admin #main.admin-main .kpi { --k: transparent; border-radius: 22px; border-top: 1px solid var(--g-edge); background-image: linear-gradient(180deg, color-mix(in srgb, var(--k) 16%, transparent), transparent 70%); }
+body.admin #main.admin-main .kpi.kpi-blue { --k: var(--blue); }
+body.admin #main.admin-main .kpi.kpi-green { --k: var(--green); }
+body.admin #main.admin-main :is(.kpi.kpi-amber, .kpi.kpi-alert) { --k: var(--amber); background-color: var(--g-surf); }
+body.admin #main.admin-main .kpi.kpi-red { --k: var(--red); }
+body.admin #main.admin-main a.kpi { transition: transform .15s ease, box-shadow .15s ease; }
+body.admin #main.admin-main a.kpi:hover { border-color: var(--g-edge); border-top-color: var(--g-edge); transform: translateY(-2px); box-shadow: 0 14px 34px rgba(20, 33, 61, .12), inset 0 1px 0 #fff; }
+body.admin #main.admin-main .bulk-bar { border-radius: 16px; box-shadow: 0 10px 28px rgba(20, 33, 61, .18); }
+body.admin #main.admin-main .flash { border-radius: 16px; }
+body.admin #main.admin-main code { background: rgba(20, 33, 61, .06); }
+body.admin #main.admin-main .hb-track { background: rgba(20, 33, 61, .07); }
+
+/* ---------- tables inside the glass ---------- */
+body.admin #main.admin-main .table { background: transparent; }
+body.admin #main.admin-main .table th { background: rgba(255, 255, 255, .45); border-bottom-color: var(--g-line); }
+body.admin #main.admin-main .table td { border-bottom-color: rgba(20, 33, 61, .07); }
+body.admin #main.admin-main .table tbody tr:hover td { background: rgba(8, 102, 214, .045); }
+body.admin #main.admin-main .table .thumb img, body.admin #main.admin-main .table .thumb span { border-radius: 12px; border-color: var(--g-line); }
+
+/* ---------- buttons ---------- */
+body.admin #main.admin-main .btn { border-radius: 14px; }
+body.admin #main.admin-main .btn-sm { border-radius: 11px; }
+body.admin #main.admin-main .btn:not(.btn-ghost):not(.btn-outline):not(.danger):not(.btn-danger):not(:disabled) { box-shadow: 0 6px 16px rgba(8, 102, 214, .26), inset 0 1px 0 rgba(255, 255, 255, .22); }
+body.admin #main.admin-main :is(.btn-ghost, .btn-outline) { background: rgba(255, 255, 255, .72); border-color: var(--g-line-2); color: var(--ink); box-shadow: inset 0 1px 0 #fff; }
+body.admin #main.admin-main :is(.btn-ghost, .btn-outline):hover { background: rgba(255, 255, 255, .95); border-color: rgba(8, 102, 214, .35); color: var(--blue-d); }
+body.admin #main.admin-main :is(.btn.danger, .btn-danger) { background: rgba(255, 255, 255, .72); }
+body.admin #main.admin-main :is(.btn.danger, .btn-danger):hover { background: #FEF2F2; }
+body.admin #main.admin-main .icon-btn { border-radius: 11px; background: rgba(255, 255, 255, .72); }
+
+/* ---------- page tabs: one glass strip, the open tab a white pill ---------- */
+body.admin #main.admin-main .home-tabs {
+  width: fit-content; max-width: 100%; align-items: center; gap: 4px; padding: 4px; margin: 0 0 20px;
+  background: rgba(255, 255, 255, .5); border: 1px solid var(--g-edge); border-radius: 18px; box-shadow: var(--g-shadow);
+}
+body.admin #main.admin-main .home-tabs .home-tab { border: 0; margin: 0; border-radius: 14px; padding: 9px 16px; color: var(--g-mut); font-weight: 600; }
+body.admin #main.admin-main .home-tabs .home-tab:hover { color: var(--ink); background: rgba(255, 255, 255, .6); }
+body.admin #main.admin-main .home-tabs .home-tab.on { background: #fff; color: var(--blue-d); box-shadow: 0 2px 10px rgba(20, 33, 61, .12); }
+
+/* ---------- chips and on/off rows ---------- */
+body.admin #main.admin-main .chip { background: rgba(255, 255, 255, .62); border-color: var(--g-edge); box-shadow: 0 1px 4px rgba(20, 33, 61, .06); }
+body.admin #main.admin-main .chip:hover { background: rgba(255, 255, 255, .9); border-color: rgba(8, 102, 214, .3); }
+body.admin #main.admin-main .chip.on { background: rgba(8, 102, 214, .12); border-color: rgba(8, 102, 214, .35); color: var(--blue-d); }
+body.admin #main.admin-main .chip b { background: rgba(20, 33, 61, .07); }
+body.admin #main.admin-main .chip.on b { background: rgba(8, 102, 214, .16); }
+body.admin #main.admin-main .switch-row { background: rgba(255, 255, 255, .55); border-color: var(--g-edge); border-radius: 16px; }
+body.admin #main.admin-main .switch-row:has(input:checked) { background: rgba(8, 102, 214, .07); border-color: rgba(8, 102, 214, .28); }
+
+/* ---------- fields: frosted boxes, white when typing ---------- */
+body.admin #main.admin-main :is(input:not([type=radio]):not([type=checkbox]):not([type=file]):not([type=color]):not([type=range]):not([type=hidden]):not([type=submit]):not([type=button]), select, textarea) {
+  background-color: rgba(255, 255, 255, .80); border-color: var(--g-line-2); border-radius: 12px;
+}
+body.admin #main.admin-main :is(input:not([type=radio]):not([type=checkbox]):not([type=file]):not([type=color]):not([type=range]):not([type=hidden]):not([type=submit]):not([type=button]), select, textarea):focus { background-color: #fff; border-color: var(--blue); box-shadow: 0 0 0 3px rgba(8, 102, 214, .18); outline: none; }
+
+/* ---------- the save bar: a floating glass strip at the bottom ---------- */
+body.admin #main.admin-main .sticky-actions {
+  bottom: 12px; margin: 20px 0 0; padding: 12px 16px; border-radius: 20px;
+  background: rgba(255, 255, 255, .66); -webkit-backdrop-filter: var(--g-blur); backdrop-filter: var(--g-blur);
+  border: 1px solid var(--g-edge); box-shadow: 0 12px 32px rgba(20, 33, 61, .14), inset 0 1px 0 #fff;
+}
+@media (max-width: 760px) { body.admin #main.admin-main .sticky-actions { bottom: 8px; margin: 16px 0 0; padding: 10px 12px; } }
+
+/* ---------- pop-ups, and the login / set-up pages ---------- */
+body.admin dialog { border: 1px solid var(--g-edge); border-radius: 24px; background: rgba(255, 255, 255, .88); -webkit-backdrop-filter: var(--g-blur); backdrop-filter: var(--g-blur); box-shadow: 0 24px 60px rgba(20, 33, 61, .25); }
+body.admin dialog::backdrop { background: rgba(14, 27, 51, .32); }
+body.admin-auth .auth-card.panel {
+  background: rgba(255, 255, 255, .68); -webkit-backdrop-filter: var(--g-blur); backdrop-filter: var(--g-blur);
+  border: 1px solid var(--g-edge); border-radius: 28px; padding: 28px; box-shadow: 0 24px 60px rgba(20, 33, 61, .18), inset 0 1px 0 #fff;
+}
+
+/* ---------- where see-through isn't wanted or can't be drawn: the same look, solid ---------- */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  body.admin :is(.side, .topbar, .user-pop, dialog), body.admin #main.admin-main .sticky-actions, body.admin-auth .auth-card.panel { background: rgba(255, 255, 255, .96); }
+}
+@media (prefers-reduced-transparency: reduce) {
+  body.admin :is(.side, .topbar, .user-pop, dialog), body.admin #main.admin-main .sticky-actions, body.admin-auth .auth-card.panel { background: #fff; -webkit-backdrop-filter: none; backdrop-filter: none; }
+  body.admin #main.admin-main :is(.panel, .kpi, .toolbar, .date-filter, .help) { background-color: #fff; }
+}
+@media print { body.admin::before { display: none; } }
