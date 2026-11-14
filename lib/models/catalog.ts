@@ -804,6 +804,7 @@ async function saveProduct(data: Body & { bundle?: { product_id: unknown; qty: u
 
   return tx(async (t) => {
     let pid = id as number;
+    let prevOld: number | null = null;
     // brand typed as a name: linked to that brand (made on the spot if it's new)
     f.brand_id = f.brand ? await brandIdFor(t, f.brand) : null;
     if (f.brand_id) f.brand = (await t.query<Pick<BrandsRow, 'name'>>('SELECT name FROM brands WHERE id=$1', [f.brand_id])).rows[0].name;
@@ -823,6 +824,7 @@ async function saveProduct(data: Body & { bundle?: { product_id: unknown; qty: u
       // 📒 The buying price and the stock are not typed over here: the cost comes from purchases (weighted average) or a
       // "কেনা দাম সংশোধন" with a reason, the stock from purchases, orders and stock adjustments — each one a dated entry.
       f.cost_price = before.cost_price;
+      prevOld = before.old_price === null || before.old_price === undefined ? null : Number(before.old_price);
       await logPriceChange(t, pid, before, { price: f.price, old_price: f.old_price, name: f.name }, staffId);
       // A product never stays without a SKU: an emptied box gets the next number.
       if (!f.sku) f.sku = before.sku || await takeSku(t);
@@ -861,7 +863,10 @@ async function saveProduct(data: Body & { bundle?: { product_id: unknown; qty: u
       }
     }
     // 🏷️ the crossed-out price left as the shop made it stays automatic (it follows the price); one typed by hand is the owner's
-    await t.query(`UPDATE products SET old_price_auto = (old_price IS NOT NULL AND old_price = ${AUTO_OLD_PRICE}) WHERE id=$1`, [pid]);
+    // (the box left as it was → still the shop's, so it follows a new selling price; changed by hand → the owner's)
+    await t.query(`UPDATE products SET old_price = CASE WHEN old_price_auto AND old_price IS NOT DISTINCT FROM $2::numeric AND price > 0 THEN ${AUTO_OLD_PRICE} ELSE old_price END,
+        old_price_auto = CASE WHEN old_price IS NOT DISTINCT FROM $2::numeric THEN old_price_auto
+        ELSE (old_price IS NOT NULL AND old_price = ${AUTO_OLD_PRICE}) END WHERE id=$1`, [pid, prevOld]);
     return pid;
   });
 }
