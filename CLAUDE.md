@@ -16,9 +16,11 @@ PostgreSQL on the same server. Wherever older text in this file or in code comme
 3. Safety built in: tests fail → no deploy; build fails → the site keeps the old version; the new version doesn't
    answer → the old one is put back by itself. All of these turn the run red (GitHub e-mails the owner).
 
-**The repository is PRIVATE (owner, 2026-11-15):** GitHub Actions minutes are limited (free plan) — keep scheduled
-workflows rare. Files the workers leave for the shop are read with the owner's key (Admin → ছবির ব্যাকগ্রাউন্ড সাদা →
-⚡ সাথে সাথে শুরু, `whiten_gh_token`: Actions read/write + Contents read-only), see lib/services/ghfile.ts.
+**Repository visibility (2026-11-15):** PUBLIC for now. Making it private stopped deploys: the server fetches main over
+plain https (`fatal: could not read Username for 'https://github.com'`), so before it goes private again the server
+needs a read-only GitHub deploy key (owner on the server, guided). The workers' files are already read with the
+owner's key (Admin → ছবির ব্যাকগ্রাউন্ড সাদা → ⚡ সাথে সাথে শুরু, `whiten_gh_token`), see lib/services/ghfile.ts.
+Private = limited GitHub Actions minutes: keep scheduled workflows rare.
 
 **Background jobs wake themselves (2026-11-13):** lib/scheduler.ts (started from instrumentation.ts, only on the real
 server — not in CI, tests, builds or on Vercel) runs `runShopJobs` every 5 minutes and `runAiJobs` every 15

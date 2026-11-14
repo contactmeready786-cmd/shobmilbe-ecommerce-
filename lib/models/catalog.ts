@@ -688,7 +688,7 @@ async function linkedSkus(productId?: Id): Promise<Record<string, string[]>> {
 }
 // skus: "12, 45 , 7" — unknown SKUs and the product itself are skipped. Returns the SKUs that were not found.
 async function setLinks(t: Tx, productId: number, kind: string, skus: unknown): Promise<string[]> {
-  if (!LINK_KINDS[kind]) return [];
+  if (!Object.hasOwn(LINK_KINDS, String(kind))) return [];
   const want = [...new Set(String(skus || '').split(/[\s,،;]+/).map((x) => x.trim()).filter(Boolean))].slice(0, 24);
   await t.query('DELETE FROM product_links WHERE product_id=$1 AND kind=$2', [productId, kind]);
   const missing: string[] = [];

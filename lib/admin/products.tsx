@@ -138,7 +138,7 @@ async function bulkAction(ctx: AdminCtx) {
   };
   let what = '';
   await db.tx(async (t) => {
-    if (simple[act]) {
+    if (Object.hasOwn(simple, act)) {
       await t.query(`UPDATE products SET ${simple[act][0]}, updated_at=now() WHERE id = ANY($1::int[])`, [ids]);
       what = simple[act][1];
     } else if (act === 'category') {

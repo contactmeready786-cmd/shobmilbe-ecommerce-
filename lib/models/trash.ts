@@ -146,7 +146,7 @@ type ListOpts = {
 async function list({ kind = '', limit = 200, offset = 0 }: ListOpts = {}) {
   const params: unknown[] = [];
   let where = '';
-  if (KINDS[kind]) { params.push(kind); where = 'WHERE kind=$1'; }
+  if (Object.hasOwn(KINDS, String(kind))) { params.push(kind); where = 'WHERE kind=$1'; }
   params.push(limit, offset);
   return q<Pick<TrashRow, 'id' | 'kind' | 'ref_id' | 'name' | 'media' | 'deleted_by' | 'deleted_by_name' | 'from_path' | 'deleted_at'> & { sku: string | null; price: string | null; image_id: string | null }>(`SELECT id, kind, ref_id, name, media, deleted_by, deleted_by_name, from_path, deleted_at,
       data->'row'->>'sku' AS sku, data->'row'->>'price' AS price, data->'row'->>'image_id' AS image_id

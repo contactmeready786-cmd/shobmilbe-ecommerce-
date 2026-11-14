@@ -13,3 +13,9 @@ test('normal text and lists are unchanged', () => {
   assert.equal(render('## Title\n\n- a\n- b\n\nText'), '<h2>Title</h2>\n<ul>\n<li>a</li>\n<li>b</li>\n</ul>\n<p>Text</p>');
   assert.equal(render('- a\n\nPara'), '<ul>\n<li>a</li>\n</ul>\n<p>Para</p>');
 });
+
+test('a "//other-site" link is an outside link, not one of the shop\'s own pages', () => {
+  const html = render('[x](//evil.example/page) [y](/p/abc)');
+  assert.ok(html.includes('href="//evil.example/page" rel="noopener nofollow" target="_blank"'), html);
+  assert.ok(html.includes('href="/p/abc">y</a>'), html);
+});

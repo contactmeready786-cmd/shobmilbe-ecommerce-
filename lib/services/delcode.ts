@@ -48,7 +48,7 @@ const when = () => new Date().toLocaleString('en-GB', { timeZone: 'Asia/Dhaka' }
 
 // Make a new code for this person and this kind of delete, and e-mail it. Throws with a message the admin can read.
 async function send(ctx: AdminCtx, action: string, detail = '') {
-  if (!ACTIONS[action]) throw new Error('অজানা কাজ।');
+  if (!Object.hasOwn(ACTIONS, action)) throw new Error('অজানা কাজ।');
   if (!notify.emailConfig(ctx.settings).ready) {
     throw new Error('কোড পাঠানোর ইমেইল (Gmail) সেটআপ করা নেই, তাই এখন স্থায়ীভাবে মোছা যাবে না। Admin → নোটিফিকেশনে Gmail App Password দিন।');
   }
@@ -123,7 +123,7 @@ async function check(ctx: AdminCtx, action: string, typed?: unknown) {
 async function sendRoute(ctx: AdminCtx) {
   const b = await ctx.body();
   const action = String(b.action || '');
-  if (!ACTIONS[action]) return ctx.json(400, { error: 'অজানা কাজ।' });
+  if (!Object.hasOwn(ACTIONS, action)) return ctx.json(400, { error: 'অজানা কাজ।' });
   // the same people who may do the delete may ask for its code
   const need = action === 'test_clear' ? 'settings' : 'owner';
   if (!(need === 'owner' ? ctx.user.role === 'owner' : ctx.can(need))) return ctx.json(403, { error: 'অনুমতি নেই।' });

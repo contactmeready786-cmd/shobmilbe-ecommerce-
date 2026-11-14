@@ -62,7 +62,7 @@ type RecordNowOpts = {
 };
 async function recordNow({ req, ip, kind, detail = '', path = '', settings }: RecordNowOpts) {
   try {
-    if (!KINDS[kind]) return;
+    if (!Object.hasOwn(KINDS, String(kind))) return;
     const s = settings || (await db.getSettings());
     if (s.guard_on === '0') return;
     ip = String(ip || (req ? security.clientIp(req) : '')).slice(0, 64);

@@ -11,7 +11,7 @@ function inline(s: string) {
   return s
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
     .replace(/(^|[\s(])\*(?!\s)(.+?)\*(?=[\s).,!?]|$)/g, '$1<em>$2</em>')
-    .replace(/\[([^\]]+)\]\(((?:https?:\/\/|\/)[^\s)]+)\)/g, (_: string, t: string, u: string) => `<a href="${u}"${u.startsWith('/') ? '' : ' rel="noopener nofollow" target="_blank"'}>${t}</a>`);
+    .replace(/\[([^\]]+)\]\(((?:https?:\/\/|\/)[^\s)]+)\)/g, (_: string, t: string, u: string) => `<a href="${u}"${/^\/(?!\/)/.test(u) ? '' : ' rel="noopener nofollow" target="_blank"'}>${t}</a>`);
 }
 
 // Text copied from other shops (owner, 2026-11-14 — electroxbd) often has each list mark on its own line with empty
