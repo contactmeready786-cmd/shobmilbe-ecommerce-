@@ -4,7 +4,10 @@
 //   query(sql, params) → { rows, rowCount, command }, exec(sql) for several statements, transaction(fn),
 //   the same value types back (numbers, booleans, Dates, Buffers, parsed JSON, arrays; other types as text),
 //   and PgError with .code / .detail / .severity.
-// One shared connection per server instance; queries take turns on it, and a transaction has it to itself.
+// A small pool of connections per server instance (owner, 2026-11-14 — the shop runs on its own VPS now, so many
+// visitors' queries no longer wait in one line): a query takes a free connection, a few more are opened when all are
+// busy (DB_POOL, default 6), and the extra ones are closed again after a quiet minute. On one connection queries
+// still take turns, and a transaction has its connection to itself.
 // Code running inside a transaction may call the plain query() helpers; those calls are routed into the open
 // transaction instead of queueing behind it.
 import { AsyncLocalStorage } from 'node:async_hooks';
@@ -149,12 +152,35 @@ export type TlsState = { checked: boolean; supabase: boolean; problem: string; a
 const tlsState: TlsState = { checked: false, supabase: false, problem: '', at: null };
 export function databaseTls(): TlsState { return { ...tlsState }; }
 
+// ---------- how busy the database is (Admin → সার্ভার ও ডাটাবেস) ----------
+type SlowQuery = { sql: string; ms: number; at: number };
+const stats = { since: Date.now(), queries: 0, ms: 0, slow: 0, waits: 0, waitMs: 0, maxWaitMs: 0, slowest: [] as SlowQuery[] };
+const SLOW_MS = 200;
+function noteQuery(sql: string, ms: number): void {
+  stats.queries++; stats.ms += ms;
+  if (ms < SLOW_MS) return;
+  stats.slow++;
+  // the ten slowest statements since the start (their text only — never the values sent with them)
+  stats.slowest.push({ sql: sql.replace(/\s+/g, ' ').trim().slice(0, 200), ms, at: Date.now() });
+  stats.slowest.sort((a, b) => b.ms - a.ms);
+  if (stats.slowest.length > 10) stats.slowest.length = 10;
+}
+/** how long a call stood in line before its connection was free (more than a millisecond counts as waiting) */
+function noteWait(ms: number): void {
+  if (ms < 1) return;
+  stats.waits++; stats.waitMs += ms;
+  if (ms > stats.maxWaitMs) stats.maxWaitMs = ms;
+}
+
 // ---------- one connection ----------
 class Connection {
   config: ConnConfig;
   closed = false;
   private client: pg.Client;
   private queue: Promise<unknown> = Promise.resolve();
+  /** calls running or waiting on this connection */
+  pending = 0;
+  lastUsed = Date.now();
 
   strict: boolean;
   constructor(config: ConnConfig, strict = true) {
@@ -179,17 +205,23 @@ class Connection {
 
   // Calls take turns; a transaction keeps the connection until it ends.
   private run<T>(fn: () => Promise<T>): Promise<T> {
-    const p = this.queue.then(fn, fn);
+    this.pending++;
+    const waitFrom = performance.now();
+    const timed = () => { noteWait(performance.now() - waitFrom); return fn(); };
+    const p = this.queue.then(timed, timed);
     this.queue = p.catch(() => {});
+    const done = () => { this.pending--; this.lastUsed = Date.now(); };
+    p.then(done, done);
     return p;
   }
 
   private async rawQuery(sql: string, params: Param[]): Promise<QueryResult> {
+    const t = performance.now();
     try {
       const r = await this.client.query({ text: sql, values: params.map(serialize) });
       const rows = (r.rows || []) as DbRow[];
       return { rows, rowCount: rows.length || r.rowCount || 0, command: r.command || '' };
-    } catch (e) { throw toPgError(e); }
+    } catch (e) { throw toPgError(e); } finally { noteQuery(sql, performance.now() - t); }
   }
 
   // Simple query protocol: allows several statements, no parameters.
@@ -263,37 +295,85 @@ function databaseInfo(): { provider: string; variable: string; host: string } {
   return { provider: d.provider, variable: d.name, host };
 }
 
-// ---------- shared connection for the serverless function ----------
-let shared: Connection | null = null;
-let sharedPromise: Promise<Connection> | null = null;
+// ---------- the pool ----------
+const POOL_MAX = Math.min(20, Math.max(1, Math.floor(Number(process.env.DB_POOL)) || 6));
+const IDLE_MS = 60e3; // an extra connection nobody used for a minute is closed again
+let pool: Connection[] = [];
+let opening = 0;
+let firstPromise: Promise<Connection> | null = null;
+let noGrowUntil = 0;
+let reaper: ReturnType<typeof setInterval> | null = null;
+
+async function openConnection(): Promise<Connection> {
+  const url = pickDatabaseUrl();
+  if (!url) throw new Error('DATABASE_URL is not set');
+  const cfg = parseConnectionString(url);
+  const supabase = /supabase\.(com|co)$/.test(cfg.host);
+  const conn = new Connection(cfg, true);
+  try {
+    await conn.connect();
+    Object.assign(tlsState, { checked: cfg.ssl, supabase, problem: '', at: new Date() });
+    return conn;
+  } catch (e) {
+    if (!cfg.ssl || !supabase || !isCertError(e)) throw e;
+    // the certificate didn't pass: keep the shop running (encrypted, unchecked) and raise the alarm
+    console.error('database certificate check failed', (e as { code?: string }).code);
+    const loose = new Connection(cfg, false);
+    await loose.connect();
+    Object.assign(tlsState, { checked: false, supabase, problem: String((e as { code?: string }).code || 'certificate'), at: new Date() });
+    return loose;
+  }
+}
+
+function drop(conn: Connection): void {
+  conn.end();
+  pool = pool.filter((c) => c !== conn);
+}
+
+// The extra connections are given back to the database when the shop is quiet; one always stays open.
+function reap(): void {
+  pool = pool.filter((c) => !c.closed);
+  const now = Date.now();
+  for (const c of [...pool]) {
+    if (pool.length <= 1) break;
+    if (c.pending === 0 && now - c.lastUsed > IDLE_MS) drop(c);
+  }
+  if (pool.length <= 1 && reaper) { clearInterval(reaper); reaper = null; }
+}
 
 async function getConnection(): Promise<Connection> {
-  if (shared && !shared.closed) return shared;
-  if (!sharedPromise) {
-    const url = pickDatabaseUrl();
-    if (!url) throw new Error('DATABASE_URL is not set');
-    const cfg = parseConnectionString(url);
-    const supabase = /supabase\.(com|co)$/.test(cfg.host);
-    const open = async (): Promise<Connection> => {
-      const conn = new Connection(cfg, true);
-      try {
-        await conn.connect();
-        Object.assign(tlsState, { checked: cfg.ssl, supabase, problem: '', at: new Date() });
-        return conn;
-      } catch (e) {
-        if (!cfg.ssl || !supabase || !isCertError(e)) throw e;
-        // the certificate didn't pass: keep the shop running (encrypted, unchecked) and raise the alarm
-        console.error('database certificate check failed', (e as { code?: string }).code);
-        const loose = new Connection(cfg, false);
-        await loose.connect();
-        Object.assign(tlsState, { checked: false, supabase, problem: String((e as { code?: string }).code || 'certificate'), at: new Date() });
-        return loose;
-      }
-    };
-    sharedPromise = open().then((conn) => { shared = conn; sharedPromise = null; return conn; },
-      (e: unknown) => { sharedPromise = null; throw e; });
+  if (pool.some((c) => c.closed)) pool = pool.filter((c) => !c.closed);
+  if (!pool.length) {
+    // the first connection: everyone who asks meanwhile waits for the same one
+    if (!firstPromise) {
+      firstPromise = openConnection().then((conn) => { pool.push(conn); firstPromise = null; return conn; },
+        (e: unknown) => { firstPromise = null; throw e; });
+    }
+    return firstPromise;
   }
-  return sharedPromise;
+  let best = pool[0];
+  for (const c of pool) {
+    if (c.pending === 0) return c; // a free one
+    if (c.pending < best.pending) best = c;
+  }
+  // all busy: one more, up to the limit — otherwise the shortest line
+  if (pool.length + opening < POOL_MAX && Date.now() >= noGrowUntil) {
+    opening++;
+    try {
+      const conn = await openConnection();
+      pool.push(conn);
+      if (!reaper) { reaper = setInterval(reap, 30e3); reaper.unref(); }
+      return conn;
+    } catch (e) {
+      // the database won't give another connection just now: carry on with the ones there are
+      noGrowUntil = Date.now() + 30e3;
+      console.error('database pool', (e as Error).message);
+      const open = pool.filter((c) => !c.closed);
+      if (!open.length) throw e;
+      return open.reduce((a, c) => (c.pending < a.pending ? c : a));
+    } finally { opening--; }
+  }
+  return best;
 }
 
 // Only a failure of the connection itself is tried again — never an error the code inside a transaction threw on
@@ -304,11 +384,13 @@ function isConnectionError(e: unknown): boolean {
 
 // Retry once on a dropped connection (e.g. the server closed an idle socket).
 async function withConnection<T>(fn: (c: Connection) => Promise<T>): Promise<T> {
+  let conn: Connection | null = null;
   try {
-    return await fn(await getConnection());
+    conn = await getConnection();
+    return await fn(conn);
   } catch (e) {
     if (!isConnectionError(e)) throw e;
-    if (shared) { shared.end(); shared = null; }
+    if (conn) drop(conn);
     return fn(await getConnection());
   }
 }
@@ -326,9 +408,20 @@ export const transaction = <T>(fn: (tx: Tx) => Promise<T>): Promise<T> => {
   // Already inside a transaction: just run as part of it.
   return t ? fn(t) : withConnection((c) => c.transaction(fn));
 };
-/** Closes this server's database connection (tests and one-off tools; the shop itself never needs it). */
+/** Closes this server's database connections (tests and one-off tools; the shop itself never needs it). */
 export function closeConnection(): void {
-  if (shared) shared.end();
-  shared = null;
+  for (const c of pool) c.end();
+  pool = [];
+  if (reaper) { clearInterval(reaper); reaper = null; }
+}
+/** The pool and the queries since this server process started — for Admin → সার্ভার ও ডাটাবেস. */
+export function poolStats() {
+  const open = pool.filter((c) => !c.closed);
+  return {
+    max: POOL_MAX, open: open.length, busy: open.filter((c) => c.pending > 0).length, waiting: open.reduce((n, c) => n + Math.max(0, c.pending - 1), 0),
+    since: stats.since, queries: stats.queries, avgMs: stats.queries ? stats.ms / stats.queries : 0, slow: stats.slow,
+    waits: stats.waits, avgWaitMs: stats.waits ? stats.waitMs / stats.waits : 0, maxWaitMs: stats.maxWaitMs,
+    slowest: stats.slowest.map((q) => ({ ...q })),
+  };
 }
 export { PgError, Connection, parseConnectionString, pickDatabaseUrl, databaseInfo };

@@ -36,7 +36,12 @@ export function tooMany(ctx: ApiCtx): Response {
 /** At most `max` calls per `seconds` from this connection for `key` (lib/security hit). */
 export const allow = (ctx: ApiCtx, key: string, max: number, seconds: number) => security.hit(db, key + ctx.ip, max, seconds);
 
-export function apiRoute(fn: (ctx: ApiCtx) => Promise<Response>, opts: { bots?: boolean } = {}) {
+/**
+ * opts.quiet: a POST that only writes its own notes (a visitor-analytics beacon, a click count, a blocked-script
+ * report) and never anything the 15-second memory holds (settings, categories, pages, banners) — it leaves the
+ * memory alone. Without this every page view's beacon emptied the memory, so it almost never helped (2026-11-14).
+ */
+export function apiRoute(fn: (ctx: ApiCtx) => Promise<Response>, opts: { bots?: boolean; quiet?: boolean } = {}) {
   return async (request: Request): Promise<Response> => {
     const url = new URL(request.url);
     const headers: Record<string, string> = {};
@@ -48,7 +53,7 @@ export function apiRoute(fn: (ctx: ApiCtx) => Promise<Response>, opts: { bots?: 
     if (!gate.ok) return new Response(gate.body, { status: gate.status, headers: { 'Content-Type': gate.type, 'Cache-Control': 'no-store', ...security.BASE_HEADERS, ...gate.headers } });
     const ctx: ApiCtx = { request, url, path, query: url.searchParams, settings: gate.settings, ip: security.clientIp(req), req, body: () => parseBody(req) };
     // a request that changes something reads fresh data and empties the 15-second memory before and after (lib/cache.ts)
-    const changes = request.method !== 'GET' && request.method !== 'HEAD';
+    const changes = !opts.quiet && request.method !== 'GET' && request.method !== 'HEAD';
     try {
       if (!changes) return await fn(ctx);
       cache.clearAll();
