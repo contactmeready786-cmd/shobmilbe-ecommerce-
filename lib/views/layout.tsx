@@ -47,7 +47,7 @@ function HeadTags({ s, title, description, keywords, canonical, image, type = 'w
 type ShopLayoutProps = PageOpts & { settings: Settings; title: string; body: ReactNode } & Partial<Pick<ComponentProps<typeof ShopBody>, 'categories' | 'pages' | 'popup'>>;
 function shopLayout({ settings: s, title, description, keywords, body, q, active, canonical, image, jsonLd, jsonLdExtra, type, noindex, categories = [], pages = [], track = null, popup = null }: ShopLayoutProps) {
   const full = title ? `${title} | ${s.store_name}` : $services_seo.homeTitle(s);
-  const bodyClass = ['shop', s.copy_protect === '1' ? 'protect' : '', s.copy_title === '1' ? 'copy-title' : '', `cols-${s.grid_cols || '4'}`].filter(Boolean).join(' ');
+  const bodyClass = ['shop', s.copy_protect === '1' ? 'protect' : '', s.copy_title === '1' ? 'copy-title' : '', `cols-${s.grid_cols || '4'}`, s.shop_glass === '1' ? 'glass' : ''].filter(Boolean).join(' ');
   const head = renderHtml(<>
     <HeadTags s={s} title={full} description={description} keywords={keywords} canonical={canonical} image={image} type={type} noindex={noindex} />
     <ShopHeadExtras settings={s} />

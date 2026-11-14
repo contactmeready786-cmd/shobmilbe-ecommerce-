@@ -1155,3 +1155,60 @@ html, body { overflow-x: clip; }
 .search-ask .small { color: #b42318; }
 .search-ask-ok { margin: 0; padding: 10px 12px; color: #067647; font-weight: 600; }
 .empty + .search-ask { max-width: 520px; margin: 12px auto; border: 1px solid var(--line); border-radius: 12px; }
+
+/* ================================================================================================================
+   ✨ Glass look for the shop (owner, 2026-11-14): the admin's HyperOS-style glass, in the shop's blue and amber.
+   Only while the owner's switch is on (Admin → দোকানের ডিজাইন → লোগো, রং ও হোমপেজ → "গ্লাস ডিজাইন" → body.glass);
+   switched off, nothing here applies and the shop looks exactly as before. Product pictures stay on clean white.
+   Customers' phones: real blur only on the bars that float over the page (header, buy bar, menus); cards are simply
+   see-through on a still background, which costs the phone nothing.
+   ================================================================================================================ */
+body.shop.glass {
+  --g-surf: rgba(255, 255, 255, .68); --g-edge: rgba(255, 255, 255, .92); --g-line: rgba(20, 33, 61, .10);
+  --g-shadow: 0 6px 22px rgba(20, 33, 61, .07), inset 0 1px 0 rgba(255, 255, 255, .95);
+  --g-blur: blur(18px) saturate(170%);
+  background: #EAF0F8;
+}
+body.shop.glass::before {
+  content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background:
+    radial-gradient(40vmax 34vmax at 6% 6%, rgba(8, 102, 214, .22), transparent 70%),
+    radial-gradient(38vmax 32vmax at 96% 10%, rgba(245, 165, 36, .24), transparent 70%),
+    radial-gradient(44vmax 36vmax at 70% 102%, rgba(20, 150, 140, .16), transparent 70%);
+}
+/* bars that float over the page: real frosted glass */
+body.shop.glass .site-header { background: rgba(255, 255, 255, .70); -webkit-backdrop-filter: var(--g-blur); backdrop-filter: var(--g-blur); border-bottom: 1px solid var(--g-edge); box-shadow: 0 6px 20px rgba(20, 33, 61, .07); }
+body.shop.glass .cat-strip { background: transparent; border-top-color: var(--g-line); }
+body.shop.glass :is(.sticky-buy, .compare-bar) { background: rgba(255, 255, 255, .74); -webkit-backdrop-filter: var(--g-blur); backdrop-filter: var(--g-blur); border-color: var(--g-edge); box-shadow: 0 -6px 22px rgba(20, 33, 61, .10); }
+body.shop.glass :is(.drawer, .nav-drop-menu) { background: rgba(255, 255, 255, .84); -webkit-backdrop-filter: var(--g-blur); backdrop-filter: var(--g-blur); border-color: var(--g-edge); }
+body.shop.glass .nav-drop-menu { border-radius: 16px; box-shadow: 0 16px 36px rgba(20, 33, 61, .16); }
+/* cards and boxes: see-through white with a bright edge */
+body.shop.glass :is(.card, .panel, .pdp-facts, .tabs-box, .post-card, .post, .match, .cat-box, .pay-opt) {
+  background-color: var(--g-surf); border-color: var(--g-edge); box-shadow: var(--g-shadow);
+}
+body.shop.glass :is(.empty, .live-empty) { background-color: var(--g-surf); border-color: rgba(20, 33, 61, .18); }
+body.shop.glass :is(.card, .tabs-box, .post-card) { border-radius: 18px; }
+body.shop.glass :is(.panel, .post, .pdp-facts, .match) { border-radius: 20px; }
+body.shop.glass .cat-box { border-radius: 16px; }
+body.shop.glass .card:hover { box-shadow: 0 14px 30px rgba(20, 33, 61, .12), inset 0 1px 0 #fff; }
+body.shop.glass .card-pic { border-bottom-color: var(--g-line); }
+body.shop.glass .pdp-short { background: var(--g-surf); border-color: var(--g-edge); border-left-color: var(--amber); }
+body.shop.glass .cat-ic { background: rgba(8, 102, 214, .10); }
+body.shop.glass .chip { background: rgba(255, 255, 255, .66); border-color: var(--g-edge); box-shadow: 0 1px 4px rgba(20, 33, 61, .06); }
+body.shop.glass .live-sports { background: rgba(255, 255, 255, .5); border: 1px solid var(--g-edge); }
+/* buttons and fields */
+body.shop.glass .btn { border-radius: 12px; }
+body.shop.glass .btn:not(.btn-ghost):not(.btn-ghost-light):not(.link-btn) { box-shadow: 0 6px 16px rgba(8, 102, 214, .22), inset 0 1px 0 rgba(255, 255, 255, .22); }
+body.shop.glass .btn-amber { box-shadow: 0 6px 16px rgba(245, 165, 36, .30), inset 0 1px 0 rgba(255, 255, 255, .35); }
+body.shop.glass .btn-ghost { background: rgba(255, 255, 255, .62); }
+body.shop.glass .qty { background: rgba(255, 255, 255, .80); border-color: rgba(20, 33, 61, .14); border-radius: 12px; }
+body.shop.glass :is(input:not([type=radio]):not([type=checkbox]):not([type=file]):not([type=range]):not([type=hidden]), select, textarea) { background-color: rgba(255, 255, 255, .84); border-radius: 12px; }
+body.shop.glass :is(input:not([type=radio]):not([type=checkbox]):not([type=file]):not([type=range]):not([type=hidden]), select, textarea):focus { background-color: #fff; }
+/* where see-through can't be drawn, or the phone asks for less of it: the same shapes, solid */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  body.shop.glass :is(.site-header, .sticky-buy, .compare-bar, .drawer, .nav-drop-menu) { background: rgba(255, 255, 255, .97); }
+}
+@media (prefers-reduced-transparency: reduce) {
+  body.shop.glass :is(.site-header, .sticky-buy, .compare-bar, .drawer, .nav-drop-menu, .card, .panel, .pdp-facts, .tabs-box, .post-card, .post, .match, .cat-box, .pay-opt) { background-color: #fff; -webkit-backdrop-filter: none; backdrop-filter: none; }
+}
+@media print { body.shop.glass::before { display: none; } }

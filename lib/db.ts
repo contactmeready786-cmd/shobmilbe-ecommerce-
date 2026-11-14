@@ -1624,6 +1624,7 @@ const DEFAULT_SETTINGS: Record<string, string> = {
   low_stock_default: '3',
   copy_protect: '1',
   copy_title: '0', // owner's switch: while on, product names can be copied even with copy protection
+  shop_glass: '0', // owner's switch (Admin → লোগো, রং ও হোমপেজ): the shop in the admin's glass look
   photo_download: '0', // owner's switch: while on, the big photo viewer on product pages shows a JPG download button
   // look & feel
   color_primary: '#0866D6', color_accent: '#F5A524',

@@ -7,7 +7,7 @@ import { can, canSee } from '../models/staff';
 import * as $profile from './profile';
 import type { AdminDrawn, Body, Settings, StaffUser } from '../types';
 
-const ASSET_V = '83';
+const ASSET_V = '84';
 
 // 📑 Small jobs that belong together sit on one page as tabs (like browser tabs). Each tab is still its own
 // page with its own link (bookmarks and the phone app keep working); the menu shows one entry for the set.
@@ -20,6 +20,11 @@ type MenuItem = Tab | TabSet;
 /** a menu entry the user may open: a link, plus (for a tab set) the keys of all its tabs */
 type Resolved = [string, string, string, string, string, string[]?];
 const TABS: Record<string, Tab[]> = {
+  // 2026-11-14 (owner: put related pages together): every order list in one place
+  orders: [
+    ['/admin/orders', 'সব অর্ডার', 'orders', 'orders', '🧾'],
+    ['/admin/orders/incomplete', 'অসম্পূর্ণ অর্ডার', 'orders', 'drafts', '📝'],
+  ],
   pnl: [
     ['/admin/accounts/pnl', 'লাভ-ক্ষতি', 'see_cost', 'acc-pnl', '📉'],
     ['/admin/accounts/packing', 'প্যাকিং খরচ', 'see_cost', 'packing', '📦'],
@@ -70,12 +75,23 @@ const TABS: Record<string, Tab[]> = {
     ['/admin/marketing/channels', 'সব প্ল্যাটফর্ম', 'marketing', 'channels', '📣'],
     ['/admin/marketing/auto', 'Facebook, Instagram ও Telegram', 'marketing', 'automarketing', '🤖'],
   ],
-  gfb: [
+  // 2026-11-14: "Google ও Facebook" split in two — being found on Google (SEO, blog) / ads and what the ads need
+  // (pixels, product feeds, retargeting, whether each connection works)
+  seoblog: [
     ['/admin/marketing/seo', 'SEO', 'marketing', 'seo', '🔎'],
     ['/admin/marketing/autoseo', 'অটো SEO', 'marketing', 'autoseo', '🤖'],
-    ['/admin/marketing/feeds', 'প্রোডাক্ট ফিড', 'marketing', 'feeds', '🔗'],
+    ['/admin/blog', 'ব্লগ', 'blog', 'blog', '📝'],
+  ],
+  ads: [
     ['/admin/marketing/tracking', 'পিক্সেল ও ট্র্যাকিং', 'marketing', 'tracking', '🎯'],
+    ['/admin/marketing/feeds', 'প্রোডাক্ট ফিড', 'marketing', 'feeds', '🔗'],
+    ['/admin/reach', 'রিটার্গেটিং', 'owner', 'reach', '🔁'],
     ['/admin/integrations/status', 'সংযোগের অবস্থা', 'settings', 'status', '🔌'],
+  ],
+  security: [
+    ['/admin/security', 'নিরাপত্তার অবস্থা', 'owner', 'security', '🛡️'],
+    ['/admin/security/threats', 'সন্দেহজনক ভিজিটর', 'owner', 'threats', '🚨'],
+    ['/admin/security/audit', 'অডিট লগ (কে কী বদলেছে)', 'owner', 'audit', '📜'],
   ],
   system: [
     ['/admin/health', 'সার্ভার ও ডাটাবেস', 'owner', 'health', '🩺'],
@@ -106,18 +122,17 @@ const tabSet = (id: string, label: string, icon: string): TabSet => ({ tabs: id,
 const MENU: { title: string; icon?: string; items: MenuItem[] }[] = [
   { title: '', items: [['/admin', 'ড্যাশবোর্ড', 'dashboard', 'home', '📊']] },
   { title: 'অর্ডার', icon: '🧾', items: [
-    ['/admin/orders', 'সব অর্ডার', 'orders', 'orders', '🧾'],
+    tabSet('orders', 'সব অর্ডার', '🧾'),
     ['/admin/orders/new', 'নতুন অর্ডার', 'orders_edit', 'order-new', '➕'],
     ['/admin/pos', 'দোকানে বিক্রি (POS)', 'pos', 'pos', '🏪'],
-    ['/admin/orders/incomplete', 'অসম্পূর্ণ অর্ডার', 'orders', 'drafts', '📝'],
     ['/admin/handover', 'কুরিয়ারে হ্যান্ডওভার', 'orders_edit', 'handover', '📦'],
     tabSet('returns', 'রিটার্ন ও অভিযোগ', '↩️'),
+    tabSet('fake', 'ফেক অর্ডার ঠেকানো', '🛡️'),
   ] },
   { title: 'কাস্টমার', icon: '👤', items: [
     ['/admin/customers', 'সব কাস্টমার', 'customers', 'customers', '👤'],
     ['/admin/customer-accounts', 'কাস্টমার অ্যাকাউন্ট', 'settings', 'cust-accounts', '🔐'],
     tabSet('reviews', 'রিভিউ ও প্রশ্ন-উত্তর', '⭐'),
-    tabSet('fake', 'ফেক অর্ডার ঠেকানো', '🛡️'),
   ] },
   { title: 'পণ্য', icon: '📦', items: [
     tabSet('products', 'সব পণ্য', '📦'),
@@ -157,11 +172,10 @@ const MENU: { title: string; icon?: string; items: MenuItem[] }[] = [
   ] },
   { title: 'মার্কেটিং', icon: '📣', items: [
     tabSet('autosocial', 'সোশ্যাল মিডিয়া অটো পোস্ট', '📣'),
-    ['/admin/reach', 'রিটার্গেটিং', 'owner', 'reach', '🎯'],
+    ['/admin/marketing/social', 'সোশ্যাল লিংক ও লাইভ চ্যাট', 'marketing', 'social', '💬'],
     tabSet('messages', 'কাস্টমারকে মেসেজ', '📱'),
-    ['/admin/marketing/social', 'সোশ্যাল ও লাইভ চ্যাট', 'marketing', 'social', '💬'],
-    ['/admin/blog', 'ব্লগ', 'blog', 'blog', '📝'],
-    tabSet('gfb', 'Google ও Facebook', '🔎'),
+    tabSet('seoblog', 'SEO ও ব্লগ (Google)', '🔎'),
+    tabSet('ads', 'পিক্সেল, ফিড ও বিজ্ঞাপন', '🎯'),
   ] },
   { title: 'দোকানের ডিজাইন', icon: '🎨', items: [
     ['/admin/design', 'লোগো, রং ও হোমপেজ', 'design', 'design', '🎨'],
@@ -182,10 +196,8 @@ const MENU: { title: string; icon?: string; items: MenuItem[] }[] = [
   { title: 'স্টাফ ও নিরাপত্তা', icon: '🛡️', items: [
     ['/admin/ai-staff', 'AI স্টাফ', 'owner', 'ai-staff', '🤖'],
     ['/admin/staff', 'স্টাফ ও অনুমতি', 'owner', 'staff', '🧑‍💼'],
-    ['/admin/security', 'নিরাপত্তার অবস্থা', 'owner', 'security', '🛡️'],
+    tabSet('security', 'নিরাপত্তা ও পাহারা', '🛡️'),
     tabSet('login', 'লগইন ও ডিভাইস', '🔐'),
-    ['/admin/security/threats', 'সন্দেহজনক ভিজিটর', 'owner', 'threats', '🚨'],
-    ['/admin/security/audit', 'অডিট লগ (কে কী বদলেছে)', 'owner', 'audit', '📜'],
     tabSet('system', 'সার্ভার, ডাটাবেস ও ব্যাকআপ', '🩺'),
   ] },
   { title: '', items: [['/admin/trash', 'রিসাইকেল বিন', 'owner', 'trash', '🗑️']] },

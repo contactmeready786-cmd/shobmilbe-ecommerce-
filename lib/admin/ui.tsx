@@ -159,8 +159,17 @@ function empty(text?: unknown, action?: JSX.Element | undefined) {
   return <div className="empty panel"><p><Val v={text} /></p><Val v={action || ''} /></div>;
 }
 
+/**
+ * ⚙️ A work page's own settings folded into one slim bar (owner, 2026-11-14: "big switches and buttons scattered
+ * everywhere"). The page's real work — the numbers and the list — comes first; the settings stay on the same page
+ * (one place per switch) and open with a tap. The closed bar still shows each switch's state.
+ */
+function settingsBox(title: unknown, state: [string, boolean][], body: unknown, open = false) {
+  return <details className="panel settings-box" open={open}><summary><span className="sb-title">⚙️{' '}<Val v={title} /></span><span className="sb-state">{jsxList(state.map(([label, on]) => <span className={`sb-chip ${on ? 'is-on' : 'is-off'}`}><Val v={label} />:{' '}{on ? 'চালু' : 'বন্ধ'}</span>))}</span></summary><div className="sb-body"><Val v={body} /></div></details>;
+}
+
 function helpBox(title?: unknown, body?: unknown) {
   return <details className="help"><summary>💡{' '}<Val v={title} /></summary><div><Val v={body} /></div></details>;
 }
 
-export { flag, importTabs, rowSwitch, rowActions, catOpts, MESSAGES, flash, flashFrom, pill, field, input, textarea, select, check, switchRow, imagePicker, pager, dateFilter, kpi, empty, helpBox, money, bn };
+export { flag, importTabs, rowSwitch, rowActions, catOpts, MESSAGES, flash, flashFrom, pill, field, input, textarea, select, check, switchRow, imagePicker, pager, dateFilter, kpi, empty, settingsBox, helpBox, money, bn };
