@@ -56,9 +56,9 @@ const TABS: Record<string, Tab[]> = {
     ['/admin/products/watermark', 'ওয়াটারমার্ক', 'products', 'watermark', '💧'],
     ['/admin/products/duplicates', 'ডুপ্লিকেট পণ্য', 'products', 'duplicates', '👯'],
     ['/admin/products/source-pics', 'অন্য দোকানের ছবি', 'products', 'source-pics', '🚩'],
-    ['/admin/products/whiten', 'ব্যাকগ্রাউন্ড সাদা', 'products', 'whiten', '⬜'],
+    ['/admin/products/whiten', 'ছবির ব্যাকগ্রাউন্ড সাদা (AI)', 'products', 'whiten', '⬜'],
     ['/admin/products/whiten/mine', 'নিজের ছবি সাদা', 'products', 'whiten-mine', '📤'],
-    ['/admin/products/clean-desc', 'বিবরণ পরিষ্কার', 'products', 'clean-desc', '🧹'],
+    ['/admin/products/clean-desc', 'বিবরণ থেকে অন্য দোকানের লেখা সরানো', 'products', 'clean-desc', '🧹'],
   ],
   suppliers: [
     ['/admin/suppliers', 'সাপ্লায়ার', 'inventory', 'suppliers', '🚚'],
@@ -80,7 +80,7 @@ const TABS: Record<string, Tab[]> = {
   // (pixels, product feeds, retargeting, whether each connection works)
   seoblog: [
     ['/admin/marketing/seo', 'SEO', 'marketing', 'seo', '🔎'],
-    ['/admin/marketing/autoseo', 'অটো SEO', 'marketing', 'autoseo', '🤖'],
+    ['/admin/marketing/autoseo', 'অটো SEO (মডেল, স্পেসিফিকেশন ও বিবরণ নিজে বসায়)', 'marketing', 'autoseo', '🤖'],
     ['/admin/blog', 'ব্লগ', 'blog', 'blog', '📝'],
   ],
   ads: [
@@ -162,7 +162,7 @@ const MENU: { title: string; icon?: string; items: MenuItem[] }[] = [
     ['/admin/reports', 'বিক্রির রিপোর্ট', 'reports', 'reports', '📋'],
     ['/admin/reports/search', 'কাস্টমার কী খুঁজছে', 'reports', 'search-report', '🔎'],
     ['/admin/marketing/visitors', 'ভিজিটর অ্যানালিটিক্স', 'marketing', 'visitors', '👀'],
-    ['/admin/research', 'মার্কেট রিসার্চ', 'owner', 'research', '🔭'],
+    ['/admin/research', 'মার্কেট রিসার্চ (চলতি পণ্য খোঁজে)', 'owner', 'research', '🔭'],
     ['/admin/growth', 'গ্রোথ গাইড', 'owner', 'growth', '🚀'],
   ] },
   { title: 'অফার', icon: '🏷️', items: [
@@ -195,7 +195,7 @@ const MENU: { title: string; icon?: string; items: MenuItem[] }[] = [
     tabSet('domain', 'ডোমেইন ও DNS', '🌐'),
   ] },
   { title: 'স্টাফ ও নিরাপত্তা', icon: '🛡️', items: [
-    ['/admin/ai-staff', 'AI স্টাফ', 'owner', 'ai-staff', '🤖'],
+    ['/admin/ai-staff', 'AI স্টাফ (নাম, বিবরণ ও SEO লেখে)', 'owner', 'ai-staff', '🤖'],
     ['/admin/staff', 'স্টাফ ও অনুমতি', 'owner', 'staff', '🧑‍💼'],
     tabSet('security', 'নিরাপত্তা ও পাহারা', '🛡️'),
     tabSet('login', 'লগইন ও ডিভাইস', '🔐'),
