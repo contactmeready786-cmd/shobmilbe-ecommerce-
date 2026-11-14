@@ -18,6 +18,13 @@ const AUTO = '/admin/marketing/auto';
 
 async function handle(ctx: AdminCtx) {
   if (ctx.method === 'POST') return post(ctx);
+  // "লগইন করে অনুমতি দিন" is a plain link (?auth=threads), not a form: the admin's script rule (form-action 'self')
+  // stops a form whose answer sends the browser on to threads.net, so the button did nothing (owner, 2026-11-14).
+  const auth = ctx.query.get('auth');
+  if (auth) {
+    if (!social.isChannel(auth)) return ctx.back(BASE);
+    try { return ctx.redirect(await social.authUrl(ctx.settings, auth)); } catch (caught) { return ctx.fail(`${BASE}#${auth}`, (caught as Caught).message); }
+  }
   return page(ctx);
 }
 
@@ -146,8 +153,8 @@ async function page(ctx: AdminCtx) {
       <form method="post" action={attrValue(BASE)} className="form"><input type="hidden" name="action" defaultValue="app" /><input type="hidden" name="ch" defaultValue={ch} />
         <div className="field-row">{ui.field(idLabel, ui.input('app_id', s[`social_${ch}_app_id`] || '', { autocomplete: 'off' }))}{' '}{ui.field(secretLabel, secretInput('secret', s[`social_${ch}_secret`]))}</div>
         <button className="btn btn-sm btn-ghost">💾 সেভ করুন</button></form>
-      <form method="post" action={attrValue(BASE)}><input type="hidden" name="action" defaultValue="auth" /><input type="hidden" name="ch" defaultValue={ch} />
-        <button className="btn btn-sm" disabled={!hasApp}>🔗 {conn ? 'আবার লগইন করে অনুমতি দিন' : 'লগইন করে অনুমতি দিন'}</button>{hasApp ? null : <small className="muted"> — আগে উপরের দুটো ঘর সেভ করুন</small>}</form>
+      <p>{hasApp ? <a className="btn btn-sm" href={`${BASE}?auth=${ch}`}>🔗 {conn ? 'আবার লগইন করে অনুমতি দিন' : 'লগইন করে অনুমতি দিন'}</a>
+        : <><button className="btn btn-sm" type="button" disabled>🔗 লগইন করে অনুমতি দিন</button><small className="muted"> — আগে উপরের দুটো ঘর সেভ করুন</small></>}</p>
       {conn ? <>
         <form method="post" action={attrValue(BASE)} className="form"><input type="hidden" name="action" defaultValue="settings" /><input type="hidden" name="ch" defaultValue={ch} />
           {ui.switchRow('on', s[`social_${ch}_on`] === '1', 'প্রতিদিন নিজে থেকে পোস্ট করো', `একই পণ্য ${I.name}-এ ৪৫ দিনের মধ্যে আবার যায় না; স্টক নেই এমন পণ্য যায় না`)}
