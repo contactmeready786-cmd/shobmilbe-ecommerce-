@@ -109,6 +109,23 @@ async function fillBnNames(limit = 500): Promise<number> {
 }
 /** 🇧🇩 owner, 2026-11-14: every saved Bangla name fully in Bangla — no English letters or digits (fullBangla), the
  *  owner's own names too. A few hundred at a time, until none is left; new names are made that way already. */
+/** 🇧🇩 owner, 2026-11-14: the automatic Bangla names are made again from the English name with today's rules (so a
+ *  size inside a model code or "I2C" is never read wrongly), a few dozen each time; ends by itself when all are done. */
+async function remakeBnNames(per = 40): Promise<number> {
+  const cur = await one<{ value: string }>("SELECT value FROM settings WHERE key='bn_remake_cursor'");
+  if (cur && cur.value === 'done') return 0;
+  const from = Number(cur ? cur.value : 0) || 0;
+  const rows = await q<{ id: number; name: string }>(`SELECT id, name FROM products WHERE name_bn_auto AND id > $1 ORDER BY id LIMIT $2`, [from, per]);
+  const part: { id: number; bn: string }[] = [];
+  for (const r of rows) {
+    const bn = await bnTitleSmart(r.name).catch(() => bnTitle(r.name));
+    if (bn && !/[A-Za-z0-9]/.test(bn)) part.push({ id: r.id, bn });
+  }
+  if (part.length) await q(`UPDATE products p SET name_bn=x.bn FROM jsonb_to_recordset($1::jsonb) AS x(id int, bn text) WHERE p.id=x.id AND p.name_bn_auto`, [JSON.stringify(part)]);
+  const next = rows.length < per ? 'done' : String(rows[rows.length - 1].id);
+  await q(`INSERT INTO settings(key, value) VALUES('bn_remake_cursor', $1) ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value`, [next]);
+  return part.length;
+}
 async function fullBnNames(limit = 3000): Promise<number> {
   // (owner, 2026-11-14: straight away for every name — the saved names were already translated by the word list and
   // Google when they were made; whatever English is left is written in Bangla letters now)
@@ -1059,4 +1076,4 @@ async function inventorySummary(): Promise<InventorySummary | null> {
     FROM products WHERE active AND product_type='single' AND variant_count = 0`);
 }
 
-export { NEED_SQL, brandsIn, oweStock, specFacets, directPictureUrl, fillBnNames, fullBnNames, saveMedia, keepPrivate, mediaWithoutHash, setMediaHash, getMedia, mediaNeedingWatermark, watermarkProgress, setWatermark, getWatermarked, attachMedia, claimMedia, deleteMedia, cleanupMedia, listCategories, categoryTree, categoryOptions, categorySubtree, saveCategory, deleteCategory, listBrands, getBrand, saveBrand, brandIdFor, cleanSpecs, addRedirect, findRedirect, LINK_KINDS, linkedSkus, setLinks, linkedProducts, crossFor, listProducts, countProducts, productStats, getProduct, getProductsByIds, listVariants, saveVariants, syncVariants, MAX_VARIANTS, bundleItems, saveProduct, deleteProduct, deleteAllProducts, duplicateProduct, skuTaken, nextSku, takeSku, moveStock, changeDamaged, cleanLocation, listLocations, reservedFor, OPEN_STATUSES, stockParts, stockMovements, inventorySummary, STOCK_REASONS, MAX_PRODUCT_IMAGES, WARRANTY, WARRANTY_TYPES, warrantyText, logPriceChange, priceHistory, productLedger, correctCost };
+export { NEED_SQL, brandsIn, oweStock, specFacets, directPictureUrl, fillBnNames, fullBnNames, remakeBnNames, saveMedia, keepPrivate, mediaWithoutHash, setMediaHash, getMedia, mediaNeedingWatermark, watermarkProgress, setWatermark, getWatermarked, attachMedia, claimMedia, deleteMedia, cleanupMedia, listCategories, categoryTree, categoryOptions, categorySubtree, saveCategory, deleteCategory, listBrands, getBrand, saveBrand, brandIdFor, cleanSpecs, addRedirect, findRedirect, LINK_KINDS, linkedSkus, setLinks, linkedProducts, crossFor, listProducts, countProducts, productStats, getProduct, getProductsByIds, listVariants, saveVariants, syncVariants, MAX_VARIANTS, bundleItems, saveProduct, deleteProduct, deleteAllProducts, duplicateProduct, skuTaken, nextSku, takeSku, moveStock, changeDamaged, cleanLocation, listLocations, reservedFor, OPEN_STATUSES, stockParts, stockMovements, inventorySummary, STOCK_REASONS, MAX_PRODUCT_IMAGES, WARRANTY, WARRANTY_TYPES, warrantyText, logPriceChange, priceHistory, productLedger, correctCost };

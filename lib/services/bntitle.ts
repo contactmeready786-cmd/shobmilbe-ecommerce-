@@ -258,7 +258,7 @@ const spell = (w: string) => w.toLowerCase().split('').map((c) => LETTER[c] || c
 const UNIT: Record<string, string> = { v: 'ভোল্ট', kv: 'কিলোভোল্ট', mv: 'মিলিভোল্ট', vac: 'ভোল্ট এসি', vdc: 'ভোল্ট ডিসি', w: 'ওয়াট', kw: 'কিলোওয়াট', a: 'এ', ma: 'মিলিঅ্যাম্প',
   mah: 'এমএএইচ', ah: 'এএইচ', hz: 'হার্জ', khz: 'কিলোহার্জ', mhz: 'মেগাহার্জ', ghz: 'গিগাহার্জ', mm: 'মিমি', cm: 'সেমি', m: 'মিটার', km: 'কিমি', ft: 'ফুট',
   inch: 'ইঞ্চি', in: 'ইঞ্চি', kg: 'কেজি', g: 'গ্রাম', gm: 'গ্রাম', mg: 'মিলিগ্রাম', l: 'লিটার', ml: 'মিলি', gb: 'জিবি', mb: 'এমবি', tb: 'টিবি', pcs: 'পিস', pc: 'পিস',
-  rpm: 'আরপিএম', ohm: 'ওহম', k: 'কে', db: 'ডিবি', p: 'পি', x: 'x', uf: 'মাইক্রোফ্যারাড', nf: 'ন্যানোফ্যারাড', pf: 'পিকোফ্যারাড', awg: 'এডব্লিউজি', c: 'ডিগ্রি', f: 'এফ',
+  rpm: 'আরপিএম', ohm: 'ওহম', k: 'কে', db: 'ডিবি', p: 'পি', x: 'x', uf: 'মাইক্রোফ্যারাড', nf: 'ন্যানোফ্যারাড', pf: 'পিকোফ্যারাড', awg: 'এডব্লিউজি', f: 'এফ',
   core: 'কোর', pin: 'পিন', pins: 'পিন', ch: 'চ্যানেল', way: 'ওয়ে', gang: 'গ্যাং', layer: 'লেয়ার', gauge: 'গেজ', bit: 'বিট', s: 'এস', th: 'তম', nd: 'য়', rd: 'য়', st: 'ম' };
 /** names people in Bangladesh already write in Bangla */
 const KNOWN: Record<string, string> = { arduino: 'আরডুইনো', raspberry: 'রাসবেরি', pi: 'পাই', samsung: 'স্যামসাং', sony: 'সনি', walton: 'ওয়ালটন', gree: 'গ্রি',
@@ -272,11 +272,14 @@ const KNOWN: Record<string, string> = { arduino: 'আরডুইনো', raspbe
   marcel: 'মার্সেল', transtec: 'ট্রান্সটেক', eco: 'ইকো', inverter: 'ইনভার্টার', dual: 'ডুয়াল', led: 'এলইডি', lcd: 'এলসিডি', oled: 'ওলেড',
   digital: 'ডিজিটাল', module: 'মডিউল', board: 'বোর্ড', sensor: 'সেন্সর', kit: 'কিট', set: 'সেট', box: 'বক্স', black: 'কালো', white: 'সাদা', red: 'লাল',
   blue: 'নীল', green: 'সবুজ', yellow: 'হলুদ', silver: 'সিলভার', gold: 'গোল্ড', golden: 'গোল্ডেন', pink: 'গোলাপি', grey: 'ধূসর', gray: 'ধূসর', air: 'এয়ার', conditioner: 'কন্ডিশনার', op: 'অপ', amp: 'অ্যাম্প', band: 'ব্যান্ড', strap: 'স্ট্র্যাপ',
-  voice: 'ভয়েস', rgb: 'আরজিবি', ac: 'এসি', dc: 'ডিসি', tv: 'টিভি', usb: 'ইউএসবি', ic: 'আইসি', pcb: 'পিসিবি', ups: 'ইউপিএস', ir: 'আইআর', rf: 'আরএফ', gps: 'জিপিএস', sd: 'এসডি' };
+  voice: 'ভয়েস', rgb: 'আরজিবি', ac: 'এসি', dc: 'ডিসি', tv: 'টিভি', usb: 'ইউএসবি', ic: 'আইসি', pcb: 'পিসিবি', ups: 'ইউপিএস', ir: 'আইআর', rf: 'আরএফ', gps: 'জিপিএস', sd: 'এসডি',
+  solid: 'সলিড', state: 'স্টেট', static: 'স্ট্যাটিক', anti: 'অ্যান্টি', schottky: 'শটকি', quickly: 'কুইকলি', warm: 'ওয়ার্ম', up: 'আপ', segment: 'সেগমেন্ট',
+  relief: 'রিলিফ', plated: 'প্লেটেড', butterfly: 'বাটারফ্লাই', snake: 'স্নেক', anklet: 'এঙ্কলেট', payel: 'পায়েল', speed: 'স্পিড', control: 'কন্ট্রোল',
+  split: 'স্প্লিট', style: 'স্টাইল', electrolytic: 'ইলেক্ট্রোলাইটিক', radial: 'রেডিয়াল', lifepo: 'লাইফেপো', koku: 'কোকু', tatal: 'টাটাল', counter: 'কাউন্টার' };
 /** any other English word, written in Bangla letters as it sounds (a simple, predictable reading) */
 function sounds(word: string): string {
   const w = word.toLowerCase().replace(/(.)\1+/g, '$1').replace(/er$/, '#');
-  const C: [string, string][] = [['tion', 'শন'], ['sion', 'শন'], ['sh', 'শ'], ['ch', 'চ'], ['th', 'থ'], ['ph', 'ফ'], ['kh', 'খ'], ['gh', 'ঘ'], ['ck', 'ক'], ['qu', 'কু'], ['ng', 'ং'],
+  const C: [string, string][] = [['tion', 'শন'], ['sion', 'শন'], ['sh', 'শ'], ['ch', 'চ'], ['th', 'থ'], ['ph', 'ফ'], ['kh', 'খ'], ['gh', 'ঘ'], ['ck', 'ক'], ['ng', 'ং'],
     ['b', 'ব'], ['c', 'ক'], ['d', 'ড'], ['f', 'ফ'], ['g', 'গ'], ['h', 'হ'], ['j', 'জ'], ['k', 'ক'], ['l', 'ল'], ['m', 'ম'], ['n', 'ন'], ['p', 'প'], ['q', 'ক'],
     ['r', 'র'], ['s', 'স'], ['t', 'ট'], ['v', 'ভ'], ['w', 'ও'], ['x', 'ক্স'], ['z', 'জ']];
   const V: [string, string, string][] = [['ee', 'ই', 'ী'], ['oo', 'উ', 'ু'], ['ea', 'ই', 'ি'], ['ai', 'আই', 'াই'], ['ay', 'এ', 'ে'], ['ou', 'আউ', 'াউ'],
@@ -286,6 +289,7 @@ function sounds(word: string): string {
   for (let i = 0; i < w.length;) {
     // "c"/"g" before e, i, y: s / j sound
     if ((w[i] === 'c') && /[eiy]/.test(w[i + 1] || '')) { out += 'স'; afterConsonant = true; i++; continue; }
+    if (w.startsWith('qu', i)) { out += (afterConsonant ? '্' : '') + 'কু'; afterConsonant = false; i += 2; continue; }
     const v = V.find(([k]) => w.startsWith(k, i));
     if (v && !(v[0] === 'y' && i === 0)) {
       // a final "e" after a consonant is silent (Kite → কাইট is beyond this; "rope" → রোপ)
@@ -316,7 +320,6 @@ function sounds(word: string): string {
 function latinRun(run: string, afterNumber: boolean, whole: boolean): string {
   const low = run.toLowerCase();
   if (afterNumber && UNIT[low] !== undefined && whole) return ' ' + UNIT[low];
-  if (afterNumber && UNIT[low] !== undefined && run.length <= 3) return UNIT[low];
   if (KNOWN[low]) return KNOWN[low];
   if (WORDS[low] && !/[A-Za-z]/.test(WORDS[low])) return WORDS[low];
   // short capitals / codes are read letter by letter: USB, HC, DT, KM, N; a word without vowels too (RGB, PCB)
@@ -329,7 +332,10 @@ export function fullBangla(text: string): string {
     const prevChar = all[at - 1] || '';
     const parts = tok.match(/[0-9]+(?:\.[0-9]+)?|[A-Za-z]+/g) || [tok];
     // "200A", "12V", "2000mAh", "10.5mm": a number with a size after it (and nothing else)
-    const numUnit = parts.length === 2 && /^[0-9]/.test(parts[0]) && /^[A-Za-z]+$/.test(parts[1]) && UNIT[parts[1].toLowerCase()] !== undefined && !/[A-Za-z]/.test(prevChar);
+    const nextChar = all[at + tok.length] || '';
+    // part of a model code ("900M-T-SK", "KD-900M") is read as letters, not as a size
+    const inCode = (prevChar === '-' && /[A-Za-z]/.test(all[at - 2] || '')) || (nextChar === '-' && /[A-Za-z]/.test(all[at + tok.length + 1] || ''));
+    const numUnit = parts.length === 2 && /^[0-9]/.test(parts[0]) && /^[A-Za-z]+$/.test(parts[1]) && UNIT[parts[1].toLowerCase()] !== undefined && !/[A-Za-z]/.test(prevChar) && !inCode;
     let out = '';
     parts.forEach((p, i) => {
       if (/^[0-9]/.test(p)) out += bnDigits(p);

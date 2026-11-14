@@ -38,6 +38,8 @@ test('fully Bangla: digits, sizes, codes and brand names in Bangla letters', () 
   assert.equal(bnTitle('200A Battery Clamp'), '২০০ এ ব্যাটারি ক্ল্যাম্প');
   assert.equal(bnTitle('USB Type C 2000mAh Power Bank 5V 2.1A'), 'ইউএসবি টাইপ-সি ২০০০ এমএএইচ পাওয়ার ব্যাংক ৫ ভোল্ট ২.১ এ');
   assert.equal(bnTitle('HC-SR04 Ultrasonic Sensor'), 'এইচসি-এসআর০৪ আল্ট্রাসনিক সেন্সর');
+  assert.equal(bnTitle('0.96 inch OLED Display I2C SSD1306'), '০.৯৬ ইঞ্চি ওলেড ডিসপ্লে আই২সি এসএসডি১৩০৬');
+  assert.ok(bnTitle('KD-900M-T-SK Soldering Iron Tip').includes('৯০০এম'), bnTitle('KD-900M-T-SK Soldering Iron Tip'));
   for (const n of ['Walton Original Air Conditioner Remote', 'BONG BADA 250w infrared heating bulb', 'ESP32 NodeMCU WiFi Bluetooth']) {
     assert.ok(!/[A-Za-z0-9]/.test(bnTitle(n)), bnTitle(n));
   }
