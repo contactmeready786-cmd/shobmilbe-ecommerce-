@@ -62,7 +62,8 @@ export function check(p: Pick<P, 'name'>, raw: Record<string, unknown>): Draft {
 function prompt(p: P): string {
   const specs = Array.isArray(p.specs) ? (p.specs as unknown[][]).filter((r) => Array.isArray(r) && r[0]).map((r) => `${r[0]}: ${r[1]}`).join('; ') : '';
   return `বাংলাদেশের অনলাইন দোকানের একটা পণ্যের পেজ নতুন করে লিখতে হবে, যাতে গুগলে উপরে আসে আর কাস্টমার কিনতে আগ্রহী হয়।
-আগে Google-এ এই পণ্যটা খুঁজে আসল তথ্য (কী কাজে লাগে, মূল স্পেসিফিকেশন, মানুষ কী লিখে খোঁজে) জেনে নাও। যা নিশ্চিত না, লিখবে না।
+আগে Google-এ এই পণ্যটা (নাম আর মডেল নম্বর দিয়ে) খুঁজে অন্তত ২-৩টা ওয়েবসাইট (বাংলাদেশি ও বিদেশি দোকান, নির্মাতার পাতা, ডেটাশিট) থেকে আসল তথ্য জোগাড় করো। শুধু সেই পাতার তথ্য নেবে যেখানে পণ্যটা হুবহু এটাই (একই মডেল/একই জিনিস) — মিল না থাকলে নেবে না। যা নিশ্চিত না, লিখবে না।
+কাজের তথ্যই আসল (দোকানের মালিকের নিয়ম): পণ্যের ধরন অনুযায়ী সংখ্যা আর একক সহ মূল তথ্য খুঁজবে — যেমন স্পিকারে: কয়টা স্পিকার/ড্রাইভার, আউটপুট কত ওয়াট, ব্যাটারি কত mAh, কত ঘণ্টা চলে, চার্জ হতে কত সময়, ব্লুটুথ ভার্সন, কত দূর পর্যন্ত কানেক্ট হয়, কোন কোন ইনপুট (USB/TF/AUX/FM); সেন্সর/মডিউলে: কত ভোল্টে চলে, কী মাপে বা কী করে, আউটপুট ধরন (ডিজিটাল/অ্যানালগ), মাপার সীমা, পিন, কোন বোর্ডে চলে; টুলে: পাওয়ার, তাপমাত্রা, মাপ; কাপড়/ফ্যাশনে: উপাদান, মাপ, রং। নামটাই ঘুরিয়ে-ফিরিয়ে লেখা ফাঁকা কথা ("এটি একটি উন্নত মানের পণ্য" ধরনের) একদম নয় — এখনকার বিবরণে এমন কথা থাকলে বাদ দিয়ে নতুন করে লিখবে।
 এখনকার তথ্য:
 নাম: ${p.name}
 ব্র্যান্ড: ${p.brand || '-'} | মডেল: ${p.model || '-'} | ক্যাটাগরি: ${p.category || '-'} | দাম: ৳${p.price}
@@ -78,7 +79,7 @@ function prompt(p: P): string {
  "seo_keywords": "৬–১০টা কিওয়ার্ড, কমা দিয়ে (ইংরেজি ও বাংলা — মানুষ যা লিখে খোঁজে)",
  "name_bn": "বাংলা নাম — যতটা পারা যায় বাংলায়; শুধু যে শব্দ বাংলায় অদ্ভুত শোনায় বা কাস্টমার চিনবে না (মডেল নম্বর, Arduino, PCB, Bluetooth, USB, ব্র্যান্ড) সেটুকু ইংরেজিতে; মাপ/মডেল নম্বর হুবহু",
  "short_description": "বাংলায় ২–৪ লাইন: পণ্যটা কী আর এর মূল তথ্য (মাপ, ভোল্টেজ, কাজ) — শুধু পণ্যের তথ্য",
- "description": "বাংলায় বিস্তারিত: পণ্যটা কী, কী কাজে লাগে, বৈশিষ্ট্য ('- ' দিয়ে তালিকা, প্রতিটা এক লাইনে, মাঝে ফাঁকা লাইন নয়), কীভাবে ব্যবহার করবেন, প্যাকেজে কী থাকে (জানা থাকলে)। কোনো লিংক, ফোন নম্বর, অন্য দোকানের নাম বা HTML নয়।"}
+ "description": "বাংলায়: ১-২ লাইনে পণ্যটা কী আর কী কাজে লাগে; তারপর '### মূল তথ্য' শিরোনামে খুঁজে পাওয়া সব তথ্য '- **নাম:** মান' তালিকায় (প্রতিটা এক লাইনে, সংখ্যা আর একক সহ, মাঝে ফাঁকা লাইন নয়); তারপর দরকার হলে কীভাবে ব্যবহার করবেন আর প্যাকেজে কী থাকে (জানা থাকলে)। কোনো লিংক, ফোন নম্বর, অন্য দোকানের নাম বা HTML নয়।"}
 
 শুধু পণ্যের তথ্য (খুব জরুরি — দোকানের মালিকের নিয়ম): বিবরণে দোকান, দাম, অফার, ডেলিভারি, ক্যাশ অন ডেলিভারি, অর্ডার করার নিয়ম, রিটার্ন/গ্যারান্টি নীতি, "কেন আমাদের থেকে কিনবেন", "কেনার আগে জেনে নিন", প্রশ্ন-উত্তর (FAQ) — এসব কিছুই লিখবে না। বিক্রির কথা বা প্রশংসার বাড়াবাড়ি ("সেরা", "অসাধারণ সুযোগ") নয়। তথ্য অল্প হলে অল্পই লিখবে — এক লাইন হলেও চলবে, বানিয়ে লম্বা করবে না।
 
@@ -144,11 +145,28 @@ async function keep(p: P, d: Draft, applyIfAuto: boolean, via: string): Promise<
   return n;
 }
 
-/** the next products to write again: weakest SEO first, each at most once in 30 days */
+/** how many real facts a text has: numbers with units (5V, 2000mAh, 10 ঘণ্টা, 5.3 …) and "label: value" lines.
+ *  A long text that only repeats the name has none (owner, 2026-11-14: "the description is the title copied around"). */
+export function factCount(text: string): number {
+  const t = String(text || '');
+  const units = t.match(/[\d০-৯]+(?:[.][\d০-৯]+)?\s*(?:v|vac|vdc|w|a|ma|mah|ah|hz|khz|mhz|ghz|mm|cm|m|kg|g|gm|inch|in|"|db|rpm|°c|ohm|Ω|pin|pins|ch|channel|watt|volt|hour|hours|hrs?|ঘণ্টা|মিনিট|ভোল্ট|ওয়াট|পিন|মিটার|গ্রাম|ইঞ্চি)(?![a-z])/giu) || [];
+  const versions = t.match(/(?:bluetooth|ব্লুটুথ|version|ভার্সন|v)\s*[\d০-৯][.][\d০-৯]/giu) || [];
+  const labels = t.match(/^\s*(?:[-*•]\s*)?(?:\*\*)?[^\n:]{2,40}(?:\*\*)?\s*:\s*\S/gmu) || [];
+  return units.length + versions.length + labels.length;
+}
+
+/** the next products to write again: the ones with the fewest real facts first (then the weakest SEO), each at most
+ *  once in 30 days — active products only */
 async function nextProducts(limit: number): Promise<number[]> {
   const recent = new Set((await db.q<{ product_id: number }>(`SELECT DISTINCT product_id FROM ai_staff_edits WHERE created_at > now() - interval '30 days'`)).map((r) => r.product_id));
   const seo = await seoscore.seoProblems();
-  return seo.list.filter((p) => !recent.has(p.id)).sort((a, b) => a.score - b.score).slice(0, limit).map((p) => p.id);
+  const score = new Map(seo.list.map((p) => [p.id, p.score]));
+  const rows = await db.q<{ id: number; t: string }>(`SELECT id, coalesce(short_description, '') || E'\n' || coalesce(description, '') AS t FROM products
+    WHERE active AND parent_id IS NULL ORDER BY id DESC`);
+  return rows.filter((r) => !recent.has(r.id))
+    .map((r) => ({ id: r.id, facts: Math.min(factCount(r.t), 6), score: score.get(r.id) ?? 100 }))
+    .sort((a, b) => a.facts - b.facts || a.score - b.score)
+    .slice(0, limit).map((r) => r.id);
 }
 
 /** improve up to `limit` products now; returns how many fields changed / wait */

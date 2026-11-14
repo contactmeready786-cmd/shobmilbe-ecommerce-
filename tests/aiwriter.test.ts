@@ -41,3 +41,9 @@ test('descriptions keep only the product: no "why buy here", delivery or FAQ, co
   assert.match(d, /- \*\*ভোল্টেজ:\*\* 5V\n\n?- \*\*আউটপুট:\*\*/);
   assert.ok(!/কেনার আগে|ডেলিভারি/.test(d), d);
 });
+
+test('facts are counted, a text that only repeats the name has none', async () => {
+  const { factCount } = await import('../lib/services/aiwriter');
+  assert.equal(factCount('X816 Bluetooth Speaker একটি অসাধারণ স্পিকার। X816 Bluetooth Speaker দিয়ে গান শুনুন।'), 0);
+  assert.ok(factCount('### মূল তথ্য\n- **আউটপুট:** 10W\n- **ব্যাটারি:** 1200mAh\n- **চলে:** ৬ ঘণ্টা\n- **ব্লুটুথ:** 5.3') >= 4);
+});

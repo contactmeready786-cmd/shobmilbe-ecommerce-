@@ -111,6 +111,9 @@ function describe(p: Pick<Product, 'id' | 'name' | 'category_name' | 'brand' | '
   const what = k ? k.what : p.category_name ? `${p.category_name} ক্যাটাগরির পণ্য` : 'পণ্য';
   const specs = (Array.isArray(p.specs) ? (p.specs as unknown[]) : []).filter((r): r is [string, string] => Array.isArray(r) && !!r[0] && !!r[1]).slice(0, 12);
   const fetched = String(p.auto_desc || '').trim();
+  // nothing real to say (no fetched information, a kind of part we don't know): no filler text that only repeats the
+  // name (owner, 2026-11-14) — AI স্টাফ writes the real information for these
+  if (!fetched && !k) return '';
   const lines: string[] = [];
   lines.push(`## ${name} — ${pick(['বিস্তারিত', 'পণ্য পরিচিতি', 'যা জানা দরকার'], seed)}`);
   if (fetched) {
