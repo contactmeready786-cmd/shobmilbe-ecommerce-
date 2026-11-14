@@ -250,7 +250,7 @@ export async function runAiJobs(settings: ApiCtx['settings']): Promise<void> {
   await P.timeJob('AI দিয়ে পণ্যের লেখা', async () => (await import('../services/aiwriter')).tick(settings), { optional: true });
   // 🇧🇩 Bangla names still missing, and the product list's 👯 count — work kept off the admin pages so they stay quick
   await P.timeJob('বাংলা নাম', async () => (await import('../models/catalog')).fillBnNames(200), { optional: true });
-  await P.timeJob('বাংলা নাম পুরো বাংলায়', async () => (await import('../models/catalog')).fullBnNames(400), { optional: true });
+  await P.timeJob('বাংলা নাম পুরো বাংলায়', async () => (await import('../models/catalog')).fullBnNames(3000));
   // 👯 the duplicate scan compares every picture with every other one — heavy, so only when the catalogue changed
   // (or every 6 hours at most), never while the server is busy
   await P.timeJob('ডুপ্লিকেট খোঁজা', async () => { const p = await import('../admin/products'); await p.refreshDupChipIfChanged(settings); }, { optional: true });

@@ -109,23 +109,11 @@ async function fillBnNames(limit = 500): Promise<number> {
 }
 /** 🇧🇩 owner, 2026-11-14: every saved Bangla name fully in Bangla — no English letters or digits (fullBangla), the
  *  owner's own names too. A few hundred at a time, until none is left; new names are made that way already. */
-async function fullBnNames(limit = 400): Promise<number> {
-  const rows = await q<{ id: number; name: string; name_bn: string; name_bn_auto: boolean }>(`SELECT id, name, name_bn, name_bn_auto FROM products WHERE name_bn ~ '[A-Za-z0-9]' ORDER BY id LIMIT $1`, [limit]);
-  const part: { id: number; bn: string }[] = [];
-  let google = 0;
-  for (const r of rows) {
-    // an automatic name with real English words still in it: translated first (Google, a few each time), so
-    // "Humidifier" becomes a Bangla word, not just Bangla letters; everything else is converted straight away
-    if (r.name_bn_auto && leftover(r.name_bn).length >= 2) {
-      if (google >= 25) continue;
-      google++;
-      const bn = await bnTitleSmart(r.name).catch(() => '');
-      part.push({ id: r.id, bn: bn && !/[A-Za-z0-9]/.test(bn) ? bn : fullBangla(r.name_bn) });
-      continue;
-    }
-    const bn = fullBangla(r.name_bn);
-    if (bn !== r.name_bn) part.push({ id: r.id, bn });
-  }
+async function fullBnNames(limit = 3000): Promise<number> {
+  // (owner, 2026-11-14: straight away for every name — the saved names were already translated by the word list and
+  // Google when they were made; whatever English is left is written in Bangla letters now)
+  const rows = await q<{ id: number; name_bn: string }>(`SELECT id, name_bn FROM products WHERE name_bn ~ '[A-Za-z0-9]' ORDER BY id LIMIT $1`, [limit]);
+  const part = rows.map((r) => ({ id: r.id, bn: fullBangla(r.name_bn) })).filter((r, i) => r.bn !== rows[i].name_bn);
   if (part.length) await q(`UPDATE products p SET name_bn=x.bn FROM jsonb_to_recordset($1::jsonb) AS x(id int, bn text) WHERE p.id=x.id`, [JSON.stringify(part)]);
   return part.length;
 }
