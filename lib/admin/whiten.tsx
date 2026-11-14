@@ -34,10 +34,12 @@ async function page(ctx: AdminCtx) {
   const host = list.some((h) => h.host === wanted) ? wanted : (list.find((h) => /electrox/i.test(h.host)) || list[0]).host;
   const f = ifKey(FILTERS, ctx.query.get('f'), 'todo');
   const pg = Math.max(1, int(ctx.query.get('page'), 1));
-  const cond = host === ALL ? 'TRUE' : `${HOST}=$1`;
-  const args = host === ALL ? [] : [host];
+  // 🔎 ?sku=1374 — one product, whichever shop it came from (owner, 2026-11-15: a picture with another site's address)
+  const sku = str(ctx.query.get('sku'), 40).trim();
+  const cond = sku ? 'p.sku=$1' : host === ALL ? 'TRUE' : `${HOST}=$1`;
+  const args = sku ? [sku] : host === ALL ? [] : [host];
   const has = (white: boolean) => `EXISTS (SELECT 1 FROM media m WHERE m.owner_type='product' AND m.owner_id=p.id AND m.wb_from IS ${white ? 'NOT ' : ''}NULL)`;
-  const where = `p.parent_id IS NULL AND ${cond}${f === 'todo' ? ` AND ${has(false)}` : f === 'done' ? ` AND ${has(true)}` : ''}`;
+  const where = `p.parent_id IS NULL AND ${cond}${sku ? '' : f === 'todo' ? ` AND ${has(false)}` : f === 'done' ? ` AND ${has(true)}` : ''}`;
   const [rows, count, ids] = await Promise.all([
     db.q<{ id: number; sku: string; name: string; active: boolean; pics: { id: number; white: boolean }[] }>(`SELECT p.id, p.sku, p.name, p.active,
         coalesce((SELECT json_agg(json_build_object('id', m.id, 'white', m.wb_from IS NOT NULL) ORDER BY m.sort, m.id) FROM media m WHERE m.owner_type='product' AND m.owner_id=p.id), '[]') AS pics
@@ -57,6 +59,7 @@ async function page(ctx: AdminCtx) {
   const body = <><div className="title-row"><h1>⬜ ছবির ব্যাকগ্রাউন্ড সাদা</h1></div>{ui.flash(ctx.flash)}
     {ui.helpBox('কীভাবে কাজ করে', <ol className="steps"><li>নিচে দোকান বাছুন। <b>"▶ এই পেজের ছবি সাদা করুন"</b> চাপলে আপনার কম্পিউটারেই একটা AI প্রতিটা ছবি থেকে শুধু পণ্যটা কেটে একদম সাদা (#FFFFFF) ব্যাকগ্রাউন্ডে বসায় — পেছনের লেখা, ফোন নম্বর, রং সব চলে যায়। ফ্রি, কোনো সীমা নেই।</li><li><b>☁️ অনলাইনে (প্রস্তাবিত):</b> ছবিগুলো অনলাইনের শক্তিশালী কম্পিউটারে (GitHub, ফ্রি) সাদা হয় — আপনার ল্যাপটপ বা ফোনে কোনো চাপ পড়ে না, পেজ বন্ধ করলেও কাজ চলতে থাকে। কয়েক মিনিট লাগে; তৈরি হলে এখানেই "পরে"-র ছবি দেখাবে। ছবির কোণের লোগো আর আলাদা লেখাও মুছে দেয়।</li><li>নিজের কম্পিউটারে চালাতে চাইলে দুইটা AI আছে: <b>🧠 সেরা মান</b> (BiRefNet — পণ্যের কিনারা, তার, স্বচ্ছ প্লাস্টিক সবচেয়ে নিখুঁত) আর <b>⚡ দ্রুত</b> (ISNet — ধীর কম্পিউটারে)। প্রথমবার AI-এর ফাইল নামে (প্রায় ২০০ MB, একবারই — পরে কম্পিউটারে রাখা থাকে)। কাজ চলার সময় পেজটা খোলা রাখুন।</li><li><b>✨ উজ্জ্বল ও পরিষ্কার</b> টিক দিলে পণ্যটা একটু উজ্জ্বল হয়, রং একটু ঝকঝকে হয় — পণ্যের আকার বা লেখা কিছুই বদলায় না।</li><li>প্রতিটা ছবির <b>আগে / পরে</b> দেখুন। ভালো হলে টিক থাকুক, খারাপ হলে টিক তুলে দিন — তারপর <b>"💾 টিক দেওয়াগুলো রাখুন"</b>। শুধু টিক দেওয়াগুলোই বদলায়।</li><li>আসল ছবি সবসময় রাখা থাকে: সাদা করা ছবির নিচে <b>"↺ আসল ছবি ফেরত"</b> চাপলে আগের মতো হয়ে যায়।</li><li>পণ্যের নিজের গায়ে কোনো লেখা থাকলে AI সেটা পণ্যের অংশ ভেবে রেখে দেয় — ওগুলো আলাদা করে দেখে নেবেন।</li></ol>)}
     <form method="get" action={attrValue(BASE)} className="toolbar">{ui.select('host', list.map((h) => [h.host, h.host === ALL ? 'দোকানের সব পণ্য' : `${h.host} — ${bn(h.n)}টি পণ্য`]), host)}{' '}<input type="hidden" name="f" defaultValue={attrValue(f)} /><button className="btn btn-sm btn-ghost">দেখুন</button></form>
+    <form method="get" action={attrValue(BASE)} className="toolbar">{ui.input('sku', sku, { placeholder: 'SKU, যেমন 1374', maxlength: 40, class: 'w-num', 'aria-label': 'SKU' })}{' '}<button className="btn btn-sm btn-ghost">🔎 এক পণ্য খুঁজুন</button></form>
     <div className="kpis kpis-tight">{ui.kpi('ছবি', bn(prog.pics), `${bn(ids.length)}টি পণ্যে`)}{' '}{ui.kpi('সাদা করা হয়েছে', `${bn(prog.white)} / ${bn(prog.pics)}`, `${bn(prog.pics ? Math.round((prog.white * 100) / prog.pics) : 0)}%`, 'kpi-blue')}</div>
     <nav className="toolbar">{jsxList(Object.entries(FILTERS).map(([k, v]) => <>{' '}<a className={`chip ${k === f ? 'on' : ''}`} href={attrValue(`${BASE}?${new URLSearchParams({ host, f: k })}`)}><Val v={v} /></a></>))}</nav>
     {(rows.length ? <section className="panel wt" data-whiten="" data-wt-fast={ctx.settings.whiten_gh_token ? '1' : undefined}>
