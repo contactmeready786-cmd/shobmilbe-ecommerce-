@@ -124,10 +124,7 @@ function describe(p: Pick<Product, 'id' | 'name' | 'category_name' | 'brand' | '
       k ? k.uses : '',
     ].filter(Boolean).join(' '));
   }
-  if (specs.length) {
-    lines.push('', `### ${pick(['মূল বৈশিষ্ট্য', 'স্পেসিফিকেশন এক নজরে', 'বৈশিষ্ট্য'], seed >> 2)}`);
-    specs.forEach(([a, b]) => lines.push(`- **${a}:** ${b}`));
-  }
+  void specs; // (owner, 2026-11-14: no specification list in the description any more)
   // (owner, 2026-11-14: no "কেনার আগে জেনে নিন" tips any more — only what the product is and its specifications)
   return lines.filter((l, i, a) => !(l === '' && a[i - 1] === '')).join('\n').trim();
 }

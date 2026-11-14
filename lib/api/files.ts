@@ -251,6 +251,7 @@ export async function runAiJobs(settings: ApiCtx['settings']): Promise<void> {
   // 🇧🇩 Bangla names still missing, and the product list's 👯 count — work kept off the admin pages so they stay quick
   await P.timeJob('বাংলা নাম', async () => (await import('../models/catalog')).fillBnNames(200), { optional: true });
   // 🧹 every product's description: only the product's own text, compact lists (lib/services/autodesc.ts)
+  await P.timeJob('স্পেসিফিকেশন সরানো (একবার)', async () => (await import('../services/autodesc')).removeAllSpecs());
   await P.timeJob('বিবরণ নিজে পরিষ্কার', async () => (await import('../services/autodesc')).sweep(150), { optional: true });
   await P.timeJob('বাংলা নাম পুরো বাংলায়', async () => (await import('../models/catalog')).fullBnNames(3000));
   await P.timeJob('বাংলা নাম নতুন করে', async () => (await import('../models/catalog')).remakeBnNames(80), { optional: true });

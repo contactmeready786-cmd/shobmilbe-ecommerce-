@@ -112,19 +112,26 @@ async function fillBnNames(limit = 500): Promise<number> {
 /** 🇧🇩 owner, 2026-11-14: the automatic Bangla names are made again from the English name with today's rules (so a
  *  size inside a model code or "I2C" is never read wrongly), a few dozen each time; ends by itself when all are done. */
 async function remakeBnNames(per = 40): Promise<number> {
-  const cur = await one<{ value: string }>("SELECT value FROM settings WHERE key='bn_remake_cursor'");
+  const cur = await one<{ value: string }>("SELECT value FROM settings WHERE key='bn_remake2_cursor'");
   if (cur && cur.value === 'done') return 0;
   const from = Number(cur ? cur.value : 0) || 0;
-  const rows = await q<{ id: number; name: string }>(`SELECT id, name FROM products WHERE name_bn_auto AND id > $1 ORDER BY id LIMIT $2`, [from, per]);
+  // every product (owner, 2026-11-14) — names copied in with other shops weren't marked automatic; the old name is kept
+  // in seo_auto_log ('name_bn') so it can be brought back
+  const rows = await q<{ id: number; name: string; name_bn: string }>(`SELECT id, name, name_bn FROM products WHERE parent_id IS NULL AND id > $1 ORDER BY id LIMIT $2`, [from, per]);
   const part: { id: number; bn: string }[] = [];
   for (const r of rows) {
     const bn = await bnTitleSmart(r.name).catch(() => bnTitle(r.name));
     if (bn && !/[A-Za-z0-9]/.test(bn)) part.push({ id: r.id, bn });
   }
-  if (part.length) await q(`UPDATE products p SET name_bn=x.bn FROM jsonb_to_recordset($1::jsonb) AS x(id int, bn text) WHERE p.id=x.id AND p.name_bn_auto`, [JSON.stringify(part)]);
+  const changed = part.filter((x) => rows.find((r) => r.id === x.id)?.name_bn !== x.bn);
+  if (changed.length) {
+    await q(`INSERT INTO seo_auto_log(product_id, field, old_value, new_value) SELECT x.id, 'name_bn', p.name_bn, x.bn
+      FROM jsonb_to_recordset($1::jsonb) AS x(id int, bn text) JOIN products p ON p.id=x.id`, [JSON.stringify(changed)]);
+    await q(`UPDATE products p SET name_bn=x.bn FROM jsonb_to_recordset($1::jsonb) AS x(id int, bn text) WHERE p.id=x.id`, [JSON.stringify(changed)]);
+  }
   const next = rows.length < per ? 'done' : String(rows[rows.length - 1].id);
-  await q(`INSERT INTO settings(key, value) VALUES('bn_remake_cursor', $1) ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value`, [next]);
-  return part.length;
+  await q(`INSERT INTO settings(key, value) VALUES('bn_remake2_cursor', $1) ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value`, [next]);
+  return changed.length;
 }
 async function fullBnNames(limit = 3000): Promise<number> {
   // (owner, 2026-11-14: straight away for every name — the saved names were already translated by the word list and

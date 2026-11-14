@@ -19,10 +19,46 @@ export function tidyLists(text: string): string {
     .replace(/\n{3,}/g, '\n\n')
     .trim();
 }
-/** the whole clean-up for one text: the cleaner first, then the lists */
+// ⚙️ owner, 2026-11-14: "my products have no specification part — only the short and long description. Wherever it
+// says specification, remove that information." A part that starts with a "Specification(s)" / "স্পেসিফিকেশন" heading
+// (a ## heading, a bold line, or a line of its own, maybe ending with ":") goes, up to the next heading.
+const SPEC_HEAD = /^\s*(?:#{1,6}\s*)?(?:\*\*)?\s*(?:[⚙️🔧📋✅•*-]\s*)*(?:technical\s+|product\s+|key\s+)?(?:specifications?|specs?|টেকনিক্যাল\s+স্পেসিফিকেশন|স্পেসিফিকেশন(?:\s+এক\s+নজরে)?|স্পেসিফিকেশনস)\s*(?:\*\*)?\s*[:：]?\s*(?:\*\*)?\s*$/iu;
+const ANY_HEAD = /^\s*(?:#{1,6}\s+\S|\*\*[^*]{2,80}\*\*\s*[:：]?\s*$)/;
+export function removeSpecs(text: string): string {
+  const lines = String(text || '').replace(/\r/g, '').split('\n');
+  const out: string[] = [];
+  let skipping = false;
+  for (const line of lines) {
+    if (SPEC_HEAD.test(line)) { skipping = true; continue; }
+    if (skipping && ANY_HEAD.test(line) && !SPEC_HEAD.test(line)) skipping = false;
+    if (!skipping) out.push(line);
+  }
+  // "স্পেসিফিকেশন: …" written inside one line ("স্পেসিফিকেশন • ধরন: …")
+  return out.join('\n').replace(/[ \t]*(?:স্পেসিফিকেশন|specifications?)\s*[•:：][^\n]*/giu, '').replace(/\n{3,}/g, '\n\n').trim();
+}
+
+/** the whole clean-up for one text: no specification part, the cleaner, then the lists */
 export function productOnly(text: string, host = ''): string {
-  const c = clean(text, host);
+  const c = clean(removeSpecs(text), host);
   return tidyLists(c.text);
+}
+
+/** once (owner, 2026-11-14): every product's "specifications" list is taken off (kept in seo_auto_log as
+ *  'specs_removed', so it can be brought back), the specification tab is switched off and Auto SEO adds no new ones */
+export async function removeAllSpecs(): Promise<number> {
+  const done = await db.one<{ value: string }>(`SELECT value FROM settings WHERE key='specs_removed_v1'`);
+  if (done) return 0;
+  const n = await db.tx(async (t) => {
+    await t.query(`INSERT INTO seo_auto_log(product_id, field, old_value, new_value)
+      SELECT id, 'specs_removed', specs::text, '[]' FROM products WHERE specs IS NOT NULL AND specs::text NOT IN ('[]', 'null', '')`);
+    const r = await t.query(`UPDATE products SET specs='[]'::jsonb WHERE specs IS NOT NULL AND specs::text NOT IN ('[]', 'null', '')`);
+    for (const [k, v] of [['autoseo_specs', '0'], ['ui_pdp_specs', '0'], ['specs_removed_v1', String(Date.now())]]) {
+      await t.query(`INSERT INTO settings(key, value) VALUES($1, $2) ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value`, [k, v]);
+    }
+    return r.rowCount;
+  });
+  await db.q(`DELETE FROM settings WHERE key='desc_auto_cursor'`); // the descriptions get one more full round
+  return n;
 }
 
 export async function sweep(per = 40): Promise<number> {
@@ -38,11 +74,13 @@ export async function sweep(per = 40): Promise<number> {
   let n = 0;
   for (const r of rows) {
     const host = r.host === 'file' ? '' : r.host;
-    const d = productOnly(r.description, host), s = productOnly(r.short_description, host);
-    // only when something really went (not just spaces), and never when almost everything would go
+    // the specification part always goes (the owner asked); the other clean-up only when it leaves enough text
+    const bd = removeSpecs(r.description), bs = removeSpecs(r.short_description);
+    let d = productOnly(bd, host), s = productOnly(bs, host);
+    if (bd.trim() && d.length < bd.trim().length * 0.3) d = tidyLists(bd);
+    if (bs.trim() && !s.trim()) s = tidyLists(bs);
     const same = (a: string, b: string) => a.replace(/\s+/g, '') === b.replace(/\s+/g, '');
     if (same(d, r.description) && same(s, r.short_description)) continue;
-    if ((r.description.trim() && d.length < r.description.trim().length * 0.3) || (r.short_description.trim() && !s.trim())) continue;
     await db.tx(async (t) => {
       await t.query(`INSERT INTO desc_clean_log(product_id, before, after, removed, by_user) VALUES($1, $2, $3, $4, NULL)`,
         [r.id, JSON.stringify({ d: r.description, s: r.short_description }), JSON.stringify({ d, s }), 1]);
