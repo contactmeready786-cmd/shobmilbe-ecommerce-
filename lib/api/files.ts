@@ -225,7 +225,7 @@ export async function runShopJobs(settings: ApiCtx['settings']): Promise<Record<
   await P.timeJob('কমেন্টে অটো উত্তর', () => $services_fbreply.run(settings));
   // ✈️ the same daily posts to the shop's Telegram channel (when one is connected)
   await P.timeJob('Telegram পোস্ট', () => $services_telegram.tick(settings));
-  // 📣 Threads, Pinterest, YouTube Shorts, TikTok — each at its own hours (lib/services/social.ts)
+  // 📣 Threads — at its own hours (lib/services/social.ts)
   await P.timeJob('সোশ্যাল পোস্ট', async () => (await import('../services/social')).tick(settings));
   await P.timeJob('দাম-তালিকা ব্লগ', () => $services_autoblog.run(settings, { max: 1 }), { optional: true });
   // 📧 ইমেইল মার্কেটিং: welcome / review / weekly new products / campaigns / 'we miss you' (within the day's allowance)
