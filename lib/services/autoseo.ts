@@ -248,4 +248,54 @@ async function recent(limit = 40) {
   return db.q<{ id: number; product_id: number; field: string; old_value: string; new_value: string; undone: boolean; created_at: Date; name: string; slug: string }>(`SELECT l.*, p.name, p.slug FROM seo_auto_log l JOIN products p ON p.id=l.product_id ORDER BY l.id DESC LIMIT $1`, [limit]);
 }
 
+// ---------------------------------------------------------------- SEO fields written into the product (owner, 2026-11-14)
+// "Every product SEO-friendly — SEO title, keywords and description filled in, so Google, Facebook and Bing bring
+// people." Empty fields only, never one the owner wrote or cleared before (seo_auto_log), every fill logged for undo.
+// The description has no price in it (a saved price would go stale when the price changes; the page itself shows it).
+// AI স্টাফ later writes the weakest pages again with Google's help — these are the solid start for every product.
+const cutTo = (t: string, n: number) => (t.length <= n ? t : t.slice(0, n - 1).replace(/[\s,;:|–-]+\S*$/, '').trim());
+type SeoSrc = { id: number; name: string; name_bn: string; model: string; brand: string; category_name: string | null; short_description: string; description: string; seo_title: string; seo_description: string; seo_keywords: string };
+export function seoFields(p: SeoSrc, settings: Settings = {} as Settings) {
+  const name = $seo.cleanName(p.name);
+  const store = settings.store_name || 'সবমিলবে';
+  const title = cutTo(`${cutTo(name, 48)} Price in BD`, 60);
+  const own = md.plain(p.short_description || p.description || '', 400).replace(/\s+/g, ' ').trim();
+  const what = own.length >= 40 ? own : metaLine(p as unknown as Pick<Product, 'name' | 'category_name' | 'model'>, 90) || '';
+  const tail = ` সারা বাংলাদেশে হোম ডেলিভারি, ক্যাশ অন ডেলিভারি — ${store}।`;
+  const withBn = `${cutTo(name, 60)}${p.name_bn && /[\u0980-\u09ff]/.test(p.name_bn) ? ` (${cutTo(p.name_bn, 40)})` : ''} — দাম ও অনলাইন অর্ডার।`;
+  // the Bangla name only when there is room for the rest too (the delivery line must never be cut off)
+  const head = withBn.length + tail.length <= 125 ? withBn : `${cutTo(name, 60)} — দাম ও অনলাইন অর্ডার।`;
+  const room = 160 - head.length - tail.length;
+  const desc = cutTo(`${head}${room > 25 && what ? ' ' + cutTo(what, room - 1).replace(/[।.]?$/, '।') : ''}${tail}`, 160);
+  const kw = [name, `${name} price in bd`, `${name} price in bangladesh`, p.name_bn && /[\u0980-\u09ff]/.test(p.name_bn) ? p.name_bn : '',
+    p.name_bn && /[\u0980-\u09ff]/.test(p.name_bn) ? `${p.name_bn} দাম` : '', p.model ? `${p.model} price in bd` : '', p.brand || '',
+    p.category_name ? `${p.category_name} দাম` : '', p.category_name ? `${p.category_name} online shop bd` : ''];
+  const keywords = [...new Set(kw.map((k) => cutTo(String(k || '').trim(), 70)).filter(Boolean))].slice(0, 10).join(', ');
+  return { seo_title: title, seo_description: desc, seo_keywords: keywords };
+}
+export async function fillSeoFields(settings: Settings, per = 300): Promise<number> {
+  if (settings.autoseo_fields === '0') return 0;
+  const rows = await db.q<SeoSrc>(`SELECT p.id, p.name, coalesce(p.name_bn, '') AS name_bn, coalesce(p.model, '') AS model, coalesce(p.brand, '') AS brand, c.name AS category_name,
+      coalesce(p.short_description, '') AS short_description, coalesce(p.description, '') AS description,
+      coalesce(p.seo_title, '') AS seo_title, coalesce(p.seo_description, '') AS seo_description, coalesce(p.seo_keywords, '') AS seo_keywords
+    FROM products p LEFT JOIN categories c ON c.id=p.category_id
+    WHERE p.parent_id IS NULL AND (coalesce(p.seo_title, '') = '' OR coalesce(p.seo_description, '') = '' OR coalesce(p.seo_keywords, '') = '')
+      AND NOT EXISTS (SELECT 1 FROM seo_auto_log l WHERE l.product_id=p.id AND l.field IN ('seo_title', 'seo_description', 'seo_keywords'))
+    ORDER BY p.id LIMIT $1`, [per]);
+  let n = 0;
+  for (const p of rows) {
+    const f = seoFields(p, settings);
+    const set = (['seo_title', 'seo_description', 'seo_keywords'] as const).filter((k) => !String(p[k] || '').trim() && f[k]);
+    if (!set.length) continue;
+    await db.tx(async (t) => {
+      for (const k of set) {
+        await t.query(`UPDATE products SET ${k}=$2 WHERE id=$1 AND coalesce(${k}, '')=''`, [p.id, f[k]]);
+        await t.query('INSERT INTO seo_auto_log(product_id, field, old_value, new_value) VALUES($1,$2,$3,$4)', [p.id, k, '', f[k]]);
+      }
+    });
+    n++;
+  }
+  return n;
+}
+
 export { extractModel, extractSpecs, describe, summary, metaLine, needsAuto, ownTextLength, sweep, snapshot, processOne, undo, undoAll, stats, recent, LOG_FIELDS, OWN_TEXT_ENOUGH };

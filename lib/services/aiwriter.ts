@@ -174,10 +174,10 @@ export async function tick(settings: Settings): Promise<void> {
   const h = new Date(Date.now() + 6 * 3600e3).getUTCHours();
   const from = Number(settings.ai_work_from ?? 9), to = Number(settings.ai_work_to ?? 18);
   if (h < from || h >= to) return;
-  const perDay = Math.min(100, Math.max(1, Number(settings.ai_write_daily) || 30));
+  const perDay = Math.min(150, Math.max(1, Number(settings.ai_write_daily) || 100)); // (owner, 2026-11-14: faster — every product SEO-ready)
   const today = await db.one<{ n: number }>(`SELECT count(*)::int AS n FROM ai_staff_edits WHERE field='checked' AND created_at > now() - interval '24 hours'`);
   if ((today?.n || 0) >= perDay) return;
-  await improve(settings, { limit: 1 });
+  await improve(settings, { limit: Math.min(4, perDay - (today?.n || 0)) });
 }
 
 /** put the old text back (only where nobody changed it since) */

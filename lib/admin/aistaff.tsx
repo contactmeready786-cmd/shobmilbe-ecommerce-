@@ -42,7 +42,7 @@ async function page(ctx: AdminCtx) {
       <form method="post" action={`${BASE}/settings`} className="form-grid"><input type="hidden" name="form" defaultValue="writer" />
         {ui.switchRow('ai_write_on', s.ai_write_on !== '0', 'নিজে থেকে পণ্যের লেখা উন্নত করবে', 'কাজের সময়ে, দিনে নিচের সংখ্যা পর্যন্ত')}
         {ui.switchRow('ai_write_auto', s.ai_write_auto !== '0', 'নিজেই বসিয়ে দেবে', 'বন্ধ করলে নতুন লেখা এখানে আপনার ✅-এর অপেক্ষায় থাকবে')}
-        {ui.field('দিনে সর্বোচ্চ কয়টা পণ্য', ui.input('ai_write_daily', s.ai_write_daily || '30', { type: 'number', min: 1, max: 100 }))}
+        {ui.field('দিনে সর্বোচ্চ কয়টা পণ্য', ui.input('ai_write_daily', s.ai_write_daily || '100', { type: 'number', min: 1, max: 150 }))}
         {ui.field('কাজ শুরু (টা)', ui.select('ai_work_from', Array.from({ length: 24 }, (_, h) => [String(h), `${bn(h)}:০০`]), String(s.ai_work_from ?? '9')))}
         {ui.field('কাজ শেষ (টা)', ui.select('ai_work_to', Array.from({ length: 24 }, (_, h) => [String(h + 1), `${bn(h + 1)}:০০`]), String(s.ai_work_to ?? '18')))}
         <button className="btn btn-sm">💾 সেভ করুন</button></form>
@@ -97,7 +97,7 @@ async function saveSettings(ctx: AdminCtx) {
   if (b.form === 'writer') {
     await db.setSetting('ai_write_on', b.ai_write_on ? '1' : '0');
     await db.setSetting('ai_write_auto', b.ai_write_auto ? '1' : '0');
-    await db.setSetting('ai_write_daily', String(Math.min(100, Math.max(1, int(b.ai_write_daily) || 30))));
+    await db.setSetting('ai_write_daily', String(Math.min(150, Math.max(1, int(b.ai_write_daily) || 100))));
     const from = Math.min(23, Math.max(0, int(b.ai_work_from))), to = Math.min(24, Math.max(from + 1, int(b.ai_work_to) || 18));
     await db.setSetting('ai_work_from', String(from));
     await db.setSetting('ai_work_to', String(to));
