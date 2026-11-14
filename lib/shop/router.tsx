@@ -19,6 +19,7 @@ import * as $models_reviews from '../models/reviews';
 import * as $models_extras from '../models/extras';
 import * as $models_kits from '../models/kits';
 import * as $models_homerows from '../models/homerows';
+import { mix, rotateOn, listSeed } from '../services/rotate';
 import type { Settings } from '../types';
 
 export const HOME_DEFAULT = ['slider', 'trust', 'categories', 'new', 'offers', 'bestsellers', 'popular', 'promo', 'cat_rows', 'budget', 'featured'];
@@ -49,33 +50,36 @@ export async function resolveShop(ctx: ShopCtx): Promise<Resolved> {
     const want = (k: string) => sections.includes(k);
     const ROW = 16;
     const inStockFirst = <P extends { stock: number }>(a: P[]) => [...a.filter((p) => p.stock > 0), ...a.filter((p) => p.stock <= 0)];
+    // 🔀 rows take a bigger pool and show a fresh mix every half hour (lib/services/rotate.ts); off = the old fixed rows
+    const rotating = rotateOn(settings);
+    const POOL = rotating ? 6 : 2;
     // most looked-at products of the last 30 days (real visitors)
     const viewedIds = want('popular') ? (await db.q<Pick<PageViewsRow, 'product_id'>>(`SELECT product_id FROM page_views WHERE product_id IS NOT NULL AND created_at > now() - interval '30 days'
       GROUP BY product_id ORDER BY count(DISTINCT visitor_id) DESC LIMIT $1`, [ROW * 2])).map((r) => r.product_id) : [];
     const [slides, promos, featured, latest, best, offers, posts, viewed, budget] = await Promise.all([
       want('slider') ? content.listBanners({ active: true, placement: 'slider' }) : [],
       want('promo') ? content.listBanners({ active: true, placement: 'promo' }) : [],
-      want('featured') || want('popular') ? catalog.listProducts({ public: true, hideOut, featured: true, limit: ROW }) : [],
-      want('new') ? catalog.listProducts({ public: true, hideOut, sort: 'new', limit: ROW * 2 }) : [],
-      want('bestsellers') ? catalog.listProducts({ public: true, hideOut, sold: true, sort: 'popular', limit: ROW * 2 }) : [],
-      want('offers') ? catalog.listProducts({ public: true, hideOut, offer: true, sort: 'offer', limit: ROW * 2 }) : [],
+      want('featured') || want('popular') ? catalog.listProducts({ public: true, hideOut, featured: true, limit: ROW * (rotating ? 4 : 1) }) : [],
+      want('new') ? catalog.listProducts({ public: true, hideOut, sort: 'new', limit: ROW * POOL }) : [],
+      want('bestsellers') ? catalog.listProducts({ public: true, hideOut, sold: true, sort: 'popular', limit: ROW * POOL }) : [],
+      want('offers') ? catalog.listProducts({ public: true, hideOut, offer: true, sort: 'offer', limit: ROW * POOL }) : [],
       want('blog') ? content.listPosts({ published: true, limit: 3 }) : [],
       viewedIds.length ? catalog.getProductsByIds(viewedIds, { public: true }).then((r) => (hideOut ? r.filter((p) => p.stock > 0) : r)) : [],
-      want('budget') ? catalog.listProducts({ public: true, hideOut, sort: 'popular', maxPrice: 100, limit: ROW * 2 }) : [],
+      want('budget') ? catalog.listProducts({ public: true, hideOut, sort: 'popular', maxPrice: 100, limit: ROW * POOL }) : [],
     ]);
     const order = new Map(viewedIds.map((id, i) => [id, i]));
     const popularList = viewed.sort((a, b) => (order.get(a.id) as number) - (order.get(b.id) as number));
     // category rows: each main category with its best products
+    const pick = <P extends catalog.Product>(a: P[], row: string): P[] => (rotating ? mix(a, ROW, row) : inStockFirst(a).slice(0, ROW));
     let catRows: shop.HomeData['catRows'] = [];
     if (want('cat_rows')) {
       const { roots } = catalog.categoryTree(categories);
       const mains = roots.filter((c) => c.total_count! >= 4).slice(0, 8);
       catRows = await Promise.all(mains.map(async (c) => ({
         cat: c, chips: c.children.filter((k) => k.total_count! > 0).slice(0, 8),
-        products: inStockFirst(await catalog.listProducts({ public: true, hideOut, category: c.slug, sort: 'popular', limit: ROW * 2 })).slice(0, ROW),
+        products: pick(await catalog.listProducts({ public: true, hideOut, category: c.slug, sort: 'popular', limit: ROW * POOL }), `cat${c.id}`),
       })));
     }
-    const take = (a: catalog.Product[]) => inStockFirst(a).slice(0, ROW);
     // the flash sale that ends first among the running ones, with its products (sale price already in them)
     let flash = null;
     if (want('flash')) {
@@ -100,12 +104,12 @@ export async function resolveShop(ctx: ShopCtx): Promise<Resolved> {
     }
     const data: shop.HomeData = {
       slides, promos, categories, posts, catRows, flash, custom,
-      latest: latest.slice(0, ROW),
-      offers: take(offers),
-      best: take(best.filter((p) => p.sold_count > 0)),
-      popular: take(popularList.length >= 4 ? popularList : featured),
-      featured: take(featured),
-      budget: take(budget.filter((p) => p.stock > 0)),
+      latest: rotating ? mix(latest, ROW, 'new') : latest.slice(0, ROW),
+      offers: pick(offers, 'offers'),
+      best: pick(best.filter((p) => p.sold_count > 0), 'best'),
+      popular: pick(popularList.length >= 4 ? popularList : featured, 'popular'),
+      featured: pick(featured, 'featured'),
+      budget: pick(budget.filter((p) => p.stock > 0), 'budget'),
     };
     // who the shop is, for Google: both spellings of the name, so "সবমিলবে" and "shobmilbe" both find it
     const site = ctx.base.replace(/\/+$/, '');
@@ -161,7 +165,8 @@ export async function resolveShop(ctx: ShopCtx): Promise<Resolved> {
     if (q) {
       ids = await $services_search.find(q).catch(() => undefined);
     }
-    const opts = { category: category && category.slug, brandId: brand && brand.id, q: ids ? '' : q, ids, sort, offer: sort === 'offer', hideOut };
+    const opts = { category: category && category.slug, brandId: brand && brand.id, q: ids ? '' : q, ids, sort, offer: sort === 'offer', hideOut,
+      mixSeed: !sort && !q && rotateOn(settings) ? listSeed() : undefined };
     const fopts = { ...opts, minPrice: filters.pmin || undefined, maxPrice: filters.pmax || undefined, brandIds: filters.brands, inStock: filters.stock,
       specs: filters.specList.length ? filters.specs : null };
     const [products, total, brandList, specFacets] = await Promise.all([

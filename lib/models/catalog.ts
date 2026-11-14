@@ -21,7 +21,7 @@ export type Category = CategoriesRow & { product_count: number };
 export type CategoryNode = Category & { children: CategoryNode[]; depth?: number; path?: CategoryNode[]; total_count?: number };
 /** Product list filters (shop and admin). */
 export type ProductFilter = {
-  hideOut?: boolean; category?: string | null; categoryId?: Id; brandId?: Id; brandIds?: unknown[] | null; damaged?: boolean; supplierId?: Id; q?: string;
+  hideOut?: boolean; mixSeed?: string; category?: string | null; categoryId?: Id; brandId?: Id; brandIds?: unknown[] | null; damaged?: boolean; supplierId?: Id; q?: string;
   featured?: boolean; sold?: boolean; includeInactive?: boolean; type?: string; lowStock?: boolean; offer?: boolean; maxPrice?: unknown; minPrice?: unknown;
   status?: string; need?: string; outStock?: boolean; inStock?: boolean; isNew?: boolean; newDays?: unknown; items?: boolean; ids?: unknown[] | null;
   specs?: Record<string, unknown[]> | null; sort?: string; limit?: number; offset?: number; public?: boolean;
@@ -408,6 +408,8 @@ async function listProducts(opts: ProductFilter = {}): Promise<Product[]> {
   const where = productWhere(opts, params);
   const sortSql = Object.hasOwn(SORTS, String(opts.sort)) ? SORTS[String(opts.sort)] : null;
   let order = sortSql || 'p.featured DESC, (p.stock > 0 OR p.product_type=\'bundle\') DESC, p.created_at DESC';
+  // 🔀 shop lists with no sort chosen (lib/services/rotate.ts): in stock first, then a mix that changes every half hour
+  if (!sortSql && opts.mixSeed && !Array.isArray(opts.ids)) { params.push(String(opts.mixSeed)); order = `(p.stock > 0 OR p.product_type='bundle') DESC, md5(p.id::text || $${params.length})`; }
   // smart search with no sort chosen: best match first
   if (Array.isArray(opts.ids) && !sortSql) { params.push(opts.ids.map(int)); order = `array_position($${params.length}::int[], p.id)`; }
   let sql = `SELECT ${colsFor(opts)} FROM products p LEFT JOIN categories c ON c.id=p.category_id ${where} ORDER BY ${order}, p.id DESC`;
