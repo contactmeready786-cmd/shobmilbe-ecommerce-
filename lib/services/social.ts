@@ -96,8 +96,12 @@ async function save(settings: Settings, obj: Record<string, string>) {
 export async function authUrl(settings: Settings, ch: Channel) {
   const id = String(settings[k(ch, 'app_id')] || '').trim();
   if (!id || !settings[k(ch, 'secret')]) throw new Error('আগে App ID আর App Secret দিয়ে সেভ করুন।');
-  const state = `${ch}.${randomCode(24)}`;
-  await save(settings, { social_oauth_state: `${state}.${Date.now()}` });
+  // reuse a fresh state: the admin page can run this twice for one click (page draw + its fallback), and a second,
+  // different state made the platform's answer look forged ("লিংকের মেয়াদ শেষ বা মিলছে না") — owner, 2026-11-14
+  const [oldCh, oldCode, oldAt] = String(settings.social_oauth_state || '').split('.');
+  const fresh = oldCh === ch && oldCode && Date.now() - Number(oldAt) < 10 * 60e3;
+  const state = fresh ? `${ch}.${oldCode}` : `${ch}.${randomCode(24)}`;
+  if (!fresh) await save(settings, { social_oauth_state: `${state}.${Date.now()}` });
   const redirect = redirectUri(settings);
   const q = (o: Record<string, string>) => new URLSearchParams(o).toString();
   return `https://threads.net/oauth/authorize?${q({ client_id: id, redirect_uri: redirect, scope: 'threads_basic,threads_content_publish', response_type: 'code', state })}`;
