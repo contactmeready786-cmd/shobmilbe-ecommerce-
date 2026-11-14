@@ -164,8 +164,27 @@ async function restore(id?: Id) {
   const K = KINDS[e.kind];
   try {
     await tx(async (t) => {
-      const ins = async (table: string, r?: unknown) => t.query(`INSERT INTO ${table} SELECT * FROM jsonb_populate_record(NULL::${table}, $1::jsonb) ON CONFLICT DO NOTHING`, [JSON.stringify(r)]);
+      // Only the columns the saved row has (owner, 2026-11-14: products deleted before a newer column was added to the
+      // table couldn't come back — the missing column went in as NULL instead of its default and the restore failed).
+      const colsOf = new Map<string, string[]>();
+      const ins = async (table: string, r?: unknown) => {
+        let cols = colsOf.get(table);
+        if (!cols) {
+          cols = (await t.query<{ column_name: string }>(`SELECT column_name FROM information_schema.columns
+            WHERE table_schema = current_schema() AND table_name = $1 AND is_generated = 'NEVER'`, [table])).rows.map((x) => x.column_name);
+          colsOf.set(table, cols);
+        }
+        const obj = (r && typeof r === 'object' ? r : {}) as Row;
+        const use = cols.filter((c) => Object.prototype.hasOwnProperty.call(obj, c) && obj[c] !== null);
+        if (!use.length) return { rowCount: 0 };
+        const list = use.map((c) => `"${c}"`).join(', ');
+        return t.query(`INSERT INTO ${table} (${list}) SELECT ${list} FROM jsonb_populate_record(NULL::${table}, $1::jsonb) ON CONFLICT DO NOTHING`, [JSON.stringify(obj)]);
+      };
       const row = { ...e.data.row };
+      // a product's SKU number was given to another product meanwhile: it comes back with the next free number
+      if (e.kind === 'product' && row.sku && (await t.query('SELECT 1 FROM products WHERE lower(sku)=lower($1) AND id<>$2', [String(row.sku), e.ref_id])).rows.length) {
+        row.sku = await $catalog.takeSku(t);
+      }
       // a category whose main category is gone goes back to the top level
       if (e.kind === 'category' && row.parent_id) {
         const p = (await t.query<Pick<CategoriesRow, 'id'>>('SELECT id FROM categories WHERE id=$1', [row.parent_id])).rows[0];
@@ -181,7 +200,16 @@ async function restore(id?: Id) {
       // a variant comes back only under its main product
       if (e.kind === 'product' && row.parent_id && !(await t.query<{ "?column?": number | null }>('SELECT 1 FROM products WHERE id=$1', [row.parent_id])).rows.length) throw new Error('parent');
       const done = await ins(K.table, row);
-      if (!done.rowCount) throw new Error('same');
+      if (!done.rowCount) {
+        // say which product is in the way (the same product was added again after this one was deleted)
+        if (e.kind === 'product') {
+          const other = (await t.query<{ name: string; sku: string | null }>(`SELECT name, sku FROM products WHERE id=$1 OR slug=$2
+            OR (coalesce($3, '') <> '' AND import_ref=$3) OR (coalesce($4, '') <> '' AND barcode=$4) LIMIT 1`,
+          [e.ref_id, String(row.slug || ''), row.import_ref ? String(row.import_ref) : '', row.barcode ? String(row.barcode) : ''])).rows[0];
+          if (other) throw new Error('same:' + `"${other.name}"${other.sku ? ` (SKU ${other.sku})` : ''}`);
+        }
+        throw new Error('same');
+      }
       for (const [key, rows] of Object.entries<Row[]>(e.data.children || {})) {
         const table = key.split('.')[0];
         for (const r of rows) {
@@ -219,8 +247,11 @@ async function restore(id?: Id) {
     const err = caught as Error;
     if (String(err.message) === 'parent') return { error: `"${e.name}" একটা ভ্যারিয়েন্ট — আগে এর মূল পণ্যটা ফেরত আনুন।` };
     if (String(err.message) === 'same') return { error: `"${e.name}" ফেরত আনা যায়নি — একই নাম/লিংকের আরেকটা ${K.label} এখন আছে, বা এটা আগেই ফেরত আনা হয়েছে।` };
+    if (String(err.message).startsWith('same:')) return { error: `"${e.name}" ফেরত আনার দরকার নেই — একই পণ্য দোকানে এখন আছে: ${String(err.message).slice(5)}। দুটো রাখলে একই পণ্য দুবার দেখাবে; এটা বিন থেকে স্থায়ীভাবে মুছে দিতে পারেন।` };
     if (/duplicate key|unique/i.test(String(err.message))) return { error: `"${e.name}" ফেরত আনা যায়নি — একই নাম/লিংক/কোডের আরেকটা ${K.label} এখন আছে। সেটার নাম বদলে আবার চেষ্টা করুন।` };
-    throw err;
+    // anything else: a plain message on the bin page (never the "something went wrong" page), and the cause is logged
+    console.error('trash restore', e.id, err.message);
+    return { error: `"${e.name}" ফেরত আনা যায়নি (${String(err.message).slice(0, 120)}) — এই লেখাটা Claude-কে দেখান।` };
   }
   return { ok: true, kind: e.kind, id: e.ref_id };
 }
