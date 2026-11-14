@@ -1294,6 +1294,11 @@ CREATE INDEX IF NOT EXISTS visit_sessions_lp_idx ON visit_sessions(landing, star
 ALTER TABLE flash_sales ADD COLUMN IF NOT EXISTS per_phone int NOT NULL DEFAULT 0;
 CREATE INDEX IF NOT EXISTS order_items_flash_idx ON order_items(ref_id) WHERE kind = 'flash';
 `,
+  // 🏷️ আগের দাম নিজে (owner, 2026-11-15): the crossed-out price is filled from the selling price (৳100 পর্যন্ত +৳২০,
+  // তার বেশি +২৫%); old_price_auto marks the ones the shop set (they follow the price; the owner's own stay as typed).
+  `
+ALTER TABLE products ADD COLUMN IF NOT EXISTS old_price_auto boolean NOT NULL DEFAULT false;
+`,
 ];
 
 // Data steps that need code, keyed by migration number (run after its SQL).

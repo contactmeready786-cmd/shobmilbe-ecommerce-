@@ -1007,6 +1007,7 @@ export type ProductsRow = {
   auto_desc: string;
   auto_desc_src: string;
   auto_desc_at: Date | null;
+  old_price_auto: boolean;
 };
 
 /** A row of purchase_edits. */

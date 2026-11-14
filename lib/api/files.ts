@@ -219,6 +219,8 @@ export async function runShopJobs(settings: ApiCtx['settings']): Promise<Record<
   await P.timeJob('অটো SEO', () => $services_autoseo.sweep(settings), { optional: true });
   // 🔎 SEO title, description and keywords written into every product that has none (empty fields only, logged)
   await P.timeJob('SEO ঘর পূরণ', () => $services_autoseo.fillSeoFields(settings, 300), { optional: true });
+  // 🏷️ the crossed-out "regular" price on every product, following the selling price (lib/models/catalog.ts)
+  await P.timeJob('আগের দাম নিজে', () => catalog.syncAutoOldPrices(settings), { optional: true });
   // 📝 অটো বিবরণ: the real product information other shops wrote for the same product (a few products each time)
   await P.timeJob('অটো বিবরণ', () => $services_specfetch.sweep(settings), { optional: true });
   // 🤖 অটো মার্কেটিং: the day's Facebook / Instagram post at the owner's hours, and the weekly price-list articles

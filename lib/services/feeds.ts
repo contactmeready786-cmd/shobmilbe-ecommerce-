@@ -50,8 +50,8 @@ function priceStr(n: unknown) { return `${(Math.max(0, Number(n) || 0)).toFixed(
 
 async function loadProducts(settings: Settings) {
   const includeOut = settings.feed_include_out !== '0';
-  const rows = await db.q<{ id: number; name: string; slug: string; price: number; old_price: number | null; description: string; short_description: string; image_id: number | null; brand: string; model: string; weight_g: number; product_type: string; sku: string; updated_at: Date; category_name: string | null; stock: number; img_w: number | null; img_h: number | null }>(`
-    SELECT p.id, p.name, p.slug, p.price, p.old_price, p.description, p.short_description, p.image_id, p.brand, p.model, p.weight_g,
+  const rows = await db.q<{ id: number; name: string; slug: string; price: number; old_price: number | null; old_price_auto?: boolean; description: string; short_description: string; image_id: number | null; brand: string; model: string; weight_g: number; product_type: string; sku: string; updated_at: Date; category_name: string | null; stock: number; img_w: number | null; img_h: number | null }>(`
+    SELECT p.id, p.name, p.slug, p.price, p.old_price, p.old_price_auto, p.description, p.short_description, p.image_id, p.brand, p.model, p.weight_g,
       p.product_type, p.sku, p.updated_at, c.name AS category_name,
       CASE WHEN p.variant_count > 0 THEN coalesce((SELECT sum(greatest(v.stock,0)) FROM products v WHERE v.parent_id=p.id AND v.active), 0)::int
       WHEN p.product_type='bundle' THEN
@@ -100,7 +100,9 @@ function safeText(s: string) {
 
 function item(p: FeedProduct, channel: string, settings: Settings, base: string) {
   const lim = CHANNELS[channel];
-  const sale = p.old_price && Number(p.old_price) > Number(p.price);
+  // the shop's automatic crossed-out price is not a past selling price: the feeds get the selling price only (Google
+  // treats a made-up "was" price as misrepresentation)
+  const sale = !p.old_price_auto && p.old_price && Number(p.old_price) > Number(p.price);
   const brand = cut(p.brand || settings.feed_brand || settings.store_name || 'Generic', channel === 'google' ? 70 : 100);
   const desc = cut(safeText(plainText(p.description) || plainText(p.short_description) || $autoseo.summary(p) || p.name), lim.desc);
   const shipping = Number(settings.feed_shipping || settings.delivery_outside || 0);

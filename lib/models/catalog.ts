@@ -860,8 +860,33 @@ async function saveProduct(data: Body & { bundle?: { product_id: unknown; qty: u
         if (ok) await t.query('INSERT INTO bundle_items(bundle_id, product_id, qty) VALUES($1,$2,$3)', [pid, part.product_id, part.qty]);
       }
     }
+    // 🏷️ the crossed-out price left as the shop made it stays automatic (it follows the price); one typed by hand is the owner's
+    await t.query(`UPDATE products SET old_price_auto = (old_price IS NOT NULL AND old_price = ${AUTO_OLD_PRICE}) WHERE id=$1`, [pid]);
     return pid;
   });
+}
+
+// ---------------------------------------------------------------- 🏷️ আগের দাম (crossed-out price), made by the shop
+// owner, 2026-11-15: every product shows a crossed-out "regular" price above the selling price, which never changes here.
+// A discount people believe (owner: "+৳20 up to ৳100, a fitting % where that looks odd"):
+//   under ৳10 (parts): +50 % (৳1 → ৳1.50), whole taka once it reaches ৳10
+//   ৳10 – ৳99: +৳20, but at most +50 % (৳15 → ৳23, ৳60 → ৳80) — never a 90 % "discount" on a cheap part
+//   ৳100 and up: +25 %, rounded up to the next ৳10 (৳1450 → ৳1820)
+export const AUTO_OLD_PRICE = `(CASE WHEN price < 10 THEN (CASE WHEN price * 1.5 >= 10 THEN ceil(price * 1.5) ELSE ceil(price * 1.5 * 20) / 20 END)
+  WHEN price < 100 THEN ceil(price + least(20, price * 0.5)) ELSE ceil(price * 1.25 / 10) * 10 END)`;
+export function autoOldPrice(price: number): number {
+  if (price < 10) return price * 1.5 >= 10 ? Math.ceil(price * 1.5) : Math.ceil(price * 1.5 * 20) / 20;
+  if (price < 100) return Math.ceil(price + Math.min(20, price * 0.5));
+  return Math.ceil((price * 1.25) / 10) * 10;
+}
+/** Fill / follow the automatic crossed-out prices (switch ui_auto_old: missing = on); off → the shop's own ones are removed. */
+export async function syncAutoOldPrices(settings: Record<string, unknown>): Promise<number> {
+  if (String(settings.ui_auto_old ?? '1') === '0') {
+    return (await q('UPDATE products SET old_price=NULL, old_price_auto=false WHERE old_price_auto RETURNING id')).length;
+  }
+  // a product with no crossed-out price (or one not above its price any more), or an automatic one whose price changed
+  return (await q(`UPDATE products SET old_price = ${AUTO_OLD_PRICE}, old_price_auto = true
+    WHERE price > 0 AND (old_price IS NULL OR old_price <= price OR (old_price_auto AND old_price <> ${AUTO_OLD_PRICE})) RETURNING id`)).length;
 }
 
 // ---------------------------------------------------------------- variants (size / colour / model)
