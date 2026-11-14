@@ -131,6 +131,26 @@ function tabsAndVideo(): void {
   if (sticky && buyBox && 'IntersectionObserver' in window) {
     new IntersectionObserver((en) => { sticky.classList.toggle('show', !en[0].isIntersecting && en[0].boundingClientRect.top < 0); }).observe(buyBox);
   }
+  // 🖥️ the floating cart bar on computers (owner, 2026-11-14): shows once the main buy box has scrolled away; its − / +
+  // move the page's own quantity box, so the cart gets exactly what the page would have added
+  const float = $('[data-float-buy]');
+  if (float && buyBox && 'IntersectionObserver' in window) {
+    new IntersectionObserver((en) => { float.classList.toggle('show', !en[0].isIntersecting && en[0].boundingClientRect.top < 0); }).observe(buyBox);
+    const shown = $('[data-fb-qty]', float);
+    const main = $<HTMLInputElement>('[data-qty] input');
+    const sync = () => { if (shown && main) shown.textContent = bn(parseInt(main.value, 10) || 1); };
+    float.addEventListener('click', (e) => {
+      const b = hit(e, '[data-fb-step]');
+      if (!b) return;
+      const step = $<HTMLButtonElement>(`[data-qty] [data-step="${b.getAttribute('data-fb-step')}"]`);
+      if (step) step.click();
+      setTimeout(sync, 0);
+    });
+    main?.addEventListener('input', sync);
+    main?.addEventListener('change', sync);
+    document.addEventListener('sm:variant', () => setTimeout(sync, 0));
+    sync();
+  }
 }
 
 // ---------- popup offer (once a day) ----------
