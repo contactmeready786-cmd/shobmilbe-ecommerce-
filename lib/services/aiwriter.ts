@@ -44,7 +44,7 @@ export function check(p: Pick<P, 'name'>, raw: Record<string, unknown>): Draft {
     if (f === 'description' || f === 'short_description') {
       // only the product's own text, compact lists (the same clean-up every description gets: services/autodesc.ts)
       v = productOnly(v);
-      if (v.length < min) continue;
+      if (v.length < 40) continue; // (a short but real text is fine — owner: "even one line")
     }
     if (f === 'name') {
       const have = v.toLowerCase().replace(/[^a-z0-9]/g, ''); // DT-9205A = DT9205A
