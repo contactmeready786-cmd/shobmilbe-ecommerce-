@@ -14,3 +14,4 @@ lib/views/__old_*.ts
 /public/js/**/*.js
 /public/sw.js
 /public/admin-sw.js
+/public/js/version.json

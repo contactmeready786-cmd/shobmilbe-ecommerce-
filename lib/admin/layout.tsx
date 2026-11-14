@@ -1,4 +1,5 @@
 import { Val, RawHtml, attrValue, htmlValue, jsxList, renderHtml } from '../react/html';
+import { withBuild } from '../asset-version';
 import { adminLangBoot, adminSideBoot } from '../boot-scripts';
 import { cspNonce } from '../security';
 import type { ReactNode } from 'react';
@@ -7,7 +8,7 @@ import { can, canSee } from '../models/staff';
 import * as $profile from './profile';
 import type { AdminDrawn, Body, Settings, StaffUser } from '../types';
 
-const ASSET_V = '87';
+const ASSET_V = withBuild('87');
 
 // 📑 Small jobs that belong together sit on one page as tabs (like browser tabs). Each tab is still its own
 // page with its own link (bookmarks and the phone app keep working); the menu shows one entry for the set.

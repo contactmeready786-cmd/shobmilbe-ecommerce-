@@ -5,7 +5,7 @@
   "description": "সবমিলবে — online shop (Next.js, TypeScript, Postgres, Vercel)",
   "scripts": {
     "dev": "npm run build:client && next dev",
-    "build:client": "tsc -p client/tsconfig.json && tsc -p client/sw/tsconfig.json",
+    "build:client": "tsc -p client/tsconfig.json && tsc -p client/sw/tsconfig.json && node tools/version-client.mjs",
     "build": "npm run build:client && next build",
     "start": "next start",
     "typecheck": "tsc --noEmit && tsc -p client/tsconfig.json --noEmit && tsc -p client/sw/tsconfig.json --noEmit",

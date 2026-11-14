@@ -2,6 +2,7 @@
 // drawer, footer, chat buttons, pop-up offer, and the scripts the page needs. One component for both the Next.js
 // pages (app/(shop)/layout.tsx) and the pages still answered by lib/site.ts (lib/views/layout.tsx).
 import { tawkLoader } from '../../../lib/boot-scripts';
+import { withBuild } from '../../../lib/asset-version';
 import type { ReactElement, JSXElementConstructor, ReactNode, ReactPortal } from 'react';
 import * as U from '../../../lib/services/uiswitch';
 import * as security from '../../../lib/security';
@@ -18,7 +19,7 @@ import type { CustomScript, MenuLink, Settings } from '../../../lib/types';
 import { SearchIcon, CartIcon, UserIcon, MenuIcon, WhatsAppIcon, MessengerIcon, SOCIAL_ICONS } from './icons';
 import { inviteConfig } from '../../../lib/app-invite';
 
-export const ASSET_V = '63';
+export const ASSET_V = withBuild('63');
 
 export function Logo({ settings }: { settings: Settings }) {
   if (settings.logo_id) {
