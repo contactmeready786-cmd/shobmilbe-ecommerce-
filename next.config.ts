@@ -16,6 +16,9 @@ const config: NextConfig = {
   async headers() {
     return [
       { source: '/css/:path*', headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }] },
+      // owner, 2026-11-14: said out loud — without it Cloudflare's own 4-hour default kept old browser code after an update,
+      // so a new page could run with yesterday's scripts. "no-cache" = keep it, but ask "changed?" each time (a tiny 304).
+      { source: '/js/:path*', headers: [{ key: 'Cache-Control', value: 'public, no-cache' }] },
       { source: '/brand/:file(favicon-\\d+\\.png|apple-touch-icon\\.png)', headers: [{ key: 'Cache-Control', value: 'public, max-age=604800, stale-while-revalidate=86400' }] },
       { source: '/flags/:path*', headers: [{ key: 'Cache-Control', value: 'public, max-age=604800, stale-while-revalidate=86400' }] },
       // 📱 the Android app (/app): the phone must see it as an app file to install; a new version gets a new file name
