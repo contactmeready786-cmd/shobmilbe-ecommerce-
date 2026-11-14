@@ -1221,3 +1221,7 @@ body.shop.glass :is(input:not([type=radio]):not([type=checkbox]):not([type=file]
 @media (min-width: 2200px) { html { zoom: 1.2; } }
 @media (min-width: 2800px) { html { zoom: 1.5; } }
 @media (min-width: 3600px) { html { zoom: 1.8; } }
+
+/* 🔥 কতটি বিক্রি হয়েছে (owner, 2026-11-14): small, like other shops — on cards and on the product page */
+.card-sold { margin: -2px 0 2px; font-size: .76rem; color: #C2410C; font-weight: 600; }
+.pdp-sold { margin: 4px 0; font-size: .9rem; color: #C2410C; }
