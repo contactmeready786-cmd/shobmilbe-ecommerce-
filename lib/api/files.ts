@@ -251,9 +251,9 @@ export async function runAiJobs(settings: ApiCtx['settings']): Promise<void> {
   // 🇧🇩 Bangla names still missing, and the product list's 👯 count — work kept off the admin pages so they stay quick
   await P.timeJob('বাংলা নাম', async () => (await import('../models/catalog')).fillBnNames(200), { optional: true });
   // 🧹 every product's description: only the product's own text, compact lists (lib/services/autodesc.ts)
-  await P.timeJob('বিবরণ নিজে পরিষ্কার', async () => (await import('../services/autodesc')).sweep(40), { optional: true });
+  await P.timeJob('বিবরণ নিজে পরিষ্কার', async () => (await import('../services/autodesc')).sweep(150), { optional: true });
   await P.timeJob('বাংলা নাম পুরো বাংলায়', async () => (await import('../models/catalog')).fullBnNames(3000));
-  await P.timeJob('বাংলা নাম নতুন করে', async () => (await import('../models/catalog')).remakeBnNames(40), { optional: true });
+  await P.timeJob('বাংলা নাম নতুন করে', async () => (await import('../models/catalog')).remakeBnNames(80), { optional: true });
   // 👯 the duplicate scan compares every picture with every other one — heavy, so only when the catalogue changed
   // (or every 6 hours at most), never while the server is busy
   await P.timeJob('ডুপ্লিকেট খোঁজা', async () => { const p = await import('../admin/products'); await p.refreshDupChipIfChanged(settings); }, { optional: true });

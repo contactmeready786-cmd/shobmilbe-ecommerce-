@@ -275,7 +275,21 @@ const KNOWN: Record<string, string> = { arduino: 'আরডুইনো', raspbe
   voice: 'ভয়েস', rgb: 'আরজিবি', ac: 'এসি', dc: 'ডিসি', tv: 'টিভি', usb: 'ইউএসবি', ic: 'আইসি', pcb: 'পিসিবি', ups: 'ইউপিএস', ir: 'আইআর', rf: 'আরএফ', gps: 'জিপিএস', sd: 'এসডি',
   solid: 'সলিড', state: 'স্টেট', static: 'স্ট্যাটিক', anti: 'অ্যান্টি', schottky: 'শটকি', quickly: 'কুইকলি', warm: 'ওয়ার্ম', up: 'আপ', segment: 'সেগমেন্ট',
   relief: 'রিলিফ', plated: 'প্লেটেড', butterfly: 'বাটারফ্লাই', snake: 'স্নেক', anklet: 'এঙ্কলেট', payel: 'পায়েল', speed: 'স্পিড', control: 'কন্ট্রোল',
-  split: 'স্প্লিট', style: 'স্টাইল', electrolytic: 'ইলেক্ট্রোলাইটিক', radial: 'রেডিয়াল', lifepo: 'লাইফেপো', koku: 'কোকু', tatal: 'টাটাল', counter: 'কাউন্টার' };
+  split: 'স্প্লিট', style: 'স্টাইল', electrolytic: 'ইলেক্ট্রোলাইটিক', radial: 'রেডিয়াল', lifepo: 'লাইফেপো', koku: 'কোকু', tatal: 'টাটাল', counter: 'কাউন্টার',
+  rain: 'রেইন', area: 'এরিয়া', weather: 'ওয়েদার', women: 'মেয়েদের', woman: 'মেয়েদের', men: 'ছেলেদের', large: 'বড়', small: 'ছোট', big: 'বড়', long: 'লম্বা',
+  short: 'ছোট', soft: 'সফট', hard: 'হার্ড', jersey: 'জার্সি', hijab: 'হিজাব', maroon: 'মেরুন', brown: 'বাদামি', orange: 'কমলা', purple: 'বেগুনি',
+  lead: 'লিড', wire: 'তার', motherboard: 'মাদারবোর্ড', jumpering: 'জাম্পারিং', jumper: 'জাম্পার', light: 'লাইট', lamp: 'ল্যাম্প', holder: 'হোল্ডার',
+  motion: 'মোশন', infrared: 'ইনফ্রারেড', precision: 'প্রিসিশন', portable: 'পোর্টেবল', rechargeable: 'রিচার্জেবল', wireless: 'ওয়্যারলেস',
+  waterproof: 'ওয়াটারপ্রুফ', magnetic: 'ম্যাগনেটিক', automatic: 'অটোমেটিক', electric: 'ইলেকট্রিক', electronic: 'ইলেকট্রনিক', power: 'পাওয়ার',
+  high: 'হাই', low: 'লো', quality: 'কোয়ালিটি', heavy: 'হেভি', duty: 'ডিউটি', home: 'হোম', kitchen: 'কিচেন', car: 'কার', bike: 'বাইক', baby: 'বেবি',
+  kids: 'বাচ্চাদের', ladies: 'মেয়েদের', gents: 'ছেলেদের', fashion: 'ফ্যাশন', watch: 'ওয়াচ', bag: 'ব্যাগ', shoe: 'জুতা', shoes: 'জুতা', cap: 'ক্যাপ',
+  shirt: 'শার্ট', pant: 'প্যান্ট', bottle: 'বোতল', glass: 'গ্লাস', steel: 'স্টিল', plastic: 'প্লাস্টিক', metal: 'মেটাল', wood: 'কাঠ', wooden: 'কাঠের',
+  leather: 'চামড়া', silicone: 'সিলিকন', rubber: 'রাবার', cotton: 'সুতি', fan: 'ফ্যান', bulb: 'বাল্ব', switch: 'সুইচ', socket: 'সকেট', plug: 'প্লাগ',
+  adapter: 'অ্যাডাপ্টার', charger: 'চার্জার', cable: 'ক্যাবল', battery: 'ব্যাটারি', speaker: 'স্পিকার', headphone: 'হেডফোন', earphone: 'ইয়ারফোন',
+  microphone: 'মাইক্রোফোন', camera: 'ক্যামেরা', display: 'ডিসপ্লে', screen: 'স্ক্রিন', keyboard: 'কিবোর্ড', mouse: 'মাউস', tester: 'টেস্টার',
+  meter: 'মিটার', tool: 'টুল', tools: 'টুলস', machine: 'মেশিন', pump: 'পাম্প', motor: 'মোটর', gear: 'গিয়ার', wheel: 'হুইল', spray: 'স্প্রে', gun: 'গান',
+  pipe: 'পাইপ', water: 'পানি', air: 'এয়ার', mist: 'মিস্ট', maker: 'মেকার', fogger: 'ফগার', humidifier: 'হিউমিডিফায়ার', body: 'বডি', with: 'সহ',
+  for: '', and: 'ও', or: 'বা', of: '', the: '', to: 'টু' };
 /** any other English word, written in Bangla letters as it sounds (a simple, predictable reading) */
 function sounds(word: string): string {
   const w = word.toLowerCase().replace(/(.)\1+/g, '$1').replace(/er$/, '#');
@@ -320,7 +334,7 @@ function sounds(word: string): string {
 function latinRun(run: string, afterNumber: boolean, whole: boolean): string {
   const low = run.toLowerCase();
   if (afterNumber && UNIT[low] !== undefined && whole) return ' ' + UNIT[low];
-  if (KNOWN[low]) return KNOWN[low];
+  if (KNOWN[low] !== undefined) return KNOWN[low];
   if (WORDS[low] && !/[A-Za-z]/.test(WORDS[low])) return WORDS[low];
   // short capitals / codes are read letter by letter: USB, HC, DT, KM, N; a word without vowels too (RGB, PCB)
   if ((run === run.toUpperCase() && run.length <= 3) || run.length <= 2 || !/[aeiouy]/i.test(run)) return spell(run);
