@@ -180,6 +180,9 @@ class Connection {
   private queue: Promise<unknown> = Promise.resolve();
   /** calls running or waiting on this connection */
   pending = 0;
+  /** handed out by the pool, the call not started yet (so a burst of calls doesn't all pick the same "free" one) */
+  reserved = 0;
+  get load(): number { return this.pending + this.reserved; }
   lastUsed = Date.now();
 
   strict: boolean;
@@ -336,25 +339,27 @@ function reap(): void {
   const now = Date.now();
   for (const c of [...pool]) {
     if (pool.length <= 1) break;
-    if (c.pending === 0 && now - c.lastUsed > IDLE_MS) drop(c);
+    if (c.load === 0 && now - c.lastUsed > IDLE_MS) drop(c);
   }
   if (pool.length <= 1 && reaper) { clearInterval(reaper); reaper = null; }
 }
 
+/** A connection for one call, already counted as taken (`reserved`) — withConnection gives the reservation back. */
 async function getConnection(): Promise<Connection> {
   if (pool.some((c) => c.closed)) pool = pool.filter((c) => !c.closed);
+  const take = (c: Connection) => { c.reserved++; return c; };
   if (!pool.length) {
     // the first connection: everyone who asks meanwhile waits for the same one
     if (!firstPromise) {
       firstPromise = openConnection().then((conn) => { pool.push(conn); firstPromise = null; return conn; },
         (e: unknown) => { firstPromise = null; throw e; });
     }
-    return firstPromise;
+    return take(await firstPromise);
   }
   let best = pool[0];
   for (const c of pool) {
-    if (c.pending === 0) return c; // a free one
-    if (c.pending < best.pending) best = c;
+    if (c.load === 0) return take(c); // a free one
+    if (c.load < best.load) best = c;
   }
   // all busy: one more, up to the limit — otherwise the shortest line
   if (pool.length + opening < POOL_MAX && Date.now() >= noGrowUntil) {
@@ -363,17 +368,17 @@ async function getConnection(): Promise<Connection> {
       const conn = await openConnection();
       pool.push(conn);
       if (!reaper) { reaper = setInterval(reap, 30e3); reaper.unref(); }
-      return conn;
+      return take(conn);
     } catch (e) {
       // the database won't give another connection just now: carry on with the ones there are
       noGrowUntil = Date.now() + 30e3;
       console.error('database pool', (e as Error).message);
       const open = pool.filter((c) => !c.closed);
       if (!open.length) throw e;
-      return open.reduce((a, c) => (c.pending < a.pending ? c : a));
+      return take(open.reduce((a, c) => (c.load < a.load ? c : a)));
     } finally { opening--; }
   }
-  return best;
+  return take(best);
 }
 
 // Only a failure of the connection itself is tried again — never an error the code inside a transaction threw on
@@ -385,13 +390,15 @@ function isConnectionError(e: unknown): boolean {
 // Retry once on a dropped connection (e.g. the server closed an idle socket).
 async function withConnection<T>(fn: (c: Connection) => Promise<T>): Promise<T> {
   let conn: Connection | null = null;
+  // the call starts (and counts as `pending`) the moment fn is called; the reservation is given back right then
+  const start = (c: Connection): Promise<T> => { try { return fn(c); } finally { c.reserved--; } };
   try {
     conn = await getConnection();
-    return await fn(conn);
+    return await start(conn);
   } catch (e) {
     if (!isConnectionError(e)) throw e;
     if (conn) drop(conn);
-    return fn(await getConnection());
+    return start(await getConnection());
   }
 }
 
@@ -418,7 +425,7 @@ export function closeConnection(): void {
 export function poolStats() {
   const open = pool.filter((c) => !c.closed);
   return {
-    max: POOL_MAX, open: open.length, busy: open.filter((c) => c.pending > 0).length, waiting: open.reduce((n, c) => n + Math.max(0, c.pending - 1), 0),
+    max: POOL_MAX, open: open.length, busy: open.filter((c) => c.load > 0).length, waiting: open.reduce((n, c) => n + Math.max(0, c.pending - 1), 0),
     since: stats.since, queries: stats.queries, avgMs: stats.queries ? stats.ms / stats.queries : 0, slow: stats.slow,
     waits: stats.waits, avgWaitMs: stats.waits ? stats.waitMs / stats.waits : 0, maxWaitMs: stats.maxWaitMs,
     slowest: stats.slowest.map((q) => ({ ...q })),
