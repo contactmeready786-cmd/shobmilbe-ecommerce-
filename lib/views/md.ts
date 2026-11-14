@@ -14,8 +14,19 @@ function inline(s: string) {
     .replace(/\[([^\]]+)\]\(((?:https?:\/\/|\/)[^\s)]+)\)/g, (_: string, t: string, u: string) => `<a href="${u}"${u.startsWith('/') ? '' : ' rel="noopener nofollow" target="_blank"'}>${t}</a>`);
 }
 
+// Text copied from other shops (owner, 2026-11-14 — electroxbd) often has each list mark on its own line with empty
+// lines around it ("-\n\n**Power:** 5V\n\n-\n\n…"), so every point took three lines. The mark is joined to its text
+// again, and empty lines between the points of one list no longer break the list apart.
+function tidy(text: string) {
+  return String(text || '').replace(/\r/g, '')
+    .replace(/^[ \t]*([-•*]|\d+[.)])[ \t]*\n(?:[ \t]*\n)*[ \t]*(?=\S)/gm, '$1 ')
+    .replace(/^[ \t]*[-•*][ \t]*$/gm, '')
+    .replace(/\n{3,}/g, '\n\n');
+}
+const LIST_LINE: Record<string, RegExp> = { ul: /^[-•*]\s+\S/, ol: /^\d+[.)]\s+\S/ };
+
 function render(text: string, { productCard }: Body = {}) {
-  const lines = String(text || '').replace(/\r/g, '').split('\n');
+  const lines = tidy(text).split('\n');
   const out = [];
   let list: string | null = null;
   let table: string[][] | null = null;
@@ -27,8 +38,8 @@ function render(text: string, { productCard }: Body = {}) {
     table = null;
   };
   const close = () => { if (list) { out.push(`</${list}>`); list = null; } };
-  for (const rawLine of lines) {
-    const line = rawLine.trim();
+  for (let li = 0; li < lines.length; li++) {
+    const line = lines[li].trim();
     if (/^\|.*\|$/.test(line) && line.length > 2) {
       close();
       const cells = line.slice(1, -1).split('|').map((c) => c.trim());
@@ -37,7 +48,12 @@ function render(text: string, { productCard }: Body = {}) {
       continue;
     }
     closeTable();
-    if (!line) { close(); continue; }
+    if (!line) {
+      // an empty line inside a list (the next point follows): the list goes on
+      if (list) { let k = li + 1; while (k < lines.length && !lines[k].trim()) k++; if (k < lines.length && LIST_LINE[list].test(lines[k].trim())) continue; }
+      close();
+      continue;
+    }
     const e = esc(line);
     let m;
     if ((m = line.match(/^(#{2,3})\s+(.+)$/))) { close(); out.push(`<h${m[1].length}>${inline(esc(m[2]))}</h${m[1].length}>`); continue; }
