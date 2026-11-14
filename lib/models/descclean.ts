@@ -18,6 +18,7 @@ const TAIL_START = new RegExp([
   'delivery (?:info|information|policy|charge|time|system|process)', 'shipping (?:info|information|policy)', 'return (?:policy|&|and)', 'refund policy', 'warranty policy',
   'how to (?:order|buy|purchase)', 'order (?:process|procedure)', 'payment (?:method|option|system)s?', 'contact (?:us|info|information|details)\\b', 'customer (?:support|care|service)',
   'disclaimer', 'terms (?:and|&) conditions',
+  'buying (?:guide|tips?)', 'before (?:you )?(?:buy|order)', 'কেনার আগে (?:জেনে নিন|জানুন|দেখে নিন|যা জানা)',
   'সাধারণ জিজ্ঞাসা', 'সচরাচর জিজ্ঞাসা', 'প্রায়ই জিজ্ঞাস', 'প্রশ্ন ?(?:ও|এবং|-|–) ?উত্তর', 'প্রশ্নোত্তর', 'জিজ্ঞাসিত প্রশ্ন',
   'কেন (?:আমাদের|আমরা|.{0,30}থেকে (?:কিনবেন|কেনা|নিবেন|নেবেন))', 'আমাদের (?:সম্পর্কে|দোকান|শপ|সেবা|প্রতিষ্ঠান|নীতি)',
   'ডেলিভারি (?:তথ্য|চার্জ|নীতি|সময়|পদ্ধতি|ব্যবস্থা)', 'রিটার্ন (?:নীতি|পলিসি)', 'ফেরত (?:নীতি|দেওয়ার নিয়ম)', 'ওয়ারেন্টি (?:নীতি|পলিসি)',

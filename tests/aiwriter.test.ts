@@ -31,7 +31,13 @@ test('a new name must still be the same product', () => {
 });
 
 test('the Bangla name keeps the numbers and is really in Bangla', () => {
-  assert.equal(check({ name: 'PAM8403 Amplifier Board' }, { name_bn: 'PAM8403 অ্যামপ্লিফায়ার বোর্ড' }).name_bn, 'PAM8403 অ্যামপ্লিফায়ার বোর্ড');
+  assert.equal(check({ name: 'PAM8403 Amplifier Board' }, { name_bn: 'PAM8403 অ্যামপ্লিফায়ার বোর্ড' }).name_bn, 'পিএএম৮৪০৩ অ্যামপ্লিফায়ার বোর্ড');
   assert.equal(check({ name: 'PAM8403 Amplifier Board' }, { name_bn: 'অ্যামপ্লিফায়ার বোর্ড' }).name_bn, undefined);
   assert.equal(check({ name: 'PAM8403 Amplifier Board' }, { name_bn: 'PAM8403 Amplifier Board' }).name_bn, undefined);
+});
+
+test('descriptions keep only the product: no "why buy here", delivery or FAQ, compact lists', () => {
+  const d = check({ name: 'PAM8403 Amplifier Board' }, { description: 'PAM8403 একটি ছোট ডিজিটাল অ্যামপ্লিফায়ার বোর্ড, ৫ ভোল্টে চলে আর দুই চ্যানেলে ৩ ওয়াট করে আউটপুট দেয়। ছোট স্পিকার প্রজেক্টে খুব কাজে লাগে।\n\n-\n\n**ভোল্টেজ:** 5V\n\n-\n\n**আউটপুট:** 3W x 2\n\n## কেনার আগে জেনে নিন\n\nস্পিকারের ওহম মিলিয়ে নিন।\n\n## ডেলিভারি তথ্য\n\nসারা দেশে হোম ডেলিভারি।' }).description || '';
+  assert.match(d, /- \*\*ভোল্টেজ:\*\* 5V\n\n?- \*\*আউটপুট:\*\*/);
+  assert.ok(!/কেনার আগে|ডেলিভারি/.test(d), d);
 });

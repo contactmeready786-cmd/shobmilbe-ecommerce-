@@ -8,6 +8,8 @@
 import * as db from '../db';
 import * as cache from '../cache';
 import * as seoscore from './seoscore';
+import { fullBangla } from './bntitle';
+import { productOnly } from './autodesc';
 import type { Settings } from '../types';
 
 export const FIELDS = ['name', 'name_bn', 'seo_title', 'seo_description', 'seo_keywords', 'short_description', 'description'] as const;
@@ -37,6 +39,12 @@ export function check(p: Pick<P, 'name'>, raw: Record<string, unknown>): Draft {
     if (f === 'name_bn') {
       const have = v.toLowerCase().replace(/[^a-z0-9]/g, ''); // DT-9205A = DT9205A
       if (!codesIn(p.name).every((c) => have.includes(c)) || !/[\u0980-\u09ff]/.test(v)) continue; // Bangla, numbers kept
+      v = fullBangla(v); // owner, 2026-11-14: no English letters or digits in the Bangla name (২০০ এ, ডিটি৯২০৫এ)
+    }
+    if (f === 'description' || f === 'short_description') {
+      // only the product's own text, compact lists (the same clean-up every description gets: services/autodesc.ts)
+      v = productOnly(v);
+      if (v.length < min) continue;
     }
     if (f === 'name') {
       const have = v.toLowerCase().replace(/[^a-z0-9]/g, ''); // DT-9205A = DT9205A
@@ -69,8 +77,10 @@ function prompt(p: P): string {
  "seo_description": "১২০–১৫৫ অক্ষর, বাংলা+ইংরেজি মিশিয়ে, দাম/ক্যাশ অন ডেলিভারির কথা থাকতে পারে",
  "seo_keywords": "৬–১০টা কিওয়ার্ড, কমা দিয়ে (ইংরেজি ও বাংলা — মানুষ যা লিখে খোঁজে)",
  "name_bn": "বাংলা নাম — যতটা পারা যায় বাংলায়; শুধু যে শব্দ বাংলায় অদ্ভুত শোনায় বা কাস্টমার চিনবে না (মডেল নম্বর, Arduino, PCB, Bluetooth, USB, ব্র্যান্ড) সেটুকু ইংরেজিতে; মাপ/মডেল নম্বর হুবহু",
- "short_description": "বাংলায় ২–৪ লাইন: পণ্যটা কী আর কেন কিনবে",
- "description": "বাংলায় বিস্তারিত: কী কাজে লাগে, বৈশিষ্ট্য ('- ' দিয়ে তালিকা), স্পেসিফিকেশন, কীভাবে ব্যবহার করবেন, প্যাকেজে কী থাকে (জানা থাকলে)। কোনো লিংক, ফোন নম্বর, অন্য দোকানের নাম বা HTML নয়।"}
+ "short_description": "বাংলায় ২–৪ লাইন: পণ্যটা কী আর এর মূল তথ্য (মাপ, ভোল্টেজ, কাজ) — শুধু পণ্যের তথ্য",
+ "description": "বাংলায় বিস্তারিত: পণ্যটা কী, কী কাজে লাগে, বৈশিষ্ট্য ('- ' দিয়ে তালিকা, প্রতিটা এক লাইনে, মাঝে ফাঁকা লাইন নয়), স্পেসিফিকেশন, কীভাবে ব্যবহার করবেন, প্যাকেজে কী থাকে (জানা থাকলে)। কোনো লিংক, ফোন নম্বর, অন্য দোকানের নাম বা HTML নয়।"}
+
+শুধু পণ্যের তথ্য (খুব জরুরি — দোকানের মালিকের নিয়ম): বিবরণে দোকান, দাম, অফার, ডেলিভারি, ক্যাশ অন ডেলিভারি, অর্ডার করার নিয়ম, রিটার্ন/গ্যারান্টি নীতি, "কেন আমাদের থেকে কিনবেন", "কেনার আগে জেনে নিন", প্রশ্ন-উত্তর (FAQ) — এসব কিছুই লিখবে না। বিক্রির কথা বা প্রশংসার বাড়াবাড়ি ("সেরা", "অসাধারণ সুযোগ") নয়। তথ্য অল্প হলে অল্পই লিখবে — এক লাইন হলেও চলবে, বানিয়ে লম্বা করবে না।
 
 ভাষার নিয়ম (খুব জরুরি — দোকানটা বাংলাদেশের কাস্টমারদের জন্য): ছোট ও বিস্তারিত বিবরণ যতটা সম্ভব সহজ, সাবলীল বাংলায় লিখবে — মানুষ যেভাবে কথা বলে। শুধু যে শব্দ বাংলায় লিখলে কাস্টমার বুঝবে না বা অদ্ভুত লাগে, সেগুলো ইংরেজিতে রাখবে: মডেল/পার্ট নম্বর, একক (V, A, mAh, W, Hz), আর পরিচিত প্রযুক্তি শব্দ (Arduino, Bluetooth, USB, PCB, Module, Sensor, Driver, IC, LED, Battery ইত্যাদি)। পুরো বাক্য ইংরেজিতে লিখবে না। স্পেসিফিকেশনের নাম বাংলায় (যেমন "কাজের ভোল্টেজ: 5V")। বাংলা বানান শুদ্ধ রাখবে।`;
 }
