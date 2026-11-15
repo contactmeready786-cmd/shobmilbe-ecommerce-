@@ -2055,3 +2055,9 @@ body.admin .tool-tile > .tool-body, .tool-tile > .tool-body { background: #fff !
 .tool-tip::after { content: attr(data-tip); position: absolute; z-index: 70; top: calc(100% + 8px); left: 50%; transform: translateX(-50%); width: min(300px, 80vw); padding: 10px 12px; border-radius: 10px; background: #fff; color: var(--ink); border: 1px solid var(--line); box-shadow: 0 14px 34px rgba(15,23,42,.2); font: 500 .8rem/1.5 'Noto Sans Bengali', sans-serif; white-space: normal; text-align: left; opacity: 0; visibility: hidden; transition: opacity .12s; pointer-events: none; }
 .tool-tip:hover::after, .tool-tip:focus::after { opacity: 1; visibility: visible; }
 .tool-row > .tool-pill { flex: 0 0 auto; }
+/* every on/off row: name + ⓘ + switch on one slim line (client/admin/core.tsx switchTips) */
+body.admin #main.admin-main .switch-row.has-tip { min-height: 0; padding: 7px 12px; }
+.switch-row.has-tip .switch-text { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.switch-row.has-tip .switch-text > small[hidden] { display: none !important; }
+.switch-row .tool-tip { margin-left: 2px; }
+.switch-row .tool-tip::after { left: 0; transform: none; }

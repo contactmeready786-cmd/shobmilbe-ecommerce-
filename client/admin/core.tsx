@@ -690,10 +690,28 @@ function stickySides(): void {
   check();
 }
 
+// ---------- ⓘ switch explanations (owner, 2026-11-15): every on/off row everywhere shows only its name and switch;
+// the long explanation moves into a small ⓘ that shows it when the mouse is on it (or it is tapped) ----------
+function switchTips(): void {
+  for (const row of $all<HTMLElement>('#main .switch-row')) {
+    if (row.querySelector('.tool-tip')) continue;
+    const small = row.querySelector<HTMLElement>('.switch-text small');
+    const title = row.querySelector<HTMLElement>('.switch-text b');
+    const text = small?.textContent?.trim();
+    if (!small || !title || !text) continue;
+    const tip = <span className="tool-tip" tabIndex={0} role="note" aria-label={text} data-tip={text}>i</span> as HTMLElement;
+    // a tap on ⓘ shows the text — it must not flip the switch the row's label holds
+    tip.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); tip.focus(); });
+    title.after(tip);
+    small.hidden = true;
+    row.classList.add('has-tip');
+  }
+}
+
 export function startCore(): void {
   for (const [name, start] of [
     ['refresh', refreshButton], ['side menu', sideMenu], ['save reminder', saveReminder], ['confirmations', confirmations],
-    ['helpers', smallHelpers], ['live parts', liveParts], ['instant saves', instantSaves], ['lists', lists], ['jobs', jobs], ['zoom', zoomPictures], ['sticky sides', stickySides],
+    ['helpers', smallHelpers], ['live parts', liveParts], ['instant saves', instantSaves], ['lists', lists], ['jobs', jobs], ['zoom', zoomPictures], ['sticky sides', stickySides], ['switch tips', switchTips],
   ] as [string, () => void][]) {
     try { start(); } catch (e) { console.error(`সবমিলবে admin: ${name} could not start`, e); }
   }
