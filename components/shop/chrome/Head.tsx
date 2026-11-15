@@ -28,7 +28,9 @@ function Tracking({ s }: { s: Settings }) {
   if (s.gtm_id || s.ga4_id || s.fb_pixel_id || s.tiktok_pixel_id) out.push(inline(LATER, 'later'));
   // Google consent mode: this shop sells in Bangladesh (no EU cookie-consent rule), so measurement is allowed by default.
   // Without this, Google's tag can start in "denied" mode and GA4/Ads count almost nothing.
-  if (s.gtm_id || s.ga4_id) out.push(inline("window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('consent','default',{ad_storage:'granted',analytics_storage:'granted',ad_user_data:'granted',ad_personalization:'granted'});", 'consent'));
+  // 2026-11-15: gtag.js read the 'default' alone as denied (hits had gcs=G100, no _ga cookie, GA showed 0 visitors for
+  // days); an explicit 'update' right after makes it granted (G111). Keep both.
+  if (s.gtm_id || s.ga4_id) out.push(inline("window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}var smC={ad_storage:'granted',analytics_storage:'granted',ad_user_data:'granted',ad_personalization:'granted'};gtag('consent','default',smC);gtag('consent','update',smC);", 'consent'));
   if (s.gtm_id) out.push(inline(`(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;${later('f.parentNode.insertBefore(j,f)')}})(window,document,'script','dataLayer',${JSON.stringify(s.gtm_id)});`, 'gtm'));
   if (s.ga4_id) {
     out.push(inline(later(`var j=document.createElement('script');j.async=true;j.src=${JSON.stringify(`https://www.googletagmanager.com/gtag/js?id=${s.ga4_id}`)};document.head.appendChild(j)`), 'ga4src'));
