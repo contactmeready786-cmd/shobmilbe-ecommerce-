@@ -172,4 +172,14 @@ function helpBox(title?: unknown, body?: unknown) {
   return <details className="help"><summary>💡{' '}<Val v={title} /></summary><div><Val v={body} /></div></details>;
 }
 
-export { flag, importTabs, rowSwitch, rowActions, catOpts, MESSAGES, flash, flashFrom, pill, field, input, textarea, select, check, switchRow, imagePicker, pager, dateFilter, kpi, empty, settingsBox, helpBox, money, bn };
+// 🧩 Small tools above a list (owner, 2026-11-15: "a nice small box, opened with the arrow"): a row of compact
+// pills; each opens its own panel below it. `state` shows চালু / বন্ধ on the pill for an on/off tool.
+type ToolTileOpts = { state?: boolean; open?: boolean; id?: string };
+function toolTile(title: unknown, body: unknown, { state, open, id }: ToolTileOpts = {}) {
+  return <details className="tool-tile" id={id} open={!!open}><summary><span className="tool-t"><Val v={title} /></span>{state === undefined ? null : <span className={`tool-state ${state ? 'on' : ''}`}>{state ? 'চালু' : 'বন্ধ'}</span>}</summary><div className="tool-body panel"><Val v={body} /></div></details>;
+}
+function toolRow(...tiles: unknown[]) {
+  const shown = tiles.filter((x) => x !== '' && x !== null && x !== undefined && x !== false);
+  return shown.length ? <div className="tool-row"><Val v={shown} /></div> : '';
+}
+export { toolTile, toolRow, flag, importTabs, rowSwitch, rowActions, catOpts, MESSAGES, flash, flashFrom, pill, field, input, textarea, select, check, switchRow, imagePicker, pager, dateFilter, kpi, empty, settingsBox, helpBox, money, bn };

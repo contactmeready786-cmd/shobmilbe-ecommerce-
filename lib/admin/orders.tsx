@@ -23,7 +23,7 @@ import type { CustomersRow, OrdersRow, PaymentsRow } from '../data/rows';
 function canDelete(ctx: AdminCtx) { return ctx.user.role === 'owner' && ctx.settings.order_delete_on === '1'; }
 function deleteSwitch(ctx: AdminCtx) {
   if (ctx.user.role !== 'owner') return '';
-  return <form method="post" action="/admin/orders/delete-setting" className="panel switch-list cust-del-sw" data-autosubmit="">{ui.switchRow('order_delete_on', ctx.settings.order_delete_on === '1', '🗑️ অর্ডার মুছে ফেলার বাটন দেখান', 'শুধু আপনি (মালিক) দেখবেন। চালু করলে প্রতিটা অর্ডারের পাশে আর অর্ডারের পেজে "মুছুন" বাটন আসবে, আর টিক দিয়ে একসাথে অনেকগুলো মোছা যাবে। মোছা অর্ডার রিসাইকেল বিনে যায় (পণ্য স্টকে ফেরত যায়) — দরকার হলে সেখান থেকে ফেরত আনা যায়। কাজ শেষে বন্ধ করে রাখুন।')}</form>;
+  return ui.toolRow(ui.toolTile('🗑️ মুছে ফেলার বাটন', <form method="post" action="/admin/orders/delete-setting" className="switch-list cust-del-sw" data-autosubmit="">{ui.switchRow('order_delete_on', ctx.settings.order_delete_on === '1', '🗑️ অর্ডার মুছে ফেলার বাটন দেখান', 'শুধু আপনি (মালিক) দেখবেন। চালু করলে প্রতিটা অর্ডারের পাশে আর অর্ডারের পেজে "মুছুন" বাটন আসবে, আর টিক দিয়ে একসাথে অনেকগুলো মোছা যাবে। মোছা অর্ডার রিসাইকেল বিনে যায় (পণ্য স্টকে ফেরত যায়) — দরকার হলে সেখান থেকে ফেরত আনা যায়। কাজ শেষে বন্ধ করে রাখুন।')}</form>, { state: ctx.settings.order_delete_on === '1' }));
 }
 async function deleteSetting(ctx: AdminCtx) {
   if (ctx.user.role !== 'owner') return ctx.back('/admin/orders', 'noperm');
