@@ -106,7 +106,8 @@ async function undoApi(ctx: AdminCtx, m: RouteMatch) {
 async function cloudQueue(ctx: AdminCtx) {
   const b = await ctx.body();
   const ids = (Array.isArray(b.ids) ? b.ids : []).map((x: unknown) => int(x));
-  const jobs = await cloud.queue(ids, { bright: !!b.bright, clean: b.clean !== false && b.clean !== 0 }, ctx.user.id);
+  // 2026-11-15: other shops' pictures also lose their web address / phone text (SKU 1374 kept "SHOPNOSALE.COM")
+  const jobs = await cloud.queue(ids, { bright: !!b.bright, clean: b.clean !== false && b.clean !== 0, contact: b.clean !== false && b.clean !== 0 }, ctx.user.id);
   const k = Object.keys(jobs).length ? await cloud.kick(ctx.settings) : { ok: false, message: 'none' };
   return ctx.json(200, { jobs, fast: k.ok });
 }
