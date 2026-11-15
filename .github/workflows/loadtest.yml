@@ -1,0 +1,33 @@
+# 🧪 Load test (owner, 2026-11-15): how many visitors the VPS serves before pages get slow. Only GET pages, stops by
+# itself when pages slow down (tools/loadtest.mjs). Runs once tonight at 03:07 Dhaka (few customers), or by hand from
+# Actions → loadtest → Run workflow. The result is on the run's summary page.
+name: loadtest
+on:
+  workflow_dispatch:
+    inputs:
+      max:
+        description: most test visitors at once
+        default: '200'
+  schedule:
+    - cron: '7 21 15 11 *' # 2026-11-16 03:07 Dhaka; the job below skips any later year
+permissions:
+  contents: read
+jobs:
+  load:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Load test
+        run: |
+          [ "${{ github.event_name }}" = workflow_dispatch ] || [ "$(date -u +%Y)" = 2026 ] || { echo "only once, in 2026"; exit 0; }
+          node tools/loadtest.mjs https://shobmilbe.com "${{ github.event.inputs.max || '200' }}"
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: loadtest-result
+          path: loadtest-result.md
+          retention-days: 30
