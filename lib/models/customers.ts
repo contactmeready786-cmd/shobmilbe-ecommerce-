@@ -29,8 +29,8 @@ const STATS = `count(o.id)::int AS orders,
 
 // Ready-made groups worked out from each customer's orders.
 const SEGMENTS: Record<string, [string, string]> = {
-  new: ['🆕 নতুন (১টি অর্ডার)', 'count(o.id) = 1'],
-  repeat: ['🔁 আবার কিনেছেন (২+ ডেলিভারি)', "count(o.id) FILTER (WHERE o.status='delivered') >= 2"],
+  new: ['🆕 নতুন — প্রথম অর্ডার', 'count(o.id) = 1'],
+  repeat: ['🔁 আবার কিনেছেন — ২ বা বেশি বার পেয়েছেন', "count(o.id) FILTER (WHERE o.status='delivered') >= 2"],
   vip: ['⭐ VIP (বেশি কেনাকাটা)', "coalesce(sum(o.total) FILTER (WHERE o.status='delivered'),0) >= $VIP"],
   inactive: ['😴 ৯০ দিন কোনো অর্ডার নেই', "max(o.created_at) < now() - interval '90 days'"],
   risky: ['⚠️ ঝুঁকিপূর্ণ (বেশি বাতিল/ফেরত)', "count(o.id) FILTER (WHERE o.status IN ('cancelled','returned')) >= 2 AND count(o.id) FILTER (WHERE o.status IN ('cancelled','returned')) >= count(o.id) FILTER (WHERE o.status='delivered')"],
