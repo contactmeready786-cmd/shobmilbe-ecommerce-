@@ -63,16 +63,12 @@ function saveBtnOf(f: HTMLFormElement): SaveButton | null {
   if (!list.length && f.id) list = $all<SaveButton>(`button[form="${f.id}"], input[type="submit"][form="${f.id}"]`).filter(isSaveBtn);
   return list[0] || null;
 }
-let saveBar: HTMLElement | null = null;
-let changedForm: HTMLFormElement | null = null;
 export function markChanged(f: HTMLFormElement): void {
   const b = saveBtnOf(f);
   if (!b) return;
   f.setAttribute('data-changed', '1');
   if (b.hasAttribute('data-auto-save-btn')) { b.disabled = false; f.setAttribute('data-dirty', '1'); }
   b.classList.add('needs-save');
-  changedForm = f;
-  saveBar?.classList.add('show');
 }
 function saveReminder(): void {
   // forms whose switches used to save by themselves get their own save button
@@ -82,8 +78,8 @@ function saveReminder(): void {
     f.appendChild(<div className="auto-save-row"><button type="submit" className="btn btn-sm auto-save-btn" data-auto-save-btn="" disabled>💾 সেভ করুন</button>
       <span className="muted small auto-save-note">বদল করার পর এই বাটন চাপলে তবেই সেভ হবে</span></div>);
   }
-  saveBar = <div className="save-bar" role="status"><span>⚠️ আপনি কিছু বদলেছেন — এখনো <b>সেভ হয়নি</b></span><button type="button" className="btn btn-sm" data-save-bar-go="">💾 সেভ করুন</button></div>;
-  document.body.appendChild(saveBar);
+  // (the floating yellow "সেভ হয়নি" bar is gone — owner, 2026-11-16: every box has its own সেভ button, which lights up
+  // when something in it changes; the browser still asks before leaving a page with an unsaved change)
   const watch = (e: Event) => {
     const t = e.target as HTMLInputElement | null;
     if (!e.isTrusted || !t?.closest?.('#main')) return;
@@ -96,12 +92,6 @@ function saveReminder(): void {
   document.addEventListener('input', (e) => {
     const t = e.target as HTMLInputElement | null;
     if (t && /INPUT|TEXTAREA/.test(t.tagName) && t.type !== 'checkbox' && t.type !== 'radio') watch(e);
-  });
-  $('[data-save-bar-go]', saveBar)!.addEventListener('click', () => {
-    const f = changedForm && document.body.contains(changedForm) ? changedForm : $<HTMLFormElement>('form[data-changed="1"]');
-    if (!f) { saveBar?.classList.remove('show'); return; }
-    const b = saveBtnOf(f);
-    if (f.requestSubmit) f.requestSubmit(b && b.form === f ? b : undefined); else if (b) b.click(); else f.submit();
   });
   // a form with an unsent change: the browser asks before leaving
   window.addEventListener('beforeunload', (e) => {
