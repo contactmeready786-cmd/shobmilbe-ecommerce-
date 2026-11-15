@@ -129,11 +129,15 @@ def contact_boxes(img):
         print('OCR failed:', e, flush=True)
         return []
     out = []
+    if res:
+        print('OCR read:', [str(r[1]) for r in res][:12], flush=True)
     for box, text, score in res or []:
         t = str(text)
         digits = re.sub(r'[^0-9০-৯]', '', t)
         low = t.lower()
-        if len(digits) >= 8 or re.search(r'www|http|\.com|\.bd|\.net|@|whats|facebook|fb\.|call|hotline|phone|imo|বিকাশ|অর্ডার|কল', low):
+        # a web address OCR read without its dot ("SHOPNOSALECOM", "ALE COM") still counts (SKU 1374, 2026-11-15)
+        if len(digits) >= 8 or re.search(r'www|http|\.com|\.bd|\.net|@|whats|facebook|fb\.|call|hotline|phone|imo|বিকাশ|অর্ডার|কল', low) \
+                or re.search(r'[a-z]{2,}[ .,]?(com|net|org|shop|store)$', low.replace(' ', '')) or re.search(r'(shop|store|sale|mart|bazar|bd)\w*(com|bd)', low):
             pts = np.array(box, dtype=np.float32) / k
             out.append((pts, t))
     return out
