@@ -50,13 +50,16 @@ const CHECKLIST_PARTS = [
   ['note_box', '"পণ্য হাতে পেয়ে" বক্স'], ['thanks', 'ধন্যবাদের লেখা'], ['footer', 'নিচের যোগাযোগ লাইন'],
 ];
 // Smaller paper = less printing cost per parcel. "per" = parcels per A4 sheet (paper) — stickers print one by one.
-export type LabelSize = { w: number; h: number; per?: number; label: string; sheet?: boolean };
+// dw × dh: the size the label is laid out at, then shrunk to fit w × h (CSS zoom) — the small stickers keep the same
+// design as their bigger brother instead of a cramped one of their own.
+export type LabelSize = { w: number; h: number; per?: number; label: string; sheet?: boolean; dw?: number; dh?: number };
 const LABEL_SIZES: Record<string, LabelSize> = {
   a4x6: { w: 105, h: 99, per: 6, label: '📄 A4 কাগজে ৬টা — সবচেয়ে কম খরচ (প্রস্তাবিত)', sheet: true },
   a4x4: { w: 105, h: 148.5, per: 4, label: '📄 A4 কাগজে ৪টা — বড় লেখা', sheet: true },
   '100x75': { w: 100, h: 75, label: '🏷️ স্টিকার ১০০×৭৫ মিমি (থার্মাল, ছোট)' },
+  '3x3': { w: 76.2, h: 76.2, dw: 101.6, dh: 101.6, label: '🏷️ স্টিকার ৩×৩ ইঞ্চি (৭৬×৭৬ মিমি)' },
+  '2x3': { w: 50.8, h: 76.2, dw: 64, dh: 96, label: '🏷️ স্টিকার ২×৩ ইঞ্চি (২ ইঞ্চি চওড়া × ৩ ইঞ্চি লম্বা)' },
   '4x4': { w: 101.6, h: 101.6, label: '🏷️ স্টিকার ৪×৪ ইঞ্চি (১০০×১০০ মিমি)' },
-  '4x2': { w: 50.8, h: 101.6, label: '🏷️ স্টিকার ৪×২ ইঞ্চি (২ ইঞ্চি চওড়া × ৪ ইঞ্চি লম্বা)' },
   '4x6': { w: 101.6, h: 152.4, label: '🏷️ স্টিকার ৪×৬ ইঞ্চি (১০০×১৫০ মিমি, কুরিয়ারের মতো)' },
   a6: { w: 105, h: 148, label: '📄 A6 আলাদা কাগজ (১০৫×১৪৮ মিমি)' },
 };

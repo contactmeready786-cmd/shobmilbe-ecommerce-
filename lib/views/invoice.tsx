@@ -175,9 +175,10 @@ function labelBody(order: PrintOrder, s: Settings, c: PaperDoc) {
   const site = siteOf(s);
   const size = String(c.size);
   const z = docs.LABEL_SIZES[size] || docs.LABEL_SIZES.a4x6;
-  const tall = z.w < 60; // 4×2: 2 inch wide, 4 inch tall
-  const mini = z.h < 60;
-  const compact = z.h < 120;
+  const dw = z.dw || z.w, dh = z.dh || z.h; // the size it is laid out at (see docs.LabelSize)
+  const tall = dw < 70; // 2×3: standing up, one column
+  const mini = dh < 60;
+  const compact = dh < 120;
   const qr = on.handover_qr ? handoverQr(s, order, tall ? 80 : compact ? 112 : 128) : '';
   const courier = order.courier ? String(courierName(order.courier)) : '';
   return <section className={`lb lb-mono ${compact ? 'lb-compact' : ''} ${mini ? 'lb-mini' : ''} ${tall ? 'lb-tall' : ''}`}>
@@ -201,12 +202,13 @@ function labelBody(order: PrintOrder, s: Settings, c: PaperDoc) {
 }
 function labelCss(c: PaperDoc) {
   const z = docs.LABEL_SIZES[String(c.size)] || docs.LABEL_SIZES.a4x6;
-  const small = z.w < 105;
+  const dw = z.dw || z.w, dh = z.dh || z.h, zoom = +(z.w / dw).toFixed(4);
+  const small = dw < 105;
   return `${BASE_CSS}
 :root{--p:#000;--a:#000}
 .sheet{display:flex;flex-wrap:wrap;gap:14px;justify-content:center;padding:16px}
 .embed .sheet{padding:0}
-.lb{width:${z.w}mm;height:${z.h}mm;background:#fff;border-radius:6px;box-shadow:0 6px 20px rgba(20,33,61,.12);overflow:hidden;display:flex;flex-direction:column;font-size:${small ? 11.5 : 12.5}px;page-break-inside:avoid;color:#000}
+.lb{width:${dw}mm;height:${dh}mm;${zoom !== 1 ? `zoom:${zoom};` : ''}background:#fff;border-radius:6px;box-shadow:0 6px 20px rgba(20,33,61,.12);overflow:hidden;display:flex;flex-direction:column;font-size:${small ? 11.5 : 12.5}px;page-break-inside:avoid;color:#000}
 .lb *{color:#000}
 .lb-head{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:2.2mm 3mm 1.6mm}
 .lb-brand{display:flex;align-items:center;min-width:0}.lb-brand .dc-mark{width:30px;height:30px;border-radius:7px;box-shadow:none;margin-right:6px;filter:grayscale(1) contrast(1.4)}
@@ -256,7 +258,7 @@ function labelCss(c: PaperDoc) {
 .lb-tall .lb-q{flex-direction:row;gap:2mm;align-self:stretch;justify-content:center;padding:1mm;margin-top:auto}.lb-tall .lb-q figcaption{text-align:left;max-width:20mm}.lb-tall .lb-q figcaption b{font-size:10px;white-space:normal}
 .lb-tall .lb-handle{margin:0 2.2mm 1mm;font-size:8.5px;padding:.6mm 1.2mm}.lb-tall .lb-foot{padding:.8mm 2.2mm 1.2mm}.lb-tall .lb-foot p{font-size:7.5px}
 @media print{@page{size:${z.sheet ? 'A4' : `${z.w}mm ${z.h}mm`};margin:0}body{background:#fff}.bar{display:none}
-  .sheet{padding:0;gap:0;justify-content:flex-start}.lb{box-shadow:none;border-radius:0;height:${z.h}mm;${z.sheet ? 'outline:1px dashed #999;' : 'page-break-after:always;'}}}`;
+  .sheet{padding:0;gap:0;justify-content:flex-start}.lb{box-shadow:none;border-radius:0;height:${dh}mm;${z.sheet ? 'outline:1px dashed #999;' : 'page-break-after:always;'}}}`;
 }
 function invoicePage(orders: PrintOrder[], s: Settings, c: PaperDoc = docs.invoice(s), opts: ShellProps = {}) {
   return shell(`${c.title} ${orders.length === 1 ? orders[0].code : `(${bn(orders.length)}টি)`}`, labelCss(c), <div className="sheet"><Val v={orders.map((o) => labelBody(o, s, c))} /></div>, opts);
