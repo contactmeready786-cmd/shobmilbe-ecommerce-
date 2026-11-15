@@ -113,7 +113,13 @@ const A6_CSS = `.iv{font-size:11px}.iv-strip{height:3px}.iv-head{padding:10px 12
 .iv-tick{width:20px}.iv-box-tick{width:11px;height:11px;border-width:1.5px}
 .iv-bottom{grid-template-columns:1fr;gap:6px;padding:6px 12px 2px}.iv-box{padding:5px 7px;border-radius:7px}.iv-box p{font-size:9px;line-height:1.4}
 .iv-sum{font-size:10px}.iv-sum td{padding:2px 3px}.iv-total td{font-size:12px;padding-top:4px}.iv-due td,.iv-paid td{font-size:11.5px;padding:5px 7px}.iv-due td:last-child,.iv-paid td:last-child{font-size:13px}
-.iv-foot{padding:6px 12px 8px;margin-top:6px}.iv-foot p{font-size:9px}.iv-thanks{font-size:10.5px!important}`;
+.iv-foot{padding:6px 12px 8px;margin-top:6px}.iv-foot p{font-size:9px}.iv-thanks{font-size:10.5px!important}
+/* A6 is narrower than a phone, so the phone layout would stack everything: keep the paper's own two-column layout */
+.iv-head{flex-direction:row!important;padding:10px 12px 6px!important}.iv-title{text-align:right!important}
+.iv-cards{flex-direction:row!important;padding:2px 12px 6px!important}.iv-cards>.iv-qr{flex-direction:column!important}
+.iv-table{width:calc(100% - 24px)!important;margin:0 12px!important;font-size:9.5px!important}.iv-table th,.iv-table td{padding:4px!important}
+.iv-pic{width:36px!important}.iv-pic img,.iv-pic span{width:30px!important;height:30px!important}.iv-bottom{grid-template-columns:1fr!important;padding:6px 12px 2px!important}
+.dc-word{font-size:20px!important}.dc-mark{width:30px!important;height:30px!important}`;
 function checklistCss(c: PaperDoc) {
   return `${BASE_CSS}
 :root{--p:#000;--a:#000}
@@ -176,7 +182,7 @@ function labelBody(order: PrintOrder, s: Settings, c: PaperDoc) {
   const z = docs.LABEL_SIZES[size] || docs.LABEL_SIZES.a4x6;
   const mini = z.h < 60; // 4×2
   const compact = z.h < 120;
-  const qpx = mini ? 54 : compact ? 76 : 96;
+  const qpx = mini ? 62 : compact ? 88 : 100;
   const qrHand = on.handover_qr ? handoverQr(s, order, qpx) : '';
   const qrIn = on.qr ? qrSvg(s, order, qpx) : '';
   const courier = order.courier ? String(courierName(order.courier)) : '';
@@ -246,7 +252,7 @@ function labelCss(c: PaperDoc) {
 .lb-mini .lb-meta{display:none}.lb-mini .lb-body{padding:1mm 2.5mm 1.2mm;gap:2mm}.lb-mini .lb-left{gap:.8mm}
 .lb-mini .lb-k{display:none}.lb-mini .lb-f{min-width:0;font-size:8.5px;margin-right:2px}.lb-mini .lb-name{font-size:12px}.lb-mini .lb-phone{font-size:12.5px}
 .lb-mini .lb-addr{font-size:9.5px;line-height:1.25;-webkit-line-clamp:2}.lb-mini .lb-cod{padding:.6mm 2mm;border-width:1.5px}.lb-mini .lb-cod span{font-size:8.5px}.lb-mini .lb-cod b{font-size:15px}
-.lb-mini .lb-qrs{flex-direction:row;align-items:flex-end;gap:1.5mm}.lb-mini .lb-q figcaption b{font-size:7.5px}
+.lb-mini .lb-qrs{flex-direction:row;align-items:flex-end;gap:1mm}.lb-mini .lb-q figcaption b{white-space:normal;max-width:17mm}.lb-mini .lb-q figcaption b{font-size:7.5px}
 @media print{@page{size:${z.sheet ? 'A4' : `${z.w}mm ${z.h}mm`};margin:0}body{background:#fff}.bar{display:none}
   .sheet{padding:0;gap:0;justify-content:flex-start}.lb{box-shadow:none;border-radius:0;height:${z.h}mm;${z.sheet ? 'outline:1px dashed #999;' : 'page-break-after:always;'}}}`;
 }
