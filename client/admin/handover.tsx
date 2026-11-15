@@ -75,7 +75,7 @@ function handover(ho: HTMLElement): void {
     } catch { beep(false); say('সংযোগে সমস্যা — আবার চেষ্টা করুন', 'bad'); }
   }
   async function scan(raw: string): Promise<void> {
-    const code = String(raw || '').trim();
+    const code = codeOf(raw);
     if (!code) return;
     // a product barcode while an order is open → packing check
     if (current) {
@@ -133,8 +133,22 @@ function handover(ho: HTMLElement): void {
     stopCam = startCamera($<HTMLVideoElement>('video', camBox)!, (code) => void scan(code), (err) => { say(err, 'bad'); camBox.hidden = true; });
   });
   $('[data-ho-camoff]', ho)?.addEventListener('click', () => { stopCam?.(); stopCam = null; camBox.hidden = true; input.focus(); });
+  // the parcel's 📦 হ্যান্ডওভার QR opens this page as /admin/handover?code=… (any phone camera): open that order now
+  const fromQr = new URLSearchParams(location.search).get('code');
+  if (fromQr) void scan(fromQr);
   // the barcode gun types fast and presses Enter: keep the box ready
   document.addEventListener('keydown', (e) => { if (document.activeElement === document.body && /^[\w-]$/.test(e.key)) input.focus(); });
+}
+
+/** what was scanned → the code to look up: the label's QR holds a whole address (…/admin/handover?code=X or
+ *  …/order/X), a bar code or a typed number is the code itself */
+function codeOf(raw: string): string {
+  const s = String(raw || '').trim();
+  if (!/^https?:\/\//i.test(s)) return s;
+  try {
+    const u = new URL(s);
+    return u.searchParams.get('code') || decodeURIComponent((u.pathname.match(/\/order\/([^/]+)/) || [])[1] || '') || s;
+  } catch { return s; }
 }
 
 // ---------- 📷 scan a product barcode into a search box (inventory, products) ----------

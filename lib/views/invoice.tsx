@@ -1,5 +1,9 @@
 // The two printed papers of an order — only for the shop's admin and staff, one or many orders at once.
-//   🏷️ ইনভয়েস  (invoicePage)   — stuck on the parcel: barcode, receiver, cash to collect. No product list.
+//   🏷️ ইনভয়েস  (invoicePage)   — stuck on the parcel: courier ID, receiver, cash to collect, two QR codes. No product list.
+//      Owner, 2026-11-15 (after the 4×4 / 4×2 sticker samples): no bar codes (a phone camera can't read them). The
+//      courier's ID — the only number couriers follow — sits big in a black band at the top. Two QR codes, each with
+//      its job written under it: 📦 হ্যান্ডওভার (any phone camera opens /admin/handover?code=… for this order) and
+//      📋 ভেতরে কী আছে (the customer's order page with the products). The sender is the logo + a big phone number.
 //   📋 চেকলিস্ট (checklistPage) — inside the box for the customer: pictures, names, warranty, prices.
 // Every part follows Admin → স্টোর ডিজাইন → ইনভয়েস ও চেকলিস্ট (lib/services/docs.js).
 // Both are printed black & white (owner, 2026-11-14): no coloured fills or colour pickers; the receiver's lines are
@@ -12,7 +16,6 @@ import { ASSET_V as PA_V } from '../admin/layout';
 import { raw, money, bn, fmtDate, roundOff, roundOffLabel } from '../util';
 import * as ordersModel from '../models/orders';
 import * as docs from '../services/docs';
-import * as BC from '../services/barcode';
 import * as $services_courier from '../services/courier';
 import * as $services_qr from '../services/qr';
 import * as $models_catalog from '../models/catalog';
@@ -56,9 +59,15 @@ function brandMark(s: Settings, cls = '') {
   const name = s.store_name || 'সবমিলবে';
   return <><img className={`dc-mark ${attrValue(cls)}`} src="/brand/favicon-192.png" alt="" aria-hidden="true" /><span className="dc-word">{(name === 'সবমিলবে' ? <><b className="a">সব</b><b className="b">মিলবে</b></> : <b className="a"><Val v={name} /></b>)}</span></>;
 }
+/** 📋 for the customer: the order page — what is in the box and where it is (no phone or address shown to others) */
 function qrSvg(s: Settings, order: PrintOrder, px?: number) {
   const site = siteOf(s);
-  return site ? $services_qr.svg(`${site}/track?code=${order.code}`, { px, label: 'অর্ডার ট্র্যাক' }) : '';
+  return site ? $services_qr.svg(`${site}/order/${encodeURIComponent(order.code)}`, { px, label: 'ভেতরে কী আছে' }) : '';
+}
+/** 📦 for the shop: opens Admin → কুরিয়ারে হ্যান্ডওভার with this order (only for someone logged into the admin) */
+function handoverQr(s: Settings, order: PrintOrder, px?: number) {
+  const site = siteOf(s);
+  return site ? $services_qr.svg(`${site}/admin/handover?code=${encodeURIComponent(order.code)}`, { px, label: 'হ্যান্ডওভার' }) : '';
 }
 type ShellProps = {
   embed?: boolean;
@@ -91,12 +100,24 @@ function checklistBody(order: PrintOrder, s: Settings, c: PaperDoc) {
   const site = siteOf(s);
   const units = items.reduce((n, it) => n + Number(it.qty || 0), 0);
   const tag = c.tagline || s.tagline;
-  return <section className="iv"><div className="iv-strip"></div><header className="iv-head"><div className="iv-brand">{(on.logo ? <div className="iv-logo">{brandMark(s)}</div> : <p className="iv-shop"><Val v={s.store_name} /></p>)}{' '}{(on.tagline && tag ? <p className="iv-tag"><Val v={tag} /></p> : null)}{' '}{(on.contact || on.address ? <p className="iv-contact">{(on.contact ? <>{(s.phone ? <>📞{' '}<Val v={s.phone} /></> : null)}{(s.whatsapp ? <>{' '}· WhatsApp{' '}<Val v={s.whatsapp} /></> : null)}{(site ? <>{' '}· 🌐{' '}<Val v={bare(site)} /></> : null)}</> : null)}{(on.address && s.address ? <>{(on.contact ? <RawHtml html={'<br>'} /> : null)}📍{' '}<Val v={s.address} /></> : null)}</p> : null)}</div><div className="iv-title"><h1><Val v={c.title} /></h1><p className="iv-no">#{' '}<b><Val v={order.code} /></b></p><p className="iv-date">{fmtDate(order.created_at)}</p>{(on.barcode ? <div className="iv-bc"><RawHtml html={BC.svg(order.code, { height: 34, module: 1.6, fontSize: 0.1, showText: false })} /></div> : null)}</div></header>{(on.receiver || on.order_info || on.qr ? <div className="iv-cards">{(on.receiver ? <div className="iv-card iv-to"><p className="iv-label">📦 প্রাপক</p><p className="iv-kv" translate="no"><span className="iv-k">নাম:</span>{' '}<b className="iv-cname"><Val v={order.customer_name} /></b></p><p className="iv-kv" translate="no"><span className="iv-k">মোবাইল:</span>{' '}<b><Val v={order.phone} /></b></p><p className="iv-kv" translate="no"><span className="iv-k">ঠিকানা:</span>{' '}<Val v={order.address} />{(area ? <>,{' '}<Val v={area} /></> : null)}</p>{(order.note ? <p className="iv-note">নোট:{' '}<span translate="no"><Val v={order.note} /></span></p> : null)}</div> : null)}{' '}{(on.order_info ? <div className="iv-card"><p className="iv-label">🧾 অর্ডারের তথ্য</p><p>পেমেন্ট:{' '}<b><Val v={ordersModel.PAYMENT_METHODS[order.payment] || order.payment} /></b>{' '}·{' '}<Val v={ordersModel.PAYMENT_STATUSES[order.payment_status] || ''} /><br />পণ্য:{' '}<b>{bn(items.length)}</b>{' '}ধরনের, মোট{' '}<b>{bn(units)}</b>টি{(order.courier ? <><br />কুরিয়ার:{' '}<b><Val v={courierName(order.courier)} /></b>{(order.consignment_id ? <>{' '}·{' '}<Val v={order.consignment_id} /></> : null)}</> : null)}</p></div> : null)}{' '}{(on.qr && qrSvg(s, order, 84) ? <div className="iv-qr"><RawHtml html={qrSvg(s, order, 84)} /><span>স্ক্যান করে<br />অর্ডার ট্র্যাক</span></div> : null)}</div> : null)}<table className="iv-table"><thead><tr><th className="c">#</th>{(on.pictures ? <th>ছবি</th> : null)}<th>পণ্যের নাম</th>{(on.prices ? <th className="num">দাম</th> : null)}<th className="num">পরিমাণ</th>{(on.prices ? <th className="num">মোট</th> : null)}<th className="c iv-tick">✓</th></tr></thead><tbody>{jsxList(items.map((it, i) => <tr><td className="c iv-sl">{bn(i + 1)}</td>{(on.pictures ? <td className="iv-pic">{(it.image_id ? <img src={`/media/${attrValue(it.image_id)}/t`} alt="" /> : <span><Val v={it.emoji || '📦'} /></span>)}</td> : null)}<td><b className="iv-pname"><Val v={it.name} /></b>{' '}{((on.sku && it.sku) || it.note ? <span className="iv-sub">{(on.sku && it.sku ? <>SKU{' '}<Val v={it.sku} /></> : null)}{(it.note ? <>{' '}·{' '}<Val v={it.note} /></> : null)}</span> : null)}{' '}{(on.warranty && wt(it) ? <span className="iv-war">🛡️{' '}<Val v={wt(it)} /></span> : null)}</td>{(on.prices ? <td className="num">{money(it.price)}</td> : null)}<td className="num"><b>{bn(it.qty)}</b></td>{(on.prices ? <td className="num"><b>{money(it.price * it.qty)}</b></td> : null)}<td className="c iv-tick"><span className="iv-box-tick"></span></td></tr>))}</tbody></table>{(anyWarranty || on.note_box || on.totals ? <div className={`iv-bottom ${on.totals ? '' : 'no-sum'}`}><div className="iv-left">{(anyWarranty ? <div className="iv-box iv-wbox"><p className="iv-label"><Val v={c.warranty_title} /></p><p><Val v={docs.fill(c.warranty_text, s)} /></p></div> : null)}{' '}{(on.note_box ? <div className="iv-box"><p className="iv-label"><Val v={c.note_title} /></p><p><Val v={docs.fill(c.note_text, s)} /></p></div> : null)}</div>{(on.totals ? <table className="iv-sum"><tr><td>পণ্যের দাম</td><td className="num">{money(order.subtotal)}</td></tr>{(order.discount ? <tr><td>ছাড়{(order.coupon_code ? ` (${order.coupon_code})` : null)}</td><td className="num">−{' '}{money(order.discount)}</td></tr> : null)}{' '}{(Number(order.points_discount) ? <tr><td>পয়েন্ট ছাড়</td><td className="num">−{' '}{money(order.points_discount)}</td></tr> : null)}<tr><td>ডেলিভারি চার্জ</td><td className="num">{(order.delivery ? money(order.delivery) : "ফ্রি")}</td></tr>{(roundOff(order) ? <tr><td>{roundOffLabel(roundOff(order))}</td><td className="num">{(roundOff(order) > 0 ? "+ " : "− ")}{money(Math.abs(roundOff(order)))}</td></tr> : null)}<tr className="iv-total"><td>সর্বমোট</td><td className="num">{money(order.total)}</td></tr>{(order.paid_amount ? <tr><td>আগে পরিশোধিত</td><td className="num">−{' '}{money(order.paid_amount)}</td></tr> : null)}{' '}{(on.cod_box ? <tr className={due ? 'iv-due' : 'iv-paid'}><td>{(due ? "ডেলিভারির সময় দিতে হবে" : "পুরো টাকা পরিশোধিত")}</td><td className="num">{(due ? money(due) : "✅")}</td></tr> : null)}</table> : null)}</div> : null)}{' '}{(on.thanks || on.footer ? <footer className="iv-foot">{(on.thanks ? <p className="iv-thanks"><Val v={docs.fill(c.thanks_text, s)} /></p> : null)}{' '}{(on.footer && docs.fill(c.footer_text, s) ? <p><Val v={docs.fill(c.footer_text, s)} /></p> : null)}</footer> : null)}</section>;
+  return <section className="iv"><div className="iv-strip"></div><header className="iv-head"><div className="iv-brand">{(on.logo ? <div className="iv-logo">{brandMark(s)}</div> : <p className="iv-shop"><Val v={s.store_name} /></p>)}{' '}{(on.tagline && tag ? <p className="iv-tag"><Val v={tag} /></p> : null)}{' '}{(on.contact || on.address ? <p className="iv-contact">{(on.contact ? <>{(s.phone ? <>📞{' '}<Val v={s.phone} /></> : null)}{(s.whatsapp ? <>{' '}· WhatsApp{' '}<Val v={s.whatsapp} /></> : null)}{(site ? <>{' '}· 🌐{' '}<Val v={bare(site)} /></> : null)}</> : null)}{(on.address && s.address ? <>{(on.contact ? <RawHtml html={'<br>'} /> : null)}📍{' '}<Val v={s.address} /></> : null)}</p> : null)}</div><div className="iv-title"><h1><Val v={c.title} /></h1><p className="iv-no">#{' '}<b><Val v={order.code} /></b></p><p className="iv-date">{fmtDate(order.created_at)}</p></div></header>{(on.receiver || on.order_info || on.qr ? <div className="iv-cards">{(on.receiver ? <div className="iv-card iv-to"><p className="iv-label">📦 প্রাপক</p><p className="iv-kv" translate="no"><span className="iv-k">নাম:</span>{' '}<b className="iv-cname"><Val v={order.customer_name} /></b></p><p className="iv-kv" translate="no"><span className="iv-k">মোবাইল:</span>{' '}<b><Val v={order.phone} /></b></p><p className="iv-kv" translate="no"><span className="iv-k">ঠিকানা:</span>{' '}<Val v={order.address} />{(area ? <>,{' '}<Val v={area} /></> : null)}</p>{(order.note ? <p className="iv-note">নোট:{' '}<span translate="no"><Val v={order.note} /></span></p> : null)}</div> : null)}{' '}{(on.order_info ? <div className="iv-card"><p className="iv-label">🧾 অর্ডারের তথ্য</p><p>পেমেন্ট:{' '}<b><Val v={ordersModel.PAYMENT_METHODS[order.payment] || order.payment} /></b>{' '}·{' '}<Val v={ordersModel.PAYMENT_STATUSES[order.payment_status] || ''} /><br />পণ্য:{' '}<b>{bn(items.length)}</b>{' '}ধরনের, মোট{' '}<b>{bn(units)}</b>টি{(order.courier ? <><br />কুরিয়ার:{' '}<b><Val v={courierName(order.courier)} /></b>{(order.consignment_id ? <>{' '}·{' '}<Val v={order.consignment_id} /></> : null)}</> : null)}</p></div> : null)}{' '}{(on.qr && qrSvg(s, order, 84) ? <div className="iv-qr"><RawHtml html={qrSvg(s, order, 84)} /><span>স্ক্যান করে<br />অর্ডার দেখুন</span></div> : null)}</div> : null)}<table className="iv-table"><thead><tr><th className="c">#</th>{(on.pictures ? <th>ছবি</th> : null)}<th>পণ্যের নাম</th>{(on.prices ? <th className="num">দাম</th> : null)}<th className="num">পরিমাণ</th>{(on.prices ? <th className="num">মোট</th> : null)}<th className="c iv-tick">✓</th></tr></thead><tbody>{jsxList(items.map((it, i) => <tr><td className="c iv-sl">{bn(i + 1)}</td>{(on.pictures ? <td className="iv-pic">{(it.image_id ? <img src={`/media/${attrValue(it.image_id)}/t`} alt="" /> : <span><Val v={it.emoji || '📦'} /></span>)}</td> : null)}<td><b className="iv-pname"><Val v={it.name} /></b>{' '}{((on.sku && it.sku) || it.note ? <span className="iv-sub">{(on.sku && it.sku ? <>SKU{' '}<Val v={it.sku} /></> : null)}{(it.note ? <>{' '}·{' '}<Val v={it.note} /></> : null)}</span> : null)}{' '}{(on.warranty && wt(it) ? <span className="iv-war">🛡️{' '}<Val v={wt(it)} /></span> : null)}</td>{(on.prices ? <td className="num">{money(it.price)}</td> : null)}<td className="num"><b>{bn(it.qty)}</b></td>{(on.prices ? <td className="num"><b>{money(it.price * it.qty)}</b></td> : null)}<td className="c iv-tick"><span className="iv-box-tick"></span></td></tr>))}</tbody></table>{(anyWarranty || on.note_box || on.totals ? <div className={`iv-bottom ${on.totals ? '' : 'no-sum'}`}><div className="iv-left">{(anyWarranty ? <div className="iv-box iv-wbox"><p className="iv-label"><Val v={c.warranty_title} /></p><p><Val v={docs.fill(c.warranty_text, s)} /></p></div> : null)}{' '}{(on.note_box ? <div className="iv-box"><p className="iv-label"><Val v={c.note_title} /></p><p><Val v={docs.fill(c.note_text, s)} /></p></div> : null)}</div>{(on.totals ? <table className="iv-sum"><tr><td>পণ্যের দাম</td><td className="num">{money(order.subtotal)}</td></tr>{(order.discount ? <tr><td>ছাড়{(order.coupon_code ? ` (${order.coupon_code})` : null)}</td><td className="num">−{' '}{money(order.discount)}</td></tr> : null)}{' '}{(Number(order.points_discount) ? <tr><td>পয়েন্ট ছাড়</td><td className="num">−{' '}{money(order.points_discount)}</td></tr> : null)}<tr><td>ডেলিভারি চার্জ</td><td className="num">{(order.delivery ? money(order.delivery) : "ফ্রি")}</td></tr>{(roundOff(order) ? <tr><td>{roundOffLabel(roundOff(order))}</td><td className="num">{(roundOff(order) > 0 ? "+ " : "− ")}{money(Math.abs(roundOff(order)))}</td></tr> : null)}<tr className="iv-total"><td>সর্বমোট</td><td className="num">{money(order.total)}</td></tr>{(order.paid_amount ? <tr><td>আগে পরিশোধিত</td><td className="num">−{' '}{money(order.paid_amount)}</td></tr> : null)}{' '}{(on.cod_box ? <tr className={due ? 'iv-due' : 'iv-paid'}><td>{(due ? "ডেলিভারির সময় দিতে হবে" : "পুরো টাকা পরিশোধিত")}</td><td className="num">{(due ? money(due) : "✅")}</td></tr> : null)}</table> : null)}</div> : null)}{' '}{(on.thanks || on.footer ? <footer className="iv-foot">{(on.thanks ? <p className="iv-thanks"><Val v={docs.fill(c.thanks_text, s)} /></p> : null)}{' '}{(on.footer && docs.fill(c.footer_text, s) ? <p><Val v={docs.fill(c.footer_text, s)} /></p> : null)}</footer> : null)}</section>;
 }
+// A6 (105×148 mm, the owner's small paper, 2026-11-15): the same design, everything smaller, one column
+const A6_CSS = `.iv{font-size:11px}.iv-strip{height:3px}.iv-head{padding:10px 12px 6px;gap:8px}.iv-logo .dc-mark{width:30px;height:30px;border-radius:8px}.iv-logo .dc-word{font-size:20px}
+.iv-logo .dc-logo-img{height:28px!important;max-width:150px!important}.iv-tag{font-size:9.5px;margin-top:3px}.iv-contact{font-size:9px;line-height:1.4}
+.iv-title h1{font-size:16px}.iv-no{font-size:10.5px}.iv-no b{font-size:11.5px}.iv-date{font-size:9px}
+.iv-cards{padding:2px 12px 6px;gap:6px}.iv-card{padding:5px 7px;border-radius:7px}.iv-card p{font-size:9.5px;line-height:1.45}.iv-cname{font-size:11px}.iv-k{min-width:40px;font-size:9px}
+.iv-label{font-size:8.5px!important}.iv-qr{padding:3px;border-radius:7px;font-size:8px}.iv-qr svg{width:58px;height:58px}
+.iv-table{width:calc(100% - 24px);margin:0 12px;font-size:9.5px}.iv-table th{font-size:9px;padding:4px 4px}.iv-table td{padding:4px 4px}
+.iv-pic{width:36px}.iv-pic img,.iv-pic span{width:30px;height:30px;border-radius:5px;font-size:15px}.iv-sub{font-size:8.5px}.iv-war{font-size:8.5px;padding:0 6px;margin-top:2px}
+.iv-tick{width:20px}.iv-box-tick{width:11px;height:11px;border-width:1.5px}
+.iv-bottom{grid-template-columns:1fr;gap:6px;padding:6px 12px 2px}.iv-box{padding:5px 7px;border-radius:7px}.iv-box p{font-size:9px;line-height:1.4}
+.iv-sum{font-size:10px}.iv-sum td{padding:2px 3px}.iv-total td{font-size:12px;padding-top:4px}.iv-due td,.iv-paid td{font-size:11.5px;padding:5px 7px}.iv-due td:last-child,.iv-paid td:last-child{font-size:13px}
+.iv-foot{padding:6px 12px 8px;margin-top:6px}.iv-foot p{font-size:9px}.iv-thanks{font-size:10.5px!important}`;
 function checklistCss(c: PaperDoc) {
   return `${BASE_CSS}
 :root{--p:#000;--a:#000}
-.iv{background:#fff;max-width:${c.paper === 'A5' ? '600px' : '820px'};margin:18px auto;border-radius:14px;overflow:hidden;box-shadow:0 8px 28px rgba(20,33,61,.10);page-break-after:always;position:relative}
+.iv{background:#fff;max-width:${c.paper === 'A6' ? '420px' : c.paper === 'A5' ? '600px' : '820px'};margin:18px auto;border-radius:14px;overflow:hidden;box-shadow:0 8px 28px rgba(20,33,61,.10);page-break-after:always;position:relative}
 .embed .iv{margin:0 auto 12px}
 .iv-strip{height:8px;background:linear-gradient(90deg,var(--p) 0 62%,var(--a) 62% 100%)}
 .iv-head{display:flex;justify-content:space-between;align-items:flex-start;gap:18px;padding:22px 28px 14px}
@@ -136,7 +157,8 @@ function checklistCss(c: PaperDoc) {
 .iv-table td{border-bottom-color:#999}.iv-table tbody tr:nth-child(even) td{background:#fff}.iv-box-tick{border-color:#000}
 .iv-war{color:#000;background:#fff;border-color:#000}.iv-box{border-color:#666}.iv-due td,.iv-paid td{background:#fff;border-top:1.5px solid #000;border-bottom:1.5px solid #000}
 .iv-thanks{color:#000!important}.iv img,.dc-mark,.dc-logo-img{filter:grayscale(1)}.dc-word .a,.dc-word .b{color:#000}
-@media print{@page{size:${c.paper};margin:8mm}body{background:#fff}.bar{display:none}.iv{margin:0;border-radius:0;box-shadow:none;max-width:none}tr{page-break-inside:avoid}}`;
+${c.paper === 'A6' ? A6_CSS : ''}
+@media print{@page{size:${c.paper};margin:${c.paper === 'A6' ? '4mm' : '8mm'}}body{background:#fff}.bar{display:none}.iv{margin:0;border-radius:0;box-shadow:none;max-width:none}tr{page-break-inside:avoid}}`;
 }
 function checklistPage(orders: PrintOrder[], s: Settings, c: PaperDoc = docs.checklist(s), opts: ShellProps = {}) {
   return shell(`${c.title} ${orders.length === 1 ? orders[0].code : `(${bn(orders.length)}টি)`}`, checklistCss(c), <><Val v={orders.map((o) => checklistBody(o, s, c))} /></>, opts);
@@ -150,55 +172,83 @@ function labelBody(order: PrintOrder, s: Settings, c: PaperDoc) {
   const units = (order.items || []).reduce((n: number, it) => n + Number(it.qty || 0), 0);
   const weight = (order.items || []).reduce((g: number, it) => g + Number(it.weight_g || 0) * Number(it.qty || 0), 0) || Number(order.weight_g || 0);
   const site = siteOf(s);
-  const z = docs.LABEL_SIZES[String(c.size)] || docs.LABEL_SIZES.a4x6;
+  const size = String(c.size);
+  const z = docs.LABEL_SIZES[size] || docs.LABEL_SIZES.a4x6;
+  const mini = z.h < 60; // 4×2
   const compact = z.h < 120;
-  const qr = on.qr ? qrSvg(s, order, compact ? 58 : 74) : '';
-  return <section className={`lb ${compact ? 'lb-compact' : ''} ${z.h < 80 ? 'lb-mini' : ''} lb-mono`}><div className="lb-strip"></div><header className="lb-head"><div className="lb-brand">{(on.logo ? brandMark(s, 'lb-sm') : null)}{(on.sender ? <p className="lb-from"><span>প্রেরক</span>{' '}<b><Val v={s.store_name} /></b>{(s.phone ? <>{' '}·{' '}<Val v={s.phone} /></> : null)}{(on.sender_address && s.address ? <><br /><Val v={s.address} /></> : null)}</p> : null)}</div><div className="lb-title"><b><Val v={c.title} /></b>{(on.code_date ? <><span>#{' '}<Val v={order.code} /></span><small>{fmtDate(order.created_at, false)}</small></> : null)}</div></header>{(on.barcode ? <div className="lb-bc"><RawHtml html={BC.svg(order.code, { height: compact ? 44 : 64, module: 2.4, fontSize: compact ? 15 : 18 })} /></div> : null)}<div className="lb-mid">{(on.receiver ? <div className="lb-to"><p className="lb-k">প্রাপক</p><p className="lb-name" translate="no"><span className="lb-f">নাম:</span>{' '}<Val v={order.customer_name} /></p><p className="lb-phone"><span className="lb-f">মোবাইল:</span>{' '}<Val v={order.phone} /></p><p className="lb-addr" translate="no"><span className="lb-f">ঠিকানা:</span>{' '}<Val v={order.address} />{(area ? <>,{' '}<b><Val v={area} /></b></> : null)}</p></div> : null)}<div className="lb-row">{(on.cod ? <div className={`lb-cod ${due ? '' : 'paid'}`}><span>{(due ? "নিতে হবে (COD)" : "টাকা পরিশোধিত")}</span><b>{(due ? money(due) : "৳০ ✅")}</b>{' '}{(on.payment ? <small><Val v={ordersModel.PAYMENT_METHODS[order.payment] || order.payment} />{' '}·{' '}<Val v={ordersModel.PAYMENT_STATUSES[order.payment_status] || ''} /></small> : null)}</div> : null)}{' '}{(qr ? <div className="lb-qr"><RawHtml html={qr} /></div> : null)}</div></div>{(on.courier && order.courier ? <div className="lb-courier"><span>🛵{' '}<Val v={courierName(order.courier)} /></span>{(order.consignment_id ? <b><Val v={order.consignment_id} /></b> : null)}{' '}{(on.consignment_barcode && order.consignment_id ? <div className="lb-cbc"><RawHtml html={BC.svg(String(order.consignment_id), { height: compact ? 26 : 38, module: 1.7, fontSize: compact ? 10 : 12 })} /></div> : null)}</div> : null)}{' '}{(on.item_count || (on.weight && weight) ? <p className="lb-meta">{(on.item_count ? <>📦 পণ্য:{' '}<b>{bn(units)}</b>টি</> : null)}{(on.weight && weight ? <>{(on.item_count ? " · " : null)}⚖️ ওজন:{' '}<b>{bn(weight >= 1000 ? (weight / 1000).toFixed(2) + ' কেজি' : weight + ' গ্রাম')}</b></> : null)}</p> : null)}{' '}{(on.customer_note && order.note ? <p className="lb-note">📝{' '}<Val v={order.note} /></p> : null)}{' '}{(on.handling && c.handling_text ? <p className="lb-handle"><Val v={docs.fill(c.handling_text, s)} /></p> : null)}{' '}{((on.return_note && c.return_text) || c.footer_text ? <footer className="lb-foot">{(on.return_note && c.return_text ? <p><Val v={docs.fill(c.return_text, s)} />{(s.address ? <>{' '}·{' '}<Val v={s.address} /></> : null)}</p> : null)}{(c.footer_text ? <p><Val v={docs.fill(c.footer_text, s)} /></p> : null)}{(site ? <p className="lb-site"><Val v={bare(site)} /></p> : null)}</footer> : null)}</section>;
+  const qpx = mini ? 54 : compact ? 76 : 96;
+  const qrHand = on.handover_qr ? handoverQr(s, order, qpx) : '';
+  const qrIn = on.qr ? qrSvg(s, order, qpx) : '';
+  const courier = order.courier ? String(courierName(order.courier)) : '';
+  return <section className={`lb lb-mono ${compact ? 'lb-compact' : ''} ${mini ? 'lb-mini' : ''}`}>
+    <header className="lb-head">
+      <div className="lb-brand">{on.logo ? brandMark(s, 'lb-sm') : <b className="lb-shop"><Val v={s.store_name} /></b>}</div>
+      {on.sender ? <p className="lb-from"><span className="lb-tag">প্রেরক</span>{' '}{s.phone ? <b className="lb-fphone"><Val v={s.phone} /></b> : null}{on.sender_address && s.address && !mini ? <small><Val v={s.address} /></small> : null}</p> : null}
+    </header>
+    {on.courier ? <div className="lb-cid"><span className="lb-cname">{courier ? <Val v={courier} /> : 'কুরিয়ার'}</span><span className="lb-clabel">আইডি</span><b className={order.consignment_id ? '' : 'blank'}>{order.consignment_id ? <Val v={order.consignment_id} /> : ' '}</b></div> : null}
+    {on.code_date || on.item_count || (on.weight && weight) ? <p className="lb-meta">{on.code_date ? <><span>অর্ডার #{' '}<b><Val v={order.code} /></b></span>{' '}<span>{fmtDate(order.created_at, false)}</span></> : null}{on.item_count ? <span>📦 <b>{bn(units)}</b>টি পণ্য</span> : null}{on.weight && weight ? <span>⚖️ <b>{bn(weight >= 1000 ? (weight / 1000).toFixed(2) + ' কেজি' : weight + ' গ্রাম')}</b></span> : null}</p> : null}
+    <div className="lb-body">
+      <div className="lb-left">
+        {on.receiver ? <div className="lb-to"><p className="lb-k">প্রাপক</p><p className="lb-name" translate="no"><span className="lb-f">নাম:</span>{' '}<Val v={order.customer_name} /></p><p className="lb-phone"><span className="lb-f">মোবাইল:</span>{' '}<Val v={order.phone} /></p><p className="lb-addr" translate="no"><span className="lb-f">ঠিকানা:</span>{' '}<Val v={order.address} />{area ? <>,{' '}<b><Val v={area} /></b></> : null}</p></div> : null}
+        {on.cod ? <div className={`lb-cod ${due ? '' : 'paid'}`}><span>{due ? 'নিতে হবে (COD)' : 'টাকা পরিশোধিত'}</span><b>{due ? money(due) : '৳০ ✅'}</b>{on.payment && !mini ? <small><Val v={ordersModel.PAYMENT_METHODS[order.payment] || order.payment} />{' '}·{' '}<Val v={ordersModel.PAYMENT_STATUSES[order.payment_status] || ''} /></small> : null}</div> : null}
+      </div>
+      {qrHand || qrIn ? <div className="lb-qrs">
+        {qrHand ? <figure className="lb-q"><RawHtml html={qrHand} /><figcaption><b>📦 হ্যান্ডওভার</b>{mini ? null : <small>দোকান স্ক্যান করবে</small>}</figcaption></figure> : null}
+        {qrIn ? <figure className="lb-q"><RawHtml html={qrIn} /><figcaption><b>📋 ভেতরে কী আছে</b>{mini ? null : <small>কাস্টমার স্ক্যান করুন</small>}</figcaption></figure> : null}
+      </div> : null}
+    </div>
+    {on.customer_note && order.note && !mini ? <p className="lb-note">📝{' '}<Val v={order.note} /></p> : null}
+    {on.handling && c.handling_text && !mini ? <p className="lb-handle"><Val v={docs.fill(c.handling_text, s)} /></p> : null}
+    {!mini && ((on.return_note && c.return_text) || c.footer_text) ? <footer className="lb-foot">{on.return_note && c.return_text ? <p><Val v={docs.fill(c.return_text, s)} />{s.address ? <>{' '}·{' '}<Val v={s.address} /></> : null}</p> : null}{c.footer_text ? <p><Val v={docs.fill(c.footer_text, s)} /></p> : null}{site ? <p className="lb-site"><Val v={bare(site)} /></p> : null}</footer> : null}
+  </section>;
 }
 function labelCss(c: PaperDoc) {
-  const z = docs.LABEL_SIZES[String(c.size)];
+  const z = docs.LABEL_SIZES[String(c.size)] || docs.LABEL_SIZES.a4x6;
+  const small = z.w < 105;
   return `${BASE_CSS}
 :root{--p:#000;--a:#000}
 .sheet{display:flex;flex-wrap:wrap;gap:14px;justify-content:center;padding:16px}
 .embed .sheet{padding:0}
-.lb{width:${z.w}mm;height:${z.h}mm;background:#fff;border-radius:8px;box-shadow:0 6px 20px rgba(20,33,61,.12);overflow:hidden;display:flex;flex-direction:column;font-size:${z.w < 105 ? 11.5 : 12.5}px;page-break-inside:avoid}
-.lb-strip{height:6px;background:linear-gradient(90deg,var(--p) 0 62%,var(--a) 62% 100%)}
-.lb-head{display:flex;justify-content:space-between;gap:8px;padding:8px 10px 4px;align-items:flex-start}
-.lb-brand{display:flex;flex-direction:column;gap:4px}.lb-brand .dc-mark{width:30px;height:30px;border-radius:8px;box-shadow:none;vertical-align:middle;margin-right:6px}
-.lb-brand .dc-word{font-size:22px;vertical-align:middle}.lb-brand .dc-logo-img{max-height:34px;max-width:150px}
-.lb-from{margin:0;font-size:10.5px;color:#475569;line-height:1.4}.lb-from span{display:inline-block;background:#EEF2F7;border-radius:4px;padding:0 5px;font-size:9.5px;font-weight:700}
-.lb-title{text-align:right;display:flex;flex-direction:column}.lb-title b{font-size:17px;letter-spacing:.5px}.lb-title span{font-weight:700;color:var(--p);font-size:12.5px}.lb-title small{color:#64748B;font-size:10px}
-.lb-bc{padding:2px 10px 4px;display:flex;justify-content:center;border-bottom:2px dashed #CBD5E1}.lb-bc svg{height:17mm;width:auto;max-width:100%}
-.lb-to{padding:8px 12px;border-bottom:2px dashed #CBD5E1}.lb-to p{margin:0}.lb-k{font-size:10px;font-weight:700;color:#64748B;letter-spacing:.5px}
-.lb-name{font-size:${z.w < 105 ? 17 : 19}px;font-weight:800;line-height:1.25}.lb-phone{font-size:${z.w < 105 ? 16 : 18}px;font-weight:800;margin:2px 0!important;letter-spacing:.5px}
-.lb-f{display:inline-block;min-width:4.2em;font-size:11px;font-weight:700;letter-spacing:0;margin-right:2px}.lb-compact .lb-f{font-size:10px}
-.lb-addr{font-size:${z.w < 105 ? 12.5 : 13.5}px;line-height:1.45}
-.lb-row{display:flex;gap:8px;padding:8px 12px;align-items:stretch}
-.lb-cod{flex:1;border:2px solid #14213D;border-radius:10px;padding:6px 10px;display:flex;flex-direction:column;justify-content:center;background:#FFF4D6}
-.lb-cod.paid{background:#ECFDF5;border-color:#047857}.lb-cod span{font-size:11px;font-weight:700;color:#475569}.lb-cod b{font-size:${z.w < 105 ? 24 : 28}px;font-weight:800;line-height:1.1}.lb-cod small{font-size:10px;color:#475569}
-.lb-qr{display:flex;align-items:center}
-.lb-courier{margin:0 12px 6px;padding:6px 8px;border:1px solid #E2E8F0;border-radius:8px;display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center;font-size:12px}.lb-courier b{font-size:13px}.lb-cbc{flex-basis:100%;display:flex;justify-content:center}.lb-cbc svg{height:11mm;width:auto;max-width:100%}
-.lb-meta{margin:0 12px 4px;font-size:12px}.lb-note{margin:0 12px 4px;font-size:11.5px;color:#9a5b00}
-.lb-handle{margin:4px 12px 6px;padding:5px 8px;border-radius:6px;background:#FEF2F2;color:#B91C1C;font-weight:700;font-size:11.5px;text-align:center}
-.lb-foot{margin-top:auto;padding:6px 12px 8px;border-top:1px solid #EEF2F7;text-align:center}.lb-foot p{margin:0;font-size:10px;color:#64748B;line-height:1.4}.lb-site{font-weight:700;color:var(--p)!important}
-/* small papers (A4 ৬টা, ১০০×৭৫, ৪×৪): receiver beside the cash box, tighter spacing */
-.lb-compact{font-size:11px}.lb-compact .lb-head{padding:5px 9px 2px}.lb-compact .lb-brand .dc-mark{width:22px;height:22px;margin-right:4px}.lb-compact .lb-brand .dc-word{font-size:16px}
-.lb-compact .lb-brand{flex-direction:row;align-items:center;gap:6px;flex-wrap:wrap}.lb-compact .lb-from{font-size:9.5px}
-.lb-compact .lb-title b{font-size:13px}.lb-compact .lb-title span{font-size:11px}.lb-compact .lb-bc{padding:0 9px 2px}.lb-compact .lb-bc svg{height:13mm}
-.lb-compact .lb-mid{display:grid;grid-template-columns:1.25fr 1fr;border-bottom:2px dashed #CBD5E1}
-.lb-compact .lb-to{border-bottom:0;padding:5px 8px 5px 10px;border-right:1px dashed #CBD5E1}.lb-compact .lb-name{font-size:14.5px}.lb-compact .lb-phone{font-size:14px}.lb-compact .lb-addr{font-size:11px;line-height:1.35}
-.lb-compact .lb-row{flex-direction:column;padding:5px 8px;gap:4px}.lb-compact .lb-cod{padding:4px 7px;border-radius:8px}.lb-compact .lb-cod b{font-size:19px}.lb-compact .lb-cod small{font-size:9px}
-.lb-compact .lb-qr{justify-content:center}
-.lb-compact .lb-courier{margin:3px 9px 1px;padding:2px 6px;font-size:10px;gap:2px 8px}.lb-compact .lb-courier b{font-size:10.5px}.lb-compact .lb-cbc{flex-basis:auto;margin-left:auto}.lb-compact .lb-cbc svg{height:7.5mm}
-.lb-compact .lb-meta,.lb-compact .lb-note{margin:1px 10px;font-size:10.5px}.lb-compact .lb-handle{margin:2px 9px 3px;padding:2px 6px;font-size:10px}
-.lb-compact .lb-foot{padding:2px 8px 4px}.lb-compact .lb-foot p{font-size:8.5px;line-height:1.3}
-.lb-mini .lb-qr,.lb-mini .lb-foot,.lb-mini .lb-meta,.lb-mini .lb-from,.lb-mini .lb-note,.lb-mini .lb-k{display:none}.lb-mini .lb-bc svg{height:11mm}.lb-mini .lb-cod b{font-size:17px}.lb-mini .lb-strip{height:3px}
-/* black & white: no coloured fills (thermal sticker printers print only black) */
-.lb-mono .lb-strip{background:#000}.lb-mono .lb-cod,.lb-mono .lb-cod.paid{background:#fff;border-color:#000}.lb-mono .lb-handle{background:#fff;color:#000;outline:1.5px solid #000;outline-offset:-1.5px}
-.lb-mono .lb-title span,.lb-mono .lb-site,.lb-mono .dc-word .a,.lb-mono .dc-word .b{color:#000!important}.lb-mono .lb-from span{background:#fff;border:1px solid #000}.lb-mono .dc-mark{filter:grayscale(1) contrast(1.4)}
-.lb-mono, .lb-mono *{color:#000!important}.lb-mono .lb-bc,.lb-mono .lb-to,.lb-mono .lb-compact .lb-mid,.lb-mono .lb-mid{border-color:#000!important}.lb-mono .lb-courier{border-color:#000}
+.lb{width:${z.w}mm;height:${z.h}mm;background:#fff;border-radius:6px;box-shadow:0 6px 20px rgba(20,33,61,.12);overflow:hidden;display:flex;flex-direction:column;font-size:${small ? 11.5 : 12.5}px;page-break-inside:avoid;color:#000}
+.lb *{color:#000}
+.lb-head{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:2.2mm 3mm 1.6mm}
+.lb-brand{display:flex;align-items:center;min-width:0}.lb-brand .dc-mark{width:30px;height:30px;border-radius:7px;box-shadow:none;margin-right:6px;filter:grayscale(1) contrast(1.4)}
+.lb-brand .dc-word{font-size:22px}.lb-brand .dc-word .a,.lb-brand .dc-word .b{color:#000}.lb-brand .dc-logo-img{filter:grayscale(1)}.lb-shop{font-size:18px}
+.lb-from{margin:0;text-align:right;line-height:1.15}.lb-tag{display:inline-block;border:1px solid #000;border-radius:4px;padding:0 5px;font-size:10px;font-weight:700;vertical-align:middle}
+.lb-fphone{font-size:${small ? 17 : 19}px;font-weight:800;letter-spacing:.3px;vertical-align:middle}.lb-from small{display:block;font-size:9.5px}
+.lb-cid{display:flex;align-items:center;gap:2.5mm;background:#000;margin:0 2.5mm;border-radius:3px;padding:1.3mm 3mm}
+.lb-cid *{color:#fff!important}.lb-cname{font-weight:800;font-size:${small ? 14 : 16}px;text-transform:uppercase;letter-spacing:.5px}
+.lb-clabel{font-size:10px;font-weight:700;border:1px solid #fff;border-radius:3px;padding:0 4px}
+.lb-cid b{margin-left:auto;font-size:${small ? 21 : 25}px;font-weight:800;letter-spacing:1px;font-family:'Noto Sans Bengali',Arial,sans-serif}
+.lb-cid b.blank{min-width:45%;height:1.25em;background:#fff;border-radius:2px}
+.lb-meta{display:flex;flex-wrap:wrap;gap:0 3mm;margin:1.2mm 3mm 0;font-size:10.5px}
+.lb-body{flex:1;display:flex;gap:2.5mm;padding:1.6mm 3mm 1.6mm;min-height:0}
+.lb-left{flex:1;display:flex;flex-direction:column;gap:1.6mm;min-width:0}
+.lb-to p{margin:0}.lb-k{font-size:9.5px;font-weight:800;letter-spacing:.5px;text-decoration:underline}
+.lb-f{display:inline-block;min-width:3.9em;font-size:10.5px;font-weight:700}
+.lb-name{font-size:${small ? 15 : 17}px;font-weight:800;line-height:1.25}.lb-phone{font-size:${small ? 16 : 18}px;font-weight:800;letter-spacing:.4px;margin:1px 0!important}
+.lb-addr{font-size:${small ? 12 : 13}px;line-height:1.35;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
+.lb-cod{border:2px solid #000;border-radius:6px;padding:1.2mm 2.5mm;display:flex;align-items:center;gap:2mm;flex-wrap:wrap;margin-top:auto}
+.lb-cod span{font-size:10.5px;font-weight:800}.lb-cod b{margin-left:auto;font-size:${small ? 22 : 26}px;font-weight:800;line-height:1.05}.lb-cod small{flex-basis:100%;font-size:9.5px}
+.lb-qrs{display:flex;flex-direction:column;justify-content:space-between;gap:1.5mm;flex:0 0 auto}
+.lb-q{margin:0;display:flex;flex-direction:column;align-items:center;text-align:center}.lb-q svg{display:block}
+.lb-q figcaption{line-height:1.15;margin-top:.4mm}.lb-q figcaption b{display:block;font-size:9.5px;font-weight:800;white-space:nowrap}.lb-q figcaption small{display:block;font-size:8.5px}
+.lb-note{margin:0 3mm 1mm;font-size:10.5px;font-weight:600}
+.lb-handle{margin:0 3mm 1.2mm;padding:1mm 2mm;border:1.5px solid #000;border-radius:4px;font-weight:700;font-size:10.5px;text-align:center}
+.lb-foot{padding:1mm 3mm 1.6mm;border-top:1px dashed #000;text-align:center}.lb-foot p{margin:0;font-size:9px;line-height:1.3}.lb-site{font-weight:800}
+/* 4×4, 100×75, A4-এ ৬টা: a little tighter */
+.lb-compact .lb-head{padding:1.8mm 2.5mm 1.2mm}.lb-compact .lb-brand .dc-mark{width:24px;height:24px}.lb-compact .lb-brand .dc-word{font-size:18px}
+.lb-compact .lb-brand .dc-logo-img{max-height:26px}.lb-compact .lb-body{padding:1.2mm 2.5mm}.lb-compact .lb-meta{margin:1mm 2.5mm 0}
+/* 4×2 (50 mm tall): logo + phone, courier ID, receiver + cash on the left, the two QR codes side by side on the right */
+.lb-mini{font-size:10px}.lb-mini .lb-head{padding:1.2mm 2.5mm .8mm}.lb-mini .lb-brand .dc-mark{width:18px;height:18px;margin-right:4px}.lb-mini .lb-brand .dc-word{font-size:14px}
+.lb-mini .lb-brand .dc-logo-img{max-height:18px!important;height:18px!important}.lb-mini .lb-fphone{font-size:14px}.lb-mini .lb-tag{font-size:8.5px}
+.lb-mini .lb-cid{padding:.7mm 2.5mm;margin:0 2mm}.lb-mini .lb-cname{font-size:11px}.lb-mini .lb-clabel{font-size:8.5px}.lb-mini .lb-cid b{font-size:16px}
+.lb-mini .lb-meta{display:none}.lb-mini .lb-body{padding:1mm 2.5mm 1.2mm;gap:2mm}.lb-mini .lb-left{gap:.8mm}
+.lb-mini .lb-k{display:none}.lb-mini .lb-f{min-width:0;font-size:8.5px;margin-right:2px}.lb-mini .lb-name{font-size:12px}.lb-mini .lb-phone{font-size:12.5px}
+.lb-mini .lb-addr{font-size:9.5px;line-height:1.25;-webkit-line-clamp:2}.lb-mini .lb-cod{padding:.6mm 2mm;border-width:1.5px}.lb-mini .lb-cod span{font-size:8.5px}.lb-mini .lb-cod b{font-size:15px}
+.lb-mini .lb-qrs{flex-direction:row;align-items:flex-end;gap:1.5mm}.lb-mini .lb-q figcaption b{font-size:7.5px}
 @media print{@page{size:${z.sheet ? 'A4' : `${z.w}mm ${z.h}mm`};margin:0}body{background:#fff}.bar{display:none}
-  .sheet{padding:0;gap:0;justify-content:flex-start}.lb{box-shadow:none;border-radius:0;height:${z.h}mm;${z.sheet ? 'outline:1px dashed #CBD5E1;' : 'page-break-after:always;'}}}`;
+  .sheet{padding:0;gap:0;justify-content:flex-start}.lb{box-shadow:none;border-radius:0;height:${z.h}mm;${z.sheet ? 'outline:1px dashed #999;' : 'page-break-after:always;'}}}`;
 }
 function invoicePage(orders: PrintOrder[], s: Settings, c: PaperDoc = docs.invoice(s), opts: ShellProps = {}) {
   return shell(`${c.title} ${orders.length === 1 ? orders[0].code : `(${bn(orders.length)}টি)`}`, labelCss(c), <div className="sheet"><Val v={orders.map((o) => labelBody(o, s, c))} /></div>, opts);
