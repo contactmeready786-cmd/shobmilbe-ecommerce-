@@ -178,8 +178,17 @@ type ToolTileOpts = { state?: boolean; open?: boolean; id?: string };
 function toolTile(title: unknown, body: unknown, { state, open, id }: ToolTileOpts = {}) {
   return <details className="tool-tile" id={id} open={!!open}><summary><span className="tool-t"><Val v={title} /></span>{state === undefined ? null : <span className={`tool-state ${state ? 'on' : ''}`}>{state ? 'চালু' : 'বন্ধ'}</span>}</summary><div className="tool-body panel"><Val v={body} /></div></details>;
 }
+/** An on/off setting as one small pill: name · switch · চালু/বন্ধ · ⓘ (the explanation shows when the mouse is on it).
+ *  Saving: the pill's own 💾 appears once the switch is moved (and the page's save bar), like every admin edit. */
+function toolSwitch(action: string, name: string, on: boolean, title: unknown, help: unknown) {
+  return <form method="post" action={attrValue(action)} className="tool-pill" data-tool-pill=""><span className="tool-t"><Val v={title} /></span>
+    <label className="switch switch-sm" title={on ? 'চালু' : 'বন্ধ'}><input type="checkbox" name={attrValue(name)} defaultValue="1" defaultChecked={on} /><span className="switch-ui" aria-hidden="true"></span></label>
+    <span className={`tool-state ${on ? 'on' : ''}`}>{on ? 'চালু' : 'বন্ধ'}</span>
+    <span className="tool-tip" tabIndex={0} role="note" aria-label={attrValue(help)} data-tip={attrValue(help)}>i</span>
+    <button type="submit" className="btn btn-sm tool-save" data-auto-save-btn="" disabled>💾 সেভ</button></form>;
+}
 function toolRow(...tiles: unknown[]) {
   const shown = tiles.filter((x) => x !== '' && x !== null && x !== undefined && x !== false);
   return shown.length ? <div className="tool-row"><Val v={shown} /></div> : '';
 }
-export { toolTile, toolRow, flag, importTabs, rowSwitch, rowActions, catOpts, MESSAGES, flash, flashFrom, pill, field, input, textarea, select, check, switchRow, imagePicker, pager, dateFilter, kpi, empty, settingsBox, helpBox, money, bn };
+export { toolSwitch, toolTile, toolRow, flag, importTabs, rowSwitch, rowActions, catOpts, MESSAGES, flash, flashFrom, pill, field, input, textarea, select, check, switchRow, imagePicker, pager, dateFilter, kpi, empty, settingsBox, helpBox, money, bn };

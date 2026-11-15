@@ -12,7 +12,7 @@ import type { CustomersRow, OrdersRow } from '../data/rows';
 function canDelete(ctx: AdminCtx) { return ctx.user.role === 'owner' && ctx.settings.customer_delete_on === '1'; }
 function deleteSwitch(ctx: AdminCtx) {
   if (ctx.user.role !== 'owner') return '';
-  return ui.toolTile('🗑️ মুছে ফেলার বাটন', <form method="post" action="/admin/customers/delete-setting" className="switch-list cust-del-sw" data-autosubmit="">{ui.switchRow('customer_delete_on', ctx.settings.customer_delete_on === '1', '🗑️ কাস্টমার মুছে ফেলার বাটন দেখান', 'শুধু আপনি (মালিক) দেখবেন। চালু করলে প্রতিটা কাস্টমারের পাশে "মুছুন" বাটন আর একসাথে অনেকগুলো মোছার ব্যবস্থা আসবে। কাজ শেষ হলে বন্ধ করে রাখুন, যাতে ভুল করে কেউ মুছে না ফেলে।')}</form>, { state: ctx.settings.customer_delete_on === '1' });
+  return ui.toolSwitch('/admin/customers/delete-setting', 'customer_delete_on', ctx.settings.customer_delete_on === '1', '🗑️ মুছে ফেলার বাটন', 'শুধু আপনি (মালিক) দেখবেন। চালু করলে প্রতিটা কাস্টমারের পাশে "মুছুন" বাটন আর একসাথে অনেকগুলো মোছার ব্যবস্থা আসবে। কাজ শেষ হলে বন্ধ করে রাখুন, যাতে ভুল করে কেউ মুছে না ফেলে।');
 }
 
 const PER_PAGE = 40;
