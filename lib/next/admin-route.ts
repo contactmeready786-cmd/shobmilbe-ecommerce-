@@ -8,7 +8,6 @@
 import * as db from '../db';
 import * as security from '../security';
 import * as cache from '../cache';
-import * as guard from '../services/guard';
 import * as errors from '../services/errors';
 import * as geolock from '../services/geolock';
 import * as admin from '../admin';
@@ -57,7 +56,8 @@ export async function adminAnswer(request: Request): Promise<Response> {
       const shutCountry = geolock.adminBlocked(req, settings);
       if (shutCountry) {
         geolock.count(shutCountry, 'admin');
-        guard.record({ req, kind: 'probe', path: ('অ্যাডমিন (দেশ বন্ধ): ' + path).slice(0, 200) }).catch(() => {});
+        // not recorded as hacking any more (owner, 2026-11-15): AI tools, Google proxies and the owner abroad were
+        // blocked for good that way; the closed admin answers 404 anyway and geolock.count keeps the number
         return send(404, geolock.adminBlockedPage(), 'text/html; charset=utf-8', { 'X-Robots-Tag': 'noindex' });
       }
       // small jobs that must run now and then (Vercel's own schedule runs only once a day)

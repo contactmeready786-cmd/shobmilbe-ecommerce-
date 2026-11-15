@@ -13,6 +13,7 @@ import type { SecurityEventsRow, VisitSessionsRow, BlocklistRow } from '../data/
 import * as db from '../db';
 import * as security from '../security';
 import * as $notify from './notify';
+import { isInfraIp } from './infra-ip';
 import type { Body, Id, Settings, ShopRequest, Caught } from '../types';
 
 const KINDS: Record<string, [string, string]> = {
@@ -67,6 +68,7 @@ async function recordNow({ req, ip, kind, detail = '', path = '', settings }: Re
     if (s.guard_on === '0') return;
     ip = String(ip || (req ? security.clientIp(req) : '')).slice(0, 64);
     if (!ip || ip === 'unknown') return;
+    if (isInfraIp(ip)) return; // own server, Cloudflare, Google, Facebook: never listed, never blocked (infra-ip.ts)
     // never let an attacker fill the database: at most 60 saved events per IP per hour (the rest are still blocked/limited elsewhere)
     if (!(await security.hit(db, 'guard:' + ip, 60, 3600))) return;
     let country = req ? header(req, 'x-vercel-ip-country').toUpperCase().slice(0, 2) : '';
@@ -126,7 +128,7 @@ let cache: Set<string> | null = null;
 let cacheAt = 0;
 function resetCache() { cache = null; cacheAt = 0; }
 async function siteBlocked(ip: string) {
-  if (!ip || ip === 'unknown' || ip === '127.0.0.1' || ip === '::1') return false; // the server's own scheduled jobs
+  if (!ip || ip === 'unknown' || isInfraIp(ip)) return false; // own server's jobs, Cloudflare, Google, Facebook
   if (!cache || Date.now() - cacheAt > 60e3) {
     try {
       const rows = await db.q<Pick<BlocklistRow, 'value'>>(`SELECT value FROM blocklist WHERE kind = 'site' AND (expires_at IS NULL OR expires_at > now())`);
@@ -138,7 +140,7 @@ async function siteBlocked(ip: string) {
 }
 async function blockSite(ip: string, reason: string, hours: number, staffId?: Id) {
   const v = String(ip || '').trim().slice(0, 64);
-  if (!/^[0-9a-f:.]{3,64}$/i.test(v)) return false;
+  if (!/^[0-9a-f:.]{3,64}$/i.test(v) || isInfraIp(v)) return false;
   await db.q(`INSERT INTO blocklist(kind, value, reason, created_by, expires_at) VALUES('site', $1, $2, $3, CASE WHEN $4::int > 0 THEN now() + make_interval(hours => $4::int) END)
     ON CONFLICT (kind, value) DO UPDATE SET reason = EXCLUDED.reason, expires_at = EXCLUDED.expires_at, created_at = now(), created_by = EXCLUDED.created_by`,
   [v, String(reason || '').slice(0, 300), staffId || null, Math.max(0, Number(hours) || 0)]);
@@ -153,6 +155,24 @@ async function unblockSite(ip: string) {
   await db.q(`DELETE FROM blocklist WHERE kind = 'site' AND value = $1`, [v]);
   if (v) await db.q(`INSERT INTO blocklist(kind, value, reason) VALUES('trust', $1, 'মালিক ব্লক তুলে দিয়েছেন') ON CONFLICT (kind, value) DO UPDATE SET created_at = now()`, [v]);
   resetCache();
+}
+
+// Old blocks on the shop's own server / Cloudflare / Google / Facebook (made before 2026-11-15, they shut out AI tools,
+// feeds and fetchers) are taken away once per server start; their events go too, so they don't come back to the list.
+let infraCleaned = false;
+async function dropInfraBlocks(): Promise<number> {
+  if (infraCleaned) return 0;
+  const rows = await db.q<Pick<BlocklistRow, 'id' | 'value'>>(`SELECT id, value FROM blocklist WHERE kind = 'site'`);
+  const ids = rows.filter((r) => isInfraIp(r.value)).map((r) => r.id);
+  const ips = rows.filter((r) => isInfraIp(r.value)).map((r) => r.value);
+  if (ids.length) {
+    await db.q(`DELETE FROM blocklist WHERE id = ANY($1::int[])`, [ids]);
+    await db.q(`DELETE FROM security_events WHERE ip = ANY($1::text[])`, [ips]);
+    resetCache();
+    await db.logActivity(null, 'unblocked', 'security', null, `ব্লক তোলা হলো (নিজের সার্ভার / Cloudflare / Google / Facebook — এদের ব্লক করলে AI, ফিড আর কাস্টমার আটকায়): ${ips.length}টি IP`);
+  }
+  infraCleaned = true;
+  return ids.length;
 }
 
 // ---------------------------------------------------------------- reports
@@ -185,4 +205,4 @@ async function siteBlocks() {
     WHERE b.kind = 'site' AND (b.expires_at IS NULL OR b.expires_at > now()) ORDER BY b.created_at DESC`);
 }
 
-export { KINDS, PROBE_RE, ATTACK_RE, record, settled, inspect, siteBlocked, blockSite, unblockSite, resetCache, suspects, events, summary, siteBlocks };
+export { dropInfraBlocks, KINDS, PROBE_RE, ATTACK_RE, record, settled, inspect, siteBlocked, blockSite, unblockSite, resetCache, suspects, events, summary, siteBlocks };

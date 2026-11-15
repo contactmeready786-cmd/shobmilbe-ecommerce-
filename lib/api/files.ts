@@ -214,6 +214,7 @@ export async function runShopJobs(settings: ApiCtx['settings']): Promise<Record<
   await P.timeJob('মার্কেট রিসার্চ', async () => { r = await $services_research.tick().catch(() => ({})); }, { optional: true });
   await P.timeJob('ছবি গোছানো (ImageKit)', async () => { const ik = $services_imagekit; await ik.moveOld(db, 10); await ik.flushTrash(db, 30); }, { optional: true });
   await P.timeJob('স্টকে এলে জানাও', () => $models_extras.restockSweep(settings));
+  await P.timeJob('পুরোনো ভুল ব্লক তোলা', async () => { const G = await import('../services/guard'); await G.dropInfraBlocks(); }, { optional: true });
   await P.timeJob('IndexNow (সার্চ ইঞ্জিন)', () => seo.indexNowSweep(settings), { optional: true });
   // 🤖 অটো SEO: model numbers and specifications for a few dozen products, and the daily score
   await P.timeJob('অটো SEO', () => $services_autoseo.sweep(settings), { optional: true });

@@ -19,6 +19,7 @@
 // USA/Europe — blocking them would drop the shop from Google, Merchant Center and Facebook link previews).
 // A crawler's user agent alone is not trusted (anyone can type "Googlebot"): services/crawlers.ts checks search
 // engines by DNS, and link-preview bots may only read public pages.
+import { infraName } from './infra-ip';
 import * as db from '../db';
 import { parseCookies, sign, unsign } from '../util';
 import * as COUNTRIES from '../data/countries';
@@ -85,6 +86,7 @@ async function check(req: ShopRequest, path: string, s: Settings, method = 'GET'
   const c = config(s);
   if (!c.on) return null;
   if (OPEN_PATHS.test(path)) return null;
+  if (infraName(clientIp(req)) === 'নিজের সার্ভার') return null; // the shop's own server (Singapore) fetching its own pages
   const country = countryOf(req);
   if (!country || c.allow.has(country)) return null;
   const ua = String(req.headers['user-agent'] || '');
