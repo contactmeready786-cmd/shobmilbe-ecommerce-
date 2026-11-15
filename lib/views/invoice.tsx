@@ -186,7 +186,7 @@ function labelBody(order: PrintOrder, s: Settings, c: PaperDoc) {
       <div className="lb-brand">{on.logo ? brandMark(s, 'lb-sm') : <b className="lb-shop"><Val v={s.store_name} /></b>}</div>
       {on.sender ? <p className="lb-from"><span className="lb-tag">প্রেরক</span>{' '}{s.phone ? <b className="lb-fphone"><Val v={s.phone} /></b> : null}{on.sender_address && s.address && !mini && !tall ? <small><Val v={s.address} /></small> : null}</p> : null}
     </header>
-    {on.courier ? <div className="lb-cid"><span className="lb-cname">{courier ? <Val v={courier} /> : 'কুরিয়ার'}</span><span className="lb-clabel">আইডি</span><b className={order.consignment_id ? '' : 'blank'}>{order.consignment_id ? <Val v={order.consignment_id} /> : ' '}</b></div> : null}
+    {on.courier ? <div className="lb-cid"><span className="lb-cname">{courier ? <Val v={courier} /> : 'কুরিয়ার'}</span><span className="lb-clabel">আইডি</span>{order.consignment_id ? <b><Val v={order.consignment_id} /></b> : <b className="none">এখনো কুরিয়ারে পাঠানো হয়নি</b>}</div> : null}
     {on.code_date || on.item_count || (on.weight && weight) ? <p className="lb-meta">{on.code_date ? <><span>অর্ডার #{' '}<b><Val v={order.code} /></b></span>{' '}<span>{fmtDate(order.created_at, false)}</span></> : null}{on.item_count ? <span>📦 <b>{bn(units)}</b>টি পণ্য</span> : null}{on.weight && weight ? <span>⚖️ <b>{bn(weight >= 1000 ? (weight / 1000).toFixed(2) + ' কেজি' : weight + ' গ্রাম')}</b></span> : null}</p> : null}
     <div className="lb-body">
       <div className="lb-left">
@@ -215,11 +215,10 @@ function labelCss(c: PaperDoc) {
 .lb-brand .dc-word{font-size:22px}.lb-brand .dc-word .a,.lb-brand .dc-word .b{color:#000}.lb-brand .dc-logo-img{filter:grayscale(1)}.lb-shop{font-size:18px}
 .lb-from{margin:0;text-align:right;line-height:1.15}.lb-tag{display:inline-block;border:1px solid #000;border-radius:4px;padding:0 5px;font-size:10px;font-weight:700;vertical-align:middle}
 .lb-fphone{font-size:${small ? 17 : 19}px;font-weight:800;letter-spacing:.3px;vertical-align:middle}.lb-from small{display:block;font-size:9.5px}
-.lb-cid{display:flex;align-items:center;gap:2.5mm;background:#000;margin:0 2.5mm;border-radius:3px;padding:1.3mm 3mm}
-.lb-cid *{color:#fff!important}.lb-cname{font-weight:800;font-size:${small ? 14 : 16}px;text-transform:uppercase;letter-spacing:.5px}
-.lb-clabel{font-size:10px;font-weight:700;border:1px solid #fff;border-radius:3px;padding:0 4px}
+.lb-cid{display:flex;align-items:center;gap:2.5mm;background:#fff;border:1.8px solid #000;margin:0 2.5mm;border-radius:4px;padding:1.1mm 3mm}.lb-cname{font-weight:800;font-size:${small ? 14 : 16}px;text-transform:uppercase;letter-spacing:.5px}
+.lb-clabel{font-size:10px;font-weight:700;border:1px solid #000;border-radius:3px;padding:0 4px}
 .lb-cid b{margin-left:auto;font-size:${small ? 21 : 25}px;font-weight:800;letter-spacing:1px;font-family:'Noto Sans Bengali',Arial,sans-serif}
-.lb-cid b.blank{min-width:45%;height:1.25em;background:#fff;border-radius:2px}
+.lb-cid b.none{font-size:11px;font-weight:700;letter-spacing:0}
 .lb-meta{display:flex;flex-wrap:wrap;gap:0 3mm;margin:1.2mm 3mm 0;font-size:10.5px}
 .lb-body{flex:1;display:flex;gap:2.5mm;padding:1.6mm 3mm 1.6mm;min-height:0}
 .lb-left{flex:1;display:flex;flex-direction:column;gap:1.6mm;min-width:0}
@@ -250,18 +249,22 @@ function labelCss(c: PaperDoc) {
 .lb-tall .lb-brand .dc-mark{width:20px;height:20px;margin-right:4px}.lb-tall .lb-brand .dc-word{font-size:15px}.lb-tall .lb-brand .dc-logo-img{max-height:20px!important;height:20px!important;max-width:44mm!important}
 .lb-tall .lb-from{text-align:left}.lb-tall .lb-fphone{font-size:14px}.lb-tall .lb-tag{font-size:8.5px}
 .lb-tall .lb-cid{flex-wrap:wrap;gap:.4mm 1.5mm;padding:1mm 2mm;margin:0 1.8mm}.lb-tall .lb-cname{font-size:11px}.lb-tall .lb-clabel{font-size:8px}
-.lb-tall .lb-cid b{margin-left:0;flex-basis:100%;font-size:18px;letter-spacing:.5px}.lb-tall .lb-cid b.blank{min-width:100%}
+.lb-tall .lb-cid b{margin-left:0;flex-basis:100%;font-size:18px;letter-spacing:.5px}
 .lb-tall .lb-meta{margin:.8mm 2.2mm 0;font-size:8.5px;gap:0 1.5mm;white-space:nowrap;flex-wrap:nowrap;overflow:hidden}
 .lb-tall .lb-body{flex-direction:column;padding:1.2mm 2.2mm;gap:1.4mm}.lb-tall .lb-left{gap:1.2mm}
 .lb-tall .lb-f{min-width:3.6em;font-size:8.5px}.lb-tall .lb-name{font-size:12.5px}.lb-tall .lb-phone{font-size:13.5px}.lb-tall .lb-addr{font-size:9.5px;line-height:1.3;-webkit-line-clamp:4}
 .lb-tall .lb-cod{padding:.8mm 1.8mm;margin-top:0}.lb-tall .lb-cod span{font-size:8.5px}.lb-tall .lb-cod b{font-size:17px}.lb-tall .lb-cod small{font-size:8px}
 .lb-tall .lb-q{flex-direction:row;gap:2mm;align-self:stretch;justify-content:center;padding:1mm;margin-top:auto}.lb-tall .lb-q figcaption{text-align:left;max-width:20mm}.lb-tall .lb-q figcaption b{font-size:10px;white-space:normal}
 .lb-tall .lb-handle{margin:0 2.2mm 1mm;font-size:8.5px;padding:.6mm 1.2mm}.lb-tall .lb-foot{padding:.8mm 2.2mm 1.2mm}.lb-tall .lb-foot p{font-size:7.5px}
-@media print{@page{size:${z.sheet ? 'A4' : `${z.w}mm ${z.h}mm`};margin:0}body{background:#fff}.bar{display:none}
+.warn-bar{max-width:760px;margin:12px auto 0;padding:10px 14px;border:2px solid #b45309;background:#FFF7E6;border-radius:10px;font-size:14px;line-height:1.5}
+@media print{@page{size:${z.sheet ? 'A4' : `${z.w}mm ${z.h}mm`};margin:0}body{background:#fff}.bar,.warn-bar{display:none}
   .sheet{padding:0;gap:0;justify-content:flex-start}.lb{box-shadow:none;border-radius:0;height:${dh}mm;${z.sheet ? 'outline:1px dashed #999;' : 'page-break-after:always;'}}}`;
 }
 function invoicePage(orders: PrintOrder[], s: Settings, c: PaperDoc = docs.invoice(s), opts: ShellProps = {}) {
-  return shell(`${c.title} ${orders.length === 1 ? orders[0].code : `(${bn(orders.length)}টি)`}`, labelCss(c), <div className="sheet"><Val v={orders.map((o) => labelBody(o, s, c))} /></div>, opts);
+  // the courier ID is what the delivery man goes by: warn before printing a label that doesn't have it yet
+  const noId = c.show.courier && !opts.embed ? orders.filter((o) => !o.consignment_id) : [];
+  const warn = noId.length ? <p className="warn-bar">⚠️{' '}<b>{bn(noId.length)}টি</b> অর্ডারের এখনো কুরিয়ার আইডি নেই ({noId.slice(0, 8).map((o) => o.code).join(', ')}{noId.length > 8 ? ' …' : ''})। আগে অর্ডার পেজ থেকে <b>কুরিয়ারে পাঠান</b> — আইডি এলে ইনভয়েসে নিজে থেকে বসবে — তারপর প্রিন্ট করুন।</p> : null;
+  return shell(`${c.title} ${orders.length === 1 ? orders[0].code : `(${bn(orders.length)}টি)`}`, labelCss(c), <>{warn}<div className="sheet"><Val v={orders.map((o) => labelBody(o, s, c))} /></div></>, opts);
 }
 
 export { invoicePage, checklistPage, labelBody, checklistBody, mergedItems };
