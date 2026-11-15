@@ -23,6 +23,7 @@ const ACTIONS: Record<string, string> = {
   trash_empty: 'পুরো রিসাইকেল বিন খালি করা',
   trash_all_products: 'দোকানের সব পণ্য একসাথে মুছে বিনে পাঠানো',
   test_clear: 'টেস্টের ইতিহাস স্থায়ীভাবে মোছা',
+  login_history: 'লগইনের ইতিহাস স্থায়ীভাবে মোছা',
   // not a delete, but just as dangerous in the wrong hands: seeing the shop's secret key (owner, 2026-10-17)
   show_key: 'দোকানের গোপন চাবি (ENCRYPTION_KEY) দেখা',
 };

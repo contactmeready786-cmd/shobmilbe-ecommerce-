@@ -133,9 +133,17 @@ async function failedSummary() {
     GROUP BY ip ORDER BY n DESC LIMIT 20`);
 }
 
-async function cleanup() {
-  await q(`DELETE FROM admin_sessions WHERE expires_at < now() - interval '7 days' OR (revoked_at IS NOT NULL AND revoked_at < now() - interval '30 days')`);
-  await q(`DELETE FROM login_history WHERE created_at < now() - interval '400 days'`);
+/** the owner's own choice on Admin → লগইন ইতিহাস: the ticked lines, or everything older than `days` */
+async function removeHistory(ids: number[], olderThanDays = 0): Promise<number> {
+  if (olderThanDays > 0) return (await q<{ id: number }>(`DELETE FROM login_history WHERE created_at < now() - make_interval(days => $1) RETURNING id`, [olderThanDays])).length;
+  if (!ids.length) return 0;
+  return (await q<{ id: number }>(`DELETE FROM login_history WHERE id = ANY($1::int[]) RETURNING id`, [ids])).length;
 }
 
-export { create, find, revoke, revokeId, revokeAll, revokeEveryone, listFor, listActive, hashToken, idleHours, record, history, countHistory, failedSummary, EVENTS, deviceName, cleanup, MAX_DAYS };
+async function cleanup() {
+  await q(`DELETE FROM admin_sessions WHERE expires_at < now() - interval '7 days' OR (revoked_at IS NOT NULL AND revoked_at < now() - interval '30 days')`);
+  // 60 days are kept (owner, 2026-11-16: a year of logins only made the page long); older ones go by themselves
+  await q(`DELETE FROM login_history WHERE created_at < now() - interval '60 days'`);
+}
+
+export { create, find, revoke, revokeId, revokeAll, revokeEveryone, listFor, listActive, hashToken, idleHours, record, history, countHistory, failedSummary, EVENTS, deviceName, cleanup, removeHistory, MAX_DAYS };
