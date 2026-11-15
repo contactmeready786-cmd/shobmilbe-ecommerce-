@@ -31,10 +31,11 @@ function decorate(ctx: AdminCtx, active: string | undefined, body: unknown) {
   const p = active ? PAGES[active] : undefined;
   if (!active || !p || !ctx.can('settings')) return body;
   const on = ctx.settings[key(active)] === '1';
-  const top = <form method="post" action={attrValue(BASE)} className="form sms-clear-switch"><input type="hidden" name="page" defaultValue={attrValue(active)} /><input type="hidden" name="action" defaultValue="switch" />{' '}{ui.switchRow('on', on, '🗑️ ইতিহাস মোছার বাটন', 'চালু করলে পেজের নিচে মোছার বাটন আসবে। দোকান আসলভাবে চালু করার পর বন্ধ করে দিন, তখন ইতিহাস থেকে যাবে।')}{' '}<button className="btn btn-sm">সেভ করুন</button></form>;
-  const bottom = on ? <section className="tc-clear"><form method="post" action={attrValue(BASE)} data-confirm={`এই পেজের ${attrValue(p.what)} মুছে যাবে। আর ফেরত আনা যাবে না। মুছবেন?`} data-delcode="test_clear" data-delcode-to={attrValue(delcode.masked())} data-delcode-what={attrValue(p.what)}><input type="hidden" name="page" defaultValue={attrValue(active)} /><input type="hidden" name="action" defaultValue="clear" />{' '}<button className="btn btn-sm btn-danger">🗑️ এই পেজের ইতিহাস মুছুন</button>{' '}<span className="small muted">যা মুছবে:{' '}<Val v={p.what} />। অর্ডার, কাস্টমার, পণ্য বা টাকার হিসাব মুছবে না। মুছতে{' '}<Val v={delcode.masked()} />{' '}ঠিকানায় যাওয়া কোড লাগবে।</span></form></section> : '';
+  const top = ui.toolSwitch(BASE, 'on', on, '🧪 পরীক্ষার ইতিহাস মোছা', 'চালু করলে পাশে এই পেজের ইতিহাস মোছার বাটন আসবে। দোকান আসলভাবে চালু করার পর বন্ধ করে দিন, তখন ইতিহাস থেকে যাবে।', { page: active, action: 'switch' });
+  const bottom = on ? <section className="tc-clear"><form className="tool-pill tc-pill" method="post" action={attrValue(BASE)} data-confirm={`এই পেজের ${attrValue(p.what)} মুছে যাবে। আর ফেরত আনা যাবে না। মুছবেন?`} data-delcode="test_clear" data-delcode-to={attrValue(delcode.masked())} data-delcode-what={attrValue(p.what)}><input type="hidden" name="page" defaultValue={attrValue(active)} /><input type="hidden" name="action" defaultValue="clear" />{' '}<button className="btn btn-sm btn-danger">🗑️ এই পেজের ইতিহাস মুছুন</button>{' '}<span className="tool-tip" tabIndex={0} role="note" data-tip={`যা মুছবে: ${p.what}। অর্ডার, কাস্টমার, পণ্য বা টাকার হিসাব মুছবে না। মুছতে ${delcode.masked()} ঠিকানায় যাওয়া কোড লাগবে।`}>i</span></form></section> : '';
   if (typeof body === 'string') body = raw(body); // a page given as text is HTML, as it always was here
-  return <><Val v={body} />{ui.settingsBox('পরীক্ষার ইতিহাস মোছা', [['মোছার বাটন', on]], <>{top}{bottom}</>)}</>;
+  // one slim line at the end of the page (owner, 2026-11-15): the switch pill, and the delete button beside it when on
+  return <><Val v={body} /><div className="tool-row tc-row">{top}{bottom}</div></>;
 }
 
 async function post(ctx: AdminCtx) {
