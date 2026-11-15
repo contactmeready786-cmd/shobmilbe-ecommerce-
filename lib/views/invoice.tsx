@@ -178,7 +178,7 @@ function labelBody(order: PrintOrder, s: Settings, c: PaperDoc) {
   const tall = z.w < 60; // 4×2: 2 inch wide, 4 inch tall
   const mini = z.h < 60;
   const compact = z.h < 120;
-  const qr = on.handover_qr ? handoverQr(s, order, tall ? 92 : compact ? 112 : 128) : '';
+  const qr = on.handover_qr ? handoverQr(s, order, tall ? 80 : compact ? 112 : 128) : '';
   const courier = order.courier ? String(courierName(order.courier)) : '';
   return <section className={`lb lb-mono ${compact ? 'lb-compact' : ''} ${mini ? 'lb-mini' : ''} ${tall ? 'lb-tall' : ''}`}>
     <header className="lb-head">
@@ -195,8 +195,8 @@ function labelBody(order: PrintOrder, s: Settings, c: PaperDoc) {
       {qr ? <figure className="lb-q"><RawHtml html={qr} /><figcaption><b>📦 হ্যান্ডওভার</b><small>কুরিয়ারে দেওয়ার সময় স্ক্যান করুন</small></figcaption></figure> : null}
     </div>
     {on.customer_note && order.note && !mini ? <p className="lb-note">📝{' '}<Val v={order.note} /></p> : null}
-    {on.handling && c.handling_text && !mini ? <p className="lb-handle"><Val v={docs.fill(c.handling_text, s)} /></p> : null}
-    {!mini && ((on.return_note && c.return_text) || c.footer_text) ? <footer className="lb-foot">{on.return_note && c.return_text ? <p><Val v={docs.fill(c.return_text, s)} />{s.address ? <>{' '}·{' '}<Val v={s.address} /></> : null}</p> : null}{c.footer_text ? <p><Val v={docs.fill(c.footer_text, s)} /></p> : null}{site ? <p className="lb-site"><Val v={bare(site)} /></p> : null}</footer> : null}
+    {on.handling && c.handling_text && !mini && !tall ? <p className="lb-handle"><Val v={docs.fill(c.handling_text, s)} /></p> : null}
+    {!mini && ((on.return_note && c.return_text) || c.footer_text) ? <footer className="lb-foot">{on.return_note && c.return_text && !tall ? <p><Val v={docs.fill(c.return_text, s)} />{s.address ? <>{' '}·{' '}<Val v={s.address} /></> : null}</p> : null}{c.footer_text ? <p><Val v={docs.fill(c.footer_text, s)} /></p> : null}{site ? <p className="lb-site"><Val v={bare(site)} /></p> : null}</footer> : null}
   </section>;
 }
 function labelCss(c: PaperDoc) {
@@ -249,11 +249,11 @@ function labelCss(c: PaperDoc) {
 .lb-tall .lb-from{text-align:left}.lb-tall .lb-fphone{font-size:14px}.lb-tall .lb-tag{font-size:8.5px}
 .lb-tall .lb-cid{flex-wrap:wrap;gap:.4mm 1.5mm;padding:1mm 2mm;margin:0 1.8mm}.lb-tall .lb-cname{font-size:11px}.lb-tall .lb-clabel{font-size:8px}
 .lb-tall .lb-cid b{margin-left:0;flex-basis:100%;font-size:18px;letter-spacing:.5px}.lb-tall .lb-cid b.blank{min-width:100%}
-.lb-tall .lb-meta{margin:.8mm 2.2mm 0;font-size:9px;gap:0 2mm}
+.lb-tall .lb-meta{margin:.8mm 2.2mm 0;font-size:8.5px;gap:0 1.5mm;white-space:nowrap;flex-wrap:nowrap;overflow:hidden}
 .lb-tall .lb-body{flex-direction:column;padding:1.2mm 2.2mm;gap:1.4mm}.lb-tall .lb-left{gap:1.2mm}
 .lb-tall .lb-f{min-width:3.6em;font-size:8.5px}.lb-tall .lb-name{font-size:12.5px}.lb-tall .lb-phone{font-size:13.5px}.lb-tall .lb-addr{font-size:9.5px;line-height:1.3;-webkit-line-clamp:4}
 .lb-tall .lb-cod{padding:.8mm 1.8mm;margin-top:0}.lb-tall .lb-cod span{font-size:8.5px}.lb-tall .lb-cod b{font-size:17px}.lb-tall .lb-cod small{font-size:8px}
-.lb-tall .lb-q{flex-direction:row;gap:2mm;align-self:stretch;justify-content:center;padding:1mm}.lb-tall .lb-q figcaption{text-align:left;max-width:20mm}.lb-tall .lb-q figcaption b{font-size:10px;white-space:normal}
+.lb-tall .lb-q{flex-direction:row;gap:2mm;align-self:stretch;justify-content:center;padding:1mm;margin-top:auto}.lb-tall .lb-q figcaption{text-align:left;max-width:20mm}.lb-tall .lb-q figcaption b{font-size:10px;white-space:normal}
 .lb-tall .lb-handle{margin:0 2.2mm 1mm;font-size:8.5px;padding:.6mm 1.2mm}.lb-tall .lb-foot{padding:.8mm 2.2mm 1.2mm}.lb-tall .lb-foot p{font-size:7.5px}
 @media print{@page{size:${z.sheet ? 'A4' : `${z.w}mm ${z.h}mm`};margin:0}body{background:#fff}.bar{display:none}
   .sheet{padding:0;gap:0;justify-content:flex-start}.lb{box-shadow:none;border-radius:0;height:${z.h}mm;${z.sheet ? 'outline:1px dashed #999;' : 'page-break-after:always;'}}}`;
