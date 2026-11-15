@@ -2,7 +2,8 @@ import type { Body, Settings } from '../types';
 // Settings for the two printed papers of every order (Admin → স্টোর ডিজাইন → ইনভয়েস ও চেকলিস্ট):
 //   🏷️ ইনভয়েস  — stuck on top of the parcel: only what delivery needs (courier ID, receiver, cash to collect, two QR codes).
 // Owner, 2026-11-15: no bar codes any more (a phone camera can't read them) — the courier ID is printed big instead,
-// and two QR codes: 📦 হ্যান্ডওভার (opens the admin hand-over for this order) and 📋 ভেতরে কী আছে (the order page).
+// and one QR code: 📦 হ্যান্ডওভার (opens the admin hand-over for this order). The customer needs no QR — the checklist
+// inside the box already lists every product (owner, 2026-11-15), so the checklist has no QR either.
 //   📋 চেকলিস্ট — goes inside the box for the customer: pictures, names, warranty, prices, totals.
 // Every part can be switched on/off and every text changed. Saved as JSON in settings (doc_invoice / doc_checklist).
 
@@ -12,7 +13,7 @@ const INVOICE = {
   primary: '#0866D6', accent: '#F5A524',
   show: {
     logo: true, sender: true, sender_address: false, code_date: true, receiver: true, cod: true, payment: true,
-    courier: true, item_count: true, weight: false, customer_note: true, handling: true, handover_qr: true, qr: true, return_note: true, mono: false,
+    courier: true, item_count: true, weight: false, customer_note: true, handling: true, handover_qr: true, return_note: true, mono: false,
   },
   handling_text: '⚠️ সাবধানে বহন করুন — ইলেকট্রনিক পণ্য, চাপ দেবেন না',
   return_text: 'ডেলিভারি না হলে দয়া করে প্রেরকের কাছে ফেরত দিন।',
@@ -23,7 +24,7 @@ const CHECKLIST = {
   paper: 'A4',
   primary: '#0866D6', accent: '#F5A524',
   show: {
-    logo: true, tagline: true, contact: true, address: true, qr: true, receiver: true, order_info: true,
+    logo: true, tagline: true, contact: true, address: true, receiver: true, order_info: true,
     pictures: true, sku: true, warranty: true, prices: true, totals: true, cod_box: true, warranty_terms: true, note_box: true, thanks: true, footer: true,
   },
   tagline: '',
@@ -39,11 +40,11 @@ const INVOICE_PARTS = [
   ['logo', 'লোগো'], ['sender', 'প্রেরক (দোকানের ফোন)'], ['sender_address', 'প্রেরকের ঠিকানা'], ['courier', 'কুরিয়ার আইডি (উপরে বড় করে)'],
   ['code_date', 'অর্ডার নম্বর ও তারিখ'], ['receiver', 'প্রাপকের নাম, ফোন, ঠিকানা'], ['cod', 'কত টাকা নিতে হবে (বড় করে)'], ['payment', 'পেমেন্টের অবস্থা'],
   ['item_count', 'পণ্যের সংখ্যা (শুধু সংখ্যা, নাম না)'],
-  ['weight', 'ওজন'], ['customer_note', 'কাস্টমারের নোট'], ['handling', 'সাবধানতার লেখা'], ['handover_qr', '📦 হ্যান্ডওভারের QR (দোকানের জন্য)'], ['qr', '📋 "ভেতরে কী আছে" QR (কাস্টমারের জন্য)'],
+  ['weight', 'ওজন'], ['customer_note', 'কাস্টমারের নোট'], ['handling', 'সাবধানতার লেখা'], ['handover_qr', '📦 হ্যান্ডওভারের QR (দোকানের জন্য)'],
   ['return_note', 'ফেরতের লেখা'],
 ];
 const CHECKLIST_PARTS = [
-  ['logo', 'লোগো'], ['tagline', 'ট্যাগলাইন'], ['contact', 'ফোন ও ওয়েবসাইট'], ['address', 'দোকানের ঠিকানা'], ['qr', 'অর্ডার দেখার QR কোড'],
+  ['logo', 'লোগো'], ['tagline', 'ট্যাগলাইন'], ['contact', 'ফোন ও ওয়েবসাইট'], ['address', 'দোকানের ঠিকানা'],
   ['receiver', 'প্রাপকের তথ্য'], ['order_info', 'অর্ডারের তথ্য (পেমেন্ট, সংখ্যা)'], ['pictures', 'পণ্যের ছবি'], ['sku', 'SKU'], ['warranty', 'ওয়ারেন্টি ব্যাজ'],
   ['prices', 'দাম ও মোট (প্রতিটা পণ্যের)'], ['totals', 'নিচের টাকার হিসাব'], ['cod_box', '"দিতে হবে" হলুদ ঘর'], ['warranty_terms', 'ওয়ারেন্টির শর্তের বক্স'],
   ['note_box', '"পণ্য হাতে পেয়ে" বক্স'], ['thanks', 'ধন্যবাদের লেখা'], ['footer', 'নিচের যোগাযোগ লাইন'],
@@ -55,7 +56,7 @@ const LABEL_SIZES: Record<string, LabelSize> = {
   a4x4: { w: 105, h: 148.5, per: 4, label: '📄 A4 কাগজে ৪টা — বড় লেখা', sheet: true },
   '100x75': { w: 100, h: 75, label: '🏷️ স্টিকার ১০০×৭৫ মিমি (থার্মাল, ছোট)' },
   '4x4': { w: 101.6, h: 101.6, label: '🏷️ স্টিকার ৪×৪ ইঞ্চি (১০০×১০০ মিমি)' },
-  '4x2': { w: 101.6, h: 50.8, label: '🏷️ স্টিকার ৪×২ ইঞ্চি (১০০×৫০ মিমি, ছোট)' },
+  '4x2': { w: 50.8, h: 101.6, label: '🏷️ স্টিকার ৪×২ ইঞ্চি (২ ইঞ্চি চওড়া × ৪ ইঞ্চি লম্বা)' },
   '4x6': { w: 101.6, h: 152.4, label: '🏷️ স্টিকার ৪×৬ ইঞ্চি (১০০×১৫০ মিমি, কুরিয়ারের মতো)' },
   a6: { w: 105, h: 148, label: '📄 A6 আলাদা কাগজ (১০৫×১৪৮ মিমি)' },
 };
