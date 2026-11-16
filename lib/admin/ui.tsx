@@ -168,8 +168,10 @@ function settingsBox(title: unknown, state: [string, boolean][], body: unknown, 
   return <details className="panel settings-box" open={open}><summary><span className="sb-title">⚙️{' '}<Val v={title} /></span><span className="sb-state">{jsxList(state.map(([label, on]) => <span className={`sb-chip ${on ? 'is-on' : 'is-off'}`}><Val v={label} />:{' '}{on ? 'চালু' : 'বন্ধ'}</span>))}</span></summary><div className="sb-body"><Val v={body} /></div></details>;
 }
 
+// 💡 "কীভাবে কাজ করে" (owner, 2026-11-16: "why such a long bar?"): a small pill that opens the explanation over the page,
+// so the page's real work starts right at the top instead of under a full-width yellow bar.
 function helpBox(title?: unknown, body?: unknown) {
-  return <details className="help"><summary>💡{' '}<Val v={title} /></summary><div><Val v={body} /></div></details>;
+  return <details className="tool-tile help-tile"><summary><span className="tool-t">💡{' '}<Val v={title} /></span></summary><div className="tool-body panel help-body"><Val v={body} /></div></details>;
 }
 
 // 🧩 Small tools above a list (owner, 2026-11-15: "a nice small box, opened with the arrow"): a row of compact

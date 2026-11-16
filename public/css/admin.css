@@ -2065,3 +2065,23 @@ body.admin #main.admin-main .switch-row.has-tip { min-height: 0; padding: 7px 12
 .tc-row { margin-top: 18px; }
 .tc-row .tc-clear { margin: 0; padding: 0; border: 0; background: none; }
 .tc-pill { gap: 6px; padding: 4px 8px 4px 4px; }
+/* 🧹 Compact tops (owner, 2026-11-16: "why are these so big — the page should start with the work"):
+   💡 help is a small pill that opens over the page; filters, numbers and chips share one slim row;
+   KPI boxes in a "tight" row are slim chips, not big cards. */
+.title-row > .tool-row, .title-row > .help-tile { margin: 0; }
+.title-row > .tool-row { flex: 1 1 auto; justify-content: flex-start; }
+.help-tile > .tool-body.help-body { width: min(560px, 92vw); max-height: 70vh; overflow: auto; font-size: .9rem; line-height: 1.6; }
+.help-tile > .tool-body.help-body ol, .help-tile > .tool-body.help-body ul { margin: 0; padding-left: 20px; }
+.tool-tile > .tool-body { max-height: 75vh; overflow: auto; }
+.filter-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 12px; }
+.filter-row > .toolbar, .filter-row > .chips, .filter-row > .kpis { margin: 0; }
+.filter-row > .toolbar { gap: 6px; }
+.filter-row .w-num { width: 130px; }
+.stat-chip { display: inline-flex; align-items: baseline; gap: 6px; padding: 5px 12px; border-radius: 999px; border: 1px solid var(--line); background: #fff; font-size: .85rem; white-space: nowrap; }
+.stat-chip b { font-size: .98rem; }
+.stat-chip.is-blue { border-color: #BFD7F7; background: #F2F7FE; }
+.kpis.kpis-tight { display: flex; flex-wrap: wrap; gap: 8px; }
+.kpis.kpis-tight .kpi { flex: 0 1 auto; flex-direction: row; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; padding: 6px 12px; border-top-width: 3px; border-radius: 12px; }
+.kpis.kpis-tight .kpi-value { font-size: 1.1rem; }
+.kpis.kpis-tight .kpi-label { font-size: .8rem; }
+.kpis.kpis-tight .kpi-sub { font-size: .75rem; }
