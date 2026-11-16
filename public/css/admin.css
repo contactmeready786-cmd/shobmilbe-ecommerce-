@@ -2121,3 +2121,40 @@ body.admin #main.admin-main .panel > p.muted:only-of-type { margin: 0; font-size
   body.admin #main.admin-main .kpi { flex: 1 1 140px; max-width: calc(50% - 5px); }
   body.admin #main.admin-main .grid-2.grid-even { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* ── All products list (owner, 2026-11-17): never a sideways scrollbar. Wide screens: a compact table
+   (buttons stacked, smaller cells). When the list is narrower than 1100px (14" laptops, tablets, phones)
+   each product becomes one tidy card: picture + name, then small labelled values, switch and buttons. ── */
+body.admin #main.admin-main .table-wrap:has(td > form.prod-toggle) { container-type: inline-size; overflow-x: visible; }
+body.admin #main.admin-main table.table:has(td > form.prod-toggle) :is(th, td) { padding: 8px 8px; }
+body.admin #main.admin-main table.table:has(td > form.prod-toggle) th { white-space: normal; }
+body.admin #main.admin-main table.table:has(td > form.prod-toggle) td.thumb { width: 64px; }
+body.admin #main.admin-main table.table:has(td > form.prod-toggle) td.thumb :is(img, span) { width: 52px; height: 52px; }
+body.admin #main.admin-main table.table:has(td > form.prod-toggle) td.thumb + td { min-width: 170px; overflow-wrap: anywhere; font-size: .9rem; }
+body.admin #main.admin-main table.table:has(td > form.prod-toggle) .prod-actions { white-space: normal; }
+body.admin #main.admin-main table.table:has(td > form.prod-toggle) .prod-actions > :is(a, form) { display: block; margin: 0 0 4px; }
+body.admin #main.admin-main table.table:has(td > form.prod-toggle) .prod-actions .btn { width: 100%; justify-content: center; margin: 0; }
+@container (max-width: 1100px) {
+  body.admin #main.admin-main table.table:has(td > form.prod-toggle) thead { display: none; }
+  body.admin #main.admin-main table.table:has(td > form.prod-toggle),
+  body.admin #main.admin-main table.table:has(td > form.prod-toggle) tbody { display: block; width: 100%; }
+  body.admin #main.admin-main table.table:has(td > form.prod-toggle) tr {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; padding: 10px 12px; border-bottom: 1px solid var(--a-line, #E5E9F0); }
+  body.admin #main.admin-main table.table:has(td > form.prod-toggle) td { display: block; padding: 0; border: 0; width: auto; min-width: 0; font-size: .85rem; }
+  body.admin #main.admin-main table.table:has(td > form.prod-toggle) td.thumb + td { flex: 1 1 calc(100% - 140px); min-width: 0; font-size: .92rem; }
+  body.admin #main.admin-main table.table:has(td > form.prod-toggle) td.num { text-align: left; }
+  body.admin #main.admin-main table.table:has(td > form.prod-toggle) td.num br { display: none; }
+  body.admin #main.admin-main table.table:has(td > form.prod-toggle) td.num :is(s, .small) { margin-left: 4px; }
+  body.admin #main.admin-main table.table:has(td > form.prod-toggle) td.thumb ~ td:not(.prod-actions):not(:has(.prod-toggle))::before { color: var(--a-mut, #64748B); font-weight: 400; }
+  body.admin #main.admin-main table.table:has(td > form.prod-toggle) td.thumb + td + td::before { content: "SKU "; }
+  body.admin #main.admin-main table.table:has(td > form.prod-toggle) td.thumb + td + td + td + td::before { content: "দাম "; }
+  body.admin #main.admin-main table.table:has(td > form.prod-toggle) tr:has(> td.num + td.num + td.num + td.num + td.num) > td.thumb + td + td + td + td + td::before { content: "কেনা "; }
+  body.admin #main.admin-main table.table:has(td > form.prod-toggle) tr:has(> td.num + td.num + td.num + td.num + td.num) > td.thumb + td + td + td + td + td + td::before { content: "লাভ "; }
+  body.admin #main.admin-main table.table:has(td > form.prod-toggle) tr:has(> td.num + td.num + td.num + td.num + td.num) > td.thumb + td + td + td + td + td + td + td::before { content: "স্টক "; }
+  body.admin #main.admin-main table.table:has(td > form.prod-toggle) tr:has(> td.num + td.num + td.num + td.num + td.num) > td.thumb + td + td + td + td + td + td + td + td::before { content: "বিক্রি "; }
+  body.admin #main.admin-main table.table:has(td > form.prod-toggle) tr:not(:has(> td.num + td.num + td.num + td.num + td.num)) > td.thumb + td + td + td + td + td::before { content: "স্টক "; }
+  body.admin #main.admin-main table.table:has(td > form.prod-toggle) tr:not(:has(> td.num + td.num + td.num + td.num + td.num)) > td.thumb + td + td + td + td + td + td::before { content: "বিক্রি "; }
+  body.admin #main.admin-main table.table:has(td > form.prod-toggle) .prod-actions { margin-left: auto; display: flex; flex-wrap: wrap; gap: 6px; }
+  body.admin #main.admin-main table.table:has(td > form.prod-toggle) .prod-actions > :is(a, form) { margin: 0; }
+  body.admin #main.admin-main table.table:has(td > form.prod-toggle) .prod-actions .btn { width: auto; }
+}
