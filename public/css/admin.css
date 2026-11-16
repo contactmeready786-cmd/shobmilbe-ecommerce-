@@ -2085,3 +2085,13 @@ body.admin #main.admin-main .switch-row.has-tip { min-height: 0; padding: 7px 12
 .kpis.kpis-tight .kpi-value { font-size: 1.1rem; }
 .kpis.kpis-tight .kpi-label { font-size: .8rem; }
 .kpis.kpis-tight .kpi-sub { font-size: .75rem; }
+/* ⓘ long explanations fold into one small line (owner, 2026-11-16) */
+details.note-fold { margin: 4px 0 10px; }
+details.note-fold > summary { list-style: none; display: inline-flex; align-items: center; gap: 4px; font-size: .8rem; color: var(--muted); cursor: pointer; padding: 2px 10px; border-radius: 999px; border: 1px dashed var(--line); background: #fff; }
+details.note-fold > summary::-webkit-details-marker { display: none; }
+details.note-fold > summary:hover { color: var(--bin, #0866D6); border-color: var(--bin, #0866D6); }
+details.note-fold[open] > summary { margin-bottom: 6px; }
+details.note-fold > p { margin: 0; }
+/* big number cards: a little slimmer everywhere */
+.kpi { padding: 10px 14px; }
+.kpi-value { font-size: 1.4rem; }

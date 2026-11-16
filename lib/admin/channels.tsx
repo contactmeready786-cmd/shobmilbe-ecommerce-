@@ -204,7 +204,7 @@ async function page(ctx: AdminCtx) {
     </section>
     <section className="panel" id="instagram"><h2>📸 Instagram {s.autopost_ig_name ? <small>✅ @<Val v={s.autopost_ig_name} /></small> : null}</h2>
       {s.autopost_ig_id
-        ? <p className="small">Instagram যুক্ত আছে। Facebook পেজে যা পোস্ট হয় (পণ্য, টিপস, কুইজ, প্রজেক্ট গাইড — ছবিসহ সব), একই সময়ে Instagram-এও যায়। চালু/বন্ধ: <a href={`${AUTO}#connect`}>অটো মার্কেটিং → "Instagram-এ"</a> সুইচ{s.autopost_ig === '1' ? ' (এখন ✅ চালু)' : ' (এখন ⏸ বন্ধ — চালু করে সেভ করুন)'}।</p>
+        ? <details className="note-fold"><summary>ⓘ বিস্তারিত</summary><p className="small">Instagram যুক্ত আছে। Facebook পেজে যা পোস্ট হয় (পণ্য, টিপস, কুইজ, প্রজেক্ট গাইড — ছবিসহ সব), একই সময়ে Instagram-এও যায়। চালু/বন্ধ: <a href={`${AUTO}#connect`}>অটো মার্কেটিং → "Instagram-এ"</a> সুইচ{s.autopost_ig === '1' ? ' (এখন ✅ চালু)' : ' (এখন ⏸ বন্ধ — চালু করে সেভ করুন)'}।</p></details>
         : <><p className="small">Instagram বিজনেস অ্যাকাউন্ট Facebook পেজের সাথে জোড়া থাকলেও, দোকানের Facebook সংযোগ এখন Instagram দেখতে পাচ্ছে না (টোকেনে Instagram-এর অনুমতি নেই) — তাই পোস্ট Instagram-এ যাচ্ছে না। একবার এটা করলেই হবে (৩ মিনিট):</p>
           <ol className="steps"><li><a href="https://developers.facebook.com/tools/explorer/" target="_blank" rel="noopener">Graph API Explorer</a> খুলুন → ডানে আগের অ্যাপটাই ("Shobmilbe Poster") বেছে নিন।</li>
             <li>Permissions-এ আগেরগুলোর সাথে এই দুটো যোগ করুন: <code>instagram_basic</code>, <code>instagram_content_publish</code>।</li>
