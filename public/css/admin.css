@@ -2200,3 +2200,5 @@ body.admin #main.admin-main .table-wrap:has(> table.inv-table) { container-type:
   body.admin #main.admin-main table.inv-table tr:has(> td.num + td.num + td.num + td.num + td.num + td.num) > td.thumb + td + td + td + td + td + td + td + td::before { content: "স্টকের মূল্য "; color: var(--a-mut, #64748B); }
   body.admin #main.admin-main table.inv-table td.inv-act { position: static; box-shadow: none; background: transparent; margin-left: auto; }
 }
+body.admin #main.admin-main .dash-kpis .kpis { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+body.admin #main.admin-main .dash-kpis .kpi { max-width: none; min-width: 0; }
