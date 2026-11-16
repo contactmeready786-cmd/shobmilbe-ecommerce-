@@ -19,6 +19,8 @@ export type ReadItem = {
   price: number | null; old_price: number | null; cost_price: number | null; images: string[];
   brand: string; category: string; stock: number | null; in_stock: boolean | null; link: string; youtube: string;
   weight_g: number | null; group: string; variation: boolean;
+  /** Which shop it was copied from, when the file says so ("দোকান" column) — groups it on the copied-shop pages. */
+  shop?: string;
 };
 /** A read product ready for the importer screens: its lasting identity added (and, there, whether it is in the shop). */
 export type ImportItem = Omit<ReadItem, 'variation' | 'group'> & { ref: string; exists?: { id: number; name: string; sku: string | null } };
@@ -172,6 +174,7 @@ const FIELDS: Record<string, string[]> = {
   weight: ['weight', 'shippingweight', 'productweight', 'weightg', 'weightgram', 'weightgrams', 'variantgrams', 'weightkg', 'ওজন'],
   group: ['itemgroupid', 'parent', 'parentid', 'groupid'],
   rowtype: ['type'],
+  shop: ['sourceshop', 'shopname', 'storename', 'copiedfrom', 'দোকান', 'দোকানেরনাম'],
 };
 const KNOWN = new Set(Object.values(FIELDS).flat());
 
@@ -225,6 +228,7 @@ function fromRow(row: Record<string, unknown>, base?: string): ReadItem {
     weight_g: parseWeight(w, weightKey === 'weightkg' ? 'kg' : 'g'),
     group: oneLine(pick('group') ?? '').slice(0, 120),
     variation: rowType === 'variation',
+    shop: oneLine(pick('shop') ?? '').toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/[#\s]+/g, '').replace(/\/+$/, '').slice(0, 80),
   };
   if (item.stock === null && item.in_stock === false) item.stock = 0;
   return item;
@@ -794,8 +798,8 @@ function parseContent(buf: Buffer, { name = '', contentType = '', baseUrl = '' }
 }
 
 // A product's lasting identity from the old site: "oldsite.com#123"
-function refFor(it: { id?: string; link?: string; title: string }, sourceUrl?: string) {
-  const host = hostOf(it.link) || hostOf(sourceUrl) || 'file';
+function refFor(it: { id?: string; link?: string; title: string; shop?: string }, sourceUrl?: string) {
+  const host = it.shop || hostOf(it.link) || hostOf(sourceUrl) || 'file';
   let key = it.id;
   if (!key && it.link) { try { const u = new URL(it.link); key = u.pathname.replace(/\/+$/, '') + u.search; } catch (_) { /* ignore */ } }
   if (!key) key = it.title.toLowerCase();

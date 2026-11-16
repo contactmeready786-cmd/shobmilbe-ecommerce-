@@ -1299,6 +1299,18 @@ CREATE INDEX IF NOT EXISTS order_items_flash_idx ON order_items(ref_id) WHERE ki
   `
 ALTER TABLE products ADD COLUMN IF NOT EXISTS old_price_auto boolean NOT NULL DEFAULT false;
 `,
+  // 🏪 কপি করা দোকানের নাম (owner, 2026-11-16): the products copied today from two Daraz shops came in by file, so the
+  // copied-shop pages (অন্য দোকানের ছবি / ছবি সাদা / বিবরণ পরিষ্কার) could not tell them apart. Give each its shop's name
+  // once (only file-imported products of exactly those SKUs and hours, so nothing else is touched); later files carry a
+  // "দোকান" column instead (services/importer.ts).
+  `
+UPDATE products SET import_ref = 'daraz.com.bd/creativetrade#' || substr(import_ref, 6)
+  WHERE import_ref LIKE 'file#%' AND sku ~ '^[0-9]+$' AND sku::int BETWEEN 1391 AND 1679
+    AND created_at >= '2026-11-16 11:00+00' AND created_at < '2026-11-16 15:30+00';
+UPDATE products SET import_ref = 'daraz.com.bd/udvabony-bd#' || substr(import_ref, 6)
+  WHERE import_ref LIKE 'file#%' AND sku ~ '^[0-9]+$' AND sku::int >= 1680
+    AND created_at >= '2026-11-16 15:30+00' AND created_at < '2026-11-16 18:00+00';
+`,
 ];
 
 // Data steps that need code, keyed by migration number (run after its SQL).
