@@ -2202,3 +2202,4 @@ body.admin #main.admin-main .table-wrap:has(> table.inv-table) { container-type:
 }
 body.admin #main.admin-main .dash-kpis .kpis { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
 body.admin #main.admin-main .dash-kpis .kpi { max-width: none; min-width: 0; }
+@container (max-width: 1150px) { body.admin #main.admin-main .inv-scroll-hint { display: none; } }
