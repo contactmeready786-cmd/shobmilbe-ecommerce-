@@ -698,10 +698,25 @@ function switchTips(): void {
   }
 }
 
+// A link to a part of the page that sits in a folded box (#g-home, #fast …) opens that box (owner, 2026-11-16: the
+// admin pages keep their settings folded, the jump chips and links must still land on an open box).
+function openFoldedTarget(): void {
+  const open = () => {
+    const id = decodeURIComponent(location.hash.slice(1));
+    if (!id) return;
+    const el = document.getElementById(id);
+    if (!el) return;
+    for (let d: HTMLElement | null = el; d; d = d.parentElement) if (d instanceof HTMLDetailsElement) d.open = true;
+    el.scrollIntoView({ block: 'start' });
+  };
+  open();
+  window.addEventListener('hashchange', open);
+}
+
 export function startCore(): void {
   for (const [name, start] of [
     ['refresh', refreshButton], ['side menu', sideMenu], ['save reminder', saveReminder], ['confirmations', confirmations],
-    ['helpers', smallHelpers], ['live parts', liveParts], ['instant saves', instantSaves], ['lists', lists], ['jobs', jobs], ['zoom', zoomPictures], ['sticky sides', stickySides], ['switch tips', switchTips],
+    ['helpers', smallHelpers], ['live parts', liveParts], ['instant saves', instantSaves], ['lists', lists], ['jobs', jobs], ['zoom', zoomPictures], ['sticky sides', stickySides], ['switch tips', switchTips], ['folded targets', openFoldedTarget],
   ] as [string, () => void][]) {
     try { start(); } catch (e) { console.error(`সবমিলবে admin: ${name} could not start`, e); }
   }

@@ -2095,3 +2095,9 @@ details.note-fold > p { margin: 0; }
 /* big number cards: a little slimmer everywhere */
 .kpi { padding: 10px 14px; }
 .kpi-value { font-size: 1.4rem; }
+/* ক্যাটাগরি (owner, 2026-11-16): each card is one slim line; order, parent, SEO, delivery and size guide open with ⚙️ */
+.cat-card { padding: 8px 10px; gap: 6px; }
+details.cat-more > summary { list-style: none; cursor: pointer; color: var(--muted); }
+details.cat-more > summary::-webkit-details-marker { display: none; }
+details.cat-more[open] { display: grid; gap: 8px; }
+details.cat-more[open] > summary { color: var(--bin, #0866D6); }
