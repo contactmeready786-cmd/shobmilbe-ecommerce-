@@ -315,6 +315,15 @@ def describe(sess, data):
     return base64.b64encode(b.tobytes()).decode()
 
 
+def mem():
+    """memory in use so far (peak), so a run the machine stops can be told apart from a slow one"""
+    try:
+        import resource
+        return f"{resource.getrusage(resource.RUSAGE_SELF).ru_maxrss // 1024} MB"
+    except Exception:
+        return '?'
+
+
 def git(out, *args):
     subprocess.run(['git', '-C', out, *args], check=True)
 
@@ -326,6 +335,8 @@ def main():
     ap.add_argument('--vendor', default='public/vendor/birefnet')
     ap.add_argument('--dino', default='public/vendor/dinov2')
     ap.add_argument('--minutes', type=float, default=9)
+    ap.add_argument('--hard', type=float, default=44, help='never work longer than this (the job is stopped at 50 minutes and loses what it was doing)')
+    ap.add_argument('--more-flag', default='', help='file written when pictures are still waiting at --hard (the workflow then starts a fresh run)')
     ap.add_argument('--redo', action='store_true', help='clean up the pictures already made again (the newest clean-up rule), in place')
     ap.add_argument('--try', dest='try_dir', help='test: make every picture in this folder white into --out (no shop, no git)')
     args = ap.parse_args()
@@ -366,10 +377,11 @@ def main():
     index = json.load(open(idx_path)) if os.path.exists(idx_path) else {}
     sess = None
     stop_at = time.time() + args.minutes * 60
+    hard_at = time.time() + args.hard * 60
     emb_path = os.path.join(args.out, 'results', 'emb.json')
     embs = json.load(open(emb_path)) if os.path.exists(emb_path) else {}
     dino = None
-    while time.time() < stop_at:
+    while time.time() < min(stop_at, hard_at):
         try:
             got = json.loads(fetch(args.shop.rstrip('/') + '/api/whiten-jobs').decode())
         except Exception as e:
@@ -377,12 +389,14 @@ def main():
             got = {}
         jobs = [j for j in got.get('jobs', []) if j['token'] not in index]
         pics = [p for p in got.get('emb', []) if str(p['id']) not in embs]
-        if pics:
-            # 🧠 picture recognition for the duplicate check (the shop copies results/emb.json in by itself)
+        # the owner's pictures always go first (owner, 2026-11-17: recognising ~300 shop pictures used to run before
+        # them and held the first white picture back 2-3 minutes); recognition runs only while nothing waits, in small
+        # batches, so a picture sent meanwhile is picked up within a minute
+        if pics and not jobs:
             if dino is None:
                 dino = load_dino(args.dino)
             t0, n = time.time(), 0
-            for p in pics:
+            for p in pics[:40]:
                 try:
                     embs[str(p['id'])] = describe(dino, fetch(p['src']))
                     n += 1
@@ -390,30 +404,39 @@ def main():
                     embs[str(p['id'])] = ''  # unreadable: never asked again
                     print(f"pic {p['id']}: {e}", flush=True)
             json.dump(embs, open(emb_path, 'w'), separators=(',', ':'))
-            publish(args.out, index, idx_path, f'recognize: {len(pics)} picture(s)')
-            print(f'described {n}/{len(pics)} pictures in {time.time() - t0:.0f}s', flush=True)
+            publish(args.out, index, idx_path, f'recognize: {n} picture(s)')
+            print(f'described {n}/{len(pics)} pictures in {time.time() - t0:.0f}s ({mem()})', flush=True)
             stop_at = max(stop_at, time.time() + 4 * 60)
+            continue
         if not jobs:
-            if not pics:
-                time.sleep(30)  # every half minute is quick enough, and light on the shop's traffic allowance
+            time.sleep(30)  # every half minute is quick enough, and light on the shop's traffic allowance
             continue
         if sess is None:
             t0 = time.time()
             sess = load_model(args.vendor)
             print(f'AI ready in {time.time() - t0:.1f}s', flush=True)
         for j in jobs:
+            if time.time() > hard_at:
+                # stop cleanly before GitHub's 50-minute limit cuts the run off mid-picture (owner, 2026-11-17: runs
+                # were being cut off and the rest waited hours for the next scheduled run); a fresh run takes over
+                print(f'time is up with pictures still waiting: a fresh run continues', flush=True)
+                if args.more_flag:
+                    open(args.more_flag, 'w').write('more')
+                return 0
             t0 = time.time()
             try:
                 jpg = whiten(sess, fetch(j['src']), j.get('opts') or {})
                 open(os.path.join(args.out, 'results', j['token'] + '.jpg'), 'wb').write(jpg)
                 index[j['token']] = {'ok': True}
-                print(f"job {j['id']}: done in {time.time() - t0:.1f}s ({len(jpg) // 1024} KB)", flush=True)
+                print(f"job {j['id']}: done in {time.time() - t0:.1f}s ({len(jpg) // 1024} KB, {mem()})", flush=True)
             except Exception as e:
                 index[j['token']] = {'ok': False, 'error': str(e)[:200]}
                 print(f"::warning::job {j['id']}: failed: {e}", flush=True)
             # each picture goes out as soon as it is ready, so the owner sees them one by one
             publish(args.out, index, idx_path, f"whiten: job {j['id']}")
         stop_at = max(stop_at, time.time() + 6 * 60)  # more may come: keep watching a little longer
+    if time.time() >= hard_at and args.more_flag:
+        open(args.more_flag, 'w').write('more')  # stopped by the time limit: a fresh run looks again (it exits at once if nothing waits)
     return 0
 
 

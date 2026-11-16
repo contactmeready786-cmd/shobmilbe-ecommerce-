@@ -14,13 +14,14 @@ on:
   workflow_dispatch:
 permissions:
   contents: write
+  actions: write
 concurrency:
   group: whiten-cloud
   cancel-in-progress: false
 jobs:
   whiten:
     runs-on: ubuntu-24.04
-    timeout-minutes: 50
+    timeout-minutes: 55
     env:
       SHOP: https://shobmilbe.com
     steps:
@@ -59,4 +60,10 @@ jobs:
             echo '{}' > /tmp/res/results/index.json
           fi
           git -C /tmp/res config user.name whiten-cloud && git -C /tmp/res config user.email actions@github.com
-          python tools/whiten/cloud.py --shop "$SHOP" --out /tmp/res --minutes 12
+          python tools/whiten/cloud.py --shop "$SHOP" --out /tmp/res --minutes 12 --hard 46 --more-flag /tmp/whiten-more
+      - name: More pictures waiting? Start a fresh run
+        if: always() && steps.look.outputs.n != '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ -f /tmp/whiten-more ]; then gh workflow run whiten-cloud.yml -R "${{ github.repository }}" --ref main && echo "a fresh run was started for the rest"; fi
