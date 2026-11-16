@@ -2245,3 +2245,11 @@ body.admin #main.admin-main :is(.prod-actions, .inv-act-in) :is(.btn, .icon-btn)
   body.admin #main.admin-main table.inv-table .stepper { display: flex; align-items: center; gap: 4px; }
   body.admin #main.admin-main table.inv-table select { width: 170px; }
 }
+/* inventory card view, final: line 1 = name … − / + · reason · switch/edit/delete (fixed sizes, same spot on
+   every card); line 2 = the numbers */
+@container (max-width: 1150px) {
+  body.admin #main.admin-main table.inv-table td:has(> .stepper) { order: 2; margin-left: 0; }
+  body.admin #main.admin-main table.inv-table td:has(> select) { order: 2; }
+  body.admin #main.admin-main table.inv-table td.inv-act { order: 3; }
+  body.admin #main.admin-main table.inv-table select { width: 150px; }
+}
