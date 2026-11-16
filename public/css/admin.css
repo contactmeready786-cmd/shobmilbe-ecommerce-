@@ -2203,3 +2203,11 @@ body.admin #main.admin-main .table-wrap:has(> table.inv-table) { container-type:
 body.admin #main.admin-main .dash-kpis .kpis { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
 body.admin #main.admin-main .dash-kpis .kpi { max-width: none; min-width: 0; }
 @container (max-width: 1150px) { body.admin #main.admin-main .inv-scroll-hint { display: none; } }
+/* buttons in the product / stock lists: text always in the middle of the button (owner, 2026-11-17) */
+body.admin #main.admin-main table.table:has(td > form.prod-toggle) .prod-actions > a.btn { display: flex; align-items: center; justify-content: center; }
+body.admin #main.admin-main table.table:has(td > form.prod-toggle) .prod-actions > form { display: flex; }
+body.admin #main.admin-main :is(.prod-actions, .inv-act-in) { align-items: center; }
+body.admin #main.admin-main :is(.prod-actions, .inv-act-in) :is(.btn, .icon-btn) { align-items: center; justify-content: center; line-height: 1.2; }
+@container (max-width: 1100px) {
+  body.admin #main.admin-main table.table:has(td > form.prod-toggle) .prod-actions > a.btn { display: inline-flex; }
+}
