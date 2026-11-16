@@ -2253,3 +2253,16 @@ body.admin #main.admin-main :is(.prod-actions, .inv-act-in) :is(.btn, .icon-btn)
   body.admin #main.admin-main table.inv-table td.inv-act { order: 3; }
   body.admin #main.admin-main table.inv-table select { width: 150px; }
 }
+
+/* Inventory: as soon as any − / + box has a number, the "স্টক আপডেট করুন" bar floats at the bottom of the screen,
+   wherever on the list you are (owner, 2026-11-17). Empty boxes = the bar stays in its place at the end of the list. */
+body.admin #main.admin-main .table-wrap:has(input[data-step-input]:not(:placeholder-shown)) .inv-save {
+  position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 90; width: min(560px, calc(100vw - 24px));
+  margin: 0; padding: 10px 12px; display: flex; align-items: center; gap: 8px; flex-wrap: nowrap;
+  background: #fff; border: 1px solid #F59E0B; border-radius: 14px; box-shadow: 0 10px 30px rgba(15, 23, 42, .18); }
+body.admin #main.admin-main .table-wrap:has(input[data-step-input]:not(:placeholder-shown)) .inv-save::before {
+  content: "✏️ স্টক বদল সেভ হয়নি"; flex: none; font-size: .82rem; font-weight: 600; color: #92400E; }
+body.admin #main.admin-main .table-wrap:has(input[data-step-input]:not(:placeholder-shown)) .inv-save input { flex: 1 1 120px; min-width: 0; padding: 6px 10px; }
+body.admin #main.admin-main .table-wrap:has(input[data-step-input]:not(:placeholder-shown)) .inv-save .btn { flex: none; background: #F59E0B; border-color: #F59E0B; color: #111; }
+@media (min-width: 900px) { body.admin #main.admin-main .table-wrap:has(input[data-step-input]:not(:placeholder-shown)) .inv-save { left: calc(50% + 120px); } }
+@media (max-width: 520px) { body.admin #main.admin-main .table-wrap:has(input[data-step-input]:not(:placeholder-shown)) .inv-save::before { content: "✏️ সেভ হয়নি"; } }

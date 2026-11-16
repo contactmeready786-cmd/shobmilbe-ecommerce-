@@ -21,6 +21,9 @@ const PAGES: Record<string, { path: string; what: string; sql: string[] }> = {
   'search-report': { path: '/admin/reports/search', what: 'কাস্টমারের সব সার্চের হিসাব', sql: ['DELETE FROM search_log'] },
   restock: { path: '/admin/marketing/restock', what: '"স্টকে এলে জানাও" আর "দাম কমলে জানাও"-এর সব অনুরোধ', sql: ['DELETE FROM stock_alerts', 'DELETE FROM price_alerts'] },
   fraud: { path: '/admin/fraud', what: 'ফ্রড চেকের পুরনো ফলাফল', sql: ['DELETE FROM fraud_checks'] },
+  // only the hand-made stock changes (+ / − on the inventory page); purchases, opening stock and orders keep their rows,
+  // because the buying-price history and the product ledger are read from them. Stock numbers never change.
+  inventory: { path: '/admin/inventory', what: 'স্টক হাতে বাড়ানো-কমানোর ইতিহাস (স্টকের সংখ্যা যেমন আছে তেমনই থাকবে; পারচেজ আর অর্ডারের হিসাব থাকবে)', sql: ["DELETE FROM stock_movements WHERE ref_type='manual'"] },
 };
 const BASE = '/admin/test-clear';
 const key = (k: string) => `tc_${k.replace(/-/g, '_')}`;
