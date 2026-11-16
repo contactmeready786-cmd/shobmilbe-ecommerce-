@@ -2101,3 +2101,6 @@ details.cat-more > summary { list-style: none; cursor: pointer; color: var(--mut
 details.cat-more > summary::-webkit-details-marker { display: none; }
 details.cat-more[open] { display: grid; gap: 8px; }
 details.cat-more[open] > summary { color: var(--bin, #0866D6); }
+/* ক্যাটাগরি: the category list takes the full width (more cards per row); the new-category box goes under it */
+.two-col:has(.cat-tree) { grid-template-columns: minmax(0, 1fr) !important; }
+.cat-admin-grid.cat-tree { grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); }
