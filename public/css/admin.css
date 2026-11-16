@@ -2233,3 +2233,15 @@ body.admin #main.admin-main :is(.prod-actions, .inv-act-in) :is(.btn, .icon-btn)
 @container (max-width: 640px) {
   body.admin #main.admin-main table.table:has(td > form.prod-toggle) td.thumb + td { flex-basis: calc(100% - 100px); }
 }
+/* inventory card view: name + switch/edit/delete on the first line (same right-hand spot on every card);
+   numbers, − / + and the reason on the second line, in one straight row */
+@container (max-width: 1150px) {
+  body.admin #main.admin-main table.inv-table td { order: 5; }
+  body.admin #main.admin-main table.inv-table td.thumb { order: 0; }
+  body.admin #main.admin-main table.inv-table td.inv-name { order: 1; flex: 1 1 200px; }
+  body.admin #main.admin-main table.inv-table td.inv-act { order: 2; margin-left: 0; flex: 0 0 auto; }
+  body.admin #main.admin-main table.inv-table tr::after { content: ""; order: 4; flex-basis: 100%; height: 0; }
+  body.admin #main.admin-main table.inv-table td:has(> .stepper) { margin-left: auto; }
+  body.admin #main.admin-main table.inv-table .stepper { display: flex; align-items: center; gap: 4px; }
+  body.admin #main.admin-main table.inv-table select { width: 170px; }
+}
