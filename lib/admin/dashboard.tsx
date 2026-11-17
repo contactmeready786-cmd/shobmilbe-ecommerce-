@@ -8,6 +8,7 @@ import * as charts from './charts';
 import * as $db from '../db';
 import type { AdminCtx } from '../types';
 import * as $health from '../services/health';
+import * as swr from '../services/swr';
 
 async function dashboard(ctx: AdminCtx) {
   const { from, to } = dateRange(ctx.query, 30);
@@ -15,7 +16,11 @@ async function dashboard(ctx: AdminCtx) {
   // 🩺 measured in the background while the rest loads (lib/services/health.ts keeps the last answer)
   const healthP = ctx.user.role === 'owner' ? $health.measure(ctx.settings).catch(() => null) : Promise.resolve(null);
   const [d, series, monthly, recent, cmp] = await Promise.all([
-    finance.dashboard(from, to), finance.dailySeries(from, to), finance.monthlySeries(12),
+    // the numbers are kept for a minute and worked out again in the background (lib/services/swr.ts) — the
+    // overview opens at once; new orders still show at once in the top bar
+    swr.ready(`dash|${from}|${to}`, 60e3, () => finance.dashboard(from, to)),
+    swr.ready(`dash-days|${from}|${to}`, 60e3, () => finance.dailySeries(from, to)),
+    swr.ready('dash-months', 10 * 60e3, () => finance.monthlySeries(12)),
     ctx.can('orders') ? orders.listOrders({ limit: 8 }) : [],
     // 📮 complaints that are late or due within a day (the law gives 72 hours)
     ctx.can('orders') ? $db.one<{ late: number; soon: number }>(`SELECT count(*) FILTER (WHERE due_at < now())::int AS late,
