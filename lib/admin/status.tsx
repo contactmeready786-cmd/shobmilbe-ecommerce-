@@ -14,6 +14,7 @@ import * as $security from '../security';
 import type { AdminCtx } from '../types';
 import type { BackupsRow, IntegrationLogsRow } from '../data/rows';
 import type { ReactNode } from 'react';
+import * as swr from '../services/swr';
 
 const OK = 'ok'; const WARN = 'warn'; const OFF = 'off'; const BAD = 'bad';
 const ICON: Record<string, string> = { ok: '✅', warn: '⚠️', off: '⚪', bad: '❌' };
@@ -71,7 +72,8 @@ async function statusPage(ctx: AdminCtx) {
   const methods = payments.methods(s).map((m) => m.label);
   const [lastBackup, feedReport] = await Promise.all([
     db.one<BackupsRow>(`SELECT * FROM backups WHERE ok ORDER BY created_at DESC LIMIT 1`).catch(() => null),
-    $services_feeds.build('google', s, site || 'https://example.com').then((r) => r.report).catch(() => null),
+    // the feed check works through every product: kept ready (lib/services/swr.ts)
+    swr.ready(`feed-google|${site || 'https://example.com'}`, 5 * 60e3, () => $services_feeds.build('google', s, site || 'https://example.com'), '/admin/marketing/feeds').then((r) => r.report).catch(() => null),
   ]);
   const ownDomain = /^https?:\/\//.test(site) && !/vercel\.app/.test(site) ? site.replace(/^https?:\/\//, '').replace(/\/.*$/, '') : '';
   const fbPage = !!(s.autopost_page_token && s.autopost_page_id);
