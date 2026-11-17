@@ -17,7 +17,7 @@ export default async function AdminRoot({ children }: { children: ReactNode }) {
   const nonce = cur.kind === 'page' ? cur.nonce : '';
   return (
     // the language and menu scripts set attributes on <html> / <body> before React takes over
-    <html lang="bn" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning>
       <head>
         <link rel="icon" href={s.favicon_id ? `/media/${s.favicon_id}/t` : '/brand/favicon-32.png'} />
         <link rel="preload" href="/fonts/noto-sans-bengali-bn-v5.woff2" as="font" type="font/woff2" crossOrigin="" />
@@ -26,7 +26,8 @@ export default async function AdminRoot({ children }: { children: ReactNode }) {
         <link rel="manifest" href="/admin.webmanifest" />
         <link rel="apple-touch-icon" href="/icon-192.png" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
-        {s.admin_i18n_on !== '0' ? <><script nonce={nonce} dangerouslySetInnerHTML={{ __html: adminLangBoot }} /><style dangerouslySetInnerHTML={{ __html: 'html.admin-i18n-wait body{visibility:hidden}' }} /></> : null}
+        {/* the admin is English only (owner, 2026-11-17): hidden for a moment while its words turn English */}
+        <script nonce={nonce} dangerouslySetInnerHTML={{ __html: adminLangBoot }} /><style dangerouslySetInnerHTML={{ __html: 'html.admin-i18n-wait body{visibility:hidden}' }} />
       </head>
       <body className={adminBodyClass(cur.kind === 'page' && cur.bare)} suppressHydrationWarning>
         {children}

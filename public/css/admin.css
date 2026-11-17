@@ -2266,3 +2266,129 @@ body.admin #main.admin-main .table-wrap:has(input[data-step-input]:not(:placehol
 body.admin #main.admin-main .table-wrap:has(input[data-step-input]:not(:placeholder-shown)) .inv-save .btn { flex: none; background: #F59E0B; border-color: #F59E0B; color: #111; }
 @media (min-width: 900px) { body.admin #main.admin-main .table-wrap:has(input[data-step-input]:not(:placeholder-shown)) .inv-save { left: calc(50% + 120px); } }
 @media (max-width: 520px) { body.admin #main.admin-main .table-wrap:has(input[data-step-input]:not(:placeholder-shown)) .inv-save::before { content: "✏️ সেভ হয়নি"; } }
+
+/* ================================================================================================================
+   v5 · "Veylix" layout (owner, 2026-11-17: the menu, top bar and dashboard laid out like the Veylix e-commerce
+   admin template — in the shop's OWN colours: blue var(--blue), amber var(--amber), the same glass surfaces as v4).
+   Side menu: brand block, four section titles (Operate · Commerce · Grow & connect · Workspace), groups with an
+   outline icon + arrow that fold open, the open page a soft blue pill with a blue bar on its left.
+   Top bar: two floating pills — search + quick numbers on the left, "View store" + the user on the right.
+   ================================================================================================================ */
+body.admin { --side: 272px; }
+body.admin .vx-side { padding: 0 12px 20px; display: flex; flex-direction: column; }
+body.admin .vx-brand { position: sticky; top: 0; z-index: 2; display: grid; grid-template-columns: auto 1fr; align-items: center; column-gap: 10px;
+  padding: 18px 8px 14px; margin: 0 -4px 6px; background: linear-gradient(180deg, rgba(255,255,255,.92), rgba(255,255,255,.75)); border-bottom: 1px solid var(--g-line); }
+body.admin .vx-brand .side-logo { grid-row: 1 / span 2; padding: 0; margin: 0; background: none; border: 0; font-size: 1.55rem; line-height: 1; }
+body.admin .vx-brand .side-logo .logo-img { max-height: 40px; }
+body.admin .vx-tag { grid-column: 2; align-self: end; color: var(--g-mut); font-size: .78rem; font-weight: 500; letter-spacing: .01em; }
+body.admin .vx-collapse { position: absolute; right: -6px; top: 22px; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center;
+  background: #fff; color: var(--ink); border: 1px solid var(--g-line-2); box-shadow: 0 4px 12px rgba(20, 33, 61, .12); cursor: pointer; }
+body.admin .vx-collapse:hover { color: var(--blue); border-color: rgba(8, 102, 214, .35); }
+body.admin .vx-brand .side-x { display: none; }
+body.admin .vx-nav { flex: 1; }
+body.admin .vx-section { margin-bottom: 4px; }
+body.admin .vx-title { margin: 14px 10px 6px; font-size: .8rem; font-weight: 700; color: var(--ink); letter-spacing: .01em; }
+body.admin .vx-side .vx-item, body.admin .vx-side .vx-group > summary.vx-item {
+  position: relative; display: flex; align-items: center; gap: 12px; padding: 9px 12px; margin: 1px 0; border-radius: 12px;
+  color: #2B3954; font-size: .93rem; font-weight: 500; text-decoration: none; background: none; box-shadow: none; }
+body.admin .vx-side .vx-item .ic { flex: none; color: #5B6B85; }
+body.admin .vx-side .vx-item:hover, body.admin .vx-side .vx-group > summary.vx-item:hover { background: rgba(8, 102, 214, .07); color: var(--ink); }
+body.admin .vx-side .vx-item:hover .ic { color: var(--blue); }
+body.admin .vx-side .vx-group > summary.vx-item::before { content: none; }
+body.admin .vx-side .vx-group > summary .side-label { flex: 1; }
+body.admin .vx-side .vx-group > summary .side-arrow { color: #8592A8; transform: none; transition: transform .18s ease; }
+body.admin .vx-side .vx-group[open] > summary .side-arrow { transform: rotate(180deg); color: var(--ink); }
+/* the open page (or the group that holds it): a soft blue pill with a blue bar on the left, like the template */
+body.admin .vx-side a.vx-item.on, body.admin .vx-side .vx-group.has-on > summary.vx-item {
+  background: color-mix(in srgb, var(--blue) 12%, #fff); color: var(--blue-d); font-weight: 600;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--blue) 22%, transparent); }
+body.admin .vx-side a.vx-item.on .ic, body.admin .vx-side .vx-group.has-on > summary .ic { color: var(--blue); }
+body.admin .vx-side a.vx-item.on::before, body.admin .vx-side .vx-group.has-on > summary.vx-item::before {
+  content: ""; position: absolute; left: -8px; top: 8px; bottom: 8px; width: 4px; border-radius: 4px; background: var(--blue); }
+body.admin .vx-side .vx-sub { margin: 2px 0 6px 22px; padding-left: 14px; border-left: 1px solid var(--g-line-2); }
+body.admin .vx-side .vx-sub a { display: block; padding: 7px 10px; border-radius: 10px; color: #4A5872; font-size: .88rem; font-weight: 500; background: none; box-shadow: none; }
+body.admin .vx-side .vx-sub a:hover { background: rgba(8, 102, 214, .07); color: var(--ink); }
+body.admin .vx-side .vx-sub a.on { background: none; color: var(--blue); font-weight: 700; box-shadow: none; }
+body.admin .vx-side .vx-sub a.on::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--amber); margin: 0 8px 1px -2px; vertical-align: middle; }
+
+/* top bar: the bar itself is see-through; its two halves are glass pills */
+body.admin .topbar.vx-top { background: none; border: 0; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; gap: 12px; padding: 0 16px 0 0; flex-wrap: nowrap; }
+body.admin .vx-top-left, body.admin .vx-top-right { display: flex; align-items: center; gap: 8px; padding: 7px; border-radius: 20px;
+  background: rgba(255, 255, 255, .66); -webkit-backdrop-filter: var(--g-blur); backdrop-filter: var(--g-blur); border: 1px solid var(--g-edge); box-shadow: 0 8px 24px rgba(20, 33, 61, .08); }
+body.admin .vx-top-left { flex: 1; min-width: 0; }
+body.admin .vx-top-right { margin-left: auto; flex: none; }
+body.admin .vx-top .top-search { position: relative; flex: 1; max-width: 360px; min-width: 160px; }
+body.admin .vx-top .top-search .ic { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #6B7891; pointer-events: none; }
+body.admin .vx-top .top-search input { height: 44px; padding: 0 14px 0 38px; border-radius: 14px; border: 1px solid var(--g-line-2); background: rgba(255,255,255,.85); }
+body.admin .top-chips { display: flex; gap: 6px; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+body.admin .top-chip { display: flex; align-items: center; gap: 8px; padding: 5px 12px 5px 6px; border-radius: 14px; text-decoration: none; color: var(--ink);
+  background: rgba(255,255,255,.85); border: 1px solid var(--g-line); white-space: nowrap; }
+body.admin .top-chip:hover { border-color: var(--g-line-2); box-shadow: 0 4px 12px rgba(20, 33, 61, .08); }
+body.admin .chip-ic { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 10px; }
+body.admin .chip-blue .chip-ic { background: color-mix(in srgb, var(--blue) 12%, #fff); color: var(--blue); }
+body.admin .chip-amber .chip-ic { background: color-mix(in srgb, var(--amber) 20%, #fff); color: var(--amber-d); }
+body.admin .chip-red .chip-ic { background: var(--red-l); color: var(--red); }
+body.admin .chip-tx { display: flex; flex-direction: column; line-height: 1.15; }
+body.admin .chip-tx small { font-size: .74rem; color: var(--g-mut); }
+body.admin .chip-tx b { font-size: .98rem; }
+body.admin .vx-top .top-link { display: inline-flex; align-items: center; gap: 6px; height: 40px; padding: 0 12px; border-radius: 12px; background: rgba(255,255,255,.85); border: 1px solid var(--g-line); font-weight: 600; font-size: .86rem; color: var(--ink); text-decoration: none; }
+body.admin .vx-top .user-menu summary { padding: 3px 8px 3px 3px; border-radius: 14px; }
+body.admin .vx-top .user-menu summary:hover { background: rgba(8, 102, 214, .06); }
+body.admin .vx-top .uname { display: flex; flex-direction: column; line-height: 1.15; font-size: .88rem; }
+body.admin .vx-top .uname small { font-weight: 500; font-size: .74rem; color: var(--g-mut); }
+@media (min-width: 901px) {
+  body.admin .topbar.vx-top { top: 12px; margin: 12px 12px 0 0; border-radius: 0; }
+  body.side-hidden .topbar.vx-top { margin-left: 12px; }
+  body.admin .vx-top .burger { display: none; }
+  body.side-hidden .vx-top .burger { display: block; }
+}
+@media (max-width: 1250px) { body.admin .chip-tx small { display: none; } body.admin .top-chip { padding-right: 10px; } }
+@media (max-width: 900px) {
+  body.admin .topbar.vx-top { position: sticky; top: 0; padding: 8px; background: rgba(255,255,255,.7); -webkit-backdrop-filter: var(--g-blur); backdrop-filter: var(--g-blur); border-bottom: 1px solid var(--g-line); }
+  body.admin .vx-top-left, body.admin .vx-top-right { padding: 0; background: none; border: 0; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+  body.admin .top-chips, body.admin .vx-top .top-link { display: none; }
+  body.admin .vx-collapse { display: none; }
+  body.admin .vx-brand .side-x { display: grid; position: absolute; right: 4px; top: 16px; }
+}
+
+/* ---------- Overview (dashboard), v5 ---------- */
+body.admin #main.admin-main .vx-dash { display: grid; gap: 16px; }
+body.admin #main.admin-main .vx-row-1 { display: grid; grid-template-columns: minmax(300px, 1.05fr) 2fr; gap: 16px; align-items: stretch; }
+body.admin #main.admin-main .vx-row-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+body.admin #main.admin-main .vx-hero { display: flex; flex-direction: column; gap: 10px; margin: 0; }
+body.admin #main.admin-main .vx-hero-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+body.admin #main.admin-main .vx-hero-label { color: var(--g-mut); font-weight: 600; font-size: .9rem; }
+body.admin #main.admin-main .vx-hero-value { font-size: clamp(1.9rem, 2.6vw, 2.5rem); font-weight: 800; color: var(--ink); line-height: 1.1; }
+body.admin #main.admin-main .vx-spark { display: flex; align-items: flex-end; gap: 3px; height: 48px; }
+body.admin #main.admin-main .vx-spark i { display: block; width: 5px; border-radius: 3px 3px 0 0; background: var(--amber); min-height: 3px; }
+body.admin #main.admin-main .vx-hero-sub { color: var(--g-mut); font-size: .88rem; }
+body.admin #main.admin-main .vx-hero-stats { display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid var(--g-line); padding-top: 12px; margin-top: auto; }
+body.admin #main.admin-main .vx-hero-stats > div + div { border-left: 1px solid var(--g-line); padding-left: 12px; }
+body.admin #main.admin-main .vx-hero-stats b { display: block; font-size: 1.2rem; color: var(--ink); }
+body.admin #main.admin-main .vx-hero-stats span { color: var(--g-mut); font-size: .82rem; }
+body.admin #main.admin-main .vx-right { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+body.admin #main.admin-main .vx-right > .panel { margin: 0; flex: 1; }
+body.admin #main.admin-main .vx-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+body.admin #main.admin-main .vx-stat { display: flex; align-items: center; gap: 10px; padding: 14px; border-radius: 20px; text-decoration: none; color: var(--ink);
+  background: var(--g-surf); border: 1px solid var(--g-edge); box-shadow: var(--g-shadow); min-width: 0; }
+body.admin #main.admin-main a.vx-stat:hover { transform: translateY(-1px); box-shadow: 0 12px 28px rgba(20, 33, 61, .1), inset 0 1px 0 #fff; }
+body.admin #main.admin-main .vx-stat .chip-ic { flex: none; width: 38px; height: 38px; border-radius: 12px; }
+body.admin #main.admin-main .vx-stat span { display: block; color: var(--g-mut); font-size: .8rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+body.admin #main.admin-main .vx-stat b { font-size: 1.15rem; }
+body.admin #main.admin-main .vx-stat .chip-green { background: var(--green-l); color: var(--green); }
+body.admin #main.admin-main .vx-card-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+body.admin #main.admin-main .vx-card-head h2 { margin: 0; }
+body.admin #main.admin-main .vx-card-head a { font-size: .86rem; font-weight: 600; color: var(--g-mut); text-decoration: none; }
+body.admin #main.admin-main .vx-card-head a:hover { color: var(--blue); }
+body.admin #main.admin-main .vx-bars { display: grid; gap: 8px; }
+body.admin #main.admin-main .vx-bar { display: block; padding: 10px 12px; border-radius: 14px; background: rgba(255,255,255,.6); border: 1px solid var(--g-line); text-decoration: none; color: var(--ink); }
+body.admin #main.admin-main .vx-bar-top { display: flex; justify-content: space-between; font-size: .9rem; margin-bottom: 6px; }
+body.admin #main.admin-main .vx-bar-track { height: 6px; border-radius: 6px; background: rgba(20, 33, 61, .08); overflow: hidden; }
+body.admin #main.admin-main .vx-bar-track i { display: block; height: 100%; border-radius: 6px; background: var(--blue); }
+body.admin #main.admin-main .vx-bar:nth-child(even) .vx-bar-track i { background: var(--amber); }
+body.admin #main.admin-main .vx-list { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+body.admin #main.admin-main .vx-list li a { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 10px 12px; border-radius: 14px; background: rgba(255,255,255,.6); border: 1px solid var(--g-line); text-decoration: none; color: var(--ink); }
+body.admin #main.admin-main .vx-list .small { display: block; }
+@media (max-width: 1200px) { body.admin #main.admin-main .vx-row-1 { grid-template-columns: 1fr; } body.admin #main.admin-main .vx-row-3 { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 760px) { body.admin #main.admin-main .vx-row-3 { grid-template-columns: 1fr; } body.admin #main.admin-main .vx-stats { grid-template-columns: 1fr 1fr; } }
+body.admin #main.admin-main .vx-section-h { margin: 22px 0 10px; font-size: 1.05rem; }

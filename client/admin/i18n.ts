@@ -34,7 +34,9 @@ whenReady(() => {
   const setByUs = new WeakSet<Node>();                              // nodes whose current text we wrote ourselves
   const docTitle = document.title;
 
-  try { lang = localStorage.getItem(KEY) === 'en' ? 'en' : 'bn'; } catch { /* private mode */ }
+  // English only (owner, 2026-11-17): there is no switch any more, every device shows the admin in English
+  lang = 'en';
+  try { localStorage.removeItem(KEY); } catch { /* private mode */ }
 
   // ---------------------------------------------------------------- dictionary
   const norm = (s: string) => String(s).replace(/\s+/g, ' ').trim();

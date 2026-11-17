@@ -7,7 +7,7 @@ export const shopLangBoot = (def: 'bn' | 'en'): string =>
   `(()=>{const d=document.documentElement;let l=${JSON.stringify(def)};try{const q=/[?&]lang=(en|bn)(?:&|$)/.exec(location.search);if(q){l=q[1];localStorage.setItem('sm_lang',l);}else{l=localStorage.getItem('sm_lang')||l;}}catch{}d.setAttribute('data-lang',l);if(l==='en'){d.lang='en';d.classList.add('i18n-wait');setTimeout(()=>d.classList.remove('i18n-wait'),1200);}})();`;
 
 /** Admin <head>: English chosen on this device → hide the page until the words are switched (no Bangla flash). */
-export const adminLangBoot = "(()=>{try{if(localStorage.getItem('sm_admin_lang')==='en'){const d=document.documentElement;d.classList.add('admin-i18n-wait');d.setAttribute('data-admin-lang','en');}}catch{}})();";
+export const adminLangBoot = "(()=>{const d=document.documentElement;d.classList.add('admin-i18n-wait');d.setAttribute('data-admin-lang','en');})();";
 
 /** Admin body start: the side menu stays hidden on a big screen when the owner hid it. */
 export const adminSideBoot = "try{if(localStorage.getItem('sm_side_hidden')==='1')document.body.classList.add('side-hidden')}catch{}";
