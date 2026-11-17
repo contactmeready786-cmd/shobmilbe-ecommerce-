@@ -28,10 +28,16 @@ test('HTML text: words and hints change, data and code attributes stay', () => {
   assert.match(out, /var a="সেটিংস"/);
 });
 
-test('React tree: components are drawn and translated, translate="no" kept', () => {
+test('React tree: components are drawn and translated, translate="no" kept', async () => {
   const Box = ({ label }: { label: string }) => <section><h2>{label}</h2><p translate="no">সেটিংস</p></section>;
-  const html = renderHtml(adminEnglish(<div title="সেটিংস"><Box label="সেটিংস" /></div>));
+  const html = renderHtml(await adminEnglish(<div title="সেটিংস"><Box label="সেটিংস" /></div>));
   assert.match(html, /title="Settings"/);
   assert.match(html, /<h2>Settings<\/h2>/);
   assert.match(html, /<p translate="no">সেটিংস<\/p>/);
+});
+
+test('the owner\'s own words come from the shop\'s English version (lead and count kept)', async () => {
+  const lookup = async (texts: string[]) => new Map(texts.filter((t) => t.includes('সেন্সরঝ')).map((t) => [t, t.replace('সেন্সরঝ', 'Sensorx')]));
+  const html = renderHtml(await adminEnglish(<select><option>└ সেন্সরঝ</option></select>, undefined, lookup));
+  assert.match(html, /└ Sensorx/);
 });

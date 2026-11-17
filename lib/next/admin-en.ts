@@ -14,6 +14,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { Fragment, cloneElement, createElement, isValidElement, type ReactElement, type ReactNode } from 'react';
 import { Raw } from '../util';
+import type { Settings } from '../types';
 
 const LETTER = /[ঀ-৥ৰ-৲৴-৿]/; // Bangla letters (not digits, not ৳)
 const HAS_DIGIT = /[০-৯]/;
@@ -220,9 +221,14 @@ function plainText(children: ReactNode): string | null {
   return hasEl ? s : null;
 }
 
+// Bangla still left after the dictionary (the owner's own words: product and category names…), gathered for the
+// second step — they are looked up in the shop's English version (the `translations` table).
+let leftover: Set<string> | null = null;
+const keep = (s: string) => { if (leftover && LETTER.test(s)) leftover.add(s); return s; };
+
 function walk(node: ReactNode, depth: number): ReactNode {
   if (depth > 400) return node;
-  if (typeof node === 'string') return tr(node);
+  if (typeof node === 'string') return keep(tr(node));
   if (node === null || node === undefined || typeof node === 'boolean' || typeof node === 'number' || typeof node === 'bigint') return node;
   if (node instanceof Raw) return new Raw(adminEnglishHtml(node.s)) as unknown as ReactNode;
   if (Array.isArray(node)) return node.map((x) => walk(x as ReactNode, depth + 1));
@@ -252,7 +258,7 @@ function walk(node: ReactNode, depth: number): ReactNode {
     for (const [k, v] of Object.entries(props)) {
       if (!ATTRS.has(k) && k !== 'aria-label' && k !== 'ariaLabel') continue;
       if (typeof v !== 'string') continue;
-      const en = tr(v);
+      const en = keep(tr(v));
       if (en !== v) { next[k] = en; changed = true; }
     }
     if (tag === 'input' && /^(submit|button)$/i.test(String(props.type || ''))) {
@@ -302,18 +308,73 @@ function childArgs(kids: ReactNode): ReactNode[] {
   return [kids];
 }
 
-/** A whole admin page (React) in English. Never throws: on any trouble the page goes as it was. */
-export function adminEnglish(node: ReactNode): ReactNode {
+// ------------------------------------------------------------------------------------------------ the owner's words
+// "└ সেন্সর (12)" → lead "└ ", core "সেন্সর", trail " (12)"
+const SPLIT = /^([^ঀ-৿A-Za-z]*)([\s\S]*?)(\s*\(\s*[0-9০-৯]+\s*\)\s*|\s*)$/;
+type Lookup = (texts: string[]) => Promise<Map<string, string>>;
+
+/** The owner's own words (product, category, brand names…) from the shop's English version. Never slower than ~1 s:
+ *  a word not translated yet is translated once (and kept); if that takes too long the page goes without it. */
+async function ownerWords(texts: string[], settings: Settings): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  const cores = new Map<string, [string, string, string][]>(); // core → [original, lead, trail]
+  for (const t of texts) {
+    const m = SPLIT.exec(t);
+    const core = norm(m ? m[2] : t);
+    if (!core || core.length > 3000 || !LETTER.test(core)) continue;
+    const list = cores.get(core) || [];
+    list.push([t, m ? m[1] : '', m ? m[3] : '']);
+    cores.set(core, list);
+  }
+  if (!cores.size) return out;
+  const translate = await import('../services/translate');
+  const found = await translate.lookup([...cores.keys()], settings, { auto: true, deadline: Date.now() + 900 }) as Record<string, unknown>;
+  for (const [core, list] of cores) {
+    const en = found[core];
+    if (typeof en !== 'string' || !en) continue;
+    for (const [orig, lead, trail] of list) out.set(orig, lead + en + digits(trail));
+  }
+  return out;
+}
+
+function swap(node: ReactNode, map: Map<string, string>, depth: number): ReactNode {
+  if (depth > 400) return node;
+  if (typeof node === 'string') return map.get(node) ?? node;
+  if (Array.isArray(node)) return node.map((x) => swap(x as ReactNode, map, depth + 1));
+  if (!isValidElement(node)) return node;
+  const el = node as ReactElement<Props>;
+  const props = el.props || {};
+  if (typeof el.type !== 'string') return 'children' in props ? cloneElement(el, undefined, swap(props.children, map, depth + 1)) : node;
+  const tag = el.type.toLowerCase();
+  if (SKIP_TAGS.has(tag) || props.translate === 'no' || 'data-no-i18n' in props || props.dangerouslySetInnerHTML) return node;
+  const next: Props = {};
+  for (const [k, v] of Object.entries(props)) if (ATTRS.has(k) && typeof v === 'string' && map.has(v)) next[k] = map.get(v);
+  return 'children' in props ? cloneElement(el, next, swap(props.children, map, depth + 1)) : Object.keys(next).length ? cloneElement(el, next) : node;
+}
+
+/** A whole admin page (React) in English: the admin's words from the dictionary, then the owner's own words
+ *  (product / category names) from the shop's English version. Never throws: on any trouble the page goes as it is. */
+export async function adminEnglish(node: ReactNode, settings?: Settings, lookup?: Lookup): Promise<ReactNode> {
+  if (!ready()) return node;
+  const t0 = performance.now();
+  let out: ReactNode = node;
+  let left: string[] = [];
   try {
-    if (!ready()) return node;
-    const t0 = performance.now();
-    const out = walk(node, 0);
-    const ms = Math.round(performance.now() - t0);
-    if (ms > 150) console.warn(`admin English: ${ms} ms`);
-    // how long it took, for checking speed (an empty hidden tag)
-    return createElement(Fragment, null, out, createElement('template', { 'data-en-ms': String(ms) }));
+    leftover = new Set();
+    out = walk(node, 0);
+    left = [...leftover];
   } catch (e) {
     console.error('admin English:', (e as Error).message);
     return node;
+  } finally { leftover = null; }
+  if (left.length && (settings || lookup)) {
+    try {
+      const map = lookup ? await lookup(left) : await ownerWords(left, settings!);
+      if (map.size) out = swap(out, map, 0);
+    } catch (e) { console.error('admin English (owner words):', (e as Error).message); }
   }
+  const ms = Math.round(performance.now() - t0);
+  if (ms > 300) console.warn(`admin English: ${ms} ms`);
+  // how long it took, for checking speed (an empty hidden tag)
+  return createElement(Fragment, null, out, createElement('template', { 'data-en-ms': String(ms) }));
 }
