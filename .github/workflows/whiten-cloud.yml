@@ -45,7 +45,7 @@ jobs:
           sudo swapoff -a 2>/dev/null || true
           sudo fallocate -l 8G /swapfile2 && sudo chmod 600 /swapfile2 && sudo mkswap /swapfile2 >/dev/null && sudo swapon /swapfile2
           free -m
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         if: steps.look.outputs.n != '0'
         with: { python-version: '3.12', cache: pip, cache-dependency-path: tools/whiten/requirements.txt }
       - name: Make the pictures white
