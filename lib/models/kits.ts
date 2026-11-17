@@ -115,12 +115,13 @@ async function guideStatus() {
   const made = new Map((await db.q<Pick<KitsRow, 'id' | 'guide_key' | 'slug' | 'active'>>(`SELECT id, guide_key, slug, active FROM kits WHERE guide_key <> ''`)).map((k) => [k.guide_key, k]));
   type FoundPart = GuidePart & { product: Awaited<ReturnType<typeof matchPart>> };
   const out: (Omit<Guide, 'parts'> & { parts: FoundPart[]; missing: FoundPart[]; kit: Pick<KitsRow, 'id' | 'guide_key' | 'slug' | 'active'> | null })[] = [];
-  for (const g of GUIDES) {
-    const parts: FoundPart[] = [];
-    for (const part of g.parts) parts.push({ ...part, product: await matchPart(part) });
+  // (2026-11-18) every part looked up at the same time, not one after another (the kits page waited ~2.5 s)
+  const found = await Promise.all(GUIDES.map((g) => Promise.all(g.parts.map(async (part): Promise<FoundPart> => ({ ...part, product: await matchPart(part) })))));
+  GUIDES.forEach((g, i) => {
+    const parts = found[i];
     const missing = parts.filter((p) => !p.product && !p.optional);
     out.push({ ...g, parts, missing, kit: made.get(g.key) || null });
-  }
+  });
   return out;
 }
 // One tap: the guide becomes a kit. Switched on only when every needed part was found in the shop.

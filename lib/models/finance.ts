@@ -496,7 +496,7 @@ async function monthlySeries(months: number | string = 12) {
 }
 
 async function dashboard(from: Day, to: Day) {
-  const k = await one<{ orders: number; pending_in_range: number; delivered: number; failed: number; sales: number; gross: number; aov: number; buyers: number }>(`SELECT
+  const kP = one<{ orders: number; pending_in_range: number; delivered: number; failed: number; sales: number; gross: number; aov: number; buyers: number }>(`SELECT
       count(*)::int AS orders,
       count(*) FILTER (WHERE status='pending')::int AS pending_in_range,
       count(*) FILTER (WHERE status='delivered')::int AS delivered,
@@ -506,7 +506,7 @@ async function dashboard(from: Day, to: Day) {
       coalesce(avg(total) FILTER (WHERE status NOT IN ('cancelled','returned')),0)::numeric(14,2) AS aov,
       count(DISTINCT phone)::int AS buyers
     FROM orders o WHERE ${DHAKA_DAY} BETWEEN $1 AND $2`, [from, to]);
-  const live = await one<Record<'pending' | 'to_ship' | 'shipped' | 'today_orders' | 'today_sales' | 'customers' | 'new_customers' | 'products' | 'out_of_stock' | 'low_stock' | 'week_sales' | 'week_orders' | 'month_sales' | 'month_orders' | 'cancel_return_30', number>>(`SELECT
+  const liveP = one<Record<'pending' | 'to_ship' | 'shipped' | 'today_orders' | 'today_sales' | 'customers' | 'new_customers' | 'products' | 'out_of_stock' | 'low_stock' | 'week_sales' | 'week_orders' | 'month_sales' | 'month_orders' | 'cancel_return_30', number>>(`SELECT
       (SELECT count(*) FROM orders WHERE status='pending')::int AS pending,
       (SELECT count(*) FROM orders WHERE status IN ('confirmed','processing'))::int AS to_ship,
       (SELECT count(*) FROM orders WHERE status='shipped')::int AS shipped,
@@ -522,22 +522,24 @@ async function dashboard(from: Day, to: Day) {
       (SELECT coalesce(sum(total),0) FROM orders o WHERE date_trunc('month', ${DHAKA_DAY}) = date_trunc('month', (now() AT TIME ZONE 'Asia/Dhaka')::date) AND status NOT IN ('cancelled','returned'))::numeric(14,2) AS month_sales,
       (SELECT count(*) FROM orders o WHERE date_trunc('month', ${DHAKA_DAY}) = date_trunc('month', (now() AT TIME ZONE 'Asia/Dhaka')::date))::int AS month_orders,
       (SELECT count(*) FROM orders WHERE status IN ('cancelled','returned') AND updated_at > now() - interval '30 days')::int AS cancel_return_30`, [from, to]);
-  const byStatus = await q<{ status: string; n: number }>(`SELECT status, count(*)::int AS n FROM orders o WHERE ${DHAKA_DAY} BETWEEN $1 AND $2 GROUP BY status`, [from, to]);
-  const topProducts = await q<{ product_id: number | null; name: string; qty: number; revenue: number; profit: number | null }>(`SELECT i.product_id, i.name, sum(i.qty)::int AS qty, sum(i.qty * i.price)::numeric(14,2) AS revenue,
+  const byStatusP = q<{ status: string; n: number }>(`SELECT status, count(*)::int AS n FROM orders o WHERE ${DHAKA_DAY} BETWEEN $1 AND $2 GROUP BY status`, [from, to]);
+  const topProductsP = q<{ product_id: number | null; name: string; qty: number; revenue: number; profit: number | null }>(`SELECT i.product_id, i.name, sum(i.qty)::int AS qty, sum(i.qty * i.price)::numeric(14,2) AS revenue,
       sum(i.qty * (i.price - i.cost))::numeric(14,2) AS profit
     FROM order_items i JOIN orders o ON o.id=i.order_id WHERE ${DHAKA_DAY} BETWEEN $1 AND $2 AND o.status NOT IN ('cancelled','returned')
     GROUP BY i.product_id, i.name ORDER BY qty DESC LIMIT 8`, [from, to]);
-  const byCategory = await q<{ name: string; revenue: number }>(`SELECT coalesce(c.name, 'ক্যাটাগরি নেই') AS name, sum(i.qty * i.price)::numeric(14,2) AS revenue
+  const byCategoryP = q<{ name: string; revenue: number }>(`SELECT coalesce(c.name, 'ক্যাটাগরি নেই') AS name, sum(i.qty * i.price)::numeric(14,2) AS revenue
     FROM order_items i JOIN orders o ON o.id=i.order_id LEFT JOIN products p ON p.id=i.product_id LEFT JOIN categories c ON c.id=p.category_id
     WHERE ${DHAKA_DAY} BETWEEN $1 AND $2 AND o.status NOT IN ('cancelled','returned') GROUP BY 1 ORDER BY 2 DESC LIMIT 8`, [from, to]);
-  const byZone = await q<{ area: string; n: number }>(`SELECT area, count(*)::int AS n FROM orders o WHERE ${DHAKA_DAY} BETWEEN $1 AND $2 GROUP BY area`, [from, to]);
-  const byPayment = await q<{ payment: string; n: number }>(`SELECT payment, count(*)::int AS n FROM orders o WHERE ${DHAKA_DAY} BETWEEN $1 AND $2 GROUP BY payment ORDER BY n DESC`, [from, to]);
-  const byDistrict = await q<{ district: string; n: number }>(`SELECT coalesce(nullif(district,''),'অজানা') AS district, count(*)::int AS n FROM orders o WHERE ${DHAKA_DAY} BETWEEN $1 AND $2 GROUP BY 1 ORDER BY 2 DESC LIMIT 8`, [from, to]);
-  const byHour = await q<{ h: number; n: number }>(`SELECT extract(hour from o.created_at AT TIME ZONE 'Asia/Dhaka')::int AS h, count(*)::int AS n FROM orders o WHERE ${DHAKA_DAY} BETWEEN $1 AND $2 GROUP BY 1`, [from, to]);
-  const expenses = await one<{ total: number }>(`SELECT coalesce(sum(amount),0)::numeric(14,2) AS total FROM transactions WHERE type='expense' AND tx_date BETWEEN $1 AND $2
+  const byZoneP = q<{ area: string; n: number }>(`SELECT area, count(*)::int AS n FROM orders o WHERE ${DHAKA_DAY} BETWEEN $1 AND $2 GROUP BY area`, [from, to]);
+  const byPaymentP = q<{ payment: string; n: number }>(`SELECT payment, count(*)::int AS n FROM orders o WHERE ${DHAKA_DAY} BETWEEN $1 AND $2 GROUP BY payment ORDER BY n DESC`, [from, to]);
+  const byDistrictP = q<{ district: string; n: number }>(`SELECT coalesce(nullif(district,''),'অজানা') AS district, count(*)::int AS n FROM orders o WHERE ${DHAKA_DAY} BETWEEN $1 AND $2 GROUP BY 1 ORDER BY 2 DESC LIMIT 8`, [from, to]);
+  const byHourP = q<{ h: number; n: number }>(`SELECT extract(hour from o.created_at AT TIME ZONE 'Asia/Dhaka')::int AS h, count(*)::int AS n FROM orders o WHERE ${DHAKA_DAY} BETWEEN $1 AND $2 GROUP BY 1`, [from, to]);
+  const expensesP = one<{ total: number }>(`SELECT coalesce(sum(amount),0)::numeric(14,2) AS total FROM transactions WHERE type='expense' AND tx_date BETWEEN $1 AND $2
       AND category NOT IN ('সাপ্লায়ার পেমেন্ট','মালিকের উত্তোলন','ঋণ পরিশোধ','ভ্যাট/ট্যাক্স পরিশোধ')`, [from, to]);
-  const inventory = await catalog.inventorySummary();
-  const lowStock = await catalog.listProducts({ includeInactive: false, lowStock: true, sort: 'stock_asc', limit: 8, type: 'single', items: true });
+  const inventoryP = catalog.inventorySummary();
+  const lowStockP = catalog.listProducts({ includeInactive: false, lowStock: true, sort: 'stock_asc', limit: 8, type: 'single', items: true });
+  // (2026-11-18) all at once instead of one after another — the dashboard waited for 15 questions in a row
+  const [k, live, byStatus, topProducts, byCategory, byZone, byPayment, byDistrict, byHour, expenses, inventory, lowStock] = await Promise.all([kP, liveP, byStatusP, topProductsP, byCategoryP, byZoneP, byPaymentP, byDistrictP, byHourP, expensesP, inventoryP, lowStockP]);
   return { k, live, byStatus, topProducts, byCategory, byZone, byPayment, byDistrict, byHour, expenses: Number(expenses!.total), inventory, lowStock };
 }
 
