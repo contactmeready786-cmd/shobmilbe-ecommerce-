@@ -2480,19 +2480,6 @@ body.admin #main.admin-main .pill::before { content: none; }
   body.admin #main.admin-main .table tbody tr:nth-child(4n+4) td { background-color: rgba(253, 241, 222, .65); }
   body.admin #main.admin-main .table tbody tr:hover td { background-color: #fff; }
 }
-/* pages of a set (tabs) sit in a list on the left, like the template's settings pages */
-@media (min-width: 1100px) {
-  body.admin #main.admin-main:has(> .page-tabs) { display: grid; grid-template-columns: 250px minmax(0, 1fr); column-gap: 20px; align-items: start; }
-  body.admin #main.admin-main:has(> .page-tabs) > * { grid-column: 2; min-width: 0; }
-  body.admin #main.admin-main:has(> .page-tabs) > .vx-crumb { grid-column: 1 / -1; }
-  body.admin #main.admin-main > .page-tabs { grid-column: 1; grid-row: 2 / span 40; position: sticky; top: 100px; display: flex; flex-direction: column; align-items: stretch; gap: 4px;
-    padding: 10px; margin: 0; border: 1px solid rgba(255, 255, 255, .95); border-radius: 16px; background: linear-gradient(135deg, rgba(255,255,255,.93), rgba(255,255,255,.76)); box-shadow: 0 5px 18px -9px rgba(20, 33, 61, .18); overflow: visible; }
-  body.admin #main.admin-main > .page-tabs .home-tab { display: flex; justify-content: space-between; align-items: center; padding: 11px 14px; border-radius: 10px; font-weight: 600; color: #3A4862; white-space: normal; box-shadow: none; background: none; }
-  body.admin #main.admin-main > .page-tabs .home-tab::after { content: "›"; color: #8592A8; font-size: 1.1rem; }
-  body.admin #main.admin-main > .page-tabs .home-tab > span[aria-hidden] { display: none; }
-  body.admin #main.admin-main > .page-tabs .home-tab:hover { background: rgba(8, 102, 214, .06); }
-  body.admin #main.admin-main > .page-tabs .home-tab.on { background: color-mix(in srgb, var(--amber) 28%, #fff); color: var(--ink); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--amber) 50%, transparent); }
-}
 /* folded boxes, now open: drawn as cards with a heading, like the template */
 body.admin #main.admin-main details.note-fold, body.admin #main.admin-main details.help, body.admin #main.admin-main details.sec-quiet, body.admin #main.admin-main details.small, body.admin #main.admin-main details.feed-issues {
   padding: 14px 16px; margin: 0 0 16px; border-radius: 14px; background: color-mix(in srgb, var(--blue) 5%, rgba(255,255,255,.85)); border: 1px solid color-mix(in srgb, var(--blue) 14%, transparent); }
@@ -2510,3 +2497,28 @@ body.admin #main.admin-main .tool-tile > .tool-body { position: static; width: a
 body.admin #main.admin-main .settings-box > summary::after { content: none; }
 /* v6 fix: the logo block is solid, so menu lines scrolling under it never show through */
 body.admin .vx-brand { background: #fff; border-radius: 26px 26px 0 0; margin: 0 -12px 6px; padding: 18px 44px 14px 22px; }
+
+/* pages of a set: back to tabs across the top (owner, 2026-11-17), all in ONE row that always fits the screen —
+   each tab shares the width, the text gets a little smaller on narrow screens and may wrap onto a second line,
+   never hidden or pushed off to the side */
+body.admin #main.admin-main > .page-tabs, body.admin #main.admin-main > .home-tabs {
+  display: flex; flex-wrap: nowrap; align-items: stretch; gap: 4px; width: 100%; overflow: visible;
+  padding: 5px; margin: 0 0 18px; border: 1px solid rgba(255,255,255,.95); border-radius: 14px;
+  background: linear-gradient(135deg, rgba(255,255,255,.9), rgba(255,255,255,.72)); box-shadow: 0 5px 18px -9px rgba(20,33,61,.18); }
+body.admin #main.admin-main > .page-tabs .home-tab, body.admin #main.admin-main > .home-tabs .home-tab {
+  flex: 1 1 0; min-width: 0; display: flex; align-items: center; justify-content: center; gap: 6px; text-align: center;
+  white-space: normal; line-height: 1.25; padding: 8px 10px; margin: 0; border: 0; border-radius: 10px;
+  font-size: clamp(11.5px, .82vw, 14px); font-weight: 650; color: #4A5872; background: none; box-shadow: none; }
+body.admin #main.admin-main > .home-tabs .home-tab { flex: 0 1 auto; padding: 8px 18px; }
+body.admin #main.admin-main > .page-tabs .home-tab > span[aria-hidden], body.admin #main.admin-main > .home-tabs .home-tab > span[aria-hidden] { display: inline; flex: none; }
+body.admin #main.admin-main > .page-tabs .home-tab:hover, body.admin #main.admin-main > .home-tabs .home-tab:hover { background: rgba(8,102,214,.06); color: var(--ink); }
+body.admin #main.admin-main > .page-tabs .home-tab.on, body.admin #main.admin-main > .home-tabs .home-tab.on {
+  background: color-mix(in srgb, var(--amber) 28%, #fff); color: var(--ink); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--amber) 50%, transparent); }
+/* phones: too narrow for one row of many tabs — they slide sideways instead */
+@media (max-width: 700px) {
+  body.admin #main.admin-main > .page-tabs { overflow-x: auto; scrollbar-width: none; }
+  body.admin #main.admin-main > .page-tabs .home-tab { flex: 0 0 auto; max-width: 70vw; white-space: nowrap; font-size: 13px; }
+}
+/* every screen size: nothing in the page may push the page wider than the window */
+body.admin .main-col, body.admin #main.admin-main { min-width: 0; max-width: 100%; }
+body.admin #main.admin-main :is(h1, h2, h3, .panel, .tool-tile, .settings-box) { overflow-wrap: anywhere; }

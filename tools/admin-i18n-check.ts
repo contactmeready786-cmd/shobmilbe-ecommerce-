@@ -37,7 +37,7 @@ for (const f of new Set(files)) {
       if (p && BN_LETTER.test(p) && !/=>|\bconst\b/.test(p)) add(p);
     }
   }
-  for (const part of src.split(/<\/?[a-zA-Z][^<>]*>|\$\{|\}|`|'|"|\n|=>|\|\||<|>/)) {
+  for (const part of src.split(/<\/?[a-zA-Z][^<>]*>|\$\{|\{|\}|`|'|"|\n|=>|\|\||<|>/)) {
     if (!BN_LETTER.test(part)) continue;
     const p = trim(part);
     if (!p || !BN_LETTER.test(p) || p.length > 700) continue;
