@@ -2430,3 +2430,81 @@ body.admin #main.admin-main .btn:not(.btn-ghost):not(.btn-danger):not(.btn-sm) {
 body.admin #main.admin-main :is(input:not([type=checkbox]):not([type=radio]):not([type=range]), select, textarea) { border-radius: 12px; }
 /* number boxes: a little bigger number, like the template's stat cards */
 body.admin #main.admin-main .kpi-value { font-size: 1.45rem; font-weight: 800; }
+
+/* ================================================================================================================
+   v6 · the Veylix template's own measurements (owner, 2026-11-17: "follow their design standard, not the earlier
+   one"), in the shop's own colours. Font: Manrope (free, SIL Open Font License) for Latin text, the Bangla font
+   for Bangla letters. Base 14px; titles 28px/750; cards 16px radius white glass; buttons 10px radius, 43px tall,
+   weight 800; boxes 10px radius, 41px tall; table header row a tinted strip; rows 12px-radius tinted strips;
+   status badges 8px radius 13px/750. Folded boxes are open (client/admin/main.ts) and drawn as cards.
+   ================================================================================================================ */
+@font-face { font-family: 'Manrope Variable'; font-style: normal; font-display: swap; font-weight: 200 800;
+  src: url('/fonts/manrope-latin-wght-normal.woff2') format('woff2-variations'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+body.admin { --vx-font: 'Manrope Variable', 'Noto Sans Bengali', 'Segoe UI', system-ui, sans-serif; --side: 264px; font-family: var(--vx-font); font-size: 14px; line-height: 1.5; color: #1E2A40; }
+body.admin :is(input, select, textarea, button) { font-family: inherit; }
+body.admin .vx-side { border-radius: 30px; }
+/* cards */
+body.admin #main.admin-main :is(.panel, .kpi, .toolbar, .date-filter, .help, .vx-stat) {
+  border-radius: 16px; background: linear-gradient(135deg, rgba(255, 255, 255, .93), rgba(255, 255, 255, .76));
+  border: 1px solid rgba(255, 255, 255, .95); box-shadow: 0 5px 18px -9px rgba(20, 33, 61, .18), inset 0 1px 0 #fff; }
+body.admin #main.admin-main .panel { padding: 20px 22px; }
+body.admin #main.admin-main .panel h2, body.admin #main.admin-main h2 { font-size: 1.05rem; font-weight: 750; letter-spacing: -.005em; }
+/* page title */
+body.admin #main.admin-main h1 { font-size: 28px; font-weight: 750; line-height: 1.25; }
+body.admin .vx-crumb { font-size: 14px; }
+/* buttons */
+body.admin #main.admin-main .btn { min-height: 43px; padding: 10px 17px; border-radius: 10px; font-weight: 800; font-size: 14px; }
+body.admin #main.admin-main .btn.btn-sm { min-height: 34px; padding: 6px 12px; border-radius: 9px; font-size: 13px; }
+body.admin #main.admin-main .btn:not(.btn-ghost):not(.btn-danger) { background: linear-gradient(120deg, color-mix(in srgb, var(--blue) 82%, #fff), var(--blue)); border: 1px solid var(--blue); color: #fff;
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, .45), 0 3px 6px color-mix(in srgb, var(--blue) 18%, transparent); }
+body.admin #main.admin-main .btn.btn-ghost { background: #fff; border: 1px solid #DCE3EE; color: var(--ink); box-shadow: none; }
+/* form boxes */
+body.admin #main.admin-main :is(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]):not([type=color]), select) { min-height: 41px; border-radius: 10px; }
+body.admin #main.admin-main :is(input:not([type=checkbox]):not([type=radio]):not([type=range]), select, textarea) { background-color: rgba(255, 255, 255, .78); border: 1px solid #DCE3EE; }
+body.admin #main.admin-main :is(input, select, textarea):focus { border-color: var(--blue); box-shadow: 0 0 0 3px color-mix(in srgb, var(--blue) 16%, transparent); outline: none; }
+body.admin #main.admin-main .field > span, body.admin #main.admin-main label > span:first-child { font-weight: 700; }
+/* badges */
+body.admin #main.admin-main .pill { border-radius: 8px; padding: 5px 8px; font-size: 13px; font-weight: 750; }
+body.admin #main.admin-main .pill::before { content: none; }
+/* tables (computer): header = one tinted strip, rows = tinted strips with round ends */
+@media (min-width: 901px) {
+  body.admin #main.admin-main .table th { text-transform: none; letter-spacing: 0; font-size: 14px; font-weight: 700; color: #5B6B85; background: rgba(226, 232, 242, .85); padding: 10px 14px; }
+  body.admin #main.admin-main .table thead th:first-child { border-radius: 9px 0 0 9px; }
+  body.admin #main.admin-main .table thead th:last-child { border-radius: 0 9px 9px 0; }
+  body.admin #main.admin-main .table tbody td { padding: 14px; border: 0; background: rgba(255, 255, 255, .7); }
+  body.admin #main.admin-main .table tbody td:first-child { border: 0; border-radius: 12px 0 0 12px; }
+  body.admin #main.admin-main .table tbody td:last-child { border: 0; border-radius: 0 12px 12px 0; }
+  body.admin #main.admin-main .table tbody tr:nth-child(4n+1) td { background-color: rgba(226, 244, 233, .55); }
+  body.admin #main.admin-main .table tbody tr:nth-child(4n+2) td { background-color: rgba(228, 238, 252, .65); }
+  body.admin #main.admin-main .table tbody tr:nth-child(4n+3) td { background-color: rgba(240, 234, 250, .6); }
+  body.admin #main.admin-main .table tbody tr:nth-child(4n+4) td { background-color: rgba(253, 241, 222, .65); }
+  body.admin #main.admin-main .table tbody tr:hover td { background-color: #fff; }
+}
+/* pages of a set (tabs) sit in a list on the left, like the template's settings pages */
+@media (min-width: 1100px) {
+  body.admin #main.admin-main:has(> .page-tabs) { display: grid; grid-template-columns: 250px minmax(0, 1fr); column-gap: 20px; align-items: start; }
+  body.admin #main.admin-main:has(> .page-tabs) > * { grid-column: 2; min-width: 0; }
+  body.admin #main.admin-main:has(> .page-tabs) > .vx-crumb { grid-column: 1 / -1; }
+  body.admin #main.admin-main > .page-tabs { grid-column: 1; grid-row: 2 / span 40; position: sticky; top: 100px; display: flex; flex-direction: column; align-items: stretch; gap: 4px;
+    padding: 10px; margin: 0; border: 1px solid rgba(255, 255, 255, .95); border-radius: 16px; background: linear-gradient(135deg, rgba(255,255,255,.93), rgba(255,255,255,.76)); box-shadow: 0 5px 18px -9px rgba(20, 33, 61, .18); overflow: visible; }
+  body.admin #main.admin-main > .page-tabs .home-tab { display: flex; justify-content: space-between; align-items: center; padding: 11px 14px; border-radius: 10px; font-weight: 600; color: #3A4862; white-space: normal; box-shadow: none; background: none; }
+  body.admin #main.admin-main > .page-tabs .home-tab::after { content: "›"; color: #8592A8; font-size: 1.1rem; }
+  body.admin #main.admin-main > .page-tabs .home-tab > span[aria-hidden] { display: none; }
+  body.admin #main.admin-main > .page-tabs .home-tab:hover { background: rgba(8, 102, 214, .06); }
+  body.admin #main.admin-main > .page-tabs .home-tab.on { background: color-mix(in srgb, var(--amber) 28%, #fff); color: var(--ink); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--amber) 50%, transparent); }
+}
+/* folded boxes, now open: drawn as cards with a heading, like the template */
+body.admin #main.admin-main details.note-fold, body.admin #main.admin-main details.help, body.admin #main.admin-main details.sec-quiet, body.admin #main.admin-main details.small, body.admin #main.admin-main details.feed-issues {
+  padding: 14px 16px; margin: 0 0 16px; border-radius: 14px; background: color-mix(in srgb, var(--blue) 5%, rgba(255,255,255,.85)); border: 1px solid color-mix(in srgb, var(--blue) 14%, transparent); }
+body.admin #main.admin-main details.note-fold > summary, body.admin #main.admin-main details.help > summary { font-weight: 750; color: var(--blue-d); cursor: pointer; list-style: none; margin-bottom: 6px; }
+body.admin #main.admin-main details.note-fold > summary::-webkit-details-marker, body.admin #main.admin-main details.help > summary::-webkit-details-marker { display: none; }
+body.admin #main.admin-main details.note-fold > :not(summary), body.admin #main.admin-main details.help > :not(summary) { color: #3A4862; }
+body.admin #main.admin-main details.note-fold > p:last-child { margin-bottom: 0; }
+/* tool panels: no more pop-ups — a grid of cards, each with its title and its content */
+body.admin #main.admin-main .tool-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; align-items: start; margin-bottom: 16px; }
+body.admin #main.admin-main .tool-row > .tool-pill { align-self: stretch; }
+body.admin #main.admin-main .tool-tile { position: static; border-radius: 16px; background: linear-gradient(135deg, rgba(255,255,255,.93), rgba(255,255,255,.76)); border: 1px solid rgba(255,255,255,.95); box-shadow: 0 5px 18px -9px rgba(20, 33, 61, .18); overflow: hidden; }
+body.admin #main.admin-main .tool-tile > summary { display: flex; width: 100%; justify-content: space-between; border: 0; border-bottom: 1px solid var(--g-line); border-radius: 0; background: transparent; box-shadow: none; padding: 14px 18px; font-size: 15px; font-weight: 750; }
+body.admin #main.admin-main .tool-tile > .tool-body { position: static; width: auto; max-height: none; margin: 0; padding: 16px 18px; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+/* settings boxes open: the heading stays, the arrow goes */
+body.admin #main.admin-main .settings-box > summary::after { content: none; }
