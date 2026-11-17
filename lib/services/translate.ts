@@ -68,14 +68,43 @@ async function machine(texts: string[], settings: Settings, deadline: number): P
     }
     return out;
   }
+  // Google's free endpoint stopped answering the VPS (2026-11-18: "the translation server isn't responding"):
+  // after a failure it is left alone for 30 minutes and the shop's own Gemini key (Admin → AI স্টাফ) translates
+  const gem = String(settings.ai_gemini_key || '').trim();
+  if (gem && Date.now() < freeDownUntil) return viaGemini(texts, sent, gem, deadline);
   let next = 0;
+  let failed = 0;
   const worker = async () => {
     while (next < sent.length && Date.now() < deadline) {
       const i = next++;
-      try { out[i] = tidy(texts[i], await googleFree(sent[i])); } catch (e) { out[i] = ''; }
+      try { out[i] = tidy(texts[i], await googleFree(sent[i])); } catch (e) { out[i] = ''; failed++; }
     }
   };
   await Promise.all(Array.from({ length: Math.min(6, sent.length) }, worker));
+  if (failed && !out.some(Boolean)) {
+    freeDownUntil = Date.now() + 30 * 60e3;
+    if (gem && Date.now() < deadline) return viaGemini(texts, sent, gem, deadline);
+  }
+  return out;
+}
+let freeDownUntil = 0;
+/** Many texts in one Gemini question (30 at a time): the answer is a JSON list in the same order. */
+async function viaGemini(texts: string[], sent: string[], key: string, deadline: number): Promise<string[]> {
+  const out: string[] = new Array(texts.length).fill('');
+  const { gemini } = await import('./aistaff');
+  for (let i = 0; i < sent.length && Date.now() < deadline - 2000; i += 30) {
+    const part = sent.slice(i, i + 30);
+    const prompt = 'Translate each Bangla text in this JSON list into natural, short English for an online electronics shop ' +
+      '(product, category and place names; people\'s names written in English letters; keep numbers, ৳, model numbers and brand names as they are). ' +
+      'Answer with ONLY a JSON list of strings, same order, same length, nothing else.\n' + JSON.stringify(part);
+    try {
+      const raw = await gemini(key, prompt, Math.max(4000, Math.min(25000, deadline - Date.now())));
+      const m = raw.match(/\[[\s\S]*\]/);
+      const list = m ? (JSON.parse(m[0]) as unknown[]) : [];
+      if (list.length !== part.length) continue;
+      list.forEach((t, j) => { if (typeof t === 'string' && t.trim()) out[i + j] = tidy(texts[i + j], t.trim()); });
+    } catch (e) { console.error('translate (Gemini)', (e as Error).message); }
+  }
   return out;
 }
 
