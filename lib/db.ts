@@ -1219,8 +1219,6 @@ CREATE INDEX IF NOT EXISTS order_packing_day_idx ON order_packing(created_at);
   `
 ALTER TABLE media ADD COLUMN IF NOT EXISTS wb_from int;
 CREATE INDEX IF NOT EXISTS media_wb_from_idx ON media(wb_from);
--- ✅ wb_ok (owner, 2026-11-17): the owner said "this original picture is fine as it is" — it leaves the to-do list
-ALTER TABLE media ADD COLUMN IF NOT EXISTS wb_ok boolean NOT NULL DEFAULT false;
 `,  // 🧹 বিবরণ পরিষ্কার (owner, 2026-10-24): the description before each clean-up, for undo (lib/admin/descclean.tsx).
   // 🧠 ছবি চেনা: emb = the picture-recognition AI's "description" of a picture (384 numbers, made in the admin's
   // browser — client/admin/recognize.ts), so the same product photographed differently is found as a duplicate.
@@ -1312,6 +1310,11 @@ UPDATE products SET import_ref = 'daraz.com.bd/creativetrade#' || substr(import_
 UPDATE products SET import_ref = 'daraz.com.bd/udvabony-bd#' || substr(import_ref, 6)
   WHERE import_ref LIKE 'file#%' AND sku ~ '^[0-9]+$' AND sku::int >= 1680
     AND created_at >= '2026-11-16 15:30+00' AND created_at < '2026-11-16 18:00+00';
+`,
+  // ✅ ব্যাকগ্রাউন্ড সাদা — "আসলটাই ঠিক" (owner, 2026-11-17): the owner marked an original picture fine as it is,
+  // so it leaves the white-background to-do list (lib/models/whiten.ts setOk)
+  `
+ALTER TABLE media ADD COLUMN IF NOT EXISTS wb_ok boolean NOT NULL DEFAULT false;
 `,
 ];
 
