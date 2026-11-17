@@ -19,7 +19,7 @@ const REPO_NAME = cloud.REPO.split('/')[1] || cloud.REPO;
 const PER_PAGE = 12;
 const HOST = "split_part(p.import_ref, '#', 1)";
 const ALL = '*';
-const FILTERS: Record<string, string> = { todo: 'এখনো সাদা করা হয়নি', done: '⬜ সাদা করা হয়েছে', all: 'সব' };
+const FILTERS: Record<string, string> = { todo: 'Still to do', done: '⬜ Whitened', ok: '✅ Original kept', all: 'All' };
 
 async function hosts() {
   const shops = await db.q<{ host: string; n: number }>(`SELECT ${HOST} AS host, count(*)::int AS n FROM products p
@@ -38,11 +38,12 @@ async function page(ctx: AdminCtx) {
   const sku = str(ctx.query.get('sku'), 40).trim();
   const cond = sku ? 'p.sku=$1' : host === ALL ? 'TRUE' : `${HOST}=$1`;
   const args = sku ? [sku] : host === ALL ? [] : [host];
-  const has = (white: boolean) => `EXISTS (SELECT 1 FROM media m WHERE m.owner_type='product' AND m.owner_id=p.id AND m.wb_from IS ${white ? 'NOT ' : ''}NULL)`;
-  const where = `p.parent_id IS NULL AND ${cond}${sku ? '' : f === 'todo' ? ` AND ${has(false)}` : f === 'done' ? ` AND ${has(true)}` : ''}`;
+  // to do = a picture neither whitened nor marked "✅ original is fine" by the owner (owner, 2026-11-17)
+  const has = (what: 'todo' | 'done' | 'ok') => `EXISTS (SELECT 1 FROM media m WHERE m.owner_type='product' AND m.owner_id=p.id AND ${what === 'done' ? 'm.wb_from IS NOT NULL' : what === 'ok' ? 'm.wb_from IS NULL AND m.wb_ok' : 'm.wb_from IS NULL AND NOT m.wb_ok'})`;
+  const where = `p.parent_id IS NULL AND ${cond}${sku || f === 'all' ? '' : ` AND ${has(f as 'todo' | 'done' | 'ok')}`}`;
   const [rows, count, ids] = await Promise.all([
-    db.q<{ id: number; sku: string; name: string; active: boolean; pics: { id: number; white: boolean }[] }>(`SELECT p.id, p.sku, p.name, p.active,
-        coalesce((SELECT json_agg(json_build_object('id', m.id, 'white', m.wb_from IS NOT NULL) ORDER BY m.sort, m.id) FROM media m WHERE m.owner_type='product' AND m.owner_id=p.id), '[]') AS pics
+    db.q<{ id: number; sku: string; name: string; active: boolean; pics: { id: number; white: boolean; ok: boolean }[] }>(`SELECT p.id, p.sku, p.name, p.active,
+        coalesce((SELECT json_agg(json_build_object('id', m.id, 'white', m.wb_from IS NOT NULL, 'ok', m.wb_from IS NULL AND m.wb_ok) ORDER BY m.sort, m.id) FROM media m WHERE m.owner_type='product' AND m.owner_id=p.id), '[]') AS pics
       FROM products p WHERE ${where}
       ORDER BY CASE WHEN p.sku ~ '^[0-9]+$' THEN lpad(p.sku, 12, '0') ELSE p.sku END, p.id
       LIMIT ${PER_PAGE} OFFSET ${(pg - 1) * PER_PAGE}`, args),
@@ -62,14 +63,14 @@ async function page(ctx: AdminCtx) {
       {(ctx.settings.whiten_gh_token ? <form method="post" action="/admin/products/whiten/token" data-confirm="চাবি মুছে ফেলবেন? তখন ছবি GitHub-এর নিজের সময়সূচিতে তৈরি হবে।"><input type="hidden" name="action" defaultValue="clear" /><button className="btn btn-sm btn-ghost">চাবি মুছুন</button></form> : null)}</>, { state: !!ctx.settings.whiten_gh_token, id: 'fast' }) : ''))}</div>{ui.flash(ctx.flash)}
     <div className="filter-row"><form method="get" action={attrValue(BASE)} className="toolbar">{ui.select('host', list.map((h) => [h.host, h.host === ALL ? 'দোকানের সব পণ্য' : `${h.host} — ${bn(h.n)}টি পণ্য`]), host)}{' '}<input type="hidden" name="f" defaultValue={attrValue(f)} /><button className="btn btn-sm btn-ghost">দেখুন</button></form>
       <form method="get" action={attrValue(BASE)} className="toolbar">{ui.input('sku', sku, { placeholder: 'SKU, যেমন 1374', maxlength: 40, class: 'w-num', 'aria-label': 'SKU' })}{' '}<button className="btn btn-sm btn-ghost">🔎 খুঁজুন</button></form>
-      <span className="stat-chip">ছবি <b>{bn(prog.pics)}</b> · <span className="muted">{bn(ids.length)}টি পণ্য</span></span><span className="stat-chip is-blue">সাদা <b>{bn(prog.white)} / {bn(prog.pics)}</b> · {bn(prog.pics ? Math.round((prog.white * 100) / prog.pics) : 0)}%</span>
+      <span className="stat-chip">ছবি <b>{bn(prog.pics)}</b> · <span className="muted">{bn(ids.length)}টি পণ্য</span></span><span className="stat-chip is-blue">Whitened <b>{bn(prog.white)} / {bn(prog.pics)}</b> · {bn(prog.pics ? Math.round((prog.white * 100) / prog.pics) : 0)}%</span><span className="stat-chip">✅ Original kept <b>{bn(prog.ok)}</b></span><span className="stat-chip">Left to do <b>{bn(Math.max(0, prog.pics - prog.white - prog.ok))}</b></span>
       <nav className="chips">{jsxList(Object.entries(FILTERS).map(([k, v]) => <>{' '}<a className={`chip ${k === f ? 'on' : ''}`} href={attrValue(`${BASE}?${new URLSearchParams({ host, f: k })}`)}><Val v={v} /></a></>))}</nav></div>
     {(rows.length ? <section className="panel wt" data-whiten="" data-wt-fast={ctx.settings.whiten_gh_token ? '1' : undefined}>
       <div className="wt-bar"><button type="button" className="btn" data-wt-run="">▶ এই পেজের ছবি সাদা করুন</button>{' '}<button type="button" className="btn btn-ghost" data-wt-save="" disabled>💾 টিক দেওয়াগুলো রাখুন</button>{' '}<label className="check"><input type="checkbox" data-wt-only-new="" defaultChecked />{' '}<span>আগে সাদা করা ছবি বাদ</span></label>{' '}<select data-wt-model="" aria-label="কোন AI" defaultValue="cloud"><option value="cloud">☁️ অনলাইনে — সেরা মান, কম্পিউটার/ফোনে চাপ নেই</option><option value="best">🧠 এই কম্পিউটারে — সেরা মান (শক্তিশালী গ্রাফিক্স লাগে)</option><option value="fast">⚡ এই কম্পিউটারে — দ্রুত (ISNet)</option></select>{' '}<label className="check" title="পণ্যটা একটু উজ্জ্বল ও পরিষ্কার হয় (আলো আর রং হালকা বাড়ে)। আগে/পরে দেখে তবেই রাখবেন।"><input type="checkbox" data-wt-bright="" defaultChecked />{' '}<span>✨ উজ্জ্বল ও পরিষ্কার</span></label>{' '}<label className="check" title="পণ্য থেকে আলাদা ছোট টুকরো — যেমন পেছনের লেখা বা ফোন নম্বর — মুছে দেয়। পণ্যের আলাদা ছোট অংশ (যেমন চিরুনি) কেটে গেলে এটা তুলে দিয়ে আবার চালান।"><input type="checkbox" data-wt-clean="" defaultChecked />{' '}<span>আলাদা ছোট লেখা/টুকরো মুছুন</span></label>{' '}<span className="small" data-wt-status="" aria-live="polite"></span></div>
-      <div className="wt-list">{jsxList(rows.map((p) => <div className="wt-product"><div className="wt-head"><b>SKU <Val v={p.sku || '—'} /></b>{' '}<a href={`/admin/products/${attrValue(p.id)}`} target="_blank" rel="noopener"><Val v={p.name} /></a>{(p.active ? null : <>{' '}<span className="pill pill-grey">বন্ধ</span></>)}</div>
-        <div className="wt-pics">{(p.pics.length ? jsxList(p.pics.map((m) => <figure className={`wt-pic ${m.white ? 'is-white' : ''}`} data-wt-media={attrValue(m.id)} data-white={m.white ? '1' : undefined} data-wt-job={jobs.has(m.id) ? String(jobs.get(m.id)) : undefined}>
+      <div className="wt-list">{jsxList(rows.map((p) => <div className="wt-product"><div className="wt-head"><b>SKU <Val v={p.sku || '—'} /></b>{' '}<a href={`/admin/products/${attrValue(p.id)}`} target="_blank" rel="noopener"><Val v={p.name} /></a>{(p.active ? null : <>{' '}<span className="pill pill-grey">বন্ধ</span></>)}{(p.pics.some((m) => !m.white && !m.ok) ? <>{' '}<button type="button" className="btn btn-sm btn-ghost" data-wt-ok-all="" title="These pictures are fine as they are — no AI needed. They leave the to-do list.">✅ All pictures fine as they are</button></> : null)}</div>
+        <div className="wt-pics">{(p.pics.length ? jsxList(p.pics.map((m) => <figure className={`wt-pic ${m.white ? 'is-white' : ''} ${m.ok ? 'is-ok' : ''}`} data-wt-media={attrValue(m.id)} data-white={m.white ? '1' : undefined} data-ok={m.ok ? '1' : undefined} data-wt-job={jobs.has(m.id) ? String(jobs.get(m.id)) : undefined}>
           <div className="wt-pair"><a href={`/media/${attrValue(m.id)}`} target="_blank" rel="noopener"><img src={`/media/${attrValue(m.id)}/t`} alt="আগে" loading="lazy" /></a><span className="wt-after" data-wt-after="" hidden></span></div>
-          <figcaption className="small">{(m.white ? <><span>⬜ সাদা করা</span>{' '}<button type="button" className="link-btn small" data-wt-undo="">↺ আসল ছবি ফেরত</button></> : <><button type="button" className="link-btn small" data-wt-one="">▶ শুধু এটা</button>{' '}<label className="check" data-wt-keep-label="" hidden><input type="checkbox" data-wt-keep="" defaultChecked />{' '}<span>রাখুন</span></label></>)}<span className="wt-msg" data-wt-msg=""></span></figcaption>
+          <figcaption className="small">{(m.white ? <><span>⬜ সাদা করা</span>{' '}<button type="button" className="link-btn small" data-wt-undo="">↺ আসল ছবি ফেরত</button></> : m.ok ? <><span>✅ Original kept</span>{' '}<button type="button" className="link-btn small" data-wt-unok="">↩ Back to to-do</button></> : <><button type="button" className="link-btn small" data-wt-one="">▶ শুধু এটা</button>{' '}<button type="button" className="link-btn small" data-wt-ok="" title="This picture is fine as it is — keep the original, no AI. It leaves the to-do list.">✅ Fine as it is</button>{' '}<label className="check" data-wt-keep-label="" hidden><input type="checkbox" data-wt-keep="" defaultChecked />{' '}<span>রাখুন</span></label></>)}<span className="wt-msg" data-wt-msg=""></span></figcaption>
         </figure>)) : <span className="muted small">ছবি নেই</span>)}</div></div>))}</div>
     </section> : <p className="muted">{(f === 'todo' ? '🎉 এই দোকানের সব ছবি সাদা করা হয়ে গেছে।' : 'এই তালিকায় কোনো পণ্য নেই।')}</p>)}
     {(pages > 1 ? <nav className="pager">{(pg > 1 ? <a className="btn btn-sm btn-ghost" href={attrValue(q({ page: String(pg - 1) }))}>← আগের</a> : null)}{' '}<span className="small">পেজ {bn(pg)} / {bn(pages)} · মোট {bn(count)}টি পণ্য</span>{' '}{(pg < pages ? <a className="btn btn-sm" href={attrValue(q({ page: String(pg + 1) }))}>পরের →</a> : null)}</nav> : null)}
@@ -96,6 +97,16 @@ async function undoApi(ctx: AdminCtx, m: RouteMatch) {
     await ctx.log('product_photo', 'media', id, 'সাদা ব্যাকগ্রাউন্ড বাদ — আসল ছবি ফেরত');
     return ctx.json(200, { ok: true, id });
   } catch (e) { return ctx.json(e instanceof W.WhitenError ? 409 : 500, { error: (e as Error).message }); }
+}
+
+// ✅ "the original is fine as it is" for one or more pictures (or taken back)
+async function okApi(ctx: AdminCtx) {
+  const b = await ctx.body();
+  const ids = (Array.isArray(b.ids) ? b.ids : []).map((x: unknown) => int(x)).filter(Boolean).slice(0, 200);
+  const ok = b.ok !== false && b.ok !== 0 && b.ok !== '0';
+  const n = await W.setOk(ids, ok);
+  if (n) await ctx.log('product_photo', 'media', ids[0], ok ? `${n}টি ছবি আসলটাই রাখা হলো (সাদা করার দরকার নেই)` : `${n}টি ছবি আবার সাদা করার তালিকায়`);
+  return ctx.json(200, { ok: true, n });
 }
 
 // ☁️ send pictures to the cloud AI / see where they are / put a finished one into its product
@@ -229,6 +240,7 @@ export const routes = [
   { method: 'GET', path: BASE, perm: 'products', handler: page },
   { method: 'POST', path: /^\/admin\/api\/whiten\/(\d+)$/, perm: 'products', handler: keepApi },
   { method: 'POST', path: /^\/admin\/api\/whiten\/(\d+)\/undo$/, perm: 'products', handler: undoApi },
+  { method: 'POST', path: '/admin/api/whiten-ok', perm: 'products', handler: okApi },
   { method: 'GET', path: MINE_BASE, perm: 'products', handler: minePage },
   { method: 'GET', path: '/admin/api/img-fetch', perm: 'products', handler: imgFetch },
   { method: 'POST', path: '/admin/api/whiten-mine', perm: 'products', handler: mineQueue },

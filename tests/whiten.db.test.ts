@@ -39,7 +39,7 @@ test('keep: the white copy takes the original\'s place, the original is set asid
   assert.equal(await coverOf(), w);
   const o = await db.one<{ owner_type: string; owner_id: number }>('SELECT owner_type, owner_id FROM media WHERE id=$1', [cover]);
   assert.deepEqual(o, { owner_type: 'wb_orig', owner_id: product });
-  assert.deepEqual(await W.progress([product]), { pics: 2, white: 1 });
+  assert.deepEqual(await W.progress([product]), { pics: 2, white: 1, ok: 0 });
 
   // made white again: the new copy replaces the first white one and still points to the real original
   const w2 = await W.keep(w, JPEG(4));
@@ -63,4 +63,18 @@ test('only product pictures, and a stale product form brings the original back',
   await db.tx((t) => catalog.attachMedia(t, [cover, second], 'product', product));
   assert.deepEqual((await pics()).map((p) => p.id), [cover, second]);
   assert.equal(await db.one('SELECT id FROM media WHERE id=$1', [w]), null);
+});
+
+test('✅ fine as it is: kept off the to-do list, can be taken back; undo keeps the original as fine', { skip }, async () => {
+  assert.equal(await W.setOk([second], true), 1);
+  assert.equal((await db.one<{ wb_ok: boolean }>('SELECT wb_ok FROM media WHERE id=$1', [second]))!.wb_ok, true);
+  assert.equal((await W.progress([product])).ok >= 1, true);
+  assert.equal(await W.setOk([second], false), 1);
+  assert.equal((await db.one<{ wb_ok: boolean }>('SELECT wb_ok FROM media WHERE id=$1', [second]))!.wb_ok, false);
+  // a white copy can't be marked (only originals)
+  const w = await W.keep(cover, JPEG(8));
+  assert.equal(await W.setOk([w], true), 0);
+  // putting the original back marks it fine, so it doesn't come back to the to-do list
+  assert.equal(await W.undo(w), cover);
+  assert.equal((await db.one<{ wb_ok: boolean }>('SELECT wb_ok FROM media WHERE id=$1', [cover]))!.wb_ok, true);
 });

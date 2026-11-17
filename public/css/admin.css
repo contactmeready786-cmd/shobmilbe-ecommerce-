@@ -2522,3 +2522,5 @@ body.admin #main.admin-main > .page-tabs .home-tab.on, body.admin #main.admin-ma
 /* every screen size: nothing in the page may push the page wider than the window */
 body.admin .main-col, body.admin #main.admin-main { min-width: 0; max-width: 100%; }
 body.admin #main.admin-main :is(h1, h2, h3, .panel, .tool-tile, .settings-box) { overflow-wrap: anywhere; }
+/* ⬜ white background: a picture kept as it is (owner said fine) gets a green edge */
+body.admin .wt-pic.is-ok { outline: 2px solid color-mix(in srgb, var(--green) 55%, transparent); outline-offset: 2px; border-radius: 10px; }

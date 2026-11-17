@@ -420,7 +420,25 @@ export function startWhiten(): void {
   box.addEventListener('click', async (e) => {
     if (hit(e, '[data-wt-run]')) {
       const onlyNew = $<HTMLInputElement>('[data-wt-only-new]', box)?.checked !== false;
-      void run($all<HTMLElement>('[data-wt-media]', box).filter((f) => !(onlyNew && f.dataset.white)));
+      // (pictures the owner marked "✅ fine as it is" are never sent to the AI)
+      void run($all<HTMLElement>('[data-wt-media]', box).filter((f) => !f.dataset.ok && !(onlyNew && f.dataset.white)));
+      return;
+    }
+    // ✅ the original is fine as it is — keep it, no AI, off the to-do list (owner, 2026-11-17)
+    const okBtn = hit(e, '[data-wt-ok], [data-wt-unok], [data-wt-ok-all]');
+    if (okBtn) {
+      const undoOk = okBtn.hasAttribute('data-wt-unok');
+      const figs = okBtn.hasAttribute('data-wt-ok-all')
+        ? $all<HTMLElement>('[data-wt-media]', okBtn.closest('.wt-product') || box).filter((f) => !f.dataset.white && !f.dataset.ok)
+        : [okBtn.closest<HTMLElement>('[data-wt-media]')!];
+      try {
+        await postJSON('/admin/api/whiten-ok', { ids: figs.map((f) => Number(f.dataset.wtMedia)), ok: !undoOk });
+        for (const f of figs) {
+          if (undoOk) { delete f.dataset.ok; f.classList.remove('is-ok'); msg(f, ' ↩ Back on the to-do list'); }
+          else { f.dataset.ok = '1'; f.classList.add('is-ok'); done.delete(f.dataset.wtMedia!); cloudDone.delete(f.dataset.wtMedia!); msg(f, ' ✅ Original kept — it won\'t be listed again'); }
+        }
+        if (okBtn.hasAttribute('data-wt-ok-all') || !undoOk) okBtn.remove();
+      } catch (er) { toast((er as Error).message); }
       return;
     }
     const oneBtn = hit(e, '[data-wt-one]');
@@ -432,7 +450,8 @@ export function startWhiten(): void {
       try {
         const j = await postJSON<{ id: number }>(`/admin/api/whiten/${f.dataset.wtMedia}/undo`, {});
         f.dataset.wtMedia = String(j.id); delete f.dataset.white; f.classList.remove('is-white');
-        undo.remove(); msg(f, ' ↺ আসল ছবি ফেরত এসেছে');
+        f.dataset.ok = '1'; f.classList.add('is-ok'); // the original is kept and leaves the to-do list
+        undo.remove(); msg(f, ' ↺ Original restored and kept — it won\'t be listed again');
       } catch (er) { toast((er as Error).message); }
       return;
     }

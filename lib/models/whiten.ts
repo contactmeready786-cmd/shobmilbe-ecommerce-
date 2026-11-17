@@ -38,17 +38,27 @@ export async function undo(mediaId: number): Promise<number> {
     if (!w || w.owner_type !== 'product' || !w.wb_from) throw new WhitenError('এটা সাদা করা ছবি নয়।');
     const o = (await t.query<Pick<MediaRow, 'id' | 'owner_type'>>('SELECT id, owner_type FROM media WHERE id=$1 FOR UPDATE', [w.wb_from])).rows[0];
     if (!o || o.owner_type !== 'wb_orig') throw new WhitenError('আসল ছবিটা আর পাওয়া যাচ্ছে না।');
-    await t.query(`UPDATE media SET owner_type='product', owner_id=$1, sort=$2 WHERE id=$3`, [w.owner_id, w.sort, o.id]);
+    // putting the original back = the owner prefers it: it counts as "fine as it is" and won't be listed again
+    await t.query(`UPDATE media SET owner_type='product', owner_id=$1, sort=$2, wb_ok=true WHERE id=$3`, [w.owner_id, w.sort, o.id]);
     await t.query('UPDATE products SET image_id=$1 WHERE image_id=$2', [o.id, w.id]);
     await t.query('DELETE FROM media WHERE id=$1', [w.id]);
     return o.id;
   });
 }
 
-/** How far a shop's pictures are: all, already white. */
-export async function progress(productIds: number[]): Promise<{ pics: number; white: number }> {
-  if (!productIds.length) return { pics: 0, white: 0 };
-  const r = await q<{ pics: number; white: number }>(`SELECT count(*)::int AS pics, count(*) FILTER (WHERE wb_from IS NOT NULL)::int AS white
+/** ✅ The owner's "this original is fine, no AI needed" mark on product pictures (true) or taken back (false). */
+export async function setOk(mediaIds: number[], ok: boolean): Promise<number> {
+  const ids = mediaIds.map((x) => int(x)).filter(Boolean);
+  if (!ids.length) return 0;
+  const r = await q<{ id: number }>(`UPDATE media SET wb_ok=$2 WHERE id = ANY($1::int[]) AND owner_type='product' AND wb_from IS NULL RETURNING id`, [ids, ok]);
+  return r.length;
+}
+
+/** How far a shop's pictures are: all, already white, kept as they are (owner said fine). */
+export async function progress(productIds: number[]): Promise<{ pics: number; white: number; ok: number }> {
+  if (!productIds.length) return { pics: 0, white: 0, ok: 0 };
+  const r = await q<{ pics: number; white: number; ok: number }>(`SELECT count(*)::int AS pics, count(*) FILTER (WHERE wb_from IS NOT NULL)::int AS white,
+      count(*) FILTER (WHERE wb_from IS NULL AND wb_ok)::int AS ok
     FROM media WHERE owner_type='product' AND owner_id = ANY($1::int[])`, [productIds]);
-  return r[0] || { pics: 0, white: 0 };
+  return r[0] || { pics: 0, white: 0, ok: 0 };
 }
