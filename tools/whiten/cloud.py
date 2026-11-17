@@ -54,44 +54,72 @@ def mask_of(sess, img):
     return out.astype(np.float32)
 
 
-def clean_pieces(m):
-    """Keep the product: drop small stray pieces, and pieces that look like a shop's logo / phone-number badge / banner /
-    text line — wholly in a corner or along the top or bottom edge, or long and thin — whenever a piece in the middle
-    of the picture (the product) is there. (2026-10-24: a yellow phone badge stayed on 11 pictures because the product
-    was small and the badge nearly as big, so size alone didn't tell them apart.)"""
-    lab, n = ndimage.label(m > 0.1)
+def clean_pieces(m, text_boxes=None):
+    """Keep the product, drop only what clearly isn't it (owner, 2026-11-17: capacitor legs, the 4 other capacitors of a
+    5-piece picture and a tall thin capacitor were being cut away because "long and thin" and "near an edge" were taken
+    for a text line / logo). Now:
+      • every piece at least a quarter the size of the biggest is product (several items in one picture all stay);
+      • a piece close to the product stays too (legs, wires, a lid) — whatever its shape — unless printed text covers it;
+      • far, small pieces go, and a piece that is mostly printed text (OCR) goes wherever it is;
+      • safety: if cleaning would take away more than a fifth of what the AI found, nothing is taken away at all.
+    text_boxes: [(x0, y0, x1, y1)] in mask pixels (S × S) of text read on the picture."""
+    fg = m > 0.1
+    lab, n = ndimage.label(fg)
     if n <= 1:
         return m
     idx = np.arange(1, n + 1)
     area = ndimage.sum(np.ones_like(m), lab, idx)
     big = area.max()
     objs = ndimage.find_objects(lab)
-    side = []
-    for a, sl in zip(area, objs):
-        ys, xs = sl
-        h, w = ys.stop - ys.start, xs.stop - xs.start
-        edge = ys.stop <= S * 0.26 or ys.start >= S * 0.74  # wholly in the top or bottom band
-        corner = (xs.stop <= S * 0.32 or xs.start >= S * 0.68) and (ys.stop <= S * 0.4 or ys.start >= S * 0.6)
-        thin = w > h * 5 or h > w * 5
-        side.append(edge or corner or thin)
-    side = np.array(side)
-    middle = [i for i in range(n) if not side[i] and area[i] >= big * 0.03]
+
+    def texty(i):
+        if not text_boxes:
+            return False
+        ys, xs = objs[i]
+        piece = lab[ys, xs] == i + 1
+        cov = np.zeros_like(piece)
+        for x0, y0, x1, y1 in text_boxes:
+            a0, a1 = max(int(y0) - ys.start, 0), min(int(y1) - ys.start, piece.shape[0])
+            b0, b1 = max(int(x0) - xs.start, 0), min(int(x1) - xs.start, piece.shape[1])
+            if a1 > a0 and b1 > b0:
+                cov[a0:a1, b0:b1] = True
+        return (piece & cov).sum() / max(piece.sum(), 1)
+
+    def at_edge(i):
+        ys, xs = objs[i]
+        return ys.stop <= S * 0.26 or ys.start >= S * 0.74 or xs.stop <= S * 0.2 or xs.start >= S * 0.8
+
+    main_i = int(np.argmax(area))
+    # printed text: a smaller piece mostly covered by text, or a badge / banner with text at the edge of the picture
+    text = [i != main_i and ((area[i] < big * 0.25 and texty(i) >= 0.7) or (at_edge(i) and texty(i) >= 0.35)) for i in range(n)]
     keep = np.zeros(n + 1, dtype=bool)
-    if middle:
-        prod = max(area[i] for i in middle)
-        for i in range(n):
-            if area[i] < max(prod, big) * 0.03:
-                continue  # dust
-            if side[i] and area[i] < prod * 2.5:
-                continue  # a logo / badge / banner / text line beside the product
-            if not side[i] and area[i] < prod * 0.08:
-                continue  # a small stray piece
+    for i in range(n):
+        if area[i] >= big * 0.25 and not text[i]:
             keep[i + 1] = True
-    else:  # nothing in the middle: the old careful rule
+    keep[main_i + 1] = True
+    # grow: pieces near the product (within ~2.5 % of the picture) belong to it — legs, wires, small parts
+    near = max(6, round(S * 0.025))
+    for _ in range(6):
+        zone = ndimage.binary_dilation(keep[lab], iterations=near)
+        added = False
         for i in range(n):
-            if area[i] >= big * 0.45 or (area[i] >= big * 0.12 and not side[i]):
+            if not keep[i + 1] and not text[i] and area[i] >= 12 and zone[objs[i]][lab[objs[i]] == i + 1].any():
                 keep[i + 1] = True
-        keep[np.argmax(area) + 1] = True
+                added = True
+        if not added:
+            break
+    # a fair-sized piece away from the edges that isn't text also stays (a second, smaller item)
+    for i in range(n):
+        if keep[i + 1] or text[i]:
+            continue
+        ys, xs = objs[i]
+        edge = ys.stop <= S * 0.2 or ys.start >= S * 0.8 or xs.stop <= S * 0.12 or xs.start >= S * 0.88
+        if area[i] >= big * 0.06 and not edge:
+            keep[i + 1] = True
+    removed = sum(area[i] for i in range(n) if not keep[i + 1] and not text[i])
+    if removed > fg.sum() * 0.2:
+        print(f'clean: would take away {removed / fg.sum():.0%} of the product — left as the AI cut it', flush=True)
+        return m
     return np.where(keep[lab], m, 0).astype(np.float32)
 
 
@@ -114,9 +142,15 @@ def brighten(o, al):
 # (owner, 2026-10-24: "01648475572" under a remote stayed). The product's own printing (OK, RANGS, LM386) stays:
 # only text that looks like contact details goes.
 CONTACT = None
-def contact_boxes(img):
+_TEXT_FOR = [None, []]
+
+
+def read_text(img):
+    """[(pts, text)] of everything readable on the picture (picture pixels); read once per picture"""
     global CONTACT
-    import re
+    if _TEXT_FOR[0] is img:
+        return _TEXT_FOR[1]
+    _TEXT_FOR[0], _TEXT_FOR[1] = img, []
     if CONTACT is None:
         try:
             from rapidocr_onnxruntime import RapidOCR
@@ -133,18 +167,32 @@ def contact_boxes(img):
     except Exception as e:
         print('OCR failed:', e, flush=True)
         return []
-    out = []
     if res:
         print('OCR read:', [str(r[1]) for r in res][:12], flush=True)
-    for box, text, score in res or []:
-        t = str(text)
+    _TEXT_FOR[1] = [(np.array(box, dtype=np.float32) / k, str(text)) for box, text, score in res or []]
+    return _TEXT_FOR[1]
+
+
+def contact_boxes(img):
+    """the text that looks like a shop's contact details (phone number, website, WhatsApp, Facebook page)"""
+    import re
+    out = []
+    for pts, t in read_text(img):
         digits = re.sub(r'[^0-9০-৯]', '', t)
         low = t.lower()
         # a web address OCR read without its dot ("SHOPNOSALECOM", "ALE COM") still counts (SKU 1374, 2026-11-15)
         if len(digits) >= 8 or re.search(r'www|http|\.com|\.bd|\.net|@|whats|facebook|fb\.|call|hotline|phone|imo|বিকাশ|অর্ডার|কল', low) \
                 or re.search(r'[a-z]{2,}[ .,]?(com|net|org|shop|store)$', low.replace(' ', '')) or re.search(r'(shop|store|sale|mart|bazar|bd)\w*(com|bd)', low):
-            pts = np.array(box, dtype=np.float32) / k
             out.append((pts, t))
+    return out
+
+
+def text_boxes_in_mask(img):
+    """every text box on the picture, in mask pixels (S × S), for the piece cleaner"""
+    W, H = img.size
+    out = []
+    for pts, _ in read_text(img):
+        out.append((pts[:, 0].min() * S / W, pts[:, 1].min() * S / H, pts[:, 0].max() * S / W, pts[:, 1].max() * S / H))
     return out
 
 
@@ -258,7 +306,8 @@ def whiten(sess, data, opts):
     if opts.get('base'):
         m = drop_stand(m, img)
     if opts.get('clean', True):
-        m = clean_pieces(m)
+        several = ndimage.label(m > 0.1)[1] > 1
+        m = clean_pieces(m, text_boxes_in_mask(img) if several else None)
     if (m > 0.5).mean() < 0.01:
         raise ValueError('ছবিতে পণ্য চেনা যায়নি')
     a = np.asarray(Image.fromarray((m * 255).astype(np.uint8)).resize((W, H), Image.BILINEAR), dtype=np.float32) / 255
