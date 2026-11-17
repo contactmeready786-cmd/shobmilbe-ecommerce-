@@ -5,6 +5,7 @@ import * as db from '../db';
 import * as R from '../services/research';
 import * as ui from './ui';
 import type { AdminCtx, Caught } from '../types';
+import * as swr from '../services/swr';
 
 const TABS = [['winning', '🏆 উইনিং প্রোডাক্ট'], ['find', '🔍 প্রোডাক্ট খুঁজুন'], ['new', '🆕 বাজারে নতুন'], ['drops', '📉 দাম কমেছে'], ['trends', '📈 গুগলে যা ট্রেন্ড করছে'], ['demand', '🔎 আপনার কাস্টমার যা খুঁজছে'], ['sources', '🏪 যেসব দোকান দেখা হচ্ছে']];
 
