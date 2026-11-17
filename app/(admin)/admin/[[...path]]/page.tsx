@@ -7,10 +7,11 @@ import { Val } from '@/lib/react/html';
 import { currentAdminPage, SITE_MARK } from '@/lib/next/admin';
 import { getRequestUrl } from '@/lib/next/shop-data';
 import { topCounts } from '@/lib/next/admin-counts';
+import { adminEnglish, titleEn } from '@/lib/next/admin-en';
 
 export async function generateMetadata(): Promise<Metadata> {
   const cur = await currentAdminPage();
-  return { title: cur.kind === 'page' ? `${String(cur.title)} | Admin` : 'Admin', robots: { index: false, follow: false } };
+  return { title: cur.kind === 'page' ? `${titleEn(String(cur.title))} | Admin` : 'Admin', robots: { index: false, follow: false } };
 }
 export function generateViewport(): Viewport { return { themeColor: '#14213D' }; }
 
@@ -23,9 +24,10 @@ export default async function AdminPage() {
     url.searchParams.set(SITE_MARK, '1');
     redirect(url.pathname + url.search);
   }
-  if (cur.bare) return <AdminBare settings={cur.settings}><Val v={cur.body} /></AdminBare>;
+  // English made here, before sending (lib/next/admin-en.ts): the page shows at once, no waiting in the browser
+  if (cur.bare) return adminEnglish(<AdminBare settings={cur.settings}><Val v={cur.body} /></AdminBare>);
   const counts = await topCounts();
-  return (
+  return adminEnglish(
     <AdminBody settings={cur.settings} user={cur.user!} active={cur.active} readOnly={cur.readOnly} path={cur.path} nonce={cur.nonce} counts={counts}>
       <Val v={cur.body} />
     </AdminBody>

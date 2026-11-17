@@ -317,10 +317,10 @@ function logoMark(settings: Settings) {
 }
 
 // 🇬🇧 The admin is English only (owner, 2026-11-17: "permanently English, remove the বাংলা/English button").
-// The pages' own words are swapped for their English (client/admin/i18n.ts with public/js/admin-en.json) on
-// every device; the page is hidden for a moment while that happens (no Bangla flash). No switch any more.
+// The pages are made in English on the server (lib/next/admin-en.ts with public/js/admin-en.json), so nothing is
+// hidden or swapped in the browser; client/admin/i18n.ts only handles words added later (toasts…). No switch any more.
 function langHead(_settings?: Settings) {
-  return raw(`<script nonce="${cspNonce()}">${adminLangBoot}</script><style>html.admin-i18n-wait body{visibility:hidden}</style>`);
+  return raw(`<script nonce="${cspNonce()}">${adminLangBoot}</script>`);
 }
 
 /** The scripts every admin page loads at the end (admin.js, page-actions.js, the English wording). */

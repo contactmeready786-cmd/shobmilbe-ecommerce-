@@ -27,8 +27,8 @@ export default async function AdminRoot({ children }: { children: ReactNode }) {
         <link rel="manifest" href="/admin.webmanifest" />
         <link rel="apple-touch-icon" href="/icon-192.png" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
-        {/* the admin is English only (owner, 2026-11-17): hidden for a moment while its words turn English */}
-        <script nonce={nonce} dangerouslySetInnerHTML={{ __html: adminLangBoot }} /><style dangerouslySetInnerHTML={{ __html: 'html.admin-i18n-wait body{visibility:hidden}' }} />
+        {/* the admin is English only (owner, 2026-11-17): made in English on the server, shown at once */}
+        <script nonce={nonce} dangerouslySetInnerHTML={{ __html: adminLangBoot }} />
       </head>
       <body className={adminBodyClass(cur.kind === 'page' && cur.bare)} suppressHydrationWarning>
         {children}
