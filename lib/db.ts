@@ -1316,6 +1316,11 @@ UPDATE products SET import_ref = 'daraz.com.bd/udvabony-bd#' || substr(import_re
   `
 ALTER TABLE media ADD COLUMN IF NOT EXISTS wb_ok boolean NOT NULL DEFAULT false;
 `,
+  // 🛵 courier_checked_at (owner, 2026-11-17): when the shop last asked the courier about this parcel — the automatic
+  // status check (services/courierjobs.ts) asks the longest-waiting parcels first
+  `
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS courier_checked_at timestamptz;
+`,
 ];
 
 // Data steps that need code, keyed by migration number (run after its SQL).

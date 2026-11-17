@@ -814,6 +814,7 @@ export type OrdersRow = {
   geo_lat: number | null;
   geo_lng: number | null;
   geo_acc: number | null;
+  courier_checked_at: Date | null;
 };
 
 /** A row of owner_faces. */

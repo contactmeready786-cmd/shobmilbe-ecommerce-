@@ -160,7 +160,11 @@ async function apply(s: Settings, row: CallRow, result: string) {
   let did = '';
   if (row.order_status === 'pending') {
     try {
-      if (result === 'confirmed' && s.autocall_on_confirm !== 'note') { await O.setStatus(row.order_id!, 'confirmed', null); did = ' → অর্ডার "কনফার্ম" করা হলো'; }
+      if (result === 'confirmed' && s.autocall_on_confirm !== 'note') {
+        await O.setStatus(row.order_id!, 'confirmed', null); did = ' → অর্ডার "কনফার্ম" করা হলো';
+        // confirmed by the call = confirmed by hand: booked with the default courier too (when "অটো পাঠান" is on)
+        await (await import('./courierjobs')).bookConfirmed(s, row.order_id!).catch(() => {});
+      }
       if (result === 'cancelled' && s.autocall_on_cancel === 'cancel') { await O.setStatus(row.order_id!, 'cancelled', null); did = ' → অর্ডার বাতিল করা হলো'; }
       if (result === 'cancelled' && (s.autocall_on_cancel || 'hold') === 'hold') { await O.setStatus(row.order_id!, 'hold', null); did = ' → অর্ডার "হোল্ডে" রাখা হলো (একবার ফোন করে নিশ্চিত হোন)'; }
     } catch (caught) { const e = caught as Caught; did = ` (অবস্থা বদলানো যায়নি: ${e.message})`; }

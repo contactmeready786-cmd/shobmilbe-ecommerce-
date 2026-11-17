@@ -528,4 +528,4 @@ export const routes = [
     { method: 'GET', path: /^\/admin\/api\/courier\/(pathao|redx)$/, perm: 'courier', handler: courierList },
     { method: 'GET', path: '/admin/api/fraud', perm: 'orders', handler: fraudApi },
   ];
-export { sendToCourier, syncOne };
+export { sendToCourier, syncOne, autoSend };

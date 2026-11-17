@@ -78,7 +78,10 @@ async function sendOne(sub: Pick<PushSubsRow, 'endpoint' | 'p256dh' | 'auth'> & 
       headers: { Authorization: vapidHeader(sub.endpoint, v), TTL: '86400', Urgency: 'high', 'Content-Encoding': 'aes128gcm', 'Content-Type': 'application/octet-stream' },
     });
     if (r.status === 404 || r.status === 410) { await db.q('DELETE FROM push_subs WHERE id=$1', [sub.id]); return 'gone'; }
-    if (!r.ok) throw new Error('push ' + r.status + ' ' + (await r.text()).slice(0, 120));
+    // 401 / 403 = the phone's subscription was made with an older key of the shop (e.g. after the move to the VPS):
+    // it can never work again — after 3 tries it is removed, and "turn on" on the notifications page makes a fresh one
+    if (r.status === 401 || r.status === 403) await db.q('DELETE FROM push_subs WHERE id=$1 AND fails >= 2', [sub.id]).catch(() => {});
+    if (!r.ok) throw new Error('push ' + r.status + ' ' + (await r.text()).slice(0, 120) + (r.status === 401 || r.status === 403 ? ' — ফোনে নোটিফিকেশন আবার চালু করুন (আমার নোটিফিকেশন পেজ)' : ''));
     await db.q('UPDATE push_subs SET last_ok=now(), fails=0 WHERE id=$1', [sub.id]);
     return 'ok';
   } catch (e) {
