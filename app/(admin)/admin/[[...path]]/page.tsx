@@ -25,11 +25,12 @@ export default async function AdminPage() {
     redirect(url.pathname + url.search);
   }
   // English made here, before sending (lib/next/admin-en.ts): the page shows at once, no waiting in the browser
-  if (cur.bare) return adminEnglish(<AdminBare settings={cur.settings}><Val v={cur.body} /></AdminBare>);
+  if (cur.bare) return adminEnglish(<AdminBare settings={cur.settings}><Val v={cur.body} /></AdminBare>, cur.settings);
   const counts = await topCounts();
   return adminEnglish(
     <AdminBody settings={cur.settings} user={cur.user!} active={cur.active} readOnly={cur.readOnly} path={cur.path} nonce={cur.nonce} counts={counts}>
       <Val v={cur.body} />
-    </AdminBody>
+    </AdminBody>,
+    cur.settings,
   );
 }

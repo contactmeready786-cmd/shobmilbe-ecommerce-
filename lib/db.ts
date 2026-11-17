@@ -1783,7 +1783,7 @@ const DEFAULT_SETTINGS: Record<string, string> = {
   // cash on delivery: delivery charge sent first by bKash/Nagad — off / new (first order only) / all
   cod_advance: 'off', cod_advance_note: 'ভুয়া অর্ডার ঠেকাতে শুধু ডেলিভারি চার্জটা আগে বিকাশ/নগদে Send Money করুন। বাকি টাকা পণ্য হাতে পেয়ে দেবেন।',
   // customer groups the owner can pick from (comma separated)
-  customer_groups: 'নিয়মিত, পাইকারি, VIP, অফিস/প্রতিষ্ঠান', vip_spend: '5000',
+  customer_groups: 'Regular, Wholesale, VIP, Office/Institution', vip_spend: '5000',
 };
 // the shop's show/hide switches (Admin → স্টোর ডিজাইন → দোকানে কী দেখাবে): all on unless switched off
 for (const [k, v] of Object.entries($services_uiswitch.DEFAULTS)) if (!(k in DEFAULT_SETTINGS)) DEFAULT_SETTINGS[k] = String(v);
