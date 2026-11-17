@@ -342,6 +342,7 @@ function placeNames(): Map<string, string> {
 /** The owner's own words (product, category, brand names, the AI staff's notes…) in English: place names from the
  *  lists above, the rest from the shop's English version (the `translations` table — a text not translated yet is
  *  translated once and kept). Never slower than ~1 s: what isn't ready by then goes as it is and is ready next time. */
+const working = new Set<string>(); // texts being translated in the background now
 async function ownerWords(pairs: [string, string][], settings: Settings): Promise<Map<string, string>> {
   const out = new Map<string, string>();
   const places = placeNames();
@@ -361,12 +362,15 @@ async function ownerWords(pairs: [string, string][], settings: Settings): Promis
   }
   if (!cores.size) return out;
   const translate = await import('../services/translate');
-  // first what is already kept (one database question for the whole page), then — only a few per page view, so a
-  // long list never waits — the missing ones are translated once and kept for next time
+  // what is already kept: one database question for the whole page
   const found = await translate.lookup([...cores.keys()], settings, { auto: false }) as Record<string, unknown>;
-  const missing = [...cores.keys()].filter((c) => !found[c]).slice(0, 25);
+  // the missing ones are translated in the background (a few at a time) — the page never waits for them; they
+  // show in English from the next visit on
+  const missing = [...cores.keys()].filter((c) => !found[c] && !working.has(c)).slice(0, 25);
   if (missing.length) {
-    try { Object.assign(found, await translate.lookup(missing, settings, { auto: true, deadline: Date.now() + 800 })); } catch { /* next time */ }
+    for (const c of missing) working.add(c);
+    translate.lookup(missing, settings, { auto: true, deadline: Date.now() + 20000 })
+      .catch(() => {}).finally(() => { for (const c of missing) working.delete(c); });
   }
   for (const [core, list] of cores) {
     const en = found[core];
