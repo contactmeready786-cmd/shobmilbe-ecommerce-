@@ -28,6 +28,11 @@ def load_model(vendor):
     assert len(data) == man['size'], 'model file incomplete'
     o = ort.SessionOptions()
     o.intra_op_num_threads = os.cpu_count() or 4
+    # private-repository machines have only 7 GB of memory: without these the 1024 × 1024 model held ~6.7 GB and the
+    # machine stopped the run ("The operation was canceled") on the second or third picture (2026-11-17). Same result,
+    # only the memory is handed back after each picture instead of being kept in reserve.
+    o.enable_cpu_mem_arena = False
+    o.enable_mem_pattern = False
     return ort.InferenceSession(data, o, providers=['CPUExecutionProvider'])
 
 
@@ -432,6 +437,8 @@ def main():
             except Exception as e:
                 index[j['token']] = {'ok': False, 'error': str(e)[:200]}
                 print(f"::warning::job {j['id']}: failed: {e}", flush=True)
+            import gc
+            gc.collect()
             # each picture goes out as soon as it is ready, so the owner sees them one by one
             publish(args.out, index, idx_path, f"whiten: job {j['id']}")
         stop_at = max(stop_at, time.time() + 6 * 60)  # more may come: keep watching a little longer
