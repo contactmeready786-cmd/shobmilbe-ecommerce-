@@ -2392,3 +2392,8 @@ body.admin #main.admin-main .vx-list .small { display: block; }
 @media (max-width: 1200px) { body.admin #main.admin-main .vx-row-1 { grid-template-columns: 1fr; } body.admin #main.admin-main .vx-row-3 { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 760px) { body.admin #main.admin-main .vx-row-3 { grid-template-columns: 1fr; } body.admin #main.admin-main .vx-stats { grid-template-columns: 1fr 1fr; } }
 body.admin #main.admin-main .vx-section-h { margin: 22px 0 10px; font-size: 1.05rem; }
+/* v5 fixes: logo with "Admin panel" under it; no divider above a section's last group; one-line group names */
+body.admin .vx-brand { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 18px 40px 14px 10px; }
+body.admin .vx-brand .side-logo { border-bottom: 0; }
+body.admin .vx-side .side-group:last-child { margin-top: 0; padding-top: 0; border-top: 0; }
+body.admin .vx-side .vx-group > summary .side-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }

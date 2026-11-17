@@ -108,7 +108,7 @@ function refreshButton(): void {
   const main = $('#main');
   let head = main && ($('.title-row', main) || $('h1', main));
   if (!head) return;
-  const btn = <button type="button" className="btn btn-ghost btn-sm refresh-btn" title="এই পেজের সব তথ্য নতুন করে আনুন"><span className="refresh-ic" aria-hidden="true">🔄</span> রিফ্রেশ</button> as HTMLButtonElement;
+  const btn = <button type="button" className="btn btn-ghost btn-sm refresh-btn" title="Load this page's newest data"><span className="refresh-ic" aria-hidden="true">🔄</span> Refresh</button> as HTMLButtonElement;
   btn.addEventListener('click', () => {
     btn.disabled = true;
     btn.classList.add('spinning');
