@@ -99,8 +99,10 @@ async function save(src: unknown, en?: unknown, origin = 'auto') {
 type LookupOpts_ = {
   auto?: boolean;
   deadline?: number;
+  /** whose daily count of new machine translations this goes on (the admin has its own — owner, 2026-11-18) */
+  capKey?: string;
 };
-async function lookup(texts: string[], settings: Settings, { auto = true, deadline = Date.now() + 8000 }: LookupOpts_ = {}) {
+async function lookup(texts: string[], settings: Settings, { auto = true, deadline = Date.now() + 8000, capKey = 'i18n-mt-day' }: LookupOpts_ = {}) {
   const list: string[] = [...new Set<string>(texts.map(norm))].filter((t) => t && t.length <= MAX_LEN && hasBangla(t));
   const found = await getMany(list);
   const result: Record<string, unknown> = {};
@@ -113,7 +115,7 @@ async function lookup(texts: string[], settings: Settings, { auto = true, deadli
     // a ceiling on new machine translations per day, so a flood of made-up text can't run up work
     // (2026-11-18) one count for the whole batch — one row update instead of one per text, which made busy pages
     // queue on the same row
-    const allowed: string[] = missing.slice(0, await security.hitMany(db, 'i18n-mt-day', 30000, 86400, missing.length));
+    const allowed: string[] = missing.slice(0, await security.hitMany(db, capKey, 30000, 86400, missing.length));
     if (allowed.length) {
       let out: string[] = [];
       try { out = await machine(allowed, settings, deadline); } catch (caught) { const e = caught as Caught; console.error('translate', e.message); out = []; }

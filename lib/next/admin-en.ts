@@ -397,10 +397,10 @@ async function ownerWords(pairs: [string, string][], settings: Settings): Promis
   const found = await translate.lookup([...cores.keys()], settings, { auto: false }) as Record<string, unknown>;
   // the missing ones are translated in the background (a few at a time) — the page never waits for them; they
   // show in English from the next visit on
-  const missing = [...cores.keys()].filter((c) => !found[c] && !working.has(c)).slice(0, 25);
+  const missing = [...cores.keys()].filter((c) => !found[c] && !working.has(c)).slice(0, 60);
   if (missing.length) {
     for (const c of missing) working.add(c);
-    translate.lookup(missing, settings, { auto: true, deadline: Date.now() + 20000 })
+    translate.lookup(missing, settings, { auto: true, deadline: Date.now() + 20000, capKey: 'i18n-mt-admin' })
       .catch(() => {}).finally(() => { for (const c of missing) working.delete(c); });
   }
   for (const [core, list] of cores) {
