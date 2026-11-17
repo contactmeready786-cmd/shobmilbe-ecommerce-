@@ -23,7 +23,6 @@ function row(ok: boolean | null, title?: unknown, desc?: unknown) {
 const SECRET_NAMES: Record<string, [string, string]> = {
   gmail_app_password: ['Gmail-এর Google কোড (ইমেইল নোটিফিকেশন)', '/admin/notify'],
   acct_gmail_password: ['কাস্টমারের কোড পাঠানোর Gmail-এর Google কোড', '/admin/customer-accounts'],
-  callmebot_key: ['CallMeBot WhatsApp কোড', '/admin/notify'],
   reset_mail_token: ['পাসওয়ার্ড রিসেট মেইলের পুরোনো টোকেন', ''],
   fb_capi_token: ['Facebook Conversions API টোকেন', '/admin/marketing/tracking'],
   tiktok_events_token: ['TikTok Events টোকেন', '/admin/marketing/tracking'],

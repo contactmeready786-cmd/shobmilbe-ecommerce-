@@ -179,7 +179,7 @@ async function apply(s: Settings, row: CallRow, result: string) {
     const push = $push;
     jobs.push(push.count().then((n) => (n ? push.sendAll({ title: `${ic} অটো কল: ${label}`, body: `${row.code} · ${row.customer_name || ''}${did}`, url: `/admin/orders/${row.order_id}`, tag: 'autocall-' + row.order_id }) : null)).catch(() => null));
   } catch (_) { /* no push */ }
-  if (notify.waConfig(s).ready && s.autocall_notify_wa !== '0') jobs.push(notify.sendWhatsApp(s, text).catch(() => null));
+  if (notify.tgConfig(s).ready && s.autocall_notify_wa !== '0') jobs.push(notify.sendTelegram(s, text).catch(() => null));
   if (notify.emailConfig(s).ready && s.autocall_notify_email === '1') jobs.push(notify.sendEmail(s, `${ic} অটো কল ${row.code}: ${label}`, text, await emailHtml(PlainEmail({ text, font: 'Arial,sans-serif' }))).catch(() => null));
   await Promise.all(jobs);
 }

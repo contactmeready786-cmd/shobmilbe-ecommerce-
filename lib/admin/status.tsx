@@ -106,7 +106,7 @@ async function statusPage(ctx: AdminCtx) {
   row(s.courier_auto_send === '1' ? OK : OFF, 'কনফার্ম হলে নিজে থেকে কুরিয়ারে পাঠানো', s.courier_auto_send === '1' ? `চালু (${courier.label(s.courier_default)})` : 'বন্ধ', ['/admin/integrations/courier', 'কুরিয়ার']),
 ])}{' '}{section(ctx, 'নোটিফিকেশন', [
   (() => { const r = fromLog(L, 'notify-email', notify.emailConfig(s).ready); return row(r.state, 'ইমেইল (Gmail)', r.note, ['/admin/notify', 'নোটিফিকেশন'], 'notify_email'); })(),
-  (() => { const r = fromLog(L, 'notify-whatsapp', notify.waConfig(s).ready); return row(r.state, 'WhatsApp (CallMeBot)', r.note, ['/admin/notify', 'নোটিফিকেশন'], 'notify_wa'); })(),
+  (() => { const r = fromLog(L, 'notify-telegram', notify.tgConfig(s).ready); return row(r.state, 'Telegram (দোকানের বট)', r.note, ['/admin/notify', 'নোটিফিকেশন'], 'notify_tg'); })(),
   (() => { const r = fromLog(L, 'notify-push', true); return row(r.state === WARN ? OFF : r.state, 'ফোনে নোটিফিকেশন (push)', r.state === WARN ? 'এখনো কোনো ফোনে চালু হয়নি বা কিছু পাঠানো হয়নি' : r.note, ['/admin/notify', 'নোটিফিকেশন'], 'notify_push'); })(),
 ])}<p className="small muted">API কী আর পাসওয়ার্ড সার্ভারে এনক্রিপ্ট করে রাখা হয়, ব্রাউজার বা কাস্টমার কখনো দেখে না।{' '}<a href="/admin/marketing/seo?tab=check">SEO চেকার →</a></p></>;
   return ctx.page('সংযোগের অবস্থা', body, 'status');

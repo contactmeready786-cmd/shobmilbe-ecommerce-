@@ -167,14 +167,14 @@ async function verifyCode(s: Settings, phone: unknown, code: unknown): Promise<{
 
 // ---------- 📱 own-SIM app watch: did the code really leave the phone? ----------
 // The customer's page asks ~75 seconds after "OTP পাঠান" (if the code wasn't typed yet). Still "Pending" = the phone app
-// is stopped or offline → the owner is told at once (phone notification / WhatsApp / e-mail, at most every 20 minutes).
+// is stopped or offline → the owner is told at once (phone notification / Telegram / e-mail, at most every 20 minutes).
 const STATE_BN: Record<string, string> = { Pending: '⏳ ফোন এখনো নেয়নি (অ্যাপ বন্ধ / ইন্টারনেট নেই)', Processed: '📱 ফোন পেয়েছে, পাঠাচ্ছে', Sent: '✅ ফোন থেকে SMS গেছে',
   Delivered: '✅ কাস্টমারের ফোনে পৌঁছেছে', Failed: '❌ ফোন পাঠাতে পারেনি', Cancelled: 'বাতিল' };
 async function alertOwner(s: Settings, title: string, body: string): Promise<void> {
   if (!(await security.hit(db, 'coo:alert', 1, 1200))) return;
   const N = $services_notify;
   const jobs: Promise<unknown>[] = [$services_push.sendAll({ title, body, url: '/admin/checkout-otp', tag: 'sms-phone' }).catch(() => null)];
-  if (N.waConfig(s).ready) jobs.push(N.sendWhatsApp(s, `${title}\n${body}`).catch(() => null));
+  if (N.tgConfig(s).ready) jobs.push(N.sendTelegram(s, `${title}\n${body}`).catch(() => null));
   if (N.emailConfig(s).ready) jobs.push(emailHtml(PlainEmail({ text: String(body), font: 'Arial,sans-serif' })).then((html) => N.sendEmail(s, title, body, html)).catch(() => null));
   await Promise.all(jobs);
 }

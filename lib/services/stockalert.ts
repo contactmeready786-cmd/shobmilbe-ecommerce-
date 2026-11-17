@@ -25,9 +25,9 @@ async function check(settings: Settings, productIds?: unknown[] | null) {
     jobs.push(notify.sendEmail(settings, `⚠️ স্টক কম: ${fresh.length}টি পণ্য`, text).then(() => db.logIntegration('notify-email', 'low stock', true, 'পাঠানো হয়েছে'))
       .catch((e: Error) => db.logIntegration('notify-email', 'low stock', false, e.message)));
   }
-  if (notify.waConfig(settings).ready) {
-    jobs.push(notify.sendWhatsApp(settings, `*স্টক কম* ⚠️\n${lines.join('\n')}${more}`).then(() => db.logIntegration('notify-whatsapp', 'low stock', true, 'পাঠানো হয়েছে'))
-      .catch((e: Error) => db.logIntegration('notify-whatsapp', 'low stock', false, e.message)));
+  if (notify.tgConfig(settings).ready) {
+    jobs.push(notify.sendTelegram(settings, `*স্টক কম* ⚠️\n${lines.join('\n')}${more}`).then(() => db.logIntegration('notify-telegram', 'low stock', true, 'পাঠানো হয়েছে'))
+      .catch((e: Error) => db.logIntegration('notify-telegram', 'low stock', false, e.message)));
   }
   const push = $push;
   jobs.push(push.count().then((n) => (n ? push.sendAll({ title: `⚠️ স্টক কম — ${fresh.length}টি পণ্য`, body: lines.slice(0, 4).join('\n'), url: '/admin/inventory?low=1', tag: 'lowstock' }) : null)).catch(() => null));

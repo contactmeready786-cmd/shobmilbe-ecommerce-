@@ -46,7 +46,7 @@ uses that one setup. Never add a second Gmail / App Password / SMS / API-key fie
 |---|---|---|
 | Gmail (all e-mail: order news, customer sign-up codes, delete codes, password-reset links, security alerts, any future code or mail) | Admin → সেটিংস → **আমার নোটিফিকেশন** (`notify_email` + `gmail_app_password`) | `services/notify.ts` → `sendEmail(settings, subject, text, html, to)` |
 | SMS (all SMS: checkout OTP, customer login codes, order SMS, any future code) | Admin → মার্কেটিং → কাস্টমারকে মেসেজ → **SMS** | `services/sms.ts` → `send(settings, phone, text, { kind })` |
-| WhatsApp to the owner | আমার নোটিফিকেশন | `services/notify.ts` → `sendWhatsApp(settings, text)` |
+| Telegram to the owner (order news, alerts — WhatsApp removed 2026-11-17, no free route worked) | bot: অটো মার্কেটিং → Telegram (`telegram_bot_token`); owner's chat: আমার নোটিফিকেশন (`tg_owner_chat`) | `services/notify.ts` → `sendTelegram(settings, text)` |
 | Sentry (site error alerts) | আমার নোটিফিকেশন (`sentry_dsn`; `SENTRY_DSN` in Vercel wins if set) | `services/errors.ts` → `report(error, context)` |
 | Offer / news e-mail to customers (campaigns, welcome, weekly, review, win-back) | Admin → মার্কেটিং → মেসেজ → **ইমেইল** (Brevo key, or the Gmail above — capped) | `services/mailer.ts` → `sendOne(settings, sub, {...})` — only to people on `email_subs` |
 

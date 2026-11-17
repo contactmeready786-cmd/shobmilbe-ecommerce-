@@ -1,7 +1,8 @@
-// Owner notifications: e-mail (Gmail, with an "App Password") and WhatsApp (CallMeBot free personal API).
-//  - new order on the website  -> e-mail + WhatsApp to the owner
-//  - security events (password reset, many wrong passwords, owner login) -> e-mail + WhatsApp
-// No npm packages: a tiny SMTP client over TLS (smtp.gmail.com:465) and one HTTPS call for WhatsApp.
+// Owner notifications: e-mail (Gmail, with an "App Password"), phone push, and Telegram (the shop's own bot, free).
+//  - new order on the website  -> e-mail + push + Telegram to the owner
+//  - security events (password reset, many wrong passwords, owner login) -> e-mail + push + Telegram
+// No npm packages: a tiny SMTP client over TLS (smtp.gmail.com:465) and one HTTPS call for Telegram.
+// (WhatsApp was removed on 2026-11-17: no free WhatsApp route worked reliably — CallMeBot / Green-API.)
 // Every setting lives in Admin → নোটিফিকেশন (owner only). Passwords/API keys are stored encrypted.
 import { emailHtml, OrderEmail, PlainEmail, type OrderMail } from '../emails';
 import * as tls from 'node:tls';
@@ -86,20 +87,15 @@ function acctEmailConfig(settings: Settings) { return { ...emailConfig(settings)
 async function sendAcctEmail(settings: Settings, subject: string, text: string, htmlBody: string | null | undefined, to: string): Promise<void> {
   await sendVia(settings, { to, subject, text, htmlBody });
 }
-function waConfig(settings: Settings) {
-  let phone = String(settings.wa_notify_phone || settings.whatsapp || '').replace(/[^\d+]/g, '');
-  if (/^01\d{9}$/.test(phone)) phone = '+88' + phone;
-  if (/^8801\d{9}$/.test(phone)) phone = '+' + phone;
-  // two services: CallMeBot (free, sometimes slow to activate) or TextMeBot (about $1/month, links your own WhatsApp)
-  const provider = ['textmebot', 'greenapi'].includes(settings.wa_provider as string) ? settings.wa_provider : 'callmebot';
-  if (provider === 'greenapi') {
-    // Green-API free "Developer" plan: a WhatsApp linked by QR sends the message (idInstance + apiTokenInstance)
-    const id = String(settings.greenapi_id || '').replace(/\D/g, '');
-    const key = String(settings.greenapi_token || '').trim();
-    return { phone, key, id, provider, ready: /^\+\d{10,15}$/.test(phone) && /^\d{6,15}$/.test(id) && /^[A-Za-z0-9]{20,80}$/.test(key) };
-  }
-  const key = String(provider === 'textmebot' ? settings.textmebot_key || '' : settings.callmebot_key || '').trim();
-  return { phone, key, provider, ready: /^\+\d{10,15}$/.test(phone) && /^[A-Za-z0-9_-]{4,60}$/.test(key) };
+// Telegram to the owner: the bot set up once on Admin → মার্কেটিং → অটো মার্কেটিং → Telegram (`telegram_bot_token`)
+// sends a private message to the owner's own Telegram, linked once on Admin → নোটিফিকেশন (`tg_owner_chat`).
+// The setting names `notify_order_wa` / `autocall_notify_wa` are kept (they now mean "the owner's chat app").
+const TG_TOKEN = /^\d{5,}:[A-Za-z0-9_-]{30,}$/;
+function tgConfig(settings: Settings) {
+  const token = String(settings.telegram_bot_token || '').trim();
+  const chat = String(settings.tg_owner_chat || '').trim();
+  const hasBot = TG_TOKEN.test(token);
+  return { token, chat, hasBot, ready: hasBot && /^-?\d{4,20}$/.test(chat) };
 }
 
 // ---------------------------------------------------------------- SMTP (Gmail)
@@ -198,42 +194,51 @@ async function sendEmail(settings: Settings, subject: string, text: string, html
   await sendVia(settings, { to: target, subject, text, htmlBody });
 }
 
-// ---------------------------------------------------------------- WhatsApp (CallMeBot)
-async function sendWhatsApp(settings: Settings, text: unknown): Promise<void> {
-  const c = waConfig(settings);
-  if (!c.ready) throw new Error('WhatsApp নোটিফিকেশন এখনো সেটআপ করা হয়নি');
-  if (c.provider === 'greenapi') return sendGreenApi(c, text);
-  const url = c.provider === 'textmebot'
-    ? 'https://api.textmebot.com/send.php?' + new URLSearchParams({ recipient: c.phone, apikey: c.key, text: String(text).slice(0, 1500) }).toString()
-    : 'https://api.callmebot.com/whatsapp.php?' + new URLSearchParams({ phone: c.phone, text: String(text).slice(0, 1500), apikey: c.key }).toString();
-  const ctrl = new AbortController();
-  const t = setTimeout(() => ctrl.abort(), 10000);
-  try {
-    const r = await fetch(url, { signal: ctrl.signal });
-    const body = (await r.text()).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-    if (!r.ok || /APIKey is invalid|not valid|error|invalid|expired|not (linked|connected)/i.test(body)) throw new Error('WhatsApp মেসেজ যায়নি: ' + (body.slice(0, 160) || r.status));
-  } finally { clearTimeout(t); }
-}
-
-// Green-API: the server for an instance is <first 4 digits of idInstance>.api.greenapi.com
-async function sendGreenApi(c: { id?: string; key: string; phone: string }, text: unknown): Promise<void> {
-  const id = String(c.id || '');
-  const hosts = [`https://${id.slice(0, 4)}.api.greenapi.com`, 'https://api.green-api.com'];
-  let last: unknown;
-  for (const h of hosts) {
-    try {
-      const r = await fetch(`${h}/waInstance${id}/sendMessage/${c.key}`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chatId: c.phone.replace(/\D/g, '') + '@c.us', message: String(text).slice(0, 4000) }),
-        signal: AbortSignal.timeout(10000),
-      });
-      const j = (await r.json().catch(() => ({}))) as { idMessage?: string; message?: string };
-      if (r.ok && j.idMessage) return;
-      last = new Error('WhatsApp মেসেজ যায়নি: ' + (j.message || (r.status === 401 || r.status === 403 ? 'idInstance বা apiTokenInstance ঠিক নেই' : r.status === 466 ? 'ফ্রি প্ল্যানের ৩টা চ্যাটের সীমা' : 'Green-API ' + r.status)));
-      if (r.status !== 404) break;
-    } catch (e) { last = e; }
+// ---------------------------------------------------------------- Telegram (the shop's bot → the owner)
+type TgAnswer<T> = { ok?: boolean; description?: string; result?: T };
+async function tgCall<T>(token: string, method: string, params: unknown): Promise<T> {
+  if (!TG_TOKEN.test(token)) throw new Error('Telegram বট এখনো যুক্ত করা হয়নি');
+  const r = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(params || {}), signal: AbortSignal.timeout(10000),
+  });
+  const j = (await r.json().catch(() => ({}))) as TgAnswer<T>;
+  if (!r.ok || !j.ok) {
+    const d = String(j.description || `HTTP ${r.status}`);
+    if (/blocked|deactivated|chat not found/i.test(d)) throw new Error('Telegram মেসেজ যায়নি: বটটা বন্ধ (Block/Stop) করা আছে — Telegram-এ বট খুলে Start চাপুন, তারপর অ্যাডমিনে আবার যুক্ত করুন');
+    if (/unauthorized/i.test(d)) throw new Error('Telegram মেসেজ যায়নি: বটের টোকেন বাতিল — অটো মার্কেটিং → Telegram-এ নতুন টোকেন দিন');
+    if (/conflict|webhook/i.test(d)) throw new Error('Telegram: বটে অন্য কোনো সার্ভিস (webhook) লাগানো আছে, তাই Start মেসেজ পড়া গেল না');
+    throw new Error('Telegram মেসেজ যায়নি: ' + d.slice(0, 160));
   }
-  throw last || new Error('WhatsApp মেসেজ যায়নি');
+  return j.result as T;
+}
+/** WhatsApp-style *bold* → Telegram HTML; everything else is shown as plain text */
+function tgHtml(text: unknown): string { return escapeHtml(String(text ?? '').slice(0, 3800)).replace(/\*([^*\n]+)\*/g, '<b>$1</b>'); }
+async function sendTelegram(settings: Settings, text: unknown): Promise<void> {
+  const c = tgConfig(settings);
+  if (!c.ready) throw new Error('Telegram নোটিফিকেশন এখনো চালু হয়নি');
+  await tgCall(c.token, 'sendMessage', { chat_id: c.chat, text: tgHtml(text), parse_mode: 'HTML', disable_web_page_preview: true });
+}
+const botNames = new Map<string, string>();
+/** the bot's @username (for the t.me link the owner opens); asked once per token */
+async function tgBotName(settings: Settings): Promise<string> {
+  const c = tgConfig(settings);
+  if (!c.hasBot) return '';
+  if (!botNames.has(c.token)) {
+    const me = await tgCall<{ username?: string }>(c.token, 'getMe', {});
+    botNames.set(c.token, String(me.username || ''));
+  }
+  return botNames.get(c.token) || '';
+}
+/** finds the private chat that sent "/start <code>" to the bot (the link on Admin → নোটিফিকেশন) */
+async function tgFindStart(settings: Settings, code: string): Promise<string | null> {
+  const c = tgConfig(settings);
+  if (!code) return null;
+  const ups = await tgCall<{ message?: { text?: string; chat?: { id?: number; type?: string } } }[]>(c.token, 'getUpdates', { allowed_updates: ['message'], timeout: 0, limit: 100 });
+  for (const u of [...(ups || [])].reverse()) {
+    const m = u.message;
+    if (m && m.chat && m.chat.type === 'private' && m.chat.id && String(m.text || '').trim() === '/start ' + code) return String(m.chat.id);
+  }
+  return null;
 }
 
 // ---------------------------------------------------------------- running after the reply
@@ -305,20 +310,20 @@ function newOrder(settings: Settings, site: string, o: NewOrderNews) {
       url: `/admin/orders/${o.id}`, tag: 'order-' + o.id,
     }));
   }
-  if (settings.notify_order_wa !== '0' && waConfig(settings).ready) {
-    jobs.push(logResult('notify-whatsapp', 'order ' + o.code, () => sendWhatsApp(settings, `*আপনার একটা নতুন অর্ডার এসেছে!* ✅\n\n${text}`)));
+  if (settings.notify_order_wa !== '0' && tgConfig(settings).ready) {
+    jobs.push(logResult('notify-telegram', 'order ' + o.code, () => sendTelegram(settings, `*আপনার একটা নতুন অর্ডার এসেছে!* ✅\n\n${text}`)));
   }
   return later(Promise.all(jobs));
 }
 
-// 📮 A new complaint: the owner hears at once (phone notification, e-mail, WhatsApp — whatever is set up).
+// 📮 A new complaint: the owner hears at once (phone notification, e-mail, Telegram — whatever is set up).
 function newComplaint(settings: Settings, site: string, c: ComplaintNews, topicLabel: string, hours: number | string) {
   const link = `${site}/admin/complaints/${c.id}`;
   const text = [`📮 নতুন অভিযোগ (${c.code}) — ${hours} ঘণ্টার মধ্যে সমাধান করতে হবে`, '', `কাস্টমার: ${cleanLine(c.name, 80)} · ${c.phone}`,
     `বিষয়: ${topicLabel}${c.order_code ? ` · অর্ডার ${c.order_code}` : ''}`, '', cleanLine(c.message, 500), '', `খুলুন: ${link}`].join('\n');
   const jobs: Promise<unknown>[] = [pushJob('complaint ' + c.code, { title: `📮 নতুন অভিযোগ — ${topicLabel}`, body: `${cleanLine(c.name, 60)}: ${cleanLine(c.message, 120)}`, url: `/admin/complaints/${c.id}`, tag: 'complaint-' + c.id })];
   if (settings.notify_order_email !== '0' && emailConfig(settings).ready) jobs.push(logResult('notify-email', 'complaint ' + c.code, () => sendEmail(settings, `📮 নতুন অভিযোগ ${c.code} — ${topicLabel}`, text)));
-  if (settings.notify_order_wa !== '0' && waConfig(settings).ready) jobs.push(logResult('notify-whatsapp', 'complaint ' + c.code, () => sendWhatsApp(settings, `*নতুন অভিযোগ এসেছে* 📮\n\n${text}`)));
+  if (settings.notify_order_wa !== '0' && tgConfig(settings).ready) jobs.push(logResult('notify-telegram', 'complaint ' + c.code, () => sendTelegram(settings, `*নতুন অভিযোগ এসেছে* 📮\n\n${text}`)));
   return later(Promise.all(jobs));
 }
 
@@ -329,7 +334,7 @@ function searchRequest(settings: Settings, site: string, r: { id: number; q: str
   const text = [`🔎 কাস্টমার একটা পণ্য খুঁজে পায়নি, নম্বর রেখে গেছে`, '', `যা খুঁজেছে: ${cleanLine(r.q, 80)}`, `কাস্টমার: ${who}`, '', `দেখুন: ${link}`].join('\n');
   const jobs: Promise<unknown>[] = [pushJob('search-request ' + r.id, { title: `🔎 খুঁজে পায়নি: ${cleanLine(r.q, 50)}`, body: `${who} — পণ্যটা এনে দিলে কল করুন`, url: '/admin/reports/search#requests', tag: 'sreq-' + r.id })];
   if (settings.notify_order_email !== '0' && emailConfig(settings).ready) jobs.push(logResult('notify-email', 'search-request', () => sendEmail(settings, `🔎 কাস্টমার খুঁজছে: ${cleanLine(r.q, 60)}`, text)));
-  if (settings.notify_order_wa !== '0' && waConfig(settings).ready) jobs.push(logResult('notify-whatsapp', 'search-request', () => sendWhatsApp(settings, text)));
+  if (settings.notify_order_wa !== '0' && tgConfig(settings).ready) jobs.push(logResult('notify-telegram', 'search-request', () => sendTelegram(settings, text)));
   return later(Promise.all(jobs));
 }
 
@@ -346,8 +351,8 @@ function securityAlert(settings: Settings, title: string, detail: unknown, { ext
     }
   }
   jobs.push(pushJob('security', { title: `🔐 ${title}`, body: String(detail).slice(0, 300), url: '/admin/security', tag: 'sec-' + Date.now() }));
-  if (waConfig(settings).ready) jobs.push(logResult('notify-whatsapp', 'security', () => sendWhatsApp(settings, `*নিরাপত্তা সতর্কতা* 🔐\n${text}`)));
+  if (tgConfig(settings).ready) jobs.push(logResult('notify-telegram', 'security', () => sendTelegram(settings, `*নিরাপত্তা সতর্কতা* 🔐\n${text}`)));
   return later(Promise.all(jobs));
 }
 
-export { DEFAULT_EMAIL, sendVia, emailConfig, acctEmailConfig, sendAcctEmail, waConfig, validEmail, maskEmail, sendEmail, sendWhatsApp, smtpSend, newOrder, newComplaint, searchRequest, securityAlert, later, escapeHtml };
+export { DEFAULT_EMAIL, sendVia, emailConfig, acctEmailConfig, sendAcctEmail, tgConfig, validEmail, maskEmail, sendEmail, sendTelegram, tgBotName, tgFindStart, smtpSend, newOrder, newComplaint, searchRequest, securityAlert, later, escapeHtml };

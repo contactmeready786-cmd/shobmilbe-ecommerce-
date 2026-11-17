@@ -1321,6 +1321,10 @@ ALTER TABLE media ADD COLUMN IF NOT EXISTS wb_ok boolean NOT NULL DEFAULT false;
   `
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS courier_checked_at timestamptz;
 `,
+  // ✈️ owner news moved from WhatsApp to Telegram (owner, 2026-11-17): the old WhatsApp codes are no longer used
+  `
+DELETE FROM settings WHERE key IN ('callmebot_key', 'textmebot_key', 'greenapi_id', 'greenapi_token', 'wa_provider', 'wa_notify_phone');
+`,
 ];
 
 // Data steps that need code, keyed by migration number (run after its SQL).
@@ -1716,8 +1720,8 @@ const DEFAULT_SETTINGS: Record<string, string> = {
   dup_guard: '1', dup_level: 'normal',
   // domain
   vercel_token: '', vercel_project: '', custom_domain: '',
-  // owner notifications (Admin → নোটিফিকেশন): e-mail via Gmail App Password, WhatsApp via CallMeBot
-  notify_email: 'contact.shobmilbe@gmail.com', gmail_app_password: '', wa_notify_phone: '', callmebot_key: '',
+  // owner notifications (Admin → নোটিফিকেশন): e-mail via Gmail App Password, Telegram via the shop's bot
+  notify_email: 'contact.shobmilbe@gmail.com', gmail_app_password: '', tg_owner_chat: '', tg_owner_code: '',
   // customer sign-up codes may go from their own Gmail (Admin → কাস্টমার অ্যাকাউন্ট); empty = use the one above
   acct_gmail: '', acct_gmail_password: '',
   // 🌍 দেশ ব্লক (Admin → ভিজিটর অ্যানালিটিক্স → 🌍 দেশ ব্লক): off until the owner ticks countries and switches it on
