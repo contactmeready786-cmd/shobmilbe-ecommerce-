@@ -70,9 +70,20 @@ function ready(): boolean {
   }
 }
 
+// the same words come again and again (every row's buttons, every page's menu): each is worked out once
+const memo = new Map<string, string>();
 /** One piece of text → English (the same rules as client/admin/i18n.ts tr()). */
 export function tr(src: string): string {
   if (!src || (!LETTER.test(src) && !HAS_DIGIT.test(src)) || !ready() || !dict) return src;
+  const known = memo.get(src);
+  if (known !== undefined) return known;
+  const en = trOnce(src);
+  if (memo.size > 50000) memo.clear();
+  memo.set(src, en);
+  return en;
+}
+function trOnce(src: string): string {
+  if (!dict) return src;
   const lead = (src.match(/^\s*/) || [''])[0];
   const trail = (src.match(/\s*$/) || [''])[0];
   const s = norm(src);
@@ -295,7 +306,12 @@ function childArgs(kids: ReactNode): ReactNode[] {
 export function adminEnglish(node: ReactNode): ReactNode {
   try {
     if (!ready()) return node;
-    return walk(node, 0);
+    const t0 = performance.now();
+    const out = walk(node, 0);
+    const ms = Math.round(performance.now() - t0);
+    if (ms > 150) console.warn(`admin English: ${ms} ms`);
+    // how long it took, for checking speed (an empty hidden tag)
+    return createElement(Fragment, null, out, createElement('template', { 'data-en-ms': String(ms) }));
   } catch (e) {
     console.error('admin English:', (e as Error).message);
     return node;
