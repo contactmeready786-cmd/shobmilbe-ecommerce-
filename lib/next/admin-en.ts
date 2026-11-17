@@ -24,7 +24,7 @@ const UNITS: Record<string, string> = { 'হা': 'k', 'লা': 'L', 'কো': 
 /** attributes that hold wording a person reads (never ones the code or the CSS look up, like data-side-group) */
 const ATTRS = new Set(['placeholder', 'title', 'aria-label', 'alt', 'data-confirm', 'data-confirm-btn', 'data-confirm-shop', 'data-on', 'data-off',
   'data-tip', 'data-label', 'data-delcode-what', 'data-delcode-title', 'data-delcode-intro', 'data-delcode-go']);
-const SKIP_TAGS = new Set(['script', 'style', 'textarea', 'code', 'pre', 'noscript', 'template']);
+const SKIP_TAGS = new Set(['script', 'style', 'textarea', 'code', 'pre', 'template']);
 const BLOCK_TAGS = new Set(['p', 'li', 'label', 'td', 'div', 'span', 'small', 'b', 'strong']);
 const INLINE_TAGS = new Set(['b', 'strong', 'i', 'em', 'code', 'span', 'small', 'u', 'br']);
 
