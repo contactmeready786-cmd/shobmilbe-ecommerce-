@@ -223,12 +223,12 @@ function plainText(children: ReactNode): string | null {
 
 // Bangla still left after the dictionary (the owner's own words: product and category names…), gathered for the
 // second step — they are looked up in the shop's English version (the `translations` table).
-let leftover: Set<string> | null = null;
-const keep = (s: string) => { if (leftover && LETTER.test(s)) leftover.add(s); return s; };
+let leftover: Map<string, string> | null = null; // what the page shows now → the original Bangla
+const keep = (orig: string, en: string) => { if (leftover && LETTER.test(en)) leftover.set(en, orig); return en; };
 
 function walk(node: ReactNode, depth: number): ReactNode {
   if (depth > 400) return node;
-  if (typeof node === 'string') return keep(tr(node));
+  if (typeof node === 'string') return keep(node, tr(node));
   if (node === null || node === undefined || typeof node === 'boolean' || typeof node === 'number' || typeof node === 'bigint') return node;
   if (node instanceof Raw) return new Raw(adminEnglishHtml(node.s)) as unknown as ReactNode;
   if (Array.isArray(node)) return node.map((x) => walk(x as ReactNode, depth + 1));
@@ -258,7 +258,7 @@ function walk(node: ReactNode, depth: number): ReactNode {
     for (const [k, v] of Object.entries(props)) {
       if (!ATTRS.has(k) && k !== 'aria-label' && k !== 'ariaLabel') continue;
       if (typeof v !== 'string') continue;
-      const en = keep(tr(v));
+      const en = keep(v, tr(v));
       if (en !== v) { next[k] = en; changed = true; }
     }
     if (tag === 'input' && /^(submit|button)$/i.test(String(props.type || ''))) {
@@ -311,19 +311,52 @@ function childArgs(kids: ReactNode): ReactNode[] {
 // ------------------------------------------------------------------------------------------------ the owner's words
 // "└ সেন্সর (12)" → lead "└ ", core "সেন্সর", trail " (12)"
 const SPLIT = /^([^ঀ-৿A-Za-z]*)([\s\S]*?)(\s*\(\s*[0-9০-৯]+\s*\)\s*|\s*)$/;
-type Lookup = (texts: string[]) => Promise<Map<string, string>>;
+type Lookup = (pairs: [string, string][]) => Promise<Map<string, string>>;
 
-/** The owner's own words (product, category, brand names…) from the shop's English version. Never slower than ~1 s:
- *  a word not translated yet is translated once (and kept); if that takes too long the page goes without it. */
-async function ownerWords(texts: string[], settings: Settings): Promise<Map<string, string>> {
+// Place names: Bangladesh's districts and areas (lib/data/bd-geo.json has both languages) and every country.
+let names: Map<string, string> | null = null;
+function placeNames(): Map<string, string> {
+  if (names) return names;
+  const m = new Map<string, string>();
+  try {
+    const geo = JSON.parse(readFileSync(join(process.cwd(), 'lib/data/bd-geo.json'), 'utf8')) as { districts?: { en: string; bn: string; division?: string; areas?: [string, string][] }[] };
+    for (const d of geo.districts || []) {
+      m.set(norm(d.bn), d.en);
+      for (const [en, bn] of d.areas || []) if (bn && en) m.set(norm(bn), en);
+    }
+  } catch { /* the page goes without them */ }
+  try {
+    const bnN = new Intl.DisplayNames(['bn'], { type: 'region' });
+    const enN = new Intl.DisplayNames(['en'], { type: 'region' });
+    for (let a = 65; a <= 90; a++) for (let b = 65; b <= 90; b++) {
+      const code = String.fromCharCode(a, b);
+      let bn = '', en = '';
+      try { bn = bnN.of(code) || ''; en = enN.of(code) || ''; } catch { continue; }
+      if (bn && en && bn !== code && LETTER.test(bn)) m.set(norm(bn), en);
+    }
+  } catch { /* no region names in this Node */ }
+  names = m;
+  return m;
+}
+
+/** The owner's own words (product, category, brand names, the AI staff's notes…) in English: place names from the
+ *  lists above, the rest from the shop's English version (the `translations` table — a text not translated yet is
+ *  translated once and kept). Never slower than ~1 s: what isn't ready by then goes as it is and is ready next time. */
+async function ownerWords(pairs: [string, string][], settings: Settings): Promise<Map<string, string>> {
   const out = new Map<string, string>();
-  const cores = new Map<string, [string, string, string][]>(); // core → [original, lead, trail]
-  for (const t of texts) {
-    const m = SPLIT.exec(t);
-    const core = norm(m ? m[2] : t);
+  const places = placeNames();
+  const cores = new Map<string, [string, string, string][]>(); // Bangla core → [shown text, lead, trail]
+  for (const [shown, orig] of pairs) {
+    // "বাগেরহাট (Bagerhat)" — the English is already there
+    const both = /^([\s\S]*?)\s*\(([A-Za-z][A-Za-z .'&-]*)\)\s*$/.exec(orig);
+    if (both && LETTER.test(both[1]) && !/[A-Za-z]/.test(both[1])) { out.set(shown, both[2]); continue; }
+    const m = SPLIT.exec(orig);
+    const lead = m ? m[1] : '', core = norm(m ? m[2] : orig), trail = m ? m[3] : '';
     if (!core || core.length > 3000 || !LETTER.test(core)) continue;
+    const place = places.get(core);
+    if (place) { out.set(shown, lead + place + digits(trail)); continue; }
     const list = cores.get(core) || [];
-    list.push([t, m ? m[1] : '', m ? m[3] : '']);
+    list.push([shown, lead, trail]);
     cores.set(core, list);
   }
   if (!cores.size) return out;
@@ -332,7 +365,7 @@ async function ownerWords(texts: string[], settings: Settings): Promise<Map<stri
   for (const [core, list] of cores) {
     const en = found[core];
     if (typeof en !== 'string' || !en) continue;
-    for (const [orig, lead, trail] of list) out.set(orig, lead + en + digits(trail));
+    for (const [shown, lead, trail] of list) out.set(shown, lead + en + digits(trail));
   }
   return out;
 }
@@ -358,9 +391,9 @@ export async function adminEnglish(node: ReactNode, settings?: Settings, lookup?
   if (!ready()) return node;
   const t0 = performance.now();
   let out: ReactNode = node;
-  let left: string[] = [];
+  let left: [string, string][] = [];
   try {
-    leftover = new Set();
+    leftover = new Map();
     out = walk(node, 0);
     left = [...leftover];
   } catch (e) {

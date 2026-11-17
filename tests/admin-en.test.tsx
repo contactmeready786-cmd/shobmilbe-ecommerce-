@@ -37,7 +37,7 @@ test('React tree: components are drawn and translated, translate="no" kept', asy
 });
 
 test('the owner\'s own words come from the shop\'s English version (lead and count kept)', async () => {
-  const lookup = async (texts: string[]) => new Map(texts.filter((t) => t.includes('সেন্সরঝ')).map((t) => [t, t.replace('সেন্সরঝ', 'Sensorx')]));
+  const lookup = async (pairs: [string, string][]) => new Map(pairs.filter(([, o]) => o.includes('সেন্সরঝ')).map(([shown, o]) => [shown, o.replace('সেন্সরঝ', 'Sensorx')]));
   const html = renderHtml(await adminEnglish(<select><option>└ সেন্সরঝ</option></select>, undefined, lookup));
   assert.match(html, /└ Sensorx/);
 });
