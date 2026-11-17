@@ -16,7 +16,8 @@ import { loadRenderer } from '../react/render';
 import { Reply, type HeaderMap, type ReplyBody } from '../reply';
 import { answers, askedFor, shopPath, shopRequest, setupErrorPage, verificationFile, ERROR_PAGE } from './answers';
 import type { Base } from '../types';
-import { adminEnglishHtml } from './admin-en';
+import { adminEnglishPage } from './admin-en';
+import * as swr from '../services/swr';
 
 // the customer Android app never shows the admin panel (that is the separate admin app's job)
 const NOT_IN_THE_APP = '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>সবমিলবে</title><body style="font-family:sans-serif;padding:40px 20px;text-align:center;color:#14213d"><div style="font-size:48px">🛍️</div><h2>এই পেজটা এখানে খোলে না</h2><p style="color:#5b6475">কেনাকাটা চালিয়ে যান।</p><p><a href="/" style="display:inline-block;background:#0866D6;color:#fff;text-decoration:none;padding:12px 26px;border-radius:10px;font-weight:bold">হোমে যান</a></p></body>';
@@ -48,10 +49,17 @@ export async function adminAnswer(request: Request): Promise<Response> {
       const settings = await db.getSettings();
       errors.ensure(settings); // Sentry on/off follows the key saved in Admin → আমার নোটিফিকেশন
       const nonce = security.startNonce(); // only our own admin <script> tags may run (lib/security.ts)
-      // an admin page sent as text (a form's answer page) goes in English, like the Next.js pages (lib/next/admin-en.ts);
-      // print pages (invoice, checklist, labels — for customers) are not admin pages and stay as they are
-      const adminSend = (status: number, body: ReplyBody, type?: string, extra: HeaderMap = {}) =>
-        send(status, typeof body === 'string' && body.includes('<body class="admin') ? adminEnglishHtml(body) : body, type, { ...security.adminHeaders(nonce), ...extra });
+      // every page the admin sends as text — a form's answer page, the printouts (invoice, checklist, labels, memo) —
+      // goes in English, like the Next.js pages (owner, 2026-11-18: "everything English except the logo");
+      // the answer waits for it (reply.done below)
+      const adminSend = (status: number, body: ReplyBody, type?: string, extra: HeaderMap = {}) => {
+        const headers = { ...security.adminHeaders(nonce), ...extra };
+        if (typeof body === 'string' && /html/i.test(type || 'text/html') && /[ঀ-৿]/.test(body)) {
+          adminEnglishPage(body, settings).then((en) => send(status, en, type, headers), () => send(status, body, type, headers));
+          return;
+        }
+        send(status, body, type, headers);
+      };
 
       if (/ShobmilbeApp\//.test(String(req.headers['user-agent'] || ''))) {
         return send(403, NOT_IN_THE_APP, 'text/html; charset=utf-8', { 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex' });
@@ -84,7 +92,7 @@ export async function adminAnswer(request: Request): Promise<Response> {
   try {
     // admin pages and changes always read fresh data; a change empties the 15-second memory before and after (lib/cache.ts)
     const changes = method !== 'GET' && method !== 'HEAD';
-    if (changes) cache.clearAll();
+    if (changes) { cache.clearAll(); swr.changed(path); }
     try { await cache.runFresh(run); } finally { if (changes) cache.clearAll(); }
     // (an answer is always given; this only waits if a handler gave it a moment after returning)
     if (!reply.answered) await Promise.race([reply.done, new Promise((r) => setTimeout(r, 55_000))]);

@@ -154,9 +154,19 @@ async function load(settings: Settings): Promise<Health> {
 
 // Measured at most every 5 minutes per server (the size queries are not free) — also on admin pages, where
 // lib/cache.ts reads everything fresh: a few minutes' delay doesn't matter here.
+// (2026-11-18) Older than 5 minutes: the last answer is still shown at once and a new one is measured in the background.
 let last: { at: number; value: Promise<Health> } | null = null;
+let measuring = false;
 export function measure(settings: Settings): Promise<Health> {
   if (last && Date.now() - last.at < 5 * 60e3) return last.value;
+  if (last && !measuring) {
+    const shown = last.value;
+    measuring = true;
+    const value = load(settings);
+    value.then(() => { last = { at: Date.now(), value }; }, () => {}).finally(() => { measuring = false; });
+    return shown;
+  }
+  if (last) return last.value;
   const value = load(settings);
   last = { at: Date.now(), value };
   value.catch(() => { last = null; });

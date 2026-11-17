@@ -25,11 +25,18 @@ function seoScore(p: SeoRow, seo: typeof $services_seo) {
   return Math.min(100, n);
 }
 async function seoProblems() {
-  const rows = await db.q<SeoRow>(`SELECT p.id, p.name, p.sku, p.seo_title, p.seo_description, p.short_description, p.description, p.image_id, p.category_id, p.noindex,
+  // (2026-11-18: the "same name" count was one look through every product for each product — 76 s with 3,700
+  // products; now each name is counted once and joined, and pictures are counted in one pass)
+  const rows = await db.q<SeoRow>(`WITH names AS (SELECT lower(name) AS ln, count(*)::int AS n FROM products WHERE active GROUP BY lower(name)),
+      pics AS (SELECT owner_id, count(*)::int AS n FROM media WHERE owner_type='product' GROUP BY owner_id)
+    SELECT p.id, p.name, p.sku, p.seo_title, p.seo_description, p.short_description, p.description, p.image_id, p.category_id, p.noindex,
       p.model, p.specs, p.brand, p.rating_count,
-      (SELECT count(*) FROM media m WHERE m.owner_type='product' AND m.owner_id=p.id)::int AS pics,
-      (SELECT count(*) FROM products x WHERE x.active AND lower(x.name)=lower(p.name) AND x.id<>p.id)::int AS same_name
-    FROM products p WHERE p.active AND p.parent_id IS NULL ORDER BY p.id`);
+      coalesce(pc.n, 0)::int AS pics,
+      greatest(coalesce(nm.n, 0) - 1, 0)::int AS same_name
+    FROM products p
+    LEFT JOIN pics pc ON pc.owner_id = p.id
+    LEFT JOIN names nm ON nm.ln = lower(p.name)
+    WHERE p.active AND p.parent_id IS NULL ORDER BY p.id`);
   /** [kind, what to fix] — kind is bad / warn / info */
   type Why = [string, string];
   const out: (SeoRow & { score: number; why: Why[] })[] = [];

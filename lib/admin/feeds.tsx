@@ -7,6 +7,7 @@ import * as ui from './ui';
 import { saveKeys } from './marketing';
 import * as feeds from '../services/feeds';
 import type { AdminCtx } from '../types';
+import * as swr from '../services/swr';
 
 function baseUrl(ctx: AdminCtx) {
   const s = ctx.settings;
@@ -44,7 +45,11 @@ async function page(ctx: AdminCtx) {
   }
 
   const base = baseUrl(ctx);
-  const [g, f] = await Promise.all([feeds.build('google', s, base), feeds.build('facebook', s, base)]);
+  // both feeds worked through every product (~5 s): kept ready, worked out again in the background (lib/services/swr.ts)
+  const [g, f] = await Promise.all([
+    swr.ready(`feed-google|${base}`, 5 * 60e3, () => feeds.build('google', s, base), '/admin/marketing/feeds'),
+    swr.ready(`feed-facebook|${base}`, 5 * 60e3, () => feeds.build('facebook', s, base), '/admin/marketing/feeds'),
+  ]);
   const link = (ch?: unknown, fmt?: unknown) => `${base}/feeds/${ch}.${fmt}?key=${s[`feed_${ch}_token`]}`;
   const card = (ch: unknown, title: unknown, built: Awaited<ReturnType<typeof feeds.build>>, steps?: unknown) => {
     const token = s[`feed_${ch}_token`];

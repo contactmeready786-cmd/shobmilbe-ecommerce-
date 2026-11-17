@@ -207,6 +207,7 @@ export async function researchTick(ctx: ApiCtx) {
 }
 /** The shop's regular background jobs, one round. Called by the shop's own timer on the VPS (lib/scheduler.ts, every
  *  5 minutes) and by /api/research/tick (GitHub's spare wake-up). Every job decides itself whether it is due. */
+let dupesWarmed = false;
 export async function runShopJobs(settings: ApiCtx['settings']): Promise<Record<string, unknown>> {
   let r: Record<string, unknown> = {};
   // ⚡ jobs that can wait skip their turn while the server is busy (lib/services/perf.ts) — customers come first
@@ -214,6 +215,15 @@ export async function runShopJobs(settings: ApiCtx['settings']): Promise<Record<
   await P.timeJob('মার্কেট রিসার্চ', async () => { r = await $services_research.tick().catch(() => ({})); }, { optional: true });
   await P.timeJob('ছবি গোছানো (ImageKit)', async () => { const ik = $services_imagekit; await ik.moveOld(db, 10); await ik.flushTrash(db, 30); }, { optional: true });
   await P.timeJob('স্টকে এলে জানাও', () => $models_extras.restockSweep(settings));
+  // ⚡ the duplicate scan (~30 s of work) made ready once after each start, so the owner's first look is instant
+  // (afterwards lib/services/swr.ts keeps it fresh when the page is viewed); waits while the server is busy
+  if (!dupesWarmed) {
+    await P.timeJob('ডুপ্লিকেট স্ক্যান তৈরি রাখা', async () => {
+      const [swr, dupes] = await Promise.all([import('../services/swr'), import('../models/duplicates')]);
+      await swr.ready('dupes|0', 10 * 60e3, () => dupes.scanCatalog(settings));
+      dupesWarmed = true;
+    }, { optional: true });
+  }
   // 🛵 parcels' delivered / returned status from the courier by itself (every ~30 minutes, webhook or not)
   await P.timeJob('কুরিয়ারের স্ট্যাটাস', async () => { await (await import('../services/courierjobs')).syncParcels(settings); });
   await P.timeJob('পুরোনো ভুল ব্লক তোলা', async () => { const G = await import('../services/guard'); await G.dropInfraBlocks(); }, { optional: true });

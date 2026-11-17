@@ -153,12 +153,14 @@ const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replac
 const escAttr = (s: string) => esc(s).replace(/"/g, '&quot;');
 const VOID = new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'source', 'track', 'wbr']);
 
-/** A page (or a piece of one) as HTML text → English. Tags and data marked translate="no" are kept as they are. */
-export function adminEnglishHtml(html: string): string {
+/** A page (or a piece of one) as HTML text → English with the dictionary. Code (script, style, textarea…) is never
+ *  touched; data marked translate="no" (names, addresses) is left for the second step (`owner` words). */
+export function adminEnglishHtml(html: string, owner?: Map<string, string>, collect?: Map<string, string>): string {
   if (!html || (!LETTER.test(html) && !HAS_DIGIT.test(html)) || !ready()) return html;
   const parts = html.split(/(<!--[\s\S]*?-->|<[^>]+>)/);
-  const stack: { tag: string; skip: boolean }[] = [];
-  const skipping = () => stack.length > 0 && stack[stack.length - 1].skip;
+  type Mode = 'text' | 'data' | 'code';
+  const stack: { tag: string; mode: Mode }[] = [];
+  const mode = (): Mode => (stack.length ? stack[stack.length - 1].mode : 'text');
   let out = '';
   for (const p of parts) {
     if (!p) continue;
@@ -175,28 +177,51 @@ export function adminEnglishHtml(html: string): string {
       const open = /^<\s*([a-zA-Z0-9-]+)/.exec(p);
       if (!open) { out += p; continue; }
       const tag = open[1].toLowerCase();
-      const own = SKIP_TAGS.has(tag) || /\stranslate="no"|\sdata-no-i18n|\scontenteditable/i.test(p);
-      const skip = skipping() || own;
-      // the wording attributes (a textarea's own hint too), unless inside data
+      const outer = mode();
+      const code = SKIP_TAGS.has(tag) || /\sdata-no-i18n|\scontenteditable/i.test(p);
+      const data = /\stranslate="no"/i.test(p);
+      const m: Mode = outer === 'code' || code ? 'code' : outer === 'data' || data ? 'data' : 'text';
+      // the wording attributes (a textarea's own hint too), unless inside code or data
       let tagText = p;
-      if (!skipping() && (!own || tag === 'textarea')) {
-        tagText = p.replace(ATTR_RE, (m, sp: string, name: string, val: string) => {
+      if (outer === 'text' && !data && (!code || tag === 'textarea')) {
+        tagText = p.replace(ATTR_RE, (whole, sp: string, name: string, val: string) => {
           const en = tr(unesc(val));
-          return en === unesc(val) ? m : `${sp}${name}="${escAttr(en)}"`;
+          return en === unesc(val) ? whole : `${sp}${name}="${escAttr(en)}"`;
         });
         if (tag === 'input' && /\stype="(submit|button)"/i.test(p)) {
-          tagText = tagText.replace(/(\svalue=")([^"]*)"/, (m, a: string, v: string) => { const en = tr(unesc(v)); return en === unesc(v) ? m : `${a}${escAttr(en)}"`; });
+          tagText = tagText.replace(/(\svalue=")([^"]*)"/, (whole, a: string, v: string) => { const en = tr(unesc(v)); return en === unesc(v) ? whole : `${a}${escAttr(en)}"`; });
         }
       }
       out += tagText;
-      if (!VOID.has(tag) && !/\/>$/.test(p)) stack.push({ tag, skip });
+      if (!VOID.has(tag) && !/\/>$/.test(p)) stack.push({ tag, mode: m });
       continue;
     }
-    if (skipping() || (!LETTER.test(p) && !HAS_DIGIT.test(p))) { out += p; continue; }
-    const en = tr(unesc(p));
-    out += en === unesc(p) ? p : esc(en);
+    const cur = mode();
+    if (cur === 'code' || !LETTER.test(p) && !HAS_DIGIT.test(p)) { out += p; continue; }
+    const orig = unesc(p);
+    const mine = owner?.get(orig);
+    if (mine !== undefined) { out += esc(mine); continue; }
+    if (cur === 'data') { if (collect && LETTER.test(orig)) collect.set(orig, orig); out += p; continue; }
+    const en = tr(orig);
+    if (collect && LETTER.test(en)) collect.set(orig, orig);
+    out += en === orig ? p : esc(en);
   }
   return out;
+}
+
+/** A whole page as text in English: the dictionary, then the owner's and customers' own words (names, addresses,
+ *  product titles…) from the shop's English version. Never throws: on any trouble the page goes as it was. */
+export async function adminEnglishPage(html: string, settings: Settings): Promise<string> {
+  try {
+    if (!ready() || !LETTER.test(html)) return adminEnglishHtml(html);
+    const collect = new Map<string, string>();
+    adminEnglishHtml(html, undefined, collect);
+    const owner = collect.size ? await ownerWords([...collect.entries()], settings) : new Map<string, string>();
+    return adminEnglishHtml(html, owner);
+  } catch (e) {
+    console.error('admin English (page):', (e as Error).message);
+    return html;
+  }
 }
 
 // ------------------------------------------------------------------------------------------------ React pages
@@ -226,12 +251,12 @@ function plainText(children: ReactNode): string | null {
 let leftover: Map<string, string> | null = null; // what the page shows now → the original Bangla
 const keep = (orig: string, en: string) => { if (leftover && LETTER.test(en)) leftover.set(en, orig); return en; };
 
-function walk(node: ReactNode, depth: number): ReactNode {
+function walk(node: ReactNode, depth: number, data = false): ReactNode {
   if (depth > 400) return node;
-  if (typeof node === 'string') return keep(node, tr(node));
+  if (typeof node === 'string') return data ? keep(node, node) : keep(node, tr(node));
   if (node === null || node === undefined || typeof node === 'boolean' || typeof node === 'number' || typeof node === 'bigint') return node;
-  if (node instanceof Raw) return new Raw(adminEnglishHtml(node.s)) as unknown as ReactNode;
-  if (Array.isArray(node)) return node.map((x) => walk(x as ReactNode, depth + 1));
+  if (node instanceof Raw) return data ? node : new Raw(adminEnglishHtml(node.s)) as unknown as ReactNode;
+  if (Array.isArray(node)) return node.map((x) => walk(x as ReactNode, depth + 1, data));
   if (!isValidElement(node)) return node;
   const el = node as ReactElement<Props>;
   const props = el.props || {};
@@ -242,16 +267,22 @@ function walk(node: ReactNode, depth: number): ReactNode {
     let drawn: unknown;
     try { drawn = (type as (p: Props) => unknown)(props); } catch { return node; }
     if (drawn && typeof (drawn as Promise<unknown>).then === 'function') return node; // an async one: left to the browser
-    const out = walk(drawn as ReactNode, depth + 1);
+    const out = walk(drawn as ReactNode, depth + 1, data);
     return el.key !== null && el.key !== undefined ? createElement(Fragment, { key: el.key }, out) : out;
   }
   if (typeof type !== 'string') {
     // Fragment and the like
-    return 'children' in props ? cloneElement(el, undefined, ...childArgs(walk(props.children, depth + 1))) : node;
+    return 'children' in props ? cloneElement(el, undefined, ...childArgs(walk(props.children, depth + 1, data))) : node;
   }
 
   const tag = type.toLowerCase();
-  const own = SKIP_TAGS.has(tag) || props.translate === 'no' || 'data-no-i18n' in props || !!props.contentEditable;
+  // code (script, style, textarea…) is never touched; data (translate="no": names, addresses, notes) gets no
+  // dictionary — its words are gathered for the second step (the shop's English version)
+  const own = SKIP_TAGS.has(tag) || 'data-no-i18n' in props || !!props.contentEditable;
+  if (!own && (data || props.translate === 'no')) {
+    if (!('children' in props) || props.dangerouslySetInnerHTML) return node;
+    return cloneElement(el, undefined, ...childArgs(walk(props.children, depth + 1, true)));
+  }
   const next: Props = {};
   let changed = false;
   if (!own || tag === 'textarea') {
@@ -389,7 +420,7 @@ function swap(node: ReactNode, map: Map<string, string>, depth: number): ReactNo
   const props = el.props || {};
   if (typeof el.type !== 'string') return 'children' in props ? cloneElement(el, undefined, swap(props.children, map, depth + 1)) : node;
   const tag = el.type.toLowerCase();
-  if (SKIP_TAGS.has(tag) || props.translate === 'no' || 'data-no-i18n' in props || props.dangerouslySetInnerHTML) return node;
+  if (SKIP_TAGS.has(tag) || 'data-no-i18n' in props || props.dangerouslySetInnerHTML) return node;
   const next: Props = {};
   for (const [k, v] of Object.entries(props)) if (ATTRS.has(k) && typeof v === 'string' && map.has(v)) next[k] = map.get(v);
   return 'children' in props ? cloneElement(el, next, swap(props.children, map, depth + 1)) : Object.keys(next).length ? cloneElement(el, next) : node;
