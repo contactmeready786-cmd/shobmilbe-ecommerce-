@@ -363,9 +363,9 @@ function AdminBody({ settings, user, active, readOnly, path = '', nonce, counts,
   const keep = (it: Resolved | null): it is Resolved => !!it && !(dashTabs && it[3] === 'visitors');
   const sections = SECTIONS.map((sec) => ({
     title: sec.title,
-    entries: sec.entries.map((e) => (isGroup(e)
-      ? { group: e, items: e.items.map((it) => resolveItem(user, it)).filter(keep) }
-      : { link: resolveItem(user, e) })).filter((x) => ('group' in x ? x.items.length : keep(x.link ?? null))),
+    entries: sec.entries.map((e): { group: Group | null; items: Resolved[]; link: Resolved | null } => (isGroup(e)
+      ? { group: e, items: e.items.map((it) => resolveItem(user, it)).filter(keep), link: null }
+      : { group: null, items: [], link: resolveItem(user, e) })).filter((x) => (x.group ? x.items.length > 0 : keep(x.link))),
   })).filter((sec) => sec.entries.length);
   const onHome = dashTabs && (active === 'home' || active === 'visitors');
   const tabActive = active;
@@ -391,12 +391,12 @@ function AdminBody({ settings, user, active, readOnly, path = '', nonce, counts,
             <div key={si} className="vx-section">
               <p className="vx-title">{sec.title}</p>
               {sec.entries.map((x, xi) => {
-                if (!('group' in x)) {
+                if (!x.group) {
                   const it = x.link!;
                   const on = isOn(it);
                   return <a key={xi} href={it[0]} className={`vx-item ${on ? 'on' : ''}`} aria-current={on ? 'page' : undefined}><Icon name={it[4]} />{it[1]}</a>;
                 }
-                const g = x.group!;
+                const g = x.group;
                 const here = x.items.some(isOn);
                 return (
                   <details key={xi} className={`side-group side-drop vx-group ${here ? 'has-on' : ''}`} data-side-group={g.title} open={here || undefined}>
