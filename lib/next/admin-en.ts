@@ -361,7 +361,13 @@ async function ownerWords(pairs: [string, string][], settings: Settings): Promis
   }
   if (!cores.size) return out;
   const translate = await import('../services/translate');
-  const found = await translate.lookup([...cores.keys()], settings, { auto: true, deadline: Date.now() + 900 }) as Record<string, unknown>;
+  // first what is already kept (one database question for the whole page), then — only a few per page view, so a
+  // long list never waits — the missing ones are translated once and kept for next time
+  const found = await translate.lookup([...cores.keys()], settings, { auto: false }) as Record<string, unknown>;
+  const missing = [...cores.keys()].filter((c) => !found[c]).slice(0, 25);
+  if (missing.length) {
+    try { Object.assign(found, await translate.lookup(missing, settings, { auto: true, deadline: Date.now() + 800 })); } catch { /* next time */ }
+  }
   for (const [core, list] of cores) {
     const en = found[core];
     if (typeof en !== 'string' || !en) continue;
