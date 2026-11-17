@@ -21,6 +21,7 @@ export default async function AdminRoot({ children }: { children: ReactNode }) {
       <head>
         <link rel="icon" href={s.favicon_id ? `/media/${s.favicon_id}/t` : '/brand/favicon-32.png'} />
         <link rel="preload" href="/fonts/noto-sans-bengali-bn-v5.woff2" as="font" type="font/woff2" crossOrigin="" />
+        <link rel="preload" href="/fonts/manrope-latin-wght-normal.woff2" as="font" type="font/woff2" crossOrigin="" />
         <link rel="stylesheet" href={`/css/style.css?v=${ASSET_V}`} />
         <link rel="stylesheet" href={`/css/admin.css?v=${ASSET_V}`} />
         <link rel="manifest" href="/admin.webmanifest" />

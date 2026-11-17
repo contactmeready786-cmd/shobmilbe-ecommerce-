@@ -13,7 +13,17 @@ import { startRecognize } from './recognize.js';
 import { startCards } from './cards.js';
 import { startWhitenMine, startToJpg } from './whitenmine.js';
 
+// 📖 Everything open (owner, 2026-11-17: "the template would never keep these closed"): every folded box on an
+// admin page — help (ⓘ), settings boxes, tool panels — starts open, laid out as cards like the Veylix template.
+// They can still be folded by hand; nothing is remembered, so the next page opens everything again.
+function openAllFolds(): void {
+  // (row actions — edit a payment, a category's extra settings, block / refund buttons — stay buttons that open on press)
+  const ACTIONS = ':not([data-keep-closed]):not(.cat-more):not(.cat-seo):not(.pay-edit):not(.mt):not(.ll-more)';
+  for (const d of Array.from(document.querySelectorAll<HTMLDetailsElement>(`#main details${ACTIONS}`))) d.open = true;
+}
+
 whenReady(() => {
+  openAllFolds();
   window.__smAdminReady = true; // (tools/parity/browser.mts checks the admin's script started)
   startCore();
   startHandover();

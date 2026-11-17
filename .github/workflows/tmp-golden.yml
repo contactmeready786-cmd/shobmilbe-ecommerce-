@@ -1,0 +1,30 @@
+# temporary (2026-11-17, admin "Veylix" layout): records the new admin frame goldens on this branch and reports
+# typecheck errors. Removed again before merging.
+name: tmp-golden
+on:
+  push:
+    branches: ['veylix-step3']
+permissions:
+  contents: write
+jobs:
+  golden:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Typecheck (report only)
+        run: npm run typecheck 2>&1 | tail -40 || true
+      - name: Record goldens
+        run: npx tsx tools/make-golden-admin-frame.ts
+      - name: Commit goldens
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tests/golden
+          git diff --cached --quiet || git commit -m "Record admin frame goldens (Veylix layout)"
+          git push
