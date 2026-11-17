@@ -277,7 +277,11 @@ async function scanCatalog(settings: Settings, { includeAllowed = false }: ScanC
       if (ids.length < 2 || ids.length > (k.startsWith('w:') ? 80 : 200)) continue; // very common words say nothing
       for (let x = 0; x < ids.length; x++) for (let y = x + 1; y < ids.length; y++) pair(ids[x], ids[y]);
     }
+    // (2026-11-18) the long comparisons pause every few rows so the shop keeps answering visitors meanwhile —
+    // done in one go they held the whole server for ~30 s
+    const breathe = () => new Promise<void>((r) => setImmediate(r));
     for (let x = 0; x < flat.length; x++) {
+      if (x % 200 === 199) await breathe();
       const [i, h, hm] = flat[x];
       for (let y = x + 1; y < flat.length; y++) {
         const [j, h2] = flat[y];
@@ -290,6 +294,7 @@ async function scanCatalog(settings: Settings, { includeAllowed = false }: ScanC
     const embs: [number, Int8Array, number][] = [];
     all.forEach((p, i) => { for (const im of p.images) if (im.e) { let n = 0; for (let k = 0; k < EMB; k++) n += im.e[k] * im.e[k]; if (n) embs.push([i, im.e, Math.sqrt(n)]); } });
     for (let x = 0; x < embs.length; x++) {
+      if (x % 25 === 24) await breathe();
       const [i, e, ne] = embs[x];
       for (let y = x + 1; y < embs.length; y++) {
         const [j, e2, ne2] = embs[y];
