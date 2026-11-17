@@ -2397,3 +2397,36 @@ body.admin .vx-brand { display: flex; flex-direction: column; align-items: flex-
 body.admin .vx-brand .side-logo { border-bottom: 0; }
 body.admin .vx-side .side-group:last-child { margin-top: 0; padding-top: 0; border-top: 0; }
 body.admin .vx-side .vx-group > summary .side-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+
+/* ---------- v5 · step 2 (owner, 2026-11-17): every page in the template's format ---------- */
+body.admin .vx-tag { align-self: flex-start; }
+/* the open page inside a group: a soft pill with a blue bar, like the template */
+body.admin .vx-side .vx-sub a.on { position: relative; background: color-mix(in srgb, var(--amber) 22%, #fff); color: var(--ink); font-weight: 600;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--amber) 45%, transparent); }
+body.admin .vx-side .vx-sub a.on::before { content: ""; position: absolute; left: -16px; top: 7px; bottom: 7px; width: 3px; height: auto; margin: 0; border-radius: 3px; background: var(--amber); }
+/* breadcrumb + page title (with the template's coloured full stop) */
+body.admin .vx-crumb { display: flex; gap: 8px; align-items: center; margin: 4px 0 6px; font-size: .84rem; color: var(--g-mut); }
+body.admin .vx-crumb span:last-child { color: var(--ink); font-weight: 600; }
+body.admin #main.admin-main h1 { font-size: clamp(1.5rem, 2vw, 1.9rem); font-weight: 800; letter-spacing: -.01em; }
+body.admin #main.admin-main > h1::after, body.admin #main.admin-main .title-row > h1::after, body.admin #main.admin-main .page-head h1::after { content: "."; color: var(--amber); }
+@media (min-width: 901px) {
+/* table headers: small capitals; rows: separate soft strips with round ends */
+body.admin #main.admin-main .table th { text-transform: uppercase; letter-spacing: .04em; font-size: .72rem; font-weight: 700; color: var(--g-mut); background: transparent; border-bottom: 0; }
+body.admin #main.admin-main .table { border-collapse: separate; border-spacing: 0 6px; }
+body.admin #main.admin-main .table tbody td { background: rgba(255, 255, 255, .62); border-top: 1px solid var(--g-line); border-bottom: 1px solid var(--g-line); }
+body.admin #main.admin-main .table tbody td:first-child { border-left: 1px solid var(--g-line); border-radius: 14px 0 0 14px; }
+body.admin #main.admin-main .table tbody td:last-child { border-right: 1px solid var(--g-line); border-radius: 0 14px 14px 0; }
+body.admin #main.admin-main .table tbody tr:hover td { background: rgba(255, 255, 255, .9); }
+body.admin #main.admin-main .table tbody tr:nth-child(4n+2) td { background-color: color-mix(in srgb, var(--blue) 4%, rgba(255,255,255,.62)); }
+body.admin #main.admin-main .table tbody tr:nth-child(4n+4) td { background-color: color-mix(in srgb, var(--amber) 6%, rgba(255,255,255,.62)); }
+}
+/* status pills: a small dot before the word */
+body.admin #main.admin-main .pill { border-radius: 999px; font-weight: 600; }
+body.admin #main.admin-main .pill::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: currentColor; margin-right: 6px; vertical-align: middle; opacity: .85; }
+/* buttons: rounded like the template; the main action stays the shop's blue */
+body.admin #main.admin-main .btn { border-radius: 12px; }
+body.admin #main.admin-main .btn:not(.btn-ghost):not(.btn-danger):not(.btn-sm) { box-shadow: 0 6px 16px color-mix(in srgb, var(--blue) 25%, transparent); }
+/* form boxes */
+body.admin #main.admin-main :is(input:not([type=checkbox]):not([type=radio]):not([type=range]), select, textarea) { border-radius: 12px; }
+/* number boxes: a little bigger number, like the template's stat cards */
+body.admin #main.admin-main .kpi-value { font-size: 1.45rem; font-weight: 800; }

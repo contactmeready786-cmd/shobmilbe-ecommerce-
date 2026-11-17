@@ -376,6 +376,12 @@ function AdminBody({ settings, user, active, readOnly, path = '', nonce, counts,
     return <a key={i} href={it[0]} className={on ? 'on' : ''} aria-current={on ? 'page' : undefined}>{it[1]}</a>;
   };
   const roleName = user.designation || (user.role === 'owner' ? 'Owner' : 'Staff');
+  // breadcrumb like the template ("Operate › Products"): the section and group that hold the open page
+  let crumb: string[] = [];
+  for (const sec of sections) for (const x of sec.entries) {
+    if (x.group && x.items.some(isOn)) crumb = [sec.title, x.group.title];
+    else if (!x.group && x.link && isOn(x.link)) crumb = [sec.title, x.link[1]];
+  }
   return (
     <>
       <script nonce={nonce} dangerouslySetInnerHTML={{ __html: adminSideBoot }} />
@@ -434,6 +440,7 @@ function AdminBody({ settings, user, active, readOnly, path = '', nonce, counts,
           </div>
         </header>
         <main className="admin-main" id="main">
+          {crumb.length ? <nav className="vx-crumb" aria-label="Breadcrumb"><span>{crumb[0]}</span><span aria-hidden="true">›</span><span>{crumb[1]}</span></nav> : null}
           {readOnly ? <p className="flash read-only-note" role="note">👁️ You can only <b>view</b> this page — you can't save, change or delete anything.</p> : null}
           {onHome ? homeTabs(user, tabActive) : pageTabs(user, active, path)}
           {children}
