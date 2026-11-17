@@ -2508,3 +2508,5 @@ body.admin #main.admin-main .tool-tile > summary { display: flex; width: 100%; j
 body.admin #main.admin-main .tool-tile > .tool-body { position: static; width: auto; max-height: none; margin: 0; padding: 16px 18px; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
 /* settings boxes open: the heading stays, the arrow goes */
 body.admin #main.admin-main .settings-box > summary::after { content: none; }
+/* v6 fix: the logo block is solid, so menu lines scrolling under it never show through */
+body.admin .vx-brand { background: #fff; border-radius: 26px 26px 0 0; margin: 0 -12px 6px; padding: 18px 44px 14px 22px; }
