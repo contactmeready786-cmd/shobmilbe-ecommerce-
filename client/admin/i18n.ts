@@ -215,7 +215,38 @@ whenReady(() => {
     root.lang = lang;
     document.title = lang === 'en' ? tr(docTitle) : docTitle;
     walk(document.body);
+    if (lang === 'en') tidyTitles();
     paintSwitch();
+  }
+
+  // Page titles (owner, 2026-11-17): the template's way — plural nouns, "&", no emoji in front. The dictionary
+  // translates a word the same everywhere ("কাস্টমার" → "Customer" on a button too), so the title gets its own pass.
+  const TITLES: Record<string, string> = {
+    'Order': 'Orders', 'Customer': 'Customers', 'Supplier': 'Suppliers', 'Category': 'Categories', 'Brand': 'Brands',
+    'Banner': 'Banners', 'Page': 'Pages', 'Variant': 'Variants', 'Complaint': 'Complaints', 'Return': 'Returns',
+    'Purchase': 'Purchases', 'Profit-loss': 'Profit & loss', 'Description cleaned': 'Description clean-up',
+    'Reach the customer': 'Reach customers', 'Tell me when in stock': 'Back-in-stock alerts',
+    'Income-expense entries': 'Income & expense entries', 'Bank and cash balances': 'Bank & cash balances',
+    'VAT and tax': 'VAT & tax', 'Pixels and tracking': 'Pixels & tracking', 'Social media and live chat': 'Social media & live chat',
+    'Logo, colours and home page': 'Logo, colours & home page', 'Header and footer menu': 'Header & footer menus',
+    'Product feed (Google and Facebook)': 'Product feeds (Google & Facebook)', 'Live match score': 'Live match scores',
+    'Product import': 'Import products', 'Packing cost': 'Packing costs', 'Inventory (stock)': 'Inventory',
+    'Purchases (buying goods)': 'Purchases', 'New purchase (buying goods)': 'New purchase', 'Scan stock': 'Stock scan',
+  };
+  const EMOJI_LEAD = /^[\s\p{Extended_Pictographic}\uFE0F\u200D\u{1F1E6}-\u{1F1FF}]+/u;
+  const fixTitle = (t: string) => { const core = norm(t.replace(EMOJI_LEAD, '')); return TITLES[core] || core; };
+  function tidyTitles(): void {
+    for (const h of Array.from(document.querySelectorAll('#main h1'))) {
+      const first = Array.from(h.childNodes).find((n) => n.nodeType === 3 && norm(n.textContent || ''));
+      if (!first) continue;
+      const t = first.textContent || '';
+      const fixed = fixTitle(t);
+      if (fixed && fixed !== norm(t)) { setByUs.add(first); first.textContent = fixed + (/\s$/.test(t) ? ' ' : ''); }
+    }
+    const crumb = document.querySelector('.vx-crumb span:last-child');
+    if (crumb && crumb.textContent) { const f = fixTitle(crumb.textContent); if (f !== crumb.textContent) crumb.textContent = f; }
+    const [head, ...rest] = document.title.split(' | ');
+    if (rest.length) document.title = [fixTitle(head), ...rest].join(' | ');
   }
 
   // live changes (toasts, search results, checks…)
