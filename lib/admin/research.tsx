@@ -5,6 +5,7 @@ import * as db from '../db';
 import * as R from '../services/research';
 import * as ui from './ui';
 import type { AdminCtx, Caught } from '../types';
+import * as swr from '../services/swr';
 
 const TABS = [['winning', '🏆 উইনিং প্রোডাক্ট'], ['find', '🔍 প্রোডাক্ট খুঁজুন'], ['new', '🆕 বাজারে নতুন'], ['drops', '📉 দাম কমেছে'], ['trends', '📈 গুগলে যা ট্রেন্ড করছে'], ['demand', '🔎 আপনার কাস্টমার যা খুঁজছে'], ['sources', '🏪 যেসব দোকান দেখা হচ্ছে']];
 
@@ -78,19 +79,21 @@ async function page(ctx: AdminCtx) {
     if (b.form === 'margin') { await db.setSetting('research_margin', String(Math.min(80, Math.max(5, int(b.margin, 30))))); await ctx.reloadSettings(); }
     return ctx.back(`/admin/research?tab=${b.form === 'margin' ? 'winning' : 'sources'}`, 'saved');
   }
-  const st = await R.status();
+  const RS = '/admin/research';
+  const keep = <T,>(k: string, fn: () => Promise<T>) => swr.ready(`research|${k}`, 3 * 60e3, fn, RS);
+  const st = await keep('status', () => R.status());
   const segChips = <div className="chips">{jsxList([['', 'সব'], ...Object.entries(R.SEGMENTS)].map(([k, l]) => <a className={`chip ${segment === k ? 'on' : ''}`} href={`/admin/research?tab=${attrValue(tab)}${k ? `&seg=${k}` : ''}`}><Val v={l} /></a>))}</div>;
   let content: unknown = '';
   if (tab === 'find') {
     content = await findTab(ctx);
   } else if (tab === 'winning') {
-    const list = await R.winners({ segment, margin });
+    const list = await keep(`win|${segment}|${margin}`, () => R.winners({ segment, margin }));
     content = <>{segChips}<form method="post" action="/admin/research" className="toolbar rs-margin"><input type="hidden" name="form" defaultValue="margin" />{' '}<label>কত % লাভ রাখতে চান{' '}<input type="number" name="margin" defaultValue={attrValue(margin)} min="5" max="80" className="w-num" /></label><button className="btn btn-sm btn-ghost">হিসাব বদলান</button>{' '}<span className="small muted">"এর চেয়ে কমে কিনলে লাভ" এই হার দিয়ে হিসাব হয়।</span></form>{(list.length ? <div className="rs-list"><Val v={list.map((g, i) => winningCard(g, i, segment))} /></div> : ui.empty('এখনো যথেষ্ট তথ্য জমেনি। কয়েক ঘণ্টা পর আবার দেখুন, বা উপরের "এখনই আপডেট করুন" চাপুন।'))}</>;
   } else if (tab === 'new') {
-    const list = await R.newInMarket({ segment, limit: 60 });
+    const list = await keep(`new|${segment}`, () => R.newInMarket({ segment, limit: 60 }));
     content = <>{segChips}{(list.length ? <div className="table-wrap panel"><table className="table"><thead><tr><th></th><th>পণ্য</th><th>দোকান</th><th className="num">দাম</th><th>কবে এসেছে</th><th>কিনতে খুঁজুন</th></tr></thead><tbody>{jsxList(list.map((x) => <tr><td className="thumb">{pic(x.image)}</td><td><a href={attrValue(x.url)} target="_blank" rel="noopener noreferrer"><Val v={x.title} /></a><br /><span className="small muted"><Val v={x.category} /></span></td><td className="small"><Val v={x.shop} /></td><td className="num">{(x.price ? money(x.price) : "—")}</td><td className="small"><Val v={ago(x.first_seen)} /></td><td className="small">{jsxList(R.sourcingLinks(x.title.split(/\s+/).slice(0, 6).join(' ')).slice(0, 3).map(([l, u]) => <><a href={attrValue(u)} target="_blank" rel="noopener noreferrer"><Val v={l} /></a>{' '}</>))}</td></tr>))}</tbody></table></div> : ui.empty('গত ৭ দিনে নতুন কিছু ধরা পড়েনি (প্রথম দিনের তথ্য "নতুন" ধরা হয় না)।'))}</>;
   } else if (tab === 'drops') {
-    const list = await R.priceDrops({ limit: 40 });
+    const list = await keep('drops', () => R.priceDrops({ limit: 40 }));
     content = list.length ? <div className="table-wrap panel"><table className="table"><thead><tr><th></th><th>পণ্য</th><th>দোকান</th><th className="num">আগে</th><th className="num">এখন</th></tr></thead><tbody>{jsxList(list.map((x) => <tr><td className="thumb">{pic(x.image)}</td><td><a href={attrValue(x.url)} target="_blank" rel="noopener noreferrer"><Val v={x.title} /></a></td><td className="small"><Val v={x.shop} /></td><td className="num"><s>{money(x.prev_price)}</s></td><td className="num good"><b>{money(x.price)}</b></td></tr>))}</tbody></table></div>
       : ui.empty('গত ৭ দিনে কোনো দোকানে দাম কমেনি।');
   } else if (tab === 'trends') {
@@ -101,7 +104,7 @@ async function page(ctx: AdminCtx) {
     content = t.items.length ? <>{head}<div className="table-wrap panel"><table className="table rs-trends"><thead><tr><th>#</th><th>যা খোঁজা হচ্ছে</th><th className="num">কতজন (প্রায়)</th><th>খবর</th><th></th></tr></thead><tbody>{jsxList(t.items.map((x, i) => <tr><td>{bn(i + 1)}</td><td><b><Val v={x.title} /></b><br /><span className="small muted"><Val v={R.SEGMENTS[R.segmentOf(x.title, '', 'other')]} /></span></td><td className="num"><Val v={x.traffic || '—'} /></td><td className="small">{jsxList(x.news.map((n) => <><a href={attrValue(n.url)} target="_blank" rel="noopener noreferrer"><Val v={n.title} /></a>{' '}<span className="muted">(<Val v={n.source} />)</span><br /></>))}</td><td><a className="btn btn-sm btn-ghost" href={`/admin/research?tab=find&q=${attrValue(encodeURIComponent(x.title.slice(0, 80)))}`}>🔍 বাজারে খুঁজুন</a></td></tr>))}</tbody></table></div></>
       : <>{head}{ui.empty('Google-এর ট্রেন্ডের তালিকা এখনো আসেনি — কিছুক্ষণ পর আবার দেখুন।')}</>;
   } else if (tab === 'demand') {
-    const d = await R.demand(30);
+    const d = await keep('demand', () => R.demand(30));
     content = <div className="two-col"><section className="panel"><h2>কাস্টমার যা খুঁজেছে{' '}<small>৩০ দিন</small></h2>{(d.searches.length ? <table className="table"><thead><tr><th>খুঁজেছে</th><th className="num">কতবার</th><th className="num">আপনার দোকানে</th></tr></thead><tbody>{jsxList(d.searches.map((s) => <tr className={s.found ? '' : 'rs-miss'}><td><b><Val v={s.term} /></b></td><td className="num">{bn(s.times)}</td><td className="num">{(s.found ? <>{bn(s.found)}টি</> : <><b className="bad">নেই — এনে রাখুন!</b><br />{jsxList(R.sourcingLinks(s.term).slice(0, 3).map(([l, u]) => <><a className="small" href={attrValue(u)} target="_blank" rel="noopener noreferrer"><Val v={l} /></a>{' '}</>))}</>)}</td></tr>))}</tbody></table> : <p className="muted">এখনো কেউ সাইটে কিছু খোঁজেনি।</p>)}</section><section className="panel"><h2>সবচেয়ে বেশি দেখা পণ্য{' '}<small>৩০ দিন</small></h2>{(d.viewed.length ? <><table className="table"><thead><tr><th>পণ্য</th><th className="num">দেখেছে</th><th className="num">বিক্রি</th></tr></thead><tbody>{jsxList(d.viewed.map((p) => <tr><td><a href={`/admin/products/${attrValue(p.id)}`}><Val v={p.name} /></a>{(p.stock <= 0 ? <>{' '}<span className="pill pill-cancelled">স্টক নেই</span></> : null)}</td><td className="num">{bn(p.people)}{' '}জন</td><td className={`num ${p.sold ? 'good' : ''}`}>{bn(p.sold)}</td></tr>))}</tbody></table><p className="small muted">অনেকে দেখছে কিন্তু বিক্রি কম → দাম বা ছবি/বিবরণ দেখুন। স্টক নেই কিন্তু দেখছে → দ্রুত স্টক আনুন।</p></> : <p className="muted">এখনো তথ্য নেই।</p>)}</section></div>;
   } else {
     const sources = await R.listSources();

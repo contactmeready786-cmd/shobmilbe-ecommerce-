@@ -12,6 +12,8 @@ import * as $health from '../services/health';
 async function dashboard(ctx: AdminCtx) {
   const { from, to } = dateRange(ctx.query, 30);
   const seeCost = ctx.can('see_cost');
+  // 🩺 measured in the background while the rest loads (lib/services/health.ts keeps the last answer)
+  const healthP = ctx.user.role === 'owner' ? $health.measure(ctx.settings).catch(() => null) : Promise.resolve(null);
   const [d, series, monthly, recent, cmp] = await Promise.all([
     finance.dashboard(from, to), finance.dailySeries(from, to), finance.monthlySeries(12),
     ctx.can('orders') ? orders.listOrders({ limit: 8 }) : [],
@@ -22,7 +24,7 @@ async function dashboard(ctx: AdminCtx) {
   ]);
   const k = d.k;
   // 🩺 something about to run out (database space, backups, connections) — the owner sees it first thing
-  const healthNow = ctx.user.role === 'owner' ? await $health.measure(ctx.settings).catch(() => null) : null;
+  const healthNow = await healthP;
   const healthWarn = healthNow ? $health.warnings(healthNow) : [];
   const live = d.live;
   const days = series.map((s) => ({ label: charts.dayLabel(s.day), bar: s.orders, line: s.sales }));

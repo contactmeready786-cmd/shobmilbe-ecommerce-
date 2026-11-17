@@ -10,6 +10,7 @@ import * as md from '../views/md';
 import * as A from '../services/autoseo';
 import * as $status from './status';
 import type { AdminCtx } from '../types';
+import * as swr from '../services/swr';
 
 const BASE = '/admin/marketing/autoseo';
 
@@ -53,9 +54,9 @@ async function post(ctx: AdminCtx) {
 async function page(ctx: AdminCtx) {
   const s = ctx.settings;
   const [st, log, { avg, total, list }, sample] = await Promise.all([
-    A.stats(),
+    swr.ready('autoseo-stats', 3 * 60e3, () => A.stats(), BASE),
     A.recent(40),
-    $status.seoProblems(),
+    swr.ready('seo-problems', 3 * 60e3, () => $status.seoProblems(), BASE),
     db.one<{ id: number; name: string; slug: string; category_id: number | null; price: number; old_price: number | null; stock: number; description: string; emoji: string; image: string | null; featured: boolean; active: boolean; created_at: Date; updated_at: Date; sku: string; short_description: string; cost_price: number; youtube_url: string; product_type: string; image_id: number | null; seo_title: string; seo_description: string; low_stock: number; weight_g: number; unit: string; brand: string; sold_count: number; seo_keywords: string; allow_duplicate: boolean; import_ref: string; brand_id: number | null; model: string; specs: unknown; is_new: boolean; damaged_stock: number; supplier_id: number | null; noindex: boolean; wish_count: number; rating_avg: number; rating_count: number; warranty: string; warranty_type: string; barcode: string; parent_id: number | null; variant_label: string; variant_count: number; variant_title: string; variant_sort: number; preorder: boolean; preorder_days: number; location: string; seo_auto_at: Date | null; src_wm: boolean; src_wm_checked: boolean; category_name: string | null }>(`SELECT p.*, c.name AS category_name FROM products p LEFT JOIN categories c ON c.id=p.category_id
       WHERE p.active AND p.parent_id IS NULL AND length(coalesce(p.description,'') || coalesce(p.short_description,'')) < $1
       ORDER BY coalesce(p.sold_count,0) DESC, p.id DESC LIMIT 1`, [A.OWN_TEXT_ENOUGH]).catch(() => null),

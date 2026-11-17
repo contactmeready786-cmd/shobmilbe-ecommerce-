@@ -10,6 +10,7 @@ import * as $services_barcode from '../services/barcode';
 import * as $models_finance from '../models/finance';
 import * as $services_autocat from '../services/autocat';
 import * as $variants from './variants';
+import * as swr from '../services/swr';
 import type { AdminCtx, Body, Id, RouteMatch, Settings } from '../types';
 import type { PriceTiersRow, ProductsRow } from '../data/rows';
 import * as recognize from '../models/recognize';
@@ -661,8 +662,22 @@ async function duplicatesPage(ctx: AdminCtx) {
   }
   const showAllowed = ctx.query.get('all') === '1';
   const dupBack = '/admin/products/duplicates' + (showAllowed ? '?all=1' : '');
-  await recognize.importCloud($whitencloud.resultsFile, String(ctx.req.headers['x-forwarded-host'] || ctx.req.headers.host || ''), true).catch(() => 0); // ☁️ the cloud AI's newest picture descriptions
-  const [groups, rc] = await Promise.all([dupes.scanCatalog(ctx.settings, { includeAllowed: showAllowed }), recognize.progress()]);
+  // ☁️ the cloud AI's newest picture descriptions — read in the background (the page never waits for GitHub)
+  recognize.importCloud($whitencloud.resultsFile, String(ctx.req.headers['x-forwarded-host'] || ctx.req.headers.host || ''), true).catch(() => 0);
+  // ⚡ the whole-catalogue scan takes ~30 s: the last one is shown at once and a new one runs in the background
+  // (lib/services/swr.ts; the scheduled job keeps it ready). Products deleted or marked "different" since then are
+  // taken out here from fresh data, so what the owner just did always shows.
+  const [scanned, rc] = await Promise.all([
+    swr.ready(`dupes|${showAllowed ? 1 : 0}`, 10 * 60e3, () => dupes.scanCatalog(ctx.settings, { includeAllowed: showAllowed })),
+    recognize.progress(),
+  ]);
+  const scannedIds = [...new Set(scanned.flatMap((g) => g.products.map((x) => x.id)))];
+  const nowRows = scannedIds.length ? await db.q<{ id: number; allow_duplicate: boolean }>('SELECT id, allow_duplicate FROM products WHERE id = ANY($1::int[])', [scannedIds]) : [];
+  const stillThere = new Map(nowRows.map((r) => [r.id, r]));
+  const keepIt = (id: number) => { const r = stillThere.get(id); return !!r && (showAllowed || !r.allow_duplicate); };
+  const groups = scanned
+    .map((g) => ({ ...g, products: g.products.filter((x) => keepIt(x.id)), pairs: g.pairs.filter((pp) => keepIt(pp.older.id) && keepIt(pp.newer.id)) }))
+    .filter((g) => g.products.length >= 2);
   // what the cards compare (one query for every product shown)
   type Extra = { stock: number; sold_count: number; pics: number; desc_len: number; excerpt: string; category: string };
   const NO_EXTRA: Extra = { stock: 0, sold_count: 0, pics: 0, desc_len: 0, excerpt: '', category: '' };
