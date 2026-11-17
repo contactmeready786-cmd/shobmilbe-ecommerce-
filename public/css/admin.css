@@ -2508,7 +2508,7 @@ body.admin #main.admin-main > .page-tabs, body.admin #main.admin-main > .home-ta
 body.admin #main.admin-main > .page-tabs .home-tab, body.admin #main.admin-main > .home-tabs .home-tab {
   flex: 1 1 0; min-width: 0; display: flex; align-items: center; justify-content: center; gap: 6px; text-align: center;
   white-space: normal; line-height: 1.25; padding: 8px 10px; margin: 0; border: 0; border-radius: 10px;
-  font-size: clamp(11.5px, .82vw, 14px); font-weight: 650; color: #4A5872; background: none; box-shadow: none; }
+  font-size: clamp(12.5px, .95vw, 14px); font-weight: 650; color: #4A5872; background: none; box-shadow: none; }
 body.admin #main.admin-main > .home-tabs .home-tab { flex: 0 1 auto; padding: 8px 18px; }
 body.admin #main.admin-main > .page-tabs .home-tab > span[aria-hidden], body.admin #main.admin-main > .home-tabs .home-tab > span[aria-hidden] { display: inline; flex: none; }
 body.admin #main.admin-main > .page-tabs .home-tab:hover, body.admin #main.admin-main > .home-tabs .home-tab:hover { background: rgba(8,102,214,.06); color: var(--ink); }
@@ -2524,3 +2524,19 @@ body.admin .main-col, body.admin #main.admin-main { min-width: 0; max-width: 100
 body.admin #main.admin-main :is(h1, h2, h3, .panel, .tool-tile, .settings-box) { overflow-wrap: anywhere; }
 /* ⬜ white background: a picture kept as it is (owner said fine) gets a green edge */
 body.admin .wt-pic.is-ok { outline: 2px solid color-mix(in srgb, var(--green) 55%, transparent); outline-offset: 2px; border-radius: 10px; }
+
+/* v7 fixes (owner, 2026-11-17: "stray dots, a round Delete box, things that don't line up"):
+   1) no coloured full stop after page titles — it read as a stray dot;
+   2) an on/off setting inside a card row is a normal card (16px corners), never a stretched pill —
+      a 999px radius on a tall box turned it into a circle on /admin/customers;
+   3) the pill's save button never wraps its icon above the word. */
+body.admin #main.admin-main > h1::after, body.admin #main.admin-main .title-row > h1::after, body.admin #main.admin-main .page-head h1::after { content: none; }
+body.admin #main.admin-main .tool-row > .tool-pill { align-self: start; display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+  min-height: 0; padding: 14px 18px; border-radius: 16px; border: 1px solid rgba(255,255,255,.95);
+  background: linear-gradient(135deg, rgba(255,255,255,.93), rgba(255,255,255,.76)); box-shadow: 0 5px 18px -9px rgba(20,33,61,.18); }
+body.admin #main.admin-main .tool-row > .tool-pill > .tool-t { flex: 1 1 auto; font-size: 15px; font-weight: 750; }
+body.admin #main.admin-main .tool-row > .tool-pill .btn { white-space: nowrap; }
+/* picture tools (Change / View larger / Remove): one tidy wrapping row, words never break inside a button */
+body.admin #main.admin-main .pick-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+body.admin #main.admin-main :is(.btn-sm, .link-btn) { white-space: nowrap; }
+body.admin #main.admin-main .tool-row > .tool-pill .tool-save { margin-left: auto; }
