@@ -476,13 +476,19 @@ async function vatReport(settings: Settings, year: number | string) {
 
 // Daily series for charts.
 async function dailySeries(from: Day, to: Day) {
-  return q<{ day: string; orders: number; sales: number; profit: number; delivered: number }>(`SELECT d::date AS day,
-      coalesce((SELECT count(*) FROM orders o WHERE ${DHAKA_DAY} = d::date),0)::int AS orders,
-      coalesce((SELECT sum(total) FROM orders o WHERE ${DHAKA_DAY} = d::date AND o.status NOT IN ('cancelled','returned')),0)::numeric(14,2) AS sales,
-      (coalesce((SELECT sum(total - cost_total - delivery) FROM orders o WHERE ${DHAKA_DAY} = d::date AND o.status NOT IN ('cancelled','returned')),0)
-        - coalesce((SELECT sum(${PACKING}) FROM orders o WHERE ${DHAKA_DAY} = d::date),0))::int AS profit,
-      coalesce((SELECT count(*) FROM orders o WHERE ${DHAKA_DAY} = d::date AND o.status='delivered'),0)::int AS delivered
-    FROM generate_series($1::date, $2::date, interval '1 day') d ORDER BY d`, [from, to]);
+  // (2026-11-18) the orders of the range read once and added up per day — before, every day looked through every
+  // order five times (31 days × 5), which kept the dashboard waiting
+  return q<{ day: string; orders: number; sales: number; profit: number; delivered: number }>(`WITH od AS (
+      SELECT ${DHAKA_DAY} AS day, o.status, o.total, o.cost_total, o.delivery, ${PACKING} AS pack
+      FROM orders o WHERE ${DHAKA_DAY} BETWEEN $1::date AND $2::date)
+    SELECT d::date AS day,
+      count(od.day)::int AS orders,
+      coalesce(sum(od.total) FILTER (WHERE od.status NOT IN ('cancelled','returned')),0)::numeric(14,2) AS sales,
+      (coalesce(sum(od.total - od.cost_total - od.delivery) FILTER (WHERE od.status NOT IN ('cancelled','returned')),0)
+        - coalesce(sum(od.pack),0))::int AS profit,
+      count(od.day) FILTER (WHERE od.status='delivered')::int AS delivered
+    FROM generate_series($1::date, $2::date, interval '1 day') d LEFT JOIN od ON od.day = d::date
+    GROUP BY d ORDER BY d`, [from, to]);
 }
 async function monthlySeries(months: number | string = 12) {
   return q<{ month: string; sales: number; gross: number; expenses: number }>(`SELECT to_char(m, 'YYYY-MM') AS month,
