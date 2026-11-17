@@ -8,7 +8,7 @@ import { can, canSee } from '../models/staff';
 import * as $profile from './profile';
 import type { AdminDrawn, Body, Settings, StaffUser } from '../types';
 
-const ASSET_V = withBuild('87');
+const ASSET_V = withBuild('88');
 
 // 📑 Small jobs that belong together sit on one page as tabs (like browser tabs). Each tab is still its own
 // page with its own link (bookmarks and the phone app keep working); the menu shows one entry for the set.
@@ -23,187 +23,241 @@ type Resolved = [string, string, string, string, string, string[]?];
 const TABS: Record<string, Tab[]> = {
   // 2026-11-14 (owner: put related pages together): every order list in one place
   orders: [
-    ['/admin/orders', 'সব অর্ডার', 'orders', 'orders', '🧾'],
-    ['/admin/orders/incomplete', 'অসম্পূর্ণ অর্ডার', 'orders', 'drafts', '📝'],
+    ['/admin/orders', 'All orders', 'orders', 'orders', '🧾'],
+    ['/admin/orders/incomplete', 'Incomplete orders', 'orders', 'drafts', '📝'],
   ],
   pnl: [
-    ['/admin/accounts/pnl', 'লাভ-ক্ষতি', 'see_cost', 'acc-pnl', '📉'],
-    ['/admin/accounts/packing', 'প্যাকিং খরচ', 'see_cost', 'packing', '📦'],
+    ['/admin/accounts/pnl', 'Profit & loss', 'see_cost', 'acc-pnl', '📉'],
+    ['/admin/accounts/packing', 'Packing costs', 'see_cost', 'packing', '📦'],
   ],
   returns: [
-    ['/admin/returns', 'রিটার্ন ও রিফান্ড', 'orders', 'returns', '↩️'],
-    ['/admin/complaints', 'অভিযোগ (৭২ ঘণ্টা)', 'orders', 'complaints', '📮'],
+    ['/admin/returns', 'Returns & refunds', 'orders', 'returns', '↩️'],
+    ['/admin/complaints', 'Complaints (72 hours)', 'orders', 'complaints', '📮'],
   ],
   fake: [
-    ['/admin/checkout-otp', 'চেকআউট OTP', 'settings', 'checkout-otp', '📲'],
-    ['/admin/autocall', 'অটো কল', 'owner', 'autocall', '📞'],
-    ['/admin/fraud', 'ফ্রড চেক (কুরিয়ার রেকর্ড)', 'orders', 'fraud', '🛡️'],
-    ['/admin/blocklist', 'ব্লক লিস্ট', 'customers', 'blocklist', '⛔'],
+    ['/admin/checkout-otp', 'Checkout OTP', 'settings', 'checkout-otp', '📲'],
+    ['/admin/autocall', 'Auto call', 'owner', 'autocall', '📞'],
+    ['/admin/fraud', 'Fraud check (courier record)', 'orders', 'fraud', '🛡️'],
+    ['/admin/blocklist', 'Block list', 'customers', 'blocklist', '⛔'],
   ],
   reviews: [
-    ['/admin/reviews', 'রিভিউ ও পছন্দের তালিকা', 'reviews', 'reviews', '⭐'],
-    ['/admin/questions', 'প্রশ্ন-উত্তর', 'reviews', 'questions', '❓'],
+    ['/admin/reviews', 'Reviews & wishlists', 'reviews', 'reviews', '⭐'],
+    ['/admin/questions', 'Questions & answers', 'reviews', 'questions', '❓'],
   ],
   products: [
-    ['/admin/products', 'সব পণ্য', 'products', 'products', '📦'],
-    ['/admin/products?type=bundle', 'বান্ডেল / প্যাকেজ', 'products', 'bundles', '🎁'],
+    ['/admin/products', 'All products', 'products', 'products', '📦'],
+    ['/admin/products?type=bundle', 'Bundles / packages', 'products', 'bundles', '🎁'],
   ],
   catbrand: [
-    ['/admin/categories', 'ক্যাটাগরি', 'products', 'categories', '🗂️'],
-    ['/admin/brands', 'ব্র্যান্ড', 'products', 'brands', '🏷️'],
+    ['/admin/categories', 'Categories', 'products', 'categories', '🗂️'],
+    ['/admin/brands', 'Brands', 'products', 'brands', '🏷️'],
   ],
   pictools: [
-    ['/admin/products/watermark', 'ওয়াটারমার্ক', 'products', 'watermark', '💧'],
-    ['/admin/products/duplicates', 'ডুপ্লিকেট পণ্য', 'products', 'duplicates', '👯'],
-    ['/admin/products/source-pics', 'অন্য দোকানের ছবি', 'products', 'source-pics', '🚩'],
-    ['/admin/products/whiten', 'ছবির ব্যাকগ্রাউন্ড সাদা (AI)', 'products', 'whiten', '⬜'],
-    ['/admin/products/whiten/mine', 'নিজের ছবি সাদা', 'products', 'whiten-mine', '📤'],
-    ['/admin/products/clean-desc', 'বিবরণ থেকে অন্য দোকানের লেখা সরানো', 'products', 'clean-desc', '🧹'],
+    ['/admin/products/watermark', 'Watermark', 'products', 'watermark', '💧'],
+    ['/admin/products/duplicates', 'Duplicate products', 'products', 'duplicates', '👯'],
+    ['/admin/products/source-pics', 'Other shops\' pictures', 'products', 'source-pics', '🚩'],
+    ['/admin/products/whiten', 'White picture background (AI)', 'products', 'whiten', '⬜'],
+    ['/admin/products/whiten/mine', 'Whiten my own pictures', 'products', 'whiten-mine', '📤'],
+    ['/admin/products/clean-desc', 'Clean other shops\' text from descriptions', 'products', 'clean-desc', '🧹'],
   ],
   suppliers: [
-    ['/admin/suppliers', 'সাপ্লায়ার', 'inventory', 'suppliers', '🚚'],
-    ['/admin/suppliers/dues', 'বাকির খাতা', 'see_cost', 'supplier-dues', '📒'],
+    ['/admin/suppliers', 'Suppliers', 'inventory', 'suppliers', '🚚'],
+    ['/admin/suppliers/dues', 'Dues ledger', 'see_cost', 'supplier-dues', '📒'],
   ],
   messages: [
     ['/admin/marketing/sms', 'SMS', 'marketing', 'sms', '📱'],
-    ['/admin/marketing/email', 'ইমেইল', 'marketing', 'email', '📧'],
-    ['/admin/marketing/contacts', 'Excel তালিকা', 'marketing', 'contacts', '📥'],
-    ['/admin/marketing/push', 'ফোনে নোটিফিকেশন', 'marketing', 'shoppush', '🔔'],
-    ['/admin/marketing/app-invite', 'অ্যাপের কার্ড', 'marketing', 'appinvite', '📱'],
-    ['/admin/marketing/restock', 'স্টকে এলে / দাম কমলে জানাও', 'marketing', 'restock', '⏰'],
+    ['/admin/marketing/email', 'Email', 'marketing', 'email', '📧'],
+    ['/admin/marketing/contacts', 'Excel lists', 'marketing', 'contacts', '📥'],
+    ['/admin/marketing/push', 'Phone notifications', 'marketing', 'shoppush', '🔔'],
+    ['/admin/marketing/app-invite', 'App card', 'marketing', 'appinvite', '📱'],
+    ['/admin/marketing/restock', 'Back in stock / price drop alerts', 'marketing', 'restock', '⏰'],
   ],
   autosocial: [
-    ['/admin/marketing/channels', 'সব প্ল্যাটফর্ম', 'marketing', 'channels', '📣'],
-    ['/admin/marketing/auto', 'Facebook, Instagram ও Telegram', 'marketing', 'automarketing', '🤖'],
+    ['/admin/marketing/channels', 'All platforms', 'marketing', 'channels', '📣'],
+    ['/admin/marketing/auto', 'Facebook, Instagram & Telegram', 'marketing', 'automarketing', '🤖'],
   ],
   // 2026-11-14: "Google ও Facebook" split in two — being found on Google (SEO, blog) / ads and what the ads need
   // (pixels, product feeds, retargeting, whether each connection works)
   seoblog: [
     ['/admin/marketing/seo', 'SEO', 'marketing', 'seo', '🔎'],
-    ['/admin/marketing/autoseo', 'অটো SEO (মডেল, স্পেসিফিকেশন ও বিবরণ নিজে বসায়)', 'marketing', 'autoseo', '🤖'],
-    ['/admin/blog', 'ব্লগ', 'blog', 'blog', '📝'],
+    ['/admin/marketing/autoseo', 'Auto SEO (fills model, details & description)', 'marketing', 'autoseo', '🤖'],
+    ['/admin/blog', 'Blog', 'blog', 'blog', '📝'],
   ],
   ads: [
-    ['/admin/landing', 'ল্যান্ডিং পেজ', 'marketing', 'landing', '🚀'],
-    ['/admin/marketing/tracking', 'পিক্সেল ও ট্র্যাকিং', 'marketing', 'tracking', '🎯'],
-    ['/admin/marketing/feeds', 'প্রোডাক্ট ফিড', 'marketing', 'feeds', '🔗'],
-    ['/admin/reach', 'রিটার্গেটিং', 'owner', 'reach', '🔁'],
-    ['/admin/integrations/status', 'সংযোগের অবস্থা', 'settings', 'status', '🔌'],
+    ['/admin/landing', 'Landing pages', 'marketing', 'landing', '🚀'],
+    ['/admin/marketing/tracking', 'Pixels & tracking', 'marketing', 'tracking', '🎯'],
+    ['/admin/marketing/feeds', 'Product feeds', 'marketing', 'feeds', '🔗'],
+    ['/admin/reach', 'Retargeting', 'owner', 'reach', '🔁'],
+    ['/admin/integrations/status', 'Connection status', 'settings', 'status', '🔌'],
   ],
   security: [
-    ['/admin/security', 'নিরাপত্তার অবস্থা', 'owner', 'security', '🛡️'],
-    ['/admin/security/threats', 'সন্দেহজনক ভিজিটর', 'owner', 'threats', '🚨'],
-    ['/admin/security/audit', 'অডিট লগ (কে কী বদলেছে)', 'owner', 'audit', '📜'],
+    ['/admin/security', 'Security status', 'owner', 'security', '🛡️'],
+    ['/admin/security/threats', 'Suspicious visitors', 'owner', 'threats', '🚨'],
+    ['/admin/security/audit', 'Audit log (who changed what)', 'owner', 'audit', '📜'],
   ],
   system: [
-    ['/admin/health', 'সার্ভার ও ডাটাবেস', 'owner', 'health', '🩺'],
-    ['/admin/backup', 'ব্যাকআপ ও রিস্টোর', 'owner', 'backup', '💾'],
+    ['/admin/health', 'Server & database', 'owner', 'health', '🩺'],
+    ['/admin/backup', 'Backup & restore', 'owner', 'backup', '💾'],
   ],
   slides: [
-    ['/admin/design/slider', 'রানিং স্লাইডার', 'design', 'slider', '🎞️'],
-    ['/admin/design/banners', 'ব্যানার', 'design', 'banners', '🖼️'],
+    ['/admin/design/slider', 'Running slider', 'design', 'slider', '🎞️'],
+    ['/admin/design/banners', 'Banners', 'design', 'banners', '🖼️'],
   ],
   menupages: [
-    ['/admin/design/menus', 'হেডার ও ফুটার মেনু', 'design', 'menus', '🧭'],
-    ['/admin/design/pages', 'পেজ (About, Policy)', 'design', 'pages', '📄'],
+    ['/admin/design/menus', 'Header & footer menus', 'design', 'menus', '🧭'],
+    ['/admin/design/pages', 'Pages (About, Policy)', 'design', 'pages', '📄'],
   ],
   domain: [
-    ['/admin/integrations/domain', 'ডোমেইন সেটআপ', 'settings', 'domain', '🌐'],
-    ['/admin/integrations/dns', 'DNS ও Cloudflare', 'owner', 'dns', '🛰️'],
+    ['/admin/integrations/domain', 'Domain setup', 'settings', 'domain', '🌐'],
+    ['/admin/integrations/dns', 'DNS & Cloudflare', 'owner', 'dns', '🛰️'],
   ],
   login: [
-    ['/admin/security/login', 'লগইন তালা (আঙুলের ছাপ)', 'owner', 'loginlock', '🔐'],
-    ['/admin/security/logins', 'লগইন ইতিহাস ও ডিভাইস', 'owner', 'logins', '🔑'],
-    ['/admin/security/recovery', 'জরুরি রিকভারি কোড', 'owner', 'recovery', '🆘'],
+    ['/admin/security/login', 'Login lock (fingerprint)', 'owner', 'loginlock', '🔐'],
+    ['/admin/security/logins', 'Login history & devices', 'owner', 'logins', '🔑'],
+    ['/admin/security/recovery', 'Emergency recovery codes', 'owner', 'recovery', '🆘'],
   ],
 };
 const tabSet = (id: string, label: string, icon: string): TabSet => ({ tabs: id, label, icon });
 
-// The admin menu: everyday work at the top, things set up once at the bottom.
-// Each link: [href, label, permission, key, icon], or tabSet(...) for a page with tabs.
-const MENU: { title: string; icon?: string; items: MenuItem[] }[] = [
-  { title: '', items: [['/admin', 'ড্যাশবোর্ড', 'dashboard', 'home', '📊']] },
-  { title: 'অর্ডার', icon: '🧾', items: [
-    tabSet('orders', 'সব অর্ডার', '🧾'),
-    ['/admin/orders/new', 'নতুন অর্ডার', 'orders_edit', 'order-new', '➕'],
-    ['/admin/pos', 'দোকানে বিক্রি (POS)', 'pos', 'pos', '🏪'],
-    ['/admin/handover', 'কুরিয়ারে হ্যান্ডওভার', 'orders_edit', 'handover', '📦'],
-    tabSet('returns', 'রিটার্ন ও অভিযোগ', '↩️'),
-    tabSet('fake', 'ফেক অর্ডার ঠেকানো', '🛡️'),
+// 🧭 The admin menu (owner, 2026-11-17: laid out like the "Veylix" admin template — English only).
+// Four sections (Operate · Commerce · Grow & connect · Workspace); each holds a few groups that fold open
+// (an outline icon + name + arrow), the pages sit inside. A plain link (Overview, Recycle bin) has no fold.
+type Group = { title: string; icon: string; items: MenuItem[] };
+type Entry = Tab | Group;
+const SECTIONS: { title: string; entries: Entry[] }[] = [
+  { title: 'Operate', entries: [
+    ['/admin', 'Overview', 'dashboard', 'home', 'home'],
+    { title: 'Orders', icon: 'orders', items: [
+      tabSet('orders', 'All orders', '🧾'),
+      ['/admin/orders/new', 'New order', 'orders_edit', 'order-new', '➕'],
+      ['/admin/pos', 'Counter sale (POS)', 'pos', 'pos', '🏪'],
+      ['/admin/handover', 'Courier handover', 'orders_edit', 'handover', '📦'],
+      tabSet('returns', 'Returns & complaints', '↩️'),
+      tabSet('fake', 'Fake order guard', '🛡️'),
+    ] },
+    { title: 'Products', icon: 'products', items: [
+      tabSet('products', 'All products', '📦'),
+      ['/admin/products/new', 'Add product', 'products', 'product-new', '⬆️'],
+      ['/admin/products/import', 'Import products', 'products', 'product-import', '📥'],
+      tabSet('catbrand', 'Categories & brands', '🗂️'),
+      ['/admin/kits', 'Project kits', 'products', 'kits', '🧰'],
+    ] },
+    { title: 'Inventory', icon: 'inventory', items: [
+      ['/admin/inventory', 'Stock', 'inventory', 'inventory', '🏬'],
+      ['/admin/stock-scan', 'Scan stock', 'inventory', 'stock-scan', '📷'],
+      ['/admin/purchases', 'Purchases', 'inventory', 'purchases', '🛒'],
+      tabSet('suppliers', 'Suppliers & dues', '🚚'),
+      ['/admin/warehouses', 'Warehouses & branches', 'inventory', 'warehouses', '🏗️'],
+    ] },
+    { title: 'Customers', icon: 'customers', items: [
+      ['/admin/customers', 'All customers', 'customers', 'customers', '👤'],
+      ['/admin/customer-accounts', 'Customer accounts', 'settings', 'cust-accounts', '🔐'],
+      tabSet('reviews', 'Reviews & Q&A', '⭐'),
+    ] },
   ] },
-  { title: 'কাস্টমার', icon: '👤', items: [
-    ['/admin/customers', 'সব কাস্টমার', 'customers', 'customers', '👤'],
-    ['/admin/customer-accounts', 'কাস্টমার অ্যাকাউন্ট', 'settings', 'cust-accounts', '🔐'],
-    tabSet('reviews', 'রিভিউ ও প্রশ্ন-উত্তর', '⭐'),
+  { title: 'Commerce', entries: [
+    { title: 'Checkout & pricing', icon: 'tag', items: [
+      ['/admin/marketing/flash', 'Flash sales & offers', 'marketing', 'flash', '⚡'],
+      ['/admin/marketing/coupons', 'Coupons', 'marketing', 'coupons', '🎟️'],
+      ['/admin/giftcards', 'Gift cards & referral', 'marketing', 'giftcards', '💳'],
+      ['/admin/marketing/loyalty', 'Loyalty points', 'marketing', 'loyalty', '🎖️'],
+    ] },
+    { title: 'Online store', icon: 'store', items: [
+      ['/admin/design', 'Logo, colours & home page', 'design', 'design', '🎨'],
+      ['/admin/design/switches', 'What the shop shows', 'design', 'ui-switches', '👁️'],
+      tabSet('slides', 'Slider & banners', '🎞️'),
+      tabSet('menupages', 'Menus & pages', '🧭'),
+      ['/admin/design/documents', 'Invoice & checklist (print)', 'design', 'documents', '🖨️'],
+      ['/admin/design/language', 'Shop language (বাংলা / English)', 'design', 'language', '🌐'],
+      ['/admin/design/live', 'Live match scores', 'design', 'live', '🏏'],
+    ] },
+    { title: 'Payments & delivery', icon: 'card', items: [
+      ['/admin/integrations/payments', 'Payments', 'settings', 'payments', '💳'],
+      ['/admin/integrations/courier', 'Couriers', 'settings', 'courier', '🛵'],
+      ['/admin/accounts/cod', 'Courier COD settlement', 'accounting', 'acc-cod', '🚚'],
+    ] },
+    { title: 'Accounts', icon: 'wallet', items: [
+      ['/admin/accounts', 'Accounts summary', 'accounting', 'acc-home', '💰'],
+      ['/admin/accounts/transactions', 'Income & expenses', 'accounting', 'acc-tx', '✍️'],
+      ['/admin/accounts/banks', 'Bank & cash', 'accounting', 'acc-banks', '🏦'],
+      tabSet('pnl', 'Profit & loss', '📉'),
+      ['/admin/accounts/vat', 'VAT & tax', 'accounting', 'acc-vat', '🧮'],
+    ] },
   ] },
-  { title: 'পণ্য', icon: '📦', items: [
-    tabSet('products', 'সব পণ্য', '📦'),
-    ['/admin/products/new', 'নতুন পণ্য', 'products', 'product-new', '⬆️'],
-    ['/admin/products/import', 'পণ্য আমদানি', 'products', 'product-import', '📥'],
-    tabSet('catbrand', 'ক্যাটাগরি ও ব্র্যান্ড', '🗂️'),
-    ['/admin/kits', 'প্রজেক্ট কিট', 'products', 'kits', '🧰'],
-    tabSet('pictools', 'ওয়াটারমার্ক ও ডুপ্লিকেট', '💧'),
+  { title: 'Grow & connect', entries: [
+    { title: 'Reports', icon: 'chart', items: [
+      ['/admin/reports', 'Sales report', 'reports', 'reports', '📋'],
+      ['/admin/reports/search', 'What customers search', 'reports', 'search-report', '🔎'],
+      ['/admin/marketing/visitors', 'Visitor analytics', 'marketing', 'visitors', '👀'],
+      ['/admin/research', 'Market research (trending products)', 'owner', 'research', '🔭'],
+      ['/admin/growth', 'Growth guide', 'owner', 'growth', '🚀'],
+    ] },
+    { title: 'Communication', icon: 'chat', items: [
+      tabSet('messages', 'Customer messages', '📱'),
+      tabSet('autosocial', 'Social media auto post', '📣'),
+      ['/admin/marketing/social', 'Social links & live chat', 'marketing', 'social', '💬'],
+    ] },
+    { title: 'Marketing', icon: 'megaphone', items: [
+      tabSet('seoblog', 'SEO & blog (Google)', '🔎'),
+      tabSet('ads', 'Landing pages & ads', '🚀'),
+    ] },
+    { title: 'AI tools', icon: 'sparkle', items: [
+      ['/admin/ai-staff', 'AI staff (writes names, descriptions & SEO)', 'owner', 'ai-staff', '🤖'],
+    ] },
+    { title: 'Media & files', icon: 'media', items: [
+      tabSet('pictools', 'Watermark, duplicates & pictures', '💧'),
+    ] },
   ] },
-  { title: 'স্টক ও কেনাকাটা', icon: '🏬', items: [
-    ['/admin/inventory', 'ইনভেন্টরি (স্টক)', 'inventory', 'inventory', '🏬'],
-    ['/admin/stock-scan', 'স্ক্যান করে স্টক', 'inventory', 'stock-scan', '📷'],
-    ['/admin/purchases', 'পারচেজ (মাল কেনা)', 'inventory', 'purchases', '🛒'],
-    tabSet('suppliers', 'সাপ্লায়ার ও বাকির খাতা', '🚚'),
-    ['/admin/warehouses', 'গুদাম ও শাখা', 'inventory', 'warehouses', '🏗️'],
+  { title: 'Workspace', entries: [
+    { title: 'Team & access', icon: 'team', items: [
+      ['/admin/staff', 'Staff & permissions', 'owner', 'staff', '🧑‍💼'],
+      tabSet('security', 'Security & monitoring', '🛡️'),
+      tabSet('login', 'Login & devices', '🔐'),
+    ] },
+    { title: 'Integrations', icon: 'globe', items: [
+      tabSet('domain', 'Domain & DNS', '🌐'),
+      ['/admin/notify', 'My notifications', 'owner', 'notify', '🔔'],
+    ] },
+    { title: 'Settings', icon: 'gear', items: [
+      ['/admin/settings', 'General settings', 'settings', 'settings', '⚙️'],
+      tabSet('system', 'Server, database & backup', '🩺'),
+    ] },
+    ['/admin/trash', 'Recycle bin', 'owner', 'trash', 'trash'],
   ] },
-  { title: 'হিসাব', icon: '💰', items: [
-    ['/admin/accounts', 'হিসাবের সারাংশ', 'accounting', 'acc-home', '💰'],
-    ['/admin/accounts/transactions', 'আয়-ব্যয় এন্ট্রি', 'accounting', 'acc-tx', '✍️'],
-    ['/admin/accounts/banks', 'ব্যাংক ও ক্যাশ', 'accounting', 'acc-banks', '🏦'],
-    ['/admin/accounts/cod', 'কুরিয়ারের COD মিলানো', 'accounting', 'acc-cod', '🚚'],
-    tabSet('pnl', 'লাভ-ক্ষতি', '📉'),
-    ['/admin/accounts/vat', 'ভ্যাট ও ট্যাক্স', 'accounting', 'acc-vat', '🧮'],
-  ] },
-  { title: 'রিপোর্ট ও গ্রোথ', icon: '📈', items: [
-    ['/admin/reports', 'বিক্রির রিপোর্ট', 'reports', 'reports', '📋'],
-    ['/admin/reports/search', 'কাস্টমার কী খুঁজছে', 'reports', 'search-report', '🔎'],
-    ['/admin/marketing/visitors', 'ভিজিটর অ্যানালিটিক্স', 'marketing', 'visitors', '👀'],
-    ['/admin/research', 'মার্কেট রিসার্চ (চলতি পণ্য খোঁজে)', 'owner', 'research', '🔭'],
-    ['/admin/growth', 'গ্রোথ গাইড', 'owner', 'growth', '🚀'],
-  ] },
-  { title: 'অফার', icon: '🏷️', items: [
-    ['/admin/marketing/flash', 'ফ্ল্যাশ সেল ও অফার', 'marketing', 'flash', '⚡'],
-    ['/admin/marketing/coupons', 'কুপন', 'marketing', 'coupons', '🎟️'],
-    ['/admin/giftcards', 'গিফট কার্ড ও রেফারেল', 'marketing', 'giftcards', '💳'],
-    ['/admin/marketing/loyalty', 'লয়ালটি পয়েন্ট', 'marketing', 'loyalty', '🎖️'],
-  ] },
-  { title: 'মার্কেটিং', icon: '📣', items: [
-    tabSet('autosocial', 'সোশ্যাল মিডিয়া অটো পোস্ট', '📣'),
-    ['/admin/marketing/social', 'সোশ্যাল লিংক ও লাইভ চ্যাট', 'marketing', 'social', '💬'],
-    tabSet('messages', 'কাস্টমারকে মেসেজ', '📱'),
-    tabSet('seoblog', 'SEO ও ব্লগ (Google)', '🔎'),
-    tabSet('ads', 'ল্যান্ডিং পেজ ও বিজ্ঞাপন', '🚀'),
-  ] },
-  { title: 'দোকানের ডিজাইন', icon: '🎨', items: [
-    ['/admin/design', 'লোগো, রং ও হোমপেজ', 'design', 'design', '🎨'],
-    ['/admin/design/switches', 'দোকানে কী দেখাবে', 'design', 'ui-switches', '👁️'],
-    tabSet('slides', 'স্লাইডার ও ব্যানার', '🎞️'),
-    tabSet('menupages', 'মেনু ও পেজ', '🧭'),
-    ['/admin/design/documents', 'ইনভয়েস ও চেকলিস্ট (প্রিন্ট)', 'design', 'documents', '🖨️'],
-    ['/admin/design/language', 'ভাষা (বাংলা / English)', 'design', 'language', '🌐'],
-    ['/admin/design/live', 'লাইভ খেলার স্কোর', 'design', 'live', '🏏'],
-  ] },
-  { title: 'সেটিংস', icon: '⚙️', items: [
-    ['/admin/settings', 'সাধারণ সেটিংস', 'settings', 'settings', '⚙️'],
-    ['/admin/integrations/payments', 'পেমেন্ট', 'settings', 'payments', '💳'],
-    ['/admin/integrations/courier', 'কুরিয়ার', 'settings', 'courier', '🛵'],
-    ['/admin/notify', 'আমার নোটিফিকেশন', 'owner', 'notify', '🔔'],
-    tabSet('domain', 'ডোমেইন ও DNS', '🌐'),
-  ] },
-  { title: 'স্টাফ ও নিরাপত্তা', icon: '🛡️', items: [
-    ['/admin/ai-staff', 'AI স্টাফ (নাম, বিবরণ ও SEO লেখে)', 'owner', 'ai-staff', '🤖'],
-    ['/admin/staff', 'স্টাফ ও অনুমতি', 'owner', 'staff', '🧑‍💼'],
-    tabSet('security', 'নিরাপত্তা ও পাহারা', '🛡️'),
-    tabSet('login', 'লগইন ও ডিভাইস', '🔐'),
-    tabSet('system', 'সার্ভার, ডাটাবেস ও ব্যাকআপ', '🩺'),
-  ] },
-  { title: '', items: [['/admin/trash', 'রিসাইকেল বিন', 'owner', 'trash', '🗑️']] },
 ];
+const isGroup = (e: Entry): e is Group => !Array.isArray(e);
+// every menu page in order (the first one a user may open is where they land after login: lib/admin/index.tsx)
+const MENU: { title: string; items: MenuItem[] }[] = SECTIONS.flatMap((s) => s.entries.map((e) => (isGroup(e) ? { title: e.title, items: e.items } : { title: '', items: [e] })));
+
+// outline icons (24×24, drawn with a 1.8 stroke) for the menu's sections — like the template's line icons
+const ICONS: Record<string, string> = {
+  home: 'M3 10.5 12 3l9 7.5M5 9v11h5v-6h4v6h5V9',
+  orders: 'M6 2h12v20l-3-2-3 2-3-2-3 2zM9 7h6M9 11h6M9 15h4',
+  products: 'm12 2 9 5v10l-9 5-9-5V7zM3 7l9 5 9-5M12 12v10',
+  inventory: 'M3 21V8l9-5 9 5v13M7 21v-8h10v8M7 17h10',
+  customers: 'M16 11a4 4 0 1 0-8 0 4 4 0 0 0 8 0zM3 21a9 9 0 0 1 18 0',
+  tag: 'M3 12V3h9l9 9-9 9zM7.5 7.5h.01',
+  store: 'M3 9l2-5h14l2 5M3 9h18v2a3 3 0 0 1-6 0 3 3 0 0 1-6 0 3 3 0 0 1-6 0zM5 13v8h14v-8',
+  card: 'M2 6h20v12H2zM2 10h20M6 15h4',
+  wallet: 'M3 7h16a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H3zM3 7l12-4v4M16 13h2',
+  chart: 'M4 20V10M10 20V4M16 20v-7M22 20H2',
+  chat: 'M21 12a8 8 0 0 1-12 7l-5 1 1-4a8 8 0 1 1 16-4z',
+  megaphone: 'M3 10v4h4l7 5V5L7 10zM18 8a5 5 0 0 1 0 8',
+  sparkle: 'M12 3l2 6 6 2-6 2-2 6-2-6-6-2 6-2zM19 3v4M17 5h4',
+  media: 'M3 4h18v16H3zM3 16l5-5 5 5 3-3 5 5M15 9h.01',
+  team: 'M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM1 21a8 8 0 0 1 16 0M17 3a4 4 0 0 1 0 8M23 21a8 8 0 0 0-5-7.4',
+  globe: 'M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zM2 12h20M12 2c3 3 3 17 0 20M12 2c-3 3-3 17 0 20',
+  gear: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z',
+  trash: 'M3 6h18M8 6V4h8v2M6 6l1 15h10l1-15M10 11v6M14 11v6',
+  search: 'M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM21 21l-5-5',
+  bag: 'M5 8h14l-1 13H6zM9 8V6a3 3 0 0 1 6 0v2',
+  box: 'm12 2 9 5v10l-9 5-9-5V7zM3 7l9 5 9-5',
+  alert: 'M12 3 2 21h20zM12 10v5M12 18h.01',
+  ext: 'M14 4h6v6M20 4l-9 9M18 14v6H4V6h6',
+};
+function Icon({ name, size = 20 }: { name: string; size?: number }) {
+  return <svg className="ic" viewBox="0 0 24 24" width={size} height={size} aria-hidden="true"><path d={ICONS[name] || ICONS.box} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>;
+}
 
 function allowed(user: StaffUser, perm: string) {
   if (perm === 'owner') return user && user.role === 'owner';
@@ -215,13 +269,13 @@ function visible(user: StaffUser, perm: string) { return canSee(user, perm); }
 // 📊 The dashboard and visitor analytics sit together on one page as two tabs (like browser tabs),
 // so the owner does not have to look for visitor analytics in the menu.
 const HOME_TABS: Tab[] = [
-  ['/admin', 'ড্যাশবোর্ড', 'dashboard', 'home', '📊'],
-  ['/admin/marketing/visitors', 'ভিজিটর অ্যানালিটিক্স', 'marketing', 'visitors', '👀'],
+  ['/admin', 'Overview', 'dashboard', 'home', '📊'],
+  ['/admin/marketing/visitors', 'Visitor analytics', 'marketing', 'visitors', '👀'],
 ];
 function homeTabs(user: StaffUser, active: string | undefined) {
   const tabs = HOME_TABS.filter((t) => visible(user, t[2]));
   if (tabs.length < 2) return '';
-  return <nav className="home-tabs" aria-label="ড্যাশবোর্ডের ট্যাব">{jsxList(tabs.map(([href, label, , key, icon]: unknown[]) => <a href={attrValue(href)} className={`home-tab ${active === key ? 'on' : ''}`} aria-current={(active === key) ? "page" : undefined}><span aria-hidden="true"><Val v={icon} /></span>{' '}<Val v={label} /></a>))}</nav>;
+  return <nav className="home-tabs" aria-label="Dashboard tabs">{jsxList(tabs.map(([href, label, , key, icon]: unknown[]) => <a href={attrValue(href)} className={`home-tab ${active === key ? 'on' : ''}`} aria-current={(active === key) ? "page" : undefined}><span aria-hidden="true"><Val v={icon} /></span>{' '}<Val v={label} /></a>))}</nav>;
 }
 
 // A menu entry for the user: a plain link stays as it is; a tab set becomes a link to its first tab the user may
@@ -241,7 +295,7 @@ function pageTabs(user: StaffUser, active: string | undefined, path: string) {
     if (!set.some((t) => t[0].split('?')[0] === path)) continue;
     const tabs = set.filter((t) => visible(user, t[2]));
     if (tabs.length < 2) return '';
-    return <nav className="home-tabs page-tabs" aria-label="এই বিভাগের পেজ">{jsxList(tabs.map(([href, label, , key, icon]: unknown[]) => <a href={attrValue(href)} className={`home-tab ${active === key ? 'on' : ''}`} aria-current={(active === key) ? "page" : undefined}><span aria-hidden="true"><Val v={icon} /></span>{' '}<Val v={label} /></a>))}</nav>;
+    return <nav className="home-tabs page-tabs" aria-label="Pages in this section">{jsxList(tabs.map(([href, label, , key, icon]: unknown[]) => <a href={attrValue(href)} className={`home-tab ${active === key ? 'on' : ''}`} aria-current={(active === key) ? "page" : undefined}><span aria-hidden="true"><Val v={icon} /></span>{' '}<Val v={label} /></a>))}</nav>;
   }
   return '';
 }
@@ -262,25 +316,20 @@ function logoMark(settings: Settings) {
   return <span className="logo-a"><Val v={name} /></span>;
 }
 
-// বাংলা ⇄ English for the admin itself (Admin → স্টোর ডিজাইন → ভাষা → "অ্যাডমিন প্যানেলেও বাংলা / English").
-// The choice lives on each device; the page is hidden for a moment while it turns English (no Bangla flash).
-const adminLangOn = (settings: Settings) => settings.admin_i18n_on !== '0';
-function langHead(settings: Settings) {
-  if (!adminLangOn(settings)) return '';
+// 🇬🇧 The admin is English only (owner, 2026-11-17: "permanently English, remove the বাংলা/English button").
+// The pages' own words are swapped for their English (client/admin/i18n.ts with public/js/admin-en.json) on
+// every device; the page is hidden for a moment while that happens (no Bangla flash). No switch any more.
+function langHead(_settings?: Settings) {
   return raw(`<script nonce="${cspNonce()}">${adminLangBoot}</script><style>html.admin-i18n-wait body{visibility:hidden}</style>`);
 }
-function langSwitch(settings: Settings) {
-  if (!adminLangOn(settings)) return '';
-  return <button type="button" className="lang-sw admin-lang-sw" role="switch" title="বাংলা / English" data-admin-lang-switch="" aria-checked="false" aria-label="English" translate="no">{' '}<span className="ls-l ls-bn">বাং</span><span className="ls-track" aria-hidden="true"><span className="ls-knob"></span></span><span className="ls-l ls-en">EN</span>{' '}</button>;
-}
 
-/** The scripts every admin page loads at the end (admin.js, page-actions.js, the English switch). */
-function AdminScripts({ settings }: { settings: Settings }) {
+/** The scripts every admin page loads at the end (admin.js, page-actions.js, the English wording). */
+function AdminScripts({ settings: _settings }: { settings: Settings }) {
   return (
     <>
       <script type="module" src={`/js/admin/main.js?v=${ASSET_V}`} />
       <script type="module" src={`/js/admin/page-actions.js?v=${ASSET_V}`} />
-      {adminLangOn(settings) ? <script type="module" src={`/js/admin/i18n.js?v=${ASSET_V}`} data-admin-i18n="" data-v={ASSET_V} /> : null}
+      <script type="module" src={`/js/admin/i18n.js?v=${ASSET_V}`} data-admin-i18n="" data-v={ASSET_V} />
     </>
   );
 }
@@ -289,69 +338,103 @@ function AdminScripts({ settings }: { settings: Settings }) {
 function AdminBare({ settings, children }: { settings: Settings; children?: ReactNode }) {
   return (
     <>
-      {adminLangOn(settings) ? <div className="bare-lang">{langSwitch(settings)}</div> : null}
       <main className="admin-bare">{children}</main>
       <AdminScripts settings={settings} />
     </>
   );
 }
 
-type FrameProps = { settings: Settings; user: StaffUser; active?: string; readOnly?: boolean; path?: string; nonce: string; children?: ReactNode };
-/** The inside of <body class="admin">: the side menu, the top bar (search, English switch, the user's menu), the page. */
-function AdminBody({ settings, user, active, readOnly, path = '', nonce, children }: FrameProps) {
+/** Small numbers in the top bar (orders waiting, low stock, out of stock) — lib/next/admin-counts.ts. */
+type TopCounts = { pending: number; low: number; out: number };
+type FrameProps = { settings: Settings; user: StaffUser; active?: string; readOnly?: boolean; path?: string; nonce: string; counts?: TopCounts | null; children?: ReactNode };
+
+function TopChips({ user, counts }: { user: StaffUser; counts?: TopCounts | null }) {
+  const n = (v: number | undefined) => (counts ? <b>{Number(v || 0).toLocaleString('en-US')}</b> : null);
+  const chips: ReactNode[] = [];
+  if (visible(user, 'orders')) chips.push(<a key="o" className="top-chip chip-blue" href="/admin/orders?status=pending" title="New orders waiting to be confirmed"><span className="chip-ic"><Icon name="bag" size={18} /></span><span className="chip-tx"><small>New orders</small>{n(counts?.pending)}</span></a>);
+  if (visible(user, 'inventory')) chips.push(<a key="l" className="top-chip chip-amber" href="/admin/inventory?low=1" title="Products running low"><span className="chip-ic"><Icon name="box" size={18} /></span><span className="chip-tx"><small>Low stock</small>{n(counts?.low)}</span></a>);
+  if (visible(user, 'products')) chips.push(<a key="x" className="top-chip chip-red" href="/admin/products?out=1" title="Active products with no stock"><span className="chip-ic"><Icon name="alert" size={18} /></span><span className="chip-tx"><small>Out of stock</small>{n(counts?.out)}</span></a>);
+  return chips.length ? <div className="top-chips">{chips}</div> : null;
+}
+
+/** The inside of <body class="admin">: the side menu, the top bar (search, quick numbers, the user's menu), the page. */
+function AdminBody({ settings, user, active, readOnly, path = '', nonce, counts, children }: FrameProps) {
   const dashTabs = visible(user, 'dashboard') && visible(user, 'marketing'); // both tabs shown on the dashboard
-  const groups = MENU.map((g) => ({ ...g, items: g.items.map((it) => resolveItem(user, it)).filter((it): it is Resolved => !!it && !(dashTabs && it[3] === 'visitors')) })).filter((g) => g.items.length);
+  const keep = (it: Resolved | null): it is Resolved => !!it && !(dashTabs && it[3] === 'visitors');
+  const sections = SECTIONS.map((sec) => ({
+    title: sec.title,
+    entries: sec.entries.map((e) => (isGroup(e)
+      ? { group: e, items: e.items.map((it) => resolveItem(user, it)).filter(keep) }
+      : { link: resolveItem(user, e) })).filter((x) => ('group' in x ? x.items.length : keep(x.link ?? null))),
+  })).filter((sec) => sec.entries.length);
   const onHome = dashTabs && (active === 'home' || active === 'visitors');
   const tabActive = active;
-  if (onHome) active = 'home'; // visitor analytics lights up "ড্যাশবোর্ড" in the menu
+  if (onHome) active = 'home'; // visitor analytics lights up "Overview" in the menu
   const isOn = (it: Resolved) => it[3] === active || (active !== undefined && (it[5] || []).includes(active));
-  const link = (it: Resolved, i: number) => {
-    const [href, label, , , icon] = it;
+  const sub = (it: Resolved, i: number) => {
     const on = isOn(it);
-    return <a key={i} href={href} className={on ? 'on' : ''} aria-current={on ? 'page' : undefined}><span className="side-ic" aria-hidden="true">{icon}</span>{label}</a>;
+    return <a key={i} href={it[0]} className={on ? 'on' : ''} aria-current={on ? 'page' : undefined}>{it[1]}</a>;
   };
+  const roleName = user.designation || (user.role === 'owner' ? 'Owner' : 'Staff');
   return (
     <>
       <script nonce={nonce} dangerouslySetInnerHTML={{ __html: adminSideBoot }} />
-      <aside className="side" id="side" aria-label="Admin মেনু">
-        <button className="side-x" type="button" data-side-toggle="" aria-label="মেনু বন্ধ করুন" title="মেনু বন্ধ করুন">✕</button>{' '}
-        <a className="side-logo logo" href="/admin" translate="no">{logoMark(settings)}<small>Admin</small></a>
-        <nav>
-          {groups.map((g, gi) => {
-            if (!g.title) return <div key={gi} className="side-group">{g.items.map(link)}</div>;
-            const here = g.items.some(isOn);
-            return (
-              <details key={gi} className={`side-group side-drop ${here ? 'has-on' : ''}`} data-side-group={g.title} open={here || undefined}>
-                <summary><span className="side-ic" aria-hidden="true">{g.icon || '•'}</span><span className="side-label">{g.title}</span><span className="side-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" width="16" height="16"><path d="m9 6 6 6-6 6" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" /></svg></span></summary>
-                <div className="side-sub">{g.items.map(link)}</div>
-              </details>
-            );
-          })}
+      <aside className="side vx-side" id="side" aria-label="Admin menu">
+        <div className="vx-brand">
+          <a className="side-logo logo" href="/admin" translate="no">{logoMark(settings)}</a>
+          <small className="vx-tag">Admin panel</small>
+          <button className="vx-collapse" type="button" data-side-toggle="" aria-label="Hide menu" title="Hide menu"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="m15 6-6 6 6 6" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" /></svg></button>
+          <button className="side-x" type="button" data-side-toggle="" aria-label="Close menu" title="Close menu">✕</button>
+        </div>
+        <nav className="vx-nav">
+          {sections.map((sec, si) => (
+            <div key={si} className="vx-section">
+              <p className="vx-title">{sec.title}</p>
+              {sec.entries.map((x, xi) => {
+                if (!('group' in x)) {
+                  const it = x.link!;
+                  const on = isOn(it);
+                  return <a key={xi} href={it[0]} className={`vx-item ${on ? 'on' : ''}`} aria-current={on ? 'page' : undefined}><Icon name={it[4]} />{it[1]}</a>;
+                }
+                const g = x.group!;
+                const here = x.items.some(isOn);
+                return (
+                  <details key={xi} className={`side-group side-drop vx-group ${here ? 'has-on' : ''}`} data-side-group={g.title} open={here || undefined}>
+                    <summary className="vx-item"><Icon name={g.icon} /><span className="side-label">{g.title}</span><span className="side-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" width="16" height="16"><path d="m6 9 6 6 6-6" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" /></svg></span></summary>
+                    <div className="side-sub vx-sub">{x.items.map(sub)}</div>
+                  </details>
+                );
+              })}
+            </div>
+          ))}
         </nav>
       </aside>
       <div className="side-shade" data-side-close="" />
       <div className="main-col">
-        <header className="topbar">
-          <button className="burger" type="button" data-side-toggle="" aria-label="মেনু খুলুন / বন্ধ করুন" title="মেনু খুলুন / বন্ধ করুন" aria-controls="side"><svg viewBox="0 0 24 24" width="24" height="24"><path d="M3 6h18M3 12h18M3 18h18" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" /></svg></button>
-          <form className="top-search" method="get" action="/admin/orders" role="search">
-            <input type="search" name="q" placeholder="অর্ডার নম্বর, ফোন বা নাম দিয়ে খুঁজুন" aria-label="অর্ডার খুঁজুন" />
-          </form>
-          <div className="top-end">
-            {langSwitch(settings)}{' '}
-            <a href="/" target="_blank" rel="noopener" className="top-link">দোকান দেখুন ↗</a>
+        <header className="topbar vx-top">
+          <button className="burger" type="button" data-side-toggle="" aria-label="Open / close menu" title="Open / close menu" aria-controls="side"><svg viewBox="0 0 24 24" width="24" height="24"><path d="M3 6h18M3 12h18M3 18h18" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" /></svg></button>
+          <div className="vx-top-left">
+            <form className="top-search" method="get" action="/admin/orders" role="search">
+              <Icon name="search" size={18} />
+              <input type="search" name="q" placeholder="Search orders by number, phone or name…" aria-label="Search orders" />
+            </form>
+            <TopChips user={user} counts={counts} />
+          </div>
+          <div className="top-end vx-top-right">
+            <a href="/" target="_blank" rel="noopener" className="top-link"><Icon name="ext" size={16} /> View store</a>
             <details className="user-menu">
-              <summary>{$profile.avatar(user)}<span className="uname" translate="no">{user.name}</span></summary>
+              <summary>{$profile.avatar(user)}<span className="uname"><span translate="no">{user.name}</span><small>{roleName}</small></span></summary>
               <div className="user-pop">
-                <div className="user-pop-head">{$profile.avatar(user, 'avatar-lg')}<p><b translate="no">{user.name}</b><br /><span className="muted small">{user.designation || (user.role === 'owner' ? 'মালিক (সব অনুমতি)' : 'স্টাফ')} · {user.username}</span></p></div>
-                <a href="/admin/account#profile">👤 আমার প্রোফাইল</a>{' '}
-                <a href="/admin/account">🔑 পাসওয়ার্ড ও নিরাপত্তা</a>
-                <form method="post" action="/admin/logout"><button className="link-btn danger">লগআউট</button></form>
+                <div className="user-pop-head">{$profile.avatar(user, 'avatar-lg')}<p><b translate="no">{user.name}</b><br /><span className="muted small">{roleName} · {user.username}</span></p></div>
+                <a href="/admin/account#profile">👤 My profile</a>{' '}
+                <a href="/admin/account">🔑 Password & security</a>
+                <form method="post" action="/admin/logout"><button className="link-btn danger">Log out</button></form>
               </div>
             </details>
           </div>
         </header>
         <main className="admin-main" id="main">
-          {readOnly ? <p className="flash read-only-note" role="note">👁️ এই পেজে আপনার শুধু{' '}<b>দেখার</b>{' '}অনুমতি আছে — কিছু সেভ, বদল বা মুছতে পারবেন না।</p> : null}
+          {readOnly ? <p className="flash read-only-note" role="note">👁️ You can only <b>view</b> this page — you can't save, change or delete anything.</p> : null}
           {onHome ? homeTabs(user, tabActive) : pageTabs(user, active, path)}
           {children}
         </main>
@@ -367,11 +450,12 @@ const adminBodyClass = (bare?: boolean) => (bare ? 'admin admin-auth' : 'admin')
 
 // The whole admin page as text, for the original router (lib/site.ts). The Next.js admin pages use the same pieces.
 function adminLayout({ settings, user, title, body, active, bare, readOnly, path = '' }: Omit<AdminDrawn, 'status' | 'user'> & { user?: StaffUser | null }) {
-  const headHtml = `${renderHtml(head(`${title} | Admin`, settings))}${renderHtml(langHead(settings))}`;
+  const headHtml = `${renderHtml(head(`${title} | Admin`, settings))}${renderHtml(langHead())}`;
   const inner = bare
     ? <AdminBare settings={settings}><Val v={body} /></AdminBare>
     : <AdminBody settings={settings} user={user!} active={active} readOnly={readOnly} path={path} nonce={cspNonce()}><Val v={body} /></AdminBody>;
-  return `<!doctype html><html lang="bn"><head>${headHtml}</head><body class="${adminBodyClass(bare)}">${renderHtml(inner)}</body></html>`;
+  return `<!doctype html><html lang="en"><head>${headHtml}</head><body class="${adminBodyClass(bare)}">${renderHtml(inner)}</body></html>`;
 }
 
-export { adminLayout, AdminBody, AdminBare, adminBodyClass, langHead, head as adminHeadTags, MENU, TABS, resolveItem, allowed, visible, logoMark, ASSET_V };
+export { adminLayout, AdminBody, AdminBare, adminBodyClass, langHead, head as adminHeadTags, MENU, TABS, SECTIONS, resolveItem, allowed, visible, logoMark, ASSET_V };
+export type { TopCounts };

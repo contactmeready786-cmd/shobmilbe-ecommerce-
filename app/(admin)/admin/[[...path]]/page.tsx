@@ -6,6 +6,7 @@ import { AdminBare, AdminBody } from '@/lib/admin/layout';
 import { Val } from '@/lib/react/html';
 import { currentAdminPage, SITE_MARK } from '@/lib/next/admin';
 import { getRequestUrl } from '@/lib/next/shop-data';
+import { topCounts } from '@/lib/next/admin-counts';
 
 export async function generateMetadata(): Promise<Metadata> {
   const cur = await currentAdminPage();
@@ -23,8 +24,9 @@ export default async function AdminPage() {
     redirect(url.pathname + url.search);
   }
   if (cur.bare) return <AdminBare settings={cur.settings}><Val v={cur.body} /></AdminBare>;
+  const counts = await topCounts();
   return (
-    <AdminBody settings={cur.settings} user={cur.user!} active={cur.active} readOnly={cur.readOnly} path={cur.path} nonce={cur.nonce}>
+    <AdminBody settings={cur.settings} user={cur.user!} active={cur.active} readOnly={cur.readOnly} path={cur.path} nonce={cur.nonce} counts={counts}>
       <Val v={cur.body} />
     </AdminBody>
   );
