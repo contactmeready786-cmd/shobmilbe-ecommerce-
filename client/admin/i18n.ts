@@ -167,8 +167,36 @@ whenReady(() => {
       else if (lang !== 'en' && 'value' in s2) el.value = s2.value;
     }
   }
+  // A sentence split by bold/code pieces (<p>…<b>…</b>…</p>) has its own whole-sentence English in the dictionary:
+  // translating the pieces one by one would put the English words in Bangla order. Such an element (only text and
+  // simple inline pieces inside) is turned into its whole English sentence instead.
+  const BLOCKS = 'p, li, label, td, div, span, small, b, strong';
+  const INLINE = new Set(['B', 'STRONG', 'I', 'EM', 'CODE', 'SPAN', 'SMALL', 'U', 'BR']);
+  function plainInline(el: Element): boolean {
+    for (const c of Array.from(el.childNodes)) {
+      if (c.nodeType === 3) continue;
+      if (c.nodeType !== 1 || !INLINE.has((c as Element).tagName)) return false;
+      if (Array.from(c.childNodes).some((g) => g.nodeType !== 3)) return false;
+    }
+    return true;
+  }
+  function doBlocks(rootNode: Node): void {
+    if (!dict || rootNode.nodeType !== 1) return;
+    const r = rootNode as Element;
+    const list = [r, ...Array.from(r.querySelectorAll(BLOCKS))].filter((e) => e.matches?.(BLOCKS));
+    for (const el of list) {
+      if (!el.firstElementChild || !LETTER.test(el.textContent || '') || skipped(el) || !plainInline(el)) continue;
+      const key = norm(el.textContent || '');
+      const en = dict[key];
+      if (!en) continue;
+      setByUs.add(el);
+      el.textContent = digits(en);
+      if (el.firstChild) setByUs.add(el.firstChild);
+    }
+  }
   function walk(rootNode: Node | null): void {
     if (!rootNode) return;
+    if (lang === 'en') doBlocks(rootNode);
     if (rootNode.nodeType === 3) { doText(rootNode); return; }
     if (rootNode.nodeType !== 1 || SKIP.has((rootNode as Element).tagName)) return;
     doAttrs(rootNode as Element);
