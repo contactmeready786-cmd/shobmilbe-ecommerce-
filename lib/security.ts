@@ -25,6 +25,22 @@ function clientIp(req: Req): string {
 // limit('login:ip:1.2.3.4', 10, 900) -> true while under 10 tries per 15 minutes.
 // Kept in Postgres (table rate_limits) so the count is shared by all server instances.
 let lastCleanup = 0;
+/** Counts `count` at once; returns how many of them still fit under `max` (0 … count). */
+async function hitMany(db: Db, key: string, max: number, windowSec: number, count: number): Promise<number> {
+  if (count <= 0) return 0;
+  try {
+    const row = await db.one<{ n: number }>(`INSERT INTO rate_limits(k, n, reset_at) VALUES ($1, $3, now() + make_interval(secs => $2))
+      ON CONFLICT (k) DO UPDATE SET
+        n = CASE WHEN rate_limits.reset_at < now() THEN $3 ELSE rate_limits.n + $3 END,
+        reset_at = CASE WHEN rate_limits.reset_at < now() THEN excluded.reset_at ELSE rate_limits.reset_at END
+      RETURNING n`, [String(key).slice(0, 200), windowSec, count]);
+    if (!row) return 0;
+    return Math.max(0, Math.min(count, max - (row.n - count)));
+  } catch (e) {
+    console.error('rate limit', (e as Error).message);
+    return count;
+  }
+}
 async function hit(db: Db, key: string, max: number, windowSec: number): Promise<boolean> {
   try {
     const row = await db.one<{ n: number }>(`INSERT INTO rate_limits(k, n, reset_at) VALUES ($1, 1, now() + make_interval(secs => $2))
@@ -169,4 +185,4 @@ function safeEqual(a: unknown, b: unknown): boolean {
   return crypto.timingSafeEqual(x, y) && String(a ?? '').length > 0;
 }
 
-export { startNonce, cspNonce, withNonce, adminHeaders, adminCsp, clientIp, hit, blocked, clear, encrypt, decrypt, isEncrypted, hasKey, keyFingerprint, safeUrl, imageKind, BASE_HEADERS, ADMIN_CSP, sameSite, safeEqual };
+export { startNonce, cspNonce, withNonce, adminHeaders, adminCsp, clientIp, hit, hitMany, blocked, clear, encrypt, decrypt, isEncrypted, hasKey, keyFingerprint, safeUrl, imageKind, BASE_HEADERS, ADMIN_CSP, sameSite, safeEqual };

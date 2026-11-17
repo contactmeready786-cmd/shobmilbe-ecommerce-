@@ -111,11 +111,9 @@ async function lookup(texts: string[], settings: Settings, { auto = true, deadli
   }
   if (auto && missing.length) {
     // a ceiling on new machine translations per day, so a flood of made-up text can't run up work
-    const allowed: string[] = [];
-    for (const t of missing) {
-      if (!(await security.hit(db, 'i18n-mt-day', 30000, 86400))) break;
-      allowed.push(t);
-    }
+    // (2026-11-18) one count for the whole batch — one row update instead of one per text, which made busy pages
+    // queue on the same row
+    const allowed: string[] = missing.slice(0, await security.hitMany(db, 'i18n-mt-day', 30000, 86400, missing.length));
     if (allowed.length) {
       let out: string[] = [];
       try { out = await machine(allowed, settings, deadline); } catch (caught) { const e = caught as Caught; console.error('translate', e.message); out = []; }
