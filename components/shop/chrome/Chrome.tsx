@@ -18,6 +18,7 @@ import { cx } from '../../../lib/react/html';
 import type { CustomScript, MenuLink, Settings } from '../../../lib/types';
 import { SearchIcon, CartIcon, UserIcon, MenuIcon, WhatsAppIcon, MessengerIcon, SOCIAL_ICONS } from './icons';
 import { inviteConfig } from '../../../lib/app-invite';
+import { helpConfig } from '../../../lib/models/helpbot';
 
 export const ASSET_V = withBuild('63');
 
@@ -74,6 +75,11 @@ function DrawerCats({ nodes }: { nodes: CategoryNode[] }) {
   });
 }
 
+/** the help button's icon: a speech bubble with a question mark */
+function HelpIcon() {
+  return <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20.5l1.4-4.9A8 8 0 1 1 21 12z" /><path d="M10.2 9.6a1.9 1.9 0 1 1 2.6 1.8c-.5.2-.8.6-.8 1.1v.6" /><path d="M12 15.8h.01" /></svg>;
+}
+
 export type ChromeProps = {
   settings: Settings; categories: Category[]; pages: ShopPage[]; popup?: Popup | null; q?: string; active?: string; track?: unknown; children: ReactNode;
 };
@@ -107,6 +113,7 @@ export function ShopBody({ settings: s, categories, pages, popup = null, q = '',
   const C = contact(s);
   const wa = C.wa || (C.phone ? C.phone.replace(/\D/g, '').replace(/^0/, '880') : '');
   const invite = inviteConfig(s);
+  const help = helpConfig(s);
   const cfg = {
     maxQty: C.maxQty, phone: C.phone, wa: C.wa, rule: { on: s.small_qty_on !== '0', cap: Number(s.small_max_price) || 5, maxVal: Number(s.small_max_value) || 100 },
     minOrder: Math.max(0, Number(s.min_order) || 0), fb: !!s.fb_pixel_id, tt: !!s.tiktok_pixel_id, ga: !!(s.ga4_id || s.gtm_id), g4: !!s.ga4_id,
@@ -119,6 +126,8 @@ export function ShopBody({ settings: s, categories, pages, popup = null, q = '',
     } : null,
     // 📱 the app card's rules (Admin → মেসেজ → অ্যাপের কার্ড) — only once the owner has saved them
     ...(invite ? { invite } : {}),
+    // 🙋 the help button (Admin → Social links & live chat → Help bot)
+    ...(help ? { help } : {}),
   };
   const chatSecond = s.chat_whatsapp_button === '1' && wa;
   return (
@@ -213,8 +222,9 @@ export function ShopBody({ settings: s, categories, pages, popup = null, q = '',
         ) : null}
         <div className="wrap footer-base">© {new Date().getFullYear()} {s.store_name} · সর্বস্বত্ব সংরক্ষিত{s.trade_license ? <span className="biz-id"> · ট্রেড লাইসেন্স: <span translate="no">{s.trade_license}</span></span> : null}{s.vat_bin ? <span className="biz-id"> · BIN: <span translate="no">{s.vat_bin}</span></span> : null}</div>
       </footer>
-      {s.chat_whatsapp_button === '1' && wa ? <a className="float-chat wa" href={`https://wa.me/${wa}`} target="_blank" rel="noopener" aria-label="WhatsApp এ চ্যাট করুন"><WhatsAppIcon /></a> : null}{' '}
-      {s.chat_messenger_page ? <a className={cx('float-chat ms', chatSecond && 'second')} href={`https://m.me/${s.chat_messenger_page}`} target="_blank" rel="noopener" aria-label="Messenger এ চ্যাট করুন"><MessengerIcon /></a> : null}{' '}
+      {help ? <button type="button" className="float-chat help" data-help-open="" aria-label="সাহায্য" aria-expanded="false"><HelpIcon /><span className="help-tag">সাহায্য</span></button> : null}
+      {!help && s.chat_whatsapp_button === '1' && wa ? <a className="float-chat wa" href={`https://wa.me/${wa}`} target="_blank" rel="noopener" aria-label="WhatsApp এ চ্যাট করুন"><WhatsAppIcon /></a> : null}{' '}
+      {!help && s.chat_messenger_page ? <a className={cx('float-chat ms', chatSecond && 'second')} href={`https://m.me/${s.chat_messenger_page}`} target="_blank" rel="noopener" aria-label="Messenger এ চ্যাট করুন"><MessengerIcon /></a> : null}{' '}
       {popup ? (
         <div className="popup" data-popup={popup.id} hidden><div className="popup-box"><button type="button" className="popup-x" data-popup-close="" aria-label="বন্ধ করুন">✕</button>{' '}
           <a href={security.safeUrl(popup.link)}><img src={`/media/${popup.image_id}`} alt={popup.title || 'অফার'} /></a></div></div>
@@ -223,7 +233,7 @@ export function ShopBody({ settings: s, categories, pages, popup = null, q = '',
       <script dangerouslySetInnerHTML={{ __html: `window.SM=${JSON.stringify(cfg).replace(/</g, '\\u003c')};` }} />
       {s.i18n_on === '1' ? <script type="module" src={`/js/i18n/main.js?v=${ASSET_V}`}></script> : null}
       <script type="module" src={`/js/shop/main.js?v=${ASSET_V}`}></script>
-      {s.chat_tawk_property ? <script dangerouslySetInnerHTML={{ __html: tawkLoader(String(s.chat_tawk_property), String(s.chat_tawk_widget || 'default')) }} /> : null}
+      {s.chat_tawk_property ? <script dangerouslySetInnerHTML={{ __html: tawkLoader(String(s.chat_tawk_property), String(s.chat_tawk_widget || 'default'), !!help) }} /> : null}
       <BodyHtml html={(s.chat_script || '') + (s.custom_body || '') + customScripts(s, 'body')} />
     </>
   );

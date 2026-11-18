@@ -72,6 +72,11 @@ const TABS: Record<string, Tab[]> = {
     ['/admin/marketing/app-invite', 'App card', 'marketing', 'appinvite', '📱'],
     ['/admin/marketing/restock', 'Back in stock / price drop alerts', 'marketing', 'restock', '⏰'],
   ],
+  // 2026-11-18: the help button's answers sit next to the chat links they lead to
+  chat: [
+    ['/admin/marketing/social', 'Social links & live chat', 'marketing', 'social', '💬'],
+    ['/admin/marketing/helpbot', 'Help bot', 'marketing', 'helpbot', '🙋'],
+  ],
   autosocial: [
     ['/admin/marketing/channels', 'All platforms', 'marketing', 'channels', '📣'],
     ['/admin/marketing/auto', 'Facebook, Instagram & Telegram', 'marketing', 'automarketing', '🤖'],
@@ -195,7 +200,7 @@ const SECTIONS: { title: string; entries: Entry[] }[] = [
     { title: 'Communication', icon: 'chat', items: [
       tabSet('messages', 'Customer messages', '📱'),
       tabSet('autosocial', 'Social media auto post', '📣'),
-      ['/admin/marketing/social', 'Social links & live chat', 'marketing', 'social', '💬'],
+      tabSet('chat', 'Social links & live chat', '💬'),
     ] },
     { title: 'Marketing', icon: 'megaphone', items: [
       tabSet('seoblog', 'SEO & blog (Google)', '🔎'),

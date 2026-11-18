@@ -14,6 +14,8 @@ declare global {
     __smHydrated?: boolean;
     __smAdminReady?: boolean;
     smWhenReady?: (fn: () => void) => void;
+    /** Tawk.to live chat (loaded by the page when the owner set it up) */
+    Tawk_API?: { maximize?: () => void; showWidget?: () => void; hideWidget?: () => void; onLoad?: () => void; onChatMinimized?: () => void };
   }
 }
 

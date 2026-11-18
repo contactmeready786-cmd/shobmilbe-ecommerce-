@@ -439,6 +439,38 @@ body.lb-open { overflow: hidden; }
 .float-chat.wa { background: #25D366; }
 .float-chat.ms { background: #0084FF; }
 .float-chat.ms.second { bottom: 82px; }
+.float-chat.help { width: auto; padding: 0 18px 0 14px; gap: 6px; border-radius: 28px; border: 0; background: var(--blue); font: 700 .95rem var(--body); cursor: pointer; }
+.float-chat.help.open { background: var(--ink); }
+/* 🙋 help box (client/shop/help.tsx) */
+.help-box { position: fixed; right: 16px; bottom: 84px; z-index: 45; width: min(380px, calc(100vw - 24px)); max-height: min(580px, calc(100vh - 110px)); display: flex; flex-direction: column; background: var(--white); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 18px 48px rgba(20,33,61,.22); overflow: hidden; }
+.help-box[hidden] { display: none; }
+.help-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 12px 14px; background: var(--blue); color: #fff; }
+.help-head b { font-size: 1rem; }
+.help-x { border: 0; background: transparent; color: #fff; font-size: 1.1rem; line-height: 1; padding: 4px 6px; cursor: pointer; border-radius: 8px; }
+.help-x:hover { background: rgba(255,255,255,.18); }
+.help-body { padding: 12px 14px; overflow-y: auto; flex: 1; }
+.help-ask { display: flex; gap: 6px; }
+.help-ask input { flex: 1; min-width: 0; font: inherit; padding: 8px 12px; border: 1.5px solid var(--line); border-radius: 10px; background: var(--paper); }
+.help-found:not(:empty) { margin-top: 10px; }
+.help-none { margin: 0; padding: 10px 12px; background: var(--amber-l); border-radius: 10px; font-size: .9rem; }
+.help-label { margin: 14px 0 6px; font-size: .8rem; font-weight: 700; color: var(--muted); }
+.help-item { border: 1px solid var(--line); border-radius: 10px; margin-bottom: 6px; background: var(--white); }
+.help-item summary { cursor: pointer; padding: 9px 12px; font-weight: 600; font-size: .92rem; list-style: none; }
+.help-item summary::-webkit-details-marker { display: none; }
+.help-item summary::after { content: '▾'; float: right; color: var(--muted); transition: transform .15s; }
+.help-item[open] summary::after { transform: rotate(180deg); }
+.help-item[open] { background: var(--blue-l); border-color: transparent; }
+.help-item p { margin: 0; padding: 0 12px 10px; font-size: .9rem; color: var(--ink-2); white-space: pre-line; }
+.help-track-row { display: flex; gap: 6px; }
+.help-track-row input { flex: 1; min-width: 0; font: inherit; font-size: .88rem; padding: 7px 10px; border: 1.5px solid var(--line); border-radius: 10px; background: var(--paper); }
+.help-foot { padding: 10px 14px 12px; border-top: 1px solid var(--line); background: var(--paper); }
+.help-foot .help-label { margin-top: 0; }
+.help-contact { display: flex; flex-wrap: wrap; gap: 6px; }
+.help-c { flex: 1 1 auto; text-align: center; padding: 8px 10px; border-radius: 10px; font: 700 .85rem var(--body); color: #fff; background: var(--ink-2); border: 0; cursor: pointer; text-decoration: none; }
+.help-c.wa { background: #1FA855; }
+.help-c.ms { background: #0084FF; }
+.help-c.live { background: var(--amber-d); }
+.help-c.call { background: var(--blue); }
 .toast { position: fixed; left: 50%; bottom: 20px; transform: translate(-50%, 120px); background: var(--ink); color: #fff; padding: 12px 18px; border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,.25); z-index: 70; transition: transform .25s ease, visibility .25s; visibility: hidden; display: flex; align-items: center; gap: 14px; max-width: calc(100% - 32px); }
 .toast.show { transform: translate(-50%, 0); visibility: visible; }
 .toast a { color: var(--amber); font-weight: 700; white-space: nowrap; }
@@ -596,6 +628,8 @@ body.protect .card-pic img, body.protect .g-main img, body.protect .g-thumb img,
   .sticky-buy.show { display: flex; }
   .float-chat { width: 48px; height: 48px; bottom: 76px; }
   .float-chat.ms.second { bottom: 132px; }
+  .float-chat.help { height: 46px; padding: 0 14px 0 12px; font-size: .88rem; }
+  .help-box { right: 12px; bottom: 132px; max-height: calc(100vh - 150px); }
   .tab-panel { padding: 14px; }
   .post { padding: 16px; }
 }

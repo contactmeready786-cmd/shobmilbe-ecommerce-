@@ -53,6 +53,7 @@ export const ADMIN_GET_ROUTES: (string | RegExp)[] = [
   "/admin/marketing/seo",
   "/admin/marketing/coupons",
   "/admin/marketing/social",
+  "/admin/marketing/helpbot",
   "/admin/blog",
   "/admin/blog/new",
   /^\/admin\/blog\/(\d+)$/,

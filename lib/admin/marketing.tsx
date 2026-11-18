@@ -11,6 +11,7 @@ import * as ui from './ui';
 import * as $services_seo from '../services/seo';
 import * as $status from './status';
 import * as $models_catalog from '../models/catalog';
+import * as helpbot from '../models/helpbot';
 import type { AdminCtx, Body, RouteMatch, Caught, VerificationFile, CustomScript } from '../types';
 const OWNER_ONLY_KEYS = new Set(['custom_scripts', 'custom_head', 'custom_body', 'chat_script', 'verification_files', 'live_cricket_embed', 'live_football_embed']);
 async function saveKeys(ctx: AdminCtx, keys: string[], body: Body, { secrets = [], checkboxes = [] }: { secrets?: string[]; checkboxes?: string[] } = {}) {
@@ -168,12 +169,71 @@ async function social(ctx: AdminCtx) {
   return ctx.page('সোশ্যাল ও লাইভ চ্যাট', body, 'social');
 }
 
+// ---------------------------------------------------------------- 🙋 help bot (owner, 2026-11-18)
+// The shop's one "সাহায্য" button: ready answers the customer taps or finds by typing, an order-track box and the
+// ways to reach the shop (lib/models/helpbot.ts, client/shop/help.tsx). Free — no AI, no outside service.
+const HELP_BLANK_ROWS = 3;
+async function helpBot(ctx: AdminCtx) {
+  const s = ctx.settings;
+  if (ctx.method === 'POST') {
+    const b = await ctx.body();
+    await db.setSetting('help_on', b.help_on ? '1' : '0');
+    await db.setSetting('help_track', b.help_track ? '1' : '0');
+    if (b.reset) {
+      await db.setSetting('help_items', '');
+    } else {
+      const rows: helpbot.HelpRow[] = [];
+      for (let i = 0; i < helpbot.HELP_MAX_ITEMS + HELP_BLANK_ROWS; i++) {
+        if (!(`q_${i}` in b) || b[`del_${i}`]) continue;
+        const r = helpbot.cleanRow({ q: b[`q_${i}`], a: b[`a_${i}`], k: b[`k_${i}`], on: !!b[`on_${i}`] });
+        if (r) rows.push(r);
+      }
+      await db.setSetting('help_items', JSON.stringify(rows.slice(0, helpbot.HELP_MAX_ITEMS)));
+    }
+    await ctx.reloadSettings();
+    await ctx.log('settings', 'marketing', null, 'Help bot');
+    return ctx.back('/admin/marketing/helpbot', 'saved');
+  }
+  const saved = !!s.help_items;
+  const rows = helpbot.helpRows(s);
+  const blanks = Math.max(0, Math.min(HELP_BLANK_ROWS, helpbot.HELP_MAX_ITEMS - rows.length));
+  const all: (helpbot.HelpRow | null)[] = [...rows, ...Array.from({ length: blanks }, () => null)];
+  const L = helpbot.HELP_LIMITS;
+  const body = <><h1>Help bot</h1>{ui.flash(ctx.flash)}
+    <form method="post" action="/admin/marketing/helpbot" className="form">
+      <section className="panel">
+        <h2>Help button on the shop</h2>
+        <p className="muted small">One round help button in the corner of the shop replaces the separate WhatsApp, Messenger and live-chat bubbles. Customers tap a question to see its answer, or type their own question and the matching answers show up. If nothing matches, they reach you by WhatsApp (their question already written), Messenger, live chat or a call — whichever is set on the Social links &amp; live chat tab. Free: no AI, no outside service.</p>
+        {ui.switchRow('help_on', s.help_on === '1', 'Show the help button on the shop', 'Off: the shop shows the old separate WhatsApp / Messenger / live-chat bubbles instead.')}{' '}
+        {ui.switchRow('help_track', s.help_track !== '0', 'Order-track box inside the help box', 'Customers type their order number and mobile number to see where the order is.')}
+      </section>
+      <section className="panel">
+        <h2>Ready answers <small>{rows.length} / {helpbot.HELP_MAX_ITEMS}</small></h2>
+        <p className="muted small">{saved ? 'Your own list. ' : 'Suggested answers made from your settings (delivery charges, payment methods, minimum order…) — they follow your settings until you save this list once. '}Write questions and answers the way customers read them (Bangla). "Search words" are extra words a customer might type to find the answer — they count more than the question's own words. Empty rows are skipped; tick "Delete" to remove a row.</p>
+        <div className="table-wrap"><table className="table help-table">
+          <thead><tr><th>#</th><th>Question &amp; answer</th><th>Search words</th><th className="num">Show</th><th className="num">Delete</th></tr></thead>
+          <tbody>{jsxList(all.map((r, i) => <tr>
+            <td className="muted">{i + 1}</td>
+            <td translate="no">{ui.input(`q_${i}`, r ? r.q : '', { maxlength: L.q, placeholder: r ? '' : 'New question', style: 'width:100%;margin-bottom:6px' })}{ui.textarea(`a_${i}`, r ? r.a : '', { rows: 2, maxlength: L.a, placeholder: r ? '' : 'Answer', style: 'width:100%' })}</td>
+            <td translate="no">{ui.textarea(`k_${i}`, r ? r.k : '', { rows: 3, maxlength: L.k, placeholder: 'Extra words, e.g. charge cost shipping', style: 'width:100%' })}</td>
+            <td className="num"><input type="checkbox" name={`on_${i}`} defaultValue="1" defaultChecked={r ? r.on : true} aria-label="Show" /></td>
+            <td className="num">{r ? <input type="checkbox" name={`del_${i}`} defaultValue="1" aria-label="Delete" /> : null}</td>
+          </tr>))}</tbody>
+        </table></div>
+        <p className="muted small">Need more rows? Save — {HELP_BLANK_ROWS} new empty rows come each time (up to {helpbot.HELP_MAX_ITEMS} answers).</p>
+      </section>
+      <div className="form-actions sticky-actions"><button className="btn btn-lg">Save</button>{' '}{saved ? <button className="btn btn-ghost" name="reset" value="1" data-confirm-btn="Replace your list with the suggested answers made from your settings?">Use suggested answers</button> : null}</div>
+    </form></>;
+  return ctx.page('Help bot', body, 'helpbot');
+}
+
 export const routes = [
     { method: '*', path: '/admin/marketing/tracking', perm: 'marketing', handler: tracking },
     { method: '*', path: '/admin/marketing/seo', perm: 'marketing', handler: seo },
     { method: '*', path: '/admin/marketing/coupons', perm: 'marketing', handler: coupons },
     { method: 'POST', path: /^\/admin\/marketing\/coupons\/(\d+)\/delete$/, perm: 'marketing', handler: deleteCoupon },
     { method: '*', path: '/admin/marketing/social', perm: 'marketing', handler: social },
+    { method: '*', path: '/admin/marketing/helpbot', perm: 'marketing', handler: helpBot },
   ];
 export { saveKeys, secretInput };
 void raw;

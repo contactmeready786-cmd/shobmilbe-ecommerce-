@@ -12,6 +12,7 @@ export const adminLangBoot = "(()=>{document.documentElement.setAttribute('data-
 /** Admin body start: the side menu stays hidden on a big screen when the owner hid it. */
 export const adminSideBoot = "try{if(localStorage.getItem('sm_side_hidden')==='1')document.body.classList.add('side-hidden')}catch{}";
 
-/** Tawk.to live chat (Admin → সোশ্যাল ও লাইভ চ্যাট). */
-export const tawkLoader = (property: string, widget: string): string =>
-  `window.Tawk_API=window.Tawk_API||{};(()=>{const s=document.createElement('script');s.async=true;s.src=${JSON.stringify(`https://embed.tawk.to/${encodeURI(property)}/${encodeURI(widget || 'default')}`)};s.charset='UTF-8';s.setAttribute('crossorigin','*');document.head.appendChild(s);})();`;
+/** Tawk.to live chat (Admin → সোশ্যাল ও লাইভ চ্যাট). With the help button on (lib/models/helpbot.ts) Tawk's own bubble
+ * stays hidden: the help box opens the chat ("লাইভ চ্যাট"), and the bubble comes back when the shop replies. */
+export const tawkLoader = (property: string, widget: string, hidden = false): string =>
+  `window.Tawk_API=window.Tawk_API||{};${hidden ? "(()=>{const T=window.Tawk_API;T.onLoad=()=>T.hideWidget();T.onChatMinimized=()=>T.hideWidget();T.onChatMessageAgent=()=>T.showWidget();})();" : ''}(()=>{const s=document.createElement('script');s.async=true;s.src=${JSON.stringify(`https://embed.tawk.to/${encodeURI(property)}/${encodeURI(widget || 'default')}`)};s.charset='UTF-8';s.setAttribute('crossorigin','*');document.head.appendChild(s);})();`;

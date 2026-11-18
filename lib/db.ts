@@ -1694,6 +1694,8 @@ const DEFAULT_SETTINGS: Record<string, string> = {
   social_facebook: '', social_instagram: '', social_youtube: '', social_tiktok: '', social_linkedin: '',
   social_x: '', social_pinterest: '', social_telegram: '',
   chat_whatsapp_button: '1', chat_messenger_page: '', chat_tawk_property: '', chat_tawk_widget: 'default', chat_script: '',
+  // 🙋 help button (lib/models/helpbot.ts): on; help_items empty = the suggested answers made from the settings
+  help_on: '1', help_track: '1', help_items: '',
   // payments
   pay_cod: '1', pay_cod_note: 'পণ্য হাতে পেয়ে টাকা দিন',
   pay_bkash: '0', bkash_sandbox: '1', bkash_app_key: '', bkash_app_secret: '', bkash_username: '', bkash_password: '',

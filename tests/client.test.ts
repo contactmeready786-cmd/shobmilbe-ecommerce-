@@ -64,7 +64,7 @@ test('the district / thana list in the browser is the same as the server\'s', ()
 
 test('the boot scripts written into the page are valid modern JavaScript', async () => {
   const boot = await import('../lib/boot-scripts');
-  for (const code of [boot.shopLangBoot('bn'), boot.shopLangBoot('en'), boot.adminLangBoot, boot.adminSideBoot, boot.tawkLoader('abc/1', 'default')]) {
+  for (const code of [boot.shopLangBoot('bn'), boot.shopLangBoot('en'), boot.adminLangBoot, boot.adminSideBoot, boot.tawkLoader('abc/1', 'default'), boot.tawkLoader('abc/1', 'default', true)]) {
     assert.doesNotThrow(() => new Function(code), code.slice(0, 60));
     assert.ok(!/\bvar\s/.test(code), `no var: ${code.slice(0, 60)}`);
   }
