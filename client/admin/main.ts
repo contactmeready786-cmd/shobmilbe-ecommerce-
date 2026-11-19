@@ -13,26 +13,22 @@ import { startRecognize } from './recognize.js';
 import { startCards } from './cards.js';
 import { startWhitenMine, startToJpg } from './whitenmine.js';
 
-// 📖 Everything open (owner, 2026-11-17: "the template would never keep these closed"): every folded box on an
-// admin page — help (ⓘ), settings boxes, tool panels — starts open, laid out as cards like the Veylix template.
-// A box the owner folds stays folded on that page (remembered on this device) until they open it again —
-// saving a form, refreshing or coming back doesn't open it again (owner, 2026-11-17).
-const FOLD_KEY = 'sm_folded';
+// 📖 Boxes are fixed cards, never folded (owner, 2026-11-19, supersedes 2026-11-17 "a box the owner folds stays
+// folded"): every settings box, tool panel and ⓘ note on an admin page is shown open, as a plain card — no arrow,
+// nothing to minimise. Row actions (edit a payment, a category's extra settings, block / refund …) stay buttons.
 function openAllFolds(): void {
-  // (row actions — edit a payment, a category's extra settings, block / refund buttons — stay buttons that open on press)
   const ACTIONS = ':not([data-keep-closed]):not(.cat-more):not(.cat-seo):not(.pay-edit):not(.mt):not(.ll-more)';
-  let folded: Record<string, 1> = {};
-  try { folded = JSON.parse(localStorage.getItem(FOLD_KEY) || '{}') || {}; } catch { folded = {}; }
-  const page = location.pathname;
-  const boxes = Array.from(document.querySelectorAll<HTMLDetailsElement>(`#main details${ACTIONS}`));
-  boxes.forEach((d, i) => {
-    const key = `${page}#${d.id || i}`;
-    d.open = !folded[key];
-    d.addEventListener('toggle', () => {
-      if (d.open) delete folded[key]; else folded[key] = 1;
-      try { localStorage.setItem(FOLD_KEY, JSON.stringify(folded)); } catch { /* private mode */ }
-    });
-  });
+  try { localStorage.removeItem('sm_folded'); } catch { /* private mode */ }
+  for (const d of Array.from(document.querySelectorAll<HTMLDetailsElement>(`#main details${ACTIONS}`))) {
+    d.open = true;
+    d.classList.add('no-fold');
+    const sum = d.querySelector(':scope > summary');
+    if (sum) {
+      sum.setAttribute('tabindex', '-1');
+      sum.addEventListener('click', (e) => e.preventDefault());
+    }
+    d.addEventListener('toggle', () => { if (!d.open) d.open = true; });
+  }
 }
 
 whenReady(() => {

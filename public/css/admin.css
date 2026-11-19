@@ -226,7 +226,7 @@ details form { margin-top: 8px; }
 .live-now .ln { border: 1px solid var(--line); border-radius: 10px; padding: 10px; background: #fff; }
 .live-now .ln b { display: block; font-size: 12.5px; margin-bottom: 6px; }
 .live-now .ln img { max-width: 100%; max-height: 56px; object-fit: contain; display: block; }
-.live-now .ln .sw { font-size: 12.5px; }
+.live-now .ln .ln-sw { display: block; font-size: 12.5px; white-space: nowrap; }
 .live-now .ln .on { color: #067647; font-weight: 700; } .live-now .ln .off { color: #b42318; font-weight: 700; }
 .live-now .swatch { display: inline-block; width: 22px; height: 22px; border-radius: 6px; border: 1px solid var(--line); vertical-align: middle; margin-right: 4px; }
 .pick-actions { display: flex; gap: 10px; align-items: center; }
@@ -2617,3 +2617,12 @@ body.admin #main.admin-main .form-actions-inline { display: flex; justify-conten
   body.admin #main.admin-main #groups .tool-body > form.form { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr) auto; gap: 0 14px; align-items: end; }
   body.admin #main.admin-main #groups .tool-body > form.form > .btn { margin-bottom: 26px; }
 }
+
+/* 📖 boxes are fixed cards, never folded (owner, 2026-11-19; client/admin/main.ts openAllFolds) */
+details.panel.fold > summary .fold-arrow { display: none; }
+details.no-fold > summary { cursor: default; }
+details.panel.fold.no-fold > summary:hover { background: none; }
+details.panel.fold.no-fold > summary { pointer-events: none; }
+details.panel.fold.no-fold > summary a, details.panel.fold.no-fold > summary button, details.panel.fold.no-fold > summary input { pointer-events: auto; }
+/* an ⓘ note is just a short line of help under its box: no "Details" button to press */
+details.note-fold.no-fold > summary { display: none; }
