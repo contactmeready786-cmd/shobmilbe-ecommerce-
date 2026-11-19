@@ -164,6 +164,14 @@ async function shopRoutes({ req, reply, path, method, query, settings }: ShopCtx
   // category here, so the visitor lands on it and Google moves the old page's standing over (301 = moved for good)
   m = path.match(/^\/products\/([^/]+)\/?$/);
   if (m) return reply.answer(...(await oldProductLink(safeDecode(m[1]))));
+  // the old shop's info pages were /pages/<slug> (Merchant Center and Google still have some): → /page/<slug> here
+  m = path.match(/^\/pages\/([^/]+)\/?$/);
+  if (m) {
+    const want = slugify(safeDecode(m[1]));
+    const alias = OLD_PAGES[want] || want;
+    const p = await content.getPage({ slug: alias }).catch(() => null);
+    if (p && p.active) return reply.answer(301, { Location: `/page/${encodeURIComponent(p.slug)}` });
+  }
   m = path.match(/^\/categories\/([^/]+)\/?$/);
   if (m) {
     const want = slugify(safeDecode(m[1]));
@@ -172,6 +180,12 @@ async function shopRoutes({ req, reply, path, method, query, settings }: ShopCtx
   }
   return notFound();
 }
+
+/** old-shop page names → this shop's page names */
+const OLD_PAGES: Record<string, string> = {
+  'return-and-refund-policy': 'return-policy', 'refund-policy': 'return-policy', 'returns': 'return-policy',
+  'privacy': 'privacy-policy', 'terms-and-conditions': 'terms', 'terms-conditions': 'terms', 'about-us': 'about',
+};
 
 function safeDecode(s: string): string { try { return decodeURIComponent(s); } catch { return s; } }
 
