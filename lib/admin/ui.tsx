@@ -170,8 +170,10 @@ function settingsBox(title: unknown, state: [string, boolean][], body: unknown, 
 
 // 💡 "কীভাবে কাজ করে" (owner, 2026-11-16: "why such a long bar?"): a small pill that opens the explanation over the page,
 // so the page's real work starts right at the top instead of under a full-width yellow bar.
-function helpBox(title?: unknown, body?: unknown) {
-  return <details className="tool-tile help-tile"><summary><span className="tool-t">💡{' '}<Val v={title} /></span></summary><div className="tool-body panel help-body"><Val v={body} /></div></details>;
+// (owner, 2026-11-19: "remove every 'How to use this' from the admin, I don't need it") — the 💡 help pills are no longer
+// shown on any admin page. The texts stay in the code (helpBox calls) so they can be brought back by changing this one line.
+function helpBox(_title?: unknown, _body?: unknown): null {
+  return null;
 }
 
 // 🧩 Small tools above a list (owner, 2026-11-15: "a nice small box, opened with the arrow"): a row of compact
