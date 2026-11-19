@@ -74,8 +74,18 @@ export async function queue(mediaIds: number[], opts: CloudOpts, userId?: number
 /** For the cloud AI: the waiting pictures, with an address it can read them from. */
 export async function waiting(siteUrl: string): Promise<{ id: number; token: string; src: string; opts: CloudOpts }[]> {
   const base = String(siteUrl || '').replace(/\/+$/, '');
-  const rows = await q<WhitenJobsRow & { ik_url: string | null }>(`SELECT j.*, m.ik_url FROM whiten_jobs j JOIN media m ON m.id=j.media_id
-    WHERE j.status='queued' AND j.created_at > now() - interval '2 days' ORDER BY j.id LIMIT 40`);
+  const all = await q<WhitenJobsRow & { ik_url: string | null }>(`SELECT j.*, m.ik_url FROM whiten_jobs j JOIN media m ON m.id=j.media_id
+    WHERE j.status='queued' AND j.created_at > now() - interval '2 days' ORDER BY j.id LIMIT 400`);
+  // A picture the AI already finished stays 'queued' here until someone opens its admin page (status() marks it).
+  // Those used to fill all 40 places of this list, so the AI saw only finished work and newer pictures waited
+  // for ever (owner, 2026-11-19: one picture "being made" for over an hour). Mark them from the results list first.
+  const idx = all.length ? await results() : {};
+  const rows = [];
+  for (const r of all) {
+    const hit = idx[r.token];
+    if (hit) await q(`UPDATE whiten_jobs SET status=$2, error=$3, done_at=now() WHERE id=$1 AND status='queued'`, [r.id, hit.ok ? 'done' : 'failed', String(hit.error || '').slice(0, 300)]);
+    else if (rows.length < 40) rows.push(r);
+  }
   return rows.map((r) => ({ id: r.id, token: r.token, src: r.ik_url || `${base}/media/${r.media_id}?raw=1`, opts: safeJson(r.opts) }));
 }
 const safeJson = (s: string): CloudOpts => { try { return JSON.parse(s) as CloudOpts; } catch { return {}; } };
