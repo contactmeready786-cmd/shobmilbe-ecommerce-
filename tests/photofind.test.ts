@@ -29,7 +29,7 @@ test('the product whose picture looks like the photo comes first, with its best 
 });
 
 test('how sure: clearly ahead → sure; close or low → not', () => {
-  assert.equal(verdict([{ score: 0.9 }, { score: 0.88 }]), 'sure'); // very high is enough
+  assert.equal(verdict([{ score: 0.9 }, { score: 0.89 }]), 'maybe'); // two products with the same picture: the owner picks
   assert.equal(verdict([{ score: 0.78 }, { score: 0.6 }]), 'sure');
   assert.equal(verdict([{ score: 0.78 }, { score: 0.76 }]), 'maybe'); // two look alike: the owner picks
   assert.equal(verdict([{ score: 0.55 }]), 'maybe');

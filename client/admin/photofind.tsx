@@ -95,7 +95,7 @@ function start(root: HTMLElement): void {
   }
 
   function render(body: HTMLElement, file: File, f: Extract<Found, { ok: true }>) {
-    const head = f.verdict === 'sure' ? <p className="pf-verdict ok">✅ পাওয়া গেছে — প্রথমটাই সবচেয়ে বেশি মিলেছে। মিলিয়ে দেখে "এটাই" চাপুন।</p>
+    const head = f.verdict === 'sure' ? <p className="pf-verdict ok">✅ পাওয়া গেছে — প্রথমটাই সবচেয়ে বেশি মিলেছে। ঠিক হলে স্টক আর দাম বসিয়ে সেভ করুন।</p>
       : f.verdict === 'maybe' ? <p className="pf-verdict maybe">🤔 কাছাকাছি কয়েকটা পাওয়া গেছে — ঠিকটা আছে কি না দেখে নিন। না থাকলে আরেক দিক থেকে আরেকটা ছবি তুলুন।</p>
         : <p className="pf-verdict none">❌ মনে হচ্ছে এই পণ্যটা ওয়েবসাইটে নেই। নিচেরগুলো দেখে নিশ্চিত হয়ে নতুন পণ্য হিসেবে তুলুন।</p>;
     const rows = f.matches.map((m, i) => row(m, i === 0 && f.verdict === 'sure'));

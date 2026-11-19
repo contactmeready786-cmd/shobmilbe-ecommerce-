@@ -61,7 +61,8 @@ export function rank(views: Int8Array[], pics: Pic[]): { product: number; media:
 export function verdict(list: { score: number }[]): 'sure' | 'maybe' | 'none' {
   const [a, b] = list;
   if (!a) return 'none';
-  if (a.score >= 0.72 && (!b || a.score - b.score >= 0.04 || a.score >= 0.85)) return 'sure';
+  // two products with (almost) the same picture tie: then the owner picks, never "sure"
+  if (a.score >= 0.72 && (!b || a.score - b.score >= 0.03)) return 'sure';
   if (a.score >= 0.5) return 'maybe';
   return 'none';
 }
@@ -118,7 +119,7 @@ async function page(ctx: AdminCtx) {
   const n = (await db.one<{ n: number; done: number }>(`SELECT count(*)::int AS n, count(emb)::int AS done FROM media WHERE owner_type='product'`))!;
   const body = <><div className="title-row"><h1>📸 ছবি দিয়ে খুঁজুন</h1><div className="row-actions"><a className="btn btn-ghost btn-sm" href="/admin/stock-scan">📷 বারকোড স্ক্যান →</a></div></div>
     <section className="panel pf" data-photofind="" data-can-price={ctx.can('products') ? '1' : undefined}>
-      <p className="muted">ঘরের পণ্যটা হাতে নিয়ে ছবি তুলুন — যে কোনো দিক থেকে। AI দোকানের <b>{bn(n.done)}</b>টা পণ্যের ছবির সাথে মিলিয়ে সবচেয়ে কাছের পণ্যগুলো দেখাবে। ঠিকটায় স্টক আর দাম বসিয়ে সেভ করুন; না থাকলে নতুন পণ্য হিসেবে তুলুন।</p>
+      <p className="muted">ঘরের পণ্যটা হাতে নিয়ে ছবি তুলুন — যে কোনো দিক থেকে। AI দোকানের <b>{bn(n.done)}</b>{' '}টা পণ্যের ছবির সাথে মিলিয়ে সবচেয়ে কাছের পণ্যগুলো দেখাবে। ঠিকটায় স্টক আর দাম বসিয়ে সেভ করুন; না থাকলে নতুন পণ্য হিসেবে তুলুন।</p>
       <div className="pf-actions">
         <label className="btn pf-big">📷 ছবি তুলুন<input type="file" accept="image/*" capture="environment" data-pf-camera="" hidden /></label>
         <label className="btn btn-ghost pf-big">🖼️ গ্যালারি থেকে (একসাথে অনেকগুলো)<input type="file" accept="image/*" multiple data-pf-files="" hidden /></label>
