@@ -2612,3 +2612,8 @@ body.admin #main.admin-main .acct-status { margin: 0 0 12px; padding: 8px 12px; 
 body.admin #main.admin-main .switch-list.sl-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-bottom: 12px; }
 @media (max-width: 700px) { body.admin #main.admin-main .switch-list.sl-2 { grid-template-columns: minmax(0, 1fr); } }
 body.admin #main.admin-main .form-actions-inline { display: flex; justify-content: flex-end; margin-top: 8px; }
+/* customers → Group & VIP rules: the two boxes and Save on one line */
+@media (min-width: 900px) {
+  body.admin #main.admin-main #groups .tool-body > form.form { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr) auto; gap: 0 14px; align-items: end; }
+  body.admin #main.admin-main #groups .tool-body > form.form > .btn { margin-bottom: 26px; }
+}
