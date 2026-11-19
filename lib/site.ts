@@ -12,7 +12,7 @@ import { resolveShop, type PageOpts } from './shop/router';
 import { scoped } from './cache';
 import * as shop from './views/shop';
 import * as md from './views/md';
-import { parseBody } from './util';
+import { parseBody, slugify } from './util';
 import * as security from './security';
 import * as $services_geolock from './services/geolock';
 import * as $shop_blog from './shop/blog';
@@ -160,7 +160,33 @@ async function shopRoutes({ req, reply, path, method, query, settings }: ShopCtx
     if (!p || !p.active) return notFound();
     return page(p.title, shop.staticPage({ page: p }), { canonical: `/page/${p.slug}`, description: md.plain(p.content) });
   }
+  // 🔁 the old shop's links (Google still knows them): /products/<slug> and /categories/<slug> → the same product /
+  // category here, so the visitor lands on it and Google moves the old page's standing over (301 = moved for good)
+  m = path.match(/^\/products\/([^/]+)\/?$/);
+  if (m) return reply.answer(...(await oldProductLink(safeDecode(m[1]))));
+  m = path.match(/^\/categories\/([^/]+)\/?$/);
+  if (m) {
+    const want = slugify(safeDecode(m[1]));
+    const c = categories.find((x) => x.slug === want || slugify(x.slug) === want);
+    return reply.answer(301, { Location: c ? `/products?cat=${encodeURIComponent(c.slug)}` : '/products' });
+  }
   return notFound();
+}
+
+function safeDecode(s: string): string { try { return decodeURIComponent(s); } catch { return s; } }
+
+/** Where an old-shop product link goes: the product's own page here (301), else a search for its words (302). */
+export async function oldProductLink(oldSlug: string): Promise<[number, Record<string, string>]> {
+  const moved = await catalog.findRedirect('/products/' + oldSlug).catch(() => null);
+  if (moved) return [301, { Location: moved }];
+  // the new shop made its links from the same names, cut at 60 letters (util.slugify)
+  const s = slugify(oldSlug);
+  for (const slug of [s, s.replace(/-+$/, '')]) {
+    const p = await catalog.getProduct({ slug, public: true }).catch(() => null);
+    if (p && p.active) return [301, { Location: `/p/${encodeURIComponent(p.slug)}` }];
+  }
+  const words = s.split('-').filter((w) => w.length > 1).slice(0, 6).join(' ');
+  return [302, { Location: words ? `/products?q=${encodeURIComponent(words)}` : '/products' }];
 }
 
 /** Answers one request (the Web Request Next.js gives app/api/site) for the address the visitor asked for. */

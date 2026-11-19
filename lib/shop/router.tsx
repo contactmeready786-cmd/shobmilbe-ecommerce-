@@ -280,7 +280,7 @@ export async function resolveShop(ctx: ShopCtx): Promise<Resolved> {
     return done(seo.productTitle(product), shop.productPage({ product, related, settings, inlineProducts, categories, mainSrc,
       tiers: tiersMap.get(product.id) || [], offers, reviews: rv.reviews, reviewStats: rv.stats, cross, upsell, questions, selectedVariant: int(query.get('v')),
       kits }), {
-      noindex: !!product.noindex, jsonLdExtra: breadcrumb,
+      noindex: !!product.noindex || await catalog.copiedOut(product.id).catch(() => false), jsonLdExtra: breadcrumb,
       description: seo.productDescription(product, settings),
       keywords: seo.productKeywords(product),
       canonical, image: product.image_id ? `/media/${product.image_id}` : '', jsonLd, type: 'product',
