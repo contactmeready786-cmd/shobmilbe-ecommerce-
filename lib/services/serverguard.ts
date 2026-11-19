@@ -27,13 +27,17 @@ export function sshdValue(texts: string[], name: string): string | null {
   return null;
 }
 
+/** null = the settings can't all be read from inside the site (a file only root may read, e.g. Ubuntu's
+ *  50-cloud-init.conf, can turn passwords back on — so a partial read must never show ✅). */
 function sshdTexts(): string[] | null {
   const main = read('/etc/ssh/sshd_config');
   if (!main) return null;
   const dir = '/etc/ssh/sshd_config.d';
-  let extra: string[] = [];
-  try { extra = fs.readdirSync(dir).filter((f) => f.endsWith('.conf')).sort().map((f) => read(path.join(dir, f))); } catch { /* none */ }
-  return /^\s*include\s/im.test(main) ? [...extra, main] : [main];
+  let files: string[] = [];
+  try { files = fs.readdirSync(dir).filter((f) => f.endsWith('.conf')).sort(); } catch { /* none */ }
+  const extra = files.map((f) => { try { return fs.readFileSync(path.join(dir, f), 'utf8'); } catch { return null; } });
+  if (/^\s*include\s/im.test(main) && extra.some((t) => t === null)) return null;
+  return /^\s*include\s/im.test(main) ? [...(extra as string[]), main] : [main];
 }
 
 /** Programs running now, by their command line (names only). */
@@ -73,7 +77,7 @@ export function serverChecks(): ServerCheck[] {
 
   // 1. SSH: only keys, never passwords
   const ssh = sshdTexts();
-  if (!ssh) checks.push({ key: 'ssh_pw', ok: null, title: 'SSH login only with a key', detail: 'The SSH settings could not be read from inside the site.' });
+  if (!ssh) checks.push({ key: 'ssh_pw', ok: null, title: 'SSH login only with a key (no passwords)', detail: 'Some SSH settings can only be read by the server\'s root account. An outside test (19 Nov 2026) found the server still offers password login.' });
   else {
     const pw = sshdValue(ssh, 'PasswordAuthentication');
     const kbd = sshdValue(ssh, 'KbdInteractiveAuthentication') ?? sshdValue(ssh, 'ChallengeResponseAuthentication');
