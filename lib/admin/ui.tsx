@@ -164,8 +164,9 @@ function empty(text?: unknown, action?: JSX.Element | undefined) {
  * everywhere"). The page's real work — the numbers and the list — comes first; the settings stay on the same page
  * (one place per switch) and open with a tap. The closed bar still shows each switch's state.
  */
-function settingsBox(title: unknown, state: [string, boolean][], body: unknown, open = false) {
-  return <details className="panel settings-box" open={open}><summary><span className="sb-title">⚙️{' '}<Val v={title} /></span><span className="sb-state">{jsxList(state.map(([label, on]) => <span className={`sb-chip ${on ? 'is-on' : 'is-off'}`}><Val v={label} />:{' '}{on ? 'চালু' : 'বন্ধ'}</span>))}</span></summary><div className="sb-body"><Val v={body} /></div></details>;
+function settingsBox(title: unknown, state: [string, boolean][], body: unknown, _open = false) {
+  // (owner, 2026-11-19: nothing folds in the admin) — a settings card: title and each switch's state in the top bar
+  return <section className="set-sec settings-sec"><div className="set-head"><h2 className="set-title">⚙️{' '}<Val v={title} /></h2>{jsxList(state.map(([label, on]) => <span className={`sb-chip ${on ? 'is-on' : 'is-off'}`}><Val v={label} />:{' '}{on ? 'চালু' : 'বন্ধ'}</span>))}</div><div className="panel set-card"><Val v={body} /></div></section>;
 }
 
 // 💡 "কীভাবে কাজ করে" (owner, 2026-11-16: "why such a long bar?"): a small pill that opens the explanation over the page,
@@ -180,7 +181,9 @@ function helpBox(_title?: unknown, _body?: unknown): null {
 // pills; each opens its own panel below it. `state` shows চালু / বন্ধ on the pill for an on/off tool.
 type ToolTileOpts = { state?: boolean; open?: boolean; id?: string };
 function toolTile(title: unknown, body: unknown, { state, open, id }: ToolTileOpts = {}) {
-  return <details className="tool-tile" id={id} open={!!open}><summary><span className="tool-t"><Val v={title} /></span>{state === undefined ? null : <span className={`tool-state ${state ? 'on' : ''}`}>{state ? 'চালু' : 'বন্ধ'}</span>}</summary><div className="tool-body panel"><Val v={body} /></div></details>;
+  // (owner, 2026-11-19: nothing folds in the admin) — each tool is a small card, always open, side by side in its row
+  void open;
+  return <section className="set-sec tool-sec" id={id}><div className="set-head"><h2 className="set-title"><Val v={title} /></h2>{state === undefined ? null : <span className={`tool-state ${state ? 'on' : ''}`}>{state ? 'চালু' : 'বন্ধ'}</span>}</div><div className="panel set-card tool-body"><Val v={body} /></div></section>;
 }
 /** An on/off setting as one small pill: name · switch · চালু/বন্ধ · ⓘ (the explanation shows when the mouse is on it).
  *  Saving: the pill's own 💾 appears once the switch is moved (and the page's save bar), like every admin edit. */

@@ -2670,3 +2670,18 @@ body.admin #main.admin-main .set-tile:hover { border-color: #BFD3FE; background:
 body.admin #main.admin-main .set-tile-ic { font-size: 1.35rem; line-height: 1; margin-bottom: 4px; }
 body.admin #main.admin-main .set-tile b { font-size: .98rem; }
 body.admin #main.admin-main .set-tile small { color: var(--a-mut, #5B6B85); font-size: .8rem; line-height: 1.4; }
+
+/* 2026-11-19 (owner: "the minimise marks are still there"): no arrow, triangle or "open/close" look on anything in
+   the admin pages any more — every box is simply open. */
+body.admin #main.admin-main details.no-fold > summary { list-style: none; cursor: default; }
+body.admin #main.admin-main details.no-fold > summary::-webkit-details-marker { display: none; }
+body.admin #main.admin-main details.no-fold > summary::marker { content: ''; }
+body.admin #main.admin-main details.no-fold > summary::after { content: none !important; }
+body.admin #main.admin-main details.no-fold > summary:hover { background: none; }
+/* small tools (were drop-down pills): open cards side by side, under the page title */
+body.admin #main.admin-main .tool-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: stretch; margin: 0 0 16px; }
+body.admin #main.admin-main .tool-row > .tool-sec { flex: 1 1 340px; margin: 0; min-width: 0; }
+body.admin #main.admin-main .tool-sec > .tool-body { position: static; width: auto; box-shadow: none; }
+body.admin #main.admin-main .title-row:has(.tool-sec) { flex-wrap: wrap; }
+body.admin #main.admin-main .title-row:has(.tool-sec) > .tool-row { flex: 1 1 100%; order: 5; }
+body.admin #main.admin-main .set-head .tool-state, body.admin #main.admin-main .set-head .sb-chip { margin: 0; }
