@@ -6,7 +6,7 @@
 //   and PgError with .code / .detail / .severity.
 // A small pool of connections per server instance (owner, 2026-11-14 — the shop runs on its own VPS now, so many
 // visitors' queries no longer wait in one line): a query takes a free connection, a few more are opened when all are
-// busy (DB_POOL, default 12 — owner, 2026-11-14: with 6, visitors' queries had to wait in line 166 times in 20 minutes), and the extra ones are closed again after a quiet minute. On one connection queries
+// busy (DB_POOL, default 20 — owner, 2026-11-14: with 6, visitors' queries had to wait in line 166 times in 20 minutes; 2026-11-19: with 12, 3133 of 8367 queries still waited, up to 2.6 s), and the extra ones are closed again after a quiet minute. On one connection queries
 // still take turns, and a transaction has its connection to itself.
 // Code running inside a transaction may call the plain query() helpers; those calls are routed into the open
 // transaction instead of queueing behind it.
@@ -113,6 +113,14 @@ function toPgError(e: unknown): unknown {
 // ---------- connection settings ----------
 type ConnConfig = { host: string; port: number; user: string; password: string; database: string; ssl: boolean };
 
+const isLocalHost = (h: string): boolean => h === 'localhost' || h === '127.0.0.1' || h === '::1' || h.startsWith('/');
+// Measured on Admin → Server & database (2026-11-19) before choosing:
+//  work_mem 4 MB → 16 MB: sorts were spilling to temporary files on disk (54 in 3 hours);
+//  random_page_cost 4 → 1.1: the disk is an SSD and the whole database sits in memory (100% read from memory),
+//    so Postgres should prefer index look-ups;
+//  effective_cache_size 4 GB → 2 GB: the server has 3.7 GB in all, the site and other programs use the rest;
+//  jit off: compiling a query takes longer than these short shop queries themselves.
+export const DB_TUNING = '-c work_mem=16MB -c random_page_cost=1.1 -c effective_cache_size=2GB -c jit=off';
 function parseConnectionString(str: string): ConnConfig {
   const u = new URL(str);
   const host = u.hostname;
@@ -197,6 +205,10 @@ class Connection {
       keepAlive: true,
       keepAliveInitialDelayMillis: 10000,
       application_name: 'shobmilbe',
+      // ⚡ Speed (2026-11-19): settings for this shop's own PostgreSQL on its VPS (2 cores, ~3.7 GB RAM, SSD), given
+      // per connection so nothing on the server has to be edited and removing this line undoes it. Only for a database
+      // on the same machine (an outside pooler may refuse start-up settings).
+      ...(isLocalHost(config.host) && process.env.DB_TUNE !== '0' ? { options: DB_TUNING } : {}),
     });
     this.client.on('error', () => { this.closed = true; });
     this.client.on('end', () => { this.closed = true; });
@@ -299,7 +311,7 @@ function databaseInfo(): { provider: string; variable: string; host: string } {
 }
 
 // ---------- the pool ----------
-const POOL_MAX = Math.min(20, Math.max(1, Math.floor(Number(process.env.DB_POOL)) || 12));
+const POOL_MAX = Math.min(20, Math.max(1, Math.floor(Number(process.env.DB_POOL)) || 20));
 const IDLE_MS = 60e3; // an extra connection nobody used for a minute is closed again
 let pool: Connection[] = [];
 let opening = 0;

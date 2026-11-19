@@ -284,10 +284,14 @@ const OWN_SOURCES = ['shobmilbe.com', 'shopnosale.com'];
 const COPIED_OUT_SQL = `(${STOCK_EXPR} <= 0 AND coalesce(p.import_ref, '') <> '' AND split_part(p.import_ref, '#', 1) NOT IN (${OWN_SOURCES.map((h) => `'${h}'`).join(', ')}))`;
 // A running flash sale: the lowest sale price for this product right now (null when there is none).
 // A sale item with a piece limit ends for that product once the limit is sold.
-const FLASH_SUB = `(SELECT min(fi.price) FROM flash_items fi JOIN flash_sales fs ON fs.id=fi.sale_id
-  WHERE fi.product_id=p.id AND fs.active AND now() >= fs.starts_at AND now() < fs.ends_at AND (fi.max_qty = 0 OR fi.sold < fi.max_qty) AND fi.price < p.price)`;
-const FLASH_END = `(SELECT min(fs.ends_at) FROM flash_items fi JOIN flash_sales fs ON fs.id=fi.sale_id
-  WHERE fi.product_id=p.id AND fs.active AND now() >= fs.starts_at AND now() < fs.ends_at AND (fi.max_qty = 0 OR fi.sold < fi.max_qty) AND fi.price < p.price)`;
+// ⚡ Speed (2026-11-19): most of the time no flash sale is running, yet these were worked out for every product of every
+// list (three times per product). FLASH_LIVE has nothing to do with the product, so Postgres asks it once per query
+// (an "InitPlan"); when no sale runs, the CASE skips the per-product look-ups. Same answers, far less work.
+const FLASH_LIVE = `EXISTS (SELECT 1 FROM flash_sales fl WHERE fl.active AND now() >= fl.starts_at AND now() < fl.ends_at)`;
+const FLASH_SUB = `(CASE WHEN ${FLASH_LIVE} THEN (SELECT min(fi.price) FROM flash_items fi JOIN flash_sales fs ON fs.id=fi.sale_id
+  WHERE fi.product_id=p.id AND fs.active AND now() >= fs.starts_at AND now() < fs.ends_at AND (fi.max_qty = 0 OR fi.sold < fi.max_qty) AND fi.price < p.price) END)`;
+const FLASH_END = `(CASE WHEN ${FLASH_LIVE} THEN (SELECT min(fs.ends_at) FROM flash_items fi JOIN flash_sales fs ON fs.id=fi.sale_id
+  WHERE fi.product_id=p.id AND fs.active AND now() >= fs.starts_at AND now() < fs.ends_at AND (fi.max_qty = 0 OR fi.sold < fi.max_qty) AND fi.price < p.price) END)`;
 // Shop side: the price customers pay now (flash sale price when one runs; the normal price shows crossed out).
 const PRICE_COLS = `coalesce(${FLASH_SUB}, p.price) AS price,
   CASE WHEN ${FLASH_SUB} IS NOT NULL THEN greatest(coalesce(p.old_price, 0), p.price) ELSE p.old_price END AS old_price,

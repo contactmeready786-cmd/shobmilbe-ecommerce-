@@ -94,7 +94,7 @@ type ProductsForOpts = {
 };
 async function productsFor(r: HomeRowsRow, { hideOut }: ProductsForOpts = {}): Promise<Product[]> {
   const catalog = $catalog;
-  const limit = r.lim || 16;
+  const limit = r.lim || 10; // the owner's own number wins; none set = 10, like the shop's other home rows
   const base = { public: true, hideOut: hideOut || r.in_stock_only, sort: r.sort, limit };
   let items: Product[] = [];
   if (r.source === 'products') {

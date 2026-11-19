@@ -48,7 +48,9 @@ export async function resolveShop(ctx: ShopCtx): Promise<Resolved> {
     // 🎞️ running slider switched on (Admin → স্টোর ডিজাইন → রানিং স্লাইডার) → always at the top
     if (settings.slider_on === '1' && Array.isArray(sections) && !sections.includes('slider')) sections = ['slider', ...sections];
     const want = (k: string) => sections.includes(k);
-    const ROW = 16;
+    // ⚡ Speed (2026-11-19): 10 cards per sliding row (was 16). The home page had 167 cards and weighed 834 KB, half of
+    // it React's copy of the same cards; customers see 2–6 cards of a row at a time and "সব দেখুন" opens the full list.
+    const ROW = 10;
     const inStockFirst = <P extends { stock: number }>(a: P[]) => [...a.filter((p) => p.stock > 0), ...a.filter((p) => p.stock <= 0)];
     // 🔀 rows take a bigger pool and show a fresh mix every half hour (lib/services/rotate.ts); off = the old fixed rows
     const rotating = rotateOn(settings);
