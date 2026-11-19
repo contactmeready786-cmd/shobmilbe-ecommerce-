@@ -2685,3 +2685,12 @@ body.admin #main.admin-main .tool-sec > .tool-body { position: static; width: au
 body.admin #main.admin-main .title-row:has(.tool-sec) { flex-wrap: wrap; }
 body.admin #main.admin-main .title-row:has(.tool-sec) > .tool-row { flex: 1 1 100%; order: 5; }
 body.admin #main.admin-main .set-head .tool-state, body.admin #main.admin-main .set-head .sb-chip { margin: 0; }
+
+/* 🏷️ Sidebar brand (owner, 2026-11-19: "a blue box comes up behind the logo on hover, and 'Admin panel' doesn't sit
+   well"): the logo stands on its own — no sticker background, no hover colour — with a small "ADMIN" label beside it. */
+body.admin .vx-brand { flex-direction: row; align-items: center; gap: 10px; padding: 20px 44px 16px 22px; }
+body.admin .vx-brand .side-logo, body.admin .vx-brand .side-logo:hover, body.admin .vx-brand .side-logo:focus-visible { background: none; padding: 0; margin: 0; border: 0; border-radius: 6px; }
+body.admin .vx-brand .side-logo:focus-visible { outline: 2px solid var(--blue, #0866D6); outline-offset: 3px; }
+body.admin .vx-brand .side-logo .logo-img { height: 30px; max-height: 30px; width: auto; max-width: 140px; padding: 0; margin: 0; background: none; border-radius: 0; }
+body.admin .vx-brand .vx-tag { align-self: center; margin: 0; padding: 3px 8px; border-radius: 999px; font-size: .62rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; line-height: 1.2; white-space: nowrap;
+  color: #0866D6; background: rgba(8, 102, 214, .08); border: 1px solid rgba(8, 102, 214, .18); }
