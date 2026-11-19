@@ -264,10 +264,54 @@ async function attachApi(ctx: AdminCtx) {
   return ctx.json(200, result);
 }
 
+// 🔁 Swap a placeholder picture for the product's real ones (owner, 2026-11-19: the products copied from the
+// creativetrade Daraz shop came with the shop's own "সব" logo as their picture). The browser uploads the real pictures
+// first (owner-less media); this puts them on the product in order and takes off only the pictures that are the same
+// photo as the placeholder `like` names — never any other picture of the product.
+async function swapApi(ctx: AdminCtx) {
+  const b = await ctx.body();
+  const pid = int(b.product_id);
+  const like = int(b.like);
+  const ids = arr(b.ids).map((x) => int(x)).filter((x) => x > 0).slice(0, catalog.MAX_PRODUCT_IMAGES);
+  if (!pid || !like || !ids.length) return ctx.json(400, { error: 'product_id, like and ids are needed' });
+  const p = await db.one<Pick<ProductsRow, 'id' | 'name'>>('SELECT id, name FROM products WHERE id=$1', [pid]);
+  if (!p) return ctx.json(404, { error: 'পণ্যটি পাওয়া যায়নি' });
+  type Pic = Pick<MediaRow, 'id' | 'sha' | 'phash' | 'phash_m'>;
+  const ok = (h: unknown): h is string => typeof h === 'string' && /^[0-9a-f]{64}$/.test(h);
+  const same = (a: Pic, x: Pic) => (a.sha && x.sha && a.sha === x.sha) || (ok(a.phash) && ok(x.phash) && hamming(a.phash, x.phash) <= SAME_PHOTO);
+  const result = await db.tx(async (t) => {
+    await t.query('SELECT id FROM products WHERE id=$1 FOR UPDATE', [pid]);
+    const ref = (await t.query<Pic>('SELECT id, sha, phash, phash_m FROM media WHERE id=$1', [like])).rows[0];
+    if (!ref) return { error: 'placeholder picture not found' };
+    const have = (await t.query<Pic>(`SELECT id, sha, phash, phash_m FROM media WHERE owner_type='product' AND owner_id=$1 ORDER BY sort, id`, [pid])).rows;
+    const fresh = (await t.query<Pic>(`SELECT id, sha, phash, phash_m FROM media WHERE id = ANY($1::int[]) AND owner_type IS NULL`, [ids])).rows;
+    if (!fresh.length) return { error: 'no new pictures' };
+    const drop = have.filter((h) => same(h, ref));
+    const keep = have.filter((h) => !drop.includes(h));
+    if (drop.length) await t.query(`UPDATE media SET owner_type=NULL, owner_id=NULL WHERE id = ANY($1::int[])`, [drop.map((d) => d.id)]);
+    const order = ids.map((id) => fresh.find((f) => f.id === id)).filter((f): f is Pic => !!f);
+    const added: number[] = [];
+    let sort = 0;
+    for (const m of order) {
+      if (added.length + keep.length >= catalog.MAX_PRODUCT_IMAGES) break;
+      if (keep.some((k) => same(m, k)) || added.some((a) => same(m, order.find((o) => o.id === a)!))) continue;
+      await t.query(`UPDATE media SET owner_type='product', owner_id=$1, sort=$2 WHERE id=$3 AND owner_type IS NULL`, [pid, sort++, m.id]);
+      added.push(m.id);
+    }
+    for (const k of keep) await t.query('UPDATE media SET sort=$2 WHERE id=$1', [k.id, sort++]);
+    await t.query(`UPDATE products SET image_id=(SELECT id FROM media WHERE owner_type='product' AND owner_id=$1 ORDER BY sort, id LIMIT 1), updated_at=now() WHERE id=$1`, [pid]);
+    return { added: added.length, removed: drop.length, total: keep.length + added.length };
+  });
+  if ('error' in result) return ctx.json(400, result);
+  if (result.added) await ctx.log('product_edit', 'product', pid, `আসল ছবি বসানো (${result.added}টি), প্লেসহোল্ডার সরানো (${result.removed}টি): ${p.name.slice(0, 80)}`);
+  return ctx.json(200, result);
+}
+
 export const routes = [
     { method: 'GET', path: '/admin/products/more-photos', perm: 'products', handler: page },
     { method: 'POST', path: '/admin/api/morepics/plan', perm: 'products', handler: planApi },
     { method: 'POST', path: '/admin/api/morepics/find', perm: 'products', handler: findApi },
     { method: 'POST', path: '/admin/api/morepics/page', perm: 'products', handler: pageApi },
     { method: 'POST', path: '/admin/api/morepics/attach', perm: 'products', handler: attachApi },
+    { method: 'POST', path: '/admin/api/morepics/swap', perm: 'products', handler: swapApi },
   ];
