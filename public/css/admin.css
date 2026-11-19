@@ -2540,3 +2540,75 @@ body.admin #main.admin-main .tool-row > .tool-pill .btn { white-space: nowrap; }
 body.admin #main.admin-main .pick-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 body.admin #main.admin-main :is(.btn-sm, .link-btn) { white-space: nowrap; }
 body.admin #main.admin-main .tool-row > .tool-pill .tool-save { margin-left: auto; }
+
+/* v8 (owner, 2026-11-19: "no long shopping-list columns, no big Delete box — small, tidy, software-like"):
+   1) an on/off setting in a tool row is ONE slim line: name · switch · On/Off · ⓘ · small save at the end;
+      bigger tool cards share the rest of the row */
+body.admin #main.admin-main .tool-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start; }
+body.admin #main.admin-main .tool-row > .tool-pill { flex: 0 0 auto; max-width: 100%; display: inline-flex; flex-wrap: nowrap; align-items: center; gap: 8px;
+  padding: 6px 8px 6px 14px; border-radius: 12px; }
+body.admin #main.admin-main .tool-row > .tool-pill > .tool-t { flex: 0 1 auto; font-size: 14px; font-weight: 650; white-space: nowrap; }
+body.admin #main.admin-main .tool-row > .tool-pill .tool-save { margin-left: 2px; min-height: 26px; padding: 2px 10px; font-size: 12px; border-radius: 8px; }
+body.admin #main.admin-main .tool-row > .tool-tile { flex: 1 1 380px; min-width: 0; }
+body.admin #main.admin-main .tool-row > .tool-tile .tool-body form .btn { width: auto; }
+/* 2) Delete is always a small button that sits at its content's size, never a wide bar */
+body.admin #main.admin-main :is(.btn-danger, .btn.danger) { width: auto; min-height: 30px; padding: 4px 12px; font-size: 13px; border-radius: 9px; flex: 0 0 auto; }
+body.admin #main.admin-main .danger-zone { display: flex; justify-content: flex-end; margin-top: 12px; }
+/* 3) lists inside dashboard boxes stay box-sized: they scroll inside, with the heading row kept on top */
+body.admin #main.admin-main :is(.va-grid, .grid-2, .grid-3) > .panel :is(.table-wrap, .hbars),
+body.admin #main.admin-main .scroll-box { max-height: 380px; overflow: auto; overscroll-behavior: contain; }
+body.admin #main.admin-main .scroll-box { padding-bottom: 6px; }
+body.admin #main.admin-main :is(.va-grid, .grid-2, .grid-3) > .panel .table-wrap thead th,
+body.admin #main.admin-main .scroll-box thead th { position: sticky; top: 0; z-index: 2; }
+body.admin #main.admin-main .scroll-box > h2 { position: sticky; top: 0; z-index: 3; background: inherit; margin: 0; padding: 14px 16px 10px; }
+body.admin #main.admin-main .va-grid .va-page small { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* 4) new / edit order: products across the top, the customer box below in neat columns */
+body.admin #main.admin-main .order-form-stack { display: grid; gap: 20px; }
+body.admin #main.admin-main .order-form-stack > .panel { margin: 0; }
+@media (min-width: 900px) {
+  body.admin #main.admin-main .order-form-stack > .panel + .panel { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 18px; align-items: start; }
+  body.admin #main.admin-main .order-form-stack > .panel + .panel > :is(h2, h3, p, .flash) { grid-column: 1 / -1; }
+  body.admin #main.admin-main .order-form-stack > .panel + .panel > .field-row { display: contents; }
+  body.admin #main.admin-main .order-form-stack > .panel + .panel .field:has(textarea) { grid-column: span 3; }
+  body.admin #main.admin-main .order-form-stack > .panel + .panel > h2 ~ h2 { margin-top: 10px; padding-top: 14px; border-top: 1px solid var(--g-line, #E5EAF2); }
+}
+/* 5) staff list: one card per person */
+body.admin #main.admin-main .staff-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 16px; }
+body.admin #main.admin-main .staff-card { margin: 0; display: flex; flex-direction: column; gap: 12px; padding: 16px 18px; }
+body.admin #main.admin-main .staff-card .sc-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+body.admin #main.admin-main .staff-card .staff-who { display: flex; align-items: center; gap: 10px; text-decoration: none; color: inherit; min-width: 0; }
+body.admin #main.admin-main .staff-card .staff-who > span { display: flex; flex-direction: column; min-width: 0; }
+body.admin #main.admin-main .staff-card .staff-who b { font-size: 16px; }
+body.admin #main.admin-main .staff-card .sc-meta { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 14px; margin: 0; padding: 10px 12px; border-radius: 10px; background: rgba(241, 245, 250, .8); }
+body.admin #main.admin-main .staff-card .sc-meta dt { font-size: 11.5px; color: var(--muted); font-weight: 600; margin: 0; }
+body.admin #main.admin-main .staff-card .sc-meta dd { margin: 0; font-size: 13.5px; font-weight: 600; overflow-wrap: anywhere; }
+body.admin #main.admin-main .staff-card .sc-perms { display: flex; flex-wrap: wrap; gap: 6px; }
+body.admin #main.admin-main .perm-chip { display: inline-flex; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; background: color-mix(in srgb, var(--blue, #0866D6) 9%, #fff); color: #24456F; border: 1px solid color-mix(in srgb, var(--blue, #0866D6) 18%, transparent); }
+body.admin #main.admin-main .perm-chip.more { background: #F1F4F8; color: var(--muted); border-color: #E2E8F0; }
+body.admin #main.admin-main .staff-card .sc-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: auto; }
+body.admin #main.admin-main .staff-card .sc-actions form { margin: 0; }
+body.admin #main.admin-main .staff-card .prod-toggle { margin: 0; }
+/* staff edit: login + profile side by side, what they can do across the full width below */
+body.admin #main.admin-main .staff-form { display: grid; gap: 20px; }
+body.admin #main.admin-main .staff-form > .stack { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+body.admin #main.admin-main .staff-form > .stack > .panel, body.admin #main.admin-main .staff-form > .panel { margin: 0; }
+@media (max-width: 900px) { body.admin #main.admin-main .staff-form > .stack { grid-template-columns: minmax(0, 1fr); } }
+body.admin #main.admin-main .manager-info { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 4px 0 12px; }
+body.admin #main.admin-main .manager-info .mi-box { padding: 12px 14px; border-radius: 12px; font-size: 13px; }
+body.admin #main.admin-main .manager-info .mi-can { background: #F0FAF4; border: 1px solid #CDEBD8; }
+body.admin #main.admin-main .manager-info .mi-owner { background: #FFF7EC; border: 1px solid #F6DDB8; }
+body.admin #main.admin-main .manager-info ul { margin: 6px 0 0; padding-left: 18px; display: grid; gap: 3px; color: #3A4862; }
+@media (max-width: 700px) { body.admin #main.admin-main .manager-info { grid-template-columns: minmax(0, 1fr); } }
+body.admin #main.admin-main .perm-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; align-items: start; }
+body.admin #main.admin-main .perm-card { display: grid; gap: 6px; padding: 12px; border-radius: 12px; background: rgba(248, 250, 253, .9); border: 1px solid #E5EAF2; }
+body.admin #main.admin-main .perm-card .perm-group { margin: 0 0 2px; font-size: 13px; color: #24324A; font-weight: 750; }
+body.admin #main.admin-main .perm-card .perm { padding: 7px 10px; background: #fff; align-items: center; }
+body.admin #main.admin-main .perm-card .perm small { font-size: 11.5px; line-height: 1.35; }
+/* 6) customer accounts: settings and the Gmail note side by side */
+body.admin #main.admin-main .acct-grid { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 20px; align-items: start; margin-bottom: 20px; }
+body.admin #main.admin-main .acct-grid > .panel { margin: 0; }
+@media (max-width: 900px) { body.admin #main.admin-main .acct-grid { grid-template-columns: minmax(0, 1fr); } }
+body.admin #main.admin-main .acct-status { margin: 0 0 12px; padding: 8px 12px; border-radius: 10px; background: rgba(241, 245, 250, .8); }
+body.admin #main.admin-main .switch-list.sl-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-bottom: 12px; }
+@media (max-width: 700px) { body.admin #main.admin-main .switch-list.sl-2 { grid-template-columns: minmax(0, 1fr); } }
+body.admin #main.admin-main .form-actions-inline { display: flex; justify-content: flex-end; margin-top: 8px; }
