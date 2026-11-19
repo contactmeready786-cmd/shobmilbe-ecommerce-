@@ -100,7 +100,7 @@ export async function sitemap(ctx: ApiCtx) {
   const settings = ctx.settings;
   const base = siteUrl(ctx.req, settings);
   const [products, categories, posts, pages, brands] = await Promise.all([
-    db.q<Pick<ProductsRow, 'slug' | 'updated_at' | 'image_id' | 'name'>>('SELECT slug, updated_at, image_id, name FROM products WHERE active AND NOT noindex AND parent_id IS NULL ORDER BY id'),
+    db.q<Pick<ProductsRow, 'slug' | 'updated_at' | 'image_id' | 'name'>>(`SELECT p.slug, p.updated_at, p.image_id, p.name FROM products p WHERE p.active AND NOT p.noindex AND p.parent_id IS NULL AND NOT ${catalog.COPIED_OUT_SQL} ORDER BY p.id`),
     db.q<Pick<CategoriesRow, 'slug'>>('SELECT slug FROM categories WHERE coalesce(active,true) AND NOT noindex ORDER BY sort'),
     db.q<Pick<BlogPostsRow, 'slug' | 'updated_at'>>(`SELECT slug, updated_at FROM blog_posts WHERE status='published' AND published_at <= now()`),
     db.q<Pick<PagesRow, 'slug' | 'updated_at'>>('SELECT slug, updated_at FROM pages WHERE active'),

@@ -3,6 +3,7 @@
 // Meta spec:   https://www.facebook.com/business/help/120325381656392
 // The product id in the feeds is the same id the Pixel / GA4 events send, so dynamic ads match correctly.
 import * as db from '../db';
+import * as catalog from '../models/catalog';
 import * as $autoseo from './autoseo';
 import * as $security from '../security';
 import type { Settings, ShopRequest } from '../types';
@@ -59,7 +60,7 @@ async function loadProducts(settings: Settings) {
       ELSE p.stock END AS stock,
       mi.width AS img_w, mi.height AS img_h
     FROM products p LEFT JOIN categories c ON c.id=p.category_id LEFT JOIN media mi ON mi.id=p.image_id
-    WHERE p.active AND p.parent_id IS NULL ORDER BY p.id`);
+    WHERE p.active AND p.parent_id IS NULL AND NOT p.noindex AND NOT ${catalog.COPIED_OUT_SQL} ORDER BY p.id`);
   const ids = rows.map((r) => r.id);
   const media = ids.length ? await db.q<Pick<MediaRow, 'id' | 'owner_id'>>(`SELECT id, owner_id FROM media WHERE owner_type='product' AND owner_id = ANY($1::int[]) ORDER BY owner_id, sort, id`, [ids]) : [];
   const imgs = new Map<number | null, number[]>();

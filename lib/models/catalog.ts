@@ -275,6 +275,13 @@ const STOCK_EXPR = `CASE WHEN p.variant_count > 0 THEN
   WHEN p.product_type='bundle' THEN
   coalesce((SELECT min(c2.stock / greatest(bi.qty,1)) FROM bundle_items bi JOIN products c2 ON c2.id=bi.product_id WHERE bi.bundle_id=p.id), 0)
   ELSE p.stock END`;
+// 🔎 Google (owner, 2026-11-19): a product copied from another shop (its import reference names that shop) and out of stock
+// is a thin copy of a page that already exists elsewhere — it stays in the shop, but is kept out of Google (noindex, no
+// sitemap line, no feed line) so Google spends its time on the shop's real products. It comes back by itself when it is in
+// stock again. The old সবমিলবে site and স্বপ্ন সেল are the owner's own sources, so they always stay.
+const OWN_SOURCES = ['shobmilbe.com', 'shopnosale.com'];
+// (kept out of PUBLIC_COLS on purpose: where a product was copied from is the owner's business, not the visitor's)
+const COPIED_OUT_SQL = `(${STOCK_EXPR} <= 0 AND coalesce(p.import_ref, '') <> '' AND split_part(p.import_ref, '#', 1) NOT IN (${OWN_SOURCES.map((h) => `'${h}'`).join(', ')}))`;
 // A running flash sale: the lowest sale price for this product right now (null when there is none).
 // A sale item with a piece limit ends for that product once the limit is sold.
 const FLASH_SUB = `(SELECT min(fi.price) FROM flash_items fi JOIN flash_sales fs ON fs.id=fi.sale_id
@@ -714,6 +721,12 @@ async function crossFor(ids: unknown[] | null | undefined, limit = 6): Promise<P
     WHERE l.product_id = ANY($1::int[]) AND l.kind='cross' AND p.active AND p.stock > 0 AND NOT (p.id = ANY($1::int[])) ORDER BY p.id LIMIT $2`, [clean, limit]);
 }
 
+/** True when this product is a copied, out-of-stock one that stays out of Google (COPIED_OUT_SQL). */
+async function copiedOut(id: Id): Promise<boolean> {
+  const r = await one<{ out: boolean }>(`SELECT ${COPIED_OUT_SQL} AS out FROM products p WHERE p.id=$1`, [id]);
+  return !!(r && r.out);
+}
+
 // ---------------------------------------------------------------- old links keep working
 async function addRedirect(t: Tx, from: string, to: string): Promise<void> {
   if (!from || from === to) return;
@@ -1115,4 +1128,4 @@ async function inventorySummary(): Promise<InventorySummary | null> {
     FROM products WHERE active AND product_type='single' AND variant_count = 0`);
 }
 
-export { NEED_SQL, brandsIn, oweStock, specFacets, directPictureUrl, fillBnNames, fullBnNames, remakeBnNames, saveMedia, keepPrivate, mediaWithoutHash, setMediaHash, getMedia, mediaNeedingWatermark, watermarkProgress, setWatermark, getWatermarked, attachMedia, claimMedia, deleteMedia, cleanupMedia, listCategories, categoryTree, categoryOptions, categorySubtree, saveCategory, deleteCategory, listBrands, getBrand, saveBrand, brandIdFor, cleanSpecs, addRedirect, findRedirect, LINK_KINDS, linkedSkus, setLinks, linkedProducts, crossFor, listProducts, countProducts, productStats, getProduct, getProductsByIds, listVariants, saveVariants, syncVariants, MAX_VARIANTS, bundleItems, saveProduct, deleteProduct, deleteAllProducts, duplicateProduct, skuTaken, nextSku, takeSku, moveStock, changeDamaged, cleanLocation, listLocations, reservedFor, OPEN_STATUSES, stockParts, stockMovements, inventorySummary, STOCK_REASONS, MAX_PRODUCT_IMAGES, WARRANTY, WARRANTY_TYPES, warrantyText, logPriceChange, priceHistory, productLedger, correctCost };
+export { NEED_SQL, COPIED_OUT_SQL, OWN_SOURCES, copiedOut, brandsIn, oweStock, specFacets, directPictureUrl, fillBnNames, fullBnNames, remakeBnNames, saveMedia, keepPrivate, mediaWithoutHash, setMediaHash, getMedia, mediaNeedingWatermark, watermarkProgress, setWatermark, getWatermarked, attachMedia, claimMedia, deleteMedia, cleanupMedia, listCategories, categoryTree, categoryOptions, categorySubtree, saveCategory, deleteCategory, listBrands, getBrand, saveBrand, brandIdFor, cleanSpecs, addRedirect, findRedirect, LINK_KINDS, linkedSkus, setLinks, linkedProducts, crossFor, listProducts, countProducts, productStats, getProduct, getProductsByIds, listVariants, saveVariants, syncVariants, MAX_VARIANTS, bundleItems, saveProduct, deleteProduct, deleteAllProducts, duplicateProduct, skuTaken, nextSku, takeSku, moveStock, changeDamaged, cleanLocation, listLocations, reservedFor, OPEN_STATUSES, stockParts, stockMovements, inventorySummary, STOCK_REASONS, MAX_PRODUCT_IMAGES, WARRANTY, WARRANTY_TYPES, warrantyText, logPriceChange, priceHistory, productLedger, correctCost };
