@@ -202,17 +202,17 @@ async function page(ctx: AdminCtx) {
         {jsxList(cards.map((c) => { const r = results[c.source] || { visits: 0, orders: 0 }; return <tr><td>{c.icon} {c.name}</td><td>{bn(r.visits)}</td><td><b>{bn(r.orders)}</b></td><td className="small">{r.orders ? `${bn(Math.round(r.visits / r.orders))} জনে ১টা` : '—'}</td></tr>; }))}
       </tbody></table></div>
     </section>
-    <details className="panel fold" id="instagram"><summary><span className="fold-title">📸 Instagram {s.autopost_ig_name ? <small>✅ @<Val v={s.autopost_ig_name} /></small> : null}</span><span className="fold-arrow" aria-hidden="true">▾</span></summary>
+    <section className="set-sec" id="instagram"><div className="set-head"><h2 className="set-title">📸 Instagram {s.autopost_ig_name ? <small>✅ @<Val v={s.autopost_ig_name} /></small> : null}</h2></div><div className="panel set-card">
       {s.autopost_ig_id
-        ? <details className="note-fold"><summary>ⓘ বিস্তারিত</summary><p className="small">Instagram যুক্ত আছে। Facebook পেজে যা পোস্ট হয় (পণ্য, টিপস, কুইজ, প্রজেক্ট গাইড — ছবিসহ সব), একই সময়ে Instagram-এও যায়। চালু/বন্ধ: <a href={`${AUTO}#connect`}>অটো মার্কেটিং → "Instagram-এ"</a> সুইচ{s.autopost_ig === '1' ? ' (এখন ✅ চালু)' : ' (এখন ⏸ বন্ধ — চালু করে সেভ করুন)'}।</p></details>
+        ? <div className="note-line"><p className="small">Instagram যুক্ত আছে। Facebook পেজে যা পোস্ট হয় (পণ্য, টিপস, কুইজ, প্রজেক্ট গাইড — ছবিসহ সব), একই সময়ে Instagram-এও যায়। চালু/বন্ধ: <a href={`${AUTO}#connect`}>অটো মার্কেটিং → "Instagram-এ"</a> সুইচ{s.autopost_ig === '1' ? ' (এখন ✅ চালু)' : ' (এখন ⏸ বন্ধ — চালু করে সেভ করুন)'}।</p></div>
         : <><p className="small">Instagram বিজনেস অ্যাকাউন্ট Facebook পেজের সাথে জোড়া থাকলেও, দোকানের Facebook সংযোগ এখন Instagram দেখতে পাচ্ছে না (টোকেনে Instagram-এর অনুমতি নেই) — তাই পোস্ট Instagram-এ যাচ্ছে না। একবার এটা করলেই হবে (৩ মিনিট):</p>
           <ol className="steps"><li><a href="https://developers.facebook.com/tools/explorer/" target="_blank" rel="noopener">Graph API Explorer</a> খুলুন → ডানে আগের অ্যাপটাই ("Shobmilbe Poster") বেছে নিন।</li>
             <li>Permissions-এ আগেরগুলোর সাথে এই দুটো যোগ করুন: <code>instagram_basic</code>, <code>instagram_content_publish</code>।</li>
             <li><b>Generate Access Token</b> → যে পেজ আর <b>Instagram অ্যাকাউন্ট</b> দেখাবে, দুটোতেই টিক দিয়ে অনুমতি দিন → টোকেন কপি করুন।</li>
             <li><a href={`${AUTO}#connect`}>অটো মার্কেটিং</a> পাতায় "টোকেন" ঘরে দিয়ে "আবার যুক্ত করুন" চাপুন — সবুজ লেখায় "+ Instagram @…" দেখলে হয়ে গেল। তারপর "Instagram-এ" সুইচ চালু করে সেভ করুন।</li></ol></>}
-    </details>
+    </div></section>
     {jsxList(social.CHANNELS.map((ch) => channelSection(ch)))}
-    <details className="panel fold"><summary><span className="fold-title">🔗 এই লিংকটা Threads অ্যাপে "Redirect Callback URL" হিসেবে দিতে হয়</span><span className="fold-arrow" aria-hidden="true">▾</span></summary><p><code>{redirect}</code></p></details>
+    <section className="set-sec"><div className="set-head"><h2 className="set-title">🔗 এই লিংকটা Threads অ্যাপে "Redirect Callback URL" হিসেবে দিতে হয়</h2></div><div className="panel set-card"><p><code>{redirect}</code></p></div></section>
     <section className="panel table-wrap"><h2>আগের পোস্টগুলো (সব প্ল্যাটফর্ম)</h2>
       {recent.length ? <table className="table compact"><thead><tr><th>সময়</th><th>কোথায়</th><th>পণ্য</th><th>ফল</th></tr></thead><tbody>
         {jsxList(recent.map((r) => { const url = social.postUrl(s, r.channel, r.post_id); return <tr>

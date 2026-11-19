@@ -2626,3 +2626,50 @@ details.panel.fold.no-fold > summary { pointer-events: none; }
 details.panel.fold.no-fold > summary a, details.panel.fold.no-fold > summary button, details.panel.fold.no-fold > summary input { pointer-events: auto; }
 /* an ⓘ note is just a short line of help under its box: no "Details" button to press */
 details.note-fold.no-fold > summary { display: none; }
+
+/* ===================================================================================================================
+   ⚙️ Settings pages (owner, 2026-11-19, researched: Shopify Polaris "annotated layout", Stripe settings hub,
+   iPhone-style setting rows). A = every settings box is a section: its title on the left, its card on the right.
+   D = on/off switches are rows with a divider, the switch on the right. B = the tile hub on General settings.
+   Nothing folds any more. On a phone the title simply sits above its card.
+   =================================================================================================================== */
+body.admin #main.admin-main .set-sec { display: grid; grid-template-columns: minmax(180px, 260px) minmax(0, 1fr); gap: 28px; align-items: start; padding: 22px 0; margin: 0; border-top: 1px solid var(--a-line); scroll-margin-top: 80px; }
+body.admin #main.admin-main h1 + .set-sec, body.admin #main.admin-main .flash + .set-sec { border-top: 0; padding-top: 6px; }
+body.admin #main.admin-main .set-head { min-width: 0; padding-top: 4px; }
+body.admin #main.admin-main .set-head .set-title { font-size: 1rem; font-weight: 650; line-height: 1.35; margin: 0 0 8px; color: var(--ink, #101828); letter-spacing: 0; }
+body.admin #main.admin-main .set-head .pill, body.admin #main.admin-main .set-head .badge { display: inline-flex; margin: 0 6px 0 0; }
+body.admin #main.admin-main .set-card { margin: 0; min-width: 0; }
+body.admin #main.admin-main .set-card > :first-child { margin-top: 0; }
+body.admin #main.admin-main .set-card > :last-child { margin-bottom: 0; }
+/* boxes that sat side by side now go one under the other, each as a full-width section */
+body.admin #main.admin-main .two-col:has(> .set-sec), body.admin #main.admin-main .two-col:has(> div > .set-sec),
+body.admin #main.admin-main .ui-groups:has(> .set-sec) { display: block; }
+body.admin #main.admin-main .set-sec .set-sec { grid-template-columns: minmax(0, 1fr); gap: 10px; padding: 14px 0; }
+@media (max-width: 960px) {
+  body.admin #main.admin-main .set-sec { grid-template-columns: minmax(0, 1fr); gap: 10px; padding: 16px 0; }
+  body.admin #main.admin-main .set-head { padding-top: 0; }
+  body.admin #main.admin-main .set-head .set-title { margin-bottom: 4px; }
+}
+/* the short help lines that used to hide behind "ⓘ Details" */
+body.admin #main.admin-main .note-line { font-size: .85rem; line-height: 1.55; color: var(--a-mut, #5B6B85); margin: 0 0 12px; }
+body.admin #main.admin-main .note-line p { margin: 0 0 4px; }
+body.admin #main.admin-main .note-line p:last-child { margin: 0; }
+
+/* D — on/off settings as clean rows inside their card */
+body.admin #main.admin-main .set-card .switch-list { display: block; gap: 0; margin: 4px 0 12px; }
+body.admin #main.admin-main .set-card .switch-list:last-child { margin-bottom: 0; }
+body.admin #main.admin-main .set-card .switch-list > .switch-row,
+body.admin #main.admin-main .set-card > .switch-row { min-height: 0; margin: 0; padding: 12px 2px; border: 0; border-bottom: 1px solid var(--a-line); border-radius: 0; background: transparent; }
+body.admin #main.admin-main .set-card .switch-list > .switch-row:last-child, body.admin #main.admin-main .set-card > .switch-row:last-child { border-bottom: 0; }
+body.admin #main.admin-main .set-card .switch-row:has(input:checked) { background: transparent; border-color: var(--a-line); }
+body.admin #main.admin-main .set-card .switch-row:hover { background: #F8FAFD; }
+body.admin #main.admin-main .set-card .switch-row .switch-text { flex: 1; min-width: 0; }
+body.admin #main.admin-main .set-card .switch-row .switch-text small { display: block; margin-top: 2px; color: var(--a-mut, #5B6B85); line-height: 1.45; }
+
+/* B — settings hub tiles */
+body.admin #main.admin-main .set-hub { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 12px; margin: 4px 0 22px; }
+body.admin #main.admin-main .set-tile { display: flex; flex-direction: column; gap: 4px; padding: 16px; background: #fff; border: 1px solid var(--a-line); border-radius: var(--a-r, 14px); color: inherit; text-decoration: none; transition: border-color .15s, background .15s; }
+body.admin #main.admin-main .set-tile:hover { border-color: #BFD3FE; background: #F8FBFF; }
+body.admin #main.admin-main .set-tile-ic { font-size: 1.35rem; line-height: 1; margin-bottom: 4px; }
+body.admin #main.admin-main .set-tile b { font-size: .98rem; }
+body.admin #main.admin-main .set-tile small { color: var(--a-mut, #5B6B85); font-size: .8rem; line-height: 1.4; }
