@@ -2694,3 +2694,8 @@ body.admin .vx-brand .side-logo:focus-visible { outline: 2px solid var(--blue, #
 body.admin .vx-brand .side-logo .logo-img { height: 30px; max-height: 30px; width: auto; max-width: 140px; padding: 0; margin: 0; background: none; border-radius: 0; }
 body.admin .vx-brand .vx-tag { align-self: center; margin: 0; padding: 3px 8px; border-radius: 999px; font-size: .62rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; line-height: 1.2; white-space: nowrap;
   color: #0866D6; background: rgba(8, 102, 214, .08); border: 1px solid rgba(8, 102, 214, .18); }
+/* the label beside the logo reads just "ADMIN" (the narrow sidebar has no room for two words in one line) */
+body.admin .vx-brand { padding-left: 18px; padding-right: 40px; }
+body.admin .vx-brand .vx-tag { font-size: 0; padding: 3px 7px; }
+body.admin .vx-brand .vx-tag::before { content: 'Admin'; font-size: .6rem; }
+body.admin .vx-brand .side-logo .logo-img { height: 28px; max-height: 28px; max-width: 112px; }
