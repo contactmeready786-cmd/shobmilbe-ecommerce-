@@ -2673,3 +2673,5 @@ body.admin #main.admin-main .set-tile:hover { border-color: #BFD3FE; background:
 body.admin #main.admin-main .set-tile-ic { font-size: 1.35rem; line-height: 1; margin-bottom: 4px; }
 body.admin #main.admin-main .set-tile b { font-size: .98rem; }
 body.admin #main.admin-main .set-tile small { color: var(--a-mut, #5B6B85); font-size: .8rem; line-height: 1.4; }
+/* a two-column row whose boxes became sections is one column now: no sticky side column sliding over the other */
+body.admin #main.admin-main .two-col:has(.set-sec) > .is-sticky { position: static; top: auto !important; }
