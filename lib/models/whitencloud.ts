@@ -74,7 +74,10 @@ export async function queue(mediaIds: number[], opts: CloudOpts, userId?: number
 /** For the cloud AI: the waiting pictures, with an address it can read them from. */
 export async function waiting(siteUrl: string): Promise<{ id: number; token: string; src: string; opts: CloudOpts }[]> {
   const base = String(siteUrl || '').replace(/\/+$/, '');
-  const all = await q<WhitenJobsRow & { ik_url: string | null }>(`SELECT j.*, m.ik_url FROM whiten_jobs j JOIN media m ON m.id=j.media_id
+  // older than 2 days the AI no longer sees a picture: say so instead of showing "being made" for ever
+  await q(`UPDATE whiten_jobs SET status='failed', error=$1, done_at=now() WHERE status='queued' AND created_at <= now() - interval '2 days'`,
+    ['অনেক দেরি হয়ে গেছে — ছবিটা আবার দিন।']);
+  const all =await q<WhitenJobsRow & { ik_url: string | null }>(`SELECT j.*, m.ik_url FROM whiten_jobs j JOIN media m ON m.id=j.media_id
     WHERE j.status='queued' AND j.created_at > now() - interval '2 days' ORDER BY j.id LIMIT 400`);
   // A picture the AI already finished stays 'queued' here until someone opens its admin page (status() marks it).
   // Those used to fill all 40 places of this list, so the AI saw only finished work and newer pictures waited
