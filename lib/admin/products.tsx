@@ -595,6 +595,9 @@ async function formPage(ctx: AdminCtx, m: RouteMatch | null) {
     if (ctx.query.get('barcode')) fresh.barcode = String(ctx.query.get('barcode')).toUpperCase().replace(/[^\x21-\x7e]/g, '').slice(0, 40);
     if (ctx.query.get('location')) fresh.location = catalog.cleanLocation(ctx.query.get('location'));
     if (ctx.query.get('stock') !== null && ctx.query.get('stock') !== '') fresh.stock = Math.max(0, Math.min(100000, int(ctx.query.get('stock'))));
+    // came from 📸 ছবি দিয়ে খুঁজুন: the photo just taken (a fresh upload nobody owns yet) is the new product's picture
+    const img = int(ctx.query.get('img'));
+    if (img && await db.one('SELECT id FROM media WHERE id=$1 AND owner_type IS NULL', [img])) fresh.images = [img];
   }
   const nextSku = await catalog.nextSku();
   return ctx.page('নতুন পণ্য', productForm({ product: fresh, categories, seeCost, canOverride: canOverride(ctx), guardOn: guardOn(ctx), settings: ctx.settings, nextSku, ...extras }), type === 'bundle' ? 'bundles' : 'product-new');

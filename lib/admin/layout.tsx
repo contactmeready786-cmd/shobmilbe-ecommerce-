@@ -60,6 +60,11 @@ const TABS: Record<string, Tab[]> = {
     ['/admin/products/whiten/mine', 'Whiten my own pictures', 'products', 'whiten-mine', '📤'],
     ['/admin/products/clean-desc', 'Clean other shops\' text from descriptions', 'products', 'clean-desc', '🧹'],
   ],
+  // 2026-11-19: barcode scan and the new photo search side by side (both find a product at home and set its stock)
+  stockscan: [
+    ['/admin/stock-scan', 'Scan stock', 'inventory', 'stock-scan', '📷'],
+    ['/admin/photo-find', 'Find by photo', 'inventory', 'photo-find', '📸'],
+  ],
   suppliers: [
     ['/admin/suppliers', 'Suppliers', 'inventory', 'suppliers', '🚚'],
     ['/admin/suppliers/dues', 'Dues ledger', 'see_cost', 'supplier-dues', '📒'],
@@ -149,7 +154,7 @@ const SECTIONS: { title: string; entries: Entry[] }[] = [
     ] },
     { title: 'Inventory', icon: 'inventory', items: [
       ['/admin/inventory', 'Stock', 'inventory', 'inventory', '🏬'],
-      ['/admin/stock-scan', 'Scan stock', 'inventory', 'stock-scan', '📷'],
+      tabSet('stockscan', 'Scan stock', '📷'),
       ['/admin/purchases', 'Purchases', 'inventory', 'purchases', '🛒'],
       tabSet('suppliers', 'Suppliers & dues', '🚚'),
       ['/admin/warehouses', 'Warehouses & branches', 'inventory', 'warehouses', '🏗️'],
