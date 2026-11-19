@@ -655,8 +655,7 @@ function zoomPictures(): void {
 // the page has no big empty half. A short column taller than the screen first scrolls to its end, then stays.
 // Never on phones (one column there).
 function stickySides(): void {
-  // (rows of settings sections are one column since 2026-11-19 — nothing to keep in view there)
-  const rows = $all<HTMLElement>('#main .two-col').filter((r) => !r.querySelector('.set-sec'));
+  const rows = $all<HTMLElement>('#main .two-col');
   if (!rows.length || typeof ResizeObserver === 'undefined') return;
   const check = () => {
     const wide = window.matchMedia('(min-width: 901px)').matches;

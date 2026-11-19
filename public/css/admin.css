@@ -2633,22 +2633,19 @@ details.note-fold.no-fold > summary { display: none; }
    D = on/off switches are rows with a divider, the switch on the right. B = the tile hub on General settings.
    Nothing folds any more. On a phone the title simply sits above its card.
    =================================================================================================================== */
-body.admin #main.admin-main .set-sec { display: grid; grid-template-columns: minmax(180px, 260px) minmax(0, 1fr); gap: 28px; align-items: start; padding: 22px 0; margin: 0; border-top: 1px solid var(--a-line); scroll-margin-top: 80px; }
-body.admin #main.admin-main h1 + .set-sec, body.admin #main.admin-main .flash + .set-sec { border-top: 0; padding-top: 6px; }
-body.admin #main.admin-main .set-head { min-width: 0; padding-top: 4px; }
-body.admin #main.admin-main .set-head .set-title { font-size: 1rem; font-weight: 650; line-height: 1.35; margin: 0 0 8px; color: var(--ink, #101828); letter-spacing: 0; }
-body.admin #main.admin-main .set-head .pill, body.admin #main.admin-main .set-head .badge { display: inline-flex; margin: 0 6px 0 0; }
-body.admin #main.admin-main .set-card { margin: 0; min-width: 0; }
+/* each settings box is one card: its title (and status badge) in a slim top bar, the settings right under it.
+   (2026-11-19, owner: a title alone in a left column left big empty space — the card header keeps it tight) */
+body.admin #main.admin-main .set-sec { display: block; background: #fff; border: 1px solid var(--a-line); border-radius: var(--a-r, 14px); margin: 0 0 16px; padding: 0; scroll-margin-top: 80px; }
+body.admin #main.admin-main .set-head { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 10px; padding: 13px 20px; border-bottom: 1px solid var(--a-line); background: #FAFBFD; border-radius: var(--a-r, 14px) var(--a-r, 14px) 0 0; }
+body.admin #main.admin-main .set-head .set-title { flex: 1; min-width: 0; font-size: 1rem; font-weight: 650; line-height: 1.35; margin: 0; color: var(--ink, #101828); letter-spacing: 0; }
+body.admin #main.admin-main .set-head .pill, body.admin #main.admin-main .set-head .badge { display: inline-flex; margin: 0; }
+body.admin #main.admin-main .set-sec > .set-card { margin: 0; min-width: 0; padding: 18px 20px; border: 0; border-radius: 0 0 var(--a-r, 14px) var(--a-r, 14px); box-shadow: none; background: transparent; }
 body.admin #main.admin-main .set-card > :first-child { margin-top: 0; }
 body.admin #main.admin-main .set-card > :last-child { margin-bottom: 0; }
-/* boxes that sat side by side now go one under the other, each as a full-width section */
-body.admin #main.admin-main .two-col:has(> .set-sec), body.admin #main.admin-main .two-col:has(> div > .set-sec),
-body.admin #main.admin-main .ui-groups:has(> .set-sec) { display: block; }
-body.admin #main.admin-main .set-sec .set-sec { grid-template-columns: minmax(0, 1fr); gap: 10px; padding: 14px 0; }
-@media (max-width: 960px) {
-  body.admin #main.admin-main .set-sec { grid-template-columns: minmax(0, 1fr); gap: 10px; padding: 16px 0; }
-  body.admin #main.admin-main .set-head { padding-top: 0; }
-  body.admin #main.admin-main .set-head .set-title { margin-bottom: 4px; }
+body.admin #main.admin-main .set-card .set-sec { margin-bottom: 12px; }
+@media (max-width: 700px) {
+  body.admin #main.admin-main .set-head { padding: 11px 14px; }
+  body.admin #main.admin-main .set-sec > .set-card { padding: 14px; }
 }
 /* the short help lines that used to hide behind "ⓘ Details" */
 body.admin #main.admin-main .note-line { font-size: .85rem; line-height: 1.55; color: var(--a-mut, #5B6B85); margin: 0 0 12px; }
@@ -2673,5 +2670,3 @@ body.admin #main.admin-main .set-tile:hover { border-color: #BFD3FE; background:
 body.admin #main.admin-main .set-tile-ic { font-size: 1.35rem; line-height: 1; margin-bottom: 4px; }
 body.admin #main.admin-main .set-tile b { font-size: .98rem; }
 body.admin #main.admin-main .set-tile small { color: var(--a-mut, #5B6B85); font-size: .8rem; line-height: 1.4; }
-/* a two-column row whose boxes became sections is one column now: no sticky side column sliding over the other */
-body.admin #main.admin-main .two-col:has(.set-sec) > .is-sticky { position: static; top: auto !important; }
