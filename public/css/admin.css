@@ -2734,3 +2734,27 @@ body.admin .vx-brand .side-logo .logo-img { height: 28px; max-height: 28px; max-
   .pf-match > img { width: 56px; height: 56px; }
   .pf-btns { grid-column: 1 / -1; justify-content: flex-start; }
 }
+
+/* ⚡ GitHub key card on the white-background page (owner, 2026-11-20: small and smart instead of a big open banner) */
+body.admin #main.admin-main .title-row > .ghkey { flex: 0 1 460px; margin-left: auto; }
+.ghkey { background: #fff; border: 1px solid var(--a-line, #E3E9F2); border-radius: 12px; padding: 10px 12px; min-width: 0; }
+.ghkey-head { display: flex; align-items: center; gap: 10px; }
+.ghkey-ico { flex: none; width: 32px; height: 32px; border-radius: 8px; display: grid; place-items: center; font-size: 15px; background: #FEF3C7; }
+.ghkey-ico.on { background: #DCFCE7; }
+.ghkey-t { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.25; }
+.ghkey-t b { font-size: .9rem; }
+.ghkey-t small { font-size: .75rem; color: var(--a-mut, #5B6B85); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ghkey-pill { flex: none; font-size: .7rem; font-weight: 700; padding: 2px 9px; border-radius: 999px; background: #FEF3C7; color: #92400E; }
+.ghkey-pill.on { background: #DCFCE7; color: #166534; }
+.ghkey-row { display: flex; align-items: center; gap: 6px; margin-top: 8px; }
+.ghkey-form { flex: 1; min-width: 0; display: flex; gap: 6px; margin: 0; }
+body.admin #main.admin-main .ghkey-form input { flex: 1; min-width: 0; height: 34px; min-height: 34px !important; padding: 0 9px; font-family: ui-monospace, Consolas, monospace; font-size: .8rem; border: 1px solid var(--a-line, #E3E9F2); border-radius: 8px; background: #F8FAFC; }
+.ghkey-form input::placeholder { color: #64748B; }
+body.admin #main.admin-main .ghkey-row .btn { height: 34px; min-height: 34px; white-space: nowrap; box-shadow: none; }
+.ghkey-del { margin: 0; }
+body.admin #main.admin-main .ghkey-del .btn { padding: 0 10px; }
+.ghkey-steps { display: flex; flex-wrap: wrap; gap: 3px 12px; margin-top: 8px; padding-top: 7px; border-top: 1px solid var(--a-line, #E3E9F2); font-size: .72rem; color: var(--a-mut, #5B6B85); }
+.ghkey-steps span { cursor: help; display: inline-flex; align-items: center; gap: 4px; }
+.ghkey-steps i { font-style: normal; font-weight: 700; width: 15px; height: 15px; border-radius: 50%; display: inline-grid; place-items: center; font-size: .62rem; background: #EEF2F7; color: #334155; }
+.ghkey-steps a { color: var(--v2-blue, #2563EB); }
+@media (max-width: 760px) { body.admin #main.admin-main .title-row > .ghkey { flex: 1 1 100%; margin-left: 0; } }

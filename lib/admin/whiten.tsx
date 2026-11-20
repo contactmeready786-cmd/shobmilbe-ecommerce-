@@ -16,6 +16,32 @@ import type { AdminCtx, RouteMatch } from '../types';
 
 const BASE = '/admin/products/whiten';
 const REPO_NAME = cloud.REPO.split('/')[1] || cloud.REPO;
+
+/**
+ * ⚡ GitHub key card (owner, 2026-11-20: "the big open banner is too much — make it small and smart"):
+ * one compact card beside the page title — status, the saved key (last 4 only) with Change / delete, and the 5 setup
+ * steps as one small line (full wording on hover). Nothing folds (2026-11-19 rule); same form actions as before.
+ */
+function keyCard(token: string) {
+  const on = !!token;
+  const STEPS: [string, string][] = [
+    ['Open GitHub', 'Log in to GitHub and open the new token page'],
+    ['Name', 'Token name: shobmilbe whiten · Expiration: the longest (or No expiration)'],
+    ['Repo', `Repository access → Only select repositories → ${REPO_NAME}`],
+    ['Permissions', 'Repository permissions: Actions → Read and write, and Contents → Read-only'],
+    ['Paste', 'Generate token → copy the github_pat_… text and paste it in the box above'],
+  ];
+  return <section className="ghkey" id="fast" aria-label="GitHub key">
+    <div className="ghkey-head"><span className={`ghkey-ico ${on ? 'on' : ''}`} aria-hidden="true">⚡</span>
+      <div className="ghkey-t"><b>GitHub key</b><small>{on ? 'Pictures ready in 1–3 min' : 'Without a key GitHub may start 30–60 min late'}</small></div>
+      <span className={`ghkey-pill ${on ? 'on' : ''}`}>{on ? 'Connected' : 'Not connected'}</span></div>
+    <div className="ghkey-row"><form method="post" action="/admin/products/whiten/token" className="ghkey-form">
+      <input type="password" name="token" autoComplete="off" aria-label="GitHub key" placeholder={on ? `github_pat_••••••${token.slice(-4)}` : 'github_pat_…'} />
+      <button className="btn btn-sm">{on ? 'Change' : 'Test and save'}</button></form>
+      {on ? <form method="post" action="/admin/products/whiten/token" className="ghkey-del" data-confirm="চাবি মুছে ফেলবেন? তখন ছবি GitHub-এর নিজের সময়সূচিতে তৈরি হবে।"><input type="hidden" name="action" defaultValue="clear" /><button className="btn btn-sm btn-ghost" aria-label="Delete key" title="Delete key">🗑</button></form> : null}</div>
+    <div className="ghkey-steps">{jsxList(STEPS.map(([t, tip], i) => <span title={tip}><i>{i + 1}</i>{i === 0 ? <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">{t}</a> : t}</span>))}</div>
+  </section>;
+}
 const PER_PAGE = 12;
 const HOST = "split_part(p.import_ref, '#', 1)";
 const ALL = '*';
@@ -57,10 +83,7 @@ async function page(ctx: AdminCtx) {
     WHERE media_id = ANY($1::int[]) AND status IN ('queued','done','failed') AND created_at > now() - interval '2 days' ORDER BY media_id, id DESC`, [mids]) : []).map((j) => [j.media_id, j.id]));
   const pages = Math.max(1, Math.ceil(count / PER_PAGE));
   const q = (o: Record<string, string>) => `${BASE}?${new URLSearchParams({ host, f, ...o })}`;
-  const body = <><div className="title-row"><h1>⬜ ছবির ব্যাকগ্রাউন্ড সাদা</h1>{ui.toolRow(ui.helpBox('কীভাবে কাজ করে', <ol className="steps"><li>নিচে দোকান বাছুন। <b>"▶ এই পেজের ছবি সাদা করুন"</b> চাপলে আপনার কম্পিউটারেই একটা AI প্রতিটা ছবি থেকে শুধু পণ্যটা কেটে একদম সাদা (#FFFFFF) ব্যাকগ্রাউন্ডে বসায় — পেছনের লেখা, ফোন নম্বর, রং সব চলে যায়। ফ্রি, কোনো সীমা নেই।</li><li><b>☁️ অনলাইনে (প্রস্তাবিত):</b> ছবিগুলো অনলাইনের শক্তিশালী কম্পিউটারে (GitHub, ফ্রি) সাদা হয় — আপনার ল্যাপটপ বা ফোনে কোনো চাপ পড়ে না, পেজ বন্ধ করলেও কাজ চলতে থাকে। কয়েক মিনিট লাগে; তৈরি হলে এখানেই "পরে"-র ছবি দেখাবে। ছবির কোণের লোগো আর আলাদা লেখাও মুছে দেয়।</li><li>নিজের কম্পিউটারে চালাতে চাইলে দুইটা AI আছে: <b>🧠 সেরা মান</b> (BiRefNet — পণ্যের কিনারা, তার, স্বচ্ছ প্লাস্টিক সবচেয়ে নিখুঁত) আর <b>⚡ দ্রুত</b> (ISNet — ধীর কম্পিউটারে)। প্রথমবার AI-এর ফাইল নামে (প্রায় ২০০ MB, একবারই — পরে কম্পিউটারে রাখা থাকে)। কাজ চলার সময় পেজটা খোলা রাখুন।</li><li><b>✨ উজ্জ্বল ও পরিষ্কার</b> টিক দিলে পণ্যটা একটু উজ্জ্বল হয়, রং একটু ঝকঝকে হয় — পণ্যের আকার বা লেখা কিছুই বদলায় না।</li><li>প্রতিটা ছবির <b>আগে / পরে</b> দেখুন। ভালো হলে টিক থাকুক, খারাপ হলে টিক তুলে দিন — তারপর <b>"💾 টিক দেওয়াগুলো রাখুন"</b>। শুধু টিক দেওয়াগুলোই বদলায়।</li><li>আসল ছবি সবসময় রাখা থাকে: সাদা করা ছবির নিচে <b>"↺ আসল ছবি ফেরত"</b> চাপলে আগের মতো হয়ে যায়।</li><li>পণ্যের নিজের গায়ে কোনো লেখা থাকলে AI সেটা পণ্যের অংশ ভেবে রেখে দেয় — ওগুলো আলাদা করে দেখে নেবেন।</li></ol>), (ctx.user.role === 'owner' ? ui.toolTile('⚡ সাথে সাথে শুরু (GitHub চাবি)', <><p className="small">GitHub নিজের সময়সূচি অনেক সময় ৩০–৬০ মিনিট পিছিয়ে চালায়। একটা GitHub চাবি দিলে ছবি পাঠানোর সাথে সাথে কাজ শুরু হয় — সাধারণত ১–৩ মিনিটে ছবি তৈরি।</p>
-      <ol className="steps small"><li>GitHub-এ লগইন করে খুলুন: <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">github.com/settings/personal-access-tokens/new</a></li><li><b>Token name</b>: <code>shobmilbe whiten</code> · <b>Expiration</b>: সবচেয়ে লম্বা (বা No expiration)</li><li><b>Repository access</b> → <b>Only select repositories</b> → <code>{REPO_NAME}</code></li><li><b>Permissions</b> → <b>Repository permissions</b>-এ দুটো দিন: <b>Actions</b> → <b>Read and write</b>, আর <b>Contents</b> → <b>Read-only</b> (রিপোজিটরি প্রাইভেট হলে তৈরি ছবি আর ভিডিও আনতে এটা লাগে)</li><li>নিচে <b>Generate token</b> → যে লেখাটা দেখায় (<code>github_pat_…</code>) কপি করে এখানে বসান।</li></ol>
-      <form method="post" action="/admin/products/whiten/token" className="toolbar">{ui.input('token', '', { type: 'password', autocomplete: 'off', placeholder: ctx.settings.whiten_gh_token ? 'সেভ করা আছে (বদলাতে নতুন দিন)' : 'github_pat_…', 'aria-label': 'GitHub চাবি' })}{' '}<button className="btn btn-sm">পরীক্ষা করে সেভ করুন</button></form>
-      {(ctx.settings.whiten_gh_token ? <form method="post" action="/admin/products/whiten/token" data-confirm="চাবি মুছে ফেলবেন? তখন ছবি GitHub-এর নিজের সময়সূচিতে তৈরি হবে।"><input type="hidden" name="action" defaultValue="clear" /><button className="btn btn-sm btn-ghost">চাবি মুছুন</button></form> : null)}</>, { state: !!ctx.settings.whiten_gh_token, id: 'fast' }) : ''))}</div>{ui.flash(ctx.flash)}
+  const body = <><div className="title-row"><h1>⬜ ছবির ব্যাকগ্রাউন্ড সাদা</h1>{ui.toolRow(ui.helpBox('কীভাবে কাজ করে', <ol className="steps"><li>নিচে দোকান বাছুন। <b>"▶ এই পেজের ছবি সাদা করুন"</b> চাপলে আপনার কম্পিউটারেই একটা AI প্রতিটা ছবি থেকে শুধু পণ্যটা কেটে একদম সাদা (#FFFFFF) ব্যাকগ্রাউন্ডে বসায় — পেছনের লেখা, ফোন নম্বর, রং সব চলে যায়। ফ্রি, কোনো সীমা নেই।</li><li><b>☁️ অনলাইনে (প্রস্তাবিত):</b> ছবিগুলো অনলাইনের শক্তিশালী কম্পিউটারে (GitHub, ফ্রি) সাদা হয় — আপনার ল্যাপটপ বা ফোনে কোনো চাপ পড়ে না, পেজ বন্ধ করলেও কাজ চলতে থাকে। কয়েক মিনিট লাগে; তৈরি হলে এখানেই "পরে"-র ছবি দেখাবে। ছবির কোণের লোগো আর আলাদা লেখাও মুছে দেয়।</li><li>নিজের কম্পিউটারে চালাতে চাইলে দুইটা AI আছে: <b>🧠 সেরা মান</b> (BiRefNet — পণ্যের কিনারা, তার, স্বচ্ছ প্লাস্টিক সবচেয়ে নিখুঁত) আর <b>⚡ দ্রুত</b> (ISNet — ধীর কম্পিউটারে)। প্রথমবার AI-এর ফাইল নামে (প্রায় ২০০ MB, একবারই — পরে কম্পিউটারে রাখা থাকে)। কাজ চলার সময় পেজটা খোলা রাখুন।</li><li><b>✨ উজ্জ্বল ও পরিষ্কার</b> টিক দিলে পণ্যটা একটু উজ্জ্বল হয়, রং একটু ঝকঝকে হয় — পণ্যের আকার বা লেখা কিছুই বদলায় না।</li><li>প্রতিটা ছবির <b>আগে / পরে</b> দেখুন। ভালো হলে টিক থাকুক, খারাপ হলে টিক তুলে দিন — তারপর <b>"💾 টিক দেওয়াগুলো রাখুন"</b>। শুধু টিক দেওয়াগুলোই বদলায়।</li><li>আসল ছবি সবসময় রাখা থাকে: সাদা করা ছবির নিচে <b>"↺ আসল ছবি ফেরত"</b> চাপলে আগের মতো হয়ে যায়।</li><li>পণ্যের নিজের গায়ে কোনো লেখা থাকলে AI সেটা পণ্যের অংশ ভেবে রেখে দেয় — ওগুলো আলাদা করে দেখে নেবেন।</li></ol>))}{(ctx.user.role === 'owner' ? keyCard(String(ctx.settings.whiten_gh_token || '')) : null)}</div>{ui.flash(ctx.flash)}
     <div className="filter-row"><form method="get" action={attrValue(BASE)} className="toolbar">{ui.select('host', list.map((h) => [h.host, h.host === ALL ? 'দোকানের সব পণ্য' : `${h.host} — ${bn(h.n)}টি পণ্য`]), host)}{' '}<input type="hidden" name="f" defaultValue={attrValue(f)} /><button className="btn btn-sm btn-ghost">দেখুন</button></form>
       <form method="get" action={attrValue(BASE)} className="toolbar">{ui.input('sku', sku, { placeholder: 'SKU, যেমন 1374', maxlength: 40, class: 'w-num', 'aria-label': 'SKU' })}{' '}<button className="btn btn-sm btn-ghost">🔎 খুঁজুন</button></form>
       <span className="stat-chip">ছবি <b>{bn(prog.pics)}</b> · <span className="muted">{bn(ids.length)}টি পণ্য</span></span><span className="stat-chip is-blue">Whitened <b>{bn(prog.white)} / {bn(prog.pics)}</b> · {bn(prog.pics ? Math.round((prog.white * 100) / prog.pics) : 0)}%</span><span className="stat-chip">✅ Original kept <b>{bn(prog.ok)}</b></span><span className="stat-chip">Left to do <b>{bn(Math.max(0, prog.pics - prog.white - prog.ok))}</b></span>
