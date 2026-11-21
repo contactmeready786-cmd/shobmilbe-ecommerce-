@@ -118,4 +118,6 @@ test('gtrends: only related searches about the product are kept', () => {
   assert.ok(!relevant('tips for remote work', 'tv remote'));
   assert.ok(relevant('how to program tv remote', 'tv remote'));
   assert.ok(!relevant('best smartphone', 'arduino'));
+  assert.ok(!relevant('carding diamond free fire', 'free fire diamond'), 'nothing about cheating');
+  assert.ok(relevant('free fire 20 diamond top up', 'free fire diamond'));
 });
