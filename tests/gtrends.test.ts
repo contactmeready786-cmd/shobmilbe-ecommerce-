@@ -2,7 +2,7 @@
 // last month, against the year, the high months) are right, and the day's advice says the right thing — no network here.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseGoogleJson, readSeries, readRelated, stats, advise, cleanTerm, termWords, type Week } from '../lib/services/gtrends';
+import { parseGoogleJson, readSeries, readRelated, stats, advise, cleanTerm, termWords, wordPatterns, type Week } from '../lib/services/gtrends';
 
 /** 52 weeks from mid-November 2025: February 80, December 70, the last 4 weeks 40, otherwise 20 */
 function year(): Week[] {
@@ -95,4 +95,17 @@ test('gtrends: the day\'s advice — bring it in, push it, stock before the seas
   // an old "Breakout" (seen weeks ago) is no longer news
   const old = advise([{ ...list[4], fresh: [{ query: 'x', value: 'Breakout', first_seen: new Date(Date.now() - 20 * 864e5) }] }], 10);
   assert.equal(old.length, 0);
+});
+
+test('gtrends: short words match whole words only ("ac" is not in "pack", "ips" is not "chips")', () => {
+  const hit = (term: string, name: string) => wordPatterns(term).every((p) => new RegExp(p, 'i').test(name));
+  assert.ok(hit('ac remote', 'Walton AC Remote 1000 in 1'));
+  assert.ok(!hit('ac remote', 'Battery Pack for TV Remote'));
+  assert.ok(hit('ips battery', 'IPS Battery 12V 100Ah'));
+  assert.ok(!hit('ips battery', 'Chips battery holder'));
+  assert.ok(hit('relay module', '5V Relay Modules 4 channel'), 'a longer word may go on ("modules")');
+  assert.ok(!hit('charger', 'Discharger board'), 'but starts at a word');
+  assert.ok(hit('টিভি রিমোট', 'ওয়ালটন টিভি রিমোট'));
+  assert.ok(hit('esp32', 'ESP32 DevKit V1'));
+  assert.deepEqual(wordPatterns('soldering iron price in bd').length, 2);
 });
