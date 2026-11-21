@@ -2785,7 +2785,7 @@ body.admin #main.admin-main .ghkey-del .btn { padding: 0 10px; }
    empty space next to the boxes, a little bigger than them"). Left: the two switches and the SMS delay, one per line;
    right: the SMS text and Save. Explanations sit behind (i). Narrow screens: the card goes under the boxes. */
 body.admin #main.admin-main .draft-top { display: flex; flex-wrap: wrap; align-items: stretch; gap: 10px; margin-bottom: 14px; }
-body.admin #main.admin-main .draft-top > .kpis { margin: 0; flex: 0 0 auto; flex-wrap: nowrap; }
+body.admin #main.admin-main .draft-top > .kpis { margin: 0; flex: 0 0 auto; flex-wrap: nowrap; align-self: flex-start; }
 body.admin #main.admin-main .draft-top > .settings-sec { flex: 1 1 520px; min-width: 0; margin: 0; display: flex; flex-direction: column; border-radius: 12px; }
 body.admin #main.admin-main .draft-top .set-head { padding: 5px 12px; border-radius: 12px 12px 0 0; }
 body.admin #main.admin-main .draft-top .set-title { font-size: .8rem; }

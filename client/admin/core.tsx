@@ -698,7 +698,9 @@ function stickySides(): void {
 // the long explanation moves into a small ⓘ that shows it when the mouse is on it (or it is tapped) ----------
 function switchTips(): void {
   for (const row of $all<HTMLElement>('#main .switch-row')) {
-    if (row.querySelector('.tool-tip')) continue;
+    const drawn = row.querySelector<HTMLElement>('.tool-tip');
+    // ⓘ already drawn by the server (no jump while the page loads): a tap on it must not flip the switch either
+    if (drawn) { drawn.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); drawn.focus(); }); continue; }
     const small = row.querySelector<HTMLElement>('.switch-text small');
     const title = row.querySelector<HTMLElement>('.switch-text b');
     const text = small?.textContent?.trim();
