@@ -49,6 +49,16 @@ export function termWords(term: string) {
   const ws = cleanTerm(term).split(' ').filter((w) => w && !STOP.has(w));
   return ws.length ? ws.slice(0, 5) : cleanTerm(term).split(' ').slice(0, 3);
 }
+// searches that come with a word but are not about buying the product ("yes bank share price" with "power bank")
+const JUNK = /\b(share|shares|stock market|news|jobs?|salary|results?|movie|song|lyrics|login|apk|download|work|meaning|loan|statement|ltd|limited|company)\b/i;
+/** Is a related search about this product? It has one of the word's own words (at a word's start) and no junk. */
+export function relevant(query: string, term: string) {
+  const q = cleanTerm(query);
+  if (!q || JUNK.test(q)) return false;
+  const ws = termWords(term);
+  const hits = ws.filter((w) => new RegExp(`(^|[^a-z0-9])${w.replace(/[.+\-]/g, (c) => `\\${c}`)}`, 'i').test(q)).length;
+  return hits >= 1;
+}
 /** Each word as a Postgres pattern (~*): English words start at a word's start ("ac" is not inside "pack"), short
  *  ones (≤3 letters) must be the whole word ("ips" is not "chips"); Bangla words match anywhere. */
 export function wordPatterns(term: string) {
@@ -208,6 +218,8 @@ export async function refresh(id: number): Promise<{ ok: boolean; error?: string
   if (wait > Date.now()) return { ok: false, error: 'Google একটু বিরতি চেয়েছে — কিছু পরে নিজে থেকে পড়া হবে' };
   try {
     const r = await readTerm(t.term);
+    r.top = r.top.filter((x) => relevant(x.query, t.term));
+    r.rising = r.rising.filter((x) => relevant(x.query, t.term));
     const s = stats(r.series);
     await q(`UPDATE trend_terms SET series=$2, top=$3, rising=$4, now_v=$5, month_v=$6, prev_v=$7, year_v=$8, change=$9, vs_year=$10,
         peaks=$11, low=$12, fetched_at=now(), ok_at=now(), error='' WHERE id=$1`,
@@ -281,7 +293,7 @@ export async function views({ search = '', hidden = false } = {}): Promise<View[
   for (const r of rows) {
     const fresh = await q<{ query: string; value: string; first_seen: Date }>(`SELECT query, value, first_seen FROM trend_rising
         WHERE term_id=$1 AND last_seen > now() - interval '45 days' ORDER BY first_seen DESC LIMIT 8`, [r.id]);
-    out.push({ ...r, peakList: r.peaks ? r.peaks.split(',').map(Number).filter((x) => x >= 0 && x < 12) : [], ours: await oursFor(r.term), market: await marketFor(r.term), fresh });
+    out.push({ ...r, top: (r.top || []).filter((x) => relevant(x.query, r.term)), rising: (r.rising || []).filter((x) => relevant(x.query, r.term)), peakList: r.peaks ? r.peaks.split(',').map(Number).filter((x) => x >= 0 && x < 12) : [], ours: await oursFor(r.term), market: await marketFor(r.term), fresh: fresh.filter((x) => relevant(x.query, r.term)) });
   }
   return out;
 }
@@ -292,7 +304,7 @@ export const pctText = (x: number) => `${x > 0 ? '+' : ''}${bn(x)}%`;
 function priceLine(v: Pick<View, 'ours' | 'market'>) {
   const parts: string[] = [];
   if (v.ours.n && v.ours.price) parts.push(`আপনার দাম ${money(v.ours.price)}${v.ours.cost ? `, কেনা ${money(Math.round(v.ours.cost))} (লাভ ${money(Math.round(v.ours.price - v.ours.cost))})` : ''}`);
-  if (v.market.shops && v.market.min) parts.push(`${bn(v.market.shops)}টি দোকানে ${money(v.market.min)} থেকে${v.market.median ? `, মাঝামাঝি ${money(Math.round(v.market.median))}` : ''}`);
+  if (v.market.shops && v.market.min) parts.push(`${bn(v.market.shops)}টি দোকানে বিক্রি হচ্ছে — সবচেয়ে কম ${money(v.market.min)}${v.market.median ? `, মাঝামাঝি ${money(Math.round(v.market.median))}` : ''}`);
   return parts.join(' · ');
 }
 
@@ -319,8 +331,8 @@ export function advise(list: Pick<View, 'id' | 'term' | 'change' | 'vs_year' | '
     if (has && v.ours.price && v.market.median && v.market.shops >= 2 && v.ours.price > v.market.median * 1.2 && ch >= 0) {
       out.push({ kind: 'price', score: 35, termId: v.id, term: v.term, title: `"${v.term}" — আপনার দাম বাজারের চেয়ে বেশি`, why: price, todo: 'দাম মিলিয়ে দেখুন — চাহিদা আছে, কিন্তু বেশি দামে কাস্টমার অন্য দোকানে কেনে।', link: pLink });
     }
-    for (const f of v.fresh.filter((x) => nowMs - new Date(x.first_seen).getTime() < 8 * 864e5 && /breakout|\+\d{3,}/i.test(x.value)).slice(0, 2)) {
-      out.push({ kind: 'new', score: 45, termId: v.id, term: v.term, title: `নতুন খোঁজা শুরু: "${f.query}" (${f.value === 'Breakout' ? 'হঠাৎ অনেক বেড়েছে' : f.value})`, why: `"${v.term}"-এর সাথে মানুষ এটা খুঁজছে।`, todo: 'জিনিসটা কী দেখুন — চলতি জিনিস হলে এনে রাখুন বা এ নিয়ে পোস্ট/ব্লগ দিন।', link: `/admin/research?tab=find&q=${encodeURIComponent(f.query)}`, source: f.query });
+    for (const f of v.fresh.filter((x) => nowMs - new Date(x.first_seen).getTime() < 8 * 864e5 && (/breakout/i.test(x.value) || Number(x.value.replace(/[^\d]/g, '')) >= 300)).slice(0, 2)) {
+      out.push({ kind: 'new', score: 45, termId: v.id, term: v.term, title: `নতুন খোঁজা শুরু: "${f.query}" (${f.value === 'Breakout' ? 'হঠাৎ অনেক বেড়েছে' : f.value})`, why: `"${v.term}" খোঁজার সময় মানুষ এটাও খোঁজে।`, todo: 'জিনিসটা কী দেখুন — চলতি জিনিস হলে এনে রাখুন বা এ নিয়ে পোস্ট/ব্লগ দিন।', link: `/admin/research?tab=find&q=${encodeURIComponent(f.query)}`, source: f.query });
     }
   }
   return out.sort((a, b) => b.score - a.score);

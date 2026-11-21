@@ -2,7 +2,7 @@
 // last month, against the year, the high months) are right, and the day's advice says the right thing — no network here.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseGoogleJson, readSeries, readRelated, stats, advise, cleanTerm, termWords, wordPatterns, type Week } from '../lib/services/gtrends';
+import { parseGoogleJson, readSeries, readRelated, stats, advise, cleanTerm, termWords, wordPatterns, relevant, type Week } from '../lib/services/gtrends';
 
 /** 52 weeks from mid-November 2025: February 80, December 70, the last 4 weeks 40, otherwise 20 */
 function year(): Week[] {
@@ -108,4 +108,14 @@ test('gtrends: short words match whole words only ("ac" is not in "pack", "ips" 
   assert.ok(hit('টিভি রিমোট', 'ওয়ালটন টিভি রিমোট'));
   assert.ok(hit('esp32', 'ESP32 DevKit V1'));
   assert.deepEqual(wordPatterns('soldering iron price in bd').length, 2);
+});
+
+test('gtrends: only related searches about the product are kept', () => {
+  assert.ok(relevant('anker nano power bank', 'power bank'));
+  assert.ok(!relevant('yes bank share price', 'power bank'));
+  assert.ok(!relevant('adani power share price', 'power bank'));
+  assert.ok(relevant('bk999 soldering station', 'soldering iron'));
+  assert.ok(!relevant('tips for remote work', 'tv remote'));
+  assert.ok(relevant('how to program tv remote', 'tv remote'));
+  assert.ok(!relevant('best smartphone', 'arduino'));
 });
