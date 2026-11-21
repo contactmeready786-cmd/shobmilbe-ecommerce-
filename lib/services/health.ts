@@ -21,6 +21,7 @@ const LOCAL_BACKUP_DIR = '/var/backups/shobmilbe'; // nightly pg_dump on the VPS
 const WARN_AT = 0.8;
 const BAD_AT = 0.9;
 const BACKUP_WARN_DAYS = 2;
+export const KEEP_LOCAL = 2; // today's and yesterday's nightly copy (services/autobackup.ts KEEP)
 
 export type Level = 'ok' | 'warn' | 'bad';
 export type Health = {
@@ -40,7 +41,7 @@ export type ServerStats = {
   diskTotal: number; diskUsed: number; diskLevel: Level;
   memTotal: number; memUsed: number; memLevel: Level;
   cpus: number; load1: number; loadLevel: Level; uptimeSec: number;
-  localBackupAt: Date | null; localBackups: number;
+  localBackupAt: Date | null; localBackups: number; localBackupBytes: number;
 };
 
 /** The VPS itself: disk, memory (what is really free, cache counted as free), processor load. */
@@ -53,13 +54,14 @@ function serverStats(): ServerStats {
   const memUsed = Math.max(0, memTotal - memFree);
   const cpus = os.cpus().length || 1;
   const load1 = os.loadavg()[0] || 0;
-  let localBackupAt: Date | null = null, localBackups = 0;
+  let localBackupAt: Date | null = null, localBackups = 0, localBackupBytes = 0;
   try {
     for (const f of fs.readdirSync(LOCAL_BACKUP_DIR)) {
       if (!/^db-.*\.dump$/.test(f)) continue;
       const st = fs.statSync(LOCAL_BACKUP_DIR + '/' + f);
       if (st.size < 1024) continue;
       localBackups++;
+      localBackupBytes += st.size;
       if (!localBackupAt || st.mtime > localBackupAt) localBackupAt = st.mtime;
     }
   } catch { /* folder not readable */ }
@@ -67,7 +69,7 @@ function serverStats(): ServerStats {
     diskTotal, diskUsed, diskLevel: diskTotal ? levelFor(diskUsed / diskTotal) : 'warn',
     memTotal, memUsed, memLevel: levelFor(memUsed / memTotal),
     cpus, load1, loadLevel: load1 / cpus >= 1.5 ? 'bad' : load1 / cpus >= 0.9 ? 'warn' : 'ok', uptimeSec: os.uptime(),
-    localBackupAt, localBackups,
+    localBackupAt, localBackups, localBackupBytes,
   };
 }
 
@@ -224,6 +226,11 @@ export function warnings(h: Health): Warning[] {
     text: `VPS-এর ডিস্কে ${bn(gb(h.server.diskUsed))} GB / ${bn(gb(h.server.diskTotal))} GB ব্যবহার হয়েছে। পুরো ভরে গেলে সাইট আর ডাটাবেস বন্ধ হয়ে যাবে।\nকরণীয়: Claude-কে জানান, বা OVHcloud-এ বড় প্ল্যান নিন।` });
   if (h.server && h.server.memLevel === 'bad') out.push({ key: 'mem', level: 'warn', title: `সার্ভারের মেমোরি (RAM) ${bn(Math.round(100 * h.server.memUsed / h.server.memTotal))}% ব্যবহার হচ্ছে`,
     text: `RAM ${bn(gb(h.server.memUsed))} GB / ${bn(gb(h.server.memTotal))} GB। বেশিক্ষণ এমন থাকলে সাইট ধীর হতে পারে।` });
+  // owner, 2026-11-22: 10 copies were found where only 2 should be — the website can't delete the server's nightly
+  // copies (made by root's cron), so say so instead of quietly claiming "only the last 2 are kept"
+  if (h.server && h.server.localBackups > KEEP_LOCAL) out.push({ key: 'local_backups', level: 'warn',
+    title: `সার্ভারে বাড়তি পুরোনো ব্যাকআপ জমে আছে: ${bn(h.server.localBackups - KEEP_LOCAL)}টা`,
+    text: `রাখার কথা শুধু শেষ ২টা, কিন্তু পুরোনোগুলো মোছা যাচ্ছে না। সব মিলিয়ে ${bn(mb(h.server.localBackupBytes))} MB।\nঠিক করতে সার্ভারে একবার একটা কমান্ড চালাতে হবে — Claude-কে জানান।` });
   if (h.connLevel !== 'ok') out.push({ key: 'conn', level: h.connLevel, title: 'ডাটাবেসে সংযোগ প্রায় শেষ',
     text: `${bn(h.connections)} / ${bn(h.maxConnections)} সংযোগ খোলা। সব শেষ হলে সাইট খুলবে না।` });
   if (h.backupLevel !== 'ok') out.push({ key: 'backup', level: h.backupLevel, title: h.backupAt ? `${bn(Math.floor(h.backupDays!))} দিন ধরে ব্যাকআপ হয়নি` : 'কোনো ব্যাকআপ নেই',
