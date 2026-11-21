@@ -47,11 +47,20 @@ async function freshIndex(kind: string, length: number, taken: Set<string>): Pro
 }
 
 /** a product of the shop that fits a tip (for the picture and the "parts for this" line) */
+// The tip's words go from most to least exact ('7805' before 'regulator'), so they are tried one by one: a product
+// with the model number wins over one that only shares a general word (a motor speed controller is not an LM7805).
+// An English word must be a whole word ('led' is not in 'controlled'); model numbers and Bangla words may sit inside.
 async function productFor(words?: string[] | null) {
-  if (!words || !words.length) return null;
-  const like = words.map((w) => '%' + String(w).replace(/[%_]/g, '') + '%');
-  return db.one<Pick<ProductsRow, 'id' | 'name' | 'image_id'>>(`SELECT p.id, p.name, p.image_id FROM products p WHERE ${ELIGIBLE} AND p.name ILIKE ANY($1::text[])
-    ORDER BY coalesce(p.sold_count,0) DESC, p.id LIMIT 1`, [like]).catch(() => null);
+  for (const w of words || []) {
+    const word = String(w).replace(/[%_\\]/g, '').trim();
+    if (word.length < 3) continue;
+    const whole = /^[a-z]+$/i.test(word);
+    const p = await db.one<Pick<ProductsRow, 'id' | 'name' | 'image_id'>>(`SELECT p.id, p.name, p.image_id FROM products p WHERE ${ELIGIBLE}
+      AND ${whole ? `p.name ~* ('(^|[^a-z0-9])' || $1 || '([^a-z0-9]|$)')` : `p.name ILIKE ('%' || $1 || '%')`}
+      ORDER BY coalesce(p.sold_count,0) DESC, length(p.name), p.id LIMIT 1`, [word]).catch(() => null);
+    if (p) return p;
+  }
+  return null;
 }
 
 /** which kind of Facebook groups a post suits (shown next to it; the owner searches these on Facebook) */
