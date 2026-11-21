@@ -123,7 +123,7 @@ async function googleTab(ctx: AdminCtx, keep: Keep) {
     const rel = [...(v.top || []).slice(0, 4), ...(v.rising || []).slice(0, 3)].map((x) => x.query).filter((x, i, a) => a.indexOf(x) === i).slice(0, 6);
     return <tr className={v.low ? 'row-off' : ''}><td><b>{v.term}</b>{(v.origin === 'owner' ? <span className="small muted"> (আপনার)</span> : null)}<br />{spark(v.series)}{(v.error && !v.ok_at ? <><br /><span className="small bad">⚠️ {v.error}</span></> : null)}{(v.low ? <><br /><span className="small muted">খুব কম খোঁজা হয় — হিসাব অনিশ্চিত</span></> : null)}</td>
       <td className="num">{(v.ok_at ? chg(v.change) : <span className="muted small">পড়া বাকি</span>)}</td><td className="num">{chg(v.vs_year)}</td>
-      <td className="small">{(peaks ? <>{peaks}{(v.peakList.includes((month + 1) % 12) ? <><br /><b className="warn">আগামী মাসে!</b></> : null)}</> : <span className="muted">সারা বছর প্রায় সমান</span>)}</td>
+      <td className="small">{(!v.ok_at ? <span className="muted">—</span> : peaks ? <>{peaks}{(v.peakList.includes((month + 1) % 12) ? <><br /><b className="warn">আগামী মাসে!</b></> : null)}</> : <span className="muted">সারা বছর প্রায় সমান</span>)}</td>
       <td className="small">{(rel.length ? jsxList(rel.map((x) => <><a href={`/admin/research?tab=find&q=${attrValue(encodeURIComponent(x))}`}>{x}</a>{' · '}</>)) : <span className="muted">—</span>)}</td>
       <td className="small">{oursText(v)}</td>
       <td className="small">{(v.market.shops ? <>{bn(v.market.shops)}টি দোকানে<br />{money(v.market.min)}{(v.market.median ? ` · মাঝামাঝি ${money(Math.round(v.market.median))}` : '')}</> : <a href={`/admin/research?tab=find&q=${attrValue(encodeURIComponent(v.term))}`}>বাজারে খুঁজুন</a>)}</td>

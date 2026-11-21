@@ -25,10 +25,10 @@ import { bn, money } from '../util';
 // Product words people really type (English: in Bangladesh product searches are mostly written in English letters).
 export const SEEDS: Record<string, string[]> = {
   remote: ['tv remote', 'ac remote', 'smart tv remote', 'set top box remote', 'remote control'],
-  components: ['arduino', 'esp32', 'sensor', 'relay module', 'servo motor', 'transistor', 'capacitor', 'lcd display', 'breadboard', 'ic'],
+  components: ['arduino', 'esp32', 'sensor', 'relay module', 'servo motor', 'transistor', 'capacitor', 'lcd display', 'breadboard', 'voltage regulator'],
   tools: ['soldering iron', 'multimeter', 'glue gun', 'soldering station', 'screwdriver set', 'soldering paste'],
   electronics: ['power bank', 'earbuds', 'smart watch', 'charger', 'bluetooth speaker', 'ip camera', 'router', 'trimmer', 'hair dryer'],
-  electrical: ['led light', 'mini ups', 'ups for router', 'extension board', 'voltage stabilizer', 'ips'],
+  electrical: ['led light', 'mini ups', 'ups for router', 'extension board', 'voltage stabilizer', 'ips battery'],
   home: ['rechargeable fan', 'blender', 'rice cooker', 'electric kettle', 'room heater', 'air cooler', 'humidifier', 'weight scale', 'massage gun'],
   fashion_men: ['panjabi', 't shirt', 'polo shirt', 'jeans pant'],
   fashion_women: ['three piece', 'saree', 'kurti', 'hijab', 'borka'],
@@ -48,6 +48,15 @@ const STOP = new Set(['price', 'in', 'bd', 'bangladesh', 'best', 'for', 'the', '
 export function termWords(term: string) {
   const ws = cleanTerm(term).split(' ').filter((w) => w && !STOP.has(w));
   return ws.length ? ws.slice(0, 5) : cleanTerm(term).split(' ').slice(0, 3);
+}
+/** Each word as a Postgres pattern (~*): English words start at a word's start ("ac" is not inside "pack"), short
+ *  ones (≤3 letters) must be the whole word ("ips" is not "chips"); Bangla words match anywhere. */
+export function wordPatterns(term: string) {
+  return termWords(term).map((w) => {
+    const e = w.replace(/[.+\-]/g, (c) => `\\${c}`);
+    if (!/^[a-z0-9.+-]+$/.test(w)) return e;
+    return w.length <= 3 ? `(^|[^a-z0-9])${e}($|[^a-z0-9])` : `(^|[^a-z0-9])${e}`;
+  });
 }
 
 /** The automatic words: the groups the shop sells (by its own product names) + what customers searched for here. */
@@ -72,11 +81,12 @@ async function autoTerms(): Promise<string[]> {
 
 /** Keep the automatic words current (once a day): new ones come in, hidden ones stay hidden, the owner's stay. */
 export async function syncTerms({ force = false } = {}) {
-  const day = new Date().toISOString().slice(0, 10);
+  const day = `${new Date().toISOString().slice(0, 10)}#2`; // (#2: the list's rules changed — made again at once)
   const last = await one<{ value: string }>(`SELECT value FROM settings WHERE key='gtrends_terms_day'`);
   if (!force && last?.value === day) return;
   const want = await autoTerms();
   for (const t of want) await q(`INSERT INTO trend_terms(term, origin) VALUES($1, 'auto') ON CONFLICT (term) DO NOTHING`, [t]);
+  if (want.length >= 10) await q(`DELETE FROM trend_terms WHERE origin='auto' AND NOT hidden AND NOT (term = ANY($1))`, [want]);
   await setSetting('gtrends_terms_day', day);
 }
 
@@ -245,20 +255,20 @@ export type TermRow = {
 export type View = TermRow & { peakList: number[]; ours: Ours; market: Market; fresh: { query: string; value: string; first_seen: Date }[] };
 
 async function oursFor(term: string): Promise<Ours> {
-  const pats = termWords(term).map((w) => `%${w}%`);
+  const pats = wordPatterns(term);
   const r = await one<{ n: number; stock: number; price: number | null; cost: number | null }>(`SELECT count(*)::int AS n, coalesce(sum(greatest(stock, 0)), 0)::int AS stock,
       min(price)::float AS price, avg(nullif(cost_price, 0))::float AS cost
-    FROM products WHERE active AND parent_id IS NULL AND (name ILIKE ALL($1) OR coalesce(name_bn, '') ILIKE ALL($1))`, [pats]);
+    FROM products WHERE active AND parent_id IS NULL AND (name ~* ALL($1) OR coalesce(name_bn, '') ~* ALL($1))`, [pats]);
   const top = await one<{ id: number; name: string }>(`SELECT id, name FROM products WHERE active AND parent_id IS NULL
-      AND (name ILIKE ALL($1) OR coalesce(name_bn, '') ILIKE ALL($1)) ORDER BY (stock > 0) DESC, id DESC LIMIT 1`, [pats]);
+      AND (name ~* ALL($1) OR coalesce(name_bn, '') ~* ALL($1)) ORDER BY (stock > 0) DESC, id DESC LIMIT 1`, [pats]);
   return { n: r?.n || 0, stock: r?.stock || 0, price: r?.price ?? null, cost: r?.cost ?? null, id: top?.id ?? null, name: top?.name || '' };
 }
 async function marketFor(term: string): Promise<Market> {
-  const pats = termWords(term).map((w) => `%${w}%`);
+  const pats = wordPatterns(term);
   const r = await one<{ shops: number; min: number | null; median: number | null }>(`SELECT count(DISTINCT i.source_id)::int AS shops, min(i.price)::float AS min,
       percentile_cont(0.5) WITHIN GROUP (ORDER BY i.price)::float AS median
     FROM research_items i JOIN research_sources s ON s.id=i.source_id
-    WHERE s.active AND i.price > 0 AND i.last_seen > now() - interval '14 days' AND i.title ILIKE ALL($1)`, [pats]).catch(() => null);
+    WHERE s.active AND i.price > 0 AND i.last_seen > now() - interval '14 days' AND i.title ~* ALL($1)`, [pats]).catch(() => null);
   return { shops: r?.shops || 0, min: r?.min ?? null, median: r?.median ?? null };
 }
 
