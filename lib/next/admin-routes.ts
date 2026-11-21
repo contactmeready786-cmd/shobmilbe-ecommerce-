@@ -171,4 +171,6 @@ export const ADMIN_GET_ROUTES: (string | RegExp)[] = [
   "/admin/landing",
   /^\/admin\/landing\/(\d+)$/,
   "/admin/photo-find",
+  "/admin/marketing/group-posts",
+  "/admin/marketing/marketplace",
 ];

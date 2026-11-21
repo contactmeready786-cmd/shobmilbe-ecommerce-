@@ -2758,3 +2758,12 @@ body.admin #main.admin-main .ghkey-del .btn { padding: 0 10px; }
 .ghkey-steps i { font-style: normal; font-weight: 700; width: 15px; height: 15px; border-radius: 50%; display: inline-grid; place-items: center; font-size: .62rem; background: #EEF2F7; color: #334155; }
 .ghkey-steps a { color: var(--v2-blue, #2563EB); }
 @media (max-width: 760px) { body.admin #main.admin-main .title-row > .ghkey { flex: 1 1 100%; margin-left: 0; } }
+
+/* 📣 Group posts / 🏷️ Marketplace helper (lib/admin/groupposts.tsx) */
+.gp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; }
+.gp-card, .mp-item { margin: 0 0 14px; }
+.gp-head, .mp-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+.mp-head { justify-content: flex-start; }
+.gp-text { width: 100%; box-sizing: border-box; font: inherit; font-size: .9rem; line-height: 1.5; padding: 8px 10px; border: 1px solid var(--a-line, #E3E9F2); border-radius: 8px; background: var(--soft, #f5f7fb); resize: vertical; margin: 4px 0 8px; }
+.gp-card .row-actions, .mp-item .row-actions { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.gp-card form.inline, .mp-item form.inline { display: inline; margin: 0; }

@@ -1325,6 +1325,19 @@ ALTER TABLE orders ADD COLUMN IF NOT EXISTS courier_checked_at timestamptz;
   `
 DELETE FROM settings WHERE key IN ('callmebot_key', 'textmebot_key', 'greenapi_id', 'greenapi_token', 'wa_provider', 'wa_notify_phone');
 `,
+  // 📣 Group posts + 🏷️ Marketplace helper (owner, 2026-11-21): a week's ready-made posts for Facebook groups (no links —
+  // groups block them), copied and pasted by the owner; and which products were listed on Marketplace, and when
+  // (lib/services/groupposts.ts, lib/admin/groupposts.tsx)
+  `
+CREATE TABLE IF NOT EXISTS group_posts (
+  id serial PRIMARY KEY, week text NOT NULL, place int NOT NULL, kind text NOT NULL, ref text NOT NULL DEFAULT '',
+  body text NOT NULL DEFAULT '', image_id int, groups text NOT NULL DEFAULT '', posted_at timestamptz,
+  created_at timestamptz DEFAULT now(), UNIQUE (week, place)
+);
+CREATE TABLE IF NOT EXISTS marketplace_posts (
+  product_id int PRIMARY KEY, posted_at timestamptz NOT NULL DEFAULT now(), times int NOT NULL DEFAULT 1
+);
+`,
 ];
 
 // Data steps that need code, keyed by migration number (run after its SQL).

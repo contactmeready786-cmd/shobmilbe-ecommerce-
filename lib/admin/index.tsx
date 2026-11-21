@@ -82,6 +82,7 @@ import * as $complaints from './complaints';
 import * as $kits from './kits';
 import * as $landing from './landing';
 import * as $automarketing from './automarketing';
+import * as $groupposts from './groupposts';
 import * as $channels from './channels';
 import * as $autoseo from './autoseo';
 import * as $sourcepics from './sourcepics';
@@ -115,7 +116,7 @@ const MODULES = [$dashboard, $orders, $import, $morepics, $watermark,
   $returns, $giftcards, $shoppush, $appinvite, $pos, $warehouses, $codsettle,
   $supplierledger, $fraud, $checkoutotp, $searchreport, $complaints, $kits,
   $automarketing, $channels, $autoseo, $sourcepics, $testclear, $stockscan, $setupmarks,
-  $ledger, $email, $packingadmin, $whiten, $descclean, $aistaff, $landing, $photofind];
+  $ledger, $email, $packingadmin, $whiten, $descclean, $aistaff, $landing, $photofind, $groupposts];
 const ROUTES: AdminRoute[] = MODULES.flatMap((m): readonly AdminRoute[] => m.routes);
 
 // ---------- sessions ----------
