@@ -50,6 +50,7 @@ async function freshIndex(kind: string, length: number, taken: Set<string>): Pro
 // The tip's words go from most to least exact ('7805' before 'regulator'), so they are tried one by one: a product
 // with the model number wins over one that only shares a general word (a motor speed controller is not an LM7805).
 // An English word must be a whole word ('led' is not in 'controlled'); model numbers and Bangla words may sit inside.
+// A TV remote is never "the part" for a circuit tip (its name says LED / LCD TV) unless the tip is about remotes.
 async function productFor(words?: string[] | null) {
   for (const w of words || []) {
     const word = String(w).replace(/[%_\\]/g, '').trim();
@@ -57,6 +58,7 @@ async function productFor(words?: string[] | null) {
     const whole = /^[a-z]+$/i.test(word);
     const p = await db.one<Pick<ProductsRow, 'id' | 'name' | 'image_id'>>(`SELECT p.id, p.name, p.image_id FROM products p WHERE ${ELIGIBLE}
       AND ${whole ? `p.name ~* ('(^|[^a-z0-9])' || $1 || '([^a-z0-9]|$)')` : `p.name ILIKE ('%' || $1 || '%')`}
+      AND (p.name !~* 'remote|রিমোট' OR $1 ~* 'remote|রিমোট')
       ORDER BY coalesce(p.sold_count,0) DESC, length(p.name), p.id LIMIT 1`, [word]).catch(() => null);
     if (p) return p;
   }
