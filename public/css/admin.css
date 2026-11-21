@@ -2781,27 +2781,35 @@ body.admin #main.admin-main .ghkey-del .btn { padding: 0 10px; }
 .gt-hidden { display: inline-flex; align-items: center; gap: 6px; margin: 4px 12px 4px 0; }
 @media (max-width: 900px) { .gt-quick { grid-template-columns: 1fr; } .gt-find input[type=search], .gt-add input[type=text] { min-width: 0; width: 100%; } }
 
-/* ⚙️ Incomplete-orders settings as a compact GitHub-style list (owner, 2026-11-21: "the box is too big"):
-   one row per setting, thin lines between rows, the two switches side by side, Save at the bottom right. */
+/* ⚙️ Incomplete-orders settings as a compact GitHub-style list (owner, 2026-11-21: "the box is too big", then
+   "smaller still, like GitHub"): row 1 = the two switches + the SMS delay side by side, row 2 = the SMS text with its
+   hint and Save on one line. Small type (13px), slim rows, small controls. */
+body.admin #main.admin-main .settings-sec:has(.gh-set) .set-head { padding: 8px 14px; }
+body.admin #main.admin-main .settings-sec:has(.gh-set) .set-title { font-size: .9rem; }
 body.admin #main.admin-main .set-sec > .set-card:has(> .gh-set) { padding: 0; }
-body.admin #main.admin-main .gh-set { margin: 0; display: block; }
-.gh-set-list > * { border-bottom: 1px solid var(--a-line, #E4E7EC); }
-.gh-set-pair { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
-.gh-set-pair > .switch-row + .switch-row { border-left: 1px solid var(--a-line, #E4E7EC) !important; }
+body.admin #main.admin-main .gh-set { margin: 0; display: block; font-size: .82rem; }
+.gh-set-list > * + * { border-top: 1px solid var(--a-line, #E4E7EC); }
+.gh-set-pair { display: grid; grid-template-columns: repeat(3, minmax(0, auto)); justify-content: start; }
+.gh-set-pair > * + * { border-left: 1px solid var(--a-line, #E4E7EC) !important; }
 body.admin #main.admin-main .gh-set .switch-row,
-body.admin #main.admin-main .gh-set .switch-row:has(input:checked) { margin: 0; min-height: 0; padding: 9px 16px; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
-body.admin #main.admin-main .gh-set .switch-text b { font-size: .92rem; font-weight: 600; }
-.gh-set-row { display: flex; align-items: center; justify-content: space-between; gap: 8px 14px; padding: 9px 16px; flex-wrap: wrap; }
-.gh-set-l { display: inline-flex; align-items: center; gap: 8px; font-size: .92rem; }
-.gh-set-l b { font-weight: 600; }
-body.admin #main.admin-main .gh-set-row select { width: 230px; max-width: 100%; min-height: 34px; padding: 4px 10px; font-size: .9rem; margin: 0; }
-.gh-set-row.gh-set-stack { display: grid; justify-content: stretch; gap: 6px; }
-body.admin #main.admin-main .gh-set-stack textarea { width: 100%; max-width: none; min-height: 0; padding: 7px 10px; font-size: .9rem; line-height: 1.5; margin: 0; resize: vertical; }
-body.admin #main.admin-main .gh-set-hint { display: block; font-size: .76rem; line-height: 1.5; color: var(--a-mut, #667085); }
-body.admin #main.admin-main .gh-set .flash { margin: 10px 16px 0; }
-.gh-set-foot { display: flex; justify-content: flex-end; padding: 10px 16px; }
-@media (max-width: 760px) {
+body.admin #main.admin-main .gh-set .switch-row:has(input:checked) { margin: 0; min-height: 0; padding: 6px 14px; gap: 8px; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+body.admin #main.admin-main .gh-set .switch-text { flex: 0 1 auto; }
+body.admin #main.admin-main .gh-set .switch-text b, .gh-set-l b { font-size: .82rem; font-weight: 600; }
+body.admin #main.admin-main .gh-set .switch { transform: scale(.72); transform-origin: center; margin: -4px -6px; }
+body.admin #main.admin-main .gh-set .switch-state { font-size: .74rem; }
+body.admin #main.admin-main .gh-set .tool-tip { width: 15px; height: 15px; font-size: 9px; }
+.gh-set-row { display: flex; align-items: center; gap: 6px 10px; padding: 6px 14px; flex-wrap: wrap; }
+.gh-set-l { display: inline-flex; align-items: center; gap: 6px; }
+body.admin #main.admin-main .gh-set-row select { width: auto !important; max-width: 100%; min-height: 0 !important; height: 28px !important; padding: 2px 26px 2px 8px !important; font-size: .8rem !important; margin: 0; border-radius: 6px !important; }
+.gh-set-row.gh-set-stack { display: grid; gap: 4px; padding: 7px 14px 8px; }
+body.admin #main.admin-main .gh-set-stack textarea { width: 100%; max-width: none; min-height: 0; padding: 5px 8px; font-size: .8rem; line-height: 1.45; margin: 0; resize: vertical; border-radius: 6px; }
+.gh-set-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+body.admin #main.admin-main .gh-set-hint { font-size: .72rem; line-height: 1.4; color: var(--a-mut, #667085); }
+body.admin #main.admin-main .gh-set-hint code { font-size: .7rem; padding: 0 3px; }
+body.admin #main.admin-main .gh-set-foot .btn { min-height: 0; height: 28px; padding: 0 14px; font-size: .8rem; border-radius: 6px; flex: 0 0 auto; }
+body.admin #main.admin-main .gh-set .flash { margin: 6px 14px; padding: 6px 10px; font-size: .8rem; }
+@media (max-width: 900px) {
   .gh-set-pair { grid-template-columns: minmax(0, 1fr); }
-  .gh-set-pair > .switch-row + .switch-row { border-left: 0 !important; border-top: 1px solid var(--a-line, #E4E7EC) !important; }
-  body.admin #main.admin-main .gh-set-row select { width: 100%; }
+  .gh-set-pair > * + * { border-left: 0 !important; border-top: 1px solid var(--a-line, #E4E7EC) !important; }
+  .gh-set-foot { flex-wrap: wrap; justify-content: flex-end; }
 }
