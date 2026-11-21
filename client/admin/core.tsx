@@ -336,6 +336,17 @@ function smallHelpers(): void {
       b.textContent = shown ? '👁️ দেখুন' : '🙈 লুকান';
     });
   }
+  // 📋 copy a text box's text (Group posts / Marketplace helper: data-copy-from="<id of the box>")
+  document.addEventListener('click', (e) => {
+    const b = hit(e, '[data-copy-from]');
+    if (!b) return;
+    const box = document.getElementById(b.getAttribute('data-copy-from') || '') as HTMLTextAreaElement | null;
+    const text = box ? String(box.value ?? box.textContent ?? '').trim() : '';
+    if (!text) return;
+    const done = () => toast('কপি হয়েছে');
+    if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(text).then(done).catch(() => { box!.select(); });
+    else { box!.select(); try { document.execCommand('copy'); done(); } catch { /* the text stays selected to copy by hand */ } }
+  });
   // click-to-copy for codes
   document.addEventListener('click', (e) => {
     const c = hit(e, 'code.copy');

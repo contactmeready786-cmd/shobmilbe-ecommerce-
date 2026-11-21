@@ -544,6 +544,20 @@ export type GiftCardsRow = {
   created_at: Date;
 };
 
+/** A row of group_posts. */
+export type GroupPostsRow = {
+  id: number;
+  week: string;
+  place: number;
+  kind: string;
+  ref: string;
+  body: string;
+  image_id: number | null;
+  groups: string;
+  posted_at: Date | null;
+  created_at: Date;
+};
+
 /** A row of home_rows. */
 export type HomeRowsRow = {
   id: number;
@@ -665,6 +679,13 @@ export type LoyaltyLedgerRow = {
   note: string;
   staff_id: number | null;
   created_at: Date;
+};
+
+/** A row of marketplace_posts. */
+export type MarketplacePostsRow = {
+  product_id: number;
+  posted_at: Date;
+  times: number;
 };
 
 /** A row of media. */
@@ -1596,6 +1617,7 @@ export type Tables = {
   geo_blocks: GeoBlocksRow;
   gift_card_ledger: GiftCardLedgerRow;
   gift_cards: GiftCardsRow;
+  group_posts: GroupPostsRow;
   home_rows: HomeRowsRow;
   ik_trash: IkTrashRow;
   integration_logs: IntegrationLogsRow;
@@ -1606,6 +1628,7 @@ export type Tables = {
   login_history: LoginHistoryRow;
   login_lock_codes: LoginLockCodesRow;
   loyalty_ledger: LoyaltyLedgerRow;
+  marketplace_posts: MarketplacePostsRow;
   media: MediaRow;
   offers: OffersRow;
   order_items: OrderItemsRow;

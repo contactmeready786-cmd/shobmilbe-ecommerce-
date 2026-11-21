@@ -85,6 +85,9 @@ const TABS: Record<string, Tab[]> = {
   autosocial: [
     ['/admin/marketing/channels', 'All platforms', 'marketing', 'channels', '📣'],
     ['/admin/marketing/auto', 'Facebook, Instagram & Telegram', 'marketing', 'automarketing', '🤖'],
+    // 2026-11-21: copy-paste help for what Facebook doesn't let a program do (groups, Marketplace)
+    ['/admin/marketing/group-posts', 'Group posts', 'marketing', 'group-posts', '📣'],
+    ['/admin/marketing/marketplace', 'Marketplace helper', 'marketing', 'marketplace', '🏷️'],
   ],
   // 2026-11-14: "Google ও Facebook" split in two — being found on Google (SEO, blog) / ads and what the ads need
   // (pixels, product feeds, retargeting, whether each connection works)
