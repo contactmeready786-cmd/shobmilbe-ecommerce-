@@ -50,7 +50,7 @@ export function termWords(term: string) {
   return ws.length ? ws.slice(0, 5) : cleanTerm(term).split(' ').slice(0, 3);
 }
 // searches that come with a word but are not about buying the product ("yes bank share price" with "power bank")
-const JUNK = /\b(share|shares|stock market|news|jobs?|salary|results?|movie|song|lyrics|login|apk|download|work|meaning|loan|statement|ltd|limited|company)\b/i;
+const JUNK = /\b(share|shares|stock market|news|jobs?|salary|results?|movie|song|lyrics|login|apk|download|work|meaning|loan|statement|ltd|limited|company|carding|hack|hacks|cheat|crack|mod apk|free download)\b/i;
 /** Is a related search about this product? It has one of the word's own words (at a word's start) and no junk. */
 export function relevant(query: string, term: string) {
   const q = cleanTerm(query);
