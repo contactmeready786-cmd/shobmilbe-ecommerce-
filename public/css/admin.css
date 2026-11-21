@@ -2780,3 +2780,28 @@ body.admin #main.admin-main .ghkey-del .btn { padding: 0 10px; }
 .gt-find input[type=search], .gt-add input[type=text] { min-width: 260px; }
 .gt-hidden { display: inline-flex; align-items: center; gap: 6px; margin: 4px 12px 4px 0; }
 @media (max-width: 900px) { .gt-quick { grid-template-columns: 1fr; } .gt-find input[type=search], .gt-add input[type=text] { min-width: 0; width: 100%; } }
+
+/* ⚙️ Incomplete-orders settings as a compact GitHub-style list (owner, 2026-11-21: "the box is too big"):
+   one row per setting, thin lines between rows, the two switches side by side, Save at the bottom right. */
+body.admin #main.admin-main .set-sec > .set-card:has(> .gh-set) { padding: 0; }
+body.admin #main.admin-main .gh-set { margin: 0; display: block; }
+.gh-set-list > * { border-bottom: 1px solid var(--a-line, #E4E7EC); }
+.gh-set-pair { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.gh-set-pair > .switch-row + .switch-row { border-left: 1px solid var(--a-line, #E4E7EC) !important; }
+body.admin #main.admin-main .gh-set .switch-row,
+body.admin #main.admin-main .gh-set .switch-row:has(input:checked) { margin: 0; min-height: 0; padding: 9px 16px; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+body.admin #main.admin-main .gh-set .switch-text b { font-size: .92rem; font-weight: 600; }
+.gh-set-row { display: flex; align-items: center; justify-content: space-between; gap: 8px 14px; padding: 9px 16px; flex-wrap: wrap; }
+.gh-set-l { display: inline-flex; align-items: center; gap: 8px; font-size: .92rem; }
+.gh-set-l b { font-weight: 600; }
+body.admin #main.admin-main .gh-set-row select { width: 230px; max-width: 100%; min-height: 34px; padding: 4px 10px; font-size: .9rem; margin: 0; }
+.gh-set-row.gh-set-stack { display: grid; justify-content: stretch; gap: 6px; }
+body.admin #main.admin-main .gh-set-stack textarea { width: 100%; max-width: none; min-height: 0; padding: 7px 10px; font-size: .9rem; line-height: 1.5; margin: 0; resize: vertical; }
+body.admin #main.admin-main .gh-set-hint { display: block; font-size: .76rem; line-height: 1.5; color: var(--a-mut, #667085); }
+body.admin #main.admin-main .gh-set .flash { margin: 10px 16px 0; }
+.gh-set-foot { display: flex; justify-content: flex-end; padding: 10px 16px; }
+@media (max-width: 760px) {
+  .gh-set-pair { grid-template-columns: minmax(0, 1fr); }
+  .gh-set-pair > .switch-row + .switch-row { border-left: 0 !important; border-top: 1px solid var(--a-line, #E4E7EC) !important; }
+  body.admin #main.admin-main .gh-set-row select { width: 100%; }
+}
