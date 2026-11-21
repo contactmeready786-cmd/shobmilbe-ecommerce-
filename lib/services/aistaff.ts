@@ -14,6 +14,7 @@ import * as notify from './notify';
 import * as guard from './guard';
 import * as seoscore from './seoscore';
 import * as research from './research';
+import * as gtrends from './gtrends';
 import * as dupes from '../models/duplicates';
 import type { Settings } from '../types';
 
@@ -138,7 +139,7 @@ async function market(): Promise<Section> {
   const win = await safe(() => research.winners({ limit: 30 }), [] as Awaited<ReturnType<typeof research.winners>>);
   const list = Array.isArray(win) ? win : [];
   for (const g of list.filter((x) => !x.ours && x.shops >= 2).slice(0, 5)) {
-    items.push({ level: 'info', text: `বাজারে চলছে: ${g.lead.title} — ${bn(g.shops)}টি দোকানে ${money(g.min)}–${money(g.max)}${g.sell ? `; আপনি ${money(g.sell)}-এ বেচলে ভালো${g.buyMax ? ` (কিনুন ${money(g.buyMax)}-এর মধ্যে)` : ''}` : ''}`, link: '/admin/research' });
+    items.push({ level: 'info', text: `বাজারে চলছে: ${g.lead.title} — ${bn(g.shops)}টি দোকানে ${money(g.min)}–${money(g.max)}${g.sell ? `; আপনি ${money(g.sell)}-এ বেচলে ভালো${g.buyMax ? ` (কিনুন ${money(g.buyMax)}-এর মধ্যে)` : ''}` : ''}`, link: '/admin/research?tab=winning' });
   }
   for (const g of list.filter((x) => x.ours && x.median && x.ours.price > x.median * 1.15).slice(0, 4)) {
     items.push({ level: 'warn', text: `${g.ours!.name}: আপনার দাম ${money(g.ours!.price)}, বাজারে মাঝামাঝি ${money(g.median!)} — দাম বেশি মনে হচ্ছে`, link: `/admin/products/${g.ours!.id}` });
@@ -146,6 +147,13 @@ async function market(): Promise<Section> {
   const t = await safe(() => research.trends(), { at: 0, items: [] as research.Trend[] });
   if (t.items.length) items.push({ level: 'info', text: `আজ বাংলাদেশে গুগলে ট্রেন্ডিং: ${t.items.slice(0, 6).map((x) => x.title).join(', ')}` });
   return { key: 'market', title: '📈 বাজার ও ট্রেন্ড', items };
+}
+
+// 📊 what Bangladesh searches for on Google, joined with our stock and prices (lib/services/gtrends.ts)
+async function gdemand(): Promise<Section> {
+  const list = await gtrends.todayAdvice(6);
+  const items: Item[] = list.map((a): Item => ({ level: a.kind === 'stock' ? 'warn' : 'info', text: `${a.title}\n${a.why ? `${a.why}\n` : ''}👉 ${a.todo}`, link: a.link || '/admin/research?tab=google' }));
+  return { key: 'gdemand', title: '📊 গুগলে চাহিদা — আজ যা করবেন', items };
 }
 
 async function social(settings: Settings): Promise<Section> {
@@ -175,6 +183,7 @@ export async function inspect(settings: Settings): Promise<Report> {
     await safe(security, empty('security', '🔐 নিরাপত্তা')),
     await safe(health, empty('health', '🩺 সাইটের স্বাস্থ্য')),
     await safe(market, empty('market', '📈 বাজার ও ট্রেন্ড')),
+    await safe(gdemand, { key: 'gdemand', title: '', items: [] }),
     await safe(() => social(settings), empty('social', '📣 আজকের সোশ্যাল মিডিয়া')),
   ].filter((s) => s.items.length);
   const counts: Record<Level, number> = { bad: 0, warn: 0, good: 0, info: 0 };

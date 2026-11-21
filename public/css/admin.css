@@ -2767,3 +2767,16 @@ body.admin #main.admin-main .ghkey-del .btn { padding: 0 10px; }
 .gp-text { width: 100%; box-sizing: border-box; font: inherit; font-size: .9rem; line-height: 1.5; padding: 8px 10px; border: 1px solid var(--a-line, #E3E9F2); border-radius: 8px; background: var(--soft, #f5f7fb); resize: vertical; margin: 4px 0 8px; }
 .gp-card .row-actions, .mp-item .row-actions { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .gp-card form.inline, .mp-item form.inline { display: inline; margin: 0; }
+/* 📊 গুগলে চাহিদা (Admin → মার্কেট রিসার্চ) */
+.gt-advice ol { margin: 0; padding-left: 22px; display: grid; gap: 12px; }
+.gt-advice li { line-height: 1.5; }
+.gt-src a { margin-right: 10px; font-size: 12px; }
+.gt-quick { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.gt-quick .panel h2 { font-size: 15px; }
+.gt-mini { margin: 0; padding-left: 18px; display: grid; gap: 4px; font-size: 14px; }
+.gt-spark { color: var(--blue, #2563eb); display: block; margin-top: 4px; }
+.gt-table td { vertical-align: top; }
+.gt-table .prod-actions form { display: inline-block; }
+.gt-find input[type=search], .gt-add input[type=text] { min-width: 260px; }
+.gt-hidden { display: inline-flex; align-items: center; gap: 6px; margin: 4px 12px 4px 0; }
+@media (max-width: 900px) { .gt-quick { grid-template-columns: 1fr; } .gt-find input[type=search], .gt-add input[type=text] { min-width: 0; width: 100%; } }

@@ -3,11 +3,12 @@ import { Val, attrValue, jsxList } from '../react/html';
 import { raw, bn, money, int, str, fmtDate, ifKey } from '../util';
 import * as db from '../db';
 import * as R from '../services/research';
+import * as G from '../services/gtrends';
 import * as ui from './ui';
 import type { AdminCtx, Caught } from '../types';
 import * as swr from '../services/swr';
 
-const TABS = [['winning', '🏆 উইনিং প্রোডাক্ট'], ['find', '🔍 প্রোডাক্ট খুঁজুন'], ['new', '🆕 বাজারে নতুন'], ['drops', '📉 দাম কমেছে'], ['trends', '📈 গুগলে যা ট্রেন্ড করছে'], ['demand', '🔎 আপনার কাস্টমার যা খুঁজছে'], ['sources', '🏪 যেসব দোকান দেখা হচ্ছে']];
+const TABS = [['google', '📊 গুগলে চাহিদা'], ['winning', '🏆 উইনিং প্রোডাক্ট'], ['find', '🔍 প্রোডাক্ট খুঁজুন'], ['new', '🆕 বাজারে নতুন'], ['drops', '📉 দাম কমেছে'], ['trends', '📈 গুগলে যা ট্রেন্ড করছে'], ['demand', '🔎 আপনার কাস্টমার যা খুঁজছে'], ['sources', '🏪 যেসব দোকান দেখা হচ্ছে']];
 
 function pic(src?: unknown) { return src ? <img src={attrValue(src)} alt="" loading="lazy" referrerPolicy="no-referrer" /> : <span>📦</span>; }
 function ago(d: string | number | Date | null) {
@@ -18,7 +19,7 @@ function ago(d: string | number | Date | null) {
 
 function winningCard(g: Awaited<ReturnType<typeof R.winners>>[number], i: number, segment = '') {
   const links = R.sourcingLinks(g.term);
-  return <article className="rs-card"><div className="rs-rank">{bn(i + 1)}</div><a className="rs-pic" href={attrValue(g.best.url)} target="_blank" rel="noopener noreferrer">{pic(g.lead.image)}</a><div className="rs-body"><h3><a href={attrValue(g.lead.url)} target="_blank" rel="noopener noreferrer"><Val v={g.lead.title} /></a></h3><p className="rs-why">{jsxList(g.why.slice(0, 4).map((w: unknown) => <span><Val v={w} /></span>))}</p><div className="rs-nums"><div><small>বাজারে দাম</small><b>{(g.min === g.max ? money(g.min) : <>{money(g.min)}{' '}–{' '}{money(g.max)}</>)}</b><small>সবচেয়ে কম:{' '}<Val v={g.best.shop} /></small></div><div><small>আপনি বিক্রি করতে পারেন</small><b className="good">{(g.sell ? money(g.sell) : "—")}</b><small>বাজারের মাঝামাঝি দামের সামান্য কম</small></div><div><small>এর চেয়ে কমে কিনলে লাভ</small><b className="warn">{(g.buyMax ? money(g.buyMax) : "—")}</b><small>কেনা দাম এর মধ্যে রাখুন</small></div><div><small>আপনার দোকানে</small>{oursCell(g.oursAll || [], g.best.url, g.min, g.max, `/admin/research${segment ? `?seg=${segment}` : ''}`)}</div></div><p className="rs-src"><small>কোথা থেকে কিনবেন খুঁজুন:</small>{' '}{jsxList(links.map(([l, u]) => <a href={attrValue(u)} target="_blank" rel="noopener noreferrer"><Val v={l} /></a>))}</p><p className="rs-shops small muted">যে দোকানে আছে:{' '}{jsxList(g.items.slice(0, 5).map((x: { url: unknown; shop: unknown; price: unknown; rank: unknown; }) => <><a href={attrValue(x.url)} target="_blank" rel="noopener noreferrer"><Val v={x.shop} />{' '}({money(x.price)}{(x.rank ? `, #${bn(x.rank)}` : null)})</a>{' '}</>))}</p></div></article>;
+  return <article className="rs-card"><div className="rs-rank">{bn(i + 1)}</div><a className="rs-pic" href={attrValue(g.best.url)} target="_blank" rel="noopener noreferrer">{pic(g.lead.image)}</a><div className="rs-body"><h3><a href={attrValue(g.lead.url)} target="_blank" rel="noopener noreferrer"><Val v={g.lead.title} /></a></h3><p className="rs-why">{jsxList(g.why.slice(0, 4).map((w: unknown) => <span><Val v={w} /></span>))}</p><div className="rs-nums"><div><small>বাজারে দাম</small><b>{(g.min === g.max ? money(g.min) : <>{money(g.min)}{' '}–{' '}{money(g.max)}</>)}</b><small>সবচেয়ে কম:{' '}<Val v={g.best.shop} /></small></div><div><small>আপনি বিক্রি করতে পারেন</small><b className="good">{(g.sell ? money(g.sell) : "—")}</b><small>বাজারের মাঝামাঝি দামের সামান্য কম</small></div><div><small>এর চেয়ে কমে কিনলে লাভ</small><b className="warn">{(g.buyMax ? money(g.buyMax) : "—")}</b><small>কেনা দাম এর মধ্যে রাখুন</small></div><div><small>আপনার দোকানে</small>{oursCell(g.oursAll || [], g.best.url, g.min, g.max, `/admin/research?tab=winning${segment ? `&seg=${segment}` : ''}`)}</div></div><p className="rs-src"><small>কোথা থেকে কিনবেন খুঁজুন:</small>{' '}{jsxList(links.map(([l, u]) => <a href={attrValue(u)} target="_blank" rel="noopener noreferrer"><Val v={l} /></a>))}</p><p className="rs-shops small muted">যে দোকানে আছে:{' '}{jsxList(g.items.slice(0, 5).map((x: { url: unknown; shop: unknown; price: unknown; rank: unknown; }) => <><a href={attrValue(x.url)} target="_blank" rel="noopener noreferrer"><Val v={x.shop} />{' '}({money(x.price)}{(x.rank ? `, #${bn(x.rank)}` : null)})</a>{' '}</>))}</p></div></article>;
 }
 
 // "is it in our shop?" — every matching product, with a link; unsure matches say so
@@ -59,12 +60,89 @@ async function findTab(ctx: AdminCtx) {
   return <>{form}{shopLine}<div className="rs-status panel"><span>📦{' '}<b>{bn(r.items.length)}</b>টি পাওয়া গেছে</span><span>🏪{' '}<b>{bn(new Set(r.items.map((x) => x.shop)).size)}</b>টি দোকানে</span>{' '}{(prices.length ? <span>💰 বাজারে দাম{' '}<b>{money(Math.min(...prices))}{' '}–{' '}{money(Math.max(...prices))}</b></span> : null)}{' '}<span>{(have ? <>✅{' '}<b>{bn(have)}</b>টি আপনার দোকানে আছে</> : "❌ আপনার দোকানে একটাও নেই")}</span></div>{(made.length && parts.length ? <h2 className="rs-sec">🔹 শুধু পার্ট / IC{' '}<small>{bn(parts.length)}টি</small></h2> : null)}{' '}{(parts.length ? rows(parts) : null)}{' '}{(made.length ? <><h2 className="rs-sec">🔸 এটা দিয়ে বানানো বোর্ড / মডিউল / কিট{' '}<small>{bn(made.length)}টি — প্রতিটা আলাদা পণ্য</small></h2>{rows(made)}</> : null)}{' '}{addShop(term)}</>;
 }
 
+// ---------------------------------------------------------------- 📊 গুগলে চাহিদা (lib/services/gtrends.ts)
+type Keep = <T>(k: string, fn: () => Promise<T>) => Promise<T>;
+const GT = '/admin/research?tab=google';
+async function gtPost(ctx: AdminCtx, b: Record<string, unknown>) {
+  const id = int(b.id);
+  if (b.form === 'gt_add') {
+    let t: Awaited<ReturnType<typeof G.addTerm>>;
+    try { t = await G.addTerm(str(b.term, 60)); } catch (caught) { const e = caught as Caught; return ctx.fail(GT, e.message); }
+    await G.refresh(t.id); // read at once (a few seconds), so the owner sees it now
+    return ctx.back(`${GT}&q=${encodeURIComponent(t.term)}`, 'added');
+  }
+  if (b.form === 'gt_read' && id) await G.refresh(id);
+  if (b.form === 'gt_hide' && id) await G.setHidden(id, true);
+  if (b.form === 'gt_show' && id) await G.setHidden(id, false);
+  return ctx.back(`${GT}${b.q ? `&q=${encodeURIComponent(str(b.q, 60))}` : ''}`, 'saved');
+}
+/** 12 months as a small line (each word's own 0–100) */
+function spark(series: G.Week[] | null) {
+  const v = (series || []).map((p) => p.v);
+  if (v.length < 2) return null;
+  const w = 120, h = 30, max = Math.max(1, ...v);
+  const pts = v.map((x, i) => `${Math.round((i / (v.length - 1)) * w)},${Math.round(h - 2 - (x / max) * (h - 4))}`).join(' ');
+  return <svg className="gt-spark" viewBox={`0 0 ${w} ${h}`} width={w} height={h} aria-hidden="true"><polyline points={pts} fill="none" stroke="currentColor" strokeWidth="1.6" /></svg>;
+}
+function chg(x: number | null) {
+  if (x == null) return <span className="muted">—</span>;
+  return <b className={x >= 15 ? 'good' : x <= -15 ? 'bad' : ''}>{G.pctText(Math.round(x))}</b>;
+}
+function oursText(v: G.View) {
+  if (!v.ours.n) return <b className="bad">নেই</b>;
+  return <>{(v.ours.id ? <a href={`/admin/products/${v.ours.id}`}>{bn(v.ours.n)}টি পণ্য</a> : <>{bn(v.ours.n)}টি পণ্য</>)}<br /><span className={`small ${v.ours.stock ? '' : 'bad'}`}>{(v.ours.stock ? `স্টক ${bn(v.ours.stock)}` : 'স্টক নেই')}</span>{(v.ours.price ? <><br /><span className="small">দাম {money(v.ours.price)}{(v.ours.cost ? ` · কেনা ${money(Math.round(v.ours.cost))}` : '')}</span></> : null)}</>;
+}
+function srcLinks(term: string) {
+  return <span className="gt-src">{jsxList(R.sourcingLinks(term).map(([l, u]) => <a href={attrValue(u)} target="_blank" rel="noopener noreferrer">{l}</a>))}</span>;
+}
+async function googleTab(ctx: AdminCtx, keep: Keep) {
+  const search = str(ctx.query.get('q') || '', 60).trim();
+  await G.syncTerms().catch(() => {}); // the word list exists from the first look (then once a day)
+  const [list, st] = await Promise.all([keep(`gt|${search}`, () => G.views({ search })), G.status()]);
+  const month = new Date(Date.now() + 6 * 3600e3).getUTCMonth();
+  const wait = st.wait > Date.now() ? <span className="warn"> · ⏸️ Google একটু বিরতি চেয়েছে — প্রায় {bn(Math.max(1, Math.ceil((st.wait - Date.now()) / 3600e3)))} ঘণ্টা পরে আবার শুরু হবে (আগের তথ্য দেখানো হচ্ছে)</span> : null;
+  const head = <div className="note-line"><p className="small muted">বাংলাদেশে মানুষ Google-এ আপনার ধরনের পণ্য কতটা খুঁজছে — প্রতিদিন নিজে থেকে পড়া হয় (একবারে একটা শব্দ, দিনে সব শব্দ একবার)। {bn(st.done)}/{bn(st.all)}টি শব্দের তথ্য আছে, গত ২৪ ঘণ্টায় {bn(st.today)}টি নতুন করে পড়া, শেষবার: {ago(st.last)}.{wait}</p></div>;
+  const form = <form method="get" action="/admin/research" className="toolbar gt-find"><input type="hidden" name="tab" defaultValue="google" /><input type="search" name="q" defaultValue={search} placeholder="শব্দ খুঁজুন — যেমন remote, soldering, camera" maxLength={60} /><button className="btn">🔍 খুঁজুন</button>{(search ? <a className="btn btn-ghost" href={GT}>সব দেখুন</a> : null)}</form>;
+  const exact = search && list.some((v) => v.term === G.cleanTerm(search));
+  const addForm = <form method="post" action="/admin/research?tab=google" className="toolbar gt-add"><input type="hidden" name="form" defaultValue="gt_add" /><input type="text" name="term" defaultValue={exact ? '' : search} placeholder="নতুন শব্দ যোগ করুন — যেমন ac remote, ip camera" required minLength={2} maxLength={60} /><button className="btn btn-sm">➕ গুগলে দেখুন ও তালিকায় রাখুন</button><span className="small muted">যোগ করলে সাথে সাথে পড়া হয় (কয়েক সেকেন্ড), তারপর প্রতিদিন।</span></form>;
+  if (!list.length) {
+    return <>{head}{form}{addForm}{ui.empty(search ? `"${search}" তালিকায় নেই — উপরে "গুগলে দেখুন" চাপলে এখনই দেখা হবে।` : 'শব্দের তালিকা তৈরি হচ্ছে — কয়েক মিনিটের মধ্যে প্রথম তথ্য আসবে, কয়েক ঘণ্টায় সব।')}</>;
+  }
+  const advice = search ? [] : G.advise(list, month).slice(0, 8);
+  const ready = list.filter((v) => v.ok_at && !v.low && v.change != null);
+  const up = [...ready].filter((v) => (v.change ?? 0) > 0).sort((a, b) => (b.change ?? 0) - (a.change ?? 0)).slice(0, 8);
+  const down = [...ready].filter((v) => (v.change ?? 0) < 0).sort((a, b) => (a.change ?? 0) - (b.change ?? 0)).slice(0, 6);
+  const fresh = list.flatMap((v) => v.fresh.map((f) => ({ ...f, term: v.term }))).sort((a, b) => new Date(b.first_seen).getTime() - new Date(a.first_seen).getTime()).slice(0, 14);
+  const kindIcon: Record<G.Advice['kind'], string> = { stock: '📦', push: '📣', season: '📅', slow: '🐢', new: '🆕', price: '🏷️' };
+  const adviceBox = advice.length ? <section className="panel gt-advice"><h2>🧭 স্যার, আজ এগুলো করুন</h2><ol>{jsxList(advice.map((a) => <li><b>{kindIcon[a.kind]} {a.title}</b>{(a.why ? <><br /><span className="small muted">{a.why}</span></> : null)}<br /><span className="small">👉 {a.todo}{(a.link ? <> <a href={attrValue(a.link)}>দেখুন →</a></> : null)}</span>{(a.source ? <><br /><span className="small muted">কোথা থেকে কিনবেন: </span>{srcLinks(a.source)}</> : null)}</li>))}</ol></section>
+    : (search ? null : <section className="panel gt-advice"><h2>🧭 আজকের পরামর্শ</h2><p className="muted">এখনো বিশেষ কিছু চোখে পড়েনি — সব শব্দ পড়া হলে (প্রথম দিন কয়েক ঘণ্টা) এখানে পরামর্শ আসবে।</p></section>);
+  const mini = (title: string, rows: G.View[], empty: string) => <section className="panel"><h2>{title}</h2>{(rows.length ? <ul className="gt-mini">{jsxList(rows.map((v) => <li><a href={`${GT}&q=${attrValue(encodeURIComponent(v.term))}`}>{v.term}</a> {chg(v.change)}</li>))}</ul> : <p className="muted small">{empty}</p>)}</section>;
+  const quick = search ? null : <div className="gt-quick">{mini('📈 এই মাসে বেড়েছে', up, 'এখনো কিছু নেই।')}{mini('📉 এই মাসে কমেছে', down, 'এখনো কিছু নেই।')}<section className="panel"><h2>🆕 নতুন যা খোঁজা শুরু হয়েছে</h2>{(fresh.length ? <ul className="gt-mini">{jsxList(fresh.map((f) => <li><a href={`/admin/research?tab=find&q=${attrValue(encodeURIComponent(f.query))}`}>{f.query}</a> <span className="small muted">({f.term} · {f.value === 'Breakout' ? 'হঠাৎ অনেক বেড়েছে' : f.value} · {ago(f.first_seen)})</span></li>))}</ul> : <p className="muted small">এখনো কিছু নেই।</p>)}</section></div>;
+  const rows = list.map((v) => {
+    const peaks = v.peakList.map((m) => G.BN_MONTHS[m]).join(', ');
+    const rel = [...(v.top || []).slice(0, 4), ...(v.rising || []).slice(0, 3)].map((x) => x.query).filter((x, i, a) => a.indexOf(x) === i).slice(0, 6);
+    return <tr className={v.low ? 'row-off' : ''}><td><b>{v.term}</b>{(v.origin === 'owner' ? <span className="small muted"> (আপনার)</span> : null)}<br />{spark(v.series)}{(v.error && !v.ok_at ? <><br /><span className="small bad">⚠️ {v.error}</span></> : null)}{(v.low ? <><br /><span className="small muted">খুব কম খোঁজা হয় — হিসাব অনিশ্চিত</span></> : null)}</td>
+      <td className="num">{(v.ok_at ? chg(v.change) : <span className="muted small">পড়া বাকি</span>)}</td><td className="num">{chg(v.vs_year)}</td>
+      <td className="small">{(peaks ? <>{peaks}{(v.peakList.includes((month + 1) % 12) ? <><br /><b className="warn">আগামী মাসে!</b></> : null)}</> : <span className="muted">সারা বছর প্রায় সমান</span>)}</td>
+      <td className="small">{(rel.length ? jsxList(rel.map((x) => <><a href={`/admin/research?tab=find&q=${attrValue(encodeURIComponent(x))}`}>{x}</a>{' · '}</>)) : <span className="muted">—</span>)}</td>
+      <td className="small">{oursText(v)}</td>
+      <td className="small">{(v.market.shops ? <>{bn(v.market.shops)}টি দোকানে<br />{money(v.market.min)}{(v.market.median ? ` · মাঝামাঝি ${money(Math.round(v.market.median))}` : '')}</> : <a href={`/admin/research?tab=find&q=${attrValue(encodeURIComponent(v.term))}`}>বাজারে খুঁজুন</a>)}</td>
+      <td className="prod-actions"><form method="post" action="/admin/research?tab=google"><input type="hidden" name="form" defaultValue="gt_read" /><input type="hidden" name="id" defaultValue={attrValue(v.id)} /><input type="hidden" name="q" defaultValue={search} /><button className="btn btn-sm btn-ghost" title="এখনই আবার পড়ুন">🔄</button></form><form method="post" action="/admin/research?tab=google"><input type="hidden" name="form" defaultValue="gt_hide" /><input type="hidden" name="id" defaultValue={attrValue(v.id)} /><input type="hidden" name="q" defaultValue={search} /><button className="btn btn-sm btn-ghost" title="তালিকা থেকে সরান (আর নিজে থেকে ফিরবে না)">✖</button></form></td></tr>;
+  });
+  const table = <div className="table-wrap panel"><table className="table gt-table"><thead><tr><th>শব্দ (১২ মাস)</th><th className="num">এই মাস / গত মাস</th><th className="num">বছরের গড়ের তুলনায়</th><th>বেশি খোঁজা হয়</th><th>সাথে যা খোঁজে</th><th>আপনার দোকানে</th><th>অন্য দোকানে দাম</th><th></th></tr></thead><tbody>{jsxList(rows)}</tbody></table></div>;
+  const hidden = search ? [] : await G.views({ hidden: true });
+  const hiddenBox = hidden.length ? <details className="panel small"><summary>সরিয়ে রাখা শব্দ ({bn(hidden.length)}টি)</summary>{jsxList(hidden.map((v) => <form method="post" action="/admin/research?tab=google" className="gt-hidden"><input type="hidden" name="form" defaultValue="gt_show" /><input type="hidden" name="id" defaultValue={attrValue(v.id)} /><span>{v.term}</span> <button className="btn btn-sm btn-ghost">ফিরিয়ে আনুন</button></form>))}</details> : null;
+  const note = <div className="note-line"><p className="small muted">Google আসল সংখ্যা দেয় না — প্রতিটা শব্দের নিজের ১২ মাসের মধ্যে ০–১০০। তাই এখানে দেখানো হয় চাহিদা <b>বাড়ছে না কমছে</b> (গত ৪ সপ্তাহ বনাম তার আগের ৪ সপ্তাহ, আর বছরের গড়ের সাথে), আর বছরের কোন মাসে সবচেয়ে বেশি খোঁজা হয় (গত বছরের হিসাবে)। দুটো আলাদা শব্দের সংখ্যা একে অপরের সাথে মেলানো যায় না। "সাথে যা খোঁজে" চাপলে সব দোকানে সেটা খোঁজা হয়। শব্দের তালিকা নিজে থেকে তৈরি হয় আপনার পণ্যের ধরন আর কাস্টমারের সার্চ থেকে; ✖ চাপলে সরে যায়, আর ফেরে না।</p></div>;
+  return <>{head}{adviceBox}{quick}{form}{addForm}{table}{hiddenBox}{note}</>;
+}
+
 async function page(ctx: AdminCtx) {
-  const tab = TABS.some((t) => t[0] === ctx.query.get('tab')) ? ctx.query.get('tab') : 'winning';
+  const tab = TABS.some((t) => t[0] === ctx.query.get('tab')) ? ctx.query.get('tab') : 'google';
   const segment = ifKey(R.SEGMENTS, ctx.query.get('seg'), '');
   const margin = Math.min(80, Math.max(5, int(ctx.settings.research_margin, 30)));
   if (ctx.method === 'POST') {
     const b = await ctx.body<'segment'>();
+    if (String(b.form || '').startsWith('gt_')) return gtPost(ctx, b);
     if (b.form === 'add_search') {
       const back = `/admin/research?tab=find&fresh=1&q=${encodeURIComponent(str(b.q, 80))}`;
       try { await R.addSource(str(b.url, 300), 'electronics', '', true); } catch (caught) { const e = caught as Caught; return ctx.fail(back, e.message); }
@@ -84,7 +162,9 @@ async function page(ctx: AdminCtx) {
   const st = await keep('status', () => R.status());
   const segChips = <div className="chips">{jsxList([['', 'সব'], ...Object.entries(R.SEGMENTS)].map(([k, l]) => <a className={`chip ${segment === k ? 'on' : ''}`} href={`/admin/research?tab=${attrValue(tab)}${k ? `&seg=${k}` : ''}`}><Val v={l} /></a>))}</div>;
   let content: unknown = '';
-  if (tab === 'find') {
+  if (tab === 'google') {
+    content = await googleTab(ctx, keep);
+  } else if (tab === 'find') {
     content = await findTab(ctx);
   } else if (tab === 'winning') {
     const list = await keep(`win|${segment}|${margin}`, () => R.winners({ segment, margin }));

@@ -213,6 +213,8 @@ export async function runShopJobs(settings: ApiCtx['settings']): Promise<Record<
   // ⚡ jobs that can wait skip their turn while the server is busy (lib/services/perf.ts) — customers come first
   const P = await import('../services/perf');
   await P.timeJob('মার্কেট রিসার্চ', async () => { r = await $services_research.tick().catch(() => ({})); }, { optional: true });
+  // 📊 গুগলে চাহিদা: one product word from Google Trends each round (every word once a day; waits when Google asks)
+  await P.timeJob('গুগলে চাহিদা (Trends)', async () => { await (await import('../services/gtrends')).tick(); }, { optional: true });
   await P.timeJob('ছবি গোছানো (ImageKit)', async () => { const ik = $services_imagekit; await ik.moveOld(db, 10); await ik.flushTrash(db, 30); }, { optional: true });
   await P.timeJob('স্টকে এলে জানাও', () => $models_extras.restockSweep(settings));
   // ⚡ the duplicate scan (~30 s of work) made ready once after each start, so the owner's first look is instant

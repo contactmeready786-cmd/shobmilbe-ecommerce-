@@ -1338,6 +1338,20 @@ CREATE TABLE IF NOT EXISTS marketplace_posts (
   product_id int PRIMARY KEY, posted_at timestamptz NOT NULL DEFAULT now(), times int NOT NULL DEFAULT 1
 );
 `,
+  // 📊 গুগলে চাহিদা (2026-11-21, lib/services/gtrends.ts): the product words watched on Google Trends, their 12 months
+  // week by week and numbers, and every "rising" search seen with them (when it was first seen)
+  `
+CREATE TABLE IF NOT EXISTS trend_terms (
+  id serial PRIMARY KEY, term text NOT NULL UNIQUE, origin text NOT NULL DEFAULT 'auto', hidden boolean NOT NULL DEFAULT false,
+  series jsonb, top jsonb, rising jsonb, now_v real, month_v real, prev_v real, year_v real, change real, vs_year real,
+  peaks text NOT NULL DEFAULT '', low boolean NOT NULL DEFAULT false, fetched_at timestamptz, ok_at timestamptz,
+  error text NOT NULL DEFAULT '', created_at timestamptz DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS trend_rising (
+  term_id int NOT NULL REFERENCES trend_terms(id) ON DELETE CASCADE, query text NOT NULL, value text NOT NULL DEFAULT '',
+  first_seen timestamptz NOT NULL DEFAULT now(), last_seen timestamptz NOT NULL DEFAULT now(), PRIMARY KEY (term_id, query)
+);
+`,
 ];
 
 // Data steps that need code, keyed by migration number (run after its SQL).
