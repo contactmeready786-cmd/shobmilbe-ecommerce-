@@ -344,8 +344,11 @@ function smallHelpers(): void {
     const text = box ? String(box.value ?? box.textContent ?? '').trim() : '';
     if (!text) return;
     const done = () => toast('কপি হয়েছে');
-    if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(text).then(done).catch(() => { box!.select(); });
-    else { box!.select(); try { document.execCommand('copy'); done(); } catch { /* the text stays selected to copy by hand */ } }
+    // older phones / an app's built-in browser may refuse the clipboard: then the box is selected and copied the old way
+    // (and if even that is refused, the text stays selected, ready for the phone's own "Copy")
+    const byHand = () => { box!.focus(); box!.select(); try { if (document.execCommand('copy')) done(); } catch { /* stays selected */ } };
+    if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(text).then(done).catch(byHand);
+    else byHand();
   });
   // click-to-copy for codes
   document.addEventListener('click', (e) => {
