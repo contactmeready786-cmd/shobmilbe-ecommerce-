@@ -1474,6 +1474,38 @@ export type TrashRow = {
   deleted_at: Date;
 };
 
+/** A row of trend_rising. */
+export type TrendRisingRow = {
+  term_id: number;
+  query: string;
+  value: string;
+  first_seen: Date;
+  last_seen: Date;
+};
+
+/** A row of trend_terms. */
+export type TrendTermsRow = {
+  id: number;
+  term: string;
+  origin: string;
+  hidden: boolean;
+  series: unknown;
+  top: unknown;
+  rising: unknown;
+  now_v: number | null;
+  month_v: number | null;
+  prev_v: number | null;
+  year_v: number | null;
+  change: number | null;
+  vs_year: number | null;
+  peaks: string;
+  low: boolean;
+  fetched_at: Date | null;
+  ok_at: Date | null;
+  error: string;
+  created_at: Date;
+};
+
 /** A row of visit_events. */
 export type VisitEventsRow = {
   id: number;
@@ -1678,6 +1710,8 @@ export type Tables = {
   transactions: TransactionsRow;
   translations: TranslationsRow;
   trash: TrashRow;
+  trend_rising: TrendRisingRow;
+  trend_terms: TrendTermsRow;
   visit_events: VisitEventsRow;
   visit_sessions: VisitSessionsRow;
   visitors: VisitorsRow;

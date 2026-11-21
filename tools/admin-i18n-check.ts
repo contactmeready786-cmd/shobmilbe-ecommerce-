@@ -12,7 +12,7 @@ const files = [
   'lib/views/admin.ts', 'lib/views/invoice.tsx',
   'lib/models/catalog.ts', 'lib/models/orders.ts', 'lib/models/finance.ts', 'lib/models/trash.ts', 'lib/models/duplicates.ts',
   'lib/models/staff.ts', 'lib/models/customers.ts', 'lib/models/loginlock.ts', 'lib/models/content.ts',
-  'lib/models/checkoutotp.ts', 'lib/services/research.ts', 'lib/services/uiswitch.ts', 'lib/services/sms.ts', 'lib/services/courier.ts', 'lib/services/importer.ts', 'lib/security.ts', 'lib/util.ts',
+  'lib/models/checkoutotp.ts', 'lib/services/research.ts', 'lib/services/gtrends.ts', 'lib/services/uiswitch.ts', 'lib/services/sms.ts', 'lib/services/courier.ts', 'lib/services/importer.ts', 'lib/security.ts', 'lib/util.ts',
 ];
 const BN_LETTER = /[ঀ-৥ৰ-৿]/;
 const found = new Map<string, number>();
