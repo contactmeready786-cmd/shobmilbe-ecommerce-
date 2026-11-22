@@ -76,7 +76,8 @@ export async function plan(): Promise<Plan> {
     if (usual === 1 && median > 0 && list.length >= 4 && !list[0].p.priceByValue) {
       for (const it of list) {
         if (Number(it.price) < median * 4) continue;
-        const size = [2, 3, 5, 10, 20, 25, 50, 100].find((s) => Math.abs(Number(it.price) / s - median) <= median * 0.35);
+        const size = [2, 3, 5, 10, 20, 25, 50, 100].filter((s) => Math.abs(Number(it.price) / s - median) <= median * 0.35)
+          .sort((a, b) => Math.abs(Number(it.price) / a - median) - Math.abs(Number(it.price) / b - median))[0];
         if (!size) continue;
         it.p = { ...it.p, pcs: size };
         it.unit_price = perPiece(Number(it.price), size);
