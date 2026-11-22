@@ -44,7 +44,7 @@ async function page(ctx: AdminCtx) {
       {(p.groups.length > 1 ? <form method="post" action={attrValue(BASE)} data-confirm={`Merge all ${p.groups.length} groups? Each becomes one product with its values; prices become per piece. You can undo each one below.`}><input type="hidden" name="action" defaultValue="merge_all" /><button className="btn">Merge all</button></form> : null)}
     </div>
     {ui.flash(ctx.flash)}
-    <section className="panel table-wrap"><h2>Ready to merge <small>same kind + same power = one product; price per piece = pack price ÷ pieces</small></h2>
+    <section className="panel table-wrap"><h2>Ready to merge <small>same part (kind, power, voltage, size) = one product; price per piece</small></h2>
       {(p.groups.length ? <table className="table compact"><thead><tr><th>New product</th><th className="num">Values</th><th>Price / piece</th><th>Values (price per piece · old SKU)</th><th className="num">Duplicates</th><th></th></tr></thead><tbody>
         {jsxList(p.groups.map((g) => <tr>
           <td><b><Val v={g.en} /></b><br /><span className="small muted"><Val v={g.bn} /></span></td>

@@ -26,6 +26,8 @@ export async function plan(): Promise<{ items: Cand[]; skipped: Skipped[] }> {
   for (const r of rows) {
     const p = readPack(r.name);
     if ('skip' in p) { skipped.push({ id: r.id, sku: r.sku, name: r.name, reason: p.skip }); continue; }
+    // a piece that would cost under ৳0.40 (1000 staples, 500 zip bags) can't be sold alone at the shop's ৳0.50 floor
+    if (Number(r.price) / p.pcs < 0.4) { skipped.push({ id: r.id, sku: r.sku, name: r.name, reason: 'one piece would cost under ৳0.40 — kept as a pack' }); continue; }
     const unit = perPiece(Number(r.price), p.pcs);
     const old = Number(r.old_price) || 0;
     let unitOld = r.old_price_auto ? catalog.autoOldPrice(unit) : (old > Number(r.price) ? perPiece(old, p.pcs) : null);

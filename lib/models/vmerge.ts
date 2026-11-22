@@ -19,11 +19,12 @@ import * as trash from './trash';
 import type { Tx } from '../pg';
 import type { ProductsRow } from '../data/rows';
 
-import { parse, groupKey, groupNames, ohmLabel, ohmBn, perPiece, wattBn, bnNum, KINDS, type Parsed } from './vmerge-parse';
+import { perPiece, bnNum } from './vmerge-parse';
+import { read, type Item } from './vfamilies';
 
 // ---------------------------------------------------------------- the plan (what would happen)
 type Cand = Pick<ProductsRow, 'id' | 'sku' | 'name' | 'name_bn' | 'price' | 'old_price' | 'old_price_auto' | 'cost_price' | 'stock' | 'active' | 'category_id' | 'image_id' | 'sold_count' | 'import_ref' | 'slug'>;
-export type PlanItem = Cand & { p: Parsed; label: string; unit_price: number; unit_old: number | null; unit_stock: number; dup_of?: number };
+export type PlanItem = Cand & { p: Item; label: string; unit_price: number; unit_old: number | null; unit_stock: number; dup_of?: number };
 export type PlanGroup = { key: string; en: string; bn: string; items: PlanItem[]; dups: PlanItem[]; min: number; max: number };
 export type Plan = { groups: PlanGroup[]; skipped: { id: number; sku: string; name: string; reason: string }[]; singles: PlanItem[] };
 
@@ -31,19 +32,19 @@ const MAX_IN_GROUP = 150;
 
 export async function plan(): Promise<Plan> {
   const rows = await q<Cand>(`SELECT id, sku, name, name_bn, price, old_price, old_price_auto, cost_price, stock, active, category_id, image_id, sold_count, import_ref, slug
-    FROM products WHERE parent_id IS NULL AND variant_count = 0 AND product_type = 'single' AND (name ~* 'resist' OR name_bn ~ 'রেজিস্ট')
+    FROM products WHERE parent_id IS NULL AND variant_count = 0 AND product_type = 'single' AND coalesce(pack_sizes, '') = ''
     ORDER BY id`);
   const groups = new Map<string, PlanItem[]>();
   const skipped: Plan['skipped'] = [];
   for (const r of rows) {
-    const p = parse(r.name);
-    if ('reason' in p) { if (p.reason !== 'not a resistor') skipped.push({ id: r.id, sku: r.sku, name: r.name, reason: p.reason }); continue; }
-    const item: PlanItem = { ...r, p, label: ohmLabel(p.ohm), unit_price: perPiece(Number(r.price), p.pcs), unit_old: null, unit_stock: Math.max(0, Number(r.stock) || 0) * p.pcs };
+    const p = read(r.name);
+    if ('reason' in p) { if (p.listed) skipped.push({ id: r.id, sku: r.sku, name: r.name, reason: p.reason }); continue; }
+    const item: PlanItem = { ...r, p, label: p.label, unit_price: perPiece(Number(r.price), p.pcs), unit_old: null, unit_stock: Math.max(0, Number(r.stock) || 0) * p.pcs };
     const old = Number(r.old_price) || 0;
     item.unit_old = r.old_price_auto ? catalog.autoOldPrice(item.unit_price) : (old > Number(r.price) ? perPiece(old, p.pcs) : null);
     // an "old price" over twice the price is a copying mistake at the source (৳1305 for a ৳133 pack) — no fake 90 % off
     if (item.unit_old !== null && (item.unit_old <= item.unit_price || item.unit_old > item.unit_price * 2)) item.unit_old = null;
-    const k = groupKey(p, (r.import_ref || '').split('#')[0]);
+    const k = p.byShop ? `${p.key}|${(r.import_ref || '').split('#')[0]}` : p.key;
     groups.set(k, [...(groups.get(k) || []), item]);
   }
   const out: PlanGroup[] = [];
@@ -72,7 +73,7 @@ export async function plan(): Promise<Plan> {
     }
     // the same value twice: keep the one that is switched on, then in stock, then the cheaper piece, then the older product
     const byOhm = new Map<number, PlanItem[]>();
-    for (const it of list) byOhm.set(it.p.ohm, [...(byOhm.get(it.p.ohm) || []), it]);
+    for (const it of list) byOhm.set(it.p.value, [...(byOhm.get(it.p.value) || []), it]);
     const items: PlanItem[] = [];
     const dups: PlanItem[] = [];
     for (const same of byOhm.values()) {
@@ -80,9 +81,9 @@ export async function plan(): Promise<Plan> {
       items.push(same[0]);
       for (const d of same.slice(1)) dups.push({ ...d, dup_of: same[0].id });
     }
-    items.sort((a, b) => a.p.ohm - b.p.ohm);
+    items.sort((a, b) => a.p.value - b.p.value);
     if (items.length < 2) { singles.push(...items); continue; }
-    const names = groupNames(items[0].p);
+    const names = { en: items[0].p.en, bn: items[0].p.bn };
     const prices = items.map((i) => i.unit_price);
     out.push({ key, en: names.en, bn: names.bn, items: items.slice(0, MAX_IN_GROUP), dups, min: Math.min(...prices), max: Math.max(...prices) });
   }
@@ -94,19 +95,12 @@ export async function plan(): Promise<Plan> {
 type Before = Pick<ProductsRow, 'id' | 'name' | 'name_bn' | 'price' | 'old_price' | 'cost_price' | 'stock' | 'noindex' | 'image_id' | 'pack_sizes' | 'sold_count' | 'category_id'> & { tiers: { min_qty: number; price: number }[]; pcs: number };
 export type MergeLog = { parent_id: number; key: string; children: Before[]; binned: { id: number; trash_id: number | null; into: number; pcs: number; stock: number; sold: number }[] };
 
-function descriptions(p: Parsed, n: number, tol: string): { short: string; long: string } {
-  const k = KINDS[p.kind];
-  const facts = [
-    `ধরন: ${k.bn}`,
-    p.watt ? `পাওয়ার রেটিং: ${wattBn(p.watt)}` : '',
-    p.pkg ? `সাইজ (প্যাকেজ): ${bnNum(p.pkg)}` : '',
-    tol ? `টলারেন্স: ±${bnNum(tol)}%` : '',
-    p.ni ? 'নন-ইন্ডাক্টিভ' : '',
-    p.fp ? 'ফ্লেমপ্রুফ' : '',
-    p.kind === 'smd' ? '' : 'দুই পিন লিড (থ্রু-হোল)',
-  ].filter(Boolean);
-  const short = `${facts.join(' · ')}। দাম প্রতি পিস; ${bnNum(String(n))}টি মান (ওহম) পাওয়া যায়।`;
-  const long = [`${wattBn(p.watt) ? wattBn(p.watt) + ' ' : ''}${k.bn} — ফিক্সড রেজিস্টর, সার্কিটে কারেন্ট সীমিত বা ভোল্টেজ ভাগ করতে ব্যবহার হয়।`, '', ...facts.map((f) => `- ${f}`)].join('\n');
+// the main product's text: only facts every value shares (a "5 %" said by some of them only is left out)
+function descriptions(items: PlanItem[]): { short: string; long: string } {
+  const first = items[0].p;
+  const facts = first.facts.filter((f) => items.every((i) => i.p.facts.includes(f)));
+  const short = `${facts.join(' · ')}। দাম প্রতি পিস; ${bnNum(String(items.length))}টি ${first.title === 'রং' ? 'রং' : 'মান'} পাওয়া যায়।`;
+  const long = [first.intro, '', ...facts.map((f) => `- ${f}`)].join('\n');
   return { short, long };
 }
 
@@ -125,16 +119,15 @@ export async function merge(key: string, who: { id?: number | null; name?: strin
     for (const i of g.items) if (i.category_id) cats.set(i.category_id, (cats.get(i.category_id) || 0) + 1);
     const category = [...cats.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
     const pic = (g.items.find((i) => i.image_id && i.active) || g.items.find((i) => i.image_id))?.image_id ?? null;
-    const tols = [...new Set(g.items.map((i) => i.p.tol).filter(Boolean))];
-    const d = descriptions(first.p, g.items.length, tols.length === 1 ? tols[0] : '');
+    const d = descriptions(g.items);
     const sku = await catalog.takeSku(t);
-    const slug = await uniqueSlug('products', slugify(g.en).slice(0, 80) || 'resistor');
+    const slug = await uniqueSlug('products', slugify(g.en).slice(0, 80) || 'product');
     const host = (first.import_ref || '').split('#')[0];
     const pid = (await t.query<{ id: number }>(`INSERT INTO products(name, name_bn, name_bn_auto, slug, category_id, price, stock, description, short_description, emoji, active, sku,
         product_type, image_id, unit, variant_title, import_ref, sold_count)
-      VALUES($1,$2,false,$3,$4,$5,0,$6,$7,'🔩',$8,$9,'single',$10,'পিস','মান (ওহম)',$11,$12) RETURNING id`,
+      VALUES($1,$2,false,$3,$4,$5,0,$6,$7,'🔩',$8,$9,'single',$10,'পিস',$13,$11,$12) RETURNING id`,
     [g.en, g.bn, slug, category, g.min, d.long, d.short, g.items.some((i) => i.active), sku, pic, host ? `${host}#variants:${key}` : '',
-      g.items.reduce((s, i) => s + (Number(i.sold_count) || 0), 0) + g.dups.reduce((s, i) => s + (Number(i.sold_count) || 0), 0)])).rows[0].id;
+      g.items.reduce((s, i) => s + (Number(i.sold_count) || 0), 0) + g.dups.reduce((s, i) => s + (Number(i.sold_count) || 0), 0), first.p.title])).rows[0].id;
     let sort = 0;
     for (const it of g.items) {
       sort += 1;
@@ -147,7 +140,7 @@ export async function merge(key: string, who: { id?: number | null; name?: strin
       await catalog.logPriceChange(t, it.id, cur, { price: it.unit_price, old_price: it.unit_old, name: cur.name }, who.id, 'ভ্যারিয়েন্টে একত্র (প্রতি পিস)');
       await t.query(`UPDATE products SET parent_id=$2, variant_label=$3, variant_sort=$4, price=$5, old_price=$6, old_price_auto=false, cost_price=$7,
           name_bn=$8, name_bn_auto=false, pack_sizes='', updated_at=now() WHERE id=$1`,
-      [it.id, pid, it.label, sort, it.unit_price, it.unit_old, cost, `${g.bn} — ${ohmBn(it.p.ohm)}`]);
+      [it.id, pid, it.label, sort, it.unit_price, it.unit_old, cost, `${g.bn} — ${it.p.labelBn}`]);
       // a pack was one piece of stock; now every piece counts
       const extra = Math.max(0, Number(cur.stock) || 0) * (it.p.pcs - 1);
       if (extra > 0) await catalog.moveStock(t, it.id, extra, 'adjust', 'product', pid, `প্যাক থেকে পিসে (${it.p.pcs} পিস/প্যাক)`, who.id ?? null);

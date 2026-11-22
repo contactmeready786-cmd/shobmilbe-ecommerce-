@@ -50,7 +50,7 @@ function wattOf(name: string): number | null {
 }
 const MULT: Record<string, number> = { '': 1, r: 1, k: 1e3, m: 1e6 };
 /** every resistance the name mentions, in ohm (distinct) */
-function ohmsOf(name: string): number[] {
+export function ohmsOf(name: string): number[] {
   const out = new Set<number>();
   const add = (v: number) => { if (v >= 0 && v < 1e9) out.add(Math.round(v * 1000) / 1000); };
   const clean = name.replace(/(\d),(\d{3})\b/g, '$1$2');
@@ -62,7 +62,7 @@ function ohmsOf(name: string): number[] {
   }
   return [...out];
 }
-function pcsOf(name: string): number {
+export function pcsOf(name: string): number {
   const m = /(\d+)\s*-?\s*(?:pcs|pc|pieces?|nos|psc)(?![a-z])/i.exec(name) || /pack\s*of\s*(\d+)/i.exec(name) || /(\d+)\s*x\s+(?=.*resist)/i.exec(name);
   const n = m ? Number(m[1]) : 1;
   return n >= 1 && n <= 5000 ? n : 1;
