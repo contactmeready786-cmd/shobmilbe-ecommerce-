@@ -51,9 +51,9 @@ const MULT: Record<string, number> = { '': 1, r: 1, k: 1e3, m: 1e6 };
 /** every resistance the name mentions, in ohm (distinct) */
 function ohmsOf(name: string): number[] {
   const out = new Set<number>();
-  const add = (v: number) => { if (v > 0 && v < 1e9) out.add(Math.round(v * 1000) / 1000); };
+  const add = (v: number) => { if (v >= 0 && v < 1e9) out.add(Math.round(v * 1000) / 1000); };
   const clean = name.replace(/(\d),(\d{3})\b/g, '$1$2');
-  for (const m of clean.matchAll(/(?<![\d.])(\d+(?:\.\d+)?)\s*([kKmM])?\s*(?:ohms?\b|Ω|ω|Ω)/gi)) add(Number(m[1]) * MULT[(m[2] || '').toLowerCase()]);
+  for (const m of clean.matchAll(/(?<![\d.A-Za-z])(\d+(?:\.\d+)?)\s*([kKmM])?\s*(?:ohms?\b|Ω|ω|Ω)/gi)) add(Number(m[1]) * MULT[(m[2] || '').toLowerCase()]);
   for (const m of clean.matchAll(/\b(\d+)([kKmMrR])(\d+)\b/g)) add(Number(`${m[1]}.${m[3]}`) * MULT[m[2].toLowerCase()]); // 4K7, 4R7
   if (!out.size) {
     // "10K Resistor", "100R", "2.2M" with no "ohm" written
@@ -62,7 +62,7 @@ function ohmsOf(name: string): number[] {
   return [...out];
 }
 function pcsOf(name: string): number {
-  const m = /(\d+)\s*-?\s*(?:pcs|pc|pieces?|nos|psc)\b/i.exec(name) || /pack\s*of\s*(\d+)/i.exec(name) || /(\d+)\s*x\s+(?=.*resist)/i.exec(name);
+  const m = /(\d+)\s*-?\s*(?:pcs|pc|pieces?|nos|psc)(?![a-z])/i.exec(name) || /pack\s*of\s*(\d+)/i.exec(name) || /(\d+)\s*x\s+(?=.*resist)/i.exec(name);
   const n = m ? Number(m[1]) : 1;
   return n >= 1 && n <= 5000 ? n : 1;
 }

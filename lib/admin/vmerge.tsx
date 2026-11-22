@@ -33,6 +33,11 @@ async function page(ctx: AdminCtx) {
     }
   }
   const [p, hist] = await Promise.all([vm.plan(), vm.history()]);
+  // the whole plan as data (owner only, like the page): every product, its old pack price and stock, what it becomes
+  if (ctx.query.get('format') === 'json') {
+    const row = (i: vm.PlanItem) => ({ id: i.id, sku: i.sku, name: i.name, price: Number(i.price), stock: i.stock, active: i.active, pcs: i.p.pcs, label: i.label, unit_price: i.unit_price, unit_old: i.unit_old, dup_of: i.dup_of ?? null });
+    return ctx.json(200, { groups: p.groups.map((g) => ({ key: g.key, en: g.en, bn: g.bn, items: g.items.map(row), dups: g.dups.map(row) })), singles: p.singles.map(row), skipped: p.skipped });
+  }
   const values = p.groups.reduce((n, g) => n + g.items.length, 0);
   const body = <>
     <div className="title-row"><h1>🧩 Merge into variants <small>{p.groups.length} groups · {values} products → {p.groups.length} products</small></h1>

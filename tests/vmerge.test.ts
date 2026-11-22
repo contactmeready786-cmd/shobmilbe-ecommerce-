@@ -21,6 +21,12 @@ test('vmerge: Daraz-style resistor names', () => {
   assert.deepEqual([ok('100pcs 0805 SMD Resistor 10K').kind, ok('100pcs 0805 SMD Resistor 10K').pkg], ['smd', '0805']);
   assert.equal(ok('5W 10 Ohm Ceramic Cement Resistor 5W10RJ').kind, 'cement');
   assert.equal(ok('Half Watt 1M Ohm Carbon Film Resistor').watt, 0.5);
+  // "10Pcs2Watt" (no space) is still 10 pieces of 2 W
+  const c = ok('10Pcs2Watt 0.33 Ohm Resistor Power Resistor 2W 0.33 Ohm Metal Film Resistor 2 Watt Metal Oxide Film');
+  assert.deepEqual([c.pcs, c.watt, c.ohm, c.kind], [10, 2, 0.33, 'metal_oxide']);
+  // "3M3" and "3.3M" are the same value; a jumper "0 Ohm" is a value too
+  assert.equal(ok('50Pcs- 3M3 Ohm Resistor 5% 3.3M Ohm Carbon Film 1/4W').ohm, 3300000);
+  assert.equal(ok('50Pcs- 0 Ohm Resistor 5% 0 Ohm Carbon Film 1/4W').ohm, 0);
 });
 
 test('vmerge: not one fixed value → left alone', () => {
