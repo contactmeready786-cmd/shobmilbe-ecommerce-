@@ -41,7 +41,8 @@ export async function plan(): Promise<Plan> {
     const item: PlanItem = { ...r, p, label: ohmLabel(p.ohm), unit_price: perPiece(Number(r.price), p.pcs), unit_old: null, unit_stock: Math.max(0, Number(r.stock) || 0) * p.pcs };
     const old = Number(r.old_price) || 0;
     item.unit_old = r.old_price_auto ? catalog.autoOldPrice(item.unit_price) : (old > Number(r.price) ? perPiece(old, p.pcs) : null);
-    if (item.unit_old !== null && item.unit_old <= item.unit_price) item.unit_old = null;
+    // an "old price" over twice the price is a copying mistake at the source (৳1305 for a ৳133 pack) — no fake 90 % off
+    if (item.unit_old !== null && (item.unit_old <= item.unit_price || item.unit_old > item.unit_price * 2)) item.unit_old = null;
     const k = groupKey(p, (r.import_ref || '').split('#')[0]);
     groups.set(k, [...(groups.get(k) || []), item]);
   }
@@ -65,7 +66,7 @@ export async function plan(): Promise<Plan> {
           it.unit_stock = Math.max(0, Number(it.stock) || 0) * usual;
           const old = Number(it.old_price) || 0;
           it.unit_old = it.old_price_auto ? catalog.autoOldPrice(it.unit_price) : (old > Number(it.price) ? perPiece(old, usual) : null);
-          if (it.unit_old !== null && it.unit_old <= it.unit_price) it.unit_old = null;
+          if (it.unit_old !== null && (it.unit_old <= it.unit_price || it.unit_old > it.unit_price * 2)) it.unit_old = null;
         }
       }
     }

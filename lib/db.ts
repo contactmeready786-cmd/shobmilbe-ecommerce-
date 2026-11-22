@@ -1360,6 +1360,19 @@ CREATE TABLE IF NOT EXISTS variant_merges (
   staff_id int, created_at timestamptz DEFAULT now(), undone_at timestamptz
 );
 `,
+  // 🧩 (2026-11-22) an "old price" copied wrongly at the source (৳1305 for a ৳133 pack → ৳261 a piece next to ৳27,
+  // "90% off") is dropped on the merged values, and each main product's crossed-out price taken again
+  `
+UPDATE products v SET old_price = NULL
+  WHERE v.parent_id IN (SELECT parent_id FROM variant_merges WHERE undone_at IS NULL AND parent_id IS NOT NULL)
+    AND v.old_price IS NOT NULL AND v.old_price > v.price * 2;
+UPDATE products p SET old_price = x.old FROM (
+  SELECT v.parent_id, (array_agg(v.old_price ORDER BY v.price, v.variant_sort) FILTER (WHERE v.active))[1] AS old, min(v.price) FILTER (WHERE v.active) AS lo
+  FROM products v WHERE v.parent_id IN (SELECT parent_id FROM variant_merges WHERE undone_at IS NULL AND parent_id IS NOT NULL) GROUP BY v.parent_id
+) x WHERE p.id = x.parent_id AND (x.old IS NULL OR x.old > x.lo OR p.old_price IS NOT NULL);
+UPDATE products p SET old_price = NULL WHERE p.id IN (SELECT parent_id FROM variant_merges WHERE undone_at IS NULL AND parent_id IS NOT NULL)
+  AND p.old_price IS NOT NULL AND p.old_price <= p.price;
+`,
 ];
 
 // Data steps that need code, keyed by migration number (run after its SQL).
