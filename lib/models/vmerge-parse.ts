@@ -14,11 +14,12 @@ export const KINDS: Record<Kind, { en: string; bn: string }> = {
   smd: { en: 'SMD Resistor', bn: 'এসএমডি রেজিস্টর' },
   std: { en: 'Resistor', bn: 'রেজিস্টর' },
 };
-export type Parsed = { kind: Kind; watt: number; pkg: string; ohm: number; pcs: number; tol: string };
+/** prec: 1 % tolerance (precision) — sold apart from the usual 5 %; ni: non-inductive; fp: flameproof (each its own product) */
+export type Parsed = { kind: Kind; watt: number; pkg: string; ohm: number; pcs: number; tol: string; prec: boolean; ni: boolean; fp: boolean };
 export type Skip = { reason: string };
 
 // not a plain fixed resistor (or not one value): left alone
-const NOT_FIXED = /potentiometer|\bpots?\b|preset|trimmer|trim\s*pot|variable|rheostat|\bldr\b|photo\s*-?\s*resist|thermistor|\bntc\b|\bptc\b|varistor|\bmov\b|\bkits?\b|assort|network|array|\bsip\b|\bdip\b|book|colou?r\s*code|sample|module|board|calculator/i;
+const NOT_FIXED = /potentiometer|\bpots?\b|preset|trimmer|trim\s*pot|variable|rheostat|\bldr\b|photo\s*-?\s*resist|thermistor|\bntc\b|\bptc\b|varistor|\bmov\b|\bkits?\b|assort|network|array|\bsip\b|\bdip\b|book|colou?r\s*code|sample|module|board|calculator|\bvalues?\b|combo/i;
 const SMD_SIZE = /\b(0201|0402|0603|0805|1206|1210|2010|2512)\b/;
 
 function kindOf(name: string): Kind {
@@ -80,7 +81,8 @@ export function parse(name: string): Parsed | Skip {
   const watt = wattOf(n);
   if (watt === null && kind !== 'smd') return { reason: 'power (watt) not written in the name' };
   const tol = /(?<![\d.])(\d+(?:\.\d+)?)\s*%/.exec(n)?.[1] || '';
-  return { kind, watt: watt ?? 0, pkg, ohm: ohms[0], pcs: pcsOf(n), tol };
+  const prec = tol !== '' && Number(tol) <= 1;
+  return { kind, watt: watt ?? 0, pkg, ohm: ohms[0], pcs: pcsOf(n), tol, prec, ni: /non\s*-?\s*inductive/i.test(n), fp: /flame\s*-?\s*proof/i.test(n) };
 }
 
 // ---------------------------------------------------------------- labels
@@ -102,11 +104,15 @@ export function ohmBn(ohm: number): string {
 const FRACTION: Record<string, string> = { '0.0625': '1/16', '0.125': '1/8', '0.167': '1/6', '0.25': '1/4', '0.333': '1/3', '0.5': '1/2', '0.75': '3/4' };
 export function wattLabel(w: number): string { return w ? `${FRACTION[String(w)] || trimNum(w)}W` : ''; }
 export function wattBn(w: number): string { return w ? `${bnNum(FRACTION[String(w)] || trimNum(w))} ওয়াট` : ''; }
-export function groupKey(p: Parsed): string { return `${p.kind}|${p.watt}|${p.pkg}`; }
-export function groupNames(p: Pick<Parsed, 'kind' | 'watt' | 'pkg'>): { en: string; bn: string } {
+/** the same part = same kind, power, size, tolerance class and build; a part with no kind written also only joins
+ *  others from the same shop (`from`), so two different-looking "5 W resistors" are never put together */
+export function groupKey(p: Parsed, from = ''): string {
+  return [p.kind, p.watt, p.pkg, p.prec ? '1%' : '', p.ni ? 'ni' : '', p.fp ? 'fp' : '', p.kind === 'std' ? from : ''].join('|');
+}
+export function groupNames(p: Pick<Parsed, 'kind' | 'watt' | 'pkg'> & Partial<Pick<Parsed, 'prec' | 'ni' | 'fp'>>): { en: string; bn: string } {
   const k = KINDS[p.kind];
-  const en = [wattLabel(p.watt), k.en, p.pkg].filter(Boolean).join(' ');
-  const bn = [wattBn(p.watt), k.bn, p.pkg ? bnNum(p.pkg) : ''].filter(Boolean).join(' ');
+  const en = [wattLabel(p.watt), p.ni ? 'Non-Inductive' : '', p.fp ? 'Flameproof' : '', k.en, p.pkg, p.prec ? '1%' : ''].filter(Boolean).join(' ');
+  const bn = [wattBn(p.watt), p.ni ? 'নন-ইন্ডাক্টিভ' : '', p.fp ? 'ফ্লেমপ্রুফ' : '', k.bn, p.pkg ? bnNum(p.pkg) : '', p.prec ? '১%' : ''].filter(Boolean).join(' ');
   return { en, bn };
 }
 /** the pack price → the price of one piece: whole paisa, rounded up (never a loss), at least ৳0.50 */

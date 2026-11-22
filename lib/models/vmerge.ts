@@ -42,19 +42,40 @@ export async function plan(): Promise<Plan> {
     const old = Number(r.old_price) || 0;
     item.unit_old = r.old_price_auto ? catalog.autoOldPrice(item.unit_price) : (old > Number(r.price) ? perPiece(old, p.pcs) : null);
     if (item.unit_old !== null && item.unit_old <= item.unit_price) item.unit_old = null;
-    const k = groupKey(p);
+    const k = groupKey(p, (r.import_ref || '').split('#')[0]);
     groups.set(k, [...(groups.get(k) || []), item]);
   }
   const out: PlanGroup[] = [];
   const singles: PlanItem[] = [];
   for (const [key, list] of groups) {
-    // the same value twice: keep the one that is switched on, then the cheaper piece, then the older product
+    // a pack whose name doesn't say how many pieces ("2Watt 15 Ohm Resistor" at the 10-piece price): when the price
+    // only makes sense as the usual pack of this group, count it as that pack
+    const counts = new Map<number, number>();
+    for (const it of list) counts.set(it.p.pcs, (counts.get(it.p.pcs) || 0) + 1);
+    const usual = [...counts.entries()].sort((a, b) => b[1] - a[1])[0][0];
+    const unitPrices = list.filter((i) => i.p.pcs === usual).map((i) => i.unit_price).sort((a, b) => a - b);
+    const median = unitPrices[Math.floor(unitPrices.length / 2)] || 0;
+    if (usual > 1 && median > 0) {
+      for (const it of list) {
+        if (it.p.pcs !== 1) continue;
+        const guess = Number(it.price) / usual;
+        if (guess >= median / 2 && guess <= median * 2) {
+          it.p = { ...it.p, pcs: usual };
+          it.unit_price = perPiece(Number(it.price), usual);
+          it.unit_stock = Math.max(0, Number(it.stock) || 0) * usual;
+          const old = Number(it.old_price) || 0;
+          it.unit_old = it.old_price_auto ? catalog.autoOldPrice(it.unit_price) : (old > Number(it.price) ? perPiece(old, usual) : null);
+          if (it.unit_old !== null && it.unit_old <= it.unit_price) it.unit_old = null;
+        }
+      }
+    }
+    // the same value twice: keep the one that is switched on, then in stock, then the cheaper piece, then the older product
     const byOhm = new Map<number, PlanItem[]>();
     for (const it of list) byOhm.set(it.p.ohm, [...(byOhm.get(it.p.ohm) || []), it]);
     const items: PlanItem[] = [];
     const dups: PlanItem[] = [];
     for (const same of byOhm.values()) {
-      same.sort((a, b) => Number(b.active) - Number(a.active) || a.unit_price - b.unit_price || a.id - b.id);
+      same.sort((a, b) => Number(b.active) - Number(a.active) || Number(Number(b.stock) > 0) - Number(Number(a.stock) > 0) || a.unit_price - b.unit_price || a.id - b.id);
       items.push(same[0]);
       for (const d of same.slice(1)) dups.push({ ...d, dup_of: same[0].id });
     }
@@ -79,6 +100,8 @@ function descriptions(p: Parsed, n: number, tol: string): { short: string; long:
     p.watt ? `পাওয়ার রেটিং: ${wattBn(p.watt)}` : '',
     p.pkg ? `সাইজ (প্যাকেজ): ${bnNum(p.pkg)}` : '',
     tol ? `টলারেন্স: ±${bnNum(tol)}%` : '',
+    p.ni ? 'নন-ইন্ডাক্টিভ' : '',
+    p.fp ? 'ফ্লেমপ্রুফ' : '',
     p.kind === 'smd' ? '' : 'দুই পিন লিড (থ্রু-হোল)',
   ].filter(Boolean);
   const short = `${facts.join(' · ')}। দাম প্রতি পিস — ${bnNum(String(n))}টি মান থেকে দরকারি মান (ওহম) বেছে নিন।`;

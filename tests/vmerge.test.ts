@@ -16,7 +16,12 @@ test('vmerge: Daraz-style resistor names', () => {
   // "1/2 Watt … 0.25 Watt": the first power written wins
   const b = ok('25Pcs - 1/2 Watt 22 Ohm Resistor 5% 22 Ohm Carbon Film Resistor 1/2W Resistance 0.25 Watt');
   assert.deepEqual([b.kind, b.watt, b.ohm, b.pcs], ['carbon_film', 0.5, 22, 25]);
-  assert.equal(groupKey(ok('10Pcs 1W 4.7K Ohm Metal Film Resistor 1%')), 'metal_film|1|');
+  // 1 % (precision) is a different product from the usual 5 %; non-inductive and flameproof too
+  assert.notEqual(groupKey(ok('50Pcs- Resistor 10K Ohm 1/4W 1% Carbon Film')), groupKey(ok('50Pcs- 10K Resistor 5% 10K Carbon Film 1/4W')));
+  assert.notEqual(groupKey(ok('2Pcs Wirewound 5W 0.15 Ohm Non-Inductive Ceramic Cement Resistor')), groupKey(ok('5Pcs- 5Watt 150 Ohm Ceramic Cement Resistor')));
+  assert.equal(groupNames(ok('50Pcs- Resistor 10K Ohm 1/4W 1% Carbon Film')).en, '1/4W Carbon Film Resistor 1%');
+  // a resistor with no kind written only joins others from the same shop
+  assert.notEqual(groupKey(ok('Power Resistor 10 Ohm 5W'), ''), groupKey(ok('2pcs 10K Ohm 5W Axial Lead Resistor'), 'daraz.com.bd/udvabony-bd'));
   assert.equal(ok('20pcs 2W 4K7 Resistor Metal Oxide').ohm, 4700);
   assert.deepEqual([ok('100pcs 0805 SMD Resistor 10K').kind, ok('100pcs 0805 SMD Resistor 10K').pkg], ['smd', '0805']);
   assert.equal(ok('5W 10 Ohm Ceramic Cement Resistor 5W10RJ').kind, 'cement');
@@ -30,7 +35,7 @@ test('vmerge: Daraz-style resistor names', () => {
 });
 
 test('vmerge: not one fixed value → left alone', () => {
-  for (const n of ['Resistor- 10Ω, 330Ω, 470Ω, 560Ω, 1kΩ - 100pcs', '10K Ohm Potentiometer Resistor', 'Resistor Kit 1/4W 600pcs', '10 Ohm resistor', 'LED Light 5W']) {
+  for (const n of ['600Pcs Tolerance 1% 1M 1K, 47K, 470K, 10K, 20K, 22OHM 30 Values Resistor Carbon Film 1/4W', 'Resistor- 10Ω, 330Ω, 470Ω, 560Ω, 1kΩ - 100pcs', '10K Ohm Potentiometer Resistor', 'Resistor Kit 1/4W 600pcs', '10 Ohm resistor', 'LED Light 5W']) {
     assert.ok('reason' in parse(n), n);
   }
 });
