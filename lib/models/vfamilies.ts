@@ -16,6 +16,8 @@ export type Item = {
   pcs: number;
   /** a part with no kind written only joins others from the same shop */
   byShop: boolean;
+  /** the price rises with the value (big capacitors cost more): never guess a pack from the price */
+  priceByValue?: boolean;
 };
 export type NoFamily = { reason: string; listed: boolean };
 
@@ -44,7 +46,7 @@ const capBn = (p: number) => bnNum(capLabel(p)).replace('µF', ' মাইক্
 
 function ceramic(n: string): Item | NoFamily | null {
   if (!/ceramic/i.test(n) || !/capacit/i.test(n)) return null;
-  if (NOT_PLAIN.test(n.slice(0, 60)) || /\bkv\b|high\s*voltage|y\s*cap/i.test(n)) return { reason: 'not a plain ceramic disc capacitor', listed: true };
+  if (NOT_PLAIN.test(n.slice(0, 60)) || /\bkv\b|high\s*voltage|y\s*cap|multilayer|monolithic|mlcc/i.test(n)) return { reason: 'not a plain ceramic disc capacitor', listed: true };
   const v = pf(n); const volt = VOLTS(n);
   if (!v || !volt) return { reason: 'value or voltage not written in the name', listed: true };
   return { key: `cap-ceramic|${volt}`, en: `${trim(volt)}V Ceramic Disc Capacitor`, bn: `${bnNum(trim(volt))} ভোল্ট সিরামিক ডিস্ক ক্যাপাসিটর`,
@@ -59,7 +61,7 @@ function electrolytic(n: string): Item | NoFamily | null {
   if (!m || !volt) return { reason: 'value or voltage not written in the name', listed: true };
   const v = Number(m[1]) * 1e6;
   return { key: `cap-elec|${volt}`, en: `${trim(volt)}V Electrolytic Capacitor`, bn: `${bnNum(trim(volt))} ভোল্ট ইলেক্ট্রোলাইটিক ক্যাপাসিটর`,
-    value: v, label: `${trim(v / 1e6)}µF`, labelBn: `${bnNum(trim(v / 1e6))} মাইক্রোফ্যারাড`, title: 'মান (ক্যাপাসিট্যান্স)', pcs: pcsOf(n), byShop: false,
+    value: v, label: `${trim(v / 1e6)}µF`, labelBn: `${bnNum(trim(v / 1e6))} মাইক্রোফ্যারাড`, title: 'মান (ক্যাপাসিট্যান্স)', pcs: pcsOf(n), byShop: false, priceByValue: true,
     facts: ['ধরন: অ্যালুমিনিয়াম ইলেক্ট্রোলাইটিক (পোলারাইজড)', `ভোল্টেজ: ${bnNum(trim(volt))} ভোল্ট`, 'রেডিয়াল দুই পিন লিড'],
     intro: 'ইলেক্ট্রোলাইটিক ক্যাপাসিটর — পাওয়ার সাপ্লাই ফিল্টার ও কাপলিংয়ে ব্যবহার হয়। লাগানোর সময় + আর − দিক মিলিয়ে লাগাতে হয়।' };
 }
@@ -68,7 +70,7 @@ function electrolytic(n: string): Item | NoFamily | null {
 const COLOURS: [RegExp, string, string][] = [
   [/warm\s*white/i, 'Warm White', 'ওয়ার্ম হোয়াইট'], [/\bred\b/i, 'Red', 'লাল'], [/\bgreen\b/i, 'Green', 'সবুজ'], [/\bblue\b/i, 'Blue', 'নীল'],
   [/\byellow\b/i, 'Yellow', 'হলুদ'], [/\borange\b/i, 'Orange', 'কমলা'], [/\bwhite\b/i, 'White', 'সাদা'], [/\bpink\b/i, 'Pink', 'গোলাপি'],
-  [/\b(purple|violet)\b/i, 'Purple', 'বেগুনি'], [/\brgb\b/i, 'RGB', 'আরজিবি'],
+  [/\b(purple|violet)\b/i, 'Purple', 'বেগুনি'],
 ];
 function colour(n: string): { i: number; bn: string } | null {
   const hits = COLOURS.map((c, i) => ({ i, at: n.search(c[0]), bn: c[2] })).filter((h) => h.at >= 0);
@@ -81,9 +83,12 @@ function led(n: string): Item | NoFamily | null {
   const size = /(?<![\d.])(3|5|8|10)\s*mm\b/i.exec(n)?.[1];
   if (!size) return null;
   const holder = /holder/i.test(n);
-  if (!holder && /board|strip|module|watt|\d\s*w\b|\bcob\b|\bsmd\b|\buv\b|money|infrared|\bir\b|flash|blink|rgb\s*fast|tester/i.test(n)) return null;
+  if (!holder && /board|strip|module|watt|\d\s*w\b|\bcob\b|\bsmd\b|\buv\b|money|infrared|\bir\b|flash|blink|\brgb\b|tester|display|matrix|segment|bi-?colou?r/i.test(n)) return null;
   const c = colour(n);
   if (!c) return { reason: 'colour not written in the name', listed: true };
+  // "Red Blue" at the start: a two-colour LED, not one colour
+  const early = COLOURS.filter((x) => x[0].test(n.slice(0, 40))).length;
+  if (early > 1) return { reason: 'two colours in the name', listed: true };
   const style = holder ? 'holder' : /ice\s*cream/i.test(n) ? 'icecream' : /water\s*clear|transparent/i.test(n) ? 'clear' : 'diffused';
   const names: Record<string, [string, string, string]> = {
     holder: [`${size}mm Plastic LED Holder`, `${bnNum(size)} মিমি প্লাস্টিক এলইডি হোল্ডার`, `${bnNum(size)} মিমি এলইডি লাগানোর প্লাস্টিক হোল্ডার (প্যানেল মাউন্ট)।`],

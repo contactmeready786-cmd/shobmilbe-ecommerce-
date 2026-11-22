@@ -21,6 +21,9 @@ test('vfamilies: LEDs by colour, zener by voltage, trimmers by value', () => {
   assert.notEqual(ok('3mm Colorful RED LED 3mm Round LED').key, a.key);
   assert.notEqual(ok('YELLOW 5mm Plastic LED Holder').key, a.key);
   assert.ok('reason' in read('50Watt LED Light 198x34mm SMD LED Board'));
+  assert.ok('reason' in read('2 Pin Red Blue Transparent 5mm Water Clear Led 5mm'));
+  assert.ok('reason' in read('Dot Matrix Round Dot 8×8 2088CDEG 5mm Led Display 24 Pin Common Anode RGB'));
+  assert.ok('reason' in read('Multilayer Ceramic Capacitor 39pF 50V Monolithic Ceramic Chip Capacitor'));
   assert.deepEqual([ok('Zener Diode 7.5V 500mW').key, ok('Zener Diode 7.5V 500mW').label], ['zener|500', '7.5V']);
   assert.equal(ok('1/2 Watt 24V Zener Diode 0.5W 1/2W 24V 1N4116').key, 'zener|500');
   assert.equal(ok('1Watt 6.8V Zener Diodes 1W 6.8V 1N4736').key, 'zener|1000');

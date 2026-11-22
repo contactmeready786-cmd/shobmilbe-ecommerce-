@@ -71,6 +71,19 @@ export async function plan(): Promise<Plan> {
         }
       }
     }
+    // sold as one piece but priced as a pack the name never mentions ("15V Zener Diode" at ৳74 next to ৳2.96 ones): when
+    // one usual pack size brings it in line with the others, count it as that pack (not where bigger values cost more)
+    if (usual === 1 && median > 0 && list.length >= 4 && !list[0].p.priceByValue) {
+      for (const it of list) {
+        if (Number(it.price) < median * 4) continue;
+        const size = [2, 3, 5, 10, 20, 25, 50, 100].find((s) => Math.abs(Number(it.price) / s - median) <= median * 0.35);
+        if (!size) continue;
+        it.p = { ...it.p, pcs: size };
+        it.unit_price = perPiece(Number(it.price), size);
+        it.unit_stock = Math.max(0, Number(it.stock) || 0) * size;
+        it.unit_old = null;
+      }
+    }
     // the same value twice: keep the one that is switched on, then in stock, then the cheaper piece, then the older product
     const byOhm = new Map<number, PlanItem[]>();
     for (const it of list) byOhm.set(it.p.value, [...(byOhm.get(it.p.value) || []), it]);
