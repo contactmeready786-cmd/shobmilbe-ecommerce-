@@ -132,7 +132,7 @@ export async function merge(key: string, who: { id?: number | null; name?: strin
     const pid = (await t.query<{ id: number }>(`INSERT INTO products(name, name_bn, name_bn_auto, slug, category_id, price, stock, description, short_description, emoji, active, sku,
         product_type, image_id, unit, variant_title, import_ref, sold_count)
       VALUES($1,$2,false,$3,$4,$5,0,$6,$7,'🔩',$8,$9,'single',$10,'পিস','মান (ওহম)',$11,$12) RETURNING id`,
-    [g.en, g.bn, slug, category, g.min, d.long, d.short, g.items.some((i) => i.active), sku, pic, host ? `${host}#variants` : '',
+    [g.en, g.bn, slug, category, g.min, d.long, d.short, g.items.some((i) => i.active), sku, pic, host ? `${host}#variants:${key}` : '',
       g.items.reduce((s, i) => s + (Number(i.sold_count) || 0), 0) + g.dups.reduce((s, i) => s + (Number(i.sold_count) || 0), 0)])).rows[0].id;
     let sort = 0;
     for (const it of g.items) {
