@@ -890,6 +890,10 @@ body.protect .card-pic img, body.protect .g-main img, body.protect .g-thumb img,
 .var-opt.on { border-color: var(--blue); background: var(--blue-l); font-weight: 600; }
 .var-opt.is-out { opacity: .6; text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--red) 60%, transparent); }
 .var-opt:hover { border-color: var(--blue); }
+.var-compact { gap: 6px; }
+.var-compact .var-opt { min-height: 30px; padding: 3px 9px; gap: 5px; border-width: 1.5px; border-radius: 8px; font-size: .84rem; font-variant-numeric: tabular-nums; }
+.var-ohm .var-opt::before { content: ''; flex: none; width: 16px; height: 8px; background: no-repeat center / contain url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 12'%3E%3Cpath d='M0 6h7l2-5 3 10 3-10 3 10 3-10 2 5h9' fill='none' stroke='%23888' stroke-width='1.6' stroke-linejoin='round'/%3E%3C/svg%3E"); opacity: .8; }
+.var-ohm .var-opt.on::before { opacity: 1; }
 .var-out { color: var(--red); font-size: .9rem; margin: 6px 0; }
 
 /* ---------- 🔔 tell me when it's back ---------- */
