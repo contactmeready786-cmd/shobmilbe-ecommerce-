@@ -1378,7 +1378,8 @@ UPDATE products p SET old_price = NULL WHERE p.id IN (SELECT parent_id FROM vari
 CREATE TABLE IF NOT EXISTS pack_singles (
   id serial PRIMARY KEY, n int NOT NULL DEFAULT 0, data jsonb NOT NULL, staff_id int, created_at timestamptz DEFAULT now(), undone_at timestamptz
 );
-`,
+`,  // 👟 এক জোড়ায় (owner, 2026-11-23): the same log also holds "2/3 pairs → one pair" changes
+  `ALTER TABLE pack_singles ADD COLUMN IF NOT EXISTS kind text NOT NULL DEFAULT 'pcs';`,
 ];
 
 // Data steps that need code, keyed by migration number (run after its SQL).

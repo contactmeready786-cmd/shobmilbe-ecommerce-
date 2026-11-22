@@ -867,6 +867,7 @@ export type OwnerPasskeysRow = {
 export type PackSinglesRow = {
   id: number;
   n: number;
+  kind: string;
   data: unknown;
   staff_id: number | null;
   created_at: Date;
