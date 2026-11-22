@@ -1506,6 +1506,18 @@ export type TrendTermsRow = {
   created_at: Date;
 };
 
+/** A row of variant_merges. */
+export type VariantMergesRow = {
+  id: number;
+  parent_id: number | null;
+  key: string;
+  name: string;
+  data: unknown;
+  staff_id: number | null;
+  created_at: Date;
+  undone_at: Date | null;
+};
+
 /** A row of visit_events. */
 export type VisitEventsRow = {
   id: number;
@@ -1712,6 +1724,7 @@ export type Tables = {
   trash: TrashRow;
   trend_rising: TrendRisingRow;
   trend_terms: TrendTermsRow;
+  variant_merges: VariantMergesRow;
   visit_events: VisitEventsRow;
   visit_sessions: VisitSessionsRow;
   visitors: VisitorsRow;

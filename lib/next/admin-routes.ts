@@ -173,4 +173,5 @@ export const ADMIN_GET_ROUTES: (string | RegExp)[] = [
   "/admin/photo-find",
   "/admin/marketing/group-posts",
   "/admin/marketing/marketplace",
+  "/admin/products/merge-variants",
 ];

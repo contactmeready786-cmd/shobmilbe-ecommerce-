@@ -1352,6 +1352,14 @@ CREATE TABLE IF NOT EXISTS trend_rising (
   first_seen timestamptz NOT NULL DEFAULT now(), last_seen timestamptz NOT NULL DEFAULT now(), PRIMARY KEY (term_id, query)
 );
 `,
+  // 🧩 ভ্যারিয়েন্টে একত্র (owner, 2026-11-22; lib/models/vmerge.ts): every merge of separate products into one product
+  // with values, with what each product was before — so "Undo" can put it back exactly
+  `
+CREATE TABLE IF NOT EXISTS variant_merges (
+  id serial PRIMARY KEY, parent_id int, key text NOT NULL, name text NOT NULL DEFAULT '', data jsonb NOT NULL,
+  staff_id int, created_at timestamptz DEFAULT now(), undone_at timestamptz
+);
+`,
 ];
 
 // Data steps that need code, keyed by migration number (run after its SQL).

@@ -47,6 +47,7 @@ const TABS: Record<string, Tab[]> = {
   products: [
     ['/admin/products', 'All products', 'products', 'products', '📦'],
     ['/admin/products?type=bundle', 'Bundles / packages', 'products', 'bundles', '🎁'],
+    ['/admin/products/merge-variants', 'Merge into variants', 'owner', 'merge-variants', '🧩'],
   ],
   catbrand: [
     ['/admin/categories', 'Categories', 'products', 'categories', '🗂️'],
