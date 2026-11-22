@@ -104,7 +104,7 @@ function descriptions(p: Parsed, n: number, tol: string): { short: string; long:
     p.fp ? 'ফ্লেমপ্রুফ' : '',
     p.kind === 'smd' ? '' : 'দুই পিন লিড (থ্রু-হোল)',
   ].filter(Boolean);
-  const short = `${facts.join(' · ')}। দাম প্রতি পিস — ${bnNum(String(n))}টি মান থেকে দরকারি মান (ওহম) বেছে নিন।`;
+  const short = `${facts.join(' · ')}। দাম প্রতি পিস; ${bnNum(String(n))}টি মান (ওহম) পাওয়া যায়।`;
   const long = [`${wattBn(p.watt) ? wattBn(p.watt) + ' ' : ''}${k.bn} — ফিক্সড রেজিস্টর, সার্কিটে কারেন্ট সীমিত বা ভোল্টেজ ভাগ করতে ব্যবহার হয়।`, '', ...facts.map((f) => `- ${f}`)].join('\n');
   return { short, long };
 }
