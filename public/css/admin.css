@@ -954,6 +954,19 @@ tr.row-off .inv-act { background: #f6f7f9; }
 }
 .va-grid .panel h2 { font-size: 1rem; margin-bottom: 8px; }
 .va-grid .table { font-size: 13px; }
+/* 👀 most viewed pages + most viewed products side by side (owner, 2026-11-23): the same height, no sideways scroll,
+   a product's name on one line (full name on hover; a click opens it) */
+.va-twin { align-items: stretch; }
+.va-twin .table-wrap { max-height: 330px; overflow-x: hidden; overflow-y: auto; }
+.va-prod { table-layout: fixed; width: 100%; }
+.va-prod col.va-n { width: 58px; }
+.va-prod col.va-t { width: 64px; }
+.va-prod col.va-c { width: 74px; }
+.va-prod th, .va-prod td { white-space: nowrap; padding-left: 6px; padding-right: 6px; }
+.va-prod .va-pname { overflow: hidden; text-overflow: ellipsis; }
+.va-prod .va-pname a { color: var(--ink); text-decoration: none; }
+.va-prod .va-pname a:hover { color: var(--blue); }
+.va-prod td small { font-size: .78em; }
 .va-more > summary { cursor: pointer; font-weight: 600; padding: 2px 0; }
 .va-more[open] > summary { margin-bottom: 12px; }
 .va-more .va-grid { margin: 0; }
