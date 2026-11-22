@@ -102,7 +102,8 @@ function zener(n: string): Item | NoFamily | null {
   if (NOT_PLAIN.test(n)) return { reason: 'not a single zener diode', listed: true };
   const volt = VOLTS(n);
   if (!volt) return { reason: 'voltage not written in the name', listed: true };
-  const mw = /(\d+)\s*mw\b/i.exec(n) ? Number(/(\d+)\s*mw\b/i.exec(n)![1]) : /(?<![\d.])(\d+(?:\.\d+)?)\s*w(?:att)?\b/i.exec(n) ? Number(/(?<![\d.])(\d+(?:\.\d+)?)\s*w(?:att)?\b/i.exec(n)![1]) * 1000 : 500;
+  const fr = /(\d+)\s*\/\s*(\d+)\s*-?\s*w(?:att)?\b/i.exec(n); const mwm = /(\d+)\s*mw\b/i.exec(n); const wm = /(?<![\d./])(\d+(?:\.\d+)?)\s*-?\s*w(?:att)?s?\b/i.exec(n);
+  const mw = fr ? Math.round((Number(fr[1]) / Number(fr[2])) * 1000) : mwm ? Number(mwm[1]) : wm ? Number(wm[1]) * 1000 : 500;
   const power = mw >= 1000 ? `${trim(mw / 1000)}W` : `${mw}mW`;
   const powerBn = mw >= 1000 ? `${bnNum(trim(mw / 1000))} ওয়াট` : `${bnNum(String(mw))} মিলিওয়াট`;
   return { key: `zener|${mw}`, en: `${power} Zener Diode`, bn: `${powerBn} জেনার ডায়োড`, value: volt, label: `${trim(volt)}V`, labelBn: `${bnNum(trim(volt))} ভোল্ট`,

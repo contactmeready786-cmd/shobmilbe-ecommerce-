@@ -20,6 +20,7 @@ test('packsingle: sets, kits and names without a count are left alone', () => {
 
 test('packsingle: Bangla name and texts', () => {
   assert.equal(cleanBn('৫০ পিস – তামার রেজিস্টর ২.২ ওহ্ম', 50), 'তামার রেজিস্টর ২.২ ওহ্ম');
+  assert.equal(cleanBn('৪" ইঞ্চি ক্যাবল টাই – ১০০টির প্যাক পিস (আপ্রোক্স)', 100), '৪" ইঞ্চি ক্যাবল টাই (আপ্রোক্স)');
   assert.equal(cleanBn('১০ পিস এলইডি', 5), '১০ পিস এলইডি'); // another count: left as it is
   assert.equal(cleanText('Package: 50pcs resistor', 50), 'Package: resistor');
 });

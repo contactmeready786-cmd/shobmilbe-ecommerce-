@@ -22,6 +22,8 @@ test('vfamilies: LEDs by colour, zener by voltage, trimmers by value', () => {
   assert.notEqual(ok('YELLOW 5mm Plastic LED Holder').key, a.key);
   assert.ok('reason' in read('50Watt LED Light 198x34mm SMD LED Board'));
   assert.deepEqual([ok('Zener Diode 7.5V 500mW').key, ok('Zener Diode 7.5V 500mW').label], ['zener|500', '7.5V']);
+  assert.equal(ok('1/2 Watt 24V Zener Diode 0.5W 1/2W 24V 1N4116').key, 'zener|500');
+  assert.equal(ok('1Watt 6.8V Zener Diodes 1W 6.8V 1N4736').key, 'zener|1000');
   assert.equal(ok('RM065 RM-065 VR 22K Ohm 223 Potentiometer Trimmer Trim Pot').label, '22kΩ');
   assert.equal(ok('RM065 RM-065 VR 500K 504 Potentiometer 500K Trimpot').label, '500kΩ');
   assert.equal(ok('Trimmer Trim Pot RM065 101 100 ohm Variable Resistor').label, '100Ω');
