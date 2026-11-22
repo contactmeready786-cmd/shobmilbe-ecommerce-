@@ -11,6 +11,7 @@ test('packsingle: pieces read and taken out of the name', () => {
   assert.deepEqual(readPack('LED 5mm Red (10 Pieces)'), { pcs: 10, name: 'LED 5mm Red' });
   assert.deepEqual(readPack('50Pcs- 8mm Bead Diameter WHITE Color 3 Watt COB LED'), { pcs: 50, name: '8mm Bead Diameter WHITE Color 3 Watt COB LED' });
   assert.deepEqual(readPack('50Pcs YELLOW 5mm Plastic LED Holder'), { pcs: 50, name: 'YELLOW 5mm Plastic LED Holder' });
+  assert.equal((readPack('10Pcs- 1Watt 6.8V Zener Diodes 1W 6.8V 1N4736 Through Hole Voltage Regulator Zener Diode DO-41 DIP Values Assortment Kit For Electronics DIY') as { pcs: number }).pcs, 10);
   assert.deepEqual(readPack('10Pcs2Watt 0.33 Ohm Resistor'), { pcs: 10, name: '2Watt 0.33 Ohm Resistor' });
 });
 

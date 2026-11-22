@@ -44,7 +44,7 @@ const capBn = (p: number) => bnNum(capLabel(p)).replace('µF', ' মাইক্
 
 function ceramic(n: string): Item | NoFamily | null {
   if (!/ceramic/i.test(n) || !/capacit/i.test(n)) return null;
-  if (NOT_PLAIN.test(n) || /\bkv\b|high\s*voltage|y\s*cap/i.test(n)) return { reason: 'not a plain ceramic disc capacitor', listed: true };
+  if (NOT_PLAIN.test(n.slice(0, 60)) || /\bkv\b|high\s*voltage|y\s*cap/i.test(n)) return { reason: 'not a plain ceramic disc capacitor', listed: true };
   const v = pf(n); const volt = VOLTS(n);
   if (!v || !volt) return { reason: 'value or voltage not written in the name', listed: true };
   return { key: `cap-ceramic|${volt}`, en: `${trim(volt)}V Ceramic Disc Capacitor`, bn: `${bnNum(trim(volt))} ভোল্ট সিরামিক ডিস্ক ক্যাপাসিটর`,
@@ -54,7 +54,7 @@ function ceramic(n: string): Item | NoFamily | null {
 }
 function electrolytic(n: string): Item | NoFamily | null {
   if (!/electrolytic/i.test(n) || !/capacit/i.test(n)) return null;
-  if (NOT_PLAIN.test(n)) return { reason: 'not a plain electrolytic capacitor', listed: true };
+  if (NOT_PLAIN.test(n.slice(0, 60))) return { reason: 'not a plain electrolytic capacitor', listed: true };
   const m = /(?<![\d.])(\d+(?:\.\d+)?)\s*(uf|µf|mfd)\b/i.exec(n); const volt = VOLTS(n);
   if (!m || !volt) return { reason: 'value or voltage not written in the name', listed: true };
   const v = Number(m[1]) * 1e6;
@@ -99,7 +99,7 @@ function led(n: string): Item | NoFamily | null {
 // ---- zener diodes (the value is the voltage)
 function zener(n: string): Item | NoFamily | null {
   if (!/zener/i.test(n)) return null;
-  if (NOT_PLAIN.test(n)) return { reason: 'not a single zener diode', listed: true };
+  if (NOT_PLAIN.test(n.slice(0, 60))) return { reason: 'not a single zener diode', listed: true };
   const volt = VOLTS(n);
   if (!volt) return { reason: 'voltage not written in the name', listed: true };
   const fr = /(\d+)\s*\/\s*(\d+)\s*-?\s*w(?:att)?\b/i.exec(n); const mwm = /(\d+)\s*mw\b/i.exec(n); const wm = /(?<![\d./])(\d+(?:\.\d+)?)\s*-?\s*w(?:att)?s?\b/i.exec(n);

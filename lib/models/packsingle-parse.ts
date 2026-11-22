@@ -29,7 +29,9 @@ function tidy(s: string): string {
 /** How many pieces an English name says the product is sold in, and the name without it. */
 export function readPack(name: string): PackRead {
   const n = String(name || '').replace(/\s+/g, ' ').trim();
-  if (SET_WORDS.test(n) || TOOL_SET(n)) return { skip: 'a set / kit (one item)' };
+  // copied names end in search words ("… Values Assortment Kit For Electronics DIY"): only the start says what it is
+  const head = n.slice(0, 60);
+  if (SET_WORDS.test(head) || TOOL_SET(head)) return { skip: 'a set / kit (one item)' };
   if (PART_OF_ONE.test(n)) return { skip: 'the count is a part of one item' };
   if (LED_BOARD(n)) return { skip: 'an LED board (the count is LEDs on it)' };
   const found = new Set<number>();
