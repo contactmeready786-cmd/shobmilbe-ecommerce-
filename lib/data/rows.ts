@@ -863,6 +863,16 @@ export type OwnerPasskeysRow = {
   last_used: Date | null;
 };
 
+/** A row of pack_singles. */
+export type PackSinglesRow = {
+  id: number;
+  n: number;
+  data: unknown;
+  staff_id: number | null;
+  created_at: Date;
+  undone_at: Date | null;
+};
+
 /** A row of packing_items. */
 export type PackingItemsRow = {
   id: number;
@@ -1680,6 +1690,7 @@ export type Tables = {
   orders: OrdersRow;
   owner_faces: OwnerFacesRow;
   owner_passkeys: OwnerPasskeysRow;
+  pack_singles: PackSinglesRow;
   packing_items: PackingItemsRow;
   packing_sets: PackingSetsRow;
   page_views: PageViewsRow;

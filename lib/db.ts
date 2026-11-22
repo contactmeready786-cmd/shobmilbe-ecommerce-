@@ -1373,6 +1373,12 @@ UPDATE products p SET old_price = x.old FROM (
 UPDATE products p SET old_price = NULL WHERE p.id IN (SELECT parent_id FROM variant_merges WHERE undone_at IS NULL AND parent_id IS NOT NULL)
   AND p.old_price IS NOT NULL AND p.old_price <= p.price;
 `,
+  // 1️⃣ এক পিসে (owner, 2026-11-22; lib/models/packsingle.ts): packs made single pieces, with each product as it was
+  `
+CREATE TABLE IF NOT EXISTS pack_singles (
+  id serial PRIMARY KEY, n int NOT NULL DEFAULT 0, data jsonb NOT NULL, staff_id int, created_at timestamptz DEFAULT now(), undone_at timestamptz
+);
+`,
 ];
 
 // Data steps that need code, keyed by migration number (run after its SQL).
