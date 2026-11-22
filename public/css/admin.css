@@ -968,6 +968,15 @@ tr.row-off .inv-act { background: #f6f7f9; }
 .va-prod .va-pname a:hover { color: var(--blue); }
 .va-pg .va-page b, .va-pg .va-page small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; overflow-wrap: normal; }
 .va-prod td small { font-size: .78em; }
+/* 📱 devices & sources (owner, 2026-11-23): one open box, six small cards of the same size instead of a fold-out */
+.va-tech > h2 { font-size: 1rem; margin-bottom: 10px; }
+.va-tech .va-cards { margin: 0; align-items: stretch; }
+.va-card { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; background: color-mix(in srgb, var(--white) 70%, transparent); min-width: 0; }
+.va-card h3 { font-size: .86rem; font-weight: 600; margin: 0 0 8px; color: var(--ink); }
+.va-card h3 + .hbars, .va-card .hbars { margin: 0; }
+.va-card .hbars + h3 { margin-top: 12px; }
+@media (max-width: 1100px) { .va-tech .va-grid-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 640px) { .va-tech .va-grid-3 { grid-template-columns: 1fr; } }
 .va-more > summary { cursor: pointer; font-weight: 600; padding: 2px 0; }
 .va-more[open] > summary { margin-bottom: 12px; }
 .va-more .va-grid { margin: 0; }
