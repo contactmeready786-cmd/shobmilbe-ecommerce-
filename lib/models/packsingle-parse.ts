@@ -53,6 +53,8 @@ export function cleanBn(nameBn: string, pcs: number): string {
   let out = String(nameBn || '');
   out = out.replace(BN_PACK_RE, (all, d) => (Number(toLatin(d)) === pcs ? ' ' : all));
   out = out.replace(BN_RE, (all, d) => (Number(toLatin(d)) === pcs ? ' ' : all));
+  // "Bundle of 12 Pieces" written in Bangla letters
+  out = out.replace(/(?:বুনড্ল|বান্ডেল|বান্ডল)\s*(?:অফ|এর)?\s*/g, ' ');
   return tidy(out);
 }
 
