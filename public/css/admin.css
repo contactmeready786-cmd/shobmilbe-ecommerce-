@@ -2973,7 +2973,7 @@ body.admin #main.admin-main .kpis-tight .kpi-sub:empty { display: none; }
 
 /* 📐 One design for the same kind of box on every admin page (owner, 2026-11-23: "same design, same place, small")
    1) number boxes (KPI): small stat cards in one even row — label, number, one short line */
-body.admin #main.admin-main .kpis:not(.draft-top > .kpis) { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; margin: 0 0 14px; }
+body.admin #main.admin-main .kpis:not(.draft-top > .kpis) { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; margin: 0 0 14px; }
 body.admin #main.admin-main .kpis:not(.draft-top > .kpis) > .kpi { max-width: none; min-width: 0; margin: 0; }
 body.admin #main.admin-main .kpi { padding: 11px 14px; border-radius: 12px; gap: 2px; }
 body.admin #main.admin-main .kpi .kpi-label { font-size: 12px; font-weight: 550; color: var(--a-mut, #5B6B85); }
@@ -3038,4 +3038,6 @@ body.admin #main.admin-main .nt-save .set-card { padding-top: 14px; }
    short "nothing yet" line sit close together */
 body.admin #main.admin-main .kpi { min-width: 0; overflow: hidden; }
 body.admin #main.admin-main .kpi .kpi-sub { display: block; max-width: 100%; }
-body.admin #main.admin-main .panel > h2:first-child + p.muted:last-child { margin: 0; padding: 4px 0 2px; font-size: 13px; }
+body.admin #main.admin-main .panel > h2:first-child + p.muted:last-child { margin-top: 0; margin-bottom: 0; padding-block: 2px 4px; font-size: 13px; }
+body.admin #main.admin-main .nt-grid .set-head .set-title { white-space: nowrap; }
+body.admin #main.admin-main .nt-head-actions .btn { min-height: 28px; padding: 2px 10px; font-size: 12px; }
