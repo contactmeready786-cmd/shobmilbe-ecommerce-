@@ -131,6 +131,33 @@ function refreshButton(): void {
   });
 }
 
+// ---------- 🧰 page switches live in the title row (owner, 2026-11-23: "the Delete switch sits in the same place, in the
+// same design, on every page") ----------
+// Every on/off pill that belongs to the whole page (Delete button, SMS-history delete, Clear test history and its delete
+// button …) is moved into the title row's actions, beside Refresh / CSV / Excel — one spot, one size, on every page.
+function pageTools(): void {
+  const main = $('#main');
+  if (!main) return;
+  const pills = [...main.querySelectorAll<HTMLElement>('.tool-row > form.tool-pill, .tool-row > .tc-clear')];
+  if (!pills.length) return;
+  let head = (main.querySelector(':scope > .title-row') || $('.title-row', main)) as HTMLElement | null;
+  if (!head) {
+    const h1 = $('h1', main);
+    if (!h1) return;
+    head = <div className="title-row" /> as HTMLElement;
+    h1.before(head);
+    head.appendChild(h1);
+  }
+  let actions = head.querySelector<HTMLElement>(':scope > .row-actions');
+  if (!actions) { actions = <div className="row-actions" /> as HTMLElement; head.appendChild(actions); }
+  const first = actions.firstChild;
+  for (const p of pills) {
+    const row = p.parentElement;
+    actions.insertBefore(p, first);
+    if (row && !row.children.length) row.remove();
+  }
+}
+
 // ---------- side menu ----------
 function sideMenu(): void {
   // ☰ phones: slides over the page; bigger screens: hides it so the page gets the whole width (remembered)
@@ -731,7 +758,7 @@ function openFoldedTarget(): void {
 
 export function startCore(): void {
   for (const [name, start] of [
-    ['refresh', refreshButton], ['side menu', sideMenu], ['save reminder', saveReminder], ['confirmations', confirmations],
+    ['refresh', refreshButton], ['page tools', pageTools], ['side menu', sideMenu], ['save reminder', saveReminder], ['confirmations', confirmations],
     ['helpers', smallHelpers], ['live parts', liveParts], ['instant saves', instantSaves], ['lists', lists], ['jobs', jobs], ['zoom', zoomPictures], ['sticky sides', stickySides], ['switch tips', switchTips], ['folded targets', openFoldedTarget],
   ] as [string, () => void][]) {
     try { start(); } catch (e) { console.error(`সবমিলবে admin: ${name} could not start`, e); }
