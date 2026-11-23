@@ -349,7 +349,7 @@ function vbRow(r: VbRow | null, seeCost: boolean, nImg: number, tpl = false, uni
     <td className="vb-dims"><input disabled={tpl} name="vb_dl" inputMode="decimal" className="w-dim" defaultValue={x.dl || ''} placeholder="দৈ" aria-label="দৈর্ঘ্য" />×<input disabled={tpl} name="vb_dw" inputMode="decimal" className="w-dim" defaultValue={x.dw || ''} placeholder="প্র" aria-label="প্রস্থ" />×<input disabled={tpl} name="vb_dh" inputMode="decimal" className="w-dim" defaultValue={x.dh || ''} placeholder="উ" aria-label="উচ্চতা" /> <span className="vb-unit-tag" data-vb-unit-tag="">{unit}</span></td>
     <td><select disabled={tpl} name="vb_img" defaultValue={x.img} aria-label="ছবি"><option value="">—</option>{jsxList(Array.from({ length: Math.max(8, nImg) }, (_, i) => <option value={String(i + 1)}>ছবি {bn(i + 1)}</option>))}</select></td>
     <td><select disabled={tpl} name="vb_on" defaultValue={x.on ? '1' : '0'} aria-label="দোকানে"><option value="1">চালু</option><option value="0">বন্ধ</option></select></td>
-    <td><button type="button" className="btn btn-sm btn-ghost vb-del" data-vb-del="" title="মুছে ফেলুন" aria-label="এই রং/সাইজ মুছে ফেলুন">🗑️ মুছুন</button></td>
+    <td><button type="button" className="btn btn-sm btn-ghost vb-del" data-vb-del="" title="মুছে ফেলুন" aria-label="এই রং/সাইজ মুছে ফেলুন">🗑️ <span className="vb-del-t">মুছুন</span></button></td>
   </tr>;
 }
 function variantBuilder(p: ProductDraft, rows: VbRow[], seeCost: boolean, settings: Settings = {} as Settings) {

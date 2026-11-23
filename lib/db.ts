@@ -1406,6 +1406,15 @@ CREATE INDEX IF NOT EXISTS voice_notes_phone ON voice_notes(phone);
   // page, because they may still say "3 pairs" (owner, 2026-11-23)
   `UPDATE media SET wb_ok=false WHERE owner_type='product' AND wb_from IS NULL AND wb_ok AND owner_id IN (
     SELECT (e->>'id')::int FROM pack_singles b CROSS JOIN LATERAL jsonb_array_elements(b.data) e WHERE b.kind='pair' AND b.undone_at IS NULL);`,
+  // 📅 an order from before the shop kept its orders, typed in by hand on 2026-11-23: its real dates (ordered 30 Oct,
+  // delivered 1 Nov 2026) and its courier (Carrybee, booked on someone else's account), as the owner told them
+  `UPDATE orders SET created_at='2026-10-30 12:00:00+06', delivered_at=CASE WHEN status='delivered' THEN '2026-11-01 12:00:00+06'::timestamptz ELSE delivered_at END,
+     courier=CASE WHEN coalesce(courier,'')='' THEN 'carrybee' ELSE courier END,
+     admin_note=CASE WHEN position('Carrybee' in coalesce(admin_note,''))>0 THEN admin_note
+       ELSE trim(coalesce(admin_note,'') || ' Delivered by Carrybee (booked on another person''s account).') END
+   WHERE code='SMRR3MWZ' AND source='admin';
+INSERT INTO activity_log(staff_id, action, entity, entity_id, detail)
+  SELECT NULL, 'order_dates', 'order', id, 'order date 30 Oct, delivery date 1 Nov, courier Carrybee' FROM orders WHERE code='SMRR3MWZ' AND source='admin';`,
 ];
 
 // Data steps that need code, keyed by migration number (run after its SQL).

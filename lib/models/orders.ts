@@ -720,8 +720,59 @@ async function setCourierInfo(id: number, info: { courier: string; consignment_i
   await q(`UPDATE orders SET courier=$1, consignment_id=$2, tracking_code=$3, courier_status=$4, courier_sent_at=coalesce(courier_sent_at, now()), updated_at=now() WHERE id=$5`,
     [info.courier, String(info.consignment_id || ''), String(info.tracking_code || ''), String(info.status || ''), id]);
 }
+// 🛵 every step the courier reports (in review → pending → delivered …) is kept in the order's history with its time
+// (owner, 2026-11-23), not only the latest one — the step is written once, when it changes.
 async function setCourierStatus(id: number, courierStatus: unknown): Promise<void> {
-  await q('UPDATE orders SET courier_status=$1, updated_at=now() WHERE id=$2', [String(courierStatus || ''), id]);
+  const next = String(courierStatus || '');
+  const prev = await one<{ courier_status: string | null }>('SELECT courier_status FROM orders WHERE id=$1', [id]);
+  await q('UPDATE orders SET courier_status=$1, updated_at=now() WHERE id=$2', [next, id]);
+  if (prev && next && (prev.courier_status || '') !== next) {
+    await q(`INSERT INTO activity_log(staff_id, action, entity, entity_id, detail) VALUES(NULL,'courier_step','order',$1,$2)`,
+      [id, `${courierStepLabel(prev.courier_status) || '—'} → ${courierStepLabel(next)}`.slice(0, 500)]);
+  }
+}
+/** A courier's own status word, readable ("partial_delivered" → "Partial delivered"). */
+function courierStepLabel(s: string | null | undefined): string {
+  const t = String(s || '').replace(/[_-]+/g, ' ').trim();
+  return t ? t.charAt(0).toUpperCase() + t.slice(1) : '';
+}
+
+// 📅 the owner corrects the dates of an order typed in by hand after the fact (owner, 2026-11-23): when it was ordered,
+// handed to the courier and delivered. Only manual orders (source 'admin'); website orders keep their real times.
+// A value is a Dhaka wall-clock time 'YYYY-MM-DDTHH:MM' (an <input type="datetime-local">); empty = leave as it is.
+type OrderDates = { created_at?: unknown; courier_sent_at?: unknown; delivered_at?: unknown };
+const LOCAL_DT = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/;
+function dhakaTime(v: unknown): Date | null {
+  const m = LOCAL_DT.exec(String(v || '').trim());
+  if (!m) return null;
+  const d = new Date(`${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:00+06:00`);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+/** The same time as the datetime-local box shows it (Dhaka). */
+function dhakaLocal(v: unknown): string {
+  if (!v) return '';
+  const d = new Date(v as string);
+  if (Number.isNaN(d.getTime())) return '';
+  return new Date(d.getTime() + 6 * 3600 * 1000).toISOString().slice(0, 16);
+}
+async function setOrderDates(id: number, dates: OrderDates): Promise<{ changed: string[] }> {
+  const o = await one<{ source: string | null; status: string }>('SELECT source, status FROM orders WHERE id=$1', [id]);
+  if (!o) throw new OrderError('Order not found.');
+  if (o.source !== 'admin') throw new OrderError('Only orders made by hand can have their dates changed.');
+  const now = Date.now() + 5 * 60 * 1000;
+  const sets: string[] = []; const params: unknown[] = []; const changed: string[] = [];
+  const created = dhakaTime(dates.created_at), sent = dhakaTime(dates.courier_sent_at), delivered = dhakaTime(dates.delivered_at);
+  for (const [col, d, name] of [['created_at', created, 'order date'], ['courier_sent_at', sent, 'courier date'], ['delivered_at', o.status === 'delivered' ? delivered : null, 'delivery date']] as const) {
+    if (!d) continue;
+    if (d.getTime() > now) throw new OrderError('A date cannot be in the future.');
+    params.push(d.toISOString()); sets.push(`${col}=$${params.length}`); changed.push(name);
+  }
+  if (created && delivered && o.status === 'delivered' && delivered.getTime() < created.getTime()) throw new OrderError('The delivery date cannot be before the order date.');
+  if (created && sent && sent.getTime() < created.getTime()) throw new OrderError('The courier date cannot be before the order date.');
+  if (!sets.length) return { changed };
+  params.push(id);
+  await q(`UPDATE orders SET ${sets.join(', ')}, updated_at=now() WHERE id=$${params.length}`, params);
+  return { changed };
 }
 async function markPaid(id: number, { amount: amt, trxId, method }: { amount: unknown; trxId?: unknown; method?: string | null }): Promise<void> {
   await q(`UPDATE orders SET payment_status = CASE WHEN $1::numeric >= total THEN 'paid' ELSE 'partial' END, paid_amount = $1,
@@ -729,4 +780,4 @@ async function markPaid(id: number, { amount: amt, trxId, method }: { amount: un
     [amount(amt), String(trxId || ''), method || null, id]);
 }
 
-export { noFreeIds, freeDeliveryBase, onStatusChange, STATUSES, RELEASED, PAYMENT_METHODS, PAYMENT_STATUSES, OrderError, GEO, dhakaCityAreas, findDistrict, zoneFor, deliveryFee, deliveryZone, deliveryFor, customZones, weightExtra, areaLabel, checkCoupon, createOrder, getOrder, listOrders, countOrders, statusCounts, setStatus, updateOrder, setCourierInfo, setCourierStatus, markPaid };
+export { noFreeIds, freeDeliveryBase, onStatusChange, STATUSES, RELEASED, PAYMENT_METHODS, PAYMENT_STATUSES, OrderError, GEO, dhakaCityAreas, findDistrict, zoneFor, deliveryFee, deliveryZone, deliveryFor, customZones, weightExtra, areaLabel, checkCoupon, createOrder, getOrder, listOrders, countOrders, statusCounts, setStatus, updateOrder, setCourierInfo, setCourierStatus, setOrderDates, dhakaLocal, markPaid };

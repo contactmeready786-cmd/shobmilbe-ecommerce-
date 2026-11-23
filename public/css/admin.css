@@ -1593,7 +1593,20 @@ html[data-admin-lang="en"] .side-drop[data-side-group="দোকানের ড
 #main.admin-main .vb-table .w-num { width: 100%; min-width: 72px; }
 #main.admin-main .vb-table select { width: 100%; }
 #main.admin-main .vb-table .vb-del { white-space: nowrap; }
-@media (min-width: 900px) { #main.admin-main .vb .table-wrap { overflow-x: visible; } }
+/* fits any screen and browser zoom (owner, 2026-11-23: at 100% zoom on the laptop the 🗑️ column went off the screen):
+   compact cells, names never broken mid-word, the table scrolls sideways inside its box only when it really can't fit,
+   and the delete column stays pinned on the right so it is always in sight */
+#main.admin-main .vb .table-wrap { overflow-x: auto; max-width: 100%; }
+#main.admin-main .vb-table th, #main.admin-main .vb-table td { padding: 6px 6px; }
+#main.admin-main .vb-table th { white-space: normal; line-height: 1.25; font-size: .82rem; }
+#main.admin-main .vb-table td:nth-child(-n+3) { white-space: nowrap; word-break: keep-all; }
+#main.admin-main .vb-table .w-num { min-width: 58px; max-width: 96px; }
+#main.admin-main .vb-table select { min-width: 64px; max-width: 110px; }
+#main.admin-main .vb-dims .w-dim { width: 42px; padding: 5px 2px; margin: 0 1px; }
+#main.admin-main .vb-table tr > :last-child { position: sticky; right: 0; z-index: 1; background: #fff; box-shadow: -6px 0 8px -6px rgba(15, 23, 42, .18); }
+#main.admin-main .vb-table thead tr > :last-child { background: #f8fafc; }
+#main.admin-main .vb-table tr.row-off > :last-child { background: #f8fafc; }
+@media (max-width: 1500px) { #main.admin-main .vb-table .vb-del-t { display: none; } #main.admin-main .vb-table .vb-del { padding: 4px 8px; } }
 /* 📐 measure (boxes) and ✍️ hand-written values in the colour/size table */
 #main.admin-main .vb-dims { white-space: nowrap; }
 #main.admin-main .vb-dims .w-dim { width: 52px; font: inherit; padding: 6px 4px; border: 2px solid var(--line); border-radius: 8px; text-align: center; margin: 0 2px; }
