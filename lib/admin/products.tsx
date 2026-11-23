@@ -98,7 +98,7 @@ async function listPage(ctx: AdminCtx) {
 }
 
 /** ⚖️ the weight box: 1500 g shows as "1.5 kg", 300 g as "300 g"; a form sent back with an error keeps what was typed */
-function weightShown(p: { weight_g?: unknown; weight_unit?: unknown }): { value: string; unit: 'g' | 'kg' } {
+function weightShown(p: Record<string, unknown>): { value: string; unit: 'g' | 'kg' } {
   const typed = String(p.weight_unit ?? '');
   if (typed === 'kg' || typed === 'g') return { value: String(p.weight_g ?? ''), unit: typed };
   const g = Number(p.weight_g) || 0;
