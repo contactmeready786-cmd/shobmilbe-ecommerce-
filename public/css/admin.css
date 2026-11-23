@@ -3041,3 +3041,6 @@ body.admin #main.admin-main .kpi .kpi-sub { display: block; max-width: 100%; }
 body.admin #main.admin-main .panel > h2:first-child + p.muted:last-child { margin-top: 0; margin-bottom: 0; padding-block: 2px 4px; font-size: 13px; }
 body.admin #main.admin-main .nt-grid .set-head .set-title { white-space: nowrap; }
 body.admin #main.admin-main .nt-head-actions .btn { min-height: 28px; padding: 2px 10px; font-size: 12px; }
+/* 🔄 Refresh always sits right after the page title (left), the page's other buttons go to the right */
+body.admin #main.admin-main .title-row > h1 + .refresh-wrap { margin: 0 auto 0 4px; order: 0; }
+body.admin #main.admin-main .title-row > .row-actions:empty { display: none; }
