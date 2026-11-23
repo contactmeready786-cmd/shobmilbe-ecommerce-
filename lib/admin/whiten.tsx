@@ -53,7 +53,7 @@ const PAIR_IDS = `SELECT (e->>'id')::int FROM pack_singles b CROSS JOIN LATERAL 
 // pictures on a solid black/green/red/blue background"): the list Claude made by reading every picture
 // (settings.pic_check = {"<product id>": "why"}), shown here as its own group with the reason under each product
 const CHECK = 'check';
-const checkList = (s: { pic_check?: string }): Record<string, string> => { try { const v = JSON.parse(s.pic_check || '{}'); return v && typeof v === 'object' ? v : {}; } catch { return {}; } };
+const checkList = (s: object): Record<string, string> => { try { const v = JSON.parse(String((s as Record<string, unknown>).pic_check || '{}')); return v && typeof v === 'object' ? v : {}; } catch { return {}; } };
 const FILTERS: Record<string, string> = { todo: 'Still to do', done: '⬜ Whitened', ok: '✅ Original kept', all: 'All' };
 
 async function hosts() {
