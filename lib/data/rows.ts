@@ -1604,6 +1604,29 @@ export type VisitorsRow = {
   phone: string;
 };
 
+/** A row of voice_notes. */
+export type VoiceNotesRow = {
+  id: number;
+  kind: string;
+  direction: string;
+  phone: string;
+  name: string;
+  order_code: string;
+  page: string;
+  mime: string;
+  audio: Buffer;
+  bytes: number;
+  seconds: number;
+  status: string;
+  note: string;
+  ip: string;
+  staff_id: number | null;
+  handled_by: number | null;
+  handled_at: Date | null;
+  call_at: Date | null;
+  created_at: Date;
+};
+
 /** A row of warehouse_moves. */
 export type WarehouseMovesRow = {
   id: number;
@@ -1759,6 +1782,7 @@ export type Tables = {
   visit_events: VisitEventsRow;
   visit_sessions: VisitSessionsRow;
   visitors: VisitorsRow;
+  voice_notes: VoiceNotesRow;
   warehouse_moves: WarehouseMovesRow;
   warehouse_stock: WarehouseStockRow;
   warehouses: WarehousesRow;

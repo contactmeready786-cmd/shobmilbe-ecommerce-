@@ -7,6 +7,7 @@ import { $ } from '../dom.js';
 import type { ShopConfig } from '../shop-config.js';
 import { bestMatches, type HelpConfig, type HelpItem } from './helpmatch.js';
 import { track } from './track.js';
+import { VoicePanel } from './voice.js';
 
 export function startHelp(): void {
   const SM: Partial<ShopConfig> = window.SM || {};
@@ -52,6 +53,18 @@ function build(cfg: HelpConfig, close: () => void): HTMLElement {
   };
 
   const contactRow = h('div', { className: 'help-contact' }, ...contacts(cfg, '', close));
+  // 🎤 voice message: the help body and foot make way for the recorder; "ফিরে যান" brings them back
+  const voiceBox = h('div', { className: 'help-body help-voice', hidden: true });
+  let bodyEl: HTMLElement | null = null;
+  let footEl: HTMLElement | null = null;
+  const showVoice = (on: boolean) => {
+    if (on && !voiceBox.firstChild) paint(voiceBox, VoicePanel({ back: () => showVoice(false), phone: '' }));
+    voiceBox.hidden = !on;
+    if (bodyEl) bodyEl.hidden = on;
+    if (footEl) footEl.hidden = on;
+    if (on) track('contact', { label: 'voice' });
+  };
+  const voiceBtn = cfg.voice ? <button type="button" className="help-voice-btn" onClick={(e: Event) => { e.stopPropagation(); showVoice(true); }}>🎤 ভয়েস মেসেজ পাঠান <small>লিখতে হবে না</small></button> : null;
   const box = (
     <div className="help-box" role="dialog" aria-label="সাহায্য" hidden>
       <div className="help-head">
@@ -73,12 +86,16 @@ function build(cfg: HelpConfig, close: () => void): HTMLElement {
           </form>
         ) : null}
       </div>
+      {voiceBox}
       <div className="help-foot">
         <p className="help-label">উত্তর পাননি? সরাসরি কথা বলুন</p>
+        {voiceBtn}
         {contactRow}
       </div>
     </div>
   );
+  bodyEl = box.querySelector('.help-body:not(.help-voice)');
+  footEl = box.querySelector('.help-foot');
   document.body.appendChild(box);
   return box;
 }

@@ -311,3 +311,21 @@ export async function searchRequest(ctx: ApiCtx) {
   }
   return json(200, { ok: true, message: `✅ ধন্যবাদ! "${q}" পেলেই ${phone} নম্বরে আমরা যোগাযোগ করব।` });
 }
+
+// 🎤 a customer's voice message (help button → ভয়েস মেসেজ; lib/models/voice.ts). Up to ~2 minutes, a mobile number to
+// call back on; a few per hour per connection so nobody can fill the list.
+export async function voice(ctx: ApiCtx) {
+  if (ctx.settings.voice_on === '0' || ctx.settings.help_on !== '1') return json(403, { error: 'ভয়েস মেসেজ এখন বন্ধ আছে।' });
+  const b = await ctx.body();
+  if (b.website) return json(200, { ok: true, message: 'ধন্যবাদ!' }); // a robot filled the hidden box
+  if (!(await allow(ctx, 'voice:', 5, 3600))) return json(429, { error: 'অনেকগুলো মেসেজ পাঠানো হয়েছে। কিছুক্ষণ পর আবার চেষ্টা করুন, অথবা সরাসরি ফোন করুন।' });
+  const V = await import('../models/voice');
+  try {
+    const id = await V.addMessage({ data: b.audio, phone: b.phone, name: b.name, orderCode: b.order, page: b.page, seconds: b.seconds, ip: ctx.ip });
+    notify.later($services_push.count().then((n) => (n ? $services_push.sendAll({ title: '🎤 নতুন ভয়েস মেসেজ', body: `${normalizePhone(b.phone)} — শুনতে চাপুন`, url: `/admin/voice#v-${id}`, tag: 'voice' }) : null)).catch(() => null));
+    return json(200, { ok: true, message: 'ধন্যবাদ! আপনার মেসেজ পৌঁছেছে। আমরা শুনে আপনার নম্বরে যোগাযোগ করব।' });
+  } catch (e) {
+    if (e instanceof V.VoiceError) return json(400, { error: e.message });
+    throw e;
+  }
+}

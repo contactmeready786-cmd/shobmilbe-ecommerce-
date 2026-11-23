@@ -72,5 +72,6 @@ export function helpConfig(s: Settings): HelpConfig | null {
     tawk: !!s.chat_tawk_property,
     phone: C.phone,
     track: s.help_track !== '0',
+    voice: s.voice_on !== '0',
   };
 }

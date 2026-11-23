@@ -33,6 +33,7 @@ const TABS: Record<string, Tab[]> = {
   returns: [
     ['/admin/returns', 'Returns & refunds', 'orders', 'returns', '↩️'],
     ['/admin/complaints', 'Complaints (72 hours)', 'orders', 'complaints', '📮'],
+    ['/admin/voice', 'Voice & calls', 'orders', 'voice', '🎤'],
   ],
   fake: [
     ['/admin/checkout-otp', 'Checkout OTP', 'settings', 'checkout-otp', '📲'],

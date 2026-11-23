@@ -52,6 +52,8 @@ const KINDS: Record<string, Kind> = {
     children: [['purchase_items', 'purchase_id'], ['transactions', 'purchase_id']],
   },
   customer: { label: 'কাস্টমার', icon: '👤', table: 'customers', name: (r) => `${r.name || '(নাম নেই)'} (${r.phone})` },
+  // 🎤 a voice message / call recording (Admin → Voice & calls); the sound comes back with it
+  voice: { label: 'ভয়েস / কল রেকর্ডিং', icon: '🎤', table: 'voice_notes', name: (r) => `${r.kind === 'call' ? 'কল' : 'ভয়েস মেসেজ'} — ${r.phone || 'নম্বর নেই'}` },
   // a brand: its products stay, they just lose the brand (given back when it is restored)
   brand: { label: 'ব্র্যান্ড', icon: '🏷️', table: 'brands', name: (r) => r.name, refs: [['products', 'brand_id']], imageCol: 'logo_id' },
   // an order: its items, payments and accounts entries go with it; goods still "taken" go back on the shelf

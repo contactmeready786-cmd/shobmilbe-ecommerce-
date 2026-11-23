@@ -12,6 +12,8 @@ export type HelpConfig = {
   wa: string; ms: string; tawk: boolean; phone: string;
   /** show the order-track box */
   track: boolean;
+  /** 🎤 voice messages on (Admin → Voice & calls) */
+  voice?: boolean;
 };
 
 const BN_DIGITS = '০১২৩৪৫৬৭৮৯';

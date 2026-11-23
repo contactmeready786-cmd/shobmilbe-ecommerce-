@@ -474,6 +474,39 @@ body.lb-open { overflow: hidden; }
 .help-c.ms { background: #0084FF; }
 .help-c.live { background: var(--amber-d); }
 .help-c.call { background: var(--blue); }
+.help-body[hidden], .help-foot[hidden] { display: none; }
+/* 🎤 voice message (client/shop/voice.tsx) */
+.help-voice-btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; margin: 0 0 8px; padding: 10px 12px; border: 1.5px dashed var(--blue); border-radius: 12px; background: var(--blue-l); color: var(--blue-d); font: 700 .92rem var(--body); cursor: pointer; }
+.help-voice-btn small { font-weight: 500; color: var(--muted); font-size: .78rem; }
+.help-voice-btn:hover { background: #fff; }
+.vm { display: flex; flex-direction: column; align-items: stretch; gap: 8px; }
+.vm-back { align-self: flex-start; border: 0; background: none; color: var(--blue); font: 600 .85rem var(--body); padding: 2px 0; cursor: pointer; }
+.vm-title { margin: 2px 0 0; font-weight: 800; font-size: 1.02rem; color: var(--ink); }
+.vm-sub { margin: 0; font-size: .86rem; color: var(--ink-2); line-height: 1.5; }
+.vm-rec { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 18px 0 6px; }
+.vm-rec[hidden], .vm-review[hidden], .vm-hint[hidden] { display: none; }
+.vm-mic { position: relative; width: 78px; height: 78px; border-radius: 50%; border: 0; background: var(--blue); box-shadow: 0 8px 22px rgba(8,102,214,.35); cursor: pointer; display: grid; place-items: center; transition: transform .15s, background .15s; }
+.vm-mic::before { content: '🎤'; font-size: 2rem; line-height: 1; }
+.vm-mic:active { transform: scale(.96); }
+.vm-mic.on { background: var(--red); box-shadow: 0 0 0 0 rgba(217,45,32,.45); animation: vmpulse 1.4s ease-out infinite; }
+.vm-mic.on::before { content: '■'; color: #fff; font-size: 1.6rem; }
+.vm-dot { position: absolute; top: 6px; right: 6px; width: 12px; height: 12px; border-radius: 50%; background: transparent; }
+.vm-mic.on .vm-dot { background: #fff; }
+@keyframes vmpulse { 0% { box-shadow: 0 0 0 0 rgba(217,45,32,.45); } 100% { box-shadow: 0 0 0 18px rgba(217,45,32,0); } }
+@media (prefers-reduced-motion: reduce) { .vm-mic.on { animation: none; } }
+.vm-time { font: 700 1.15rem var(--body); font-variant-numeric: tabular-nums; color: var(--ink); }
+.vm-hint { margin: 0; text-align: center; font-size: .8rem; color: var(--muted); }
+.vm-review { display: flex; flex-direction: column; gap: 8px; }
+.vm-audio { width: 100%; height: 40px; }
+.vm-fields { display: flex; flex-direction: column; gap: 6px; }
+.vm-fields input:not(.hp) { font: inherit; font-size: .92rem; padding: 9px 12px; border: 1.5px solid var(--line); border-radius: 10px; background: var(--paper); }
+.vm-fields input:focus { outline: none; border-color: var(--blue); background: #fff; }
+.vm-actions { display: flex; gap: 8px; justify-content: space-between; }
+.vm-actions .btn { flex: 1; }
+.vm-status { margin: 0; min-height: 1.2em; text-align: center; font-size: .84rem; color: var(--ink-2); }
+.vm-status.warn { color: var(--red); }
+.vm-status.live { color: var(--red); font-weight: 700; }
+.vm-done { margin: 6px 0; padding: 12px; border-radius: 10px; background: var(--green-l); color: var(--ink); font-weight: 600; text-align: center; }
 .toast { position: fixed; left: 50%; bottom: 20px; transform: translate(-50%, 120px); background: var(--ink); color: #fff; padding: 12px 18px; border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,.25); z-index: 70; transition: transform .25s ease, visibility .25s; visibility: hidden; display: flex; align-items: center; gap: 14px; max-width: calc(100% - 32px); }
 .toast.show { transform: translate(-50%, 0); visibility: visible; }
 .toast a { color: var(--amber); font-weight: 700; white-space: nowrap; }

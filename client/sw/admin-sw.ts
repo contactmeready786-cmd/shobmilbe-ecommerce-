@@ -22,6 +22,23 @@
     };
     e.waitUntil(sw.registration.showNotification(d.title || 'সবমিলবে', opts));
   });
+  // 🎤 "Share → সবমিলবে Admin" from the phone's Phone app (public/admin.webmanifest share_target): the recording is
+  // kept in the cache and Admin → Voice & calls picks it up (client/admin/voice.tsx). Every other request is left alone.
+  sw.addEventListener('fetch', (e) => {
+    const url = new URL(e.request.url);
+    if (e.request.method !== 'POST' || url.pathname !== '/admin/voice/share') return;
+    e.respondWith((async () => {
+      try {
+        const form = await e.request.formData();
+        const file = form.get('audio');
+        if (file && typeof file !== 'string') {
+          const c = await caches.open('sm-share');
+          await c.put('/admin/voice/shared-file', new Response(file, { headers: { 'Content-Type': file.type || 'application/octet-stream', 'X-File-Name': encodeURIComponent(file.name || 'recording') } }));
+        }
+      } catch { /* the page says nothing arrived */ }
+      return Response.redirect('/admin/voice?shared=1#add-call', 303);
+    })());
+  });
   sw.addEventListener('notificationclick', (e) => {
     e.notification.close();
     const url = new URL(e.notification.data?.url || '/admin', sw.location.origin).href;

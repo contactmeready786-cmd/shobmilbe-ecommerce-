@@ -1390,6 +1390,19 @@ CREATE TABLE IF NOT EXISTS video_posts (
 );
 CREATE INDEX IF NOT EXISTS video_posts_due ON video_posts(post_at) WHERE NOT done;
 `,
+  // 🎤 ভয়েস ও কল (owner, 2026-11-23; lib/models/voice.ts): customers' voice messages from the shop and the shop phone's
+  // call recordings, heard in Admin → Voice & calls. The sound is kept here (small, private), never on ImageKit.
+  `
+CREATE TABLE IF NOT EXISTS voice_notes (
+  id serial PRIMARY KEY, kind text NOT NULL DEFAULT 'message', direction text NOT NULL DEFAULT '',
+  phone text NOT NULL DEFAULT '', name text NOT NULL DEFAULT '', order_code text NOT NULL DEFAULT '', page text NOT NULL DEFAULT '',
+  mime text NOT NULL, audio bytea NOT NULL, bytes int NOT NULL DEFAULT 0, seconds int NOT NULL DEFAULT 0,
+  status text NOT NULL DEFAULT 'new', note text NOT NULL DEFAULT '', ip text NOT NULL DEFAULT '',
+  staff_id int, handled_by int, handled_at timestamptz, call_at timestamptz, created_at timestamptz DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS voice_notes_new ON voice_notes(created_at DESC);
+CREATE INDEX IF NOT EXISTS voice_notes_phone ON voice_notes(phone);
+`,
 ];
 
 // Data steps that need code, keyed by migration number (run after its SQL).
@@ -1761,6 +1774,8 @@ const DEFAULT_SETTINGS: Record<string, string> = {
   chat_whatsapp_button: '1', chat_messenger_page: '', chat_tawk_property: '', chat_tawk_widget: 'default', chat_script: '',
   // 🙋 help button (lib/models/helpbot.ts): on; help_items empty = the suggested answers made from the settings
   help_on: '1', help_track: '1', help_items: '',
+  // 🎤 voice messages from customers (help button) and how long recordings are kept (lib/models/voice.ts)
+  voice_on: '1', voice_keep_days: '90',
   // payments
   pay_cod: '1', pay_cod_note: 'পণ্য হাতে পেয়ে টাকা দিন',
   pay_bkash: '0', bkash_sandbox: '1', bkash_app_key: '', bkash_app_secret: '', bkash_username: '', bkash_password: '',

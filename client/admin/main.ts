@@ -12,6 +12,7 @@ import { startWhiten } from './whiten.js';
 import { startRecognize } from './recognize.js';
 import { startCards } from './cards.js';
 import { startWhitenMine, startToJpg } from './whitenmine.js';
+import { startVoice } from './voice.js';
 
 // 📖 Boxes are fixed cards, never folded (owner, 2026-11-19, supersedes 2026-11-17 "a box the owner folds stays
 // folded"): every settings box, tool panel and ⓘ note on an admin page is shown open, as a plain card — no arrow,
@@ -46,4 +47,5 @@ whenReady(() => {
   startCards();
   startWhitenMine();
   startToJpg();
+  startVoice();
 });

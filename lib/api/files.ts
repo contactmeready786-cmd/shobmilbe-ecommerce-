@@ -254,6 +254,8 @@ export async function runShopJobs(settings: ApiCtx['settings']): Promise<Record<
   await P.timeJob('Facebook/Instagram পোস্ট', () => $services_autopost.tick(settings));
   // 🎬 reels set for now or a later time (Admin → Social media auto post → Video posts)
   await P.timeJob('ভিডিও পোস্ট', async () => (await import('../services/videopost')).tick(settings));
+  // 🎤 voice messages / call recordings older than the owner's keeping days go for good (Admin → Voice & calls)
+  await P.timeJob('পুরোনো ভয়েস মোছা', async () => (await import('../models/voice')).purgeOld(settings), { optional: true });
   // 💬 "দাম কত?" under the page's posts → price + order link in the comment (every ~10 minutes, when switched on)
   await P.timeJob('কমেন্টে অটো উত্তর', () => $services_fbreply.run(settings));
   // ✈️ the same daily posts to the shop's Telegram channel (when one is connected)
