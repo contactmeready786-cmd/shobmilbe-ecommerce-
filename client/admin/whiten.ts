@@ -441,6 +441,12 @@ export function startWhiten(): void {
       } catch (er) { toast((er as Error).message); }
       return;
     }
+    // 🔎 picture check: the owner has looked at this product — take it off the check list
+    const chk = hit(e, '[data-wt-check-done]');
+    if (chk) {
+      try { await postJSON('/admin/api/pic-check', { done: Number(chk.dataset.wtCheckDone) }); chk.closest('.wt-product')?.classList.add('is-ok'); chk.replaceWith(document.createTextNode(' ✓ Off the check list')); } catch (er) { toast((er as Error).message); }
+      return;
+    }
     const oneBtn = hit(e, '[data-wt-one]');
     if (oneBtn) { const f = oneBtn.closest<HTMLElement>('[data-wt-media]'); if (f) void run([f]); return; }
     const undo = hit(e, '[data-wt-undo]');
