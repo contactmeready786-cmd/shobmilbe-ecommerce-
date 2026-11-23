@@ -2994,3 +2994,25 @@ body.admin #main.admin-main :is(.panel, .set-card, form) > .switch-row:not(.gh-s
   border-bottom: 1px solid var(--a-line, #E4E9F2); border-radius: 0; background: transparent; box-shadow: none; }
 body.admin #main.admin-main :is(.panel, .set-card, form) > .switch-row:not(.gh-set .switch-row):has(input:checked) { background: transparent; border-color: var(--a-line, #E4E9F2); }
 body.admin #main.admin-main :is(.panel, .set-card, form) > .switch-row .switch-text b { font-size: 13.5px; font-weight: 600; }
+
+/* 📭 an empty list says so in one calm, centred spot (not a thin grey line) */
+body.admin #main.admin-main :is(.panel, .set-card) > p.muted:only-child { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+  min-height: 160px; margin: 0; text-align: center; font-size: 13px; color: var(--a-mut, #5B6B85); }
+body.admin #main.admin-main :is(.panel, .set-card) > p.muted:only-child::before { content: '📭'; width: 42px; height: 42px; display: grid; place-items: center;
+  border-radius: 50%; background: #F2F5FA; font-size: 19px; }
+/* 📝 "New …" forms beside a list: paired boxes stay side by side, so the form isn't a long column */
+body.admin #main.admin-main .two-col .field-row { grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); }
+/* ✅ status checklists (Security, Server & database): two even columns of slim rows; the colour is a thin edge, not a fill */
+body.admin #main.admin-main .sec-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 8px; }
+body.admin #main.admin-main .sec-row { align-items: flex-start; gap: 10px; padding: 9px 12px; background: #fff; border: 1px solid var(--a-line, #E4E9F2);
+  border-left: 3px solid #CBD5E1; border-radius: 10px; font-size: 13px; line-height: 1.4; }
+body.admin #main.admin-main .sec-row.ok { background: #fff; border-color: var(--a-line, #E4E9F2); border-left-color: #22A06B; }
+body.admin #main.admin-main .sec-row.todo { background: #fff; border-color: var(--a-line, #E4E9F2); border-left-color: #E5A100; }
+body.admin #main.admin-main .sec-row .sec-ic { font-size: 14px; line-height: 1.4; }
+body.admin #main.admin-main .sec-row b { font-size: 13px; font-weight: 650; }
+body.admin #main.admin-main .sec-row .small.muted { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: 12px; }
+/* 🏦 bank / cash account cards: balance on top, the boxes two to a row */
+body.admin #main.admin-main .acc-card { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0 12px; align-content: start; }
+body.admin #main.admin-main .acc-card > :is(.acc-bal, .field-row, .check, .row-actions, h2, h3, p) { grid-column: 1 / -1; }
+body.admin #main.admin-main .acc-card .field-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+body.admin #main.admin-main .acc-card .acc-bal { font-size: 1.3rem; font-weight: 750; margin: 0 0 8px; }

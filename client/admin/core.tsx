@@ -104,10 +104,19 @@ function saveReminder(): void {
 // (a new order or a change from another device shows at once — no need to reload the whole browser)
 const REFRESH_PAGES = /^\/admin(\/orders(\/incomplete)?|\/customers|\/products|\/inventory|\/purchases|\/suppliers|\/reports(\/[a-z-]+)?|\/marketing\/visitors(\/[a-z-]+)?|\/research|\/reach|\/growth|\/accounts(\/[a-z]+)?|\/reviews|\/blocklist)?\/?$/;
 function refreshButton(): void {
-  if (!REFRESH_PAGES.test(location.pathname)) return;
   const main = $('#main');
   let head = main && ($('.title-row', main) || $('h1', main));
   if (!head) return;
+  // a page that draws its own 🔄 button: one Refresh only, and always in the same spot — right after the title
+  // (owner, 2026-11-23: two Refresh buttons on one page looked careless)
+  const own = main ? [...main.querySelectorAll<HTMLElement>('a.btn, button.btn')].find((b) => (b.textContent || '').trim().startsWith('🔄')) : undefined;
+  if (own) {
+    const h1 = head.tagName === 'H1' ? head : head.querySelector('h1');
+    const wrap = own.closest('.refresh-wrap');
+    if (h1 && !wrap) { const place = <div className="refresh-wrap" />; h1.after(place); place.appendChild(own); }
+    return;
+  }
+  if (!REFRESH_PAGES.test(location.pathname)) return;
   const btn = <button type="button" className="btn btn-ghost btn-sm refresh-btn" title="Load this page's newest data"><span className="refresh-ic" aria-hidden="true">🔄</span> Refresh</button> as HTMLButtonElement;
   btn.addEventListener('click', () => {
     btn.disabled = true;
