@@ -2,7 +2,7 @@
 // Starts once React has taken over the page (see whenReady), so React never finds something already changed.
 import { whenReady } from '../dom.js';
 import { startAppInvite } from './appinvite.js';
-import { startCartButtons, updateCount } from './cart.js';
+import { startCartButtons, startFbt, updateCount } from './cart.js';
 import { startCartPage } from './cartpage.js';
 import { startCheckout } from './checkout.js';
 import { startForms } from './forms.js';
@@ -16,7 +16,7 @@ import { startUi } from './ui.js';
 
 whenReady(() => {
   const parts: [string, () => void][] = [
-    ['tracking', startTracking], ['ui', startUi], ['cart', startCartButtons], ['product', startProduct],
+    ['tracking', startTracking], ['ui', startUi], ['cart', startCartButtons], ['bought together', startFbt], ['product', startProduct],
     ['cart page', startCartPage], ['landing', startLanding], ['checkout', startCheckout], ['live', startLive], ['lists', startLists], ['forms', startForms], ['app invite', startAppInvite], ['help', startHelp],
   ];
   // one broken part must never stop the rest of the page (the cart keeps working even if, say, live scores fail)

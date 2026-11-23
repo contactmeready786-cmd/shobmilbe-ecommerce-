@@ -725,6 +725,53 @@ async function crossFor(ids: unknown[] | null | undefined, limit = 6): Promise<P
     WHERE l.product_id = ANY($1::int[]) AND l.kind='cross' AND p.active AND p.stock > 0 AND NOT (p.id = ANY($1::int[])) ORDER BY p.id LIMIT $2`, [clean, limit]);
 }
 
+// 🛒 "একসাথে কেনা হয়" (owner, 2026-11-23 — Amazon's "frequently bought together"):
+// the products that real orders bought together with this one (at least FBT_MIN_ORDERS orders, not cancelled or
+// returned, gifts left out, a variant counted as its main product), most often first; while the shop has too few
+// orders for that, the owner's own "এর সাথে যা লাগবে" (cross) picks fill the places. Only active, in-stock products.
+// Kept in memory for 6 hours per product, so a product page costs the database one small query at most 4 times a day.
+const FBT_MIN_ORDERS = 2;
+const FBT_TTL = 6 * 3600 * 1000;
+const fbtCache = new Map<string, { at: number; ids: number[] }>();
+async function boughtTogetherIds(productId: number, limit: number): Promise<number[]> {
+  const key = `${productId}:${limit}`;
+  const hit = fbtCache.get(key);
+  if (hit && Date.now() - hit.at < FBT_TTL) return hit.ids;
+  const rows = await q<{ id: number }>(`
+    WITH mine AS (
+      SELECT DISTINCT oi.order_id FROM order_items oi JOIN products pr ON pr.id = oi.product_id
+      JOIN orders o ON o.id = oi.order_id
+      WHERE coalesce(pr.parent_id, pr.id) = $1 AND oi.kind <> 'gift' AND o.status NOT IN ('cancelled', 'returned')
+    ), together AS (
+      SELECT coalesce(pr.parent_id, pr.id) AS id, count(DISTINCT oi.order_id)::int AS n
+      FROM order_items oi JOIN mine m ON m.order_id = oi.order_id JOIN products pr ON pr.id = oi.product_id
+      WHERE oi.kind <> 'gift' AND coalesce(pr.parent_id, pr.id) <> $1
+      GROUP BY 1 HAVING count(DISTINCT oi.order_id) >= $2
+    ), picked AS (
+      SELECT t.id, t.n, 0 AS src, 0 AS sort FROM together t
+      UNION ALL
+      SELECT l.linked_id, 0, 1, l.sort FROM product_links l WHERE l.product_id = $1 AND l.kind = 'cross'
+    )
+    SELECT x.id FROM (SELECT DISTINCT ON (pk.id) pk.id, pk.n, pk.src, pk.sort FROM picked pk ORDER BY pk.id, pk.src) x
+    JOIN products p ON p.id = x.id
+    WHERE p.active AND p.parent_id IS NULL AND (${STOCK_EXPR}) > 0
+    ORDER BY x.src, x.n DESC, x.sort, x.id LIMIT $3`, [productId, FBT_MIN_ORDERS, limit]);
+  const ids = rows.map((r) => r.id);
+  if (fbtCache.size > 5000) fbtCache.clear(); // never grows without end
+  fbtCache.set(key, { at: Date.now(), ids });
+  return ids;
+}
+async function boughtTogether(productId: Id, limit = 2): Promise<Product[]> {
+  const id = int(productId);
+  if (!(id > 0)) return [];
+  const ids = await boughtTogetherIds(id, limit);
+  if (!ids.length) return [];
+  const list = await q<Product>(`SELECT ${PUBLIC_COLS} FROM products p LEFT JOIN categories c ON c.id=p.category_id
+    WHERE p.id = ANY($1::int[]) AND p.active`, [ids]);
+  const byId = new Map(list.map((p) => [Number(p.id), p]));
+  return ids.map((x) => byId.get(x)).filter((p): p is Product => !!p && Number(p.stock) > 0);
+}
+
 /** True when this product is a copied, out-of-stock one that stays out of Google (COPIED_OUT_SQL). */
 async function copiedOut(id: Id): Promise<boolean> {
   const r = await one<{ out: boolean }>(`SELECT ${COPIED_OUT_SQL} AS out FROM products p WHERE p.id=$1`, [id]);
@@ -1132,4 +1179,4 @@ async function inventorySummary(): Promise<InventorySummary | null> {
     FROM products WHERE active AND product_type='single' AND variant_count = 0`);
 }
 
-export { NEED_SQL, COPIED_OUT_SQL, OWN_SOURCES, copiedOut, brandsIn, oweStock, specFacets, directPictureUrl, fillBnNames, fullBnNames, remakeBnNames, saveMedia, keepPrivate, mediaWithoutHash, setMediaHash, getMedia, mediaNeedingWatermark, watermarkProgress, setWatermark, getWatermarked, attachMedia, claimMedia, deleteMedia, cleanupMedia, listCategories, categoryTree, categoryOptions, categorySubtree, saveCategory, deleteCategory, listBrands, getBrand, saveBrand, brandIdFor, cleanSpecs, addRedirect, findRedirect, LINK_KINDS, linkedSkus, setLinks, linkedProducts, crossFor, listProducts, countProducts, productStats, getProduct, getProductsByIds, listVariants, saveVariants, syncVariants, MAX_VARIANTS, bundleItems, saveProduct, deleteProduct, deleteAllProducts, duplicateProduct, skuTaken, nextSku, takeSku, moveStock, changeDamaged, cleanLocation, listLocations, reservedFor, OPEN_STATUSES, stockParts, stockMovements, inventorySummary, STOCK_REASONS, MAX_PRODUCT_IMAGES, WARRANTY, WARRANTY_TYPES, warrantyText, logPriceChange, priceHistory, productLedger, correctCost };
+export { NEED_SQL, COPIED_OUT_SQL, OWN_SOURCES, copiedOut, brandsIn, oweStock, specFacets, directPictureUrl, fillBnNames, fullBnNames, remakeBnNames, saveMedia, keepPrivate, mediaWithoutHash, setMediaHash, getMedia, mediaNeedingWatermark, watermarkProgress, setWatermark, getWatermarked, attachMedia, claimMedia, deleteMedia, cleanupMedia, listCategories, categoryTree, categoryOptions, categorySubtree, saveCategory, deleteCategory, listBrands, getBrand, saveBrand, brandIdFor, cleanSpecs, addRedirect, findRedirect, LINK_KINDS, linkedSkus, setLinks, linkedProducts, crossFor, boughtTogether, listProducts, countProducts, productStats, getProduct, getProductsByIds, listVariants, saveVariants, syncVariants, MAX_VARIANTS, bundleItems, saveProduct, deleteProduct, deleteAllProducts, duplicateProduct, skuTaken, nextSku, takeSku, moveStock, changeDamaged, cleanLocation, listLocations, reservedFor, OPEN_STATUSES, stockParts, stockMovements, inventorySummary, STOCK_REASONS, MAX_PRODUCT_IMAGES, WARRANTY, WARRANTY_TYPES, warrantyText, logPriceChange, priceHistory, productLedger, correctCost };

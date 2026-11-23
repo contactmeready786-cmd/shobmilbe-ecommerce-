@@ -224,7 +224,7 @@ export async function resolveShop(ctx: ShopCtx): Promise<Resolved> {
     // the page that comes out is exactly the same
     const slugs = [...String(product.description || '').matchAll(/^\s*\/p\/([A-Za-z0-9ঀ-৿-]+)\s*$/gm)].map((x) => x[1]).slice(0, 6);
     const first = (product.images || [])[0];
-    const [questions, related, inlineList, mainSrc, kits, canonical] = await Promise.all([
+    const [questions, related, inlineList, mainSrc, kits, canonical, fbt] = await Promise.all([
       U.on(settings, 'ui_qa') ? $models_extras.publishedQuestions(product.id) : Promise.resolve([]),
       // related: the owner's own choice, otherwise the same category
       chosen.length ? Promise.resolve(chosen.slice(0, cols)) : product.category_slug
@@ -235,6 +235,8 @@ export async function resolveShop(ctx: ShopCtx): Promise<Resolved> {
       first ? catalog.directPictureUrl(first, settings).catch(() => null) : Promise.resolve(null),
       settings.kits_on !== '0' ? $models_kits.kitsWith(product.id).catch(() => []) : Promise.resolve([]),
       dupcanon.canonicalFor(product.slug),
+      // 🛒 "একসাথে কেনা হয়" — from real orders, else the owner's cross picks (catalog.boughtTogether)
+      U.on(settings, 'ui_pdp_fbt') ? catalog.boughtTogether(product.id, 2).catch(() => []) : Promise.resolve([]),
     ]);
     const offers = offerRows.map((o) => ({ label: pricing.offerTitle(o, bn), ends_on: o.ends_on ? String(o.ends_on).slice(0, 10) : '' }));
     const inlineProducts: Record<string, catalog.FullProduct> = {};
@@ -281,7 +283,7 @@ export async function resolveShop(ctx: ShopCtx): Promise<Resolved> {
     product.name = seo.cleanName(product.name); // "Product details of …" copied from other shops never shows
     return done(seo.productTitle(product), shop.productPage({ product, related, settings, inlineProducts, categories, mainSrc,
       tiers: tiersMap.get(product.id) || [], offers, reviews: rv.reviews, reviewStats: rv.stats, cross, upsell, questions, selectedVariant: int(query.get('v')),
-      kits }), {
+      kits, fbt }), {
       noindex: !!product.noindex || await catalog.copiedOut(product.id).catch(() => false), jsonLdExtra: breadcrumb,
       description: seo.productDescription(product, settings),
       keywords: seo.productKeywords(product),

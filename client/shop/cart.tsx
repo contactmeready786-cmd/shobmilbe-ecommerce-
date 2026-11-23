@@ -241,3 +241,50 @@ export function startCartButtons(): void {
     location.href = '/cart';
   });
 }
+
+// 🛒 "একসাথে কেনা হয়" box on a product page (lib/views/shop.tsx fbtBox): the ticks change the total, the button puts
+// every ticked product in the cart at its smallest allowed amount. The page's own product is read from its main
+// "কার্টে যোগ করুন" button at the moment of the press, so a colour/size picked on the page is the one added.
+// A product that is already in the cart is not added a second time.
+export function startFbt(): void {
+  const box = $('[data-fbt]');
+  if (!box) return;
+  const items = () => $all<HTMLInputElement>('[data-fbt-item]', box);
+  const btn = $<HTMLButtonElement>('[data-fbt-add]', box);
+  const total = $('[data-fbt-total]', box);
+  const refresh = () => {
+    const on = items().filter((i) => i.checked);
+    const sum = Math.round(on.reduce((t, i) => t + (Number(i.getAttribute('data-amount')) || 0), 0) * 100) / 100;
+    if (total) total.textContent = money(sum);
+    if (btn) btn.disabled = on.length === 0;
+    for (const i of items()) i.closest('.fbt-it')?.classList.toggle('off', !i.checked);
+  };
+  box.addEventListener('change', refresh);
+  refresh();
+  btn?.addEventListener('click', () => {
+    const cart = readCart();
+    const added: { id: string; name: string; price: number; qty: number }[] = [];
+    for (const i of items().filter((x) => x.checked)) {
+      let id = i.getAttribute('data-id') || '';
+      let name = i.getAttribute('data-name') || '';
+      let price = Number(i.getAttribute('data-price')) || 0;
+      let packs = i.getAttribute('data-packs');
+      const want = Math.max(1, Number(i.getAttribute('data-qty')) || 1);
+      if (i.hasAttribute('data-fbt-main')) {
+        const main = $('[data-add][data-with-qty]');
+        if (!main) continue;
+        id = main.getAttribute('data-add') || '';
+        name = main.getAttribute('data-name') || '';
+        price = Number(main.getAttribute('data-price')) || 0;
+        packs = main.getAttribute('data-packs');
+      }
+      if (!id || cart[id]) continue;
+      if (packs) rememberPacks(id, packs);
+      const res = addToCart(id, want, price);
+      added.push({ id, name, price, qty: res.qty });
+    }
+    if (added.length) track('add_to_cart', { items: added });
+    updateCount(true);
+    toastLink(added.length ? `✅ ${bn(added.length)}টি পণ্য কার্টে যোগ হয়েছে` : '✅ এগুলো আগেই কার্টে আছে', ['/cart', 'কার্ট দেখুন'], 4500);
+  });
+}
