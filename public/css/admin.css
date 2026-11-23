@@ -2849,7 +2849,9 @@ body.admin #main.admin-main .gh-side-warn { grid-column: 1 / -1; margin: 0; padd
 .vc-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; }
 .vc-bar .chips { margin: 0; }
 .vc-bar .chip b { margin-left: 4px; font-variant-numeric: tabular-nums; }
-.vc-bar .toolbar { margin: 0; }
+.vc-bar form.toolbar { margin: 0; padding: 0; background: none; border: 0; box-shadow: none; backdrop-filter: none; flex-wrap: nowrap; width: auto; }
+.vc-bar form.toolbar input[type=search] { width: 260px; flex: 0 1 260px; margin: 0; }
+.vc-bar form.toolbar .btn { flex: none; margin: 0; }
 .vc-grid { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 16px; align-items: start; }
 .vc-list { padding: 0; overflow: hidden; }
 .vc-item { padding: 14px 16px; border-bottom: 1px solid var(--line); scroll-margin-top: 90px; }
