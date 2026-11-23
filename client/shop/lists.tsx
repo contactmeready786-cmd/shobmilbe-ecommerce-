@@ -12,6 +12,7 @@ export function startLists(): void {
   compare();
   recent();
   forYou();
+  lazyRails();
   search();
   searchPage();
 }
@@ -151,6 +152,30 @@ function recent(): void {
     rbox.addEventListener('click', (e) => { if (hit(e, '[data-recent-clear]')) { store(RKEY, '[]'); rbox.hidden = true; } });
   }
   if (hereId) store(RKEY, JSON.stringify([hereId, ...ids(RKEY).filter((x) => x !== hereId)].slice(0, 20)));
+}
+
+// ---------- ⚡ home page category rows far down the page: cards fetched when the visitor scrolls near (2026-11-23) ----------
+function lazyRails(): void {
+  const rails = $all('[data-rail-lazy]');
+  if (!rails.length) return;
+  const fill = (el: Element) => {
+    const want = (el.getAttribute('data-rail-lazy') || '').split(',').filter((x) => /^\d+$/.test(x)).slice(0, 24);
+    el.removeAttribute('data-rail-lazy');
+    if (!want.length) return;
+    getJson<{ html?: string }>(`/api/cards?ids=${want.join(',')}`).then((j) => {
+      if (!j.html) return;
+      serverHtml(el, j.html);
+      el.removeAttribute('aria-busy');
+      paintWish();
+      paintCmp();
+      el.dispatchEvent(new Event('scroll')); // the row's arrows look again (client/shop/ui.tsx rails)
+    }).catch(() => { /* the row stays empty; "সব দেখুন" still opens the list */ });
+  };
+  if (!('IntersectionObserver' in window)) { rails.forEach(fill); return; }
+  const io = new IntersectionObserver((list) => {
+    for (const en of list) if (en.isIntersecting) { io.unobserve(en.target); fill(en.target); }
+  }, { rootMargin: '900px 0px' });
+  rails.forEach((r) => io.observe(r));
 }
 
 // ---------- ✨ "আপনার জন্য" (from what this browser looked at, has in the cart and ordered) ----------

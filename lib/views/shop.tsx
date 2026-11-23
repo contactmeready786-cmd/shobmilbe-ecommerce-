@@ -102,9 +102,12 @@ function catCrumbs(node: CategoryNode, last = true) {
 
 // A row of products that slides sideways (arrows on computers, swipe on phones).
 // auto = moves on by itself, one card at a time, and stops while someone is looking at it.
-function rail(title: ReactNode, link: string, products: ShopProduct[] | null | undefined, s: Settings, { badge = '', auto = false, sub = '', chips = null, lead = 0 }: { badge?: string | ((p: ShopProduct) => string); auto?: boolean; sub?: ReactNode; chips?: DbRow[] | null; lead?: number } = {}) {
+function rail(title: ReactNode, link: string, products: ShopProduct[] | null | undefined, s: Settings, { badge = '', auto = false, sub = '', chips = null, lead = 0, lazy = false }: { badge?: string | ((p: ShopProduct) => string); auto?: boolean; sub?: ReactNode; chips?: DbRow[] | null; lead?: number; lazy?: boolean } = {}) {
   if (!products || !products.length) return '';
-  return (<section className="home-sec rail-sec"><div className="section-head"><div><h2><Val v={title} /></h2>{(sub ? <p className="sec-sub"><Val v={sub} /></p> : null)}</div><div className="rail-head-r">{(link ? <a href={attrValue(link)}>সব দেখুন →</a> : null)}{' '}<button type="button" className="rail-btn" data-rail-prev="" aria-label="আগের পণ্য">‹</button><button type="button" className="rail-btn" data-rail-next="" aria-label="পরের পণ্য">›</button></div></div>{(chips && chips.length ? <div className="chips rail-chips">{jsxList(chips.map((c) => <a className="chip" href={`/products?cat=${attrValue(c.slug)}`}><Val v={c.name} /></a>))}</div> : null)}<div className="rail" data-rail="" data-rail-auto={(auto) ? "" : undefined}><Val v={products.map((p, i) => productCard(p, s, typeof badge === 'function' ? badge(p) : badge, i < lead ? 'eager' : ''))} /></div></section>);
+  return (<section className="home-sec rail-sec"><div className="section-head"><div><h2><Val v={title} /></h2>{(sub ? <p className="sec-sub"><Val v={sub} /></p> : null)}</div><div className="rail-head-r">{(link ? <a href={attrValue(link)}>সব দেখুন →</a> : null)}{' '}<button type="button" className="rail-btn" data-rail-prev="" aria-label="আগের পণ্য">‹</button><button type="button" className="rail-btn" data-rail-next="" aria-label="পরের পণ্য">›</button></div></div>{(chips && chips.length ? <div className="chips rail-chips">{jsxList(chips.map((c) => <a className="chip" href={`/products?cat=${attrValue(c.slug)}`}><Val v={c.name} /></a>))}</div> : null)}{(lazy
+    // ⚡ a row far down the page: only the product numbers are sent; the cards come (/api/cards) as the visitor scrolls near
+    ? <div className="rail" data-rail="" data-rail-lazy={products.map((p) => p.id).join(',')} aria-busy="true"></div>
+    : <div className="rail" data-rail="" data-rail-auto={(auto) ? "" : undefined}><Val v={products.map((p, i) => productCard(p, s, typeof badge === 'function' ? badge(p) : badge, i < lead ? 'eager' : ''))} /></div>)}</section>);
 }
 
 // ---------------------------------------------------------------- home
@@ -149,7 +152,7 @@ function home({ settings: s, sections, data }: HomeProps) {
     if (key === 'featured') return (<div className="wrap">{rail(U.text(s, 'uit_home_featured'), '/products', data.featured, s, { lead: lead(data.featured), sub: U.text(s, 'uit_home_featured_sub') })}</div>);
     if (key === 'budget') return (<div className="wrap">{rail(U.text(s, 'uit_home_budget'), '/products?sort=price_asc', data.budget, s, { lead: lead(data.budget), sub: U.text(s, 'uit_home_budget_sub') })}</div>);
     if (key === 'cat_rows') {
-      return (<div className="wrap"><Val v={(data.catRows || []).map((r) => rail(`${r.cat.icon} ${r.cat.name}`, `/products?cat=${r.cat.slug}`, r.products, s, { chips: r.chips, lead: lead(r.products) }))} /></div>);
+      return (<div className="wrap"><Val v={(data.catRows || []).map((r, i) => rail(`${r.cat.icon} ${r.cat.name}`, `/products?cat=${r.cat.slug}`, r.products, s, { chips: r.chips, lead: lead(r.products), lazy: i >= 2 }))} /></div>);
     }
     if (key === 'promo' && data.promos.length) {
       return (<div className="wrap"><div className="promos">{jsxList(data.promos.map((b: Body) => <a href={attrValue(security.safeUrl(b.link))} className="promo"><img src={`/media/${attrValue(b.image_id)}`} alt={attrValue(b.title || '')} loading="lazy" draggable="false" /></a>))}</div></div>);

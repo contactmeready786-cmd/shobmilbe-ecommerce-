@@ -695,6 +695,7 @@ body.protect .card-pic img, body.protect .g-main img, body.protect .g-thumb img,
   overflow-x: auto; scroll-snap-type: x mandatory; scroll-behavior: smooth; scrollbar-width: none; padding: 2px 2px 8px; overscroll-behavior-x: contain; }
 .rail::-webkit-scrollbar { display: none; }
 .rail > .card { scroll-snap-align: start; }
+.rail[data-rail-lazy], .rail[aria-busy] { min-height: 300px; } /* ⚡ a row whose cards are still coming keeps its place */
 .cols-5 .rail { --n: 5; } .cols-3 .rail { --n: 3; }
 .rail-chips { margin: -2px 0 10px; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
 .rail-chips .chip { font-size: .85rem; padding: 4px 12px; }
