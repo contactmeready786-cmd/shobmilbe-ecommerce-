@@ -1,3 +1,6 @@
+/* 🎞️ owner, 2026-11-23: moving between pages fades softly instead of a blank flash (Chrome/Edge; other browsers as before) */
+@view-transition { navigation: auto; }
+@media (prefers-reduced-motion: reduce) { @view-transition { navigation: none; } }
 /* সবমিলবে admin panel */
 body.admin { background: #EEF2F7; --side: 248px; }
 .admin-auth { background: linear-gradient(160deg, #14213D, #0A4FA6); }

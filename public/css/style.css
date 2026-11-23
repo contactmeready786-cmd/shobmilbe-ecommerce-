@@ -1,3 +1,6 @@
+/* 🎞️ owner, 2026-11-23: moving between pages fades softly instead of a blank flash (Chrome/Edge; other browsers as before) */
+@view-transition { navigation: auto; }
+@media (prefers-reduced-motion: reduce) { @view-transition { navigation: none; } }
 /* The shop's font, served from the shop itself (Noto Sans Bengali, SIL OFL — public/fonts): no wait for Google Fonts
    before the first paint on a slow line. One variable file per script carries every weight (400–800). */
 @font-face { font-family: "Noto Sans Bengali"; font-style: normal; font-weight: 100 900; font-display: swap; src: url("/fonts/noto-sans-bengali-bn-v5.woff2") format("woff2");
