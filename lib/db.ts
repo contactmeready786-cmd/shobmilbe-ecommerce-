@@ -1872,8 +1872,10 @@ const DEFAULT_SETTINGS: Record<string, string> = {
   sms_tpl_confirmed: '{shop}: অর্ডার {code} কনফার্ম হয়েছে। শীঘ্রই পাঠানো হবে। ধন্যবাদ!',
   sms_tpl_shipped: '{shop}: অর্ডার {code} কুরিয়ারে দেওয়া হয়েছে। {tracking}',
   sms_tpl_delivered: '{shop}: অর্ডার {code} ডেলিভারি হয়েছে। ধন্যবাদ!{points} রিভিউ দিন: {link}',
-  // delivery: extra zones (JSON [{name, fee, districts: [...]}]) and an extra charge per kg above the first kg
-  delivery_zones: '[]', delivery_per_kg: '0', delivery_free_kg: '1',
+  // delivery: extra zones (JSON [{name, fee, half, perKg, districts: [...]}]) and, like the couriers price it, a price for
+  // parcels up to 500 g (0 = same as the 1 kg price) and an extra charge for each started kilo above 1 kg (owner, 2026-11-23;
+  // Steadfast/Pathao publish about ৳15-20 a kilo inside Dhaka and ৳20-25 outside — the owner sets their own rates)
+  delivery_zones: '[]', delivery_dhaka_half: '0', delivery_dhaka_kg: '20', delivery_outside_half: '0', delivery_outside_kg: '25',
   // cash on delivery: delivery charge sent first by bKash/Nagad — off / new (first order only) / all
   cod_advance: 'off', cod_advance_note: 'ভুয়া অর্ডার ঠেকাতে শুধু ডেলিভারি চার্জটা আগে বিকাশ/নগদে Send Money করুন। বাকি টাকা পণ্য হাতে পেয়ে দেবেন।',
   // customer groups the owner can pick from (comma separated)

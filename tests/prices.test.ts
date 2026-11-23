@@ -122,9 +122,25 @@ test('delivery: ৳60 Dhaka city, ৳110 everywhere else', () => {
   const free = { ...(S as object), free_delivery_min: '1000' } as never;
   assert.equal(O.deliveryFee(free, 'outside', 1000), 0);
   assert.equal(O.deliveryFee(free, 'outside', 999), 110);
-  // heavy parcels: extra per kg above the free kilos (off unless set)
-  assert.equal(O.weightExtra(S, 5000), 0);
-  assert.equal(O.weightExtra({ delivery_per_kg: '20', delivery_free_kg: '1' } as never, 2500), 40);
+  // ⚖️ by weight, like the couriers: up to 500 g / up to 1 kg / + each started extra kilo
+  const z = { fee: 75, half: 65, perKg: 20 };
+  assert.equal(O.weightFee(z, 300), 65);
+  assert.equal(O.weightFee(z, 300, false), 75); // a product without a weight in the cart: no "500 g" price
+  assert.equal(O.weightFee(z, 0), 75); // weight unknown: the 1 kg price
+  assert.equal(O.weightFee(z, 800), 75);
+  assert.equal(O.weightFee(z, 1000), 75);
+  assert.equal(O.weightFee(z, 1200), 95);
+  assert.equal(O.weightFee(z, 2500), 115);
+  assert.equal(O.weightFee({ fee: 75, half: 0, perKg: 0 }, 9000), 75); // nothing set = flat price
+  // 25 pieces × 300 g = 7.5 kg inside Dhaka city
+  const W = { ...(S as object), delivery_dhaka: '75', delivery_dhaka_half: '65', delivery_dhaka_kg: '20', delivery_outside_kg: '25' } as never;
+  assert.equal(O.deliveryFor(W, { district: 'Dhaka', thana: 'Badda', subtotal: 50, weightG: 7500 }).fee, 75 + 7 * 20);
+  assert.equal(O.deliveryFor(W, { district: 'Dhaka', thana: 'Badda', subtotal: 50, weightG: 400 }).fee, 65);
+  assert.equal(O.deliveryFor(W, { district: 'Barisal', thana: 'x', subtotal: 50, weightG: 2100 }).fee, 110 + 2 * 25);
+  assert.equal(U.weightGrams('300', 'g'), 300);
+  assert.equal(U.weightGrams('1.5', 'kg'), 1500);
+  assert.equal(U.weightGrams('১২০'), 120);
+  assert.equal(U.weightGrams(''), 0);
 });
 
 test('phone numbers: Bangla digits and +880 accepted, wrong numbers refused', () => {

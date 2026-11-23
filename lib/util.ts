@@ -289,6 +289,12 @@ function qtyRule(s: Settings, price: unknown) {
   if (!on || p <= 0 || p > cap + 1e-9) return { min: 1, max: maxQty, small: false, cheap: false };
   return { min: 1, max: Math.max(maxQty, Math.floor(maxVal / p + 1e-9)), small: false, cheap: true };
 }
+/** ⚖️ The product's own weight in grams (owner, 2026-11-23: typed in grams or kilos — "300" g, "1.5" kg → 1500 g). At most 100 kg. */
+function weightGrams(v: unknown, unit?: unknown): number {
+  const n = Number(String(v ?? '').replace(/[০-৯]/g, (d) => String('০১২৩৪৫৬৭৮৯'.indexOf(d))).replace(',', '.').trim());
+  if (!(n > 0)) return 0;
+  return Math.min(100000, Math.round(String(unit) === 'kg' ? n * 1000 : n));
+}
 // 📦 প্যাক / বান্ডেল: the pack sizes the owner ticked for a product ("25,50,100" → [25, 50, 100]); empty = sold by the piece.
 const PACK_PRESETS = [25, 50, 100];
 function packSizes(v: unknown): number[] {
@@ -325,4 +331,4 @@ function minOrder(s: Settings | null | undefined): number { return Math.max(0, N
 
 function pageNum(query: URLSearchParams): number { return Math.max(1, int(query.get('page'), 1)); }
 
-export { fields, arr, oneOf, ifKey, PRICE_MIN, PRICE_MAX, priceProblem, contact, qtyRule, PACK_PRESETS, packSizes, packRule, packProblem, amount, round2, roundOff, shopPrice, wholeTaka, roundOffLabel, esc, raw, Raw, bn, money, pct, slugify, randomCode, parseCookies, parseBody, readBody, list, hashPassword, verifyPassword, passwordProblem, sign, unsign, sha256, fmtDate, ymd, validYmd, dateRange, int, num, str, minOrder, normalizePhone, validPhone, csv, fetchJson, youtubeId, pageNum, TZ };
+export { fields, arr, oneOf, ifKey, PRICE_MIN, PRICE_MAX, priceProblem, contact, qtyRule, weightGrams, PACK_PRESETS, packSizes, packRule, packProblem, amount, round2, roundOff, shopPrice, wholeTaka, roundOffLabel, esc, raw, Raw, bn, money, pct, slugify, randomCode, parseCookies, parseBody, readBody, list, hashPassword, verifyPassword, passwordProblem, sign, unsign, sha256, fmtDate, ymd, validYmd, dateRange, int, num, str, minOrder, normalizePhone, validPhone, csv, fetchJson, youtubeId, pageNum, TZ };

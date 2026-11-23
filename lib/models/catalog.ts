@@ -5,7 +5,7 @@
 // made in the browser, so a resized or re-saved copy of the same photo is still recognised.
 import { q, one, tx, uniqueSlug } from '../db';
 import { memo } from '../cache';
-import { slugify, int, str, youtubeId, amount, shopPrice, priceProblem, packSizes } from '../util';
+import { slugify, int, str, youtubeId, amount, shopPrice, priceProblem, packSizes, weightGrams } from '../util';
 import * as imagekit from '../services/imagekit';
 import * as $crypto from 'node:crypto';
 import type { DbRow, Param, Tx } from '../pg';
@@ -322,6 +322,7 @@ const NEED_SQL: Record<string, string> = {
   kw: `coalesce(p.seo_keywords,'') = ''`,
   brand: `coalesce(p.brand,'') = ''`,
   video: `coalesce(p.youtube_url,'') = ''`,
+  weight: `coalesce(p.weight_g, 0) <= 0 AND p.product_type <> 'bundle'`,
 };
 function productWhere({ hideOut, category, categoryId, brandId, brandIds, damaged, supplierId, q: search, featured, sold, includeInactive, type, lowStock, offer, maxPrice, minPrice, status, need, outStock, inStock, isNew, newDays, items, ids, specs }: ProductFilter, params: Param[]): string {
   const where: string[] = [];
@@ -434,7 +435,7 @@ async function countProducts(opts: ProductFilter = {}): Promise<number> {
   return (await one<{ n: number }>(`SELECT count(*)::int AS n FROM products p LEFT JOIN categories c ON c.id=p.category_id ${where}`, params))!.n;
 }
 // Counts for the small summary chips above the admin product list.
-export type ProductStats = { total: number; active: number; hidden: number; out: number; low: number };
+export type ProductStats = { total: number; active: number; hidden: number; out: number; low: number; noweight: number };
 async function productStats({ type }: { type?: string } = {}): Promise<ProductStats | null> {
   const params: Param[] = [];
   let where = 'WHERE p.parent_id IS NULL';
@@ -443,7 +444,8 @@ async function productStats({ type }: { type?: string } = {}): Promise<ProductSt
       count(*) FILTER (WHERE p.active)::int AS active,
       count(*) FILTER (WHERE NOT p.active)::int AS hidden,
       count(*) FILTER (WHERE (${STOCK_EXPR}) <= 0)::int AS out,
-      count(*) FILTER (WHERE (${STOCK_EXPR}) <= p.low_stock)::int AS low
+      count(*) FILTER (WHERE (${STOCK_EXPR}) <= p.low_stock)::int AS low,
+      count(*) FILTER (WHERE coalesce(p.weight_g, 0) <= 0 AND p.product_type <> 'bundle')::int AS noweight
     FROM products p ${where}`, params);
 }
 async function getProduct({ id, slug, public: pub = false }: { id?: Id; slug?: string; public?: boolean }): Promise<FullProduct | null> {
@@ -814,7 +816,7 @@ async function saveProduct(data: Body & { bundle?: { product_id: unknown; qty: u
     seo_description: str(data.seo_description, 300),
     seo_keywords: cleanKeywords(data.seo_keywords),
     low_stock: Math.max(0, int(data.low_stock, 3)),
-    weight_g: Math.max(0, int(data.weight_g)),
+    weight_g: weightGrams(data.weight_g, data.weight_unit),
     unit: str(data.unit, 20) || 'পিস',
     brand: str(data.brand, 60),
     model: str(data.model, 80),

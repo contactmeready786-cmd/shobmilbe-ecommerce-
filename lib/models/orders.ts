@@ -66,27 +66,38 @@ function deliveryFee(settings: Settings, zone: string, subtotal: number): number
   return zone === 'dhaka' ? int(settings.delivery_dhaka) : int(settings.delivery_outside);
 }
 // Extra delivery zones the owner made (Admin → সেটিংস → ডেলিভারি জোন), e.g. "ঢাকার আশেপাশে" ৳১০০ for Gazipur, Narayanganj…
-type Zone = { name: string; fee: number; districts: string[] };
+// ⚖️ Every zone is priced like the couriers price it (owner, 2026-11-23): `half` = parcel up to 500 g (0 = same as fee),
+// `fee` = up to 1 kg, `perKg` = each started kilo above 1 kg (1.2 kg = +1 kilo, 2.5 kg = +2 kilos).
+type Zone = { name: string; fee: number; half: number; perKg: number; districts: string[] };
+type ZoneCharge = { area: 'dhaka' | 'outside'; name: string; fee: number; half: number; perKg: number };
+const money0 = (v: unknown) => Math.max(0, round2(amount(v)));
 function customZones(settings: Settings): Zone[] {
-  type Saved = { name?: unknown; fee?: unknown; districts?: unknown[] };
+  type Saved = { name?: unknown; fee?: unknown; half?: unknown; perKg?: unknown; districts?: unknown[] };
   const z = jsonSetting<Saved[]>(settings, 'delivery_zones', []);
   return (Array.isArray(z) ? z : []).filter((x) => x && str(x.name) && Array.isArray(x.districts) && x.districts.length)
-    .map((x) => ({ name: str(x.name, 60), fee: Math.max(0, amount(x.fee)), districts: x.districts!.map((d) => String(d)) }));
+    .map((x) => ({ name: str(x.name, 60), fee: money0(x.fee), half: money0(x.half), perKg: x.perKg === undefined ? money0(settings.delivery_outside_kg) : money0(x.perKg),
+      districts: x.districts!.map((d) => String(d)) }));
 }
-// Which zone an address is in, and its charge (before weight and free delivery).
-function deliveryZone(settings: Settings, district: unknown, thana: unknown): { area: 'dhaka' | 'outside'; name: string; fee: number } {
+// Which zone an address is in, and its charges (before weight and free delivery).
+function deliveryZone(settings: Settings, district: unknown, thana: unknown): ZoneCharge {
   const d = findDistrict(district);
   const en = d ? d.en : '';
-  if (en === 'Dhaka' && dhakaCityAreas(settings).includes(String(thana))) return { area: 'dhaka', name: 'ঢাকা সিটি', fee: int(settings.delivery_dhaka) };
-  for (const z of customZones(settings)) if (z.districts.includes(en)) return { area: 'outside', name: z.name, fee: z.fee };
-  return { area: 'outside', name: 'ঢাকার বাইরে', fee: int(settings.delivery_outside) };
+  if (en === 'Dhaka' && dhakaCityAreas(settings).includes(String(thana))) {
+    return { area: 'dhaka', name: 'ঢাকা সিটি', fee: int(settings.delivery_dhaka), half: money0(settings.delivery_dhaka_half), perKg: money0(settings.delivery_dhaka_kg) };
+  }
+  for (const z of customZones(settings)) if (z.districts.includes(en)) return { area: 'outside', name: z.name, fee: z.fee, half: z.half, perKg: z.perKg };
+  return { area: 'outside', name: 'ঢাকার বাইরে', fee: int(settings.delivery_outside), half: money0(settings.delivery_outside_half), perKg: money0(settings.delivery_outside_kg) };
 }
-// Heavy parcels: extra charge per kg above the free kilos (0 = off).
-function weightExtra(settings: Settings, weightG: number): number {
-  const per = amount(settings.delivery_per_kg);
-  if (!(per > 0) || !(weightG > 0)) return 0;
-  const free = Math.max(0, Number(settings.delivery_free_kg) || 1);
-  return Math.max(0, Math.ceil(weightG / 1000 - 1e-9) - free) * per;
+/**
+ * ⚖️ The charge for a parcel of this weight in this zone. weightG = all the products' own weights × pieces.
+ * allWeighed = every product in the cart has its weight filled in: only then may the cheaper "up to 500 g" price be used
+ * (a product without a weight could make the parcel heavier than it looks). Unknown weight (0) = the 1 kg price.
+ */
+function weightFee(z: { fee: number; half: number; perKg: number }, weightG: number, allWeighed = true): number {
+  const g = Math.max(0, Number(weightG) || 0);
+  if (g > 0 && g <= 500 && allWeighed && z.half > 0) return Math.min(z.half, z.fee || z.half);
+  const kilos = Math.ceil(g / 1000 - 1e-9); // started kilos
+  return round2(z.fee + Math.max(0, kilos - 1) * z.perKg);
 }
 // 🚚 the products (of these) in a category where free delivery doesn't apply — or inside one (packaging materials)
 async function noFreeIds(productIds: unknown[]): Promise<Set<number>> {
@@ -106,11 +117,11 @@ async function freeDeliveryBase(lines: { product_id: unknown; price: unknown; qt
   return Math.max(0, round2(subtotal - out));
 }
 // The full delivery charge for a cart. freeBase: what counts towards free delivery (default: the whole subtotal).
-function deliveryFor(settings: Settings, { district, thana, subtotal, weightG = 0, freeBase }: { district: unknown; thana: unknown; subtotal: number; weightG?: number; freeBase?: number }) {
+function deliveryFor(settings: Settings, { district, thana, subtotal, weightG = 0, allWeighed = true, freeBase }: { district: unknown; thana: unknown; subtotal: number; weightG?: number; allWeighed?: boolean; freeBase?: number }) {
   const z = deliveryZone(settings, district, thana);
   const freeMin = int(settings.free_delivery_min);
   const base = freeBase === undefined ? subtotal : freeBase;
-  const fee = freeMin > 0 && base >= freeMin ? 0 : round2(z.fee + weightExtra(settings, weightG));
+  const fee = freeMin > 0 && base >= freeMin ? 0 : weightFee(z, weightG, allWeighed);
   return { ...z, fee };
 }
 function areaLabel(order: { district?: string; thana?: string }): string {
@@ -412,9 +423,10 @@ async function createOrder(input: CreateOrderOpts, settings: Settings) {
     }
     if (isAdmin && input.discount !== undefined && input.discount !== '') discount = Math.min(subtotal, amount(input.discount));
     const weightG = lines.reduce((w, l) => w + (l.weight_g || 0) * l.qty, 0);
+    const allWeighed = lines.every((l) => l.kind === 'gift' || (l.weight_g || 0) > 0);
     // 🚚 packaging materials (a category with "no free delivery") don't count towards the free-delivery amount
     const freeBase = await freeDeliveryBase(lines.filter((l) => l.kind !== 'gift'), subtotal);
-    let delivery = freeDelivery ? 0 : (input.district ? deliveryFor(settings, { district: input.district, thana: input.thana, subtotal, weightG, freeBase }).fee : deliveryFee(settings, zone, freeBase));
+    let delivery = freeDelivery ? 0 : (input.district ? deliveryFor(settings, { district: input.district, thana: input.thana, subtotal, weightG, allWeighed, freeBase }).fee : deliveryFee(settings, zone, freeBase));
     if (isAdmin && input.delivery !== undefined && input.delivery !== '') delivery = amount(input.delivery);
     let total = wholeTaka(subtotal - discount + delivery); // whole taka: paisa are dropped as a rounding discount
     const costTotal = round2(lines.reduce((s, l) => s + Number(l.cost || 0) * l.qty, 0));
@@ -780,4 +792,4 @@ async function markPaid(id: number, { amount: amt, trxId, method }: { amount: un
     [amount(amt), String(trxId || ''), method || null, id]);
 }
 
-export { noFreeIds, freeDeliveryBase, onStatusChange, STATUSES, RELEASED, PAYMENT_METHODS, PAYMENT_STATUSES, OrderError, GEO, dhakaCityAreas, findDistrict, zoneFor, deliveryFee, deliveryZone, deliveryFor, customZones, weightExtra, areaLabel, checkCoupon, createOrder, getOrder, listOrders, countOrders, statusCounts, setStatus, updateOrder, setCourierInfo, setCourierStatus, setOrderDates, dhakaLocal, markPaid };
+export { noFreeIds, freeDeliveryBase, onStatusChange, STATUSES, RELEASED, PAYMENT_METHODS, PAYMENT_STATUSES, OrderError, GEO, dhakaCityAreas, findDistrict, zoneFor, deliveryFee, deliveryZone, deliveryFor, customZones, weightFee, areaLabel, checkCoupon, createOrder, getOrder, listOrders, countOrders, statusCounts, setStatus, updateOrder, setCourierInfo, setCourierStatus, setOrderDates, dhakaLocal, markPaid };

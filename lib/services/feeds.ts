@@ -4,6 +4,7 @@
 // The product id in the feeds is the same id the Pixel / GA4 events send, so dynamic ads match correctly.
 import * as db from '../db';
 import * as catalog from '../models/catalog';
+import * as $orders from '../models/orders';
 import * as $autoseo from './autoseo';
 import * as $security from '../security';
 import type { Settings, ShopRequest } from '../types';
@@ -106,7 +107,9 @@ function item(p: FeedProduct, channel: string, settings: Settings, base: string)
   const sale = !p.old_price_auto && p.old_price && Number(p.old_price) > Number(p.price);
   const brand = cut(p.brand || settings.feed_brand || settings.store_name || 'Generic', channel === 'google' ? 70 : 100);
   const desc = cut(safeText(plainText(p.description) || plainText(p.short_description) || $autoseo.summary(p) || p.name), lim.desc);
-  const shipping = Number(settings.feed_shipping || settings.delivery_outside || 0);
+  // 🚚 one piece sent outside Dhaka, priced by its weight like checkout does (an owner-typed feed price wins)
+  const shipping = settings.feed_shipping && settings.feed_shipping !== 'none' ? Number(settings.feed_shipping) || 0
+    : $orders.weightFee({ fee: Number(settings.delivery_outside) || 0, half: Number(settings.delivery_outside_half) || 0, perKg: Number(settings.delivery_outside_kg) || 0 }, Number(p.weight_g) || 0);
   return {
     id: String(p.id),
     title: cut(safeText(p.name), lim.title),

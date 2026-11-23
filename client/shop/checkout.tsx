@@ -11,7 +11,7 @@ import { VA, track } from './track.js';
 void Fragment;
 type Coupon = { discount?: number; freeDelivery?: boolean; referral?: boolean; code?: string; message?: string; ok?: boolean };
 type Points = { on: boolean; points: number; value?: number; maxPct?: number; min?: number; earnPer?: number };
-type Zone = { key: 'dhaka' | 'zone' | 'outside'; name: string; fee: number };
+type Zone = { key: 'dhaka' | 'zone' | 'outside'; name: string; fee: number; half: number; perKg: number };
 type Field = HTMLInputElement & HTMLSelectElement & HTMLTextAreaElement;
 
 export function startCheckout(): void {
@@ -69,9 +69,11 @@ function runCheckout(checkout: HTMLElement): void {
     outside: num('data-outside'),
     freeMin: num('data-free-min'),
     city: JSON.parse(checkout.getAttribute('data-city') || '[]') as string[],
-    zones: JSON.parse(checkout.getAttribute('data-zones') || '[]') as { name: string; fee: unknown; districts?: string[] }[],
-    perKg: num('data-per-kg', parseFloat),
-    freeKg: parseFloat(checkout.getAttribute('data-free-kg') || '') || 1,
+    zones: JSON.parse(checkout.getAttribute('data-zones') || '[]') as { name: string; fee: unknown; half?: unknown; perKg?: unknown; districts?: string[] }[],
+    dhakaHalf: num('data-dhaka-half', parseFloat),
+    dhakaKg: num('data-dhaka-kg', parseFloat),
+    outsideHalf: num('data-outside-half', parseFloat),
+    outsideKg: num('data-outside-kg', parseFloat),
   };
 
   void fillGeo(form).then((g) => {
@@ -94,22 +96,27 @@ function runCheckout(checkout: HTMLElement): void {
     const d = val('district');
     const t = val('thana');
     if (!d) return null;
-    if (d === 'Dhaka' && fee.city.includes(t)) return { key: 'dhaka', name: 'ঢাকা সিটির ভেতরে', fee: fee.dhaka };
+    if (d === 'Dhaka' && fee.city.includes(t)) return { key: 'dhaka', name: 'ঢাকা সিটির ভেতরে', fee: fee.dhaka, half: fee.dhakaHalf, perKg: fee.dhakaKg };
     if (d === 'Dhaka' && !t) return null;
     const z = fee.zones.find((x) => (x.districts || []).includes(d));
-    if (z) return { key: 'zone', name: z.name, fee: Number(z.fee) || 0 };
-    return { key: 'outside', name: 'ঢাকা সিটির বাইরে', fee: fee.outside };
+    if (z) return { key: 'zone', name: z.name, fee: Number(z.fee) || 0, half: Number(z.half) || 0, perKg: Number(z.perKg) || 0 };
+    return { key: 'outside', name: 'ঢাকা সিটির বাইরে', fee: fee.outside, half: fee.outsideHalf, perKg: fee.outsideKg };
   };
-  const weightExtra = () => {
-    if (!fee.perKg) return 0;
-    const g = state.lines.reduce((s, l) => s + (l.product.weight || 0) * l.qty, 0);
-    if (!g) return 0;
-    return Math.max(0, Math.ceil(g / 1000 - 1e-9) - fee.freeKg) * fee.perKg;
+  // ⚖️ the parcel's weight: each product's own weight × pieces (same as the server, lib/models/orders.ts weightFee)
+  const parcel = () => ({
+    g: state.lines.reduce((s, l) => s + (l.product.weight || 0) * l.qty, 0),
+    allWeighed: state.lines.every((l) => (l.product.weight || 0) > 0),
+  });
+  const weightFee = (z: Zone): number => {
+    const { g, allWeighed } = parcel();
+    if (g > 0 && g <= 500 && allWeighed && z.half > 0) return Math.min(z.half, z.fee || z.half);
+    const kilos = Math.ceil(g / 1000 - 1e-9);
+    return Math.round((z.fee + Math.max(0, kilos - 1) * z.perKg) * 100) / 100;
   };
   const totals = () => {
     const subtotal = state.lines.reduce((s, l) => s + l.price * l.qty, 0) + giftTotal(state.gifts);
     const z = zone();
-    let delivery: number | null = z ? z.fee + weightExtra() : null;
+    let delivery: number | null = z ? weightFee(z) : null;
     // 🚚 packaging materials don't count towards free delivery (same as the server)
     if (fee.freeMin > 0 && freeBase(state.lines) + giftTotal(state.gifts) >= fee.freeMin) delivery = 0;
     let discount = 0;
@@ -152,8 +159,9 @@ function runCheckout(checkout: HTMLElement): void {
       </div>,
       <p className="small center"><a href="/cart">কার্ট এডিট করুন</a></p>);
     const z = zone();
-    const wx = weightExtra();
-    if (zoneNote) zoneNote.textContent = z ? `${z.key === 'dhaka' ? '✓ ' : ''}${z.name} — ডেলিভারি চার্জ ${money(z.fee)}${wx ? ` + ভারী পার্সেলের জন্য ${money(wx)}` : ''}` : '';
+    const pw = parcel();
+    const kg = pw.g > 0 ? (pw.g < 1000 ? `${bn(Math.round(pw.g))} গ্রাম` : `${bn(Math.round(pw.g / 100) / 10)} কেজি`) : '';
+    if (zoneNote) zoneNote.textContent = z ? `${z.key === 'dhaka' ? '✓ ' : ''}${z.name} — ডেলিভারি চার্জ ${money(weightFee(z))}${kg ? ` (পণ্যের ওজন প্রায় ${kg})` : ''}` : '';
     const amt = $('[data-pay-amount]', form);
     if (amt) amt.textContent = money(t.gift ? t.due : t.total);
     const advAmt = $('[data-adv-amount]', form);

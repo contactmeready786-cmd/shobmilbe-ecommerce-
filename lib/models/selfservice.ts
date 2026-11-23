@@ -105,11 +105,13 @@ async function change(order: SelfOrder | null, b: ChangeOpts, { req, settings }:
   // the delivery charge for the new place (a free delivery stays free)
   let delivery = Number(order.delivery) || 0;
   if (delivery > 0) {
-    const w = await db.one<{ g: number }>(`SELECT coalesce(sum(coalesce(p.weight_g, 0) * i.qty), 0)::int AS g FROM order_items i LEFT JOIN products p ON p.id=i.product_id WHERE i.order_id=$1`, [order.id]);
+    const w = await db.one<{ g: number; unweighed: number }>(`SELECT coalesce(sum(coalesce(p.weight_g, 0) * i.qty), 0)::int AS g,
+      count(*) FILTER (WHERE coalesce(i.kind, '') <> 'gift' AND coalesce(p.weight_g, 0) <= 0)::int AS unweighed
+      FROM order_items i LEFT JOIN products p ON p.id=i.product_id WHERE i.order_id=$1`, [order.id]);
     // 🚚 packaging materials don't count towards free delivery (lib/models/orders.ts freeDeliveryBase)
     const its = await db.q<{ product_id: number; price: number; qty: number }>(`SELECT product_id, price, qty FROM order_items WHERE order_id=$1 AND product_id IS NOT NULL AND coalesce(kind, '') <> 'gift'`, [order.id]).catch(() => []);
     const freeBase = await O.freeDeliveryBase(its, Number(order.subtotal));
-    delivery = O.deliveryFor(settings, { district: dist.en, thana, subtotal: Number(order.subtotal), weightG: w!.g, freeBase }).fee;
+    delivery = O.deliveryFor(settings, { district: dist.en, thana, subtotal: Number(order.subtotal), weightG: w!.g, allWeighed: !w!.unweighed, freeBase }).fee;
   }
   const total = wholeTaka(Number(order.subtotal) - Number(order.discount || 0) - Number(order.points_discount || 0) + delivery);
   const area = O.zoneFor(settings, dist.en, thana);
