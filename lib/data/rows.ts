@@ -1529,6 +1529,24 @@ export type VariantMergesRow = {
   undone_at: Date | null;
 };
 
+/** A row of video_posts. */
+export type VideoPostsRow = {
+  id: number;
+  video_url: string;
+  caption: string;
+  post_at: Date;
+  to_fb: boolean;
+  to_ig: boolean;
+  fb_id: string | null;
+  fb_error: string | null;
+  ig_container: string | null;
+  ig_id: string | null;
+  ig_error: string | null;
+  done: boolean;
+  staff_id: number | null;
+  created_at: Date;
+};
+
 /** A row of visit_events. */
 export type VisitEventsRow = {
   id: number;
@@ -1737,6 +1755,7 @@ export type Tables = {
   trend_rising: TrendRisingRow;
   trend_terms: TrendTermsRow;
   variant_merges: VariantMergesRow;
+  video_posts: VideoPostsRow;
   visit_events: VisitEventsRow;
   visit_sessions: VisitSessionsRow;
   visitors: VisitorsRow;

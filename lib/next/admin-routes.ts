@@ -176,4 +176,5 @@ export const ADMIN_GET_ROUTES: (string | RegExp)[] = [
   "/admin/products/merge-variants",
   "/admin/products/single-piece",
   "/admin/products/one-pair",
+  "/admin/marketing/videos",
 ];

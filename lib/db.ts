@@ -1380,6 +1380,16 @@ CREATE TABLE IF NOT EXISTS pack_singles (
 );
 `,  // 👟 এক জোড়ায় (owner, 2026-11-23): the same log also holds "2/3 pairs → one pair" changes
   `ALTER TABLE pack_singles ADD COLUMN IF NOT EXISTS kind text NOT NULL DEFAULT 'pcs';`,
+  // 🎬 ভিডিও পোস্ট (owner, 2026-11-23): reels for the Facebook page and Instagram, now or at a set time (lib/services/videopost.ts)
+  `
+CREATE TABLE IF NOT EXISTS video_posts (
+  id serial PRIMARY KEY, video_url text NOT NULL, caption text NOT NULL DEFAULT '', post_at timestamptz NOT NULL DEFAULT now(),
+  to_fb boolean NOT NULL DEFAULT true, to_ig boolean NOT NULL DEFAULT true,
+  fb_id text, fb_error text, ig_container text, ig_id text, ig_error text, done boolean NOT NULL DEFAULT false,
+  staff_id int, created_at timestamptz DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS video_posts_due ON video_posts(post_at) WHERE NOT done;
+`,
 ];
 
 // Data steps that need code, keyed by migration number (run after its SQL).

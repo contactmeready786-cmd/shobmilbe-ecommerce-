@@ -62,6 +62,16 @@ export function media(thumb: boolean) {
   };
 }
 
+/** /media/<id>/sq — the picture as a white 1000×1000 square (product feeds; lib/services/imagekit.ts squareUrl).
+ *  A picture not on ImageKit is sent as it is. */
+export async function mediaSquare(ctx: ApiCtx) {
+  const id = int(ctx.path.split('/')[2]);
+  const m = await catalog.getMedia(id, false);
+  if (!m) return notFound();
+  if (m.ik_url) return fromImageKit(String($services_imagekit.squareUrl(m.ik_url)), m.mime, false);
+  return media(false)(ctx);
+}
+
 /** /media/<id>/w — the product page's big picture with the shop's watermark. Until the marked copy is ready the
  *  normal picture is sent, and only cached briefly so the marked one shows up soon. */
 export async function mediaWatermarked(ctx: ApiCtx) {
@@ -240,6 +250,8 @@ export async function runShopJobs(settings: ApiCtx['settings']): Promise<Record<
   await P.timeJob('অটো বিবরণ', () => $services_specfetch.sweep(settings), { optional: true });
   // 🤖 অটো মার্কেটিং: the day's Facebook / Instagram post at the owner's hours, and the weekly price-list articles
   await P.timeJob('Facebook/Instagram পোস্ট', () => $services_autopost.tick(settings));
+  // 🎬 reels set for now or a later time (Admin → Social media auto post → Video posts)
+  await P.timeJob('ভিডিও পোস্ট', async () => (await import('../services/videopost')).tick(settings));
   // 💬 "দাম কত?" under the page's posts → price + order link in the comment (every ~10 minutes, when switched on)
   await P.timeJob('কমেন্টে অটো উত্তর', () => $services_fbreply.run(settings));
   // ✈️ the same daily posts to the shop's Telegram channel (when one is connected)

@@ -89,6 +89,7 @@ const TABS: Record<string, Tab[]> = {
     ['/admin/marketing/channels', 'All platforms', 'marketing', 'channels', '📣'],
     ['/admin/marketing/auto', 'Facebook, Instagram & Telegram', 'marketing', 'automarketing', '🤖'],
     // 2026-11-21: copy-paste help for what Facebook doesn't let a program do (groups, Marketplace)
+    ['/admin/marketing/videos', 'Video posts', 'marketing', 'videos', '🎬'],
     ['/admin/marketing/group-posts', 'Group posts', 'marketing', 'group-posts', '📣'],
     ['/admin/marketing/marketplace', 'Marketplace helper', 'marketing', 'marketplace', '🏷️'],
   ],

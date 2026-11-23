@@ -105,6 +105,10 @@ async function usage(): Promise<IkUsage | null> {
 
 // Small version for cards and lists (ImageKit resizes on the fly; f-auto = AVIF/WebP for phones that can show them).
 // The admin's raw copies (auto = false) keep the original format, because the server reads their bytes itself.
+// 🟦 Feeds (owner, 2026-11-23: "every picture a fixed standard size, whatever I upload"): the picture centred on a
+// white 1000×1000 square — never stretched or cut — made by ImageKit on the fly, so the original stays untouched
+// and the server does no picture work. Facebook asks for at least 500×500, Google likes 800+.
+function squareUrl(url: string) { return url ? `${url}${url.includes('?') ? '&' : '?'}tr=w-1000,h-1000,cm-pad_resize,bg-FFFFFF,f-jpg,q-90` : url; }
 function thumbUrl(url: string | string[], auto = true) { return url ? `${url}${url.includes('?') ? '&' : '?'}tr=w-480${auto ? ',f-auto' : ''}` : url; }
 
 // Pictures that were deleted on the site: remove them from ImageKit too (queued by a database trigger).
@@ -137,4 +141,4 @@ async function moveOld(db: typeof import("../db"), limit = 20) {
   return n;
 }
 
-export { configured, problem, check, upload, remove, thumbUrl, flushTrash, moveOld, endpoint, usage };
+export { configured, problem, check, upload, remove, thumbUrl, squareUrl, flushTrash, moveOld, endpoint, usage };

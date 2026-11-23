@@ -51,14 +51,14 @@ function priceStr(n: unknown) { return `${(Math.max(0, Number(n) || 0)).toFixed(
 
 async function loadProducts(settings: Settings) {
   const includeOut = settings.feed_include_out !== '0';
-  const rows = await db.q<{ id: number; name: string; slug: string; price: number; old_price: number | null; old_price_auto?: boolean; description: string; short_description: string; image_id: number | null; brand: string; model: string; weight_g: number; product_type: string; sku: string; updated_at: Date; category_name: string | null; stock: number; img_w: number | null; img_h: number | null }>(`
+  const rows = await db.q<{ id: number; name: string; slug: string; price: number; old_price: number | null; old_price_auto?: boolean; description: string; short_description: string; image_id: number | null; brand: string; model: string; weight_g: number; product_type: string; sku: string; updated_at: Date; category_name: string | null; stock: number; img_w: number | null; img_h: number | null; img_ik: boolean }>(`
     SELECT p.id, p.name, p.slug, p.price, p.old_price, p.old_price_auto, p.description, p.short_description, p.image_id, p.brand, p.model, p.weight_g,
       p.product_type, p.sku, p.updated_at, c.name AS category_name,
       CASE WHEN p.variant_count > 0 THEN coalesce((SELECT sum(greatest(v.stock,0)) FROM products v WHERE v.parent_id=p.id AND v.active), 0)::int
       WHEN p.product_type='bundle' THEN
         coalesce((SELECT min(c2.stock / greatest(bi.qty,1)) FROM bundle_items bi JOIN products c2 ON c2.id=bi.product_id WHERE bi.bundle_id=p.id), 0)
       ELSE p.stock END AS stock,
-      mi.width AS img_w, mi.height AS img_h
+      mi.width AS img_w, mi.height AS img_h, (mi.ik_url IS NOT NULL) AS img_ik
     FROM products p LEFT JOIN categories c ON c.id=p.category_id LEFT JOIN media mi ON mi.id=p.image_id
     WHERE p.active AND p.parent_id IS NULL AND NOT p.noindex AND NOT ${catalog.COPIED_OUT_SQL} ORDER BY p.id`);
   const ids = rows.map((r) => r.id);
@@ -82,7 +82,7 @@ function check(p: FeedProduct, channel: string) {
   if (!p.includeOut && !p.in_stock) problems.push('স্টকে নেই');
   const warnings: string[] = [];
   const min = MIN_IMAGE[channel];
-  if (p.main_image && p.img_w && p.img_h && (p.img_w < min || p.img_h < min)) warnings.push(`ছবি ছোট (${p.img_w}×${p.img_h}, কমপক্ষে ${min}×${min} দরকার)`);
+  if (p.main_image && !p.img_ik && p.img_w && p.img_h && (p.img_w < min || p.img_h < min)) warnings.push(`ছবি ছোট (${p.img_w}×${p.img_h}, কমপক্ষে ${min}×${min} দরকার)`);
   if (!plainText(p.description || p.short_description)) warnings.push('বিবরণ নেই (নাম দিয়ে চালানো হচ্ছে)');
   return { ok: !problems.length, problems, warnings };
 }
@@ -112,8 +112,8 @@ function item(p: FeedProduct, channel: string, settings: Settings, base: string)
     title: cut(safeText(p.name), lim.title),
     description: desc,
     link: `${base}/p/${encodeURIComponent(p.slug)}`,
-    image_link: `${base}/media/${p.main_image}`,
-    additional_image_link: p.extra_images.slice(0, lim.extraImages).map((id) => `${base}/media/${id}`),
+    image_link: `${base}/media/${p.main_image}/sq`,
+    additional_image_link: p.extra_images.slice(0, lim.extraImages).map((id) => `${base}/media/${id}/sq`),
     availability: channel === 'google' ? (p.in_stock ? 'in_stock' : 'out_of_stock') : (p.in_stock ? 'in stock' : 'out of stock'),
     condition: ['new', 'refurbished', 'used'].includes(settings.feed_condition as string) ? settings.feed_condition : 'new',
     price: priceStr(sale ? p.old_price : p.price),
