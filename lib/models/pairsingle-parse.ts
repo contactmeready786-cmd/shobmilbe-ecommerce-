@@ -13,14 +13,14 @@ const BN_PAIR_WORD = new RegExp(BN_PAIR);
 
 const PAIR_RE = /(?:^|(?<=[\s(\[,|/–—-]))\(?\s*(\d{1,3})\s*-?\s*(?:pairs?|prs)(?![a-z])\s*\)?\s*[-–—:|]*\s*/gi;
 const PAIR_OF_RE = /[\s(\[,–—-]*\(?\s*(?:pack|packet|lot|set|bundle)\s*of\s*(\d{1,3})\s*pairs?\s*\)?/gi;
-const BN_RE = new RegExp(`(?:^|(?<=[\\s(–—-]))\\(?\\s*([০-৯0-9]{1,3})\\s*${BN_PAIR}\\s*\\)?\\s*[-–—:]*\\s*`, 'g');
+const BN_RE = new RegExp(`(?:^|(?<=[\\s(–—-]))\\(?\\s*([০-৯0-9]{1,3})\\s*-?\\s*${BN_PAIR}\\s*\\)?\\s*[-–—:]*\\s*`, 'g');
 
 // the pairs are wires inside one cable / lead
 const CABLE = /\bcat\s*-?\s*[5-8]e?\b|\butp\b|\bftp\b|telephone|\b(?:lan|network|ethernet)\s*cable|twisted|\d+\s*-?\s*pairs?\s*(?:cables?|wires?)\b/i;
 // the pairs come with one item ("with 3 pairs ear tips", "+ 2 pair pads")
 const PART_OF_ONE = /(?:\bwith\b|\band\b|&|\+|\bincl\w*)\s*\(?\s*\d+\s*-?\s*(?:pairs?|prs)\b/i;
 // different things in one pack can't be split into equal pairs
-const MIXED = /combo|assort|\bmixed\b|\bmix\b|different|\bvarious\b|\d+\s*colou?rs?\b|\bkits?\b|কম্বো|মিক্স|কিট/i;
+const MIXED = /combo|assort|\bmixed\b|\bmix\b|different|\bvarious\b|\d+\s*colou?rs?\b|কম্বো|মিক্স/i;
 
 export type PairRead = { pairs: number; name: string; bn: string } | { skip: string };
 

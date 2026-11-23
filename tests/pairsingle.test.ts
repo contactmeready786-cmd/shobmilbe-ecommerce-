@@ -10,6 +10,8 @@ test('pairsingle: pairs read and the name made one pair', () => {
   assert.deepEqual(readPairs('XT60 Connector Male Female Pair - 3 Pairs'), { pairs: 3, name: 'XT60 Connector Male Female Pair', bn: '' });
   assert.equal((readPairs('Earring Stud', '৩ জোড়া কানের দুল') as { pairs: number }).pairs, 3);
   assert.equal((readPairs('Socks', '২ পেয়ার মোজা') as { bn: string }).bn, 'মোজা (১ জোড়া)');
+  assert.equal((readPairs('2-Pair Fate Type Clips', '2-জোড়া ফাট টাইপ ক্লিপ') as { bn: string }).bn, 'ফাট টাইপ ক্লিপ (১ জোড়া)');
+  assert.equal((readPairs('5Pair - Black JST Connector 2 Pin Kit JST Male Female') as { pairs: number }).pairs, 5);
   assert.equal((readPairs('2Pair Multimeter Probe Test Lead Wire') as { pairs: number }).pairs, 2);
 });
 
