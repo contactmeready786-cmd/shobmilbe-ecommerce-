@@ -8,6 +8,7 @@ import * as $services_pricing from '../services/pricing';
 import * as $giftcards from './giftcards';
 import * as $loyalty from './loyalty';
 import * as $packing from './packing';
+import * as $track from './courier-track';
 import type { DbRow, Tx } from '../pg';
 import type { CouponsRow, OrdersRow, OrderItemsRow, ProductsRow, FlashItemsRow, WarehouseStockRow } from '../data/rows';
 import type { Body, Settings } from '../types';
@@ -731,6 +732,11 @@ async function updateOrder(id: number, data: UpdateOrderOpts, settings: Settings
 async function setCourierInfo(id: number, info: { courier: string; consignment_id?: unknown; tracking_code?: unknown; status?: unknown }): Promise<void> {
   await q(`UPDATE orders SET courier=$1, consignment_id=$2, tracking_code=$3, courier_status=$4, courier_sent_at=coalesce(courier_sent_at, now()), updated_at=now() WHERE id=$5`,
     [info.courier, String(info.consignment_id || ''), String(info.tracking_code || ''), String(info.status || ''), id]);
+  // 🛵 the parcel's journey starts: booked with the courier (then its first status, if it gave one)
+  if (info.consignment_id) {
+    await $track.add(id, info.courier, { kind: 'status', status: 'booked', message: '', at: null });
+    if (info.status) await $track.add(id, info.courier, { kind: 'status', status: String(info.status), message: '', at: null });
+  }
 }
 // 🛵 every step the courier reports (in review → pending → delivered …) is kept in the order's history with its time
 // (owner, 2026-11-23), not only the latest one — the step is written once, when it changes.
@@ -741,6 +747,8 @@ async function setCourierStatus(id: number, courierStatus: unknown): Promise<voi
   if (prev && next && (prev.courier_status || '') !== next) {
     await q(`INSERT INTO activity_log(staff_id, action, entity, entity_id, detail) VALUES(NULL,'courier_step','order',$1,$2)`,
       [id, `${courierStepLabel(prev.courier_status) || '—'} → ${courierStepLabel(next)}`.slice(0, 500)]);
+    const o = await one<{ courier: string | null }>('SELECT courier FROM orders WHERE id=$1', [id]);
+    await $track.add(id, (o && o.courier) || '', { kind: 'status', status: next, message: '', at: null });
   }
 }
 /** A courier's own status word, readable ("partial_delivered" → "Partial delivered"). */

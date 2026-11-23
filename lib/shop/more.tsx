@@ -15,6 +15,8 @@ import * as $models_kits from '../models/kits';
 import * as $models_landing from '../models/landing';
 import { landingPage } from '../views/landing';
 import * as courier from '../services/courier';
+import * as $track from '../models/courier-track';
+import * as U from '../services/uiswitch';
 import { refFromCookie, myOrders } from '../gate';
 import { appPage } from '../views/apppage';
 import { appVersionOf } from '../app-release';
@@ -152,7 +154,9 @@ export async function resolveMore({ path, query, settings, base: siteBase, req }
     // delivered → each product can be reviewed once (only by the order's owner on this browser)
     const reviewItems = order.status === 'delivered' && settings.reviews_on !== '0' ? await $models_reviews.forOrder(order.id) : [];
     const selfMsg = { ok: str(query.get('done'), 300), err: str(query.get('err'), 300) };
-    return page(`অর্ডার ${order.code}`, shop.orderPage({ order, settings, fresh, payFailed: query.get('pay') === 'failed', trackUrl, mine, reviewItems, selfMsg,
+    // 🛵 the parcel's journey (phone numbers in it hidden unless it is the customer's own order on this browser)
+    const journey = order.consignment_id && U.on(settings, 'ui_order_tracking') ? await $track.list(order.id, { limit: 12, maskPhones: !mine }) : [];
+    return page(`অর্ডার ${order.code}`, shop.orderPage({ order, settings, fresh, payFailed: query.get('pay') === 'failed', trackUrl, mine, reviewItems, selfMsg, journey,
       otpActive: $models_checkoutotp.active(settings) }), { noindex: true, track });
   }
   return null;

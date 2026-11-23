@@ -1415,6 +1415,23 @@ CREATE INDEX IF NOT EXISTS voice_notes_phone ON voice_notes(phone);
    WHERE code='SMRR3MWZ' AND source='admin';
 INSERT INTO activity_log(staff_id, action, entity, entity_id, detail)
   SELECT NULL, 'order_dates', 'order', id, 'order date 30 Oct, delivery date 1 Nov, courier Carrybee' FROM orders WHERE code='SMRR3MWZ' AND source='admin';`,
+  // 🛵 পার্সেলের যাত্রা (owner, 2026-11-23; lib/models/courier-track.ts): every courier step and tracking message with
+  // its time, shown on the customer's order page. Earlier courier steps (kept in the activity log) are copied in.
+  `
+CREATE TABLE IF NOT EXISTS courier_track (
+  id bigserial PRIMARY KEY, order_id int NOT NULL REFERENCES orders(id) ON DELETE CASCADE, courier text NOT NULL DEFAULT '',
+  kind text NOT NULL DEFAULT 'status', status text NOT NULL DEFAULT '', message text NOT NULL DEFAULT '',
+  event_at timestamptz NOT NULL DEFAULT now(), created_at timestamptz DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS courier_track_order ON courier_track(order_id, event_at DESC);
+INSERT INTO courier_track(order_id, courier, kind, status, event_at)
+  SELECT o.id, coalesce(o.courier,''), 'status', 'booked', o.courier_sent_at FROM orders o
+   WHERE o.courier_sent_at IS NOT NULL AND coalesce(o.consignment_id,'')<>'';
+INSERT INTO courier_track(order_id, courier, kind, status, event_at)
+  SELECT a.entity_id, coalesce(o.courier,''), 'status', lower(replace(trim(split_part(a.detail, '→', 2)), ' ', '_')), a.created_at
+    FROM activity_log a JOIN orders o ON o.id=a.entity_id
+   WHERE a.action='courier_step' AND a.entity='order' AND trim(split_part(a.detail, '→', 2))<>'';
+`,
 ];
 
 // Data steps that need code, keyed by migration number (run after its SQL).

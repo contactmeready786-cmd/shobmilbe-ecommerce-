@@ -6,6 +6,7 @@ import * as db from '../db';
 import * as O from '../models/orders';
 import * as payments from '../services/payments';
 import * as courier from '../services/courier';
+import * as $track from '../models/courier-track';
 import * as security from '../security';
 import * as $services_autocall from '../services/autocall';
 import { siteUrl } from '../gate';
@@ -101,8 +102,13 @@ export async function steadfast(ctx: ApiCtx) {
   const b = await ctx.body();
   const cid = String(b.consignment_id || '');
   const order = await db.one<CourierOrder>(`SELECT id, code, status FROM orders WHERE (consignment_id=$1 AND $1<>'') OR code=$2 LIMIT 1`, [cid, String(b.invoice || '')]);
+  // 🛵 a "tracking_update" (hub received, sent on, rider assigned …) is kept for the parcel's journey; a status change
+  // also moves the order (delivered / returned) and is kept by setCourierStatus.
+  const ev = $track.parseSteadfast(b);
+  if (order && ev && ev.kind === 'tracking') await $track.add(order.id, 'steadfast', ev);
   if (order && b.status) await applyCourierUpdate(order, 'steadfast', String(b.status));
-  await db.logIntegration('steadfast', 'webhook', !!order, `${b.notification_type || ''} ${cid} ${b.status || ''}`, order ? order.code : '');
+  const said = String(b.tracking_message || b.message || '').slice(0, 120);
+  await db.logIntegration('steadfast', 'webhook', !!order, `${b.notification_type || ''} ${cid} ${b.status || ''}${said ? ` · ${said}` : ''}`, order ? order.code : '');
   return json(200, { status: 'success', message: 'Webhook received successfully.' });
 }
 export async function pathao(ctx: ApiCtx) {

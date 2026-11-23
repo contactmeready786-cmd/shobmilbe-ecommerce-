@@ -1422,3 +1422,14 @@ body.shop.glass :is(input:not([type=radio]):not([type=checkbox]):not([type=file]
 .team-row { grid-template-columns: 28px minmax(40%, 1fr) minmax(0, auto); }
 .team-row .tn { white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.25; overflow-wrap: anywhere; }
 .team-row .sc { white-space: normal; line-height: 1.25; }
+
+/* 🛵 পার্সেলের যাত্রা — the courier's steps on the order page: small, newest on top (owner, 2026-11-23) */
+.parcel-trail { margin: 10px 0 4px; max-width: 520px; }
+.parcel-trail-head { margin: 0 0 6px; font-size: .85rem; font-weight: 700; color: var(--muted); }
+.parcel-trail ol { list-style: none; margin: 0; padding: 0 0 0 14px; border-left: 2px solid var(--line); }
+.parcel-trail li { position: relative; padding: 0 0 8px 10px; font-size: .86rem; line-height: 1.4; color: var(--muted); }
+.parcel-trail li::before { content: ''; position: absolute; left: -20px; top: 5px; width: 9px; height: 9px; border-radius: 50%; background: var(--line); border: 2px solid #fff; }
+.parcel-trail li.now { color: inherit; font-weight: 600; }
+.parcel-trail li.now::before { background: var(--green); box-shadow: 0 0 0 3px var(--green-l); }
+.parcel-trail li:last-child { padding-bottom: 0; }
+.parcel-trail time { display: block; font-size: .74rem; font-weight: 400; color: var(--muted); }

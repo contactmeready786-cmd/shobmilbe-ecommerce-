@@ -302,6 +302,18 @@ export type CouponsRow = {
   first_order: boolean;
 };
 
+/** A row of courier_track. */
+export type CourierTrackRow = {
+  id: number;
+  order_id: number;
+  courier: string;
+  kind: string;
+  status: string;
+  message: string;
+  event_at: Date;
+  created_at: Date;
+};
+
 /** A row of customer_addresses. */
 export type CustomerAddressesRow = {
   id: number;
@@ -1696,6 +1708,7 @@ export type Tables = {
   complaint_notes: ComplaintNotesRow;
   complaints: ComplaintsRow;
   coupons: CouponsRow;
+  courier_track: CourierTrackRow;
   customer_addresses: CustomerAddressesRow;
   customer_email_otps: CustomerEmailOtpsRow;
   customer_otps: CustomerOtpsRow;
