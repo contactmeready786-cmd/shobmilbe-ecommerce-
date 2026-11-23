@@ -49,14 +49,24 @@ export async function retry(id: number) {
   await db.q(`UPDATE video_posts SET fb_error=NULL, ig_error=NULL, ig_container=CASE WHEN ig_error IS NULL THEN ig_container END, done=false WHERE id=$1`, [id]);
 }
 
+/** the bytes of a video in public/videos when the link points at it (any host: the file name decides) */
+function ownFile(url: string): Buffer | null {
+  const m = /\/videos\/([\w.-]+\.mp4)(?:\?.*)?$/i.exec(url);
+  if (!m) return null;
+  try { return fs.readFileSync(path.join(process.cwd(), 'public', 'videos', m[1])); } catch { return null; }
+}
+
 /** Facebook page reel: start → Facebook fetches the file from the link → publish with the caption */
 async function postFacebookReel(v: VideoPost, s: Settings): Promise<string> {
   const token = s.autopost_page_token, page = s.autopost_page_id;
   const start = await graph<{ video_id?: string }>(`${page}/video_reels`, { method: 'POST', token, params: { upload_phase: 'start' } });
   if (!start.video_id) throw new Error('Facebook did not start the upload.');
-  const r = await fetch(`https://rupload.facebook.com/video-upload/${GRAPH_VER}/${start.video_id}`, {
-    method: 'POST', headers: { Authorization: `OAuth ${token}`, file_url: v.video_url }, signal: AbortSignal.timeout(60000),
-  });
+  // the shop's own video (public/videos) is sent straight from the server (a few MB, once) — nothing for Facebook's
+  // fetcher to be refused; any other link is fetched by Facebook itself
+  const own = ownFile(v.video_url);
+  const r = await fetch(`https://rupload.facebook.com/video-upload/${GRAPH_VER}/${start.video_id}`, own
+    ? { method: 'POST', headers: { Authorization: `OAuth ${token}`, offset: '0', file_size: String(own.length), 'Content-Type': 'application/octet-stream' }, body: new Uint8Array(own), signal: AbortSignal.timeout(120000) }
+    : { method: 'POST', headers: { Authorization: `OAuth ${token}`, file_url: v.video_url }, signal: AbortSignal.timeout(60000) });
   const up = await r.json().catch(() => ({})) as { success?: boolean; debug_info?: { message?: string } };
   if (!r.ok || !up.success) throw new Error('Facebook could not fetch the video: ' + (up.debug_info?.message || `HTTP ${r.status}`));
   await graph(`${page}/video_reels`, { method: 'POST', token, params: { upload_phase: 'finish', video_id: start.video_id, video_state: 'PUBLISHED', description: v.caption } });
