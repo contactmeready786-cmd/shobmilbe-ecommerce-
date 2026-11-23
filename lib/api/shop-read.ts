@@ -113,6 +113,13 @@ export async function resume(ctx: ApiCtx) {
   return json(200, r ? { ok: true, ...r } : { ok: false });
 }
 
+// 🛒 the link in a cart reminder (/cart?cr=…): the products to put back in the cart (on any device)
+export async function cartRestore(ctx: ApiCtx) {
+  if (!(await allow(ctx, 'cartrst:', 30, 3600))) return json(429, {});
+  const items = await (await import('../services/cartremind')).restore(ctx.query.get('t'));
+  return json(200, items ? { ok: true, items } : { ok: false });
+}
+
 // 🔔 the customer Android app asks every ~30 min: "any new offer notification?" (same ones the owner sends from Admin)
 export async function appOffers(ctx: ApiCtx) {
   const after = Math.max(0, int(ctx.query.get('after')) || 0);

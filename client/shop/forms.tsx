@@ -185,6 +185,7 @@ function offerNotifications(): void {
       const r = await fetch('/api/push/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sub: sub.toJSON(), device: /Android/.test(ua) ? 'Android' : /iPhone|iPad/.test(ua) ? 'iPhone' : 'Computer' }) });
       if (!r.ok) throw new Error('save');
       store('sm_push', 'on');
+      window.dispatchEvent(new CustomEvent('sm:cart', { detail: { added: false } }));
       toastLink('🔔 ঠিক আছে! নতুন অফার এলেই জানাব।', undefined, 3500);
       track('lead', { method: 'push' });
     } catch {
@@ -194,13 +195,10 @@ function offerNotifications(): void {
   };
   document.addEventListener('click', (e) => { if (hit(e, '[data-push-ask]')) { e.preventDefault(); void pushOn(true); } });
   if (!pushOk || !PU.ask || Notification.permission !== 'default' || store('sm_push') || /^\/(checkout|order|account)/.test(location.pathname)) return;
-  const seen = Number(store('sm_pv') || 0) + 1;
-  store('sm_pv', String(seen));
-  if (seen < 2) return;
-  setTimeout(() => {
-    if (store('sm_push')) return;
+  const ask = (text: string) => {
+    if (store('sm_push') || $('.push-ask')) return;
     const box = (
-      <div className="push-ask"><p>🔔 {PU.text}</p>
+      <div className="push-ask"><p>🔔 {text}</p>
         <div><button type="button" className="btn btn-sm" data-push-yes="">হ্যাঁ, জানাবেন</button><button type="button" className="btn btn-sm btn-ghost" data-push-no="">এখন না</button></div></div>
     );
     document.body.appendChild(box);
@@ -208,7 +206,20 @@ function offerNotifications(): void {
       if (hit(e, '[data-push-yes]')) { box.remove(); void pushOn(false); }
       if (hit(e, '[data-push-no]')) { box.remove(); store('sm_push', `later:${Date.now()}`); }
     });
-  }, PU.delay * 1000);
+  };
+  // 🛒 the moment a product goes into the cart is when the question makes sense (a cart reminder + offers), once
+  if (SM.cartRemind) {
+    const onAdd = (e: Event) => {
+      if (!(e as CustomEvent<{ added?: boolean }>).detail?.added) return;
+      window.removeEventListener('sm:cart', onAdd);
+      setTimeout(() => ask('কার্টের পণ্য আর নতুন অফারের খবর ফোনে মনে করিয়ে দেব?'), 1500);
+    };
+    window.addEventListener('sm:cart', onAdd);
+  }
+  const seen = Number(store('sm_pv') || 0) + 1;
+  store('sm_pv', String(seen));
+  if (seen < 2) return;
+  setTimeout(() => ask(PU.text), PU.delay * 1000);
 }
 
 // ---------- 🚚 "order now, it arrives on …" (Dhaka time; after the cut-off hour the count starts tomorrow) ----------

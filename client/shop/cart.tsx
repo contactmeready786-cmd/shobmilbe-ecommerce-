@@ -13,7 +13,13 @@ export function readCart(): Cart {
   const c = readJson<Cart>(KEY, {});
   return c && typeof c === 'object' ? c : {};
 }
-export function writeCart(cart: Cart): void { store(KEY, JSON.stringify(cart)); updateCount(); }
+export function writeCart(cart: Cart): void {
+  const before = count(readCart());
+  store(KEY, JSON.stringify(cart));
+  updateCount();
+  // 🛒 the cart reminder (client/shop/cartremind.ts) and the notification question listen for this
+  try { window.dispatchEvent(new CustomEvent('sm:cart', { detail: { added: count(cart) > before } })); } catch { /* very old browser */ }
+}
 /** Puts a cart back without touching the counter (the page is about to move on). */
 export function saveCartQuietly(cart: Cart): void { store(KEY, JSON.stringify(cart)); }
 const count = (cart: Cart): number => Object.values(cart).reduce((s, n) => s + n, 0);

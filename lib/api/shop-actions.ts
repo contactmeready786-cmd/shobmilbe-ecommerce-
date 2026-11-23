@@ -20,6 +20,7 @@ import * as $services_push from '../services/push';
 import * as $services_pricing from '../services/pricing';
 import * as $services_mailer from '../services/mailer';
 import * as $services_health from '../services/health';
+import * as $services_cartremind from '../services/cartremind';
 import { myOrders } from '../gate';
 import { readBody, int, str, normalizePhone, validPhone, amount, fields, arr } from '../util';
 import { allow, json, tooMany, type ApiCtx } from '../next/api';
@@ -97,6 +98,16 @@ export async function pushSubscription(ctx: ApiCtx) {
   } catch (e) {
     return json(400, { error: 'এই ব্রাউজারে নোটিফিকেশন চালু করা গেল না।' });
   }
+}
+
+// 🛒 কার্ট রিমাইন্ডার: this browser's cart changed (or an order was just placed) — lib/services/cartremind.ts
+export async function cartReminder(ctx: ApiCtx) {
+  if (ctx.settings.cart_remind_on !== '1') return json(200, { track: false });
+  if (!security.sameSite(ctx.req)) return json(403, { error: 'অনুমতি নেই।' });
+  if (!(await allow(ctx, 'cartrem:', 120, 3600))) return tooMany(ctx);
+  const b = await ctx.body();
+  const cu = await $models_accounts.current(ctx.req, ctx.settings).catch(() => null);
+  return json(200, await $services_cartremind.save(ctx.settings, b, cu ? cu.id : null));
 }
 
 // 📧 ইমেইল মার্কেটিং: join the offer list (footer box / pop-up)

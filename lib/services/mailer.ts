@@ -30,7 +30,7 @@ type NewCampaign = { subject: string; intro: string; productIds?: number[]; butt
 import { emailHtml, OfferEmail } from '../emails';
 
 const MAX_GMAIL_DAY = 80;
-const KINDS: Record<string, string> = { campaign: 'ক্যাম্পেইন', weekly: 'সাপ্তাহিক নতুন পণ্য', welcome: 'স্বাগতম', review: 'রিভিউ চাওয়া', winback: 'আবার আসুন', test: 'পরীক্ষা' };
+const KINDS: Record<string, string> = { campaign: 'ক্যাম্পেইন', weekly: 'সাপ্তাহিক নতুন পণ্য', welcome: 'স্বাগতম', review: 'রিভিউ চাওয়া', winback: 'আবার আসুন', cart: 'কার্ট রিমাইন্ডার', test: 'পরীক্ষা' };
 const AUDIENCES: Record<string, string> = { all: 'সবাই (লিস্টের সবাই)', buyers: 'যারা কিনেছেন', nonbuyers: 'যারা এখনো কেনেননি' };
 
 const cleanEmail = (e: unknown) => String(e || '').trim().toLowerCase().slice(0, 120);

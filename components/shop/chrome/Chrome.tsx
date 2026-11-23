@@ -119,6 +119,8 @@ export function ShopBody({ settings: s, categories, pages, popup = null, q = '',
     minOrder: Math.max(0, Number(s.min_order) || 0), fb: !!s.fb_pixel_id, tt: !!s.tiktok_pixel_id, ga: !!(s.ga4_id || s.gtm_id), g4: !!s.ga4_id,
     protect: s.copy_protect === '1', copyTitle: s.copy_title === '1', track, va: s.visitor_tracking !== '0',
     i18n: s.i18n_on === '1' ? { rev: s.i18n_rev || '1', def: s.i18n_default === 'en' ? 'en' : 'bn' } : null,
+    // 🛒 cart reminders (lib/services/cartremind.ts)
+    ...(s.cart_remind_on === '1' ? { cartRemind: true } : {}),
     // 🔔 offer notifications (Admin → মার্কেটিং → ফোনে অফারের নোটিফিকেশন)
     push: s.shoppush_on === '1' && s.push_vapid_public ? {
       key: s.push_vapid_public, ask: s.shoppush_prompt !== '0', delay: Math.max(5, Number(s.shoppush_delay) || 25),

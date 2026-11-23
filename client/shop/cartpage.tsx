@@ -2,7 +2,8 @@
 import { h, Fragment, paint } from '../jsx.js';
 import { $, bn, getJson, hit, money, postJson } from '../dom.js';
 import type { QuoteAnswer } from '../api-types.js';
-import { PRICES, limitText, minNote, minShort, minText, packText, readCart, rememberPacks, rule, say, toPacks, writeCart, type Cart } from './cart.js';
+import { PRICES, limitText, minNote, minShort, minText, packText, readCart, rememberPacks, rule, say, toPacks, updateCount, writeCart, type Cart } from './cart.js';
+import { restoreFromReminder } from './cartremind.js';
 
 void Fragment;
 export type Product = { id: number | string; slug: string; name: string; price: number; stock: number; image?: string; emoji?: string; preorder?: boolean; preorder_days?: number; weight?: number; packs?: number[];
@@ -204,7 +205,8 @@ export function startCartPage(): void {
         paint(root, <p className="form-error">কার্ট লোড করা যায়নি। ইন্টারনেট সংযোগ দেখে পেজটি রিফ্রেশ করুন।</p>);
       }
     };
-    void render();
+    // 🛒 opened from a cart reminder (/cart?cr=…): the same products go back in first
+    void restoreFromReminder().then(() => { updateCount(); return render(); });
     root.addEventListener('click', (e) => {
       const cart = readCart();
       const rm = hit(e, '[data-remove]');

@@ -1431,6 +1431,22 @@ INSERT INTO courier_track(order_id, courier, kind, status, event_at)
   SELECT a.entity_id, coalesce(o.courier,''), 'status', lower(replace(trim(split_part(a.detail, '→', 2)), ' ', '_')), a.created_at
     FROM activity_log a JOIN orders o ON o.id=a.entity_id
    WHERE a.action='courier_step' AND a.entity='order' AND trim(split_part(a.detail, '→', 2))<>'';
+`,  // 🛒 কার্ট রিমাইন্ডার (owner, 2026-11-24; lib/services/cartremind.ts): carts of notification / account customers,
+  // and each reminder sent (1 h, 24 h, 72 h after the last cart change; at most 3).
+  `
+CREATE TABLE IF NOT EXISTS cart_reminders (
+  id serial PRIMARY KEY, key text UNIQUE NOT NULL, endpoint text NOT NULL DEFAULT '', customer_id int, token text NOT NULL,
+  items jsonb NOT NULL DEFAULT '[]', cart_at timestamptz NOT NULL DEFAULT now(), step smallint NOT NULL DEFAULT 0, last_sent_at timestamptz,
+  status text NOT NULL DEFAULT 'open', order_code text NOT NULL DEFAULT '', order_total int NOT NULL DEFAULT 0, clicked_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS cart_reminders_due_idx ON cart_reminders(status, cart_at);
+CREATE UNIQUE INDEX IF NOT EXISTS cart_reminders_token_uq ON cart_reminders(token);
+CREATE TABLE IF NOT EXISTS cart_reminder_sends (
+  id serial PRIMARY KEY, reminder_id int NOT NULL REFERENCES cart_reminders(id) ON DELETE CASCADE, step smallint NOT NULL,
+  push_ok boolean NOT NULL DEFAULT false, mail_ok boolean NOT NULL DEFAULT false, clicked_at timestamptz, created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS cart_reminder_sends_idx ON cart_reminder_sends(reminder_id, created_at);
 `,
 ];
 
@@ -1863,6 +1879,8 @@ const DEFAULT_SETTINGS: Record<string, string> = {
   // 📩 unfinished checkout: one reminder SMS after `after` minutes (never at night, once per number in 3 days)
   draft_sms_on: '0', draft_sms_after: '60',
   draft_sms_tpl: '{shop}: আপনার অর্ডারটি এখনো সম্পন্ন হয়নি। পণ্যগুলো রাখা আছে — এখানে চেপে শেষ করুন: {link}',
+  // 🛒 কার্ট রিমাইন্ডার (lib/services/cartremind.ts) — on from the start (owner, 2026-11-24); its words: cartremind.DEFAULT_TEXT
+  cart_remind_on: '1',
   // 🚚 delivery time shown on product pages and at checkout (law: same city ≤5 days, other city ≤10 days)
   del_days_dhaka: '1-2', del_days_outside: '2-4', del_cutoff_hour: '17',
   // ✅ checkout tick box: the customer agrees to the use of their details (Digital Commerce Guidelines 2021)

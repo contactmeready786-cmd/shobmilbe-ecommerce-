@@ -167,6 +167,36 @@ export type BundleItemsRow = {
   qty: number;
 };
 
+/** A row of cart_reminder_sends. */
+export type CartReminderSendsRow = {
+  id: number;
+  reminder_id: number;
+  step: number;
+  push_ok: boolean;
+  mail_ok: boolean;
+  clicked_at: Date | null;
+  created_at: Date;
+};
+
+/** A row of cart_reminders. */
+export type CartRemindersRow = {
+  id: number;
+  key: string;
+  endpoint: string;
+  customer_id: number | null;
+  token: string;
+  items: unknown;
+  cart_at: Date;
+  step: number;
+  last_sent_at: Date | null;
+  status: string;
+  order_code: string;
+  order_total: number;
+  clicked_at: Date | null;
+  created_at: Date;
+  updated_at: Date;
+};
+
 /** A row of categories. */
 export type CategoriesRow = {
   id: number;
@@ -1701,6 +1731,8 @@ export type Tables = {
   blog_posts: BlogPostsRow;
   brands: BrandsRow;
   bundle_items: BundleItemsRow;
+  cart_reminder_sends: CartReminderSendsRow;
+  cart_reminders: CartRemindersRow;
   categories: CategoriesRow;
   checkout_drafts: CheckoutDraftsRow;
   checkout_otps: CheckoutOtpsRow;

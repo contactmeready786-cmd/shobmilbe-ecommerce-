@@ -165,5 +165,26 @@ async function shopSendBatch(msg?: unknown, { afterId = 0, limit = 300 }: ShopSe
   return { sent, failed, lastId: subs[subs.length - 1].id, done: subs.length < limit };
 }
 
+// One notification to one customer's phone/computer (🛒 cart reminders). 'gone' = they turned notifications off.
+async function shopSendOne(endpoint: string, msg: { title: string; body: string; url: string; tag: string; image?: string; icon?: string }): Promise<'ok' | 'gone' | 'fail'> {
+  const sub = await db.one<ShopPushSubsRow>('SELECT * FROM shop_push_subs WHERE endpoint=$1', [endpoint]);
+  if (!sub) return 'gone';
+  const v = await vapid();
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), 8000);
+  try {
+    const r = await fetch(sub.endpoint, { method: 'POST', signal: ctrl.signal, body: encrypt(sub, JSON.stringify(msg)),
+      headers: { Authorization: vapidHeader(sub.endpoint, v), TTL: '43200', Urgency: 'normal', 'Content-Encoding': 'aes128gcm', 'Content-Type': 'application/octet-stream' } });
+    if (r.status === 404 || r.status === 410) { await db.q('DELETE FROM shop_push_subs WHERE id=$1', [sub.id]); return 'gone'; }
+    if (!r.ok) throw new Error('push ' + r.status);
+    await db.q('UPDATE shop_push_subs SET last_ok=now(), fails=0 WHERE id=$1', [sub.id]);
+    return 'ok';
+  } catch (_) {
+    await db.q('UPDATE shop_push_subs SET fails=fails+1 WHERE id=$1', [sub.id]).catch(() => {});
+    await db.q('DELETE FROM shop_push_subs WHERE id=$1 AND fails >= 5', [sub.id]).catch(() => {});
+    return 'fail';
+  } finally { clearTimeout(t); }
+}
+
 export const _ = { encrypt, vapidHeader };
-export { publicKey, sendAll, subscribe, count, okEndpoint, shopSubscribe, shopUnsubscribe, shopCount, shopSendBatch };
+export { publicKey, sendAll, subscribe, count, okEndpoint, shopSubscribe, shopUnsubscribe, shopCount, shopSendBatch, shopSendOne };

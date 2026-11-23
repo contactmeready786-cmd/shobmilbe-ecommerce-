@@ -4,6 +4,7 @@ import { whenReady } from '../dom.js';
 import { startAppInvite } from './appinvite.js';
 import { startCartButtons, startFbt, updateCount } from './cart.js';
 import { startCartPage } from './cartpage.js';
+import { startCartRemind } from './cartremind.js';
 import { startCheckout } from './checkout.js';
 import { startForms } from './forms.js';
 import { startHelp } from './help.js';
@@ -17,7 +18,7 @@ import { startUi } from './ui.js';
 whenReady(() => {
   const parts: [string, () => void][] = [
     ['tracking', startTracking], ['ui', startUi], ['cart', startCartButtons], ['bought together', startFbt], ['product', startProduct],
-    ['cart page', startCartPage], ['landing', startLanding], ['checkout', startCheckout], ['live', startLive], ['lists', startLists], ['forms', startForms], ['app invite', startAppInvite], ['help', startHelp],
+    ['cart page', startCartPage], ['landing', startLanding], ['checkout', startCheckout], ['live', startLive], ['lists', startLists], ['forms', startForms], ['app invite', startAppInvite], ['help', startHelp], ['cart reminder', startCartRemind],
   ];
   // one broken part must never stop the rest of the page (the cart keeps working even if, say, live scores fail)
   for (const [name, start] of parts) {

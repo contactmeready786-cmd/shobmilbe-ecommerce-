@@ -30,6 +30,8 @@ export type ShopConfig = {
   /** the shop's own visitor analytics */
   va: boolean;
   i18n: { rev: string; def: 'bn' | 'en' } | null;
+  /** 🛒 cart reminders on (client/shop/cartremind.ts) */
+  cartRemind?: boolean;
   /** offer notifications */
   push: { key: string; ask: boolean; delay: number; text: string } | null;
   /** the app card's rules (only once the owner saved them; otherwise the built-in ones) */

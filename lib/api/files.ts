@@ -229,6 +229,8 @@ export async function runShopJobs(settings: ApiCtx['settings']): Promise<Record<
   await P.timeJob('গুগলে চাহিদা (Trends)', async () => { await (await import('../services/gtrends')).tick(); }, { optional: true });
   await P.timeJob('ছবি গোছানো (ImageKit)', async () => { const ik = $services_imagekit; await ik.moveOld(db, 10); await ik.flushTrash(db, 30); }, { optional: true });
   await P.timeJob('স্টকে এলে জানাও', () => $models_extras.restockSweep(settings));
+  // 🛒 কার্ট রিমাইন্ডার: 1 h / 24 h / 72 h after a cart was left (lib/services/cartremind.ts; never at night)
+  await P.timeJob('কার্ট রিমাইন্ডার', async () => (await import('../services/cartremind')).tick(settings));
   // ⚡ the duplicate scan (~30 s of work) made ready once after each start, so the owner's first look is instant
   // (afterwards lib/services/swr.ts keeps it fresh when the page is viewed); waits while the server is busy
   if (!dupesWarmed) {
