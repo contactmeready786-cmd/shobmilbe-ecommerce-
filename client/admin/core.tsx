@@ -111,9 +111,9 @@ function refreshButton(): void {
   // (owner, 2026-11-23: two Refresh buttons on one page looked careless)
   const own = main ? [...main.querySelectorAll<HTMLElement>('a.btn, button.btn')].find((b) => (b.textContent || '').trim().startsWith('🔄')) : undefined;
   if (own) {
-    const h1 = head.tagName === 'H1' ? head : head.querySelector('h1');
-    const wrap = own.closest('.refresh-wrap');
-    if (h1 && !wrap) { const place = <div className="refresh-wrap" />; h1.after(place); place.appendChild(own); }
+    if (head.tagName === 'H1') { const row = <div className="title-row" />; head.before(row); row.appendChild(head); head = row; }
+    const h1 = head.querySelector('h1');
+    if (h1 && !own.closest('.refresh-wrap')) { const place = <div className="refresh-wrap" />; h1.after(place); place.appendChild(own); }
     return;
   }
   if (!REFRESH_PAGES.test(location.pathname)) return;

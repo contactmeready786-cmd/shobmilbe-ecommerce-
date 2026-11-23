@@ -3016,3 +3016,26 @@ body.admin #main.admin-main .acc-card { display: grid; grid-template-columns: mi
 body.admin #main.admin-main .acc-card > :is(.acc-bal, .field-row, .check, .row-actions, h2, h3, p) { grid-column: 1 / -1; }
 body.admin #main.admin-main .acc-card .field-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
 body.admin #main.admin-main .acc-card .acc-bal { font-size: 1.3rem; font-weight: 750; margin: 0 0 8px; }
+
+/* 🔔 My notifications (owner, 2026-11-23: "huge boxes, huge text"): status cards on top; two even columns below */
+body.admin #main.admin-main .nt-kpis .kpi .kpi-value .pill { font-size: 12px; margin: 2px 0; }
+body.admin #main.admin-main .nt-kpis a.kpi { text-decoration: none; color: inherit; }
+body.admin #main.admin-main .nt-kpis a.kpi:hover { border-color: var(--bin, #0866D6); }
+body.admin #main.admin-main .nt-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start; margin: 0 0 16px; }
+body.admin #main.admin-main .nt-col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+body.admin #main.admin-main .nt-grid > .set-sec, body.admin #main.admin-main .nt-col > .set-sec { margin: 0; }
+body.admin #main.admin-main .nt-grid .set-head .pill { margin: 0; font-size: 11px; }
+body.admin #main.admin-main .nt-note { margin: 0 0 10px; font-size: 12px; line-height: 1.5; }
+body.admin #main.admin-main .nt-steps { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin: 0 0 10px; }
+body.admin #main.admin-main .nt-steps form { margin: 0; }
+body.admin #main.admin-main .nt-steps .btn { width: auto; }
+body.admin #main.admin-main .nt-head-actions { display: inline-flex; gap: 6px; margin-left: auto; }
+body.admin #main.admin-main .nt-head-actions form { margin: 0; }
+body.admin #main.admin-main .nt-save .set-card { padding-top: 14px; }
+@media (max-width: 1000px) { body.admin #main.admin-main .nt-grid { grid-template-columns: minmax(0, 1fr); } }
+
+/* 🔎 small fixes (owner, 2026-11-23): a stat box's last line never spills into the next box; a box's heading and its
+   short "nothing yet" line sit close together */
+body.admin #main.admin-main .kpi { min-width: 0; overflow: hidden; }
+body.admin #main.admin-main .kpi .kpi-sub { display: block; max-width: 100%; }
+body.admin #main.admin-main .panel > h2:first-child + p.muted:last-child { margin: 0; padding: 4px 0 2px; font-size: 13px; }
