@@ -3044,3 +3044,4 @@ body.admin #main.admin-main .nt-head-actions .btn { min-height: 28px; padding: 2
 /* 🔄 Refresh always sits right after the page title (left), the page's other buttons go to the right */
 body.admin #main.admin-main .title-row > h1 + .refresh-wrap { margin: 0 auto 0 4px; order: 0; }
 body.admin #main.admin-main .title-row > .row-actions:empty { display: none; }
+@media (max-width: 900px) { body.admin #main.admin-main .acct-v2 { grid-template-columns: minmax(0, 1fr); } }
