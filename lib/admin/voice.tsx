@@ -4,7 +4,7 @@
 // Google Phone app → Recents → the call → the recording → Share → "সবমিলবে Admin" (the installed admin app),
 // or picked here as a file. Deleting goes to the recycle bin; recordings older than the owner's days go by themselves.
 import { Val, attrValue, jsxList } from '../react/html';
-import { int, fmtDate, bn } from '../util';
+import { int, fmtDate } from '../util';
 import * as ui from './ui';
 import * as db from '../db';
 import * as V from '../models/voice';
@@ -51,11 +51,11 @@ async function page(ctx: AdminCtx) {
   const canEdit = ctx.can('orders_edit');
 
   const body = <>
-    <div className="title-row"><h1>🎤 Voice &amp; calls <small>{bn(c.all)} recordings</small></h1>
+    <div className="title-row"><h1>🎤 Voice &amp; calls <small>{c.all} recordings</small></h1>
       <div className="row-actions"><a className="btn btn-ghost btn-sm" href={attrValue(here)}>🔄 Refresh</a></div></div>
     {ui.flash(ctx.flash)}
     <div className="vc-bar">
-      <div className="chips">{jsxList(tabs.map(([k, st, label, n]) => <a className={`chip ${kind === k && status === st ? 'on' : ''}`} href={`${BASE}?${new URLSearchParams({ ...(k ? { kind: k } : {}), ...(st ? { status: st } : {}) })}`}>{label} <b>{bn(n)}</b></a>))}</div>
+      <div className="chips">{jsxList(tabs.map(([k, st, label, n]) => <a className={`chip ${kind === k && status === st ? 'on' : ''}`} href={`${BASE}?${new URLSearchParams({ ...(k ? { kind: k } : {}), ...(st ? { status: st } : {}) })}`}>{label} <b>{n}</b></a>))}</div>
       <form className="toolbar" method="get" action={attrValue(BASE)}>
         {(kind ? <input type="hidden" name="kind" defaultValue={attrValue(kind)} /> : null)}
         <input type="search" name="q" defaultValue={attrValue(q)} placeholder="Mobile, name, note or order no." aria-label="Search" />
@@ -72,7 +72,7 @@ async function page(ctx: AdminCtx) {
               <b><Val v={v.name || v.customer_name || (v.phone ? 'Customer' : 'Unknown number')} /></b>
               {(v.phone ? <span className="vc-links"><a className="mono" href={`tel:${attrValue(v.phone)}`}>📞 <Val v={v.phone} /></a>
                 <a href={`https://wa.me/88${attrValue(v.phone)}`} target="_blank" rel="noopener">WhatsApp</a>
-                <a href={`/admin/orders?q=${attrValue(v.phone)}`}>🧾 Orders ({bn(v.orders || 0)})</a>
+                <a href={`/admin/orders?q=${attrValue(v.phone)}`}>🧾 Orders ({v.orders || 0})</a>
                 {(v.customer_id ? <a href={`/admin/customers/${attrValue(v.customer_id)}`}>👤 Customer</a> : null)}</span> : null)}
             </div>
             <div className="vc-meta">
