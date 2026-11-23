@@ -101,7 +101,9 @@ export async function productImage(ctx: ApiCtx) {
 // AI-training copiers are told to stay away — they never bring customers, so this costs no sales.
 export async function robots(ctx: ApiCtx) {
   const base = siteUrl(ctx.req, ctx.settings);
-  const closed = blockedBots(ctx.settings).map((b) => `User-agent: ${b}\nDisallow: /\n`).join('\n');
+  // 🎬 meta-externalagent is also the robot Facebook sends to fetch a reel's video from its link (lib/services/videopost.ts):
+  // it may read /videos/ only — the rest of the shop stays closed to it
+  const closed = blockedBots(ctx.settings).map((b) => `User-agent: ${b}\n${b === 'meta-externalagent' ? 'Allow: /videos/\n' : ''}Disallow: /\n`).join('\n');
   return text(200, `${closed ? closed + '\n' : ''}User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /cart\nDisallow: /checkout\nDisallow: /order/\nDisallow: /api/\nDisallow: /pay/\nDisallow: /track\nDisallow: /*?q=\nDisallow: /*&q=\n\nSitemap: ${base}/sitemap.xml\n`,
     'text/plain; charset=utf-8', { 'Cache-Control': 'public, max-age=3600' });
 }
