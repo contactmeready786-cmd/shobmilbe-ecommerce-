@@ -125,6 +125,55 @@ function deliveryFor(settings: Settings, { district, thana, subtotal, weightG = 
   const fee = freeMin > 0 && base >= freeMin ? 0 : weightFee(z, weightG, allWeighed);
   return { ...z, fee };
 }
+// 🛵 the address as the courier's hub reads it (owner, 2026-11-23): a parcel for চৌগাছা went to the ঝিকরগাছা hub
+// because the two English names look alike. So the courier gets the thana/upazila and the district clearly labelled,
+// in English AND Bangla, e.g. "Upazila: Chougachha (চৌগাছা), District: Jashore (যশোর)".
+function courierArea(order: { district?: string | null; thana?: string | null }): string {
+  const d = findDistrict(order.district);
+  const a = d && d.areas.find((x) => x[0] === order.thana || x[1] === order.thana);
+  const both = (en: string, bnName: string) => (en && bnName && en !== bnName ? `${en} (${bnName})` : en || bnName);
+  const parts: string[] = [];
+  if (a || order.thana) {
+    const city = !!d && d.en === 'Dhaka' && !!a && GEO_DATA.dhakaCity.includes(a[0]);
+    parts.push(`${city ? 'Thana' : 'Upazila/Thana'}: ${a ? both(a[0], a[1]) : String(order.thana)}`);
+  }
+  if (d || order.district) parts.push(`District: ${d ? both(d.en, d.bn) : String(order.district)}`);
+  return parts.join(', ');
+}
+
+// ⚠️ the customer's own words name another place (owner, 2026-11-23): the address text names a different thana/upazila
+// of the chosen district (or a different district), and never the chosen one — e.g. "ঝিকরগাছা বাজার" with চৌগাছা chosen.
+// Shown on the admin order page so it is asked on the confirmation call; automatic courier booking waits for it.
+function addressConflict(order: { address?: string | null; district?: string | null; thana?: string | null }): string[] {
+  const text = String(order.address || '');
+  if (!text.trim()) return [];
+  const low = text.toLowerCase();
+  const says = (name: string) => {
+    if (!name || name.length < 3) return false;
+    if (/[a-z]/i.test(name)) {
+      const esc = name.toLowerCase().replace(/[.*+?^$()|[\]\\{}]/g, '\\$&');
+      return new RegExp('(^|[^a-z])' + esc + '($|[^a-z])').test(low);
+    }
+    return text.includes(name);
+  };
+  const out: string[] = [];
+  const d = findDistrict(order.district);
+  if (d) {
+    const a = d.areas.find((x) => x[0] === order.thana || x[1] === order.thana);
+    if (a && !says(a[0]) && !says(a[1])) {
+      const mine = `${a[0]} ${a[1]}`.toLowerCase();
+      for (const [en, bnName] of d.areas) {
+        if (en === a[0] || /sadar/i.test(en)) continue;
+        if ((says(en) && !mine.includes(en.toLowerCase())) || (says(bnName) && !mine.includes(bnName))) out.push(bnName || en);
+      }
+    }
+    if (!says(d.en) && !says(d.bn)) {
+      for (const o of GEO_DATA.districts) if (o.en !== d.en && (says(o.en) || says(o.bn))) out.push(`${o.bn} জেলা`);
+    }
+  }
+  return [...new Set(out)].slice(0, 5);
+}
+
 function areaLabel(order: { district?: string; thana?: string }): string {
   const d = findDistrict(order.district);
   const a = d && d.areas.find((x) => x[0] === order.thana);
@@ -800,4 +849,4 @@ async function markPaid(id: number, { amount: amt, trxId, method }: { amount: un
     [amount(amt), String(trxId || ''), method || null, id]);
 }
 
-export { noFreeIds, freeDeliveryBase, onStatusChange, STATUSES, RELEASED, PAYMENT_METHODS, PAYMENT_STATUSES, OrderError, GEO, dhakaCityAreas, findDistrict, zoneFor, deliveryFee, deliveryZone, deliveryFor, customZones, weightFee, areaLabel, checkCoupon, createOrder, getOrder, listOrders, countOrders, statusCounts, setStatus, updateOrder, setCourierInfo, setCourierStatus, setOrderDates, dhakaLocal, markPaid };
+export { courierArea, addressConflict, noFreeIds, freeDeliveryBase, onStatusChange, STATUSES, RELEASED, PAYMENT_METHODS, PAYMENT_STATUSES, OrderError, GEO, dhakaCityAreas, findDistrict, zoneFor, deliveryFee, deliveryZone, deliveryFor, customZones, weightFee, areaLabel, checkCoupon, createOrder, getOrder, listOrders, countOrders, statusCounts, setStatus, updateOrder, setCourierInfo, setCourierStatus, setOrderDates, dhakaLocal, markPaid };

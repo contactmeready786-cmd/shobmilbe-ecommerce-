@@ -90,6 +90,16 @@ type RxCreate = CourierError & { tracking_id?: string | number };
 type RxInfo = CourierError & { parcel?: { status?: string } };
 type RxAreas = CourierError & { areas?: { id: number; name: string; post_code?: string | number }[] };
 
+/** The customer's address + the labelled thana/district. The courier's limit cuts the customer's text, never the
+ *  thana and district at the end (they decide which hub the parcel goes to). */
+export function fullAddress(address: unknown, areaText: unknown, max: number): string {
+  const area = String(areaText || '').trim().slice(0, max);
+  const own = String(address || '').replace(/\s+/g, ' ').trim();
+  if (!area) return own.slice(0, max);
+  const room = max - area.length - 2;
+  return room > 0 && own ? `${own.slice(0, room).trim()}, ${area}` : area;
+}
+
 // ---------------------------------------------------------------- Steadfast
 function sfHeaders(s: Settings): Record<string, string> { return <Record<string, string>>{ 'Api-Key': s.steadfast_api_key, 'Secret-Key': s.steadfast_secret_key, 'Content-Type': 'application/json', Accept: 'application/json' }; }
 function sfBase(s: Settings) { return (s.steadfast_base_url || 'https://portal.packzy.com/api/v1').replace(/\/+$/, ''); }
@@ -99,7 +109,7 @@ async function steadfastCreate(order: ParcelOrder, s: Settings, extra: ParcelExt
     invoice: order.code,
     recipient_name: order.customer_name.slice(0, 100),
     recipient_phone: order.phone,
-    recipient_address: [order.address, extra.areaText].filter(Boolean).join(', ').slice(0, 250),
+    recipient_address: fullAddress(order.address, extra.areaText, 250),
     cod_amount: codAmount(order),
     note: (extra.note || order.note || '').slice(0, 250),
     item_description: itemText(order),
@@ -154,7 +164,7 @@ async function pathaoCreate(order: ParcelOrder, s: Settings, extra: ParcelExtra)
     merchant_order_id: order.code,
     recipient_name: order.customer_name.slice(0, 100),
     recipient_phone: order.phone,
-    recipient_address: [order.address, extra.areaText].filter(Boolean).join(', ').slice(0, 220),
+    recipient_address: fullAddress(order.address, extra.areaText, 220),
     delivery_type: 48,
     item_type: 2,
     special_instruction: (extra.note || order.note || '').slice(0, 250),
@@ -215,7 +225,7 @@ async function redxCreate(order: ParcelOrder, s: Settings, extra: ParcelExtra): 
     customer_phone: order.phone,
     delivery_area: extra.area_name || order.thana || order.district,
     delivery_area_id: int(extra.area_id),
-    customer_address: [order.address, extra.areaText].filter(Boolean).join(', ').slice(0, 250),
+    customer_address: fullAddress(order.address, extra.areaText, 250),
     merchant_invoice_id: order.code,
     cash_collection_amount: String(codAmount(order)),
     parcel_weight: Math.round(Math.max(0.5, Number(extra.weight) || 0.5) * 1000),
@@ -267,7 +277,7 @@ async function carrybeeCreate(order: ParcelOrder, s: Settings, extra: ParcelExtr
     delivery_type: 1, product_type: 1,
     recipient_phone: cbPhone(order.phone),
     recipient_name: order.customer_name.slice(0, 100),
-    recipient_address: [order.address, extra.areaText].filter(Boolean).join(', ').slice(0, 250),
+    recipient_address: fullAddress(order.address, extra.areaText, 250),
     city_id: city, zone_id: zone,
     item_weight: Math.round(Math.max(0.5, Number(extra.weight) || 0.5) * 1000),
     item_quantity: Math.max(1, (order.items || []).reduce((a, i) => a + (Number(i.qty) || 0), 0) || 1),
