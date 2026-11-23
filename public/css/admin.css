@@ -1598,7 +1598,7 @@ html[data-admin-lang="en"] .side-drop[data-side-group="দোকানের ড
    and the delete column stays pinned on the right so it is always in sight */
 #main.admin-main .vb .table-wrap { overflow-x: auto; max-width: 100%; }
 #main.admin-main .vb-table th, #main.admin-main .vb-table td { padding: 6px 6px; }
-#main.admin-main .vb-table th { white-space: normal; line-height: 1.25; font-size: .82rem; }
+#main.admin-main .vb-table th { white-space: normal; word-break: keep-all; overflow-wrap: normal; line-height: 1.25; font-size: .82rem; }
 #main.admin-main .vb-table td:nth-child(-n+3) { white-space: nowrap; word-break: keep-all; }
 #main.admin-main .vb-table .w-num { min-width: 58px; max-width: 96px; }
 #main.admin-main .vb-table select { min-width: 64px; max-width: 110px; }
@@ -2411,8 +2411,12 @@ body.admin #main.admin-main .vx-stats { display: grid; grid-template-columns: re
 body.admin #main.admin-main .vx-stat { display: flex; align-items: center; gap: 10px; padding: 14px; border-radius: 20px; text-decoration: none; color: var(--ink);
   background: var(--g-surf); border: 1px solid var(--g-edge); box-shadow: var(--g-shadow); min-width: 0; }
 body.admin #main.admin-main a.vx-stat:hover { transform: translateY(-1px); box-shadow: 0 12px 28px rgba(20, 33, 61, .1), inset 0 1px 0 #fff; }
-body.admin #main.admin-main .vx-stat .chip-ic { flex: none; width: 38px; height: 38px; border-radius: 12px; }
-body.admin #main.admin-main .vx-stat span { display: block; color: var(--g-mut); font-size: .8rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+body.admin #main.admin-main .vx-stat .chip-ic { flex: none; width: 38px; height: 38px; border-radius: 12px; display: grid; place-items: center; font-size: 18px; line-height: 1; }
+/* the colour is on the icon box itself here (stat cards): the same soft tile as the top bar chips */
+body.admin #main.admin-main .vx-stat .chip-ic.chip-blue { background: color-mix(in srgb, var(--blue) 12%, #fff); }
+body.admin #main.admin-main .vx-stat .chip-ic.chip-amber { background: color-mix(in srgb, var(--amber) 20%, #fff); }
+body.admin #main.admin-main .vx-stat .chip-ic.chip-red { background: var(--red-l); }
+body.admin #main.admin-main .vx-stat > div > span { display: block; color: var(--g-mut); font-size: .8rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 body.admin #main.admin-main .vx-stat b { font-size: 1.15rem; }
 body.admin #main.admin-main .vx-stat .chip-green { background: var(--green-l); color: var(--green); }
 body.admin #main.admin-main .vx-card-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
