@@ -177,17 +177,17 @@ function helpBox(_title?: unknown, _body?: unknown): null {
   return null;
 }
 
-// 🧩 Small tools above a list (owner, 2026-11-23: "these big boxes need far less room — small, smart, professional"):
-// the page's tools sit in ONE slim toolbar line under the title — a switch pill, then each small settings form inline
-// (label · boxes · ⓘ · Save) instead of a tall card with a header bar and a long hint under every box.
+// 🧩 A small tool card (owner, 2026-11-19: nothing folds in the admin): title bar + body, always open.
 type ToolTileOpts = { state?: boolean; open?: boolean; id?: string };
 function toolTile(title: unknown, body: unknown, { state, open, id }: ToolTileOpts = {}) {
   void open;
-  return <div className="tool-inline" id={id}><span className="ti-t"><Val v={title} /></span>{state === undefined ? null : <span className={`tool-state ${state ? 'on' : ''}`}>{state ? 'চালু' : 'বন্ধ'}</span>}<div className="ti-body"><Val v={body} /></div></div>;
+  return <section className="set-sec tool-sec" id={id}><div className="set-head"><h2 className="set-title"><Val v={title} /></h2>{state === undefined ? null : <span className={`tool-state ${state ? 'on' : ''}`}>{state ? 'চালু' : 'বন্ধ'}</span>}</div><div className="panel set-card tool-body"><Val v={body} /></div></section>;
 }
-/** A compact labelled box for a toolbar form: small label, the box, and the hint behind an ⓘ (shown on hover). */
-function inlineField(label: unknown, control: unknown, hint?: unknown) {
-  return <label className="ifield"><span className="ifield-l"><Val v={label} /></span><Val v={control} />{hint ? <span className="tool-tip" tabIndex={0} role="note" aria-label={attrValue(hint)} data-tip={attrValue(hint)}>i</span> : null}</label>;
+/** ⚙️ A small rules card (owner, 2026-11-23: "small, readable, professional — not stretched across the monitor"):
+ *  fixed width, title + Save on one line, then one labelled row per setting (label left, box right, hint behind ⓘ). */
+type RuleRow = { label: unknown; control: unknown; hint?: unknown };
+function ruleCard(title: unknown, action: string, rows: RuleRow[], { id }: { id?: string } = {}) {
+  return <form method="post" action={attrValue(action)} className="rule-card" id={id}><div className="rc-head"><span className="rc-title"><Val v={title} /></span><button type="submit" className="btn btn-sm" data-auto-save-btn="">💾 সেভ করুন</button></div>{jsxList(rows.map((r) => <label className="rc-row"><span className="rc-l"><Val v={r.label} />{r.hint ? <span className="tool-tip" tabIndex={0} role="note" aria-label={attrValue(r.hint)} data-tip={attrValue(r.hint)}>i</span> : null}</span><span className="rc-c"><Val v={r.control} /></span></label>))}</form>;
 }
 /** An on/off setting as one small pill: name · switch · চালু/বন্ধ · ⓘ (the explanation shows when the mouse is on it).
  *  Saving: the pill's own 💾 appears once the switch is moved (and the page's save bar), like every admin edit. */
@@ -202,4 +202,4 @@ function toolRow(...tiles: unknown[]) {
   const shown = tiles.filter((x) => x !== '' && x !== null && x !== undefined && x !== false);
   return shown.length ? <div className="tool-row"><Val v={shown} /></div> : '';
 }
-export { toolSwitch, toolTile, toolRow, inlineField, flag, importTabs, rowSwitch, rowActions, catOpts, MESSAGES, flash, flashFrom, pill, field, input, textarea, select, check, switchRow, imagePicker, pager, dateFilter, kpi, empty, settingsBox, helpBox, money, bn };
+export { toolSwitch, toolTile, toolRow, ruleCard, flag, importTabs, rowSwitch, rowActions, catOpts, MESSAGES, flash, flashFrom, pill, field, input, textarea, select, check, switchRow, imagePicker, pager, dateFilter, kpi, empty, settingsBox, helpBox, money, bn };
