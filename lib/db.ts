@@ -1402,7 +1402,10 @@ CREATE TABLE IF NOT EXISTS voice_notes (
 );
 CREATE INDEX IF NOT EXISTS voice_notes_new ON voice_notes(created_at DESC);
 CREATE INDEX IF NOT EXISTS voice_notes_phone ON voice_notes(phone);
-`,
+`,  // 👟 products made one pair: pictures the owner had kept as they were go back to "still to do" on the white-background
+  // page, because they may still say "3 pairs" (owner, 2026-11-23)
+  `UPDATE media SET wb_ok=false WHERE owner_type='product' AND wb_from IS NULL AND wb_ok AND owner_id IN (
+    SELECT (e->>'id')::int FROM pack_singles b CROSS JOIN LATERAL jsonb_array_elements(b.data) e WHERE b.kind='pair' AND b.undone_at IS NULL);`,
 ];
 
 // Data steps that need code, keyed by migration number (run after its SQL).

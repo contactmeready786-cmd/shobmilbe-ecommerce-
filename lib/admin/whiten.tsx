@@ -45,12 +45,17 @@ function keyCard(token: string) {
 const PER_PAGE = 12;
 const HOST = "split_part(p.import_ref, '#', 1)";
 const ALL = '*';
+// 👟 products made one pair (owner, 2026-11-23: "their pictures still say 3 pairs — list them here so I can fix the
+// pictures"): one group across all shops (lib/models/packsingle.ts pack_singles, kind 'pair')
+const PAIRS = 'pairs';
+const PAIR_IDS = `SELECT (e->>'id')::int FROM pack_singles b CROSS JOIN LATERAL jsonb_array_elements(b.data) e WHERE b.kind='pair' AND b.undone_at IS NULL`;
 const FILTERS: Record<string, string> = { todo: 'Still to do', done: '⬜ Whitened', ok: '✅ Original kept', all: 'All' };
 
 async function hosts() {
   const shops = await db.q<{ host: string; n: number }>(`SELECT ${HOST} AS host, count(*)::int AS n FROM products p
     WHERE p.import_ref <> '' AND p.parent_id IS NULL AND ${HOST} NOT IN ('', 'file') GROUP BY 1 ORDER BY count(*) DESC`);
-  return [...shops, { host: ALL, n: 0 }];
+  const pairs = (await db.one<{ n: number }>(`SELECT count(*)::int AS n FROM products p WHERE p.id IN (${PAIR_IDS})`).catch(() => null))?.n || 0;
+  return [...(pairs ? [{ host: PAIRS, n: pairs }] : []), ...shops, { host: ALL, n: 0 }];
 }
 
 async function page(ctx: AdminCtx) {
@@ -58,12 +63,12 @@ async function page(ctx: AdminCtx) {
   const wanted = str(ctx.query.get('host'), 120);
   // ElectroX first when nothing is chosen (the shop the owner asked about), else the biggest one
   const host = list.some((h) => h.host === wanted) ? wanted : (list.find((h) => /electrox/i.test(h.host)) || list[0]).host;
-  const f = ifKey(FILTERS, ctx.query.get('f'), 'todo');
+  const f = ifKey(FILTERS, ctx.query.get('f'), host === PAIRS ? 'all' : 'todo');
   const pg = Math.max(1, int(ctx.query.get('page'), 1));
   // 🔎 ?sku=1374 — one product, whichever shop it came from (owner, 2026-11-15: a picture with another site's address)
   const sku = str(ctx.query.get('sku'), 40).trim();
-  const cond = sku ? 'p.sku=$1' : host === ALL ? 'TRUE' : `${HOST}=$1`;
-  const args = sku ? [sku] : host === ALL ? [] : [host];
+  const cond = sku ? 'p.sku=$1' : host === ALL ? 'TRUE' : host === PAIRS ? `p.id IN (${PAIR_IDS})` : `${HOST}=$1`;
+  const args = sku ? [sku] : host === ALL || host === PAIRS ? [] : [host];
   // to do = a picture neither whitened nor marked "✅ original is fine" by the owner (owner, 2026-11-17)
   const has = (what: 'todo' | 'done' | 'ok') => `EXISTS (SELECT 1 FROM media m WHERE m.owner_type='product' AND m.owner_id=p.id AND ${what === 'done' ? 'm.wb_from IS NOT NULL' : what === 'ok' ? 'm.wb_from IS NULL AND m.wb_ok' : 'm.wb_from IS NULL AND NOT m.wb_ok'})`;
   const where = `p.parent_id IS NULL AND ${cond}${sku || f === 'all' ? '' : ` AND ${has(f as 'todo' | 'done' | 'ok')}`}`;
@@ -84,7 +89,7 @@ async function page(ctx: AdminCtx) {
   const pages = Math.max(1, Math.ceil(count / PER_PAGE));
   const q = (o: Record<string, string>) => `${BASE}?${new URLSearchParams({ host, f, ...o })}`;
   const body = <><div className="title-row"><h1>⬜ ছবির ব্যাকগ্রাউন্ড সাদা</h1>{ui.toolRow(ui.helpBox('কীভাবে কাজ করে', <ol className="steps"><li>নিচে দোকান বাছুন। <b>"▶ এই পেজের ছবি সাদা করুন"</b> চাপলে আপনার কম্পিউটারেই একটা AI প্রতিটা ছবি থেকে শুধু পণ্যটা কেটে একদম সাদা (#FFFFFF) ব্যাকগ্রাউন্ডে বসায় — পেছনের লেখা, ফোন নম্বর, রং সব চলে যায়। ফ্রি, কোনো সীমা নেই।</li><li><b>☁️ অনলাইনে (প্রস্তাবিত):</b> ছবিগুলো অনলাইনের শক্তিশালী কম্পিউটারে (GitHub, ফ্রি) সাদা হয় — আপনার ল্যাপটপ বা ফোনে কোনো চাপ পড়ে না, পেজ বন্ধ করলেও কাজ চলতে থাকে। কয়েক মিনিট লাগে; তৈরি হলে এখানেই "পরে"-র ছবি দেখাবে। ছবির কোণের লোগো আর আলাদা লেখাও মুছে দেয়।</li><li>নিজের কম্পিউটারে চালাতে চাইলে দুইটা AI আছে: <b>🧠 সেরা মান</b> (BiRefNet — পণ্যের কিনারা, তার, স্বচ্ছ প্লাস্টিক সবচেয়ে নিখুঁত) আর <b>⚡ দ্রুত</b> (ISNet — ধীর কম্পিউটারে)। প্রথমবার AI-এর ফাইল নামে (প্রায় ২০০ MB, একবারই — পরে কম্পিউটারে রাখা থাকে)। কাজ চলার সময় পেজটা খোলা রাখুন।</li><li><b>✨ উজ্জ্বল ও পরিষ্কার</b> টিক দিলে পণ্যটা একটু উজ্জ্বল হয়, রং একটু ঝকঝকে হয় — পণ্যের আকার বা লেখা কিছুই বদলায় না।</li><li>প্রতিটা ছবির <b>আগে / পরে</b> দেখুন। ভালো হলে টিক থাকুক, খারাপ হলে টিক তুলে দিন — তারপর <b>"💾 টিক দেওয়াগুলো রাখুন"</b>। শুধু টিক দেওয়াগুলোই বদলায়।</li><li>আসল ছবি সবসময় রাখা থাকে: সাদা করা ছবির নিচে <b>"↺ আসল ছবি ফেরত"</b> চাপলে আগের মতো হয়ে যায়।</li><li>পণ্যের নিজের গায়ে কোনো লেখা থাকলে AI সেটা পণ্যের অংশ ভেবে রেখে দেয় — ওগুলো আলাদা করে দেখে নেবেন।</li></ol>))}{(ctx.user.role === 'owner' ? keyCard(String(ctx.settings.whiten_gh_token || '')) : null)}</div>{ui.flash(ctx.flash)}
-    <div className="filter-row"><form method="get" action={attrValue(BASE)} className="toolbar">{ui.select('host', list.map((h) => [h.host, h.host === ALL ? 'দোকানের সব পণ্য' : `${h.host} — ${bn(h.n)}টি পণ্য`]), host)}{' '}<input type="hidden" name="f" defaultValue={attrValue(f)} /><button className="btn btn-sm btn-ghost">দেখুন</button></form>
+    <div className="filter-row"><form method="get" action={attrValue(BASE)} className="toolbar">{ui.select('host', list.map((h) => [h.host, h.host === ALL ? 'দোকানের সব পণ্য' : h.host === PAIRS ? `👟 এক জোড়ায় আনা পণ্য (ছবিতে পুরোনো জোড়ার লেখা) — ${bn(h.n)}টি` : `${h.host} — ${bn(h.n)}টি পণ্য`]), host)}{' '}<input type="hidden" name="f" defaultValue={attrValue(f)} /><button className="btn btn-sm btn-ghost">দেখুন</button></form>
       <form method="get" action={attrValue(BASE)} className="toolbar">{ui.input('sku', sku, { placeholder: 'SKU, যেমন 1374', maxlength: 40, class: 'w-num', 'aria-label': 'SKU' })}{' '}<button className="btn btn-sm btn-ghost">🔎 খুঁজুন</button></form>
       <span className="stat-chip">ছবি <b>{bn(prog.pics)}</b> · <span className="muted">{bn(ids.length)}টি পণ্য</span></span><span className="stat-chip is-blue">Whitened <b>{bn(prog.white)} / {bn(prog.pics)}</b> · {bn(prog.pics ? Math.round((prog.white * 100) / prog.pics) : 0)}%</span><span className="stat-chip">✅ Original kept <b>{bn(prog.ok)}</b></span><span className="stat-chip">Left to do <b>{bn(Math.max(0, prog.pics - prog.white - prog.ok))}</b></span>
       <nav className="chips">{jsxList(Object.entries(FILTERS).map(([k, v]) => <>{' '}<a className={`chip ${k === f ? 'on' : ''}`} href={attrValue(`${BASE}?${new URLSearchParams({ host, f: k })}`)}><Val v={v} /></a></>))}</nav></div>

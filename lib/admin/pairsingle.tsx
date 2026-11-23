@@ -53,7 +53,7 @@ async function page(ctx: AdminCtx) {
     </section>
     {(done.length ? <section className="panel"><h2>Pictures to change <small>{done.length} products made one pair — their pictures may still say "2 Pairs"</small></h2>
       <textarea id="pair-skus" className="gp-text" readOnly rows={3} defaultValue={skus} aria-label="SKUs" />
-      <p><button type="button" className="btn btn-sm" data-copy-from="pair-skus">📋 Copy SKUs</button></p>
+      <p className="row-actions"><button type="button" className="btn btn-sm" data-copy-from="pair-skus">📋 Copy SKUs</button><a className="btn btn-sm" href="/admin/products/whiten?host=pairs">⬜ Fix these pictures (white background)</a></p>
       <table className="table compact"><tbody>{jsxList(done.map((d) => <tr>{thumb(d.image_id)}<td className="mono"><a href={`/admin/products/${attrValue(d.id)}`}><Val v={d.sku} /></a></td><td className="small"><Val v={d.name} /></td></tr>))}</tbody></table>
     </section> : null)}
     {(hist.length ? <section className="panel table-wrap"><h2>Changed</h2><table className="table compact"><thead><tr><th className="num">Products</th><th>When</th><th></th></tr></thead><tbody>
