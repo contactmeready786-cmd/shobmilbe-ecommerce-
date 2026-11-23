@@ -2895,3 +2895,43 @@ body.admin #main.admin-main .gh-side-warn { grid-column: 1 / -1; margin: 0; padd
   .vc-play, .vc-from, .vc-actions { margin-left: 0; }
   .vc-meta { display: none; }
 }
+
+/* 🧰 v9 compact tools (owner, 2026-11-23: "the Delete button and the Group & VIP box are far too big — show the same
+   things small, smart and professional"). The tools under a page title are ONE slim toolbar line:
+   switch pill · small settings form (label · box · ⓘ · Save). Hints live behind the ⓘ, never as a long line. */
+body.admin #main.admin-main .tool-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 14px; }
+body.admin #main.admin-main .tool-row > .tool-pill { flex: 0 0 auto; display: inline-flex; flex-wrap: nowrap; align-items: center; gap: 6px;
+  min-height: 36px; padding: 3px 8px 3px 12px; border-radius: 10px; border: 1px solid var(--a-line, #E4E9F2); background: #fff; box-shadow: none; }
+body.admin #main.admin-main .tool-row > .tool-pill > .tool-t { font-size: 13px; font-weight: 600; white-space: nowrap; }
+body.admin #main.admin-main .tool-row > .tool-pill .tool-state { font-size: 11px; padding: 1px 7px; }
+body.admin #main.admin-main .tool-row > .tool-pill .tool-save { min-height: 26px; padding: 2px 9px; font-size: 12px; border-radius: 7px; margin: 0; }
+/* a row that holds a settings form becomes one white toolbar card; its parts are split by thin lines */
+body.admin #main.admin-main .tool-row:has(> .tool-inline) { gap: 0; padding: 4px; background: #fff; border: 1px solid var(--a-line, #E4E9F2); border-radius: 12px; }
+body.admin #main.admin-main .tool-row:has(> .tool-inline) > .tool-pill { border: 0; border-radius: 8px; background: transparent; }
+body.admin #main.admin-main .tool-row:has(> .tool-inline) > * + * { border-left: 1px solid var(--a-line, #E4E9F2); border-radius: 0; }
+body.admin #main.admin-main .tool-inline { flex: 1 1 auto; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 3px 6px 3px 14px; }
+body.admin #main.admin-main .tool-inline > .ti-t { font-size: 13px; font-weight: 650; color: var(--ink, #101828); white-space: nowrap; }
+body.admin #main.admin-main .tool-inline > .ti-body { flex: 1 1 auto; min-width: 0; }
+body.admin #main.admin-main .tool-inline .ti-form { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin: 0; }
+body.admin #main.admin-main .tool-inline .ti-form > .btn { min-height: 32px; padding: 4px 12px; font-size: 12.5px; margin-left: auto; width: auto; }
+body.admin #main.admin-main .ifield { display: inline-flex; align-items: center; gap: 6px; margin: 0; font-size: 12.5px; font-weight: 500; color: var(--a-mut, #5B6B85); white-space: nowrap; }
+body.admin #main.admin-main .ifield > input { height: 32px; min-height: 32px; margin: 0; padding: 4px 10px; font-size: 13px; border-radius: 8px; }
+body.admin #main.admin-main .ifield > input.ti-wide { width: clamp(180px, 22vw, 320px); }
+body.admin #main.admin-main .ifield > input.ti-num { width: 96px; }
+body.admin #main.admin-main .ifield > .tool-tip { width: 16px; height: 16px; font-size: 10px; }
+@media (max-width: 760px) {
+  body.admin #main.admin-main .tool-row:has(> .tool-inline) > * { flex: 1 1 100%; }
+  body.admin #main.admin-main .tool-row:has(> .tool-inline) > * + * { border-left: 0; border-top: 1px solid var(--a-line, #E4E9F2); }
+  body.admin #main.admin-main .tool-inline { padding: 8px 8px 6px; }
+  body.admin #main.admin-main .ifield { flex: 1 1 100%; flex-wrap: nowrap; }
+  body.admin #main.admin-main .ifield > input.ti-wide, body.admin #main.admin-main .ifield > input.ti-num { flex: 1 1 auto; width: auto; min-width: 0; }
+  body.admin #main.admin-main .tool-inline .ti-form > .btn { margin-left: 0; }
+}
+/* settings cards everywhere (⚙️ boxes on Drafts, Threats and all settings pages): same cards, a little tighter —
+   slimmer header bar, less padding, shorter switch rows */
+body.admin #main.admin-main .set-sec { margin-bottom: 12px; }
+body.admin #main.admin-main .set-head { padding: 9px 16px; gap: 6px 8px; }
+body.admin #main.admin-main .set-head .set-title { font-size: .94rem; }
+body.admin #main.admin-main .set-sec > .set-card { padding: 14px 16px; }
+body.admin #main.admin-main .set-card .switch-list > .switch-row, body.admin #main.admin-main .set-card > .switch-row { padding: 9px 2px; }
+body.admin #main.admin-main .sb-chip { font-size: .72rem; padding: 1px 8px; }

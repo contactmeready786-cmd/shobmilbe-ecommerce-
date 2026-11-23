@@ -177,13 +177,17 @@ function helpBox(_title?: unknown, _body?: unknown): null {
   return null;
 }
 
-// 🧩 Small tools above a list (owner, 2026-11-15: "a nice small box, opened with the arrow"): a row of compact
-// pills; each opens its own panel below it. `state` shows চালু / বন্ধ on the pill for an on/off tool.
+// 🧩 Small tools above a list (owner, 2026-11-23: "these big boxes need far less room — small, smart, professional"):
+// the page's tools sit in ONE slim toolbar line under the title — a switch pill, then each small settings form inline
+// (label · boxes · ⓘ · Save) instead of a tall card with a header bar and a long hint under every box.
 type ToolTileOpts = { state?: boolean; open?: boolean; id?: string };
 function toolTile(title: unknown, body: unknown, { state, open, id }: ToolTileOpts = {}) {
-  // (owner, 2026-11-19: nothing folds in the admin) — each tool is a small card, always open, side by side in its row
   void open;
-  return <section className="set-sec tool-sec" id={id}><div className="set-head"><h2 className="set-title"><Val v={title} /></h2>{state === undefined ? null : <span className={`tool-state ${state ? 'on' : ''}`}>{state ? 'চালু' : 'বন্ধ'}</span>}</div><div className="panel set-card tool-body"><Val v={body} /></div></section>;
+  return <div className="tool-inline" id={id}><span className="ti-t"><Val v={title} /></span>{state === undefined ? null : <span className={`tool-state ${state ? 'on' : ''}`}>{state ? 'চালু' : 'বন্ধ'}</span>}<div className="ti-body"><Val v={body} /></div></div>;
+}
+/** A compact labelled box for a toolbar form: small label, the box, and the hint behind an ⓘ (shown on hover). */
+function inlineField(label: unknown, control: unknown, hint?: unknown) {
+  return <label className="ifield"><span className="ifield-l"><Val v={label} /></span><Val v={control} />{hint ? <span className="tool-tip" tabIndex={0} role="note" aria-label={attrValue(hint)} data-tip={attrValue(hint)}>i</span> : null}</label>;
 }
 /** An on/off setting as one small pill: name · switch · চালু/বন্ধ · ⓘ (the explanation shows when the mouse is on it).
  *  Saving: the pill's own 💾 appears once the switch is moved (and the page's save bar), like every admin edit. */
@@ -198,4 +202,4 @@ function toolRow(...tiles: unknown[]) {
   const shown = tiles.filter((x) => x !== '' && x !== null && x !== undefined && x !== false);
   return shown.length ? <div className="tool-row"><Val v={shown} /></div> : '';
 }
-export { toolSwitch, toolTile, toolRow, flag, importTabs, rowSwitch, rowActions, catOpts, MESSAGES, flash, flashFrom, pill, field, input, textarea, select, check, switchRow, imagePicker, pager, dateFilter, kpi, empty, settingsBox, helpBox, money, bn };
+export { toolSwitch, toolTile, toolRow, inlineField, flag, importTabs, rowSwitch, rowActions, catOpts, MESSAGES, flash, flashFrom, pill, field, input, textarea, select, check, switchRow, imagePicker, pager, dateFilter, kpi, empty, settingsBox, helpBox, money, bn };
