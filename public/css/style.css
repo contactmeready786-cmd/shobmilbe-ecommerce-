@@ -1393,3 +1393,32 @@ body.shop.glass :is(input:not([type=radio]):not([type=checkbox]):not([type=file]
 }
 /* ⏳ only a few left (card) */
 .card-low { margin: -2px 0 2px; font-size: .76rem; color: var(--red); font-weight: 600; }
+
+/* 📏 Nothing may stick out of its box on any screen (owner, 2026-11-23). Found by measuring the shop at
+   360, 390, 768, 1366 and 1920 px wide. */
+/* tablets (761–1100 px): the header fitted only from ~1100 px — the search box may shrink, account / cart keep
+   just their icons, and the category line drops its small icons below 900 px so every name stays on screen */
+.search { min-width: 0; }
+@media (min-width: 761px) and (max-width: 1100px) {
+  .acct-word, .cart-word { display: none; }
+  .header-nav a.acct-link { padding-left: 6px; padding-right: 6px; }
+}
+@media (min-width: 761px) and (max-width: 900px) {
+  .cat-strip .cat-menu .cm-ic { display: none; }
+  .header-row { gap: 8px; }
+  .header-nav a { padding: 8px 5px; font-size: .86rem; }
+}
+/* product cards: a very long word (e.g. 18650/32650/16340/14500) breaks instead of running out of the card */
+.card-title, .card-title a { overflow-wrap: anywhere; }
+/* live score cards: one column that never grows wider than the card */
+.match { grid-template-columns: minmax(0, 1fr); min-width: 0; }
+.match > * { min-width: 0; }
+/* thin top bar on a phone: the score line shrinks; the "1/6" counter is left out when there is no room */
+@media (max-width: 420px) {
+  .live-tick { overflow: hidden; }
+  .lt-n, .lt-vs { display: none; }
+}
+/* live score: a long score line ("146/3 (21.5/50 ov, target 146)") no longer hides the team name — both wrap */
+.team-row { grid-template-columns: 28px minmax(40%, 1fr) minmax(0, auto); }
+.team-row .tn { white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.25; overflow-wrap: anywhere; }
+.team-row .sc { white-space: normal; line-height: 1.25; }

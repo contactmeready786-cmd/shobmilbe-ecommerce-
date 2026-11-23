@@ -3067,3 +3067,35 @@ body.admin #main.admin-main .title-row > .row-actions:empty { display: none; }
 .weight-rates td:first-child { white-space: nowrap; font-weight: 600; }
 .weight-in { display: flex; gap: 6px; align-items: center; }
 .weight-in select { width: auto; }
+
+/* 📏 No text ever leaves its box, on any screen (owner, 2026-11-23: "Cancelled / returned" stuck out of its card).
+   Found by measuring every admin page at 1024, 1100, 1280, 1366, 1536, 1920 and 2560 px wide. */
+/* stat cards (Overview): the text column may shrink, a long label wraps onto a 2nd line instead of escaping */
+body.admin #main.admin-main .vx-stat > div { flex: 1 1 auto; min-width: 0; }
+body.admin #main.admin-main .vx-stat > div > span { white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.25; overflow-wrap: anywhere; }
+body.admin #main.admin-main .vx-stat b { display: block; overflow-wrap: anywhere; }
+/* number boxes (KPI): an older "one row of columns" rule added squeezed extra columns (30px boxes) — rows only */
+body.admin #main.admin-main .kpis:not(.draft-top > .kpis) { grid-auto-flow: row; grid-auto-columns: auto; }
+body.admin #main.admin-main .kpi > * { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
+body.admin #main.admin-main .kpi .kpi-sub, body.admin #main.admin-main .kpis + .kpis .kpi-sub { white-space: normal; overflow: visible; text-overflow: clip; }
+/* side menu group names: show the whole name (2 lines if needed), never cut with "…" */
+body.admin .vx-side .vx-group > summary .side-label { white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.2; }
+/* tabs: a narrow tab keeps its icon and text inside */
+body.admin #main.admin-main > .page-tabs .home-tab { padding-left: clamp(4px, .6vw, 10px); padding-right: clamp(4px, .6vw, 10px); overflow-wrap: anywhere; }
+/* buttons inside cards and settings boxes: a long button text wraps inside the card instead of running out */
+body.admin #main.admin-main :is(.panel, .set-sec, .dup-card, .push-box) :is(.btn, .btn-sm, .btn-lg):not(table *):not(.row-actions *):not(.tool-pill *) { max-width: 100%; white-space: normal; overflow-wrap: anywhere; text-align: center; }
+/* product pictures in a list that turned into cards: the picture cell is as wide as the picture */
+body.admin #main.admin-main table.as-cards td.thumb { flex: 0 0 auto; min-width: max-content; }
+body.admin #main.admin-main table.table:has(td > form.prod-toggle) td.thumb :is(img, span) { min-width: 0; }
+/* delivery charge table (Settings): fits its half-width box — headings wrap, number boxes share the width */
+.weight-rates { table-layout: fixed; width: 100%; }
+.weight-rates th { white-space: normal; line-height: 1.25; }
+.weight-rates td:first-child { white-space: normal; }
+.weight-rates .w-num { width: 100%; min-width: 0; }
+/* visitor funnel: in a narrow box the bar goes onto its own line under the name and number */
+.funnel { container-type: inline-size; }
+.funnel li > * { min-width: 0; }
+@container (max-width: 340px) {
+  .funnel li { grid-template-columns: minmax(0, 1fr) auto; }
+  .funnel .fn-track { grid-column: 1 / -1; order: 3; }
+}
