@@ -109,7 +109,7 @@ function offNotice(settings: Settings) {
 function resetBox(ctx: AdminCtx) {
   if (ctx.user.role !== 'owner') return '';
   const at = ctx.settings.analytics_reset_at;
-  return <form method="post" action={`${attrValue(BASE)}/clear`} className="reset-box" style={styleOf("display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:0 0 14px")} data-confirm="সব হিসাব শূন্য করবেন? এখন পর্যন্ত সব ভিজিট, পেজ ভিউ, ক্লিক, সার্চ আর লাইভ স্কোরের ক্লিকের হিসাব মুছে যাবে, আর এখন থেকে নতুন করে গোনা শুরু হবে। এটা আর ফেরত আনা যাবে না। (অর্ডার, কাস্টমার, পণ্য, টাকার হিসাব কিছুই মুছবে না।)"><button className="btn btn-danger btn-sm">🔄 সব হিসাব শূন্য করুন</button>{' '}<span className="muted small">{(at ? <>শেষবার শূন্য করা হয়েছে:{' '}{fmtDate(at)}{' '}— হিসাব তখন থেকে।</> : "নিজের বা টেস্টের ভিজিট বাদ দিয়ে নতুন করে গুনতে চাইলে।")}</span></form>;
+  return <form method="post" action={`${attrValue(BASE)}/clear`} className="reset-box" style={styleOf("display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:0 0 14px")} data-confirm="সব হিসাব শূন্য করবেন? এখন পর্যন্ত সব ভিজিট, পেজ ভিউ, ক্লিক, সার্চ আর লাইভ স্কোরের ক্লিকের হিসাব মুছে যাবে, আর এখন থেকে নতুন করে গোনা শুরু হবে। এটা আর ফেরত আনা যাবে না। (অর্ডার, কাস্টমার, পণ্য, টাকার হিসাব কিছুই মুছবে না।)"><button className="btn btn-danger btn-sm">🧹 সব হিসাব শূন্য করুন</button>{' '}<span className="muted small">{(at ? <>শেষবার শূন্য করা হয়েছে:{' '}{fmtDate(at)}{' '}— হিসাব তখন থেকে।</> : "নিজের বা টেস্টের ভিজিট বাদ দিয়ে নতুন করে গুনতে চাইলে।")}</span></form>;
 }
 
 async function overviewPage(ctx: AdminCtx) {

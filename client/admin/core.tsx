@@ -109,7 +109,11 @@ function refreshButton(): void {
   if (!head) return;
   // a page that draws its own 🔄 button: one Refresh only, and always in the same spot — right after the title
   // (owner, 2026-11-23: two Refresh buttons on one page looked careless)
-  const own = main ? [...main.querySelectorAll<HTMLElement>('a.btn, button.btn')].find((b) => (b.textContent || '').trim().startsWith('🔄')) : undefined;
+  // only a real Refresh (a link, or a plain button) — never a form's submit button (moving it out of its form kills it;
+  // the visitor "reset all counts" button starts with 🔄 too and stopped working, owner 2026-11-24)
+  const isRefresh = (b: HTMLElement) => (b.textContent || '').trim().startsWith('🔄') && /refresh|রিফ্রেশ/i.test(b.textContent || '')
+    && (b.tagName === 'A' || ((b as HTMLButtonElement).type === 'button' && !b.closest('form')));
+  const own = main ? [...main.querySelectorAll<HTMLElement>('a.btn, button.btn')].find(isRefresh) : undefined;
   if (own) {
     if (head.tagName === 'H1') { const row = <div className="title-row" />; head.before(row); row.appendChild(head); head = row; }
     const h1 = head.querySelector('h1');
