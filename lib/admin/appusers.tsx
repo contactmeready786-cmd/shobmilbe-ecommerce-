@@ -68,9 +68,9 @@ async function page(ctx: AdminCtx) {
   const fact = (label: string, v: unknown) => <div style={{ minWidth: '150px' }}><span className="small muted">{label}</span><div style={{ fontWeight: 600 }}>{v as never}</div></div>;
   const detail = picked ? <section className="panel" id="device" style={{ padding: '12px 16px' }}>
     <div className="title-row" style={{ marginBottom: '8px' }}><h2 style={{ fontSize: '1rem' }}>📱 <Val v={[picked.brand, picked.model].filter(Boolean).join(' ') || 'Phone'} /> <span className="small muted">· app v<Val v={picked.app_version || '?'} /></span></h2><a className="btn btn-ghost btn-sm" href={`${BASE}?${qs}`}>✕ Close</a></div>
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px 28px' }} translate="no">
-      {fact('Customer', picked.phone ? <><Val v={picked.name || '—'} /> · <a href={`tel:${attrValue(picked.phone)}`}><Val v={picked.phone} /></a> · <a href={`https://wa.me/88${attrValue(picked.phone)}`} target="_blank" rel="noopener">WhatsApp</a> · <a href={`/admin/orders?q=${attrValue(picked.phone)}`}>Orders ({picked.orders})</a></> : <span className="muted">Not known yet</span>)}
-      {(picked.address ? fact('Delivery address', <><Val v={picked.address} />{(picked.area ? <span className="muted">, <Val v={picked.area} /></span> : null)}</>) : null)}
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px 28px' }}>
+      {fact('Customer', picked.phone ? <><span translate="no"><Val v={picked.name || '—'} /></span> · <a href={`tel:${attrValue(picked.phone)}`} translate="no"><Val v={picked.phone} /></a> · <a href={`https://wa.me/88${attrValue(picked.phone)}`} target="_blank" rel="noopener">WhatsApp</a> · <a href={`/admin/orders?q=${attrValue(picked.phone)}`}>Orders ({picked.orders})</a></> : <span className="muted">Not known yet</span>)}
+      {(picked.address ? fact('Delivery address', <span translate="no"><Val v={picked.address} />{(picked.area ? <span className="muted">, <Val v={picked.area} /></span> : null)}</span>) : null)}
       {fact('Area (from IP)', <>{flag(picked.country)} <Val v={place(picked).text || '—'} /> <span className="muted mono small">· <Val v={picked.ip || '—'} /></span></>)}
       {fact('First opened', when(picked.first_seen))}
       {fact('Last active', <>{when(lastActive(picked))} <span className="muted">· {bn(picked.opens)} opens</span></>)}
