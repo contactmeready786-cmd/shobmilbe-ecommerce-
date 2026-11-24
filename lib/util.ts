@@ -166,6 +166,22 @@ function unsign(signed: string | null | undefined, secret: string | null | undef
   const b = Buffer.from(expected);
   return a.length === b.length && crypto.timingSafeEqual(a, b) ? value : null;
 }
+// ⭐ One-tap review link (owner, 2026-11-24): a short key made from the order number with the shop's secret, so the
+// link opens that order on any phone without typing the order or mobile number (the key can't be guessed).
+function reviewKey(code: string, secret: string | null | undefined): string {
+  if (!secret || !code) return '';
+  return crypto.createHmac('sha256', secret).update('review:' + String(code).toUpperCase()).digest('base64url').slice(0, 16);
+}
+function reviewKeyOk(code: string, key: string, secret: string | null | undefined): boolean {
+  const want = reviewKey(code, secret);
+  if (!want || !key || key.length !== want.length) return false;
+  return crypto.timingSafeEqual(Buffer.from(key), Buffer.from(want));
+}
+/** The order's page through the one-tap link (opens it on this phone and jumps to "রিভিউ দিন"); without a secret, the plain page. */
+function reviewPath(code: string, secret: string | null | undefined): string {
+  const k = reviewKey(code, secret);
+  return k ? `/track?code=${encodeURIComponent(code)}&k=${k}` : `/order/${encodeURIComponent(code)}`;
+}
 function sha256(s: unknown): string { return crypto.createHash('sha256').update(String(s)).digest('hex'); }
 
 const TZ = 'Asia/Dhaka';
@@ -331,4 +347,4 @@ function minOrder(s: Settings | null | undefined): number { return Math.max(0, N
 
 function pageNum(query: URLSearchParams): number { return Math.max(1, int(query.get('page'), 1)); }
 
-export { fields, arr, oneOf, ifKey, PRICE_MIN, PRICE_MAX, priceProblem, contact, qtyRule, weightGrams, PACK_PRESETS, packSizes, packRule, packProblem, amount, round2, roundOff, shopPrice, wholeTaka, roundOffLabel, esc, raw, Raw, bn, money, pct, slugify, randomCode, parseCookies, parseBody, readBody, list, hashPassword, verifyPassword, passwordProblem, sign, unsign, sha256, fmtDate, ymd, validYmd, dateRange, int, num, str, minOrder, normalizePhone, validPhone, csv, fetchJson, youtubeId, pageNum, TZ };
+export { fields, arr, oneOf, ifKey, PRICE_MIN, PRICE_MAX, priceProblem, contact, qtyRule, weightGrams, PACK_PRESETS, packSizes, packRule, packProblem, amount, round2, roundOff, shopPrice, wholeTaka, roundOffLabel, esc, raw, Raw, bn, money, pct, slugify, randomCode, parseCookies, parseBody, readBody, list, hashPassword, verifyPassword, passwordProblem, sign, unsign, reviewKey, reviewKeyOk, reviewPath, sha256, fmtDate, ymd, validYmd, dateRange, int, num, str, minOrder, normalizePhone, validPhone, csv, fetchJson, youtubeId, pageNum, TZ };

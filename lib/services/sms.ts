@@ -4,7 +4,7 @@
 // Every SMS is written to sms_log (success or the company's error), so the owner can see what happened.
 import * as db from '../db';
 import { safeFetch } from './safefetch';
-import { normalizePhone, validPhone, str, bn } from '../util';
+import { normalizePhone, validPhone, str, bn, reviewPath } from '../util';
 import type { Id, Settings } from '../types';
 
 /** One SMS company the shop can use. */
@@ -142,7 +142,7 @@ function fill(tpl: unknown, o: SmsOrder, settings: Settings, site = ''): string 
   const pts = (o.points_earned || 0) > 0 ? ` আপনি ${o.points_earned} পয়েন্ট পেয়েছেন।` : '';
   return String(tpl || '').replace(/\{(shop|code|total|name|tracking|points|link)\}/g, (_, k: string) => ((<Record<string, string>>{
     shop: settings.store_name || '', code: o.code || '', total: `৳${Math.round(Number(o.total || 0))}`, name: String(o.customer_name || o.name || '').split(' ')[0],
-    tracking: track, points: pts, link: site ? `${site.replace(/\/+$/, '')}/order/${o.code}` : '',
+    tracking: track, points: pts, link: site ? `${site.replace(/\/+$/, '')}${reviewPath(String(o.code || ''), settings.session_secret)}` : '',
   })[k])).replace(/\s+/g, ' ').trim();
 }
 // Called after an order is placed or its status changes. Quietly does nothing when that SMS is switched off.

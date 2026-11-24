@@ -42,7 +42,7 @@ export function formRouteFor(path: string): string | null {
 export function servedByNext(path: string, query: URLSearchParams, method: string): boolean {
   if (method !== 'GET' && method !== 'HEAD') return false;
   // /track with an order number AND a phone number: its form route checks it and opens the order (lib/shopx.tsx)
-  if (path === '/track' && query.get('code') && query.get('phone')) return false;
+  if (path === '/track' && query.get('code') && (query.get('phone') || query.get('k'))) return false;
   // the same for a complaint's status (it counts tries)
   if (path === '/complaint/status' && query.get('code') && query.get('phone')) return false;
   return hasNextPage(path);

@@ -16,7 +16,7 @@ import * as security from './security';
 import * as A from './models/accounts';
 import * as V from './views/account';
 import * as O from './models/orders';
-import { parseBody, str, int, normalizePhone, validPhone } from './util';
+import { parseBody, str, int, normalizePhone, validPhone, reviewKeyOk } from './util';
 import * as $models_selfservice from './models/selfservice';
 import * as $views_complaint from './views/complaint';
 import * as $models_complaints from './models/complaints';
@@ -325,6 +325,14 @@ export async function track(f: FormCtx): Promise<void> {
   if (settings.ref_on === '1' && query.get('ref') && /^[A-Za-z0-9-]{4,24}$/.test(query.get('ref') || '')) reply.header('Set-Cookie', refCookie(req, query.get('ref')));
   const code = str(query.get('code'), 20).toUpperCase();
   const phone = str(query.get('phone'), 20);
+  const key = str(query.get('k'), 40);
+  // ⭐ one-tap review link from SMS / WhatsApp / e-mail: the key proves the link came from the shop
+  if (code && key && !phone) {
+    if (!(await security.hit(db, 'track:' + f.ip, 20, 600))) return tooMany(f);
+    const order = reviewKeyOk(code, key, settings.session_secret) ? await O.getOrder({ code }) : null;
+    if (order) return redirect(`/order/${order.code}${order.status === 'delivered' ? '#review' : ''}`, { 'Set-Cookie': myOrdersCookie(req, settings, order.code) });
+    return page('অর্ডার ট্র্যাক', shop.trackPage({ code: code.replace(/[^A-Z0-9]/g, ''), error: 'লিংকটা ঠিক নেই। অর্ডার নম্বর আর মোবাইল নম্বর দিয়ে খুলুন।' }), { active: 'track', noindex: true });
+  }
   if (code && phone) {
     if (!(await security.hit(db, 'track:' + f.ip, 20, 600))) return tooMany(f);
     const order = await O.getOrder({ code });

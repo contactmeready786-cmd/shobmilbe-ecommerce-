@@ -11,7 +11,7 @@ import * as crypto from 'node:crypto';
 import * as db from '../db';
 import { safeFetch } from './safefetch';
 import * as notify from './notify';
-import { str, money } from '../util';
+import { str, money, reviewPath } from '../util';
 import * as $autopost from './autopost';
 import * as $security from '../security';
 import type { Id, Settings } from '../types';
@@ -275,7 +275,7 @@ async function review(settings: Settings, budget: number): Promise<number> {
     const sub = { id: r.sub_id, email: r.email, name: r.name || r.customer_name, token: r.token };
     await sendOne(settings, sub, { kind: 'review', orderId: r.id, subject: `${r.code} অর্ডারের পণ্য কেমন লাগল?`, heading: 'পণ্য কেমন লাগল? ⭐',
       intro: '{name}, আশা করি আপনার অর্ডারের পণ্য ভালোভাবে হাতে পেয়েছেন।\n\nএক মিনিট সময় নিয়ে একটা রিভিউ দিলে অন্য ক্রেতারা উপকৃত হবেন, আর আমরাও আরও ভালো করতে পারব। কোনো সমস্যা হলে সরাসরি জানাবেন।',
-      productIds: (r.pids || []).slice(0, 4), button: { text: '⭐ রিভিউ দিন', path: `/order/${encodeURIComponent(r.code)}` } });
+      productIds: (r.pids || []).slice(0, 4), button: { text: '⭐ রিভিউ দিন', path: reviewPath(r.code, settings.session_secret) } });
     n++;
   }
   return n;
