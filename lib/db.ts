@@ -1468,6 +1468,11 @@ CREATE TABLE IF NOT EXISTS app_notices (
 CREATE INDEX IF NOT EXISTS app_notices_device_idx ON app_notices(device_id, id);
 CREATE UNIQUE INDEX IF NOT EXISTS app_notices_once_uq ON app_notices(device_id, kind, order_id) WHERE order_id IS NOT NULL;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS app_device text NOT NULL DEFAULT '';
+`,  // 🧹 owner, 2026-11-24: remove the owner's own test phone (Motorola, app 1.5 + 1.6) and its test notifications from App users
+  `
+DELETE FROM app_notices WHERE device_id IN ('i:c9da4c4b-16ae-4c88-8ae0-1b7193a14cc4', 'i:cf853349-5dbe-4fb3-b75d-c470828438fd');
+DELETE FROM app_devices WHERE id IN ('i:c9da4c4b-16ae-4c88-8ae0-1b7193a14cc4', 'i:cf853349-5dbe-4fb3-b75d-c470828438fd');
+DELETE FROM app_devices WHERE id LIKE 'v:%' AND orders = 0 AND first_seen > '2026-11-24' AND lower(model) LIKE '%g75%';
 `,
 ];
 
