@@ -113,7 +113,7 @@ async function page(ctx: AdminCtx) {
       <div className="row-actions">
         {(canSet ? ui.toolSwitch(BASE, 'app_notify_on', s.app_notify_on !== '0', '🔔 Order notifications', 'Parcel sent / delivered — sent to the phone the order came from (app 1.5+). Free, no SMS.', { action: 'pill_notify' }) : null)}
         {(canSet ? ui.toolSwitch(BASE, 'app_review_ask', s.app_review_ask !== '0', '⭐ Ask for review', 'On delivery a "please review" notification with the one-tap link; one reminder after 3 days if there is no review.', { action: 'pill_review' }) : null)}
-        {(canSet && mineN ? <form method="post" action={attrValue(BASE)} className="tool-pill" style={{ paddingLeft: '12px' }}><input type="hidden" name="action" defaultValue="mine_reset" /><span className="tool-t">🙋 My phones hidden: {bn(mineN)}</span><button className="btn btn-sm btn-ghost" title="Count my phones again">Undo</button></form> : null)}
+        {(mineN ? <span className="tool-pill" style={{ paddingRight: '14px' }}><span className="tool-t">🙋 My phones hidden: {bn(mineN)}</span></span> : null)}
         <a className="btn btn-ghost btn-sm" href={`${BASE}?${qs}`}>🔄 Refresh</a>
       </div></div>
     {ui.flash(ctx.flash)}
