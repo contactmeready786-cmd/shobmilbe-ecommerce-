@@ -33,10 +33,12 @@ async function page(ctx: AdminCtx) {
   const s = ctx.settings;
   if (ctx.method === 'POST') {
     const b = await ctx.body<'action' | 'id' | 'title' | 'body' | 'url' | 'app_notify_on' | 'app_review_ask'>();
-    if (b.action === 'settings') {
+    if (b.action === 'pill_notify' || b.action === 'pill_review') {
       if (!ctx.can('settings')) return ctx.back(BASE, 'noperm');
-      await db.setMany({ app_notify_on: b.app_notify_on ? '1' : '0', app_review_ask: b.app_review_ask ? '1' : '0' });
-      await ctx.log('update', 'settings', null, `App notifications: ${b.app_notify_on ? 'on' : 'off'}, review requests: ${b.app_review_ask ? 'on' : 'off'}`);
+      const key = b.action === 'pill_notify' ? 'app_notify_on' : 'app_review_ask';
+      const on = !!b[key as 'app_notify_on' | 'app_review_ask'];
+      await db.setMany({ [key]: on ? '1' : '0' });
+      await ctx.log('update', 'settings', null, `${key === 'app_notify_on' ? 'App order notifications' : 'App review requests'}: ${on ? 'on' : 'off'}`);
       return ctx.back(BASE, 'saved');
     }
     if (b.action === 'send') {
@@ -61,77 +63,69 @@ async function page(ctx: AdminCtx) {
     sel ? db.one<AppDevicesRow>('SELECT * FROM app_devices WHERE id=$1', [sel]) : null]);
   const sent = picked ? await A.notices(picked.id) : [];
   const qs = new URLSearchParams({ ...(q ? { q } : {}), ...(only ? { only } : {}) });
-  const chips: [string, string, number][] = [['', 'All phones', k.total], ['active', '🟢 Active this week', k.active7], ['customers', '🧾 Ordered from the app', k.customers], ['notify', '🔔 Can get notifications', k.notify]];
+  const chips: [string, string, number][] = [['', '📱 All phones', k.total], ['active', '🟢 Active (7 days)', k.active7], ['customers', '🧾 Ordered from app', k.customers], ['notify', '🔔 Can get notifications', k.notify]];
 
-  const detail = picked ? <section className="panel" id="device">
-    <div className="title-row"><h2>📱 <Val v={[picked.brand, picked.model].filter(Boolean).join(' ') || 'Phone'} /></h2><a className="btn btn-ghost btn-sm" href={`${BASE}?${qs}`}>✕ Close</a></div>
-    <table className="table compact"><tbody>
-      <tr><th>Customer</th><td translate="no">{(picked.phone ? <><b><Val v={picked.name || '—'} /></b> · <a href={`tel:${attrValue(picked.phone)}`}><Val v={picked.phone} /></a> · <a href={`https://wa.me/88${attrValue(picked.phone)}`} target="_blank" rel="noopener">WhatsApp</a> · <a href={`/admin/orders?q=${attrValue(picked.phone)}`}>Orders ({picked.orders})</a></> : <span className="muted">Not known yet — shown after an order is placed from this phone</span>)}</td></tr>
-      {(picked.address ? <tr><th>Delivery address</th><td translate="no"><Val v={picked.address} />{(picked.area ? <><br /><span className="muted"><Val v={picked.area} /></span></> : null)}</td></tr> : null)}
-      <tr><th>Area (from IP)</th><td>{flag(picked.country)} <Val v={place(picked) || '—'} /> <span className="muted mono small">· IP <Val v={picked.ip || '—'} /></span></td></tr>
-      <tr><th>Phone</th><td><Val v={[picked.brand, picked.model, picked.os].filter(Boolean).join(' · ') || '—'} /> · app <Val v={picked.app_version || '—'} /></td></tr>
-      <tr><th>First opened</th><td>{when(picked.first_seen)}</td></tr>
-      <tr><th>Last active</th><td>{when(lastActive(picked))} · opened {bn(picked.opens)} times</td></tr>
-      <tr><th>Notifications</th><td>{(picked.can_notify ? ui.pill('🔔 Can receive', 'pill-green') : ui.pill('Older app (1.4) — after update', ''))}</td></tr>
-    </tbody></table>
-    {(picked.can_notify ? <form method="post" action={attrValue(BASE)} className="form">
+  const fact = (label: string, v: unknown) => <div style={{ minWidth: '150px' }}><span className="small muted">{label}</span><div style={{ fontWeight: 600 }}>{v as never}</div></div>;
+  const detail = picked ? <section className="panel" id="device" style={{ padding: '12px 16px' }}>
+    <div className="title-row" style={{ marginBottom: '8px' }}><h2 style={{ fontSize: '1rem' }}>📱 <Val v={[picked.brand, picked.model].filter(Boolean).join(' ') || 'Phone'} /> <span className="small muted">· app v<Val v={picked.app_version || '?'} /></span></h2><a className="btn btn-ghost btn-sm" href={`${BASE}?${qs}`}>✕ Close</a></div>
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px 28px' }} translate="no">
+      {fact('Customer', picked.phone ? <><Val v={picked.name || '—'} /> · <a href={`tel:${attrValue(picked.phone)}`}><Val v={picked.phone} /></a> · <a href={`https://wa.me/88${attrValue(picked.phone)}`} target="_blank" rel="noopener">WhatsApp</a> · <a href={`/admin/orders?q=${attrValue(picked.phone)}`}>Orders ({picked.orders})</a></> : <span className="muted">Not known yet</span>)}
+      {(picked.address ? fact('Delivery address', <><Val v={picked.address} />{(picked.area ? <span className="muted">, <Val v={picked.area} /></span> : null)}</>) : null)}
+      {fact('Area (from IP)', <>{flag(picked.country)} <Val v={place(picked).text || '—'} /> <span className="muted mono small">· <Val v={picked.ip || '—'} /></span></>)}
+      {fact('First opened', when(picked.first_seen))}
+      {fact('Last active', <>{when(lastActive(picked))} <span className="muted">· {bn(picked.opens)} opens</span></>)}
+      {fact('Notifications', picked.can_notify ? '🔔 Can receive' : <span className="muted">Older app — after update</span>)}
+    </div>
+    {(picked.can_notify ? <form method="post" action={attrValue(BASE)} style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '12px', alignItems: 'center' }}>
       <input type="hidden" name="action" defaultValue="send" /><input type="hidden" name="id" defaultValue={attrValue(picked.id)} />
-      <h3>✉️ Send a notification to this phone</h3>
-      {ui.input('title', '', { maxlength: 60, placeholder: 'Title (e.g. A special offer for you!)', required: true })}
-      {ui.textarea('body', '', { rows: 2, maxlength: 200, placeholder: 'Message (optional)' })}
-      {ui.input('url', '', { maxlength: 300, placeholder: 'Opens this shop page (optional, e.g. /p/product-name)' })}
-      <button className="btn btn-sm">Send</button>
+      <input name="title" maxLength={60} required placeholder="Notification title" style={{ flex: '1 1 180px' }} />
+      <input name="body" maxLength={200} placeholder="Message (optional)" style={{ flex: '2 1 240px' }} />
+      <input name="url" maxLength={300} placeholder="Opens page, e.g. /p/name (optional)" style={{ flex: '1 1 180px' }} />
+      <button className="btn btn-sm">✉️ Send</button>
     </form> : null)}
-    {(sent.length ? <><h3>Sent to this phone</h3><table className="table compact"><thead><tr><th>When</th><th>Message</th><th>Shown on phone</th></tr></thead><tbody>
-      {jsxList(sent.map((n) => <tr><td className="small">{when(n.created_at)}</td><td><b><Val v={n.title} /></b><br /><span className="small muted"><Val v={n.body} /></span></td><td className="small">{(n.delivered_at ? '✅ ' + when(n.delivered_at) : '⏳ waiting')}</td></tr>))}
-    </tbody></table></> : null)}
+    {(sent.length ? <table className="table compact" style={{ marginTop: '10px' }}><thead><tr><th>Sent</th><th>Notification</th><th>Shown on phone</th></tr></thead><tbody>
+      {jsxList(sent.map((n) => <tr><td className="small" style={{ whiteSpace: 'nowrap' }}>{when(n.created_at)}</td><td><b><Val v={n.title} /></b> <span className="small muted"><Val v={n.body} /></span></td><td className="small" style={{ whiteSpace: 'nowrap' }}>{(n.delivered_at ? '✅ ' + when(n.delivered_at) : '⏳ waiting')}</td></tr>))}
+    </tbody></table> : null)}
   </section> : null;
 
+  const nowrap = { whiteSpace: 'nowrap' } as const;
+  const canSet = ctx.can('settings');
   const body = <>
-    <div className="title-row"><h1>📱 App users <small>{bn(k.total)} phones</small></h1>
-      <div className="row-actions"><a className="btn btn-ghost btn-sm" href={`${BASE}?${qs}`}>🔄 Refresh</a></div></div>
+    <div className="title-row"><h1>📱 App users</h1>
+      <div className="row-actions">
+        {(canSet ? ui.toolSwitch(BASE, 'app_notify_on', s.app_notify_on !== '0', '🔔 Order notifications', 'Parcel sent / delivered — sent to the phone the order came from (app 1.5+). Free, no SMS.', { action: 'pill_notify' }) : null)}
+        {(canSet ? ui.toolSwitch(BASE, 'app_review_ask', s.app_review_ask !== '0', '⭐ Ask for review', 'On delivery a "please review" notification with the one-tap link; one reminder after 3 days if there is no review.', { action: 'pill_review' }) : null)}
+        <a className="btn btn-ghost btn-sm" href={`${BASE}?${qs}`}>🔄 Refresh</a>
+      </div></div>
     {ui.flash(ctx.flash)}
-    <div className="kpis kpis-tight">
-      {ui.kpi('Phones with the app', bn(k.total), `${bn(k.new7)} new this week`, 'kpi-blue')}
-      {ui.kpi('Active (7 days)', bn(k.active7), `${bn(k.active30)} in 30 days`)}
-      {ui.kpi('Ordered from the app', bn(k.customers), `${bn(k.orders)} orders`, 'kpi-green')}
-      {ui.kpi('Can get notifications', bn(k.notify), 'app 1.5 or newer')}
-    </div>
-    <div className="vc-bar">
-      <div className="chips">{jsxList(chips.map(([key, label, n]) => <a className={`chip ${only === key ? 'on' : ''}`} href={`${BASE}?${new URLSearchParams({ ...(key ? { only: key } : {}), ...(q ? { q } : {}) })}`}>{label} <b>{bn(n)}</b></a>))}</div>
-      <form className="toolbar" method="get" action={attrValue(BASE)}>
+    <div className="toolbar">
+      <div className="chips status-chips stat-chips" style={{ margin: 0 }}>
+        {jsxList(chips.map(([key, label, n]) => <a className={`chip ${key === 'active' ? 'chip-active' : ''} ${only === key ? 'on' : ''}`} href={`${BASE}?${new URLSearchParams({ ...(key ? { only: key } : {}), ...(q ? { q } : {}) })}`}>{label} <b>{bn(n)}</b></a>))}
+        <span className="chip" title="Phones that opened the app for the first time in the last 7 days">🆕 New this week <b>{bn(k.new7)}</b></span>
+        <span className="chip" title="Orders placed from the app">🛒 App orders <b>{bn(k.orders)}</b></span>
+      </div>
+      <form method="get" action={attrValue(BASE)} style={{ display: 'flex', gap: '8px', flex: '1 1 260px', justifyContent: 'flex-end' }}>
         {(only ? <input type="hidden" name="only" defaultValue={attrValue(only)} /> : null)}
-        <input type="search" name="q" defaultValue={attrValue(q)} placeholder="Name, mobile, phone model, area or IP" aria-label="Search" />
+        <input type="search" name="q" defaultValue={attrValue(q)} placeholder="Name, mobile, phone, area or IP" aria-label="Search" />
         <button className="btn btn-sm">Search</button>
       </form>
     </div>
     {detail}
-    <div className="two-col wide-left">
-      <section className="panel">
-        {(list.rows.length ? <><table className="table compact"><thead><tr><th>Customer</th><th>Phone</th><th>Area (IP)</th><th className="num">Opens</th><th className="num">Orders</th><th>Last active</th><th>🔔</th><th></th></tr></thead><tbody>
-          {jsxList(list.rows.map((r) => <tr>
-            <td translate="no">{(r.phone ? <><b><Val v={r.name || '—'} /></b><br /><span className="small mono"><Val v={r.phone} /></span></> : <span className="muted small">Not ordered yet</span>)}</td>
-            <td className="small"><Val v={[r.brand, r.model].filter(Boolean).join(' ') || '—'} /><br /><span className="muted">app <Val v={r.app_version || '—'} /></span></td>
-            <td className="small">{flag(r.country)} <Val v={place(r) || '—'} /></td>
-            <td className="num">{bn(r.opens)}</td>
-            <td className="num">{bn(r.orders)}</td>
-            <td className="small" title={attrValue(when(lastActive(r)))}>{ago(lastActive(r))}<br /><span className="muted">since {fmtDate(r.first_seen)}</span></td>
-            <td>{(r.can_notify ? '🔔' : '—')}</td>
-            <td><a className="btn btn-sm btn-ghost" href={`${BASE}?${new URLSearchParams({ ...Object.fromEntries(qs), d: r.id })}#device`}>Details</a></td>
-          </tr>))}
-        </tbody></table>{ui.pager(list.total, pg, PER, `${BASE}?${qs}`)}</> : <p className="muted">{(q || only ? 'No phone matches.' : 'No app phones yet. A phone shows here the first time the app is opened on it.')}</p>)}
-      </section>
-      <div>
-        <section className="set-sec"><div className="set-head"><h2 className="set-title">⚙️ App notifications</h2></div>
-          <div className="panel set-card"><form method="post" action={attrValue(BASE)} className="form">
-            <input type="hidden" name="action" defaultValue="settings" />
-            {ui.switchRow('app_notify_on', s.app_notify_on !== '0', 'Order notifications in the app', 'When an order goes to the courier or is delivered, the phone it was ordered from (and app phones with the same mobile number) gets a notification. Free — no SMS.')}
-            {ui.switchRow('app_review_ask', s.app_review_ask !== '0', 'Ask for a review', 'On delivery: a "How did you like it? Please review" message (in Bangla) with the one-tap review link; 3 days later one reminder if there is still no review.')}
-            <button className="btn">Save</button>
-          </form></div>
-        </section>
-      </div>
-    </div>
+    <section className="panel table-wrap">
+      {(list.rows.length ? <><table className="table compact"><thead><tr><th>Customer</th><th>Phone</th><th>Area (IP)</th><th className="num">Opens</th><th className="num">Orders</th><th>Last active</th><th>First opened</th><th title="Can get notifications (app 1.5+)">🔔</th><th></th></tr></thead><tbody>
+        {jsxList(list.rows.map((r) => <tr>
+          <td translate="no" style={nowrap}>{(r.phone ? <><b><Val v={r.name || '—'} /></b> <span className="small mono muted"><Val v={r.phone} /></span></> : <span className="muted small">Not ordered yet</span>)}</td>
+          <td className="small" style={nowrap}><Val v={[r.brand, r.model].filter(Boolean).join(' ') || '—'} /> <span className="muted">· v<Val v={r.app_version || '?'} /></span></td>
+          <td className="small" style={nowrap}>{flag(r.country)} <Val v={place(r).text || '—'} /></td>
+          <td className="num">{bn(r.opens)}</td>
+          <td className="num">{bn(r.orders)}</td>
+          <td className="small" style={nowrap} title={attrValue(when(lastActive(r)))}>{ago(lastActive(r))}</td>
+          <td className="small muted" style={nowrap}>{fmtDate(r.first_seen, false)}</td>
+          <td>{(r.can_notify ? '🔔' : <span className="muted">—</span>)}</td>
+          <td style={nowrap}><a className="btn btn-sm btn-ghost" href={`${BASE}?${new URLSearchParams({ ...Object.fromEntries(qs), d: r.id })}#device`}>Details</a></td>
+        </tr>))}
+      </tbody></table>{ui.pager(list.total, pg, PER, `${BASE}?${qs}`)}</> : <p className="muted" style={{ padding: '14px 16px', margin: 0 }}>{(q || only ? 'No phone matches.' : 'No app phones yet. A phone shows here the first time the app is opened on it.')}</p>)}
+    </section>
   </>;
   return ctx.page('App users', body, 'appusers');
 }
