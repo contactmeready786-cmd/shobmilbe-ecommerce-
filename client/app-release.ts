@@ -1,6 +1,6 @@
 // 📱 The browser's copy of lib/app-release.ts (the customer app offered for download). Change both together —
 // tests/app-release.test.ts checks they match.
-export const APP_VERSION = '1.4';
+export const APP_VERSION = '1.5';
 
 /** The app's version from its browser name ("… ShobmilbeApp/1.4"), or '' outside the app. */
 export function appVersionOf(userAgent: string): string {

@@ -3,10 +3,10 @@
 // public/downloads/, then change these lines AND client/app-release.ts (tests/app-release.test.ts checks they agree with
 // android/gradle.properties and that the file is there).
 export const APP_RELEASE = {
-  version: '1.4',
-  file: '/downloads/shobmilbe-v1.4.apk',
+  version: '1.5',
+  file: '/downloads/shobmilbe-v1.5.apk',
   sizeMb: '2.1',
-  date: '2026-10-20',
+  date: '2026-11-24',
 } as const;
 
 /** The app's version from its browser name ("… ShobmilbeApp/1.4"), or '' outside the app. */
