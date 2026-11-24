@@ -8,6 +8,7 @@
         <item name="android:navigationBarColor">@android:color/white</item>
     </style>
     <string name="offers_channel">অফার ও ছাড়</string>
+    <string name="orders_channel">আমার অর্ডার</string>
     <string name="offline_title">ইন্টারনেট সংযোগ নেই</string>
     <string name="open_failed">এই লিংকটা খোলার মতো অ্যাপ ফোনে নেই</string>
 </resources>

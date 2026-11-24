@@ -7,6 +7,7 @@
 import type { PageViewsRow, VisitEventsRow, VisitSessionsRow } from '../data/rows';
 import * as db from '../db';
 import { parseCookies, str, int, fields } from '../util';
+import * as appdev from './appdevices';
 import type { Body, Id, Settings, ShopRequest } from '../types';
 
 const { q, one } = db;
@@ -70,7 +71,8 @@ function parseUA(ua: string) {
   ua = String(ua || '');
   const tablet = /iPad|Tablet|PlayBook|Silk|(Android(?!.*Mobile))/i.test(ua);
   const mobile = !tablet && /Mobi|iPhone|iPod|Android|Opera Mini|IEMobile/i.test(ua);
-  const device = tablet ? 'tablet' : mobile ? 'mobile' : 'desktop';
+  // 📱 the shop's own Android app (its pages say "ShobmilbeApp/1.x"): counted apart from mobile browsers
+  const device = appdev.isApp(ua) ? 'app' : tablet ? 'tablet' : mobile ? 'mobile' : 'desktop';
   let os = 'অন্যান্য';
   let m;
   if ((m = ua.match(/Android\s([\d.]+)/))) os = 'Android ' + m[1].split('.')[0];
@@ -82,6 +84,7 @@ function parseUA(ua: string) {
   else if (/CrOS/.test(ua)) os = 'ChromeOS';
   else if (/Linux/.test(ua)) os = 'Linux';
   let browser = 'অন্যান্য';
+  if (appdev.isApp(ua)) return { device, os, browser: 'Shobmilbe app' };
   // In-app browsers first: they tell you which app sent the visitor.
   if (/FBAN\/Messenger|FB_IAB\/Orca|MessengerLite|Orca-Android/i.test(ua)) browser = 'Messenger অ্যাপ';
   else if (/FBAN|FBAV|FB_IAB|FBIOS|\[FB/i.test(ua)) browser = 'Facebook অ্যাপ';
@@ -286,6 +289,11 @@ async function record({ req, settings, body, ip, ownHost }: RecordOpts) {
         ON CONFLICT (id) DO NOTHING RETURNING id`,
       [sid, vid, !!(v && v.fresh), str(ip, 64), geo.country, geo.region, geo.city, device, os, browser, str(b.w, 12), str(b.l, 12),
         str(b.r, 500), src.refHost, src.source, src.medium, str(src.campaign, 100), path, dev.brand, str(dev.model, 80), tz, netFlag(geo.country, tz)]);
+      // 📱 a visit inside the customer app = the app was opened on this phone (Admin → App users)
+      if (device === 'app') {
+        await appdev.seen({ id: appdev.deviceId(appdev.installOf(req), vid), visitorId: vid, version: (ua.match(/ShobmilbeApp\/([\d.]+)/) || [])[1] || '',
+          brand: dev.brand, model: dev.model, os, ip, country: geo.country, region: geo.region, city: geo.city }).catch((e: Error) => console.error('app device', e.message));
+      }
     }
     await q(`UPDATE visit_sessions SET last_seen = now(), pageviews = pageviews + 1, exit_path = $2 WHERE id = $1`, [sid, path]);
     await q(`UPDATE visitors SET last_seen = now(), pageviews = pageviews + 1 WHERE id = $1`, [vid]);
@@ -336,6 +344,12 @@ async function record({ req, settings, body, ip, ownHost }: RecordOpts) {
       if (order) {
         const first = await one(`UPDATE visit_sessions SET order_code = $2 WHERE id = $1 AND order_code = '' RETURNING id`, [sid, order.code]);
         await q(`UPDATE visitors SET name = $2, phone = $3, orders = orders + $4 WHERE id = $1`, [vid, order.customer_name, order.phone, first ? 1 : 0]);
+        // 📱 ordered inside the app (older apps without an install number are linked here, by the visitor id)
+        if (appdev.isApp(req.headers['user-agent'])) {
+          const o = await one<{ id: number; code: string; customer_name: string; phone: string; address: string; thana: string; district: string; customer_id: number | null }>(
+            'SELECT id, code, customer_name, phone, address, thana, district, customer_id FROM orders WHERE code=$1', [order.code]);
+          if (o) await appdev.linkOrder(appdev.deviceId(appdev.installOf(req), vid), { ...o, area: [o.thana, o.district].filter(Boolean).join(', ') }).catch(() => {});
+        }
       }
     }
     return {};
@@ -477,4 +491,4 @@ async function clearAll() {
   await db.setMany({ analytics_reset_at: new Date().toISOString() });
 }
 
-export { record, overview, liveSessions, listSessions, countSessions, sourceList, getSession, clearAll, cleanup, parseUA, sourceOf, deviceDetails, netFlag, brandOf, place, countryName, flag, regionName, isBot, LIVE_MINUTES };
+export { geoFrom, record, overview, liveSessions, listSessions, countSessions, sourceList, getSession, clearAll, cleanup, parseUA, sourceOf, deviceDetails, netFlag, brandOf, place, countryName, flag, regionName, isBot, LIVE_MINUTES };

@@ -1447,6 +1447,27 @@ CREATE TABLE IF NOT EXISTS cart_reminder_sends (
   push_ok boolean NOT NULL DEFAULT false, mail_ok boolean NOT NULL DEFAULT false, clicked_at timestamptz, created_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS cart_reminder_sends_idx ON cart_reminder_sends(reminder_id, created_at);
+`,  // 📱 App users (owner, 2026-11-24; lib/services/appdevices.ts): every phone the customer app runs on, kept for good —
+  // first/last open, phone model, app version, approximate area (IP), and the customer once an order is placed from it;
+  // plus each personal notification for that phone (order shipped / delivered / review request / a message from the owner).
+  `
+CREATE TABLE IF NOT EXISTS app_devices (
+  id text PRIMARY KEY, visitor_id text NOT NULL DEFAULT '', first_seen timestamptz NOT NULL DEFAULT now(), last_seen timestamptz NOT NULL DEFAULT now(),
+  opens int NOT NULL DEFAULT 0, last_poll timestamptz, app_version text NOT NULL DEFAULT '', brand text NOT NULL DEFAULT '', model text NOT NULL DEFAULT '',
+  os text NOT NULL DEFAULT '', ip text NOT NULL DEFAULT '', country text NOT NULL DEFAULT '', region text NOT NULL DEFAULT '', city text NOT NULL DEFAULT '',
+  customer_id int, name text NOT NULL DEFAULT '', phone text NOT NULL DEFAULT '', address text NOT NULL DEFAULT '', area text NOT NULL DEFAULT '',
+  orders int NOT NULL DEFAULT 0, last_order_code text NOT NULL DEFAULT '', can_notify boolean NOT NULL DEFAULT false
+);
+CREATE INDEX IF NOT EXISTS app_devices_last_idx ON app_devices(last_seen DESC);
+CREATE INDEX IF NOT EXISTS app_devices_phone_idx ON app_devices(phone) WHERE phone <> '';
+CREATE INDEX IF NOT EXISTS app_devices_visitor_idx ON app_devices(visitor_id) WHERE visitor_id <> '';
+CREATE TABLE IF NOT EXISTS app_notices (
+  id bigserial PRIMARY KEY, device_id text NOT NULL, kind text NOT NULL, title text NOT NULL, body text NOT NULL DEFAULT '', url text NOT NULL DEFAULT '',
+  order_id int, staff_id int, created_at timestamptz NOT NULL DEFAULT now(), delivered_at timestamptz
+);
+CREATE INDEX IF NOT EXISTS app_notices_device_idx ON app_notices(device_id, id);
+CREATE UNIQUE INDEX IF NOT EXISTS app_notices_once_uq ON app_notices(device_id, kind, order_id) WHERE order_id IS NOT NULL;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS app_device text NOT NULL DEFAULT '';
 `,
 ];
 

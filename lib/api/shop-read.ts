@@ -6,6 +6,8 @@ import { noFreeIds } from '../models/orders';
 import * as drafts from '../services/drafts';
 import * as shop from '../views/shop';
 import * as $services_search from '../services/search';
+import * as $appdev from '../services/appdevices';
+import { geoFrom, parseUA, deviceDetails } from '../services/visitors';
 import { loadRenderer, renderHtml } from '../react/render';
 import { myOrders } from '../gate';
 import { int, str, contact, packSizes } from '../util';
@@ -130,7 +132,18 @@ export async function appOffers(ctx: ApiCtx) {
     items = (await db.q<Pick<PushCampaignsRow, 'id' | 'title' | 'body' | 'url' | 'image_id'>>(`SELECT id, title, body, url, image_id FROM push_campaigns WHERE id > $1 AND created_at > now() - interval '2 days' ORDER BY id DESC LIMIT 1`, [after]))
       .map((c) => ({ id: c.id, title: c.title, body: c.body, url: c.url || '/', image: c.image_id ? `/media/${c.image_id}` : '' }));
   }
-  return json(200, { latest: last!.id, items });
+  // 📱 app 1.5+: its install number (dev) — counts the phone in Admin → App users and hands over its own notifications
+  // (parcel sent, delivered + review, the owner's message). n = the last personal notice the phone has shown.
+  const dev = $appdev.deviceId(str(ctx.query.get('dev'), 64));
+  if (!dev) return json(200, { latest: last!.id, items });
+  const ua = String(ctx.req.headers['user-agent'] || '');
+  const geo = geoFrom(ctx.req);
+  const d = deviceDetails(ua, '', 0);
+  await $appdev.seen({ id: dev, version: (ua.match(/ShobmilbeApp\/([\d.]+)/) || [])[1] || '', brand: str(ctx.query.get('mk'), 40) || d.brand,
+    model: str(ctx.query.get('md'), 80) || d.model, os: parseUA(ua).os, ip: ctx.ip, country: geo.country, region: geo.region, city: geo.city, poll: true }).catch(() => {});
+  const n = int(ctx.query.get('n'));
+  const mine = ctx.settings.app_notify_on === '0' ? [] : n < 0 ? [] : await $appdev.pending(dev, n);
+  return json(200, { latest: last!.id, items, notices: mine, noticeLatest: n < 0 ? await $appdev.latestNotice(dev) : undefined });
 }
 
 // 📥 Android app's ইনবক্স tab: the shop's recent offer messages + how to reach the shop

@@ -300,6 +300,10 @@ class MainActivity : Activity() {
         CookieManager.getInstance().apply {
             setAcceptCookie(true)
             setAcceptThirdPartyCookies(web, true)
+            // the install number goes with the shop's pages too, so an order placed here reaches this phone's order news
+            val app = "sm_app=${OfferWorker.installId(this@MainActivity)}; Path=/; Max-Age=63072000; Secure; SameSite=Lax"
+            setCookie("https://$HOST", app)
+            setCookie("https://www.$HOST", app)
         }
 
         web.webViewClient = ShopClient()

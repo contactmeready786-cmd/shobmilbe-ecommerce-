@@ -171,6 +171,7 @@ const SECTIONS: { title: string; entries: Entry[] }[] = [
       ['/admin/customers', 'All customers', 'customers', 'customers', '👤'],
       ['/admin/customer-accounts', 'Customer accounts', 'settings', 'cust-accounts', '🔐'],
       tabSet('reviews', 'Reviews & Q&A', '⭐'),
+      ['/admin/app-users', 'App users', 'customers', 'appusers', '📱'],
     ] },
   ] },
   { title: 'Commerce', entries: [

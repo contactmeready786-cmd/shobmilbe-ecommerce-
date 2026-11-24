@@ -7,6 +7,7 @@ import * as O from './orders';
 import * as notify from '../services/notify';
 import * as $services_sms from '../services/sms';
 import * as $models_giftcards from './giftcards';
+import * as $appdev from '../services/appdevices';
 import type { OrderItemsRow, OrdersRow } from '../data/rows';
 
 // Customer SMS when an order is confirmed / handed to the courier / delivered (Admin → মার্কেটিং → কাস্টমারকে SMS).
@@ -19,6 +20,12 @@ O.onStatusChange(async (id, status) => {
     'SELECT id, code, phone, customer_name, total, tracking_code, points_earned, source FROM orders WHERE id=$1', [id]);
   if (!o || o.source === 'pos' || !o.phone) return; // counter sales: the customer is standing in the shop
   await notify.later($services_sms.orderEvent(settings, ev, o, settings.site_url || ''));
+});
+// 📱 the customer app's own notification (app 1.5+): "parcel sent" / "delivered — please review" (Admin → App users)
+O.onStatusChange(async (id, status) => {
+  if (status !== 'shipped' && status !== 'delivered') return;
+  const settings = await db.getSettings();
+  await $appdev.notifyOrder(settings, id, status).catch((e: Error) => console.error('app notice', e.message));
 });
 // 💳 gift card money back when an order is cancelled / returned (taken again if it is switched back on),
 // 🎁 the referral reward when a referred first order is delivered, 🏬 a branch's pieces back on its shelf.

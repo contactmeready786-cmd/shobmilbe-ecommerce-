@@ -18,6 +18,7 @@ import * as $services_mailer from '../services/mailer';
 import * as $services_autocall from '../services/autocall';
 import * as $services_fraud from '../services/fraud';
 import * as $services_stockalert from '../services/stockalert';
+import * as $appdev from '../services/appdevices';
 import * as $models_accounts from '../models/accounts';
 import * as $models_checkoutotp from '../models/checkoutotp';
 import { siteUrl, myOrdersCookie } from '../gate';
@@ -144,6 +145,12 @@ export async function placeOrder(ctx: ApiCtx) {
       if (wants && em && settings.email_mkt_on === '1') await $services_mailer.addSub(em, { name, phone, source: 'checkout' }).catch(() => {});
     }
     // Server-side conversion events + the owner's "new order" e-mail / WhatsApp (never block the order for long).
+    // 📱 placed inside the customer app (1.5+): remember this phone's customer (Admin → App users)
+    if ($appdev.isApp(ctx.req.headers['user-agent'])) {
+      const dev = $appdev.deviceId($appdev.installOf(ctx.req));
+      if (dev) await $appdev.linkOrder(dev, { id: order.id, code: order.code, customer_name: name, phone, address,
+        area: [(dist.areas.find((a) => a[0] === thana) || [])[1] || thana, dist.bn || dist.en].filter(Boolean).join(', '), customer_id: null }).catch(() => {});
+    }
     await Promise.all([
       Promise.race([
         tracking.purchase({ ...order, phone, customer_name: name, district: dist.en, email: str(body.email, 120), ip }, settings, ctx.req),

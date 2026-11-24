@@ -61,6 +61,46 @@ export type AiStaffReportsRow = {
   created_at: Date;
 };
 
+/** A row of app_devices. */
+export type AppDevicesRow = {
+  id: string;
+  visitor_id: string;
+  first_seen: Date;
+  last_seen: Date;
+  opens: number;
+  last_poll: Date | null;
+  app_version: string;
+  brand: string;
+  model: string;
+  os: string;
+  ip: string;
+  country: string;
+  region: string;
+  city: string;
+  customer_id: number | null;
+  name: string;
+  phone: string;
+  address: string;
+  area: string;
+  orders: number;
+  last_order_code: string;
+  can_notify: boolean;
+};
+
+/** A row of app_notices. */
+export type AppNoticesRow = {
+  id: number;
+  device_id: string;
+  kind: string;
+  title: string;
+  body: string;
+  url: string;
+  order_id: number | null;
+  staff_id: number | null;
+  created_at: Date;
+  delivered_at: Date | null;
+};
+
 /** A row of autocalls. */
 export type AutocallsRow = {
   id: number;
@@ -878,6 +918,7 @@ export type OrdersRow = {
   geo_lng: number | null;
   geo_acc: number | null;
   courier_checked_at: Date | null;
+  app_device: string;
 };
 
 /** A row of owner_faces. */
@@ -1723,6 +1764,8 @@ export type Tables = {
   admin_sessions: AdminSessionsRow;
   ai_staff_edits: AiStaffEditsRow;
   ai_staff_reports: AiStaffReportsRow;
+  app_devices: AppDevicesRow;
+  app_notices: AppNoticesRow;
   autocalls: AutocallsRow;
   backups: BackupsRow;
   banners: BannersRow;

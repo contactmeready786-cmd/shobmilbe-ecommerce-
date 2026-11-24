@@ -12,7 +12,7 @@ import type { AdminCtx, Settings, RouteMatch } from '../types';
 const BASE = '/admin/marketing/visitors';
 const PER_PAGE = 50;
 const COUNTRY_PATH = `${BASE}/countries`;
-const DEVICES: Record<string, [string, string]> = { mobile: ['📱', 'মোবাইল'], desktop: ['💻', 'কম্পিউটার'], tablet: ['📲', 'ট্যাবলেট'] };
+const DEVICES: Record<string, [string, string]> = { app: ['🛍️', 'Shobmilbe app'], mobile: ['📱', 'Mobile browser'], desktop: ['💻', 'Laptop / computer'], tablet: ['📲', 'ট্যাবলেট'] };
 const EVENT_LABELS: Record<string, [string, string]> = {
   add_to_cart: ['🛒', 'কার্টে যোগ করেছে'], begin_checkout: ['🧾', 'চেকআউট শুরু করেছে'], purchase: ['✅', 'অর্ডার করেছে'],
   search: ['🔎', 'খুঁজেছে'], contact: ['📞', 'যোগাযোগ বাটনে চাপ দিয়েছে'],

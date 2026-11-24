@@ -15,6 +15,7 @@ const MESSAGES: Record<string, string | Flash> = {
   status: 'অবস্থা বদলানো হয়েছে।',
   password: 'পাসওয়ার্ড বদলানো হয়েছে।',
   sent: 'কুরিয়ারে পাঠানো হয়েছে।',
+  app_sent: 'Notification saved — the phone shows it within about 30 minutes (when its internet is on).',
   synced: 'কুরিয়ার থেকে আপডেট আনা হয়েছে।',
   blocked: 'ব্লক লিস্টে যোগ হয়েছে।',
   unblocked: 'ব্লক তুলে নেওয়া হয়েছে।',
