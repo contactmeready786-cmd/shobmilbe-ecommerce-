@@ -65,11 +65,11 @@ kotlin {
 
 dependencies {
     // Admin app: runs inside the phone's Chrome (passkeys, fingerprint, camera scan)
-    adminImplementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.5.0'
+    adminImplementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.7.4'
     // Customer app: its own built-in browser, always mobile view
-    customerImplementation 'androidx.core:core-ktx:1.13.1'
-    customerImplementation 'androidx.work:work-runtime-ktx:2.9.1'
+    customerImplementation 'androidx.core:core-ktx:1.19.1'
+    customerImplementation 'androidx.work:work-runtime-ktx:2.12.0'
     // Customer app: pull-down to refresh, and telling the shop page early that it is inside the app
-    customerImplementation 'androidx.swiperefreshlayout:swiperefreshlayout:1.1.0'
-    customerImplementation 'androidx.webkit:webkit:1.12.1'
+    customerImplementation 'androidx.swiperefreshlayout:swiperefreshlayout:1.2.0'
+    customerImplementation 'androidx.webkit:webkit:1.18.0'
 }
