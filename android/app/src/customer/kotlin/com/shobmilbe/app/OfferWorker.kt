@@ -15,6 +15,8 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.work.Constraints
 import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.ExistingWorkPolicy
+import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.NetworkType
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
@@ -48,10 +50,19 @@ class OfferWorker(context: Context, params: WorkerParameters) : Worker(context, 
         }
 
         fun schedule(ctx: Context) {
-            val req = PeriodicWorkRequestBuilder<OfferWorker>(30, TimeUnit.MINUTES)
+            // every 15 minutes (Android's shortest), only with internet; UPDATE moves older installs from 30 to 15 min
+            val req = PeriodicWorkRequestBuilder<OfferWorker>(15, TimeUnit.MINUTES)
                 .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
                 .build()
-            WorkManager.getInstance(ctx).enqueueUniquePeriodicWork("offers", ExistingPeriodicWorkPolicy.KEEP, req)
+            WorkManager.getInstance(ctx).enqueueUniquePeriodicWork("offers", ExistingPeriodicWorkPolicy.UPDATE, req)
+        }
+
+        /** The app was opened: ask the shop right away (order news, offers) instead of waiting for the next round. */
+        fun checkNow(ctx: Context) {
+            val req = OneTimeWorkRequestBuilder<OfferWorker>()
+                .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
+                .build()
+            WorkManager.getInstance(ctx).enqueueUniqueWork("offers-now", ExistingWorkPolicy.KEEP, req)
         }
 
         private fun show(ctx: Context, id: Int, title: String, body: String, url: String, image: String, orders: Boolean = false) {

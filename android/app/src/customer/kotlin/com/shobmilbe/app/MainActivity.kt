@@ -348,6 +348,7 @@ class MainActivity : Activity() {
         ui.removeCallbacks(cartPoll)
         ui.post(cartPoll)
         if (!inboxShowing) inbox.load(false) // new offer? show the dot
+        OfferWorker.checkNow(this) // the shop's news for this phone, at once (no 15-minute wait)
     }
 
     override fun onPause() {
