@@ -58,6 +58,11 @@ body.side-hidden .admin-main { max-width: 1500px; }
 
 /* page bits */
 .title-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+/* no jump while loading: the admin script moves the Refresh button next to the title, so the row appears once it is
+   arranged (owner, 2026-11-24); if the script ever fails the row still shows after 1.5 s */
+.title-row { opacity: 0; animation: tr-show 0s linear 1.5s forwards; }
+html.tr-ready .title-row { opacity: 1; animation: none; transition: opacity .1s; }
+@keyframes tr-show { to { opacity: 1; } }
 .title-row h1, .title-row h2 { margin: 0; }
 .row-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .row-actions form { margin: 0; }

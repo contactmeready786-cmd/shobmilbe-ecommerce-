@@ -803,5 +803,7 @@ export function startCore(): void {
   ] as [string, () => void][]) {
     try { start(); } catch (e) { console.error(`সবমিলবে admin: ${name} could not start`, e); }
   }
+  // the title row (Refresh, pills) is shown only once everything sits in its final place — no jumping on load
+  document.documentElement.classList.add('tr-ready');
 }
 
