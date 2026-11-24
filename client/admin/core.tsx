@@ -198,10 +198,21 @@ function sideMenu(): void {
 
 // ---------- confirmations and the 🔐 delete code ----------
 function confirmations(): void {
-  for (const f of $all<HTMLFormElement>('form[data-confirm]')) f.addEventListener('submit', (e) => { if (!confirm(f.getAttribute('data-confirm') || '')) e.preventDefault(); });
+  // the question opens in the page (not the browser's confirm(), which Chrome may silently block after a few)
+  const okForm = new WeakSet<HTMLFormElement>();
+  for (const f of $all<HTMLFormElement>('form[data-confirm]')) f.addEventListener('submit', (e) => {
+    if (okForm.has(f)) { okForm.delete(f); return; }
+    e.preventDefault();
+    const sub = (e as SubmitEvent).submitter as HTMLButtonElement | null;
+    askConfirm(f.getAttribute('data-confirm') || '', () => { okForm.add(f); if (sub && sub.form === f) f.requestSubmit(sub); else f.requestSubmit(); });
+  });
+  const okBtn = new WeakSet<Element>();
   document.addEventListener('click', (e) => {
     const b = hit(e, '[data-confirm-btn]');
-    if (b && !confirm(b.getAttribute('data-confirm-btn') || '')) e.preventDefault();
+    if (!b) return;
+    if (okBtn.has(b)) { okBtn.delete(b); return; }
+    e.preventDefault();
+    askConfirm(b.getAttribute('data-confirm-btn') || '', () => { okBtn.add(b); (b as HTMLElement).click(); });
   });
   // A form (or its submit button) with data-delcode="action" opens this box instead of sending; the code goes in a
   // hidden del_code field and the form is sent with the button that was pressed. Restoring etc. never asks.
@@ -215,6 +226,22 @@ function confirmations(): void {
     e.preventDefault();
     openDelCode(f, btn, host, () => passed.add(f));
   });
+}
+function askConfirm(text: string, yes: () => void): void {
+  const dlg = (
+    <dialog className="delcode-dlg confirm-dlg"><form method="dialog" className="form delcode-box">
+      <p className="confirm-text">{text}</p>
+      <div className="row-actions"><button type="button" className="btn btn-danger" data-cf-yes="">Yes, continue</button>
+        <button type="button" className="btn btn-ghost" data-cf-no="">Cancel</button></div></form></dialog>
+  ) as HTMLDialogElement;
+  if (typeof dlg.showModal !== 'function') { if (confirm(text)) yes(); return; } // very old browser
+  document.body.appendChild(dlg);
+  const close = () => { try { dlg.close(); } catch { /* already closed */ } dlg.remove(); };
+  $('[data-cf-no]', dlg)!.addEventListener('click', close);
+  dlg.addEventListener('cancel', () => setTimeout(close, 0));
+  $('[data-cf-yes]', dlg)!.addEventListener('click', () => { close(); yes(); });
+  dlg.showModal();
+  $<HTMLButtonElement>('[data-cf-no]', dlg)!.focus();
 }
 function openDelCode(form: HTMLFormElement, btn: HTMLButtonElement | null, host: Element, pass: () => void): void {
   const attr = (k: string) => host.getAttribute(k);
