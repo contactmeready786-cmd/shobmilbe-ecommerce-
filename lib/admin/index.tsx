@@ -104,6 +104,7 @@ import * as $appusers from './appusers';
 import * as $aistaff from './aistaff';
 import * as recognize from '../models/recognize';
 import * as $services_guard from '../services/guard';
+import * as $services_visitors from '../services/visitors';
 import * as $models_trash from '../models/trash';
 import * as $models_extras from '../models/extras';
 import type { AdminCtx, AdminRoute, RouteMatch, Base, Body, Form, Id, Settings, ShopRequest, StaffUser, Caught } from '../types';
@@ -329,7 +330,7 @@ async function handle(base: Base) {
       const user = await staffModel.getStaff(id);
       await db.logActivity(id, 'login', 'staff', id, 'প্রথম সেটআপ');
       await sessions.record(req, { staffId: id, login: username, event: 'login', ok: true, ip, detail: 'প্রথম সেটআপ' });
-      return redirect('/admin', { 'Set-Cookie': await startSession(req, settings, user!) });
+      return redirect('/admin', { 'Set-Cookie': [await startSession(req, settings, user!), $services_visitors.meCookie(req, settings, true)] });
     }
     return bare('অ্যাকাউন্ট তৈরি', authPage({ settings, mode: 'setup' }));
   }
@@ -461,7 +462,7 @@ ${link}
         await db.logActivity(user.id, 'login', 'staff', user.id, ip);
         await sessions.record(req, { staffId: user.id, login: b.login, event: 'login', ok: true, ip });
         if (user.role === 'owner' && settings.notify_owner_login !== '0') await notify.securityAlert(settings, 'মালিকের অ্যাকাউন্টে লগইন হয়েছে', `যেখান থেকে: ${ip}\nডিভাইস: ${str(req.headers['user-agent'], 120)}`);
-        return redirect(firstAllowed(user), { 'Set-Cookie': await startSession(req, settings, user!) });
+        return redirect(firstAllowed(user), { 'Set-Cookie': [await startSession(req, settings, user!), $services_visitors.meCookie(req, settings, true)] });
       }
       await failed(ip, b.login);
       await sessions.record(req, { staffId: user ? user.id : null, login: b.login, event: user && !user.active ? 'inactive' : 'fail', ip });
@@ -507,7 +508,7 @@ ${link}
     await staffModel.touchLogin(u.id);
     await db.logActivity(u.id, 'login', 'staff', u.id, `${ip} · অথেনটিকেটর কোড`);
     await sessions.record(req, { staffId: u.id, login: u.username, event: 'login', ok: true, ip, detail: 'অথেনটিকেটর কোডসহ' });
-    return redirect(firstAllowed(u), { 'Set-Cookie': [await startSession(req, settings, u), CLEAR_TFA] });
+    return redirect(firstAllowed(u), { 'Set-Cookie': [await startSession(req, settings, u), CLEAR_TFA, $services_visitors.meCookie(req, settings, true)] });
   }
 
   // ----- owner login lock: the second check after the password -----
@@ -533,7 +534,7 @@ ${link}
       await db.logActivity(owner.id, 'login', 'staff', owner.id, `${ip} · ${how}`);
       await sessions.record(req, { staffId: owner.id, login: owner.username, event: 'login', ok: true, ip, detail: how });
       if (settings.notify_owner_login !== '0') await notify.securityAlert(settings, 'মালিকের অ্যাকাউন্টে লগইন হয়েছে', `যেখান থেকে: ${ip} · ${how}\nডিভাইস: ${str(req.headers['user-agent'], 120)}`);
-      return json(200, { done: true, to: firstAllowed(owner) }, { 'Set-Cookie': [await startSession(req, settings, owner, true), CLEAR_PRE, CLEAR_CH] });
+      return json(200, { done: true, to: firstAllowed(owner) }, { 'Set-Cookie': [await startSession(req, settings, owner, true), CLEAR_PRE, CLEAR_CH, $services_visitors.meCookie(req, settings, true)] });
     };
     // Too many failed checks: the half-way login is thrown away.
     if (method === 'POST' && await security.blocked(db, 'mfa:' + owner.id, 10)) {
@@ -548,7 +549,7 @@ ${link}
       if (!need) {
         // the lock was switched off in the meantime
         await staffModel.touchLogin(owner.id);
-        return redirect(firstAllowed(owner), { 'Set-Cookie': [await startSession(req, settings, owner, true), CLEAR_PRE] });
+        return redirect(firstAllowed(owner), { 'Set-Cookie': [await startSession(req, settings, owner, true), CLEAR_PRE, $services_visitors.meCookie(req, settings, true)] });
       }
       const keysHere = await lock.passkeysFor(owner.id, lock.rpId(req));
       const keysAll = await lock.passkeys(owner.id);
@@ -586,7 +587,7 @@ ${link}
         await staffModel.touchLogin(owner.id);
         await db.logActivity(owner.id, 'login', 'staff', owner.id, `${ip} · এক-বারের অনুমতি কোড`);
         await sessions.record(req, { staffId: owner.id, login: owner.username, event: 'login', ok: true, ip, detail: 'এক-বারের অনুমতি কোড' });
-        return redirect('/admin/security/login?msg=bridged', { 'Set-Cookie': [await startSession(req, settings, owner, true), CLEAR_PRE, CLEAR_CH] });
+        return redirect('/admin/security/login?msg=bridged', { 'Set-Cookie': [await startSession(req, settings, owner, true), CLEAR_PRE, CLEAR_CH, $services_visitors.meCookie(req, settings, true)] });
       }
       await countFail();
       await db.logActivity(owner.id, 'blocked', 'security', owner.id, `মালিকের লগইনে ভুল অনুমতি কোড (${ip})`).catch(() => {});

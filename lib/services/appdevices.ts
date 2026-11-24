@@ -20,6 +20,13 @@ import type { Settings, ShopRequest } from '../types';
 const INSTALL_RE = /^[A-Za-z0-9-]{16,64}$/;
 const VID_RE = /^[A-Za-z0-9_-]{8,64}$/;
 
+/** The owner's own phones (Admin → App users → "This is my phone"): never listed, their app visits never counted. */
+export function ownerApp(settings: Settings, idOrInstall: string): boolean {
+  if (!idOrInstall) return false;
+  const id = idOrInstall.includes(':') ? idOrInstall : 'i:' + idOrInstall;
+  return String(settings.app_owner_devices || '').split(',').includes(id);
+}
+
 /** Is this request from inside the customer app? */
 export function isApp(ua: unknown): boolean { return /ShobmilbeApp\//.test(String(ua || '')); }
 

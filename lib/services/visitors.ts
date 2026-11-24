@@ -6,7 +6,7 @@
 // so it works on Vercel without any paid service. Locally these headers are missing.
 import type { PageViewsRow, VisitEventsRow, VisitSessionsRow } from '../data/rows';
 import * as db from '../db';
-import { parseCookies, str, int, fields } from '../util';
+import { parseCookies, str, int, fields, sign, unsign } from '../util';
 import * as appdev from './appdevices';
 import { appVersionOf } from '../app-release';
 import type { Body, Id, Settings, ShopRequest } from '../types';
@@ -237,8 +237,22 @@ function cleanPath(p?: unknown) {
 function readJson(text?: unknown): Body {
   try { return fields(JSON.parse(String(text || '{}'))) || {}; } catch (_) { return {}; }
 }
+// 🙈 "Don't count this device" (owner, 2026-11-24): a long-lived signed cookie on the owner's/staff's own browsers —
+// set by any admin login and by the button on Visitor analytics. Websites can't see a device's MAC address, so this
+// cookie (like Google Analytics' opt-out) is the standard way. The owner's own phone app: settings.app_owner_devices.
+export function meCookie(req: Pick<ShopRequest, 'headers'>, settings: Settings, on: boolean): string {
+  const secure = String(req.headers['x-shop-proto'] || '').includes('https') ? '; Secure' : '';
+  return on && settings.session_secret
+    ? `sm_me=${encodeURIComponent(sign('me', settings.session_secret))}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${5 * 365 * 86400}${secure}`
+    : `sm_me=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${secure}`;
+}
+export function isMe(req: Pick<ShopRequest, 'headers'>, settings: Settings): boolean {
+  return unsign(parseCookies(req.headers.cookie as string).sm_me, settings.session_secret) === 'me';
+}
 function shouldSkip(req: ShopRequest, settings: Settings) {
   if (settings.visitor_tracking === '0') return true;
+  if (isMe(req, settings)) return true;
+  if (appdev.isApp(req.headers['user-agent']) && appdev.ownerApp(settings, appdev.installOf(req))) return true;
   if (isBot(String(req.headers['user-agent'] || ''))) return true;
   if (settings.visitor_exclude_admin !== '0' && parseCookies(req.headers.cookie).sm_admin) return true;
   if (/^(prefetch|prerender)$/i.test(String(req.headers['purpose'] || req.headers['sec-purpose'] || ''))) return true;
@@ -267,6 +281,7 @@ async function record({ req, settings, body, ip, ownHost }: RecordOpts) {
   const sid = String(b.sid || '');
   if (!ID_RE.test(vid) || !ID_RE.test(sid)) return null;
   if (shouldSkip(req, settings)) return { off: 1 };
+  if (appdev.isApp(req.headers['user-agent']) && appdev.ownerApp(settings, appdev.deviceId(appdev.installOf(req), vid))) return { off: 1 };
 
   if (b.t === 'pv') {
     const path = cleanPath(b.p);

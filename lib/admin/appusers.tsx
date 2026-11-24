@@ -41,6 +41,23 @@ async function page(ctx: AdminCtx) {
       await ctx.log('update', 'settings', null, `${key === 'app_notify_on' ? 'App order notifications' : 'App review requests'}: ${on ? 'on' : 'off'}`);
       return ctx.back(BASE, 'saved');
     }
+    // 🙋 the owner's own phone: never listed, its app visits never counted (settings.app_owner_devices)
+    if (b.action === 'mine' || b.action === 'mine_reset') {
+      if (!ctx.can('settings')) return ctx.back(BASE, 'noperm');
+      if (b.action === 'mine_reset') {
+        await db.setMany({ app_owner_devices: '' });
+        await ctx.log('update', 'settings', null, 'App users: my phones are counted again');
+        return ctx.back(BASE, 'saved');
+      }
+      const id = str(b.id, 80);
+      const list = String(s.app_owner_devices || '').split(',').filter(Boolean);
+      if (id && !list.includes(id)) list.push(id);
+      await db.setMany({ app_owner_devices: list.slice(-20).join(',') });
+      await db.q('DELETE FROM app_notices WHERE device_id=$1', [id]);
+      await db.q('DELETE FROM app_devices WHERE id=$1', [id]);
+      await ctx.log('update', 'settings', null, `App users: ${id} marked as my phone (not counted)`);
+      return ctx.back(BASE, 'saved');
+    }
     if (b.action === 'send') {
       if (!ctx.can('marketing')) return ctx.back(BASE, 'noperm');
       const id = str(b.id, 80);
@@ -90,11 +107,13 @@ async function page(ctx: AdminCtx) {
 
   const nowrap = { whiteSpace: 'nowrap' } as const;
   const canSet = ctx.can('settings');
+  const mineN = String(s.app_owner_devices || '').split(',').filter(Boolean).length;
   const body = <>
     <div className="title-row"><h1>📱 App users</h1>
       <div className="row-actions">
         {(canSet ? ui.toolSwitch(BASE, 'app_notify_on', s.app_notify_on !== '0', '🔔 Order notifications', 'Parcel sent / delivered — sent to the phone the order came from (app 1.5+). Free, no SMS.', { action: 'pill_notify' }) : null)}
         {(canSet ? ui.toolSwitch(BASE, 'app_review_ask', s.app_review_ask !== '0', '⭐ Ask for review', 'On delivery a "please review" notification with the one-tap link; one reminder after 3 days if there is no review.', { action: 'pill_review' }) : null)}
+        {(canSet && mineN ? <form method="post" action={attrValue(BASE)} className="tool-pill" style={{ paddingLeft: '12px' }}><input type="hidden" name="action" defaultValue="mine_reset" /><span className="tool-t">🙋 My phones hidden: {bn(mineN)}</span><button className="btn btn-sm btn-ghost" title="Count my phones again">Undo</button></form> : null)}
         <a className="btn btn-ghost btn-sm" href={`${BASE}?${qs}`}>🔄 Refresh</a>
       </div></div>
     {ui.flash(ctx.flash)}
@@ -122,7 +141,8 @@ async function page(ctx: AdminCtx) {
           <td className="small" style={nowrap} title={attrValue(when(lastActive(r)))}>{ago(lastActive(r))}</td>
           <td className="small muted" style={nowrap}>{fmtDate(r.first_seen, false)}</td>
           <td>{(r.can_notify ? '🔔' : <span className="muted">—</span>)}</td>
-          <td style={nowrap}><a className="btn btn-sm btn-ghost" href={`${BASE}?${new URLSearchParams({ ...Object.fromEntries(qs), d: r.id })}#device`}>Details</a></td>
+          <td style={nowrap}><span className="row-actions" style={{ flexWrap: 'nowrap' }}><a className="btn btn-sm btn-ghost" href={`${BASE}?${new URLSearchParams({ ...Object.fromEntries(qs), d: r.id })}#device`}>Details</a>
+            {(canSet ? <form method="post" action={attrValue(BASE)} style={{ margin: 0 }}><input type="hidden" name="action" defaultValue="mine" /><input type="hidden" name="id" defaultValue={attrValue(r.id)} /><button className="btn btn-sm btn-ghost" title="This is my own phone: remove it and never count it">🙋 Mine</button></form> : null)}</span></td>
         </tr>))}
       </tbody></table>{ui.pager(list.total, pg, PER, `${BASE}?${qs}`)}</> : <p className="muted" style={{ padding: '14px 16px', margin: 0 }}>{(q || only ? 'No phone matches.' : 'No app phones yet. A phone shows here the first time the app is opened on it.')}</p>)}
     </section>

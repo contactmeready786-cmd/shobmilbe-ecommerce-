@@ -140,7 +140,7 @@ export async function appOffers(ctx: ApiCtx) {
   const ua = String(ctx.req.headers['user-agent'] || '');
   const geo = geoFrom(ctx.req);
   const d = deviceDetails(ua, '', 0);
-  await $appdev.seen({ id: dev, version: appVersionOf(ua), brand: str(ctx.query.get('mk'), 40) || String(d.brand || ''),
+  if (!$appdev.ownerApp(ctx.settings, dev)) await $appdev.seen({ id: dev, version: appVersionOf(ua), brand: str(ctx.query.get('mk'), 40) || String(d.brand || ''),
     model: str(ctx.query.get('md'), 80) || String(d.model || ''), os: parseUA(ua).os, ip: ctx.ip, country: geo.country, region: geo.region, city: geo.city, poll: true }).catch(() => {});
   const n = int(ctx.query.get('n'));
   const mine = ctx.settings.app_notify_on === '0' ? [] : n < 0 ? [] : await $appdev.pending(dev, n);
