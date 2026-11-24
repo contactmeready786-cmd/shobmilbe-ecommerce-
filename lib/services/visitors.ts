@@ -293,7 +293,7 @@ async function record({ req, settings, body, ip, ownHost }: RecordOpts) {
       // 📱 a visit inside the customer app = the app was opened on this phone (Admin → App users)
       if (device === 'app') {
         await appdev.seen({ id: appdev.deviceId(appdev.installOf(req), vid), visitorId: vid, version: appVersionOf(ua),
-          brand: dev.brand, model: dev.model, os, ip, country: geo.country, region: geo.region, city: geo.city }).catch((e: Error) => console.error('app device', e.message));
+          brand: String(dev.brand || ''), model: String(dev.model || ''), os, ip, country: geo.country, region: geo.region, city: geo.city }).catch((e: Error) => console.error('app device', e.message));
       }
     }
     await q(`UPDATE visit_sessions SET last_seen = now(), pageviews = pageviews + 1, exit_path = $2 WHERE id = $1`, [sid, path]);
