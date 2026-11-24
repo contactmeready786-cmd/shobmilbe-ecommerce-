@@ -8,6 +8,7 @@ import type { PageViewsRow, VisitEventsRow, VisitSessionsRow } from '../data/row
 import * as db from '../db';
 import { parseCookies, str, int, fields } from '../util';
 import * as appdev from './appdevices';
+import { appVersionOf } from '../app-release';
 import type { Body, Id, Settings, ShopRequest } from '../types';
 
 const { q, one } = db;
@@ -291,7 +292,7 @@ async function record({ req, settings, body, ip, ownHost }: RecordOpts) {
         str(b.r, 500), src.refHost, src.source, src.medium, str(src.campaign, 100), path, dev.brand, str(dev.model, 80), tz, netFlag(geo.country, tz)]);
       // 📱 a visit inside the customer app = the app was opened on this phone (Admin → App users)
       if (device === 'app') {
-        await appdev.seen({ id: appdev.deviceId(appdev.installOf(req), vid), visitorId: vid, version: (ua.match(/ShobmilbeApp\/([\d.]+)/) || [])[1] || '',
+        await appdev.seen({ id: appdev.deviceId(appdev.installOf(req), vid), visitorId: vid, version: appVersionOf(ua),
           brand: dev.brand, model: dev.model, os, ip, country: geo.country, region: geo.region, city: geo.city }).catch((e: Error) => console.error('app device', e.message));
       }
     }

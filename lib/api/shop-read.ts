@@ -7,6 +7,7 @@ import * as drafts from '../services/drafts';
 import * as shop from '../views/shop';
 import * as $services_search from '../services/search';
 import * as $appdev from '../services/appdevices';
+import { appVersionOf } from '../app-release';
 import { geoFrom, parseUA, deviceDetails } from '../services/visitors';
 import { loadRenderer, renderHtml } from '../react/render';
 import { myOrders } from '../gate';
@@ -139,7 +140,7 @@ export async function appOffers(ctx: ApiCtx) {
   const ua = String(ctx.req.headers['user-agent'] || '');
   const geo = geoFrom(ctx.req);
   const d = deviceDetails(ua, '', 0);
-  await $appdev.seen({ id: dev, version: (ua.match(/ShobmilbeApp\/([\d.]+)/) || [])[1] || '', brand: str(ctx.query.get('mk'), 40) || d.brand,
+  await $appdev.seen({ id: dev, version: appVersionOf(ua), brand: str(ctx.query.get('mk'), 40) || d.brand,
     model: str(ctx.query.get('md'), 80) || d.model, os: parseUA(ua).os, ip: ctx.ip, country: geo.country, region: geo.region, city: geo.city, poll: true }).catch(() => {});
   const n = int(ctx.query.get('n'));
   const mine = ctx.settings.app_notify_on === '0' ? [] : n < 0 ? [] : await $appdev.pending(dev, n);
