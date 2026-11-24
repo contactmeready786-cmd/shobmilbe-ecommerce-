@@ -2101,6 +2101,7 @@ body.admin #main.admin-main .switch-row.has-tip { min-height: 0; padding: 7px 12
 .switch-row.has-tip .switch-text > small[hidden] { display: none !important; }
 .switch-row .tool-tip { margin-left: 2px; }
 .switch-row .tool-tip::after { left: 0; transform: none; }
+.title-row > :last-child .tool-tip::after { left: auto; right: -8px; transform: none; } /* pills on the right edge: the note opens leftwards, inside the screen */
 /* 🧪 পরীক্ষার ইতিহাস মোছা: one slim row at the end of the page (lib/admin/testclear.tsx) */
 .tc-row { margin-top: 18px; }
 .tc-row .tc-clear { margin: 0; padding: 0; border: 0; background: none; }

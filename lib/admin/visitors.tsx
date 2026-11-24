@@ -240,7 +240,8 @@ async function countriesPage(ctx: AdminCtx) {
 // 🙈 This browser: counted or not (cookie sm_me; set by every admin login too). One small pill in the title row.
 function meBox(ctx: AdminCtx) {
   const me = V.isMe(ctx.req, ctx.settings);
-  return <form method="post" action="/admin/marketing/visitors/me" className="tool-pill" style={{ paddingLeft: '12px' }}>
+  // sits right after the title / Refresh (left side), so its ⓘ note opens inside the screen
+  return <form method="post" action="/admin/marketing/visitors/me" className="tool-pill me-pill" style={{ paddingLeft: '12px', marginRight: 'auto' }}>
     <input type="hidden" name="on" defaultValue={me ? '0' : '1'} />
     <span className="tool-t">{me ? '🙈 This device is not counted' : '👁️ This device is counted'}</span>
     <span className="tool-tip" tabIndex={0} role="note" aria-label="Your own visits from this browser are left out of the visitor numbers. Every admin login turns this on for that browser." data-tip="Your own visits from this browser are left out of the visitor numbers. Every admin login turns this on for that browser.">i</span>
