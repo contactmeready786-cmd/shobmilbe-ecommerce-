@@ -244,7 +244,7 @@ function meBox(ctx: AdminCtx) {
     <input type="hidden" name="on" defaultValue={me ? '0' : '1'} />
     <span className="tool-t">{me ? '🙈 This device is not counted' : '👁️ This device is counted'}</span>
     <span className="tool-tip" tabIndex={0} role="note" aria-label="Your own visits from this browser are left out of the visitor numbers. Every admin login turns this on for that browser." data-tip="Your own visits from this browser are left out of the visitor numbers. Every admin login turns this on for that browser.">i</span>
-    <button type="submit" className="btn btn-sm">{me ? 'Count again' : "Don't count this device"}</button>
+    {(me ? null : <button type="submit" className="btn btn-sm">Don't count this device</button>)}
   </form>;
 }
 async function meSet(ctx: AdminCtx) {
