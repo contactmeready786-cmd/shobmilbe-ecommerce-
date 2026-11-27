@@ -6,6 +6,7 @@ import * as content from '../models/content';
 import * as catalog from '../models/catalog';
 import * as security from '../security';
 import * as kits from '../models/kits';
+import * as lessons from '../data/lessons';
 import * as landing from '../models/landing';
 import * as accounts from '../models/accounts';
 import * as livescore from '../services/livescore';
@@ -79,6 +80,10 @@ export async function drawableHere(path: string, headers: Headers): Promise<bool
   if (path === '/kits') return (await settingsNow()).kits_on !== '0';
   m = /^\/kit\/([^/]+)$/.exec(path);
   if (m) return (await settingsNow()).kits_on !== '0' && !!(await kits.forShop(safeDecode(m[1])));
+  // 🎓 free electronics classes: only when on, and only lessons that exist
+  if (path === '/learn') return (await settingsNow()).learn_on !== '0';
+  m = /^\/learn\/([^/]+)$/.exec(path);
+  if (m) return (await settingsNow()).learn_on !== '0' && !!lessons.lesson(safeDecode(m[1]));
   m = /^\/lp\/([^/]+)$/.exec(path);
   if (m) return !!(await landing.forShop(safeDecode(m[1])));
   if (path === '/checkout') {

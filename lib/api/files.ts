@@ -1,6 +1,7 @@
 // 🖼️ Pictures, robots.txt, the sitemap, product feeds, the e-mail counters and "leave the e-mail list", and the two
 // scheduled jobs — each served by its own Next.js route (app/media, app/robots.txt, app/sitemap.xml, app/feeds,
 // app/e, app/unsubscribe, app/api/*/tick). lib/next/api.ts runs the shop's gate first. Moved from lib/site.ts unchanged.
+import { lessons } from '../data/lessons';
 import * as db from '../db';
 import * as catalog from '../models/catalog';
 import * as feeds from '../services/feeds';
@@ -132,6 +133,8 @@ export async function sitemap(ctx: ApiCtx) {
     ...pages.map((p) => u(`/page/${encodeURIComponent(p.slug)}`, p.updated_at, '0.3')),
     ...(kits.length ? [u('/kits', null, '0.6')] : []),
     ...kits.map((k) => u(`/kit/${encodeURIComponent(k.slug)}`, k.updated_at, '0.7', k.image_id ? `/media/${k.image_id}` : '')),
+    // 🎓 the free electronics classes
+    ...(settings.learn_on !== '0' ? [u('/learn', null, '0.7'), ...lessons().map((l) => u(`/learn/${l.slug}`, null, '0.7'))] : []),
   ].join('')}</urlset>`;
   return text(200, xml, 'application/xml; charset=utf-8', { 'Cache-Control': 'public, max-age=3600' });
 }

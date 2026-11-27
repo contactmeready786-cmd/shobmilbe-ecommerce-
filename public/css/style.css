@@ -1441,3 +1441,41 @@ body.shop.glass :is(input:not([type=radio]):not([type=checkbox]):not([type=file]
 .area-hit { display: block; width: 100%; text-align: left; padding: 10px 12px; font: inherit; background: none; border: 0; border-bottom: 1px solid var(--line); cursor: pointer; color: inherit; }
 .area-hit:last-child { border-bottom: 0; }
 .area-hit:hover, .area-hit:focus { background: var(--paper); outline: none; }
+
+/* 🎓 ফ্রি ইলেকট্রনিক্স ক্লাস (/learn) — compact cards, readable lesson, quiz, AI teacher */
+.learn-list { list-style: none; padding: 0; margin: 14px 0; display: grid; gap: 10px; }
+.learn-card { display: grid; grid-template-columns: 34px 40px 1fr; gap: 10px; align-items: center; text-decoration: none; color: var(--ink); padding: 12px 14px; }
+.learn-card:hover { border-color: var(--blue); }
+.learn-no { width: 30px; height: 30px; border-radius: 50%; background: var(--blue); color: #fff; display: grid; place-items: center; font-weight: 700; font-size: 14px; }
+.learn-emoji { font-size: 28px; text-align: center; }
+.learn-body { display: grid; gap: 2px; }
+.learn-meta { color: var(--ink-2); }
+.learn-done { color: var(--green); font-weight: 600; }
+.learn-lesson h1 { font-size: 1.45rem; line-height: 1.35; margin: 4px 0 10px; }
+.learn-lesson h2 { font-size: 1.1rem; margin: 18px 0 6px; }
+.learn-lesson p, .learn-lesson li { line-height: 1.75; }
+.learn-lesson ul, .learn-lesson ol { padding-left: 22px; margin: 6px 0; }
+.learn-kicker { color: var(--blue); font-weight: 600; margin: 0; }
+.learn-intro { font-size: 1.02rem; color: var(--ink-2); }
+.learn-code { background: #0f172a; color: #e2e8f0; border-radius: 10px; padding: 12px 14px; overflow-x: auto; font-size: 13px; line-height: 1.55; direction: ltr; }
+.learn-try { background: var(--blue-l); border-radius: 10px; padding: 4px 14px 8px; margin-top: 14px; }
+.learn-safety { background: var(--amber-l); border-radius: 10px; padding: 4px 14px 8px; margin-top: 12px; }
+.learn-quiz, .learn-parts, .learn-tutor { margin-top: 14px; }
+.learn-q { border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; margin: 0 0 10px; }
+.learn-q legend { font-weight: 600; padding: 0 4px; }
+.learn-opt { display: flex; gap: 8px; align-items: center; padding: 4px 0; cursor: pointer; }
+.learn-q.is-right { border-color: var(--green); background: var(--green-l); }
+.learn-q.is-wrong { border-color: var(--red); background: var(--red-l); }
+.learn-why { margin: 4px 0 0; color: var(--ink-2); }
+.learn-score { font-weight: 600; margin: 8px 0 0; }
+.learn-part-btns { display: flex; flex-wrap: wrap; gap: 8px; }
+.learn-ask { display: grid; gap: 8px; }
+.learn-ask textarea { width: 100%; border: 1px solid var(--line); border-radius: 10px; padding: 10px; font: inherit; resize: vertical; }
+.learn-ask .btn { justify-self: start; }
+.learn-answer { margin-top: 10px; border-top: 1px dashed var(--line); padding-top: 10px; }
+.learn-answer-text { white-space: pre-wrap; line-height: 1.75; }
+.learn-answer-parts ul { list-style: none; padding: 0; margin: 6px 0 0; display: grid; gap: 6px; }
+.learn-answer-parts a { display: grid; grid-template-columns: 44px 1fr auto; gap: 10px; align-items: center; text-decoration: none; color: var(--ink); border: 1px solid var(--line); border-radius: 10px; padding: 6px 8px; }
+.learn-answer-parts img, .learn-answer-parts a > span:first-child { width: 44px; height: 44px; border-radius: 8px; object-fit: cover; display: grid; place-items: center; background: var(--paper); }
+.learn-nav { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 16px; }
+@media (max-width: 560px) { .learn-card { grid-template-columns: 30px 1fr; } .learn-emoji { display: none; } .learn-lesson h1 { font-size: 1.25rem; } }

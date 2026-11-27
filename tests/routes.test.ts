@@ -7,7 +7,7 @@ const get = (path: string, q = '') => servedByNext(path, new URLSearchParams(q),
 
 test('customer pages that moved are drawn by Next.js', () => {
   for (const p of ['/', '/products', '/p/led', '/brand/x', '/c/ac-remote', '/blog', '/blog/arduino', '/blog/category/tips', '/page/about',
-    '/track', '/live', '/live/cricket', '/live/football', '/cart', '/wishlist', '/compare', '/checkout', '/kits', '/kit/robot', '/order/SM7K2P9Q', '/complaint', '/complaint/status', '/gift-card', '/order/SM1/return', '/account']) {
+    '/track', '/live', '/live/cricket', '/live/football', '/cart', '/wishlist', '/compare', '/checkout', '/kits', '/kit/robot', '/learn', '/learn/soldering-basics', '/order/SM7K2P9Q', '/complaint', '/complaint/status', '/gift-card', '/order/SM1/return', '/account']) {
     assert.ok(get(p), p);
   }
 });
@@ -49,7 +49,7 @@ test('customer forms have Next.js routes of their own (lib/shopx.tsx)', async ()
 
 test('each moved page has exactly one drawer', () => {
   for (const p of ['/', '/products', '/p/x', '/brand/x', '/c/x']) assert.ok(servesShopRouter(p) && !servesMore(p), p);
-  for (const p of ['/live', '/live/cricket', '/cart', '/wishlist', '/compare', '/checkout', '/kits', '/kit/x', '/order/SM1']) assert.ok(servesMore(p) && !servesShopRouter(p) && !servesForms(p), p);
+  for (const p of ['/live', '/live/cricket', '/cart', '/wishlist', '/compare', '/checkout', '/kits', '/kit/x', '/learn', '/learn/x', '/order/SM1']) assert.ok(servesMore(p) && !servesShopRouter(p) && !servesForms(p), p);
   for (const p of ['/complaint', '/complaint/status', '/gift-card', '/order/SM1/return', '/account']) assert.ok(servesForms(p) && !servesMore(p) && !servesShopRouter(p), p);
 });
 

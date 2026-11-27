@@ -218,14 +218,15 @@ export async function keyWorks(key: string): Promise<void> {
 }
 const PERSONA = 'তুমি "সবমিলবে" নামের একটা বাংলাদেশি অনলাইন ইলেকট্রনিক্স দোকানের অভিজ্ঞ, বিশ্বস্ত স্টাফ। মালিকের সাথে আন্তরিক, সম্মান দিয়ে, সহজ বাংলায় কথা বলো — যেমন একজন মানুষ স্টাফ বলে। ' +
   'শুধু দেওয়া তথ্যের উপর ভিত্তি করে কথা বলো; যা জানো না তা বানিয়ে বলবে না, বরং বলবে "এটা আমি দেখতে পাচ্ছি না"। তুমি নিজে দোকানে কিছু বদলাতে পারো না — কী করতে হবে তা ধাপে ধাপে বলো।';
-export async function gemini(key: string, prompt: string, timeoutMs = 25000, models = QUICK): Promise<string> {
+/** persona: who the model speaks as (the shop staff talking to the owner unless another is given — e.g. the /learn teacher) */
+export async function gemini(key: string, prompt: string, timeoutMs = 25000, models = QUICK, persona = PERSONA): Promise<string> {
   let last: Error = new Error('Gemini');
   for (const m of models) {
     try {
       const r = await fetch(MODEL_URL(m), {
         method: 'POST', signal: AbortSignal.timeout(timeoutMs),
         headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
-        body: JSON.stringify({ systemInstruction: { parts: [{ text: PERSONA }] }, contents: [{ role: 'user', parts: [{ text: prompt }] }], generationConfig: { temperature: 0.5, maxOutputTokens: 4096 } }),
+        body: JSON.stringify({ systemInstruction: { parts: [{ text: persona }] }, contents: [{ role: 'user', parts: [{ text: prompt }] }], generationConfig: { temperature: 0.5, maxOutputTokens: 4096 } }),
       });
       const j = (await r.json().catch(() => ({}))) as { candidates?: { content?: { parts?: { text?: string }[] } }[]; error?: { message?: string } };
       if (!r.ok) { last = new Error(j.error?.message || `Gemini ${r.status}`); if ([400, 404, 429, 500, 503].includes(r.status)) continue; throw last; } // busy or not there: the other model

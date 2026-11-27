@@ -14,6 +14,9 @@ import * as $models_checkoutotp from '../models/checkoutotp';
 import * as $models_kits from '../models/kits';
 import * as $models_landing from '../models/landing';
 import { landingPage } from '../views/landing';
+import { learnListPage, lessonPage } from '../views/learn';
+import * as $lessons from '../data/lessons';
+import * as db from '../db';
 import * as courier from '../services/courier';
 import * as $track from '../models/courier-track';
 import * as U from '../services/uiswitch';
@@ -108,6 +111,30 @@ export async function resolveMore({ path, query, settings, base: siteBase, req }
     const ua = String(req.headers['user-agent'] || '');
     return page('সবমিলবে অ্যাপ ডাউনলোড', appPage({ inAppVersion: appVersionOf(ua), android: /Android/i.test(ua) }), {
       canonical: '/app', description: 'সবমিলবের Android অ্যাপ নামান — অর্ডার, অফার আর অর্ডার ট্র্যাক এক চাপে, নতুন অফারের নোটিফিকেশন।' });
+  }
+  // 🎓 free electronics classes (owner, 2026-11-27): lessons with a quiz and the AI teacher (lib/api/learn.ts)
+  if ((path === '/learn' || path.startsWith('/learn/')) && settings.learn_on !== '0') {
+    const tutor = $lessons.tutorOn(settings);
+    if (path === '/learn') {
+      const list = $lessons.lessons();
+      return page('ফ্রি ইলেকট্রনিক্স ক্লাস — সহজ বাংলায় শুরু থেকে', learnListPage({ list, tutor }), { canonical: '/learn',
+        description: 'ভোল্টেজ-কারেন্ট, LED, ব্রেডবোর্ড, মাল্টিমিটার, সোল্ডারিং আর আরডুইনো — ছোট ছোট বাংলা লেসন, কুইজ আর AI শিক্ষক, একদম ফ্রি।',
+        jsonLd: { '@context': 'https://schema.org', '@type': 'ItemList', name: 'ফ্রি ইলেকট্রনিক্স ক্লাস', itemListElement: list.map((l, i) => ({ '@type': 'ListItem', position: i + 1, url: `${siteBase}/learn/${l.slug}`, name: l.title })) } });
+    }
+    const lm = path.match(/^\/learn\/([^/]+)$/);
+    const l = lm ? $lessons.lesson(lm[1]) : null;
+    if (!l) return NOT_FOUND;
+    const { prev, next } = $lessons.around(l.slug);
+    const kit = l.kitGuide && settings.kits_on !== '0'
+      ? await db.one<{ slug: string; title: string }>('SELECT slug, title FROM kits WHERE active AND guide_key=$1 ORDER BY id LIMIT 1', [l.kitGuide]).catch(() => null)
+      : null;
+    return page(l.title, lessonPage({ l, prev, next, kit: kit || null, tutor }), { canonical: `/learn/${l.slug}`, description: l.summary, type: 'article',
+      jsonLd: { '@context': 'https://schema.org', '@type': 'LearningResource', name: l.title, description: l.summary, inLanguage: 'bn', isAccessibleForFree: true,
+        educationalLevel: l.level, url: `${siteBase}/learn/${l.slug}`, learningResourceType: 'Lesson', provider: { '@type': 'Organization', name: 'সবমিলবে', url: siteBase } },
+      jsonLdExtra: { '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: [
+        { '@type': 'ListItem', position: 1, name: 'হোম', item: siteBase + '/' },
+        { '@type': 'ListItem', position: 2, name: 'ফ্রি ইলেকট্রনিক্স ক্লাস', item: siteBase + '/learn' },
+        { '@type': 'ListItem', position: 3, name: l.title, item: `${siteBase}/learn/${l.slug}` }] } });
   }
   // 🧰 project kits
   if (path === '/kits' && settings.kits_on !== '0') {

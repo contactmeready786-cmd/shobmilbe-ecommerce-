@@ -1918,6 +1918,8 @@ const DEFAULT_SETTINGS: Record<string, string> = {
   // ✅ checkout tick box: the customer agrees to the use of their details (Digital Commerce Guidelines 2021)
   consent_on: '1',
   // 🔔 "দাম কমলে জানাও" box on product pages; 🧰 project kits page; 🛡️ online warranty claims; 🔧 spec filters; ✨ "আপনার জন্য"
+  // 🎓 free electronics classes at /learn and the AI teacher on them (owner, 2026-11-27)
+  learn_on: '1', learn_tutor_on: '1',
   price_alert_on: '1', kits_on: '1', warranty_claims_on: '1', ui_spec_filters: '1', for_you_on: '1',
   // 🙋 customers may cancel / change name, number, address themselves until the parcel goes to the courier
   self_service_on: '1',
