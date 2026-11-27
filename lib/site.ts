@@ -176,7 +176,7 @@ async function shopRoutes({ req, reply, path, method, query, settings }: ShopCtx
   if (m) {
     const want = slugify(safeDecode(m[1]));
     const c = categories.find((x) => x.slug === want || slugify(x.slug) === want);
-    return reply.answer(301, { Location: c ? `/products?cat=${encodeURIComponent(c.slug)}` : '/products' });
+    return reply.answer(301, { Location: c ? `/c/${encodeURIComponent(c.slug)}` : '/products' });
   }
   return notFound();
 }

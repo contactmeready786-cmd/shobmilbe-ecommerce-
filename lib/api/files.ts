@@ -20,7 +20,7 @@ import * as $services_fbreply from '../services/fbreply';
 import * as $services_telegram from '../services/telegram';
 import * as $services_autoblog from '../services/autoblog';
 import { siteUrl, blockedBots } from '../gate';
-import { int, str, esc } from '../util';
+import { int, str, esc, catHref } from '../util';
 import { allow, json, tooMany, type ApiCtx } from '../next/api';
 import type { Body } from '../types';
 import type { BlogPostsRow, BrandsRow, CategoriesRow, KitsRow, MediaRow, PagesRow, ProductsRow } from '../data/rows';
@@ -125,7 +125,7 @@ export async function sitemap(ctx: ApiCtx) {
   const u = (loc: string, lastmod: string | number | Date | null, pri: string, img?: string | undefined) => `<url><loc>${esc(base + loc)}</loc>${lastmod ? `<lastmod>${new Date(lastmod).toISOString().slice(0, 10)}</lastmod>` : ''}${pri ? `<priority>${pri}</priority>` : ''}${img ? `<image:image><image:loc>${esc(base + img)}</image:loc></image:image>` : ''}</url>`;
   const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">${[
     u('/', null, '1.0'), u('/products', null, '0.9'), u('/blog', null, '0.5'),
-    ...categories.map((c) => u(`/products?cat=${encodeURIComponent(c.slug)}`, null, '0.8')),
+    ...categories.map((c) => u(catHref(c.slug), null, '0.8')),
     ...brands.map((b) => u(`/brand/${encodeURIComponent(b.slug)}`, null, '0.6')),
     ...products.filter((p) => !dupSlugs.has(p.slug)).map((p) => u(`/p/${encodeURIComponent(p.slug)}`, p.updated_at, '0.7', p.image_id ? `/media/${p.image_id}` : '')),
     ...posts.map((p) => u(`/blog/${encodeURIComponent(p.slug)}`, p.updated_at, '0.5')),

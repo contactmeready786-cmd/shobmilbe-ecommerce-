@@ -4,12 +4,12 @@ import { ADMIN_GET_ROUTES } from './admin-routes';
 // the customer forms have Next.js routes of their own (formRouteFor, lib/shopx.tsx); every other address still goes to
 // the original code (lib/site.ts). Grows as pages move; when it covers everything, the original router goes.
 const EXACT = new Set(['/', '/products', '/track', '/blog', '/live', '/cart', '/wishlist', '/compare', '/checkout', '/kits', '/app', '/complaint', '/complaint/status', '/gift-card', '/account']);
-const PATTERNS = [/^\/brand\/[^/]+$/, /^\/p\/[^/]+$/, /^\/blog\/category\/[^/]+$/, /^\/blog\/[^/]+$/, /^\/page\/[^/]+$/,
+const PATTERNS = [/^\/brand\/[^/]+$/, /^\/c\/[^/]+$/, /^\/p\/[^/]+$/, /^\/blog\/category\/[^/]+$/, /^\/blog\/[^/]+$/, /^\/page\/[^/]+$/,
   /^\/live\/(cricket|football)$/, /^\/kit\/[^/]+$/, /^\/lp\/[^/]+$/, /^\/order\/[A-Za-z0-9]+$/, /^\/order\/[A-Za-z0-9]+\/return$/];
 
 /** Addresses drawn by lib/shop/router.tsx (home, lists, product pages). */
 export function servesShopRouter(path: string): boolean {
-  return path === '/' || path === '/products' || /^\/brand\/[^/]+$/.test(path) || /^\/p\/[^/]+$/.test(path);
+  return path === '/' || path === '/products' || /^\/brand\/[^/]+$/.test(path) || /^\/c\/[^/]+$/.test(path) || /^\/p\/[^/]+$/.test(path);
 }
 
 /** Addresses drawn by lib/shop/more.tsx (live scores, cart, wishlist, compare, checkout, kits, app download, order pages). */

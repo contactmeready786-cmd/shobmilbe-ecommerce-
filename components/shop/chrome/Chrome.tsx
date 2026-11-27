@@ -6,7 +6,7 @@ import { withBuild } from '../../../lib/asset-version';
 import type { ReactElement, JSXElementConstructor, ReactNode, ReactPortal } from 'react';
 import * as U from '../../../lib/services/uiswitch';
 import * as security from '../../../lib/security';
-import { contact } from '../../../lib/util';
+import { catHref, contact } from '../../../lib/util';
 import { jsonSetting } from '../../../lib/db';
 import { categoryTree, type Category, type CategoryNode } from '../../../lib/models/catalog';
 import type { BannersRow, PagesRow } from '../../../lib/data/rows';
@@ -59,7 +59,7 @@ function CatMenuItems({ nodes, top }: { nodes: CategoryNode[]; top: boolean }) {
     const kids = visibleKids(n);
     return (
       <li key={n.id} className={cx('cm-item', kids.length && 'has-sub')}>
-        <a href={`/products?cat=${n.slug}`} aria-haspopup={kids.length ? 'true' : undefined}>{top ? <><span className="cm-ic" aria-hidden="true">{n.icon}</span>{' '}</> : null}{n.name}</a>
+        <a href={catHref(n.slug)} aria-haspopup={kids.length ? 'true' : undefined}>{top ? <><span className="cm-ic" aria-hidden="true">{n.icon}</span>{' '}</> : null}{n.name}</a>
         {kids.length ? <ul className="cm-sub"><CatMenuItems nodes={kids} top={false} /></ul> : null}
       </li>
     );
@@ -70,8 +70,8 @@ function DrawerCats({ nodes }: { nodes: CategoryNode[] }) {
     const kids = visibleKids(n);
     const label = <>{n.depth === 0 ? <>{n.icon}{' '}</> : null}{n.name}</>;
     return kids.length
-      ? <details key={n.id} className="dc"><summary>{label}</summary><div className="dc-in"><a href={`/products?cat=${n.slug}`}>সব {n.name} →</a><DrawerCats nodes={kids} /></div></details>
-      : <a key={n.id} href={`/products?cat=${n.slug}`}>{label}</a>;
+      ? <details key={n.id} className="dc"><summary>{label}</summary><div className="dc-in"><a href={catHref(n.slug)}>সব {n.name} →</a><DrawerCats nodes={kids} /></div></details>
+      : <a key={n.id} href={catHref(n.slug)}>{label}</a>;
   });
 }
 

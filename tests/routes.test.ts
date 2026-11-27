@@ -6,7 +6,7 @@ import { servedByNext, hasNextPage, servesMore, servesShopRouter, servesForms, f
 const get = (path: string, q = '') => servedByNext(path, new URLSearchParams(q), 'GET');
 
 test('customer pages that moved are drawn by Next.js', () => {
-  for (const p of ['/', '/products', '/p/led', '/brand/x', '/blog', '/blog/arduino', '/blog/category/tips', '/page/about',
+  for (const p of ['/', '/products', '/p/led', '/brand/x', '/c/ac-remote', '/blog', '/blog/arduino', '/blog/category/tips', '/page/about',
     '/track', '/live', '/live/cricket', '/live/football', '/cart', '/wishlist', '/compare', '/checkout', '/kits', '/kit/robot', '/order/SM7K2P9Q', '/complaint', '/complaint/status', '/gift-card', '/order/SM1/return', '/account']) {
     assert.ok(get(p), p);
   }
@@ -48,7 +48,7 @@ test('customer forms have Next.js routes of their own (lib/shopx.tsx)', async ()
 });
 
 test('each moved page has exactly one drawer', () => {
-  for (const p of ['/', '/products', '/p/x', '/brand/x']) assert.ok(servesShopRouter(p) && !servesMore(p), p);
+  for (const p of ['/', '/products', '/p/x', '/brand/x', '/c/x']) assert.ok(servesShopRouter(p) && !servesMore(p), p);
   for (const p of ['/live', '/live/cricket', '/cart', '/wishlist', '/compare', '/checkout', '/kits', '/kit/x', '/order/SM1']) assert.ok(servesMore(p) && !servesShopRouter(p) && !servesForms(p), p);
   for (const p of ['/complaint', '/complaint/status', '/gift-card', '/order/SM1/return', '/account']) assert.ok(servesForms(p) && !servesMore(p) && !servesShopRouter(p), p);
 });
@@ -83,4 +83,11 @@ test('app/api/admin answers only admin addresses, for every way of asking', asyn
   // opened directly (proxy.ts records /api/admin itself as the address asked for): nothing there
   const r = await adminAnswer(new Request('http://local/api/admin', { headers: { 'x-shop-url': '/api/admin' } }));
   assert.equal(r.status, 404);
+});
+
+test('a category has its own clean address /c/<slug> (catHref)', async () => {
+  const { catHref } = await import('../lib/util');
+  assert.equal(catHref('ac-remote'), '/c/ac-remote');
+  assert.equal(catHref('a b'), '/c/a%20b');
+  assert.equal(get('/c/a/b'), false);
 });

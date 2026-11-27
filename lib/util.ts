@@ -347,4 +347,8 @@ function minOrder(s: Settings | null | undefined): number { return Math.max(0, N
 
 function pageNum(query: URLSearchParams): number { return Math.max(1, int(query.get('page'), 1)); }
 
-export { fields, arr, oneOf, ifKey, PRICE_MIN, PRICE_MAX, priceProblem, contact, qtyRule, weightGrams, PACK_PRESETS, packSizes, packRule, packProblem, amount, round2, roundOff, shopPrice, wholeTaka, roundOffLabel, esc, raw, Raw, bn, money, pct, slugify, randomCode, parseCookies, parseBody, readBody, list, hashPassword, verifyPassword, passwordProblem, sign, unsign, reviewKey, reviewKeyOk, reviewPath, sha256, fmtDate, ymd, validYmd, dateRange, int, num, str, minOrder, normalizePhone, validPhone, csv, fetchJson, youtubeId, pageNum, TZ };
+/** A category's own address (owner, 2026-11-27: clean /c/<slug> links rank better than /products?cat=<slug>; the old
+ * form still works — proxy.ts sends it here with a permanent redirect). */
+function catHref(slug: string): string { return `/c/${encodeURIComponent(String(slug || ''))}`; }
+
+export { catHref, fields, arr, oneOf, ifKey, PRICE_MIN, PRICE_MAX, priceProblem, contact, qtyRule, weightGrams, PACK_PRESETS, packSizes, packRule, packProblem, amount, round2, roundOff, shopPrice, wholeTaka, roundOffLabel, esc, raw, Raw, bn, money, pct, slugify, randomCode, parseCookies, parseBody, readBody, list, hashPassword, verifyPassword, passwordProblem, sign, unsign, reviewKey, reviewKeyOk, reviewPath, sha256, fmtDate, ymd, validYmd, dateRange, int, num, str, minOrder, normalizePhone, validPhone, csv, fetchJson, youtubeId, pageNum, TZ };

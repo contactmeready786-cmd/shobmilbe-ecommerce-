@@ -5,7 +5,7 @@
 
 // Words copied from other shops that do not belong in a product name ("Product details of …", "Buy …")
 import * as crypto from 'node:crypto';
-import { bn } from '../util';
+import { bn, catHref } from '../util';
 import * as md from '../views/md';
 import * as $autoseo from './autoseo';
 import * as $db from '../db';
@@ -130,7 +130,7 @@ async function indexNowSweep(settings: Settings) {
     settings.kits_on !== '0' ? db.q<Pick<KitsRow, 'slug'>>('SELECT slug FROM kits WHERE active AND updated_at > $1 LIMIT 50', [new Date(last)]).catch(() => []) : [],
   ]);
   const dupSlugs = await $dupcanon.copies().catch(() => new Map()); // copies of another product: not sent
-  const paths = [...(last ? [] : ['/', '/products']), ...cats.map((c) => `/products?cat=${c.slug}`), ...prods.filter((p) => !dupSlugs.has(p.slug)).map((p) => `/p/${p.slug}`), ...kits.map((k) => `/kit/${k.slug}`)];
+  const paths = [...(last ? [] : ['/', '/products']), ...cats.map((c) => catHref(c.slug)), ...prods.filter((p) => !dupSlugs.has(p.slug)).map((p) => `/p/${p.slug}`), ...kits.map((k) => `/kit/${k.slug}`)];
   if (!paths.length) return { sent: 0 };
   const status = await indexNowPing(base, paths);
   // 200/202 = received. Anything else: the same pages go again next hour.

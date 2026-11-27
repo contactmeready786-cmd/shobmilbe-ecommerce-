@@ -2,7 +2,7 @@
 // range, a search word, offers / new / best sellers / "আমাদের বাছাই", or products picked by SKU.
 // In the home page order (setting home_sections) each one is the key "x<id>", next to the built-in rows.
 import { q, one } from '../db';
-import { int, str } from '../util';
+import { int, str, catHref } from '../util';
 import * as $catalog from './catalog';
 import type { Body, Id } from '../types';
 import type { HomeRowsRow, ProductsRow } from '../data/rows';
@@ -123,7 +123,7 @@ async function productsFor(r: HomeRowsRow, { hideOut }: ProductsForOpts = {}): P
 
 // Where "সব দেখুন" goes for this row.
 function linkFor(r: Pick<HomeRowsRow, 'source' | 'ref'>) {
-  if (r.source === 'category' && r.ref) return `/products?cat=${encodeURIComponent(r.ref)}`;
+  if (r.source === 'category' && r.ref) return catHref(r.ref);
   if (r.source === 'search' && r.ref) return `/products?q=${encodeURIComponent(r.ref)}`;
   if (r.source === 'offers') return '/products?sort=offer';
   if (r.source === 'new') return '/products?sort=new';

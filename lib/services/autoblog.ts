@@ -5,7 +5,7 @@
 // Each article is one blog post marked with auto_key = 'price-list:<category id>', updated in place (same link),
 // never duplicated. If the owner switches one to draft in Admin → ব্লগ, it is left alone from then on.
 import * as db from '../db';
-import { bn, slugify } from '../util';
+import { bn, slugify, catHref } from '../util';
 import * as $seo from './seo';
 import type { Body, Id, Settings } from '../types';
 import type { BlogCategoriesRow, BlogPostsRow, CategoriesRow, ProductsRow } from '../data/rows';
@@ -79,7 +79,7 @@ function article({ cat, items }: CatGroup, settings: Settings) {
     ...rows.map((p) => `| [${cell(p.name)}](/p/${encodeURIComponent(p.slug)}) | ${money(p.price)}${Number(p.old_price) > p.price ? ` (আগে ${money(p.old_price!)})` : ''} | ${p.stock > 0 ? 'স্টকে আছে' : 'স্টক শেষ'} |`),
     '',
   ];
-  if (items.length > rows.length) lines.push(`আরো ${bn(items.length - rows.length)}টা পণ্য দেখুন: [সব ${cat.name}](/products?cat=${encodeURIComponent(cat.slug)})`, '');
+  if (items.length > rows.length) lines.push(`আরো ${bn(items.length - rows.length)}টা পণ্য দেখুন: [সব ${cat.name}](${catHref(cat.slug)})`, '');
   if (subs.size > 1) {
     lines.push(`## ধরন অনুযায়ী ${cat.name}-এর দাম`, '');
     for (const [name, list] of [...subs.entries()].sort((a, b) => b[1].length - a[1].length).slice(0, 12)) {

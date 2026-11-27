@@ -108,7 +108,16 @@ export async function steadfast(ctx: ApiCtx) {
   if (order && ev && ev.kind === 'tracking') await $track.add(order.id, 'steadfast', ev);
   if (order && b.status) await applyCourierUpdate(order, 'steadfast', String(b.status));
   const said = String(b.tracking_message || b.message || '').slice(0, 120);
-  await db.logIntegration('steadfast', 'webhook', !!order, `${b.notification_type || ''} ${cid} ${b.status || ''}${said ? ` · ${said}` : ''}`, order ? order.code : '');
+  // Account-level news from Steadfast (owner, 2026-11-27): "payment_request" (a COD payout to the merchant) and
+  // "user_update" (the merchant account changed) belong to no parcel. They used to be logged as failures (❌) only
+  // because no order matched — they are received fine, so they are logged as ✅ with a readable name.
+  const type = String(b.notification_type || '').toLowerCase();
+  const ACCOUNT_EVENTS: Record<string, string> = { payment_request: 'Payment / payout news', user_update: 'Account update' };
+  const accountEvent = !order && !cid && !b.invoice && ACCOUNT_EVENTS[type];
+  const extra = accountEvent ? [b.amount ? `৳${String(b.amount).slice(0, 20)}` : '', b.status ? String(b.status).slice(0, 40) : ''].filter(Boolean).join(' · ') : '';
+  await db.logIntegration('steadfast', 'webhook', !!order || !!accountEvent,
+    accountEvent ? `${type} · ${accountEvent}${extra ? ` · ${extra}` : ''}${said ? ` · ${said}` : ''}` : `${b.notification_type || ''} ${cid} ${b.status || ''}${said ? ` · ${said}` : ''}`,
+    order ? order.code : '');
   return json(200, { status: 'success', message: 'Webhook received successfully.' });
 }
 export async function pathao(ctx: ApiCtx) {

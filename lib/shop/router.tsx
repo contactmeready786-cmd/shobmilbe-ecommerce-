@@ -11,7 +11,7 @@ import * as dupcanon from '../services/dupcanon';
 import * as U from '../services/uiswitch';
 import * as md from '../views/md';
 import * as shop from '../views/shop';
-import { str, int, bn, contact } from '../util';
+import { str, int, bn, contact, catHref } from '../util';
 import * as $services_search from '../services/search';
 import * as $services_pricing from '../services/pricing';
 import * as $services_autoseo from '../services/autoseo';
@@ -131,7 +131,7 @@ export async function resolveShop(ctx: ShopCtx): Promise<Resolved> {
       potentialAction: { '@type': 'SearchAction', target: `${site}/products?q={search_term_string}`, 'query-input': 'required name=search_term_string' } };
     return done('', shop.home({ settings, sections, data }), { canonical: '/', jsonLd, jsonLdExtra: websiteLd, description: seo.homeDescription(settings) });
   }
-  if (path === '/products' || /^\/brand\/[^/]+$/.test(path)) {
+  if (path === '/products' || /^\/brand\/[^/]+$/.test(path) || /^\/c\/[^/]+$/.test(path)) {
     const q = str(query.get('q'), 80);
     const sortAsked = query.get('sort') || '';
     const sort = ['new', 'popular', 'offer', 'price_asc', 'price_desc'].includes(sortAsked) ? sortAsked : '';
@@ -141,7 +141,10 @@ export async function resolveShop(ctx: ShopCtx): Promise<Resolved> {
       brand = await catalog.getBrand({ slug: path.slice(7) });
       if (!brand || !brand.active) return NOT_FOUND;
     }
-    const category = !brand && query.get('cat') ? categories.find((c) => c.slug === query.get('cat')) || null : null;
+    // a category's own page: /c/ac-remote (owner, 2026-11-27); the old /products?cat=… is sent there by proxy.ts
+    const catSlug = path.startsWith('/c/') ? path.slice(3) : (!brand ? query.get('cat') : null);
+    const category = catSlug ? categories.find((c) => c.slug === catSlug) || null : null;
+    if (path.startsWith('/c/') && !category) return NOT_FOUND;
     const perPage = (Number(settings.grid_cols) || 4) * 6;
     const pageNo = Math.max(1, int(query.get('page'), 1));
     // 🔎 filters: price from–to, brands (several), only in stock
@@ -186,10 +189,10 @@ export async function resolveShop(ctx: ShopCtx): Promise<Resolved> {
     // breadcrumb: Home › main category › sub-category
     const catPath = category ? ((catalog.categoryTree(categories).byId.get(category.id) || {}).path || [category]) : [];
     const listCrumbs = category ? { '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: [{ name: settings.store_name, item: lbase + '/' },
-      ...catPath.map((c) => ({ name: c.name, item: `${lbase}/products?cat=${c.slug}` }))].map((c, i) => ({ '@type': 'ListItem', position: i + 1, ...c })) } : null;
+      ...catPath.map((c) => ({ name: c.name, item: `${lbase}${catHref(c.slug)}` }))].map((c, i) => ({ '@type': 'ListItem', position: i + 1, ...c })) } : null;
     // filtered / sorted copies of a list are the same page for Google; page 2, 3 … are their own pages
     const filtered = !!(sort || filters.pmin || filters.pmax || filters.brands.length || filters.stock || filters.specList.length);
-    const listPath = brand ? `/brand/${brand.slug}` : category ? `/products?cat=${category.slug}` : '/products';
+    const listPath = brand ? `/brand/${brand.slug}` : category ? catHref(category.slug) : '/products';
     const listCanonical = pageNo > 1 && !filtered ? `${listPath}${listPath.includes('?') ? '&' : '?'}page=${pageNo}` : listPath;
     // nothing found: show the best sellers instead of an empty page
     const fallback = q && !total ? await catalog.listProducts({ public: true, hideOut: true, sort: 'popular', limit: 8 }).catch(() => []) : [];
@@ -276,7 +279,7 @@ export async function resolveShop(ctx: ShopCtx): Promise<Resolved> {
     const crumbs: { name: string; url: string }[] = [];
     if (product.category_id) {
       const node = catalog.categoryTree(categories).byId.get(product.category_id);
-      (node ? node.path : [])!.forEach((c) => crumbs.push({ name: c.name, url: `${base}/products?cat=${c.slug}` }));
+      (node ? node.path : [])!.forEach((c) => crumbs.push({ name: c.name, url: `${base}${catHref(c.slug)}` }));
     }
     const breadcrumb = { '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: [{ name: settings.store_name, url: base + '/' }, ...crumbs, { name: seo.cleanName(product.name), url: `${base}/p/${product.slug}` }]
       .map((c, i) => ({ '@type': 'ListItem', position: i + 1, name: c.name, item: c.url || undefined })) };

@@ -24,6 +24,17 @@ export async function proxy(request: NextRequest) {
   // 🔐 the admin panel: its pages are drawn by Next.js (app/(admin)); files, exports and forms by app/api/admin
   if (path === '/admin' || path.startsWith('/admin/')) return adminProxy(request, path, headers);
 
+  // 🗂️ categories have their own clean address now (owner, 2026-11-27): /products?cat=ac-remote → /c/ac-remote,
+  // keeping sort / filters / page. Permanent (301), so Google moves the old address's standing to the new one.
+  const oldCat = path === '/products' && (request.method === 'GET' || request.method === 'HEAD') ? url.searchParams.get('cat') : null;
+  if (oldCat && /^[^/?#]{1,120}$/.test(oldCat)) {
+    const rest = new URLSearchParams(url.searchParams);
+    rest.delete('cat');
+    const qs = rest.toString();
+    // a relative Location: behind nginx the server's own origin is localhost, never the shop's address
+    return new NextResponse(null, { status: 301, headers: { Location: `/c/${encodeURIComponent(oldCat)}${qs ? '?' + qs : ''}`, 'Cache-Control': 'public, max-age=3600' } });
+  }
+
   if (!servedByNext(path, url.searchParams, request.method)) {
     // an address a Next.js page also has, but the page doesn't draw this request (/track?code=…&phone=…, or a form
     // sent to it): the customer forms' own route answers (lib/shopx.tsx), anything else the original code, as always

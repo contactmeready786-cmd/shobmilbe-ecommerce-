@@ -58,6 +58,12 @@ export async function drawableHere(path: string, headers: Headers): Promise<bool
   if (m) return !!(await blogPostLive(safeDecode(m[1])));
   m = /^\/page\/([^/]+)$/.exec(path);
   if (m) return !!(await ownerPage(safeDecode(m[1])));
+  m = /^\/c\/([^/]+)$/.exec(path);
+  if (m) {
+    await db.ensureReady();
+    const slug = m[1];
+    return (await catalog.listCategories({ includeInactive: false })).some((c) => c.slug === slug);
+  }
   m = /^\/brand\/([^/]+)$/.exec(path);
   if (m) {
     await db.ensureReady();
