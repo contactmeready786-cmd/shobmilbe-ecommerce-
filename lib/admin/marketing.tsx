@@ -20,8 +20,10 @@ async function saveKeys(ctx: AdminCtx, keys: string[], body: Body, { secrets = [
     if (OWNER_ONLY_KEYS.has(k) && !owner) continue;
     if (checkboxes.includes(k)) { await db.setSetting(k, body[k] ? '1' : '0'); continue; }
     if (!(k in body)) continue;
-    const v = String(body[k] ?? '').trim();
-    if (secrets.includes(k) && (v === '' || /^•+$/.test(v))) continue;
+    // a secret box shows "••••••••" when something is saved; typing into it without clearing it first sent the dots
+    // along with the new value ("••••••••newpassword") — the dots are never part of a real key or password
+    const v = secrets.includes(k) ? String(body[k] ?? '').replace(/•/g, '').trim() : String(body[k] ?? '').trim();
+    if (secrets.includes(k) && v === '') continue;
     await db.setSetting(k, v.slice(0, k.startsWith('custom_') || k === 'chat_script' ? 20000 : 2000));
   }
   await ctx.reloadSettings();
