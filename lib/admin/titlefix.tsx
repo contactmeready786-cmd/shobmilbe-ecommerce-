@@ -50,7 +50,7 @@ async function handle(ctx: AdminCtx) {
     const oldName = old?.name || (r.status === 'applied' ? '' : r.name);
     return <article className="panel tfx-item" id={`p${attrValue(r.product_id)}`}>
       {(r.image_id ? <img className="tfx-pic" src={`/media/${attrValue(r.image_id)}/t`} alt="" loading="lazy" /> : <span className="tfx-pic tfx-nopic">📦</span>)}
-      <div className="tfx-body">
+      <div className="tfx-body" translate="no">
         {(r.status === 'applied' && oldName ? <p className="tfx-old small"><s><Val v={oldName} /></s></p> : null)}
         <p className="tfx-new"><a href={`/admin/products/${attrValue(r.product_id)}`} target="_blank" rel="noopener"><b><Val v={r.status === 'review' && pr ? pr.title_en : r.name} /></b></a></p>
         {(r.status === 'review' ? <p className="small muted">এখনকার নাম: <Val v={r.name} /></p> : null)}

@@ -68,9 +68,10 @@ Do this:
    - Keep every real model / part number exactly as written (e.g. LM324N, BTA16-600B, HC-SR04, 18650, TO-92) and write each only once.
    - Repair the broken words ("Comp-arator" → "Comparator", "Du al" → "Dual", "Ban-ana" → "Banana", "G-U-N" → "Gun"), fix spelling, and remove filler: "A Class", "Medium Class", "Best Quality", "Electrical Circuitry & Parts", "Electronics Components", "Passive Components", shop names, "Price in BD", repeated words.
    - If facts contradict each other or the photo (e.g. "2 slot" and "four slot"), keep only what the photo confirms, otherwise leave that detail out, and say so in "issues".
+   - Separate glued tokens ("10AAS-10" → "10A AS-10", "5VDC12V" → "5V DC 12V") without changing any letter or digit.
    - Title Case. ALL CAPS only for model numbers and abbreviations (LED, USB, DC, AC, IC, PCB, LCD, RGB, IR).
    - If the current title is already clean and correct, return it unchanged.
-3. "title_bn": the same title in natural Bangladeshi Bangla (this field must be Bangla script, never English), as a Bangla shopper would say it — NO English letters at all: write model numbers and English words with Bangla letters, digits as Bangla digits (০-৯). Example: "N20 Micro Metal Gear Motor 200RPM" → "এন২০ মাইক্রো মেটাল গিয়ার মোটর ২০০ আরপিএম".
+3. "title_bn": the same title in natural Bangladeshi Bangla (this field must be Bangla script, never English), as a Bangla shopper would say it — NO English letters at all: write model numbers and English words with Bangla letters, digits as Bangla digits (০-৯). Example: "N20 Micro Metal Gear Motor 200RPM" → "এন২০ মাইক্রো মেটাল গিয়ার মোটর ২০০ আরপিএম". Brands: Kemei = কেমেই, Xiaomi = শাওমি, Samsung = স্যামসাং, Walton = ওয়ালটন.
 4. "category_id": the best category from the list below for what the product IS (a soldering iron tip is a soldering tool, a remote is a remote, a transistor is a component). Categories named Digital are ONLY for software, licence keys and digital downloads — never for physical items. "category_sure": true only if you are clearly sure.
 5. "issues": short English notes on anything wrong you noticed (wrong facts, photo mismatch); empty list if none.
 
