@@ -128,7 +128,7 @@ export async function resolveMore({ path, query, settings, base: siteBase, req }
     const kit = l.kitGuide && settings.kits_on !== '0'
       ? await db.one<{ slug: string; title: string }>('SELECT slug, title FROM kits WHERE active AND guide_key=$1 ORDER BY id LIMIT 1', [l.kitGuide]).catch(() => null)
       : null;
-    return page(l.title, lessonPage({ l, prev, next, kit: kit || null, tutor }), { canonical: `/learn/${l.slug}`, description: l.summary, type: 'article',
+    return page(l.title, lessonPage({ l, prev, next, kit: kit || null, tutor, total: $lessons.lessons().length }), { canonical: `/learn/${l.slug}`, description: l.summary, type: 'article',
       jsonLd: { '@context': 'https://schema.org', '@type': 'LearningResource', name: l.title, description: l.summary, inLanguage: 'bn', isAccessibleForFree: true,
         educationalLevel: l.level, url: `${siteBase}/learn/${l.slug}`, learningResourceType: 'Lesson', provider: { '@type': 'Organization', name: 'সবমিলবে', url: siteBase } },
       jsonLdExtra: { '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: [

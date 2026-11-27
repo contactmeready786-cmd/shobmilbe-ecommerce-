@@ -1481,3 +1481,10 @@ body.shop.glass :is(input:not([type=radio]):not([type=checkbox]):not([type=file]
 @media (max-width: 560px) { .learn-card { grid-template-columns: 30px 1fr; } .learn-emoji { display: none; } .learn-lesson h1 { font-size: 1.25rem; } }
 .learn-answer-parts a > span:nth-child(2) { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: .92rem; line-height: 1.4; }
 .learn-answer-parts a > b { white-space: nowrap; }
+.learn-progress { margin: -4px 0 8px; color: var(--green); font-weight: 600; }
+.learn-cert { margin-top: 14px; border: 2px solid var(--amber); }
+.learn-cert-form { display: flex; flex-wrap: wrap; gap: 8px; }
+.learn-cert-form input { flex: 1 1 220px; border: 1px solid var(--line); border-radius: 10px; padding: 10px; font: inherit; }
+.learn-cert-out { margin-top: 12px; display: grid; gap: 8px; justify-items: start; }
+.learn-cert-out img { width: 100%; max-width: 640px; border: 1px solid var(--line); border-radius: 8px; }
+[data-cert-link] { margin-top: 8px; }
