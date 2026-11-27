@@ -1,4 +1,4 @@
-// 🎓 ফ্রি ইলেকট্রনিক্স ক্লাস (owner, 2026-11-27): short Bangla lessons for students and beginners at /learn and
+// 🎓 ইলেকট্রনিক্স পাঠশালা (owner, 2026-11-27): short Bangla lessons for students and beginners at /learn and
 // /learn/<slug>. Each lesson: what it is, how it works, a small "try it yourself", safety notes and a short quiz that
 // the browser checks (client/shop/learn.tsx). Every lesson ends with the parts to buy (shop search / a project kit), so
 // learning brings visitors from Google and sells parts. Keep every fact true and safe — students follow these.

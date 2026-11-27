@@ -1547,3 +1547,17 @@ body.shop.glass :is(input:not([type=radio]):not([type=checkbox]):not([type=file]
 .table-wrap { overflow-x: auto; }
 .rc-selects { grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); max-width: 680px; }
 @media (max-width: 560px) { .rc-selects { grid-template-columns: 1fr 1fr; } }
+
+/* 🔎 English name under the heading + "প্রশ্ন-উত্তর" (lib/views/learn.tsx faqBlock) — owner, 2026-11-28 */
+.seo-en { margin: -6px 0 10px; color: #5b6b85; font-weight: 600; letter-spacing: .1px; }
+.seo-faq { margin-top: 16px; }
+.seo-faq h2 { margin-bottom: 8px; }
+.faq-item { border-top: 1px solid #e3e8f0; padding: 10px 0; }
+.faq-item:first-of-type { border-top: 0; }
+.faq-item summary { cursor: pointer; font-weight: 600; list-style: none; padding-right: 26px; position: relative; line-height: 1.5; }
+.faq-item summary::-webkit-details-marker { display: none; }
+.faq-item summary::after { content: '+'; position: absolute; right: 4px; top: 0; font-size: 20px; line-height: 1.2; color: #5b6b85; }
+.faq-item[open] summary::after { content: '−'; }
+.faq-item p { margin: 8px 0 2px; line-height: 1.7; }
+.pdp-tools { margin: 10px 0; padding: 10px 12px; border: 1px dashed #b9c6db; border-radius: 10px; background: #f6f9ff; font-size: 14px; }
+.pdp-tools a { font-weight: 600; }

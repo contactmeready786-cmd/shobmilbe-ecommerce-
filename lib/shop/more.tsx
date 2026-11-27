@@ -17,6 +17,7 @@ import { landingPage } from '../views/landing';
 import { learnListPage, lessonPage } from '../views/learn';
 import { toolsListPage, toolPage } from '../views/tools';
 import * as $tools from '../data/tools';
+import * as $seoLearn from '../data/seo-learn';
 import * as $lessons from '../data/lessons';
 import * as db from '../db';
 import * as courier from '../services/courier';
@@ -119,9 +120,10 @@ export async function resolveMore({ path, query, settings, base: siteBase, req }
     const tutor = $lessons.tutorOn(settings);
     if (path === '/learn') {
       const list = $lessons.lessons();
-      return page('ফ্রি ইলেকট্রনিক্স ক্লাস — সহজ বাংলায় শুরু থেকে', learnListPage({ list, tutor }), { canonical: '/learn',
-        description: 'ভোল্টেজ-কারেন্ট, LED, ব্রেডবোর্ড, মাল্টিমিটার, সোল্ডারিং আর আরডুইনো — ছোট ছোট বাংলা লেসন, কুইজ আর AI শিক্ষক, একদম ফ্রি।',
-        jsonLd: { '@context': 'https://schema.org', '@type': 'ItemList', name: 'ফ্রি ইলেকট্রনিক্স ক্লাস', itemListElement: list.map((l, i) => ({ '@type': 'ListItem', position: i + 1, url: `${siteBase}/learn/${l.slug}`, name: l.title })) } });
+      return page($seoLearn.seoTitle('ইলেকট্রনিক্স পাঠশালা', $seoLearn.LIST_SEO.learn.en), learnListPage({ list, tutor }), { canonical: '/learn', keywords: $seoLearn.LIST_SEO.learn.keywords,
+        description: 'ভোল্টেজ-কারেন্ট, LED, ব্রেডবোর্ড, মাল্টিমিটার, সোল্ডারিং আর আরডুইনো (Arduino) — হাতে-কলমে ছোট বাংলা লেসন, কুইজ, AI শিক্ষক আর সার্টিফিকেট। কোনো খরচ বা অ্যাকাউন্ট লাগে না।',
+        jsonLd: { '@context': 'https://schema.org', '@type': 'ItemList', name: 'ইলেকট্রনিক্স পাঠশালা', itemListElement: list.map((l, i) => ({ '@type': 'ListItem', position: i + 1, url: `${siteBase}/learn/${l.slug}`, name: l.title })) },
+        jsonLdExtra: $seoLearn.faqLd($seoLearn.LIST_SEO.learn.faq) });
     }
     const lm = path.match(/^\/learn\/([^/]+)$/);
     const l = lm ? $lessons.lesson(lm[1]) : null;
@@ -130,33 +132,35 @@ export async function resolveMore({ path, query, settings, base: siteBase, req }
     const kit = l.kitGuide && settings.kits_on !== '0'
       ? await db.one<{ slug: string; title: string }>('SELECT slug, title FROM kits WHERE active AND guide_key=$1 ORDER BY id LIMIT 1', [l.kitGuide]).catch(() => null)
       : null;
-    return page(l.title, lessonPage({ l, prev, next, kit: kit || null, tutor, total: $lessons.lessons().length }), { canonical: `/learn/${l.slug}`, description: l.summary, type: 'article',
+    const ls = $seoLearn.LESSON_SEO[l.slug];
+    return page(ls ? `${l.title.split(' — ')[0]} — ${ls.en}` : l.title, lessonPage({ l, prev, next, kit: kit || null, tutor, total: $lessons.lessons().length, seo: ls || null }), { canonical: `/learn/${l.slug}`, description: l.summary, type: 'article', keywords: ls?.keywords,
       jsonLd: { '@context': 'https://schema.org', '@type': 'LearningResource', name: l.title, description: l.summary, inLanguage: 'bn', isAccessibleForFree: true,
         educationalLevel: l.level, url: `${siteBase}/learn/${l.slug}`, learningResourceType: 'Lesson', provider: { '@type': 'Organization', name: 'সবমিলবে', url: siteBase } },
-      jsonLdExtra: { '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: [
+      jsonLdExtra: [{ '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: [
         { '@type': 'ListItem', position: 1, name: 'হোম', item: siteBase + '/' },
-        { '@type': 'ListItem', position: 2, name: 'ফ্রি ইলেকট্রনিক্স ক্লাস', item: siteBase + '/learn' },
-        { '@type': 'ListItem', position: 3, name: l.title, item: `${siteBase}/learn/${l.slug}` }] } });
+        { '@type': 'ListItem', position: 2, name: 'ইলেকট্রনিক্স পাঠশালা', item: siteBase + '/learn' },
+        { '@type': 'ListItem', position: 3, name: l.title, item: `${siteBase}/learn/${l.slug}` }] }, ...(ls ? [$seoLearn.faqLd(ls.faq)] : [])] });
   }
   // 🧮 electronics tools (owner, 2026-11-27): calculators that run in the visitor's browser (client/shop/tools.tsx)
   if (path === '/tools' || path.startsWith('/tools/')) {
     const list = $tools.toolsOn(settings);
     if (!list.length) return NOT_FOUND;
     if (path === '/tools') {
-      return page('ইলেকট্রনিক্স টুলস ও ক্যালকুলেটর — রেজিস্টর কালার কোড, ওহমের সূত্র', toolsListPage({ list }), { canonical: '/tools',
+      return page($seoLearn.seoTitle($seoLearn.LIST_SEO.tools.en, 'ইলেকট্রনিক্স টুলস ও ক্যালকুলেটর'), toolsListPage({ list }), { canonical: '/tools', keywords: $seoLearn.LIST_SEO.tools.keywords,
         description: 'রেজিস্টর কালার কোড, SMD কোড, ক্যাপাসিটর কোড, ওহমের সূত্র, LED রেজিস্টর, ট্রানজিস্টর পিন চার্ট, 555 টাইমার — বাংলায় ফ্রি ক্যালকুলেটর।',
         jsonLd: { '@context': 'https://schema.org', '@type': 'ItemList', name: 'ইলেকট্রনিক্স টুলস', itemListElement: list.map((t, i) => ({ '@type': 'ListItem', position: i + 1, url: `${siteBase}/tools/${t.key}`, name: t.title })) } });
     }
     const tm = path.match(/^\/tools\/([^/]+)$/);
     const t = tm ? list.find((x) => x.key === tm[1]) : null;
     if (!t) return NOT_FOUND;
-    return page(t.title, toolPage({ t, others: list.filter((x) => x.key !== t.key) }), { canonical: `/tools/${t.key}`, description: t.summary,
-      jsonLd: { '@context': 'https://schema.org', '@type': 'WebApplication', name: t.title, description: t.summary, url: `${siteBase}/tools/${t.key}`, inLanguage: 'bn',
+    const ts = $seoLearn.TOOL_SEO[t.key];
+    return page(ts ? $seoLearn.seoTitle(ts.en, t.title.split(' (')[0]) : t.title, toolPage({ t, others: list.filter((x) => x.key !== t.key), seo: ts || null }), { canonical: `/tools/${t.key}`, description: t.summary, keywords: ts?.keywords,
+      jsonLd: { '@context': 'https://schema.org', '@type': 'WebApplication', name: t.title, alternateName: ts?.en, description: t.summary, url: `${siteBase}/tools/${t.key}`, inLanguage: 'bn',
         applicationCategory: 'EducationalApplication', operatingSystem: 'Any', isAccessibleForFree: true, offers: { '@type': 'Offer', price: '0', priceCurrency: 'BDT' } },
-      jsonLdExtra: { '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: [
+      jsonLdExtra: [{ '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: [
         { '@type': 'ListItem', position: 1, name: 'হোম', item: siteBase + '/' },
         { '@type': 'ListItem', position: 2, name: 'ইলেকট্রনিক্স টুলস', item: siteBase + '/tools' },
-        { '@type': 'ListItem', position: 3, name: t.title, item: `${siteBase}/tools/${t.key}` }] } });
+        { '@type': 'ListItem', position: 3, name: t.title, item: `${siteBase}/tools/${t.key}` }] }, ...(ts ? [$seoLearn.faqLd(ts.faq)] : [])] });
   }
   // 🧰 project kits
   if (path === '/kits' && settings.kits_on !== '0') {

@@ -11,6 +11,9 @@ import * as $autoseo from './autoseo';
 import * as $db from '../db';
 import * as $dupcanon from './dupcanon';
 import type { Settings } from '../types';
+import { lessons } from '../data/lessons';
+import { toolsOn, tools } from '../data/tools';
+import { TOOL_SEO, LESSON_SEO, LIST_SEO } from '../data/seo-learn';
 
 /** a category or brand as the list pages' titles need it */
 type ListLike = { name?: unknown; seo_title?: string | null; seo_description?: string | null; description?: string | null };
@@ -115,6 +118,14 @@ async function indexNowPing(siteUrl: string, paths: string[]) {
   } catch (_) { return null; }
 }
 
+async function learnToolPaths(settings: Settings): Promise<string[]> {
+  const t = toolsOn(settings);
+  return [...(settings.learn_on !== '0' ? ['/learn', ...lessons().map((l) => `/learn/${l.slug}`)] : []), ...(t.length ? ['/tools', ...t.map((x) => `/tools/${x.key}`)] : [])];
+}
+function learnContentSig(): string {
+  return crypto.createHash('sha1').update(JSON.stringify([lessons(), tools(), TOOL_SEO, LESSON_SEO, LIST_SEO])).digest('hex');
+}
+
 // Runs with the round-the-clock tick: at most once an hour, sends the pages that are new or changed since the
 // last time (the very first time: the whole shop). Nothing to do → nothing is sent.
 async function indexNowSweep(settings: Settings) {
@@ -130,11 +141,15 @@ async function indexNowSweep(settings: Settings) {
     settings.kits_on !== '0' ? db.q<Pick<KitsRow, 'slug'>>('SELECT slug FROM kits WHERE active AND updated_at > $1 LIMIT 50', [new Date(last)]).catch(() => []) : [],
   ]);
   const dupSlugs = await $dupcanon.copies().catch(() => new Map()); // copies of another product: not sent
-  const paths = [...(last ? [] : ['/', '/products']), ...cats.map((c) => catHref(c.slug)), ...prods.filter((p) => !dupSlugs.has(p.slug)).map((p) => `/p/${p.slug}`), ...kits.map((k) => `/kit/${k.slug}`)];
+  // 🎓 পাঠশালা + 🧮 tools: sent again whenever their text changes (a fingerprint of the content, not a date)
+  const learnPaths = await learnToolPaths(settings);
+  const learnSig = learnPaths.length ? crypto.createHash('sha1').update(learnPaths.join('|') + learnContentSig()).digest('hex').slice(0, 16) : '';
+  const sendLearn = !!learnSig && learnSig !== settings.indexnow_learn;
+  const paths = [...(sendLearn ? learnPaths : []), ...(last ? [] : ['/', '/products']), ...cats.map((c) => catHref(c.slug)), ...prods.filter((p) => !dupSlugs.has(p.slug)).map((p) => `/p/${p.slug}`), ...kits.map((k) => `/kit/${k.slug}`)];
   if (!paths.length) return { sent: 0 };
   const status = await indexNowPing(base, paths);
   // 200/202 = received. Anything else: the same pages go again next hour.
-  if (status === 200 || status === 202) await db.setMany({ indexnow_last: started });
+  if (status === 200 || status === 202) await db.setMany({ indexnow_last: started, ...(sendLearn ? { indexnow_learn: learnSig } : {}) });
   return { sent: paths.length, status };
 }
 

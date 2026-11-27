@@ -1,4 +1,4 @@
-// 🎓 ফ্রি ইলেকট্রনিক্স ক্লাস in the browser (lib/views/learn.tsx draws the pages):
+// 🎓 ইলেকট্রনিক্স পাঠশালা in the browser (lib/views/learn.tsx draws the pages):
 // the lesson quiz (checked here, no server), "✅ শেষ করেছেন" marks kept in this browser, and the AI teacher box
 // (POST /api/learn → lib/api/learn.ts) with the parts it names from the shop.
 import { h, paint } from '../jsx.js';
@@ -149,7 +149,7 @@ function drawCertificate(name: string, topics: string): string {
   const w1 = x.measureText('সব').width, w2 = x.measureText('মিলবে').width;
   x.fillStyle = '#0866D6'; x.fillText('সব', W / 2 - (w1 + w2) / 2, 190);
   x.fillStyle = '#F5A524'; x.fillText('মিলবে', W / 2 - (w1 + w2) / 2 + w1, 190);
-  center('ফ্রি ইলেকট্রনিক্স ক্লাস', 245, `600 32px ${BN_FONT}`, '#33415C');
+  center('ইলেকট্রনিক্স পাঠশালা', 245, `600 32px ${BN_FONT}`, '#33415C');
   center('সার্টিফিকেট', 370, `800 92px ${BN_FONT}`, '#14213D');
   center('সফলভাবে কোর্স শেষ করার স্বীকৃতি হিসেবে এই সনদ দেওয়া হলো', 440, `400 30px ${BN_FONT}`, '#5B6B85');
   center(name, 560, `700 76px ${BN_FONT}`, '#0866D6');
