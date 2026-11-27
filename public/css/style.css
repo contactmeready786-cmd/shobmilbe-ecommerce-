@@ -1559,5 +1559,5 @@ body.shop.glass :is(input:not([type=radio]):not([type=checkbox]):not([type=file]
 .faq-item summary::after { content: '+'; position: absolute; right: 4px; top: 0; font-size: 20px; line-height: 1.2; color: #5b6b85; }
 .faq-item[open] summary::after { content: '−'; }
 .faq-item p { margin: 8px 0 2px; line-height: 1.7; }
-.pdp-tools { margin: 10px 0; padding: 10px 12px; border: 1px dashed #b9c6db; border-radius: 10px; background: #f6f9ff; font-size: 14px; }
-.pdp-tools a { font-weight: 600; }
+.pdp-toolhint { margin: 10px 0; padding: 10px 12px; border: 1px dashed #b9c6db; border-radius: 10px; background: #f6f9ff; font-size: 14px; }
+.pdp-toolhint a { font-weight: 600; }
