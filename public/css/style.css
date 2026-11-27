@@ -1543,3 +1543,7 @@ body.shop.glass :is(input:not([type=radio]):not([type=checkbox]):not([type=file]
 .calc .btn-sm { justify-self: start; }
 @media (max-width: 560px) { .calc-grid { grid-template-columns: 1fr 1fr; } .rc-selects { grid-template-columns: 1fr 1fr; } }
 .rc-band.rc-solo { margin: 0 auto; width: 14px; }
+.tool-table td:nth-child(3), .tool-table td.pins, .tool-table td:nth-child(5), .tool-table td:nth-child(6) { white-space: nowrap; }
+.table-wrap { overflow-x: auto; }
+.rc-selects { grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); max-width: 680px; }
+@media (max-width: 560px) { .rc-selects { grid-template-columns: 1fr 1fr; } }
