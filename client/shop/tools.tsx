@@ -37,10 +37,11 @@ const CALCS: Record<string, (box: HTMLElement) => void> = {
     const bands = JSON.parse(box.getAttribute('data-bands') || '[]') as Band[];
     const selects = $('[data-rc-selects]', box);
     const visual = $('[data-rc-visual]', box);
-    const current: Record<number, string[]> = { 4: ['yellow', 'violet', 'red', 'gold'], 5: ['brown', 'black', 'black', 'red', 'brown'], 6: ['brown', 'black', 'black', 'red', 'brown', 'brown'] };
+    const current: Record<number, string[]> = { 1: ['black'], 3: ['brown', 'black', 'red'], 4: ['yellow', 'violet', 'red', 'gold'], 5: ['brown', 'black', 'black', 'red', 'brown'], 6: ['brown', 'black', 'black', 'red', 'brown', 'brown'] };
     const count = () => Number($<HTMLInputElement>('input[name="bands"]:checked', box)?.value || 4);
     const role = (n: number, i: number) => {
-      const digits = n === 4 ? 2 : 3;
+      if (n === 1) return { label: 'একমাত্র দাগ', ok: (b: Band) => b.key === 'black' };
+      const digits = n <= 4 ? 2 : 3;
       if (i < digits) return { label: `${bn(i + 1)}ম অঙ্ক`, ok: (b: Band) => b.digit !== null && !(i === 0 && b.digit === 0) };
       if (i === digits) return { label: 'গুণক', ok: (b: Band) => b.mult !== null };
       if (i === digits + 1) return { label: 'টলারেন্স', ok: (b: Band) => b.tol !== null };
@@ -50,9 +51,10 @@ const CALCS: Record<string, (box: HTMLElement) => void> = {
       const n = count();
       const keys = current[n];
       const r = bandsValue(keys);
-      paint(visual, <span className="rc-lead"></span>, <span className="rc-body">{keys.map((k, i) => <span className={`rc-band${i === keys.length - 1 && n > 3 ? ' rc-last' : ''}`} style={`background:${bands.find((b) => b.key === k)?.hex || '#000'}`}></span>)}</span>, <span className="rc-lead"></span>);
+      paint(visual, <span className="rc-lead"></span>, <span className="rc-body">{keys.map((k, i) => <span className={`rc-band${i === keys.length - 1 && n > 3 ? ' rc-last' : ''}${n === 1 ? ' rc-solo' : ''}`} style={`background:${bands.find((b) => b.key === k)?.hex || '#000'}`}></span>)}</span>, <span className="rc-lead"></span>);
+      if (n === 1) { show(outOf(box), line('মান:', '0Ω — জিরো ওহম জাম্পার', true), <p className="small muted">একটা কালো দাগ মানে এটা আসলে তারের মতো কাজ করে — সার্কিটে দুই জায়গা জোড়া দেয়, রেজিস্ট্যান্স প্রায় শূন্য।</p>); return; }
       show(outOf(box), r
-        ? <>{line('মান:', fmtOhms(r.ohms), true)}{line('টলারেন্স:', r.tol === null ? '—' : `±${r.tol}%`)}{r.ppm !== null ? line('তাপমাত্রা সহগ:', `${r.ppm} ppm/°C`) : null}{line('আসল মান থাকবে:', r.tol === null ? '—' : `${fmtOhms(r.ohms * (1 - r.tol / 100))} থেকে ${fmtOhms(r.ohms * (1 + r.tol / 100))}`)}{shopLink(fmtOhms(r.ohms), `${fmtOhms(r.ohms)} রেজিস্টর দোকানে খুঁজুন`)}</>
+        ? <>{line('মান:', fmtOhms(r.ohms), true)}{line('টলারেন্স:', r.tol === null ? '—' : `±${r.tol}%${n === 3 ? ' (৩ দাগ = টলারেন্সের দাগ নেই)' : ''}`)}{r.ppm !== null ? line('তাপমাত্রা সহগ:', `${r.ppm} ppm/°C`) : null}{line('আসল মান থাকবে:', r.tol === null ? '—' : `${fmtOhms(r.ohms * (1 - r.tol / 100))} থেকে ${fmtOhms(r.ohms * (1 + r.tol / 100))}`)}{shopLink(fmtOhms(r.ohms), `${fmtOhms(r.ohms)} রেজিস্টর দোকানে খুঁজুন`)}</>
         : warn('এই রংগুলো দিয়ে কোনো রেজিস্টর হয় না — প্রথম দাগ কালো/সোনালি/রুপালি হলে উল্টো দিক থেকে পড়ুন।'));
     };
     const build = () => {

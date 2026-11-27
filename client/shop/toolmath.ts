@@ -13,10 +13,11 @@ export const BANDS: Band[] = [
   { key: 'green', bn: 'সবুজ', hex: '#2e7d32', digit: 5, mult: 1e5, tol: 0.5, ppm: 20 },
   { key: 'blue', bn: 'নীল', hex: '#1565c0', digit: 6, mult: 1e6, tol: 0.25, ppm: 10 },
   { key: 'violet', bn: 'বেগুনি', hex: '#7b1fa2', digit: 7, mult: 1e7, tol: 0.1, ppm: 5 },
-  { key: 'grey', bn: 'ধূসর', hex: '#9e9e9e', digit: 8, mult: 1e8, tol: 0.05, ppm: 1 },
+  { key: 'grey', bn: 'ধূসর', hex: '#9e9e9e', digit: 8, mult: 1e8, tol: 0.01, ppm: 1 },
   { key: 'white', bn: 'সাদা', hex: '#f5f5f5', digit: 9, mult: 1e9, tol: null, ppm: null },
   { key: 'gold', bn: 'সোনালি', hex: '#c9a227', digit: null, mult: 0.1, tol: 5, ppm: null },
   { key: 'silver', bn: 'রুপালি', hex: '#c0c0c0', digit: null, mult: 0.01, tol: 10, ppm: null },
+  { key: 'pink', bn: 'গোলাপি', hex: '#f48fb1', digit: null, mult: 0.001, tol: null, ppm: null },
 ];
 
 /** EIA-96 SMD codes 01–96 → the three significant digits (E96 series) */
@@ -26,25 +27,31 @@ export const E96_MULT: Record<string, number> = { Z: 0.001, Y: 0.01, R: 0.01, X:
 /** E12 standard values (one decade) */
 export const E12 = [10, 12, 15, 18, 22, 27, 33, 39, 47, 56, 68, 82];
 
-/** the value of a resistor from its colour bands (4, 5 or 6 bands), or null when a band can't be there */
+/** the value of a resistor from its colour bands (IEC 60062): 1 band = a single black band, the 0Ω jumper; 3 bands =
+ * two digits + multiplier and ±20% (no tolerance band); 4 bands = + tolerance; 5 = three digits + multiplier +
+ * tolerance; 6 = + temperature coefficient. Null when a band can't be in that place. */
 export function bandsValue(keys: string[]): { ohms: number; tol: number | null; ppm: number | null } | null {
   const b = keys.map((k) => BANDS.find((x) => x.key === k));
   if (b.some((x) => !x)) return null;
   const n = keys.length;
-  const digits = n === 4 ? 2 : 3;
+  if (n === 1) return keys[0] === 'black' ? { ohms: 0, tol: null, ppm: null } : null;
+  if (n < 3 || n > 6) return null;
+  const digits = n <= 4 ? 2 : 3;
   const d = b.slice(0, digits);
   if (d.some((x) => x!.digit === null) || d[0]!.digit === 0) return null;
   const mult = b[digits]!.mult;
   if (mult === null) return null;
   const sig = d.reduce((v, x) => v * 10 + (x!.digit as number), 0);
-  const tol = n >= 4 ? b[digits + 1]!.tol : null;
+  const tol = n === 3 ? 20 : b[digits + 1]!.tol;
+  if (n >= 4 && tol === null) return null;
   const ppm = n === 6 ? b[5]!.ppm : null;
+  if (n === 6 && ppm === null) return null;
   return { ohms: round(sig * mult), tol, ppm };
 }
 /** colour bands for a value (4 or 5 bands, significant digits rounded), or null when it can't be shown */
-export function valueBands(ohms: number, count: 4 | 5): string[] | null {
+export function valueBands(ohms: number, count: 3 | 4 | 5): string[] | null {
   if (!(ohms > 0) || !isFinite(ohms)) return null;
-  const digits = count === 4 ? 2 : 3;
+  const digits = count === 5 ? 3 : 2;
   let exp = Math.floor(Math.log10(ohms)) - (digits - 1);
   let sig = Math.round(ohms / 10 ** exp);
   if (sig >= 10 ** digits) { sig = Math.round(sig / 10); exp += 1; }

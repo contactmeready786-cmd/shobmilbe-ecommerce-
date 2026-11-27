@@ -14,6 +14,13 @@ test('colour bands → value (4, 5, 6 bands)', () => {
   assert.equal(bandsValue(['yellow', 'violet', 'black', 'silver', 'brown', 'red'])?.ppm, 50);
   assert.equal(bandsValue(['black', 'violet', 'red', 'gold']), null, 'first band is never black');
   assert.equal(bandsValue(['gold', 'violet', 'red', 'gold']), null);
+  assert.deepEqual(bandsValue(['brown', 'black', 'red']), { ohms: 1000, tol: 20, ppm: null }, '3 bands: ±20%');
+  assert.deepEqual(bandsValue(['black']), { ohms: 0, tol: null, ppm: null }, 'single black band: 0Ω jumper');
+  assert.equal(bandsValue(['red']), null);
+  assert.equal(bandsValue(['red', 'red']), null, 'no 2-band resistors');
+  assert.equal(bandsValue(['yellow', 'violet', 'red', 'white']), null, 'white is no tolerance');
+  assert.equal(bandsValue(['brown', 'black', 'pink', 'gold'])?.ohms, 0.01);
+  assert.equal(bandsValue(['brown', 'black', 'black', 'red', 'grey'])?.tol, 0.01);
 });
 
 test('value → colour bands, both ways round', () => {

@@ -1542,3 +1542,4 @@ body.shop.glass :is(input:not([type=radio]):not([type=checkbox]):not([type=file]
 .calc-out { max-width: 760px; box-sizing: border-box; }
 .calc .btn-sm { justify-self: start; }
 @media (max-width: 560px) { .calc-grid { grid-template-columns: 1fr 1fr; } .rc-selects { grid-template-columns: 1fr 1fr; } }
+.rc-band.rc-solo { margin: 0 auto; width: 14px; }
