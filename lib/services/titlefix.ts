@@ -196,8 +196,13 @@ export async function undo(id: number): Promise<boolean> {
 
 /** the next products to look at: every main product once, best sellers first */
 async function nextIds(n: number): Promise<number[]> {
-  const rows = await db.q<{ id: number }>(`SELECT p.id FROM products p WHERE p.parent_id IS NULL AND p.active
-    AND NOT EXISTS (SELECT 1 FROM title_fix f WHERE f.product_id = p.id) ORDER BY coalesce(p.sold_count, 0) DESC, p.id LIMIT $1`, [n]);
+  // first the ones most likely in the wrong place (owner: electronics sitting in "Digital products", no category,
+  // or left in a main category), then the best sellers
+  const rows = await db.q<{ id: number }>(`SELECT p.id FROM products p LEFT JOIN categories c ON c.id = p.category_id
+    WHERE p.parent_id IS NULL AND p.active AND NOT EXISTS (SELECT 1 FROM title_fix f WHERE f.product_id = p.id)
+    ORDER BY CASE WHEN c.id IS NULL THEN 1 WHEN c.name ILIKE '%digital%' OR c.name LIKE '%ডিজিটাল%' THEN 0
+      WHEN c.parent_id IS NULL AND EXISTS (SELECT 1 FROM categories k WHERE k.parent_id = c.id) THEN 2 ELSE 3 END,
+      coalesce(p.sold_count, 0) DESC, p.id LIMIT $1`, [n]);
   return rows.map((r) => r.id);
 }
 
