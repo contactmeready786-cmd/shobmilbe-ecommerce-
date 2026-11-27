@@ -74,18 +74,19 @@ export async function areaSearch(form: HTMLElement, g: GeoBoxes): Promise<void> 
   const input = <input type="search" autoComplete="off" enterKeyHint="search" maxLength={60} placeholder="থানা, এলাকা বা বাজারের নাম লিখুন" aria-label="এলাকা খুঁজুন" /> as HTMLInputElement;
   const list = <div className="area-hits" role="listbox" hidden></div> as HTMLElement;
   const note = <small className="muted">বাংলা বা ইংরেজিতে লিখুন, যেমন: মধ্য বাড্ডা, Mirpur 10, Tongi — জেলা আর থানা নিজে বসে যাবে।</small> as HTMLElement;
-  const pick = (h: Hit) => {
-    g.district.value = h.d;
+  // (never name a variable "h" in this file: JSX is turned into h(…) calls)
+  const pick = (hit: Hit) => {
+    g.district.value = hit.d;
     g.district.dispatchEvent(new Event('change', { bubbles: true }));
-    if (h.t) { g.thana.value = h.t; g.thana.dispatchEvent(new Event('change', { bubbles: true })); }
-    input.value = h.label;
+    if (hit.t) { g.thana.value = hit.t; g.thana.dispatchEvent(new Event('change', { bubbles: true })); }
+    input.value = hit.label;
     list.hidden = true;
-    (h.t ? (form.querySelector('[name="address"]') as HTMLElement | null) : g.thana)?.focus();
+    (hit.t ? (form.querySelector('[name="address"]') as HTMLElement | null) : g.thana)?.focus();
   };
   let current: Hit[] = [];
   const show = () => {
     current = find(input.value);
-    paint(list, current.map((h) => <button type="button" className="area-hit" role="option" onClick={() => pick(h)}>📍 {h.label}</button>));
+    paint(list, current.map((hit) => <button type="button" className="area-hit" role="option" onClick={() => pick(hit)}>📍 {hit.label}</button>));
     list.hidden = !current.length;
   };
   input.addEventListener('input', show);
