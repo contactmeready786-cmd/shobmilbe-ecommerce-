@@ -15,6 +15,8 @@ import * as $models_kits from '../models/kits';
 import * as $models_landing from '../models/landing';
 import { landingPage } from '../views/landing';
 import { learnListPage, lessonPage } from '../views/learn';
+import { toolsListPage, toolPage } from '../views/tools';
+import * as $tools from '../data/tools';
 import * as $lessons from '../data/lessons';
 import * as db from '../db';
 import * as courier from '../services/courier';
@@ -135,6 +137,26 @@ export async function resolveMore({ path, query, settings, base: siteBase, req }
         { '@type': 'ListItem', position: 1, name: 'হোম', item: siteBase + '/' },
         { '@type': 'ListItem', position: 2, name: 'ফ্রি ইলেকট্রনিক্স ক্লাস', item: siteBase + '/learn' },
         { '@type': 'ListItem', position: 3, name: l.title, item: `${siteBase}/learn/${l.slug}` }] } });
+  }
+  // 🧮 electronics tools (owner, 2026-11-27): calculators that run in the visitor's browser (client/shop/tools.tsx)
+  if (path === '/tools' || path.startsWith('/tools/')) {
+    const list = $tools.toolsOn(settings);
+    if (!list.length) return NOT_FOUND;
+    if (path === '/tools') {
+      return page('ইলেকট্রনিক্স টুলস ও ক্যালকুলেটর — রেজিস্টর কালার কোড, ওহমের সূত্র', toolsListPage({ list }), { canonical: '/tools',
+        description: 'রেজিস্টর কালার কোড, SMD কোড, ক্যাপাসিটর কোড, ওহমের সূত্র, LED রেজিস্টর, ট্রানজিস্টর পিন চার্ট, 555 টাইমার — বাংলায় ফ্রি ক্যালকুলেটর।',
+        jsonLd: { '@context': 'https://schema.org', '@type': 'ItemList', name: 'ইলেকট্রনিক্স টুলস', itemListElement: list.map((t, i) => ({ '@type': 'ListItem', position: i + 1, url: `${siteBase}/tools/${t.key}`, name: t.title })) } });
+    }
+    const tm = path.match(/^\/tools\/([^/]+)$/);
+    const t = tm ? list.find((x) => x.key === tm[1]) : null;
+    if (!t) return NOT_FOUND;
+    return page(t.title, toolPage({ t, others: list.filter((x) => x.key !== t.key) }), { canonical: `/tools/${t.key}`, description: t.summary,
+      jsonLd: { '@context': 'https://schema.org', '@type': 'WebApplication', name: t.title, description: t.summary, url: `${siteBase}/tools/${t.key}`, inLanguage: 'bn',
+        applicationCategory: 'EducationalApplication', operatingSystem: 'Any', isAccessibleForFree: true, offers: { '@type': 'Offer', price: '0', priceCurrency: 'BDT' } },
+      jsonLdExtra: { '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: [
+        { '@type': 'ListItem', position: 1, name: 'হোম', item: siteBase + '/' },
+        { '@type': 'ListItem', position: 2, name: 'ইলেকট্রনিক্স টুলস', item: siteBase + '/tools' },
+        { '@type': 'ListItem', position: 3, name: t.title, item: `${siteBase}/tools/${t.key}` }] } });
   }
   // 🧰 project kits
   if (path === '/kits' && settings.kits_on !== '0') {

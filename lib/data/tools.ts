@@ -1,0 +1,164 @@
+// 🧮 ইলেকট্রনিক্স টুলস (owner, 2026-11-27): free calculators for students, hobbyists and technicians at /tools and
+// /tools/<key> — resistor colour code, SMD codes, capacitor codes, Ohm's law, LED resistor, voltage divider,
+// series/parallel, transistor switch (+ pin chart), 555 timer, battery life. Every sum runs in the visitor's browser
+// (client/shop/tools.tsx) — nothing for the server to do. Each tool also teaches: the formula, how to remember it,
+// and links to the parts in the shop. Keep every number true; students rely on these.
+// A key never changes once used (Google and shared links point at it); add new tools at the END.
+
+export type ToolGuide = { h: string; text?: string[]; list?: string[] };
+export type Tool = {
+  key: string; emoji: string; title: string;
+  /** one line for Google and the tool card (≤ 160 characters) */
+  summary: string;
+  /** the formulas shown under the calculator */
+  formula?: string[];
+  /** how to remember it */
+  remember?: string[];
+  guide: ToolGuide[];
+  shopQuery?: string; shopLabel?: string;
+};
+
+const TOOLS: Tool[] = [
+  {
+    key: 'resistor-color-code', emoji: '🌈', title: 'রেজিস্টর কালার কোড ক্যালকুলেটর (৪, ৫, ৬ দাগ)',
+    summary: 'রেজিস্টরের রঙের দাগ বাছুন, সাথে সাথে মান, টলারেন্স আর টেম্পকো দেখুন — উল্টো দিকে মান লিখলে রং বলে দেবে। বাংলায় শেখার নিয়মসহ।',
+    formula: ['৪ দাগ: (১ম অঙ্ক)(২য় অঙ্ক) × গুণক, ৪র্থ দাগ = টলারেন্স', '৫ দাগ: (১ম)(২য়)(৩য় অঙ্ক) × গুণক, ৫ম দাগ = টলারেন্স', '৬ দাগ: ৫ দাগের মতো + ৬ষ্ঠ দাগ = তাপমাত্রা সহগ (ppm/°C)'],
+    remember: [
+      'বাংলা ছড়া: "কা বা লা ক হ, স নী বে ধূ সা" — কালো ০, বাদামি ১, লাল ২, কমলা ৩, হলুদ ৪, সবুজ ৫, নীল ৬, বেগুনি ৭, ধূসর ৮, সাদা ৯।',
+      'ইংরেজিতে: "BB ROY of Great Britain has a Very Good Wife" — Black Brown Red Orange Yellow Green Blue Violet Grey White।',
+      'সোনালি = ×০.১ ও ±৫%, রুপালি = ×০.০১ ও ±১০%। তৃতীয় (গুণক) দাগ মানে কয়টা শূন্য বসবে।',
+    ],
+    guide: [
+      { h: 'কোন দিক থেকে পড়বেন', list: [
+        'সোনালি বা রুপালি দাগ সাধারণত ডান দিকে থাকে — উল্টো দিক থেকে শুরু করুন।',
+        'দাগগুলো এক পাশে একটু ঘন থাকে; ঘন পাশটা বাঁয়ে রেখে পড়ুন। টলারেন্সের দাগ একটু দূরে থাকে।',
+        'প্রথম দাগ কখনো সোনালি, রুপালি বা কালো হয় না — হলে উল্টো দিক থেকে পড়ছেন।',
+      ] },
+      { h: 'নিশ্চিত হওয়ার সহজ উপায়', text: ['রং চিনতে কষ্ট হলে (বিশেষ করে বাদামি-লাল-কমলা) মাল্টিমিটারের Ω মোডে মেপে নিন — সার্কিট থেকে খুলে বা পাওয়ার বন্ধ রেখে। মাপা মান টলারেন্সের ভেতরে থাকলেই ঠিক।'] },
+      { h: 'স্ট্যান্ডার্ড মান (E12 / E24)', text: ['রেজিস্টর সব মানে বানানো হয় না — E12 সিরিজের মানগুলো: ১০, ১২, ১৫, ১৮, ২২, ২৭, ৩৩, ৩৯, ৪৭, ৫৬, ৬৮, ৮২ (আর এদের ×১০, ×১০০ …)। হিসাবে ১৫০Ω এলে দোকানে ১৫০ বা তার কাছের বড় মান নিন।'] },
+    ],
+    shopQuery: 'resistor', shopLabel: 'রেজিস্টর দেখুন',
+  },
+  {
+    key: 'smd-resistor-code', emoji: '🔢', title: 'SMD রেজিস্টর কোড ক্যালকুলেটর (৩, ৪ অঙ্ক ও EIA-96)',
+    summary: 'SMD রেজিস্টরের গায়ের কোড (103, 4R7, 1002, 01C) লিখুন — সাথে সাথে আসল মান ওহমে দেখুন। কোড পড়ার নিয়ম বাংলায়।',
+    formula: ['৩ অঙ্ক: প্রথম দুই অঙ্ক × ১০^(তৃতীয় অঙ্ক) — 103 = ১০ × ১০³ = ১০kΩ', '৪ অঙ্ক: প্রথম তিন অঙ্ক × ১০^(চতুর্থ অঙ্ক) — 1002 = ১০০ × ১০² = ১০kΩ', 'R মানে দশমিক বিন্দু: 4R7 = ৪.৭Ω, R10 = ০.১Ω', 'EIA-96: দুই অঙ্কের কোড (০১–৯৬) টেবিলের মান × অক্ষরের গুণক — 01C = ১০০ × ১০০ = ১০kΩ'],
+    remember: ['শেষ অঙ্ক = কয়টা শূন্য। "000" বা "0" লেখা রেজিস্টর মানে ০Ω — এটা আসলে জাম্পার (তারের কাজ করে)।'],
+    guide: [
+      { h: 'কোনটা কোন ধরনের', list: [
+        '৩ অঙ্ক (যেমন 472) সাধারণত ±৫% রেজিস্টরে।',
+        '৪ অঙ্ক (যেমন 4701) সাধারণত ±১% রেজিস্টরে।',
+        'দুই অঙ্ক + একটা অক্ষর (যেমন 68X) হলো EIA-96 — ছোট ±১% রেজিস্টরে।',
+      ] },
+    ],
+    shopQuery: 'resistor', shopLabel: 'রেজিস্টর দেখুন',
+  },
+  {
+    key: 'capacitor-code', emoji: '🔋', title: 'ক্যাপাসিটর কোড ও ইউনিট কনভার্টার (104 = ০.১µF)',
+    summary: 'সিরামিক/ফিল্ম ক্যাপাসিটরের কোড (104, 473J, 2A104K) থেকে মান pF, nF, µF-এ বের করুন, আর pF ⇄ nF ⇄ µF বদলান।',
+    formula: ['৩ অঙ্কের কোড: প্রথম দুই অঙ্ক × ১০^(তৃতীয় অঙ্ক) পিকোফ্যারাড (pF)', '104 = ১০ × ১০⁴ pF = ১০০,০০০ pF = ১০০ nF = ০.১ µF', '১ µF = ১০০০ nF = ১০,০০,০০০ pF'],
+    remember: ['কোড সবসময় pF-এ। শেষ অঙ্ক = কয়টা শূন্য। শেষের অক্ষর টলারেন্স: J = ±৫%, K = ±১০%, M = ±২০%।', 'ইলেকট্রোলাইটিক ক্যাপাসিটরে মান সরাসরি লেখা থাকে (যেমন 100µF 25V) — লম্বা পা প্লাস, গায়ের দাগের পাশের পা মাইনাস।'],
+    guide: [
+      { h: 'ভোল্টেজ রেটিং', text: ['ক্যাপাসিটরের ভোল্টেজ রেটিং সার্কিটের ভোল্টেজের চেয়ে অন্তত ২০–৫০% বেশি নিন। যেমন ১২V সার্কিটে ১৬V বা ২৫V। ইলেকট্রোলাইটিক উল্টো লাগালে ফুলে বা ফেটে যেতে পারে।'] },
+    ],
+    shopQuery: 'capacitor', shopLabel: 'ক্যাপাসিটর দেখুন',
+  },
+  {
+    key: 'ohms-law', emoji: '⚡', title: 'ওহমের সূত্র ও পাওয়ার ক্যালকুলেটর (V, I, R, P)',
+    summary: 'ভোল্টেজ, কারেন্ট, রেজিস্ট্যান্স বা পাওয়ার — যেকোনো দুইটা দিন, বাকি দুইটা সাথে সাথে বের হবে। সূত্র আর মনে রাখার ত্রিভুজসহ।',
+    formula: ['V = I × R', 'I = V ÷ R', 'R = V ÷ I', 'P = V × I = I² × R = V² ÷ R'],
+    remember: ['"VIR" ত্রিভুজ: উপরে V, নিচে I আর R। যেটা বের করবেন সেটা আঙুল দিয়ে ঢাকুন — বাকি দুইটা পাশাপাশি থাকলে গুণ, উপর-নিচে থাকলে ভাগ।', 'পাওয়ারের জন্য "PIV" — P = I × V।'],
+    guide: [
+      { h: 'রেজিস্টরের ওয়াট কত নেবেন', text: ['হিসাবে যত ওয়াট আসে, তার অন্তত দ্বিগুণ রেটিংয়ের রেজিস্টর নিন। যেমন ০.১W এলে ¼W (০.২৫W) রেজিস্টর ঠিক আছে; ০.৩W এলে ১W নিন।'] },
+    ],
+    shopQuery: 'resistor', shopLabel: 'রেজিস্টর দেখুন',
+  },
+  {
+    key: 'led-resistor', emoji: '💡', title: 'LED রেজিস্টর ক্যালকুলেটর',
+    summary: 'সাপ্লাই ভোল্টেজ, LED-এর রং আর কারেন্ট দিন — কত ওহম ও কত ওয়াটের রেজিস্টর লাগবে সাথে সাথে দেখুন, সিরিজে কয়েকটা LED-সহ।',
+    formula: ['R = (সাপ্লাই ভোল্টেজ − LED-এর ভোল্টেজ × LED-এর সংখ্যা) ÷ কারেন্ট', 'রেজিস্টরের পাওয়ার P = I² × R'],
+    remember: ['লাল/হলুদ LED ≈ ২V, সবুজ ≈ ২–৩V, নীল/সাদা ≈ ৩V। সাধারণ ৫মিমি LED-এ ১০–২০ mA যথেষ্ট।', 'হিসাবের মান দোকানে না থাকলে তার চেয়ে একটু বড় স্ট্যান্ডার্ড মান নিন — LED একটু কম উজ্জ্বল হবে, কিন্তু নিরাপদ।'],
+    guide: [
+      { h: 'সিরিজ না প্যারালাল', text: ['কয়েকটা LED সিরিজে দিলে একটা রেজিস্টরেই হয়, তবে সবগুলোর ভোল্টেজ যোগ করে সাপ্লাইয়ের চেয়ে কম হতে হবে। প্যারালালে দিলে প্রতিটা LED-এর জন্য আলাদা রেজিস্টর দিন — একটা রেজিস্টর ভাগাভাগি করলে কোনো LED বেশি কারেন্ট টেনে পুড়ে যেতে পারে।'] },
+    ],
+    shopQuery: 'led', shopLabel: 'LED দেখুন',
+  },
+  {
+    key: 'voltage-divider', emoji: '➗', title: 'ভোল্টেজ ডিভাইডার ক্যালকুলেটর',
+    summary: 'দুইটা রেজিস্টর দিয়ে ভোল্টেজ কমানোর হিসাব — Vin, R1, R2 দিলে Vout; বা দরকারি Vout দিলে কত ওহম লাগবে। সেন্সর আর ৫V→৩.৩V-এর জন্য।',
+    formula: ['Vout = Vin × R2 ÷ (R1 + R2)', 'R1 = R2 × (Vin − Vout) ÷ Vout'],
+    remember: ['R2 হলো নিচের (GND-এর দিকের) রেজিস্টর। R1 আর R2 সমান হলে Vout ঠিক অর্ধেক।'],
+    guide: [
+      { h: 'কোথায় চলে, কোথায় চলে না', text: ['ডিভাইডার শুধু সংকেত মাপতে বা লেভেল কমাতে (যেমন ৫V থেকে ৩.৩V-এর RX পিন, LDR, ব্যাটারি ভোল্টেজ মাপা)। মোটর বা কোনো লোড চালানোর পাওয়ার সাপ্লাই হিসেবে ডিভাইডার চলে না — লোড লাগালেই ভোল্টেজ পড়ে যায়; সেখানে রেগুলেটর (7805, বাক কনভার্টার) লাগে।'] },
+    ],
+    shopQuery: 'resistor', shopLabel: 'রেজিস্টর দেখুন',
+  },
+  {
+    key: 'series-parallel', emoji: '🔗', title: 'সিরিজ ও প্যারালাল ক্যালকুলেটর (রেজিস্টর, ক্যাপাসিটর)',
+    summary: 'কয়েকটা রেজিস্টর বা ক্যাপাসিটর সিরিজে আর প্যারালালে জুড়লে মোট মান কত হবে — মানগুলো লিখলেই দেখাবে।',
+    formula: ['রেজিস্টর সিরিজে: R = R1 + R2 + …', 'রেজিস্টর প্যারালালে: 1/R = 1/R1 + 1/R2 + …', 'ক্যাপাসিটর প্যারালালে: C = C1 + C2 + …', 'ক্যাপাসিটর সিরিজে: 1/C = 1/C1 + 1/C2 + …'],
+    remember: ['রেজিস্টর আর ক্যাপাসিটরের নিয়ম ঠিক উল্টো: রেজিস্টর সিরিজে যোগ হয়, ক্যাপাসিটর প্যারালালে যোগ হয়।', 'দুইটা সমান রেজিস্টর প্যারালালে = অর্ধেক। প্যারালালের মোট মান সবচেয়ে ছোটটার চেয়েও কম।'],
+    guide: [{ h: 'কাজে লাগে যখন', text: ['দরকারি মানের রেজিস্টর হাতে নেই? দুইটা জুড়ে বানিয়ে নিন — যেমন দুইটা ১kΩ সিরিজে = ২kΩ, প্যারালালে = ৫০০Ω।'] }],
+    shopQuery: 'resistor', shopLabel: 'রেজিস্টর দেখুন',
+  },
+  {
+    key: 'transistor-switch', emoji: '🔀', title: 'ট্রানজিস্টর সুইচ ক্যালকুলেটর ও পিন চার্ট (BC547, 2N2222, TIP120 …)',
+    summary: 'আরডুইনো দিয়ে ট্রানজিস্টর সুইচ চালাতে বেস রেজিস্টর কত লাগবে হিসাব করুন, আর জনপ্রিয় ট্রানজিস্টর-মসফেটের পিন (E, B, C) দেখুন।',
+    formula: ['দরকারি বেস কারেন্ট Ib = লোডের কারেন্ট Ic ÷ hFE × ৫ (নিশ্চিতভাবে পুরো চালু রাখতে ৫ গুণ বেশি)', 'বেস রেজিস্টর Rb = (কন্ট্রোল ভোল্টেজ − ০.৭V) ÷ Ib'],
+    remember: ['NPN-এ তীর বাইরের দিকে ("Not Pointing iN")। NPN লোডের মাইনাস (GND) দিকে বসে, পিন HIGH দিলে চালু।', 'TO-92 প্যাকেটের পিন পড়ার নিয়ম: লেখা চ্যাপ্টা দিকটা আপনার দিকে, পা নিচে — বাঁ থেকে ডানে।'],
+    guide: [
+      { h: 'পিন না মিললে', list: [
+        'একই নামের ট্রানজিস্টর বিভিন্ন কোম্পানিতে পিনের ক্রম আলাদা হতে পারে — কেনা পার্টসের ডেটাশিট মিলিয়ে নিন।',
+        'মাল্টিমিটারের ডায়োড মোডে NPN-এর বেস থেকে কালেক্টর আর এমিটার দুই দিকেই ০.৫–০.৭V দেখায়; যে পিন দুই দিকেই "কমন" সেটাই বেস।',
+        'আরডুইনোর ৫V দিয়ে বড় মসফেট চালাতে "লজিক লেভেল" মসফেট (যেমন IRLZ44N) নিন; IRFZ44N পুরো চালু হতে ১০V গেট লাগে।',
+      ] },
+      { h: 'রিলে বা মোটর চালালে', text: ['রিলের কয়েল বা মোটরের দুই মাথায় উল্টো করে একটা ডায়োড (1N4007) দিন, নইলে বন্ধ করার সময়ের ঝাঁকুনি ভোল্টেজে ট্রানজিস্টর নষ্ট হয়।'] },
+    ],
+    shopQuery: 'transistor', shopLabel: 'ট্রানজিস্টর দেখুন',
+  },
+  {
+    key: '555-timer', emoji: '⏱️', title: '555 টাইমার ক্যালকুলেটর (Astable ও Monostable)',
+    summary: 'NE555 দিয়ে LED ব্লিংক, বাজার বা টাইমার বানাতে R1, R2, C দিন — ফ্রিকোয়েন্সি, ডিউটি সাইকেল আর সময় সাথে সাথে দেখুন।',
+    formula: ['Astable: f = 1.44 ÷ ((R1 + 2 × R2) × C)', 'চালু থাকার সময় = 0.693 × (R1 + R2) × C, বন্ধ থাকার সময় = 0.693 × R2 × C', 'Monostable: সময় t = 1.1 × R × C'],
+    remember: ['R বা C বাড়ালে সময় বাড়ে, ফ্রিকোয়েন্সি কমে। LED চোখে দেখা যায় এমন ব্লিংক পেতে ১–৫ Hz রাখুন।', 'R1 অন্তত ১kΩ রাখুন; ৫৫৫-এর ডিউটি সাইকেল সাধারণ সার্কিটে সবসময় ৫০%-এর বেশি।'],
+    guide: [{ h: 'পিন মনে রাখুন', list: ['১ GND, ২ Trigger, ৩ Output, ৪ Reset (VCC-তে দিন), ৫ Control (১০nF দিয়ে GND), ৬ Threshold, ৭ Discharge, ৮ VCC (৪.৫–১৫V)।', 'Astable-এ ২ আর ৬ নম্বর পিন একসাথে জুড়ে ক্যাপাসিটরে দিতে হয়।'] }],
+    shopQuery: '555', shopLabel: '555 টাইমার আইসি দেখুন',
+  },
+  {
+    key: 'battery-life', emoji: '🔋', title: 'ব্যাটারি কতক্ষণ চলবে — ব্যাটারি লাইফ ক্যালকুলেটর',
+    summary: 'ব্যাটারির mAh আর প্রজেক্টের কারেন্ট দিন — কত ঘণ্টা চলবে দেখুন, সিরিজ-প্যারালাল সেলসহ।',
+    formula: ['সময় (ঘণ্টা) = ব্যাটারির ক্ষমতা (mAh) ÷ লোডের কারেন্ট (mA) × কার্যকারিতা (≈ ০.৭–০.৮৫)', 'প্যারালাল সেল: mAh যোগ হয়, ভোল্টেজ একই। সিরিজ সেল: ভোল্টেজ যোগ হয়, mAh একই।'],
+    remember: ['বাস্তবে লেখা mAh-এর পুরোটা পাওয়া যায় না — তাই ৭০–৮৫% ধরে হিসাব করুন। বেশি কারেন্টে ব্যাটারি আরও দ্রুত শেষ হয়।'],
+    guide: [{ h: 'নিরাপত্তা', text: ['লিথিয়াম সেল ৩.০V-এর নিচে নামতে দেবেন না, ফোলা বা গরম ব্যাটারি ব্যবহার করবেন না। সিরিজে কয়েকটা লিথিয়াম সেল চার্জ করতে সঠিক BMS বোর্ড লাগে।'] }],
+    shopQuery: '18650', shopLabel: 'ব্যাটারি দেখুন',
+  },
+];
+
+export { BANDS, E96, E96_MULT, E12 } from '../../client/shop/toolmath';
+
+/** Popular transistors: pins left→right, flat/printed face towards you, legs down (check the datasheet of the part). */
+export type TransistorInfo = { name: string; kind: string; pkg: string; pins: string; ic: string; v: string; hfe: number | null; note?: string; /** max collector current in mA (for the switch check) */ icMa?: number };
+export const TRANSISTORS: TransistorInfo[] = [
+  { name: 'BC547 / BC548', icMa: 100, kind: 'NPN', pkg: 'TO-92', pins: 'C B E', ic: '১০০ mA', v: '৪৫V (BC547)', hfe: 110, note: 'ছোট সুইচ, LED, ছোট রিলে' },
+  { name: 'BC557', icMa: 100, kind: 'PNP', pkg: 'TO-92', pins: 'C B E', ic: '১০০ mA', v: '৪৫V', hfe: 110 },
+  { name: '2N2222A (PN2222A)', icMa: 600, kind: 'NPN', pkg: 'TO-92', pins: 'E B C', ic: '৬০০ mA', v: '৪০V', hfe: 100, note: 'রিলে, ছোট মোটর' },
+  { name: '2N3904', icMa: 200, kind: 'NPN', pkg: 'TO-92', pins: 'E B C', ic: '২০০ mA', v: '৪০V', hfe: 100 },
+  { name: '2N3906', icMa: 200, kind: 'PNP', pkg: 'TO-92', pins: 'E B C', ic: '২০০ mA', v: '৪০V', hfe: 100 },
+  { name: 'S8050', icMa: 500, kind: 'NPN', pkg: 'TO-92', pins: 'E B C', ic: '৫০০ mA', v: '২৫V', hfe: 120 },
+  { name: 'S8550', icMa: 500, kind: 'PNP', pkg: 'TO-92', pins: 'E B C', ic: '৫০০ mA', v: '২৫V', hfe: 120 },
+  { name: 'BD139', icMa: 1500, kind: 'NPN', pkg: 'TO-126', pins: 'E C B', ic: '১.৫ A', v: '৮০V', hfe: 40 },
+  { name: 'TIP31C', icMa: 3000, kind: 'NPN', pkg: 'TO-220', pins: 'B C E', ic: '৩ A', v: '১০০V', hfe: 25, note: 'হিটসিংক লাগতে পারে' },
+  { name: 'TIP120', icMa: 5000, kind: 'NPN ডার্লিংটন', pkg: 'TO-220', pins: 'B C E', ic: '৫ A', v: '৬০V', hfe: 1000, note: 'মোটর, LED স্ট্রিপ; চালু অবস্থায় ~২V খরচ হয়' },
+  { name: '2N7000', kind: 'N-MOSFET', pkg: 'TO-92', pins: 'S G D', ic: '২০০ mA', v: '৬০V', hfe: null, note: 'গেটে রেজিস্টর (১০০–২২০Ω) আর গেট থেকে GND-তে ১০kΩ' },
+  { name: 'IRFZ44N', kind: 'N-MOSFET', pkg: 'TO-220', pins: 'G D S', ic: '৪৯ A', v: '৫৫V', hfe: null, note: 'পুরো চালু হতে ১০V গেট; আরডুইনোর ৫V-এ IRLZ44N ভালো' },
+  { name: 'LM7805 (রেগুলেটর)', kind: 'রেগুলেটর', pkg: 'TO-220', pins: 'IN GND OUT', ic: '১ A', v: 'ইনপুট ৭–৩৫V', hfe: null, note: 'আউটপুট ৫V' },
+];
+
+export function tools(): Tool[] { return TOOLS; }
+export function tool(key: string): Tool | null { return TOOLS.find((t) => t.key === key) || null; }
+/** the tools the owner keeps on (Admin → Project kits → Electronics tools); off = left out of the list and its page */
+export function toolsOn(s: Record<string, string | undefined>): Tool[] {
+  if (s.tools_on === '0') return [];
+  const off = new Set(String(s.tools_off || '').split(',').map((x) => x.trim()).filter(Boolean));
+  return TOOLS.filter((t) => !off.has(t.key));
+}

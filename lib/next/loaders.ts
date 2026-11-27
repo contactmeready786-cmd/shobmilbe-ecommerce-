@@ -7,6 +7,7 @@ import * as catalog from '../models/catalog';
 import * as security from '../security';
 import * as kits from '../models/kits';
 import * as lessons from '../data/lessons';
+import * as toolsData from '../data/tools';
 import * as landing from '../models/landing';
 import * as accounts from '../models/accounts';
 import * as livescore from '../services/livescore';
@@ -80,6 +81,10 @@ export async function drawableHere(path: string, headers: Headers): Promise<bool
   if (path === '/kits') return (await settingsNow()).kits_on !== '0';
   m = /^\/kit\/([^/]+)$/.exec(path);
   if (m) return (await settingsNow()).kits_on !== '0' && !!(await kits.forShop(safeDecode(m[1])));
+  // 🧮 electronics tools: only when on, and only tools that are on
+  if (path === '/tools') return toolsData.toolsOn(await settingsNow()).length > 0;
+  m = /^\/tools\/([^/]+)$/.exec(path);
+  if (m) { const key = safeDecode(m[1]); return toolsData.toolsOn(await settingsNow()).some((t) => t.key === key); }
   // 🎓 free electronics classes: only when on, and only lessons that exist
   if (path === '/learn') return (await settingsNow()).learn_on !== '0';
   m = /^\/learn\/([^/]+)$/.exec(path);

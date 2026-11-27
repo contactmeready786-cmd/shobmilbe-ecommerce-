@@ -2,6 +2,7 @@
 // scheduled jobs — each served by its own Next.js route (app/media, app/robots.txt, app/sitemap.xml, app/feeds,
 // app/e, app/unsubscribe, app/api/*/tick). lib/next/api.ts runs the shop's gate first. Moved from lib/site.ts unchanged.
 import { lessons } from '../data/lessons';
+import { toolsOn } from '../data/tools';
 import * as db from '../db';
 import * as catalog from '../models/catalog';
 import * as feeds from '../services/feeds';
@@ -135,6 +136,8 @@ export async function sitemap(ctx: ApiCtx) {
     ...kits.map((k) => u(`/kit/${encodeURIComponent(k.slug)}`, k.updated_at, '0.7', k.image_id ? `/media/${k.image_id}` : '')),
     // 🎓 the free electronics classes
     ...(settings.learn_on !== '0' ? [u('/learn', null, '0.7'), ...lessons().map((l) => u(`/learn/${l.slug}`, null, '0.7'))] : []),
+    // 🧮 the electronics tools
+    ...(toolsOn(settings).length ? [u('/tools', null, '0.7'), ...toolsOn(settings).map((t) => u(`/tools/${t.key}`, null, '0.7'))] : []),
   ].join('')}</urlset>`;
   return text(200, xml, 'application/xml; charset=utf-8', { 'Cache-Control': 'public, max-age=3600' });
 }

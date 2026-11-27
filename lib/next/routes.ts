@@ -3,9 +3,9 @@ import { ADMIN_GET_ROUTES } from './admin-routes';
 // Which customer addresses are already served by Next.js pages (app/(shop)). proxy.ts runs the security gate for these;
 // the customer forms have Next.js routes of their own (formRouteFor, lib/shopx.tsx); every other address still goes to
 // the original code (lib/site.ts). Grows as pages move; when it covers everything, the original router goes.
-const EXACT = new Set(['/', '/products', '/track', '/blog', '/live', '/cart', '/wishlist', '/compare', '/checkout', '/kits', '/learn', '/app', '/complaint', '/complaint/status', '/gift-card', '/account']);
+const EXACT = new Set(['/', '/products', '/track', '/blog', '/live', '/cart', '/wishlist', '/compare', '/checkout', '/kits', '/learn', '/tools', '/app', '/complaint', '/complaint/status', '/gift-card', '/account']);
 const PATTERNS = [/^\/brand\/[^/]+$/, /^\/c\/[^/]+$/, /^\/p\/[^/]+$/, /^\/blog\/category\/[^/]+$/, /^\/blog\/[^/]+$/, /^\/page\/[^/]+$/,
-  /^\/live\/(cricket|football)$/, /^\/kit\/[^/]+$/, /^\/learn\/[^/]+$/, /^\/lp\/[^/]+$/, /^\/order\/[A-Za-z0-9]+$/, /^\/order\/[A-Za-z0-9]+\/return$/];
+  /^\/live\/(cricket|football)$/, /^\/kit\/[^/]+$/, /^\/learn\/[^/]+$/, /^\/tools\/[^/]+$/, /^\/lp\/[^/]+$/, /^\/order\/[A-Za-z0-9]+$/, /^\/order\/[A-Za-z0-9]+\/return$/];
 
 /** Addresses drawn by lib/shop/router.tsx (home, lists, product pages). */
 export function servesShopRouter(path: string): boolean {
@@ -14,7 +14,7 @@ export function servesShopRouter(path: string): boolean {
 
 /** Addresses drawn by lib/shop/more.tsx (live scores, cart, wishlist, compare, checkout, kits, app download, order pages). */
 export function servesMore(path: string): boolean {
-  return ['/live', '/cart', '/wishlist', '/compare', '/checkout', '/kits', '/learn', '/app'].includes(path) || /^\/live\/(cricket|football)$/.test(path) || /^\/kit\/[^/]+$/.test(path) || /^\/learn\/[^/]+$/.test(path) || /^\/lp\/[^/]+$/.test(path) || /^\/order\/[A-Za-z0-9]+$/.test(path);
+  return ['/live', '/cart', '/wishlist', '/compare', '/checkout', '/kits', '/learn', '/tools', '/app'].includes(path) || /^\/tools\/[^/]+$/.test(path) || /^\/live\/(cricket|football)$/.test(path) || /^\/kit\/[^/]+$/.test(path) || /^\/learn\/[^/]+$/.test(path) || /^\/lp\/[^/]+$/.test(path) || /^\/order\/[A-Za-z0-9]+$/.test(path);
 }
 
 /** Addresses drawn by lib/shop/forms.tsx (my account, complaint, complaint status, return request, gift card — opening them). */
