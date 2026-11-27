@@ -199,7 +199,10 @@ async function pathaoList(s: Settings, kind: string, parentId?: Id): Promise<Cou
   type Place = { city_id?: number; zone_id?: number; area_id?: number; store_id?: number; city_name?: string; zone_name?: string; area_name?: string; store_name?: string };
   return {
     ok: true,
-    rows: (rows as Place[]).map((x) => ({ id: (x.city_id || x.zone_id || x.area_id || x.store_id)!, name: (x.city_name || x.zone_name || x.area_name || x.store_name)! })),
+    // a store also carries its city_id / zone_id — for the store list the store's own id and name come first
+    rows: (rows as Place[]).map((x) => kind === 'stores'
+      ? { id: (x.store_id || 0) as number, name: String(x.store_name || '') }
+      : { id: (x.city_id || x.zone_id || x.area_id || x.store_id)!, name: (x.city_name || x.zone_name || x.area_name || x.store_name)! }),
   };
 }
 // Delivery success rate of a phone number across Pathao merchants.
