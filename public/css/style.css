@@ -1529,3 +1529,16 @@ body.shop.glass :is(input:not([type=radio]):not([type=checkbox]):not([type=file]
 .tool-table td.pins { font-family: ui-monospace, Consolas, monospace; font-weight: 700; color: var(--blue); }
 .tool-others ul { list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
 .tool-others a { display: inline-block; border: 1px solid var(--line); border-radius: 16px; padding: 4px 10px; font-size: .9rem; text-decoration: none; }
+/* 🧮/🎓 boxes fit their own cell — never wider than the column, never on top of the next one (owner, 2026-11-28) */
+.calc { max-width: 760px; }
+.calc-grid { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px 12px; align-items: end; }
+.calc-field { min-width: 0; }
+.calc-field input, .calc-field select, .rc-pick select, .learn-ask textarea, .learn-cert-form input { width: 100%; max-width: 100%; box-sizing: border-box; min-width: 0; height: 40px; padding: 6px 10px; border: 1px solid #c9d2e0; border-radius: 8px; font: inherit; font-size: .98rem; background: #fff; color: var(--ink); }
+.learn-ask textarea { height: auto; min-height: 64px; }
+.calc-field input:focus, .calc-field select:focus, .rc-pick select:focus, .learn-ask textarea:focus, .learn-cert-form input:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px rgba(8,102,214,.12); }
+.calc-field span { font-size: .85rem; line-height: 1.3; }
+.rc-selects { grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); max-width: 640px; }
+.rc-pick { min-width: 0; }
+.calc-out { max-width: 760px; box-sizing: border-box; }
+.calc .btn-sm { justify-self: start; }
+@media (max-width: 560px) { .calc-grid { grid-template-columns: 1fr 1fr; } .rc-selects { grid-template-columns: 1fr 1fr; } }
