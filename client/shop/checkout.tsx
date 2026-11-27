@@ -5,7 +5,7 @@ import { $, $all, bn, cleanPhone, getJson, hit, money, phoneOk, postJson, random
 import type { GiftcardAnswer, OrderAnswer, OtpAnswer, ResumeAnswer } from '../api-types.js';
 import { minNote, minShort, readCart, rule, saveCartQuietly, toPacks, writeCart } from './cart.js';
 import { PackChoice, Thumb, VariantChoice, freeBase, giftRows, giftTotal, loadCart, swapInCart, variantTarget, type Gift, type Line } from './cartpage.js';
-import { fillGeo } from './geo.js';
+import { areaSearch, fillGeo } from './geo.js';
 import { VA, track } from './track.js';
 
 void Fragment;
@@ -79,6 +79,7 @@ function runCheckout(checkout: HTMLElement): void {
   void fillGeo(form).then((g) => {
     if (!g) return;
     locationButton(form, g);
+    void areaSearch(form, g);
     try {
       // logged-in customers already have their saved address filled in by the page
       const saved = form.hasAttribute('data-account') ? null : readJson<Record<string, string> | null>('sm_customer', null);

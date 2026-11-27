@@ -77,6 +77,7 @@ const GROUPS: UiGroup[] = [
       text: { key: 'uit_recent', label: 'শিরোনাম', def: '🕘 সম্প্রতি দেখেছেন', max: 40 } },
   ] },
   { id: 'cart', title: '🛒 কার্ট ও চেকআউট', items: [
+    { key: 'ui_co_area', label: '🔎 Smart area search', desc: 'At checkout: the customer types a thana, area or bazar (Bangla or English, e.g. মধ্য বাড্ডা, Mirpur 10) and the district and thana fill in by themselves.' },
     { key: 'ui_cart_suggest', label: '"এগুলোও লাগতে পারে"', desc: 'কার্টের নিচে ক্রস-সেল পণ্যের সাজেশন।',
       text: { key: 'uit_cart_suggest', label: 'শিরোনাম', def: '🔗 এগুলোও লাগতে পারে', max: 50 } },
     { key: 'ui_cart_free_msg', label: 'ফ্রি ডেলিভারির বার্তা', desc: '"আরও ৳১৫০ কিনলে ডেলিভারি ফ্রি" (সেটিংসে ফ্রি ডেলিভারির টাকা দেওয়া থাকলে)।' },

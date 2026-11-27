@@ -407,8 +407,11 @@ async function overview(from: string, to: string) {
     q<{ browser: string; n: number }>(`SELECT browser, count(*)::int AS n FROM visit_sessions WHERE ${RANGE('started_at')} GROUP BY 1 ORDER BY n DESC LIMIT 10`, r),
     q<{ os: string; n: number }>(`SELECT os, count(*)::int AS n FROM visit_sessions WHERE ${RANGE('started_at')} GROUP BY 1 ORDER BY n DESC LIMIT 10`, r),
     q<{ ref_host: string; n: number }>(`SELECT ref_host, count(*)::int AS n FROM visit_sessions WHERE ${RANGE('started_at')} AND ref_host <> '' GROUP BY 1 ORDER BY n DESC LIMIT 10`, r),
-    q<{ campaign: string; source: string; n: number; orders: number }>(`SELECT campaign, source, count(*)::int AS n, count(*) FILTER (WHERE order_code <> '')::int AS orders FROM visit_sessions
-       WHERE ${RANGE('started_at')} AND campaign <> '' GROUP BY 1,2 ORDER BY n DESC LIMIT 10`, r),
+    // 📣 per campaign: visits, orders, and (owner, 2026-11-27) how many of those orders were really delivered
+    q<{ campaign: string; source: string; n: number; orders: number; delivered: number }>(`SELECT vs.campaign, vs.source, count(*)::int AS n,
+       count(*) FILTER (WHERE vs.order_code <> '')::int AS orders, count(o.id) FILTER (WHERE o.status = 'delivered')::int AS delivered
+       FROM visit_sessions vs LEFT JOIN orders o ON vs.order_code <> '' AND o.code = vs.order_code
+       WHERE ${RANGE('vs.started_at')} AND vs.campaign <> '' GROUP BY 1,2 ORDER BY n DESC LIMIT 10`, r),
     one<Record<'all_sessions' | 'viewed' | 'carted' | 'checkout' | 'ordered', number>>(`SELECT count(*)::int AS all_sessions,
        count(*) FILTER (WHERE EXISTS (SELECT 1 FROM page_views pv WHERE pv.session_id = s.id AND pv.product_id IS NOT NULL))::int AS viewed,
        count(*) FILTER (WHERE EXISTS (SELECT 1 FROM visit_events e WHERE e.session_id = s.id AND e.event = 'add_to_cart'))::int AS carted,

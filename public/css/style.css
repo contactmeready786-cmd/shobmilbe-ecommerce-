@@ -1433,3 +1433,11 @@ body.shop.glass :is(input:not([type=radio]):not([type=checkbox]):not([type=file]
 .parcel-trail li.now::before { background: var(--green); box-shadow: 0 0 0 3px var(--green-l); }
 .parcel-trail li:last-child { padding-bottom: 0; }
 .parcel-trail time { display: block; font-size: .74rem; font-weight: 400; color: var(--muted); }
+
+/* 🔎 smart area search at checkout (client/shop/geo.tsx areaSearch) */
+.area-find { position: relative; }
+.area-find input { width: 100%; }
+.area-hits { position: absolute; left: 0; right: 0; z-index: 30; margin-top: 4px; background: var(--white); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 8px 24px rgba(20, 33, 61, .12); max-height: 280px; overflow-y: auto; }
+.area-hit { display: block; width: 100%; text-align: left; padding: 10px 12px; font: inherit; background: none; border: 0; border-bottom: 1px solid var(--line); cursor: pointer; color: inherit; }
+.area-hit:last-child { border-bottom: 0; }
+.area-hit:hover, .area-hit:focus { background: var(--paper); outline: none; }

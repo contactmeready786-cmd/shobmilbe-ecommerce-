@@ -18,6 +18,7 @@ import * as $services_mailer from '../services/mailer';
 import * as $services_autocall from '../services/autocall';
 import * as $services_fraud from '../services/fraud';
 import * as $services_stockalert from '../services/stockalert';
+import * as $orderrules from '../services/orderrules';
 import * as $appdev from '../services/appdevices';
 import * as $models_accounts from '../models/accounts';
 import * as $models_checkoutotp from '../models/checkoutotp';
@@ -168,12 +169,22 @@ export async function placeOrder(ctx: ApiCtx) {
       // 🛡️ fraud check of the number (Admin → ফ্রড চেক): a note on risky orders, "হোল্ড" if chosen, a phone alert
       settings.fraud_auto === '1' ? Promise.race([(async () => {
         const r = await $services_fraud.check(settings, phone);
-        if (!r.ok || r.level !== 'high') return;
+        if (!r.ok) return;
+        // risky = the fraud check's own "high", or (owner's rule) a known record below the chosen success rate
+        const minRate = $orderrules.limits(settings).minRate;
+        const lowRate = minRate > 0 && r.rate !== null && r.total >= 3 && r.rate < minRate;
+        if (r.level !== 'high' && !lowRate) return;
         await db.q(`UPDATE orders SET admin_note = left(trim(admin_note || E'\n' || $1), 1000) WHERE id=$2`, [`⛔ ফ্রড চেক: ঝুঁকিপূর্ণ নম্বর — সফল ${r.rate === null ? '?' : r.rate}% (${r.success}/${r.total})। ${r.advice}`, order.id]);
         if (settings.fraud_hold === '1') await O.setStatus(order.id, 'hold', null).catch(() => {});
         const push = $services_push;
         if (await push.count()) await push.sendAll({ title: '⛔ ঝুঁকিপূর্ণ অর্ডার', body: `${order.code} — ${name}: সফল ${r.rate === null ? '?' : r.rate}%`, url: `/admin/orders/${order.id}`, tag: 'fraud' }).catch(() => {});
       })(), new Promise((r) => setTimeout(r, 5000))]).catch(() => {}) : null,
+      // 🛡️ order rules (Admin → Fraud check → Order rules): too many orders from one phone / IP, too many pieces → Hold
+      Promise.race([(async () => {
+        const pieces = (Array.isArray(body.items) ? body.items.slice(0, 50) : []).reduce((t: number, it: unknown) => t + Math.max(0, int((it as { qty?: unknown } | null)?.qty, 0)), 0);
+        const hits = await $orderrules.applyTo(settings, { orderId: order.id, phone, ip, pieces }, (id) => O.setStatus(id, 'hold', null));
+        if (hits.length && await $services_push.count()) await $services_push.sendAll({ title: '⛔ Order on hold', body: `${order.code} — ${name}: ${hits[0]}`, url: `/admin/orders/${order.id}`, tag: 'rules' }).catch(() => {});
+      })(), new Promise((r) => setTimeout(r, 3000))]).catch(() => {}),
       // products this order made run low → one short message to the owner (once a day per product)
       $services_stockalert.check(settings, (order.lines || []).flatMap((l) => (l.components && l.components.length ? l.components.map((c) => c.product_id) : [l.product_id])))
         .catch(() => {}),
