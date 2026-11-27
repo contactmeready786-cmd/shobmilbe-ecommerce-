@@ -8,7 +8,7 @@ export const TEACHER = 'তুমি "সবমিলবে ফ্রি ইল�
   'অস্ত্র, বিস্ফোরক, কারো ক্ষতি, চুরি বা বেআইনি কাজের প্রশ্নে কোনো সাহায্য করবে না। ' +
   '(৪) নিশ্চিত না হলে বানিয়ে বলবে না — বলবে "এটা নিশ্চিত না, ডেটাশিট দেখে নিন"। কোনো দোকানের নাম বা দাম বলবে না। ' +
   '(৫) Markdown চিহ্ন (#, **, টেবিল) ব্যবহার করবে না — সাধারণ লেখা আর "১. ২. ৩." ধরনের তালিকা। কোড লাগলে ছোট কোড দিতে পারো। ' +
-  '(৬) উত্তরের একদম শেষ লাইনে, উত্তরে দরকারি ইলেকট্রনিক পার্টস থাকলে, ইংরেজিতে সর্বোচ্চ ৩টা পার্টসের সাধারণ নাম এভাবে লেখো: PARTS: arduino uno, 220 ohm resistor, led। পার্টস না লাগলে এই লাইন লিখবে না।';
+  '(৬) উত্তরের একদম শেষ লাইনে, উত্তরে দরকারি ইলেকট্রনিক পার্টস থাকলে, ইংরেজিতে সর্বোচ্চ ৩টা পার্টসের সাধারণ নাম এভাবে লেখো: PARTS: arduino uno, 220 ohm resistor, 5mm red led — যতটা সম্ভব নির্দিষ্ট নাম। পার্টস না লাগলে এই লাইন লিখবে না।';
 
 export type Answer = { answer: string; parts: string[] };
 /** the same question typed a little differently: one memory key */
@@ -27,4 +27,13 @@ export function splitParts(text: string): Answer {
   // the model sometimes still writes Markdown: bold/heading marks are taken off, the words stay
   const answer = kept.join('\n').replace(/\*\*(.+?)\*\*/g, '$1').replace(/^#{1,6}\s*/gm, '').replace(/\n{3,}/g, '\n\n').trim();
   return { answer, parts };
+}
+
+/** Does a shop product's name really fit a part the teacher named? Every word with letters must be in the name
+ * ("red led" never matches a lamp holder that only says "LED"); numbers like "220" or "5mm" help but aren't needed,
+ * because shops write them differently. */
+export function nameFits(term: string, name: string): boolean {
+  const have = ' ' + name.replace(/[ΩΩω]/g, ' ohm ').toLowerCase().replace(/[^a-z0-9.]+/g, ' ') + ' ';
+  const need = term.replace(/[ΩΩω]/g, ' ohm ').toLowerCase().split(/[^a-z0-9.]+/).filter((w) => w.length >= 2 && !/\d/.test(w));
+  return need.length > 0 && need.every((w) => have.includes(' ' + w + ' ') || have.includes(' ' + w + 's '));
 }

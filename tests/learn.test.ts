@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { lessons, lesson, around, tutorOn } from '../lib/data/lessons';
-import { splitParts, norm } from '../lib/services/tutor';
+import { splitParts, norm, nameFits } from '../lib/services/tutor';
 
 test('every lesson is complete, numbered in order, with a quiz whose answers exist', () => {
   const list = lessons();
@@ -48,4 +48,14 @@ test("the teacher's PARTS line becomes part names, Markdown marks go", () => {
   assert.ok(r.answer.startsWith('উত্তর: ২২০ ওহম'));
   assert.deepEqual(splitParts('শুধু উত্তর').parts, []);
   assert.equal(norm('LED কী?  '), norm('led কী'));
+});
+
+test('a product only fits a named part when every word of it is in the name', () => {
+  assert.equal(nameFits('5mm red led', 'LED 5mm Red Diffused (1 pc)'), true);
+  assert.equal(nameFits('5mm red led', 'PIR Infrared Motion Sensor LED Light Lamp Holder'), false);
+  assert.equal(nameFits('220 ohm resistor', '220Ω Resistor 1/4W Carbon Film'), true);
+  assert.equal(nameFits('arduino uno', 'Arduino Uno R3 (CH340)'), true);
+  assert.equal(nameFits('arduino uno', 'Arduino Nano V3'), false);
+  assert.equal(nameFits('jumper wire', 'Jumper Wires 20cm Male to Male'), true);
+  assert.equal(nameFits('220', 'anything 220'), false);
 });

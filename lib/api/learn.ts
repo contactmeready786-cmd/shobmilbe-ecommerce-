@@ -13,7 +13,7 @@ import { gemini } from '../services/aistaff';
 import { lesson, tutorOn } from '../data/lessons';
 import { str } from '../util';
 import { json, allow, tooMany } from '../next/api';
-import { TEACHER, splitParts, norm, type Answer } from '../services/tutor';
+import { TEACHER, splitParts, norm, nameFits, type Answer } from '../services/tutor';
 import type { ApiCtx } from '../next/api';
 
 const memory = new Map<string, Answer>();
@@ -41,12 +41,15 @@ export async function ask(ctx: ApiCtx): Promise<Response> {
     if (memory.size >= 200) memory.delete(memory.keys().next().value as string);
     memory.set(key, a);
   }
-  // the parts the teacher named, from the shop's own shelves (only what is on sale)
-  const ids: number[] = [];
+  // the parts the teacher named, from the shop's own shelves (only what is on sale, and only names that really fit)
+  const picked: catalog.Product[] = [];
   for (const term of a.parts) {
-    const found = ((await $services_search.find(term, { limit: 3 }).catch(() => [])) || []) as number[];
-    for (const id of found) if (!ids.includes(id) && ids.length < 4) ids.push(id);
+    const found = ((await $services_search.find(term, { limit: 12 }).catch(() => [])) || []) as number[];
+    if (!found.length) continue;
+    const rows = await catalog.listProducts({ public: true, ids: found, hideOut: true, limit: 12 }).catch(() => [] as catalog.Product[]);
+    const fit = rows.find((p) => nameFits(term, p.name) && !picked.some((x) => x.id === p.id));
+    if (fit) picked.push(fit);
   }
-  const rows = ids.length ? await catalog.listProducts({ public: true, ids, hideOut: true, limit: 4 }).catch(() => []) : [];
+  const rows = picked.slice(0, 3);
   return json(200, { answer: a.answer, products: rows.map((p) => ({ name: p.name, slug: p.slug, price: p.price, image: p.image_id ? `/media/${p.image_id}/t` : null, emoji: p.emoji })) });
 }
