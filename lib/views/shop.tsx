@@ -347,7 +347,7 @@ function fbtBox(main: { id: Id; name: string; price: number; image?: Id | null; 
 // 🧮 a link from a part to the free tool that fits it (resistor → colour code, LED → LED resistor …) — owner 2026-11-28
 function pdpTools(p: { name: string; name_bn?: string | null; category_name?: string | null }, s: Settings) {
   const hints = toolsForProduct(`${p.name} ${p.name_bn || ''} ${p.category_name || ''}`, toolsOn(s).map((t) => t.key));
-  return hints.length ? <p className="pdp-toolhint">🧮 কাজে লাগবে:{' '}{jsxList(hints.map((h, i) => <>{(i ? ' · ' : null)}<a href={`/tools/${attrValue(h.key)}`}>{h.label}{' '}→</a></>))}</p> : null;
+  return hints.length ? <p className="pdp-toolhint">🧮 কাজে লাগবে:{' '}{jsxList(hints.map((h, i) => <>{(i ? ' · ' : null)}<a href={`/tools/${attrValue(h.key)}`}>{h.label}{'\u00a0→'}</a></>))}</p> : null;
 }
 function productPage({ product: p, related, settings: s, inlineProducts = {}, categories = [], tiers = [], offers = [], reviews = [], reviewStats = { count: 0 }, cross = [], upsell = [], questions = [], selectedVariant = 0, kits = [], mainSrc = null, fbt = [] }: ProductPageProps) {
   const specs = U.on(s, 'ui_pdp_specs') ? (Array.isArray(p.specs) ? p.specs : []).filter((r: unknown) => Array.isArray(r) && r[0] && r[1]) : [];
