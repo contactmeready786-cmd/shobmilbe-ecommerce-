@@ -32,13 +32,14 @@ function ago(d: Date) {
 async function page(ctx: AdminCtx) {
   const s = ctx.settings;
   if (ctx.method === 'POST') {
-    const b = await ctx.body<'action' | 'id' | 'title' | 'body' | 'url' | 'app_notify_on' | 'app_review_ask'>();
-    if (b.action === 'pill_notify' || b.action === 'pill_review') {
+    const b = await ctx.body<'action' | 'id' | 'title' | 'body' | 'url' | 'app_notify_on' | 'app_review_ask' | 'app_flow_second' | 'app_flow_reorder'>();
+    if (b.action === 'pill_notify' || b.action === 'pill_review' || b.action === 'pill_second' || b.action === 'pill_reorder') {
       if (!ctx.can('settings')) return ctx.back(BASE, 'noperm');
-      const key = b.action === 'pill_notify' ? 'app_notify_on' : 'app_review_ask';
-      const on = !!b[key as 'app_notify_on' | 'app_review_ask'];
+      const KEYS: Record<string, 'app_notify_on' | 'app_review_ask' | 'app_flow_second' | 'app_flow_reorder'> = { pill_notify: 'app_notify_on', pill_review: 'app_review_ask', pill_second: 'app_flow_second', pill_reorder: 'app_flow_reorder' };
+      const key = KEYS[String(b.action)];
+      const on = !!b[key];
       await db.setMany({ [key]: on ? '1' : '0' });
-      await ctx.log('update', 'settings', null, `${key === 'app_notify_on' ? 'App order notifications' : 'App review requests'}: ${on ? 'on' : 'off'}`);
+      await ctx.log('update', 'settings', null, `${({ app_notify_on: 'App order notifications', app_review_ask: 'App review requests', app_flow_second: 'App second-purchase nudge', app_flow_reorder: 'App "need it again?" reminder' })[key]}: ${on ? 'on' : 'off'}`);
       return ctx.back(BASE, 'saved');
     }
     // 🙋 the owner's own phone: never listed, its app visits never counted (settings.app_owner_devices)
@@ -113,6 +114,8 @@ async function page(ctx: AdminCtx) {
       <div className="row-actions">
         {(canSet ? ui.toolSwitch(BASE, 'app_notify_on', s.app_notify_on !== '0', '🔔 Order notifications', 'Parcel sent / delivered — sent to the phone the order came from (app 1.5+). Free, no SMS.', { action: 'pill_notify' }) : null)}
         {(canSet ? ui.toolSwitch(BASE, 'app_review_ask', s.app_review_ask !== '0', '⭐ Ask for review', 'On delivery a "please review" notification with the one-tap link; one reminder after 3 days if there is no review.', { action: 'pill_review' }) : null)}
+        {(canSet ? ui.toolSwitch(BASE, 'app_flow_second', s.app_flow_second !== '0', '🎁 2nd purchase', 'A first-time buyer gets one friendly "see what\'s new" notification 7–14 days after delivery, if they have not ordered again. Daytime only.', { action: 'pill_second' }) : null)}
+        {(canSet ? ui.toolSwitch(BASE, 'app_flow_reorder', s.app_flow_reorder !== '0', '🔁 Need it again?', 'One reminder 45–60 days after a delivered order when nothing was ordered since. Daytime only.', { action: 'pill_reorder' }) : null)}
         {(mineN ? <span className="tool-pill" style={{ paddingRight: '14px' }}><span className="tool-t">🙋 My phones hidden: {bn(mineN)}</span></span> : null)}
         <a className="btn btn-ghost btn-sm" href={`${BASE}?${qs}`}>🔄 Refresh</a>
       </div></div>

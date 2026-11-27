@@ -550,8 +550,8 @@ async function getOrder({ id, code }: { id?: number | string | null; code?: stri
   return order;
 }
 
-export type OrderFilter = { status?: string; q?: string; from?: string; to?: string; courier?: string; payment?: string; paymentStatus?: string; phone?: string | null; source?: string; limit?: number; offset?: number };
-function orderWhere({ status, q: search, from, to, courier, payment, paymentStatus, phone, source }: OrderFilter, params: unknown[]): string {
+export type OrderFilter = { status?: string; q?: string; from?: string; to?: string; courier?: string; payment?: string; paymentStatus?: string; phone?: string | null; source?: string; assignedTo?: number | null; label?: string; limit?: number; offset?: number };
+function orderWhere({ status, q: search, from, to, courier, payment, paymentStatus, phone, source, assignedTo, label }: OrderFilter, params: unknown[]): string {
   const where: string[] = [];
   if (status) { params.push(status); where.push(`o.status=$${params.length}`); }
   if (search) {
@@ -568,6 +568,8 @@ function orderWhere({ status, q: search, from, to, courier, payment, paymentStat
   if (paymentStatus) { params.push(paymentStatus); where.push(`o.payment_status=$${params.length}`); }
   if (phone) { params.push(normalizePhone(phone)); where.push(`o.phone=$${params.length}`); }
   if (source) { params.push(source); where.push(`o.source=$${params.length}`); }
+  if (assignedTo) { params.push(assignedTo); where.push(`o.assigned_to=$${params.length}`); }
+  if (label) { params.push(label); where.push(`o.label=$${params.length}`); }
   return where.length ? 'WHERE ' + where.join(' AND ') : '';
 }
 export type OrderListed = OrdersRow & { item_count: number | null; item_names: string | null; preorder_qty: number; item_skus: string | null };

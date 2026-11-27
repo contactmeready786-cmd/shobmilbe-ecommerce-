@@ -1473,6 +1473,12 @@ ALTER TABLE orders ADD COLUMN IF NOT EXISTS app_device text NOT NULL DEFAULT '';
 DELETE FROM app_notices WHERE device_id IN ('i:c9da4c4b-16ae-4c88-8ae0-1b7193a14cc4', 'i:cf853349-5dbe-4fb3-b75d-c470828438fd');
 DELETE FROM app_devices WHERE id IN ('i:c9da4c4b-16ae-4c88-8ae0-1b7193a14cc4', 'i:cf853349-5dbe-4fb3-b75d-c470828438fd');
 DELETE FROM app_devices WHERE id LIKE 'v:%' AND orders = 0 AND first_seen > '2026-11-24' AND lower(model) LIKE '%g75%';
+`,  // 👥 owner, 2026-11-27 (ideas from StoreX): an order can be given to one staff member, and carry one label of the
+    // owner's own (e.g. "Call again", "Wholesale") — shown in the list and used as a filter; the status stays as it is
+  `
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS assigned_to int;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS label text NOT NULL DEFAULT '';
+CREATE INDEX IF NOT EXISTS orders_assigned_idx ON orders(assigned_to) WHERE assigned_to IS NOT NULL;
 `,
 ];
 

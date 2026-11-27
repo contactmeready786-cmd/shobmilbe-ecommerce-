@@ -92,6 +92,12 @@ async function applyCourierUpdate(orderRow: CourierOrder, courierName: string, r
     try {
       const s = await O.setStatus(orderRow.id, mapped, null);
       if (s.changed) await db.logActivity(null, 'order_status', 'order', orderRow.id, `${s.prev} → ${mapped} (${courierName} ওয়েবহুক)`);
+      // 🚫 delivery failed (owner, 2026-11-27): tell the owner's phone at once, so the customer can be called before the
+      // parcel travels all the way back
+      if (s.changed && (mapped === 'returned' || mapped === 'cancelled') && s.prev === 'shipped') {
+        const push = await import('../services/push');
+        if (await push.count()) await push.sendAll({ title: '🚫 Delivery failed', body: `${orderRow.code}: ${courierName} says "${String(rawStatus).replace(/[_-]+/g, ' ').slice(0, 60)}". Call the customer.`, url: `/admin/orders/${orderRow.id}`, tag: 'delivery-failed' }).catch(() => {});
+      }
     } catch (e) { await db.logIntegration(courierName, 'webhook', false, (e as Error).message, orderRow.code); }
   }
 }

@@ -158,6 +158,51 @@ export async function reviewReminders(settings: Settings): Promise<number> {
   return n;
 }
 
+// ------------------------------------------------------------ 🔁 free follow-up flows (owner, 2026-11-27, ideas from StoreX)
+// Only to phones with the customer app that allow notifications — free, no SMS. Each order is used at most once per
+// flow (app_notices' unique order_id + kind), never at night (the scheduled job waits for the morning).
+//  • second_buy: a first-time buyer, 7–14 days after the parcel arrived, who has not ordered again
+//  • reorder:    45–60 days after a delivered order with nothing ordered since ("need it again?")
+const FLOW_TEXT: Record<'second_buy' | 'reorder', (code: string) => { title: string; body: string; url: string }> = {
+  second_buy: () => ({ title: '🎁 আবার আসার জন্য ধন্যবাদ', body: 'প্রথম অর্ডারের পণ্যগুলো কেমন চলছে? নতুন আসা পণ্যগুলো একবার দেখে নিন — ক্যাশ অন ডেলিভারি, সারা দেশে।', url: '/products?sort=new' }),
+  reorder: (c) => ({ title: '🔁 আবার দরকার?', body: `অর্ডার ${c}-এর পণ্যগুলো আবার লাগলে এক চাপেই দেখে নিন।`, url: '' }),
+};
+
+export async function followUps(settings: Settings, hour = Number(new Intl.DateTimeFormat('en-GB', { hour: 'numeric', hourCycle: 'h23', timeZone: 'Asia/Dhaka' }).format(new Date()))): Promise<number> {
+  if (settings.app_notify_on === '0') return 0;
+  if (hour < 10 || hour >= 21) return 0; // daytime only (Dhaka)
+  let n = 0;
+  const run = async (kind: 'second_buy' | 'reorder', sql: string) => {
+    const rows = await db.q<{ id: number; code: string; phone: string; app_device: string }>(sql);
+    for (const o of rows) {
+      const t = FLOW_TEXT[kind](o.code);
+      const url = t.url || reviewPath(o.code, settings.session_secret);
+      for (const dev of await phonesFor(o)) {
+        const r = await db.one(`INSERT INTO app_notices(device_id, kind, title, body, url, order_id) VALUES($1,$2,$3,$4,$5,$6)
+          ON CONFLICT (device_id, kind, order_id) WHERE order_id IS NOT NULL DO NOTHING RETURNING id`, [dev, kind, t.title, t.body, url, o.id]);
+        if (r) n++;
+      }
+    }
+  };
+  const hasApp = `EXISTS (SELECT 1 FROM app_devices d WHERE d.can_notify AND (d.id = o.app_device OR (d.phone <> '' AND d.phone = o.phone)))`;
+  const notYet = (kind: string) => `NOT EXISTS (SELECT 1 FROM app_notices n WHERE n.order_id=o.id AND n.kind='${kind}')`;
+  const noNewer = `NOT EXISTS (SELECT 1 FROM orders o2 WHERE o2.phone = o.phone AND o2.id <> o.id AND o2.created_at > o.created_at)`;
+  if (settings.app_flow_second !== '0') {
+    await run('second_buy', `SELECT o.id, o.code, o.phone, o.app_device FROM orders o
+      WHERE o.status='delivered' AND o.source <> 'pos' AND o.delivered_at BETWEEN now() - interval '14 days' AND now() - interval '7 days'
+        AND (SELECT count(*) FROM orders o3 WHERE o3.phone = o.phone AND o3.status = 'delivered') = 1
+        AND ${noNewer} AND ${hasApp} AND ${notYet('second_buy')}
+      ORDER BY o.delivered_at LIMIT 30`);
+  }
+  if (settings.app_flow_reorder !== '0') {
+    await run('reorder', `SELECT o.id, o.code, o.phone, o.app_device FROM orders o
+      WHERE o.status='delivered' AND o.source <> 'pos' AND o.delivered_at BETWEEN now() - interval '60 days' AND now() - interval '45 days'
+        AND ${noNewer} AND ${hasApp} AND ${notYet('reorder')}
+      ORDER BY o.delivered_at LIMIT 30`);
+  }
+  return n;
+}
+
 /** A message the owner writes for one phone (Admin → App users). */
 export async function sendOne(id: string, msg: { title: string; body: string; url: string }, staffId: number | null): Promise<boolean> {
   const d = await db.one<{ can_notify: boolean }>('SELECT can_notify FROM app_devices WHERE id=$1', [id]);

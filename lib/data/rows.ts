@@ -919,6 +919,8 @@ export type OrdersRow = {
   geo_acc: number | null;
   courier_checked_at: Date | null;
   app_device: string;
+  assigned_to: number | null;
+  label: string;
 };
 
 /** A row of owner_faces. */
