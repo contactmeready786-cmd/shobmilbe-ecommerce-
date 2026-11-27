@@ -221,6 +221,10 @@ export async function resolveShop(ctx: ShopCtx): Promise<Resolved> {
       const gone = await db.one<{ slug: string }>(`SELECT c.slug FROM trash t JOIN categories c ON c.id = (t.data->'row'->>'category_id')::int
         WHERE t.kind='product' AND t.data->'row'->>'slug'=$1 AND coalesce(c.active, true) ORDER BY t.id DESC LIMIT 1`, [m[1]]).catch(() => null);
       if (gone) return { kind: 'redirect', status: 301, location: encodeURI(catHref(gone.slug)), headers: { 'Cache-Control': 'public, max-age=3600' } };
+      // gone for good: a search for its words (like an old-shop link, lib/site.ts oldProductLink) — the visitor still
+      // finds the part; search pages are noindex, so Google simply drops the old address
+      const words = (() => { try { return decodeURIComponent(m![1]); } catch { return m![1]; } })().split('-').filter((w) => w.length > 1 && !/^\d+$/.test(w)).slice(0, 5).join(' ');
+      if (words.split(' ').length >= 2) return { kind: 'redirect', status: 302, location: `/products?q=${encodeURIComponent(words)}`, headers: { 'Cache-Control': 'public, max-age=3600' } };
     }
     if (!product || !product.active) return NOT_FOUND;
     // a variant's own link opens its main product with that variant chosen
