@@ -21,9 +21,10 @@ const EVENT_LABELS: Record<string, [string, string]> = {
 // ---------------------------------------------------------------- small helpers
 function dur(sec?: unknown) {
   const s = Math.max(0, Math.round(Number(sec) || 0));
-  if (s < 60) return bn(s) + ' সে';
-  if (s < 3600) return bn(Math.floor(s / 60)) + ' মি' + (s % 60 ? ' ' + bn(s % 60) + ' সে' : '');
-  return bn(Math.floor(s / 3600)) + ' ঘ ' + bn(Math.floor((s % 3600) / 60)) + ' মি';
+  // English short forms (admin is English only): "10s", "18m 19s", "1h 5m"
+  if (s < 60) return `${s}s`;
+  if (s < 3600) return `${Math.floor(s / 60)}m` + (s % 60 ? ` ${s % 60}s` : '');
+  return `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m`;
 }
 function ago(d: string | number | Date) {
   const s = Math.max(0, Math.round((Date.now() - new Date(d).getTime()) / 1000));
