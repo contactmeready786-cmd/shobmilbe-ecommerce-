@@ -95,12 +95,13 @@ function stepList(k: db.pg.DbRow) { return String((k && k.steps) || '').split('\
 
 // ================================================================ 📚 ready-made guides (lib/data/guides.js)
 // Finds the shop's product for one part of a guide: the name must contain one of the words, none of the "not"
-// words; switched on, a single product (no bundle / options). In stock and best-selling first; earlier words win.
+// words; switched on, a single product (no bundle / options — one option of a product, e.g. the 220Ω of a resistor,
+// is fine: owner 2026-11-27). In stock and best-selling first; earlier words win.
 async function matchPart(part: GuidePart) {
   const like = part.find.map((w) => '%' + String(w).replace(/[%_\\]/g, '') + '%');
   const notLike = (part.not || []).map((w) => '%' + String(w).replace(/[%_\\]/g, '') + '%');
   const rows = await db.q<Pick<ProductsRow, 'id' | 'name' | 'price' | 'stock'>>(`SELECT p.id, p.name, p.price, p.stock FROM products p
-    WHERE p.active AND p.parent_id IS NULL AND coalesce(p.product_type,'single') <> 'bundle' AND coalesce(p.variant_count,0) = 0
+    WHERE p.active AND coalesce(p.product_type,'single') <> 'bundle' AND coalesce(p.variant_count,0) = 0
       AND p.name ILIKE ANY($1::text[]) AND NOT (p.name ILIKE ANY($2::text[]))
     ORDER BY (p.stock > 0) DESC, coalesce(p.sold_count,0) DESC, p.id DESC LIMIT 40`, [like, notLike.length ? notLike : ['']]);
   return $data_guides.bestFor(part, rows);
