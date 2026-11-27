@@ -132,6 +132,14 @@ export async function resolveShop(ctx: ShopCtx): Promise<Resolved> {
     return done('', shop.home({ settings, sections, data }), { canonical: '/', jsonLd, jsonLdExtra: websiteLd, description: seo.homeDescription(settings) });
   }
   if (path === '/products' || /^\/brand\/[^/]+$/.test(path) || /^\/c\/[^/]+$/.test(path)) {
+    // 🗂️ the old category address /products?cat=<slug> → /c/<slug> (owner, 2026-11-27), keeping sort / filters / page
+    if (path === '/products' && query.get('cat')) {
+      const rest = new URLSearchParams(query);
+      const cat = String(rest.get('cat'));
+      rest.delete('cat');
+      const qs = rest.toString();
+      return { kind: 'redirect', status: 301, location: `${catHref(cat)}${qs ? '?' + qs : ''}`, headers: { 'Cache-Control': 'public, max-age=3600' } };
+    }
     const q = str(query.get('q'), 80);
     const sortAsked = query.get('sort') || '';
     const sort = ['new', 'popular', 'offer', 'price_asc', 'price_desc'].includes(sortAsked) ? sortAsked : '';

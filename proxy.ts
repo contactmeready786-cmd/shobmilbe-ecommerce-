@@ -27,13 +27,7 @@ export async function proxy(request: NextRequest) {
   // 🗂️ categories have their own clean address now (owner, 2026-11-27): /products?cat=ac-remote → /c/ac-remote,
   // keeping sort / filters / page. Permanent (301), so Google moves the old address's standing to the new one.
   const oldCat = path === '/products' && (request.method === 'GET' || request.method === 'HEAD') ? url.searchParams.get('cat') : null;
-  if (oldCat && /^[^/?#]{1,120}$/.test(oldCat)) {
-    const rest = new URLSearchParams(url.searchParams);
-    rest.delete('cat');
-    const qs = rest.toString();
-    // a relative Location: behind nginx the server's own origin is localhost, never the shop's address
-    return new NextResponse(null, { status: 301, headers: { Location: `/c/${encodeURIComponent(oldCat)}${qs ? '?' + qs : ''}`, 'Cache-Control': 'public, max-age=3600' } });
-  }
+  if (oldCat) return NextResponse.rewrite(new URL('/api/site' + url.pathname + url.search, request.nextUrl.origin), { request: { headers } });
 
   if (!servedByNext(path, url.searchParams, request.method)) {
     // an address a Next.js page also has, but the page doesn't draw this request (/track?code=…&phone=…, or a form
