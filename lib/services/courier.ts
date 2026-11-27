@@ -367,7 +367,10 @@ async function test(courier: string, settings: Settings): Promise<{ ok: boolean;
       return a.ok ? { ok: true, message: `সংযোগ ঠিক আছে। ঢাকায় ${a.rows.length}টি এরিয়া পাওয়া গেছে।` } : a;
     }
   } catch (e) {
-    return { ok: false, message: (e as Error).message };
+    // Pathao login failed: say which e-mail was used and how long the saved password is (never the password itself),
+    // so a wrong e-mail, a browser-filled password or a stray space can be spotted
+    const extra = courier === 'pathao' ? ` (e-mail used: ${String(settings.pathao_username || '—')}; saved password: ${String(settings.pathao_password || '').length} characters${/\s/.test(String(settings.pathao_password || '')) ? ', has a space' : ''})` : '';
+    return { ok: false, message: (e as Error).message + extra };
   }
   return { ok: false, message: 'অজানা কুরিয়ার।' };
 }

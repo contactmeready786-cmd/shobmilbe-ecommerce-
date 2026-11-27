@@ -28,7 +28,8 @@ async function saveKeys(ctx: AdminCtx, keys: string[], body: Body, { secrets = [
   }
   await ctx.reloadSettings();
 }
-const secretInput = (name: string, value: string | undefined, attrs = {}) => ui.input(name, value ? '••••••••' : '', { type: 'password', autocomplete: 'off', placeholder: value ? 'সেভ করা আছে (বদলাতে নতুন দিন)' : '', ...attrs });
+// autocomplete=new-password: Chrome must never fill the admin's own saved login into a courier / API key box
+const secretInput = (name: string, value: string | undefined, attrs = {}) => ui.input(name, value ? '••••••••' : '', { type: 'password', autocomplete: 'new-password', 'data-lpignore': 'true', placeholder: value ? 'সেভ করা আছে (বদলাতে নতুন দিন)' : '', ...attrs });
 
 // ---------------------------------------------------------------- tracking
 const ID_RULES = {
