@@ -23,6 +23,7 @@ test('a lost model, an invented number or another product is stopped', () => {
   assert.equal(checkTitle('A Class CD4049BE Hex Buffer IC', 'A Class CD4049BE Hex Buffer IC Best Quality').ok, false); // filler
   assert.equal(checkTitle('CD4028BE BCD To Decimal Dec-oders IC', 'CD4028BE BCD To Decimal Dec-oders IC').ok, false); // broken word left
   assert.equal(checkTitle('NE555 Timer IC', 'NE555').ok, false); // too short
+  assert.equal(checkTitle('Card Reader Mini SD For USB Devices MP3 MP5 Player', 'Mini SD Card Reader USB 5.0').ok, false); // 5.0 invented
 });
 
 test('allowed hyphens are not broken words', () => {

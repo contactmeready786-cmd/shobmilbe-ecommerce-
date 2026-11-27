@@ -33,7 +33,8 @@ export function partCodes(name: string): string[] {
 /** every number written in a text (digits only, Bangla digits read too) */
 export function numbersIn(text: string): Set<string> {
   const t = String(text || '').replace(/[০-৯]/g, (d) => String('০১২৩৪৫৬৭৮৯'.indexOf(d)));
-  return new Set((t.match(/\d+(?:\.\d+)?/g) || []).map((n) => n.replace(/^0+(?=\d)/, '').replace(/\.0+$/, '')));
+  // exactly as written: "5.0" is not "5" (an AI once wrote "USB 5.0" from "MP5" — there is no USB 5.0)
+  return new Set((t.match(/\d+(?:\.\d+)?/g) || []).map((n) => n.replace(/^0+(?=\d)/, '')));
 }
 
 const FILLER = /\b(price in (bd|bangladesh)|best quality|a class|medium class|electrical circuitry|buy now|free shipping|original product)\b/i;
