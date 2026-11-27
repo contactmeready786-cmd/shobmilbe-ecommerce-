@@ -57,5 +57,8 @@ test('a product only fits a named part when every word of it is in the name', ()
   assert.equal(nameFits('arduino uno', 'Arduino Uno R3 (CH340)'), true);
   assert.equal(nameFits('arduino uno', 'Arduino Nano V3'), false);
   assert.equal(nameFits('jumper wire', 'Jumper Wires 20cm Male to Male'), true);
+  assert.equal(nameFits('jumper wire', '140pcs U Shape Breadboard Jumper Wire Cable Kit Box for DIY Shield'), true);
   assert.equal(nameFits('220', 'anything 220'), false);
+  assert.equal(nameFits('arduino uno', 'Arduino Uno R3 Case Protective Shell Enclosure'), false);
+  assert.equal(nameFits('18650 battery holder', '18650 Battery Holder 1 Cell'), true);
 });

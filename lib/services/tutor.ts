@@ -32,8 +32,11 @@ export function splitParts(text: string): Answer {
 /** Does a shop product's name really fit a part the teacher named? Every word with letters must be in the name
  * ("red led" never matches a lamp holder that only says "LED"); numbers like "220" or "5mm" help but aren't needed,
  * because shops write them differently. */
+const ACCESSORY = ['case', 'shell', 'enclosure', 'cover', 'holder', 'bracket', 'mount', 'stand'];
 export function nameFits(term: string, name: string): boolean {
   const have = ' ' + name.replace(/[ΩΩω]/g, ' ohm ').toLowerCase().replace(/[^a-z0-9.]+/g, ' ') + ' ';
   const need = term.replace(/[ΩΩω]/g, ' ohm ').toLowerCase().split(/[^a-z0-9.]+/).filter((w) => w.length >= 2 && !/\d/.test(w));
-  return need.length > 0 && need.every((w) => have.includes(' ' + w + ' ') || have.includes(' ' + w + 's '));
+  if (!need.length || !need.every((w) => have.includes(' ' + w + ' ') || have.includes(' ' + w + 's '))) return false;
+  // a case, cover or holder FOR the part is not the part itself (unless the teacher named one)
+  return !ACCESSORY.some((w) => have.includes(' ' + w + ' ') && !need.includes(w));
 }
