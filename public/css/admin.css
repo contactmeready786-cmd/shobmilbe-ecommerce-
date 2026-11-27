@@ -264,7 +264,7 @@ details form { margin-top: 8px; }
 .perm small { color: var(--muted); }
 
 /* accounting */
-.acc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
+.acc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(280px, 100%), 1fr)); gap: 14px; }
 .acc-bal { font-family: var(--display); font-size: 1.7rem; font-weight: 800; margin: 0 0 8px; color: var(--blue-d); }
 .pnl tr.sub td { font-weight: 700; border-top: 1px solid var(--ink); }
 .tabs a.tab { display: inline-block; }
@@ -598,7 +598,7 @@ textarea.editor { min-height: 300px; line-height: 1.6; }
 .gr-check .gr-how { color: var(--ink-2); background: #FFF8E6; border-radius: 6px; padding: 5px 8px; margin-top: 6px; }
 .gr-bar { height: 10px; background: var(--paper); border-radius: 999px; overflow: hidden; margin: 4px 0 6px; border: 1px solid var(--line); }
 .gr-bar span { display: block; height: 100%; background: var(--green); }
-.gr-week { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 8px; }
+.gr-week { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr)); gap: 8px; }
 .gr-wk { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; cursor: pointer; background: #fff; }
 .gr-wk.is-done, .gr-wk:has(input:checked) { background: #F4FBF6; border-color: #CBEBD6; }
 .gr-wk input { margin-top: 4px; width: 18px; height: 18px; }
@@ -754,7 +754,7 @@ td.pick input, th.pick input { width: 18px; height: 18px; accent-color: var(--bl
 
 /* ---------- দোকানে কী দেখাবে ---------- */
 .ui-jump { margin-bottom: 12px; }
-.ui-groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 14px; align-items: start; }
+.ui-groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(420px, 100%), 1fr)); gap: 14px; align-items: start; }
 .ui-group { scroll-margin-top: 70px; }
 .ui-list { list-style: none; margin: 0; padding: 0; }
 .ui-row { border-bottom: 1px solid var(--line); padding: 10px 0; }
@@ -846,7 +846,7 @@ td.pick input, th.pick input { width: 18px; height: 18px; accent-color: var(--bl
 .lg-stamp { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted, #6b7280); background: #f1f5f9; padding: 4px 10px; border-radius: 999px; }
 .lg-dot { width: 8px; height: 8px; border-radius: 50%; background: #16a34a; animation: lgpulse 1.6s infinite; }
 @keyframes lgpulse { 50% { opacity: .3; } }
-.lg-list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+.lg-list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; grid-template-columns: repeat(auto-fill, minmax(min(280px, 100%), 1fr)); }
 .lg-list li { display: flex; gap: 10px; padding: 8px 10px; border-radius: 10px; background: #f8fafc; border: 1px solid #eef2f7; }
 .lg-list li b { display: block; font-size: 14px; font-weight: 600; }
 .lg-list li small { display: block; color: var(--muted, #6b7280); font-size: 12.5px; line-height: 1.45; margin-top: 2px; }
@@ -1055,7 +1055,7 @@ tr.row-edit td { background: #eff6ff; }
 .sl-preview.fx-fade .sl-track { display: block; position: relative; }
 .sl-preview.fx-fade .sl-track img { position: absolute; inset: 0; opacity: 0; transition: opacity .7s; }
 .sl-preview.fx-fade .sl-track img:first-child { opacity: 1; }
-.sl-slots { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+.sl-slots { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(min(280px, 100%), 1fr)); }
 .sl-slot { border: 1px dashed #cbd5e1; border-radius: 12px; padding: 10px 12px; background: #fbfcfe; }
 .sl-slot .pick-preview img { aspect-ratio: 16 / 6; object-fit: cover; width: 100%; }
 
@@ -1640,7 +1640,7 @@ html[data-admin-lang="en"] .side-drop[data-side-group="দোকানের ড
 .wt-list { display: grid; gap: 14px; margin-top: 12px; }
 .wt-product { border: 1px solid var(--line, #e5e7eb); border-radius: 10px; padding: 10px 12px; }
 .wt-head { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 8px; }
-.wt-pics { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
+.wt-pics { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr)); gap: 10px; }
 .wt-pic { margin: 0; border: 1px solid var(--line, #e5e7eb); border-radius: 8px; padding: 6px; background: #fafafa; }
 .wt-pic.is-white { border-color: #93c5fd; background: #eff6ff; }
 .wt-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
@@ -2212,7 +2212,7 @@ body.admin #main.admin-main .dash-top .kpis:last-child { margin-bottom: 0; }
 body.admin #main.admin-main .dash-status { margin: 0; }
 body.admin #main.admin-main .dash-status .donut { flex-direction: column; gap: 8px; }
 body.admin #main.admin-main .dash-status .dn-legend { font-size: .8rem; }
-body.admin #main.admin-main .dash-charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; align-items: start; margin-bottom: 12px; }
+body.admin #main.admin-main .dash-charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); gap: 12px; align-items: start; margin-bottom: 12px; }
 body.admin #main.admin-main .dash-charts > .panel { margin: 0; min-width: 0; }
 body.admin #main.admin-main .dash-charts .chart svg { max-height: 180px; }
 body.admin #main.admin-main .low-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 6px; }
@@ -2538,7 +2538,7 @@ body.admin #main.admin-main details.note-fold > summary::-webkit-details-marker,
 body.admin #main.admin-main details.note-fold > :not(summary), body.admin #main.admin-main details.help > :not(summary) { color: #3A4862; }
 body.admin #main.admin-main details.note-fold > p:last-child { margin-bottom: 0; }
 /* tool panels: no more pop-ups — a grid of cards, each with its title and its content */
-body.admin #main.admin-main .tool-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; align-items: start; margin-bottom: 16px; }
+body.admin #main.admin-main .tool-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr)); gap: 16px; align-items: start; margin-bottom: 16px; }
 body.admin #main.admin-main .tool-row > .tool-pill { align-self: stretch; }
 body.admin #main.admin-main .tool-tile { position: static; border-radius: 16px; background: linear-gradient(135deg, rgba(255,255,255,.93), rgba(255,255,255,.76)); border: 1px solid rgba(255,255,255,.95); box-shadow: 0 5px 18px -9px rgba(20, 33, 61, .18); overflow: hidden; }
 body.admin #main.admin-main .tool-tile > summary { display: flex; width: 100%; justify-content: space-between; border: 0; border-bottom: 1px solid var(--g-line); border-radius: 0; background: transparent; box-shadow: none; padding: 14px 18px; font-size: 15px; font-weight: 750; }
@@ -2623,7 +2623,7 @@ body.admin #main.admin-main .order-form-stack > .panel { margin: 0; }
   body.admin #main.admin-main .order-form-stack > .panel + .panel > h2 ~ h2 { margin-top: 10px; padding-top: 14px; border-top: 1px solid var(--g-line, #E5EAF2); }
 }
 /* 5) staff list: one card per person */
-body.admin #main.admin-main .staff-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 16px; }
+body.admin #main.admin-main .staff-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(340px, 100%), 1fr)); gap: 16px; }
 body.admin #main.admin-main .staff-card { margin: 0; display: flex; flex-direction: column; gap: 12px; padding: 16px 18px; }
 body.admin #main.admin-main .staff-card .sc-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 body.admin #main.admin-main .staff-card .staff-who { display: flex; align-items: center; gap: 10px; text-decoration: none; color: inherit; min-width: 0; }
@@ -2649,7 +2649,7 @@ body.admin #main.admin-main .manager-info .mi-can { background: #F0FAF4; border:
 body.admin #main.admin-main .manager-info .mi-owner { background: #FFF7EC; border: 1px solid #F6DDB8; }
 body.admin #main.admin-main .manager-info ul { margin: 6px 0 0; padding-left: 18px; display: grid; gap: 3px; color: #3A4862; }
 @media (max-width: 700px) { body.admin #main.admin-main .manager-info { grid-template-columns: minmax(0, 1fr); } }
-body.admin #main.admin-main .perm-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; align-items: start; }
+body.admin #main.admin-main .perm-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr)); gap: 12px; align-items: start; }
 body.admin #main.admin-main .perm-card { display: grid; gap: 6px; padding: 12px; border-radius: 12px; background: rgba(248, 250, 253, .9); border: 1px solid #E5EAF2; }
 body.admin #main.admin-main .perm-card .perm-group { margin: 0 0 2px; font-size: 13px; color: #24324A; font-weight: 750; }
 body.admin #main.admin-main .perm-card .perm { padding: 7px 10px; background: #fff; align-items: center; }
@@ -2810,7 +2810,7 @@ body.admin #main.admin-main .ghkey-del .btn { padding: 0 10px; }
 @media (max-width: 760px) { body.admin #main.admin-main .title-row > .ghkey { flex: 1 1 100%; margin-left: 0; } }
 
 /* 📣 Group posts / 🏷️ Marketplace helper (lib/admin/groupposts.tsx) */
-.gp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; }
+.gp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr)); gap: 14px; }
 .gp-card, .mp-item { margin: 0 0 14px; }
 .gp-head, .mp-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
 .mp-head { justify-content: flex-start; }
@@ -3027,7 +3027,7 @@ body.admin #main.admin-main :is(.panel, .set-card) > p.muted:only-child::before 
 /* 📝 "New …" forms beside a list: paired boxes stay side by side, so the form isn't a long column */
 body.admin #main.admin-main .two-col .field-row { grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); }
 /* ✅ status checklists (Security, Server & database): two even columns of slim rows; the colour is a thin edge, not a fill */
-body.admin #main.admin-main .sec-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 8px; }
+body.admin #main.admin-main .sec-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(360px, 100%), 1fr)); gap: 8px; }
 body.admin #main.admin-main .sec-row { align-items: flex-start; gap: 10px; padding: 9px 12px; background: #fff; border: 1px solid var(--a-line, #E4E9F2);
   border-left: 3px solid #CBD5E1; border-radius: 10px; font-size: 13px; line-height: 1.4; }
 body.admin #main.admin-main .sec-row.ok { background: #fff; border-color: var(--a-line, #E4E9F2); border-left-color: #22A06B; }
@@ -3109,3 +3109,15 @@ body.admin #main.admin-main table.table:has(td > form.prod-toggle) td.thumb :is(
 
 /* 🏷️ order label (orders list + order page) */
 .pill-label { background: #EEF2FF; color: #3730A3; border: 1px solid #C7D2FE; font-size: 11px; margin-top: 3px; }
+
+/* 📱 phone safety net (admin audit 2026-11-28): nothing wider than the screen */
+body.admin #main.admin-main :is(select, textarea, input:not([type=checkbox]):not([type=radio])) { max-width: 100%; }
+body.admin #main.admin-main :is(.tojpg-form, .two-col, .grid, .form-grid) > * { min-width: 0; }
+body.admin #main.admin-main .toolbar label { flex-wrap: wrap; min-width: 0; max-width: 100%; }
+@media (max-width: 640px) {
+  body.admin #main.admin-main .tool-pill { flex-wrap: wrap; border-radius: 12px; max-width: 100%; }
+  body.admin #main.admin-main .toolbar label:has(> select) { flex-direction: column; align-items: stretch; width: 100%; }
+  body.admin #main.admin-main .toolbar label > select { width: 100%; }
+  body.admin #main.admin-main .toolbar > form, body.admin #main.admin-main form.toolbar { flex-wrap: wrap; max-width: 100%; }
+  body.admin #main.admin-main .toolbar input[type=search] { min-width: 0; flex: 1 1 140px; }
+}
