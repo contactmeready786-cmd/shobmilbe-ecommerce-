@@ -70,7 +70,7 @@ Do this:
    - If facts contradict each other or the photo (e.g. "2 slot" and "four slot"), keep only what the photo confirms, otherwise leave that detail out, and say so in "issues".
    - Title Case. ALL CAPS only for model numbers and abbreviations (LED, USB, DC, AC, IC, PCB, LCD, RGB, IR).
    - If the current title is already clean and correct, return it unchanged.
-3. "title_bn": the same title in natural Bangladeshi Bangla, as a Bangla shopper would say it — NO English letters at all: write model numbers and English words with Bangla letters, digits as Bangla digits (০-৯). Example: "N20 Micro Metal Gear Motor 200RPM" → "এন২০ মাইক্রো মেটাল গিয়ার মোটর ২০০ আরপিএম".
+3. "title_bn": the same title in natural Bangladeshi Bangla (this field must be Bangla script, never English), as a Bangla shopper would say it — NO English letters at all: write model numbers and English words with Bangla letters, digits as Bangla digits (০-৯). Example: "N20 Micro Metal Gear Motor 200RPM" → "এন২০ মাইক্রো মেটাল গিয়ার মোটর ২০০ আরপিএম".
 4. "category_id": the best category from the list below for what the product IS (a soldering iron tip is a soldering tool, a remote is a remote, a transistor is a component). Categories named Digital are ONLY for software, licence keys and digital downloads — never for physical items. "category_sure": true only if you are clearly sure.
 5. "issues": short English notes on anything wrong you noticed (wrong facts, photo mismatch); empty list if none.
 
@@ -106,7 +106,7 @@ async function ask(key: string, p: Prod, cats: Cat[]): Promise<{ prop: Proposal;
       const o = JSON.parse(text.replace(/^```(?:json)?|```$/g, '')) as Partial<Proposal>;
       const prop: Proposal = {
         photo_shows: String(o.photo_shows || '').slice(0, 200), photo_matches: o.photo_matches === 'yes' || o.photo_matches === 'no' ? o.photo_matches : 'unsure',
-        title_en: String(o.title_en || '').replace(/\s+/g, ' ').trim(), title_bn: String(o.title_bn || '').replace(/\s+/g, ' ').trim(),
+        title_en: String(o.title_en || '').replace(/[\u200b-\u200d\ufeff]/g, '').replace(/\s+/g, ' ').trim(), title_bn: String(o.title_bn || '').replace(/[\u200b\ufeff]/g, '').replace(/\s+/g, ' ').trim(),
         category_id: Number(o.category_id) || 0, category_sure: o.category_sure === true, issues: Array.isArray(o.issues) ? o.issues.map((x) => String(x).slice(0, 200)).slice(0, 5) : [],
       };
       if (!img) prop.photo_matches = 'unsure';
