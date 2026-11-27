@@ -82,7 +82,7 @@ function tutor(): void {
         const items = j.products || [];
         paint(out,
           <div className="learn-answer-text">{j.answer}</div>,
-          items.length ? <div className="learn-answer-parts"><p className="small"><b>🧰 দরকারি পার্টস সবমিলবে-তে:</b></p><ul className="suggest-list">{items.map((p) => (
+          items.length ? <div className="learn-answer-parts"><p className="small"><b>🧰 দরকারি পার্টস সবমিলবে-তে:</b></p><ul>{items.map((p) => (
             <li><a href={`/p/${encodeURIComponent(p.slug)}`}>{p.image ? <img src={p.image} alt="" loading="lazy" /> : <span>{p.emoji || '📦'}</span>}<span>{p.name}</span><b>{money(p.price)}</b></a></li>
           ))}</ul></div> : null);
         track('learn_ask', { label: box.getAttribute('data-lesson') || 'list' });
