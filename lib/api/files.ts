@@ -252,6 +252,8 @@ export async function runShopJobs(settings: ApiCtx['settings']): Promise<Record<
   await P.timeJob('কুরিয়ারের স্ট্যাটাস', async () => { await (await import('../services/courierjobs')).syncParcels(settings); });
   await P.timeJob('পুরোনো ভুল ব্লক তোলা', async () => { const G = await import('../services/guard'); await G.dropInfraBlocks(); }, { optional: true });
   await P.timeJob('IndexNow (সার্চ ইঞ্জিন)', () => seo.indexNowSweep(settings), { optional: true });
+  // 🏷️ product names, Bangla names and categories made right by Gemini looking at each photo (lib/services/titlefix.ts)
+  await P.timeJob('নাম ঠিক করা (AI)', async () => (await import('../services/titlefix')).tick(settings), { optional: true });
   // 🤖 অটো SEO: model numbers and specifications for a few dozen products, and the daily score
   await P.timeJob('অটো SEO', () => $services_autoseo.sweep(settings), { optional: true });
   // 🔎 SEO title, description and keywords written into every product that has none (empty fields only, logged)

@@ -3122,3 +3122,14 @@ body.admin #main.admin-main .toolbar label { flex-wrap: wrap; min-width: 0; max-
   body.admin #main.admin-main .toolbar > form, body.admin #main.admin-main form.toolbar { flex-wrap: wrap; max-width: 100%; }
   body.admin #main.admin-main .toolbar input[type=search] { min-width: 0; flex: 1 1 140px; }
 }
+
+/* 🏷️ নাম ঠিক করা (AI) — lib/admin/titlefix.tsx */
+.tfx-set { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; margin: 10px 0; }
+.tfx-list { display: grid; gap: 10px; margin-top: 10px; }
+.tfx-item { display: grid; grid-template-columns: 72px minmax(0, 1fr) auto; gap: 12px; align-items: start; padding: 10px 12px; }
+.tfx-pic { width: 72px; height: 72px; object-fit: contain; background: #fff; border: 1px solid var(--line, #E4E9F2); border-radius: 8px; display: grid; place-items: center; font-size: 28px; }
+.tfx-body p { margin: 0 0 3px; overflow-wrap: anywhere; }
+.tfx-old { color: #8a94a6; }
+.tfx-why { color: #b54708; }
+.tfx-act { display: flex; flex-direction: column; gap: 6px; align-items: flex-end; }
+@media (max-width: 640px) { .tfx-item { grid-template-columns: 56px minmax(0, 1fr); } .tfx-pic { width: 56px; height: 56px; } .tfx-act { grid-column: 1 / -1; flex-direction: row; flex-wrap: wrap; justify-content: flex-end; } }

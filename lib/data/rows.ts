@@ -1524,6 +1524,18 @@ export type SuppliersRow = {
   created_at: Date;
 };
 
+/** A row of title_fix. */
+export type TitleFixRow = {
+  product_id: number;
+  status: string;
+  old: unknown;
+  proposal: unknown;
+  why: string;
+  model: string;
+  created_at: Date;
+  applied_at: Date | null;
+};
+
 /** A row of transactions. */
 export type TransactionsRow = {
   id: number;
@@ -1862,6 +1874,7 @@ export type Tables = {
   stock_alerts: StockAlertsRow;
   stock_movements: StockMovementsRow;
   suppliers: SuppliersRow;
+  title_fix: TitleFixRow;
   transactions: TransactionsRow;
   translations: TranslationsRow;
   trash: TrashRow;

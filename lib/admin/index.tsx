@@ -95,6 +95,7 @@ import * as $email from './email';
 import * as $packingadmin from './packing';
 import * as $whiten from './whiten';
 import * as $descclean from './descclean';
+import * as $titlefix from './titlefix';
 import * as $vmerge from './vmerge';
 import * as $packsingle from './packsingle';
 import * as $pairsingle from './pairsingle';
@@ -123,7 +124,7 @@ const MODULES = [$dashboard, $orders, $import, $morepics, $watermark,
   $returns, $giftcards, $shoppush, $appinvite, $pos, $warehouses, $codsettle,
   $supplierledger, $fraud, $checkoutotp, $searchreport, $complaints, $kits,
   $automarketing, $channels, $autoseo, $sourcepics, $testclear, $stockscan, $setupmarks,
-  $ledger, $email, $packingadmin, $whiten, $descclean, $aistaff, $landing, $photofind, $groupposts, $vmerge, $packsingle, $pairsingle, $videoposts, $voice, $appusers];
+  $ledger, $email, $packingadmin, $whiten, $descclean, $aistaff, $landing, $photofind, $groupposts, $vmerge, $packsingle, $pairsingle, $videoposts, $voice, $appusers, $titlefix];
 const ROUTES: AdminRoute[] = MODULES.flatMap((m): readonly AdminRoute[] => m.routes);
 
 // ---------- sessions ----------

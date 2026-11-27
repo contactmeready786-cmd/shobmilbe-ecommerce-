@@ -1479,6 +1479,15 @@ DELETE FROM app_devices WHERE id LIKE 'v:%' AND orders = 0 AND first_seen > '202
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS assigned_to int;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS label text NOT NULL DEFAULT '';
 CREATE INDEX IF NOT EXISTS orders_assigned_idx ON orders(assigned_to) WHERE assigned_to IS NOT NULL;
+`,  // 🏷️ নাম ঠিক করা (AI), owner 2026-11-28: each product looked at once by Gemini with its photo (lib/services/titlefix.ts);
+    // old = the name, Bangla name, category and SEO fields before (↩️ undo), proposal = what Gemini wrote
+  `
+CREATE TABLE IF NOT EXISTS title_fix (
+  product_id int PRIMARY KEY REFERENCES products(id) ON DELETE CASCADE, status text NOT NULL DEFAULT 'review',
+  old jsonb, proposal jsonb, why text NOT NULL DEFAULT '', model text NOT NULL DEFAULT '',
+  created_at timestamptz DEFAULT now(), applied_at timestamptz
+);
+CREATE INDEX IF NOT EXISTS title_fix_status_idx ON title_fix(status);
 `,
 ];
 
@@ -1920,6 +1929,7 @@ const DEFAULT_SETTINGS: Record<string, string> = {
   // 🔔 "দাম কমলে জানাও" box on product pages; 🧰 project kits page; 🛡️ online warranty claims; 🔧 spec filters; ✨ "আপনার জন্য"
   // 🎓 free electronics classes at /learn and the AI teacher on them (owner, 2026-11-27)
   learn_on: '1', learn_tutor_on: '1',
+  titlefix_on: '0', titlefix_auto: '1', titlefix_per_tick: '8',
   // 🧮 electronics tools at /tools; tools_off = the keys of tools switched off (lib/data/tools.ts)
   tools_on: '1', tools_off: '',
   price_alert_on: '1', kits_on: '1', warranty_claims_on: '1', ui_spec_filters: '1', for_you_on: '1',

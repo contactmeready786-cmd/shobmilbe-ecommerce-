@@ -132,6 +132,8 @@ const load = (id: number) => db.one<P>(`SELECT p.id, p.name, p.name_bn, p.brand,
 async function keep(p: P, d: Draft, applyIfAuto: boolean, via: string): Promise<number> {
   // owner, 2026-10-24: put it in by itself either way ("no waiting for my ✅") — where it came from is shown beside it
   const apply = applyIfAuto;
+  // 🏷️ a name the photo check (lib/services/titlefix.ts) already made right is not written again without the photo
+  if (await db.one(`SELECT 1 AS x FROM title_fix WHERE product_id=$1 AND status IN ('applied', 'same')`, [p.id]).catch(() => null)) { delete d.name; delete d.name_bn; }
   let n = 0;
   for (const f of FIELDS) {
     const v = d[f];
