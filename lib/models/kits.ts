@@ -103,11 +103,7 @@ async function matchPart(part: GuidePart) {
     WHERE p.active AND p.parent_id IS NULL AND coalesce(p.product_type,'single') <> 'bundle' AND coalesce(p.variant_count,0) = 0
       AND p.name ILIKE ANY($1::text[]) AND NOT (p.name ILIKE ANY($2::text[]))
     ORDER BY (p.stock > 0) DESC, coalesce(p.sold_count,0) DESC, p.id DESC LIMIT 40`, [like, notLike.length ? notLike : ['']]);
-  for (const w of part.find) { // the first word of the list is the best description of the part
-    const hit = rows.find((r) => r.name.toLowerCase().includes(String(w).toLowerCase()));
-    if (hit) return hit;
-  }
-  return rows[0] || null;
+  return $data_guides.bestFor(part, rows);
 }
 // What the shop has for each guide: parts found / missing, and whether a kit was already made from it.
 async function guideStatus() {

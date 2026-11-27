@@ -38,10 +38,10 @@ const GUIDES: Guide[] = [
     emoji: '🚦', level: 'একদম নতুনদের জন্য', time: '৩০ মিনিট',
     intro: 'Arduino শেখার প্রথম প্রজেক্ট: লাল, হলুদ আর সবুজ LED পালা করে জ্বলবে — ঠিক রাস্তার ট্রাফিক লাইটের মতো। সোল্ডারিং লাগে না, ব্রেডবোর্ডেই হয়।',
     parts: [
-      { find: ['arduino uno'], not: ['case', 'shield', 'cable only', 'box'], qty: 1, note: 'Arduino Uno (USB তারসহ)' },
-      { find: ['breadboard'], qty: 1 },
-      { find: ['led 5mm', '5mm led', 'led red', 'red led', 'led light emitting'], qty: 3, note: 'লাল, হলুদ, সবুজ — একটা করে' },
-      { find: ['220 ohm', '220ohm', '220r', 'resistor'], qty: 3, note: '২২০ ওহম রেজিস্টর' },
+      { find: ['arduino uno'], not: ['case', 'casing', 'shield', 'box', 'enclosure', 'cable only'], qty: 1, note: 'Arduino Uno (USB তারসহ)' },
+      { find: ['breadboard'], not: ['jumper', 'wire', 'shield', 'power supply'], qty: 1 },
+      { find: ['5mm colored led — লাল', '5mm colored led', 'led 5mm', '5mm led'], not: ['rgb', 'ir ', 'uv', 'ice cream', 'bi-color', 'strip'], qty: 3, note: 'লাল, হলুদ, সবুজ — একটা করে' },
+      { find: ['1/4w carbon film resistor — 220Ω', 'resistor — 220Ω', '220 ohm', '220ohm'], not: ['220kΩ', 'pcs', 'combo', 'cement', '220k'], qty: 3, note: '২২০ ওহম রেজিস্টর' },
       { find: ['jumper wire', 'jumper cable', 'dupont'], qty: 1 },
     ],
     steps: [
@@ -59,11 +59,11 @@ const GUIDES: Guide[] = [
     emoji: '📏', level: 'সহজ', time: '১ ঘণ্টা',
     intro: 'আল্ট্রাসনিক সেন্সর শব্দ পাঠিয়ে প্রতিধ্বনি ফিরে আসার সময় মাপে, আর Arduino সেটা থেকে সেন্টিমিটারে দূরত্ব বের করে LCD-তে দেখায়। গাড়ির পার্কিং সেন্সর, পানির ট্যাংকের লেভেল মিটার — সব এভাবেই বানানো যায়।',
     parts: [
-      { find: ['arduino uno'], not: ['case', 'shield', 'box'], qty: 1 },
+      { find: ['arduino uno'], not: ['case', 'casing', 'shield', 'box', 'enclosure', 'cable only'], qty: 1 },
       { find: ['hc-sr04', 'hcsr04', 'hc sr04', 'ultrasonic'], qty: 1, note: 'আল্ট্রাসনিক সেন্সর' },
       { find: ['16x2 lcd i2c', 'lcd i2c', 'i2c lcd', '1602 i2c', 'lcd 16x2'], qty: 1, note: 'I2C লাগানো 16×2 LCD (৪টা তারেই চলে)' },
       { find: ['jumper wire', 'jumper cable', 'dupont'], qty: 1 },
-      { find: ['breadboard'], qty: 1, optional: true },
+      { find: ['breadboard'], not: ['jumper', 'wire', 'shield', 'power supply'], qty: 1, optional: true },
     ],
     steps: [
       'HC-SR04: VCC → Arduino 5V, GND → GND, Trig → পিন ৯, Echo → পিন ১০।',
@@ -80,11 +80,11 @@ const GUIDES: Guide[] = [
     emoji: '🦾', level: 'সহজ', time: '৩০ মিনিট',
     intro: 'নব ঘোরালে সার্ভো মোটরও ঠিক ততটা ঘোরে — রোবটের হাত, ক্যামেরা ঘোরানো বা দরজার ছোট তালা বানানোর মূল কৌশল এটাই।',
     parts: [
-      { find: ['arduino uno'], not: ['case', 'shield', 'box'], qty: 1 },
+      { find: ['arduino uno'], not: ['case', 'casing', 'shield', 'box', 'enclosure', 'cable only'], qty: 1 },
       { find: ['sg90', 'servo'], not: ['mg996', 'bracket', 'horn'], qty: 1, note: 'SG90 মাইক্রো সার্ভো' },
       { find: ['potentiometer 10k', '10k potentiometer', 'potentiometer', 'pot 10k'], qty: 1, note: '১০ কিলো-ওহম' },
       { find: ['jumper wire', 'jumper cable', 'dupont'], qty: 1 },
-      { find: ['breadboard'], qty: 1, optional: true },
+      { find: ['breadboard'], not: ['jumper', 'wire', 'shield', 'power supply'], qty: 1, optional: true },
     ],
     steps: [
       'সার্ভোর তিন তার: বাদামি/কালো = GND, লাল = ৫V, কমলা/হলুদ = সিগন্যাল। সিগন্যাল Arduino-র পিন ৯-এ দিন।',
@@ -103,10 +103,11 @@ const GUIDES: Guide[] = [
       { find: ['ldr', 'light dependent resistor', 'photoresistor'], not: ['module'], qty: 1 },
       { find: ['bc547'], qty: 1, note: 'NPN ট্রানজিস্টর' },
       { find: ['potentiometer 10k', '10k potentiometer', 'potentiometer', 'preset'], qty: 1, note: 'সংবেদনশীলতা ঠিক করতে (১০k)' },
-      { find: ['resistor'], qty: 2, note: '১ কিলো-ওহম আর ৪৭০ ওহম একটা করে' },
-      { find: ['led 5mm', '5mm led', 'white led', 'led'], not: ['strip', 'bulb', 'driver', 'tv'], qty: 1 },
+      { find: ['1/4w carbon film resistor — 1kΩ', 'resistor — 1kΩ'], not: ['pcs', 'combo'], qty: 1, note: '১ কিলো-ওহম' },
+      { find: ['1/4w carbon film resistor — 470Ω', 'resistor — 470Ω'], not: ['pcs', 'combo', '470kΩ'], qty: 1, note: '৪৭০ ওহম' },
+      { find: ['5mm colored led', 'led 5mm', '5mm led'], not: ['strip', 'bulb', 'driver', 'tv', 'rgb', 'ir ', 'uv'], qty: 1, note: 'যেকোনো রঙের ৫ মিমি LED' },
       { find: ['9v battery clip', 'battery clip', '9v snap', 'battery snap'], qty: 1, note: '৯ ভোল্ট ব্যাটারির ক্লিপ' },
-      { find: ['breadboard'], qty: 1, optional: true },
+      { find: ['breadboard'], not: ['jumper', 'wire', 'shield', 'power supply'], qty: 1, optional: true },
     ],
     steps: [
       'BC547-এর সমতল দিক নিজের দিকে রাখলে বাম থেকে পা: কালেক্টর (C), বেস (B), ইমিটার (E)। ইমিটার সরাসরি ব্যাটারির মাইনাসে (GND) দিন।',
@@ -146,11 +147,11 @@ const GUIDES: Guide[] = [
     emoji: '🤖', level: 'মাঝারি', time: '৩-৪ ঘণ্টা',
     intro: 'মেঝেতে কালো টেপের লাইন ধরে নিজে নিজে চলে এমন রোবট — স্কুল-কলেজের প্রজেক্ট আর রোবটিক্স প্রতিযোগিতার সবচেয়ে জনপ্রিয় শুরু। দুইটা IR সেন্সর লাইন দেখে, Arduino ঠিক করে কোন চাকা ঘুরবে।',
     parts: [
-      { find: ['arduino uno'], not: ['case', 'shield', 'box'], qty: 1 },
+      { find: ['arduino uno'], not: ['case', 'casing', 'shield', 'box', 'enclosure', 'cable only'], qty: 1 },
       { find: ['l298n', 'l298'], qty: 1, note: 'মোটর ড্রাইভার' },
       { find: ['ir sensor', 'ir obstacle', 'tcrt5000', 'infrared sensor'], qty: 2, note: 'IR সেন্সর মডিউল' },
       { find: ['bo motor', 'gear motor', 'tt motor', 'dc gear motor'], not: ['wheel only'], qty: 2 },
-      { find: ['robot wheel', 'bo wheel', 'wheel'], not: ['castor', 'caster'], qty: 2 },
+      { find: ['robot wheel', 'bo wheel', 'wheel'], not: ['castor', 'caster', 'steering', 'chair', 'trolley'], qty: 2 },
       { find: ['castor', 'caster', 'ball wheel'], qty: 1 },
       { find: ['robot chassis', 'chassis'], qty: 1, optional: true, note: 'না থাকলে শক্ত বোর্ড/শিট কেটে নিন' },
       { find: ['18650 battery holder', 'battery holder 2', 'battery holder'], qty: 1 },
@@ -173,7 +174,7 @@ const GUIDES: Guide[] = [
     emoji: '🌡️', level: 'সহজ', time: '৪৫ মিনিট',
     intro: 'ঘরের তাপমাত্রা (°C) আর বাতাসের আর্দ্রতা (%) LCD-তে দেখাবে। মুরগির খামারের ইনকিউবেটর, গুদাম বা ঘরের জন্য কাজের জিনিস।',
     parts: [
-      { find: ['arduino uno'], not: ['case', 'shield', 'box'], qty: 1 },
+      { find: ['arduino uno'], not: ['case', 'casing', 'shield', 'box', 'enclosure', 'cable only'], qty: 1 },
       { find: ['dht11', 'dht 11', 'dht22'], qty: 1, note: 'তাপমাত্রা-আর্দ্রতা সেন্সর মডিউল' },
       { find: ['16x2 lcd i2c', 'lcd i2c', 'i2c lcd', '1602 i2c', 'lcd 16x2'], qty: 1 },
       { find: ['jumper wire', 'jumper cable', 'dupont'], qty: 1 },
@@ -192,10 +193,11 @@ const GUIDES: Guide[] = [
     emoji: '📱', level: 'মাঝারি', time: '২ ঘণ্টা',
     intro: 'মোবাইলের ব্লুটুথ অ্যাপ থেকে বাতি বা ফ্যান চালু-বন্ধ — স্মার্ট হোমের প্রথম ধাপ। Arduino ব্লুটুথে অক্ষর পায় আর সেই অনুযায়ী রিলে চালু-বন্ধ করে।',
     parts: [
-      { find: ['arduino uno'], not: ['case', 'shield', 'box'], qty: 1 },
+      { find: ['arduino uno'], not: ['case', 'casing', 'shield', 'box', 'enclosure', 'cable only'], qty: 1 },
       { find: ['hc-05', 'hc05', 'hc 05'], qty: 1, note: 'ব্লুটুথ সিরিয়াল মডিউল' },
       { find: ['relay module 2 channel', '2 channel relay', 'relay module', 'relay'], not: ['solid state'], qty: 1, note: '৫V রিলে মডিউল' },
-      { find: ['resistor'], qty: 2, optional: true, note: '১k আর ২k (HC-05-এর RX-এ ভোল্টেজ কমাতে)' },
+      { find: ['1/4w carbon film resistor — 1kΩ', 'resistor — 1kΩ'], not: ['pcs', 'combo'], qty: 1, optional: true, note: '১k (HC-05-এর RX-এ ভোল্টেজ কমাতে)' },
+      { find: ['1/4w carbon film resistor — 2kΩ', '1/4w carbon film resistor — 2.2kΩ', 'resistor — 2kΩ', 'resistor — 2.2kΩ'], not: ['pcs', 'combo'], qty: 1, optional: true, note: '২k বা ২.২k (১k-এর সাথে ভোল্টেজ ভাগ করতে)' },
       { find: ['jumper wire', 'jumper cable', 'dupont'], qty: 1 },
     ],
     steps: [
@@ -209,3 +211,26 @@ const GUIDES: Guide[] = [
 ];
 
 export { GUIDES };
+
+/** The best product for a guide part (owner, 2026-11-27 — the traffic light kit got an RS485 module "For Arduino Uno"
+ * as its Arduino and a 600-piece resistor combo): earlier words win; a name where the word only follows "for" /
+ * "compatible with" is an accessory, not the part; packs, combos and sets come after single pieces; in stock first.
+ * No match → nothing (better a missing part the owner sees than a wrong one in the customer's cart). */
+export function bestFor<T extends { name: string; stock: number }>(part: Pick<GuidePart, 'find' | 'not'>, rows: T[]): T | null {
+  let best: T | null = null;
+  let bestScore = Infinity;
+  for (const r of rows) {
+    const lower = r.name.toLowerCase();
+    if ((part.not || []).some((n) => lower.includes(String(n).toLowerCase()))) continue;
+    part.find.forEach((word, wi) => {
+      const w = String(word).toLowerCase();
+      const pos = lower.indexOf(w);
+      if (pos < 0) return;
+      if (/\b(for|compatible with|fits?|use with|used with)\s+(the\s+|an?\s+)?$/.test(lower.slice(Math.max(0, pos - 24), pos))) return;
+      const pack = /\b\d+\s*pcs\b|\bcombo\b|\bset\b|\bassort/.test(lower) && !/pcs|combo|set|assort/.test(w);
+      const score = (r.stock > 0 ? 0 : 1000) + wi * 100 + (pack ? 50 : 0) + Math.min(pos, 60) / 3;
+      if (score < bestScore) { bestScore = score; best = r; }
+    });
+  }
+  return best;
+}

@@ -164,7 +164,7 @@ function drawCertificate(name: string, topics: string): string {
     if (x.measureText(next).width > W - 360 && line) { lines.push(line); line = part; } else line = next;
   }
   if (line) lines.push(line);
-  lines.slice(0, 3).forEach((t, i) => center(t, 720 + i * 46, `600 28px ${BN_FONT}`, '#14213D'));
+  lines.slice(0, 4).forEach((t, i) => center(t, 715 + i * 44, `600 27px ${BN_FONT}`, '#14213D'));
   const d = new Date();
   const date = `${bn(d.getDate())}/${bn(d.getMonth() + 1)}/${bn(d.getFullYear())}`;
   const id = 'SM-' + Math.random().toString(36).slice(2, 8).toUpperCase();
