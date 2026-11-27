@@ -67,6 +67,7 @@ Do this:
    - Use ONLY facts that are in the current title or the description. Never invent or change a number, spec, brand, model, size, colour or quantity.
    - Keep every real model / part number exactly as written (e.g. LM324N, BTA16-600B, HC-SR04, 18650, TO-92) and write each only once.
    - Repair the broken words ("Comp-arator" → "Comparator", "Du al" → "Dual", "Ban-ana" → "Banana", "G-U-N" → "Gun"), fix spelling, and remove filler: "A Class", "Medium Class", "Best Quality", "Electrical Circuitry & Parts", "Electronics Components", "Passive Components", shop names, "Price in BD", repeated words.
+   - Options the product is sold in ("Blue / Green", "Red, Black", sizes) are not contradictions: keep them all.
    - If facts contradict each other or the photo (e.g. "2 slot" and "four slot"), keep only what the photo confirms, otherwise leave that detail out, and say so in "issues".
    - Separate glued tokens ("10AAS-10" → "10A AS-10", "5VDC12V" → "5V DC 12V") without changing any letter or digit.
    - Title Case. ALL CAPS only for model numbers and abbreviations (LED, USB, DC, AC, IC, PCB, LCD, RGB, IR).
