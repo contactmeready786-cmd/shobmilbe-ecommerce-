@@ -219,13 +219,13 @@ export function faqLd(faq: Faq[]) {
 
 /** 🔗 Product pages → the free tool that fits the part (owner, 2026-11-28): "এই রেজিস্টরের রং দেখুন → টুল". */
 const HINTS: { key: string; label: string; test: RegExp; not?: RegExp }[] = [
-  { key: 'resistor-color-code', label: 'রেজিস্টরের রং দেখে মান বের করুন', test: /resistor|রেজিস্ট/i, not: /variable|potentiometer|\bpot\b|preset|trimmer|thermistor|ntc|ptc|ldr|photo|smd|0805|0603|1206|0402|network|array|sip/i },
+  { key: 'resistor-color-code', label: 'রেজিস্টরের রং দেখে মান বের করুন', test: /resistor|রেজিস্ট/i, not: /variable|potentiometer|\bpot\b|preset|trimmer|thermistor|ntc|ptc|ldr|photo|smd|0805|0603|1206|0402|network|array|sip|wire ?wound|cement|(?<![/.\d])([2-9]|[1-9]\d)\s?w\b/i }, // big power resistors have the value printed, no colour bands
   { key: 'smd-resistor-code', label: 'SMD রেজিস্টরের কোড পড়ুন', test: /(smd|0805|0603|1206|0402).*(resistor|রেজিস্ট)|(resistor|রেজিস্ট).*(smd|0805|0603|1206|0402)/i },
-  { key: 'capacitor-code', label: 'ক্যাপাসিটরের কোড (104, 103…) থেকে মান', test: /capacitor|ক্যাপাসিটর/i },
-  { key: 'led-resistor', label: 'এই LED-এ কত ওহম রেজিস্টর লাগবে', test: /\bled\b|এলইডি/i, not: /strip|bulb|lamp|light|panel|matrix|display|driver|tv|torch|flood|tube|module|ring|bar|neon|cob|rgb strip|dot/i },
+  { key: 'capacitor-code', label: 'ক্যাপাসিটরের কোড (104, 103…) থেকে মান', test: /capacitor|ক্যাপাসিটর/i, not: /electrolytic|ইলেকট্রোলাইটিক/i }, // electrolytics have the µF printed
+  { key: 'led-resistor', label: 'এই LED-এ কত ওহম রেজিস্টর লাগবে', test: /\bled\b|এলইডি/i, not: /strip|bulb|lamp|light|panel|matrix|display|driver|tv|torch|flood|tube|module|ring|bar|neon|cob|rgb strip|dot|adapter|charger|monitor|power supply|smps/i },
   { key: 'transistor-switch', label: 'ট্রানজিস্টরের পিন আর বেস রেজিস্টর', test: /transistor|mosfet|ট্রানজিস্টর|\bBC5[45]\d|\b2N(2222|3904|3906|7000)|\bS8[05]50\b|\bBD13\d|\bTIP1?\d\d|IRFZ44/i },
   { key: '555-timer', label: '555 টাইমারের হিসাব', test: /\bne?555\b|\b555 timer/i },
-  { key: 'battery-life', label: 'ব্যাটারি কতক্ষণ চলবে', test: /18650|li-?ion|lipo|battery|ব্যাটারি/i, not: /charger|tester|spot weld|indicator/i },
+  { key: 'battery-life', label: 'ব্যাটারি কতক্ষণ চলবে', test: /18650|li-?ion|lipo|battery|ব্যাটারি/i, not: /charger|tester|spot weld|indicator|bms|protection/i },
 ];
 export function toolsForProduct(text: string, enabled: string[]): { key: string; label: string }[] {
   const t = String(text || '');

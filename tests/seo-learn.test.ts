@@ -41,5 +41,11 @@ test('product → tool links fit the part', () => {
   assert.deepEqual(k('10K Potentiometer'), []);
   assert.deepEqual(k('TP4056 Battery Charger Module'), []);
   assert.deepEqual(k('TV Remote Control'), []);
+  assert.deepEqual(k('5W Wire Wound Resistor'), []);
+  assert.deepEqual(k('5W Resistor'), []);
+  assert.deepEqual(k('1/2W Carbon Film Resistor'), ['resistor-color-code']);
+  assert.deepEqual(k('50V Electrolytic Capacitor'), []);
+  assert.deepEqual(k('14V LED Monitor Adapter Charger'), []);
+  assert.deepEqual(k('2S BMS 18650 Battery Protection Board'), []);
   assert.deepEqual(toolsForProduct('5mm Red LED', ['ohms-law']), []); // tool switched off → no link
 });
