@@ -42,6 +42,8 @@ export type ServerStats = {
   memTotal: number; memUsed: number; memLevel: Level;
   cpus: number; load1: number; loadLevel: Level; uptimeSec: number;
   localBackupAt: Date | null; localBackups: number; localBackupBytes: number;
+  /** Ubuntu installed a security update (usually the kernel) that only takes effect after a restart; since when */
+  rebootSince: Date | null; rebootWhy: string;
 };
 
 /** The VPS itself: disk, memory (what is really free, cache counted as free), processor load. */
@@ -65,7 +67,15 @@ function serverStats(): ServerStats {
       if (!localBackupAt || st.mtime > localBackupAt) localBackupAt = st.mtime;
     }
   } catch { /* folder not readable */ }
+  // 🔁 Ubuntu writes /var/run/reboot-required after a kernel / core security update (owner asked 2026-11-28 whether
+  // the server needs restarting: Linux runs for months without one; only these updates need a restart to take effect)
+  let rebootSince: Date | null = null, rebootWhy = '';
+  try {
+    rebootSince = fs.statSync('/var/run/reboot-required').mtime;
+    try { rebootWhy = fs.readFileSync('/var/run/reboot-required.pkgs', 'utf8').split('\n').map((x) => x.trim()).filter(Boolean).slice(0, 4).join(', '); } catch { /* no list */ }
+  } catch { /* no restart needed */ }
   return {
+    rebootSince, rebootWhy,
     diskTotal, diskUsed, diskLevel: diskTotal ? levelFor(diskUsed / diskTotal) : 'warn',
     memTotal, memUsed, memLevel: levelFor(memUsed / memTotal),
     cpus, load1, loadLevel: load1 / cpus >= 1.5 ? 'bad' : load1 / cpus >= 0.9 ? 'warn' : 'ok', uptimeSec: os.uptime(),
@@ -231,6 +241,9 @@ export function warnings(h: Health): Warning[] {
   if (h.server && h.server.localBackups > KEEP_LOCAL) out.push({ key: 'local_backups', level: 'warn',
     title: `সার্ভারে বাড়তি পুরোনো ব্যাকআপ জমে আছে: ${bn(h.server.localBackups - KEEP_LOCAL)}টা`,
     text: `রাখার কথা শুধু শেষ ২টা, কিন্তু পুরোনোগুলো মোছা যাচ্ছে না। সব মিলিয়ে ${bn(mb(h.server.localBackupBytes))} MB।\nঠিক করতে সার্ভারে একবার একটা কমান্ড চালাতে হবে — Claude-কে জানান।` });
+  if (h.server && h.server.rebootSince && Date.now() - new Date(h.server.rebootSince).getTime() > 3 * 86400e3) out.push({ key: 'reboot', level: 'warn',
+    title: 'সার্ভারের নিরাপত্তা আপডেট চালু করতে একবার রিস্টার্ট দরকার',
+    text: `${bn(Math.floor((Date.now() - new Date(h.server.rebootSince).getTime()) / 86400e3))} দিন ধরে অপেক্ষায় আছে। রাতে কম ভিড়ের সময় সার্ভার একবার রিস্টার্ট করলেই হবে (২–৩ মিনিট সাইট বন্ধ থাকবে) — Claude-কে জানান।` });
   if (h.connLevel !== 'ok') out.push({ key: 'conn', level: h.connLevel, title: 'ডাটাবেসে সংযোগ প্রায় শেষ',
     text: `${bn(h.connections)} / ${bn(h.maxConnections)} সংযোগ খোলা। সব শেষ হলে সাইট খুলবে না।` });
   if (h.backupLevel !== 'ok') out.push({ key: 'backup', level: h.backupLevel, title: h.backupAt ? `${bn(Math.floor(h.backupDays!))} দিন ধরে ব্যাকআপ হয়নি` : 'কোনো ব্যাকআপ নেই',
