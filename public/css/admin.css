@@ -3115,7 +3115,8 @@ body.admin #main.admin-main :is(select, textarea, input:not([type=checkbox]):not
 body.admin #main.admin-main :is(.tojpg-form, .two-col, .grid, .form-grid) > * { min-width: 0; }
 body.admin #main.admin-main .toolbar label { flex-wrap: wrap; min-width: 0; max-width: 100%; }
 @media (max-width: 640px) {
-  body.admin #main.admin-main .tool-pill { flex-wrap: wrap; border-radius: 12px; max-width: 100%; }
+  body.admin #main.admin-main .tool-pill, body.admin #main.admin-main .tool-row > .tool-pill { flex-wrap: wrap; border-radius: 12px; max-width: 100%; }
+  body.admin #main.admin-main .tool-row > .tool-pill .btn { white-space: normal; }
   body.admin #main.admin-main .toolbar label:has(> select) { flex-direction: column; align-items: stretch; width: 100%; }
   body.admin #main.admin-main .toolbar label > select { width: 100%; }
   body.admin #main.admin-main .toolbar > form, body.admin #main.admin-main form.toolbar { flex-wrap: wrap; max-width: 100%; }
