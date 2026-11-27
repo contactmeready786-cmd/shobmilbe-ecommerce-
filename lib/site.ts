@@ -185,6 +185,8 @@ async function shopRoutes({ req, reply, path, method, query, settings }: ShopCtx
 const OLD_PAGES: Record<string, string> = {
   'return-and-refund-policy': 'return-policy', 'refund-policy': 'return-policy', 'returns': 'return-policy',
   'privacy': 'privacy-policy', 'terms-and-conditions': 'terms', 'terms-conditions': 'terms', 'about-us': 'about',
+  // no contact page here: the about page has the shop's phone, e-mail and WhatsApp (Search Console 404s, 2026-11-28)
+  'contact-us': 'about', 'contact': 'about',
 };
 
 function safeDecode(s: string): string { try { return decodeURIComponent(s); } catch { return s; } }

@@ -216,6 +216,11 @@ export async function resolveShop(ctx: ShopCtx): Promise<Resolved> {
       // the product's link was changed: send people (and Google) to the new one for good
       const to = await catalog.findRedirect('/p/' + m[1]);
       if (to) return { kind: 'redirect', status: 301, location: encodeURI(to), headers: { 'Cache-Control': 'public, max-age=3600' } };
+      // 🔎 a product that was deleted (still in the recycle bin): its old link goes to its category, not a dead end
+      // (Search Console listed ~300 such 404s, 2026-11-28). Restored → the product itself answers again (checked first).
+      const gone = await db.one<{ slug: string }>(`SELECT c.slug FROM trash t JOIN categories c ON c.id = (t.data->'row'->>'category_id')::int
+        WHERE t.kind='product' AND t.data->'row'->>'slug'=$1 AND coalesce(c.active, true) ORDER BY t.id DESC LIMIT 1`, [m[1]]).catch(() => null);
+      if (gone) return { kind: 'redirect', status: 301, location: encodeURI(catHref(gone.slug)), headers: { 'Cache-Control': 'public, max-age=3600' } };
     }
     if (!product || !product.active) return NOT_FOUND;
     // a variant's own link opens its main product with that variant chosen
