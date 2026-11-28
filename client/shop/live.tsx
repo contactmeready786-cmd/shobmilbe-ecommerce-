@@ -185,5 +185,7 @@ function topBar(): void {
   // several matches: one after another every 6 seconds
   setInterval(() => { if (!document.hidden && items.length > 1) { index++; draw(); } }, 6000);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) void load(); else clearTimeout(timer); });
-  void load();
+  // ⚡ the score bar is extra: it waits until the page itself (pictures, prices) has loaded and the browser is idle
+  const later = () => { const w = window as Window & { requestIdleCallback?: (f: () => void, o?: { timeout: number }) => number }; if (w.requestIdleCallback) w.requestIdleCallback(() => void load(), { timeout: 4000 }); else setTimeout(() => void load(), 1500); };
+  if (document.readyState === 'complete') later(); else window.addEventListener('load', later, { once: true });
 }

@@ -42,7 +42,11 @@ type Pri = '' | 'eager' | 'high';
 function img(p: ShopProduct, cls = '', thumb = true, pri: Pri = '') {
   if (p.image_id) {
     const src = thumb && p.image_ik ? String($services_imagekit.thumbUrl(p.image_ik)) : `/media/${p.image_id}${thumb ? '/t' : ''}`;
-    return (<img className={String(cls)} src={src} alt={p.name} loading={pri ? 'eager' : 'lazy'} fetchPriority={pri === 'high' ? 'high' : undefined} decoding="async" draggable="false" />);
+    // ⚡ a card is ~170–240 px wide: the phone or computer picks the smallest picture that is still sharp
+    // (240 / 360 / 480 px) instead of always the 480 px one — about half the data on slow connections
+    const ik = thumb && p.image_ik ? String(p.image_ik) : '';
+    const set = ik ? [240, 360, 480].map((w) => `${ik}${ik.includes('?') ? '&' : '?'}tr=w-${w},f-auto ${w}w`).join(', ') : undefined;
+    return (<img className={String(cls)} src={src} srcSet={set} sizes={set ? '(max-width: 600px) 46vw, 240px' : undefined} alt={p.name} loading={pri ? 'eager' : 'lazy'} fetchPriority={pri === 'high' ? 'high' : undefined} decoding="async" draggable="false" />);
   }
   return (<span className={`emoji ${attrValue(cls)}`} aria-hidden="true"><Val v={p.emoji || '📦'} /></span>);
 }

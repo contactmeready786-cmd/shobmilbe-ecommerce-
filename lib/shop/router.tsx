@@ -4,6 +4,7 @@
 import type { HomeRowsRow, PageViewsRow, FlashSalesRow, FlashItemsRow, ProductsRow } from '../data/rows';
 import type { ReactNode } from 'react';
 import * as db from '../db';
+import * as cache from '../cache';
 import * as catalog from '../models/catalog';
 import * as content from '../models/content';
 import * as seo from '../services/seo';
@@ -55,6 +56,9 @@ export async function resolveShop(ctx: ShopCtx): Promise<Resolved> {
     // 🔀 rows take a bigger pool and show a fresh mix every half hour (lib/services/rotate.ts); off = the old fixed rows
     const rotating = rotateOn(settings);
     const POOL = rotating ? 6 : 2;
+    // ⚡ the home page's rows are the same for every visitor: worked out once a minute, not on every visit
+    // (a saved product clears this memory at once — lib/cache.ts)
+    const data: shop.HomeData = await cache.memo<shop.HomeData>(`home:${hideOut ? 1 : 0}:${sections.join(',')}`, async () => {
     // most looked-at products of the last 30 days (real visitors)
     const viewedIds = want('popular') ? (await db.q<Pick<PageViewsRow, 'product_id'>>(`SELECT product_id FROM page_views WHERE product_id IS NOT NULL AND created_at > now() - interval '30 days'
       GROUP BY product_id ORDER BY count(DISTINCT visitor_id) DESC LIMIT $1`, [ROW * 2])).map((r) => r.product_id) : [];
@@ -104,7 +108,7 @@ export async function resolveShop(ctx: ShopCtx): Promise<Resolved> {
         custom[H.keyOf(r.id)] = { row: r, link: H.linkFor(r), products: await H.productsFor(r, { hideOut }).catch(() => []) };
       }));
     }
-    const data: shop.HomeData = {
+    return {
       slides, promos, categories, posts, catRows, flash, custom,
       latest: rotating ? mix(latest, ROW, 'new') : latest.slice(0, ROW),
       offers: pick(offers, 'offers'),
@@ -113,6 +117,7 @@ export async function resolveShop(ctx: ShopCtx): Promise<Resolved> {
       featured: pick(featured, 'featured'),
       budget: pick(budget.filter((p) => p.stock > 0), 'budget'),
     };
+    }, 60_000);
     // who the shop is, for Google: both spellings of the name, so "সবমিলবে" and "shobmilbe" both find it
     const site = ctx.base.replace(/\/+$/, '');
     const host = site.replace(/^https?:\/\//, '');
