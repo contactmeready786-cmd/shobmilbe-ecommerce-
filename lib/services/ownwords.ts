@@ -45,15 +45,18 @@ export function shopWords(importRef: string): string[] {
     const s = String(store || '').replace(/[-_]?bd$/, '').replace(/[-_]+/g, ' ').trim();
     return s.length >= 4 ? [escRe(s).replace(/ /g, '[ -]?')] : [];
   }
-  return sourceNames(host).filter((n) => n.length >= 5 && !/\./.test(n));
+  // marketplaces' names are product words too ("Cartup packaging poly", "Daraz packaging box"): never taken out
+  if (MARKETPLACES.test(host)) return [];
+  return sourceNames(host).filter((n) => n.length >= 5 && !/\./.test(n) && !MARKETPLACES.test(n));
 }
+const MARKETPLACES = /daraz|cartup|cart-up|othoba|evaly|pickaboo|chaldal|ajkerdeal|bikroy|alibaba|aliexpress|amazon|flipkart|meesho|shopee|lazada|temu/i;
 
 /** a product name without another shop's name in it ('' left alone = nothing to change) */
 export function stripShopName(name: string, importRef = ''): string {
   const words = [...KNOWN, ...shopWords(importRef)];
   if (!words.length) return name;
   const re = new RegExp(`[\\s(\\[|,–-]*(?:\\b(?:by|from)\\s+)?(?:${words.join('|')})(?:\\s*(?:bd|shop|store|sale))?\\b[\\s)\\]|,–-]*`, 'giu');
-  const out = String(name || '').replace(re, ' ').replace(/\s{2,}/g, ' ').replace(/^[\s|,–-]+|[\s|,–-]+$/g, '').trim();
+  const out = String(name || '').replace(re, ' ').replace(/\s*\/\s*\/\s*/g, '/').replace(/\s{2,}/g, ' ').replace(/^[\s|,–-]+|[\s|,–-]+$/g, '').trim();
   return out.length >= 4 ? out : name;
 }
 

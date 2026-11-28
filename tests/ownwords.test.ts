@@ -11,6 +11,9 @@ test('other shops’ names come out of product names, product words stay', () =>
   assert.equal(stripShopName('Arduino Uno R3 by creativetrade'), 'Arduino Uno R3');
   assert.equal(stripShopName('Daraz Packaging Poly Courier Bag'), 'Daraz Packaging Poly Courier Bag');
   assert.equal(stripShopName('65mm Robotics Wheels'), '65mm Robotics Wheels');
+  // a marketplace's name is a product word (Cart Up / Daraz packaging): it stays, whatever shop it came from
+  assert.equal(stripShopName('Cartup Packaging Poly Courier Plastic Bag With Pocket', 'cartup.com#12'), 'Cartup Packaging Poly Courier Plastic Bag With Pocket');
+  assert.equal(stripShopName('Packaging Material Daraz/Cartup/non-Brand Box', 'cartup.com.bd#3'), 'Packaging Material Daraz/Cartup/non-Brand Box');
 });
 
 const old = { short_description: '5V 1A charging module.', description: 'TP4056 is a 5V 1A lithium charging module. It has 2 LEDs and micro USB input. Size 26 x 17 mm. Package includes 1 x TP4056 module.' };
