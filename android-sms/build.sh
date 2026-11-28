@@ -5,8 +5,8 @@
 # Output: android-sms/out/shobmilbe-sms.apk (signed). Raise VERSION_CODE / VERSION_NAME for every new release —
 # and sign with the SAME key (the owner keeps it), or the phone refuses the update.
 set -euo pipefail
-VERSION_CODE=1
-VERSION_NAME=1.0
+VERSION_CODE=2
+VERSION_NAME=1.1
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 SDK="${ANDROID_HOME:-$HOME/android-sdk}"

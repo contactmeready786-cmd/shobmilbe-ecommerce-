@@ -36,6 +36,10 @@ public class MainActivity extends Activity {
     private static final int BLUE = 0xFF1565C0, GREEN = 0xFF2E7D32, RED = 0xFFC62828, AMBER = 0xFFB26A00, GREY = 0xFF555555;
     private final Handler ui = new Handler(Looper.getMainLooper());
     private LinearLayout root;
+    /** which screen is drawn now (null = none yet); the pair screen is never redrawn while someone types in it */
+    private Boolean drawnPaired;
+    /** the permission questions are asked once per opening — never again and again (that kept redrawing the screen) */
+    private boolean asked;
     private TextView status, detail;
     private final Runnable tick = new Runnable() { @Override public void run() { refresh(); ui.postDelayed(this, 2000); } };
 
@@ -49,9 +53,9 @@ public class MainActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
-        askPermissions();
         if (Store.on(this)) GatewayService.start(this);
-        draw();
+        if (drawnPaired == null || drawnPaired != Store.paired(this) || Store.paired(this)) draw();
+        if (!asked) { asked = true; askPermissions(); }
         ui.post(tick);
     }
 
@@ -71,7 +75,8 @@ public class MainActivity extends Activity {
         sv.addView(root);
         setContentView(sv);
         status = null; detail = null;
-        if (Store.paired(this)) drawRunning(); else drawPair();
+        drawnPaired = Store.paired(this);
+        if (drawnPaired) drawRunning(); else drawPair();
     }
 
     private void drawPair() {
@@ -143,7 +148,10 @@ public class MainActivity extends Activity {
         root.addView(toggle);
 
         Button perm = button("🔓 অনুমতি দিন", BLUE);
-        perm.setOnClickListener(v -> askPermissions());
+        perm.setOnClickListener(v -> {
+            // asked before and refused: Android won't ask again, so open the app's own settings page
+            try { startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + getPackageName()))); } catch (Exception e) { askPermissions(); }
+        });
         if (!hasSms()) root.addView(perm);
 
         Button bat = button("🔋 ব্যাটারি সেভার থেকে বাদ দিন", BLUE);
@@ -214,7 +222,7 @@ public class MainActivity extends Activity {
 
     @Override
     public void onRequestPermissionsResult(int code, String[] perms, int[] res) {
-        draw();
+        if (Store.paired(this)) draw();
         if (Store.on(this)) GatewayService.start(this);
     }
 
@@ -274,7 +282,14 @@ public class MainActivity extends Activity {
         e.setText(value);
         e.setInputType(type == InputType.TYPE_CLASS_NUMBER ? type : (InputType.TYPE_CLASS_TEXT | type));
         e.setSingleLine(true);
-        if (type == InputType.TYPE_CLASS_NUMBER) { e.setTextSize(26); e.setGravity(Gravity.CENTER); e.setLetterSpacing(0.3f); }
+        e.setFocusable(true);
+        e.setFocusableInTouchMode(true);
+        e.setLayoutParams(new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+        if (type == InputType.TYPE_CLASS_NUMBER) {
+            e.setInputType(InputType.TYPE_CLASS_NUMBER); // after setSingleLine, which can change it
+            e.setFilters(new android.text.InputFilter[] { new android.text.InputFilter.LengthFilter(6) });
+            e.setTextSize(26); e.setGravity(Gravity.CENTER); e.setLetterSpacing(0.3f);
+        }
         return e;
     }
 
