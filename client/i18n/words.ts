@@ -25,6 +25,7 @@ export const WORDS: Record<string, string> = {
   'বন্ধ করুন': 'Close',
   'সব {t} →': 'All {0} →',
   'কেনাকাটা': 'Shop',
+  'জানুন ও শিখুন': 'Learn & explore',
   'তথ্য': 'Information',
   'যোগাযোগ': 'Contact',
   '© {n} {t} · সর্বস্বত্ব সংরক্ষিত': '© {0} {1} · All rights reserved',

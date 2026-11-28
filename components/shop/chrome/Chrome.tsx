@@ -99,6 +99,10 @@ export function ShopBody({ settings: s, categories, pages, popup = null, q = '',
     ...(s.ui_compare !== '0' ? [['/compare', '⚖️ পণ্য তুলনা', 'foot_compare']] : []),
     ...(s.shoppush_on === '1' && s.push_vapid_public ? [['#offers-on', '🔔 অফারের খবর পান', 'foot_push']] : []),
   ].filter(([, , k]) => s[k] !== '0').concat(footerLinks.map((l) => [l.url, l.label]));
+  // (owner, 2026-11-28) the long "কেনাকাটা" column split in two: the learning / reading links get their own column beside it
+  const LEARN = /^\/(learn|tools|blog|compare)(\/|\?|$)/;
+  const learnLinks = shopLinks.filter(([url]) => LEARN.test(String(url)));
+  const buyLinks = shopLinks.filter(([url]) => !LEARN.test(String(url)));
   const infoPages = pages.filter((p) => p.in_footer);
   const socials = Object.keys(SOCIAL_ICONS).filter((k) => s[k]);
   const liveLinks = [['cricket', '🏏 ক্রিকেট স্কোর'], ['football', '⚽ ফুটবল স্কোর']].filter(([k]) => s[`live_${k}`] === '1');
@@ -188,10 +192,16 @@ export function ShopBody({ settings: s, categories, pages, popup = null, q = '',
               ))}</div>
             ) : null}
           </div>
-          {shopLinks.length ? (
+          {buyLinks.length ? (
             <div>
               <h2>কেনাকাটা</h2>
-              {shopLinks.map(([url, label]) => (url === '#offers-on' ? <a key={url} href="#" data-push-ask="">{label}</a> : <a key={url} href={security.safeUrl(url)}>{label}</a>))}{' '}
+              {buyLinks.map(([url, label]) => (url === '#offers-on' ? <a key={url} href="#" data-push-ask="">{label}</a> : <a key={url} href={security.safeUrl(url)}>{label}</a>))}{' '}
+            </div>
+          ) : null}
+          {learnLinks.length ? (
+            <div>
+              <h2>জানুন ও শিখুন</h2>
+              {learnLinks.map(([url, label]) => <a key={url} href={security.safeUrl(url)}>{label}</a>)}{' '}
             </div>
           ) : null}
           {infoPages.length ? (

@@ -128,7 +128,7 @@ export async function resolveShop(ctx: ShopCtx): Promise<Resolved> {
       logo: settings.logo_id ? `${site}/media/${settings.logo_id}` : `${site}/icon-512.png`,
       image: settings.logo_id ? `${site}/media/${settings.logo_id}` : `${site}/icon-512.png`,
       priceRange: '৳', currenciesAccepted: 'BDT', areaServed: { '@type': 'Country', name: 'Bangladesh' },
-      sameAs: ['social_facebook', 'social_instagram', 'social_youtube', 'social_tiktok', 'social_linkedin', 'social_x'].map((k) => settings[k]).filter((u) => /^https?:\/\//.test(u || '')) };
+      sameAs: ['social_facebook', 'social_instagram', 'social_threads', 'social_youtube', 'social_tiktok', 'social_linkedin', 'social_x', 'social_pinterest', 'social_telegram'].map((k) => settings[k]).filter((u) => /^https?:\/\//.test(u || '')) };
     // the site's name in Google results + a search box for the shop
     const websiteLd = { '@context': 'https://schema.org', '@type': 'WebSite', '@id': site + '/#website', name: settings.store_name,
       alternateName: names.filter((n) => n !== settings.store_name), url: site + '/', inLanguage: 'bn-BD',

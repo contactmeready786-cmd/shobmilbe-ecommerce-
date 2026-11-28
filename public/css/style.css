@@ -443,7 +443,7 @@ a.fbt-n:hover { color: var(--blue); }
 
 /* ---------- footer, chat & toast ---------- */
 .site-footer { background: var(--ink); color: #C9D3E3; padding: 36px 0 20px; margin-top: 30px; }
-.footer-grid { display: grid; grid-template-columns: 1.6fr 1fr 1fr 1.2fr; gap: 28px; }
+.footer-grid { display: grid; grid-template-columns: minmax(0, 1.4fr) repeat(4, minmax(0, 1fr)); gap: 24px 28px; }
 .site-footer h2 { color: #fff; font-family: var(--body); font-size: 1rem; }
 .site-footer a { color: #fff; display: block; text-decoration: none; padding: 2px 0; }
 .site-footer a:hover { text-decoration: underline; }
@@ -632,7 +632,8 @@ body.protect .card-pic img, body.protect .g-main img, body.protect .g-thumb img,
 /* ---------- responsive ---------- */
 @media (max-width: 1100px) {
   .cols-5 .grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-  .footer-grid { grid-template-columns: 1fr 1fr; }
+  .footer-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .footer-grid > div:first-child { grid-column: 1 / -1; }
 }
 @media (max-width: 900px) {
   .grid, .cols-4 .grid, .cols-5 .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
@@ -671,9 +672,9 @@ body.protect .card-pic img, body.protect .g-main img, body.protect .g-thumb img,
   .summary { position: static; order: -1; }
   .footer-grid { grid-template-columns: 1fr 1fr; gap: 18px; }
   .footer-grid > div:first-child { grid-column: 1 / -1; }
-  /* যোগাযোগ column gets the full row on phones, so ✉ and the email address stay on one line */
-  .footer-grid > div:last-child { grid-column: 1 / -1; }
+  /* four link columns sit 2 × 2 on phones (owner, 2026-11-28); the e-mail address stays on one line */
   .site-footer a { overflow-wrap: anywhere; }
+  .site-footer a[href^="mailto:"] { font-size: .8rem; overflow-wrap: normal; white-space: nowrap; }
   .post-grid { grid-template-columns: minmax(0, 1fr); }
   .order-meta { grid-template-columns: 1fr 1fr; }
   .steps li { font-size: .7rem; }

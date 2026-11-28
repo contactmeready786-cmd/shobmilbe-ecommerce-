@@ -1940,7 +1940,7 @@ const DEFAULT_SETTINGS: Record<string, string> = {
   gtm_id: '', ga4_id: '', google_site_verification: '', bing_site_verification: '',
   custom_head: '', custom_body: '',
   verification_files: '[]',
-  social_facebook: '', social_instagram: '', social_youtube: '', social_tiktok: '', social_linkedin: '',
+  social_facebook: '', social_instagram: '', social_threads: '', social_youtube: '', social_tiktok: '', social_linkedin: '',
   social_x: '', social_pinterest: '', social_telegram: '',
   chat_whatsapp_button: '1', chat_messenger_page: '', chat_tawk_property: '', chat_tawk_widget: 'default', chat_script: '',
   // 🙋 help button (lib/models/helpbot.ts): on; help_items empty = the suggested answers made from the settings

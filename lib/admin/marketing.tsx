@@ -154,7 +154,7 @@ async function deleteCoupon(ctx: AdminCtx, m: RouteMatch) {
 }
 
 // ---------------------------------------------------------------- social & live chat
-const SOCIALS = [['social_facebook', 'Facebook পেজ'], ['social_instagram', 'Instagram'], ['social_youtube', 'YouTube'], ['social_tiktok', 'TikTok'],
+const SOCIALS = [['social_facebook', 'Facebook পেজ'], ['social_instagram', 'Instagram'], ['social_threads', 'Threads'], ['social_youtube', 'YouTube'], ['social_tiktok', 'TikTok'],
   ['social_linkedin', 'LinkedIn'], ['social_x', 'X (Twitter)'], ['social_pinterest', 'Pinterest'], ['social_telegram', 'Telegram']];
 async function social(ctx: AdminCtx) {
   const s = ctx.settings;
