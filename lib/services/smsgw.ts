@@ -93,13 +93,22 @@ export async function enqueue(phoneIntl: string, body: string): Promise<string> 
 
 type Out = { id: string; phone: string; body: string };
 /** Old work tidied, then up to 10 waiting SMS marked "taken" for the phone. */
-async function claim(): Promise<Out[]> {
-  await db.q(`UPDATE sms_outbox SET status='expired', error='ফোন ${EXPIRE_MINUTES} মিনিটে নেয়নি', done_at=now()
-    WHERE status='pending' AND created_at < now() - make_interval(mins => $1)`, [EXPIRE_MINUTES]);
-  await db.q(`UPDATE sms_outbox SET status=CASE WHEN tries >= $2 THEN 'failed' ELSE 'pending' END,
+/** Old work tidied: too old to send → expired; taken but never reported → tried again or failed (also from the
+ * 5-minute job, so a phone that is off for long still gets its SMS marked in the log). */
+export async function sweep(): Promise<void> {
+  // the log line said "handed to the phone" (ok): an SMS that in the end never left the phone is marked failed there too
+  const gone = await db.q<{ log_id: number | null; error: string }>(`UPDATE sms_outbox SET status='expired', error='ফোন ${EXPIRE_MINUTES} মিনিটে নেয়নি', done_at=now()
+    WHERE status='pending' AND created_at < now() - make_interval(mins => $1) RETURNING log_id, error`, [EXPIRE_MINUTES]);
+  const dead = await db.q<{ log_id: number | null; error: string; status: string }>(`UPDATE sms_outbox SET status=CASE WHEN tries >= $2 THEN 'failed' ELSE 'pending' END,
       error=CASE WHEN tries >= $2 THEN 'ফোন জানায়নি পাঠানো হলো কি না' ELSE error END,
       done_at=CASE WHEN tries >= $2 THEN now() ELSE NULL END
-    WHERE status='taken' AND taken_at < now() - make_interval(secs => $1)`, [RETAKE_SECONDS, MAX_TRIES]);
+    WHERE status='taken' AND taken_at < now() - make_interval(secs => $1) RETURNING log_id, error, status`, [RETAKE_SECONDS, MAX_TRIES]);
+  for (const r of [...gone, ...dead.filter((d) => d.status === 'failed')]) {
+    if (r.log_id) await db.q('UPDATE sms_log SET ok=false, detail=$2 WHERE id=$1', [r.log_id, '❌ ' + r.error]).catch(() => {});
+  }
+}
+async function claim(): Promise<Out[]> {
+  await sweep();
   return db.q<Out>(`UPDATE sms_outbox SET status='taken', taken_at=now(), tries=tries+1
     WHERE id IN (SELECT id FROM sms_outbox WHERE status='pending' ORDER BY created_at LIMIT $1 FOR UPDATE SKIP LOCKED)
     RETURNING id, phone, body`, [BATCH]);
@@ -171,5 +180,6 @@ export function levelFor(minutes: number | null, battery: number | null, chargin
 
 /** Keep the outbox small: finished SMS older than 30 days go (sms_log keeps the history). */
 export async function tidy(): Promise<void> {
+  await sweep();
   await db.q("DELETE FROM sms_outbox WHERE created_at < now() - interval '30 days'");
 }

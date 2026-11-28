@@ -1546,6 +1546,13 @@ DELETE FROM checkout_otps;
 DELETE FROM sms_campaigns;
 DELETE FROM settings WHERE key IN ('sms_api_key', 'sms_sender_id', 'sms_custom_url');
 UPDATE settings SET value = 'ownapp' WHERE key = 'sms_provider';
+`,  // 📱 the owner tested the new SMS app and asked for a clean start again (2026-11-28): every SMS history and old code
+  `
+DELETE FROM sms_log;
+DELETE FROM sms_outbox;
+DELETE FROM checkout_otps;
+DELETE FROM customer_otps;
+DELETE FROM sms_campaigns;
 `,
 ];
 

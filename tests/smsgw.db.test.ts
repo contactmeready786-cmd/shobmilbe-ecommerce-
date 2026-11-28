@@ -102,6 +102,9 @@ test('an SMS the phone never took expires after 10 minutes (an old code is no us
   await db.q("UPDATE sms_outbox SET created_at = now() - interval '11 minutes' WHERE id=$1", [c.id]);
   assert.equal((await GW.pull({}, 0)).length, 0);
   assert.equal((await SMS.smsState(s, c.id))!.state, 'Failed');
+  // the log no longer says it went
+  const log = await db.one<{ ok: boolean }>('SELECT l.ok FROM sms_log l JOIN sms_outbox o ON o.log_id=l.id WHERE o.id=$1', [c.id]);
+  assert.equal(log!.ok, false);
 });
 
 test('unpaired: SMS is not ready and the old key stops working', { skip }, async () => {
