@@ -163,8 +163,8 @@ rule('power-converter', /xl40\d\d|lm2596|lm2577|mp1584|mt-?3608|buck|boost|step.
 rule('chemicals', /thermal (insulator|pad)|silicone insulator|mica (sheet|insulator)/);
 rule('hardware', /acrylic|plexiglass|neodymium|\bmagnets?\b|\bscrews?\b|\bbolts?\b|\bnuts?\b|hex spacer|standoff|\bspacers?\b|rubber feet|bumper feet|enclosure|project box|junction box \d|ips (box|casing|cover|body)|inverter casing|plastic (case|box) for|aluminium (case|box)|heat ?sink(?!.*(compound|paste))/, /screw ?driver|magnetic core|tool (kit|set|box)|terminal|reed|magnetic (sensor|switch|lock)|hall|lock|fan|led|driver|regulator ic|speaker|microphone|wrench|hex key|allen|socket|jack|connector|pump|motor|battery/);
 rule('buzzer', /buzzer (alarm )?module|buzzer alarm/);
-rule('speed-controller', /de-?lay ?(timer|relay)|timer relay/);
-rule('display', /max7219.*(dot matrix|display)|(dot matrix|display).*max7219/);
+rule('speed-controller', /de-?lay ?(timer|relay)|timer relay/, /incubator|thermostat/);
+rule('display', /max7219.*(dot matrix|display)|(dot matrix|display).*max7219/, /\bic\b|max7219cng/);
 rule('ic', /\bpcf8574\b|(decoder|encoder) ic|\bht12[de]\b/);
 rule('power-converter', /decoy|pd trigger|qc trigger|power supply pcb board/);
 rule('ic', /optocoupler|photocoupler|phototransistor|gate driver|driver ic|\bir2\d{3}|\btlp\d{3}|\b4n\d\d\b|\btda ?\d{4}|amplifiers? ic/, /module|board|kit|shield|programmer|adapter board|tester|socket adapter|breakout|speed|pump|casing|box/);
