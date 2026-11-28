@@ -65,6 +65,7 @@ const TABS: Record<string, Tab[]> = {
     ['/admin/products/clean-desc', 'Clean other shops\' text from descriptions', 'products', 'clean-desc', '🧹'],
     ['/admin/products/title-fix', 'Fix names & categories (AI)', 'products', 'title-fix', '🏷️'],
     ['/admin/products/desc-fix', 'Check descriptions (AI)', 'products', 'desc-fix', '📋'],
+    ['/admin/products/own-words', 'Own words (AI)', 'products', 'own-words', '✍️'],
   ],
   // 2026-11-19: barcode scan and the new photo search side by side (both find a product at home and set its stock)
   stockscan: [

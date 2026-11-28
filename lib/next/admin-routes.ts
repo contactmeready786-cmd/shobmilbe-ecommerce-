@@ -182,4 +182,5 @@ export const ADMIN_GET_ROUTES: (string | RegExp)[] = [
   "/admin/app-users",
   "/admin/products/title-fix",
   "/admin/products/desc-fix",
+  "/admin/products/own-words",
 ];

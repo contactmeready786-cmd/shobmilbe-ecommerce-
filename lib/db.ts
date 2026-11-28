@@ -1498,6 +1498,20 @@ CREATE TABLE IF NOT EXISTS desc_fix (
 );
 CREATE INDEX IF NOT EXISTS desc_fix_status_idx ON desc_fix(status);
 `,
+  // ✍️ Own words (owner, 2026-11-28): copied products' descriptions rewritten in the shop's own words, same facts
+  // (lib/services/ownwords.ts); other shops' names taken out of product names and links (old link → 301)
+  `
+CREATE TABLE IF NOT EXISTS own_words (
+  product_id int PRIMARY KEY REFERENCES products(id) ON DELETE CASCADE, status text NOT NULL DEFAULT 'review',
+  old jsonb, proposal jsonb, why text NOT NULL DEFAULT '', model text NOT NULL DEFAULT '',
+  created_at timestamptz DEFAULT now(), applied_at timestamptz
+);
+CREATE INDEX IF NOT EXISTS own_words_status_idx ON own_words(status);
+CREATE TABLE IF NOT EXISTS shopname_fix (
+  product_id int PRIMARY KEY REFERENCES products(id) ON DELETE CASCADE, old_name text NOT NULL, old_slug text NOT NULL,
+  new_name text NOT NULL, new_slug text NOT NULL, undone boolean NOT NULL DEFAULT false, created_at timestamptz DEFAULT now()
+);
+`,
 ];
 
 // Data steps that need code, keyed by migration number (run after its SQL).

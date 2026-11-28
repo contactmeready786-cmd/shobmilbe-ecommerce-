@@ -935,6 +935,18 @@ export type OrdersRow = {
   label: string;
 };
 
+/** A row of own_words. */
+export type OwnWordsRow = {
+  product_id: number;
+  status: string;
+  old: unknown;
+  proposal: unknown;
+  why: string;
+  model: string;
+  created_at: Date;
+  applied_at: Date | null;
+};
+
 /** A row of owner_faces. */
 export type OwnerFacesRow = {
   id: number;
@@ -1428,6 +1440,17 @@ export type ShopPushSubsRow = {
   created_at: Date;
 };
 
+/** A row of shopname_fix. */
+export type ShopnameFixRow = {
+  product_id: number;
+  old_name: string;
+  old_slug: string;
+  new_name: string;
+  new_slug: string;
+  undone: boolean;
+  created_at: Date;
+};
+
 /** A row of sms_campaigns. */
 export type SmsCampaignsRow = {
   id: number;
@@ -1845,6 +1868,7 @@ export type Tables = {
   order_items: OrderItemsRow;
   order_packing: OrderPackingRow;
   orders: OrdersRow;
+  own_words: OwnWordsRow;
   owner_faces: OwnerFacesRow;
   owner_passkeys: OwnerPasskeysRow;
   pack_singles: PackSinglesRow;
@@ -1880,6 +1904,7 @@ export type Tables = {
   seo_score_history: SeoScoreHistoryRow;
   settings: SettingsRow;
   shop_push_subs: ShopPushSubsRow;
+  shopname_fix: ShopnameFixRow;
   sms_campaigns: SmsCampaignsRow;
   sms_log: SmsLogRow;
   social_posts: SocialPostsRow;
