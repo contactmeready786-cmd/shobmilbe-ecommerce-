@@ -29,6 +29,8 @@ import type { Post, PostSummary } from '../models/content';
 import type { ReactNode } from 'react';
 import { worthShowing } from '../services/bntitle';
 import { toolsForProduct } from '../data/seo-learn';
+import type { LiveSeo } from '../data/seo-live';
+import type { Match as LiveMatch } from '../services/livescore';
 import { toolsOn } from '../data/tools';
 
 /** A product as the shop's cards and pages read it. Any product query's row fits (the columns named here are typed). */
@@ -536,11 +538,23 @@ type LivePageProps = {
   data: unknown;
   embed: string | false;
   settings: Settings;
+  seo?: LiveSeo;
 };
-function livePage({ sport, on, data, embed, settings }: LivePageProps) {
+/** Today's matches written straight into the page (search engines, slow phones, no JavaScript);
+ * the browser's live script replaces this list with the live one as soon as it starts. */
+function liveFirstList(data: unknown) {
+  const matches = ((data as { matches?: LiveMatch[] } | null)?.matches || []).slice(0, 30);
+  if (!matches.length) return <p className="live-empty muted">স্কোর লোড হচ্ছে…</p>;
+  const state: Record<string, string> = { in: '🔴 লাইভ', pre: 'আসন্ন', post: 'শেষ' };
+  return <ul className="live-first">{jsxList(matches.map((m) => <li><b>{m.teams.map((t) => `${t.name}${t.score ? ' ' + t.score : ''}`).join(' — ')}</b>{' '}<span className="small muted">· {state[m.state] || ''}{m.league ? ` · ${m.league}` : ''}{(m.summary || m.clock || m.detail) ? ` · ${m.summary || m.clock || m.detail}` : ''}</span></li>))}</ul>;
+}
+function liveAbout(seo: LiveSeo) {
+  return <section className="live-about"><h2>{seo.en}</h2><p>{seo.intro}</p><h2>প্রশ্ন-উত্তর</h2>{jsxList(seo.faq.map((f) => <details><summary>{f.q}</summary><p>{f.a}</p></details>))}</section>;
+}
+function livePage({ sport, on, data, embed, settings, seo }: LivePageProps) {
   const tabs = [['cricket', '🏏 ক্রিকেট'], ['football', '⚽ ফুটবল']].filter(([k]) => on[k]);
   const refresh = Math.min(120, Math.max(10, Number(settings.live_refresh) || 20));
-  return (<div className="wrap section live"><div className="live-head"><h1>{(sport === 'cricket' ? "🏏 লাইভ ক্রিকেট স্কোর" : "⚽ লাইভ ফুটবল স্কোর")}</h1>{(tabs.length > 1 ? <nav className="live-sports" aria-label="খেলা">{jsxList(tabs.map(([k, l]) => <a href={`/live/${attrValue(k)}`} className={k === sport ? 'on' : ''}><Val v={l} /></a>))}</nav> : null)}</div>{(embed ? <div className="live-embed"><RawHtml html={embed} /></div> : <><div className="live-bar"><div className="chips live-filter" role="tablist"><button type="button" className="chip on" data-live-filter="all">সব</button>{' '}<button type="button" className="chip" data-live-filter="in"><span className="dot"></span>{' '}লাইভ{' '}<b data-live-count=""></b></button>{' '}<button type="button" className="chip" data-live-filter="pre">আসন্ন</button>{' '}<button type="button" className="chip" data-live-filter="post">শেষ</button></div><span className="live-updated small muted" data-live-updated="" aria-live="polite"></span></div><div className="live-list" data-live={attrValue(sport)} data-refresh={attrValue(refresh)}><p className="live-empty muted">স্কোর লোড হচ্ছে…</p></div><script type="application/json" data-live-initial="" dangerouslySetInnerHTML={{ __html: htmlValue(raw(JSON.stringify(data || null).replace(/</g, '\\u003c'))) }} /><noscript><p className="muted">লাইভ স্কোর দেখতে ব্রাউজারে JavaScript চালু রাখুন।</p></noscript></>)}</div>);
+  return (<div className="wrap section live"><div className="live-head"><h1>{(sport === 'cricket' ? "🏏 লাইভ ক্রিকেট স্কোর" : "⚽ লাইভ ফুটবল স্কোর")}</h1>{(tabs.length > 1 ? <nav className="live-sports" aria-label="খেলা">{jsxList(tabs.map(([k, l]) => <a href={`/live/${attrValue(k)}`} className={k === sport ? 'on' : ''}><Val v={l} /></a>))}</nav> : null)}</div>{(embed ? <div className="live-embed"><RawHtml html={embed} /></div> : <><div className="live-bar"><div className="chips live-filter" role="tablist"><button type="button" className="chip on" data-live-filter="all">সব</button>{' '}<button type="button" className="chip" data-live-filter="in"><span className="dot"></span>{' '}লাইভ{' '}<b data-live-count=""></b></button>{' '}<button type="button" className="chip" data-live-filter="pre">আসন্ন</button>{' '}<button type="button" className="chip" data-live-filter="post">শেষ</button></div><span className="live-updated small muted" data-live-updated="" aria-live="polite"></span></div><div className="live-list" data-live={attrValue(sport)} data-refresh={attrValue(refresh)}>{liveFirstList(data)}</div><script type="application/json" data-live-initial="" dangerouslySetInnerHTML={{ __html: htmlValue(raw(JSON.stringify(data || null).replace(/</g, '\\u003c'))) }} /><noscript><p className="muted">লাইভ স্কোর দেখতে ব্রাউজারে JavaScript চালু রাখুন।</p></noscript></>)}{seo ? liveAbout(seo) : null}</div>);
 }
 
 export { delText, videoBox, trustItems, reviewsBlock, livePage, home, listing, productPage, cartPage, kitsPage, kitPage, checkoutPage, wishlistPage, comparePage, stars, orderPage, trackPage, notFound, productCard, blogList, blogPost, staticPage, discount };

@@ -18,6 +18,7 @@ import { learnListPage, lessonPage } from '../views/learn';
 import { toolsListPage, toolPage } from '../views/tools';
 import * as $tools from '../data/tools';
 import * as $seoLearn from '../data/seo-learn';
+import * as $seoLive from '../data/seo-live';
 import * as $lessons from '../data/lessons';
 import * as db from '../db';
 import * as courier from '../services/courier';
@@ -52,10 +53,25 @@ export async function resolveMore({ path, query, settings, base: siteBase, req }
     const embed = settings[`live_${sport}_source`] === 'embed' && String(settings[`live_${sport}_embed`] || '').trim();
     let data = null;
     if (!embed) data = await Promise.race([livescore.scores(sport, settings), new Promise((r) => setTimeout(() => r(null), 3500))]).catch(() => null);
-    const title = sport === 'cricket' ? 'লাইভ ক্রিকেট স্কোর' : 'লাইভ ফুটবল স্কোর';
-    return page(title, shop.livePage({ sport, on, data, embed, settings }), {
-      active: 'live', canonical: `/live/${sport}`,
-      description: sport === 'cricket' ? 'বাংলাদেশসহ সব আন্তর্জাতিক ও লিগ ক্রিকেটের লাইভ স্কোর, প্রতি কয়েক সেকেন্ডে আপডেট।' : 'বিশ্বকাপ, প্রিমিয়ার লিগ, লা লিগা সহ সব বড় ফুটবল ম্যাচের লাইভ স্কোর।',
+    const seo = $seoLive.LIVE_SEO[sport as 'cricket' | 'football'];
+    const matches = ((data as livescore.Scores | null)?.matches || []).slice(0, 30);
+    const url = `${siteBase}/live/${sport}`;
+    // what is on the page, for Google & co.: the page itself, where it sits, and today's matches (real start times only)
+    const events = matches.filter((x) => x.date && x.teams.length >= 2).map((x) => ({
+      '@type': 'SportsEvent', name: `${x.teams[0].name} vs ${x.teams[1].name}`, sport: sport === 'cricket' ? 'Cricket' : 'Football',
+      startDate: x.date, description: x.league, url,
+      eventStatus: 'https://schema.org/EventScheduled', eventAttendanceMode: 'https://schema.org/OnlineEventAttendanceMode',
+      location: x.venue ? { '@type': 'Place', name: x.venue } : { '@type': 'VirtualLocation', url },
+      competitor: x.teams.slice(0, 2).map((t) => ({ '@type': 'SportsTeam', name: t.name })),
+    }));
+    return page($seoLearn.seoTitle(seo.title, seo.en), shop.livePage({ sport, on, data, embed, settings, seo }), {
+      active: 'live', canonical: `/live/${sport}`, description: seo.description, keywords: seo.keywords,
+      jsonLd: { '@context': 'https://schema.org', '@type': 'WebPage', name: `${seo.title} — ${seo.en}`, description: seo.description, url, inLanguage: 'bn',
+        ...(events.length ? { mainEntity: { '@type': 'ItemList', itemListElement: events.map((e, i) => ({ '@type': 'ListItem', position: i + 1, item: e })) } } : {}) },
+      jsonLdExtra: [{ '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: [
+        { '@type': 'ListItem', position: 1, name: 'হোম', item: `${siteBase}/` },
+        { '@type': 'ListItem', position: 2, name: seo.title, item: url },
+      ] }, $seoLearn.faqLd(seo.faq)],
     });
   }
   if (path === '/cart') return page('কার্ট', shop.cartPage({ settings }), { active: 'cart', noindex: true });

@@ -14,6 +14,7 @@ import type { Settings } from '../types';
 import { lessons } from '../data/lessons';
 import { toolsOn, tools } from '../data/tools';
 import { TOOL_SEO, LESSON_SEO, LIST_SEO } from '../data/seo-learn';
+import { LIVE_SEO } from '../data/seo-live';
 
 /** a category or brand as the list pages' titles need it */
 type ListLike = { name?: unknown; seo_title?: string | null; seo_description?: string | null; description?: string | null };
@@ -155,10 +156,11 @@ async function indexNowPing(siteUrl: string, paths: string[]) {
 
 async function learnToolPaths(settings: Settings): Promise<string[]> {
   const t = toolsOn(settings);
-  return [...(settings.learn_on !== '0' ? ['/learn', ...lessons().map((l) => `/learn/${l.slug}`)] : []), ...(t.length ? ['/tools', ...t.map((x) => `/tools/${x.key}`)] : [])];
+  return [...(settings.learn_on !== '0' ? ['/learn', ...lessons().map((l) => `/learn/${l.slug}`)] : []), ...(t.length ? ['/tools', ...t.map((x) => `/tools/${x.key}`)] : []),
+    ...(['cricket', 'football'] as const).filter((k) => settings[`live_${k}`] === '1').map((k) => `/live/${k}`)];
 }
 function learnContentSig(): string {
-  return crypto.createHash('sha1').update(JSON.stringify([lessons(), tools(), TOOL_SEO, LESSON_SEO, LIST_SEO])).digest('hex');
+  return crypto.createHash('sha1').update(JSON.stringify([lessons(), tools(), TOOL_SEO, LESSON_SEO, LIST_SEO, LIVE_SEO])).digest('hex');
 }
 
 // Runs with the round-the-clock tick: at most once an hour, sends the pages that are new or changed since the

@@ -138,6 +138,8 @@ export async function sitemap(ctx: ApiCtx) {
     ...(settings.learn_on !== '0' ? [u('/learn', null, '0.7'), ...lessons().map((l) => u(`/learn/${l.slug}`, null, '0.7'))] : []),
     // 🧮 the electronics tools
     ...(toolsOn(settings).length ? [u('/tools', null, '0.7'), ...toolsOn(settings).map((t) => u(`/tools/${t.key}`, null, '0.7'))] : []),
+    // 🏏⚽ the live score pages (they change all day, so today's date)
+    ...(['cricket', 'football'] as const).filter((k) => settings[`live_${k}`] === '1').map((k) => u(`/live/${k}`, new Date(), '0.9')),
   ].join('')}</urlset>`;
   return text(200, xml, 'application/xml; charset=utf-8', { 'Cache-Control': 'public, max-age=3600' });
 }
