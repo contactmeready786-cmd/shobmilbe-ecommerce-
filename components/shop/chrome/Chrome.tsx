@@ -99,10 +99,18 @@ export function ShopBody({ settings: s, categories, pages, popup = null, q = '',
     ...(s.ui_compare !== '0' ? [['/compare', '⚖️ পণ্য তুলনা', 'foot_compare']] : []),
     ...(s.shoppush_on === '1' && s.push_vapid_public ? [['#offers-on', '🔔 অফারের খবর পান', 'foot_push']] : []),
   ].filter(([, , k]) => s[k] !== '0').concat(footerLinks.map((l) => [l.url, l.label]));
-  // (owner, 2026-11-28) the long "কেনাকাটা" column split in two: the learning / reading links get their own column beside it
+  // (owner, 2026-11-28) the long "কেনাকাটা" column split in two: the learning / reading links get their own column beside it.
+  // Plain words, no little icons (only the যোগাযোগ column keeps them); a fixed order, most used first:
+  //   কেনাকাটা: all products → offers → wishlist → my account → track order (then gift card, offer news, the owner's own links)
+  //   জানুন ও শিখুন: পাঠশালা → tools → blog → compare
   const LEARN = /^\/(learn|tools|blog|compare)(\/|\?|$)/;
-  const learnLinks = shopLinks.filter(([url]) => LEARN.test(String(url)));
-  const buyLinks = shopLinks.filter(([url]) => !LEARN.test(String(url)));
+  const plain = (label: string) => String(label).replace(/^[^\p{L}\p{N}]+/u, '').trim() || label;
+  const rank = (order: RegExp[]) => (url: string) => { const i = order.findIndex((re) => re.test(url)); return i < 0 ? order.length : i; };
+  const buyRank = rank([/^\/products$/, /^\/products\?sort=offer/, /^\/wishlist/, /^\/account/, /^\/track/, /^\/gift-card/, /^#offers-on/]);
+  const learnRank = rank([/^\/learn/, /^\/tools/, /^\/blog/, /^\/compare/]);
+  const sortBy = (r: (u: string) => number) => (a: string[], b: string[]) => r(String(a[0])) - r(String(b[0]));
+  const buyLinks = shopLinks.filter(([url]) => !LEARN.test(String(url))).map(([u, l]) => [u, plain(String(l))]).sort(sortBy(buyRank));
+  const learnLinks = shopLinks.filter(([url]) => LEARN.test(String(url))).map(([u, l]) => [u, plain(String(l))]).sort(sortBy(learnRank));
   const infoPages = pages.filter((p) => p.in_footer);
   const socials = Object.keys(SOCIAL_ICONS).filter((k) => s[k]);
   const liveLinks = [['cricket', '🏏 ক্রিকেট স্কোর'], ['football', '⚽ ফুটবল স্কোর']].filter(([k]) => s[`live_${k}`] === '1');
@@ -213,10 +221,10 @@ export function ShopBody({ settings: s, categories, pages, popup = null, q = '',
           {s.foot_contact !== '0' && (C.phone || C.wa || s.email || s.address || s.complaints_on !== '0') ? (
             <div>
               <h2>যোগাযোগ</h2>
-              {C.phone ? <a href={`tel:${C.phone}`}>📞 {C.phone}</a> : null}{' '}
-              {C.wa ? <a href={`https://wa.me/${C.wa}`} rel="noopener" target="_blank">💬 WhatsApp</a> : null}{' '}
-              {s.email ? <a href={`mailto:${s.email}`}>✉ {s.email}</a> : null}{' '}
-              {s.complaints_on !== '0' ? <a href="/complaint">📮 অভিযোগ / সমস্যা জানান</a> : null}{' '}
+              {C.phone ? <a className="fc" href={`tel:${C.phone}`}><span className="fc-i" aria-hidden="true">📞</span><span>{C.phone}</span></a> : null}{' '}
+              {C.wa ? <a className="fc" href={`https://wa.me/${C.wa}`} rel="noopener" target="_blank"><span className="fc-i" aria-hidden="true">💬</span><span>WhatsApp</span></a> : null}{' '}
+              {s.email ? <a className="fc fc-mail" href={`mailto:${s.email}`}><span className="fc-i" aria-hidden="true">✉</span><span>{s.email}</span></a> : null}{' '}
+              {s.complaints_on !== '0' ? <a className="fc" href="/complaint"><span className="fc-i" aria-hidden="true">📮</span><span>অভিযোগ / সমস্যা জানান</span></a> : null}{' '}
               {s.address ? <span className="muted">{s.address}</span> : null}{' '}
             </div>
           ) : null}

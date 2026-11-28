@@ -453,6 +453,9 @@ a.fbt-n:hover { color: var(--blue); }
 .socials { display: flex; gap: 8px; flex-wrap: wrap; }
 .socials a { width: 38px; height: 38px; border-radius: 50%; background: rgba(255,255,255,.1); display: flex !important; align-items: center; justify-content: center; }
 .socials a:hover { background: var(--blue); }
+.site-footer a.fc { display: flex !important; align-items: flex-start; gap: 6px; }
+.fc-i { flex: 0 0 1.2em; text-align: center; }
+.fc-mail span:last-child { white-space: nowrap; }
 .footer-base { border-top: 1px solid #2C3A57; margin-top: 24px; padding-top: 14px; font-size: .85rem; color: #93A1B8; }
 .float-chat { position: fixed; right: 16px; bottom: 18px; width: 54px; height: 54px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; z-index: 40; box-shadow: 0 8px 22px rgba(0,0,0,.25); transition: transform .15s; }
 .float-chat:hover { transform: scale(1.07); }
@@ -670,11 +673,12 @@ body.protect .card-pic img, body.protect .g-main img, body.protect .g-thumb img,
   .lb-nav { width: 36px; height: 52px; font-size: 1.6rem; }
   .g-thumbs { grid-template-columns: repeat(5, 1fr); gap: 6px; }
   .summary { position: static; order: -1; }
-  .footer-grid { grid-template-columns: 1fr 1fr; gap: 18px; }
+  /* four link columns sit 2 × 2 on phones (owner, 2026-11-28); the right one (যোগাযোগ) is a little wider, so the
+     e-mail address fits on one line beside its icon */
+  .footer-grid { grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); gap: 18px; }
   .footer-grid > div:first-child { grid-column: 1 / -1; }
-  /* four link columns sit 2 × 2 on phones (owner, 2026-11-28); the e-mail address stays on one line */
   .site-footer a { overflow-wrap: anywhere; }
-  .site-footer a[href^="mailto:"] { font-size: .8rem; overflow-wrap: normal; white-space: nowrap; }
+  .site-footer a.fc-mail { font-size: min(.8rem, 3.4vw); overflow-wrap: normal; }
   .post-grid { grid-template-columns: minmax(0, 1fr); }
   .order-meta { grid-template-columns: 1fr 1fr; }
   .steps li { font-size: .7rem; }
