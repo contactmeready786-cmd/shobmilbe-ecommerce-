@@ -1512,6 +1512,10 @@ CREATE TABLE IF NOT EXISTS shopname_fix (
   new_name text NOT NULL, new_slug text NOT NULL, undone boolean NOT NULL DEFAULT false, created_at timestamptz DEFAULT now()
 );
 `,
+  // ✍️ names / links ending in a bare "shopno" were passed over by the first version: looked at again
+  `
+DELETE FROM shopname_fix WHERE undone AND old_name = new_name AND old_slug = new_slug AND (old_slug ~* 'shopno$' OR old_name ~* 'shopno\\s*$');
+`,
 ];
 
 // Data steps that need code, keyed by migration number (run after its SQL).

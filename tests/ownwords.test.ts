@@ -7,6 +7,7 @@ import { stripShopName, factsProblem, copiedShare, numbersIn } from '../lib/serv
 test('other shops’ names come out of product names, product words stay', () => {
   assert.equal(stripShopName('X-816 Dual Stereo RGB HiFi Wireless Bluetooth Speaker Shopno Sale'), 'X-816 Dual Stereo RGB HiFi Wireless Bluetooth Speaker');
   assert.equal(stripShopName('HOCO HC2 True Wireless Speaker - shopno s'), 'HOCO HC2 True Wireless Speaker');
+  assert.equal(stripShopName('X 816 Dual Stereo RGB HiFi Wireless Bluetooth Speaker shopno'), 'X 816 Dual Stereo RGB HiFi Wireless Bluetooth Speaker');
   assert.equal(stripShopName('LM358 IC (Udvabony BD)'), 'LM358 IC');
   assert.equal(stripShopName('Arduino Uno R3 by creativetrade'), 'Arduino Uno R3');
   assert.equal(stripShopName('Daraz Packaging Poly Courier Bag'), 'Daraz Packaging Poly Courier Bag');

@@ -33,7 +33,7 @@ export type OwnOld = { short_description: string; description: string };
 
 // ---------------------------------------------------------------- other shops' names
 /** Names a copied product's own source shop goes by, plus the shops the owner copied from (2026-11-16 … 11-28). */
-const KNOWN: string[] = ['shopno ?sale', 'shopno ?s(?=\\s*$)', 'স্বপ্ন ?সেল', 'udvabony(?:[ -]?bd)?', 'উদ্ভাবনী', 'creative ?trade', 'electro ?x ?bd', 'electrox'];
+const KNOWN: string[] = ['shopno ?sale', 'shopno(?: ?s)?(?=\\s*$)', 'স্বপ্ন ?সেল', 'udvabony(?:[ -]?bd)?', 'উদ্ভাবনী', 'creative ?trade', 'electro ?x ?bd', 'electrox'];
 const escRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /** the source shop's name parts: "daraz.com.bd/udvabony-bd#123" → ["udvabony"]; "electrox.com.bd#9" → ["electrox", …] */
