@@ -153,7 +153,8 @@ async function bulkAction(ctx: AdminCtx) {
       what = simple[act][1];
     } else if (act === 'category') {
       const cid = int(b.category_id) || null;
-      await t.query('UPDATE products SET category_id=$1, updated_at=now() WHERE id = ANY($2::int[])', [cid, ids]);
+      // a product's colours / sizes always sit in its category
+      await t.query('UPDATE products SET category_id=$1, updated_at=now() WHERE id = ANY($2::int[]) OR parent_id = ANY($2::int[])', [cid, ids]);
       what = 'ক্যাটাগরি বদল';
     } else if (act === 'brand') {
       const bid = str(b.brand, 60) ? await catalog.brandIdFor(t, b.brand) : null;
