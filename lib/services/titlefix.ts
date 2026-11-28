@@ -58,13 +58,9 @@ async function photo(imageId: number | null): Promise<{ mime: string; b64: strin
 
 const plain = (s: string, n: number) => String(s || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, n);
 
-function prompt(p: Prod, cats: Cat[], current: string) {
-  return `You are a careful product-data editor for "Shobmilbe", a Bangladeshi online shop for electronics parts, tools, remotes, home and personal items. You get ONE product: its photo, its current title (often copied from another shop: keyword-stuffed, words broken on purpose with hyphens or spaces like "Comp-arator", "Du al", "G-U-N", model numbers repeated, cut off at the end), its description and its current category.
-
-Do this:
-1. Look at the photo. In "photo_shows" say in a few English words what it shows. In "photo_matches" answer "yes" only if the photo clearly shows the same product the title and description describe; "no" if it is a different product; "unsure" if you cannot tell (no photo, too small, only packaging, many items).
+const INSTR = `1. Look at the photo. In "photo_shows" say in a few English words what it shows. In "photo_matches" answer "yes" only if the photo clearly shows the same product the title and description describe; "no" if it is a different product; "unsure" if you cannot tell (no photo, too small, only packaging, many items).
 2. "title_en": a clean English product title, 35–90 characters, for THIS product: [brand if a real brand is given] [model/part number] [what the product is] [1–3 key specs]. Rules:
-   - Use ONLY facts that are in the current title or the description. Never invent or change a number, spec, brand, model, size, colour or quantity.
+   - Use ONLY facts that are in this product's own current title or description. Never invent or change a number, spec, brand, model, size, colour or quantity.
    - Descriptions were often copied from another product. For a known part number (transistor, MOSFET, IC, regulator, diode, sensor, module) compare the specs in the text with what you know of that part's datasheet: if they disagree, do NOT put those specs in the title, set "spec_conflict": true and say which spec is wrong in "issues".
    - Spell technical terms correctly (NdFeB, MOSFET, Arduino, Bluetooth).
    - Keep every real model / part number exactly as written (e.g. LM324N, BTA16-600B, HC-SR04, 18650, TO-92) and write each only once.
@@ -77,44 +73,69 @@ Do this:
 3. "title_bn": the same title in natural Bangladeshi Bangla (this field must be Bangla script, never English), as a Bangla shopper would say it — NO English letters at all: write model numbers and English words with Bangla letters, digits as Bangla digits (০-৯). Example: "N20 Micro Metal Gear Motor 200RPM" → "এন২০ মাইক্রো মেটাল গিয়ার মোটর ২০০ আরপিএম". Brands: Kemei = কেমেই, Xiaomi = শাওমি, Samsung = স্যামসাং, Walton = ওয়ালটন.
 4. "category_id": the best category from the list below for what the product IS (a soldering iron tip is a soldering tool, a remote is a remote, a transistor is a component). Always choose the most specific sub-category that fits (not the main one when a fitting sub-category exists). The category named Digital / ডিজিটাল is ONLY for software, licence keys and digital downloads — never for physical items. "category_sure": true only if you are clearly sure.
 5. "issues": short English notes on anything wrong you noticed (wrong facts, photo mismatch); empty list if none.
+`;
 
+// ⚡ several products in one question (owner, 2026-11-28): Google's free plan counts QUESTIONS per day, so 4 products
+// per question looks at 4× as many products a day; each product's photo comes right after its own text.
+const BATCH = 4;
+const HEAD = `You are a careful product-data editor for "Shobmilbe", a Bangladeshi online shop for electronics parts, tools, remotes, home and personal items. You get SEVERAL products, numbered. Each has its photo (right after its text), its current title (often copied from another shop: keyword-stuffed, words broken on purpose with hyphens or spaces like "Comp-arator", "Du al", "G-U-N", model numbers repeated, cut off at the end), its description and its current category. Treat every product completely separately — never mix facts, numbers or photos between products.
+
+For EACH product:
+`;
+
+function productText(n: number, p: Prod, current: string) {
+  return `PRODUCT ${n}
 Current title: ${p.name}
 Brand: ${p.brand || '-'} · Model: ${p.model || '-'}
 Current category: ${current || '-'}
-Description: ${plain(`${p.short_description} ${p.description}`, 1500) || '-'}
-
-Categories (id: path):
-${cats.map((c) => `${c.id}: ${c.path}`).join('\n')}
-
-Answer with JSON only: {"photo_shows": "", "photo_matches": "yes|no|unsure", "title_en": "", "title_bn": "", "category_id": 0, "category_sure": true, "spec_conflict": false, "issues": []}`;
+Description: ${plain(`${p.short_description} ${p.description}`, 1200) || '-'}
+Photo of product ${n}:`;
 }
 
-/** one product → Gemini's proposal (throws 'busy' when Google says too many) */
-async function ask(key: string, p: Prod, cats: Cat[]): Promise<{ prop: Proposal; model: string }> {
-  const current = cats.find((c) => c.id === p.category_id)?.path || '';
-  const img = await photo(p.image_id);
-  const parts: unknown[] = [{ text: prompt(p, cats, current) }];
-  if (img) parts.unshift({ inline_data: { mime_type: img.mime, data: img.b64 } });
+type Raw = Partial<Proposal> & { n?: number };
+function toProposal(o: Raw, hadPhoto: boolean): Proposal {
+  const prop: Proposal = {
+    photo_shows: String(o.photo_shows || '').slice(0, 200), photo_matches: o.photo_matches === 'yes' || o.photo_matches === 'no' ? o.photo_matches : 'unsure',
+    title_en: String(o.title_en || '').replace(/[\u200b-\u200d\ufeff]/g, '').replace(/\s+/g, ' ').trim(), title_bn: String(o.title_bn || '').replace(/[\u200b\ufeff]/g, '').replace(/\s+/g, ' ').trim(),
+    category_id: Number(o.category_id) || 0, category_sure: o.category_sure === true, spec_conflict: o.spec_conflict === true, issues: Array.isArray(o.issues) ? o.issues.map((x) => String(x).slice(0, 200)).slice(0, 5) : [],
+  };
+  if (!hadPhoto) prop.photo_matches = 'unsure';
+  return prop;
+}
+
+/** a few products → Gemini's proposals by product id (throws 'busy' when Google says too many) */
+async function askMany(key: string, prods: Prod[], cats: Cat[]): Promise<{ props: Map<number, Proposal>; model: string }> {
+  const parts: unknown[] = [{ text: `${HEAD}${INSTR}\n\nCategories (id: path):\n${cats.map((c) => `${c.id}: ${c.path}`).join('\n')}\n` }];
+  const had: boolean[] = [];
+  for (let i = 0; i < prods.length; i++) {
+    const p = prods[i];
+    parts.push({ text: productText(i + 1, p, cats.find((c) => c.id === p.category_id)?.path || '') });
+    const img = await photo(p.image_id);
+    had.push(!!img);
+    parts.push(img ? { inline_data: { mime_type: img.mime, data: img.b64 } } : { text: '(no photo)' });
+  }
+  parts.push({ text: `Answer with JSON only: {"items": [ {"n": 1, "photo_shows": "", "photo_matches": "yes|no|unsure", "title_en": "", "title_bn": "", "category_id": 0, "category_sure": true, "spec_conflict": false, "issues": []}, … one object for each of the ${prods.length} products, in order ]}` });
   let last = 'Gemini';
   for (const m of MODELS) {
     const r = await fetch(URL_OF(m), {
-      method: 'POST', signal: AbortSignal.timeout(60000),
+      method: 'POST', signal: AbortSignal.timeout(120000),
       headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
-      body: JSON.stringify({ contents: [{ role: 'user', parts }], generationConfig: { temperature: 0.1, maxOutputTokens: 2048, responseMimeType: 'application/json' } }),
+      body: JSON.stringify({ contents: [{ role: 'user', parts }], generationConfig: { temperature: 0.1, maxOutputTokens: 8192, responseMimeType: 'application/json' } }),
     }).catch((e) => { last = (e as Error).message; return null; });
     if (!r) continue;
     const j = (await r.json().catch(() => ({}))) as { candidates?: { content?: { parts?: { text?: string }[] } }[]; error?: { message?: string } };
-    if (!r.ok) { last = j.error?.message || `Gemini ${r.status}`; if (r.status === 429) continue; if ([404, 500, 503].includes(r.status)) continue; throw new Error(last); }
+    if (!r.ok) { last = j.error?.message || `Gemini ${r.status}`; if ([404, 429, 500, 503].includes(r.status)) continue; throw new Error(last); }
     const text = (j.candidates?.[0]?.content?.parts || []).map((x) => x.text || '').join('').trim();
     try {
-      const o = JSON.parse(text.replace(/^```(?:json)?|```$/g, '')) as Partial<Proposal>;
-      const prop: Proposal = {
-        photo_shows: String(o.photo_shows || '').slice(0, 200), photo_matches: o.photo_matches === 'yes' || o.photo_matches === 'no' ? o.photo_matches : 'unsure',
-        title_en: String(o.title_en || '').replace(/[\u200b-\u200d\ufeff]/g, '').replace(/\s+/g, ' ').trim(), title_bn: String(o.title_bn || '').replace(/[\u200b\ufeff]/g, '').replace(/\s+/g, ' ').trim(),
-        category_id: Number(o.category_id) || 0, category_sure: o.category_sure === true, spec_conflict: o.spec_conflict === true, issues: Array.isArray(o.issues) ? o.issues.map((x) => String(x).slice(0, 200)).slice(0, 5) : [],
-      };
-      if (!img) prop.photo_matches = 'unsure';
-      return { prop, model: m };
+      const o = JSON.parse(text.replace(/^```(?:json)?|```$/g, '')) as { items?: Raw[] } | Raw[];
+      const items = Array.isArray(o) ? o : o.items || [];
+      const props = new Map<number, Proposal>();
+      items.forEach((it, i) => {
+        const n = Number(it.n) || i + 1;
+        if (n >= 1 && n <= prods.length && !props.has(prods[n - 1].id)) props.set(prods[n - 1].id, toProposal(it, had[n - 1]));
+      });
+      if (props.size) return { props, model: m };
+      last = 'Gemini-র উত্তরে কিছু নেই';
     } catch { last = 'Gemini-র উত্তর পড়া যায়নি'; }
   }
   throw new Error(/quota|exhaust|rate|429/i.test(last) ? 'busy' : last);
@@ -143,13 +164,8 @@ async function apply(p: Prod, title: string | null, bnName: string | null, catId
   return old;
 }
 
-/** look at one product; returns its new status */
-export async function fixOne(settings: Settings, id: number): Promise<string> {
-  const key = String(settings.ai_gemini_key || '').trim();
-  const p = await load(id);
-  if (!p) return 'gone';
-  const cats = await categories();
-  const { prop, model } = await ask(key, p, cats);
+/** what Gemini proposed for one product → put in, or wait for the owner; returns its new status */
+async function decide(settings: Settings, p: Prod, prop: Proposal, model: string, cats: Cat[]): Promise<string> {
   const t = checkTitle(p.name, prop.title_en, `${p.short_description} ${p.description}`);
   const bnName = checkBangla(prop.title_bn);
   const catOk = prop.category_sure && cats.some((c) => c.id === prop.category_id) && prop.category_id !== p.category_id;
@@ -172,6 +188,24 @@ export async function fixOne(settings: Settings, id: number): Promise<string> {
   [p.id, status, old ? JSON.stringify(old) : null, JSON.stringify({ ...prop, cat_ok: catOk, bn_ok: bnName }), why.join(' · ').slice(0, 500), model, status === 'applied' ? new Date() : null]);
   return status;
 }
+
+/** look at a few products with one question to Gemini */
+export async function fixMany(settings: Settings, ids: number[]): Promise<number> {
+  const key = String(settings.ai_gemini_key || '').trim();
+  const prods = (await Promise.all(ids.map(load))).filter((p): p is Prod => !!p);
+  if (!prods.length) return 0;
+  const cats = await categories();
+  const { props, model } = await askMany(key, prods, cats);
+  let n = 0;
+  for (const p of prods) {
+    const prop = props.get(p.id);
+    if (!prop) continue; // not answered: asked again next round
+    await decide(settings, p, prop, model, cats);
+    n++;
+  }
+  return n;
+}
+export const fixOne = (settings: Settings, id: number) => fixMany(settings, [id]);
 
 /** the owner's ✅ on a waiting one (the photo check can be wrong — the code checks still run) */
 export async function approve(id: number): Promise<boolean> {
@@ -214,15 +248,17 @@ async function nextIds(n: number): Promise<number[]> {
 export async function tick(settings: Settings): Promise<{ done: number; status?: string }> {
   if (!on(settings)) return { done: 0, status: 'off' };
   if (Date.now() < (Number(settings.titlefix_pause_until) || 0)) return { done: 0, status: 'paused' };
-  const per = Math.min(20, Math.max(1, Number(settings.titlefix_per_tick) || 8));
+  const per = Math.min(24, Math.max(1, Number(settings.titlefix_per_tick) || 12));
   let done = 0;
-  for (const id of await nextIds(per)) {
-    try { await fixOne(settings, id); done++; } catch (e) {
+  const ids = await nextIds(per);
+  for (let i = 0; i < ids.length; i += BATCH) {
+    const chunk = ids.slice(i, i + BATCH);
+    try { done += await fixMany(settings, chunk); } catch (e) {
       const msg = (e as Error).message;
       if (msg === 'busy') { await db.setMany({ titlefix_pause_until: String(Date.now() + 30 * 60e3) }); return { done, status: 'busy' }; }
-      await db.q(`INSERT INTO title_fix(product_id, status, why) VALUES($1, 'error', $2) ON CONFLICT (product_id) DO UPDATE SET status='error', why=EXCLUDED.why, created_at=now()`, [id, msg.slice(0, 300)]);
+      for (const id of chunk) await db.q(`INSERT INTO title_fix(product_id, status, why) VALUES($1, 'error', $2) ON CONFLICT (product_id) DO UPDATE SET status='error', why=EXCLUDED.why, created_at=now()`, [id, msg.slice(0, 300)]);
     }
-    await new Promise((r) => setTimeout(r, 4000)); // Google's free plan: a few a minute
+    await new Promise((r) => setTimeout(r, 6000)); // Google's free plan: a few questions a minute
   }
   // errors are tried again after a day
   await db.q(`DELETE FROM title_fix WHERE status='error' AND created_at < now() - interval '1 day'`);

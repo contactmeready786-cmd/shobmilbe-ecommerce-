@@ -1939,7 +1939,7 @@ const DEFAULT_SETTINGS: Record<string, string> = {
   // 🎓 free electronics classes at /learn and the AI teacher on them (owner, 2026-11-27)
   learn_on: '1', learn_tutor_on: '1',
   titlefix_on: '0', titlefix_auto: '1', titlefix_per_tick: '8',
-  descfix_on: '1', descfix_auto: '1', descfix_per_tick: '5',
+  descfix_on: '1', descfix_auto: '1', descfix_per_tick: '3',
   // 🧮 electronics tools at /tools; tools_off = the keys of tools switched off (lib/data/tools.ts)
   tools_on: '1', tools_off: '',
   price_alert_on: '1', kits_on: '1', warranty_claims_on: '1', ui_spec_filters: '1', for_you_on: '1',
