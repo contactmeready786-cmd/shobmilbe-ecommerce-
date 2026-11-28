@@ -135,7 +135,7 @@ rule('trimmer', /trimmer|hair clipper|clipper|shaver|beard|kemei|ট্রিম
 // (2026-11-28) The rules below were checked one by one against all ~4300 products in the shop. Order matters.
 rule('personal-care', /massager|massage (gun|machine|chair|pillow|device)|body massag/);
 rule('battery-charger', /lead acid|sealed battery|coin battery|button battery/, /tester|meter|charger|analy[sz]er/);
-rule('battery-charger', /(lead acid|car|motorcycle|li-?ion|lithium) batter(y|ies) charger|batteries charger|battery chargers?\b/, /module|\bboard\b|circuit|tester|meter|\bic\b/);
+rule('adapter-power', /ac 220 ?v to dc \d+ ?v \d+(\.\d+)? ?a(mp)?\b.*(charger|adapter|power supply)/, /module|\bboard\b|circuit|pcb|tester|meter/);
 rule('safety-esd', /esd (safe )?gloves|anti-?static.*(glove|finger|wrist|strap)|finger cots?|safety (goggles|glasses)|eye protection glasses|respirator|gas mask|dust mask|cleanroom wip|work gloves|safety gloves/);
 rule('iron-tips', /^(?=.*(solder|iron|900m|t12|hakko|936))(?=.*(\btips?\b|\bbits?\b|\bcoil\b|heating (core|element)|heater core|iron head))/, /stand|cleaner|refresher|tinner/);
 rule('soldering-iron', /soldering iron|soldering station|solder station|hot air|heat gun|desoldering station|rework station|soldering gun/, /stand|cleaner|refresher|holder|\bmat\b/);
