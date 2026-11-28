@@ -475,6 +475,18 @@ export type DescCleanLogRow = {
   undone: boolean;
 };
 
+/** A row of desc_fix. */
+export type DescFixRow = {
+  product_id: number;
+  status: string;
+  old: string | null;
+  proposal: unknown;
+  why: string;
+  model: string;
+  created_at: Date;
+  applied_at: Date | null;
+};
+
 /** A row of email_campaigns. */
 export type EmailCampaignsRow = {
   id: number;
@@ -1804,6 +1816,7 @@ export type Tables = {
   customers: CustomersRow;
   delete_codes: DeleteCodesRow;
   desc_clean_log: DescCleanLogRow;
+  desc_fix: DescFixRow;
   email_campaigns: EmailCampaignsRow;
   email_log: EmailLogRow;
   email_subs: EmailSubsRow;

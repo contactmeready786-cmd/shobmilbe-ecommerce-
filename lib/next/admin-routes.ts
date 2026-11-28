@@ -181,4 +181,5 @@ export const ADMIN_GET_ROUTES: (string | RegExp)[] = [
   /^\/admin\/voice\/audio\/(\d+)$/,
   "/admin/app-users",
   "/admin/products/title-fix",
+  "/admin/products/desc-fix",
 ];

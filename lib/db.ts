@@ -1489,6 +1489,15 @@ CREATE TABLE IF NOT EXISTS title_fix (
 );
 CREATE INDEX IF NOT EXISTS title_fix_status_idx ON title_fix(status);
 `,
+  // 📋 বিবরণ যাচাই (AI), owner 2026-11-28: each product with a part number checked once against its datasheet (lib/services/descfix.ts)
+  `
+CREATE TABLE IF NOT EXISTS desc_fix (
+  product_id int PRIMARY KEY REFERENCES products(id) ON DELETE CASCADE, status text NOT NULL DEFAULT 'review',
+  old text, proposal jsonb, why text NOT NULL DEFAULT '', model text NOT NULL DEFAULT '',
+  created_at timestamptz DEFAULT now(), applied_at timestamptz
+);
+CREATE INDEX IF NOT EXISTS desc_fix_status_idx ON desc_fix(status);
+`,
 ];
 
 // Data steps that need code, keyed by migration number (run after its SQL).
@@ -1930,6 +1939,7 @@ const DEFAULT_SETTINGS: Record<string, string> = {
   // 🎓 free electronics classes at /learn and the AI teacher on them (owner, 2026-11-27)
   learn_on: '1', learn_tutor_on: '1',
   titlefix_on: '0', titlefix_auto: '1', titlefix_per_tick: '8',
+  descfix_on: '1', descfix_auto: '1', descfix_per_tick: '5',
   // 🧮 electronics tools at /tools; tools_off = the keys of tools switched off (lib/data/tools.ts)
   tools_on: '1', tools_off: '',
   price_alert_on: '1', kits_on: '1', warranty_claims_on: '1', ui_spec_filters: '1', for_you_on: '1',

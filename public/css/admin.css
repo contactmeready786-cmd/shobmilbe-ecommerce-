@@ -3133,3 +3133,5 @@ body.admin #main.admin-main .toolbar label { flex-wrap: wrap; min-width: 0; max-
 .tfx-why { color: #b54708; }
 .tfx-act { display: flex; flex-direction: column; gap: 6px; align-items: flex-end; }
 @media (max-width: 640px) { .tfx-item { grid-template-columns: 56px minmax(0, 1fr); } .tfx-pic { width: 56px; height: 56px; } .tfx-act { grid-column: 1 / -1; flex-direction: row; flex-wrap: wrap; justify-content: flex-end; } }
+.tfx-pre { white-space: pre-wrap; font: inherit; margin: 6px 0; padding: 8px 10px; background: #f7f9fc; border-radius: 8px; max-height: 260px; overflow: auto; }
+.tfx-body ul.tfx-why { margin: 2px 0 4px 18px; padding: 0; }
