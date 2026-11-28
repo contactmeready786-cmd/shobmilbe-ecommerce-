@@ -68,7 +68,9 @@ export async function cleanShopNames(limit = 200): Promise<number> {
     ORDER BY id LIMIT $3`, [KNOWN.join('|'), 'shopno|udvabony|creativetrade|electrox', limit * 5]);
   let changed = 0;
   for (const r of rows) {
-    const name = stripShopName(r.name, r.import_ref);
+    // only a real shop name counts: spacing alone is no change
+    const cut = stripShopName(r.name, r.import_ref);
+    const name = cut.replace(/\s+/g, ' ').trim() === r.name.replace(/\s+/g, ' ').trim() ? r.name : cut;
     // the link changes only when a shop name really was in it (a cut-off link like "…-dimmer-" stays as it is)
     const slugWords = r.slug.replace(/-/g, ' ').replace(/\s{2,}/g, ' ').trim();
     const fromSlug = stripShopName(slugWords, r.import_ref);

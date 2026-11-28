@@ -1516,6 +1516,11 @@ CREATE TABLE IF NOT EXISTS shopname_fix (
   `
 DELETE FROM shopname_fix WHERE undone AND old_name = new_name AND old_slug = new_slug AND (old_slug ~* 'shopno$' OR old_name ~* 'shopno\\s*$');
 `,
+  // ✍️ a name that only lost a space at its end was listed as "shop name removed": put back as it was, not listed
+  `
+UPDATE products p SET name = f.old_name FROM shopname_fix f WHERE f.product_id = p.id AND NOT f.undone AND f.old_slug = f.new_slug AND btrim(f.old_name) = f.new_name AND f.old_name <> f.new_name AND p.name = f.new_name;
+UPDATE shopname_fix SET undone = true, new_name = old_name WHERE NOT undone AND old_slug = new_slug AND btrim(old_name) = new_name AND old_name <> new_name;
+`,
 ];
 
 // Data steps that need code, keyed by migration number (run after its SQL).
