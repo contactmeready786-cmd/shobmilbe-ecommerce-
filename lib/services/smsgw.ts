@@ -62,11 +62,18 @@ export async function pair(code: unknown, model: unknown): Promise<string | null
   const key = crypto.randomBytes(32).toString('base64url');
   const used = await db.q("UPDATE settings SET value='' WHERE key='smsgw_pair' AND value=$1 RETURNING key", [row!.value]);
   if (!used.length) return null; // the same code sent twice at the same moment: only one wins
-  await db.setMany({ smsgw_token_hash: sha(key) });
-  cache.clearAll();
+  // the phone's row first, the key last: if anything fails on the way, no half-paired shop is left behind
   await db.q(`INSERT INTO sms_phone(id, model, paired_at, last_seen) VALUES(1, $1, now(), now())
     ON CONFLICT (id) DO UPDATE SET model=EXCLUDED.model, paired_at=now(), last_seen=now(), battery=NULL, charging=NULL`, [str(model, 80)]);
+  await db.setMany({ smsgw_token_hash: sha(key) });
+  cache.clearAll();
   return key;
+}
+
+/** All pairing tries together (every connection): at most 60 per 15 minutes. */
+export async function pairBudget(): Promise<boolean> {
+  const { hit } = await import('../security');
+  return hit(db, 'smsgw-pair-all', 60, 900);
 }
 
 /** Admin: forget the phone (its key stops working at once). */

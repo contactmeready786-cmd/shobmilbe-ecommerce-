@@ -10,7 +10,8 @@ export async function smsgw(ctx: ApiCtx): Promise<Response> {
   const action = ctx.path.split('/').pop();
   const b = await ctx.body();
   if (action === 'pair') {
-    if (!(await allow(ctx, 'smsgw-pair:', 8, 900))) return tooMany(ctx);
+    // a 6-digit code lives 15 minutes and works once: 20 tries per connection and 60 in all per 15 minutes can't guess it
+    if (!(await allow(ctx, 'smsgw-pair2:', 20, 900)) || !(await GW.pairBudget())) return tooMany(ctx);
     const key = await GW.pair(b.code, b.model);
     if (!key) return json(403, { error: 'কোডটা মেলেনি বা সময় পেরিয়ে গেছে — অ্যাডমিন থেকে নতুন কোড নিন' });
     return json(200, { key, shop: String(ctx.settings.store_name || '') });
