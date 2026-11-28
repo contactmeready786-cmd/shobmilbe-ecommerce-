@@ -26,6 +26,10 @@ const TREE: TreeNode[] = [
       ['temp-controller', 'টেম্পারেচার কন্ট্রোলার ও ইনকিউবেটর', '🌡️'],
       ['mist-maker', 'মিস্ট মেকার ও হিউমিডিফায়ার মডিউল', '💨'],
       ['wireless-relay', 'ওয়াইফাই, ব্লুটুথ, RF ও রিলে মডিউল', '📡'],
+      ['dev-boards', 'আরডুইনো, ডেভেলপমেন্ট বোর্ড ও প্রোগ্রামার', '🤖'],
+      ['display', 'ডিসপ্লে মডিউল (LCD, OLED, সেভেন সেগমেন্ট)', '🖥️'],
+      ['pcb-board', 'ভেরোবোর্ড, ব্রেডবোর্ড ও পিসিবি', '🟩'],
+      ['ips-inverter', 'IPS, ইনভার্টার ও ওয়েল্ডিং বোর্ড', '🔋'],
     ]],
     ['sensors', 'সেন্সর', '📍'],
     ['components', 'কম্পোনেন্ট / পার্টস', '🔋', [
@@ -35,6 +39,10 @@ const TREE: TreeNode[] = [
       ['switch-connector', 'সুইচ, কানেক্টর ও জাম্পার তার', '🔘'],
       ['led-component', 'এলইডি (LED)', '💡'],
       ['relay', 'রিলে', '🔁'],
+      ['transistor', 'ট্রানজিস্টর, মসফেট ও IGBT', '🔺'],
+      ['diode', 'ডায়োড, রেক্টিফায়ার ও ট্রায়াক', '➡️'],
+      ['crystal-inductor', 'ক্রিস্টাল, ইন্ডাক্টর ও ট্রান্সফরমার', '🌀'],
+      ['buzzer', 'বাজার ও সাইরেন', '📢'],
     ]],
     ['motors-pumps', 'মোটর ও পাম্প', '⚙️', [
       ['dc-motor', 'ডিসি ও গিয়ার মোটর', '⚙️'],
@@ -44,6 +52,9 @@ const TREE: TreeNode[] = [
     ]],
     ['battery-charger', 'ব্যাটারি ও চার্জার', '🔋'],
     ['audio-mic', 'মাইক্রোফোন ও অডিও', '🎤'],
+    ['hardware', 'হার্ডওয়্যার ও DIY সামগ্রী', '🔩'],
+    ['diy-kits', 'DIY কিট, রোবট ও ড্রোন', '🚁'],
+    ['mobile-computer', 'মোবাইল ও কম্পিউটার অ্যাক্সেসরিজ', '📱'],
   ]],
   ['soldering', 'সোল্ডারিং ও টুলস', '🔥', [
     ['soldering-iron', 'সোল্ডারিং আয়রন ও স্টেশন', '🔥'],
@@ -56,6 +67,7 @@ const TREE: TreeNode[] = [
     ['meters', 'মাল্টিমিটার, মিটার ও টেস্টার', '📏'],
     ['repair-tools', 'মোবাইল ও পিসিবি রিপেয়ারিং টুলস', '📱'],
     ['hand-tools', 'স্ক্রু ড্রাইভার, প্লায়ার্স ও হ্যান্ড টুলস', '🪛'],
+    ['safety-esd', 'সেফটি ও ESD সামগ্রী', '🧤'],
   ]],
   ['electrical', 'ইলেকট্রিক্যাল', '🔌', [
     ['lights', 'এলইডি বাল্ব ও লাইট', '💡'],
@@ -64,6 +76,9 @@ const TREE: TreeNode[] = [
     ['fan-parts', 'ফ্যান ক্যাপাসিটর ও পার্টস', '🌀'],
     ['fuse', 'ফিউজ ও ফিউজ বেস', '🧯'],
     ['adapter-power', 'অ্যাডাপ্টার ও পাওয়ার সাপ্লাই', '🔌'],
+    ['wire-cable', 'তার ও ক্যাবল', '🧶'],
+    ['switch-socket', 'সুইচ, সকেট, মাল্টিপ্লাগ ও বক্স', '🔌'],
+    ['breaker-protector', 'সার্কিট ব্রেকার ও ভোল্টেজ প্রটেক্টর', '🛡️'],
   ]],
   ['remote', 'রিমোট কন্ট্রোল', '🎛️', [
     ['ac-remote', 'এসি রিমোট', '❄️'],
@@ -86,6 +101,7 @@ const TREE: TreeNode[] = [
   ['home-appliance', 'হোম অ্যাপ্লায়েন্স', '🏠', [
     ['personal-care', 'পার্সোনাল কেয়ার ও হেলথ', '💆'],
     ['household', 'ঘরের দরকারি জিনিস', '🧽'],
+    ['appliance-parts', 'হোম অ্যাপ্লায়েন্স পার্টস', '🛠️'],
   ]],
 ];
 
@@ -109,57 +125,98 @@ const UNIVERSAL = /universal|1000 in 1|\d+ brands|master remote/;
 const R: [string, RegExp, RegExp | null][] = [];
 const rule = (slug: string, re: RegExp, not?: RegExp | undefined) => R.push([slug, re, not || null]);
 // fashion / home first (their words are clear)
-rule('digital-products', /gift ?card|license key|licen[cs]e|activation key|product key|subscription|premium account|e-?book|online course|software|ডিজিটাল/);
-rule('packaging', /bubble ?wrap|carton|courier (bag|poly|flyer)|poly ?bag|polythene|zipper bag|zip ?lock bag|packaging|packing (box|bag|material)|stretch (film|wrap)|shrink wrap|mailer (bag|box)|প্যাকেজিং|কার্টন/);
-rule('hijab', /hijab|হিজাব/);
+rule('digital-products', /gift ?card|license key|activation key|product key|premium account|\bebook|\be-book|online course|ডিজিটাল/);
+rule('packaging', /zip(per)? ?lock bag|zipper (lock )?bag|courier (plastic )?bag|packaging (poly|material)|cellophane|stretch (film|wrap)|packing tape|tape dispenser|carton box|bubble ?wrap|poly bag|mailer (bag|box)|প্যাকেজিং|কার্টন/);
 rule('inner-cap', /inner ?cap|ইনার ক্যাপ/);
+rule('hijab', /hijab|হিজাব/);
 rule('jewelry', /anklet|payel|পায়েল|belly chain|necklace|bracelet|earring|nose ?pin/);
 rule('women-care', /(razor|shaver|epilator|hair remov).*(women|lady|ladies|female)|(women|lady|ladies|female).*(razor|shaver|epilator)/);
-rule('trimmer', /trimmer|hair clipper|clipper|shaver|beard|kemei|ট্রিমার/, /nail|plier|tool/);
-rule('personal-care', /massag/);
-rule('household', /magic sponge|melamine|spray gun|car wash|weight scale|kitchen scale/);
-// electrical things that also have words like "remote", "sensor", "led"
-rule('smart-switch', /(switch|lamp holder|holder|photocell|socket).*(remote|smart|timer|sensor|pir|photo|day ?night|auto)|(remote|smart|timer|sensor|pir|photo|day ?night).*(switch|lamp holder|photocell)|remote control device|\bb22\b.*plug|plug.*sensor|(sensor|pir).*\be27\b/);
-// soldering & tools
-rule('solder-accessories', /tip (refresher|cleaner)|refresher|tip.*cleaner|head cleaner|iron stand|soldering stand|stand holder|helping hand|sponge tray/);
-rule('repair-tools', /\bmat\b|opening tool|pry|opener|crowbar|separation|diamond wire|screw pack|pcb holder|pcb stand|magnif|dispenser|plastic.*bottle|press bottle|bottle for|\bbrush\b|underfill|casing opening|disassemble|repair tool set/);
-rule('motor-accessories', /drill chuck|wheel|tyre|tire|propeller|8045|motor fan/, /gear motor for/);
-rule('hand-tools', /screw ?driver|plier|cutter|tweezer|knife|blade|stripper|nipper|snips|obeng|tool kit|wrench|spanner/, /soldering|motor/);
-rule('iron-tips', /^(?=.*(solder|iron|900m|t12))(?=.*(\btips?\b|\bbits?\b|coil|heating core|heating element|replacement element|iron head|900m-t|t12-))/, /relay/);
-rule('soldering-iron', /soldering iron|soldering station|solder station|hot air|heat ?gun|blower|tatal|desoldering station|সোল্ডারিং আয়রন/);
-rule('solder-wire', /solder(ing)? wire|\brang\b|রাং|tin lead|lead rang|desoldering braid|wick|copper pcb soldering wire|tin solder wire/);
-rule('chemicals', /thermal|heat ?sink|thinner|contact cleaner|\b530\b|cleaner|isopropyl|alcohol/);
-rule('glue-tape', /glue|tape|adhesive|kapton|b-7000|t-7000|e-?8000/);
-rule('flux-paste', /flux|solder(ing)? paste|tin paste|rosin|baku|bga|uv curing|solder ink|jalai/);
-// circuits & modules
-rule('ic', /\bic\b|ic socket|op ?amp|ne555|lm358|\b555\b|timer ic/, /board|module|circuit/);
-rule('temp-controller', /thermostat|temperature (and humidity )?controller|humidity controller|incubator|stc-? ?\d|w1209|xh-w3001|turning (motor|control)/);
-rule('speed-controller', /speed control|\bpwm\b|\besc\b|dimmer|\bscr\b|fan driver|fan circuit|motor controller|speed regulator|voltage regulator/);
-rule('meters', /multimeter|multi meter|clamp meter|(?<!potentio)meter\b|uni-?t\b|\but ?\d{2,3}[a-z+]*\b|tester|thermometer|hygrometer|voltmeter|ammeter|fault finder|continuity|charger doctor|battery monitor|capacity indicator|মাল্টিমিটার/);
-rule('mist-maker', /mist|humidifier|fogger|atomiz/);
-rule('mini-ups', /mini ups|ups (board|kit|circuit|module|setup)|power ?bank|পাওয়ার ব্যাংক/);
-rule('charging-bms', /\bbms\b|protection (board|circuit)|charging (module|board|control)|tp4056|tc4056|charger (pcb|board|module)/);
-rule('audio-amplifier', /amplifier|\bamp\b|pam8403|tpa ?\d|audio receiver|bluetooth (stereo|audio)|stereo|\bla4508\b.*(board|circuit)/, /\bic\b(?!.*(board|circuit))/);
-rule('power-converter', /buck|boost|step[ -]?(up|down)|converter|dc-dc|lm2596|xl\d{4}|mt-?3608|high voltage|power (supply )?module/);
-rule('wireless-relay', /esp8266|esp32|nodemcu|wi-?fi|433 ?mhz|\brf\b|bluetooth (adapter|dongle|module)|dongle|relay module/);
-rule('audio-mic', /microphone|\bmic\b|ahuja/);
-rule('fan-parts', /fan capacitor|ceiling fan/);
-rule('capacitor', /capacitor|varistor|\bmov\b|\d+ ?uf\b/);
-rule('resistor', /resistor|potentiometer|preset/);
-rule('relay', /relay/);
-rule('led-component', /\bled\b.*(smd|5 ?mm|3 ?mm|pcs)|(smd|5 ?mm|3 ?mm).*\bled\b/, /220 ?v|bulb/);
-rule('lights', /bulb|lamp|downlight|\blight\b.*(220|watt|\d+ ?w\b)|\bled\b.*(220 ?v|ac 220)|(220 ?v|ac 220|\d+ ?watt).*\bled\b|বাল্ব/);
-rule('adapter-power', /adapter|power supply|এডাপ্টার/, /module/);
-rule('switch-connector', /push button|switch|socket|connector|balun|jumper|breadboard|alligator/);
-rule('sensors', /sensor|সেন্সর/);
-rule('water-pump', /pump|পাম্প/);
-rule('servo-bldc', /servo|brushless|bldc|outrunner|a2212/);
-rule('dc-motor', /motor|মোটর/);
-rule('battery-charger', /battery|charger|lipo|18650|ব্যাটারি/);
-rule('cable-accessories', /cable clip|cable tie|zip (tie|wrap)|heat ?shrink|sleeve/);
-rule('fuse', /fuse/);
+rule('trimmer', /trimmer|hair clipper|clipper|shaver|beard|kemei|ট্রিমার/, /nail|plier|tool|battery|motor|charger|adapter|cable|capacitor|variable|potentiometer|trimpot/);
+// (2026-11-28) The rules below were checked one by one against all ~4300 products in the shop. Order matters.
+rule('personal-care', /massager|massage (gun|machine|chair|pillow|device)|body massag/);
+rule('battery-charger', /lead acid|sealed battery|coin battery|button battery/);
+rule('safety-esd', /esd (safe )?gloves|anti-?static.*(glove|finger|wrist|strap)|finger cots?|safety (goggles|glasses)|eye protection glasses|respirator|gas mask|dust mask|cleanroom wip|work gloves|safety gloves/);
+rule('iron-tips', /^(?=.*(solder|iron|900m|t12|hakko|936))(?=.*(\btips?\b|\bbits?\b|\bcoil\b|heating (core|element)|heater core|iron head))/, /stand|cleaner|refresher|tinner/);
+rule('soldering-iron', /soldering iron|soldering station|solder station|hot air|heat gun|desoldering station|rework station|soldering gun/, /stand|cleaner|refresher|holder|\bmat\b/);
+rule('solder-accessories', /iron stand|tip (cleaner|refresher|tinner)|brass (wool|sponge)|cleaning sponge|soldering stand|helping hand|third hand|desoldering pump|desoldering vacuum|solder sucker|suction pump|lead\(rang\) holder/);
+rule('solder-wire', /solder(ing)? wire|tin lead wire|solder wick|desoldering (braid|wick)|\bwick\b|\brang\b(?! holder)/);
+rule('flux-paste', /flux|solder(ing)? paste|tin paste|rosin|solder (ink|mask)|uv (curing|solder)/, /bottle/);
+rule('chemicals', /thermal (paste|pad|grease|compound|silicone)|thinner|contact cleaner|cleaner spray|isopropyl|silicone grease|wd-?40|heat ?sink (compound|paste)|environmental cleaner|cleaning liquid/);
+rule('appliance-parts', /kettle base|kettle repair|rice cooker .*(cable|cord)|cooker (switch|thermostat|contact)|rice cooker contact|kettle (switch|thermostat)|hair dryer switch|defond/);
+rule('fan-parts', /fan capacitor|cbb61|ceiling fan (capacitor|parts|bearing|switch)/);
+rule('appliance-parts', /(charger|rechargeable) fan (circuit|board|pcb)|fan circuit|light fan .*circuit|emergency light (circuit|board)/);
+rule('battery-charger', /battery (holder|box|case|clip|snap|storage|spacer)|cell holder|mini solar panel/, /connector(?! wire)/);
+rule('switch-socket', /travel (socket )?adapter|socket adapter|plug adapter|universal adapter plug|multi socket/, /\d+ ?v\b|cctv|adapter(?!.*travel)|chuck/);
+rule('wire-cable', /power cord|mains (power )?cable|ac power cable|power cable \d/, /meter|voltmeter|ammeter|power supply|smps/);
+rule('mobile-computer', /dongle|wi-?fi adapter|bluetooth adapter|usb (wifi|bluetooth)|video balun/, /module|board/);
+rule('mobile-computer', /^[^a-z]*(\d+(\.\d+)? ?m )?(usb|mini usb|micro usb|type-?c)[^,]{0,25}cable/);
+rule('mobile-computer', /writing tablet|lcd (writing|drawing)/);
+rule('mobile-computer', /card reader|phone (case|cover)|back cover|charging cable|data cable|usb (data |charging )?cable|\botg\b|lightning cable|writing tablet|lcd (writing|drawing)|computer mouse|wireless mouse|keyboard(?! module)|pen ?drive|usb hub|hdmi cable|type-?c cable|micro usb cable/, /arduino|board|module|breakout|programmer|connector|socket|jack/);
+rule('diy-kits', /robot (car |arm )?kit|robot car|smart car (kit|chassis)|car chassis|chassis kit|drone kit|quadcopter (kit|frame|transmitter)|frame kit|\bf450\b|\bf330\b|diy kit|science (project )?kit|toy (kit|car kit)|robot arm|robotic arm|solar (car|toy) kit|educational kit|flysky/, /motor(?! kit)|wheel|propeller|servo|battery|driver|header|connector|\bpin\b/);
+rule('motor-accessories', /cooling fan|\bdc fan|cpu fan|exhaust fan|brushless fan|\d+ ?mm (\d+v )?fan|fans? \d+v|blower fan|rotary fan|fan protection net|fan 3 blade/, /handy|rechargeable fan|table fan|ceiling|regulator|capacitor|circuit/);
+rule('led-component', /\bled smd chip|smd led|led chip|high power led|\d ?w(att)? (led|cob)|led bead/, /bulb|lamp|torch|driver/);
+rule('led-component', /\b\d{1,2} ?mm (\w+ ){0,4}led\b|\bled (\w+ ){0,3}(diode|holder)\b|ice cream led|straw hat|uv (smd )?led|uv money checker led|led mixed|mixed \d+ ?mm|water clear led/, /bulb(?! s?white straw)|lamp|torch|driver|display|matrix|segment|jack|connector|socket|plug|jst/);
+rule('speed-controller', /stepper (motor )?driver|a4988|drv8825|motor driver/, /stepper motor with|\bchip\b|\bic\b/);
+rule('ips-inverter', /\bips\b.*(board|circuit|mosfet)|inverter (board|circuit)|relay blank oscillation/, /\bbox\b|casing|cover/);
+rule('power-converter', /xl40\d\d|lm2596|lm2577|mp1584|mt-?3608|buck|boost|step.?down|step.?up|dc.?dc|breadboard power supply/, /\bic\b|transistor|diode|inductor|\besc\b|e\.s\.c|speed control/);
+rule('chemicals', /thermal (insulator|pad)|silicone insulator|mica (sheet|insulator)/);
+rule('hardware', /acrylic|plexiglass|neodymium|\bmagnets?\b|\bscrews?\b|\bbolts?\b|\bnuts?\b|hex spacer|standoff|\bspacers?\b|rubber feet|bumper feet|enclosure|project box|junction box \d|ips (box|casing|cover|body)|inverter casing|plastic (case|box) for|aluminium (case|box)|heat ?sink(?!.*(compound|paste))/, /screw ?driver|magnetic core|tool (kit|set|box)|terminal|reed|magnetic (sensor|switch|lock)|hall|lock|fan|led|driver|regulator ic|speaker|microphone|wrench|hex key|allen|socket|jack|connector|pump|motor|battery/);
+rule('ic', /\bpcf8574\b/);
+rule('power-converter', /decoy|pd trigger|qc trigger|power supply pcb board/);
+rule('ic', /optocoupler|photocoupler|phototransistor|gate driver|driver ic|\bir2\d{3}|\btlp\d{3}|\b4n\d\d\b|\btda ?\d{4}|amplifiers? ic/, /module|board|kit|shield|programmer|adapter board|tester|socket adapter|breakout|speed|pump|casing|box/);
+rule('ic', /operational amplifier|op-?amps?\b|dual op/, /module|board/);
+rule('diode', /bridge rectifier/, /\bboard\b|motor|generator/);
+rule('diode', /\bdiode|rectifier|\btriac\b|\bdiac\b|thyristor|\bscr\b(?!.*(module|regulator|voltage|controller))|\bbt[a-z]?\d{2,3}\b|\b1n4\d{3}|\b1n5\d{3}|\b1n58\d\d|uf400\d|uf540\d|\bfr\d0\d\b|\bmur\d+|\bmbr\d+|kbpc|\bkbu?\d+|\bgbu\d+|\bgbj\d+|2w10|mb[16]0?s|\bdb10\d|ba159|\bdb-?3\b|by229|\brl20\d|\bsr[1-5]\d0\b|byv\d+|bridge rectif|zener|schottky|\bss\d{2}\b|\bm7\b|\bhv\d\b/, /module|board|laser|\bled\b|optocoupler|moc30|tester|motor|generator/);
+rule('transistor', /transistor|mosfet|\bigbt\b|\bjfet\b|darlington|\b(irfz?\d+[a-z]*|irfp\d+|irf\d{3,4}[a-z]*|irlz?\d+|2s[abcdk]\d{3,4}|bc\d{3}[a-c]?|tip\d{2,3}c?|mje\d+|s80\d\d|s85\d\d|s90\d\d|ss80\d\d|ss85\d\d|2n\d{4}|2n\d{3}|stp\d+n[fe]?\d+|fqpf?\d+n\d+|\d{2}n(60|65|120)\w*|mpsa\d+|a1015|c1815|c945|d882|b772|13003|13005|13007|13009|mj\d{4,5}|bd\d{3}|ao\d{4}|si\d{4})\b/, /module|board|kit|array|uln|amplifier board|driver board|tester|heatsink|heat sink|diode|rectifier/);
+rule('crystal-inductor', /inductor|\bchoke\b/, /module|tester|meter/);
+rule('crystal-inductor', /crystal|\bmhz\b(?!.*(module|transmitter|receiver|rf|remote))|oscillator|resonator|inductor|\bchoke\b|ferrite|toroid|transformer|lamination|\bbobbin|\bee\d{2}\b|\bei\d{2}\b|\bcoil\b/, /module|board|ccfl|inverter|oscilloscope|heat|solder|iron|tester|meter|relay|motor|cable/);
+rule('buzzer', /buzzer|siren|\bhorn\b(?! switch)|piezo/, /module|board|switch|button|\bic\b|sensor/);
+rule('audio-mic', /\bspeakers?\b|loudspeaker|tweeter|woofer/, /module|board|amplifier|circuit|\bic\b|cable|wire|jack|connector|socket/);
+rule('display', /\blcd\b|oled|\btft\b|e-?paper|7[ -]?segment|seven segment|dot matrix|led bar graph|display module|touch (screen|display)|nokia 5110|\b1602\b|lcd ?\d{4}|\b2004\b|\b12864\b|max7219|tm1637|p10 led|lcd i2c|i2c (module|adapter) for lcd|led display/, /writing|drawing|meter|tester|thermostat|controller|charger|mppt|clock|scale|sensor|timer|power supply|thermometer|voltmeter|ammeter|amplifier|decoder|player|converter|buck|boost|bms|protection|incubator|w1209|wire|separator|opening|pry|repair|glue|connector|jack|vga|delay|pwm|generator|adapter|uln|darlington|transistor/);
+rule('ips-inverter', /welding (machine|board|pcb|kit)|spot weld/);
+rule('pcb-board', /veroboard|vero board|perfboard|perf board|strip ?board|dot (matrix )?pcb|copper clad|etching|\bfecl3|ferric chloride|blank pcb|universal pcb|prototype (pcb|board)|breadboard|bread board|pcb board|pcb (lock|snap) (spacer|support)|lock spacer/, /module|kit|power supply|\bic\b|jumper|wire|header|connector|friendly|inductor/);
+rule('ips-inverter', /\bips (board|kit|circuit|card|transformer)|inverter (board|kit|circuit|pcb|card)|sine wave (inverter|board)|egs00\d|welding (machine|board|pcb)|spot weld|ccfl|backlight (driver|board|inverter)|tv backlight|12v to 220v/, /\bbox\b|casing|cover|rectifier/);
+rule('temp-controller', /thermostat|temperature (and humidity )?control|humidity control|incubator|w1209|xh-w\d+|stc-?\d+|peltier|thermoelectric|tec1-?\d|egg (turner|tray motor)/);
+rule('mist-maker', /\bmist|humidifier|fogger|atomiz|ultrasonic (mist|humid)/);
+rule('mini-ups', /mini ups|ups (board|kit|module|circuit|pcb)|power ?bank (kit|module|board|pcb|circuit|case|box)|router ups|wifi ups/);
+rule('charging-bms', /\bbms\b|protection (board|circuit|module|pcb)|charging (module|board|control|pcb)|charger (board|module|pcb|circuit)|charge control module|fast charge board|tp4056|tc4056|ip2312|\bbattery (indicator|level|capacity) (module|indicator|display)|usb to 3\.7v/);
+rule('audio-amplifier', /amplifier|mp3 decoder|decoder (board|module)|tone (board|control)|preamp|pre-amp|treble|bass (board|control)|music level|vu meter|audio (board|circuit|module|amp)|pam8403|pam8610|tpa3\d{3}|tda7\d{3} (board|module)|xh-m\d+|stereo board|bluetooth (audio|receiver) (board|module)|radio (board|module)|fm (board|module)|audio receiver|receiver (board|module)/);
+rule('wireless-relay', /gsm|gprs|\bsim8\d\d|\bsim9\d\d|\bgps\b|neo-?\d?m|rfid|\bnfc\b|rc522|pn532|rdm6300|125 ?khz|13\.56|nrf24|lora|sx127|ethernet|enc28j60|w5500|can (bus|module)|mcp2515|esp-?01|esp8266|esp32|nodemcu|wemos|wi-?fi (module|relay|switch module)|bluetooth module|hc-0[56]|jdy-|433 ?mhz|315 ?mhz|rf (module|transmitter|receiver|remote)|relay module|\bir (receiver|transmitter|remote) module|zigbee|rs-?485 (module|converter)|max485 module|ttl to rs|relay (control )?module|channel relay|solid state relay/, /speaker(?! module)|bulb|plug|smart socket|remote control switch|light switch/);
+rule('servo-bldc', /servo|brushless|bldc|a2212|outrunner|\bsg90\b|mg9\d\d|mg996/, /driver|tester|pca9685|\besc\b|e\.s\.c|speed controller/);
+rule('dev-boards', /arduino|raspberry|stm32|blue ?pill|black ?pill|digispark|rp2040|pico\b|nrf52840|development board|dev board|microcontroller board|core board|minimum system|programmer|usbasp|st-?link|ch34[01]|cp210\d|ft232|pl2303|usb to (ttl|serial|uart)|\bshield\b|expansion board|breakout|\brtc\b|real time clock|ds3231|ds1307|sd card (module|adapter)|tf card module|micro sd module|keypad|joystick|rotary encoder|level (shifter|converter|conversion)|logic level|\badc\b|\bdac\b|ads1115|mcp4725|laser (diode )?module|isolation (board|module)|optocoupler (module|board)|mp3 player module|voice (player |record)|sound (playback|recording) module|dfplayer|wtv020|isd1820|traffic light (module|led)|ina2\d\d|button module|led module for arduino|prototype shield|sensor shield|gpio|multiplexer module|camera module|ov5647|ov7670/, /sensor(?! shield)|temperature|ultrasonic|adapter\b(?! module)|charger|power supply|hdmi|jumper wire|terminal(?! expansion)|shorting|zif|usb (\d\.\d )?(female|male|socket|type b)|female socket|usb socket/);
+rule('smart-switch', /day ?night|photocell|float switch|auto on.?off|water level controller|water pump controller|motion sensor (switch|light)|pir (switch|sensor switch)|proximity (sensor )?switch|timer switch|digital timer|programmable timer|photo ?sensitive (street )?light switch|street light switch/, /module|\bic\b/);
+rule('smart-switch', /(switch|socket|holder|plug).*(remote|smart|timer|pir|motion|photocell|day ?night|wi-?fi|touch|sensor|sound|clap)|(remote|smart|timer|pir|motion|photocell|day ?night|wi-?fi|touch|sound|clap).*(switch|socket|plug|holder)|auto (on|off)/, /module(?!.*(switch|socket))|tact|push button|micro switch|limit switch|reed|rocker|toggle|slide|dip|key switch|sensor module|\bic\b/);
+rule('sensors', /sensor|metal detector|ultrasonic|hc-sr\d|\bpir\b|\bldr\b|photoresistor|photosensitive|thermocouple|max6675|ds18b20|dht\d\d|lm35|ntc|thermistor|compass|magnetometer|gyro|accelerometer|mpu-?\d{4}|soil moisture|water level|rain (drop|detection)|flame|\bmq-?\d|hall effect|obstacle|load cell|hx711|weigh(ing|t measurement) (sensor|module|circuit)|fingerprint|heart ?rate|pulse (oximeter )?module|color recognition|tcs\d{4}|reed switch|vibration (sensor|switch)|tilt (sensor|switch)|current sensor|acs712|voltage sensor|flow (sensor|meter)/, /smart (switch|socket)|light switch|bulb|lamp|tester|test pen/);
+rule('power-converter', /buck|boost|step[ -]?(up|down)|dc-?dc|converter|smps|lm2596|lm2577|xl\d{4}|mt-?3608|mp1584|\bzvs\b|induction heat|balancer|equaliz|decoy|trigger (board|module)|pd (trigger|decoy)|qc (trigger|decoy)|power distribution|\bpdb\b|mppt|solar (charge )?controller|high voltage (generator|module|igniter)|arc (generator|lighter)|voltage (regulator|protection) (module|board)|power (supply )?module|ldo module|ams1117 module|lm317 (module|board)|regulated power supply board|ac-?dc module|hlk-|fast charg(e|ing) (board|module)/, /\bic\b|power supply(?! (module|board))|adapter|\besc\b|e\.s\.c|speed control/);
+rule('speed-controller', /speed control|\bpwm\b|motor (driver|controller)|dimmer|\bscr (module|regulator|voltage)|ac voltage regulator|voltage regulator 2000w|fan (regulator|speed)|l298|l293|drv\d{4}|a4988|tb6\d{3}|uln2003 (module|board|driver)|mosfet (driver|switch|trigger) (module|board)|xy-mos|\besc\b|electronic speed|stepper driver|servo (driver|tester)|pca9685|timer (relay|module|board|delay)|delay (relay|module|timer)|ne555 (module|board|pulse)|signal generator|pulse generator|xy-lpwm|countdown/, /\bchip\b|\bic\b/);
+rule('breaker-protector', /circuit breaker|\bmcb\b|\brcbo\b|\brccb\b|\belcb\b|voltage protect|\bavp\b|over ?voltage|under ?voltage|surge protect|voltage guard|fridge guard|\bspd\b/);
+rule('fuse', /\bfuses?\b|fuse (base|holder|box)|ptc (fuse|resettable)|polyfuse|thermal fuse|thermal cut/);
+rule('led-component', /\b(smd|\d(\.\d)? ?mm|straw ?hat|piranha|bi-?colou?r|rgb|uv|ir) led\b|led (diode|chip|module|bar|ring|matrix(?! display))|cob (led|chip|light source)|ws28\d\d|sk6812|neopixel|\b(5050|2835|3528|5730|3030)\b|super ?bright led|led for (diy|decoration)|high power led|\d+w (led chip|cob)|led bead|power led|infrared led|ir led|laser diode|led light for decoration/, /bulb|220 ?v|torch|flashlight|rechargeable|lamp|tube|panel light|downlight|ac 2\d0|strip light|street light|flood/);
+rule('meters', /multimeter|multi meter|meter\b|tester|clamp meter|thermometer|hygrometer|oscilloscope|voltage detector|test pen|testing pen|charger doctor|usb doctor|\blcr\b|capacitance|esr|logic analy|frequency counter|wattmeter|voltmeter|ammeter|tachometer|lux|anemometer|ph (meter|pen)|tds/, /potentiometer|probe tip|tapes?\b|glue|meter length|\d ?meter (length|long)|optical fiber/);
+rule('lights', /bulb|lamp\b|light\b|lights\b|torch|flashlight|tube ?light|flood ?light|spot ?light|downlight|led strip|rope light|fairy|lantern|headlamp|head lamp|chandelier|led driver|light driver|led panel/, /light dependent|light sensor|traffic light|light switch|light (control|controller) module|ldr|module|day night|backlight|indicator light|meter|tester|switch|socket|plug|jack|button|connector|\bcell\b|battery cell|lithium battery|\bchip\b|diode|smd|\d ?mm (round )?led|bead|mosquito|insect|uv curing|curing uv/);
+rule('relay', /relay/, /module|board/);
+rule('capacitor', /capacitor|varistor|\bmov\b|\d+ ?(uf|nf|pf|µf)\b|electrolytic|supercapacitor|super capacitor/, /tester|meter|fan capacitor/);
+rule('resistor', /resistor|potentiometer|\bpot\b|preset|trimpot|trimmer pot|rheostat/, /sensor/);
+rule('ic', /\bic\b|integrated circuit|ic socket|\b74(ls|hc|hct|f)?\d{2,3}[a-z]{0,2}\b|\bcd4\d{3}|\bcd14\d{3}|\bne55[56]|\blm\d{3,4}[a-z]*|\b78[0-9l]\d\d|\b79\d\d|\bla\d{4}|\btda\d+|\btea\d+|\bpic\d+|dspic|\batmega\d*|\battiny\d*|\bat89|\bmax\d{3,4}|\buln\d+|optocoupler|\bpc8\d\d\b|\bpc123\b|\bmoc30|\btl\d{3}|\bsg35\d\d|\bka\d{4}|\buc38\d\d|op-?amp|opamp|comparator|\bjrc?4558|\b4558\b|\b1458\b|eeprom|\b24c\d+|\b93c\d+|shift register|flip.?flop|logic gate|multiplexer|\bams1117\b|\blm317\b|\blm7805|\bl78\d\d|regulator ic|\bvoltage regulator\b(?!.*(module|board|2000w|scr|ac))|\bmelody ic|\bdip-?\d+|\bsop-?\d+|\bstc\d{2}|\btny\d+|\btop\d{3}|\bviper\d+|\bncp\d+|\bir2\d{3}|\begs\d+ chip|\bht\d{4}|\bpt\d{4}|\bcs\d{4}|\bxl\d{4}e?\d? (ic|chip)/, /module|\bboard\b|kit|shield|programmer|adapter board|tester|socket adapter|breakout/);
+rule('household', /weight scale|kitchen scale|digital scale|magic sponge|melamine|spray gun|spray machine|car wash|water spray|mosquito|insect killer|padlock|water heater|electric kettle|display stand|screen clean|handy fan|rechargeable fan|table fan|mini fan(?! module)|room heater|cloth|kitchen|cleaning (kit|brush|cloth)|lunch box|bottle(?! dispenser)|mug|umbrella|wall clock|alarm clock|egg beater|blender|juicer|iron for clothes|steam iron|pipe with gun/, /alcohol|dispenser|pmp\b|battery|\bcell\b|pump(?!.*(gun|pipe))|soldering|pcb|module|motor(?!.*(spray|wash))|tape|mobile|motherboard|solder|circuit/);
+rule('personal-care', /massager|nebulizer|blood pressure|oximeter(?! (module|sensor))|thermometer gun|body (scale|fat)|shaver|epilator|hair dryer|straightener|curler|\btooth ?brush/, /module|sensor|switch|motor|brush nozzle|wire brush|repairing|display/);
+rule('water-pump', /pump|water pmp\b|hose clip|soft pipe|ball valve|spray pump nozzle/, /desolder|suction|sucker|solder|spray (gun|machine)|switch|pipe with gun/);
+rule('motor-accessories', /motor (mount|mounting|bracket|holder|clamp|seat|stand|base)|pulley|propeller|\b(9450|1045|8045|5045)\b|wheel|coupling|drill chuck|\bchuck\b|fans? (blade|for (\d+ )?motor)|motor fans?|gt2/, /rpm(?!.*chuck)|ball bearing dc/);
+rule('cable-accessories', /fiberglass tube|wire insulation/);
+rule('dc-motor', /motor/, /driver|controller|regulator|tester|capacitor|mount|bracket|seat|stand|base|spray/);
+rule('motor-accessories', /wheel|propeller|\btyres?\b|\btires?\b|pulley|timing belt|\bbelt\b|\bgt2\b|coupling|coupler|bearing|\bgears?\b(?! motor)|cooling fan|dc fan|cpu fan|exhaust fan|brushless fan|\d+mm fan|blower|solenoid|door lock|electric lock|drill chuck|motor (mount|bracket|holder|clamp)|caster|shaft/, /handy|rechargeable fan|table fan|ceiling|regulator|capacitor/);
+rule('repair-tools', /opening tool|pry tool|\bspudger|lcd separator|repair (tool|mat|kit|set)|magnif|microscope|loupe|pcb holder|pcb clamp|pcb vise|dispenser bottle|liquid dispenser|alcohol liquid|antistatic brush|esd brush|\bbrush\b|stencil|reballing|bga|preheater|silicone (repair )?mat|screen (separator|remover)|suction cup|oca|uv lamp|uv light|press bottle|blade for pcb|crowbar|mobile stand holder|pcb ruler|cutting mat/, /screw ?driver|wire brush|drill bit/);
+rule('hand-tools', /screw ?driver|plier|cutter|tweezer|knife|\bblades?\b|stripper|nipper|wrench|spanner|hammer|\bsaw\b|hacksaw|drill(?! chuck)|grinder|grinding|rotary tool|file set|\bfiles?\b|hex key|allen key|tool (kit|set|box|bag)|crimp(ing)? tool|crimper|wire gauge|measuring tape|tape measure|caliper|\bvise\b|\bvice\b|clamp(?! meter)|chisel|scissor|riveter|spirit level|punch\b|wire brush/, /plier.*(holder|stand)|pcb vise|opening|pry|lcd|phone(?! repair tweezer)|battery|glue|switch|repair kit$/);
+rule('glue-tape', /glue|\btapes?\b|adhesive|kapton|\bb-?7000|\bt-?\d000|\be-?8000|epoxy|hot melt stick|super glue|sealant|silicone sealant/, /dispenser/);
+rule('cable-accessories', /cable (clip|tie)|zip tie|heat ?shrink|sleev|ferrule|wire terminal|quick disconnect|crimp terminal|spade terminal|ring terminal|fork terminal|\blugs?\b|cable marker|wire connector|cable gland|spiral wrap|insulation tape|electrical tape|wire nut|terminal connector|butt connector|scotchlok/, /block|pcb|header|banana/);
+rule('switch-socket', /gang box|junction (pvc )?box|switch box|back box|mk box|batten holder|lamp holder|bulb holder|switch ?board|socket outlet|multi ?plug|extension (board|socket|cord)|power strip|wall socket|wall switch|\b(\d gang|one gang|two gang)\b|ceiling rose|\bholder\b.*(e27|b22|bulb)|(e27|b22) (holder|socket|adapter)/, /module|pcb|smart|remote|timer|touch|wifi|sensor/);
+rule('wire-cable', /\bcables?\b|\bwires?\b|\bcords?\b|copper conductor|flat cable|ribbon cable|silicone wire|enamel(ed)? (copper )?wire|super enamel|\bawg\b|\d+ gauge thin/, /jumper|dupont|connector|tie|clip|stripper|tool|wire gauge|gauge tool|terminal|alligator|test lead|probe|solder|kettle|cooker|lug|wire nut|module|board|usb|hdmi|charging|data|otg|lightning|female|male|\bpin\b|holder|power supply|smps/);
+rule('adapter-power', /adapter|power supply|charger|smps 12v|\d+v \d+(\.\d+)?a (adapter|power)/, /module|board|breakout|plug adapter|socket adapter|travel adapter|\bpcb|battery charger|bms|lithium charger module|card|battery|lithium|18650|audio|bluetooth|aux/);
+rule('battery-charger', /battery|batteries|18650|21700|26650|lipo|li-?po|li-?ion|lithium (cell|battery)|ni-?mh|ni-?cd|\bcells?\b|button cell|cr20\d\d|lr44|\baa\b|\baaa\b|9v battery|battery charger|lithium charger/, /module|\bboard\b|bms|tester|indicator|monitor|holder|box|case|connector|clip|power ?bank/);
+rule('switch-connector', /switch|connector|\bjack\b|\bsocket\b|header|jumper|dupont|terminal block|screw terminal|\bplug\b|push button|tact|alligator|banana|crocodile|test lead|\bprobe\b|\bxt\d0\b|\bjst\b|\bdc (jack|socket)|usb (port|socket|female|male)|battery (holder|box|case|clip|snap|connector)|crimp housing|\bfpc\b|\bffc\b|idc|\bdb\d\b|rj45|\bsma\b|bnc|flexible cable|breakout module/, /multimeter/);
+rule('audio-mic', /microphone|\bmic\b|audio|earphone|headphone|earbuds|headset|bluetooth speaker|portable speaker|sound box|speakers?\b|loudspeaker|tweeter|woofer|subwoofer/);
 // last chance: an un-named board/module/circuit
-rule('circuits', /module|board|circuit|সার্কিট/);
+rule('circuits', /module|board|circuit|সার্কিট/, /bulb|light|\bled\b|lamp/);
 
 function norm(name: unknown) {
   return String(name || '').toLowerCase().replace(/[০-৯]/g, (d) => String('০১২৩৪৫৬৭৮৯'.indexOf(d))).replace(/[_]+/g, ' ').replace(/\s+/g, ' ');
@@ -169,7 +226,7 @@ function norm(name: unknown) {
 type Remote = { kind: string; brand: string | null };
 function remoteOf(n: string): Remote | null {
   if (!/remote|রিমোট/.test(n)) return null;
-  if (/(switch|lamp holder|remote control device|timer switch)/.test(n)) return null;
+  if (/(switch|lamp holder|remote control device|timer switch)/.test(n) || /\bic\b|decoder|expander|receiver module/.test(n)) return null;
   let kind;
   if (/set ?(up|top)? ?box|akash|\bdth\b|mxq|\btx ?\d|t-x ?\d|t9\d|x96|tv ?box|android box/.test(n)) kind = 'box-remote';
   else if (/\bac\b|a\/c|air ?-?condition|aircon|split|window type|inverter ac|\bac-\d|\barc\d/.test(n)) kind = 'ac-remote';
