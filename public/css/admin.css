@@ -3135,3 +3135,12 @@ body.admin #main.admin-main .toolbar label { flex-wrap: wrap; min-width: 0; max-
 @media (max-width: 640px) { .tfx-item { grid-template-columns: 56px minmax(0, 1fr); } .tfx-pic { width: 56px; height: 56px; } .tfx-act { grid-column: 1 / -1; flex-direction: row; flex-wrap: wrap; justify-content: flex-end; } }
 .tfx-pre { white-space: pre-wrap; font: inherit; margin: 6px 0; padding: 8px 10px; background: #f7f9fc; border-radius: 8px; max-height: 260px; overflow: auto; }
 .tfx-body ul.tfx-why { margin: 2px 0 4px 18px; padding: 0; }
+
+/* 🛒 cart reminder texts: one card per reminder, full-width boxes (owner, 2026-11-28 — the table cut the text off) */
+.cr-list { display: grid; gap: 10px; margin: 10px 0; }
+.cr-item { display: grid; grid-template-columns: 120px minmax(0, 1fr) minmax(0, 1.6fr); gap: 10px 14px; align-items: start; padding: 10px 12px; border: 1px solid var(--line, #e5e7eb); border-radius: 10px; }
+.cr-when { font-weight: 600; padding-top: 22px; }
+.cr-f { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.cr-f input, .cr-f textarea { width: 100%; box-sizing: border-box; }
+.cr-f textarea { resize: vertical; min-height: 2.6em; }
+@media (max-width: 760px) { .cr-item { grid-template-columns: 1fr; } .cr-when { padding-top: 0; } }

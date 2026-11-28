@@ -15,6 +15,7 @@ import { startLists } from './lists.js';
 import { startLive } from './live.js';
 import { startTracking } from './track.js';
 import { startUi } from './ui.js';
+import { startPics } from './pics.js';
 
 /** page-only parts: [name, the marks that show the page has it, how to load it] */
 const ON_DEMAND: [string, string, () => Promise<() => void>][] = [
@@ -27,7 +28,7 @@ const ON_DEMAND: [string, string, () => Promise<() => void>][] = [
 
 whenReady(() => {
   const parts: [string, () => void][] = [
-    ['tracking', startTracking], ['ui', startUi], ['cart', startCartButtons], ['bought together', startFbt],
+    ['pictures', startPics], ['tracking', startTracking], ['ui', startUi], ['cart', startCartButtons], ['bought together', startFbt],
     ['landing', startLanding], ['live', startLive], ['lists', startLists], ['forms', startForms], ['app invite', startAppInvite], ['help', startHelp], ['cart reminder', startCartRemind],
   ];
   // one broken part must never stop the rest of the page (the cart keeps working even if, say, live scores fail)

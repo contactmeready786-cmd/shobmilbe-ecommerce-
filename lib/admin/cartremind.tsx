@@ -18,11 +18,10 @@ export async function section(s: Settings, action: string) {
     <div className="kpis kpis-tight">{ui.kpi('অবস্থা', on ? '✅ চালু' : '⚪ বন্ধ', s.shoppush_on === '1' ? '' : 'নোটিফিকেশন বন্ধ — শুধু ইমেইল')}{' '}{ui.kpi('অপেক্ষায় থাকা কার্ট', bn(st.waiting), '')}{' '}{ui.kpi('রিমাইন্ডার গেছে (৩০ দিন)', bn(st.sends), `১ঘ: ${bn(st.s1)} · ২৪ঘ: ${bn(st.s2)} · ৭২ঘ: ${bn(st.s3)}`, 'kpi-blue')}{' '}{ui.kpi('চেপে দেখেছেন', bn(st.clicks), '')}{' '}{ui.kpi('ফিরে এসে অর্ডার', bn(st.won), money(st.won_total), 'kpi-green')}</div>
     <div className="panel set-card"><form method="post" action={attrValue(action)} className="form"><input type="hidden" name="action" defaultValue="cartremind" />
       {ui.switchRow('cart_remind_on', on, 'কার্ট রিমাইন্ডার চালু', ON_TIP)}
-      <table className="table compact"><thead><tr><th>কখন</th><th>শিরোনাম</th><th>লেখা</th></tr></thead><tbody>
-        {jsxList([1, 2, 3].map((n) => <tr><td className="small nowrap">{WHEN[n - 1]}</td>
-          <td>{ui.input(`cart_remind_t${n}`, CR.text(s, `cart_remind_t${n}`), { maxlength: 60, 'aria-label': `শিরোনাম ${n}` })}</td>
-          <td>{ui.input(`cart_remind_b${n}`, CR.text(s, `cart_remind_b${n}`), { maxlength: 160, 'aria-label': `লেখা ${n}` })}</td></tr>))}
-      </tbody></table>
+      {/* each reminder on its own card, boxes full width so the whole text is readable (owner, 2026-11-28) */}
+      <div className="cr-list">{jsxList([1, 2, 3].map((n) => <div className="cr-item"><div className="cr-when">{WHEN[n - 1]}</div>
+        <label className="cr-f"><span className="small muted">শিরোনাম</span>{ui.input(`cart_remind_t${n}`, CR.text(s, `cart_remind_t${n}`), { maxlength: 60, 'aria-label': `শিরোনাম ${n}` })}</label>
+        <label className="cr-f"><span className="small muted">লেখা</span>{ui.textarea(`cart_remind_b${n}`, CR.text(s, `cart_remind_b${n}`), { maxlength: 160, rows: 2, 'aria-label': `লেখা ${n}` })}</label></div>))}</div>
       <p className="small muted">{HINT}</p>      <button className="btn btn-sm">সেভ করুন</button></form></div></section>;
 }
 

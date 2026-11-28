@@ -201,6 +201,9 @@ body.drawer-open::after { content: ''; position: fixed; inset: 0; background: rg
 .card:hover { box-shadow: 0 10px 24px rgba(8,40,90,.10); transform: translateY(-2px); }
 .card-pic { text-decoration: none; position: relative; display: flex; align-items: center; justify-content: center; aspect-ratio: 1; background: #fff; border-bottom: 1px solid var(--bin); }
 .card-pic img { width: 100%; height: 100%; object-fit: contain; padding: 6px; }
+.pics .card-pic img:not(.ok) { background: linear-gradient(100deg, #eef2f7 30%, #f8fafc 50%, #eef2f7 70%) 0 0 / 300% 100%; border-radius: 10px; animation: pic-wait 1.2s linear infinite; }
+@keyframes pic-wait { from { background-position: 100% 0; } to { background-position: 0 0; } }
+@media (prefers-reduced-motion: reduce) { .pics .card-pic img:not(.ok) { animation: none; } }
 .card-pic .emoji { font-size: 3.4rem; }
 .card-body { padding: 8px 10px 10px; display: flex; flex-direction: column; flex: 1; }
 .card-cat { font-size: .74rem; line-height: 1.3; color: var(--muted); }
@@ -1330,16 +1333,19 @@ body.shop.glass :is(input:not([type=radio]):not([type=checkbox]):not([type=file]
 .card-sold { margin: -2px 0 2px; font-size: .76rem; color: #C2410C; font-weight: 600; }
 .pdp-sold { margin: 4px 0; font-size: .9rem; color: #C2410C; }
 
-/* 🖥️ ভাসমান কার্ট বার (owner, 2026-11-14): computers only — a small pill at the bottom right of the product page */
-.float-buy { position: fixed; right: 96px; bottom: 18px; z-index: 31; display: none; align-items: center; gap: 14px; padding: 7px 8px 7px 10px;
-  background: rgba(255, 255, 255, .94); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); border: 1px solid var(--line); border-radius: 999px; box-shadow: 0 10px 30px rgba(20, 33, 61, .18); }
-.float-buy img { width: 40px; height: 40px; object-fit: contain; border-radius: 8px; background: #fff; }
-.fb-price { font-size: .95rem; color: var(--blue, #1E40AF); white-space: nowrap; }
-.fb-qty { display: inline-flex; align-items: center; gap: 6px; }
-.fb-qty button { border: 0; background: none; font-size: 1.25rem; line-height: 1; cursor: pointer; padding: 4px 8px; color: var(--ink); border-radius: 8px; }
+/* 🖥️ ভাসমান কার্ট বার (owner, 2026-11-14; smaller and centred 2026-11-28 so it never runs under the সাহায্য / chat buttons
+   on the right): computers only — a slim pill at the bottom centre of the product page */
+.float-buy { position: fixed; left: 50%; transform: translateX(-50%); bottom: 18px; z-index: 31; display: none; align-items: center; gap: 10px;
+  max-width: calc(100vw - 360px); padding: 4px 5px 4px 6px;
+  background: rgba(255, 255, 255, .96); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); border: 1px solid var(--line); border-radius: 999px; box-shadow: 0 8px 24px rgba(20, 33, 61, .16); }
+.float-buy img { width: 32px; height: 32px; flex: none; object-fit: contain; border-radius: 50%; background: #fff; }
+.fb-price { font-size: .85rem; color: var(--blue, #1E40AF); white-space: nowrap; }
+.fb-price span { color: var(--muted); font-size: .78rem; }
+.fb-qty { display: inline-flex; align-items: center; gap: 2px; border: 1px solid var(--line); border-radius: 999px; padding: 0 2px; }
+.fb-qty button { border: 0; background: none; font-size: 1rem; line-height: 1; cursor: pointer; padding: 4px 7px; color: var(--ink); border-radius: 999px; }
 .fb-qty button:hover { background: var(--bin, #eef2f7); }
-.fb-qty b { min-width: 1.6em; text-align: center; }
-.float-buy .btn { border-radius: 999px; padding: 10px 22px; white-space: nowrap; }
+.fb-qty b { min-width: 1.4em; text-align: center; font-size: .85rem; }
+.float-buy .btn { border-radius: 999px; padding: 7px 16px; font-size: .85rem; line-height: 1.2; white-space: nowrap; }
 @media (min-width: 761px) { .float-buy.show { display: flex; } }
 @media print { .float-buy { display: none !important; } }
 
