@@ -159,13 +159,20 @@ async function phoneStatus(settings: Settings): Promise<PhoneStatus> {
   if (log) { out.failed6h = Number(log.f) || 0; out.sent6h = Number(log.s) || 0; out.lastOk = log.last_ok ? new Date(log.last_ok) : null; }
   out.sendLevel = out.on ? sendLevelFor(out.failed6h, out.sent6h) : 'ok';
   if (!out.on || p !== 'ownapp') return out;
-  const ph = await GW.phone();
-  if (!ph || !GW.paired(settings)) { out.phoneLevel = 'bad'; out.phoneWhy = 'সবমিলবে SMS অ্যাপে কোনো ফোন যুক্ত নেই'; return out; }
+  // several phones (main + backup): the main phone is the one shown; the alarm only rings red when no phone works
+  const list = await GW.phones();
+  if (!list.length || !GW.paired(settings)) { out.phoneLevel = 'bad'; out.phoneWhy = 'সবমিলবে SMS অ্যাপে কোনো ফোন যুক্ত নেই'; return out; }
+  const mainId = Number(settings.smsgw_main || 0);
+  const ph = list.find((p) => p.id === mainId) || list[0];
   out.model = ph.model; out.lastSeen = ph.last_seen ? new Date(ph.last_seen) : null;
-  out.minutesAgo = out.lastSeen ? Math.max(0, (Date.now() - out.lastSeen.getTime()) / 60e3) : null;
+  out.minutesAgo = GW.minutesAgo(ph.last_seen);
   out.battery = ph.battery; out.charging = ph.charging;
   const lv = GW.levelFor(out.minutesAgo, out.battery, out.charging);
   out.phoneLevel = lv.level; out.phoneWhy = lv.why;
+  if (lv.level !== 'ok') {
+    const backup = list.find((p) => p.id !== ph.id && GW.levelFor(GW.minutesAgo(p.last_seen), p.battery, p.charging).level === 'ok');
+    if (backup) { out.phoneLevel = 'warn'; out.phoneWhy = `মূল ফোন (${ph.model || 'ফোন'}): ${lv.why} — এখন ব্যাকআপ ফোন (${backup.model || 'ফোন'}) থেকে SMS যাচ্ছে`; }
+  }
   return out;
 }
 

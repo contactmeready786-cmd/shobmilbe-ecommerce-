@@ -77,8 +77,9 @@ function bracketed(s: string, start: number): string {
 export function tablesOf(dbTs: string): Map<string, Table> {
   const sql = dbTs.replace(/--[^\n]*/g, '');
   const tables = new Map<string, Table>();
-  const re = /CREATE TABLE IF NOT EXISTS\s+(\w+)\s*\(|ALTER TABLE\s+(?:IF EXISTS\s+)?(\w+)\s+((?:[^;`'"]|'[^']*')*)/gi;
+  const re = /CREATE TABLE IF NOT EXISTS\s+(\w+)\s*\(|ALTER TABLE\s+(?:IF EXISTS\s+)?(\w+)\s+((?:[^;`'"]|'[^']*')*)|DROP TABLE\s+(?:IF EXISTS\s+)?(\w+)/gi;
   for (let m: RegExpExecArray | null; (m = re.exec(sql));) {
+    if (m[4]) { tables.delete(m[4]); continue; } // a table taken away later in the layout
     if (m[1]) {
       const name = m[1];
       const body = bracketed(sql, m.index + m[0].length - 1);

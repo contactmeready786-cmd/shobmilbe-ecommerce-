@@ -109,7 +109,8 @@ uses that one setup. Never add a second Gmail / App Password / SMS / API-key fie
   `TEST_DATABASE_URL` (a throw-away Postgres) and refuse Supabase/Neon addresses. SMS in tests goes through
   `sms.setFakeSender`. SMS ways offered (owner, 2026-11-28 — only these two, everything else removed): `ownapp` = the shop's OWN SMS app
   (android-sms/, services/smsgw.ts, /api/smsgw/*: the owner's phone takes each SMS straight from the shop via
-  sms_outbox, paired with a 6-digit admin code) — the main way; `bulksmsbd` — emergency spare. The old SMS Gate
+  sms_outbox, paired with a 6-digit admin code; up to 3 phones — the owner picks the ⭐ main one, a backup takes an SMS
+  the main phone hasn't taken within 8 s or at once while it is away, and retries once what a phone failed) — the main way; `bulksmsbd` — emergency spare. The old SMS Gate
   (sms-gate.app) and textbee are gone; a saved old value counts as `ownapp`. Tests use one of the two. New app
   version: see android-sms/README.md (owner's key).
 - The database certificate is checked with the bundled Supabase root (lib/data/supabase-ca.ts, valid to 2031-04-26);

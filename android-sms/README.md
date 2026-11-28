@@ -6,6 +6,8 @@ No outside company or cloud in between: the app asks shobmilbe.com for work (`/a
 Server side: `lib/services/smsgw.ts`, `lib/api/smsgw.ts`, Admin → মার্কেটিং → কাস্টমারকে SMS ("সবমিলবে SMS অ্যাপ").
 
 - Pairing: the admin shows a 6-digit code (15 minutes, works once); the app trades it for its own key.
+- Up to 3 phones: the owner picks the ⭐ main phone in the admin; the others are backups (the shop decides who
+  sends — the app itself needs nothing for this).
 - Never sends the same SMS twice (it remembers every id for 2 days and only re-reports).
 - Keeps running: foreground service + wake lock, starts by itself after a restart / update, a 15-minute check
   restarts it if the system stopped it. The screen asks to remove it from battery saving (and Xiaomi autostart).

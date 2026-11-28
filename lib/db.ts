@@ -1553,6 +1553,26 @@ DELETE FROM sms_outbox;
 DELETE FROM checkout_otps;
 DELETE FROM customer_otps;
 DELETE FROM sms_campaigns;
+`,  // 📱 main phone + backup (owner, 2026-11-28): several phones can be connected; the one already connected moves over
+  // with its key (it keeps working without pairing again) and becomes the main phone
+  `
+CREATE TABLE IF NOT EXISTS sms_phones (
+  id serial PRIMARY KEY, key_hash text NOT NULL UNIQUE, model text NOT NULL DEFAULT '', app text NOT NULL DEFAULT '',
+  battery int, charging boolean, last_seen timestamptz, paired_at timestamptz DEFAULT now()
+);
+ALTER TABLE sms_outbox ADD COLUMN IF NOT EXISTS phone_id int;
+ALTER TABLE sms_outbox ADD COLUMN IF NOT EXISTS avoid_phone int;
+INSERT INTO sms_phones(key_hash, model, app, battery, charging, last_seen, paired_at)
+  SELECT st.value, coalesce(p.model, ''), coalesce(p.app, ''), p.battery, p.charging, p.last_seen, coalesce(p.paired_at, now())
+  FROM settings st LEFT JOIN sms_phone p ON p.id = 1
+  WHERE st.key = 'smsgw_token_hash' AND st.value ~ '^[0-9a-f]{64}$'
+  ON CONFLICT (key_hash) DO NOTHING;
+INSERT INTO settings(key, value) SELECT 'smsgw_phones', count(*)::text FROM sms_phones
+  ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;
+INSERT INTO settings(key, value) SELECT 'smsgw_main', coalesce(min(id)::text, '') FROM sms_phones
+  ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;
+DELETE FROM settings WHERE key = 'smsgw_token_hash';
+DROP TABLE IF EXISTS sms_phone;
 `,
 ];
 
@@ -2007,7 +2027,7 @@ const DEFAULT_SETTINGS: Record<string, string> = {
   preorder_note: '',
   // 📮 complaints: a form for customers; to be solved within complaint_hours (law: 72)
   complaints_on: '1', complaint_hours: '72', complaint_sms_on: '1',
-  sms_on: '0', sms_provider: 'ownapp', sms_api_key: '', sms_sender_id: '', smsgw_token_hash: '', smsgw_pair: '',
+  sms_on: '0', sms_provider: 'ownapp', sms_api_key: '', sms_sender_id: '', smsgw_phones: '0', smsgw_main: '', smsgw_pair: '',
   // 📣 offer SMS allowance (free own-SIM plans keep room for checkout codes); 0 = no limit
   sms_mkt_day: '15', sms_mkt_month: '100',
   // 📧 ইমেইল মার্কেটিং (services/mailer.js): off until the owner switches it on in Admin → মার্কেটিং → ইমেইল

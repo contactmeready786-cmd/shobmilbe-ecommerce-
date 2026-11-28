@@ -18,14 +18,15 @@ export async function smsgw(ctx: ApiCtx): Promise<Response> {
   }
   if (action !== 'pull' && action !== 'report') return json(404, { error: 'not found' });
   const auth = String(ctx.request.headers.get('authorization') || '').replace(/^Bearer\s+/i, '').trim();
-  if (!GW.keyOk(ctx.settings, auth)) {
+  const phoneId = await GW.phoneFor(auth);
+  if (!phoneId) {
     if (!(await allow(ctx, 'smsgw-key:', 30, 600))) return tooMany(ctx);
     return json(401, { error: 'unpaired' });
   }
   // the owner chose another SMS company (or switched SMS off): the phone just waits, nothing is handed out
   const on = ctx.settings.sms_on === '1' && ctx.settings.sms_provider === 'ownapp';
-  if (action === 'report') return json(200, { ok: true, n: await GW.report(b.results) });
-  const messages = await GW.pull({ battery: b.battery, charging: b.charging, model: b.model, app: b.app }, on ? undefined : 0);
+  if (action === 'report') return json(200, { ok: true, n: await GW.report(phoneId, b.results) });
+  const messages = await GW.pull(phoneId, { battery: b.battery, charging: b.charging, model: b.model, app: b.app }, on ? undefined : 0);
   if (!on && !messages.length) await new Promise((r) => setTimeout(r, 20_000)); // switched off: don't let it spin
   return json(200, { messages, on });
 }

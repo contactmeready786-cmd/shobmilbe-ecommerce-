@@ -1489,17 +1489,20 @@ export type SmsOutboxRow = {
   created_at: Date;
   taken_at: Date | null;
   done_at: Date | null;
+  phone_id: number | null;
+  avoid_phone: number | null;
 };
 
-/** A row of sms_phone. */
-export type SmsPhoneRow = {
+/** A row of sms_phones. */
+export type SmsPhonesRow = {
   id: number;
+  key_hash: string;
   model: string;
   app: string;
   battery: number | null;
   charging: boolean | null;
   last_seen: Date | null;
-  paired_at: Date | null;
+  paired_at: Date;
 };
 
 /** A row of social_posts. */
@@ -1933,7 +1936,7 @@ export type Tables = {
   sms_campaigns: SmsCampaignsRow;
   sms_log: SmsLogRow;
   sms_outbox: SmsOutboxRow;
-  sms_phone: SmsPhoneRow;
+  sms_phones: SmsPhonesRow;
   social_posts: SocialPostsRow;
   staff: StaffRow;
   stock_alerts: StockAlertsRow;
