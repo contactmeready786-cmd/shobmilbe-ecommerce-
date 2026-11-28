@@ -1573,6 +1573,29 @@ INSERT INTO settings(key, value) SELECT 'smsgw_main', coalesce(min(id)::text, ''
   ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;
 DELETE FROM settings WHERE key = 'smsgw_token_hash';
 DROP TABLE IF EXISTS sms_phone;
+`,  // 🗂️ new sub-categories (owner, 2026-11-28): the main categories stay as they are; products that had no fitting
+  // place (transistors, diodes, Arduino boards, displays, screws, cables, wall switches …) get their own sub-category
+  `
+INSERT INTO categories(name, slug, icon, sort, active, parent_id)
+  SELECT v.name, v.slug, v.icon, v.sort, true, p.id FROM (VALUES
+  ('dev-boards', 'আরডুইনো, ডেভেলপমেন্ট বোর্ড ও প্রোগ্রামার', '🤖', 'circuits', 8),
+  ('display', 'ডিসপ্লে মডিউল (LCD, OLED, সেভেন সেগমেন্ট)', '🖥️', 'circuits', 9),
+  ('pcb-board', 'ভেরোবোর্ড, ব্রেডবোর্ড ও পিসিবি', '🟩', 'circuits', 10),
+  ('ips-inverter', 'IPS, ইনভার্টার ও ওয়েল্ডিং বোর্ড', '🔋', 'circuits', 11),
+  ('transistor', 'ট্রানজিস্টর, মসফেট ও IGBT', '🔺', 'components', 6),
+  ('diode', 'ডায়োড, রেক্টিফায়ার ও ট্রায়াক', '➡️', 'components', 7),
+  ('crystal-inductor', 'ক্রিস্টাল, ইন্ডাক্টর ও ট্রান্সফরমার', '🌀', 'components', 8),
+  ('buzzer', 'বাজার ও সাইরেন', '📢', 'components', 9),
+  ('hardware', 'হার্ডওয়্যার ও DIY সামগ্রী', '🔩', 'electronics', 7),
+  ('diy-kits', 'DIY কিট, রোবট ও ড্রোন', '🚁', 'electronics', 8),
+  ('mobile-computer', 'মোবাইল ও কম্পিউটার অ্যাক্সেসরিজ', '📱', 'electronics', 9),
+  ('safety-esd', 'সেফটি ও ESD সামগ্রী', '🧤', 'soldering', 10),
+  ('wire-cable', 'তার ও ক্যাবল', '🧶', 'electrical', 6),
+  ('switch-socket', 'সুইচ, সকেট, মাল্টিপ্লাগ ও বক্স', '🔌', 'electrical', 7),
+  ('breaker-protector', 'সার্কিট ব্রেকার ও ভোল্টেজ প্রটেক্টর', '🛡️', 'electrical', 8),
+  ('appliance-parts', 'হোম অ্যাপ্লায়েন্স পার্টস', '🛠️', 'home-appliance', 2)
+  ) AS v(slug, name, icon, parent, sort) JOIN categories p ON p.slug = v.parent
+  ON CONFLICT (slug) DO NOTHING;
 `,
 ];
 
