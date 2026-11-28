@@ -22,7 +22,7 @@ const URL_OF = (m: string) => `https://generativelanguage.googleapis.com/v1beta/
 
 export type Proposal = {
   photo_shows: string; photo_matches: 'yes' | 'no' | 'unsure';
-  title_en: string; title_bn: string; category_id: number; category_sure: boolean; issues: string[];
+  title_en: string; title_bn: string; category_id: number; category_sure: boolean; spec_conflict: boolean; issues: string[];
 };
 type Prod = { id: number; name: string; name_bn: string; name_bn_auto: boolean; category_id: number | null; description: string; short_description: string;
   brand: string; model: string; image_id: number | null; seo_title: string; seo_keywords: string; seo_description: string };
@@ -65,6 +65,8 @@ Do this:
 1. Look at the photo. In "photo_shows" say in a few English words what it shows. In "photo_matches" answer "yes" only if the photo clearly shows the same product the title and description describe; "no" if it is a different product; "unsure" if you cannot tell (no photo, too small, only packaging, many items).
 2. "title_en": a clean English product title, 35–90 characters, for THIS product: [brand if a real brand is given] [model/part number] [what the product is] [1–3 key specs]. Rules:
    - Use ONLY facts that are in the current title or the description. Never invent or change a number, spec, brand, model, size, colour or quantity.
+   - Descriptions were often copied from another product. For a known part number (transistor, MOSFET, IC, regulator, diode, sensor, module) compare the specs in the text with what you know of that part's datasheet: if they disagree, do NOT put those specs in the title, set "spec_conflict": true and say which spec is wrong in "issues".
+   - Spell technical terms correctly (NdFeB, MOSFET, Arduino, Bluetooth).
    - Keep every real model / part number exactly as written (e.g. LM324N, BTA16-600B, HC-SR04, 18650, TO-92) and write each only once.
    - Repair the broken words ("Comp-arator" → "Comparator", "Du al" → "Dual", "Ban-ana" → "Banana", "G-U-N" → "Gun"), fix spelling, and remove filler: "A Class", "Medium Class", "Best Quality", "Electrical Circuitry & Parts", "Electronics Components", "Passive Components", shop names, "Price in BD", repeated words.
    - Options the product is sold in ("Blue / Green", "Red, Black", sizes) are not contradictions: keep them all.
@@ -84,7 +86,7 @@ Description: ${plain(`${p.short_description} ${p.description}`, 1500) || '-'}
 Categories (id: path):
 ${cats.map((c) => `${c.id}: ${c.path}`).join('\n')}
 
-Answer with JSON only: {"photo_shows": "", "photo_matches": "yes|no|unsure", "title_en": "", "title_bn": "", "category_id": 0, "category_sure": true, "issues": []}`;
+Answer with JSON only: {"photo_shows": "", "photo_matches": "yes|no|unsure", "title_en": "", "title_bn": "", "category_id": 0, "category_sure": true, "spec_conflict": false, "issues": []}`;
 }
 
 /** one product → Gemini's proposal (throws 'busy' when Google says too many) */
@@ -109,7 +111,7 @@ async function ask(key: string, p: Prod, cats: Cat[]): Promise<{ prop: Proposal;
       const prop: Proposal = {
         photo_shows: String(o.photo_shows || '').slice(0, 200), photo_matches: o.photo_matches === 'yes' || o.photo_matches === 'no' ? o.photo_matches : 'unsure',
         title_en: String(o.title_en || '').replace(/[\u200b-\u200d\ufeff]/g, '').replace(/\s+/g, ' ').trim(), title_bn: String(o.title_bn || '').replace(/[\u200b\ufeff]/g, '').replace(/\s+/g, ' ').trim(),
-        category_id: Number(o.category_id) || 0, category_sure: o.category_sure === true, issues: Array.isArray(o.issues) ? o.issues.map((x) => String(x).slice(0, 200)).slice(0, 5) : [],
+        category_id: Number(o.category_id) || 0, category_sure: o.category_sure === true, spec_conflict: o.spec_conflict === true, issues: Array.isArray(o.issues) ? o.issues.map((x) => String(x).slice(0, 200)).slice(0, 5) : [],
       };
       if (!img) prop.photo_matches = 'unsure';
       return { prop, model: m };
@@ -154,12 +156,13 @@ export async function fixOne(settings: Settings, id: number): Promise<string> {
   const why = [...t.why];
   if (prop.photo_matches !== 'yes') why.unshift(prop.photo_matches === 'no' ? 'ছবির সাথে নাম মিলছে না' : 'ছবি দেখে নিশ্চিত হওয়া যায়নি');
   if (!bnName) why.push('বাংলা নাম ঠিক হয়নি');
+  if (prop.spec_conflict) why.push('বিবরণের মাপ ডেটাশিটের সাথে মিলছে না — বিবরণও দেখুন');
   const same = prop.title_en === p.name && !catOk && (!bnName || bnName === p.name_bn);
   const auto = settings.titlefix_auto !== '0';
   let status: string;
   let old: Old | null = null;
   if (same) status = 'same';
-  else if (prop.photo_matches === 'yes' && t.ok && auto) {
+  else if (prop.photo_matches === 'yes' && t.ok && !prop.spec_conflict && auto) {
     old = await apply(p, prop.title_en, bnName, catOk ? prop.category_id : null);
     status = 'applied';
     cache.clearAll();
