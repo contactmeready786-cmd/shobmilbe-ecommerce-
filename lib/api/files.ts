@@ -235,6 +235,7 @@ export async function runShopJobs(settings: ApiCtx['settings']): Promise<Record<
   await P.timeJob('গুগলে চাহিদা (Trends)', async () => { await (await import('../services/gtrends')).tick(); }, { optional: true });
   await P.timeJob('ছবি গোছানো (ImageKit)', async () => { const ik = $services_imagekit; await ik.moveOld(db, 10); await ik.flushTrash(db, 30); }, { optional: true });
   await P.timeJob('স্টকে এলে জানাও', () => $models_extras.restockSweep(settings));
+  await P.timeJob('SMS অ্যাপের পুরনো তালিকা', async () => { await (await import('../services/smsgw')).tidy(); }, { optional: true });
   // 🛒 কার্ট রিমাইন্ডার: 1 h / 24 h / 72 h after a cart was left (lib/services/cartremind.ts; never at night)
   await P.timeJob('কার্ট রিমাইন্ডার', async () => (await import('../services/cartremind')).tick(settings));
   await P.timeJob('App review reminders', async () => { await (await import('../services/appdevices')).reviewReminders(settings); }, { optional: true });

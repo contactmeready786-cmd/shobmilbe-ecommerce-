@@ -577,6 +577,16 @@ CREATE TABLE IF NOT EXISTS sms_log (
   detail text NOT NULL DEFAULT '', order_id int, staff_id int, created_at timestamptz DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS sms_log_time_idx ON sms_log(created_at DESC);
+-- 📱 the shop's own SMS app (services/smsgw.ts): SMS waiting for / taken by the owner's phone, and that phone
+CREATE TABLE IF NOT EXISTS sms_outbox (
+  id text PRIMARY KEY, phone text NOT NULL, body text NOT NULL, status text NOT NULL DEFAULT 'pending', tries int NOT NULL DEFAULT 0,
+  error text NOT NULL DEFAULT '', log_id bigint, created_at timestamptz NOT NULL DEFAULT now(), taken_at timestamptz, done_at timestamptz
+);
+CREATE INDEX IF NOT EXISTS sms_outbox_wait_idx ON sms_outbox(created_at) WHERE status IN ('pending','taken');
+CREATE TABLE IF NOT EXISTS sms_phone (
+  id int PRIMARY KEY, model text NOT NULL DEFAULT '', app text NOT NULL DEFAULT '', battery int, charging boolean,
+  last_seen timestamptz, paired_at timestamptz
+);
 ALTER TABLE customers ADD COLUMN IF NOT EXISTS points int NOT NULL DEFAULT 0;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS points_used int NOT NULL DEFAULT 0;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS points_discount numeric(14,2) NOT NULL DEFAULT 0;
@@ -1981,7 +1991,7 @@ const DEFAULT_SETTINGS: Record<string, string> = {
   preorder_note: '',
   // 📮 complaints: a form for customers; to be solved within complaint_hours (law: 72)
   complaints_on: '1', complaint_hours: '72', complaint_sms_on: '1',
-  sms_on: '0', sms_provider: 'bulksmsbd', sms_api_key: '', sms_sender_id: '', sms_custom_url: '',
+  sms_on: '0', sms_provider: 'bulksmsbd', sms_api_key: '', sms_sender_id: '', sms_custom_url: '', smsgw_token_hash: '', smsgw_pair: '',
   // 📣 offer SMS allowance (free own-SIM plans keep room for checkout codes); 0 = no limit
   sms_mkt_day: '15', sms_mkt_month: '100',
   // 📧 ইমেইল মার্কেটিং (services/mailer.js): off until the owner switches it on in Admin → মার্কেটিং → ইমেইল

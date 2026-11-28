@@ -1477,6 +1477,31 @@ export type SmsLogRow = {
   created_at: Date;
 };
 
+/** A row of sms_outbox. */
+export type SmsOutboxRow = {
+  id: string;
+  phone: string;
+  body: string;
+  status: string;
+  tries: number;
+  error: string;
+  log_id: number | null;
+  created_at: Date;
+  taken_at: Date | null;
+  done_at: Date | null;
+};
+
+/** A row of sms_phone. */
+export type SmsPhoneRow = {
+  id: number;
+  model: string;
+  app: string;
+  battery: number | null;
+  charging: boolean | null;
+  last_seen: Date | null;
+  paired_at: Date | null;
+};
+
 /** A row of social_posts. */
 export type SocialPostsRow = {
   id: number;
@@ -1907,6 +1932,8 @@ export type Tables = {
   shopname_fix: ShopnameFixRow;
   sms_campaigns: SmsCampaignsRow;
   sms_log: SmsLogRow;
+  sms_outbox: SmsOutboxRow;
+  sms_phone: SmsPhoneRow;
   social_posts: SocialPostsRow;
   staff: StaffRow;
   stock_alerts: StockAlertsRow;

@@ -46,6 +46,19 @@ test('SMS is "not ready" with a clear reason until it is set up', () => {
     assert.equal(SMS.ready({ sms_on: '1', sms_provider: p, sms_api_key: 'k' } as never).ok, false, p);
     assert.equal(SMS.ready({ sms_on: '1', sms_provider: p, sms_api_key: 'k', sms_sender_id: 's' } as never).ok, true, p);
   }
+  // 📱 the shop's own app needs no key, only a paired phone (owner, 2026-11-28)
+  assert.equal(SMS.ready({ sms_on: '1', sms_provider: 'ownapp' } as never).ok, false);
+  assert.equal(SMS.ready({ sms_on: '1', sms_provider: 'ownapp', smsgw_token_hash: 'a'.repeat(64) } as never).ok, true);
   // a company that is no longer offered falls back to BulkSMSBD (and its rules), never sends half set up
   assert.equal(SMS.ready({ sms_on: '1', sms_provider: 'textbee', sms_api_key: 'k' } as never).ok, false);
+});
+
+test('own SMS app: the phone asks every few seconds, so 5 quiet minutes = warning, 30 = alarm', async () => {
+  const GW = await import('../lib/services/smsgw');
+  assert.equal(GW.levelFor(0.5, 80, false).level, 'ok');
+  assert.equal(GW.levelFor(6, 80, true).level, 'warn');
+  assert.equal(GW.levelFor(31, 80, true).level, 'bad');
+  assert.equal(GW.levelFor(null, null, null).level, 'warn');
+  assert.equal(GW.levelFor(1, 15, false).level, 'warn');
+  assert.equal(GW.levelFor(1, 15, true).level, 'ok');
 });

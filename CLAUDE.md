@@ -108,7 +108,9 @@ uses that one setup. Never add a second Gmail / App Password / SMS / API-key fie
   goes to main — main only goes live after they pass (deploy.yml waits for them). New money, OTP, order or security code gets a test in `tests/`. Database tests (`*.db.test.ts`) run only on
   `TEST_DATABASE_URL` (a throw-away Postgres) and refuse Supabase/Neon addresses. SMS in tests goes through
   `sms.setFakeSender`. SMS companies offered (owner, 2026-11-13): only `android` (own SIM app) and `bulksmsbd` — tests
-  use one of those two.
+  use one of those two. 📱 2026-11-28: `ownapp` = the shop's OWN SMS app (android-sms/, services/smsgw.ts, /api/smsgw/*):
+  the owner's phone takes each SMS straight from the shop (sms_outbox), paired with a 6-digit admin code; the old
+  `android` (sms-gate.app cloud) stays only as a fallback. New app version: see android-sms/README.md (owner's key).
 - The database certificate is checked with the bundled Supabase root (lib/data/supabase-ca.ts, valid to 2031-04-26);
   if a check ever fails the shop keeps running encrypted-unchecked and the owner is e-mailed — never remove that net.
 

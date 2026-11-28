@@ -4,6 +4,7 @@
 // Every SMS is written to sms_log (success or the company's error), so the owner can see what happened.
 import * as db from '../db';
 import { safeFetch } from './safefetch';
+import * as GW from './smsgw';
 import { normalizePhone, validPhone, str, bn, reviewPath } from '../util';
 import type { Id, Settings } from '../types';
 
@@ -19,9 +20,12 @@ export type SmsMeta = { kind?: string; orderId?: Id; staffId?: Id };
 type SmsOrder = { id?: number; code?: string; phone?: string; total?: number | string; customer_name?: string; name?: string; tracking_code?: string | null; points_earned?: number | null };
 
 const PROVIDERS: Record<string, Provider> = {
+  // 📱 the shop's OWN app on the owner's phone (owner, 2026-11-28; services/smsgw.ts, android-sms/): no outside
+  // company or cloud in between — the phone takes each SMS straight from the shop. Paired with a 6-digit code.
+  ownapp: { label: '📱 নিজের ফোন — সবমিলবে SMS অ্যাপ (ফ্রি, সরাসরি)', site: '', needsSender: false },
   // 📱 the owner's own phone + SIM (e.g. Grameenphone) sends the SMS through the free "SMS Gateway for Android" app
   // (sms-gate.app, cloud mode). Username → Sender ID box, Password → API Key box. Each SMS costs the SIM's normal rate.
-  android: { label: '📱 নিজের ফোনের SIM দিয়ে (SMS Gateway অ্যাপ, ফ্রি)', site: 'https://sms-gate.app', needsSender: true },
+  android: { label: '📱 পুরনো SMS Gateway অ্যাপ (sms-gate.app)', site: 'https://sms-gate.app', needsSender: true },
   // (owner, 2026-11-13: only these two — the owner asked the other companies; only BulkSMSBD can give a sender.)
   bulksmsbd: { label: 'BulkSMSBD (bulksmsbd.net)', site: 'https://bulksmsbd.net', needsSender: true },
 };
@@ -29,6 +33,7 @@ const PROVIDERS: Record<string, Provider> = {
 function ready(settings: Settings): SmsReady {
   const p: string = PROVIDERS[settings.sms_provider as string] ? settings.sms_provider as string : 'bulksmsbd';
   if (settings.sms_on !== '1') return { ok: false, why: 'SMS বন্ধ আছে' };
+  if (p === 'ownapp') return GW.paired(settings) ? { ok: true, p } : { ok: false, why: 'ফোন যুক্ত করা হয়নি — "📱 সবমিলবে SMS অ্যাপ" অংশে "ফোন যুক্ত করুন" চাপুন' };
   if (p === 'custom') return /^https:\/\//i.test(settings.sms_custom_url || '') ? { ok: true, p } : { ok: false, why: 'কোম্পানির লিংক (https://…) দিন' };
   if (!settings.sms_api_key) return { ok: false, why: 'API key দেওয়া নেই' };
   if (PROVIDERS[p].needsSender && !settings.sms_sender_id) return { ok: false, why: 'Sender ID দেওয়া নেই' };
@@ -95,6 +100,8 @@ async function send(settings: Settings, phone: unknown, text: unknown, { kind = 
   else if (!message) result = { ok: false, msg: 'লেখা খালি' };
   else if (fakeSender) {
     try { result = await fakeSender(ph, message); } catch (e) { result = { ok: false, msg: 'সংযোগ হয়নি: ' + String((e as Error)?.message || e).slice(0, 120) }; }
+  } else if (r.p === 'ownapp') {
+    try { result = { ok: true, id: await GW.enqueue('+' + intl(ph), message), msg: '📱 ফোনের কাছে দেওয়া হয়েছে' }; } catch (e) { result = { ok: false, msg: 'সেভ হয়নি: ' + String((e as Error)?.message || e).slice(0, 120) }; }
   } else {
     try {
       const res = r.p === 'textbee'
@@ -116,8 +123,10 @@ async function send(settings: Settings, phone: unknown, text: unknown, { kind = 
       result = { ok: false, msg: 'সংযোগ হয়নি: ' + String((e as Error)?.message || e).slice(0, 120) };
     }
   }
-  await db.q('INSERT INTO sms_log(phone, body, kind, ok, detail, order_id, staff_id) VALUES($1,$2,$3,$4,$5,$6,$7)',
-    [ph || String(phone || '').slice(0, 20), message, kind, result.ok, str(result.msg, 300), orderId, staffId]).catch(() => {});
+  const logged = await db.q<{ id: number }>('INSERT INTO sms_log(phone, body, kind, ok, detail, order_id, staff_id) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING id',
+    [ph || String(phone || '').slice(0, 20), message, kind, result.ok, str(result.msg, 300), orderId, staffId]).catch(() => []);
+  // own app: the phone's later "sent / failed" answer updates this log line (smsgw.report)
+  if (r.ok && r.p === 'ownapp' && result.id && logged[0]) await db.q('UPDATE sms_outbox SET log_id=$1 WHERE id=$2', [logged[0].id, result.id]).catch(() => {});
   return result;
 }
 
@@ -159,6 +168,7 @@ async function orderEvent(settings: Settings, event: string, order: (SmsOrder & 
 //   Sent / Delivered = it left the SIM, Failed = the phone tried and couldn't (error says why).
 async function androidState(settings: Settings, id?: Id) {
   if (!id) return null;
+  if (settings.sms_provider === 'ownapp') return GW.state(String(id));
   const res = await safeFetch(`https://api.sms-gate.app/3rdparty/v1/messages/${encodeURIComponent(id)}`, {
     maxBytes: 64 * 1024, timeoutMs: 8000, maxRedirects: 0,
     headers: { Accept: 'application/json', Authorization: 'Basic ' + Buffer.from(`${String(settings.sms_sender_id || '').trim()}:${String(settings.sms_api_key || '').trim()}`).toString('base64') },
@@ -205,6 +215,16 @@ async function phoneStatus(settings: Settings): Promise<PhoneStatus> {
     FROM sms_log WHERE kind <> 'bulk' AND coalesce(detail, '') NOT IN ('SMS বন্ধ আছে', 'মোবাইল নম্বর ঠিক নেই', 'লেখা খালি') AND created_at > now() - interval '30 days'`).catch(() => null);
   if (log) { out.failed6h = Number(log.f) || 0; out.sent6h = Number(log.s) || 0; out.lastOk = log.last_ok ? new Date(log.last_ok) : null; }
   out.sendLevel = out.on ? sendLevelFor(out.failed6h, out.sent6h) : 'ok';
+  if (out.on && p === 'ownapp') {
+    const ph = await GW.phone();
+    if (!ph || !GW.paired(settings)) { out.phoneLevel = 'bad'; out.phoneWhy = 'সবমিলবে SMS অ্যাপে কোনো ফোন যুক্ত নেই'; return out; }
+    out.model = ph.model; out.lastSeen = ph.last_seen ? new Date(ph.last_seen) : null;
+    out.minutesAgo = out.lastSeen ? Math.max(0, (Date.now() - out.lastSeen.getTime()) / 60e3) : null;
+    out.battery = ph.battery; out.charging = ph.charging;
+    const lv = GW.levelFor(out.minutesAgo, out.battery, out.charging);
+    out.phoneLevel = lv.level; out.phoneWhy = lv.why;
+    return out;
+  }
   if (!out.on || p !== 'textbee' || !settings.sms_api_key) return out;
   try {
     const res = await safeFetch('https://api.textbee.dev/api/v1/gateway/devices', {

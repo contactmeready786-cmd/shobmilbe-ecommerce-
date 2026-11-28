@@ -195,7 +195,7 @@ async function smsCheck(s: Settings, phone: unknown): Promise<{ state: string; s
   const stuck = (st.state === 'Pending' && row.ago >= 60) || st.state === 'Failed';
   if (stuck) {
     const why = st.state === 'Failed' ? `ফোন SMS পাঠাতে পারেনি${st.error ? ` (${st.error})` : ''} — SIM-এর ব্যালান্স / নেটওয়ার্ক / SMS অনুমতি দেখুন।`
-      : 'SMS Gateway অ্যাপ বন্ধ বা ফোনে ইন্টারনেট নেই — অ্যাপ খুলে Online করুন।';
+      : 'ফোনের SMS অ্যাপ বন্ধ বা ফোনে ইন্টারনেট নেই — ফোনে অ্যাপটা খুলে দেখুন।';
     await alertOwner(s, '⚠️ OTP-র SMS যাচ্ছে না', `কাস্টমার ${ph.slice(0, 3)}•••${ph.slice(-3)} কোড পাননি। ${why}`);
   }
   return { state: st.state, stuck };
