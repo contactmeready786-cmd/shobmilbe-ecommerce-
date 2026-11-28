@@ -69,9 +69,11 @@ export async function cleanShopNames(limit = 200): Promise<number> {
   let changed = 0;
   for (const r of rows) {
     const name = stripShopName(r.name, r.import_ref);
-    const fromSlug = stripShopName(r.slug.replace(/-/g, ' '), r.import_ref);
-    const wantSlug = slugify(name !== r.name ? name : fromSlug);
-    const slugChanged = wantSlug && wantSlug !== 'item' && wantSlug !== r.slug && (name !== r.name || fromSlug !== r.slug.replace(/-/g, ' '));
+    // the link changes only when a shop name really was in it (a cut-off link like "…-dimmer-" stays as it is)
+    const slugWords = r.slug.replace(/-/g, ' ').replace(/\s{2,}/g, ' ').trim();
+    const fromSlug = stripShopName(slugWords, r.import_ref);
+    const wantSlug = slugify(fromSlug !== slugWords ? fromSlug : name);
+    const slugChanged = !!wantSlug && wantSlug !== 'item' && wantSlug !== r.slug && (fromSlug !== slugWords || (name !== r.name && new RegExp(KNOWN.join('|'), 'iu').test(slugWords)));
     if (name === r.name && !slugChanged) {
       // looked at, nothing to change: remembered so it isn't read again
       await db.q(`INSERT INTO shopname_fix(product_id, old_name, old_slug, new_name, new_slug, undone) VALUES($1,$2,$3,$2,$3,true) ON CONFLICT DO NOTHING`, [r.id, r.name, r.slug]);
