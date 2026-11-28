@@ -62,12 +62,12 @@ test('the shop hands an SMS over, the phone takes it at once and reports it', { 
   assert.ok(Date.now() - t0 < 4000, 'woken at once');
   assert.equal(got.length, 1);
   assert.equal(got[0].phone, '+8801712345678');
-  assert.equal((await SMS.androidState(s, r.id))!.state, 'Processed');
+  assert.equal((await SMS.smsState(s, r.id))!.state, 'Processed');
   assert.equal(await GW.report([{ id: got[0].id, state: 'sent' }]), 1);
-  assert.equal((await SMS.androidState(s, r.id))!.state, 'Sent');
+  assert.equal((await SMS.smsState(s, r.id))!.state, 'Sent');
   await GW.report([{ id: got[0].id, state: 'delivered' }]);
   await GW.report([{ id: got[0].id, state: 'failed', error: 'late' }]); // a finished SMS can't turn into failed
-  assert.equal((await SMS.androidState(s, r.id))!.state, 'Delivered');
+  assert.equal((await SMS.smsState(s, r.id))!.state, 'Delivered');
   const log = await db.one<{ ok: boolean; detail: string }>('SELECT l.ok, l.detail FROM sms_log l JOIN sms_outbox o ON o.log_id=l.id WHERE o.id=$1', [r.id]);
   assert.equal(log!.ok, true);
   assert.match(log!.detail, /পৌঁছেছে/);
@@ -93,7 +93,7 @@ test('a failed SMS shows as failed in the log; an unreported one is tried again,
   }
   got = await GW.pull({}, 0);
   assert.equal(got.length, 0);
-  assert.equal((await SMS.androidState(s, b.id))!.state, 'Failed');
+  assert.equal((await SMS.smsState(s, b.id))!.state, 'Failed');
 });
 
 test('an SMS the phone never took expires after 10 minutes (an old code is no use)', { skip }, async () => {
@@ -101,7 +101,7 @@ test('an SMS the phone never took expires after 10 minutes (an old code is no us
   const c = await SMS.send(s, '01612345678', 'z', { kind: 'test' });
   await db.q("UPDATE sms_outbox SET created_at = now() - interval '11 minutes' WHERE id=$1", [c.id]);
   assert.equal((await GW.pull({}, 0)).length, 0);
-  assert.equal((await SMS.androidState(s, c.id))!.state, 'Failed');
+  assert.equal((await SMS.smsState(s, c.id))!.state, 'Failed');
 });
 
 test('unpaired: SMS is not ready and the old key stops working', { skip }, async () => {

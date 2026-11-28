@@ -577,16 +577,6 @@ CREATE TABLE IF NOT EXISTS sms_log (
   detail text NOT NULL DEFAULT '', order_id int, staff_id int, created_at timestamptz DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS sms_log_time_idx ON sms_log(created_at DESC);
--- 📱 the shop's own SMS app (services/smsgw.ts): SMS waiting for / taken by the owner's phone, and that phone
-CREATE TABLE IF NOT EXISTS sms_outbox (
-  id text PRIMARY KEY, phone text NOT NULL, body text NOT NULL, status text NOT NULL DEFAULT 'pending', tries int NOT NULL DEFAULT 0,
-  error text NOT NULL DEFAULT '', log_id bigint, created_at timestamptz NOT NULL DEFAULT now(), taken_at timestamptz, done_at timestamptz
-);
-CREATE INDEX IF NOT EXISTS sms_outbox_wait_idx ON sms_outbox(created_at) WHERE status IN ('pending','taken');
-CREATE TABLE IF NOT EXISTS sms_phone (
-  id int PRIMARY KEY, model text NOT NULL DEFAULT '', app text NOT NULL DEFAULT '', battery int, charging boolean,
-  last_seen timestamptz, paired_at timestamptz
-);
 ALTER TABLE customers ADD COLUMN IF NOT EXISTS points int NOT NULL DEFAULT 0;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS points_used int NOT NULL DEFAULT 0;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS points_discount numeric(14,2) NOT NULL DEFAULT 0;
@@ -1537,6 +1527,25 @@ UPDATE products p SET name = f.old_name FROM shopname_fix f WHERE f.product_id =
   AND regexp_replace(f.old_name, '^[[:space:]|,–-]+|[[:space:]|,–-]+$', '', 'g') = f.new_name AND p.name = f.new_name;
 UPDATE shopname_fix SET undone = true, new_name = old_name WHERE NOT undone AND old_slug = new_slug
   AND regexp_replace(old_name, '^[[:space:]|,–-]+|[[:space:]|,–-]+$', '', 'g') = new_name;
+`,  // 📱 the shop's own SMS app (services/smsgw.ts, owner 2026-11-28): SMS waiting for / taken by the owner's phone,
+  // and that phone. Then a fresh start for SMS (owner: "OTP starts today"): the old SMS Gate / test history, old codes
+  // and the old SMS Gate login go; the old companies (SMS Gate, textbee) are gone from the code.
+  `
+CREATE TABLE IF NOT EXISTS sms_outbox (
+  id text PRIMARY KEY, phone text NOT NULL, body text NOT NULL, status text NOT NULL DEFAULT 'pending', tries int NOT NULL DEFAULT 0,
+  error text NOT NULL DEFAULT '', log_id bigint, created_at timestamptz NOT NULL DEFAULT now(), taken_at timestamptz, done_at timestamptz
+);
+CREATE INDEX IF NOT EXISTS sms_outbox_wait_idx ON sms_outbox(created_at) WHERE status IN ('pending','taken');
+CREATE TABLE IF NOT EXISTS sms_phone (
+  id int PRIMARY KEY, model text NOT NULL DEFAULT '', app text NOT NULL DEFAULT '', battery int, charging boolean,
+  last_seen timestamptz, paired_at timestamptz
+);
+DELETE FROM sms_log;
+DELETE FROM sms_outbox;
+DELETE FROM checkout_otps;
+DELETE FROM sms_campaigns;
+DELETE FROM settings WHERE key IN ('sms_api_key', 'sms_sender_id', 'sms_custom_url');
+UPDATE settings SET value = 'ownapp' WHERE key = 'sms_provider';
 `,
 ];
 
@@ -1991,7 +2000,7 @@ const DEFAULT_SETTINGS: Record<string, string> = {
   preorder_note: '',
   // 📮 complaints: a form for customers; to be solved within complaint_hours (law: 72)
   complaints_on: '1', complaint_hours: '72', complaint_sms_on: '1',
-  sms_on: '0', sms_provider: 'bulksmsbd', sms_api_key: '', sms_sender_id: '', sms_custom_url: '', smsgw_token_hash: '', smsgw_pair: '',
+  sms_on: '0', sms_provider: 'ownapp', sms_api_key: '', sms_sender_id: '', smsgw_token_hash: '', smsgw_pair: '',
   // 📣 offer SMS allowance (free own-SIM plans keep room for checkout codes); 0 = no limit
   sms_mkt_day: '15', sms_mkt_month: '100',
   // 📧 ইমেইল মার্কেটিং (services/mailer.js): off until the owner switches it on in Admin → মার্কেটিং → ইমেইল

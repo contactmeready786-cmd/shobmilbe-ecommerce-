@@ -180,7 +180,7 @@ async function alertOwner(s: Settings, title: string, body: string): Promise<voi
 }
 async function phoneState(s: Settings, row: GwRow | null | undefined) {
   if (!row || !row.gw_id) return null;
-  const st = await $services_sms.androidState(s, row.gw_id).catch(() => null);
+  const st = await $services_sms.smsState(s, row.gw_id).catch(() => null);
   if (st && st.state && st.state !== row.gw_state) await db.q('UPDATE checkout_otps SET gw_state=$1 WHERE id=$2', [str(st.state, 20), row.id]).catch(() => {});
   return st;
 }

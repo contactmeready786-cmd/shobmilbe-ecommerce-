@@ -85,7 +85,7 @@ test('ImageKit not reachable: no false warning', () => {
 
 // ---- added 2026-10-17: database certificate and the SMS phone ----
 const phone = (over: Record<string, unknown> = {}) => ({
-  provider: 'textbee', on: true, lastSeen: new Date(), minutesAgo: 5, battery: 80, charging: false, model: 'Samsung A10',
+  provider: 'ownapp', on: true, lastSeen: new Date(), minutesAgo: 5, battery: 80, charging: false, model: 'Samsung A10',
   phoneLevel: 'ok', phoneWhy: '', failed6h: 0, sent6h: 4, lastOk: new Date(), sendLevel: 'ok', ...over,
 }) as never;
 
