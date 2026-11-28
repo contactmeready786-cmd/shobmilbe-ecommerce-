@@ -192,7 +192,7 @@ export async function resolveShop(ctx: ShopCtx): Promise<Resolved> {
       brand || settings.ui_filters === '0' ? [] : catalog.brandsIn(opts).catch(() => []),
       settings.ui_filters === '0' || settings.ui_spec_filters === '0' ? [] : catalog.specFacets(opts).catch(() => []),
     ]);
-    const intro = brand || category;
+    const intro = brand || (category ? seo.listSeo(category, categories) : null);
     // 🔎 a proper Google title & description for every category / brand (the owner's own text wins when written)
     const title = q ? `খুঁজুন: ${q}` : intro ? seo.listTitle(brand ? { ...brand, seo_title: brand.seo_title || `${brand.name} পণ্য — দাম ও অর্ডার বাংলাদেশে` } : intro, pageNo)
       : sort === 'offer' ? 'অফার — ছাড়ে কেনাকাটা' : pageNo > 1 ? `সব পণ্য (পেজ ${bn(pageNo)})` : 'সব পণ্য — দাম ও অনলাইন অর্ডার';

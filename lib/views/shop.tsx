@@ -190,7 +190,7 @@ type ListingProps = {
   total: number; page: number; perPage: number; filters?: ListFilters; brandList?: BrandCount[]; specFacets?: SpecFacet[]; fallback?: Product[];
 };
 function listing({ products, categories, category, brand = null, q, sort, settings, total, page, perPage, filters = {}, brandList = [], specFacets = [], fallback = [] }: ListingProps) {
-  const title = brand ? brand.name : category ? category.name : q ? `"${q}" এর ফলাফল` : sort === 'offer' ? 'অফারের পণ্য' : 'সব পণ্য';
+  const title = brand ? brand.name : category ? $services_seo.listName(category, categories) : q ? `"${q}" এর ফলাফল` : sort === 'offer' ? 'অফারের পণ্য' : 'সব পণ্য';
   const base = new URLSearchParams();
   if (category && brand) base.set('cat', category.slug);
   if (q) base.set('q', q);

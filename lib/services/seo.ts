@@ -68,6 +68,41 @@ function productKeywords(p: FullProduct) {
   return [...new Set(list.filter(Boolean))].join(', ');
 }
 
+// 🔎 Search Console (2026-11-28): people find the remote pages by English words — "walton ac remote price in bangladesh",
+// "singer ac remote", "ac remote" — while the brand sub-category pages were titled only "Walton — দাম …" (the AC and TV
+// Walton pages even had the same title). A brand sub-category (slug `<parent>-<brand>`, made by services/autocat.ts) is
+// named with its parent ("Walton এসি রিমোট"), and the remote pages carry the English words people type.
+const LIST_EN: Record<string, string> = { remote: 'Remote Control', 'ac-remote': 'AC Remote', 'tv-remote': 'TV Remote', 'box-remote': 'Set-top Box Remote' };
+type CatLike = { id?: number; slug?: string; name?: unknown; parent_id?: number | null };
+/** the category's name as a page heading / Google needs it: "Walton" under "এসি রিমোট" → "Walton এসি রিমোট" */
+function listName(c: CatLike, all: CatLike[] = []): string {
+  const name = String(c.name || '');
+  const parent = c.parent_id ? all.find((x) => x.id === c.parent_id) : null;
+  if (!parent || !parent.slug || !c.slug || !c.slug.startsWith(parent.slug + '-')) return name;
+  const pName = String(parent.name || '');
+  if (!pName || name.includes(pName)) return name;
+  // "ইউনিভার্সাল রিমোট" under "এসি রিমোট" → "ইউনিভার্সাল এসি রিমোট" (not "… রিমোট এসি রিমোট")
+  const last = pName.split(' ').pop() || '';
+  return last && name.endsWith(' ' + last) ? name.slice(0, -last.length) + pName : `${name} ${pName}`;
+}
+/** the English words people search for this category ("Walton AC Remote"), or '' when there are none */
+function listEnglish(c: CatLike, all: CatLike[] = []): string {
+  if (c.slug && LIST_EN[c.slug]) return LIST_EN[c.slug];
+  const parent = c.parent_id ? all.find((x) => x.id === c.parent_id) : null;
+  const en = parent && parent.slug ? LIST_EN[parent.slug] : '';
+  if (!en || !parent!.slug || !c.slug || !c.slug.startsWith(parent!.slug + '-')) return '';
+  const name = String(c.name || '').trim();
+  // "অন্যান্য কোম্পানি" / "ইউনিভার্সাল রিমোট" / "চায়না": Bangla names get the English words only
+  return /^[\x00-\x7f]+$/.test(name) ? `${name} ${en}` : /ইউনিভার্সাল/.test(name) ? `Universal ${en}` : '';
+}
+/** a category ready for listTitle / listDescription: full name, and the English search words in the title */
+function listSeo<T extends CatLike & ListLike>(c: T, all: CatLike[] = []): T {
+  const name = listName(c, all);
+  const en = listEnglish(c, all);
+  const seo_title = c.seo_title && c.seo_title.trim() ? c.seo_title : en ? `${en} Price in BD | ${name}` : `${name} — দাম ও অনলাইন অর্ডার বাংলাদেশে`;
+  return { ...c, name, seo_title };
+}
+
 function listTitle(c: ListLike, page?: number) {
   const base = c.seo_title && c.seo_title.trim() ? c.seo_title.trim() : `${c.name} — দাম ও অনলাইন অর্ডার বাংলাদেশে`;
   return Number(page) > 1 ? `${base} (পেজ ${bn(page)})` : base;
@@ -153,4 +188,4 @@ async function indexNowSweep(settings: Settings) {
   return { sent: paths.length, status };
 }
 
-export { indexNowSweep, cleanName, needsNameFix, cut, unglue, productTitle, productDescription, productKeywords, listTitle, listDescription, homeTitle, homeDescription, itemListLd, indexNowKey, indexNowPing };
+export { indexNowSweep, cleanName, needsNameFix, cut, unglue, productTitle, productDescription, productKeywords, listTitle, listDescription, listName, listSeo, homeTitle, homeDescription, itemListLd, indexNowKey, indexNowPing };
