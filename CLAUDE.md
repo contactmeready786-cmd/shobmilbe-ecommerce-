@@ -57,6 +57,10 @@ uses that one setup. Never add a second Gmail / App Password / SMS / API-key fie
 - A new Google code is tested before it is saved (admin/notify.ts), so a wrong code never replaces a working one.
 
 ## Other standing rules from the owner
+- Self-service first (owner, 2026-11-28): the owner will not always have an AI. Everything day-to-day (adding a phone,
+  products, categories, prices, offers, limits, texts, on/off switches) must be doable from the admin by the owner alone —
+  no number, list or rule the owner might want to change is fixed in code; give it a setting with a sensible default,
+  a clear English label and a short how-to on the page. Only genuinely new features should need a programmer.
 - Product prices: ৳0.50 – ৳2000 only (`util.priceProblem`). ৳10 or more = whole taka.
 - Product cards (owner, 2026-10-20 and again 2026-10-22 — don't break it again): EVERY card looks the same, with
   "কার্টে যোগ করুন" + "এখনই কিনুন" — also pack products (adding puts the smallest pack in the cart; the cart/checkout
@@ -109,7 +113,7 @@ uses that one setup. Never add a second Gmail / App Password / SMS / API-key fie
   `TEST_DATABASE_URL` (a throw-away Postgres) and refuse Supabase/Neon addresses. SMS in tests goes through
   `sms.setFakeSender`. SMS ways offered (owner, 2026-11-28 — only these two, everything else removed): `ownapp` = the shop's OWN SMS app
   (android-sms/, services/smsgw.ts, /api/smsgw/*: the owner's phone takes each SMS straight from the shop via
-  sms_outbox, paired with a 6-digit admin code; up to 3 phones — the owner picks the ⭐ main one, a backup takes an SMS
+  sms_outbox, paired with a 6-digit admin code; up to 10 phones (`MAX_PHONES`) — the owner picks the ⭐ main one, a backup takes an SMS
   the main phone hasn't taken within 8 s or at once while it is away, and retries once what a phone failed) — the main way; `bulksmsbd` — emergency spare. The old SMS Gate
   (sms-gate.app) and textbee are gone; a saved old value counts as `ownapp`. Tests use one of the two. New app
   version: see android-sms/README.md (owner's key).

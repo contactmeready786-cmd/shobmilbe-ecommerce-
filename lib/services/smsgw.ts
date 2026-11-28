@@ -4,7 +4,7 @@
 // sends it from its SIM and reports back (/api/smsgw/report). The old "SMS Gate" app went through someone else's
 // cloud and often lost codes — that is why this exists.
 //
-// Main phone + backup (owner, 2026-11-28): up to 3 phones can be connected; the owner picks the MAIN one in the admin.
+// Main phone + backup (owner, 2026-11-28): up to 10 phones can be connected; the owner picks the MAIN one in the admin.
 //   - Everything goes from the main phone while it is there, so customers get their code from one number.
 //   - Main phone not connected right now (no word for 35 s) → a backup phone takes the SMS at once.
 //   - Main phone connected but the SMS still waits 8 s (phone stuck, app frozen) → a backup takes it.
@@ -29,7 +29,7 @@ export const PAIR_MINUTES = 15;
 export const EXPIRE_MINUTES = 10;
 export const RETAKE_SECONDS = 180;
 export const MAX_TRIES = 3;
-export const MAX_PHONES = 3;
+export const MAX_PHONES = 10;
 /** a backup phone takes an SMS the main phone hasn't taken within this time */
 export const BACKUP_AFTER_SECONDS = 8;
 /** the main phone counts as connected when it asked the shop within this time (it asks again right after each answer) */
@@ -83,7 +83,7 @@ export async function pairBudget(): Promise<boolean> {
 }
 
 /** The app sends the code once → its own key; the phone is added (the first one becomes the main phone).
- * null = wrong / too late / already 3 phones. */
+ * null = wrong / too late / already MAX_PHONES phones. */
 export async function pair(code: unknown, model: unknown): Promise<string | null> {
   // read straight from the table (never the 15-second memory): a code must work exactly once
   const row = await db.one<{ value: string }>("SELECT value FROM settings WHERE key='smsgw_pair'");
