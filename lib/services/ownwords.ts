@@ -56,6 +56,7 @@ export function stripShopName(name: string, importRef = ''): string {
   const words = [...KNOWN, ...shopWords(importRef)];
   if (!words.length) return name;
   const re = new RegExp(`[\\s(\\[|,–-]*(?:\\b(?:by|from)\\s+)?(?:${words.join('|')})(?:\\s*(?:bd|shop|store|sale))?\\b[\\s)\\]|,–-]*`, 'giu');
+  if (!new RegExp(re.source, 'iu').test(String(name || ''))) return name; // no shop name: left exactly as it is
   const out = String(name || '').replace(re, ' ').replace(/\s*\/\s*\/\s*/g, '/').replace(/\s{2,}/g, ' ').replace(/^[\s|,–-]+|[\s|,–-]+$/g, '').trim();
   return out.length >= 4 ? out : name;
 }
@@ -68,9 +69,7 @@ export async function cleanShopNames(limit = 200): Promise<number> {
     ORDER BY id LIMIT $3`, [KNOWN.join('|'), 'shopno|udvabony|creativetrade|electrox', limit * 5]);
   let changed = 0;
   for (const r of rows) {
-    // only a real shop name counts: spacing alone is no change
-    const cut = stripShopName(r.name, r.import_ref);
-    const name = cut.replace(/\s+/g, ' ').trim() === r.name.replace(/\s+/g, ' ').trim() ? r.name : cut;
+    const name = stripShopName(r.name, r.import_ref);
     // the link changes only when a shop name really was in it (a cut-off link like "…-dimmer-" stays as it is)
     const slugWords = r.slug.replace(/-/g, ' ').replace(/\s{2,}/g, ' ').trim();
     const fromSlug = stripShopName(slugWords, r.import_ref);
