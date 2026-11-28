@@ -1997,7 +1997,7 @@ const DEFAULT_SETTINGS: Record<string, string> = {
   // domain
   vercel_token: '', vercel_project: '', custom_domain: '',
   // owner notifications (Admin → নোটিফিকেশন): e-mail via Gmail App Password, Telegram via the shop's bot
-  notify_email: 'contact.shobmilbe@gmail.com', gmail_app_password: '', tg_owner_chat: '', tg_owner_code: '',
+  notify_email: '', gmail_app_password: '', tg_owner_chat: '', tg_owner_code: '',
   // customer sign-up codes may go from their own Gmail (Admin → কাস্টমার অ্যাকাউন্ট); empty = use the one above
   acct_gmail: '', acct_gmail_password: '',
   // 🌍 দেশ ব্লক (Admin → ভিজিটর অ্যানালিটিক্স → 🌍 দেশ ব্লক): off until the owner ticks countries and switches it on

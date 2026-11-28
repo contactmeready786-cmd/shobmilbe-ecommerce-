@@ -14,7 +14,7 @@ import type { Settings } from '../types';
 /** One mail: to whom, the subject, the plain text, the HTML (drawn from the text when missing) and extra headers. */
 export type Mail = { to: string; subject: string; text: string; htmlBody?: string | null; headers?: Record<string, string> };
 /** A mail with the Gmail login that sends it. */
-type SignedMail = Mail & { user: string; pass: string; fromName?: string };
+type SignedMail = Mail & { user: string; pass: string; fromName?: string; fromAddr?: string };
 /** A phone notification to the owner's devices. */
 type PushMsg = Parameters<typeof $push.sendAll>[0];
 /** What the new-order news says (the order just placed, with the customer's details). */
@@ -27,7 +27,8 @@ type ComplaintNews = { id?: number; code?: string; name?: string; phone?: string
 
 const SMTP_HOST = 'smtp.gmail.com';
 const SMTP_PORT = 465;
-const DEFAULT_EMAIL = 'contact.shobmilbe@gmail.com';
+// No address is written in the code (the code is public): the shop's Gmail lives only in the admin settings.
+const DEFAULT_EMAIL = '';
 
 function cleanLine(s: unknown, max = 300): string { return String(s ?? '').replace(/[\r\n\t]+/g, ' ').trim().slice(0, max); }
 function validEmail(e: unknown): boolean { return /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(String(e || '')) && String(e).length <= 120; }
@@ -44,16 +45,19 @@ function encHeader(s: string): string { return /^[\x20-\x7e]*$/.test(s) ? s : `=
 // new-order news to the owner, customers' sign-up codes, and the owner's delete codes.
 function emailConfig(settings: Settings) {
   let to = String(settings.notify_email || DEFAULT_EMAIL).trim();
-  if (to.toLowerCase() === 'contact.submilbe@gmail.com') to = DEFAULT_EMAIL; // old misspelt default
   const pass = String(settings.gmail_app_password || '').replace(/\s+/g, '');
   const backup = sendersOf(settings).length > 0;
   return { to, user: to, pass, ready: validEmail(to) && (pass.length >= 16 || backup) };
+}
+/** The address everyone sees on the shop's mails: the shop's e-mail (Admin → সেটিংস, e.g. support@shobmilbe.com). */
+function publicEmail(settings: Settings): string {
+  const e = String(settings.email || '').trim();
+  return validEmail(e) ? e : '';
 }
 // Every Gmail + Google code saved in the admin, the main one first. The customer-accounts page used to keep its own
 // Gmail; that code is still tried when the main one is refused, so a wrong code in one place can't stop the mail.
 function sendersOf(settings: Settings) {
   let main = String(settings.notify_email || DEFAULT_EMAIL).trim();
-  if (main.toLowerCase() === 'contact.submilbe@gmail.com') main = DEFAULT_EMAIL;
   const list = [
     { user: main, pass: String(settings.gmail_app_password || '').replace(/\s+/g, ''), key: 'gmail_app_password' },
     { user: String(settings.acct_gmail || '').trim() || main, pass: String(settings.acct_gmail_password || '').replace(/\s+/g, ''), key: 'acct_gmail_password' },
@@ -69,7 +73,7 @@ async function sendVia(settings: Settings, { to, subject, text, htmlBody, header
   let firstErr: unknown = null;
   for (const c of senders) {
     try {
-      await smtpSend({ user: c.user, pass: c.pass, to, subject, text, htmlBody, fromName: settings.store_name, headers });
+      await smtpSend({ user: c.user, pass: c.pass, to, subject, text, htmlBody, fromName: settings.store_name, fromAddr: publicEmail(settings), headers });
       if (firstErr && c.key !== 'gmail_app_password' && c.user.toLowerCase() === emailConfig(settings).user.toLowerCase()) {
         const db = $db;
         await db.setSetting('gmail_app_password', c.pass).catch(() => {});
@@ -104,7 +108,7 @@ async function smtpSend(mail: SignedMail): Promise<void> {
   const htmlBody = mail.htmlBody || (await emailHtml(PlainEmail({ text: String(mail.text ?? '') })));
   return smtpWire({ ...mail, htmlBody });
 }
-function smtpWire({ user, pass, to, subject, text, htmlBody, fromName, headers = {} }: SignedMail & { htmlBody: string }): Promise<void> {
+function smtpWire({ user, pass, to, subject, text, htmlBody, fromName, fromAddr, headers = {} }: SignedMail & { htmlBody: string }): Promise<void> {
   return new Promise((resolve, reject) => {
     const sock = tls.connect({ host: SMTP_HOST, port: SMTP_PORT, servername: SMTP_HOST });
     let buf = '';
@@ -140,13 +144,18 @@ function smtpWire({ user, pass, to, subject, text, htmlBody, fromName, headers =
     });
 
     const boundary = 'sm' + crypto.randomBytes(12).toString('hex');
-    const from = `${encHeader(cleanLine(fromName || 'সবমিলবে', 60))} <${user}>`;
+    // 🔒 (owner, 2026-11-28) people see the shop's own address (support@…), never the Gmail behind it: it is the From
+    // and the Reply-To. Gmail keeps this From only when the address is added in Gmail → Settings → Accounts →
+    // "Send mail as" (shown on Admin → আমার নোটিফিকেশন); until then Gmail writes its own address instead.
+    const shown = fromAddr && validEmail(fromAddr) ? fromAddr : user;
+    const from = `${encHeader(cleanLine(fromName || 'সবমিলবে', 60))} <${shown}>`;
     const message = [
       `From: ${from}`,
       `To: <${to}>`,
+      ...(shown !== user ? [`Reply-To: <${shown}>`] : []),
       `Subject: ${encHeader(cleanLine(subject, 200))}`,
       `Date: ${new Date().toUTCString()}`,
-      `Message-ID: <${crypto.randomBytes(16).toString('hex')}@${user.split('@')[1]}>`,
+      `Message-ID: <${crypto.randomBytes(16).toString('hex')}@${shown.split('@')[1]}>`,
       // extra headers (e.g. List-Unsubscribe on offer e-mails) — one line each, never a line break inside
       ...Object.entries(headers || {}).filter(([k]) => /^[A-Za-z][A-Za-z0-9-]{1,40}$/.test(k)).map(([k, v]) => `${k}: ${cleanLine(v, 400)}`),
       'MIME-Version: 1.0',
@@ -355,4 +364,4 @@ function securityAlert(settings: Settings, title: string, detail: unknown, { ext
   return later(Promise.all(jobs));
 }
 
-export { DEFAULT_EMAIL, sendVia, emailConfig, acctEmailConfig, sendAcctEmail, tgConfig, validEmail, maskEmail, sendEmail, sendTelegram, tgBotName, tgFindStart, smtpSend, newOrder, newComplaint, searchRequest, securityAlert, later, escapeHtml };
+export { DEFAULT_EMAIL, publicEmail, sendVia, emailConfig, acctEmailConfig, sendAcctEmail, tgConfig, validEmail, maskEmail, sendEmail, sendTelegram, tgBotName, tgFindStart, smtpSend, newOrder, newComplaint, searchRequest, securityAlert, later, escapeHtml };

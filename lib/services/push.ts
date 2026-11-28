@@ -38,7 +38,7 @@ async function publicKey() { return (await vapid()).pub; }
 function vapidHeader(endpoint: string, v: Vapid) {
   const aud = new URL(endpoint).origin;
   const head = b64u(JSON.stringify({ typ: 'JWT', alg: 'ES256' }));
-  const body = b64u(JSON.stringify({ aud, exp: Math.floor(Date.now() / 1000) + 12 * 3600, sub: 'mailto:contact.shobmilbe@gmail.com' }));
+  const body = b64u(JSON.stringify({ aud, exp: Math.floor(Date.now() / 1000) + 12 * 3600, sub: 'https://shobmilbe.com' }));
   const sig = crypto.sign('sha256', Buffer.from(head + '.' + body), { key: v.key, dsaEncoding: 'ieee-p1363' });
   return `vapid t=${head}.${body}.${b64u(sig)}, k=${v.pub}`;
 }

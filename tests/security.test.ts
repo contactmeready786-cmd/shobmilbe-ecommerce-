@@ -140,7 +140,20 @@ test('database certificate: the bundled Supabase root is genuine and still valid
 });
 
 test('permanent-delete / key codes go only to the shop Gmail, shown masked', () => {
-  assert.equal(delcode.masked('contact.shobmilbe@gmail.com'), 'co••••••be@gmail.com');
-  assert.ok(!delcode.masked().includes('contact.shobmilbe'));
+  assert.equal(delcode.masked({ notify_email: 'someone.name@gmail.com' } as never), 'so••••••me@gmail.com');
+  assert.equal(delcode.masked(), '');
   assert.ok(delcode.ACTIONS.trash_empty && delcode.ACTIONS.show_key);
+});
+
+test('the shop Gmail is never written in the code (the repository is public) — only in the admin settings', async () => {
+  const { execSync } = await import('node:child_process');
+  const hits = execSync("git grep -l -i -E 'contact\\.sh?o?u?bmilbe@gmail' -- lib components app client || true", { encoding: 'utf8' }).trim();
+  assert.equal(hits, '');
+});
+
+test('mails show the shop address (From + Reply-To), not the Gmail behind them', async () => {
+  const notify = await import('../lib/services/notify');
+  assert.equal(notify.publicEmail({ email: 'support@shobmilbe.com' } as never), 'support@shobmilbe.com');
+  assert.equal(notify.publicEmail({ email: '' } as never), '');
+  assert.equal(notify.DEFAULT_EMAIL, '');
 });

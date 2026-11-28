@@ -11,10 +11,11 @@ import * as db from '../db';
 import * as security from '../security';
 import * as notify from './notify';
 import { bn } from '../util';
-import type { AdminCtx, Caught } from '../types';
+import type { AdminCtx, Caught, Settings } from '../types';
 import type { DeleteCodesRow } from '../data/rows';
 
-const CODE_EMAIL = (process.env.DELETE_CODE_EMAIL || 'contact.shobmilbe@gmail.com').trim();
+// where delete codes go: DELETE_CODE_EMAIL on the server, else the shop's Gmail saved in the admin (never written in the code)
+const CODE_EMAIL = (process.env.DELETE_CODE_EMAIL || '').trim();
 const MINUTES = 10;
 const MAX_TRIES = 5; // wrong codes for one code, then it is spent
 const FAIL_MAX = 10; // wrong codes per staff per hour, then deleting is shut for that hour
@@ -30,8 +31,9 @@ const ACTIONS: Record<string, string> = {
 // actions that don't delete anything: the e-mail calls the code what it is
 const NOT_DELETE = new Set(['show_key']);
 
-// "contact.shobmilbe@gmail.com" → "co••••••be@gmail.com"
-function masked(e = CODE_EMAIL) {
+// "someone.name@gmail.com" → "so••••••me@gmail.com"
+function masked(settings?: Settings | null) {
+  const e = CODE_EMAIL || String(settings?.notify_email || '').trim();
   const [u, d] = String(e).split('@');
   if (!u || !d) return '';
   return (u.length <= 4 ? u.slice(0, 1) : u.slice(0, 2)) + '••••••' + (u.length <= 4 ? '' : u.slice(-2)) + '@' + d;
@@ -82,13 +84,13 @@ async function send(ctx: AdminCtx, action: string, detail = '') {
     when: when(), minutes: bn(MINUTES), warnDo,
   } }));
   try {
-    await notify.sendEmail(ctx.settings, `🔐 ${name} ${code} — ${ctx.settings.store_name || 'সবমিলবে'}`, text, htmlBody, CODE_EMAIL);
+    await notify.sendEmail(ctx.settings, `🔐 ${name} ${code} — ${ctx.settings.store_name || 'সবমিলবে'}`, text, htmlBody, CODE_EMAIL || null);
   } catch (caught) { const err = caught as Caught;
     await db.logIntegration('notify-email', 'delete code', false, err.message).catch(() => {});
     throw new Error('কোডের ইমেইল পাঠানো গেল না: ' + err.message);
   }
   await db.logActivity(uid, 'delete_code', 'security', null, `${name} পাঠানো হলো (${ACTIONS[action]}) · ${ctx.ip || ''}`).catch(() => {});
-  return { to: masked(), minutes: MINUTES };
+  return { to: masked(ctx.settings), minutes: MINUTES };
 }
 
 // Check the code typed for this kind of delete. Returns null when it is right (and spends it), or the error to show.
@@ -96,7 +98,7 @@ async function check(ctx: AdminCtx, action: string, typed?: unknown) {
   const uid = ctx.user.id;
   const code = String(typed || '').replace(/[^\d০-৯]/g, '').replace(/[০-৯]/g, (d) => String('০১২৩৪৫৬৭৮৯'.indexOf(d))).slice(0, 6);
   if (await security.blocked(db, 'delcode-fail:' + uid, FAIL_MAX)) return 'অনেকবার ভুল কোড দেওয়া হয়েছে — এক ঘণ্টা মোছা বন্ধ থাকবে।';
-  if (code.length !== 6) return `ইমেইলে আসা ৬ সংখ্যার কোড দিন — কোডটি ${masked()} ঠিকানায় যায়।`;
+  if (code.length !== 6) return `ইমেইলে আসা ৬ সংখ্যার কোড দিন — কোডটি ${masked(ctx.settings)} ঠিকানায় যায়।`;
   const row = await db.one<Pick<DeleteCodesRow, 'id' | 'code_hash' | 'tries'>>(`SELECT id, code_hash, tries FROM delete_codes WHERE staff_id=$1 AND action=$2 AND used_at IS NULL AND expires_at > now()
     ORDER BY id DESC LIMIT 1`, [uid, action]);
   if (!row) return 'কোডটির মেয়াদ শেষ বা আগেই ব্যবহার হয়েছে — নতুন কোড চান।';
