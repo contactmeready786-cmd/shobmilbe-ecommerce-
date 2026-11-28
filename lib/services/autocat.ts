@@ -125,13 +125,13 @@ const UNIVERSAL = /universal|1000 in 1|\d+ brands|master remote/;
 const R: [string, RegExp, RegExp | null][] = [];
 const rule = (slug: string, re: RegExp, not?: RegExp | undefined) => R.push([slug, re, not || null]);
 // fashion / home first (their words are clear)
-rule('digital-products', /gift ?card|license key|activation key|product key|premium account|e-?book|online course|ডিজিটাল/);
-rule('packaging', /zip(per)? ?lock bag|zipper (lock )?bag|courier (plastic )?bag|packaging (poly|material)|cellophane|stretch (film|wrap)|shrink wrap|packing tape|tape dispenser|carton box|bubble ?wrap|poly bag|mailer (bag|box)|প্যাকেজিং|কার্টন/);
-rule('hijab', /hijab|হিজাব/);
+rule('digital-products', /gift ?card|license key|activation key|product key|premium account|\bebook|\be-book|online course|ডিজিটাল/);
+rule('packaging', /zip(per)? ?lock bag|zipper (lock )?bag|courier (plastic )?bag|packaging (poly|material)|cellophane|stretch (film|wrap)|packing tape|tape dispenser|carton box|bubble ?wrap|poly bag|mailer (bag|box)|প্যাকেজিং|কার্টন/);
 rule('inner-cap', /inner ?cap|ইনার ক্যাপ/);
+rule('hijab', /hijab|হিজাব/);
 rule('jewelry', /anklet|payel|পায়েল|belly chain|necklace|bracelet|earring|nose ?pin/);
 rule('women-care', /(razor|shaver|epilator|hair remov).*(women|lady|ladies|female)|(women|lady|ladies|female).*(razor|shaver|epilator)/);
-rule('trimmer', /trimmer|hair clipper|clipper|shaver|beard|kemei|ট্রিমার/, /nail|plier|tool/);
+rule('trimmer', /trimmer|hair clipper|clipper|shaver|beard|kemei|ট্রিমার/, /nail|plier|tool|battery|motor|charger|adapter|cable|capacitor|variable/);
 // (2026-11-28) The rules below were checked one by one against all ~4300 products in the shop. Order matters.
 rule('personal-care', /massag/);
 rule('safety-esd', /esd (safe )?gloves|anti-?static.*(glove|finger|wrist|strap)|finger cots?|safety (goggles|glasses)|eye protection glasses|respirator|gas mask|dust mask|cleanroom wip|work gloves|safety gloves/);
@@ -192,7 +192,7 @@ rule('relay', /relay/, /module|board/);
 rule('capacitor', /capacitor|varistor|\bmov\b|\d+ ?(uf|nf|pf|µf)\b|electrolytic|supercapacitor|super capacitor/, /tester|meter|fan capacitor/);
 rule('resistor', /resistor|potentiometer|\bpot\b|preset|trimpot|trimmer pot|rheostat/, /sensor/);
 rule('ic', /\bic\b|integrated circuit|ic socket|\b74(ls|hc|hct|f)?\d{2,3}[a-z]{0,2}\b|\bcd4\d{3}|\bcd14\d{3}|\bne55[56]|\blm\d{3,4}[a-z]*|\b78[0-9l]\d\d|\b79\d\d|\bla\d{4}|\btda\d+|\btea\d+|\bpic\d+|dspic|\batmega\d*|\battiny\d*|\bat89|\bmax\d{3,4}|\buln\d+|optocoupler|\bpc8\d\d\b|\bpc123\b|\bmoc30|\btl\d{3}|\bsg35\d\d|\bka\d{4}|\buc38\d\d|op-?amp|opamp|comparator|\bjrc?4558|\b4558\b|\b1458\b|eeprom|\b24c\d+|\b93c\d+|shift register|flip.?flop|logic gate|multiplexer|\bams1117\b|\blm317\b|\blm7805|\bl78\d\d|regulator ic|\bvoltage regulator\b(?!.*(module|board|2000w|scr|ac))|\bmelody ic|\bdip-?\d+|\bsop-?\d+|\bstc\d{2}|\btny\d+|\btop\d{3}|\bviper\d+|\bncp\d+|\bir2\d{3}|\begs\d+ chip|\bht\d{4}|\bpt\d{4}|\bcs\d{4}|\bxl\d{4}e?\d? (ic|chip)/, /module|board|kit|shield|programmer|adapter board|tester|socket adapter|breakout/);
-rule('household', /weight scale|kitchen scale|digital scale|magic sponge|melamine|spray gun|spray machine|car wash|water spray|mosquito|insect killer|padlock|water heater|electric kettle|display stand|screen clean|handy fan|rechargeable fan|table fan|mini fan(?! module)|room heater|cloth|kitchen|cleaning (kit|brush|cloth)|lunch box|bottle(?! dispenser)|mug|umbrella|wall clock|alarm clock|egg beater|blender|juicer|iron for clothes|steam iron|pipe with gun/, /soldering|pcb|module|motor(?!.*(spray|wash))|tape|mobile|motherboard|solder|circuit/);
+rule('household', /weight scale|kitchen scale|digital scale|magic sponge|melamine|spray gun|spray machine|car wash|water spray|mosquito|insect killer|padlock|water heater|electric kettle|display stand|screen clean|handy fan|rechargeable fan|table fan|mini fan(?! module)|room heater|cloth|kitchen|cleaning (kit|brush|cloth)|lunch box|bottle(?! dispenser)|mug|umbrella|wall clock|alarm clock|egg beater|blender|juicer|iron for clothes|steam iron|pipe with gun/, /pump(?!.*(gun|pipe))|soldering|pcb|module|motor(?!.*(spray|wash))|tape|mobile|motherboard|solder|circuit/);
 rule('personal-care', /massag|nebulizer|blood pressure|oximeter(?! (module|sensor))|thermometer gun|body (scale|fat)|shaver|epilator|hair dryer|straightener|curler|\btooth ?brush/, /module|sensor|switch/);
 rule('water-pump', /pump|hose clip|soft pipe|ball valve|spray pump nozzle/, /desolder|suction|sucker|solder|spray (gun|machine)|switch|pipe with gun/);
 rule('motor-accessories', /motor (mount|mounting|bracket|holder|clamp|seat|stand|base)|pulley|propeller|wheel|coupling|drill chuck|\bchuck\b|fans? (blade|for (\d+ )?motor)|motor fans?|gt2/, /rpm(?!.*chuck)|ball bearing dc/);
@@ -219,7 +219,7 @@ function norm(name: unknown) {
 type Remote = { kind: string; brand: string | null };
 function remoteOf(n: string): Remote | null {
   if (!/remote|রিমোট/.test(n)) return null;
-  if (/(switch|lamp holder|remote control device|timer switch)/.test(n)) return null;
+  if (/(switch|lamp holder|remote control device|timer switch)/.test(n) || /\bic\b|decoder|expander|receiver module/.test(n)) return null;
   let kind;
   if (/set ?(up|top)? ?box|akash|\bdth\b|mxq|\btx ?\d|t-x ?\d|t9\d|x96|tv ?box|android box/.test(n)) kind = 'box-remote';
   else if (/\bac\b|a\/c|air ?-?condition|aircon|split|window type|inverter ac|\bac-\d|\barc\d/.test(n)) kind = 'ac-remote';
