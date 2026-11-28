@@ -134,7 +134,8 @@ rule('women-care', /(razor|shaver|epilator|hair remov).*(women|lady|ladies|femal
 rule('trimmer', /trimmer|hair clipper|clipper|shaver|beard|kemei|ট্রিমার/, /nail|plier|tool|battery|motor|charger|adapter|cable|capacitor|variable|potentiometer|trimpot/);
 // (2026-11-28) The rules below were checked one by one against all ~4300 products in the shop. Order matters.
 rule('personal-care', /massager|massage (gun|machine|chair|pillow|device)|body massag/);
-rule('battery-charger', /lead acid|sealed battery|coin battery|button battery/);
+rule('battery-charger', /lead acid|sealed battery|coin battery|button battery/, /tester|meter|charger|analy[sz]er/);
+rule('battery-charger', /(lead acid|car|motorcycle|li-?ion|lithium) batter(y|ies) charger|batteries charger|battery chargers?\b/, /module|\bboard\b|circuit|tester|meter|\bic\b/);
 rule('safety-esd', /esd (safe )?gloves|anti-?static.*(glove|finger|wrist|strap)|finger cots?|safety (goggles|glasses)|eye protection glasses|respirator|gas mask|dust mask|cleanroom wip|work gloves|safety gloves/);
 rule('iron-tips', /^(?=.*(solder|iron|900m|t12|hakko|936))(?=.*(\btips?\b|\bbits?\b|\bcoil\b|heating (core|element)|heater core|iron head))/, /stand|cleaner|refresher|tinner/);
 rule('soldering-iron', /soldering iron|soldering station|solder station|hot air|heat gun|desoldering station|rework station|soldering gun/, /stand|cleaner|refresher|holder|\bmat\b/);
@@ -161,7 +162,7 @@ rule('ips-inverter', /\bips\b.*(board|circuit|mosfet)|inverter (board|circuit)|r
 rule('power-converter', /xl40\d\d|lm2596|lm2577|mp1584|mt-?3608|buck|boost|step.?down|step.?up|dc.?dc|breadboard power supply/, /\bic\b|transistor|diode|inductor|\besc\b|e\.s\.c|speed control/);
 rule('chemicals', /thermal (insulator|pad)|silicone insulator|mica (sheet|insulator)/);
 rule('hardware', /acrylic|plexiglass|neodymium|\bmagnets?\b|\bscrews?\b|\bbolts?\b|\bnuts?\b|hex spacer|standoff|\bspacers?\b|rubber feet|bumper feet|enclosure|project box|junction box \d|ips (box|casing|cover|body)|inverter casing|plastic (case|box) for|aluminium (case|box)|heat ?sink(?!.*(compound|paste))/, /screw ?driver|magnetic core|tool (kit|set|box)|terminal|reed|magnetic (sensor|switch|lock)|hall|lock|fan|led|driver|regulator ic|speaker|microphone|wrench|hex key|allen|socket|jack|connector|pump|motor|battery/);
-rule('ic', /\bpcf8574\b/);
+rule('ic', /\bpcf8574\b|(decoder|encoder) ic|\bht12[de]\b/);
 rule('power-converter', /decoy|pd trigger|qc trigger|power supply pcb board/);
 rule('ic', /optocoupler|photocoupler|phototransistor|gate driver|driver ic|\bir2\d{3}|\btlp\d{3}|\b4n\d\d\b|\btda ?\d{4}|amplifiers? ic/, /module|board|kit|shield|programmer|adapter board|tester|socket adapter|breakout|speed|pump|casing|box/);
 rule('ic', /operational amplifier|op-?amps?\b|dual op/, /module|board/);
@@ -211,7 +212,7 @@ rule('glue-tape', /glue|\btapes?\b|adhesive|kapton|\bb-?7000|\bt-?\d000|\be-?800
 rule('cable-accessories', /cable (clip|tie)|zip tie|heat ?shrink|sleev|ferrule|wire terminal|quick disconnect|crimp terminal|spade terminal|ring terminal|fork terminal|\blugs?\b|cable marker|wire connector|cable gland|spiral wrap|insulation tape|electrical tape|wire nut|terminal connector|butt connector|scotchlok/, /block|pcb|header|banana/);
 rule('switch-socket', /gang box|junction (pvc )?box|switch box|back box|mk box|batten holder|lamp holder|bulb holder|switch ?board|socket outlet|multi ?plug|extension (board|socket|cord)|power strip|wall socket|wall switch|\b(\d gang|one gang|two gang)\b|ceiling rose|\bholder\b.*(e27|b22|bulb)|(e27|b22) (holder|socket|adapter)/, /module|pcb|smart|remote|timer|touch|wifi|sensor/);
 rule('wire-cable', /\bcables?\b|\bwires?\b|\bcords?\b|copper conductor|flat cable|ribbon cable|silicone wire|enamel(ed)? (copper )?wire|super enamel|\bawg\b|\d+ gauge thin/, /jumper|dupont|connector|tie|clip|stripper|tool|wire gauge|gauge tool|terminal|alligator|test lead|probe|solder|kettle|cooker|lug|wire nut|module|board|usb|hdmi|charging|data|otg|lightning|female|male|\bpin\b|holder|power supply|smps/);
-rule('adapter-power', /adapter|power supply|charger|smps 12v|\d+v \d+(\.\d+)?a (adapter|power)/, /module|board|breakout|plug adapter|socket adapter|travel adapter|\bpcb|battery charger|bms|lithium charger module|card|battery|lithium|18650|audio|bluetooth|aux/);
+rule('adapter-power', /adapter|power supply|charger|smps 12v|\d+v \d+(\.\d+)?a (adapter|power)/, /module|board|breakout|plug adapter|socket adapter|travel adapter|\bpcb|battery charger|bms|lithium charger module|card|battery(?!.*charger)|lithium|18650|audio|bluetooth|aux|power cables? cord|cord for/);
 rule('battery-charger', /battery|batteries|18650|21700|26650|lipo|li-?po|li-?ion|lithium (cell|battery)|ni-?mh|ni-?cd|\bcells?\b|button cell|cr20\d\d|lr44|\baa\b|\baaa\b|9v battery|battery charger|lithium charger/, /module|\bboard\b|bms|tester|indicator|monitor|holder|box|case|connector|clip|power ?bank/);
 rule('switch-connector', /switch|connector|\bjack\b|\bsocket\b|header|jumper|dupont|terminal block|screw terminal|\bplug\b|push button|tact|alligator|banana|crocodile|test lead|\bprobe\b|\bxt\d0\b|\bjst\b|\bdc (jack|socket)|usb (port|socket|female|male)|battery (holder|box|case|clip|snap|connector)|crimp housing|\bfpc\b|\bffc\b|idc|\bdb\d\b|rj45|\bsma\b|bnc|flexible cable|breakout module/, /multimeter/);
 rule('audio-mic', /microphone|\bmic\b|audio|earphone|headphone|earbuds|headset|bluetooth speaker|portable speaker|sound box|speakers?\b|loudspeaker|tweeter|woofer|subwoofer/);
